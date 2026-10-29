@@ -112,6 +112,8 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.tamsin_oddway.08` | `sell{ware = ice, station = kettle_dock}` (the newest one) | Kettle's had its fill of ice just now. Little Pail will show you when it's thirsty again. |
 | `line.tamsin_oddway.09` | `patient_blocked{craft = player tender}` | {tender} won't sell {ware} below {floor}, and {station} can't pay more than {ceiling} now. Your call: a new floor, a new loop, or home. |
 | `line.tamsin_oddway.10` | `patient_unblocked{craft = player tender}` | {station}'s paying enough again. {tender} has gone back to selling. |
+| `line.tamsin_oddway.11` | `demo_floor_revised{craft = little_pail}` (cites the market change: `shortage_started`, `shortage_resolved` or the lever's fact) | The market moved under Little Pail. I've set her a new mark; watch her again. |
+| `line.tamsin_oddway.12` | `shortage_started` (while the shortage is active) | Not while the Shallows are short of ice. I'll show you once it settles. |
 
 ### Rook Adeyemi
 

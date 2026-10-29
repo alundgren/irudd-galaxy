@@ -164,9 +164,11 @@ The canon graph is `core` data (`canon.toml`), read through the canon hook. Scri
 | `canon.no_fragment_trade` | locked | The Society never buys or sells fragments. It keeps them, or returns them to whoever found them. | |
 | `canon.fragment_is_lens_shard` | sealed | The fragment is an unbroken shard of the great lens, not dust. It is warm and can't be scratched. | `core`, b15 step 1 |
 | `canon.fragments_sing` | sealed | Carried through a lane current, a fragment sings in tune with the lane lamps. | `core`, b15 step 2 |
-| `canon.second_fragment` | sealed | The fragment's song is loudest when facing Brassmouth Narrows. (A direction only, never a location.) | `gm.ancients_bearing`, or a later chapter; only after b15 completes |
+| `canon.second_fragment` | sealed | The fragment's song is loudest when facing Brassmouth Narrows. (A direction only, never a location.) | `pack` (any dependent pack may open it), only after b15 completes. In the slice, `gm-examples` claims it in its own manifest. |
 | `canon.lens_purpose` | question | What the great lens was for. | Not in chapter 1 |
 | `canon.who_broke_the_lens` | question | Who or what broke it. | Not in chapter 1 |
 | `canon.no_living_ancients` | forbidden | Any claim that a Lantern-maker is alive or present in the Reach, or that an Ancients object grants power over ships, minds or prices. | Never in chapter 1 |
+
+**Openers never name another pack.** A node's opener in `canon.toml` is either a `core` beat step (`core:b15.1`), `pack` (any dependent pack may open it), or absent (only a later chapter may). Core data never names a game-master ID. A dependent pack that wants to open a node lists it in its own manifest (`opens = ["canon.second_fragment"]`), and the validator accepts that only if the node's opener is `pack` and its preconditions (here, b15 completed) hold. So `gm.ancients_bearing` lives entirely in `gm-examples`.
 
 Edges (each "supports" the next): `lantern_makers` → `lane_lanterns`; `lantern_makers` → `glass_drift_lens` → `fragment_is_lens_shard` → `fragments_sing` → `second_fragment`; `fragments_sing` relates to `lane_lanterns`; `glass_drift_lens` raises `lens_purpose` and `who_broke_the_lens`; `no_fragment_trade` explains why `ware.fragment` is not for sale.

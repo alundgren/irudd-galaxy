@@ -160,4 +160,6 @@ The dev harness's bot (`galaxy sim run --bot journey`) must complete all 17 beat
 - **Run A:** a fact for each change type: `stage_built{kettle_dock, 2}`, `shortage_started{tuned = true}`, `border_moved`, `rumor_exposed`, `mechanic_taught{rock_tagging}` (the bot accepts Juno's offer at the Hook in step 7), `canon_opened{second_fragment}`, `station_founded` (Meltwater Halt, from way A) and at least one `chronicle` entry.
 - **Run B:** no fact kind and no cause from the `gm` namespace anywhere in history.
 
+**A shortage-during-demo test** runs separately: start b13 step 1 with the shortage active (Little Pail must not start, and Tamsin says `.12`); then, in a second variant, start the demonstration and resolve the shortage while Little Pail is waiting with cargo aboard. Little Pail's floor must be revised at the next Kettle docking, `patient_sold` must follow, and b13 and prestige must still complete.
+
 **A short pause test** runs separately: open and close the PAUSED card before b04 starts, buy the lens, then open and close it again. b05 must complete (two `paused` facts; only the second is newer than b04's start).

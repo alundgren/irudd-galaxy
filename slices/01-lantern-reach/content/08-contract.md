@@ -96,7 +96,7 @@ W1 extends `DATA_FILES` and the loader; W3 owns the market and rock data shapes,
 | Situations (shortage, dispute) | none | **new** store `situations: Store<SituationId, Situation { beat, status: dormant / active / resolved, outcome, params }>`. `params` is the frozen copy of its tunables taken at start. Command `PutSituation`. W4. |
 | Tunables | none | **new** `tunables: BTreeMap<TunableId, Tunable>` with `Tunable = Number(i64 fixed-point) / Id(AnyId) / Ids(Vec<AnyId>) / Override(BTreeMap<String, Tunable>) / Absent`, loaded from `pacing.toml`. Each entry also records `set_by: Option<CauseId>` (empty for pack data), which is how a beat knows it was `tuned`. Command `SetTunable { id, value }` (reversible, so a gm script's write rolls back exactly). W1 and W4. |
 | Beats | none | **new** store `beats: Store<BeatId, BeatState { status, step, started: FactId, completed: Option<FactId> }>`. W4. |
-| Canon graph | none | **new** store `canon: Store<CanonId, CanonNode { status, statement, opener, edges }>`, command `SetCanonStatus`. W5. |
+| Canon graph | none | **new** store `canon: Store<CanonId, CanonNode { status, statement, opener, edges }>`, command `SetCanonStatus`. `opener` is `Beat { beat, step }` (core), `Pack` (any dependent pack, claimed through its manifest's `opens` list) or absent. Core data never names a pack ID. W5. |
 | Map zones and props | none | **new** stores `zones: Store<ZoneId, Zone { faction: Option<FactionId>, center, radius, style }>` and `props: Store<PropId, Prop { position, kind, readable: Option<String> }>`, commands `PutZone`, `PutProp`. W3 (zones, map), W2 (props in space). |
 | NPC lines used | none | Stored as history (`npc_line` facts); no store. |
 
