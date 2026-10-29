@@ -24,7 +24,7 @@ Rates behind the estimates, from the cycle models used for this spec:
 | **Act 1** | | |
 | b01 to b03, first delivery | 20 ice handed over | 3 to 5 |
 | Mining lens (b04) | 600 cr, after b03 | 7 to 10 |
-| b05, pause | 1 PAUSED card | 8 to 12 |
+| b05, pause | 1 PAUSED card opened after b04 started | 8 to 12 |
 | Act 1 ends | b05 complete | **10 to 15** |
 | **Act 2** | | |
 | Nav chip (b06) | `player.dockings` >= 6, 900 cr | 14 to 18 |
@@ -35,7 +35,7 @@ Rates behind the estimates, from the cycle models used for this spec:
 | Docking clamp | `player.dockings` >= 14, 700 cr | 25 to 32 |
 | Hold extender | `player.units_sold` >= 150, 1500 cr | 25 to 40 |
 | b10, the rumor | `player.dockings_at.brassmouth_exchange` >= 3 | 32 to 40 |
-| Kettle Dock stage 2 | 60 ice and 20 plate in the ledger | 30 to 55 |
+| Kettle Dock stage 2 (`gm-examples` only) | 60 ice and 20 plate in the ledger | 30 to 55 |
 | b09 resolved by the player | a tally of 100 with a lead of 30 | 40 to 55 (if ignored, about 56 minutes after it starts: roughly 85) |
 | Wren rank 1 | 25 dockings in the Wren | 40 to 50 |
 | **Act 3** | | |
@@ -46,13 +46,13 @@ Rates behind the estimates, from the cycle models used for this spec:
 | b12, the ice shortage | Rimewater at 70% or less, 120 or more Shallows ice mined, b11 complete | 60 to 90 (it depends on how much ice the player mined: that's the point) |
 | First pilot trait | Lanerunner 24 jumps, Rimesight 14 rocks, Ringwise 40 dockings, Market ear 10 split sales, Good neighbour 12 ledger deliveries | 60 to 80 |
 | b13 offered | `player.loop_laps` >= 4 | 62 to 72 |
-| Little Pail's demonstration | about 4 Kettle Dock pulses | plus about 3 |
+| Little Pail's demonstration | Starts at a Kettle docking with ice saturation 0.6 or less; ends when Little Pail's `patient_sold` exists and the player docks at Kettle again | plus about 2 to 4 (it waited 3 to 5 Kettle pulses in every case checked) |
 | Thimble bought | 2400 cr | 65 to 78 |
 | b13 complete, **first automation** | Thimble finishes a lap with a patient sell | **70 to 90** |
 | b14 | b13 complete and a trait earned | 72 to 92 |
 | **Act 4** | | |
 | Fragment found | after b13, 80 glassite mined in all, then the next glassite rock spent | 75 to 95 |
-| Sixth station | b13, `player.dockings` >= 50, 2 of b09, b10 and b12 resolved | 85 to 100 |
+| Sixth station (`gm-examples` only) | b13, `player.dockings` >= 50, 2 of b09, b10 and b12 resolved | 85 to 100 |
 | b15 complete | 3 steps: show Nell, one lane jump, back to Nell | 85 to 105 |
 | b16, **prestige** | b13, b14, `player.dockings` >= 60, 8000 cr | **105 to 125** |
 | b17, coming home | 3 dockings elsewhere since prestige, 1 outside the Shallows | 110 to 130 |
@@ -100,19 +100,22 @@ A repeated full load earns less than half of the first. Splitting across buyers 
 | The same, patient sell with floor 40 | 14 (about 10 minutes of NPC traffic alone) | 993 | 41.4 |
 | 24 plate at Cinder Hook (saturation 0.1, stock 80), dumped | 0 | 928 | 38.7 |
 | The same, patient sell with floor 50 | 9 | 1243 | 51.8 |
-| Little Pail's 12-ice demo at Kettle Dock, floor at 90% of the opening price | 4, at any starting price checked | | |
+| Little Pail's 12-ice demo at Kettle Dock, floor at 90% of the price when it docks, started only at ice saturation 0.6 or less | 3 to 5 in every case checked (stock 0 to 320, saturation 0 to 0.6, pulse weights 1 and 0.5, with and without the shortage and stage 2). It always sells 2 to 5 units before its first wait. | | |
+| The same demo if it were allowed at saturation above 0.6 | 0 in 426 of the cases checked (for example stock 120 and saturation 0.7: all 12 sell at once), which is why it waits for 0.6 | | |
 
 The tender earns about 40 to 80 cr a minute on top of the player's own play. That changes what the player does next: they stop dumping and start feeding the tender. It doesn't replace their income, so automation feels like relief, not a solved game.
 
 ### The shortage can actually happen
 
-Rimewater holds 240 units. It regrows 0.15 units per Shallows region pulse, about 2.5 to 4 pulses a minute, so about 0.4 to 0.6 units a minute. A player who has mined 120 ice there by minute 60 to 70 (the b02 load, a few Act 1 ice runs, and the ice for Kettle's stage 2) has about 30 to 40 back, leaving Rimewater at about 60 to 65% full. That crosses the 70% trigger. A player who never touches the ice never causes the shortage, and the beat simply never fires. Way B's rest (regrowth x4) refills from 65% to 80% in about 15 to 25 minutes of play.
+Rimewater holds 240 units. It regrows 0.15 units per Shallows region pulse, about 2.5 to 4 pulses a minute, so about 0.4 to 0.6 units a minute. Spent rocks reform only from that regrowth (`01-galaxy.md`), so they add nothing on top of it. By minute 65 that is 162 to 260 region pulses, or 24 to 39 units back. Rimewater is at 70% (168 units) once the player has mined 96 to 111 units there. A player who has mined 120 there (the b02 load and about six Act 1 ice runs to Kettle; with `gm-examples`, Kettle's stage 2 ice too) is at 60 to 66%, whichever rocks they mined and in whatever order (a run-by-run model of 6 to 8 holds, finishing each rock or always taking the richest, gave the same result). That crosses the 70% trigger, and the 120-unit gate holds too. A player who never touches the ice never causes the shortage, and the beat simply never fires. Way B's rest (regrowth x4) refills from 65% to 80% in about 15 to 24 minutes of play.
+
+Under the previous rule (a spent rock reformed at 25% after 16 pulses, on top of regrowth), a player who finished each rock before moving on got 7.5 units back per spent rock and stayed near 80% after 120 units mined. The shortage would never have fired for them. That is why reforming now comes only from regrowth.
 
 ### Fields never dead-end
 
-- Tinroot and Rimewater regrow, and spent rocks reform at 25% after 16 Shallows pulses (about 5 minutes). The Wharf always buys ore and Kettle always buys ice, so a player with no credits can always mine their way back.
-- The Glass Drift (300 units, regrowing about 0.45 a minute) falls to roughly a third by Act 4 if the player leans on it. That pushes them toward the Shoals (if the rumor was true), buying Cinder Hook glassite, or other wares. Spent rocks reform after 24 Cinder Drift pulses, so it never goes fully dark.
-- The Cinder Belt (960 units) is deliberately slow to regrow (0.15 per pulse; reform after 40 pulses). It's the "rich, depleting" belt Rook complains about.
+- Tinroot and Rimewater regrow, and a spent rock reforms once regrowth has brought it to 25% (about 34 Shallows pulses for a Tinroot rock and 50 for a Rimewater rock, if it gets all the regrowth: roughly 8 to 20 minutes). Tinroot regrows 0.75 to 1.2 units a minute and never empties fully in practice. The Wharf always buys ore and Kettle always buys ice, so a player with no credits can always mine their way back.
+- The Glass Drift (300 units, regrowing about 0.45 a minute) falls to roughly a third by Act 4 if the player leans on it. That pushes them toward the Shoals (if the rumor was true), buying Cinder Hook glassite, or other wares. Spent rocks reform from regrowth (about 42 Cinder Drift pulses for one rock), so it never goes fully dark.
+- The Cinder Belt (960 units) is deliberately slow to regrow (0.15 per pulse; a spent 60-unit rock needs 100 pulses to reform). It's the "rich, depleting" belt Rook complains about.
 
 ### The dispute resolves whether or not the player acts
 
@@ -126,17 +129,35 @@ NPC traffic alone adds about 1.8 a minute to the Compact tally and about 1.2 to 
 
 ## Journey bot route
 
-The dev harness's bot (`galaxy sim run --bot journey`) plays with the `core` and `gm` packs installed and must complete all 17 beats. A second run with `core` only must complete b01 to b08, b11, b13, b14, b16 and b17. The route below is a policy, not a script of positions. Every choice is deterministic, and the fast-model layer is replaced by its seeded fake.
+The dev harness's bot (`galaxy sim run --bot journey`) must complete all 17 beats in two runs: **run A** with `core` and `gm-examples` installed, and **run B** with `core` only. The route is a policy, not a script of positions. Every choice is deterministic, and the fast-model layer is replaced by its seeded fake. Where the runs differ, the step says so. Every order below is a contract `Order` (`08-contract.md`); "queue" means shift-click orders, "loop" means a saved queue.
 
-1. Undock; mine Rimewater ice to full; dock at Kettle Dock and hand it over (b01 to b03).
-2. Loop Tinroot ore to the Wharf until 600 cr; buy the lens; open and close the pause card (b04, b05).
-3. Alternate Tinroot ore (Wharf) and Rimewater ice (Kettle) until 6 dockings and 900 cr; buy the nav chip (b06).
-4. Take Ilse's plate, fly to `mouth.shallows_to_cinder`, jump, and dock at Cinder Hook (b07).
-5. Run the circuit: Glass Drift glassite to Brassmouth (sell at most 12 units per visit; sell the rest at the Observatory), Brassmouth plate to Cinder Hook (sold in the Cooperative's name once b09 starts). On Wharf trips, buy the cradle, clamp and hold extender as their conditions are met, and carry plate and ice to Kettle (stage 2).
-6. When Pip tells the rumor, fly to the Ember Shoals. Backing the Cooperative makes the rumor false, so the bot reads the buoy and tells Rook.
-7. At 26 dockings, buy the order slate. Complete 4 three-order queues, save the loop "glass run" (mine the Glass Drift, dock at the Observatory, sell glassite, dock at Cinder Hook, buy glassite, dock at Brassmouth, sell glassite), and run it for 4 laps (b11).
-8. Mine Rimewater ice into Kettle until the shortage starts. Help by way A: buy Brassmouth ice, sell it at Kettle (b12).
-9. Dock at Kettle and watch Little Pail (shuttling Wharf to Kettle generates the pulses). Buy Thimble; assign the loop "plate run" (buy plate at Brassmouth, dock at Cinder Hook, sell plate with floor 50) (b13).
-10. Ask Orrin (b14). Keep mining glassite until the fragment drops; show Nell; jump through any lane; return to Nell and leave the fragment with her (b15).
-11. Keep running circuits until 60 dockings and 8000 cr; choose the Tandem (a third run chooses the Heron) (b16).
-12. Dock at Kettle, Cinder Hook and Brassmouth; return to the Wharf and ask Ilse what changed (b17). The sixth station (Meltwater Halt, from way A) should be in her answer.
+1. **b01 to b03.** Undock. Mine Rimewater ice by hand until the hold holds 20. Dock at Kettle Dock and hand the ice to Odo.
+2. **b04, b05.** Mine Tinroot ore and sell it at the Wharf until the bot has 600 cr; buy the mining lens. Then open the PAUSED card and close it. That writes a `paused` fact after b04 started, so b05 completes.
+3. **b06.** Alternate Tinroot ore (sold at the Wharf) and Rimewater ice (sold at Kettle) until `player.dockings` >= 6 and the bot has 900 cr; buy the nav chip.
+4. **b07.** With 20 hold free, take Ilse's plate. Fly to `mouth.shallows_to_cinder`, enter the lane, and dock at Cinder Hook; hand the plate to Rook. The lane chart arrives.
+5. **Act 2 circuit (b08, b09).** Repeat: mine the Glass Drift; sell at most 12 glassite per visit at Brassmouth and the rest at the Observatory; at Brassmouth buy plate and sell it at Cinder Hook. When b09 starts, choose "Supply in the Cooperative's name" and keep it. On Wharf trips, buy the rock cradle, docking clamp and hold extender as soon as each condition holds. Run A: also carry Wharf plate and Rimewater ice to Kettle on Shallows trips (stage 2). b08 completes on the second Brassmouth sale; b09 completes when the Cooperative tally wins.
+6. **b10.** When Pip tells the rumor, fly within 500 u of the Ember Shoals; that resolves it. Run A: the bot backed the Cooperative, so `gm.compact_plant` made it a plant; the bot reads the buoy and, at its next Cinder Hook docking, tells Rook. Run B: the truth comes from the craft that brought the story; the bot mines whatever is there into the next hold either way.
+7. **b11.** At 26 dockings (b08 done, map travel held), buy the order slate. Complete 4 queues of three orders each (`mine` Tinroot, `dock` the Wharf, `sell` iron ore all); Orrin fits the loop log. Queue the seven orders below and save them as the loop "glass run" (7 of the 8 allowed), then run it until `player.loop_laps` >= 4:
+   `mine field.glass_drift` → `dock` Glass Drift Observatory → `sell` glassite all → `dock` Cinder Hook → `buy` glassite fill, `max_price` 25 → `dock` Brassmouth Exchange → `sell` glassite all.
+   Every lap moves units (the mined glassite alone does), so it never stalls. The next lap's `mine` routes back from Brassmouth through the lane.
+8. **b12.** Mine Rimewater ice and sell it at Kettle until the shortage starts. Help by way A: buy ice at Brassmouth and sell it at any of the shortage's stations until `ledger.ice_relief` reaches the quota in `shortage_started` (40 in run B; run A reads the tuned value).
+9. **b13.** Dock at Kettle Dock.
+   - **Step 1.** If Tamsin says `.08` (Kettle's ice saturation is above 0.6, which is likely right after step 8), shuttle Tinroot ore to the Wharf and dock at Kettle after each run: every Wharf docking is half a Kettle pulse, and Kettle's own traffic adds more. Once Little Pail has written `patient_wait` and `patient_sold`, dock at Kettle again; Tamsin's `.02` completes step 1.
+   - **Step 2.** With at least 3400 cr (the tender, plus up to about 950 cr for a first load of 24 plate: Brassmouth never asks more than 38.9 at the Stranger spread), buy Thimble.
+   - **Step 3.** Queue and save the loop "plate run", assign it to Thimble, and set the floor 50:
+     `dock` Brassmouth Exchange → `buy` plate fill → `dock` Cinder Hook → `sell` plate all, `floor` 50.
+     *Lap 1 starts at Kettle Dock:* the `dock` order flies to `mouth.shallows_to_brassmouth`, rides the lane and docks at Brassmouth, where the `buy` happens, so Thimble never buys away from a seller. Every unit costs at most 38.9 and the floor is 50, so a lap never sells at a loss. *Lap 2 and every later lap start at Cinder Hook:* the first `dock` rides `lane.cinder_brassmouth` back to Brassmouth. Cinder Hook's plate ceiling is 71.5 (1.3 x base 55), and no lever in the slice changes that base, so the floor of 50 is never blocked; with plate stock drunk at 2 a pulse and saturation recovering 0.05 a pulse, the price always climbs back past 50.
+   - **Fallback.** If Thimble writes `loop_stalled` (for example, Brassmouth had no plate left) or `patient_blocked` before b13 completes, the bot assigns the loop "Wharf plate run" instead: `dock` Lantern Wharf → `buy` plate fill → `dock` Kettle Dock → `sell` plate all, `floor` 40 (Kettle's plate ceiling is 49.4).
+   - b13 completes at Thimble's first lap that ends with a `patient_sold`.
+10. **b14.** If no trait is earned yet, keep running the Act 2 circuit until one is (Ringwise at 40 dockings is the usual first). Dock at the Wharf and ask Orrin.
+11. **b15.** Keep mining the Glass Drift until the fragment drops (80 glassite mined in all, then the next glassite rock the bot spends). Dock at the Observatory first, so Nell is the first to see it (step 1). Jump through any lane and back (step 2). Dock at the Observatory, tell Nell, and leave the fragment with her (step 3).
+12. **b16.** Keep running circuits until `player.dockings` >= 60 and the bot has 8000 cr. Dock at the Wharf and choose the Tandem. A third run chooses the Heron.
+13. **b17.** Dock at Kettle Dock, Cinder Hook and Brassmouth Exchange, return to the Wharf and ask Ilse what changed. Her answer always ends with `.17`.
+
+**What each run checks at the end:**
+
+- **Both runs:** all 17 `beat_completed` facts, in an order the preconditions allow; no `loop_stalled` left unanswered; credits never negative.
+- **Run A:** a fact for each change type: `stage_built{kettle_dock, 2}`, `shortage_started{tuned = true}`, `border_moved`, `rumor_exposed`, `mechanic_taught{rock_tagging}` (the bot accepts Juno's offer at the Hook in step 7), `canon_opened{second_fragment}`, `station_founded` (Meltwater Halt, from way A) and at least one `chronicle` entry.
+- **Run B:** no fact kind and no cause from the `gm` namespace anywhere in history.
+
+**A short pause test** runs separately: open and close the PAUSED card before b04 starts, buy the lens, then open and close it again. b05 must complete (two `paused` facts; only the second is newer than b04's start).

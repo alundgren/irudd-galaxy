@@ -16,7 +16,7 @@ The map shows all three regions, their lanes and the five authored stations from
 
 ## Lanes
 
-Lanes are **lantern currents**: lines of old lamps (the Lamplighters keep them lit) with a current that carries any ship. At Tier 0 the player flies into a lane mouth and presses Space; with map travel (`cap.map_travel`) routed orders enter lanes on their own. Inside a lane the ship moves along the straight line between the two mouths at the **lane speed of 500 u/s** for every hull, can't steer, and arrives at the far mouth stopped. Pause works mid-lane. Each completed transit is a `jumped` fact and one `player.jumps`.
+Lanes are **lantern currents**: lines of old lamps (the Lamplighters keep them lit) with a current that carries any ship. At Tier 0 the player flies into a lane mouth and presses Space; with map travel (`cap.map_travel`) routed orders enter lanes on their own. Inside a lane the ship moves along the straight line between the two mouths at the **lane speed of 500 u/s** for every hull, can't steer, and arrives at the far mouth stopped. Pause works mid-lane. Each completed transit is a `jump` fact and one `player.jumps`.
 
 Lane mouth radius: **70 u** (the ship must be within 70 u of the mouth point for Space to enter). `trait.lanerunner` raises it to 105 u.
 
@@ -44,14 +44,14 @@ Nearest neighbours (for checking): Wharf to Kettle 750 u (12.5 s in a Wren); Cin
 
 ### Kettle Dock build stages
 
-The stage decides the station's mesh parts (runtime asset kit IDs) and its market. Stage 1 comes from beat b03 (`core`). Stages 2 and 3 come from `gm.kettle_growth`; without the `gm` pack Kettle stays at stage 1. Totals count everything delivered to `ledger.kettle_greenhouse`, and from stage 1 on, every unit of ice or plate the player or a tender sells at Kettle Dock counts too.
+The stage decides the station's mesh parts (runtime asset kit IDs) and its market. Stage 1 comes from beat b03 (`core`). Stages 2 and 3 are a game master change: `gm.kettle_growth` in `gm-examples` builds them, and without that pack Kettle stays at stage 1 (no beat needs a later stage). Totals count everything delivered to `ledger.kettle_greenhouse`; with `gm-examples`, from stage 1 on, every unit of ice or plate the player or a tender sells at Kettle Dock counts too.
 
 | Stage | Needs (cumulative ledger) | Asset kit parts added | Market change |
 | --- | --- | --- | --- |
-| 0 | start | `kit.kettle.hub`, `kit.kettle.spout` | buys ice and plate |
-| 1 | 20 ice (b03 handover) | `kit.kettle.pane_dome_a` (one fogged glass dome) | none |
-| 2 | 60 ice and 20 plate | `kit.kettle.greenhouse_ring_a`, `kit.light.warm_green` | starts producing rations |
-| 3 | 120 ice and 50 plate | `kit.kettle.greenhouse_ring_b`, `kit.kettle.orchard_lamps` | starts buying glassite (lamp-glass); ring radius 100 u; rations output +50% |
+| 0 | start | `part.kettle.hub`, `part.kettle.spout` | buys ice and plate |
+| 1 | 20 ice (b03 handover) | `part.kettle.pane_dome_a` (one fogged glass dome), `part.light.warm_green` (its grow lamps) | none |
+| 2 | 60 ice and 20 plate | `part.kettle.greenhouse_ring_a` | starts producing rations |
+| 3 | 120 ice and 50 plate | `part.kettle.greenhouse_ring_b`, `part.kettle.orchard_lamps` | starts buying glassite (lamp-glass); ring radius 100 u; rations output +50% |
 
 ## Rock fields
 
@@ -66,20 +66,20 @@ Three rock kinds, each with a **hardness** that multiplies the ship's mining rat
 
 **Rock size and shrinking.** A rock's drawn radius is `6 + 3 * sqrt(remaining)` u (a full 30-unit ice rock is 22 u across; a full 60-unit belt rock is 29 u). Mining is possible while the ship is within 40 u of the rock's edge. A rock at zero is **spent**: it is drawn as a faint dust ring, can't be mined, and stays spent until it reforms.
 
-**Regrowth is driven by activity.** Each field has a regrowth pool, fed by **region pulses** (`SPEC.md`):
+**Regrowth is driven by activity.** Each field regrows from **region pulses** (`SPEC.md`), and regrowth is the only way it refills:
 
-- Each region pulse adds `regrow` units to the field, given to the unspent rock with the lowest remaining fraction, capped at its full yield.
-- A spent rock reforms at 25% of its full yield after `reform` region pulses since it was spent. That writes a `rock_reformed` fact.
+- Each region pulse adds `regrow` units to the field, given to the rock with the lowest remaining fraction (spent rocks included), capped at its full yield. Units are stored in thousandths, so 0.15 is exact.
+- A spent rock stays spent (dust, can't be mined) until regrowth brings it back to 25% of its full yield. Then it **reforms**: it is drawn as a small rock again and can be mined. That writes a `rock_reformed` fact. Reforming adds no units of its own, so a field's total is always its yield, minus what was mined, plus the regrowth.
 - A rock being mined right now does not regrow.
 - Depletion persists through saves and through prestige.
 
-| ID | Region | Kind | Centre | Radius | Rocks | Yield per rock | Total | `regrow` per region pulse | `reform` (region pulses) |
+| ID | Region | Kind | Centre | Radius | Rocks | Yield per rock | Total | `regrow` per region pulse | Region pulses for one spent rock to reform (from regrowth alone) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `field.rimewater` | Shallows | Ice | (320, 380) | 200 | 8 | 30 | 240 | 0.15 | 16 |
-| `field.tinroot` | Shallows | Iron | (-480, -320) | 220 | 12 | 40 | 480 | 0.3 | 16 |
-| `field.cinder_belt` | Cinder Drift | Iron (rich, depleting) | (5300, 1250) | 280 | 16 | 60 | 960 | 0.15 | 40 |
-| `field.glass_drift` | Cinder Drift | Glassite | (5550, 2150) | 240 | 12 | 25 | 300 | 0.15 | 24 |
-| `field.hookside` | Cinder Drift | Ice | (4650, 2150) | 140 | 5 | 30 | 150 | 0.2 | 16 |
+| `field.rimewater` | Shallows | Ice | (320, 380) | 200 | 8 | 30 | 240 | 0.15 | 50 |
+| `field.tinroot` | Shallows | Iron | (-480, -320) | 220 | 12 | 40 | 480 | 0.3 | 34 |
+| `field.cinder_belt` | Cinder Drift | Iron (rich, depleting) | (5300, 1250) | 280 | 16 | 60 | 960 | 0.15 | 100 |
+| `field.glass_drift` | Cinder Drift | Glassite | (5550, 2150) | 240 | 12 | 25 | 300 | 0.15 | 42 |
+| `field.hookside` | Cinder Drift | Ice | (4650, 2150) | 140 | 5 | 30 | 150 | 0.2 | 38 |
 | `field.ember_shoals` | Cinder Drift | Set by the rumor (hidden until `rumor_heard`) | (5950, 1500) | 160 | 6 or 3 | 40 or 20 | 240 or 60 | 0 | never |
 
 During the ice shortage, if the player has agreed to let Rimewater rest (b12, way B), Rimewater's `regrow` is multiplied by 4 until Rimewater is back to 80% full.
@@ -95,7 +95,7 @@ Rocks are numbered `01` upward in this order. Positions were seeded once (seed 2
 | `field.cinder_belt` | (5190, 1360) (5260, 1180) (5470, 1140) (5330, 1310) (5380, 1480) (5210, 1420) (5170, 1080) (5390, 1360) (5360, 1160) (5050, 1250) (5520, 1360) (5340, 1020) (5430, 1090) (5210, 1270) (5480, 1260) (5290, 1090) |
 | `field.glass_drift` | (5450, 2120) (5690, 2260) (5430, 2180) (5360, 2120) (5530, 1950) (5640, 2310) (5590, 2000) (5670, 2190) (5760, 2230) (5720, 2140) (5430, 2010) (5620, 2110) |
 | `field.hookside` | (4740, 2230) (4720, 2050) (4670, 2110) (4590, 2190) (4620, 2050) |
-| `field.ember_shoals` | (6000, 1510) (5900, 1600) (6040, 1440) (5880, 1380) (6060, 1580) (5840, 1450). If the rumor is false, only rocks 01 to 03 exist (iron, 20 units each), and a Compact survey buoy `prop.compact_buoy` sits at (5950, 1500). |
+| `field.ember_shoals` | (6000, 1510) (5900, 1600) (6040, 1440) (5880, 1380) (6060, 1580) (5840, 1450). If the rumor is false, only rocks 01 to 03 exist (iron, 20 units each), and an old claim marker `prop.old_claim_marker` sits at (5950, 1500). If `gm.compact_plant` planted the rumor, a Compact survey buoy `prop.compact_buoy` sits beside it at (5965, 1500). |
 
 ### The Ancients fragment
 
@@ -107,7 +107,7 @@ The sixth station is never authored. `gm.sixth_station` (see `06-game-master.md`
 
 1. **Inside a region:** at least 150 u inside a region's edge.
 2. **Spacing:** at least 600 u from every station, 200 u from the edge of every rock field, and 250 u from every lane mouth.
-3. **Caused by the player:** within 900 u of the `pos` of a cited history fact whose actor is `ship.player` or one of their tenders. The fact must be one of `rock_spent`, `mined`, `sold`, `rumor_followed`, `delivered` (to a shortage or dispute ledger), `canon_opened` or `jumped` (lane mouth position).
+3. **Caused by the player:** within 900 u of the `pos` of a cited history fact whose actor is `ship.player` or one of their tenders. The fact must be one of `rock_depleted`, `mine`, `sell`, `rumor_followed`, `deliver` (to a shortage or dispute ledger), `canon_opened` or `jump` (lane mouth position).
 4. **One at a time:** only one sixth station per save in the slice, and none while a shortage, dispute or rumor is active in that region.
 5. **Complete station:** a dockmaster NPC (new, with a brief: name, voice in 2 lines, what they remember, and at least 3 lines citing the founding facts), a ring radius from 80 to 110 u, a market with 2 to 4 of the five tradeable wares, and at least one ware the player has sold at least 20 of. Its parts come from the runtime asset kit only.
 6. **Faction:** one of the three factions or unaligned, and it must match the cited cause (for example, a Lamplighter station must cite `canon_opened` or a Glass Drift Observatory fact).

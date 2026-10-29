@@ -59,8 +59,8 @@ Controls are progression. Each capability is a flag (`cap.*`) set by an upgrade 
 | 1: click to fly | `cap.click_fly` | Left-click a point within 450 u of the ship: it flies there and stops. Any WASD input cancels. | `upgrade.nav_chip` |
 | 2: click to work | `cap.click_mine`, `cap.click_dock` | Click a rock: the ship flies into mining reach and mines until the hold is full or the rock is spent. Click a station: it flies into the ring and docks. | `upgrade.rock_cradle`, `upgrade.docking_clamp` |
 | 3: map travel | `cap.map_travel` | Click a station, field or lane mouth on the map: the ship routes there, entering lanes on its own. No distance limit. | `upgrade.lane_chart` (beat b07 reward) |
-| 4: queues | `cap.queues` | **Shift-click** appends orders, up to 6. The queue shows as a row of verb icons; any order can be removed. | `upgrade.order_slate` |
-| 5: loops | `cap.loops` | Save the current queue as a named loop (up to 8 orders; up to 3 saved loops). A loop repeats until the player stops it or it stalls. | `upgrade.loop_log` |
+| 4: queues | `cap.queues` | **Shift-click** appends orders, up to 8. The queue shows as a row of verb icons; any order can be removed, and a `sell` icon can take a floor. | `upgrade.order_slate` |
+| 5: loops | `cap.loops` | Save the current queue as a named loop (so a loop has up to 8 orders, the same limit as a queue; up to 3 saved loops). A loop repeats until the player stops it or it stalls. There is no separate loop editor: to change a loop, load it into the queue, edit, and save it again. | `upgrade.loop_log` |
 | First automation | `cap.automation` | Tenders run saved loops while the player does anything else. | Beat b13 |
 
 **Space priority at Tier 0:** inside a docking ring, dock; else inside a lane mouth, enter the lane; else within 40 u of a loose fragment, pick it up; else within mining reach of a rock, mine while held. Docked, Space undocks.
@@ -87,17 +87,17 @@ Every fitting writes `upgrade_fitted`. Every capability writes `cap_unlocked`. F
 
 ## Order verbs
 
-One verb set is shared by the player ship, tenders and NPC craft (the order verb API). Queues and loops are lists of these orders.
+One verb set is shared by the player ship, tenders and NPC craft (the order verb API). Queues and loops are lists of these orders. A tender trades with the player's credits: its `buy` spends them and its `sell` earns them. `08-contract.md` maps each verb onto `contract::verbs::Order`.
 
 | Verb | Parameters | Behaviour |
 | --- | --- | --- |
-| `fly` | point or entity | Fly in a straight line within a region. Across regions it routes through lanes (player ships need `cap.map_travel`). |
+| `fly` | point, station, rock, field or lane mouth | Fly in a straight line within a region. Across regions it routes through lanes (player ships need `cap.map_travel`). |
 | `mine` | rock, or field (optionally `prefer = tagged`) | Fly into reach and mine until the hold is full or the rock is spent. Given a field, it moves on to the richest unspent rock until the hold is full or the field is spent. |
-| `dock` | station | Fly into the ring and dock. |
-| `buy` | ware, quantity or `fill`, optional `max_price` | Buy unit by unit; stop at the quantity, a full hold, no stock or above `max_price`. |
-| `sell` | ware, quantity or `all`, optional `floor` | Sell unit by unit while the price is at or above `floor`. A **crewed** ship then finishes the order and keeps the rest. A **tender** waits in its standing berth (the patient sell). |
+| `dock` | station | Fly to the station, through lanes if it is in another region, into the ring, and dock. Every order that names a station other than the one the ship is docked at starts with this. |
+| `buy` | ware, quantity or `fill`, optional `max_price` | Buy unit by unit **at the station the ship is docked at**; stop at the quantity, a full hold, no stock, no credits or above `max_price`. Not docked, or docked where the ware isn't sold: `skipped`. |
+| `sell` | ware, quantity or `all`, optional `floor` | Sell unit by unit **at the station the ship is docked at** while the price is at or above `floor`. A **crewed** ship then finishes the order and keeps the rest. A **tender** waits in its standing berth (the patient sell). Not docked, or docked where the ware isn't bought: `skipped`. |
 | `wait` | condition: `hold_full`, `hold_empty`, `price_at_least{ware, value}`, `stock_at_least{ware, n}`, `tender_at{station}` | Hold position until the condition is true. Docked waits need a standing berth. A docked crewed ship clears the ring, so its wait finishes at once with result `cleared`. Undocked, any ship may wait. No condition is ever a time. |
-| `loop` | loop name | Repeat the loop's orders. |
+| `loop` | loop name | Repeat the loop's orders. A lap ends after its last order; the next lap starts with its first order wherever the ship is. |
 | `transfer` | ware, quantity, tender | Tandem only (Coupling). |
 | `tag` | rock | Only after `gm.rock_tagging` teaches it (see `06-game-master.md`). |
 
@@ -116,9 +116,10 @@ The **tender** is a small automated craft that runs one of the player's saved lo
 | Starts | Berthed at Kettle Dock |
 | Runs | One saved loop, assigned at any dockmaster. Assigning copies the loop, so later edits to the player's own loop don't change the tender until the player assigns it again. |
 | Routes | Uses lanes freely |
-| Can't | Accept goals, talk, carry consigned cargo or the fragment, find the fragment, or hand over to ledgers through dock talk (its ordinary sales at Kettle Dock still count to the greenhouse ledger) |
+| Can't | Accept goals, talk, carry consigned cargo or the fragment, find the fragment, or hand over to ledgers through dock talk (with `gm-examples`, its ordinary sales at Kettle Dock still count to the greenhouse ledger) |
 | Upkeep | None. No fuel, no wages, no wear. It can't be destroyed or lost. |
-| Recall | "Bring Thimble home" sends it to Kettle Dock to wait, without selling |
+| Recall | "Bring Thimble home" (at any dockmaster, or from the hold screen) sends it to Kettle Dock to wait, without selling. Its cargo stays aboard until the player assigns a loop again. |
+| Wallet | Trades with the player's credits. A `buy` with no credits is `skipped`. |
 
 ### The patient sell
 
@@ -127,9 +128,19 @@ A tender's `sell{ware, all, floor}` order works like this, at a station with a s
 1. Sell unit by unit while the station's price is at or above `floor`.
 2. When the price drops below `floor`, stay docked and write `patient_wait{craft, station, ware, floor, price}`.
 3. On each **station pulse** at that station (any ship's counted docking there or nearby, or a lane arrival into the region), re-check the price. As saturation clears and stock is drunk down, the price climbs. When it reaches `floor`, go back to step 1.
-4. When the stack is gone, write `patient_sold{qty, avg_price, floor, pulses_waited}` and continue the loop.
+4. When the stack is gone, write `patient_sold{qty, avg_price, floor, pulses_waited}` and continue the loop. `pulses_waited` is 0 if the price never dipped; that still counts as a patient sell for b13.
 
-It never reads a clock. If the market is quiet, the tender waits until something happens there. The player sets the floor when assigning the loop. The assign screen shows the last price the player saw there and the most the station has ever paid them, with no suggested floor. The validator rejects a floor above `1.3 x base` (the most that station can ever pay), and Tamsin explains: "Kettle has never paid that. Thimble would sit there forever."
+It never reads a clock. If the market is quiet, the tender waits until something happens there. The player sets the floor when assigning the loop. The assign screen shows the last price the player saw there, the most the station has ever paid them, and the most it can pay right now (its **ceiling**, `1.3 x` the current base), with no suggested floor.
+
+**Validation at assignment.** The validator rejects a floor above the current ceiling, and Tamsin explains: "Kettle has never paid that. Thimble would sit there forever." If the floor is above the station's ceiling *without* active levers (for example, during the shortage, when the ice base is x1.4), the floor is accepted and the screen adds one line: "Only while the shortage lasts."
+
+**Revalidation when a market changes.** Whenever a market lever changes a ware's base at a station (the shortage starting or ending, the dispute's base changes, a gm lever, a rollback), every standing floor for that ware at that station is checked against the new ceiling:
+
+- **Floor above the new ceiling:** the order is **blocked**. The tender stays docked in its standing berth, keeps its cargo, and writes `patient_blocked{craft, station, ware, floor, ceiling}`. A blocked sell is not a stall: the loop doesn't count a dead lap, and nothing is sold below the player's floor. The tender's map and hold icons show a small closed lamp, and the next dockmaster the player meets says so (Tamsin's `.09` at Kettle Dock, the station's own dockmaster elsewhere, citing `patient_blocked`).
+- **The player chooses,** at any dockmaster or from the hold screen: revise the floor (any value up to the new ceiling; writes `floor_changed`, and the sale resumes at once), assign another loop (the cargo stays aboard and the new loop's first matching `sell` sells it), or "Bring Thimble home" (it flies to Kettle Dock with its cargo). The floor is never changed for the player.
+- **If the ceiling rises again** above the floor before the player acts (a new shortage, a rollback), the order unblocks by itself and writes `patient_unblocked`.
+
+The same check runs when a loop is assigned and on every save load, so a blocked order never hides.
 
 Why it matters: a full hold sold at once saturates the buyer. A 24-unit glassite load dumped at Brassmouth after a recent sale averages about 23 cr a unit; the same load sold patiently with a floor of 40 averages about 41 (see `07-pacing.md`). After prestige, the Tandem's Coupling makes this the natural pair: the Tandem hauls, and the tender sells.
 

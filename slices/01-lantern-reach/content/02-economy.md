@@ -1,6 +1,6 @@
 # 02 Wares and the living market
 
-Back to [SPEC.md](SPEC.md). Prices are in credits (cr). Every number here is `core` pack data (`wares.toml`, `markets.toml`, `traders.toml`).
+Back to [SPEC.md](SPEC.md). Prices are in credits (cr). Every number here is `core` pack data (`wares.toml`; the market lines in `stations.toml`; `traders.toml`). Credits are whole centicredits in the sim; the decimals below are real, not rounding noise (`08-contract.md`, "Numbers").
 
 ## Wares
 
@@ -117,7 +117,7 @@ A natural circuit opens in Act 2: Wharf plate to Cinder Hook, Cinder Hook glassi
 
 ## Snapshots and price reach
 
-- Docking at a station shows its live prices and stores a **snapshot** (a `scouted` fact) of every ware there.
+- Docking at a station shows its live prices and stores a **snapshot** (a `scout` fact) of every ware there.
 - Away from a station, the map and market screens show the last snapshot, labelled by how many of the player's dockings ago it was taken: "seen 6 dockings ago". A station never docked at shows "?" for every ware. There are no live remote prices at the home dock.
 - **Price reach** widens what is live:
   - Wren and Tandem: live prices only while docked.
@@ -136,4 +136,4 @@ Four authored craft keep the markets breathing and generate pulses. They use the
 | `craft.even_keel` | Even Keel | Tollway Compact | 60 | 35 | Brassmouth Exchange, Lantern Wharf, Kettle Dock | ice, plate, rations, iron ore | A tidy barge bringing Compact ice and plate into the Shallows |
 | `craft.quiet_lamp` | Quiet Lamp | Lamplighter Society | 20 | 55 | Glass Drift Observatory, Lantern Wharf, Cinder Hook | rations, ice, glassite | A slim launch that also tends the lane lamps |
 
-Rules: at most 10 units of a ware per docking, at most 2 wares per docking, and every trade writes `bought` or `sold` with the craft as actor. Estimated traffic: each craft makes a counted docking about every 50 to 70 seconds of play (which gives the pulse rates in `SPEC.md`). Scripts may add craft or widen their menus through the fast-model budget hook; they may never steer one directly.
+Rules: at most 10 units of a ware per docking, at most 2 wares per docking, and every trade writes `buy` or `sell` with the craft as actor. Estimated traffic: each craft makes a counted docking about every 50 to 70 seconds of play (which gives the pulse rates in `SPEC.md`). Scripts may add craft or widen their menus through the fast-model budget hook; they may never steer one directly.
