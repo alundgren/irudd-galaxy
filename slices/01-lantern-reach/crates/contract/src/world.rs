@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 use crate::events::ActivityCounters;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::pack::PackState;
 use crate::store::{Record, Store};
+use crate::talk::TalkLog;
 use crate::verbs::OrderQueue;
 
 /// Bump when the world-state JSON changes incompatibly. Saves record it.
@@ -42,6 +44,11 @@ pub struct WorldState {
     pub rumors: Store<RumorId, Rumor>,
     /// Activity counters that pace beats and unlocks (never clock time).
     pub counters: ActivityCounters,
+    // --- Scripts and legibility (W5) ---
+    /// Per installed pack: script stores, trigger counts, script health.
+    pub packs: BTreeMap<PackId, PackState>,
+    /// Dock talk, map notes and chronicle entries.
+    pub talk: TalkLog,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

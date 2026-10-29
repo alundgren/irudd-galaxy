@@ -8,12 +8,14 @@
       "$ref": "#/$defs/PackId"
     },
     "revision": {
+      "description": "Content hash of the pack's files.",
       "type": "string"
     },
     "status": {
       "$ref": "#/$defs/ReportStatus"
     },
     "steps": {
+      "description": "In pipeline order. Later steps are appended as they run.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/StepReport"
@@ -37,6 +39,10 @@
     "Diagnostic": {
       "type": "object",
       "properties": {
+        "code": {
+          "description": "Stable machine-readable reason, e.g. `undeclared_hook`, `clock_api`,\n`over_budget`, `uncited_line`, `type_error`.",
+          "type": "string"
+        },
         "location": {
           "anyOf": [
             {
@@ -56,6 +62,7 @@
       },
       "required": [
         "severity",
+        "code",
         "message"
       ]
     },
@@ -71,6 +78,7 @@
           "minimum": 0
         },
         "file": {
+          "description": "Relative to the pack root, `/`-separated.",
           "type": "string"
         },
         "line": {
@@ -148,6 +156,22 @@
         "info"
       ]
     },
+    "StepOutcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        {
+          "description": "Not run (a tool is missing, or an earlier step failed); see the diagnostics.",
+          "type": "string",
+          "const": "skipped"
+        }
+      ]
+    },
     "StepReport": {
       "type": "object",
       "properties": {
@@ -158,8 +182,8 @@
             "$ref": "#/$defs/Diagnostic"
           }
         },
-        "passed": {
-          "type": "boolean"
+        "outcome": {
+          "$ref": "#/$defs/StepOutcome"
         },
         "step": {
           "$ref": "#/$defs/ValidationStep"
@@ -167,19 +191,51 @@
       },
       "required": [
         "step",
-        "passed"
+        "outcome"
       ]
     },
     "ValidationStep": {
-      "description": "The validation pipeline, in order.",
-      "type": "string",
-      "enum": [
-        "types",
-        "canon",
-        "invariants",
-        "sandbox",
-        "legibility",
-        "stage"
+      "description": "The validation pipeline, in order. `pack check` and dev hot reload run the fast\nsteps (`manifest` to `smoke`); the game-master path adds the rest.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "canon",
+            "sandbox",
+            "legibility",
+            "stage"
+          ]
+        },
+        {
+          "description": "`manifest.toml` and data files parse against their schemas; files exist.",
+          "type": "string",
+          "const": "manifest"
+        },
+        {
+          "description": "Strict Luau typecheck against `galaxy.d.luau`.",
+          "type": "string",
+          "const": "types"
+        },
+        {
+          "description": "Every hook a script uses is declared in `uses`; handlers match the manifest.",
+          "type": "string",
+          "const": "hooks"
+        },
+        {
+          "description": "Every referenced ID exists or is created by this pack.",
+          "type": "string",
+          "const": "references"
+        },
+        {
+          "description": "Static invariants: no clock or timer APIs, shocks paired with opportunities.",
+          "type": "string",
+          "const": "invariants"
+        },
+        {
+          "description": "Each script loads and each handler runs once on a sample event within budget.",
+          "type": "string",
+          "const": "smoke"
+        }
       ]
     }
   }

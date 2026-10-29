@@ -52,12 +52,25 @@ fn workspace_root() -> PathBuf {
 }
 
 fn contract() -> ExitCode {
-    let dir = workspace_root().join("crates/contract/schemas");
-    if let Err(e) = write_schemas(&dir) {
+    let root = workspace_root();
+    let result = write_schemas(&root.join("crates/contract/schemas"))
+        .and_then(|()| write_api(&root.join("crates/contract/api")));
+    if let Err(e) = result {
         eprintln!("xtask contract: {e}");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
+}
+
+/// `galaxy.d.luau` and `HOOKS.md`, generated from `contract::api`.
+fn write_api(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let files = galaxy_contract::api::render();
+    for (name, text) in &files {
+        std::fs::write(dir.join(name), text)?;
+    }
+    eprintln!("wrote {} files to crates/contract/api/", files.len());
+    Ok(())
 }
 
 fn write_schemas(dir: &Path) -> std::io::Result<()> {

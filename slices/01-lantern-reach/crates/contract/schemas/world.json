@@ -82,6 +82,17 @@
         }
       }
     },
+    "packs": {
+      "description": "Per installed pack: script stores, trigger counts, script health.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$": {
+          "$ref": "#/$defs/PackState"
+        }
+      }
+    },
     "player": {
       "$ref": "#/$defs/Player",
       "default": {
@@ -151,6 +162,14 @@
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Station"
         }
+      }
+    },
+    "talk": {
+      "description": "Dock talk, map notes and chronicle entries.",
+      "$ref": "#/$defs/TalkLog",
+      "default": {
+        "last": 0,
+        "lines": {}
       }
     },
     "wares": {
@@ -232,6 +251,32 @@
       },
       "required": [
         "stage"
+      ]
+    },
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "Channel": {
+      "oneOf": [
+        {
+          "description": "A line a person offers when the player docks where they are.",
+          "type": "string",
+          "const": "dock_talk"
+        },
+        {
+          "description": "A note pinned to a place on the map.",
+          "type": "string",
+          "const": "map_note"
+        },
+        {
+          "description": "An entry in the chronicle of the save. History: a rollback can't remove it.",
+          "type": "string",
+          "const": "chronicle"
+        }
       ]
     },
     "Condition": {
@@ -1101,6 +1146,53 @@
         }
       ]
     },
+    "PackState": {
+      "description": "What a world keeps for one installed pack. Scripts hold no state in Luau; this is\nwhere anything they remember lives, so a reload or a save loses nothing.",
+      "type": "object",
+      "properties": {
+        "health": {
+          "description": "Aborted handler calls and quarantine, per script.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ScriptHealth"
+          },
+          "default": {}
+        },
+        "retired": {
+          "description": "Revisions switched off by a rollback. Their handlers don't run.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "stores": {
+          "description": "Declared stores: script -> store -> key -> value.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/ScriptValue"
+              }
+            }
+          },
+          "default": {}
+        },
+        "triggers": {
+          "description": "Activity triggers: `<script>.<trigger>` -> times fired.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "default": {}
+        }
+      }
+    },
     "PartId": {
       "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
       "type": "string",
@@ -1487,6 +1579,69 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "SaidLine": {
+      "description": "A line as the world keeps it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/TalkId"
+        },
+        "line": {
+          "$ref": "#/$defs/TalkLine"
+        },
+        "tick": {
+          "description": "When it was said.",
+          "$ref": "#/$defs/Tick"
+        }
+      },
+      "required": [
+        "id",
+        "tick",
+        "line"
+      ]
+    },
+    "ScriptHealth": {
+      "description": "How a script's current revision has behaved.",
+      "type": "object",
+      "properties": {
+        "aborts": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "revision": {
+          "description": "The revision these counts are for; a new revision starts clean.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "aborts",
+        "quarantined"
+      ]
+    },
+    "ScriptValue": {
+      "description": "A value in a script store.",
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "Service": {
       "description": "What a station offers when docked.",
       "type": "string",
@@ -1628,6 +1783,90 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TalkId": {
+      "type": "string",
+      "examples": [
+        "talk.42"
+      ],
+      "pattern": "^talk\\.[0-9]+$"
+    },
+    "TalkLine": {
+      "description": "One line of text in the world.",
+      "type": "object",
+      "properties": {
+        "about": {
+          "description": "Changes this line is about, e.g. the causes a rollback undid.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseId"
+          }
+        },
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "cites": {
+          "description": "The facts this line is about. Never empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          },
+          "minItems": 1
+        },
+        "place": {
+          "description": "Where it is said, or what place it is about.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speaker": {
+          "description": "Who says it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "text",
+        "cites"
+      ]
+    },
+    "TalkLog": {
+      "description": "Every line said in this save, by ID.",
+      "type": "object",
+      "properties": {
+        "last": {
+          "description": "The last line's sequence number (0 before the first).",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "lines": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^talk\\.[0-9]+$": {
+              "$ref": "#/$defs/SaidLine"
+            }
+          }
+        }
+      }
     },
     "Tick": {
       "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SaidLine",
+  "description": "A line as the world keeps it.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/TalkId"
+    },
+    "line": {
+      "$ref": "#/$defs/TalkLine"
+    },
+    "tick": {
+      "description": "When it was said.",
+      "$ref": "#/$defs/Tick"
+    }
+  },
+  "required": [
+    "id",
+    "tick",
+    "line"
+  ],
+  "$defs": {
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "Channel": {
+      "oneOf": [
+        {
+          "description": "A line a person offers when the player docks where they are.",
+          "type": "string",
+          "const": "dock_talk"
+        },
+        {
+          "description": "A note pinned to a place on the map.",
+          "type": "string",
+          "const": "map_note"
+        },
+        {
+          "description": "An entry in the chronicle of the save. History: a rollback can't remove it.",
+          "type": "string",
+          "const": "chronicle"
+        }
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TalkId": {
+      "type": "string",
+      "examples": [
+        "talk.42"
+      ],
+      "pattern": "^talk\\.[0-9]+$"
+    },
+    "TalkLine": {
+      "description": "One line of text in the world.",
+      "type": "object",
+      "properties": {
+        "about": {
+          "description": "Changes this line is about, e.g. the causes a rollback undid.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseId"
+          }
+        },
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "cites": {
+          "description": "The facts this line is about. Never empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          },
+          "minItems": 1
+        },
+        "place": {
+          "description": "Where it is said, or what place it is about.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speaker": {
+          "description": "Who says it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "text",
+        "cites"
+      ]
+    },
+    "Tick": {
+      "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

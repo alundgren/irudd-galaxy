@@ -7,7 +7,9 @@
 use std::fmt::Display;
 
 use galaxy_contract::history::FactDraft;
+use galaxy_contract::pack::{PackState, ScriptHealth};
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::{Channel, SaidLine};
 
 /// Why a command was refused.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -79,6 +81,17 @@ where
         None => store.remove(id),
     };
     Ok(old.map(Box::new))
+}
+
+/// Drops a pack's entry once it holds nothing, so undo restores the world exactly.
+fn prune_pack(world: &mut WorldState, pack: &PackId) {
+    if world
+        .packs
+        .get(pack)
+        .is_some_and(|p| *p == PackState::default())
+    {
+        world.packs.remove(pack);
+    }
 }
 
 fn invert(command: Command) -> Result<UndoRecord, CommandError> {
@@ -374,6 +387,144 @@ pub fn apply(
             staged.facts.push((**fact).clone());
             Ok(UndoRecord::Compensate {
                 note: format!("`{}` fact was recorded", fact.kind),
+            })
+        }
+        C::SetScriptValue {
+            pack,
+            script,
+            store,
+            key,
+            value,
+        } => {
+            let p = world.packs.entry(pack.clone()).or_default();
+            let stores = p.stores.entry(script.clone()).or_default();
+            let entries = stores.entry(store.clone()).or_default();
+            let old = match value {
+                Some(v) => entries.insert(key.clone(), v.clone()),
+                None => entries.remove(key),
+            };
+            if entries.is_empty() {
+                stores.remove(store);
+            }
+            if stores.is_empty() {
+                p.stores.remove(script);
+            }
+            prune_pack(world, pack);
+            invert(C::SetScriptValue {
+                pack: pack.clone(),
+                script: script.clone(),
+                store: store.clone(),
+                key: key.clone(),
+                value: old,
+            })
+        }
+        C::SetTriggerFired {
+            pack,
+            trigger,
+            fired,
+        } => {
+            let p = world.packs.entry(pack.clone()).or_default();
+            let old = if *fired == 0 {
+                p.triggers.remove(trigger)
+            } else {
+                p.triggers.insert(trigger.clone(), *fired)
+            };
+            prune_pack(world, pack);
+            invert(C::SetTriggerFired {
+                pack: pack.clone(),
+                trigger: trigger.clone(),
+                fired: old.unwrap_or(0),
+            })
+        }
+        C::SetScriptHealth {
+            pack,
+            script,
+            health,
+        } => {
+            let p = world.packs.entry(pack.clone()).or_default();
+            let old = if *health == ScriptHealth::default() {
+                p.health.remove(script)
+            } else {
+                p.health.insert(script.clone(), health.clone())
+            };
+            prune_pack(world, pack);
+            invert(C::SetScriptHealth {
+                pack: pack.clone(),
+                script: script.clone(),
+                health: old.unwrap_or_default(),
+            })
+        }
+        C::SetRevisionRetired {
+            pack,
+            revision,
+            retired,
+        } => {
+            let p = world.packs.entry(pack.clone()).or_default();
+            let was = if *retired {
+                !p.retired.insert(revision.clone())
+            } else {
+                p.retired.remove(revision)
+            };
+            prune_pack(world, pack);
+            invert(C::SetRevisionRetired {
+                pack: pack.clone(),
+                revision: revision.clone(),
+                retired: was,
+            })
+        }
+        C::Say { line } => {
+            line.validate()
+                .map_err(|e| CommandError::Invalid(e.into()))?;
+            if let Some(npc) = &line.speaker {
+                require(&world.npcs, npc, "npc")?;
+            }
+            if let Some(station) = &line.place {
+                require(&world.stations, station, "station")?;
+            }
+            let log = &mut world.talk;
+            let id = TalkId(log.last + 1);
+            log.last = id.0;
+            log.lines.insert(
+                id,
+                SaidLine {
+                    id,
+                    tick: world.meta.tick,
+                    line: (**line).clone(),
+                },
+            );
+            if line.channel == Channel::Chronicle {
+                Ok(UndoRecord::Compensate {
+                    note: format!("chronicle entry {id} was written"),
+                })
+            } else {
+                invert(C::PutTalk { id, value: None })
+            }
+        }
+        C::PutTalk { id, value } => {
+            let log = &mut world.talk;
+            let old = match value {
+                Some(v) => {
+                    if v.id != *id {
+                        return Err(CommandError::Invalid(format!(
+                            "line record id `{}` doesn't match `{id}`",
+                            v.id
+                        )));
+                    }
+                    log.last = log.last.max(id.0);
+                    log.lines.insert(*id, (**v).clone())
+                }
+                None => {
+                    let old = log.lines.remove(id);
+                    // Withdrawing the newest line frees its number again (exact undo).
+                    if old.is_some() && log.last == id.0 {
+                        log.last -= 1;
+                    }
+                    old
+                }
+            };
+            invert(C::PutTalk {
+                id: *id,
+                value: old.map(Box::new),
             })
         }
     }

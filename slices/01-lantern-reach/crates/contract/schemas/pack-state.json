@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PackState",
+  "description": "What a world keeps for one installed pack. Scripts hold no state in Luau; this is\nwhere anything they remember lives, so a reload or a save loses nothing.",
+  "type": "object",
+  "properties": {
+    "health": {
+      "description": "Aborted handler calls and quarantine, per script.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ScriptHealth"
+      },
+      "default": {}
+    },
+    "retired": {
+      "description": "Revisions switched off by a rollback. Their handlers don't run.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "stores": {
+      "description": "Declared stores: script -> store -> key -> value.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ScriptValue"
+          }
+        }
+      },
+      "default": {}
+    },
+    "triggers": {
+      "description": "Activity triggers: `<script>.<trigger>` -> times fired.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0
+      },
+      "default": {}
+    }
+  },
+  "$defs": {
+    "ScriptHealth": {
+      "description": "How a script's current revision has behaved.",
+      "type": "object",
+      "properties": {
+        "aborts": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "revision": {
+          "description": "The revision these counts are for; a new revision starts clean.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "aborts",
+        "quarantined"
+      ]
+    },
+    "ScriptValue": {
+      "description": "A value in a script store.",
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}
