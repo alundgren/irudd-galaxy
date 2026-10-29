@@ -4,12 +4,16 @@
 //! - Short lines: `POST /api/v1/chat/completions` with a strict JSON schema and
 //!   `provider.require_parameters`, so only providers that honour the schema answer.
 //!
-//! A timeout, transport error, 429 or 5xx is retried once; then the call fails and the
-//! host skips the moment. A malformed answer is not retried. The transport is a trait
-//! so tests run against canned responses without a network.
+//! A request makes at most `max_attempts` HTTP attempts (the host's budget decides). A
+//! timeout, transport error or 5xx is retried at once. A 429 or 5xx with `Retry-After`
+//! is retried after that wait if the wait ends before the request's deadline; a longer
+//! wait, or a 429 without one, skips the moment. A malformed answer is not retried.
+//! Every attempt's `usage.cost` is summed and returned with the answer or the error, so
+//! a billed response is never lost. The transport is a trait so tests run against
+//! canned responses without a network.
 
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
@@ -50,15 +54,42 @@ impl fmt::Debug for ApiKey {
 }
 
 /// A raw HTTP answer.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct HttpReply {
     pub status: u16,
     pub body: String,
+    /// The `Retry-After` header in milliseconds, if the server sent one. A date, or
+    /// anything else that isn't a number of seconds, reads as `u64::MAX`: too long.
+    pub retry_after_ms: Option<u64>,
+}
+
+impl HttpReply {
+    pub fn new(status: u16, body: impl Into<String>) -> Self {
+        Self {
+            status,
+            body: body.into(),
+            retry_after_ms: None,
+        }
+    }
+}
+
+/// `Retry-After` in milliseconds: delta-seconds, or `u64::MAX` for an HTTP date.
+pub fn parse_retry_after(value: &str) -> u64 {
+    value
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|s| s.is_finite() && *s >= 0.0)
+        .map_or(u64::MAX, |s| (s * 1000.0).min(u64::MAX as f64) as u64)
 }
 
 /// Sends one JSON POST. Errors are only for calls that got no HTTP answer at all.
 pub trait Transport: Send {
     fn post(&mut self, url: &str, auth: &str, body: &str) -> Result<HttpReply, MindError>;
+    /// Waits out a `Retry-After`. Runs on the worker thread, never the frame thread.
+    fn sleep(&mut self, wait: Duration) {
+        std::thread::sleep(wait);
+    }
 }
 
 /// The real transport: `ureq` with rustls.
@@ -92,8 +123,16 @@ impl Transport for UreqTransport {
             .send(body)
             .map_err(map)?;
         let status = resp.status().as_u16();
+        let retry_after_ms = resp
+            .headers()
+            .get("retry-after")
+            .map(|v| v.to_str().map_or(u64::MAX, parse_retry_after));
         let body = resp.into_body().read_to_string().map_err(map)?;
-        Ok(HttpReply { status, body })
+        Ok(HttpReply {
+            status,
+            body,
+            retry_after_ms,
+        })
     }
 }
 
@@ -118,6 +157,13 @@ impl OpenRouterMind<UreqTransport> {
     }
 }
 
+/// What a POST came to, before its body is read.
+struct Posted {
+    result: Result<Value, MindError>,
+    attempts: u8,
+    cost_usd: f64,
+}
+
 impl<T: Transport> OpenRouterMind<T> {
     pub fn with_transport(transport: T, key: ApiKey, models: Models, limits: &Limits) -> Self {
         Self {
@@ -133,46 +179,87 @@ impl<T: Transport> OpenRouterMind<T> {
         &self.transport
     }
 
-    /// One POST, retried once if the call failed or was slow. Returns the 200 body and
-    /// the attempts made.
-    fn post(&mut self, path: &str, body: &Value) -> Result<(Value, u8), MindError> {
+    /// One POST in at most `max_attempts` attempts. Returns the 2xx body or the last
+    /// error, the attempts made and the cost every attempt reported.
+    fn post(&mut self, path: &str, body: &Value, max_attempts: u8, deadline_ms: u64) -> Posted {
         let url = format!("{}{path}", self.base_url);
         let body = body.to_string();
         let auth = self.key.bearer();
-        let mut attempt = 1;
-        loop {
-            let result = self
-                .transport
-                .post(&url, &auth, &body)
-                .and_then(|r| match r.status {
-                    200..=299 => serde_json::from_str::<Value>(&r.body)
-                        .map_err(|e| MindError::Malformed(format!("not JSON: {e}"))),
+        let start = Instant::now();
+        let mut out = Posted {
+            result: Err(MindError::NotRecorded),
+            attempts: 0,
+            cost_usd: 0.0,
+        };
+        while out.attempts < max_attempts {
+            out.attempts += 1;
+            let mut retry_after = None;
+            out.result = self.transport.post(&url, &auth, &body).and_then(|r| {
+                retry_after = r.retry_after_ms;
+                // A billed response carries its cost whatever its status or shape.
+                let parsed = serde_json::from_str::<Value>(&r.body);
+                if let Ok(v) = &parsed {
+                    out.cost_usd += cost(v);
+                }
+                match r.status {
+                    200..=299 => {
+                        let v =
+                            parsed.map_err(|e| MindError::Malformed(format!("not JSON: {e}")))?;
+                        // OpenRouter can report an upstream failure inside a 200.
+                        match v.get("error") {
+                            Some(err) => Err(match err.get("code").and_then(Value::as_u64) {
+                                Some(429) => MindError::RateLimited,
+                                Some(c @ 500..=599) => MindError::Server(c as u16),
+                                _ => MindError::Malformed(short(&err.to_string())),
+                            }),
+                            None => Ok(v),
+                        }
+                    }
                     429 => Err(MindError::RateLimited),
                     s @ 500..=599 => Err(MindError::Server(s)),
                     s => Err(MindError::Http(s, short(&r.body))),
-                });
-            match result {
-                Err(e) if e.retryable() && attempt == 1 => attempt += 1,
-                Err(e) => return Err(e),
-                Ok(v) => {
-                    // OpenRouter can report an upstream failure inside a 200.
-                    if let Some(err) = v.get("error") {
-                        let code = err.get("code").and_then(Value::as_u64).unwrap_or(0);
-                        let e = match code {
-                            429 => MindError::RateLimited,
-                            500..=599 => MindError::Server(code as u16),
-                            _ => MindError::Malformed(short(&err.to_string())),
-                        };
-                        if e.retryable() && attempt == 1 {
-                            attempt += 1;
-                            continue;
-                        }
-                        return Err(e);
-                    }
-                    return Ok((v, attempt));
                 }
+            });
+            let Err(e) = &out.result else {
+                break;
+            };
+            if !e.retryable() || out.attempts >= max_attempts {
+                break;
+            }
+            match (e, retry_after) {
+                // The server named a wait: honour it if it ends before the deadline,
+                // else skip the moment rather than retry inside the interval.
+                (MindError::RateLimited | MindError::Server(_), Some(wait)) => {
+                    let used = start.elapsed().as_millis() as u64;
+                    if used.saturating_add(wait) >= deadline_ms {
+                        break;
+                    }
+                    self.transport.sleep(Duration::from_millis(wait));
+                }
+                // Rate limited with no word on when to come back: don't hammer.
+                (MindError::RateLimited, None) => break,
+                _ => {}
             }
         }
+        out
+    }
+}
+
+fn reply<T>(
+    posted: Posted,
+    model: &str,
+    parse: impl FnOnce(&Value) -> Result<T, MindError>,
+) -> Reply<T> {
+    let (result, model) = match posted.result {
+        Ok(v) => (parse(&v), model_of(&v, model)),
+        Err(e) => (Err(e), String::new()),
+    };
+    Reply {
+        result,
+        cost_usd: posted.cost_usd,
+        model,
+        attempts: posted.attempts,
+        hold_ticks: 0,
     }
 }
 
@@ -250,13 +337,16 @@ pub fn parse_decision(req: &DecisionRequest, v: &Value) -> Result<Decision, Mind
 }
 
 /// The chat completions body for one line, with a strict schema that limits `cite`
-/// to the packet's fact IDs.
+/// to the packet's fact IDs. The model sees the line with its slots left in.
 pub fn line_body(model: &str, max_tokens: u32, req: &LineRequest) -> Value {
-    let user = json!({
+    let mut user = json!({
         "packet": req.packet,
-        "line": req.authored,
+        "line": req.template,
         "cite": req.cite,
     });
+    if !req.slots.is_empty() {
+        user["slots"] = json!(req.slots);
+    }
     json!({
         "model": model,
         "provider": { "require_parameters": true },
@@ -326,32 +416,43 @@ impl<T: Transport> Mind for OpenRouterMind<T> {
         "openrouter"
     }
 
-    fn decide(&mut self, req: &DecisionRequest) -> Result<Reply<Decision>, MindError> {
+    fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision> {
         let body = decision_body(&self.models.decision, req);
-        let (v, attempts) = self.post("/api/alpha/decisions", &body)?;
-        Ok(Reply {
-            value: parse_decision(req, &v)?,
-            cost_usd: cost(&v),
-            model: model_of(&v, &self.models.decision),
-            attempts,
-        })
+        let posted = self.post(
+            "/api/alpha/decisions",
+            &body,
+            req.max_attempts,
+            req.deadline_ms,
+        );
+        reply(posted, &self.models.decision, |v| parse_decision(req, v))
     }
 
-    fn line(&mut self, req: &LineRequest) -> Result<Reply<LineDraft>, MindError> {
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         let body = line_body(&self.models.line, self.line_max_tokens, req);
-        let (v, attempts) = self.post("/api/v1/chat/completions", &body)?;
-        Ok(Reply {
-            value: parse_line(&v)?,
-            cost_usd: cost(&v),
-            model: model_of(&v, &self.models.line),
-            attempts,
-        })
+        let posted = self.post(
+            "/api/v1/chat/completions",
+            &body,
+            req.max_attempts,
+            req.deadline_ms,
+        );
+        reply(posted, &self.models.line, parse_line)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn request(options: &[(String, String)]) -> DecisionRequest {
+        DecisionRequest {
+            key: "sk.1".into(),
+            instructions: "pick".into(),
+            state: json!({"a": 1}),
+            question: Question::choice(options),
+            max_attempts: 2,
+            deadline_ms: 10_000,
+        }
+    }
 
     #[test]
     fn key_is_redacted() {
@@ -361,15 +462,10 @@ mod tests {
 
     #[test]
     fn decision_body_matches_the_api() {
-        let req = DecisionRequest {
-            key: "sk.1".into(),
-            instructions: "pick".into(),
-            state: json!({"a": 1}),
-            question: Question::choice(&[
-                ("plan.1".into(), "sell ice".into()),
-                ("plan.2".into(), "wait".into()),
-            ]),
-        };
+        let req = request(&[
+            ("plan.1".into(), "sell ice".into()),
+            ("plan.2".into(), "wait".into()),
+        ]);
         let b = decision_body("typesafe/jev-1.14", &req);
         assert_eq!(b["questions"]["pick"]["type"], "choice");
         assert_eq!(b["questions"]["pick"]["criteria"]["o2"], "wait");
@@ -380,12 +476,7 @@ mod tests {
     fn parses_the_three_answer_types() {
         // Shapes as returned by the live API.
         let v = json!({"answers":{"pick":{"type":"choice","choice":"o1","confidence":0.83}},"usage":{"cost":0.0000185}});
-        let choice = DecisionRequest {
-            key: String::new(),
-            instructions: String::new(),
-            state: Value::Null,
-            question: Question::choice(&[("a".into(), "a".into())]),
-        };
+        let choice = request(&[("a".into(), "a".into())]);
         assert_eq!(
             parse_decision(&choice, &v).unwrap(),
             Decision::Choice {
@@ -419,6 +510,13 @@ mod tests {
             parse_decision(&score, &v).unwrap(),
             Decision::Score { score: 1.47 }
         );
+    }
+
+    #[test]
+    fn reads_retry_after() {
+        assert_eq!(parse_retry_after("2"), 2000);
+        assert_eq!(parse_retry_after(" 0.5 "), 500);
+        assert_eq!(parse_retry_after("Wed, 21 Oct 2026 07:28:00 GMT"), u64::MAX);
     }
 
     #[test]

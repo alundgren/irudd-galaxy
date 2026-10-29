@@ -4,7 +4,7 @@
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::time::Instant;
 
-use crate::mind::{Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Reply};
+use crate::mind::{Decision, DecisionRequest, LineDraft, LineRequest, Mind, Reply};
 
 /// One request for a mind.
 #[derive(Clone, Debug, PartialEq)]
@@ -15,8 +15,18 @@ pub enum Job {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum JobResult {
-    Decide(Result<Reply<Decision>, MindError>),
-    Line(Result<Reply<LineDraft>, MindError>),
+    Decide(Reply<Decision>),
+    Line(Reply<LineDraft>),
+}
+
+impl JobResult {
+    /// Attempts, cost and model, whatever the outcome.
+    pub fn usage(&self) -> (u8, f64, &str, u64) {
+        match self {
+            JobResult::Decide(r) => (r.attempts, r.cost_usd, &r.model, r.hold_ticks),
+            JobResult::Line(r) => (r.attempts, r.cost_usd, &r.model, r.hold_ticks),
+        }
+    }
 }
 
 /// A finished job.
@@ -165,6 +175,8 @@ mod tests {
             instructions: String::new(),
             state: serde_json::Value::Null,
             question: Question::choice(&[("a".into(), "a".into()), ("b".into(), "b".into())]),
+            max_attempts: 2,
+            deadline_ms: 10_000,
         })
     }
 

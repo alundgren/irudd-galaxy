@@ -1,9 +1,17 @@
-//! Situation keys, outcome notes and the ledger read back from history.
+//! Situation keys, outcome and spend notes, and the ledger read back from history.
 //!
-//! Every outcome is a `mind.*` fact whose note is an [`OutcomeNote`] (JSON) and whose
-//! `amount` is what it cost, in micro-dollars. The [`Ledger`] is rebuilt from those
-//! facts, so the spend tally and the situation cache survive save and load without a
-//! store of their own: history is the record.
+//! Two kinds of fact record the layer's work:
+//!
+//! - `mind.spend`, one per call that sent anything, whatever became of it: answered,
+//!   malformed, failed, rejected by validation or arriving after its moment passed.
+//!   Its note is a [`SpendNote`] and its `amount` is the cost in micro-dollars. It is
+//!   submitted in a batch of its own, so a rejected outcome never loses its spend.
+//! - `mind.decision` and `mind.line`, one per outcome, with an [`OutcomeNote`]. Their
+//!   `calls` and `cost` say what the outcome took; budgets don't read them.
+//!
+//! The [`Ledger`] tallies calls and spend from `mind.spend` facts and the situation
+//! cache from outcomes, so both survive save and load without a store of their own:
+//! history is the record.
 
 use std::collections::BTreeMap;
 
@@ -11,8 +19,12 @@ use galaxy_contract::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// A stable key for a situation: `sk.` and 16 hex digits of BLAKE3 over its parts
-/// (menu kind, actor, brief revision, the packet's fact IDs, the options).
+use crate::{DECISION_FACT, LINE_FACT};
+
+/// Fact kind of one call's spend.
+pub const SPEND_FACT: &str = "mind.spend";
+
+/// A stable key for a situation: `sk.` and 16 hex digits of BLAKE3 over its parts.
 pub fn key(parts: &Value) -> String {
     let hash = blake3::hash(parts.to_string().as_bytes());
     format!("sk.{}", &hash.to_hex()[..16])
@@ -61,9 +73,13 @@ pub struct OutcomeNote {
     /// Models that answered.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub models: Vec<String>,
-    /// Model calls made for this outcome (attempts included).
+    /// HTTP attempts made for this outcome, retries included. For reading only: the
+    /// budget counts `mind.spend` facts.
     #[serde(default)]
     pub calls: u32,
+    /// What this outcome's calls cost, in micro-dollars. For reading only.
+    #[serde(default)]
+    pub cost: i64,
     /// The budget window the calls were counted in.
     #[serde(default)]
     pub window: u64,
@@ -87,7 +103,60 @@ pub struct LineNote {
 
 impl OutcomeNote {
     pub fn parse(fact: &Fact) -> Option<Self> {
-        if !fact.kind.as_str().starts_with("mind.") {
+        if ![DECISION_FACT, LINE_FACT].contains(&fact.kind.as_str()) {
+            return None;
+        }
+        match &fact.payload {
+            FactPayload::Note(n) => serde_json::from_str(n).ok(),
+            FactPayload::Event(_) => None,
+        }
+    }
+}
+
+/// Which request of an outcome a call answered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Stage {
+    /// The decision model's pick.
+    Pick,
+    /// The line model's phrasing.
+    Phrase,
+}
+
+/// The JSON note of a `mind.spend` fact: one call, everything a replay needs.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SpendNote {
+    pub menu: String,
+    pub actor: String,
+    pub stage: Stage,
+    /// The request key.
+    pub key: String,
+    /// HTTP attempts, retries included.
+    pub attempts: u32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<RegionId>,
+    /// The budget window the request was counted in when it was sent.
+    pub window: u64,
+    /// Ticks from sending the request to handling its answer.
+    pub waited: u64,
+    /// The answer came after the host had taken the default.
+    #[serde(default)]
+    pub late: bool,
+    /// The raw answer (a `Decision` or `LineDraft`), even one validation dropped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<Value>,
+    /// Why the call failed: an error tag, with the HTTP status if there was one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<u16>,
+}
+
+impl SpendNote {
+    pub fn parse(fact: &Fact) -> Option<Self> {
+        if fact.kind.as_str() != SPEND_FACT {
             return None;
         }
         match &fact.payload {
@@ -133,16 +202,19 @@ impl Ledger {
 
     pub fn observe(&mut self, fact: &Fact) {
         self.seen = Some(fact.id);
+        if let Some(spend) = SpendNote::parse(fact) {
+            let cost = fact.amount.unwrap_or(0).max(0);
+            *self
+                .calls
+                .entry((spend.region.clone(), spend.window))
+                .or_default() += spend.attempts;
+            *self.spent.entry(spend.region).or_default() += cost;
+            self.total += cost;
+            return;
+        }
         let Some(note) = OutcomeNote::parse(fact) else {
             return;
         };
-        let cost = fact.amount.unwrap_or(0).max(0);
-        *self
-            .calls
-            .entry((note.region.clone(), note.window))
-            .or_default() += note.calls;
-        *self.spent.entry(note.region.clone()).or_default() += cost;
-        self.total += cost;
         if note.source != Source::Default
             && let Some(choice) = &note.choice
         {

@@ -6,14 +6,16 @@
 //! 1. reads the history facts committed since the last pump and lets each
 //!    [`MenuProvider`] open menus (requests fire from events, never from a clock);
 //! 2. answers each menu from the situation cache, or queues a model call if the
-//!    region's budget allows, or takes the utility default at once;
-//! 3. collects finished calls, validates them and falls back where they fail;
+//!    region's budget has room for its attempts, or takes the utility default at once;
+//! 3. collects finished calls, records what each one cost, validates the answers and
+//!    falls back where they fail;
 //! 4. takes the default for any call past its deadline (in ticks, so a pause loses
-//!    nothing);
+//!    nothing), and keeps counting it against the budget until its answer comes in;
 //! 5. submits one `CommandBatch` per outcome with `Cause::Mind { npc, decision }`. Its
-//!    `mind.decision` or `mind.line` fact records the request key, the source, the
-//!    calls and the cost, so dock talk can cite it, rumors can carry it and the game
-//!    master can read it.
+//!    `mind.decision` or `mind.line` fact records the request key, the source and the
+//!    calls, so dock talk can cite it, rumors can carry it and the game master can
+//!    read it. Each call's cost goes in a `mind.spend` fact in a batch of its own, so
+//!    a late, malformed or rejected answer is still paid for in the ledger.
 //!
 //! Pumping never blocks. With an [`crate::Inline`] executor and a deterministic mind
 //! every answer lands in the same pump, so runs repeat exactly.
@@ -29,9 +31,11 @@ use serde_json::json;
 use crate::config::{Brief, MindConfig};
 use crate::executor::{Done, Executor, Job, JobResult};
 use crate::menu::{DOCK_TALK, LineCandidate, Menu, MenuCtx, MenuProvider, RumorSpread};
-use crate::mind::{DecisionRequest, LineRequest, MindError, Question};
+use crate::mind::{DecisionRequest, LineRequest, MAX_ATTEMPTS, MindError, Question};
 use crate::packet::{self, Names};
-use crate::situation::{self, Cached, Ledger, LineNote, OutcomeNote, Source, micros};
+use crate::situation::{
+    self, Cached, Ledger, LineNote, OutcomeNote, SPEND_FACT, Source, SpendNote, micros,
+};
 use crate::validate::{self, LineRules};
 use crate::{DECISION_FACT, LINE_FACT};
 
@@ -62,7 +66,7 @@ pub struct Stats {
     pub cache: u64,
     pub defaults: u64,
     pub skipped: u64,
-    /// Answers that arrived after their deadline and were dropped.
+    /// Answers that arrived after their deadline: paid for, not used.
     pub late_dropped: u64,
     pub cost_usd: f64,
     pub latency_ms: u64,
@@ -83,19 +87,11 @@ struct Acc {
 
 impl Acc {
     fn spend(&mut self, model: &str, attempts: u8, cost_usd: f64) {
-        self.models.push(model.to_owned());
+        if !model.is_empty() {
+            self.models.push(model.to_owned());
+        }
         self.calls += u32::from(attempts);
         self.cost += micros(cost_usd);
-    }
-
-    fn failed(&mut self, e: &MindError) {
-        // A retried failure made two calls; a missing key or recording made none.
-        self.calls += match e {
-            MindError::NoKey | MindError::NotRecorded => 0,
-            e if e.retryable() => 2,
-            _ => 1,
-        };
-        self.why.push(e.tag().to_owned());
     }
 }
 
@@ -105,8 +101,24 @@ enum Stage {
     Phrase {
         chosen: usize,
         key: String,
-        packet: Vec<FactId>,
+        /// The packet's facts with their text, and its other texts: the grounding.
+        facts: BTreeMap<FactId, String>,
+        context: Vec<String>,
     },
+}
+
+/// A request that went out: what its spend is booked against.
+#[derive(Clone, Debug)]
+struct Sent {
+    menu: &'static str,
+    actor: String,
+    stage: situation::Stage,
+    key: String,
+    region: Option<RegionId>,
+    window: u64,
+    at: Tick,
+    /// Attempts reserved in the budget until the answer comes in.
+    allowed: u8,
 }
 
 struct Pending {
@@ -115,6 +127,7 @@ struct Pending {
     deadline: Tick,
     stage: Stage,
     acc: Acc,
+    sent: Sent,
 }
 
 pub struct MindHost {
@@ -122,10 +135,15 @@ pub struct MindHost {
     exec: Box<dyn Executor>,
     providers: Vec<Box<dyn MenuProvider>>,
     ledger: Ledger,
-    /// Outcomes submitted but not yet seen in history, so a burst can't overspend.
-    posted: Vec<(OutcomeNote, i64)>,
+    /// Spend submitted but not yet seen in history, so a burst can't overspend.
+    posted: Vec<(SpendNote, i64)>,
     seen: Option<FactId>,
     pending: BTreeMap<u64, Pending>,
+    /// Requests whose moment passed while they were still out. They keep their budget
+    /// reservation until the answer arrives, and its cost is then recorded.
+    expired: BTreeMap<u64, Sent>,
+    /// Replayed answers held until the tick the original was handled.
+    held: Vec<(Tick, Done)>,
     next_ticket: u64,
     stats: Stats,
 }
@@ -149,6 +167,8 @@ impl MindHost {
             posted: Vec::new(),
             seen: history.last_fact_id(),
             pending: BTreeMap::new(),
+            expired: BTreeMap::new(),
+            held: Vec::new(),
             next_ticket: 1,
             stats: Stats::default(),
         };
@@ -169,19 +189,19 @@ impl MindHost {
         &self.stats
     }
 
-    /// Requests waiting for an answer.
+    /// Requests waiting for an answer (not counting those whose moment passed).
     pub fn in_flight(&self) -> usize {
         self.pending.len()
     }
 
-    /// Calls counted in a region's current window, committed or just submitted.
+    /// HTTP attempts counted in a region's window, committed or just submitted.
     pub fn calls_in_window(&self, region: Option<&RegionId>, window: u64) -> u32 {
         self.ledger.calls(region, window)
             + self
                 .posted
                 .iter()
                 .filter(|(n, _)| n.region.as_ref() == region && n.window == window)
-                .map(|(n, _)| n.calls)
+                .map(|(n, _)| n.attempts)
                 .sum::<u32>()
     }
 
@@ -225,7 +245,16 @@ impl MindHost {
             for (provider, menu) in opened {
                 self.open(world, history, tick, provider, menu, &mut out);
             }
-            for done in self.exec.poll() {
+            let mut due = Vec::new();
+            for (at, done) in std::mem::take(&mut self.held) {
+                if at <= tick {
+                    due.push(done);
+                } else {
+                    self.held.push((at, done));
+                }
+            }
+            due.extend(self.exec.poll());
+            for done in due {
                 self.answer(world, history, tick, done, &mut out);
             }
             let late: Vec<u64> = self
@@ -236,6 +265,8 @@ impl MindHost {
                 .collect();
             for ticket in late {
                 let p = self.pending.remove(&ticket).expect("listed above");
+                // Still out: it keeps its reservation and is paid for when it lands.
+                self.expired.insert(ticket, p.sent.clone());
                 self.give_up(world, history, tick, p, "late", &mut out);
             }
         }
@@ -251,8 +282,8 @@ impl MindHost {
         report
     }
 
-    /// Folds new `mind.*` facts into the ledger; a fact we posted ourselves stops
-    /// being counted as posted once it has committed.
+    /// Folds new `mind.*` facts into the ledger; spend we posted ourselves stops being
+    /// counted as posted once it has committed.
     fn catch_up(&mut self, history: &History) {
         let facts = history.facts();
         let from = self
@@ -261,8 +292,11 @@ impl MindHost {
             .map_or(0, |id| facts.partition_point(|f| f.id <= id));
         for f in &facts[from..] {
             self.ledger.observe(f);
-            if let Some(note) = OutcomeNote::parse(f)
-                && let Some(i) = self.posted.iter().position(|(n, _)| *n == note)
+            if let Some(note) = SpendNote::parse(f)
+                && let Some(i) = self
+                    .posted
+                    .iter()
+                    .position(|(n, c)| *n == note && Some(*c) == f.amount)
             {
                 self.posted.remove(i);
             }
@@ -281,15 +315,23 @@ impl MindHost {
         }
     }
 
-    fn budget(&self, acc: &Acc) -> Result<(), &'static str> {
-        let region = acc.region.as_ref();
+    /// How many HTTP attempts the next request may make: what is left of the region's
+    /// window once spent and reserved attempts are counted. A request that would go
+    /// over isn't sent.
+    fn allowance(&self, region: Option<&RegionId>, window: u64) -> Result<u8, &'static str> {
         let b = self.config.budget.for_region(region);
-        let reserved = self
+        let reserved: u32 = self
             .pending
             .values()
-            .filter(|p| p.acc.region.as_ref() == region)
-            .count() as u32;
-        if b.calls == 0 || self.calls_in_window(region, acc.window) + reserved >= b.calls {
+            .map(|p| &p.sent)
+            .chain(self.expired.values())
+            .filter(|s| s.region.as_ref() == region)
+            .map(|s| u32::from(s.allowed))
+            .sum();
+        let left = b
+            .calls
+            .saturating_sub(self.calls_in_window(region, window) + reserved);
+        if left == 0 {
             return Err("budget");
         }
         let posted: i64 = self
@@ -303,7 +345,11 @@ impl MindHost {
         {
             return Err("spend_cap");
         }
-        Ok(())
+        Ok(left.min(u32::from(MAX_ATTEMPTS)) as u8)
+    }
+
+    fn deadline_ms(&self) -> u64 {
+        self.config.limits.deadline_ticks * 1000 / u64::from(TICKS_PER_SECOND)
     }
 
     fn ticket(&mut self) -> u64 {
@@ -341,25 +387,20 @@ impl MindHost {
             if talk { None } else { brief.as_ref() },
             &self.config.limits,
         );
-        // Keyed by what the answer depends on: the brief's revision, the facts the menu
-        // is about (not the routine docking that opened it) and the menu itself.
-        let facts: Vec<FactId> = menu
-            .cites
-            .iter()
-            .copied()
-            .filter(|f| *f != menu.trigger)
-            .collect();
         let options: Vec<(String, String)> = menu
             .options
             .iter()
             .map(|o| (o.id.clone(), o.text.clone()))
             .collect();
+        // Keyed by everything the model sees (place, state, remembered facts, brief,
+        // options) except the routine fact that opened the menu, plus the brief's
+        // revision and the option IDs the answer maps back to.
         let key = situation::key(&json!({
             "menu": menu.kind,
             "actor": menu.actor,
             "brief": brief.as_ref().map_or(0, |b| b.revision),
-            "facts": facts,
-            "options": options,
+            "packet": packet.key_parts(menu.trigger),
+            "options": menu.options.iter().map(|o| &o.id).collect::<Vec<_>>(),
         }));
         let mut acc = Acc {
             key: key.clone(),
@@ -381,23 +422,23 @@ impl MindHost {
             Some(Cached::Choice(id)) => menu.options.iter().position(|o| &o.id == id),
             _ => None,
         };
-        let reason = if menu.options.len() == 1 {
-            Some("single")
+        let allowed = if menu.options.len() == 1 {
+            Err("single")
         } else if !may_ask {
-            Some("not_allowed")
-        } else if cached.is_some() {
-            None
-        } else {
-            self.budget(&acc).err()
-        };
-        if let Some(i) = cached.filter(|_| reason.is_none()) {
+            Err("not_allowed")
+        } else if let Some(i) = cached {
             acc.source = Source::Cache;
             return self.choose(world, history, tick, provider, menu, acc, i, out);
-        }
-        if let Some(why) = reason {
-            acc.why.push(why.to_owned());
-            return self.choose(world, history, tick, provider, menu, acc, 0, out);
-        }
+        } else {
+            self.allowance(acc.region.as_ref(), window)
+        };
+        let allowed = match allowed {
+            Ok(n) => n,
+            Err(why) => {
+                acc.why.push(why.to_owned());
+                return self.choose(world, history, tick, provider, menu, acc, 0, out);
+            }
+        };
 
         let mut instructions = String::new();
         if let (false, Some(b)) = (talk, &brief) {
@@ -406,10 +447,12 @@ impl MindHost {
         instructions.push_str(&menu.instructions);
         instructions.push_str(" Every option is allowed; choose the one that fits best.");
         let req = DecisionRequest {
-            key,
+            key: key.clone(),
             instructions,
             state: packet.to_value(),
             question: Question::choice(&options),
+            max_attempts: allowed,
+            deadline_ms: self.deadline_ms(),
         };
         let ticket = self.ticket();
         if !self.exec.submit(ticket, Job::Decide(req)) {
@@ -417,6 +460,16 @@ impl MindHost {
             return self.choose(world, history, tick, provider, menu, acc, 0, out);
         }
         self.stats.requests += 1;
+        let sent = Sent {
+            menu: menu.kind,
+            actor: menu.actor.to_string(),
+            stage: situation::Stage::Pick,
+            key,
+            region: acc.region.clone(),
+            window,
+            at: tick,
+            allowed,
+        };
         self.pending.insert(
             ticket,
             Pending {
@@ -425,8 +478,73 @@ impl MindHost {
                 deadline: Tick(tick.0 + self.config.limits.deadline_ticks),
                 stage: Stage::Pick,
                 acc,
+                sent,
             },
         );
+    }
+
+    /// Books one finished call's attempts and cost as a `mind.spend` fact, in a batch
+    /// of its own, whatever becomes of its answer.
+    fn record_spend(
+        &mut self,
+        sent: &Sent,
+        tick: Tick,
+        result: &JobResult,
+        late: bool,
+        out: &mut Out,
+    ) {
+        let (attempts, cost_usd, model, _) = result.usage();
+        let cost = micros(cost_usd);
+        self.stats.cost_usd += cost_usd;
+        if attempts == 0 && cost == 0 {
+            return;
+        }
+        let (answer, error) = match result {
+            JobResult::Decide(r) => (
+                r.result.as_ref().ok().map(|v| json!(v)),
+                r.result.as_ref().err(),
+            ),
+            JobResult::Line(r) => (
+                r.result.as_ref().ok().map(|v| json!(v)),
+                r.result.as_ref().err(),
+            ),
+        };
+        let note = SpendNote {
+            menu: sent.menu.to_owned(),
+            actor: sent.actor.clone(),
+            stage: sent.stage,
+            key: sent.key.clone(),
+            attempts: u32::from(attempts),
+            model: model.to_owned(),
+            region: sent.region.clone(),
+            window: sent.window,
+            waited: tick.0.saturating_sub(sent.at.0),
+            late,
+            answer,
+            error: error.map(|e| e.tag().to_owned()),
+            status: error.and_then(MindError::status),
+        };
+        out.batches.push(
+            CommandBatch::new(Cause::system(
+                "mind",
+                format!(
+                    "fast-model call for {} ({attempts} attempts, ${cost_usd:.6})",
+                    sent.menu
+                ),
+            ))
+            .with(Command::RecordFact {
+                fact: Box::new(FactDraft {
+                    kind: FactKind::new(SPEND_FACT).expect("valid kind"),
+                    subjects: Subjects {
+                        region: sent.region.clone(),
+                        ..Subjects::default()
+                    },
+                    amount: Some(cost),
+                    note: serde_json::to_string(&note).expect("notes serialize"),
+                }),
+            }),
+        );
+        self.posted.push((note, cost));
     }
 
     fn answer(
@@ -437,62 +555,87 @@ impl MindHost {
         done: Done,
         out: &mut Out,
     ) {
-        let Some(p) = self.pending.remove(&done.ticket) else {
+        let Some(sent) = self
+            .pending
+            .get(&done.ticket)
+            .map(|p| &p.sent)
+            .or_else(|| self.expired.get(&done.ticket))
+            .cloned()
+        else {
             self.stats.late_dropped += 1;
             return;
         };
+        let (_, _, _, hold) = done.result.usage();
+        if hold > 0 && tick.0 < sent.at.0 + hold {
+            self.held.push((Tick(sent.at.0 + hold), done));
+            return;
+        }
+        let late = self.expired.remove(&done.ticket).is_some();
+        self.record_spend(&sent, tick, &done.result, late, out);
+        if late {
+            self.stats.late_dropped += 1;
+            return;
+        }
+        let p = self.pending.remove(&done.ticket).expect("found above");
         self.stats.latency_ms += done.latency_ms;
         let Pending {
             provider,
             menu,
             stage,
             mut acc,
+            sent,
             ..
         } = p;
         match (stage, done.result) {
-            (Stage::Pick, JobResult::Decide(Ok(reply))) => {
+            (Stage::Pick, JobResult::Decide(reply)) => {
                 acc.spend(&reply.model, reply.attempts, reply.cost_usd);
-                self.stats.cost_usd += reply.cost_usd;
-                match validate::choice(&menu, &reply.value) {
-                    Ok(i) => {
-                        acc.source = Source::Model;
-                        self.choose(world, history, tick, provider, menu, acc, i, out);
-                    }
+                match reply.result {
+                    Ok(decision) => match validate::choice(&menu, &decision) {
+                        Ok(i) => {
+                            acc.source = Source::Model;
+                            self.choose(world, history, tick, provider, menu, acc, i, out);
+                        }
+                        Err(e) => {
+                            acc.why.push(e.to_string());
+                            self.choose(world, history, tick, provider, menu, acc, 0, out);
+                        }
+                    },
                     Err(e) => {
-                        acc.why.push(e.to_string());
+                        acc.why.push(e.tag().to_owned());
                         self.choose(world, history, tick, provider, menu, acc, 0, out);
                     }
                 }
-            }
-            (Stage::Pick, JobResult::Decide(Err(e))) => {
-                acc.failed(&e);
-                self.choose(world, history, tick, provider, menu, acc, 0, out);
             }
             (
                 Stage::Phrase {
                     chosen,
                     key,
-                    packet,
+                    facts,
+                    context,
                 },
-                JobResult::Line(result),
+                JobResult::Line(reply),
             ) => {
+                acc.spend(&reply.model, reply.attempts, reply.cost_usd);
                 let line = menu.options[chosen].line.clone().expect("phrase stage");
-                let said = match result {
-                    Ok(reply) => {
-                        acc.spend(&reply.model, reply.attempts, reply.cost_usd);
-                        self.stats.cost_usd += reply.cost_usd;
-                        let names = self.names(world, &line);
+                let said = match reply.result {
+                    Ok(draft) => {
+                        let (names, wares) = self.names(world, &line);
                         let forbidden = self.forbidden(&line);
                         let rules = LineRules {
                             cite: line.cites,
-                            packet: &packet,
+                            facts: &facts,
+                            context: &context,
                             max_words: self.max_words(&line),
                             max_chars: self.config.talk.max_chars,
                             forbidden: &forbidden,
                             names: &names,
+                            wares: &wares,
+                            claims: &self.config.talk.claims,
                             authored: &line.text,
+                            template: &line.template,
+                            slots: &line.slots,
                         };
-                        match validate::line(&reply.value, &rules) {
+                        match validate::line(&draft, &rules) {
                             Ok(clean) => Some((clean.text, clean.cites)),
                             Err(e) => {
                                 acc.why.push(e.to_string());
@@ -501,7 +644,7 @@ impl MindHost {
                         }
                     }
                     Err(e) => {
-                        acc.failed(&e);
+                        acc.why.push(e.tag().to_owned());
                         None
                     }
                 };
@@ -521,6 +664,7 @@ impl MindHost {
                     deadline: tick,
                     stage,
                     acc,
+                    sent,
                 };
                 self.give_up(world, history, tick, p, "", out);
             }
@@ -640,12 +784,21 @@ impl MindHost {
         f
     }
 
-    fn names(&self, world: &WorldState, line: &LineCandidate) -> BTreeSet<String> {
+    /// The world's names a line must ground (all but the player's, who is "you"),
+    /// and its ware names.
+    fn names(
+        &self,
+        world: &WorldState,
+        line: &LineCandidate,
+    ) -> (BTreeSet<String>, BTreeSet<String>) {
+        let wares: BTreeSet<String> = world.wares.values().map(|w| w.name.clone()).collect();
         let mut names = Names(world).all();
+        names.remove(&world.player.name);
+        names.retain(|n| !wares.contains(n));
         if let Some(b) = self.line_brief(line) {
             names.insert(b.name.clone());
         }
-        names
+        (names, wares)
     }
 
     /// Dock talk, second stage: the chosen line in the speaker's voice, or as written.
@@ -673,13 +826,14 @@ impl MindHost {
             ..menu.clone()
         };
         let packet = packet::build(world, history, &voiced, brief.as_ref(), &self.config.limits);
-        let ids = packet.fact_ids();
         let key = situation::key(&json!({
             "line": line.line,
             "npc": line.npc,
             "brief": brief.as_ref().map_or(0, |b| b.revision),
-            "cite": line.cites,
+            "template": line.template,
+            "slots": line.slots,
             "authored": line.text,
+            "packet": packet.key_parts(menu.trigger),
         }));
         let authored = |host: &mut Self, acc: Acc, why: &str, out: &mut Out| {
             let mut acc = acc;
@@ -702,24 +856,41 @@ impl MindHost {
         if let Some(Cached::Line { text, cites }) = self.ledger.cached(&key).cloned() {
             return self.speak(&menu, acc, chosen, &key, Source::Cache, text, cites, out);
         }
-        if let Err(why) = self.budget(&acc) {
-            return authored(self, acc, why, out);
-        }
+        // The pick stage's calls are already booked, so they count here.
+        let allowed = match self.allowance(acc.region.as_ref(), acc.window) {
+            Ok(n) => n,
+            Err(why) => return authored(self, acc, why, out),
+        };
         let max_words = self.max_words(&line);
+        let ids = packet.fact_ids();
         let req = LineRequest {
             key: key.clone(),
-            system: system_prompt(&brief, max_words),
+            system: system_prompt(&brief, max_words, !line.slots.is_empty()),
             packet: packet.to_value(),
             authored: line.text.clone(),
+            template: line.template.clone(),
+            slots: line.slots.clone(),
             cite: line.cites.to_string(),
             allowed_cites: ids.iter().map(ToString::to_string).collect(),
             max_words,
+            max_attempts: allowed,
+            deadline_ms: self.deadline_ms(),
         };
         let ticket = self.ticket();
         if !self.exec.submit(ticket, Job::Line(req)) {
             return authored(self, acc, "busy", out);
         }
         self.stats.requests += 1;
+        let sent = Sent {
+            menu: menu.kind,
+            actor: line.npc.to_string(),
+            stage: situation::Stage::Phrase,
+            key: key.clone(),
+            region: acc.region.clone(),
+            window: acc.window,
+            at: tick,
+            allowed,
+        };
         self.pending.insert(
             ticket,
             Pending {
@@ -729,9 +900,11 @@ impl MindHost {
                 stage: Stage::Phrase {
                     chosen,
                     key,
-                    packet: ids,
+                    facts: packet.fact_texts(),
+                    context: packet.texts(),
                 },
                 acc,
+                sent,
             },
         );
     }
@@ -759,6 +932,7 @@ impl MindHost {
             why: acc.why.clone(),
             models: acc.models.clone(),
             calls: acc.calls,
+            cost: acc.cost,
             window: acc.window,
             region: acc.region.clone(),
             line: Some(LineNote {
@@ -779,7 +953,7 @@ impl MindHost {
                 other: AnyId::new(&line.line).ok(),
                 ..Subjects::default()
             },
-            amount: Some(acc.cost),
+            amount: None,
             note: serde_json::to_string(&note).expect("notes serialize"),
         };
         let cause = Cause {
@@ -790,7 +964,6 @@ impl MindHost {
             summary: format!("{} says: {text}", line.npc),
             cites: cites.clone(),
         };
-        self.posted.push((note, acc.cost));
         out.batches.push(CommandBatch {
             cause,
             commands: vec![Command::RecordFact {
@@ -829,6 +1002,7 @@ impl MindHost {
             why: acc.why.clone(),
             models: acc.models.clone(),
             calls: acc.calls,
+            cost: acc.cost,
             window: acc.window,
             region: acc.region.clone(),
             line: None,
@@ -843,11 +1017,10 @@ impl MindHost {
                     region: acc.region.clone(),
                     ..Subjects::default()
                 },
-                amount: Some(acc.cost),
+                amount: None,
                 note: serde_json::to_string(&note).expect("notes serialize"),
             }),
         });
-        self.posted.push((note, acc.cost));
         let who = Names(world).of(menu.actor.as_str());
         let mut cites = menu.cites.clone();
         if !cites.contains(&menu.trigger) {
@@ -870,8 +1043,9 @@ impl MindHost {
     }
 }
 
-/// The line model's system prompt, from the speaker's brief.
-pub fn system_prompt(brief: &Brief, max_words: u32) -> String {
+/// The line model's system prompt, from the speaker's brief. `slots`: the line has
+/// slots the model must keep.
+pub fn system_prompt(brief: &Brief, max_words: u32, slots: bool) -> String {
     let mut s = format!(
         "You are {}, {}. Voice: {}",
         brief.name, brief.role, brief.voice
@@ -881,10 +1055,17 @@ pub fn system_prompt(brief: &Brief, max_words: u32) -> String {
     }
     s.push_str(&format!(
         " Say the given line again in your own voice, in at most {max_words} words. Keep its \
-         meaning and its facts. Name only people, places, ships and wares that appear in the \
-         packet or the line; invent nothing. English only. Do not put fact IDs in the text. \
-         Set \"cite\" to the fact the line is about."
+         meaning and its facts and add none: no new events, numbers, people, places, ships \
+         or wares. Name only what appears in the line or the packet. English only. Do not \
+         put fact IDs in the text. Set \"cite\" to the fact the line is about."
     ));
+    if slots {
+        s.push_str(
+            " The line has slots in braces, such as {qty}: copy each slot exactly as written, \
+             as many times as the line has it, and write no numbers of your own. The game \
+             fills the slots in.",
+        );
+    }
     if !brief.off_limits.is_empty() {
         s.push_str(&format!(" Never mention: {}.", brief.off_limits.join("; ")));
     }

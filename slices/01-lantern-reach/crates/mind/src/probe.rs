@@ -1,7 +1,7 @@
 //! One live Jev choice and one live line, timed and costed: `galaxy mind try` and the
 //! `#[ignore]` live tests. Needs `OPENROUTER_API_KEY`; nothing else uses the network.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use galaxy_contract::ids::FactId;
@@ -10,7 +10,9 @@ use serde_json::json;
 
 use crate::config::MindConfig;
 use crate::host::system_prompt;
-use crate::mind::{Decision, DecisionRequest, LineRequest, Mind, MindError, Question, Reply};
+use crate::mind::{
+    Decision, DecisionRequest, LineRequest, MAX_ATTEMPTS, Mind, MindError, Question, Reply,
+};
 use crate::openrouter::OpenRouterMind;
 use crate::validate::{self, LineRules};
 
@@ -57,15 +59,20 @@ pub fn sample_decision() -> DecisionRequest {
                 .collect::<Vec<_>>(),
         }),
         question: Question::choice(&options),
+        max_attempts: MAX_ATTEMPTS,
+        deadline_ms: 10_000,
     }
 }
 
 /// Ilse's first line to say in her voice, with what the answer is checked against.
 pub struct SampleLine {
     pub req: LineRequest,
-    packet: Vec<FactId>,
+    facts: BTreeMap<FactId, String>,
+    context: Vec<String>,
     names: BTreeSet<String>,
+    wares: BTreeSet<String>,
     forbidden: Vec<String>,
+    claims: Vec<String>,
     max_chars: u32,
 }
 
@@ -73,12 +80,17 @@ impl SampleLine {
     pub fn rules(&self) -> LineRules<'_> {
         LineRules {
             cite: FactId(40),
-            packet: &self.packet,
+            facts: &self.facts,
+            context: &self.context,
             max_words: self.req.max_words,
             max_chars: self.max_chars,
             forbidden: &self.forbidden,
             names: &self.names,
+            wares: &self.wares,
+            claims: &self.claims,
             authored: &self.req.authored,
+            template: &self.req.template,
+            slots: &self.req.slots,
         }
     }
 }
@@ -102,31 +114,62 @@ pub fn sample_line(config: &MindConfig) -> SampleLine {
             off_limits: Vec::new(),
         });
     let max_words = config.talk.max_words;
-    let authored = "Odo's been counting your ice. He counts slower than I do, but he gets there.";
+    let template =
+        "Odo's been counting your {qty} ice. He counts slower than I do, but he gets there.";
+    let slots: BTreeMap<String, String> = [("qty".to_owned(), "12".to_owned())].into();
+    let authored = template.replace("{qty}", "12");
+    let facts: BTreeMap<FactId, String> = [
+        (
+            FactId(40),
+            "Wren delivered 12 ice to Kettle Dock".to_owned(),
+        ),
+        (FactId(42), "Wren docked at Lantern Wharf".to_owned()),
+    ]
+    .into();
+    let place = "Lantern Wharf in Lantern Shallows";
     let req = LineRequest {
         key: "sk.probe_line".into(),
-        system: system_prompt(&brief, max_words),
+        system: system_prompt(&brief, max_words, true),
         packet: json!({
-            "place": {"id": "station.lantern_wharf", "text": "Lantern Wharf in Lantern Shallows"},
-            "facts": [
-                {"id": "fact.40", "kind": "deliver", "text": "Wren delivered 12 ice to Kettle Dock"},
-                {"id": "fact.42", "kind": "dock", "text": "Wren docked at Lantern Wharf"},
-            ],
+            "place": {"id": "station.lantern_wharf", "text": place},
+            "facts": facts.iter()
+                .map(|(id, text)| json!({"id": id, "kind": if id.0 == 40 { "deliver" } else { "dock" }, "text": text}))
+                .collect::<Vec<_>>(),
         }),
-        authored: authored.into(),
+        authored,
+        template: template.into(),
+        slots,
         cite: "fact.40".into(),
         allowed_cites: vec!["fact.40".into(), "fact.42".into()],
         max_words,
+        max_attempts: MAX_ATTEMPTS,
+        deadline_ms: 10_000,
     };
-    let names: BTreeSet<String> = ["Odo Fenn", "Kettle Dock", "Lantern Wharf", "Wren", "Ilse"]
+    let names: BTreeSet<String> = [
+        "Odo Fenn",
+        "Kettle Dock",
+        "Lantern Wharf",
+        "Lantern Shallows",
+        "Wren",
+        "Ilse Marrow",
+        "Saffron Vey",
+        "Brassmouth Exchange",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    let wares: BTreeSet<String> = ["Ice", "Rations", "Glassite", "Iron ore"]
         .into_iter()
         .map(str::to_owned)
         .collect();
     SampleLine {
         req,
-        packet: vec![FactId(40), FactId(42)],
+        facts,
+        context: vec![brief.name.clone(), brief.role.clone(), place.to_owned()],
         names,
+        wares,
         forbidden: config.talk.forbidden.clone(),
+        claims: config.talk.claims.clone(),
         max_chars: config.talk.max_chars,
     }
 }
@@ -145,33 +188,30 @@ pub struct ProbeResult<T> {
     pub error: Option<String>,
 }
 
-fn timed<T>(f: impl FnOnce() -> Result<Reply<T>, MindError>) -> (Result<Reply<T>, MindError>, u64) {
+fn timed<T>(f: impl FnOnce() -> Reply<T>) -> (Reply<T>, u64) {
     let start = Instant::now();
     let r = f();
     (r, start.elapsed().as_millis() as u64)
 }
 
-fn result<T, U>(
-    r: Result<Reply<T>, MindError>,
-    ms: u64,
-    map: impl FnOnce(T) -> U,
-) -> ProbeResult<U> {
-    match r {
-        Ok(reply) => ProbeResult {
+fn result<T, U>(r: Reply<T>, ms: u64, map: impl FnOnce(T) -> U) -> ProbeResult<U> {
+    let model = (!r.model.is_empty()).then(|| r.model.clone());
+    match r.result {
+        Ok(value) => ProbeResult {
             ok: true,
             latency_ms: ms,
-            model: Some(reply.model),
-            cost_usd: reply.cost_usd,
-            attempts: reply.attempts,
-            answer: Some(map(reply.value)),
+            model,
+            cost_usd: r.cost_usd,
+            attempts: r.attempts,
+            answer: Some(map(value)),
             error: None,
         },
         Err(e) => ProbeResult {
             ok: false,
             latency_ms: ms,
-            model: None,
-            cost_usd: 0.0,
-            attempts: 0,
+            model,
+            cost_usd: r.cost_usd,
+            attempts: r.attempts,
             answer: None,
             error: Some(e.to_string()),
         },

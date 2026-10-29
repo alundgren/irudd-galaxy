@@ -1,22 +1,23 @@
 //! Offline minds. [`FakeMind`] is seeded and deterministic (tests, the journey bot);
-//! [`RecordedMind`] replays the decisions a save already made.
+//! [`RecordedMind`] replays the calls a save already made.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use galaxy_contract::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::mind::{
     Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply, wire_id,
 };
-use crate::situation::{OutcomeNote, Source};
+use crate::situation::{SpendNote, Stage};
 
 /// What a fake call is said to cost, so budgets are exercised offline.
 pub const FAKE_COST_USD: f64 = 0.00002;
 
 /// A seeded stand-in model. Same seed and same situation key, same answer. It favours
 /// the utility top choice (about two times in three) and says authored lines as they
-/// are, citing the line's own fact.
+/// are, slots kept, citing the line's own fact.
 #[derive(Clone, Debug)]
 pub struct FakeMind {
     seed: u64,
@@ -41,14 +42,12 @@ impl FakeMind {
         u64::from_le_bytes(b.as_bytes()[..8].try_into().expect("8 bytes"))
     }
 
-    fn reply<T>(&mut self, value: T) -> Reply<T> {
-        self.calls += 1;
-        Reply {
-            value,
-            cost_usd: FAKE_COST_USD,
-            model: "fake".into(),
-            attempts: 1,
+    fn reply<T>(&mut self, max_attempts: u8, value: T) -> Reply<T> {
+        if max_attempts == 0 {
+            return Reply::none(MindError::NotRecorded);
         }
+        self.calls += 1;
+        Reply::ok(value, FAKE_COST_USD, "fake")
     }
 }
 
@@ -57,7 +56,7 @@ impl Mind for FakeMind {
         "fake"
     }
 
-    fn decide(&mut self, req: &DecisionRequest) -> Result<Reply<Decision>, MindError> {
+    fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision> {
         let r = self.roll(&req.key);
         let value = match &req.question {
             Question::Choice { criteria, .. } => {
@@ -75,63 +74,84 @@ impl Mind for FakeMind {
                 score: (r % scale.len().max(1) as u64) as f64,
             },
         };
-        Ok(self.reply(value))
+        self.reply(req.max_attempts, value)
     }
 
-    fn line(&mut self, req: &LineRequest) -> Result<Reply<LineDraft>, MindError> {
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         let value = LineDraft {
-            text: req.authored.clone(),
+            text: req.template.clone(),
             cites: vec![req.cite.clone()],
         };
-        Ok(self.reply(value))
+        self.reply(req.max_attempts, value)
     }
 }
 
-/// Decisions and lines a run made, by situation key.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// One recorded call: what came back, what it cost and when it was handled.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Occurrence {
+    /// The raw answer (a `Decision` or `LineDraft` as JSON), if one parsed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<Value>,
+    /// The error tag and HTTP status if the call failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<u16>,
+    pub attempts: u8,
+    /// Micro-dollars.
+    pub cost: i64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub model: String,
+    /// Ticks between the request and the host handling its answer.
+    pub waited: u64,
+}
+
+/// Every call a run made, in order, per stage and request key. Failed, malformed,
+/// rejected and late calls are in it too, so a replay meets the same answer, the same
+/// fallback and the same spend on each occurrence of a situation. Calls that sent
+/// nothing (no key, budget, cache) aren't: a replay reaches those by itself.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Recording {
-    /// Key -> the option ID chosen, with its cost in micro-dollars.
-    pub choices: BTreeMap<String, (String, i64)>,
-    /// Key -> the line said and its citations.
-    pub lines: BTreeMap<String, (LineDraft, i64)>,
+    pub calls: BTreeMap<(Stage, String), VecDeque<Occurrence>>,
 }
 
 impl Recording {
-    /// Every model answer in a save's history (`mind.*` facts). Defaults are not
-    /// recorded: a replay reaches the same default by itself.
+    /// Every call in a save's history (`mind.spend` facts), in the order made.
     pub fn from_history(facts: &[Fact]) -> Self {
         let mut rec = Self::default();
         for f in facts {
-            let Some(note) = OutcomeNote::parse(f) else {
+            let Some(note) = SpendNote::parse(f) else {
                 continue;
             };
-            // A line's fact carries the cost of both its stages; replay it at none.
-            let cost = if note.line.is_some() {
-                0
-            } else {
-                f.amount.unwrap_or(0)
-            };
-            if note.source == Source::Model
-                && let Some(choice) = note.choice
-            {
-                rec.choices.insert(note.key, (choice, cost));
-            }
-            if let Some(line) = note.line
-                && line.source == Source::Model
-            {
-                let draft = LineDraft {
-                    text: line.text,
-                    cites: line.cites.iter().map(ToString::to_string).collect(),
-                };
-                rec.lines.insert(line.key, (draft, 0));
-            }
+            rec.calls
+                .entry((note.stage, note.key))
+                .or_default()
+                .push_back(Occurrence {
+                    answer: note.answer,
+                    error: note.error,
+                    status: note.status,
+                    attempts: note.attempts.min(u32::from(u8::MAX)) as u8,
+                    cost: f.amount.unwrap_or(0),
+                    model: note.model,
+                    waited: note.waited,
+                });
         }
         rec
     }
+
+    /// Occurrences recorded in all.
+    pub fn len(&self) -> usize {
+        self.calls.values().map(VecDeque::len).sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
-/// Replays a [`Recording`]: the recorded answer for a known key, `NotRecorded` (so the
-/// host takes the default) for anything else.
+/// Replays a [`Recording`]: the next recorded occurrence for the request's stage and
+/// key, held back as many ticks as the original took; `NotRecorded` (nothing sent, so
+/// the host takes the default) once a situation's occurrences run out.
 #[derive(Clone, Debug)]
 pub struct RecordedMind {
     recording: Recording,
@@ -141,10 +161,30 @@ impl RecordedMind {
     pub fn new(recording: Recording) -> Self {
         Self { recording }
     }
-}
 
-fn usd(micro: i64) -> f64 {
-    micro as f64 / 1_000_000.0
+    fn next<T: for<'de> Deserialize<'de>>(&mut self, stage: Stage, key: &str) -> Reply<T> {
+        let Some(o) = self
+            .recording
+            .calls
+            .get_mut(&(stage, key.to_owned()))
+            .and_then(VecDeque::pop_front)
+        else {
+            return Reply::none(MindError::NotRecorded);
+        };
+        let result = match (&o.error, o.answer) {
+            (Some(tag), _) => Err(MindError::from_tag(tag, o.status)),
+            (None, Some(v)) => serde_json::from_value(v)
+                .map_err(|e| MindError::Malformed(format!("recorded answer: {e}"))),
+            (None, None) => Err(MindError::NotRecorded),
+        };
+        Reply {
+            result,
+            cost_usd: o.cost as f64 / 1_000_000.0,
+            model: o.model,
+            attempts: o.attempts,
+            hold_ticks: o.waited,
+        }
+    }
 }
 
 impl Mind for RecordedMind {
@@ -152,41 +192,11 @@ impl Mind for RecordedMind {
         "recorded"
     }
 
-    fn decide(&mut self, req: &DecisionRequest) -> Result<Reply<Decision>, MindError> {
-        let (choice, cost) = self
-            .recording
-            .choices
-            .get(&req.key)
-            .ok_or(MindError::NotRecorded)?;
-        let Question::Choice { options, .. } = &req.question else {
-            return Err(MindError::NotRecorded);
-        };
-        let i = options
-            .iter()
-            .position(|o| o == choice)
-            .ok_or(MindError::NotRecorded)?;
-        Ok(Reply {
-            value: Decision::Choice {
-                choice: wire_id(i),
-                confidence: None,
-            },
-            cost_usd: usd(*cost),
-            model: "recorded".into(),
-            attempts: 1,
-        })
+    fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision> {
+        self.next(Stage::Pick, &req.key)
     }
 
-    fn line(&mut self, req: &LineRequest) -> Result<Reply<LineDraft>, MindError> {
-        let (draft, cost) = self
-            .recording
-            .lines
-            .get(&req.key)
-            .ok_or(MindError::NotRecorded)?;
-        Ok(Reply {
-            value: draft.clone(),
-            cost_usd: usd(*cost),
-            model: "recorded".into(),
-            attempts: 1,
-        })
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
+        self.next(Stage::Phrase, &req.key)
     }
 }

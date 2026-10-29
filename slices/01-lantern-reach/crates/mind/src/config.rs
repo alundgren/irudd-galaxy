@@ -149,7 +149,19 @@ pub struct TalkRules {
     pub max_chars: u32,
     /// Terms no fast-model line may contain (canon only the game master touches).
     pub forbidden: Vec<String>,
+    /// Words that say something happened. A rephrased line may use one (or its `-s`,
+    /// `-ed`, `-ing` form) only if the authored line or a cited fact does, so a model
+    /// can't add an event the record doesn't hold.
+    pub claims: Vec<String>,
 }
+
+/// The claim words used when `talk.claims` isn't set.
+pub const DEFAULT_CLAIMS: &[&str] = &[
+    "attack", "ambush", "arrest", "bankrupt", "blockade", "bought", "bounty", "built", "burn",
+    "buy", "crash", "dead", "debt", "deliver", "destroy", "die", "discover", "explode", "kill",
+    "murder", "owe", "paid", "pay", "pirate", "raid", "reward", "sabotage", "sell", "smuggle",
+    "sold", "steal", "stole", "stolen", "theft", "thief", "war", "wreck",
+];
 
 impl Default for TalkRules {
     fn default() -> Self {
@@ -159,6 +171,7 @@ impl Default for TalkRules {
             max_words: 20,
             max_chars: 160,
             forbidden: Vec::new(),
+            claims: DEFAULT_CLAIMS.iter().map(|c| (*c).to_owned()).collect(),
         }
     }
 }

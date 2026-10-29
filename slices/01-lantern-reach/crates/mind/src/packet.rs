@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use galaxy_contract::money::show_credits;
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
 use serde::Serialize;
@@ -80,6 +81,34 @@ impl Packet {
 
     pub fn to_value(&self) -> serde_json::Value {
         serde_json::to_value(self).expect("packets serialize")
+    }
+
+    /// What an answer depends on, for its situation key: the whole packet except the
+    /// routine fact that opened the menu (a docking), whose ID changes every time.
+    /// Place, state, remembered facts, brief and options all count.
+    pub fn key_parts(&self, trigger: FactId) -> serde_json::Value {
+        let mut p = self.clone();
+        p.facts.retain(|f| f.id != trigger);
+        p.to_value()
+    }
+
+    /// Every text in the packet a line may take names from: the speaker, the place,
+    /// the state and the facts.
+    pub fn texts(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if let Some(w) = &self.who {
+            out.push(w.name.clone());
+            out.push(w.role.clone());
+        }
+        out.extend(self.place.iter().map(|p| p.text.clone()));
+        out.extend(self.state.iter().map(|s| s.text.clone()));
+        out.extend(self.facts.iter().map(|f| f.text.clone()));
+        out
+    }
+
+    /// Each fact's text by ID.
+    pub fn fact_texts(&self) -> BTreeMap<FactId, String> {
+        self.facts.iter().map(|f| (f.id, f.text.clone())).collect()
     }
 }
 
@@ -156,10 +185,11 @@ pub fn describe(world: &WorldState, fact: &Fact) -> String {
                 quantity,
                 unit_price,
             } => format!(
-                "{} bought {quantity} {} at {} for {unit_price} each",
+                "{} bought {quantity} {} at {} for {} cr each",
                 n.of(ship.as_str()),
                 n.of(ware.as_str()),
-                n.of(station.as_str())
+                n.of(station.as_str()),
+                show_credits(i64::from(*unit_price))
             ),
             Event::Sell {
                 ship,
@@ -168,10 +198,11 @@ pub fn describe(world: &WorldState, fact: &Fact) -> String {
                 quantity,
                 unit_price,
             } => format!(
-                "{} sold {quantity} {} at {} for {unit_price} each",
+                "{} sold {quantity} {} at {} for {} cr each",
                 n.of(ship.as_str()),
                 n.of(ware.as_str()),
-                n.of(station.as_str())
+                n.of(station.as_str()),
+                show_credits(i64::from(*unit_price))
             ),
             Event::Deliver {
                 ship,
@@ -249,9 +280,9 @@ pub fn build(
             state.push(StateItem {
                 id: format!("{}/{ware}", market.station),
                 text: format!(
-                    "{}: price {}, stock {}",
+                    "{}: price {} cr, stock {}",
                     n.of(ware.as_str()),
-                    line.price,
+                    show_credits(i64::from(line.price)),
                     line.stock
                 ),
             });
@@ -279,7 +310,11 @@ pub fn build(
         if ids.len() >= budget {
             break;
         }
-        if f.id < menu.trigger && about(f) && known(f.kind.as_str()) {
+        if f.id < menu.trigger
+            && about(f)
+            && known(f.kind.as_str())
+            && f.kind.as_str() != crate::situation::SPEND_FACT
+        {
             ids.insert(f.id);
         }
     }

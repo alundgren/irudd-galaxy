@@ -47,9 +47,21 @@ fn live_gpt_oss_says_a_grounded_line() {
     let Some(mut mind) = live_mind(&config) else {
         return;
     };
-    let r = probe::line(&mut mind, &config);
-    eprintln!("{}", serde_json::to_string_pretty(&r).unwrap());
-    assert!(r.ok, "{:?}", r.error);
-    let answer = r.answer.unwrap();
-    assert_eq!(answer["cites"][0], "fact.40", "{answer}");
+    // A few samples: how often a real line passes the grounding checks.
+    const SAMPLES: usize = 5;
+    let (mut answered, mut valid) = (0, 0);
+    for _ in 0..SAMPLES {
+        let r = probe::line(&mut mind, &config);
+        eprintln!("{}", serde_json::to_string_pretty(&r).unwrap());
+        // A call can fail (the model sometimes returns no content); the host then
+        // says the authored line. Count it rather than stop.
+        let Some(answer) = r.answer else {
+            continue;
+        };
+        answered += 1;
+        assert_eq!(answer["cites"][0], "fact.40", "{answer}");
+        valid += usize::from(answer["valid"] == true);
+    }
+    eprintln!("{answered} of {SAMPLES} calls answered; {valid} lines passed validation");
+    assert!(valid > 0, "no real line passed validation");
 }

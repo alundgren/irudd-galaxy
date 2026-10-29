@@ -52,6 +52,15 @@ max_words = 20
 max_chars = 160
 # Canon only the game master touches. No fast-model line may contain these.
 forbidden = ["Ancients", "Ancient", "precursor", "canon"]
+# Words that say something happened. A rephrased line may only use one (or its -s,
+# -ed, -ing form) if the authored line or a cited fact does. Numbers and names are
+# checked against the grounding packet the same way.
+claims = [
+  "attack", "ambush", "arrest", "bankrupt", "blockade", "bought", "bounty", "built", "burn",
+  "buy", "crash", "dead", "debt", "deliver", "destroy", "die", "discover", "explode", "kill",
+  "murder", "owe", "paid", "pay", "pirate", "raid", "reward", "sabotage", "sell", "smuggle",
+  "sold", "steal", "stole", "stolen", "theft", "thief", "war", "wreck",
+]
 
 # --- NPC traders (02-economy.md, "NPC traders") ---
 

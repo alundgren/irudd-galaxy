@@ -18,6 +18,11 @@ pub struct DecisionRequest {
     /// The grounding packet.
     pub state: Value,
     pub question: Question,
+    /// HTTP attempts the budget allows, the retry included. The mind never sends more.
+    pub max_attempts: u8,
+    /// Wall time until the host gives up on the answer. A `Retry-After` longer than
+    /// what is left skips the moment instead of waiting.
+    pub deadline_ms: u64,
 }
 
 /// What is asked. Option IDs on the wire are short (`o1`, `o2` ...) and map back to
@@ -81,6 +86,9 @@ pub enum Decision {
     },
 }
 
+/// HTTP attempts a request may make at most: one try and one retry.
+pub const MAX_ATTEMPTS: u8 = 2;
+
 /// A short line for a chat model with structured output.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LineRequest {
@@ -89,13 +97,23 @@ pub struct LineRequest {
     pub system: String,
     /// The grounding packet.
     pub packet: Value,
-    /// The authored line to say in the NPC's voice. Used word for word on failure.
+    /// The authored line to say in the NPC's voice, slots filled. Used word for word on
+    /// failure.
     pub authored: String,
+    /// The same line with its slots (`{qty}`, `{ware}` ...) left in. The model keeps each
+    /// slot as written and the game fills it, so facts come from the world, not the model.
+    pub template: String,
+    /// Slot name (without braces) -> what the game fills in.
+    pub slots: BTreeMap<String, String>,
     /// The fact the line is about. The answer must cite it.
     pub cite: String,
     /// Every fact ID in the packet; nothing else may be cited.
     pub allowed_cites: Vec<String>,
     pub max_words: u32,
+    /// As for [`DecisionRequest::max_attempts`].
+    pub max_attempts: u8,
+    /// As for [`DecisionRequest::deadline_ms`].
+    pub deadline_ms: u64,
 }
 
 /// A model's line, before validation.
@@ -105,16 +123,55 @@ pub struct LineDraft {
     pub cites: Vec<String>,
 }
 
-/// A successful answer with what it cost.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// What one call came to: the answer or why there was none, and what it cost either
+/// way. A failed, malformed or retried call can still be billed, and every billed
+/// response is recorded, so the cost travels with the error too.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Reply<T> {
-    pub value: T,
-    /// US dollars, from the response's `usage.cost`.
+    pub result: Result<T, MindError>,
+    /// US dollars, summed over every attempt's `usage.cost`.
     pub cost_usd: f64,
-    /// The model that answered.
+    /// The model that answered (empty if nothing did).
     pub model: String,
-    /// HTTP attempts made (1, or 2 after a retry).
+    /// HTTP attempts made, the retry included (0 if nothing was sent).
     pub attempts: u8,
+    /// Replays only: ticks after the request before the host may handle the answer, so
+    /// a recorded answer lands when the original did. 0 for live minds.
+    pub hold_ticks: u64,
+}
+
+impl<T> Reply<T> {
+    /// An answer from one attempt.
+    pub fn ok(value: T, cost_usd: f64, model: impl Into<String>) -> Self {
+        Self {
+            result: Ok(value),
+            cost_usd,
+            model: model.into(),
+            attempts: 1,
+            hold_ticks: 0,
+        }
+    }
+
+    /// No answer and nothing sent.
+    pub fn none(error: MindError) -> Self {
+        Self {
+            result: Err(error),
+            cost_usd: 0.0,
+            model: String::new(),
+            attempts: 0,
+            hold_ticks: 0,
+        }
+    }
+
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Reply<U> {
+        Reply {
+            result: self.result.map(f),
+            cost_usd: self.cost_usd,
+            model: self.model,
+            attempts: self.attempts,
+            hold_ticks: self.hold_ticks,
+        }
+    }
 }
 
 /// Why a mind gave no usable answer. The host then takes the utility default.
@@ -136,6 +193,30 @@ pub enum MindError {
     NoKey,
     #[error("no recorded answer for this situation")]
     NotRecorded,
+}
+
+impl MindError {
+    /// The HTTP status, where there is one.
+    pub fn status(&self) -> Option<u16> {
+        match self {
+            MindError::Server(s) | MindError::Http(s, _) => Some(*s),
+            _ => None,
+        }
+    }
+
+    /// Rebuilds an error from its [`MindError::tag`] and status, for replays.
+    pub fn from_tag(tag: &str, status: Option<u16>) -> Self {
+        match tag {
+            "timeout" => MindError::Timeout,
+            "server" => MindError::Server(status.unwrap_or(500)),
+            "rate_limited" => MindError::RateLimited,
+            "transport" => MindError::Transport("recorded".into()),
+            "http" => MindError::Http(status.unwrap_or(400), "recorded".into()),
+            "malformed" => MindError::Malformed("recorded".into()),
+            "no_key" => MindError::NoKey,
+            _ => MindError::NotRecorded,
+        }
+    }
 }
 
 impl MindError {
@@ -170,18 +251,18 @@ impl MindError {
 pub trait Mind: Send {
     /// A short name for logs (`openrouter`, `fake`, `recorded`).
     fn name(&self) -> &str;
-    fn decide(&mut self, req: &DecisionRequest) -> Result<Reply<Decision>, MindError>;
-    fn line(&mut self, req: &LineRequest) -> Result<Reply<LineDraft>, MindError>;
+    fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision>;
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft>;
 }
 
 impl<M: Mind + ?Sized> Mind for Box<M> {
     fn name(&self) -> &str {
         (**self).name()
     }
-    fn decide(&mut self, req: &DecisionRequest) -> Result<Reply<Decision>, MindError> {
+    fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision> {
         (**self).decide(req)
     }
-    fn line(&mut self, req: &LineRequest) -> Result<Reply<LineDraft>, MindError> {
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         (**self).line(req)
     }
 }

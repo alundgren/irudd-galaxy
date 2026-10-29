@@ -12,6 +12,8 @@
 //! - [`RumorSpread`]: an NPC craft docks and carries a rumor from its last station,
 //!   with the rumor's truth value unchanged.
 
+use std::collections::BTreeMap;
+
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
 use serde_json::json;
@@ -227,8 +229,13 @@ pub struct LineCandidate {
     pub npc: NpcId,
     /// The fact it cites.
     pub cites: FactId,
-    /// The authored text, placeholders filled. Said word for word on any failure.
+    /// The authored text, slots filled. Said word for word on any failure.
     pub text: String,
+    /// The authored text with its slots (`{qty}`, `{ware}`, `{station}`) left in.
+    /// Equal to `text` for a line without slots.
+    pub template: String,
+    /// Slot name (no braces) -> the value filled in.
+    pub slots: BTreeMap<String, String>,
     /// How specific it is (more matching conditions first).
     pub specificity: u32,
 }
@@ -322,7 +329,12 @@ fn same_kind(want: &str, have: &str) -> bool {
 }
 
 impl LinePool {
-    fn fill(world: &WorldState, text: &str, fact: &Fact) -> Option<String> {
+    /// The line filled from its fact, and the slots it used.
+    fn fill(
+        world: &WorldState,
+        text: &str,
+        fact: &Fact,
+    ) -> Option<(String, BTreeMap<String, String>)> {
         let s = &fact.subjects;
         let name = |id: Option<&str>, get: &dyn Fn(&str) -> Option<String>| {
             id.map(|i| get(i).unwrap_or_else(|| i.to_owned()))
@@ -334,16 +346,20 @@ impl LinePool {
             world.wares.get(i).map(|x| x.name.to_lowercase())
         });
         let mut out = text.to_owned();
+        let mut slots = BTreeMap::new();
         for (key, value) in [
-            ("{station}", station),
-            ("{ware}", ware),
-            ("{qty}", fact.amount.map(|a| a.to_string())),
+            ("station", station),
+            ("ware", ware),
+            ("qty", fact.amount.map(|a| a.to_string())),
         ] {
-            if out.contains(key) {
-                out = out.replace(key, &value?);
+            let slot = format!("{{{key}}}");
+            if out.contains(&slot) {
+                let value = value?;
+                out = out.replace(&slot, &value);
+                slots.insert(key.to_owned(), value);
             }
         }
-        (!out.contains('{')).then_some(out)
+        (!out.contains('{')).then_some((out, slots))
     }
 }
 
@@ -373,13 +389,15 @@ impl LineSource for LinePool {
                     && f.subjects.station.as_ref().is_none_or(|s| s == station)
             });
             if let Some(f) = fact
-                && let Some(text) = Self::fill(cx.world, &line.text, f)
+                && let Some((text, slots)) = Self::fill(cx.world, &line.text, f)
             {
                 out.push(LineCandidate {
                     line: line.id.clone(),
                     npc: line.npc.clone(),
                     cites: f.id,
                     text,
+                    template: line.text.clone(),
+                    slots,
                     specificity: u32::from(f.subjects.station.is_some()),
                 });
             }
@@ -441,8 +459,6 @@ impl MenuProvider for RumorSpread {
         let options = candidates
             .into_iter()
             .map(|r| {
-                let mut rumor = r.clone();
-                rumor.heard_at.insert(station.clone());
                 let spread = FactDraft {
                     kind: FactKind::new(crate::RUMOR_SPREAD_FACT).expect("valid kind"),
                     subjects: Subjects {
@@ -470,10 +486,13 @@ impl MenuProvider for RumorSpread {
                         .into_iter()
                         .flatten()
                         .collect(),
+                    // Adds this one station: spreads to other stations in the same tick
+                    // compose, and a second spread to this one is rejected.
                     commands: vec![
-                        Command::PutRumor {
-                            id: r.id.clone(),
-                            value: Some(Box::new(rumor)),
+                        Command::SetRumorHeard {
+                            rumor: r.id.clone(),
+                            station: station.clone(),
+                            heard: true,
                         },
                         Command::RecordFact {
                             fact: Box::new(spread),
@@ -511,27 +530,21 @@ impl MenuProvider for RumorSpread {
         menu: &Menu,
         option: &MenuOption,
     ) -> Result<Vec<Command>, String> {
-        // Rebuild from the rumor as it is now, so a change since the menu opened (a
-        // second craft carrying it here first) is not overwritten.
+        // The commands add one station and never replace the set; this only falls back
+        // early if the rumor is gone or already here.
         let station = menu
             .station
             .as_ref()
             .ok_or("rumor menu without a station")?;
         let id = RumorId::new(&option.id).map_err(|e| e.to_string())?;
-        let mut rumor = world
+        let rumor = world
             .rumors
             .get(&id)
-            .cloned()
             .ok_or_else(|| format!("{id} no longer exists"))?;
-        if !rumor.heard_at.insert(station.clone()) {
+        if rumor.heard_at.contains(station) {
             return Err(format!("{id} has already reached {station}"));
         }
-        let mut commands = option.commands.clone();
-        commands[0] = Command::PutRumor {
-            id,
-            value: Some(Box::new(rumor)),
-        };
-        Ok(commands)
+        Ok(option.commands.clone())
     }
 }
 
