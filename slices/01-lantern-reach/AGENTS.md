@@ -9,8 +9,9 @@ Read this before changing anything under `slices/01-lantern-reach/`. Brief: issu
 Run from this folder. In Git Bash on Windows, first `export PATH="$HOME/.cargo/bin:$PATH"`.
 
 ```sh
-cargo xtask check      # fmt --check, clippy -D warnings, tests. Must pass before a PR.
-cargo xtask contract   # regenerate crates/contract/schemas/. Commit the result.
+cargo xtask check      # fetch-luau, fmt --check, clippy -D warnings, tests. Must pass before a PR.
+cargo xtask contract   # regenerate crates/contract/schemas/ and api/. Commit the result.
+cargo xtask fetch-luau # pinned luau-analyze into tools/luau/ (git-ignored, SHA-256 checked)
 cargo test -p galaxy-core
 cargo run -p galaxy-app -- <command>   # see README.md for the CLI
 ```
@@ -62,10 +63,12 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
 | `crates/economy` | | W3 | Pricing and saturation maths, map, scouting, territory. |
 | `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
-| `crates/script`, `gm` | | W5 | Luau host, sandbox, packs, validator, rollback, game-master bridge. |
+| `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
+| `crates/gm` | | W5 | Game-master bridge: live socket, `gm propose`/`rollback`, sandbox run. |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
-| `xtask` | `xtask` | W1 | `cargo xtask check`, `cargo xtask contract`. |
+| `xtask` | `xtask` | W1 | `cargo xtask check`, `cargo xtask contract`, `cargo xtask fetch-luau`. |
 | `packs/core` | | W4 (+W3 data) | The authored backbone: `manifest.toml`, `data/*.toml`, later scripts. |
+| `packs/gm-examples` | | W5 | Game-master example packs; `bad_script/` holds packs that must be rejected. |
 
 Contract changes go through W1: change `crates/contract`, run `cargo xtask contract`,
 and the schema diff in the PR is what gets reviewed.
@@ -154,6 +157,52 @@ batch; keep it cheap.
 **Authored data**: TOML under `packs/core/data/`, one file per type in
 `contract::data::DATA_FILES`, schemas in `crates/contract/schemas/data-*.json`. Unknown
 keys and dangling IDs are load errors. The current numbers are provisional.
+
+## Packs and scripts
+
+The live layer is Luau, run by `galaxy-script`. The hook reference is generated:
+`crates/contract/api/HOOKS.md`, with types in `crates/contract/api/galaxy.d.luau`.
+The worked example is `packs/gm-examples/kettle_growth`.
+
+**A pack** is a folder: `manifest.toml` (schema `crates/contract/schemas/manifest.json`),
+`scripts/*.luau`, `data/*.toml` (only `npcs.toml` installs so far) and optional
+`tests/*.luau`. Its revision is a BLAKE3 hash of its files; every write a script makes
+is caused by `Cause::Script { pack, revision }`, so a revision can be rolled back. The
+manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), each
+`[[script]]` with its `handlers` (`on.<event>`, `after.<trigger>`) and typed `stores`,
+`[[shock]]`/`[[opportunity]]` pairs, the `[rollback]` line and `[limits]`.
+
+**A script** returns `G.script { id, on = { ... }, after = { ... } }`. Handlers get a
+`ctx` built from `uses`: anything undeclared is absent. Rules the host enforces:
+
+- Every write takes a cause: `local why = ctx:cause { summary = ..., cites = { ev.fact } }`.
+  A handler is atomic: an error or running over the step budget discards all its writes.
+  Repeated aborts quarantine the script (`script_quarantined` fact).
+- Scripts hold no state in Luau (globals are frozen). Remember things in a declared
+  store (`ctx.store:set(store, key, value, why)`) or read them back from history.
+- Pace by activity only: `G.after { dockings = 3, station = ... }`, `ctx.counters`. There
+  is no `os`, timer, `math.random` (use `ctx.rng`) or `loadstring`.
+- `ctx.talk:offer`, `ctx.map:note`, `ctx.chronicle:write` need a person or a place and
+  `cites` with existing fact IDs.
+- Reads see the world as the tick started, plus the writes of handler calls that ran
+  earlier this tick (not the current call's own writes).
+
+**Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
+against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and
+prints a `ValidationReport` with codes and file:line locations. Dev hot reload
+(`ScriptHost::watch` + `poll_reload` between ticks) runs the same checks and keeps the
+last good revision if they fail. `galaxy pack test DIR` runs `tests/*.luau`.
+
+**Rollback**: `galaxy_script::rollback(sim, causes, line)` inverts the causes' writes,
+retires their pack revisions and has the pack's `[rollback]` speaker say so, citing
+the change's facts, in dock talk and the chronicle.
+
+**Adding a hook function**: add a `FnDef` to `contract::api::FUNCTIONS` (and a
+capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
+`cargo xtask contract`. Reserved capabilities (`market.levers`, `orders.write`,
+`kit.write`, `beats.write`, `canon.*`, `mechanics.write`, `mind.write`,
+`telemetry.read`) are the extension points for the other workstreams: flip
+`available`, add the functions, and declaring them stops being an error.
 
 ## IDs
 
