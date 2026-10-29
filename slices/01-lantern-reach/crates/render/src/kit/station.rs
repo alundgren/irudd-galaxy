@@ -726,7 +726,10 @@ fn build_part(
             let n = ((l / 5.0) as u32).max(1);
             for k in 0..=n {
                 let x = l * k as f32 / n as f32;
-                let x = x.clamp(w * 0.2, l - w * 0.2);
+                // Keep collars off the ends, but never let the padding cross over on
+                // short, wide arms (that would make the clamp bounds invalid).
+                let pad = (w * 0.2).min(l * 0.5);
+                let x = x.clamp(pad, l - pad);
                 b.with(Mat4::from_translation(Vec3::new(x, 0.0, 0.0)), |b| {
                     b.cuboid(Vec3::new(w * 0.35, w * 1.25, w * 0.8))
                 });
@@ -1083,6 +1086,37 @@ mod tests {
             assert!(m.radius() <= r.footprint() * 1.2 + 4.0, "{}", r.name);
             assert!(m.radius() > 10.0, "{}", r.name);
         }
+    }
+
+    #[test]
+    fn short_wide_arm_builds_without_panicking() {
+        // Regression: a valid arm of length 0.5 and width 12 used to invert the
+        // collar clamp bounds and panic.
+        let r = StationRecipe {
+            name: "stubby".into(),
+            seed: 1,
+            palette: StationPalette::default(),
+            parts: vec![
+                Part::new(
+                    PartKind::Hub {
+                        radius: 6.0,
+                        height: 4.0,
+                        tiers: 2,
+                        sides: 8,
+                    },
+                    Placement::default(),
+                ),
+                Part::new(
+                    PartKind::Arm {
+                        length: 0.5,
+                        width: 12.0,
+                    },
+                    Placement::default(),
+                ),
+            ],
+        };
+        r.validate().unwrap();
+        assert!(station(&r).is_well_formed());
     }
 
     #[test]

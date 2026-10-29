@@ -206,6 +206,13 @@ impl Growable {
     }
 }
 
+/// A mesh slot. The generation bumps whenever the slot is freed, so a stale handle
+/// (kept after `remove_mesh`) never aliases a mesh uploaded later into the same slot.
+struct MeshSlot {
+    generation: u32,
+    mesh: Option<GpuMesh>,
+}
+
 struct GpuMesh {
     vertices: wgpu::Buffer,
     indices: wgpu::Buffer,
@@ -271,7 +278,7 @@ pub struct Renderer {
     panels: [Growable; text::LAYERS],
     panels_bind: [wgpu::BindGroup; text::LAYERS],
     fallback_sky: GpuBackdrop,
-    meshes: Vec<Option<GpuMesh>>,
+    meshes: Vec<MeshSlot>,
     backdrops: Vec<Option<GpuBackdrop>>,
     text: TextSystem,
 }
@@ -570,27 +577,52 @@ impl Renderer {
     /// Uploads a mesh. Meshes stay on the GPU until [`Renderer::remove_mesh`].
     pub fn upload_mesh(&mut self, mesh: &MeshData) -> MeshHandle {
         let gpu = self.gpu_mesh(mesh);
-        if let Some(i) = self.meshes.iter().position(Option::is_none) {
-            self.meshes[i] = Some(gpu);
-            MeshHandle(i as u32)
+        if let Some(i) = self.meshes.iter().position(|s| s.mesh.is_none()) {
+            let slot = &mut self.meshes[i];
+            slot.mesh = Some(gpu);
+            MeshHandle {
+                index: i as u32,
+                generation: slot.generation,
+            }
         } else {
-            self.meshes.push(Some(gpu));
-            MeshHandle(self.meshes.len() as u32 - 1)
+            self.meshes.push(MeshSlot {
+                generation: 0,
+                mesh: Some(gpu),
+            });
+            MeshHandle {
+                index: self.meshes.len() as u32 - 1,
+                generation: 0,
+            }
         }
+    }
+
+    /// The live mesh behind a handle, if the handle is still current.
+    fn mesh(&self, handle: MeshHandle) -> Option<&GpuMesh> {
+        self.meshes
+            .get(handle.index as usize)
+            .filter(|s| s.generation == handle.generation)
+            .and_then(|s| s.mesh.as_ref())
     }
 
     /// Replaces a mesh in place (a rock being mined, a station growing).
     pub fn update_mesh(&mut self, handle: MeshHandle, mesh: &MeshData) {
         let gpu = self.gpu_mesh(mesh);
-        if let Some(slot) = self.meshes.get_mut(handle.0 as usize) {
-            *slot = Some(gpu);
+        if let Some(slot) = self.meshes.get_mut(handle.index as usize)
+            && slot.generation == handle.generation
+            && slot.mesh.is_some()
+        {
+            slot.mesh = Some(gpu);
         }
     }
 
-    /// Frees a mesh. Instances that still use the handle are skipped.
+    /// Frees a mesh. Instances that still use the handle are skipped, and a stale
+    /// handle never frees a mesh uploaded later into the same slot.
     pub fn remove_mesh(&mut self, handle: MeshHandle) {
-        if let Some(slot) = self.meshes.get_mut(handle.0 as usize) {
-            *slot = None;
+        if let Some(slot) = self.meshes.get_mut(handle.index as usize)
+            && slot.generation == handle.generation
+            && slot.mesh.take().is_some()
+        {
+            slot.generation = slot.generation.wrapping_add(1);
         }
     }
 
@@ -666,8 +698,13 @@ impl Renderer {
                 wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                     return Ok(());
                 }
-                wgpu::CurrentSurfaceTexture::Outdated
-                | wgpu::CurrentSurfaceTexture::Suboptimal(_) => {
+                wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
+                    // The acquired texture must be released before reconfiguring.
+                    drop(frame);
+                    surface.configure(&self.device, config);
+                    return Ok(());
+                }
+                wgpu::CurrentSurfaceTexture::Outdated => {
                     surface.configure(&self.device, config);
                     return Ok(());
                 }
@@ -842,14 +879,10 @@ impl Renderer {
         let mut order: Vec<usize> = (0..scene.meshes.len())
             .filter(|&i| {
                 let m = &scene.meshes[i];
-                m.transform.is_finite()
-                    && self
-                        .meshes
-                        .get(m.mesh.0 as usize)
-                        .is_some_and(|g| g.as_ref().is_some_and(|g| g.index_count > 0))
+                m.transform.is_finite() && self.mesh(m.mesh).is_some_and(|g| g.index_count > 0)
             })
             .collect();
-        order.sort_by_key(|&i| scene.meshes[i].mesh.0);
+        order.sort_by_key(|&i| scene.meshes[i].mesh.index);
         let mut gpu_instances = Vec::with_capacity(order.len());
         let mut runs: Vec<(u32, u32, u32)> = Vec::new();
         for &i in &order {
@@ -888,8 +921,8 @@ impl Renderer {
             });
             let k = gpu_instances.len() as u32 - 1;
             match runs.last_mut() {
-                Some(r) if r.0 == inst.mesh.0 => r.2 += 1,
-                _ => runs.push((inst.mesh.0, k, 1)),
+                Some(r) if r.0 == inst.mesh.index => r.2 += 1,
+                _ => runs.push((inst.mesh.index, k, 1)),
             }
         }
         if self.instances.write(
@@ -1041,7 +1074,8 @@ impl Renderer {
                 for pipeline in [&self.pipelines.mesh, &self.pipelines.outline] {
                     pass.set_pipeline(pipeline);
                     for &(mesh, start, count) in &runs {
-                        let Some(Some(m)) = self.meshes.get(mesh as usize) else {
+                        let Some(m) = self.meshes.get(mesh as usize).and_then(|s| s.mesh.as_ref())
+                        else {
                             continue;
                         };
                         pass.set_vertex_buffer(0, m.vertices.slice(..));

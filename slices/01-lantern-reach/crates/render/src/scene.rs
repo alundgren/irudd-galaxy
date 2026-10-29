@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 
 /// A mesh uploaded with [`crate::Renderer::upload_mesh`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct MeshHandle(pub(crate) u32);
+pub struct MeshHandle {
+    pub(crate) index: u32,
+    pub(crate) generation: u32,
+}
 
 /// A backdrop uploaded with [`crate::Renderer::upload_backdrop`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

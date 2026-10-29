@@ -124,3 +124,28 @@ fn removed_meshes_and_odd_input_are_survivable() {
     let img = r.render_to_rgba(&scene).unwrap();
     assert_eq!((img.width, img.height), (64, 32));
 }
+
+#[test]
+#[ignore = "needs a GPU"]
+fn stale_mesh_handle_never_touches_a_reused_slot() {
+    let mut r = renderer(200, 200);
+    let iron = kit::rock(&RockParams::new(RockKind::Iron, 10.0, 1.0), 1);
+    let old = r.upload_mesh(&iron);
+    r.remove_mesh(old);
+    // The freed slot is reused, but the new handle is distinct from the stale one.
+    let new = r.upload_mesh(&iron);
+    assert_ne!(old, new);
+    // A stale remove must not free the live mesh.
+    r.remove_mesh(old);
+    let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 40.0));
+    scene.clear_color = Color::hex(0xffffff);
+    scene
+        .meshes
+        .push(MeshInstance::at(new, Vec2::ZERO, 0.0, 1.0));
+    let img = r.render_to_rgba(&scene).unwrap();
+    assert_ne!(
+        img.pixel(100, 100),
+        [255, 255, 255, 255],
+        "live mesh still drawn"
+    );
+}
