@@ -15,6 +15,7 @@ galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
 galaxy-script = { path = "crates/script" }
 galaxy-economy = { path = "crates/economy" }
+galaxy-progress = { path = "crates/progress" }
 
 # Third party (all MIT or MIT/Apache-2.0)
 anyhow = "1.0.104"
