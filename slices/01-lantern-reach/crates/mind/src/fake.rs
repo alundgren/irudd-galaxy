@@ -7,6 +7,7 @@ use galaxy_contract::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::executor::Job;
 use crate::mind::{
     Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply, wire_id,
 };
@@ -86,7 +87,8 @@ impl Mind for FakeMind {
     }
 }
 
-/// One recorded call: what came back, what it cost and when it was handled.
+/// One recorded request: what came back, what it cost and when it was handled, or
+/// that the executor refused it (`error: "busy"`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Occurrence {
     /// The raw answer (a `Decision` or `LineDraft` as JSON), if one parsed.
@@ -106,23 +108,36 @@ pub struct Occurrence {
     pub waited: u64,
 }
 
-/// Every call a run made, in order, per stage and request key. Failed, malformed,
-/// rejected and late calls are in it too, so a replay meets the same answer, the same
-/// fallback and the same spend on each occurrence of a situation. Calls that sent
-/// nothing (no key, budget, cache) aren't: a replay reaches those by itself.
+impl Occurrence {
+    /// The original executor refused this request; nothing was sent.
+    pub fn busy(&self) -> bool {
+        self.error.as_deref() == Some("busy")
+    }
+}
+
+/// Every request a run made, in the order made, per stage and request key. Failed,
+/// malformed, rejected and late calls are in it, and so are requests the executor
+/// refused as busy, so a replay meets the same answer, the same fallback, at the same
+/// point and with the same spend on each occurrence of a situation. Moments that never
+/// reached the executor (budget, cache, a single option) aren't: a replay reaches
+/// those by itself.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Recording {
     pub calls: BTreeMap<(Stage, String), VecDeque<Occurrence>>,
 }
 
 impl Recording {
-    /// Every call in a save's history (`mind.spend` facts), in the order made.
+    /// Every request in a save's history (`mind.spend` facts), in the order made:
+    /// by request tick and ticket, not by when each answer was booked.
     pub fn from_history(facts: &[Fact]) -> Self {
+        let mut notes: Vec<(SpendNote, i64)> = facts
+            .iter()
+            .filter_map(|f| SpendNote::parse(f).map(|n| (n, f.amount.unwrap_or(0))))
+            .collect();
+        // Stable: requests from before tickets were recorded keep their fact order.
+        notes.sort_by_key(|(n, _)| (n.at, n.ticket));
         let mut rec = Self::default();
-        for f in facts {
-            let Some(note) = SpendNote::parse(f) else {
-                continue;
-            };
+        for (note, cost) in notes {
             rec.calls
                 .entry((note.stage, note.key))
                 .or_default()
@@ -131,7 +146,7 @@ impl Recording {
                     error: note.error,
                     status: note.status,
                     attempts: note.attempts.min(u32::from(u8::MAX)) as u8,
-                    cost: f.amount.unwrap_or(0),
+                    cost,
                     model: note.model,
                     waited: note.waited,
                 });
@@ -162,15 +177,18 @@ impl RecordedMind {
         Self { recording }
     }
 
+    fn queue(&mut self, stage: Stage, key: &str) -> Option<&mut VecDeque<Occurrence>> {
+        self.recording.calls.get_mut(&(stage, key.to_owned()))
+    }
+
     fn next<T: for<'de> Deserialize<'de>>(&mut self, stage: Stage, key: &str) -> Reply<T> {
-        let Some(o) = self
-            .recording
-            .calls
-            .get_mut(&(stage, key.to_owned()))
-            .and_then(VecDeque::pop_front)
-        else {
+        let Some(o) = self.queue(stage, key).and_then(VecDeque::pop_front) else {
             return Reply::none(MindError::NotRecorded);
         };
+        if o.busy() {
+            // Only reached through an executor that doesn't ask `admits`.
+            return Reply::none(MindError::NotRecorded);
+        }
         let result = match (&o.error, o.answer) {
             (Some(tag), _) => Err(MindError::from_tag(tag, o.status)),
             (None, Some(v)) => serde_json::from_value(v)
@@ -198,5 +216,21 @@ impl Mind for RecordedMind {
 
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         self.next(Stage::Phrase, &req.key)
+    }
+
+    /// Refuses (and uses up) a request the original executor refused.
+    fn admits(&mut self, job: &Job) -> bool {
+        let (stage, key) = match job {
+            Job::Decide(r) => (Stage::Pick, &r.key),
+            Job::Line(r) => (Stage::Phrase, &r.key),
+        };
+        let Some(queue) = self.queue(stage, key) else {
+            return true;
+        };
+        if queue.front().is_some_and(Occurrence::busy) {
+            queue.pop_front();
+            return false;
+        }
+        true
     }
 }

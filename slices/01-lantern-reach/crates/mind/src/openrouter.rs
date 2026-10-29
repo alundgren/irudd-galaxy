@@ -11,6 +11,10 @@
 //! Every attempt's `usage.cost` is summed and returned with the answer or the error, so
 //! a billed response is never lost. The transport is a trait so tests run against
 //! canned responses without a network.
+//!
+//! The key never leaves in diagnostics: `ApiKey`'s `Debug` is redacted, and a response
+//! body or transport error that echoes the key has it replaced before it is read,
+//! truncated or put in a [`MindError`].
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -45,7 +49,29 @@ impl ApiKey {
     fn bearer(&self) -> String {
         format!("Bearer {}", self.0)
     }
+
+    /// `text` with every copy of the key replaced by `<redacted>`.
+    pub fn redact(&self, text: &str) -> String {
+        if self.0.is_empty() {
+            text.to_owned()
+        } else {
+            text.replace(&self.0, REDACTED)
+        }
+    }
+
+    /// The error with the key redacted from any text it carries.
+    pub fn redact_error(&self, e: MindError) -> MindError {
+        match e {
+            MindError::Transport(m) => MindError::Transport(self.redact(&m)),
+            MindError::Http(s, m) => MindError::Http(s, self.redact(&m)),
+            MindError::Malformed(m) => MindError::Malformed(self.redact(&m)),
+            e => e,
+        }
+    }
 }
+
+/// What a redacted key reads as.
+pub const REDACTED: &str = "<redacted>";
 
 impl fmt::Debug for ApiKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -194,8 +220,13 @@ impl<T: Transport> OpenRouterMind<T> {
         while out.attempts < max_attempts {
             out.attempts += 1;
             let mut retry_after = None;
-            out.result = self.transport.post(&url, &auth, &body).and_then(|r| {
+            let key = &self.key;
+            let sent = self.transport.post(&url, &auth, &body);
+            out.result = sent.map_err(|e| key.redact_error(e)).and_then(|mut r| {
                 retry_after = r.retry_after_ms;
+                // An upstream error may echo the key: drop it before the body is read
+                // or truncated, so not even part of it reaches an error.
+                r.body = key.redact(&r.body);
                 // A billed response carries its cost whatever its status or shape.
                 let parsed = serde_json::from_str::<Value>(&r.body);
                 if let Ok(v) = &parsed {

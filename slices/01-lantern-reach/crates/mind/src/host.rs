@@ -18,9 +18,12 @@
 //!    a late, malformed or rejected answer is still paid for in the ledger.
 //!
 //! Pumping never blocks. With an [`crate::Inline`] executor and a deterministic mind
-//! every answer lands in the same pump, so runs repeat exactly.
+//! every answer lands in the same pump, so runs repeat exactly. [`MindHost::shutdown`]
+//! is the one call that blocks, bounded, at the end of a session: it books every call
+//! still out before the final save.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Duration;
 
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
@@ -45,7 +48,12 @@ pub struct SpokenLine {
     /// The authored line it came from.
     pub line: String,
     pub talk: TalkLine,
+    /// Where the text came from. `Default` is the authored line with its slots filled
+    /// from the cited fact, which is always the case unless `talk.free_phrasing` is on;
+    /// `Model` and `Cache` are free phrasing that passed validation.
     pub source: Source,
+    /// Who picked the line: the decision model, the cache or the utility order.
+    pub pick: Source,
 }
 
 /// What one pump did.
@@ -117,6 +125,7 @@ struct Sent {
     region: Option<RegionId>,
     window: u64,
     at: Tick,
+    ticket: u64,
     /// Attempts reserved in the budget until the answer comes in.
     allowed: u8,
 }
@@ -145,6 +154,8 @@ pub struct MindHost {
     /// Replayed answers held until the tick the original was handled.
     held: Vec<(Tick, Done)>,
     next_ticket: u64,
+    /// Shutting down: no new requests.
+    closing: bool,
     stats: Stats,
 }
 
@@ -170,6 +181,7 @@ impl MindHost {
             expired: BTreeMap::new(),
             held: Vec::new(),
             next_ticket: 1,
+            closing: false,
             stats: Stats::default(),
         };
         host.catch_up(history);
@@ -282,6 +294,61 @@ impl MindHost {
         report
     }
 
+    /// How long [`MindHost::shutdown`] may need to wait so no call is left unsettled:
+    /// one running call's attempts at the HTTP timeout each, plus a `Retry-After`
+    /// wait, which never runs past the request's deadline. Queued calls are cancelled.
+    pub fn drain_bound(&self) -> Duration {
+        let l = &self.config.limits;
+        Duration::from_millis(u64::from(MAX_ATTEMPTS) * l.timeout_ms + self.deadline_ms())
+    }
+
+    /// Ends the session before the final save, so every billed response is in history.
+    ///
+    /// Takes no new requests, cancels queued calls unsent, and waits up to `wait` (it
+    /// blocks; [`MindHost::drain_bound`] is enough for every call to finish) for the
+    /// one running. Answers that came in are booked and applied as usual. A request
+    /// still out after `wait` is booked at its worst case (every attempt it was allowed,
+    /// at `budget.unsettled_call_usd` each) and its moment takes the default, so no
+    /// spend is ever left out. Its batches are submitted to the sim like a pump's: step
+    /// once before saving. The host takes no requests afterwards.
+    pub fn shutdown(&mut self, sim: &mut Sim, wait: Duration) -> PumpReport {
+        self.closing = true;
+        let tick = sim.tick();
+        let mut out = Out::default();
+        let finished = self.exec.close(wait);
+        {
+            let world = sim.world();
+            let history = sim.history();
+            self.catch_up(history);
+            // Replayed answers held for a later tick are handled now.
+            let mut due: Vec<Done> = std::mem::take(&mut self.held)
+                .into_iter()
+                .map(|(_, d)| d)
+                .collect();
+            due.extend(finished);
+            for done in due {
+                self.answer(world, history, tick, done, &mut out);
+            }
+            for (_, p) in std::mem::take(&mut self.pending) {
+                self.record_unsettled(&p.sent, tick, false, &mut out);
+                self.give_up(world, history, tick, p, "shutdown", &mut out);
+            }
+            for (_, sent) in std::mem::take(&mut self.expired) {
+                self.record_unsettled(&sent, tick, true, &mut out);
+            }
+        }
+        let report = PumpReport {
+            menus: 0,
+            batches: out.batches.len(),
+            lines: out.lines,
+            in_flight: 0,
+        };
+        for b in out.batches {
+            sim.submit(b);
+        }
+        report
+    }
+
     /// Folds new `mind.*` facts into the ledger; spend we posted ourselves stops being
     /// counted as posted once it has committed.
     fn catch_up(&mut self, history: &History) {
@@ -292,6 +359,7 @@ impl MindHost {
             .map_or(0, |id| facts.partition_point(|f| f.id <= id));
         for f in &facts[from..] {
             self.ledger.observe(f);
+            self.next_ticket = self.next_ticket.max(self.ledger.last_ticket() + 1);
             if let Some(note) = SpendNote::parse(f)
                 && let Some(i) = self
                     .posted
@@ -319,6 +387,9 @@ impl MindHost {
     /// window once spent and reserved attempts are counted. A request that would go
     /// over isn't sent.
     fn allowance(&self, region: Option<&RegionId>, window: u64) -> Result<u8, &'static str> {
+        if self.closing {
+            return Err("shutdown");
+        }
         let b = self.config.budget.for_region(region);
         let reserved: u32 = self
             .pending
@@ -454,12 +525,6 @@ impl MindHost {
             max_attempts: allowed,
             deadline_ms: self.deadline_ms(),
         };
-        let ticket = self.ticket();
-        if !self.exec.submit(ticket, Job::Decide(req)) {
-            acc.why.push("busy".into());
-            return self.choose(world, history, tick, provider, menu, acc, 0, out);
-        }
-        self.stats.requests += 1;
         let sent = Sent {
             menu: menu.kind,
             actor: menu.actor.to_string(),
@@ -468,10 +533,17 @@ impl MindHost {
             region: acc.region.clone(),
             window,
             at: tick,
+            ticket: self.ticket(),
             allowed,
         };
+        if !self.exec.submit(sent.ticket, Job::Decide(req)) {
+            self.record_busy(&sent, out);
+            acc.why.push("busy".into());
+            return self.choose(world, history, tick, provider, menu, acc, 0, out);
+        }
+        self.stats.requests += 1;
         self.pending.insert(
-            ticket,
+            sent.ticket,
             Pending {
                 provider,
                 menu,
@@ -510,40 +582,68 @@ impl MindHost {
             ),
         };
         let note = SpendNote {
-            menu: sent.menu.to_owned(),
-            actor: sent.actor.clone(),
-            stage: sent.stage,
-            key: sent.key.clone(),
             attempts: u32::from(attempts),
             model: model.to_owned(),
-            region: sent.region.clone(),
-            window: sent.window,
             waited: tick.0.saturating_sub(sent.at.0),
             late,
             answer,
             error: error.map(|e| e.tag().to_owned()),
             status: error.and_then(MindError::status),
+            ..note_for(sent)
         };
-        out.batches.push(
-            CommandBatch::new(Cause::system(
-                "mind",
-                format!(
-                    "fast-model call for {} ({attempts} attempts, ${cost_usd:.6})",
-                    sent.menu
-                ),
-            ))
-            .with(Command::RecordFact {
-                fact: Box::new(FactDraft {
-                    kind: FactKind::new(SPEND_FACT).expect("valid kind"),
-                    subjects: Subjects {
-                        region: sent.region.clone(),
-                        ..Subjects::default()
-                    },
-                    amount: Some(cost),
-                    note: serde_json::to_string(&note).expect("notes serialize"),
+        self.book(note, cost, out);
+    }
+
+    /// Records a request the executor refused, so a replay refuses it too.
+    fn record_busy(&mut self, sent: &Sent, out: &mut Out) {
+        let note = SpendNote {
+            error: Some("busy".into()),
+            ..note_for(sent)
+        };
+        self.book(note, 0, out);
+    }
+
+    /// Books a request still out at shutdown at its worst case: every attempt it was
+    /// allowed, each at `budget.unsettled_call_usd`.
+    fn record_unsettled(&mut self, sent: &Sent, tick: Tick, late: bool, out: &mut Out) {
+        let cost_usd = f64::from(sent.allowed) * self.config.budget.unsettled_call_usd;
+        self.stats.cost_usd += cost_usd;
+        let note = SpendNote {
+            attempts: u32::from(sent.allowed),
+            waited: tick.0.saturating_sub(sent.at.0),
+            late,
+            unsettled: true,
+            error: Some("unsettled".into()),
+            ..note_for(sent)
+        };
+        self.book(note, micros(cost_usd), out);
+    }
+
+    /// Submits a `mind.spend` fact in a batch of its own and counts it as posted.
+    fn book(&mut self, note: SpendNote, cost: i64, out: &mut Out) {
+        let (attempts, cost_usd) = (note.attempts, cost as f64 / 1_000_000.0);
+        let summary = if note.error.as_deref() == Some("busy") {
+            format!("fast-model request for {} refused: queue full", note.menu)
+        } else {
+            format!(
+                "fast-model call for {} ({attempts} attempts, ${cost_usd:.6})",
+                note.menu
+            )
+        };
+        out.batches
+            .push(
+                CommandBatch::new(Cause::system("mind", summary)).with(Command::RecordFact {
+                    fact: Box::new(FactDraft {
+                        kind: FactKind::new(SPEND_FACT).expect("valid kind"),
+                        subjects: Subjects {
+                            region: note.region.clone(),
+                            ..Subjects::default()
+                        },
+                        amount: Some(cost),
+                        note: serde_json::to_string(&note).expect("notes serialize"),
+                    }),
                 }),
-            }),
-        );
+            );
         self.posted.push((note, cost));
     }
 
@@ -566,7 +666,7 @@ impl MindHost {
             return;
         };
         let (_, _, _, hold) = done.result.usage();
-        if hold > 0 && tick.0 < sent.at.0 + hold {
+        if hold > 0 && !self.closing && tick.0 < sent.at.0 + hold {
             self.held.push((Tick(sent.at.0 + hold), done));
             return;
         }
@@ -801,7 +901,9 @@ impl MindHost {
         (names, wares)
     }
 
-    /// Dock talk, second stage: the chosen line in the speaker's voice, or as written.
+    /// Dock talk, second stage. By default the chosen line is said as authored, its
+    /// slots filled from the cited fact (pick and fill): no model writes any of it. With
+    /// `talk.free_phrasing` the line model may say it in the speaker's voice instead.
     #[allow(clippy::too_many_arguments)]
     fn phrase(
         &mut self,
@@ -818,6 +920,10 @@ impl MindHost {
             .line
             .clone()
             .expect("checked by caller");
+        if !self.config.talk.free_phrasing {
+            let (text, cites) = (line.text.clone(), vec![line.cites]);
+            return self.speak(&menu, acc, chosen, "", Source::Default, text, cites, out);
+        }
         let brief = self.line_brief(&line).cloned();
         let voiced = Menu {
             npc: Some(line.npc.clone()),
@@ -850,7 +956,7 @@ impl MindHost {
                 out,
             );
         };
-        let Some(brief) = brief.filter(|_| self.config.talk.phrase) else {
+        let Some(brief) = brief else {
             return authored(self, acc, "no_voice", out);
         };
         if let Some(Cached::Line { text, cites }) = self.ledger.cached(&key).cloned() {
@@ -876,11 +982,6 @@ impl MindHost {
             max_attempts: allowed,
             deadline_ms: self.deadline_ms(),
         };
-        let ticket = self.ticket();
-        if !self.exec.submit(ticket, Job::Line(req)) {
-            return authored(self, acc, "busy", out);
-        }
-        self.stats.requests += 1;
         let sent = Sent {
             menu: menu.kind,
             actor: line.npc.to_string(),
@@ -889,10 +990,16 @@ impl MindHost {
             region: acc.region.clone(),
             window: acc.window,
             at: tick,
+            ticket: self.ticket(),
             allowed,
         };
+        if !self.exec.submit(sent.ticket, Job::Line(req)) {
+            self.record_busy(&sent, out);
+            return authored(self, acc, "busy", out);
+        }
+        self.stats.requests += 1;
         self.pending.insert(
-            ticket,
+            sent.ticket,
             Pending {
                 provider,
                 menu,
@@ -922,6 +1029,7 @@ impl MindHost {
         out: &mut Out,
     ) {
         let line = menu.options[chosen].line.clone().expect("a line option");
+        let pick = acc.source;
         let note = OutcomeNote {
             menu: menu.kind.to_owned(),
             actor: menu.actor.to_string(),
@@ -943,7 +1051,11 @@ impl MindHost {
                 cites: cites.clone(),
             }),
         };
-        self.count(source);
+        self.count(if self.config.talk.free_phrasing {
+            source
+        } else {
+            pick
+        });
         let fact = FactDraft {
             kind: FactKind::new(LINE_FACT).expect("valid kind"),
             subjects: Subjects {
@@ -980,6 +1092,7 @@ impl MindHost {
                 cites,
             },
             source,
+            pick,
         });
     }
 
@@ -1040,6 +1153,28 @@ impl MindHost {
             },
             commands,
         }
+    }
+}
+
+/// A spend note for `sent` with nothing spent yet.
+fn note_for(sent: &Sent) -> SpendNote {
+    SpendNote {
+        menu: sent.menu.to_owned(),
+        actor: sent.actor.clone(),
+        stage: sent.stage,
+        key: sent.key.clone(),
+        at: sent.at.0,
+        ticket: sent.ticket,
+        attempts: 0,
+        model: String::new(),
+        region: sent.region.clone(),
+        window: sent.window,
+        waited: 0,
+        late: false,
+        unsettled: false,
+        answer: None,
+        error: None,
+        status: None,
     }
 }
 

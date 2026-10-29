@@ -85,7 +85,9 @@ impl Packet {
 
     /// What an answer depends on, for its situation key: the whole packet except the
     /// routine fact that opened the menu (a docking), whose ID changes every time.
-    /// Place, state, remembered facts, brief and options all count.
+    /// Place, state, remembered facts, brief and options all count. [`build`] leaves
+    /// other routine facts and the layer's own outcomes out of the packet, so the same
+    /// situation at a later docking has the same key.
     pub fn key_parts(&self, trigger: FactId) -> serde_json::Value {
         let mut p = self.clone();
         p.facts.retain(|f| f.id != trigger);
@@ -289,7 +291,13 @@ pub fn build(
         }
     }
 
-    // Facts: the cited ones always; then the newest about this ship, NPC or place.
+    // Facts: the cited ones always; then the newest about this ship, NPC or place that
+    // say something happened. Routine comings and goings and the layer's own records
+    // change at every docking and would make each one a new situation.
+    let routine = |kind: &str| {
+        kind.starts_with("mind.") && kind != crate::RUMOR_SPREAD_FACT
+            || limits.routine_facts.iter().any(|r| r == kind)
+    };
     let knows = speaker.map(|b| b.knows.as_slice()).unwrap_or_default();
     let known = |kind: &str| {
         knows.is_empty()
@@ -310,11 +318,7 @@ pub fn build(
         if ids.len() >= budget {
             break;
         }
-        if f.id < menu.trigger
-            && about(f)
-            && known(f.kind.as_str())
-            && f.kind.as_str() != crate::situation::SPEND_FACT
-        {
+        if f.id < menu.trigger && about(f) && known(f.kind.as_str()) && !routine(f.kind.as_str()) {
             ids.insert(f.id);
         }
     }

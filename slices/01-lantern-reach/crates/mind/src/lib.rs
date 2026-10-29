@@ -1,15 +1,19 @@
 //! `galaxy-mind`: the fast-model layer (system 17), on OpenRouter, behind a trait.
 //!
 //! Utility AI narrows each moment to a short menu of allowed, complete options; a fast
-//! model only picks among them or rephrases an authored line. Nothing waits on it:
+//! model only picks among them. Text is authored or absent: dock talk is pick and
+//! fill, where the model picks one of the authored lines that fit and the game fills
+//! its slots from the fact it cites, so every word shown is authored text or a fact
+//! value. Free phrasing by a line model is an opt-in mode (`talk.free_phrasing`), best
+//! effort, with the authored line as fallback. Nothing waits on a model:
 //!
 //! ```text
 //! history fact (a docking ...)        MindHost::pump, once per frame or tick
 //!   -> MenuProvider::menus            trader routes, dock talk, rumor spread
 //!   -> brief + grounding packet       packet::build, keyed by situation::key
 //!   -> cache / budget / queue         answer from history, or the utility default
-//!   -> Executor (worker thread)       Mind::decide (Jev) or Mind::line (gpt-oss)
-//!   -> validate                       shape, references, rules, limits, text
+//!   -> Executor (worker thread)       Mind::decide (Jev); Mind::line (gpt-oss) opt-in
+//!   -> validate                       shape, references, rules, limits (text: opt-in)
 //!   -> CommandBatch                   Cause::Mind { npc, decision }, applied by the sim
 //!      + a `mind.decision` / `mind.line` fact with the request key
 //! ```
@@ -19,12 +23,14 @@
 //! - [`Executor`]: [`Worker`] runs a mind on its own thread with a bounded queue;
 //!   [`Inline`] answers at once, for tests and the journey bot.
 //! - [`MindHost`]: reads new history facts, opens menus, applies answers as ordinary
-//!   command batches. Results never touch the world directly.
+//!   command batches. Results never touch the world directly. Call
+//!   [`MindHost::shutdown`] before the final save so every billed call is booked.
 //! - [`MindConfig`]: models, limits, per-region budgets and NPC briefs, from the core
 //!   pack's `data/mind.toml`.
 //!
-//! The API key comes only from `OPENROUTER_API_KEY`. `cargo test` never touches the
-//! network; the live tests are `#[ignore]`.
+//! The API key comes only from `OPENROUTER_API_KEY` and never appears in an error,
+//! `Debug` output or log line. `cargo test` never touches the network; the live tests
+//! are `#[ignore]`.
 
 pub mod config;
 pub mod executor;

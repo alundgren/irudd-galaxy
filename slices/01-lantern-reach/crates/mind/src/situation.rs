@@ -3,8 +3,10 @@
 //! Two kinds of fact record the layer's work:
 //!
 //! - `mind.spend`, one per call that sent anything, whatever became of it: answered,
-//!   malformed, failed, rejected by validation or arriving after its moment passed.
-//!   Its note is a [`SpendNote`] and its `amount` is the cost in micro-dollars. It is
+//!   malformed, failed, rejected by validation, arriving after its moment passed or
+//!   still out at shutdown (booked at a worst-case estimate). Also one per request the
+//!   executor refused as busy, with nothing spent, so a replay refuses it too. Its
+//!   note is a [`SpendNote`] and its `amount` is the cost in micro-dollars. It is
 //!   submitted in a batch of its own, so a rejected outcome never loses its spend.
 //! - `mind.decision` and `mind.line`, one per outcome, with an [`OutcomeNote`]. Their
 //!   `calls` and `cost` say what the outcome took; budgets don't read them.
@@ -94,8 +96,10 @@ pub struct OutcomeNote {
 pub struct LineNote {
     /// The authored line ID.
     pub id: String,
-    /// The request key of the phrasing.
+    /// The request key of the free phrasing; empty when the line wasn't phrased.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub key: String,
+    /// `Default`: the authored line, slots filled from the cited fact.
     pub source: Source,
     pub text: String,
     pub cites: Vec<FactId>,
@@ -123,7 +127,9 @@ pub enum Stage {
     Phrase,
 }
 
-/// The JSON note of a `mind.spend` fact: one call, everything a replay needs.
+/// The JSON note of a `mind.spend` fact: one request, everything a replay needs. A
+/// request the executor refused as busy is recorded too (no attempts, error `busy`):
+/// whether a queue had room is the one thing a replay can't work out for itself.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpendNote {
     pub menu: String,
@@ -131,6 +137,12 @@ pub struct SpendNote {
     pub stage: Stage,
     /// The request key.
     pub key: String,
+    /// The tick the request was made, and its ticket: together they order requests as
+    /// they were made, which a replay follows. Tickets carry on across hosts.
+    #[serde(default)]
+    pub at: u64,
+    #[serde(default)]
+    pub ticket: u64,
     /// HTTP attempts, retries included.
     pub attempts: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -144,6 +156,11 @@ pub struct SpendNote {
     /// The answer came after the host had taken the default.
     #[serde(default)]
     pub late: bool,
+    /// The host shut down before the answer came. `attempts` is what the request was
+    /// allowed and the amount a worst-case estimate (`budget.unsettled_call_usd` per
+    /// attempt): a call that may have been billed is never left out.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unsettled: bool,
     /// The raw answer (a `Decision` or `LineDraft`), even one validation dropped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<Value>,
@@ -181,6 +198,8 @@ pub struct Ledger {
     total: i64,
     cache: BTreeMap<String, Cached>,
     seen: Option<FactId>,
+    /// The highest request ticket recorded, so a new host carries on after it.
+    last_ticket: u64,
 }
 
 impl Ledger {
@@ -204,6 +223,7 @@ impl Ledger {
         self.seen = Some(fact.id);
         if let Some(spend) = SpendNote::parse(fact) {
             let cost = fact.amount.unwrap_or(0).max(0);
+            self.last_ticket = self.last_ticket.max(spend.ticket);
             *self
                 .calls
                 .entry((spend.region.clone(), spend.window))
@@ -249,6 +269,11 @@ impl Ledger {
     /// Micro-dollars spent in the whole save.
     pub fn total(&self) -> i64 {
         self.total
+    }
+
+    /// The highest request ticket in history (0 if none).
+    pub fn last_ticket(&self) -> u64 {
+        self.last_ticket
     }
 
     pub fn cached(&self, key: &str) -> Option<&Cached> {

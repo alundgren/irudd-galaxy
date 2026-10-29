@@ -8,7 +8,8 @@
 //! - [`TraderMenus`]: an NPC craft docks; its route and cargo plans come from a
 //!   [`PlanSource`] (the economy's `top_choices` at integration).
 //! - [`DockTalk`]: the player docks; eligible authored lines come from a
-//!   [`LineSource`] (the talk store's matcher at integration). No line, no talk.
+//!   [`LineSource`] (the talk store's matcher at integration), each filled from the
+//!   fact it cites. The model picks one; the game says it as filled. No line, no talk.
 //! - [`RumorSpread`]: an NPC craft docks and carries a rumor from its last station,
 //!   with the rumor's truth value unchanged.
 

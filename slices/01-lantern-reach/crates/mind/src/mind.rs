@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::executor::Job;
+
 /// A typed choice for a decision model (TypeSafe Jev).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DecisionRequest {
@@ -193,6 +195,9 @@ pub enum MindError {
     NoKey,
     #[error("no recorded answer for this situation")]
     NotRecorded,
+    /// The host shut down before the job started; nothing was sent.
+    #[error("cancelled at shutdown")]
+    Cancelled,
 }
 
 impl MindError {
@@ -214,6 +219,7 @@ impl MindError {
             "http" => MindError::Http(status.unwrap_or(400), "recorded".into()),
             "malformed" => MindError::Malformed("recorded".into()),
             "no_key" => MindError::NoKey,
+            "cancelled" => MindError::Cancelled,
             _ => MindError::NotRecorded,
         }
     }
@@ -242,6 +248,7 @@ impl MindError {
             MindError::Malformed(_) => "malformed",
             MindError::NoKey => "no_key",
             MindError::NotRecorded => "not_recorded",
+            MindError::Cancelled => "cancelled",
         }
     }
 }
@@ -253,6 +260,12 @@ pub trait Mind: Send {
     fn name(&self) -> &str;
     fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision>;
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft>;
+    /// Whether an [`crate::Inline`] executor takes this job. Live minds always do. A
+    /// replay refuses the jobs the original executor refused as busy, so the same
+    /// moments take the default at the same point.
+    fn admits(&mut self, _job: &Job) -> bool {
+        true
+    }
 }
 
 impl<M: Mind + ?Sized> Mind for Box<M> {
@@ -264,6 +277,9 @@ impl<M: Mind + ?Sized> Mind for Box<M> {
     }
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         (**self).line(req)
+    }
+    fn admits(&mut self, job: &Job) -> bool {
+        (**self).admits(job)
     }
 }
 

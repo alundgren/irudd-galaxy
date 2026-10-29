@@ -2,6 +2,11 @@
 //! grounding.
 //! Anything that fails is dropped; the host then uses the utility choice and the
 //! authored line. Nothing is retried here.
+//!
+//! [`line`] is for the opt-in free phrasing only and is best effort: it catches
+//! invented numbers, names, claim words and citations, but no check of free text can
+//! prove a sentence keeps the authored meaning (negation, who did what, comparisons).
+//! That is why dock talk ships as pick and fill, where no model text is shown.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -297,7 +302,7 @@ fn fill(text: &str, template: &str, slots: &BTreeMap<String, String>) -> Result<
 /// included), and nothing the grounding doesn't say. Every number and claim word must
 /// come from the authored line or a cited fact, and every name from those or the
 /// packet. A line that names an entity or a quantity that isn't there is dropped for
-/// the authored line: text is grounded or absent.
+/// the authored line. Best effort (see the module docs): free phrasing is opt-in.
 pub fn line(draft: &LineDraft, rules: &LineRules<'_>) -> Result<CleanLine, Invalid> {
     let text = clean(&draft.text);
     if text.is_empty() {

@@ -2,20 +2,21 @@
 //! data and `mind.toml`, and either the seeded fake mind or OpenRouterMind over a mock
 //! HTTP layer. No test here touches the network.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 use galaxy_contract::prelude::*;
 use galaxy_core::Sim;
 use galaxy_mind::config::{Budget, Limits, Models};
 use galaxy_mind::executor::{Done, Executor, Job, JobResult};
-use galaxy_mind::situation::{OutcomeNote, Source, SpendNote};
+use galaxy_mind::situation::{OutcomeNote, Source, SpendNote, Stage};
 use galaxy_mind::{
-    ApiKey, Decision, DockTalk, FakeMind, HttpReply, Inline, LinePool, MindConfig, MindError,
-    MindHost, OpenRouterMind, PlanOption, PlanSource, PoolLine, RecordedMind, Recording, Reply,
-    TraderMenus, Transport,
+    ApiKey, Decision, DecisionRequest, DockTalk, FakeMind, HttpReply, Inline, LineDraft, LinePool,
+    LineRequest, Mind, MindConfig, MindError, MindHost, OpenRouterMind, PlanOption, PlanSource,
+    PoolLine, RecordedMind, Recording, Reply, TraderMenus, Transport, Worker, probe,
 };
 use serde_json::json;
 
@@ -167,15 +168,9 @@ fn trader_host(sim: &Sim, config: MindConfig, exec: impl Executor + 'static) -> 
     host
 }
 
-/// Same-situation tests: plans that load nothing, and a Ninefold that remembers only
-/// deliveries, so two dockings at one station give the same grounding packet.
-fn steady_host(sim: &Sim, mut config: MindConfig, exec: impl Executor + 'static) -> MindHost {
-    config
-        .brief
-        .iter_mut()
-        .find(|b| b.id.as_str() == "craft.ninefold")
-        .unwrap()
-        .knows = vec!["deliver".into()];
+/// Same-situation tests: plans that load nothing, so the craft's hold stays put, and
+/// the Ninefold's brief as shipped (it remembers any fact about itself or its place).
+fn steady_host(sim: &Sim, config: MindConfig, exec: impl Executor + 'static) -> MindHost {
     let mut host = MindHost::new(config, exec, sim.history());
     host.add_provider(TraderMenus {
         plans: Plans {
@@ -599,8 +594,20 @@ fn an_answer_that_no_longer_fits_the_world_falls_back() {
 
 // --- Dock talk ---
 
+/// Dock talk as shipped: pick and fill, no free phrasing.
 fn talk_host(sim: &Sim, exec: impl Executor + 'static) -> MindHost {
-    let mut host = MindHost::new(config(), exec, sim.history());
+    talk_host_with(sim, config(), exec)
+}
+
+/// Dock talk with the opt-in free phrasing turned on.
+fn phrasing_host(sim: &Sim, exec: impl Executor + 'static) -> MindHost {
+    let mut config = config();
+    config.talk.free_phrasing = true;
+    talk_host_with(sim, config, exec)
+}
+
+fn talk_host_with(sim: &Sim, config: MindConfig, exec: impl Executor + 'static) -> MindHost {
+    let mut host = MindHost::new(config, exec, sim.history());
     host.add_provider(DockTalk {
         lines: LinePool {
             lines: vec![PoolLine {
@@ -612,6 +619,28 @@ fn talk_host(sim: &Sim, exec: impl Executor + 'static) -> MindHost {
         },
     });
     host
+}
+
+/// Three authored variants Odo may say about a delivery.
+const ODO_LINES: [&str; 3] = [
+    "{qty} ice. The beans will hear about this.",
+    "Logged {qty} {ware} from you. Kettle thanks you.",
+    "{qty} more for the tanks. Go get warm.",
+];
+
+fn odo_pool() -> LinePool {
+    LinePool {
+        lines: ODO_LINES
+            .iter()
+            .enumerate()
+            .map(|(i, text)| PoolLine {
+                id: format!("line.odo_fenn.{:02}", i + 1),
+                npc: ODO,
+                cites: "deliver".into(),
+                text: (*text).into(),
+            })
+            .collect(),
+    }
 }
 
 /// The player delivers ice at Kettle Dock and docks there. Returns the deliver fact.
@@ -640,11 +669,12 @@ fn deliver_and_dock(sim: &mut Sim) -> FactId {
         .id
 }
 
+/// Free phrasing (opt-in): the model's line, slots filled by the game.
 #[test]
 fn dock_talk_phrases_a_line_that_cites_its_fact() {
     let mut sim = sim(1);
     let mock = Mock::default();
-    let mut host = talk_host(&sim, Inline::new(mock_mind(&mock)));
+    let mut host = phrasing_host(&sim, Inline::new(mock_mind(&mock)));
     let fact = deliver_and_dock(&mut sim);
     mock.ok(chat_line(
         "{qty} ice. The beans will hear about it, I promise.",
@@ -678,7 +708,7 @@ fn dock_talk_phrases_a_line_that_cites_its_fact() {
 fn a_line_citing_a_missing_fact_is_rejected_for_the_authored_line() {
     let mut sim = sim(1);
     let mock = Mock::default();
-    let mut host = talk_host(&sim, Inline::new(mock_mind(&mock)));
+    let mut host = phrasing_host(&sim, Inline::new(mock_mind(&mock)));
     let fact = deliver_and_dock(&mut sim);
     mock.ok(chat_line(
         "Twelve ice, and a ghost ship came too.",
@@ -720,7 +750,7 @@ fn no_eligible_line_means_silence() {
 fn a_failed_line_call_uses_the_authored_line() {
     let mut sim = sim(1);
     let mock = Mock::default();
-    let mut host = talk_host(&sim, Inline::new(mock_mind(&mock)));
+    let mut host = phrasing_host(&sim, Inline::new(mock_mind(&mock)));
     deliver_and_dock(&mut sim);
     mock.status(500);
     mock.queue(Err(MindError::Timeout));
@@ -807,7 +837,7 @@ fn a_cited_line_with_invented_facts_falls_back_to_the_authored_line() {
     ] {
         let mut sim = sim(1);
         let mock = Mock::default();
-        let mut host = talk_host(&sim, Inline::new(mock_mind(&mock)));
+        let mut host = phrasing_host(&sim, Inline::new(mock_mind(&mock)));
         let fact = deliver_and_dock(&mut sim);
         mock.ok(chat_line(invented, &fact.to_string()));
         let report = host.pump(&mut sim);
@@ -1048,7 +1078,7 @@ fn a_recording_replays_failures_and_their_order() {
 fn a_recorded_line_replays_with_its_spend() {
     let run = |mind: Inline| {
         let mut sim = sim(1);
-        let mut host = talk_host(&sim, mind);
+        let mut host = phrasing_host(&sim, mind);
         deliver_and_dock(&mut sim);
         let report = host.pump(&mut sim);
         sim.step(&input()).unwrap();
@@ -1123,6 +1153,7 @@ fn a_two_stage_line_stays_within_the_call_budget() {
     let mut sim = sim(1);
     let mut config = one_call_budget();
     config.talk.pick = true;
+    config.talk.free_phrasing = true;
     let mock = Mock::default();
     let mut host = MindHost::new(config, Inline::new(mock_mind(&mock)), sim.history());
     host.add_provider(DockTalk {
@@ -1209,4 +1240,416 @@ fn retry_after_past_the_deadline_skips_the_moment() {
     dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
     assert_eq!(mock.slept(), [Duration::from_millis(500)]);
     assert_eq!(decisions(&sim)[0].source, Source::Model);
+}
+
+// --- Re-check findings (PR #19) ---
+
+/// A mind that picks the second option and, if ever asked for a line, writes one full
+/// of invented facts. It notes which calls it got.
+#[derive(Clone, Default)]
+struct Hostile(Arc<Mutex<Vec<&'static str>>>);
+
+impl Mind for Hostile {
+    fn name(&self) -> &str {
+        "hostile"
+    }
+    fn decide(&mut self, _req: &DecisionRequest) -> Reply<Decision> {
+        self.0.lock().unwrap().push("decide");
+        let pick = Decision::Choice {
+            choice: "o2".into(),
+            confidence: None,
+        };
+        Reply::ok(pick, 0.00002, "jev")
+    }
+    fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
+        self.0.lock().unwrap().push("line");
+        let draft = LineDraft {
+            text: "You delivered 900 ice and destroyed the station.".into(),
+            cites: vec![req.cite.clone()],
+        };
+        Reply::ok(draft, 0.00003, "gpt-oss")
+    }
+}
+
+/// Finding 1: by default dock talk is pick and fill. The model picks among authored
+/// lines; the game fills the slots. Not one word the model could write is shown, said
+/// or recorded, and no line model is ever asked.
+#[test]
+fn the_default_dock_talk_never_shows_model_written_text() {
+    let mut sim = sim(1);
+    let mind = Hostile::default();
+    let mut host = MindHost::new(config(), Inline::new(mind.clone()), sim.history());
+    host.add_provider(DockTalk { lines: odo_pool() });
+    let authored: BTreeSet<String> = ODO_LINES
+        .iter()
+        .map(|t| t.replace("{qty}", "12").replace("{ware}", "ice"))
+        .collect();
+
+    let mut spoken = Vec::new();
+    for _ in 0..3 {
+        deliver_and_dock(&mut sim);
+        spoken.extend(host.pump(&mut sim).lines);
+        let report = sim.step(&input()).unwrap();
+        assert!(report.rejected.is_empty(), "{:?}", report.rejected);
+    }
+    assert_eq!(spoken.len(), 3);
+    for line in &spoken {
+        assert!(authored.contains(&line.talk.text), "{}", line.talk.text);
+        assert_eq!(line.source, Source::Default, "the text is authored");
+        assert_eq!(line.pick, Source::Model, "the model picked it");
+        assert_eq!(line.line, "line.odo_fenn.02");
+        assert!(line.talk.validate().is_ok());
+    }
+    assert_eq!(
+        spoken[0].talk.text,
+        "Logged 12 ice from you. Kettle thanks you."
+    );
+    // What history keeps: the authored text, in the fact and in the cause.
+    for f in sim.history().facts() {
+        if f.kind.as_str() == "mind.line" {
+            let note = OutcomeNote::parse(f).unwrap();
+            assert!(authored.contains(&note.line.unwrap().text));
+            let cause = sim.history().cause(f.cause).unwrap();
+            assert!(
+                !cause.cause.summary.contains("900"),
+                "{}",
+                cause.cause.summary
+            );
+        }
+    }
+    let calls = mind.0.lock().unwrap().clone();
+    assert!(calls.iter().all(|c| *c == "decide"), "{calls:?}");
+    assert!(spends(&sim).iter().all(|(n, _)| n.stage == Stage::Pick));
+}
+
+/// Finding 1: one cheap Jev choice picks the variant; the game fills it.
+#[test]
+fn dock_talk_picks_an_authored_variant_and_fills_it() {
+    let mut sim = sim(1);
+    let mock = Mock::default();
+    let mut host = MindHost::new(config(), Inline::new(mock_mind(&mock)), sim.history());
+    host.add_provider(DockTalk { lines: odo_pool() });
+    let fact = deliver_and_dock(&mut sim);
+    mock.ok(jev_choice("o3"));
+    let report = host.pump(&mut sim);
+    sim.step(&input()).unwrap();
+    let line = &report.lines[0];
+    assert_eq!(line.talk.text, "12 more for the tanks. Go get warm.");
+    assert_eq!(line.talk.cites, vec![fact]);
+    assert_eq!((line.source, line.pick), (Source::Default, Source::Model));
+    assert_eq!(mock.calls(), ["https://openrouter.ai/api/alpha/decisions"]);
+    let n = &notes(&sim, "mind.line")[0];
+    assert!(n.why.is_empty(), "{:?}", n.why);
+    assert_eq!(n.choice.as_deref(), Some("line.odo_fenn.03"));
+}
+
+/// A mind that blocks each call until the test lets it go, like a slow request.
+struct Gate {
+    started: mpsc::Sender<()>,
+    release: mpsc::Receiver<()>,
+    calls: Arc<AtomicUsize>,
+}
+
+impl Mind for Gate {
+    fn name(&self) -> &str {
+        "gate"
+    }
+    fn decide(&mut self, _req: &DecisionRequest) -> Reply<Decision> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let _ = self.started.send(());
+        let _ = self.release.recv();
+        let pick = Decision::Choice {
+            choice: "o2".into(),
+            confidence: None,
+        };
+        Reply::ok(pick, 0.00002, "jev")
+    }
+    fn line(&mut self, _req: &LineRequest) -> Reply<LineDraft> {
+        Reply::none(MindError::NotRecorded)
+    }
+}
+
+struct Gated {
+    host: MindHost,
+    started: mpsc::Receiver<()>,
+    release: mpsc::Sender<()>,
+    calls: Arc<AtomicUsize>,
+}
+
+/// A trader host on a worker thread whose calls wait for `release`.
+fn gated_host(sim: &Sim) -> Gated {
+    let (started_tx, started) = mpsc::channel();
+    let (release, release_rx) = mpsc::channel();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let gate = Gate {
+        started: started_tx,
+        release: release_rx,
+        calls: calls.clone(),
+    };
+    Gated {
+        host: steady_host(sim, config(), Worker::spawn(gate, 8)),
+        started,
+        release,
+        calls,
+    }
+}
+
+/// Finding 2: shutting down waits (bounded) for the running call and books its billed
+/// answer; a queued call is cancelled unsent. A fresh host over the saved history
+/// sees the spend.
+#[test]
+fn shutdown_books_the_running_call_and_cancels_queued_ones() {
+    let mut sim = sim(1);
+    let Gated {
+        mut host,
+        started,
+        release,
+        calls,
+    } = gated_host(&sim);
+    dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    // A second menu queues behind the running call.
+    dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    assert_eq!(host.in_flight(), 2);
+
+    let releaser = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(50));
+        release.send(()).unwrap();
+    });
+    let bound = host.drain_bound();
+    assert!(bound >= Duration::from_secs(16), "{bound:?}");
+    host.shutdown(&mut sim, bound);
+    releaser.join().unwrap();
+    let report = sim.step(&input()).unwrap();
+    assert!(report.rejected.is_empty(), "{:?}", report.rejected);
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "the queued call never ran");
+    let s = spends(&sim);
+    assert_eq!(s.len(), 1);
+    assert_eq!((s[0].0.attempts, s[0].1, s[0].0.unsettled), (1, 20, false));
+    let d = decisions(&sim);
+    assert_eq!(d.len(), 2);
+    assert_eq!(
+        (d[0].source, d[0].choice.as_deref()),
+        (Source::Model, Some("plan.2"))
+    );
+    assert_eq!(d[1].why, ["cancelled"]);
+    // As after a load: the spend is in the record.
+    let fresh = steady_host(&sim, config(), Inline::new(FakeMind::new(1)));
+    assert!((fresh.spent_usd() - 0.00002).abs() < 1e-9);
+    // And the host takes no new requests (a new situation: the same one is cached).
+    dock(&mut sim, &mut host, &NINEFOLD, &HOOK);
+    assert_eq!(decisions(&sim)[2].why, ["shutdown"]);
+}
+
+/// Finding 2: a call still out when the wait ends is booked at its worst case, so
+/// spend is never under-counted, and its moment takes the default.
+#[test]
+fn a_call_still_out_at_shutdown_is_booked_at_its_worst_case() {
+    let mut sim = sim(1);
+    let Gated {
+        mut host,
+        started,
+        release,
+        ..
+    } = gated_host(&sim);
+    dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    host.shutdown(&mut sim, Duration::from_millis(20));
+    release.send(()).unwrap();
+    sim.step(&input()).unwrap();
+
+    let s = spends(&sim);
+    assert_eq!(s.len(), 1);
+    let (note, cost) = &s[0];
+    assert!(note.unsettled);
+    // Both attempts the request was allowed, at $0.001 each.
+    assert_eq!((note.attempts, *cost), (2, 2_000));
+    assert_eq!(decisions(&sim)[0].why, ["shutdown"]);
+    let fresh = steady_host(&sim, config(), Inline::new(FakeMind::new(1)));
+    assert!((fresh.spent_usd() - 0.002).abs() < 1e-9);
+}
+
+/// An executor that refuses its first job, as a full queue would.
+struct BusyOnce {
+    inner: Inline,
+    refused: bool,
+}
+
+impl Executor for BusyOnce {
+    fn submit(&mut self, ticket: u64, job: Job) -> bool {
+        if !self.refused {
+            self.refused = true;
+            return false;
+        }
+        self.inner.submit(ticket, job)
+    }
+    fn poll(&mut self) -> Vec<Done> {
+        self.inner.poll()
+    }
+    fn in_flight(&self) -> usize {
+        self.inner.in_flight()
+    }
+}
+
+/// Finding 3: a busy default is part of the recording, so a replay takes the default
+/// at the same occurrence and the later answer lands where it did, state for state.
+#[test]
+fn a_replay_keeps_busy_defaults_in_place() {
+    fn scenario(exec: impl Executor + 'static) -> Sim {
+        let mut sim = sim(1);
+        let mut host = steady_host(&sim, config(), exec);
+        dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+        dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+        sim
+    }
+    let choices = |s: &Sim| {
+        decisions(s)
+            .into_iter()
+            .map(|n| n.choice)
+            .collect::<Vec<_>>()
+    };
+    let mock = Mock::default();
+    mock.ok(jev_choice("o2"));
+    let original = scenario(BusyOnce {
+        inner: Inline::new(mock_mind(&mock)),
+        refused: false,
+    });
+    let d = decisions(&original);
+    assert_eq!(d[0].key, d[1].key, "the same situation twice");
+    assert_eq!(d[0].why, ["busy"]);
+    assert_eq!(
+        choices(&original),
+        [Some("plan.1".to_owned()), Some("plan.2".to_owned())]
+    );
+
+    let recording = Recording::from_history(original.history().facts());
+    assert_eq!(recording.len(), 2, "the busy request and the call");
+    let replay = scenario(Inline::new(RecordedMind::new(recording)));
+    assert_eq!(choices(&replay), choices(&original));
+    assert_eq!(spends(&replay), spends(&original));
+    assert_eq!(replay.hash(), original.hash());
+}
+
+/// Finding 3: requests replay in the order they were made, not the order their
+/// answers were booked.
+#[test]
+fn a_recording_follows_request_order() {
+    let mut sim = sim(1);
+    let exec = Manual::default();
+    let mut host = steady_host(&sim, config(), exec.clone());
+    dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    let tickets = exec.tickets();
+    assert_eq!(tickets.len(), 2);
+    // The second request is answered first.
+    for (ticket, choice) in [(tickets[1], "o3"), (tickets[0], "o2")] {
+        let pick = Decision::Choice {
+            choice: choice.into(),
+            confidence: None,
+        };
+        exec.finish(ticket, JobResult::Decide(Reply::ok(pick, 0.00002, "jev")));
+        host.pump(&mut sim);
+        sim.step(&input()).unwrap();
+    }
+    let key = decisions(&sim)[0].key.clone();
+    let recording = Recording::from_history(sim.history().facts());
+    let picks: Vec<_> = recording.calls[&(Stage::Pick, key)]
+        .iter()
+        .map(|o| o.answer.as_ref().unwrap()["choice"].clone())
+        .collect();
+    assert_eq!(picks, [json!("o2"), json!("o3")]);
+}
+
+/// Finding 4: with the Ninefold's brief as shipped, coming and going at one station
+/// with nothing else changed is the same situation every time.
+#[test]
+fn routine_dockings_keep_the_cache_key() {
+    let mut sim = sim(1);
+    let mock = Mock::default();
+    mock.ok(jev_choice("o2"));
+    let mut host = steady_host(&sim, config(), Inline::new(mock_mind(&mock)));
+    for _ in 0..4 {
+        sim.submit(
+            CommandBatch::new(Cause::system("test", "undock")).with(Command::Emit {
+                event: Event::Undock {
+                    ship: NINEFOLD,
+                    station: GLASS,
+                },
+            }),
+        );
+        sim.step(&input()).unwrap();
+        dock(&mut sim, &mut host, &NINEFOLD, &GLASS);
+    }
+    let d = decisions(&sim);
+    assert_eq!(d.len(), 4);
+    assert_eq!(d[0].source, Source::Model);
+    for n in &d[1..] {
+        assert_eq!((n.source, &n.key), (Source::Cache, &d[0].key));
+        assert_eq!(n.choice.as_deref(), Some("plan.2"));
+    }
+    assert_eq!(mock.calls().len(), 1);
+}
+
+/// Finding 5: an upstream error that echoes the key never shows it: not in the error's
+/// text or `Debug`, not in the probe's output, not even cut in half by truncation.
+#[test]
+fn an_upstream_error_that_echoes_the_key_is_redacted() {
+    const KEY: &str = "sk-or-v1-0123456789abcdefSECRET";
+    let echo = |m: &str| format!("{m} {KEY}");
+    let cases: [Vec<Result<HttpReply, MindError>>; 4] = [
+        vec![Ok(HttpReply::new(
+            401,
+            json!({"error": {"message": echo("No auth credentials for")}}).to_string(),
+        ))],
+        vec![Ok(HttpReply::new(
+            200,
+            json!({"error": {"code": 400, "message": echo("Bearer")}}).to_string(),
+        ))],
+        // The key straddles the 200-character cut.
+        vec![Ok(HttpReply::new(403, format!("{}{KEY}", "x".repeat(190))))],
+        vec![
+            Err(MindError::Transport(echo("reset after"))),
+            Err(MindError::Transport(echo("reset again after"))),
+        ],
+    ];
+    for replies in cases {
+        let mock = Mock::default();
+        for r in replies.clone() {
+            mock.queue(r);
+        }
+        let mut mind = OpenRouterMind::with_transport(
+            mock.clone(),
+            ApiKey::new(KEY),
+            Models::default(),
+            &Limits::default(),
+        );
+        let err = mind.decide(&probe::sample_decision()).result.unwrap_err();
+        for r in replies {
+            mock.queue(r);
+        }
+        let probed = probe::decision(&mut mind);
+        let shown = format!(
+            "{err} {err:?} {probed:?} {}",
+            serde_json::to_string(&probed).unwrap()
+        );
+        assert!(!shown.contains("sk-or-v1"), "{shown}");
+        assert!(!shown.contains("SECRET"), "{shown}");
+        assert!(shown.contains("<redacted>"), "{shown}");
+    }
+}
+
+/// The live line-pick probe, offline: whatever the pick, the text is an authored line.
+#[test]
+fn the_line_pick_probe_says_authored_lines() {
+    let (_, said) = probe::sample_line_pick();
+    for seed in 0..8 {
+        let r = probe::line_pick(&mut FakeMind::new(seed));
+        let answer = r.answer.unwrap();
+        assert!(
+            said.iter()
+                .any(|(id, text)| answer["line"] == id.as_str() && answer["said"] == text.as_str()),
+            "{answer}"
+        );
+    }
 }

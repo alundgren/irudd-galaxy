@@ -1,5 +1,7 @@
-//! One live Jev choice and one live line, timed and costed: `galaxy mind try` and the
-//! `#[ignore]` live tests. Needs `OPENROUTER_API_KEY`; nothing else uses the network.
+//! Live calls, timed and costed: a Jev trader choice, a Jev dock-talk pick among
+//! authored lines (the shipped mode) and, opt-in, a free-phrased gpt-oss line. For
+//! `galaxy mind try` and the `#[ignore]` live tests. Needs `OPENROUTER_API_KEY`;
+//! nothing else uses the network.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
@@ -64,7 +66,68 @@ pub fn sample_decision() -> DecisionRequest {
     }
 }
 
+/// Dock talk as shipped (pick and fill): the player docks at Lantern Wharf after
+/// delivering ice and ending the Rimewater shortage. Ilse's authored lines that fit,
+/// each tied to the fact it cites, as one Jev choice. Returns the request and, per
+/// option, the line ID and its text with slots filled.
+pub fn sample_line_pick() -> (DecisionRequest, Vec<(String, String)>) {
+    let fill = |t: &str| t.replace("{qty}", "12");
+    let lines = [
+        (
+            "line.ilse_marrow.14",
+            "fact.41",
+            "Rimewater came through, and so did you. Odo's lamps are bright again.",
+        ),
+        (
+            "line.ilse_marrow.01",
+            "fact.40",
+            "Odo's been counting your ice. He counts slower than I do, but he gets there.",
+        ),
+        (
+            "line.ilse_marrow.05",
+            "fact.38",
+            "Rimewater's thin. A lot of your ice is in our tanks, and not much is left out there.",
+        ),
+    ];
+    let options: Vec<(String, String)> = lines
+        .iter()
+        .map(|(id, _, text)| {
+            (
+                (*id).to_owned(),
+                format!("npc.ilse_marrow says: \"{}\"", fill(text)),
+            )
+        })
+        .collect();
+    let req = DecisionRequest {
+        key: "sk.probe_line_pick".into(),
+        instructions: "The player has just docked. Pick the one line the player most needs \
+                       to hear. Every option is allowed; choose the one that fits best."
+            .into(),
+        state: json!({
+            "place": {"id": "station.lantern_wharf", "text": "Lantern Wharf in Lantern Shallows"},
+            "facts": [
+                {"id": "fact.38", "kind": "shortage_started", "text": "Rimewater ran short of ice"},
+                {"id": "fact.40", "kind": "deliver", "text": "Wren delivered 12 ice to Kettle Dock"},
+                {"id": "fact.41", "kind": "shortage_resolved", "text": "The player ended the Rimewater ice shortage"},
+                {"id": "fact.42", "kind": "dock", "text": "Wren docked at Lantern Wharf"},
+            ],
+            "options": options.iter().enumerate()
+                .map(|(i, (_, t))| json!({"id": crate::mind::wire_id(i), "text": t}))
+                .collect::<Vec<_>>(),
+        }),
+        question: Question::choice(&options),
+        max_attempts: MAX_ATTEMPTS,
+        deadline_ms: 10_000,
+    };
+    let said = lines
+        .iter()
+        .map(|(id, _, text)| ((*id).to_owned(), fill(text)))
+        .collect();
+    (req, said)
+}
+
 /// Ilse's first line to say in her voice, with what the answer is checked against.
+/// Free phrasing only (opt-in).
 pub struct SampleLine {
     pub req: LineRequest,
     facts: BTreeMap<FactId, String>,
@@ -235,7 +298,27 @@ pub fn decision(mind: &mut impl Mind) -> ProbeResult<serde_json::Value> {
     })
 }
 
-/// One live line, with the validator's verdict.
+/// One live dock-talk pick: the line ID chosen and the text the game says, every word
+/// of it authored.
+pub fn line_pick(mind: &mut impl Mind) -> ProbeResult<serde_json::Value> {
+    let (req, said) = sample_line_pick();
+    let (r, ms) = timed(|| mind.decide(&req));
+    result(r, ms, |d| match d {
+        Decision::Choice { choice, confidence } => {
+            let picked = crate::mind::wire_index(&choice).and_then(|i| said.get(i));
+            json!({
+                "choice": choice,
+                "line": picked.map(|(id, _)| id),
+                "said": picked.map(|(_, text)| text),
+                "confidence": confidence,
+            })
+        }
+        other => json!(other),
+    })
+}
+
+/// One live free-phrased line (opt-in mode), with the validator's verdict. The
+/// validator is best effort; the authored line is said whenever it rejects.
 pub fn line(mind: &mut impl Mind, config: &MindConfig) -> ProbeResult<serde_json::Value> {
     let sample = sample_line(config);
     let req = &sample.req;
@@ -252,15 +335,22 @@ pub fn line(mind: &mut impl Mind, config: &MindConfig) -> ProbeResult<serde_json
     })
 }
 
-/// Both calls against OpenRouter, as JSON for the CLI.
+/// The live calls against OpenRouter, as JSON for the CLI: a trader choice and a dock
+/// talk pick (both Jev), and a free-phrased line only if `talk.free_phrasing` is on.
 pub fn live(config: &MindConfig) -> Result<serde_json::Value, MindError> {
     let mut mind = OpenRouterMind::from_env(config.models.clone(), &config.limits)?;
     let jev = decision(&mut mind);
-    let gpt = line(&mut mind, config);
-    let total = jev.cost_usd + gpt.cost_usd;
-    Ok(json!({
+    let pick = line_pick(&mut mind);
+    let mut total = jev.cost_usd + pick.cost_usd;
+    let mut out = json!({
         "decision": jev,
-        "line": gpt,
-        "total_cost_usd": total,
-    }))
+        "line_pick": pick,
+    });
+    if config.talk.free_phrasing {
+        let gpt = line(&mut mind, config);
+        total += gpt.cost_usd;
+        out["line"] = json!(gpt);
+    }
+    out["total_cost_usd"] = json!(total);
+    Ok(out)
 }

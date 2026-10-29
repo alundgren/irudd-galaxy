@@ -68,6 +68,11 @@ pub struct Limits {
     pub timeout_ms: u64,
     /// Token cap for a line call (the line model reasons before it answers).
     pub line_max_tokens: u32,
+    /// Routine fact kinds a packet leaves out unless a menu cites them: comings and
+    /// goings that happen at every docking. Kept out, they don't push real events out
+    /// of the packet or give an unchanged situation a new key. The layer's own
+    /// `mind.decision`, `mind.line` and `mind.spend` facts are always left out.
+    pub routine_facts: Vec<String>,
 }
 
 impl Default for Limits {
@@ -80,6 +85,7 @@ impl Default for Limits {
             packet_bytes: 24_000,
             timeout_ms: 6_000,
             line_max_tokens: 600,
+            routine_facts: ["dock", "undock", "jump"].map(str::to_owned).into(),
         }
     }
 }
@@ -91,16 +97,25 @@ impl Default for Limits {
 pub struct Budgets {
     /// Hard cap on the whole save's spend, in US dollars.
     pub spend_cap_usd: f64,
+    /// What one attempt is booked at when the host shuts down before its answer comes
+    /// (a worst-case estimate, well above a real call), so spend is never under-counted.
+    #[serde(default = "default_unsettled_call_usd")]
+    pub unsettled_call_usd: f64,
     /// For regions without their own entry.
     pub default: Budget,
     #[serde(default)]
     pub region: BTreeMap<RegionId, Budget>,
 }
 
+fn default_unsettled_call_usd() -> f64 {
+    0.001
+}
+
 impl Default for Budgets {
     fn default() -> Self {
         Self {
             spend_cap_usd: 1.0,
+            unsettled_call_usd: default_unsettled_call_usd(),
             default: Budget::default(),
             region: BTreeMap::new(),
         }
@@ -140,18 +155,22 @@ impl Default for Budget {
 #[serde(deny_unknown_fields, default)]
 pub struct TalkRules {
     /// Let the decision model pick among eligible dock-talk lines (else the most
-    /// specific line wins).
+    /// specific line wins). The game fills the picked line's slots from its cited fact,
+    /// so every word shown is authored text or a fact value: pick and fill.
     pub pick: bool,
-    /// Let the line model rephrase the picked line in the NPC's voice.
-    pub phrase: bool,
+    /// Opt-in, off by default: let the line model rephrase the picked line in the
+    /// NPC's voice (free phrasing). Its text is checked by [`crate::validate::line`],
+    /// which is best effort: a vocabulary check can't prove a free sentence means what
+    /// the authored line means. Anything it rejects falls back to the authored line.
+    pub free_phrasing: bool,
     /// Default word cap for a line; a brief may lower it.
     pub max_words: u32,
     pub max_chars: u32,
     /// Terms no fast-model line may contain (canon only the game master touches).
     pub forbidden: Vec<String>,
-    /// Words that say something happened. A rephrased line may use one (or its `-s`,
-    /// `-ed`, `-ing` form) only if the authored line or a cited fact does, so a model
-    /// can't add an event the record doesn't hold.
+    /// Free phrasing only. Words that say something happened. A rephrased line may use
+    /// one (or its `-s`, `-ed`, `-ing` form) only if the authored line or a cited fact
+    /// does, so a model can't add an event the record doesn't hold.
     pub claims: Vec<String>,
 }
 
@@ -167,7 +186,7 @@ impl Default for TalkRules {
     fn default() -> Self {
         Self {
             pick: true,
-            phrase: true,
+            free_phrasing: false,
             max_words: 20,
             max_chars: 160,
             forbidden: Vec::new(),
@@ -304,6 +323,10 @@ impl MindConfig {
         }
         let caps = std::iter::once(("spend_cap_usd", self.budget.spend_cap_usd))
             .chain(std::iter::once((
+                "unsettled_call_usd",
+                self.budget.unsettled_call_usd,
+            )))
+            .chain(std::iter::once((
                 "default.spend_cap_usd",
                 self.budget.default.spend_cap_usd,
             )))
@@ -336,6 +359,10 @@ mod tests {
         assert!(config.brief.len() >= 14, "ten NPCs and four traders");
         assert!(config.brief("craft.ninefold").unwrap().allows(TRADER_ROUTE));
         assert!(config.brief("npc.ilse_marrow").unwrap().allows(DOCK_TALK));
+        assert!(
+            config.talk.pick && !config.talk.free_phrasing,
+            "pick and fill"
+        );
     }
 
     #[test]

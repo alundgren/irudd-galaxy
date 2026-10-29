@@ -40,6 +40,27 @@ fn live_jev_picks_an_option() {
     );
 }
 
+/// Dock talk as shipped: Jev picks one of the authored lines; the game says it.
+#[test]
+#[ignore = "calls OpenRouter; needs OPENROUTER_API_KEY"]
+fn live_jev_picks_a_dock_talk_line() {
+    let config = config();
+    let Some(mut mind) = live_mind(&config) else {
+        return;
+    };
+    let (_, said) = probe::sample_line_pick();
+    let r = probe::line_pick(&mut mind);
+    eprintln!("{}", serde_json::to_string_pretty(&r).unwrap());
+    assert!(r.ok, "{:?}", r.error);
+    let answer = r.answer.unwrap();
+    assert!(
+        said.iter()
+            .any(|(id, text)| answer["line"] == id.as_str() && answer["said"] == text.as_str()),
+        "an authored line from the menu: {answer}"
+    );
+}
+
+/// Free phrasing (opt-in, best effort).
 #[test]
 #[ignore = "calls OpenRouter; needs OPENROUTER_API_KEY"]
 fn live_gpt_oss_says_a_grounded_line() {

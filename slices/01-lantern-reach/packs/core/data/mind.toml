@@ -18,10 +18,17 @@ packet_facts = 12
 packet_bytes = 24000
 timeout_ms = 8000
 line_max_tokens = 600
+# Fact kinds packets leave out unless a menu cites them: they happen at every
+# docking, so they'd crowd out real events and make every docking a new situation.
+routine_facts = ["dock", "undock", "jump"]
 
 [budget]
 # Hard cap for the whole save, in US dollars.
 spend_cap_usd = 1.0
+# A call still out when the game shuts down is booked at this much per attempt, a
+# worst case well above a real call (about $0.00002 to $0.00003), so spend is never
+# under-counted.
+unsettled_call_usd = 0.001
 
 # Calls per window per region; the window is counted in the player's dockings, so
 # the layer spends where the player is active. Nothing refills on a clock.
@@ -46,8 +53,15 @@ window_dockings = 10
 spend_cap_usd = 0.25
 
 [talk]
+# Pick and fill: the decision model picks one of the authored lines that fit the
+# docking, and the game fills its slots from the cited fact. Every word shown is
+# authored text or a fact value.
 pick = true
-phrase = true
+# Opt-in free phrasing: the line model rephrases the picked line in the NPC's voice.
+# Its text is checked (best effort) and falls back to the authored line. Off by
+# default: a check of free text can't prove it keeps the authored meaning.
+free_phrasing = false
+# The rest applies to free phrasing only.
 max_words = 20
 max_chars = 160
 # Canon only the game master touches. No fast-model line may contain these.
@@ -104,7 +118,7 @@ temperament = { greed = 0.2, caution = 0.5, warmth = 0.7 }
 allowed = ["trader_route", "rumor_spread"]
 voice = "Calm and curious."
 
-# --- Named NPCs (05-people.md). Lines rephrase authored lines only. ---
+# --- Named NPCs (05-people.md). They say authored lines; the voice is for free phrasing. ---
 
 [[brief]]
 id = "npc.ilse_marrow"
