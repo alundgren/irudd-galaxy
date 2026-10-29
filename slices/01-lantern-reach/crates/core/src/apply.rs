@@ -199,12 +199,12 @@ fn apply_with(
         }
         C::SetShipActivity { ship, activity } => {
             if let Some(t) = &activity.transit {
-                require(&world.lanes, &t.lane, "lane")?;
-                require(&world.regions, &t.from, "region")?;
-                require(&world.regions, &t.to, "region")?;
+                refs.require(&world.lanes, &t.lane, "lane")?;
+                refs.require(&world.regions, &t.from, "region")?;
+                refs.require(&world.regions, &t.to, "region")?;
             }
             if let Some(m) = &activity.mining {
-                require(&world.rocks, &m.rock, "rock")?;
+                refs.require(&world.rocks, &m.rock, "rock")?;
             }
             let s = find(&mut world.ships, ship, "ship")?;
             let old = std::mem::replace(&mut s.activity, (**activity).clone());

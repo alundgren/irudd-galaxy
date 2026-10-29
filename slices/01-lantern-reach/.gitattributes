@@ -1,2 +1,4 @@
 # Generated files keep LF so the staleness test and diffs agree on every OS.
 crates/contract/schemas/*.json text eol=lf
+*.ttf binary
+*.png binary
