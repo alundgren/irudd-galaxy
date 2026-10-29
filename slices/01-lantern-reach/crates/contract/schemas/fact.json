@@ -175,6 +175,7 @@
               "const": "buy"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0
@@ -211,6 +212,7 @@
               "const": "sell"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0

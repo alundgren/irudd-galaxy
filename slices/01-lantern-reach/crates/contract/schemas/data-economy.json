@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EconomyRules",
+  "description": "The market's tunables. Also the schema of a pack's `data/economy.toml`.",
+  "type": "object",
+  "properties": {
+    "pricing": {
+      "$ref": "#/$defs/PricingRules",
+      "default": {
+        "flood_saturation": 1.0,
+        "produce_cap": 0.0,
+        "regard": [],
+        "saturation_max": 0.0,
+        "spread": 1.0,
+        "stock_factor_max": 1.0,
+        "stock_factor_min": 1.0,
+        "stock_slope": 0.0
+      }
+    },
+    "pulses": {
+      "$ref": "#/$defs/PulseRules",
+      "default": {
+        "arrival_region": 0.0,
+        "arrival_stations": 0.0,
+        "dock_neighbours": 0.0,
+        "dock_region": 0.0,
+        "dock_station": 0.0,
+        "recount_distance": 0.0
+      }
+    },
+    "reach": {
+      "$ref": "#/$defs/ReachRules",
+      "default": {
+        "flags": {}
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PricingRules": {
+      "description": "The price formula's numbers.\n\n```text\nstock_factor = clamp(1 + stock_slope * (1 - stock / target), stock_factor_min, stock_factor_max)\npays = base * stock_factor * (1 - saturation)\nasks = base * stock_factor * spread\n```",
+      "type": "object",
+      "properties": {
+        "flood_saturation": {
+          "description": "A sale that leaves saturation at or above this records a `market_flooded` fact.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "produce_cap": {
+          "description": "Producers stop at `target * produce_cap`. Zero means no cap.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "regard": {
+          "description": "Spread by the player's standing with the station's owner. The last tier whose\n`min_standing` is at or below the standing applies.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RegardSpread"
+          }
+        },
+        "saturation_max": {
+          "description": "Saturation never goes above this.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "spread": {
+          "description": "Asking-price spread at stations with no owner, or when no regard tier applies.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_factor_max": {
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_factor_min": {
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_slope": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "PulseRules": {
+      "description": "How much market activity each kind of event makes.",
+      "type": "object",
+      "properties": {
+        "arrival_region": {
+          "description": "Region pulse for that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "arrival_stations": {
+          "description": "Station pulse at every station in the region a ship arrives in by lane.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_neighbours": {
+          "description": "Station pulse at every other station in that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_region": {
+          "description": "Region pulse for that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_station": {
+          "description": "Station pulse at the station a ship docks at (counted dockings only).",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "recount_distance": {
+          "description": "A re-docking at the same station counts only after the ship has been at least\nthis far from it, mined, or docked somewhere else. Stops undock-redock loops.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ReachRules": {
+      "description": "Price reach granted by player flags (fitted upgrades such as the price glass).",
+      "type": "object",
+      "properties": {
+        "flags": {
+          "description": "Flag -> live prices for stations within this many world units of the ship.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "number",
+              "format": "float"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "RegardSpread": {
+      "type": "object",
+      "properties": {
+        "min_standing": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "spread": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "min_standing",
+        "spread"
+      ]
+    }
+  }
+}

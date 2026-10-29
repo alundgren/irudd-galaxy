@@ -35,8 +35,9 @@
       "type": "object",
       "properties": {
         "credits": {
-          "type": "integer",
-          "format": "int64"
+          "description": "In credits.",
+          "type": "number",
+          "format": "double"
         },
         "hull": {
           "$ref": "#/$defs/HullId"

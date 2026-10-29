@@ -13,5 +13,6 @@ data = [
     "data/stations.toml",
     "data/rocks.toml",
     "data/npcs.toml",
+    "data/economy.toml",
     "data/start.toml",
 ]
