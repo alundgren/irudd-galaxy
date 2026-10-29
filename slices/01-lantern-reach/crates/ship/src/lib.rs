@@ -12,7 +12,8 @@
 //! - [`RegrowthSystem`]: rocks regrow and reform with region activity, never time:
 //!   one pool per field, given to the rock with the lowest remaining share.
 //! - [`trade`]: the [`TradeDesk`] trait that turns buy and sell orders into commands.
-//!   Pricing belongs to the economy crate, which plugs its desk in here.
+//! - [`market`]: [`EconomyDesk`], the real desk: `galaxy_economy`'s prices, checks and
+//!   trade commands behind the trait. [`FlatDesk`] (fixed prices) is for tests.
 //!
 //! Every tunable is data: hull stats in `hulls.toml`, the rest in `ship_rules.toml`
 //! (saved with the world as `WorldState::ship_rules`).
@@ -20,6 +21,7 @@
 pub mod conditions;
 pub mod controls;
 pub mod flight;
+pub mod market;
 pub mod space;
 pub mod trade;
 
@@ -28,13 +30,15 @@ mod step;
 mod system;
 
 pub use controls::{Capability, ControlError, Controls};
+pub use market::EconomyDesk;
 pub use regrowth::{RegrowthSystem, region_pulses};
 pub use system::ShipSystem;
 pub use trade::{ClosedDesk, FlatDesk, Side, Trade, TradeDesk, TradeError, TradeRequest};
 
 use galaxy_core::System;
 
-/// The ship systems in tick order, with `desk` handling buy and sell orders.
+/// The ship systems in tick order, with `desk` handling buy and sell orders. The game
+/// passes [`EconomyDesk`] and registers `galaxy_economy::EconomySystem` after these.
 pub fn systems(desk: Box<dyn TradeDesk>) -> Vec<Box<dyn System>> {
     vec![Box::new(ShipSystem::new(desk)), Box::new(RegrowthSystem)]
 }

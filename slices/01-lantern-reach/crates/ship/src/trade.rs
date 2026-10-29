@@ -2,8 +2,12 @@
 //!
 //! Prices and saturation belong to the economy crate. The ship crate only knows that a
 //! docked ship asks to trade and gets back the commands that do it (cargo, credits,
-//! the market line, the `buy`/`sell` event) or a typed reason it can't. Implement the
-//! trait (or pass a closure with the same signature) to plug a real market in.
+//! the market line, the `buy`/`sell` event) or a typed reason it can't. The real
+//! market is [`EconomyDesk`](crate::EconomyDesk) over `galaxy_economy`; implement the
+//! trait (or pass a closure with the same signature) for anything else.
+//!
+//! Money is whole centicredits (1 cr = 100), as everywhere in the sim: limits, floors,
+//! ceilings and [`Trade::total`].
 //!
 //! The order runner puts a trade's commands in the same batch as the order's progress
 //! and facts, so a trade the kernel rejects (a compare-and-set market update that lost
@@ -12,18 +16,12 @@
 //! don't quote the same line twice; the player's flagship goes first and the others
 //! take turns, so nobody waits for ever.
 //!
-//! The economy's `plan_trade` fits behind a thin adapter: map the side and the errors
-//! ([`TradeError`] notes which economy error each variant stands for), return its
-//! `filled` count and `total`, and meet [`TradeRequest::quantity`]'s "up to" rule by
-//! clamping a limitless buy to the line's stock and to what the credits afford.
+//! [`TradeError`] notes which economy error each variant stands for.
 
 use galaxy_contract::prelude::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Side {
-    Buy,
-    Sell,
-}
+/// Which way a trade goes: the economy's [`TradeSide`].
+pub use galaxy_contract::economy::TradeSide as Side;
 
 /// One trade a docked ship asks for.
 #[derive(Clone, Debug, PartialEq)]
@@ -38,8 +36,8 @@ pub struct TradeRequest {
     /// many as it can up to this (stock, credits, `limit`) and says how many in
     /// [`Trade::units`]; it is never all or nothing.
     pub quantity: u32,
-    /// Selling: only while the unit price is at or above this (the floor).
-    /// Buying: only while the unit price is at or below this.
+    /// In centicredits. Selling: only while the unit price is at or above this (the
+    /// floor). Buying: only while the unit price is at or below this.
     pub limit: Option<u32>,
 }
 
@@ -48,7 +46,7 @@ pub struct TradeRequest {
 pub struct Trade {
     /// Units actually moved (the economy's `filled`).
     pub units: u32,
-    /// Credits that changed hands, positive either way (the economy's `total`).
+    /// Centicredits that changed hands, positive either way (the economy's `total`).
     pub total: i64,
     /// Cargo, credits, market and event commands. Include `Emit` of `Event::Buy` or
     /// `Event::Sell` so history and counters see the trade.
@@ -59,6 +57,9 @@ pub struct Trade {
 /// (the price moves with activity); a patient sell waits on it and nothing else.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum TradeError {
+    /// Economy: `UnknownShip`.
+    #[error("unknown ship {0}")]
+    UnknownShip(ShipId),
     /// The station has no market (economy: `UnknownStation`).
     #[error("{0} has no market")]
     NoMarket(StationId),
@@ -70,8 +71,12 @@ pub enum TradeError {
     #[error("not docked at {0}")]
     NotDocked(StationId),
     /// The next unit is past the floor or the most the buyer will pay (economy:
-    /// `BeyondLimit`, its price rounded to whole credits).
-    #[error("the price {price} is past the limit {limit}")]
+    /// `BeyondLimit`). Both in centicredits.
+    #[error(
+        "the price {} is past the limit {}",
+        show_credits(i64::from(*price)),
+        show_credits(i64::from(*limit))
+    )]
     PastLimit { price: u32, limit: u32 },
     /// Economy: `NotEnoughCargo`, or `ZeroQuantity` on a sell.
     #[error("nothing to sell")]
@@ -85,6 +90,7 @@ pub enum TradeError {
     /// Economy: `HoldFull`, or `ZeroQuantity` on a buy.
     #[error("the hold is full")]
     HoldFull,
+    /// Anything else (a custom desk's own reason).
     #[error("{0}")]
     Refused(String),
 }
@@ -102,9 +108,10 @@ impl TradeError {
 pub trait TradeDesk {
     fn trade(&self, world: &WorldState, request: &TradeRequest) -> Result<Trade, TradeError>;
 
-    /// The most `station` could pay for one unit of `ware` right now (its ceiling); a
-    /// floor above it can never sell. `None`: it doesn't buy the ware. The default is
-    /// the line's `max_price`; the economy's desk gives its own ceiling.
+    /// The most `station` could pay for one unit of `ware` right now, in centicredits
+    /// (its ceiling); a floor above it can never sell. `None`: it doesn't buy the ware.
+    /// The default is the line's cached `max_price`; [`EconomyDesk`](crate::EconomyDesk)
+    /// works it out from the economy's price band.
     fn ceiling(&self, world: &WorldState, station: &StationId, ware: &WareId) -> Option<u32> {
         let line = world.markets.get(station)?.lines.get(ware)?;
         Some(line.max_price.max(line.price))
@@ -133,9 +140,9 @@ impl TradeDesk for ClosedDesk {
     }
 }
 
-/// A stand-in market: trades at the line's current price, which never moves; stock
-/// goes up and down. Credits move only for player-owned ships (NPC craft have no
-/// wallet here). The economy crate's desk replaces it.
+/// A stand-in market for tests: trades at the line's current price, which never
+/// moves; stock goes up and down. Credits move only for player-owned ships (NPC craft
+/// have no wallet here). The game uses [`EconomyDesk`](crate::EconomyDesk).
 ///
 /// Its stock change is a compare-and-set on the line it quoted (`UpdateMarketLine`), so
 /// a quote made stale by an earlier batch in the same tick (another trade, a script)
@@ -158,7 +165,7 @@ impl TradeDesk for FlatDesk {
         let ship = world
             .ships
             .get(&r.ship)
-            .ok_or_else(|| TradeError::Refused(format!("unknown ship {}", r.ship)))?;
+            .ok_or_else(|| TradeError::UnknownShip(r.ship.clone()))?;
         if ship.docked_at.as_ref() != Some(&r.station) {
             return Err(TradeError::NotDocked(r.station.clone()));
         }

@@ -51,8 +51,9 @@ pub enum Order {
     Sell {
         ware: WareId,
         quantity: Quantity,
-        /// Sell only while the price is at or above this. A crewed ship then keeps the
-        /// rest; a hull with a standing berth waits docked for the price (patient sell).
+        /// Sell only while the unit price, in centicredits, is at or above this. A crewed
+        /// ship then keeps the rest; a hull with a standing berth waits docked for the
+        /// price (patient sell).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         floor: Option<u32>,
     },
@@ -117,11 +118,13 @@ pub enum Quantity {
 pub enum Condition {
     HoldFull,
     HoldEmpty,
+    /// The line's current price, in centicredits, is at least `price`.
     PriceAtLeast {
         station: StationId,
         ware: WareId,
         price: u32,
     },
+    /// The line's current price, in centicredits, is at most `price`.
     PriceAtMost {
         station: StationId,
         ware: WareId,

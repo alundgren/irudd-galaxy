@@ -329,10 +329,13 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
     }))
 }
 
-/// The game's systems: the kernel's, then the ship's. The ship's buy and sell orders
-/// use the flat stand-in desk until the economy crate's desk is wired in.
+/// The game's systems, in tick order: the kernel's, the ship's (buy and sell orders go
+/// through the economy's desk), then the economy's (pulses, scouting, re-pricing and
+/// the player's dock-screen trades), which reads the dockings the ships made.
 fn game(state: galaxy_core::SimState) -> galaxy_core::Sim {
-    galaxy_core::game(state).with_systems(galaxy_ship::systems(Box::new(galaxy_ship::FlatDesk)))
+    galaxy_core::game(state)
+        .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)))
+        .with_systems([Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>])
 }
 
 fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {

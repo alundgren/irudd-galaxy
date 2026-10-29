@@ -266,7 +266,7 @@ pub struct OrderProgress {
     /// Units the current buy or sell has moved so far.
     #[serde(default)]
     pub traded: u32,
-    /// Credits the current buy or sell has moved so far.
+    /// Centicredits the current buy or sell has moved so far.
     #[serde(default)]
     pub credits: i64,
     /// A patient sell is waiting in a standing berth for its floor, since its region

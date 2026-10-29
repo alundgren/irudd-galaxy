@@ -140,12 +140,17 @@ and presses are written ahead of that batch (`ShipActivity::held_clicks`, `held_
 and replayed if it is rejected. Within a tick one ship trades per market line and rock
 units are claimed in turn: the player's flagship first, then the others in ID order,
 rotated by one each tick so nobody waits for ever. Buy and sell orders
-go through the `TradeDesk` trait (`trade` plus a `ceiling` for floors): the economy
-crate implements it (a closure works too) and the app passes it to
-`galaxy_ship::systems(desk)`; `FlatDesk` is the stand-in (its stock change is an
-`UpdateMarketLine` compare-and-set on the line it quoted). Control tiers are per-save
-flags named in `ship_rules.toml`: read them with `Controls::of(world)`, set them with
-`controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
+go through the `TradeDesk` trait (`trade` plus a `ceiling` for floors, all money in
+centicredits). The game's desk is `galaxy_ship::EconomyDesk` (`crates/ship/src/market.rs`):
+it fits the runner's "up to" requests to `galaxy_economy::plan_trade` (a buy is clamped
+to the stock, the free hold and what the credits afford), maps the economy's errors one
+for one onto `TradeError`, passes the economy's commands through unchanged (they open
+with `ExpectDocked` and change the line with a compare-and-set `UpdateMarketLine`), and
+takes its ceiling from the top of the line's price band. The app's `game()` registers
+the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`, then
+`galaxy_economy::EconomySystem`. `FlatDesk` (fixed prices) and closures are for tests.
+Control tiers are per-save flags named in `ship_rules.toml`: read them with
+`Controls::of(world)`, set them with `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
 the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every
 tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 

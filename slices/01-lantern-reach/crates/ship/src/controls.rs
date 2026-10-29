@@ -213,7 +213,12 @@ pub enum ControlError {
     NoName,
     #[error("{0} is flown by hand, not automated")]
     Flagship(ShipId),
-    #[error("{station} pays at most {ceiling} for {ware} now: a floor of {floor} would never sell")]
+    /// `floor` and `ceiling` are centicredits.
+    #[error(
+        "{station} pays at most {} for {ware} now: a floor of {} would never sell",
+        show_credits(i64::from(*ceiling)),
+        show_credits(i64::from(*floor))
+    )]
     FloorAboveCeiling {
         station: StationId,
         ware: WareId,
@@ -379,8 +384,9 @@ pub fn run_loop(
 
 /// Hands the saved loop `name` to an automated craft. Assigning copies the loop, so
 /// later edits to the player's loop don't change the craft until assigned again.
-/// `floor` (if any) becomes the floor of every sell in it: a craft with a standing
-/// berth then waits docked until the price is back at the floor (the patient sell).
+/// `floor` (if any, in centicredits) becomes the floor of every sell in it: a craft
+/// with a standing berth then waits docked until the price is back at the floor (the
+/// patient sell).
 ///
 /// Every floor is checked against what the sell's station can pay now (`desk`'s
 /// ceiling): one above it could never sell, so the assignment is refused and the

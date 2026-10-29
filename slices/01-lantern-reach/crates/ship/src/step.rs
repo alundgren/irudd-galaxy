@@ -939,8 +939,10 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                         "patient_wait",
                         Some(i64::from(price)),
                         format!(
-                            "{} waits at {station} for {ware} to reach {floor} (now {price})",
-                            self.ship.id
+                            "{} waits at {station} for {ware} to reach {} cr (now {} cr)",
+                            self.ship.id,
+                            show_credits(i64::from(floor)),
+                            show_credits(i64::from(price))
                         ),
                     );
                 }
@@ -965,14 +967,18 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             self.queue.progress.blocked = blocked;
             let id = self.ship.id.clone();
             let ceiling = ceiling.unwrap_or(0);
+            let (most, least) = (
+                show_credits(i64::from(ceiling)),
+                show_credits(i64::from(floor)),
+            );
             if blocked {
                 self.fact(
                     VerbKind::Sell,
                     "patient_blocked",
                     Some(i64::from(ceiling)),
                     format!(
-                        "{id} can't sell {ware} at {station}: its floor {floor} is above \
-                         the most it pays now ({ceiling})"
+                        "{id} can't sell {ware} at {station}: its floor {least} cr is above \
+                         the most it pays now ({most} cr)"
                     ),
                 );
             } else {
@@ -981,8 +987,8 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                     "patient_unblocked",
                     Some(i64::from(ceiling)),
                     format!(
-                        "{id} can sell {ware} at {station} again: it pays up to {ceiling}, \
-                         the floor is {floor}"
+                        "{id} can sell {ware} at {station} again: it pays up to {most} cr, \
+                         the floor is {least} cr"
                     ),
                 );
             }
@@ -1011,9 +1017,11 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             "patient_sold",
             Some(i64::from(sold)),
             format!(
-                "{} patiently sold {sold} {ware} at {station}: {average} cr a unit, floor \
-                 {floor}, {waited} pulses waited",
-                self.ship.id
+                "{} patiently sold {sold} {ware} at {station}: {} cr a unit, floor {} cr, \
+                 {waited} pulses waited",
+                self.ship.id,
+                show_credits(average),
+                show_credits(i64::from(floor))
             ),
         );
     }
