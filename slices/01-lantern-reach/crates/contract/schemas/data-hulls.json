@@ -38,6 +38,15 @@
         "name": {
           "type": "string"
         },
+        "price_reach": {
+          "description": "How far the hull sees live market prices. Default: docked only.",
+          "$ref": "#/$defs/PriceReach",
+          "default": {
+            "lane_scout": false,
+            "radius": 0.0,
+            "region": false
+          }
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
@@ -62,6 +71,29 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PriceReach": {
+      "description": "How far a hull sees live prices. The default is \"docked only\".",
+      "type": "object",
+      "properties": {
+        "lane_scout": {
+          "description": "A lane arrival refreshes the snapshots of every station in the new region.",
+          "type": "boolean",
+          "default": false
+        },
+        "radius": {
+          "description": "Live prices of stations within this distance. Zero: docked only.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "region": {
+          "description": "Live prices of every station in the ship's region.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

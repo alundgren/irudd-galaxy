@@ -4,18 +4,23 @@
 //! file holds an array of tables (`[[station]]`, `[[ware]]` ...). Unknown keys are an
 //! error, so typos are caught at load. New game builds the world from these; after
 //! that the save is the truth.
+//!
+//! Credits and prices are written as ordinary decimal credits (`base_price = 14`,
+//! `credits = 40.5`). The world keeps them as centicredits ([`crate::money`]); the
+//! loader converts them and rejects anything finer than a centicredit.
 
 use std::collections::BTreeSet;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::MarketRole;
 use crate::geom::Vec2;
 use crate::ids::*;
-use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service, Ware};
+use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service};
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 9] = [
+pub const DATA_FILES: [&str; 10] = [
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -24,6 +29,7 @@ pub const DATA_FILES: [&str; 9] = [
     "stations.toml",
     "rocks.toml",
     "npcs.toml",
+    "economy.toml",
     "start.toml",
 ];
 
@@ -31,7 +37,24 @@ pub const DATA_FILES: [&str; 9] = [
 #[serde(deny_unknown_fields)]
 pub struct WaresFile {
     #[serde(default)]
-    pub ware: Vec<Ware>,
+    pub ware: Vec<WareDef>,
+}
+
+/// A ware. The loader turns it into a [`Ware`](crate::world::Ware).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WareDef {
+    pub id: WareId,
+    pub name: String,
+    /// In credits.
+    pub base_price: f64,
+    /// False for things that can't be bought or sold (the Ancients fragment).
+    #[serde(default = "yes")]
+    pub tradeable: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -92,25 +115,39 @@ pub struct StationDef {
     pub market: Vec<MarketLineDef>,
 }
 
-/// A starting market line. Prices default from the ware's `base_price`: price = base,
-/// min = base / 2, max = base * 2.
+/// A starting market line, prices in credits. Prices default from the ware's
+/// `base_price`: price = base, min = base / 2, max = base * 2. The economy re-prices every line from the formula on
+/// its first tick. The pricing and pulse rules are `economy.toml`
+/// ([`EconomyRules`](crate::economy::EconomyRules), schema `data-economy.json`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MarketLineDef {
     pub ware: WareId,
     pub stock: u32,
     #[serde(default)]
-    pub price: Option<u32>,
+    pub price: Option<f64>,
     #[serde(default)]
-    pub base_price: Option<u32>,
+    pub base_price: Option<f64>,
     #[serde(default)]
-    pub min_price: Option<u32>,
+    pub min_price: Option<f64>,
     #[serde(default)]
-    pub max_price: Option<u32>,
+    pub max_price: Option<f64>,
     #[serde(default)]
     pub production: u32,
     #[serde(default)]
     pub consumption: u32,
+    /// Defaults to `sells` for a line with production, else `buys`.
+    #[serde(default)]
+    pub role: Option<MarketRole>,
+    #[serde(default)]
+    pub target: u32,
+    #[serde(default)]
+    pub sat_per_unit: f64,
+    #[serde(default)]
+    pub sat_recover: f64,
+    /// Production runs only while these wares are in stock here.
+    #[serde(default)]
+    pub needs: BTreeSet<WareId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -140,7 +177,8 @@ pub struct StartFile {
 #[serde(deny_unknown_fields)]
 pub struct StartDef {
     pub name: String,
-    pub credits: i64,
+    /// In credits.
+    pub credits: f64,
     pub ship: ShipId,
     pub ship_name: String,
     pub hull: HullId,

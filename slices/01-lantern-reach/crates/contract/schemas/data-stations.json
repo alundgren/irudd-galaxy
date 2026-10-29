@@ -23,17 +23,16 @@
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "MarketLineDef": {
-      "description": "A starting market line. Prices default from the ware's `base_price`: price = base,\nmin = base / 2, max = base * 2.",
+      "description": "A starting market line, prices in credits. Prices default from the ware's\n`base_price`: price = base, min = base / 2, max = base * 2. The economy re-prices every line from the formula on\nits first tick. The pricing and pulse rules are `economy.toml`\n([`EconomyRules`](crate::economy::EconomyRules), schema `data-economy.json`).",
       "type": "object",
       "properties": {
         "base_price": {
           "type": [
-            "integer",
+            "number",
             "null"
           ],
-          "format": "uint32",
-          "default": null,
-          "minimum": 0
+          "format": "double",
+          "default": null
         },
         "consumption": {
           "type": "integer",
@@ -43,30 +42,36 @@
         },
         "max_price": {
           "type": [
-            "integer",
+            "number",
             "null"
           ],
-          "format": "uint32",
-          "default": null,
-          "minimum": 0
+          "format": "double",
+          "default": null
         },
         "min_price": {
           "type": [
-            "integer",
+            "number",
             "null"
           ],
-          "format": "uint32",
-          "default": null,
-          "minimum": 0
+          "format": "double",
+          "default": null
+        },
+        "needs": {
+          "description": "Production runs only while these wares are in stock here.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
         },
         "price": {
           "type": [
-            "integer",
+            "number",
             "null"
           ],
-          "format": "uint32",
-          "default": null,
-          "minimum": 0
+          "format": "double",
+          "default": null
         },
         "production": {
           "type": "integer",
@@ -74,9 +79,37 @@
           "default": 0,
           "minimum": 0
         },
+        "role": {
+          "description": "Defaults to `sells` for a line with production, else `buys`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sat_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "sat_recover": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
         "stock": {
           "type": "integer",
           "format": "uint32",
+          "minimum": 0
+        },
+        "target": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
           "minimum": 0
         },
         "ware": {
@@ -87,6 +120,21 @@
       "required": [
         "ware",
         "stock"
+      ]
+    },
+    "MarketRole": {
+      "description": "Whether a station buys a ware from ships or sells it to them. A station never\nbuys a ware it produces, or sells one it consumes.",
+      "oneOf": [
+        {
+          "description": "The station buys it (pays a price that saturation lowers).",
+          "type": "string",
+          "const": "buys"
+        },
+        {
+          "description": "The station sells it (asks a price with a spread).",
+          "type": "string",
+          "const": "sells"
+        }
       ]
     },
     "PartId": {

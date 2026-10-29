@@ -47,6 +47,7 @@ pub enum Event {
         station: StationId,
         ware: WareId,
         quantity: u32,
+        /// The average unit price, in centicredits.
         unit_price: u32,
     },
     Sell {
@@ -54,6 +55,7 @@ pub enum Event {
         station: StationId,
         ware: WareId,
         quantity: u32,
+        /// The average unit price, in centicredits.
         unit_price: u32,
     },
     /// Cargo handed over for a goal or a station's growth, not sold.

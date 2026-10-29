@@ -74,6 +74,7 @@ crates/contract   shared interfaces (IDs, world schema, events, verbs, commands,
 crates/contract/schemas   generated JSON Schemas (commit them)
 crates/contract/api       generated galaxy.d.luau and HOOKS.md: the Luau hook API (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
+crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
 crates/app        the galaxy binary
 packs/core        the authored backbone: manifest.toml and data/*.toml
