@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tech Stack Proposal A — The Lantern Reach</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+pre.code { background: color-mix(in srgb, var(--purple) 10%, var(--bg)); border: 1px solid var(--purple); border-left: 4px solid var(--purple); border-radius: 10px; padding: 12px 14px; margin: 0 0 14px; overflow-x: auto; line-height: 1.45; }
+pre.code code { font-size: 15px; overflow-wrap: normal; white-space: pre; }
+.pill.a-green, .pill { color: var(--acc); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="../../../design/index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Tech Stack Proposal A — The Lantern Reach</h1>
+          <p>A proposed stack for the first vertical slice, <a href="../../../design/vertical-slice-lantern-reach.html">The Lantern Reach</a>: a native base engine that changes only with a release, a live scripting layer where the AI game master works, and an optional fast-model layer under it. It follows the locked decisions in the <a href="../../../design/high-level-plan.html">High-Level Plan</a> and the setup in <a href="../../../research/fast-model-layer.html">A Fast Layer Under the Game Master</a>. Target: Windows 11, RTX 5070 Ti with 16 GB, i5-14400F, 32 GB of RAM, fully offline. AI coding agents write most of the code. There are no time estimates on this page.</p>
+          <section id="contents">
+            <nav class="toc card a-blue" aria-label="On this page">
+              <p class="lead"><strong>On this page</strong></p>
+              <ol>
+                <li class="a-green"><a href="#rec">The recommendation, one line per layer</a></li>
+                <li class="a-blue"><a href="#base">The base engine</a></li>
+                <li class="a-purple"><a href="#script">The scripting layer</a>
+                  <ul>
+                    <li><a href="#sandbox">Sandboxing</a></li>
+                    <li><a href="#reload">Hot reload</a></li>
+                    <li><a href="#validate">Validation</a></li>
+                    <li><a href="#rollback">Rollback</a></li>
+                  </ul>
+                </li>
+                <li class="a-cyan"><a href="#boundary">The boundary and the API surface</a></li>
+                <li class="a-amber"><a href="#fast">How the fast-model layer plugs in</a></li>
+                <li class="a-green"><a href="#agents">Why agents can work well in this stack</a></li>
+                <li class="a-verm"><a href="#alts">Two alternative stacks and why they lost</a></li>
+                <li class="a-amber"><a href="#risks">Risks and the first three prototypes</a></li>
+                <li class="a-blue"><a href="#layout">Skeleton layout for the slice</a></li>
+                <li class="a-purple"><a href="#open">Open questions for Andreas</a></li>
+              </ol>
+            </nav>
+          </section>
+
+          <section id="rec">
+            <h2 class="a-green">The recommendation, one line per layer</h2>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Recommendation</span> <span class="t-acc a-green">Rust base engine, Luau scripting layer, llama.cpp sidecar for fast models.</span></h4>
+              <p>The base engine is a headless-first Rust simulation with a thin 2D renderer on top. The game master, and the authored backbone too, live in sandboxed, strictly typed Luau packs that run on events and write only through a command buffer. Nothing applies until the change has passed a forked headless run, and every write carries its cause, so the change can be undone in-world. Fast models pick from menus the scripts define, and utility AI always answers first. One binary exposes a JSON CLI that agents, tests and the game master all use.</p>
+            </div>
+            <div class="pair">
+              <div class="card a-blue">
+                <p class="card-title t-acc"><strong>Base engine</strong></p>
+                <p>Rust, with wgpu, winit, kira and SQLite. A deterministic fixed-step simulation library that runs without a window, plus a small sketch-style 2D renderer and one <code>galaxy</code> binary with a JSON CLI.</p>
+              </div>
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong>Scripting layer</strong></p>
+                <p>Luau in strict mode, hosted through mlua. Packs of scripts, data and assets that are sandboxed, budgeted and event-driven. Each change is validated in a forked headless run, applied at a calm moment and rolled back by cause.</p>
+              </div>
+              <div class="card a-amber">
+                <p class="card-title t-acc"><strong>Fast-model layer</strong></p>
+                <p>A bundled llama-server (CUDA build) running Qwen3.5-4B at Q4_K_M, called by a Rust decision service. Utility AI answers first. The model only picks from menus the scripts define, under a JSON schema, and off is a complete game.</p>
+              </div>
+            </div>
+            <h3>The stack at a glance</h3>
+            <ol class="flow">
+              <li class="node terminal a-purple"><strong>AI game master (outside the game)</strong><p>Claude Code, Codex or another agent. It reads digests and proposes packs through the <code>galaxy gm</code> CLI and never touches memory or files the game owns.</p></li>
+              <li class="edge">proposes a pack and gets a validation report back</li>
+              <li class="node a-purple"><strong>Scripting layer (live)</strong><p>Luau packs: the authored backbone (<code>core</code>) plus a per-save game master pack (<code>gm</code>). Beats, factions, traits, market tables, NPC briefs, line pools, station stages and fast-model menus.</p></li>
+              <li class="edge">calls the declared hooks only; writes go to a command buffer with a cause</li>
+              <li class="node a-blue"><strong>Base engine (release only, Rust)</strong><p>Sim kernel, stores with stable IDs, history log, event bus, verbs, flight, pricing, saves, script host, validator, snapshots, renderer, audio, CLI and the decision service.</p></li>
+              <li class="edge dashed">asks for a typed choice inside a budget, and utility AI answers if the model is late</li>
+              <li class="node a-amber"><strong>Fast-model sidecar (optional)</strong><p><code>llama-server.exe</code> on a free localhost port with a GGUF model. Started and stopped by the engine.</p></li>
+            </ol>
+          </section>
+
+          <section id="base">
+            <h2 class="a-blue">The base engine</h2>
+            <p>The engine is an explicit experiment in a custom engine, so it should be small and shaped exactly like this game: a top-down 2D world with a few hundred rocks and ships, six stations and a deep world state. The hard parts are not rendering. They are determinism, stable IDs, a history log and the ability to fork a save and fast-forward it. The stack is chosen for those.</p>
+            <h3>Choices</h3>
+            <div class="tablewrap">
+              <table class="tbl a-blue">
+                <thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead>
+                <tbody>
+                  <tr><th>Language</th><td>Rust (stable, pinned with <code>rust-toolchain.toml</code>)</td><td>The compiler and Clippy catch the class of bugs agents make most often: wrong types, null handling, data races and use-after-free. Cargo gives one build, test and dependency tool with no CMake. Mac support later costs little.</td></tr>
+                  <tr><th>Window and input</th><td>winit, plus gilrs only if a gamepad is wanted</td><td>The standard cross-platform window and event loop. WASD stop-on-release is a few lines over raw key state.</td></tr>
+                  <tr><th>GPU</th><td>wgpu, with DX12 and Vulkan on Windows and Metal on a Mac later</td><td>One API with an offscreen path, so the CLI can render screenshots headless for agents to look at.</td></tr>
+                  <tr><th>2D renderer</th><td>Custom: a sprite batcher, a lyon tessellator for vector shapes and a sketch-line shader</td><td>Star Traders sketched warmth needs hand-drawn sprites plus wobbly ink lines for rings, lanes and map borders. That is a small renderer, not an engine.</td></tr>
+                  <tr><th>Text</th><td>glyphon (cosmic-text on wgpu)</td><td>Good shaping and wrapping for dock talk, the chronicle and the PAUSED card.</td></tr>
+                  <tr><th>Game UI</th><td>Custom immediate-mode widgets on the renderer. egui only for the dev overlay.</td><td>Game UI must look sketched and has few screens: dock, hullwright, map and talk. egui is fast to write for debug panels that players never see.</td></tr>
+                  <tr><th>Audio</th><td>kira</td><td>A mixer, tweens and streaming, enough for soft UI sounds and a fresh ambient pass. None of the rejected mining or engine loops come along.</td></tr>
+                  <tr><th>Simulation</th><td>Fixed step at 30 Hz with render interpolation. Typed stores keyed by stable IDs. No ECS framework.</td><td>Entity counts are small, so plain typed stores (<code>Store&lt;StationId, Station&gt;</code>) are easier for agents to read than an ECS and map one-to-one onto the world-state schema scripts see.</td></tr>
+                  <tr><th>Determinism</th><td>A seeded PCG random generator per subsystem, ordered maps (<code>BTreeMap</code> or <code>IndexMap</code>) and no wall-clock reads in the sim</td><td>The same save and inputs give the same world on the same build. That makes sandbox forks, golden replays and fast-model caching meaningful.</td></tr>
+                  <tr><th>Saves and history</th><td>SQLite through rusqlite (bundled), one file per save</td><td>The history log is an append-only indexed table that scripts query. Forking a save for a sandbox run is a file copy. The plan's later sync layer can sit on SQLite without a rewrite.</td></tr>
+                  <tr><th>Serialization</th><td>serde, with JSON for the CLI and TOML for manifests. JSON Schemas generated from Rust types with schemars.</td><td>One source of truth: the contract crate. Schemas and Luau type definitions are generated from it, never written by hand.</td></tr>
+                  <tr><th>Script host</th><td>mlua with the <code>luau</code> feature</td><td>See <a href="#script">the scripting layer</a>.</td></tr>
+                  <tr><th>Distribution</th><td>One folder: <code>LanternReach.exe</code>, <code>packs/</code>, <code>assets/</code>, and an optional <code>mind/</code> folder with llama-server and the GGUF</td><td>Meets Gate 4's "one launcher". No installer, no runtime to install, nothing online.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>Four rules the engine is built around</h3>
+            <ol class="steps">
+              <li class="card a-blue"><span class="num">1</span><div><strong>Headless first.</strong><p>The sim crates have no dependency on the window, the GPU or audio. The game executable is a renderer and input layer wrapped around the same library that <code>galaxy sim</code> runs at thousands of ticks per second.</p></div></li>
+              <li class="card a-blue"><span class="num">2</span><div><strong>Stable IDs everywhere.</strong><p>Authored things have namespaced string IDs such as <code>station.kettle_dock</code>. Live-created things get IDs from their pack, such as <code>gm.sixth_station.station</code>. IDs are interned to integers at runtime. Saves, scripts, history facts and fast-model packets all speak these IDs, which is what Proto 6 showed lets progress survive a reload.</p></div></li>
+              <li class="card a-blue"><span class="num">3</span><div><strong>One write path.</strong><p>Every change to world state, whether from a verb, a script or a fast-model choice, is a typed command with a cause. The engine applies commands at the end of a tick, checks runtime invariants and appends the matching history facts. That gives scripts transactions, and gives rollback something to undo.</p></div></li>
+              <li class="card a-blue"><span class="num">4</span><div><strong>Same verbs for everyone.</strong><p>The player ship, the automated craft, scripted NPC craft and the test bot all issue the same verbs: fly, mine, dock, buy, sell, wait and loop. Control tiers only change how the player produces verbs, never what verbs do.</p></div></li>
+            </ol>
+            <h3>What the engine deliberately does not have</h3>
+            <ul>
+              <li>No editor. Content is text in packs, and the dev harness jumps to any beat.</li>
+              <li>No native plugins, no DLL loading and no Rust hot reload. A base change means a new build and a restart, which matches the locked hot-reload tiers.</li>
+              <li>No real-time clock, timer or countdown API available to scripts. Pacing uses activity counters only, so the "no timers" invariant holds by construction.</li>
+              <li>No networking beyond localhost: the CLI pipe and the optional llama-server port. Optional OpenRouter access stays out of the slice unless Andreas opts in.</li>
+            </ul>
+          </section>
+
+          <section id="script">
+            <h2 class="a-purple">The scripting layer</h2>
+            <h3>Why Luau</h3>
+            <p>Luau is Roblox's typed descendant of Lua 5.1. It was built to run untrusted code from millions of authors, which is close to the game master's situation.</p>
+            <ul class="marks">
+              <li><span class="mk t-acc a-green">+</span><span><strong>A sandbox by design.</strong> No file, process or network access in the language. Globals can be frozen with <code>sandbox</code> mode, and the VM supports interrupt callbacks for instruction budgets and per-state memory limits.</span></li>
+              <li><span class="mk t-acc a-green">+</span><span><strong>Gradual static types.</strong> <code>--!strict</code> scripts are checked against a definitions file generated from the contract crate, so "the script only touches declared hooks" is a type error before anything runs.</span></li>
+              <li><span class="mk t-acc a-green">+</span><span><strong>Agents know it.</strong> Lua and Roblox Luau are a very large body of public code, and the syntax is small.</span></li>
+              <li><span class="mk t-acc a-green">+</span><span><strong>Instant reload.</strong> No compile step. A pack reload is parse plus typecheck plus load.</span></li>
+              <li><span class="mk t-acc a-verm">−</span><span><strong>Costs.</strong> Typechecking needs the Luau analyzer binary pinned alongside the game. Floating-point maths in scripts is deterministic only on the same build, which is enough for this slice.</span></li>
+            </ul>
+            <h3>Packs</h3>
+            <p>A <strong>pack</strong> is a folder with a <code>manifest.toml</code>, Luau scripts, TOML data (market tables, factions, briefs, line pools, canon nodes) and optional assets. The slice runs two pack layers:</p>
+            <div class="pair">
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong><code>core</code>: the authored backbone</strong></p>
+                <p>All 17 beats, three factions, pilot traits, Tandem and Heron abilities, market tables, about 10 named NPCs and their line pools. Shipped with the slice and written by coding agents through the <em>same API</em> the game master uses.</p>
+              </div>
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong><code>gm</code>: the live layer, per save</strong></p>
+                <p>Everything the game master adds or changes. It lives inside the save file as revisions addressed by content hash, so a save carries its own history of changes.</p>
+              </div>
+            </div>
+            <p>Writing the backbone through the game master's API is the main design bet. If the authored journey can be built through the 14 hooks, the game master can build on them too. Any time the backbone needs something the hooks can't do, that goes on the "needed a base change" list, which answers the slice's question 7 directly.</p>
+            <h3>What a script looks like</h3>
+            <p>Change type 1, growing Kettle Dock from deliveries:</p>
+<pre class="code"><code>--!strict
+local G = require("@galaxy")
+
+return G.script {
+  id = "gm.kettle_growth",
+  uses = { "events.dock", "history.read", "stations.write",
+           "market.levers", "assets.kit", "talk.write" },
+
+  on = {
+    dock = function(ev: G.DockEvent, ctx: G.Ctx)
+      if ev.station ~= "station.kettle_dock" then return end
+      local ice = ctx.history:count { kind = "deliver", station = ev.station, ware = "ware.ice" }
+      local st = ctx.stations:get(ev.station)
+      if ice &gt;= 20 and st.stage &lt; 2 then
+        local why = ctx:cause { summary = "greenhouse stage 2 from the player's ice", facts = ice.ids }
+        ctx.stations:set_stage(ev.station, 2, why)
+        ctx.kit:attach(ev.station, "part.greenhouse_dome_b", why)
+        ctx.market:add_producer(ev.station, "ware.rations", 0.5, why)
+        ctx.talk:offer { person = "npc.ilse", place = ev.station, cites = why,
+                         line = "Kettle's second dome is up. That was your ice." }
+      end
+    end,
+  },
+}</code></pre>
+            <p>The script never holds world state in Lua variables. It reads through <code>ctx</code>, writes commands with a cause, and anything it must remember goes into a typed per-script store declared in the manifest and saved with the world. That is why a reload loses nothing.</p>
+
+            <h3 id="sandbox" class="hb a-purple">Sandboxing</h3>
+            <div class="tablewrap">
+              <table class="tbl a-purple">
+                <thead><tr><th>Threat</th><th>Guard</th></tr></thead>
+                <tbody>
+                  <tr><th>Reaching outside the game</th><td>Luau has no <code>io</code> or <code>os.execute</code>. <code>require</code> is replaced with a loader that only sees <code>@galaxy</code> and the pack's own modules. <code>os.time</code>, <code>os.clock</code> and <code>math.random</code> are removed; randomness comes from <code>ctx.rng</code>, seeded per script and event.</td></tr>
+                  <tr><th>Touching undeclared state</th><td>Static: strict typecheck against the generated definitions. Dynamic: <code>ctx</code> is built from the manifest's <code>uses</code> list, so undeclared namespaces are simply absent at runtime.</td></tr>
+                  <tr><th>Infinite loops and slow handlers</th><td>A VM interrupt counts instructions per handler call. Over budget, the handler is aborted and its commands are discarded. Repeated aborts quarantine the script and record a history fact.</td></tr>
+                  <tr><th>Memory blow-up</th><td>One Luau state per pack with a memory limit. Query results from <code>history</code> and the stores are capped and paginated.</td></tr>
+                  <tr><th>Half-applied changes</th><td>Handlers write to a command buffer. On error, nothing applies. On success, the whole buffer applies atomically at the end of the tick.</td></tr>
+                  <tr><th>Breaking design rules at runtime</th><td>The command applier checks runtime invariants: no destroyed or devalued player property, no write to a seen place without a legibility line citing a fact, and prices inside the bands the market allows.</td></tr>
+                  <tr><th>Bad assets</th><td>Assets are decoded by the engine's own PNG and SVG loaders with size limits, and referenced by ID from the manifest. No shaders or code ride along with assets.</td></tr>
+                  <tr><th>Damaging the live game during validation</th><td>Sandbox runs happen in a separate <code>galaxy sim</code> child process on a forked copy of the save, so a runaway script can only hurt the copy.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>Scripts never run per frame. They run on events, on activity-counter thresholds and on the "calm moment" signal (docked or paused). Flight, mining and pricing maths stay native. That keeps frame time safe and makes the script budget easy to reason about.</p>
+
+            <h3 id="reload" class="hb a-purple">Hot reload</h3>
+            <p>There are two paths into a running game, and both go through the same loader and validator.</p>
+            <div class="pair">
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong>Dev reload, for coding agents</strong></p>
+                <p>In a dev build, a file watcher on <code>packs/</code> reloads a changed pack after the fast checks (types, schema, canon, static invariants). The full sandbox run is skipped unless <code>--sandbox</code> is passed. If a check fails, the last good revision keeps running and the report appears in the overlay and on the CLI, which is Proto 6's behavior.</p>
+              </div>
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong>Live change, for the game master</strong></p>
+                <p><code>galaxy gm propose ./change</code> sends a pack revision over a local named pipe. It is validated in full, staged with a snapshot, and applied at the next calm moment. There is no in-game approval inbox; the player meets the change in the world.</p>
+              </div>
+            </div>
+            <p>A reload swaps the pack's Luau state and re-registers its handlers between ticks. Persistent script data lives in engine stores, so nothing is lost. If no game is running, the same CLI works on the save file, applying on next load. That covers both answers to the open question about how the game master runs during play.</p>
+
+            <h3 id="validate" class="hb a-purple">Validation</h3>
+            <p>This is the slice's cut-down pipeline from the vertical slice page, made concrete. Every step writes into one JSON validation report whose format is part of the frozen contract.</p>
+            <ol class="steps">
+              <li class="card a-purple"><span class="num">1</span><div><strong>Types and schema.</strong><p>Strict Luau typecheck against <code>galaxy.d.luau</code>. TOML data checked against the generated JSON Schemas. Every hook used must be declared in <code>uses</code>, and every ID referenced must exist or be created by this pack.</p></div></li>
+              <li class="card a-purple"><span class="num">2</span><div><strong>Canon check.</strong><p>Every Ancients claim cites a node in the canon graph (<code>canon.toml</code>). Locked nodes beyond the open chapter can't be revealed, and line text is scanned for forbidden canon terms.</p></div></li>
+              <li class="card a-purple"><span class="num">3</span><div><strong>Invariants.</strong><p>Some hold by construction, such as no clock API, which means no timers. The manifest declares shocks and the opportunities paired with them, and the validator checks the pairing. The others (no level scaling, no destroyed player property) are checked dynamically in step 4.</p></div></li>
+              <li class="card a-purple"><span class="num">4</span><div><strong>Sandbox run.</strong><p>Fork the current save into a child process. Fast-forward a fixed amount of <em>activity</em> (dockings, deliveries, jumps) with the journey bot playing, once with the change and once without. Compare telemetry: prices inside bands, no runaway producers, no beat that can no longer resolve, no runtime invariant hits, no handler over budget.</p></div></li>
+              <li class="card a-purple"><span class="num">5</span><div><strong>Legibility check.</strong><p>Every write to a place the player has seen must pair with a talk line, map note or chronicle entry that names a place and a person and cites a history fact ID. During the sandbox run, the validator confirms those lines actually fire.</p></div></li>
+              <li class="card a-purple"><span class="num">6</span><div><strong>Snapshot, then stage.</strong><p>Write a snapshot row into the save, stage the revision, and apply it at the next calm moment. The report returns <code>accepted</code>, <code>rejected</code> with reasons and locations, or <code>applied</code> with a change ID.</p></div></li>
+            </ol>
+            <p>W5's deliberately bad script, the one that must be rejected, becomes a permanent test. The other steps from <a href="../../../research/game-master-menu.html">The Game Master's Menu</a> (charter, exploit scan, novelty fingerprint) can be added later as more steps in the same report without changing the API.</p>
+
+            <h3 id="rollback" class="hb a-purple">Rollback</h3>
+            <p>Because every command carries a cause, the engine knows exactly which writes a change made, so rollback works at two levels.</p>
+            <div class="pair">
+              <div class="card a-green">
+                <p class="card-title t-acc"><strong>In-world rollback (default)</strong></p>
+                <p><code>galaxy gm rollback &lt;change-id&gt;</code> computes the inverse of every write caused by that change and applies it as a new change with its own legibility line, such as Ilse saying the depot handover fell through. Things the player earned stay earned. The pack revision is deactivated. Automatic triggers: repeated handler aborts, runtime invariant hits or a telemetry alarm such as a runaway price.</p>
+              </div>
+              <div class="card a-amber">
+                <p class="card-title t-acc"><strong>Hard restore (fallback)</strong></p>
+                <p>Load the snapshot taken before the change and the previous pack set. It is exact, but it loses play since the snapshot, so it is a developer and harness tool, not the game master's normal path.</p>
+              </div>
+            </div>
+            <p>Some commands are not cleanly reversible, for example a rumor the player has already heard. The contract marks each command as <em>reversible</em> or <em>compensate-only</em>, and the validator warns when a change leans on the second kind.</p>
+          </section>
+
+          <section id="boundary">
+            <h2 class="a-cyan">The boundary and the API surface</h2>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Rule</span> <span class="t-acc a-cyan">Native code owns how things work. Scripts own what exists, when, and why.</span></h4>
+              <p>Anything per-frame, numeric at scale or safety-critical is native: flight, mining, pricing maths, verb execution, saves, invariants and validation. Anything that is content, pacing, rules of a place or a person, or a reason to change is script: beats, factions' behavior, traits, market tables, station stages, briefs, menus and lines. Scripts compose; the engine executes.</p>
+            </div>
+            <h3>Where the 20 systems fall</h3>
+            <div class="tablewrap">
+              <table class="tbl a-cyan">
+                <thead><tr><th>#</th><th>System</th><th>Native (base engine)</th><th>Script (packs)</th></tr></thead>
+                <tbody>
+                  <tr><td class="r">1</td><th>Sim core, pause, save</th><td>All</td><td>None</td></tr>
+                  <tr><td class="r">2</td><th>World state, history, events</th><td>Stores, log, bus, counters</td><td>Per-script stores declared in manifests</td></tr>
+                  <tr><td class="r">3</td><th>Flight and control tiers</th><td>Every input mode and the flight model</td><td>Unlock rules: which goal unlocks which tier</td></tr>
+                  <tr><td class="r">4</td><th>Orders: queues and loops</th><td>Verb execution, queue and loop runner</td><td>Composite verbs built from primitives</td></tr>
+                  <tr><td class="r">5</td><th>Mining and rocks</th><td>Shrinking, depletion, regrowth maths</td><td>Rock types, regrowth parameters, field placement</td></tr>
+                  <tr><td class="r">6</td><th>Docking, cargo, services</th><td>Ring docking, holds, service screens</td><td>Which station offers which service</td></tr>
+                  <tr><td class="r">7</td><th>Living market</th><td>Price and saturation maths</td><td>Producer and consumer tables, levers</td></tr>
+                  <tr><td class="r">8</td><th>Map, regions, scouting</th><td>Map view, dated snapshots</td><td>Regions, lanes, borders</td></tr>
+                  <tr><td class="r">9</td><th>First automated craft</th><td>Craft controller running a saved loop</td><td>Which craft, its teacher, its special job</td></tr>
+                  <tr><td class="r">10</td><th>Directed quest backbone</th><td>Beat runtime</td><td>All 17 beats</td></tr>
+                  <tr><td class="r">11</td><th>State-driven beats</th><td>Beat runtime</td><td>Shortage, dispute, rumor and more</td></tr>
+                  <tr><td class="r">12</td><th>Factions and standing</th><td>Store and territory map</td><td>Wants, memory rules, reactions</td></tr>
+                  <tr><td class="r">13</td><th>Pilot growth</th><td>A fixed list of small modifiers</td><td>Traits: which deed earns which modifier</td></tr>
+                  <tr><td class="r">14</td><th>Hullwright prestige</th><td>Hull stats, the reset and the fee</td><td>Tandem and Heron ability sets</td></tr>
+                  <tr><td class="r">15</td><th>Scripting engine</th><td>All</td><td>None</td></tr>
+                  <tr><td class="r">16</td><th>Game master bridge</th><td>CLI, pipe, digest builder</td><td>None</td></tr>
+                  <tr><td class="r">17</td><th>Fast-model layer</th><td>Decision service, sidecar, validator</td><td>Menus, briefs, utility curves, prompt templates</td></tr>
+                  <tr><td class="r">18</td><th>Legibility channels</th><td>Channels and the citation rule</td><td>Lines and line pools</td></tr>
+                  <tr><td class="r">19</td><th>Presentation</th><td>Renderer, UI widgets, audio</td><td>Station kit assembly, new sprites in packs</td></tr>
+                  <tr><td class="r">20</td><th>Dev harness</th><td>All</td><td>Bot goals come from the backbone beats</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>The 14 hooks as the Luau API</h3>
+            <p>Each row is one namespace on <code>ctx</code>, gated by the manifest's <code>uses</code> list. Every write takes a <code>cause</code>. Nothing else is reachable.</p>
+            <div class="tablewrap">
+              <table class="tbl a-cyan">
+                <thead><tr><th>Hook</th><th>Luau namespace</th><th>Reads</th><th>Writes (commands)</th></tr></thead>
+                <tbody>
+                  <tr><th>Event hooks</th><td><code>on.&lt;event&gt;</code></td><td>Payloads with stable IDs: dock, undock, mine, rock_depleted, buy, sell, scout, order_done, quest_step, trait_earned, prestige</td><td>None (subscription only)</td></tr>
+                  <tr><th>Activity counters</th><td><code>ctx.counters</code>, <code>G.after</code></td><td>Per player, station and region: dockings, deliveries, jumps, sessions</td><td>None. <code>G.after{dockings = 3}</code> schedules by activity, never by time.</td></tr>
+                  <tr><th>World state stores</th><td><code>ctx.stations</code>, <code>ctx.factions</code>, <code>ctx.npcs</code>, <code>ctx.rumors</code>, <code>ctx.territory</code></td><td>Typed records</td><td>Typed setters and creators, including the stage, owner, NPC role and rumor truth value</td></tr>
+                  <tr><th>Player history</th><td><code>ctx.history</code></td><td><code>count</code>, <code>find</code>, <code>last</code> with filters. Results are capped and carry fact IDs.</td><td><code>ctx:cause</code> appends a cause fact</td></tr>
+                  <tr><th>Canon graph</th><td><code>ctx.canon</code></td><td>Nodes and their lock state</td><td>Open a node, or add one as an explicit new-canon command</td></tr>
+                  <tr><th>Market levers</th><td><code>ctx.market</code></td><td>Stock, price band, snapshot</td><td>Add or scale producers and consumers; add stock lines</td></tr>
+                  <tr><th>Mechanic registry</th><td><code>ctx.mechanics</code></td><td>Per-save flags</td><td>Set flags; bind reserved input and UI slots to composite verbs</td></tr>
+                  <tr><th>Order verb API</th><td><code>ctx.orders</code></td><td>A craft's queue</td><td>Issue fly, mine, dock, buy, sell, wait or loop to scripted craft and the automated craft. Never to the player ship.</td></tr>
+                  <tr><th>Runtime asset kit</th><td><code>ctx.kit</code></td><td>Parts, stages and variants by ID</td><td>Attach or detach parts; assemble a new station; register pack sprites</td></tr>
+                  <tr><th>Beat API</th><td><code>G.beat</code></td><td>Beat states</td><td>Register a beat with preconditions, a one-line goal and an end state</td></tr>
+                  <tr><th>Legibility channels</th><td><code>ctx.talk</code>, <code>ctx.map</code>, <code>ctx.chronicle</code></td><td>What has been said</td><td>Offer a line, map note or chronicle entry. A fact ID is required.</td></tr>
+                  <tr><th>Fast-model budget</th><td><code>ctx.mind</code></td><td>Spend per region</td><td>Set menus, briefs and per-region call budgets</td></tr>
+                  <tr><th>Sandbox and snapshots</th><td>CLI only: <code>galaxy gm</code>, <code>galaxy sim</code></td><td>Not in scripts</td><td>Not in scripts. The game master forks and restores through the CLI, never from inside a script.</td></tr>
+                  <tr><th>Telemetry</th><td><code>ctx.telemetry</code>, <code>galaxy telemetry</code></td><td>Economy and activity metrics per region</td><td>None</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>The 7 frozen interfaces, as files</h3>
+            <p>All seven live in one Rust crate, <code>contract</code>, owned by W1. Everything else is generated from it.</p>
+            <div class="tablewrap">
+              <table class="tbl a-cyan">
+                <thead><tr><th>Interface</th><th>Source of truth</th><th>Generated for others</th></tr></thead>
+                <tbody>
+                  <tr><th>World-state schema with stable IDs</th><td><code>contract/src/world.rs</code></td><td><code>schemas/world.json</code>, Luau types</td></tr>
+                  <tr><th>Event names and payloads, with counters</th><td><code>contract/src/events.rs</code></td><td><code>schemas/events.json</code>, Luau types</td></tr>
+                  <tr><th>Order verb schema</th><td><code>contract/src/verbs.rs</code></td><td><code>schemas/verbs.json</code>, Luau types</td></tr>
+                  <tr><th>Hook API surface</th><td><code>contract/src/api.rs</code></td><td><code>api/galaxy.d.luau</code>, <code>api/HOOKS.md</code></td></tr>
+                  <tr><th>Script manifest and validation report</th><td><code>contract/src/pack.rs</code>, <code>report.rs</code></td><td><code>schemas/manifest.json</code>, <code>schemas/report.json</code></td></tr>
+                  <tr><th>Asset manifest</th><td><code>contract/src/assets.rs</code></td><td><code>schemas/assets.json</code></td></tr>
+                  <tr><th>Text channel API</th><td><code>contract/src/talk.rs</code></td><td>Luau types, <code>schemas/talk.json</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p><code>cargo xtask contract</code> regenerates the schemas, the Luau definitions and the hook reference. A contract change shows up as a diff in those files, which is how W1 reviews change requests.</p>
+            <h3>Expected to need a base change</h3>
+            <p>These are listed up front so question 7 starts with an honest list. Each would be a new release, not a script:</p>
+            <ul>
+              <li>A truly new primitive verb, such as rock tagging if it can't be built from mine, wait and flags. Composite verbs are scripts; new physics is not.</li>
+              <li>A new kind of UI screen. Scripts can fill reserved slots and panels with declared widgets, but can't invent layouts.</li>
+              <li>New pricing maths. Levers can change inputs, not the formula.</li>
+              <li>Any new hook. That is a contract change.</li>
+            </ul>
+          </section>
+
+          <section id="fast">
+            <h2 class="a-amber">How the fast-model layer plugs in</h2>
+            <p>It follows the research page's recommended starting setup, split along the same boundary: the engine owns the plumbing and the safety, and scripts own what NPCs may do and how they talk.</p>
+            <ol class="flow">
+              <li class="node terminal a-amber"><strong>Something happens near the player</strong><p>Docking, a jump, a shortage threshold or a passing trader. Requests come from events, never from a per-tick clock.</p></li>
+              <li class="edge">the engine builds a grounding packet: the brief, state with IDs, and recent facts</li>
+              <li class="node a-amber"><strong>Utility AI scores the menu (native, always on)</strong><p>The curves and the menu come from the script pack. The top choice is <em>already a complete answer</em> and is held as the default.</p></li>
+              <li class="edge dashed">if a model is enabled, within budget and the GPU has headroom</li>
+              <li class="node a-amber"><strong>llama-server picks</strong><p>The top three or four options plus temperament go to the model. Output is constrained by a JSON schema built from the menu: an action ID from an enum plus typed fields, and a length-capped line if the menu item allows text.</p></li>
+              <li class="edge">within a deadline; otherwise the default stands</li>
+              <li class="node a-amber"><strong>Validator (native)</strong><p>The six checks from the research page: shape, references, rules, limits, text, and on failure the utility choice plus an authored line. It never retries in a loop.</p></li>
+              <li class="edge">the result applies as an ordinary command with cause <code>mind:&lt;brief&gt;@&lt;rev&gt;</code></li>
+              <li class="node terminal a-amber"><strong>History and the game master's digest</strong><p>The outcome is a fact like any other. Dock talk can cite it, rumors can spread it, and the game master reads it.</p></li>
+            </ol>
+            <div class="pair">
+              <div class="card a-blue">
+                <p class="card-title t-acc"><strong>In the base engine (<code>crates/mind</code>)</strong></p>
+                <ul>
+                  <li>Starts <code>llama-server.exe</code> on a free localhost port at below-normal process priority, checks its health, and stops it on exit.</li>
+                  <li>A request queue on a worker thread. The frame thread never waits.</li>
+                  <li>The fallback chain: local model, then cloud if opted in, then utility AI.</li>
+                  <li>A situation cache keyed by the brief revision, fact IDs and the menu.</li>
+                  <li>The validator, budget accounting and write-back.</li>
+                </ul>
+              </div>
+              <div class="card a-purple">
+                <p class="card-title t-acc"><strong>In script packs (<code>ctx.mind</code>)</strong></p>
+                <ul>
+                  <li>NPC briefs: goals, temperament, allowed actions, limits, knowledge, voice and off-limits topics.</li>
+                  <li>Menus for traders' routes, dock talk, rumor spread and shortage reactions.</li>
+                  <li>Utility curves and authored fallback line pools.</li>
+                  <li>Per-region call budgets, set by the game master.</li>
+                </ul>
+              </div>
+            </div>
+            <h3>Fitting it on this PC</h3>
+            <div class="tablewrap">
+              <table class="tbl a-amber">
+                <thead><tr><th>Resource</th><th>Game</th><th>Fast model</th><th>Note</th></tr></thead>
+                <tbody>
+                  <tr><th>VRAM (16 GB)</th><td>A 2D sprite game: well under 2 GB</td><td>Qwen3.5-4B at Q4_K_M with a 4K context and 2 slots: inside the research page's 4 to 6 GB budget</td><td>Leaves room to try Qwen3.5-9B or Ministral 3 8B later</td></tr>
+                  <tr><th>GPU time</th><td>Light frames, capped at the display's refresh rate</td><td>Bursts at docking and jumps</td><td>Calls batch at calm moments. If frame time spikes, the service drops to utility AI and records it.</td></tr>
+                  <tr><th>CPU (10 cores)</th><td>The sim and render threads</td><td>Light, because inference is on the GPU</td><td>Sandbox validation runs use spare cores in a child process</td></tr>
+                  <tr><th>RAM (32 GB)</th><td>Small</td><td>Small</td><td>No pressure</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>Determinism and tests</h3>
+            <p>Model answers are not deterministic, so every model decision is recorded as a fact with its request key. Replays and sandbox runs read recorded decisions where they exist and use utility AI otherwise. Headless tests run with <code>--mind off</code> by default, which also proves that off is a complete game. A separate <code>galaxy mind bench</code> command measures latency and frame cost with the real model on this card.</p>
+          </section>
+
+          <section id="agents">
+            <h2 class="a-green">Why agents can work well in this stack</h2>
+            <p>Agents do best with fast, honest feedback they can read as text. Every part of this stack gives some.</p>
+            <ol class="steps">
+              <li class="card a-green"><span class="num">1</span><div><strong>The compiler is the first reviewer.</strong><p>Rust's type system, the borrow checker and Clippy reject most agent mistakes before a test runs. The contract crate means a workstream that drifts from the shared interfaces fails to build, not to integrate.</p></div></li>
+              <li class="card a-green"><span class="num">2</span><div><strong>Crate boundaries match workstream ownership.</strong><p>Each of W1 to W6 owns its crates (see <a href="#layout">the layout</a>). Agents touch their own folder plus contract change requests, so parallel work rarely conflicts.</p></div></li>
+              <li class="card a-green"><span class="num">3</span><div><strong>Headless simulation is the default.</strong><p>The sim crates build and test without a GPU. <code>cargo test</code> needs no window, and <code>galaxy sim</code> fast-forwards a save far faster than real time.</p></div></li>
+              <li class="card a-green"><span class="num">4</span><div><strong>Determinism makes tests exact.</strong><p>Golden replays record an input or verb stream and assert world-state hashes at checkpoints. A diff names the first tick and the first store that diverged.</p></div></li>
+              <li class="card a-green"><span class="num">5</span><div><strong>The journey bot is the shared test.</strong><p>The bot plays all 17 beats by issuing the same verbs as the player, with goals read from the backbone beats. If a beat can't be finished, the bot report names the beat and the missing precondition.</p></div></li>
+              <li class="card a-green"><span class="num">6</span><div><strong>Agents can see the game.</strong><p><code>galaxy shot</code> renders any save or beat offscreen to a PNG, so an agent can look at art and UI changes without a window or a person.</p></div></li>
+              <li class="card a-green"><span class="num">7</span><div><strong>Content agents never wait for a compile.</strong><p>Luau packs reload live in a dev build, and <code>galaxy pack check</code> gives the same JSON report the game master gets.</p></div></li>
+              <li class="card a-green"><span class="num">8</span><div><strong>Checks run locally.</strong><p><code>cargo xtask check</code> runs fmt, Clippy, the tests, the pack checks, the golden replays and the bot run. Validation stays on the PC, with no CI workflows.</p></div></li>
+            </ol>
+            <h3>The CLI</h3>
+            <p>One binary, <code>galaxy</code>, with JSON on stdout and meaningful exit codes. It works on a save file, or on the running game over a local named pipe. The game master, coding agents and tests all use it.</p>
+            <div class="tablewrap">
+              <table class="tbl a-green">
+                <thead><tr><th>Command</th><th>What it does</th><th>Main users</th></tr></thead>
+                <tbody>
+                  <tr><td><code>galaxy play [--save] [--beat N] [--mind off|local]</code></td><td>Launch the game, optionally at a beat</td><td>Andreas, W6</td></tr>
+                  <tr><td><code>galaxy sim run --save S --until beat:13 --bot journey</code></td><td>Headless fast-forward, with a report and telemetry</td><td>All agents, validation</td></tr>
+                  <tr><td><code>galaxy sim replay --golden G</code></td><td>Replay and compare state hashes</td><td>Tests</td></tr>
+                  <tr><td><code>galaxy beat jump N --out S</code></td><td>Produce a save positioned at beat N</td><td>W4, W6</td></tr>
+                  <tr><td><code>galaxy state get|query</code>, <code>galaxy history query</code></td><td>Read world state and facts as JSON</td><td>Game master, debugging</td></tr>
+                  <tr><td><code>galaxy pack check|test DIR</code></td><td>Validation steps 1 to 3 (plus 4 with <code>--sandbox</code>), and script unit tests</td><td>Content agents</td></tr>
+                  <tr><td><code>galaxy gm digest</code></td><td>What changed since the last digest, by fact ID</td><td>Game master</td></tr>
+                  <tr><td><code>galaxy gm propose DIR</code></td><td>Full validation, then stage for a calm moment. Returns the report.</td><td>Game master</td></tr>
+                  <tr><td><code>galaxy gm status|rollback ID</code></td><td>Applied and staged changes; in-world rollback</td><td>Game master</td></tr>
+                  <tr><td><code>galaxy shot --save S [--beat N] --out P.png</code></td><td>Offscreen screenshot</td><td>W6, any agent</td></tr>
+                  <tr><td><code>galaxy telemetry --save S</code></td><td>Per-region economy and activity metrics</td><td>W3, game master</td></tr>
+                  <tr><td><code>galaxy mind bench</code></td><td>Model latency and frame cost on this PC</td><td>W5</td></tr>
+                  <tr><td><code>galaxy api dump</code></td><td>Print the hook reference and schemas</td><td>Everyone</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>This is the plan's "one agent contract (CLI plus JSON schemas)". An MCP server can later be a thin wrapper over the same commands.</p>
+          </section>
+
+          <section id="alts">
+            <h2 class="a-verm">Two alternative stacks and why they lost</h2>
+            <div class="pair">
+              <div class="card a-verm">
+                <p class="card-title t-acc"><strong>Alternative 1: C++20, SDL3 and LuaJIT</strong></p>
+                <p>The classic custom-engine stack: SDL3 for windowing, input, audio and its GPU API, LuaJIT through sol2 for scripting, and SQLite for saves.</p>
+                <ul class="marks">
+                  <li><span class="mk t-acc a-green">+</span><span>The most-documented way to build a game engine, and LuaJIT is very fast.</span></li>
+                  <li><span class="mk t-acc a-green">+</span><span>SDL3 covers a lot of platform code in one library.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>Memory and undefined-behavior bugs from agent-written C++ show up late, as crashes during play rather than compile errors.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>CMake and dependency management are a constant tax on agents.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>LuaJIT has no static types, and its FFI makes the sandbox easy to break. The game master's scripts would be checked only at runtime.</span></li>
+                </ul>
+                <p><strong>Why it lost:</strong> the two things this project most needs from a stack are safety for agent-written native code and typechecked, sandboxed game master scripts. It is weaker at both.</p>
+              </div>
+              <div class="card a-verm">
+                <p class="card-title t-acc"><strong>Alternative 2: Rust with WebAssembly scripts (Wasmtime)</strong></p>
+                <p>The same Rust base engine, but the scripting layer is WebAssembly components run by Wasmtime, authored in Rust or AssemblyScript against a WIT interface.</p>
+                <ul class="marks">
+                  <li><span class="mk t-acc a-green">+</span><span>The strongest sandbox available: memory isolation, fuel metering and capability imports.</span></li>
+                  <li><span class="mk t-acc a-green">+</span><span>The WIT interface is a precise, versioned contract.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>Every live change needs a compile toolchain. The game master writes Rust, compiles to Wasm and ships binaries, so the review surface is a blob rather than readable source.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>The reload loop is slower and heavier for content agents.</span></li>
+                  <li><span class="mk t-acc a-verm">−</span><span>Content such as beats, briefs and lines is awkward in a compiled language.</span></li>
+                </ul>
+                <p><strong>Why it lost, narrowly:</strong> the slice's scripts are mostly content and small rules, where readable, instantly reloadable source matters more than the last bit of isolation. If the Luau sandbox fails prototype 1, this is the fallback, and the contract crate makes the swap contained.</p>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <p class="card-title t-acc"><strong>Also ruled out early</strong></p>
+              <ul>
+                <li><strong>Godot or Unity:</strong> not a custom engine, which breaks the locked experiment. Their scripting languages also have no sandbox, so the base and script layers would blur.</li>
+                <li><strong>C# with Roslyn scripts:</strong> agent-friendly, but live-loaded .NET assemblies are code injection with no security boundary, which breaks the "no DLL injection" agreement.</li>
+                <li><strong>Tauri, Electron or the browser:</strong> the plan already rejects a webview as the long-term home for a flyable game.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section id="risks">
+            <h2 class="a-amber">Risks and the first three prototypes</h2>
+            <h3>Risks</h3>
+            <div class="tablewrap">
+              <table class="tbl a-amber">
+                <thead><tr><th>Risk</th><th>Why it matters</th><th>Mitigation</th></tr></thead>
+                <tbody>
+                  <tr><th>The boundary is drawn wrong</th><td>Too narrow and every game master idea needs a release. Too wide and scripts become a second engine.</td><td>The backbone is written through the same 14 hooks. Every "needed a base change" is logged and reviewed at each gate.</td></tr>
+                  <tr><th>In-world rollback gets tangled</th><td>Later writes can depend on a change being undone.</td><td>Writes tagged by cause, commands marked reversible or compensate-only, and hard restore as the fallback.</td></tr>
+                  <tr><th>Determinism drifts</th><td>Sandbox comparisons and golden replays become noise.</td><td>Ordered maps, seeded random generators, no clock in the sim, and a replay-hash test on every <code>xtask check</code>.</td></tr>
+                  <tr><th>Luau tooling integration</th><td>The strict typecheck needs the external analyzer binary and a generated definitions file to agree with mlua's runtime.</td><td>Prototype 1 proves it first. The analyzer version is pinned next to the game.</td></tr>
+                  <tr><th>The renderer eats the effort</th><td>Custom engines tend to grow tooling before feel.</td><td>Sprites, ink lines, text and a few widgets only. No editor. Feel is judged at Gate 1 with placeholder art.</td></tr>
+                  <tr><th>GPU contention with the model</th><td>Hitches would break the calm.</td><td>A small model, calls batched at calm moments, a frame-time guard that drops to utility AI, and measuring with <code>galaxy mind bench</code>.</td></tr>
+                  <tr><th>Contract churn across six agents</th><td>Integration gets messy, as the slice page warns.</td><td>One contract crate, generated artifacts, change requests through W1, and stubs that stay runnable at every merge.</td></tr>
+                  <tr><th>Rust build times slow iteration</th><td>Agents loop on compile.</td><td>Many small crates, incremental dev builds, optimized dependencies in the dev profile, and content work in Luau with no compile at all.</td></tr>
+                  <tr><th>Model licenses</th><td>Bundling must be allowed.</td><td>Start with Apache-2.0 models (Qwen3.5-4B, Gemma 4 E4B), as the research page advises.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>The first three things to prototype</h3>
+            <ol class="steps">
+              <li class="card a-purple"><span class="num">1</span><div><strong>The script host end to end.</strong><p>mlua with Luau inside a minimal world store: the sandbox, an instruction budget, a memory cap, the command buffer with causes, a generated <code>galaxy.d.luau</code> passing a strict typecheck, dev hot reload, and in-world rollback by cause. Run it on the Kettle Dock growth script and on one deliberately bad script.</p><p><span class="pill a-green">Pass</span> The good script grows the station and survives a reload with its state. The bad script is rejected with a precise report. An infinite loop is cut off without a hitch. Rollback restores the station with a line that cites the cause.</p></div></li>
+              <li class="card a-blue"><span class="num">2</span><div><strong>Fork and fast-forward headless.</strong><p>The sim core with SQLite saves and a crude bot issuing verbs. <code>galaxy sim run</code> forks a save into a child process, fast-forwards by activity, and emits telemetry and a state hash as JSON.</p><p><span class="pill a-green">Pass</span> Two runs from the same save give identical hashes. A fork never touches the live save. The run is fast enough that a sandbox check fits between the player docking and undocking.</p></div></li>
+              <li class="card a-amber"><span class="num">3</span><div><strong>The Wren in a window, with the model running.</strong><p>The wgpu sketch renderer, WASD flight that stops on release, Space to mine one rock and dock at one ring, and the PAUSED card, while llama-server with Qwen3.5-4B answers dock-talk menus in the background.</p><p><span class="pill a-green">Pass</span> Flight feels right to Andreas with placeholder art. Frame pacing stays steady while the model answers. A dock decision lands in under a second, and with <code>--mind off</code> nothing changes but the words.</p></div></li>
+            </ol>
+            <p>Together these three answer the riskiest parts of the stack: the sandbox and boundary, validation by forking, and feel next to the GPU model. They come before any contract is frozen.</p>
+          </section>
+
+          <section id="layout">
+            <h2 class="a-blue">Skeleton layout for <code>slices/01-lantern-reach/</code></h2>
+            <p>The slice is self-contained, as the repository rule says, and nothing in <code>game/</code> depends on it.</p>
+<pre class="code"><code>slices/01-lantern-reach/
+├── README.md                  how to play, build and check
+├── AGENTS.md                  ownership, commands, rules for coding agents
+├── Cargo.toml                 workspace
+├── rust-toolchain.toml        pinned toolchain
+├── tech-stack/
+│   └── proposal-a.html        this page
+├── contract/                  W1 · the 7 frozen interfaces
+│   ├── src/                   world, events, verbs, api, pack, report, assets, talk
+│   ├── schemas/               generated JSON Schemas
+│   └── api/                   generated galaxy.d.luau and HOOKS.md
+├── crates/
+│   ├── core/                  W1 · sim kernel, stores, history, events, counters, save
+│   ├── ship/                  W2 · flight, control tiers, verbs, orders, mining, docking, automation
+│   ├── economy/               W3 · pricing, saturation, map, scouting, territory
+│   ├── progress/              W4 · beat runtime, standing, trait modifiers, prestige
+│   ├── script/                W5 · Luau host, sandbox, packs, validator, rollback
+│   ├── mind/                  W5 · decision service, utility AI, llama-server sidecar
+│   ├── gm/                    W5 · named pipe, digest builder, propose/apply
+│   ├── render/                W6 · wgpu sprites, ink lines, text, widgets, offscreen
+│   ├── audio/                 W6 · kira wrapper
+│   ├── harness/               W6 · journey bot, beat jumps, golden replays
+│   └── app/                   W6 · the galaxy binary: play plus the CLI
+├── xtask/                     cargo xtask check | contract | package | fetch-mind
+├── packs/
+│   ├── core/                  W4 (+W3 data) · the authored backbone
+│   │   ├── manifest.toml
+│   │   ├── scripts/           beats, factions, traits, prestige, npc briefs
+│   │   ├── data/              markets, regions, rocks, hulls, canon.toml, lines
+│   │   └── tests/             script unit tests
+│   └── gm-examples/           W5 · the 8 live change types, plus bad-script/
+├── assets/                    W6 · sprites, station kit, ui, audio (Git LFS)
+│   └── manifest.toml
+├── fixtures/
+│   ├── beats/                 generated saves at each of the 17 beats
+│   └── golden/                recorded replays and expected hashes
+├── mind/                      ignored by Git; xtask fetch-mind places llama-server and the GGUF
+└── dist/                      ignored by Git; packaged LanternReach folder</code></pre>
+            <p>Each crate depends on <code>contract</code> and on what its workstream's "Needs" line in the slice page says, nothing else. <code>app</code> is the only crate that depends on everything. The <code>core</code> crate builds with no graphics dependencies, so <code>cargo test -p core</code> and <code>galaxy sim</code> always run headless.</p>
+          </section>
+
+          <section id="open">
+            <h2 class="a-purple">Open questions for Andreas</h2>
+            <ul>
+              <li><strong>This proposal assumes the slice runs on a first cut of the custom engine.</strong> That is the slice page's second "decide first" question. If the answer is the disposable stack instead, the scripting-layer design still applies, but the engine-line question stays unanswered.</li>
+              <li><strong>The fast-model layer:</strong> in as a toggle (assumed here), rules only, or out. OpenRouter is off and outside the slice unless Andreas asks for it.</li>
+              <li><strong>Pack authoring language for data:</strong> TOML is proposed for readability. Luau tables everywhere is the alternative, with one language and fewer files but less schema tooling.</li>
+            </ul>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>
