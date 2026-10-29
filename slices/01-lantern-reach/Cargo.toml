@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
+[workspace.dependencies]
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+# Dev builds: our code is lightly optimised so the game is playable, dependencies
+# (wgpu, mlua, rusqlite ...) are optimised once and cached.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+[profile.test]
+opt-level = 1
+
+# Release: thin LTO only. Never fat LTO; build time matters more than the last few percent.
+[profile.release]
+lto = "thin"
+codegen-units = 16
+incremental = true
+debug = "line-tables-only"

@@ -1,0 +1,7 @@
+/target/
+/tools/
+/saves/
+/dist/
+*.sqlite
+*.sqlite-journal
+.env
