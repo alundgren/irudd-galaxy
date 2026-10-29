@@ -5,15 +5,21 @@
 /// Centicredits per credit.
 pub const CENTS_PER_CREDIT: i64 = 100;
 
-/// Decimal credits from a data file as centicredits: `None` unless the value is finite
-/// and a whole number of centicredits (`14`, `0.15`, not `0.155`).
+/// The largest amount, in centicredits, a data file may write. Decimal text parsed as
+/// `f64` stays exact to the cent well past this (a billion credits), so the conversion
+/// below can't silently lose a cent.
+pub const MAX_DATA_CENTS: i64 = 100_000_000_000;
+
+/// Decimal credits from a data file as centicredits: `None` unless the value is finite,
+/// within [`MAX_DATA_CENTS`], and a whole number of centicredits (`14`, `0.15`, not
+/// `0.155`).
 pub fn cents_from_credits(credits: f64) -> Option<i64> {
     if !credits.is_finite() {
         return None;
     }
     let cents = credits * CENTS_PER_CREDIT as f64;
     let whole = cents.round();
-    ((cents - whole).abs() < 1e-6 && whole.abs() < 9.0e15).then_some(whole as i64)
+    ((cents - whole).abs() < 1e-6 && whole.abs() <= MAX_DATA_CENTS as f64).then_some(whole as i64)
 }
 
 /// Centicredits as credits for summaries and messages: `40`, `9.4`, `-0.05`.

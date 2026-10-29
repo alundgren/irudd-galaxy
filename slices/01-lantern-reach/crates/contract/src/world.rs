@@ -18,7 +18,8 @@ use crate::store::{Record, Store};
 use crate::verbs::OrderQueue;
 
 /// Bump when the world-state JSON changes incompatibly. Saves record it.
-pub const WORLD_FORMAT_VERSION: u32 = 1;
+/// 2: money is whole centicredits (it was whole credits in 1).
+pub const WORLD_FORMAT_VERSION: u32 = 2;
 
 /// The whole simulated world. Missing stores load empty, so adding a store keeps
 /// older saves loadable.

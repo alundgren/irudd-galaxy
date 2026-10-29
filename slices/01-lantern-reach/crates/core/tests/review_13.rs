@@ -520,3 +520,19 @@ fn standing_at_the_minimum_still_inverts() {
     assert_eq!(step(&mut s).applied, 2);
     assert_eq!(s.world().factions.get(&COOP).unwrap().standing, 0);
 }
+
+#[test]
+fn a_save_from_an_older_world_format_is_refused() {
+    // Re-check of #16: world format 1 stored whole credits; loading it as centicredits
+    // would silently shrink every wallet and price.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("old.sqlite");
+    let mut state = fresh().state().clone();
+    state.world.meta.format = 1;
+    Save::create(&path, &state).unwrap();
+    let err = Save::open(&path).unwrap().load().unwrap_err();
+    assert!(
+        matches!(err, galaxy_core::SaveError::Format { .. }),
+        "{err}"
+    );
+}

@@ -103,7 +103,9 @@ fn exact_stock(line: &MarketLine) -> f64 {
 
 /// How much of a pulse of `weight` the station has every ware `line` needs, from 0
 /// (none of it) to 1 (all of it). A needed ware lasts while its stock is above zero,
-/// and drains at its own consumption rate during the pulse.
+/// and drains at its net rate during the pulse: its consumption minus its own
+/// production, so a replenished input lasts as long in one combined pulse as in
+/// several separate ones.
 pub fn producing_share(market: &Market, line: &MarketLine, weight: f64) -> f64 {
     line.needs
         .iter()
@@ -112,10 +114,19 @@ pub fn producing_share(market: &Market, line: &MarketLine, weight: f64) -> f64 {
                 return 0.0;
             };
             let have = exact_stock(input);
-            let rate = f64::from(input.consumption) * input.consumption_scale;
-            if have <= 0.0 {
+            let rate = f64::from(input.consumption) * input.consumption_scale
+                - f64::from(input.production) * input.production_scale;
+            if rate <= 0.0 || weight <= 0.0 {
+                // Not draining (or nothing to run): available if there is any, or if
+                // it is being made at least as fast as it is used.
+                if have > 0.0 || rate <= 0.0 && input.production > 0 {
+                    1.0
+                } else {
+                    0.0
+                }
+            } else if have <= 0.0 {
                 0.0
-            } else if rate <= 0.0 || weight <= 0.0 || have >= rate * weight {
+            } else if have >= rate * weight {
                 1.0
             } else {
                 have / (rate * weight)
@@ -173,4 +184,39 @@ pub fn pulse_market(
             (ware.clone(), pulse_line(line, weight, producing, rules))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replenished_input_lasts_the_whole_combined_pulse() {
+        // Re-check of #16: ore is consumed and produced at the same rate, so it never
+        // runs out; one weight-2 pulse must produce as much as two weight-1 pulses.
+        let ore = WareId::from_static("ware.iron_ore");
+        let plate = WareId::from_static("ware.refined_plate");
+        let mut lines = BTreeMap::new();
+        lines.insert(
+            ore.clone(),
+            MarketLine {
+                stock: 3,
+                consumption: 3,
+                production: 3,
+                ..Default::default()
+            },
+        );
+        let plate_line = MarketLine {
+            production: 2,
+            needs: [ore].into_iter().collect(),
+            ..Default::default()
+        };
+        lines.insert(plate.clone(), plate_line.clone());
+        let market = Market {
+            station: StationId::from_static("station.lantern_wharf"),
+            lines,
+        };
+        assert_eq!(producing_share(&market, &plate_line, 2.0), 1.0);
+        assert_eq!(producing_share(&market, &plate_line, 1.0), 1.0);
+    }
 }

@@ -32,7 +32,7 @@ use crate::history::History;
 use crate::sim::{KernelState, SimState};
 
 /// Bump when the table layout changes incompatibly.
-pub const SAVE_FORMAT_VERSION: u32 = 2;
+pub const SAVE_FORMAT_VERSION: u32 = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SaveError {
@@ -588,8 +588,17 @@ fn assemble(world: &str, kernel: &str, logs: [Vec<String>; 3]) -> Result<SimStat
         rows.iter().map(|r| Ok(serde_json::from_str(r)?)).collect()
     }
     let [facts, causes, journal] = logs;
+    let world: WorldState = serde_json::from_str(world)?;
+    // World format 2 stores money as centicredits; format 1 stored whole credits.
+    // Snapshots carry their own world, so this guards them too.
+    if world.meta.format != WORLD_FORMAT_VERSION {
+        return Err(SaveError::Format {
+            found: format!("world {}", world.meta.format),
+            expected: WORLD_FORMAT_VERSION,
+        });
+    }
     Ok(SimState {
-        world: serde_json::from_str(world)?,
+        world,
         kernel: serde_json::from_str::<KernelState>(kernel)?,
         history: History::from_parts(parse(&facts)?, parse(&causes)?),
         journal: parse(&journal)?,
