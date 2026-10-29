@@ -1,0 +1,16 @@
+# BAD on purpose: declares a shock whose opportunity doesn't exist. A change that
+# makes something worse must open a reachable opportunity.
+id = "gm.bad_unpaired_shock"
+name = "Bad: shock without an opportunity"
+version = "0.1.0"
+uses = ["events.dock"]
+
+[[script]]
+id = "quiet"
+file = "scripts/quiet.luau"
+handlers = ["on.dock"]
+
+[[shock]]
+id = "ice_short"
+summary = "Ice runs short in the Shallows."
+opportunity = "ice_pays_more"

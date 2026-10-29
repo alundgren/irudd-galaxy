@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 galaxy-contract.workspace = true
 galaxy-core.workspace = true
+galaxy-script.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true

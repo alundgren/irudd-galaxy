@@ -2,7 +2,9 @@
 //!
 //! Every command prints one JSON value on stdout. Exit codes:
 //! 0 ok, 1 runtime failure (I/O, SQLite), 2 usage error, 3 not implemented yet,
-//! 4 bad input (missing or existing save, invalid data, unknown path or ID).
+//! 4 bad input (missing or existing save, invalid data, unknown path or ID),
+//! 5 rejected (`pack check` rejected the pack, or `pack test` had failures; the report
+//! is on stdout).
 //!
 //! Keep this crate thin: parse arguments, call library code, print JSON.
 
@@ -64,7 +66,7 @@ enum Cmd {
         #[command(subcommand)]
         command: BeatCmd,
     },
-    /// Validate a pack (not implemented yet).
+    /// Validate a pack or run its tests.
     Pack {
         #[command(subcommand)]
         command: PackCmd,
@@ -155,7 +157,31 @@ enum BeatCmd {
 
 #[derive(Subcommand)]
 enum PackCmd {
-    Check(Rest),
+    /// Validate a pack: manifest, strict typecheck, hooks, references, invariants and
+    /// a smoke run. Prints the validation report; exit 0 if accepted, 5 if rejected.
+    Check {
+        /// The pack folder.
+        dir: PathBuf,
+        /// Resolve IDs and run the smoke step against this save (default: a new game
+        /// from the core pack).
+        #[arg(long)]
+        save: Option<PathBuf>,
+        #[command(flatten)]
+        packs: PacksArg,
+        /// The `luau-analyze` binary (default: $GALAXY_LUAU_ANALYZE, else `tools/luau/`
+        /// from `cargo xtask fetch-luau`).
+        #[arg(long)]
+        analyzer: Option<PathBuf>,
+        /// Skip the strict typecheck with a warning when `luau-analyze` is missing,
+        /// instead of rejecting.
+        #[arg(long)]
+        no_typecheck: bool,
+    },
+    /// Run the pack's `tests/*.luau` unit tests. Exit 0 if all pass, 5 if not.
+    Test {
+        /// The pack folder.
+        dir: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -185,6 +211,8 @@ struct Fail {
     kind: &'static str,
     message: String,
     command: Option<String>,
+    /// Printed instead of the error object (a rejected pack's report).
+    body: Option<Value>,
 }
 
 impl Fail {
@@ -194,6 +222,7 @@ impl Fail {
             kind: "bad_input",
             message: message.into(),
             command: None,
+            body: None,
         }
     }
 }
@@ -212,6 +241,7 @@ impl From<SaveError> for Fail {
             kind: if input { "bad_input" } else { "save" },
             message: e.to_string(),
             command: None,
+            body: None,
         }
     }
 }
@@ -244,8 +274,18 @@ fn main() -> ExitCode {
             command: BeatCmd::Jump(_),
         } => not_implemented("beat jump"),
         Cmd::Pack {
-            command: PackCmd::Check(_),
-        } => not_implemented("pack check"),
+            command:
+                PackCmd::Check {
+                    dir,
+                    save,
+                    packs,
+                    analyzer,
+                    no_typecheck,
+                },
+        } => pack_check(&dir, save.as_deref(), packs.packs, analyzer, no_typecheck),
+        Cmd::Pack {
+            command: PackCmd::Test { dir },
+        } => pack_test(&dir),
         Cmd::Gm {
             command: GmCmd::Propose(_),
         } => not_implemented("gm propose"),
@@ -258,6 +298,14 @@ fn main() -> ExitCode {
         Ok(value) => {
             print_json(&value);
             ExitCode::SUCCESS
+        }
+        Err(Fail {
+            code,
+            body: Some(body),
+            ..
+        }) => {
+            print_json(&body);
+            ExitCode::from(code)
         }
         Err(f) => {
             let mut out = json!({ "error": f.message, "kind": f.kind });
@@ -283,7 +331,69 @@ fn not_implemented(command: &str) -> Out {
         kind: "not_implemented",
         message: "not implemented yet".into(),
         command: Some(command.to_owned()),
+        body: None,
     })
+}
+
+/// Exit 5 with `body` on stdout.
+fn rejected(body: Value) -> Fail {
+    Fail {
+        code: 5,
+        kind: "rejected",
+        message: String::new(),
+        command: None,
+        body: Some(body),
+    }
+}
+
+fn pack_check(
+    dir: &Path,
+    save: Option<&Path>,
+    packs: Option<PathBuf>,
+    analyzer: Option<PathBuf>,
+    no_typecheck: bool,
+) -> Out {
+    if !dir.is_dir() {
+        return Err(Fail::input(format!("{} is not a folder", dir.display())));
+    }
+    let state = match save {
+        Some(path) => Save::open(path)?.load()?,
+        None => {
+            let data = packs_dir(packs)?.join("core").join("data");
+            galaxy_core::new_game(&data, 1).map_err(|e| Fail::input(e.to_string()))?
+        }
+    };
+    let analyzer = galaxy_script::analyzer::find(analyzer.as_deref());
+    let checked = galaxy_script::check_dir(
+        dir,
+        galaxy_script::CheckOptions {
+            world: Some(&state.world),
+            history: Some(&state.history),
+            analyzer: analyzer.as_deref(),
+            require_typecheck: !no_typecheck,
+        },
+    );
+    let report = serde_json::to_value(&checked.report).expect("reports serialize");
+    if checked.accepted() {
+        Ok(report)
+    } else {
+        Err(rejected(report))
+    }
+}
+
+fn pack_test(dir: &Path) -> Out {
+    if !dir.is_dir() {
+        return Err(Fail::input(format!("{} is not a folder", dir.display())));
+    }
+    match galaxy_script::run_pack_tests(dir) {
+        Ok(r) => {
+            let v = serde_json::to_value(&r).expect("reports serialize");
+            if r.passed { Ok(v) } else { Err(rejected(v)) }
+        }
+        Err(report) => Err(rejected(
+            serde_json::to_value(&*report).expect("reports serialize"),
+        )),
+    }
 }
 
 /// Finds the packs folder: flag, `GALAXY_PACKS`, or the nearest `packs/core` above

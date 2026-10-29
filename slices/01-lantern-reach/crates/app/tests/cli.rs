@@ -86,7 +86,6 @@ fn stubs_say_not_implemented() {
     for args in [
         &["play", "--beat", "3"][..],
         &["beat", "jump", "5"],
-        &["pack", "check", "packs/core"],
         &["gm", "propose", "./change"],
         &["gm", "rollback", "cause.3"],
         &["shot"],
@@ -95,4 +94,55 @@ fn stubs_say_not_implemented() {
         assert_eq!(code, 3, "{args:?}");
         assert_eq!(out["error"], "not implemented yet");
     }
+}
+
+#[test]
+fn pack_check_and_pack_test() {
+    let examples = packs().join("gm-examples");
+    let kettle = examples.join("kettle_growth");
+    let kettle = kettle.to_str().unwrap();
+
+    // `--no-typecheck` keeps this independent of `cargo xtask fetch-luau`.
+    let (code, report) = galaxy(&["pack", "check", kettle, "--no-typecheck"]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["pack"], "gm.kettle_growth");
+    assert_eq!(report["status"]["status"], "accepted");
+    let steps: Vec<_> = report["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["step"].clone())
+        .collect();
+    assert_eq!(
+        steps,
+        [
+            "manifest",
+            "types",
+            "hooks",
+            "references",
+            "invariants",
+            "smoke"
+        ]
+    );
+
+    let bad = examples.join("bad_script/os_time");
+    let (code, report) = galaxy(&["pack", "check", bad.to_str().unwrap(), "--no-typecheck"]);
+    assert_eq!(code, 5, "{report}");
+    assert_eq!(report["status"]["status"], "rejected");
+    let invariants = &report["steps"][4];
+    assert_eq!(invariants["outcome"], "failed");
+    assert_eq!(invariants["diagnostics"][0]["code"], "clock_api");
+    assert_eq!(
+        invariants["diagnostics"][0]["location"]["file"],
+        "scripts/night_shift.luau"
+    );
+    assert_eq!(invariants["diagnostics"][0]["location"]["line"], 8);
+
+    let (code, tests) = galaxy(&["pack", "test", kettle]);
+    assert_eq!(code, 0, "{tests}");
+    assert_eq!(tests["passed"], true);
+    assert_eq!(tests["tests"].as_array().unwrap().len(), 2);
+
+    let (code, _) = galaxy(&["pack", "check", "no/such/pack"]);
+    assert_eq!(code, 4);
 }
