@@ -69,6 +69,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let stations: StationsFile = read(dir, "stations.toml")?;
     let rocks: RocksFile = read(dir, "rocks.toml")?;
     let npcs: NpcsFile = read(dir, "npcs.toml")?;
+    let economy: EconomyRules = read(dir, "economy.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
 
     let mut errors = Vec::new();
@@ -86,6 +87,10 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         rock_types: collect(rocks.rock_type, "rocks.toml", &mut errors),
         fields: collect(rocks.field, "rocks.toml", &mut errors),
         npcs: collect(npcs.npc, "npcs.toml", &mut errors),
+        economy: EconomyState {
+            rules: economy,
+            ..EconomyState::default()
+        },
         ..WorldState::default()
     };
 
@@ -129,7 +134,23 @@ fn build_station(world: &mut WorldState, def: StationDef, errors: &mut Vec<Strin
             max_price: l.max_price.unwrap_or(base.saturating_mul(2)),
             production: l.production,
             consumption: l.consumption,
+            role: l.role.unwrap_or(if l.production > 0 {
+                MarketRole::Sells
+            } else {
+                MarketRole::Buys
+            }),
+            target: l.target,
+            sat_per_unit: l.sat_per_unit,
+            sat_recover: l.sat_recover,
+            needs: l.needs,
+            ..MarketLine::default()
         };
+        if let Some(missing) = line.needs.iter().find(|w| !world.wares.contains(*w)) {
+            errors.push(format!(
+                "stations.toml: {} {} needs unknown `{missing}`",
+                def.id, l.ware
+            ));
+        }
         if lines.insert(l.ware.clone(), line).is_some() {
             errors.push(format!(
                 "stations.toml: {} lists `{}` twice",

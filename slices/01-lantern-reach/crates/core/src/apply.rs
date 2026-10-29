@@ -81,6 +81,20 @@ where
     Ok(old.map(Box::new))
 }
 
+/// Adds to a tally, dropping it when it returns to zero so undo restores the map
+/// exactly.
+fn adjust_tally<K: Ord + Clone>(
+    map: &mut std::collections::BTreeMap<K, ActivityTally>,
+    key: &K,
+    delta: &ActivityTally,
+) {
+    let tally = map.entry(key.clone()).or_default();
+    tally.add(delta);
+    if tally.is_zero() {
+        map.remove(key);
+    }
+}
+
 fn invert(command: Command) -> Result<UndoRecord, CommandError> {
     Ok(UndoRecord::Invert { command })
 }
@@ -271,6 +285,93 @@ pub fn apply(
                 station: station.clone(),
                 ware: ware.clone(),
                 line: old,
+            })
+        }
+        C::UpdateMarketLine {
+            station,
+            ware,
+            from,
+            to,
+        } => {
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            if *line != **from {
+                return Err(CommandError::Invalid(format!(
+                    "{ware} at {station} changed since this update was worked out"
+                )));
+            }
+            *line = (**to).clone();
+            invert(C::UpdateMarketLine {
+                station: station.clone(),
+                ware: ware.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
+        C::SetMarketRates {
+            station,
+            ware,
+            rates,
+        } => {
+            let scales = [rates.production_scale, rates.consumption_scale];
+            if scales.iter().any(|s| !s.is_finite() || *s < 0.0) {
+                return Err(CommandError::Invalid(format!(
+                    "rate scales must be finite and not negative: {scales:?}"
+                )));
+            }
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            let old = MarketRates {
+                production: line.production,
+                consumption: line.consumption,
+                production_scale: line.production_scale,
+                consumption_scale: line.consumption_scale,
+            };
+            line.production = rates.production;
+            line.consumption = rates.consumption;
+            line.production_scale = rates.production_scale;
+            line.consumption_scale = rates.consumption_scale;
+            invert(C::SetMarketRates {
+                station: station.clone(),
+                ware: ware.clone(),
+                rates: old,
+            })
+        }
+        C::AdjustActivity { scope, delta } => {
+            let eco = &mut world.economy;
+            match scope {
+                ActivityScope::Station { station } => {
+                    require(&world.stations, station, "station")?;
+                    adjust_tally(&mut eco.stations, station, delta);
+                }
+                ActivityScope::Region { region } => {
+                    require(&world.regions, region, "region")?;
+                    adjust_tally(&mut eco.regions, region, delta);
+                }
+            }
+            invert(C::AdjustActivity {
+                scope: scope.clone(),
+                delta: delta.negated(),
+            })
+        }
+        C::SetDockTrack { ship, track } => {
+            if let Some(t) = track {
+                require(&world.stations, &t.station, "station")?;
+            }
+            let docks = &mut world.economy.docks;
+            let old = match track {
+                Some(t) => docks.insert(ship.clone(), t.clone()),
+                None => docks.remove(ship),
+            };
+            invert(C::SetDockTrack {
+                ship: ship.clone(),
+                track: old,
             })
         }
         C::PutRegion { id, value } => {

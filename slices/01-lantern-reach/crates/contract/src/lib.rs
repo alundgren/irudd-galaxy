@@ -13,6 +13,7 @@ pub mod api;
 pub mod assets;
 pub mod command;
 pub mod data;
+pub mod economy;
 pub mod events;
 pub mod geom;
 pub mod history;
@@ -35,6 +36,10 @@ pub mod prelude {
     pub use crate::command::{
         Actor, Cause, CauseKind, Command, CommandBatch, JournalEntry, RecordedCause, Rejection,
         Reversibility, UndoRecord,
+    };
+    pub use crate::economy::{
+        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketRates,
+        MarketRole, PriceReach, TradeRequest, TradeSide,
     };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,

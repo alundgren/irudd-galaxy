@@ -27,6 +27,13 @@
         "x": 0.0,
         "y": 0.0
       }
+    },
+    "trades": {
+      "description": "Trades the player asks for this tick (the dock screen). The economy system\nexecutes them in order and drops invalid ones, so check them first with\n`galaxy_economy::check_trade` or `quote`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TradeRequest"
+      }
     }
   },
   "$defs": {
@@ -132,6 +139,15 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "StationId": {
       "description": "Stable station id, e.g. `station.kettle_dock`.",
       "type": "string",
@@ -140,6 +156,54 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TradeRequest": {
+      "description": "One trade a docked ship asks for. Priced unit by unit.",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "description": "Price limit per unit: sell only while the unit price is at least this, buy only\nwhile it's at most this. With a limit the trade fills as many units as it can.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quantity": {
+          "description": "Units wanted. Without a `limit` it's all or nothing.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ship": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "side": {
+          "$ref": "#/$defs/TradeSide"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "ship",
+        "station",
+        "ware",
+        "side",
+        "quantity"
+      ]
+    },
+    "TradeSide": {
+      "description": "Buy from or sell to a station's market.",
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell"
+      ]
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",
@@ -158,6 +222,15 @@
         "x",
         "y"
       ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     }
   }
 }

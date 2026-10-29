@@ -10,12 +10,13 @@ use std::collections::BTreeSet;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::MarketRole;
 use crate::geom::Vec2;
 use crate::ids::*;
 use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service, Ware};
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 9] = [
+pub const DATA_FILES: [&str; 10] = [
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -24,6 +25,7 @@ pub const DATA_FILES: [&str; 9] = [
     "stations.toml",
     "rocks.toml",
     "npcs.toml",
+    "economy.toml",
     "start.toml",
 ];
 
@@ -93,7 +95,9 @@ pub struct StationDef {
 }
 
 /// A starting market line. Prices default from the ware's `base_price`: price = base,
-/// min = base / 2, max = base * 2.
+/// min = base / 2, max = base * 2. The economy re-prices every line from the formula on
+/// its first tick. The pricing and pulse rules are `economy.toml`
+/// ([`EconomyRules`](crate::economy::EconomyRules), schema `data-economy.json`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MarketLineDef {
@@ -111,6 +115,18 @@ pub struct MarketLineDef {
     pub production: u32,
     #[serde(default)]
     pub consumption: u32,
+    /// Defaults to `sells` for a line with production, else `buys`.
+    #[serde(default)]
+    pub role: Option<MarketRole>,
+    #[serde(default)]
+    pub target: u32,
+    #[serde(default)]
+    pub sat_per_unit: f64,
+    #[serde(default)]
+    pub sat_recover: f64,
+    /// Production runs only while these wares are in stock here.
+    #[serde(default)]
+    pub needs: BTreeSet<WareId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

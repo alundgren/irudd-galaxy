@@ -15,6 +15,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::{ActivityScope, ActivityTally, DockTrack, MarketRates};
 use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
@@ -222,6 +223,32 @@ pub enum Command {
         station: StationId,
         ware: WareId,
         line: Option<MarketLine>,
+    },
+    /// Replaces a market line only if it still equals `from`, so trades and pulses
+    /// worked out from the same tick's state can't overwrite each other: a stale one
+    /// fails and its batch is rejected. The economy's trades and pulses use this.
+    UpdateMarketLine {
+        station: StationId,
+        ware: WareId,
+        from: Box<MarketLine>,
+        to: Box<MarketLine>,
+    },
+    /// Sets a line's producer and consumer rates (market levers), leaving its stock,
+    /// saturation and prices alone.
+    SetMarketRates {
+        station: StationId,
+        ware: WareId,
+        rates: MarketRates,
+    },
+    /// Adds to a station's or region's activity tally (pulses, trade volume).
+    AdjustActivity {
+        scope: ActivityScope,
+        delta: ActivityTally,
+    },
+    /// Sets or clears (`None`) where a ship last docked, for the counted-docking rule.
+    SetDockTrack {
+        ship: ShipId,
+        track: Option<DockTrack>,
     },
 
     // --- Whole records: create, replace, or remove with `value: null` ---
