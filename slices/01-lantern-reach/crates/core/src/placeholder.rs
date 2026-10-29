@@ -1,6 +1,6 @@
-//! A stand-in player ship so the kernel can be driven by `PlayerInput` before the
-//! ship workstream lands. **W2 replaces this** with real flight, mining and docking in
-//! `crates/ship`; delete it from [`crate::default_systems`] then.
+//! A stand-in player ship so the kernel's own tests can be driven by `PlayerInput`
+//! without depending on `galaxy-ship` (which depends on this crate). The game uses
+//! `galaxy_ship::systems(..)` instead.
 //!
 //! Arcade flight: velocity is thrust times the hull's top speed, so the ship stops
 //! when the keys are released. Thrust while docked undocks; holding the action while

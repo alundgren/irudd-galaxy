@@ -14,6 +14,7 @@ use crate::economy::{EconomyState, MarketRole, PriceReach};
 use crate::events::ActivityCounters;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::ship::{RockGrowth, ShipActivity, ShipRules};
 use crate::store::{Record, Store};
 use crate::verbs::OrderQueue;
 
@@ -44,6 +45,8 @@ pub struct WorldState {
     pub rumors: Store<RumorId, Rumor>,
     /// Activity counters that pace beats and unlocks (never clock time).
     pub counters: ActivityCounters,
+    /// Flight, mining, lane and control-tier tunables (`ship_rules.toml`).
+    pub ship_rules: ShipRules,
     /// Market rules and activity tallies (W3).
     pub economy: EconomyState,
 }
@@ -74,6 +77,9 @@ pub struct Player {
     /// Scouted prices, dated by the visit they were taken on.
     #[serde(default)]
     pub price_snapshots: BTreeMap<StationId, PriceSnapshot>,
+    /// Saved loops by the player's name for them: the orders a loop repeats.
+    #[serde(default)]
+    pub loops: BTreeMap<String, Vec<crate::verbs::Order>>,
 }
 
 /// What the player saw at a station's market on their last visit.
@@ -251,6 +257,16 @@ pub struct Hull {
     pub max_speed: f32,
     /// Mining units per second at nominal tick rate.
     pub mining_rate: f32,
+    /// World units per second squared. Missing: top speed in `flight.accel_time`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accel: Option<f32>,
+    /// Degrees per second. Missing: `flight.turn_rate`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_rate: Option<f32>,
+    /// Docking rings give this hull a standing berth, so it may wait docked for a
+    /// price (the tender's patient sell). Crewed hulls trade and clear the ring.
+    #[serde(default)]
+    pub standing_berth: bool,
     /// How far the hull sees live market prices. Default: docked only.
     #[serde(default)]
     pub price_reach: PriceReach,
@@ -262,7 +278,7 @@ pub struct RockType {
     pub id: RockTypeId,
     pub name: String,
     pub ware: WareId,
-    /// Multiplier on a hull's mining rate (1.0 = normal, higher = slower).
+    /// Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).
     pub hardness: f32,
     /// Units regrown per regrowth step (W2 defines the step from activity, never a clock).
     #[serde(default)]
@@ -286,6 +302,11 @@ pub struct RockField {
     /// Units per rock, inclusive range.
     pub amount_min: u32,
     pub amount_max: u32,
+    /// Units the whole field regrows per region pulse, each pulse's units going to the
+    /// rock with the lowest remaining share (spent rocks included). Region pulses are
+    /// activity (`ship_rules.regrowth.pulses`), never time. Kept in thousandths.
+    #[serde(default)]
+    pub regrow: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -298,6 +319,9 @@ pub struct Rock {
     pub remaining: u32,
     /// Units when generated; `remaining / initial` drives the visible shrink.
     pub initial: u32,
+    /// Regrowth bookkeeping (activity-driven).
+    #[serde(default)]
+    pub growth: RockGrowth,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -316,6 +340,9 @@ pub struct Ship {
     /// The ship's order queue (same verbs for player, automated and NPC craft).
     #[serde(default)]
     pub orders: OrderQueue,
+    /// Lane transit, mining run and input edge state.
+    #[serde(default)]
+    pub activity: ShipActivity,
 }
 
 /// Who owns a ship. Player-owned ships (flagship and automated craft) feed the

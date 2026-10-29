@@ -17,6 +17,14 @@
       "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
       "type": "object",
       "properties": {
+        "accel": {
+          "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -47,10 +55,23 @@
             "region": false
           }
         },
+        "standing_berth": {
+          "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
+          "type": "boolean",
+          "default": false
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0
+        },
+        "turn_rate": {
+          "description": "Degrees per second. Missing: `flight.turn_rate`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
         }
       },
       "additionalProperties": false,

@@ -205,6 +205,7 @@ pub fn add_barge(sim: &mut Sim) {
         docked_at: None,
         hold: Hold::default(),
         orders: OrderQueue::default(),
+        activity: ShipActivity::default(),
     };
     sim.submit(
         CommandBatch::new(test_cause("barge")).with(Command::PutShip {

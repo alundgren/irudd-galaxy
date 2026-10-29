@@ -732,6 +732,8 @@ dependencies = [
  "clap",
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-economy",
+ "galaxy-ship",
  "serde",
  "serde_json",
  "tempfile",
@@ -771,6 +773,17 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "galaxy-ship"
+version = "0.1.0"
+dependencies = [
+ "galaxy-contract",
+ "galaxy-core",
+ "galaxy-economy",
  "tempfile",
  "thiserror 2.0.21",
 ]

@@ -59,7 +59,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/core` | `galaxy-core` | W1 | Sim kernel, stores, tick, command buffer, history, events, counters, RNG, data loading, saves, hash. |
 | `crates/app` | `galaxy-app` (bin `galaxy`) | W1 started, W6 integrates | The binary: `play` plus the JSON CLI. Thin. |
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
-| `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
+| `crates/ship` | `galaxy-ship` | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
 | `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
 | `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
 | `crates/script`, `gm` | | W5 | Luau host, sandbox, packs, validator, rollback, game-master bridge. |
@@ -124,10 +124,35 @@ the game-master bridge) reads events with `Sim::subscribe` / `Sim::drain_events`
 
 **A system** (your workstream's per-tick logic): implement `galaxy_core::System`
 (`name()` + `step(&self, ctx)`), read `ctx.world`, submit batches. Register it with
-`Sim::add_system`, and add it to `galaxy_core::default_systems()` so the app and
-`sim run` use it. The name keys its RNG stream; don't rename casually.
-`placeholder::PlaceholderFlight` is a stand-in for W2: replace it in
-`default_systems()` when `crates/ship` lands.
+`Sim::add_system`. Workstream crates depend on `galaxy-core`, so they can't be listed in
+`galaxy_core::default_systems()` (the kernel's own, none so far): export a
+`systems(..)` function from your crate and add it to `game()` in `crates/app/src/main.rs`
+so the app and `sim run` use it. The name keys its RNG stream; don't rename casually.
+`placeholder::PlaceholderFlight` only drives the kernel's own tests.
+
+**Ships** (`galaxy-ship`): `ShipSystem` runs every ship each tick (the flagship from
+`PlayerInput`, everyone else from orders) and `RegrowthSystem` regrows rocks from region
+activity counters. Each ship's tick is one batch (motion, activity, an `UpdateOrders`
+compare-and-set on its orders, verb effects, events and facts), so a mine or trade the
+kernel rejects never advances the order; it retries next tick. Every batch from a ship
+with orders carries the check, even when the queue looks unchanged. The player's clicks
+and presses are written ahead of that batch (`ShipActivity::held_clicks`, `held_press`)
+and replayed if it is rejected. Within a tick one ship trades per market line and rock
+units are claimed in turn: the player's flagship first, then the others in ID order,
+rotated by one each tick so nobody waits for ever. Buy and sell orders
+go through the `TradeDesk` trait (`trade` plus a `ceiling` for floors, all money in
+centicredits). The game's desk is `galaxy_ship::EconomyDesk` (`crates/ship/src/market.rs`):
+it fits the runner's "up to" requests to `galaxy_economy::plan_trade` (a buy is clamped
+to the stock, the free hold and what the credits afford), maps the economy's errors one
+for one onto `TradeError`, passes the economy's commands through unchanged (they open
+with `ExpectDocked` and change the line with a compare-and-set `UpdateMarketLine`), and
+takes its ceiling from the top of the line's price band. The app's `game()` registers
+the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`, then
+`galaxy_economy::EconomySystem`. `FlatDesk` (fixed prices) and closures are for tests.
+Control tiers are per-save flags named in `ship_rules.toml`: read them with
+`Controls::of(world)`, set them with `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
+the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every
+tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 
 **A command**: add a variant to `contract::command::Command` (Box large payloads to
 keep the enum small), add its arm in `galaxy_core::apply::apply` that validates inputs,
