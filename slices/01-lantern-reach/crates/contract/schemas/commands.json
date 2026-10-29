@@ -1989,6 +1989,25 @@
           "required": [
             "type"
           ]
+        },
+        {
+          "description": "The PAUSED card opened. The app submits it every time the card opens; the sim\ndoesn't tick while paused, so it commits on the first tick after the card\ncloses. `session` is the `sessions` counter of the play session it happened in.",
+          "type": "object",
+          "properties": {
+            "session": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "paused"
+            }
+          },
+          "required": [
+            "type",
+            "session"
+          ]
         }
       ]
     },

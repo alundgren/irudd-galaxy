@@ -140,6 +140,9 @@ pub enum PartKind {
     Sail { length: f32, width: f32 },
     /// A warm lantern on a post: the Lantern Reach's signature.
     Lantern { height: f32 },
+    /// A big glass lens in a brass rim on a mount, tilted outwards: an observatory's
+    /// telescope.
+    Lens { radius: f32 },
 }
 
 fn default_tiers() -> u32 {
@@ -310,6 +313,7 @@ impl StationRecipe {
                     check("width", width, 0.5, 30.0);
                 }
                 PartKind::Lantern { height } => check("height", height, 0.3, 20.0),
+                PartKind::Lens { radius } => check("radius", radius, 1.0, 30.0),
             }
             let reach = at.distance + part_reach(&part.kind) * at.scale;
             if reach.is_finite() && reach > MAX_STATION_RADIUS {
@@ -560,6 +564,187 @@ impl StationRecipe {
     }
 }
 
+impl StationRecipe {
+    /// Cinder Hook: a rough mining camp in the Cinder Drift. A squat hexagonal hub,
+    /// mismatched arms ending in ore hoppers, a crane mast and patched plating.
+    pub fn cinder_hook() -> Self {
+        use PartKind::*;
+        let p = |kind, at| Part::new(kind, at);
+        let patch = Color::hex(0xb98a5e);
+        Self {
+            name: "Cinder Hook".into(),
+            seed: 4,
+            palette: StationPalette {
+                hull: Color::hex(0xd8b48a),
+                trim: Color::hex(0x6e4a3e),
+                accent: palette::TERRACOTTA,
+                glow: Color::hex(0xffb65c),
+                ..StationPalette::default()
+            },
+            parts: vec![
+                p(
+                    Hub {
+                        radius: 6.5,
+                        height: 5.0,
+                        tiers: 2,
+                        sides: 6,
+                    },
+                    Placement::default(),
+                ),
+                p(
+                    DockingRing {
+                        radius: 13.0,
+                        tube: 1.8,
+                        spokes: 3,
+                        inner: 6.5,
+                    },
+                    Placement {
+                        turn: 20.0,
+                        ..Placement::default()
+                    },
+                ),
+                p(
+                    Arm {
+                        length: 15.0,
+                        width: 2.6,
+                    },
+                    Placement::polar(25.0, 13.5),
+                ),
+                p(
+                    Tank {
+                        radius: 2.0,
+                        length: 5.0,
+                        count: 3,
+                    },
+                    Placement {
+                        turn: 90.0,
+                        ..Placement::polar(25.0, 30.0)
+                    },
+                )
+                .colored(Color::hex(0x8a5a44)),
+                p(
+                    Arm {
+                        length: 9.0,
+                        width: 2.0,
+                    },
+                    Placement::polar(140.0, 13.5),
+                )
+                .colored(patch),
+                p(
+                    Antenna {
+                        height: 9.0,
+                        dish: false,
+                    },
+                    Placement {
+                        z: 1.0,
+                        ..Placement::polar(140.0, 22.0)
+                    },
+                ),
+                p(
+                    Arm {
+                        length: 7.0,
+                        width: 2.2,
+                    },
+                    Placement::polar(245.0, 13.5),
+                ),
+                p(
+                    Tank {
+                        radius: 1.7,
+                        length: 6.0,
+                        count: 2,
+                    },
+                    Placement {
+                        turn: 90.0,
+                        ..Placement::polar(245.0, 23.0)
+                    },
+                ),
+                p(
+                    Sail {
+                        length: 8.0,
+                        width: 3.5,
+                    },
+                    Placement::polar(320.0, 14.0),
+                )
+                .colored(patch),
+                p(Lantern { height: 2.5 }, Placement::polar(85.0, 15.0)),
+                p(Lantern { height: 2.5 }, Placement::polar(200.0, 15.0)),
+            ],
+        }
+    }
+
+    /// The Glass Drift Observatory: the Lamplighter Society's scholars. A tall, tidy
+    /// hub, a great lens on an arm, a smaller lens and listening dishes.
+    pub fn glass_drift_observatory() -> Self {
+        use PartKind::*;
+        let p = |kind, at| Part::new(kind, at);
+        let mut parts = vec![
+            p(
+                Hub {
+                    radius: 7.0,
+                    height: 8.0,
+                    tiers: 3,
+                    sides: 12,
+                },
+                Placement::default(),
+            ),
+            p(
+                DockingRing {
+                    radius: 14.0,
+                    tube: 1.6,
+                    spokes: 6,
+                    inner: 7.5,
+                },
+                Placement::default(),
+            ),
+            p(
+                Arm {
+                    length: 9.0,
+                    width: 2.0,
+                },
+                Placement::polar(35.0, 14.5),
+            ),
+            p(Lens { radius: 8.0 }, Placement::polar(35.0, 26.0)),
+            p(Lens { radius: 4.0 }, Placement::polar(215.0, 19.0)),
+            p(
+                Antenna {
+                    height: 7.0,
+                    dish: true,
+                },
+                Placement {
+                    z: 4.0,
+                    ..Placement::polar(130.0, 4.0)
+                },
+            ),
+            p(
+                Antenna {
+                    height: 5.0,
+                    dish: true,
+                },
+                Placement {
+                    z: 4.0,
+                    ..Placement::polar(300.0, 4.0)
+                },
+            ),
+        ];
+        for a in [100.0, 160.0, 280.0, 330.0] {
+            parts.push(p(Lantern { height: 2.2 }, Placement::polar(a, 16.5)));
+        }
+        Self {
+            name: "Glass Drift Observatory".into(),
+            seed: 5,
+            palette: StationPalette {
+                hull: Color::hex(0xeee2cc),
+                trim: palette::NEBULA_VIOLET,
+                accent: palette::TEAL,
+                glow: palette::LANTERN,
+                glass: Color::hex(0xa8e6f0),
+                ..StationPalette::default()
+            },
+            parts,
+        }
+    }
+}
+
 /// How far a part reaches from its placement, before scaling.
 fn part_reach(kind: &PartKind) -> f32 {
     match *kind {
@@ -575,6 +760,7 @@ fn part_reach(kind: &PartKind) -> f32 {
         } => length * 0.5 + radius * count as f32 * 1.2,
         PartKind::Sail { length, width } => length + width,
         PartKind::Lantern { height } => height * 0.5,
+        PartKind::Lens { radius } => radius * 1.2,
     }
 }
 
@@ -609,6 +795,10 @@ pub fn station_lights(recipe: &StationRecipe) -> Vec<StationLight> {
         };
         match part.kind {
             PartKind::Lantern { height } => push(Vec3::Z * (height + 0.9), palette::LANTERN, 7.0),
+            PartKind::Lens { radius } => {
+                let r = clampf(radius, 1.0, 30.0);
+                push(lens_center(r), pal.glass, r * 1.1)
+            }
             PartKind::Greenhouse { radius, stage } if stage >= 2 => {
                 push(Vec3::Z * radius * 0.5, Color::hex(0xc8ff9a), radius * 1.3)
             }
@@ -832,7 +1022,40 @@ fn build_part(
                 b.lathe(&[(0.9, 1.5), (0.0, 2.2)], 6, 0.0);
             });
         }
+        PartKind::Lens { radius } => lens(b, clampf(radius, 1.0, 30.0), color, pal),
     }
+}
+
+/// Where a lens of radius `r` is centred, in the part's frame.
+fn lens_center(r: f32) -> Vec3 {
+    Vec3::new(r * 0.25, 0.0, r * 0.75)
+}
+
+fn lens(b: &mut MeshBuilder, r: f32, color: Option<Color>, pal: &StationPalette) {
+    // The mount: a squat post and a yoke.
+    b.paint(pal.trim, 0.0);
+    b.frustum(r * 0.32, r * 0.18, r * 0.55, 6);
+    strut(b, Vec3::Z * r * 0.5, lens_center(r), r * 0.14);
+    // The lens faces outwards and up, so it reads as an ellipse from above.
+    b.with(
+        Mat4::from_translation(lens_center(r)) * Mat4::from_rotation_y(0.95),
+        |b| {
+            b.paint(color.unwrap_or(palette::BRASS), 0.0);
+            b.torus(r, r * 0.2, r * 0.22, 20, 6);
+            // A biconvex glass lens inside the rim.
+            b.paint(pal.glass, 0.35);
+            b.lathe(
+                &[(0.0, -r * 0.12), (r * 0.92, 0.0), (0.0, r * 0.12)],
+                16,
+                0.0,
+            );
+            // The eyepiece tube behind it.
+            b.paint(pal.hull, 0.0);
+            b.with(Mat4::from_translation(-Vec3::Z * r * 0.9), |b| {
+                b.frustum(r * 0.18, r * 0.42, r * 0.8, 8)
+            });
+        },
+    );
 }
 
 fn hub(
@@ -1043,7 +1266,7 @@ fn greenhouse(
 }
 
 /// The part kinds a recipe can use, for tools and validation messages.
-pub const PART_KINDS: [&str; 8] = [
+pub const PART_KINDS: [&str; 9] = [
     "hub",
     "docking_ring",
     "arm",
@@ -1052,6 +1275,7 @@ pub const PART_KINDS: [&str; 8] = [
     "tank",
     "sail",
     "lantern",
+    "lens",
 ];
 
 /// Where a docking ring of the recipe is centred, in station space (for the app to align
@@ -1072,7 +1296,12 @@ mod tests {
     use super::*;
 
     fn presets() -> Vec<StationRecipe> {
-        let mut v = vec![StationRecipe::lantern_wharf(), StationRecipe::brassmouth()];
+        let mut v = vec![
+            StationRecipe::lantern_wharf(),
+            StationRecipe::brassmouth(),
+            StationRecipe::cinder_hook(),
+            StationRecipe::glass_drift_observatory(),
+        ];
         v.extend((0..=3).map(StationRecipe::kettle_dock));
         v
     }

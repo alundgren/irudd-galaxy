@@ -89,7 +89,6 @@ fn stubs_say_not_implemented() {
         &["pack", "check", "packs/core"],
         &["gm", "propose", "./change"],
         &["gm", "rollback", "cause.3"],
-        &["shot"],
     ] {
         let (code, out) = galaxy(args);
         assert_eq!(code, 3, "{args:?}");
