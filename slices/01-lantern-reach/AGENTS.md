@@ -83,11 +83,20 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   ticks (`Sim::submit`), then each system's in system order.
 - A batch is **atomic**: if a command fails or a runtime invariant breaks, every command
   in it is undone and the batch is reported in `TickReport::rejected`. Its events and
-  facts never happen.
+  facts never happen. Undo restores the captured values without the forward checks, so
+  a batch may pass through a dangling reference that only the invariants catch.
+- Numbers must be finite: a command holding NaN or infinity is rejected, the
+  `numbers_finite` invariant guards the world, authored data with one is a load error,
+  and `Save` refuses to write one (JSON can't carry it). Integer adjustments use checked
+  maths and build their inverse before changing anything.
 - Each applied command returns an `UndoRecord`. For journaled causes (`Script`, `Mind`)
   the engine keeps them, and `Sim::queue_rollback(causes, summary)` inverts them as new
-  batches with a `Rollback` cause. Player verbs and systems aren't journaled: what the
-  player earned stays earned.
+  batches with a `Rollback` cause, one batch per cause (`Rollback { of: [cause] }`).
+  Player verbs and systems aren't journaled: what the player earned stays earned.
+- Each cause is rolled back at most once. A committed `Rollback` batch marks its `of`
+  causes in `KernelState::rolled_back` (saved); `queue_rollback` skips those and any
+  with a rollback already pending, and a batch rolling back a marked cause is rejected.
+  A rejected rollback can be queued again.
 - Commands are `Reversible` (exact inverse) or `CompensateOnly` (`Emit`, `RecordFact`:
   history can't be unsaid, so a rollback must compensate in-world).
 
@@ -169,7 +178,12 @@ compile time). History facts and causes use sequence IDs, `fact.42` and `cause.4
 One SQLite file per save (`galaxy_core::Save`). Tables: `meta`, `world` (world and
 kernel state as JSON), `history` (append-only, indexed by kind, station, ship, other,
 cause), `causes`, `journal`, `snapshots`. `Save::write` replaces the world row and
-appends new history. `Save::snapshot` / `load_snapshot` are the hard-restore path.
+syncs the logs: it keeps the stored rows that match the state and replaces everything
+from the first difference, so writing a restored snapshot drops the discarded timeline.
+`Save::snapshot` / `load_snapshot` are the hard-restore path. A snapshot is complete
+whether or not its state was written: it shares the matching prefix of each log with the
+save's tables and holds the rest itself, and `write` moves shared rows into a snapshot
+before dropping them, so every listed snapshot stays loadable (checked by a digest).
 Fork = `galaxy_core::fork(from, to)` (a file copy). `state_hash` is BLAKE3 over the
 canonical JSON of everything a save holds: same build, seed and inputs give the same
 hash, and save -> load -> continue gives the same hash as an uninterrupted run.

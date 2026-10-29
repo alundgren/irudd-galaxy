@@ -1,12 +1,12 @@
 //! The sim kernel: fixed-step ticks, real pause, the command buffer, history, events,
 //! counters and rollback by cause.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use galaxy_contract::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::apply::{Staged, apply};
+use crate::apply::{Staged, apply, restore};
 use crate::bus::{EventBus, Subscriber};
 use crate::history::History;
 use crate::invariants::{self, Invariant};
@@ -23,6 +23,10 @@ pub struct KernelState {
     pub last_events: Vec<EventEnvelope>,
     /// Next cause sequence number.
     pub next_cause: u64,
+    /// Journaled causes whose rollback batch has committed. They are never inverted
+    /// again, so a repeated or overlapping rollback can't apply the inverse twice.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub rolled_back: BTreeSet<CauseId>,
 }
 
 impl KernelState {
@@ -32,6 +36,7 @@ impl KernelState {
             pending: Vec::new(),
             last_events: Vec::new(),
             next_cause: 1,
+            rolled_back: BTreeSet::new(),
         }
     }
 }
@@ -242,6 +247,30 @@ impl Sim {
         batch: CommandBatch,
         tick: Tick,
     ) -> Result<Vec<EventEnvelope>, Box<Rejection>> {
+        let reject = |command, reason| {
+            Err(Box::new(Rejection {
+                tick,
+                cause: batch.cause.clone(),
+                command,
+                reason,
+            }))
+        };
+        if let CauseKind::Rollback { of } = &batch.cause.kind
+            && let Some(done) = of
+                .iter()
+                .find(|c| self.state.kernel.rolled_back.contains(c))
+        {
+            return reject(None, format!("{done} is already rolled back"));
+        }
+        if let Some((i, e)) = batch
+            .commands
+            .iter()
+            .enumerate()
+            .find_map(|(i, cmd)| crate::finite::check(cmd).err().map(|e| (i, e)))
+        {
+            return reject(Some(i), format!("numbers must be finite: {e}"));
+        }
+
         let world = &mut self.state.world;
         let mut undo = Vec::with_capacity(batch.commands.len());
         let mut staged = Staged::default();
@@ -264,15 +293,13 @@ impl Sim {
         }
         if let Some((command, reason)) = failure {
             revert(world, &undo);
-            return Err(Box::new(Rejection {
-                tick,
-                cause: batch.cause,
-                command,
-                reason,
-            }));
+            return reject(command, reason);
         }
 
         let s = &mut self.state;
+        if let CauseKind::Rollback { of } = &batch.cause.kind {
+            s.kernel.rolled_back.extend(of.iter().copied());
+        }
         let cause_id = CauseId(s.kernel.next_cause);
         s.kernel.next_cause += 1;
         let journaled = batch.cause.kind.journaled();
@@ -335,11 +362,43 @@ impl Sim {
     }
 
     /// Queues the inverse of every journaled write by these causes, newest first, as
-    /// batches caused by a rollback. Each original batch is undone atomically. Inverse
-    /// writes restore the earlier values, so later changes to the same fields are
-    /// overwritten; compensate-only writes are listed for an in-world compensation.
+    /// batches caused by a rollback. Each original batch is undone atomically by its
+    /// own batch, `Rollback { of: [that cause] }`. Inverse writes restore the earlier
+    /// values, so later changes to the same fields are overwritten; compensate-only
+    /// writes are listed for an in-world compensation.
+    ///
+    /// Each cause is rolled back at most once: causes already rolled back, or with a
+    /// rollback still pending, are skipped. Pending rollbacks are re-ordered together
+    /// with the new ones, newest cause first. `RollbackPlan` counts only the batches
+    /// for causes newly requested by this call. A committed batch with a `Rollback` cause
+    /// marks every cause in its `of` as rolled back, and a later batch rolling back any
+    /// of them again is rejected. A rejected rollback can be queued again.
     pub fn queue_rollback(&mut self, causes: &[CauseId], summary: &str) -> RollbackPlan {
-        let wanted: BTreeSet<CauseId> = causes.iter().copied().collect();
+        // Rollback batches still pending are rebuilt together with the new request, so
+        // every inverse runs newest cause first even when requests overlap (rolling back
+        // A, then A+B, must undo B before A).
+        let mut summaries: BTreeMap<CauseId, String> = BTreeMap::new();
+        let mut keep = Vec::new();
+        for b in std::mem::take(&mut self.state.kernel.pending) {
+            match &b.cause.kind {
+                CauseKind::Rollback { of } => {
+                    for c in of {
+                        summaries
+                            .entry(*c)
+                            .or_insert_with(|| b.cause.summary.clone());
+                    }
+                }
+                _ => keep.push(b),
+            }
+        }
+        self.state.kernel.pending = keep;
+        let mut fresh = BTreeSet::new();
+        for c in causes {
+            if !self.state.kernel.rolled_back.contains(c) && !summaries.contains_key(c) {
+                summaries.insert(*c, summary.to_owned());
+                fresh.insert(*c);
+            }
+        }
         let mut plan = RollbackPlan::default();
         let mut batches = Vec::new();
         for entry in self
@@ -347,28 +406,31 @@ impl Sim {
             .journal
             .iter()
             .rev()
-            .filter(|e| wanted.contains(&e.cause))
+            .filter(|e| summaries.contains_key(&e.cause))
         {
             let mut batch = CommandBatch::new(Cause {
                 kind: CauseKind::Rollback {
-                    of: wanted.iter().copied().collect(),
+                    of: vec![entry.cause],
                 },
-                summary: summary.to_owned(),
+                summary: summaries[&entry.cause].clone(),
                 cites: Vec::new(),
             });
             for u in entry.undo.iter().rev() {
                 match u {
                     UndoRecord::Invert { command } => batch.push(command.clone()),
-                    UndoRecord::Compensate { note } => {
+                    UndoRecord::Compensate { note } if fresh.contains(&entry.cause) => {
                         plan.compensate.push(format!("{}: {note}", entry.cause))
                     }
+                    UndoRecord::Compensate { .. } => {}
                 }
             }
             if !batch.commands.is_empty() {
+                if fresh.contains(&entry.cause) {
+                    plan.batches += 1;
+                }
                 batches.push(batch);
             }
         }
-        plan.batches = batches.len();
         for b in batches {
             self.submit(b);
         }
@@ -376,12 +438,13 @@ impl Sim {
     }
 }
 
-/// Undoes already-applied commands, newest first.
+/// Undoes already-applied commands, newest first. Each inverse restores captured
+/// values exactly, without the forward checks: a batch can leave a temporarily dangling
+/// reference behind that only the invariants catch.
 fn revert(world: &mut WorldState, undo: &[UndoRecord]) {
     for u in undo.iter().rev() {
         if let UndoRecord::Invert { command } = u {
-            apply(world, command, &mut Staged::default())
-                .expect("engine bug: inverting a just-applied command failed");
+            restore(world, command).expect("engine bug: inverting a just-applied command failed");
         }
     }
 }
