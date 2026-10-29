@@ -18,7 +18,17 @@ use crate::ids::*;
 /// Whether a station buys a ware from ships or sells it to them. A station never
 /// buys a ware it produces, or sells one it consumes.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
     JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
