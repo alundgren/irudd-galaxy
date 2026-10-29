@@ -74,6 +74,12 @@
         "region": {
           "$ref": "#/$defs/RegionId"
         },
+        "regrow": {
+          "description": "Units the whole field regrows per region pulse, each pulse's units going to the\nrock with the lowest remaining share (spent rocks included). Region pulses are\nactivity (`ship_rules.regrowth.pulses`), never time. Kept in thousandths.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
         "rock_prefix": {
           "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
           "type": "string"
@@ -100,7 +106,7 @@
       "type": "object",
       "properties": {
         "hardness": {
-          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "description": "Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).",
           "type": "number",
           "format": "float"
         },

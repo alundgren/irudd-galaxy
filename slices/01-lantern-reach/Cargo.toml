@@ -13,6 +13,7 @@ publish = false
 # Our crates
 galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
+galaxy-ship = { path = "crates/ship" }
 galaxy-economy = { path = "crates/economy" }
 galaxy-script = { path = "crates/script" }
 

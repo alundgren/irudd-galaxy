@@ -87,6 +87,15 @@
     {
       "type": "object",
       "properties": {
+        "floor": {
+          "description": "Sell only while the unit price, in centicredits, is at or above this. A crewed\nship then keeps the rest; a hull with a standing berth waits docked for the\nprice (patient sell).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
         "quantity": {
           "$ref": "#/$defs/Quantity"
         },
@@ -181,6 +190,7 @@
           ]
         },
         {
+          "description": "The line's current price, in centicredits, is at least `price`.",
           "type": "object",
           "properties": {
             "kind": {
@@ -207,6 +217,7 @@
           ]
         },
         {
+          "description": "The line's current price, in centicredits, is at most `price`.",
           "type": "object",
           "properties": {
             "kind": {

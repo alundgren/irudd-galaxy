@@ -20,7 +20,7 @@ use crate::ids::*;
 use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service};
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 10] = [
+pub const DATA_FILES: [&str; 11] = [
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -29,6 +29,7 @@ pub const DATA_FILES: [&str; 10] = [
     "stations.toml",
     "rocks.toml",
     "npcs.toml",
+    "ship_rules.toml",
     "economy.toml",
     "start.toml",
 ];

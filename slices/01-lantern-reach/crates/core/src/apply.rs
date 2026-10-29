@@ -242,6 +242,36 @@ fn apply_with(
                 orders: old,
             })
         }
+        C::UpdateOrders { ship, from, to } => {
+            let s = find(&mut world.ships, ship, "ship")?;
+            if s.orders != **from {
+                return Err(CommandError::Invalid(format!(
+                    "{ship}'s orders changed since this update was worked out"
+                )));
+            }
+            s.orders = (**to).clone();
+            invert(C::UpdateOrders {
+                ship: ship.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
+        C::SetShipActivity { ship, activity } => {
+            if let Some(t) = &activity.transit {
+                refs.require(&world.lanes, &t.lane, "lane")?;
+                refs.require(&world.regions, &t.from, "region")?;
+                refs.require(&world.regions, &t.to, "region")?;
+            }
+            if let Some(m) = &activity.mining {
+                refs.require(&world.rocks, &m.rock, "rock")?;
+            }
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old = std::mem::replace(&mut s.activity, (**activity).clone());
+            invert(C::SetShipActivity {
+                ship: ship.clone(),
+                activity: Box::new(old),
+            })
+        }
         C::AdjustCredits { delta } => {
             let inverse = negate(*delta, i64::checked_neg)?;
             let next = world
@@ -285,6 +315,28 @@ fn apply_with(
             invert(C::SetPriceSnapshot {
                 station: station.clone(),
                 snapshot: old,
+            })
+        }
+        C::SetLoop { name, orders } => {
+            if name.trim().is_empty() {
+                return Err(CommandError::Invalid("a loop needs a name".into()));
+            }
+            let loops = &mut world.player.loops;
+            let old = match orders {
+                Some(o) => loops.insert(name.clone(), o.clone()),
+                None => loops.remove(name),
+            };
+            invert(C::SetLoop {
+                name: name.clone(),
+                orders: old,
+            })
+        }
+        C::SetRockGrowth { rock, growth } => {
+            let r = find(&mut world.rocks, rock, "rock")?;
+            let old = std::mem::replace(&mut r.growth, growth.clone());
+            invert(C::SetRockGrowth {
+                rock: rock.clone(),
+                growth: old,
             })
         }
         C::AdjustRock { rock, delta } => {
