@@ -68,6 +68,7 @@ pub enum Lever {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct LineSpec {
     pub role: MarketRole,
+    /// In centicredits.
     pub base_price: u32,
     #[serde(default)]
     pub target: u32,

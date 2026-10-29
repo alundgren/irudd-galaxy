@@ -7,19 +7,20 @@
       "type": "array",
       "default": [],
       "items": {
-        "$ref": "#/$defs/Ware"
+        "$ref": "#/$defs/WareDef"
       }
     }
   },
   "additionalProperties": false,
   "$defs": {
-    "Ware": {
+    "WareDef": {
+      "description": "A ware. The loader turns it into a [`Ware`](crate::world::Ware).",
       "type": "object",
       "properties": {
         "base_price": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0
+          "description": "In credits.",
+          "type": "number",
+          "format": "double"
         },
         "id": {
           "$ref": "#/$defs/WareId"

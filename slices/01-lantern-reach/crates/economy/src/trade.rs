@@ -3,9 +3,14 @@
 //!
 //! [`trade`] is a plain function over `&WorldState`, so the order runner (W2), the
 //! economy system (the player's dock screen) and bots all trade the same way. The
-//! batch is atomic: the market line update is a compare-and-set
-//! ([`Command::UpdateMarketLine`]), so if anything else changed that line in the same
-//! tick the whole trade is rejected and nothing moves.
+//! batch is atomic and checked again when it applies: it starts with
+//! [`Command::ExpectDocked`], so a ship that undocked earlier in the tick can't trade,
+//! and the market line update is a compare-and-set ([`Command::UpdateMarketLine`]),
+//! so if anything else changed that line in the same tick the whole trade is rejected
+//! and nothing moves.
+//!
+//! Money is in centicredits: each unit is priced and rounded on its own, and the total
+//! is their sum.
 //!
 //! Only player-owned ships (the flagship and the player's craft) pay or earn credits.
 //! NPC craft trade cargo against the market without a wallet.
@@ -50,10 +55,16 @@ pub enum TradeError {
     NotEnoughStock { ware: WareId, have: u32, want: u32 },
     #[error("the hold has room for {free}, not {want}")]
     HoldFull { free: u32, want: u32 },
-    #[error("{need} credits needed, {have} on hand")]
+    /// Centicredits.
+    #[error("{} credits needed, {} on hand", show_credits(*need), show_credits(*have))]
     NotEnoughCredits { have: i64, need: i64 },
-    #[error("the next unit is {price:.1}, beyond the limit of {limit}")]
-    BeyondLimit { price: f64, limit: u32 },
+    /// Centicredits.
+    #[error(
+        "the next unit is {}, beyond the limit of {}",
+        show_credits(i64::from(*price)),
+        show_credits(i64::from(*limit))
+    )]
+    BeyondLimit { price: u32, limit: u32 },
 }
 
 /// What the next units would fetch or cost, for UIs and bots.
@@ -62,9 +73,10 @@ pub struct Quote {
     pub station: StationId,
     pub ware: WareId,
     pub side: TradeSide,
-    /// Unit prices in order; shorter than asked when a buy runs out of stock.
-    pub unit_prices: Vec<f64>,
-    /// In whole credits.
+    /// Unit prices in centicredits, in order; shorter than asked when a buy runs out of
+    /// stock.
+    pub unit_prices: Vec<u32>,
+    /// In centicredits: the sum of the unit prices.
     pub total: i64,
     pub stock_after: u32,
     pub saturation_after: f64,
@@ -75,6 +87,7 @@ impl Quote {
         self.unit_prices.len() as u32
     }
 
+    /// The average unit price in centicredits.
     pub fn average(&self) -> f64 {
         if self.unit_prices.is_empty() {
             0.0
@@ -90,9 +103,10 @@ pub struct TradeOutcome {
     pub request: TradeRequest,
     /// Units that trade (the quantity, or fewer under a limit).
     pub filled: u32,
-    /// Credits that change hands.
+    /// Centicredits that change hands.
     pub total: i64,
-    pub unit_prices: Vec<f64>,
+    /// Centicredits per unit, in order.
+    pub unit_prices: Vec<u32>,
     pub line_after: MarketLine,
     /// Submit these as one batch.
     pub commands: Vec<Command>,
@@ -213,7 +227,8 @@ pub fn trade_cause(world: &WorldState, outcome: &TradeOutcome) -> Cause {
         verb,
         format!(
             "{did} {} {ware} at {station} for {} credits",
-            outcome.filled, outcome.total
+            outcome.filled,
+            show_credits(outcome.total)
         ),
     )
 }
@@ -276,11 +291,11 @@ pub fn plan_trade(world: &WorldState, req: &TradeRequest) -> Result<TradeOutcome
         if req.side == TradeSide::Buy && after.stock == 0 {
             break;
         }
-        let price = pricing::unit_price(&after, rules, spread);
+        let price = pricing::unit_cents(&after, rules, spread);
         if let Some(limit) = req.limit {
             let ok = match req.side {
-                TradeSide::Sell => price >= f64::from(limit),
-                TradeSide::Buy => price <= f64::from(limit),
+                TradeSide::Sell => price >= limit,
+                TradeSide::Buy => price <= limit,
             };
             if !ok {
                 if unit_prices.is_empty() {
@@ -355,6 +370,10 @@ pub fn plan_trade(world: &WorldState, req: &TradeRequest) -> Result<TradeOutcome
     };
 
     let mut commands = vec![
+        Command::ExpectDocked {
+            ship: req.ship.clone(),
+            station: req.station.clone(),
+        },
         Command::UpdateMarketLine {
             station: req.station.clone(),
             ware: req.ware.clone(),

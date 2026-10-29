@@ -175,7 +175,7 @@ fn rejected_batch_with_a_temporary_dangling_reference_is_undone() {
                 ship: PLAYER,
                 region: original.region.clone(),
             })
-            .with(Command::AdjustCredits { delta: -100 }),
+            .with(Command::AdjustCredits { delta: -10_000 }),
     );
     s.submit(
         CommandBatch::new(Cause::system("test", "fine")).with(Command::AdjustCredits { delta: 1 }),
@@ -190,6 +190,7 @@ fn rejected_batch_with_a_temporary_dangling_reference_is_undone() {
 
 // --- 4. A rollback applies once ---
 
+/// In centicredits: the game starts with 40 credits, 4000.
 fn credits(s: &Sim) -> i64 {
     s.world().player.credits
 }
@@ -198,20 +199,20 @@ fn credits(s: &Sim) -> i64 {
 fn repeated_rollback_does_not_invert_twice() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = fresh();
-    assert_eq!(credits(&s), 40);
-    s.submit(script("plus ten").with(Command::AdjustCredits { delta: 10 }));
+    assert_eq!(credits(&s), 4000);
+    s.submit(script("plus ten").with(Command::AdjustCredits { delta: 1000 }));
     step(&mut s);
-    assert_eq!(credits(&s), 50);
+    assert_eq!(credits(&s), 5000);
     let cause = s.journal()[0].cause;
 
     assert_eq!(s.queue_rollback(&[cause], "undo").batches, 1);
     step(&mut s);
-    assert_eq!(credits(&s), 40);
+    assert_eq!(credits(&s), 4000);
 
     // Again: nothing to do.
     assert_eq!(s.queue_rollback(&[cause], "again").batches, 0);
     step(&mut s);
-    assert_eq!(credits(&s), 40);
+    assert_eq!(credits(&s), 4000);
 
     // Not after a save and load either.
     let path = dir.path().join("s.sqlite");
@@ -226,21 +227,21 @@ fn repeated_rollback_does_not_invert_twice() {
             summary: "by hand".into(),
             cites: Vec::new(),
         })
-        .with(Command::AdjustCredits { delta: -10 }),
+        .with(Command::AdjustCredits { delta: -1000 }),
     );
     let report = step(&mut s);
     assert_eq!(report.rejected.len(), 1);
     assert!(report.rejected[0].reason.contains("already rolled back"));
-    assert_eq!(credits(&s), 40);
+    assert_eq!(credits(&s), 4000);
 }
 
 #[test]
 fn rollback_queued_twice_or_overlapping_applies_once() {
     let mut s = fresh();
-    s.submit(script("one").with(Command::AdjustCredits { delta: 10 }));
-    s.submit(script("two").with(Command::AdjustCredits { delta: 5 }));
+    s.submit(script("one").with(Command::AdjustCredits { delta: 1000 }));
+    s.submit(script("two").with(Command::AdjustCredits { delta: 500 }));
     step(&mut s);
-    assert_eq!(credits(&s), 55);
+    assert_eq!(credits(&s), 5500);
     let (one, two) = (s.journal()[0].cause, s.journal()[1].cause);
 
     // Twice before stepping, then an overlapping selection.
@@ -249,7 +250,7 @@ fn rollback_queued_twice_or_overlapping_applies_once() {
     assert_eq!(s.queue_rollback(&[one, two], "overlap").batches, 1);
     let report = step(&mut s);
     assert_eq!(report.applied, 2);
-    assert_eq!(credits(&s), 40);
+    assert_eq!(credits(&s), 4000);
     assert_eq!(s.queue_rollback(&[one, two], "all again").batches, 0);
 }
 
@@ -313,28 +314,28 @@ fn duplicate_rollback_request_keeps_queue_order() {
 #[test]
 fn rejected_rollback_can_be_retried() {
     let mut s = fresh();
-    s.submit(script("plus ten").with(Command::AdjustCredits { delta: 10 }));
+    s.submit(script("plus ten").with(Command::AdjustCredits { delta: 1000 }));
     step(&mut s);
     let cause = s.journal()[0].cause;
-    // The player spends most of it, so the inverse (-10) can't apply yet.
+    // The player spends most of it, so the inverse (-1000) can't apply yet.
     s.submit(
         CommandBatch::new(Cause::verb(Actor::Player, VerbKind::Buy, "buy"))
-            .with(Command::AdjustCredits { delta: -45 }),
+            .with(Command::AdjustCredits { delta: -4500 }),
     );
     step(&mut s);
-    assert_eq!(credits(&s), 5);
+    assert_eq!(credits(&s), 500);
     assert_eq!(s.queue_rollback(&[cause], "undo").batches, 1);
     assert_eq!(step(&mut s).rejected.len(), 1);
-    assert_eq!(credits(&s), 5);
+    assert_eq!(credits(&s), 500);
 
     s.submit(
         CommandBatch::new(Cause::verb(Actor::Player, VerbKind::Sell, "sell"))
-            .with(Command::AdjustCredits { delta: 20 }),
+            .with(Command::AdjustCredits { delta: 2000 }),
     );
     step(&mut s);
     assert_eq!(s.queue_rollback(&[cause], "retry").batches, 1);
     assert_eq!(step(&mut s).applied, 1);
-    assert_eq!(credits(&s), 15);
+    assert_eq!(credits(&s), 1500);
     assert_eq!(s.queue_rollback(&[cause], "once more").batches, 0);
 }
 

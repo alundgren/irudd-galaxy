@@ -102,17 +102,24 @@ where
 }
 
 /// Adds to a tally, dropping it when it returns to zero so undo restores the map
-/// exactly.
-fn adjust_tally<K: Ord + Clone>(
+/// exactly. Every field is checked before anything changes.
+fn adjust_tally<K: Ord + Clone + Display>(
     map: &mut std::collections::BTreeMap<K, ActivityTally>,
     key: &K,
     delta: &ActivityTally,
-) {
-    let tally = map.entry(key.clone()).or_default();
-    tally.add(delta);
-    if tally.is_zero() {
+) -> Result<(), CommandError> {
+    let next = map
+        .get(key)
+        .cloned()
+        .unwrap_or_default()
+        .checked_add(delta)
+        .ok_or_else(|| CommandError::Invalid(format!("activity at {key} would overflow")))?;
+    if next.is_zero() {
         map.remove(key);
+    } else {
+        map.insert(key.clone(), next);
     }
+    Ok(())
 }
 
 fn invert(command: Command) -> Result<UndoRecord, CommandError> {
@@ -177,6 +184,17 @@ fn apply_with(
                 ship: ship.clone(),
                 station: old,
             })
+        }
+        C::ExpectDocked { ship, station } => {
+            if refs.check {
+                let s = world.ships.get(ship).ok_or_else(|| unknown("ship", ship))?;
+                if s.docked_at.as_ref() != Some(station) {
+                    return Err(CommandError::Invalid(format!(
+                        "{ship} isn't docked at {station}"
+                    )));
+                }
+            }
+            invert(cmd.clone())
         }
         C::SetShipRegion { ship, region } => {
             refs.require(&world.regions, region, "region")?;
@@ -389,20 +407,23 @@ fn apply_with(
             })
         }
         C::AdjustActivity { scope, delta } => {
+            let inverse = delta
+                .checked_neg()
+                .ok_or_else(|| CommandError::Invalid(format!("delta {delta:?} has no inverse")))?;
             let eco = &mut world.economy;
             match scope {
                 ActivityScope::Station { station } => {
                     refs.require(&world.stations, station, "station")?;
-                    adjust_tally(&mut eco.stations, station, delta);
+                    adjust_tally(&mut eco.stations, station, delta)?;
                 }
                 ActivityScope::Region { region } => {
                     refs.require(&world.regions, region, "region")?;
-                    adjust_tally(&mut eco.regions, region, delta);
+                    adjust_tally(&mut eco.regions, region, delta)?;
                 }
             }
             invert(C::AdjustActivity {
                 scope: scope.clone(),
-                delta: delta.negated(),
+                delta: inverse,
             })
         }
         C::SetDockTrack { ship, track } => {

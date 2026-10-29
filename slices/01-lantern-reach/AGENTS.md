@@ -89,6 +89,9 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   `numbers_finite` invariant guards the world, authored data with one is a load error,
   and `Save` refuses to write one (JSON can't carry it). Integer adjustments use checked
   maths and build their inverse before changing anything.
+- Money is whole centicredits (1 cr = 100, `contract::money`): `Player.credits`, every
+  price, limits and credit deltas. Data files write decimal credits and the loader
+  converts them. A trade prices each unit, rounds it to a centicredit and pays the sum.
 - Each applied command returns an `UndoRecord`. For journaled causes (`Script`, `Mind`)
   the engine keeps them, and `Sim::queue_rollback(causes, summary)` inverts them as new
   batches with a `Rollback` cause, one batch per cause (`Rollback { of: [cause] }`).

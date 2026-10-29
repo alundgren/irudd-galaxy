@@ -158,11 +158,11 @@
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "TradeRequest": {
-      "description": "One trade a docked ship asks for. Priced unit by unit.",
+      "description": "One trade a docked ship asks for. Priced unit by unit, each unit rounded to a\ncenticredit.",
       "type": "object",
       "properties": {
         "limit": {
-          "description": "Price limit per unit: sell only while the unit price is at least this, buy only\nwhile it's at most this. With a limit the trade fills as many units as it can.",
+          "description": "Price limit per unit, in centicredits: sell only while the unit price is at least this, buy only\nwhile it's at most this. With a limit the trade fills as many units as it can.",
           "type": [
             "integer",
             "null"

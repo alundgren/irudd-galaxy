@@ -13,6 +13,15 @@ fn total(world: &WorldState, station: &StationId, ware: &WareId, side: TradeSide
     quote(world, station, ware, side, n).unwrap().total
 }
 
+/// A total in centicredits matches the spec's figure in whole credits.
+#[track_caller]
+fn near(cents: i64, credits: i64) {
+    assert!(
+        (cents - credits * 100).abs() <= 50,
+        "{cents} centicredits isn't about {credits} credits"
+    );
+}
+
 /// content/07-pacing.md, "Number checks". Totals of one 20-unit hold, unit by unit.
 #[test]
 fn spec_worked_examples() {
@@ -22,23 +31,24 @@ fn spec_worked_examples() {
     let first = |s: &StationId, ware: &WareId, side: TradeSide| {
         quote(&w, s, ware, side, 1).unwrap().unit_prices[0]
     };
-    assert!((first(&BRASS, &GLASSITE, Sell) - 50.0).abs() < 0.05);
-    assert!((first(&WHARF, &ICE, Sell) - 10.3).abs() < 0.05);
-    assert!((first(&HOOK, &PLATE, Sell) - 60.5).abs() < 0.05);
-    assert!((first(&HOOK, &ORE, Buy) - 6.9).abs() < 0.05);
+    // In centicredits; the spec's tables show one decimal.
+    assert!(first(&BRASS, &GLASSITE, Sell).abs_diff(5000) <= 5);
+    assert!(first(&WHARF, &ICE, Sell).abs_diff(1030) <= 5);
+    assert!(first(&HOOK, &PLATE, Sell).abs_diff(6050) <= 5);
+    assert!(first(&HOOK, &ORE, Buy).abs_diff(690) <= 5);
 
-    // "Price gaps make trading worthwhile."
-    assert_eq!(total(&w, &BRASS, &GLASSITE, Sell, 20), 692);
-    assert_eq!(total(&w, &HOOK, &GLASSITE, Buy, 20), 422);
-    assert_eq!(total(&w, &BRASS, &PLATE, Buy, 20), 617);
-    assert_eq!(total(&w, &HOOK, &PLATE, Sell, 20), 941);
-    assert_eq!(total(&w, &WHARF, &ORE, Sell, 20), 241);
-    assert_eq!(total(&w, &KETTLE, &ICE, Sell, 20), 201);
+    // "Price gaps make trading worthwhile." The spec rounds to whole credits.
+    near(total(&w, &BRASS, &GLASSITE, Sell, 20), 692);
+    near(total(&w, &HOOK, &GLASSITE, Buy, 20), 422);
+    near(total(&w, &BRASS, &PLATE, Buy, 20), 617);
+    near(total(&w, &HOOK, &PLATE, Sell, 20), 941);
+    near(total(&w, &WHARF, &ORE, Sell, 20), 241);
+    near(total(&w, &KETTLE, &ICE, Sell, 20), 201);
     // "Split instead: 10 at Brassmouth, 10 at the Observatory."
-    assert_eq!(total(&w, &BRASS, &GLASSITE, Sell, 10), 425);
-    assert_eq!(total(&w, &OBSERVATORY, &GLASSITE, Sell, 10), 310);
+    near(total(&w, &BRASS, &GLASSITE, Sell, 10), 425);
+    near(total(&w, &OBSERVATORY, &GLASSITE, Sell, 10), 310);
     // "A Tandem's 50 glassite dumped at Brassmouth": about 1090.
-    assert!((1085..=1095).contains(&total(&w, &BRASS, &GLASSITE, Sell, 50)));
+    assert!((108_500..=109_500).contains(&total(&w, &BRASS, &GLASSITE, Sell, 50)));
 }
 
 /// "20 glassite into a fresh Brassmouth: 692. The same 20 again, one trip later
@@ -57,12 +67,12 @@ fn a_repeated_full_load_earns_less_than_half() {
         }],
     );
     let first = plan_trade(w, &sell(&PLAYER, &BRASS, &GLASSITE, 20)).unwrap();
-    assert_eq!(first.total, 692);
+    near(first.total, 692);
     assert!((first.line_after.saturation - 0.6).abs() < 1e-9);
     assert_eq!(first.line_after.stock, 130);
     let credits = w.player.credits;
     setup(w, first.commands);
-    assert_eq!(w.player.credits, credits + 692);
+    assert_eq!(w.player.credits, credits + first.total);
     assert_eq!(w.ships.get(&PLAYER).unwrap().hold.count(&GLASSITE), 0);
 
     // The spec's state one trip later: saturation recovered to 0.45, stock as left.
@@ -73,7 +83,7 @@ fn a_repeated_full_load_earns_less_than_half() {
         .unwrap()
         .lines
         .insert(GLASSITE, later);
-    assert_eq!(total(w, &BRASS, &GLASSITE, TradeSide::Sell, 20), 318);
+    near(total(w, &BRASS, &GLASSITE, TradeSide::Sell, 20), 318);
 }
 
 #[test]
@@ -89,7 +99,7 @@ fn saturation_recovers_with_activity_not_ticks() {
     // 110 at the start, 2 used by the pulse of the player's own docking, 20 sold.
     assert_eq!(flooded.stock, 128);
     assert_eq!(
-        flooded.price, 19,
+        flooded.price, 1856,
         "the cached price follows: 48 * 0.967 * 0.4"
     );
 
@@ -175,12 +185,12 @@ fn producers_need_their_inputs_and_stop_at_the_cap() {
         ..line(sim.world(), &BRASS, &PLATE)
     };
     assert_eq!(
-        galaxy_economy::pulse::pulse_line(&full, 1.0, true, rules).stock,
+        galaxy_economy::pulse::pulse_line(&full, 1.0, 1.0, rules).stock,
         300
     );
     let over = MarketLine { stock: 340, ..full };
     assert_eq!(
-        galaxy_economy::pulse::pulse_line(&over, 1.0, true, rules).stock,
+        galaxy_economy::pulse::pulse_line(&over, 1.0, 1.0, rules).stock,
         340
     );
 }
@@ -190,7 +200,7 @@ fn trades_are_atomic_and_rejected_cleanly() {
     let mut s = state();
     let w = &mut s.world;
     let at_wharf = sell(&PLAYER, &WHARF, &ICE, 5);
-    // Docked at the Wharf with an empty hold and 40 credits.
+    // Docked at the Wharf with an empty hold and 40 credits (4000 centicredits).
     assert_eq!(
         check_trade(w, &at_wharf),
         Err(TradeError::NotEnoughCargo {
@@ -217,7 +227,7 @@ fn trades_are_atomic_and_rejected_cleanly() {
     );
     assert!(matches!(
         check_trade(w, &buy(&PLAYER, &WHARF, &PLATE, 5)),
-        Err(TradeError::NotEnoughCredits { have: 40, .. })
+        Err(TradeError::NotEnoughCredits { have: 4000, .. })
     ));
     assert!(matches!(
         check_trade(w, &buy(&PLAYER, &WHARF, &PLATE, 21)),
@@ -229,7 +239,7 @@ fn trades_are_atomic_and_rejected_cleanly() {
             .units(),
         1
     );
-    setup(w, [Command::AdjustCredits { delta: 10_000 }]);
+    setup(w, [Command::AdjustCredits { delta: 1_000_000 }]);
     assert!(check_trade(w, &buy(&PLAYER, &WHARF, &PLATE, 20)).is_ok());
 
     // A price limit fills only the units at or above it.
@@ -242,19 +252,19 @@ fn trades_are_atomic_and_rejected_cleanly() {
         }],
     );
     let limited = TradeRequest {
-        limit: Some(10),
+        limit: Some(1000),
         ..sell(&PLAYER, &WHARF, &ICE, 20)
     };
     let o = plan_trade(w, &limited).unwrap();
     assert!(o.filled > 0 && o.filled < 20, "{}", o.filled);
-    assert!(o.unit_prices.iter().all(|p| *p >= 10.0));
+    assert!(o.unit_prices.iter().all(|p| *p >= 1000));
     let too_high = TradeRequest {
-        limit: Some(99),
+        limit: Some(9900),
         ..limited.clone()
     };
     assert!(matches!(
         check_trade(w, &too_high),
-        Err(TradeError::BeyondLimit { limit: 99, .. })
+        Err(TradeError::BeyondLimit { limit: 9900, .. })
     ));
 
     // Two trades worked out from the same state: the second loses the race on the
@@ -309,7 +319,8 @@ fn dock_screen_sells_and_buys_in_order() {
     let ship = w.ships.get(&PLAYER).unwrap();
     assert_eq!(ship.hold.count(&ORE), 0);
     assert_eq!(ship.hold.count(&PLATE), 5);
-    let earned = 241;
+    let earned = w.economy.stations[&WHARF].credits_earned;
+    near(earned, 241);
     let spent = w.economy.stations[&WHARF].credits_spent;
     assert_eq!(w.player.credits, credits + earned - spent);
     assert_eq!(w.economy.regions[&SHALLOWS].units_sold, 20);
@@ -358,7 +369,8 @@ fn snapshots_appear_on_dock_and_remote_prices_start_unknown() {
     assert!(
         prices
             .iter()
-            .any(|p| p.ware == ICE && p.role == MarketRole::Buys && p.price == 10)
+            .any(|p| p.ware == ICE && p.role == MarketRole::Buys && p.price == 1031),
+        "10 * 1.03125 = 10.31"
     );
     assert_eq!(
         map.station(&KETTLE).unwrap().prices,
@@ -370,7 +382,10 @@ fn snapshots_appear_on_dock_and_remote_prices_start_unknown() {
     let w = sim.world();
     let snap = &w.player.price_snapshots[&KETTLE];
     assert_eq!(snap.visit, 1);
-    assert_eq!(snap.prices[&ICE], 14, "12 * 1.125 = 13.5 rounds to 14");
+    assert_eq!(
+        snap.prices[&ICE], 1350,
+        "12 * 1.125 = 13.5, as Kettle was when the ship docked"
+    );
     assert_eq!(
         sim.history()
             .count(&HistoryQuery::kind(EventKind::Scout.fact_kind())),
@@ -468,7 +483,7 @@ fn levers_change_supply_not_the_formula() {
                 ware: RATIONS,
                 line: LineSpec {
                     role: MarketRole::Sells,
-                    base_price: 15,
+                    base_price: 1500,
                     target: 120,
                     stock: 0,
                     production: 2,
@@ -496,10 +511,10 @@ fn levers_change_supply_not_the_formula() {
     let empty = quote(w, &KETTLE, &RATIONS, TradeSide::Buy, 1).unwrap();
     assert_eq!(empty.units(), 0, "nothing to buy yet");
     let rl = line(w, &KETTLE, &RATIONS);
-    assert_eq!(rl.price, 22);
+    assert!(rl.price.abs_diff(2243) <= 1, "{}", rl.price);
     assert!(
-        (galaxy_economy::pricing::unit_price(&rl, &w.economy.rules.pricing, 1.15) - 22.425).abs()
-            < 1e-9
+        (galaxy_economy::pricing::unit_price(&rl, &w.economy.rules.pricing, 1.15) - 2242.5).abs()
+            < 1e-6
     );
 
     // A pulse at Kettle now uses 8 ice (4 per pulse, doubled) and makes 2 rations.
@@ -625,7 +640,7 @@ fn npc_trade_choice_ranks_complete_plans() {
     assert_eq!(top.trades[0].side, TradeSide::Buy);
     assert_eq!(top.trades[0].quantity, 10);
     // 10 bought for about 206, sold into a fresh Brassmouth for about 425.
-    assert!(top.expected_credits > 200, "{}", top.summary);
+    assert!(top.expected_credits > 20_000, "{}", top.summary);
     // The plan is executable as it stands.
     for req in &top.trades {
         check_trade(sim.world(), req).unwrap();

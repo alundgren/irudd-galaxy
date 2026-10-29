@@ -31,7 +31,7 @@ pub struct TraderProfile {
     pub max_units_per_ware: u32,
     /// Most different wares traded per docking.
     pub max_wares_per_docking: u32,
-    /// Credits a plan is marked down per world unit of travel, so near trades win ties.
+    /// Centicredits a plan is marked down per world unit of travel, so near trades win ties.
     #[serde(default)]
     pub cost_per_distance: f64,
 }
@@ -49,7 +49,8 @@ pub struct TradePlan {
     pub destination: Option<StationId>,
     /// Cargo carried to the destination and what it should fetch there.
     pub carry: Vec<Carry>,
-    /// Sales here, minus purchases here, plus what the carried cargo fetches there.
+    /// Sales here, minus purchases here, plus what the carried cargo fetches there, in
+    /// centicredits.
     pub expected_credits: i64,
     pub travel: f32,
     pub score: f64,
@@ -61,6 +62,7 @@ pub struct TradePlan {
 pub struct Carry {
     pub ware: WareId,
     pub units: u32,
+    /// In centicredits.
     pub expected_credits: i64,
 }
 
@@ -122,11 +124,10 @@ fn best_haul(
         spread_at(world, dest),
     );
     let mut best: Option<(u32, i64, i64)> = None;
-    let (mut cost, mut revenue) = (0.0, 0.0);
+    let (mut c, mut r) = (0_i64, 0_i64);
     for (i, (b, s)) in buys.iter().zip(&sells).enumerate() {
-        cost += b;
-        revenue += s;
-        let (c, r) = (cost.round() as i64, revenue.round() as i64);
+        c += i64::from(*b);
+        r += i64::from(*s);
         if r - c > best.map_or(0, |(_, bc, br)| br - bc) {
             best = Some((i as u32 + 1, c, r));
         }
@@ -258,16 +259,23 @@ pub fn rank_trades(
             let score = expected as f64 - f64::from(travel) * profile.cost_per_distance;
             let mut parts: Vec<String> = sells
                 .iter()
-                .map(|(w, q, v)| format!("sell {q} {} here for {v}", name(world, w)))
+                .map(|(w, q, v)| {
+                    format!("sell {q} {} here for {}", name(world, w), show_credits(*v))
+                })
                 .collect();
             if let Some((w, q, cost, _)) = &buy {
-                parts.push(format!("buy {q} {} for {cost}", name(world, w)));
+                parts.push(format!(
+                    "buy {q} {} for {}",
+                    name(world, w),
+                    show_credits(*cost)
+                ));
             }
             match dest {
                 Some(d) => parts.push(format!("go to {}", station_name(world, d))),
                 None => parts.push("stay".to_owned()),
             }
-            parts.push(format!("expect {expected:+} credits"));
+            let sign = if expected >= 0 { "+" } else { "" };
+            parts.push(format!("expect {sign}{} credits", show_credits(expected)));
             plans.push(TradePlan {
                 here: here.clone(),
                 trades,

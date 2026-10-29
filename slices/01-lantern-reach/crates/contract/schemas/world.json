@@ -249,13 +249,13 @@
       "type": "object",
       "properties": {
         "credits_earned": {
-          "description": "Credits the market paid ships.",
+          "description": "Centicredits the market paid ships.",
           "type": "integer",
           "format": "int64",
           "default": 0
         },
         "credits_spent": {
-          "description": "Credits ships paid the market.",
+          "description": "Centicredits ships paid the market.",
           "type": "integer",
           "format": "int64",
           "default": 0
@@ -1020,7 +1020,7 @@
           "uniqueItems": true
         },
         "price": {
-          "description": "The current unit price in credits: what the station pays for a `buys` line,\nwhat it asks for a `sells` line. Kept up to date by the economy.",
+          "description": "The current unit price in centicredits: what the station pays for a `buys`\nline, what it asks for a `sells` line. Kept up to date by the economy. Every\nprice here is in centicredits ([`crate::money`]).",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
@@ -1391,6 +1391,7 @@
       "type": "object",
       "properties": {
         "credits": {
+          "description": "In centicredits (1 cr = 100, [`crate::money`]).",
           "type": "integer",
           "format": "int64"
         },
@@ -1470,6 +1471,7 @@
       "type": "object",
       "properties": {
         "prices": {
+          "description": "Unit prices in centicredits.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -2098,6 +2100,7 @@
       "type": "object",
       "properties": {
         "base_price": {
+          "description": "In centicredits.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0

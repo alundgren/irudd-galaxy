@@ -159,6 +159,13 @@ pub enum Command {
         ship: ShipId,
         station: Option<StationId>,
     },
+    /// Changes nothing, and fails unless `ship` is docked at `station`. A batch that
+    /// only makes sense at a dock (a trade) carries one, so a ship that undocked
+    /// earlier in the same tick rejects it. Its inverse is itself.
+    ExpectDocked {
+        ship: ShipId,
+        station: StationId,
+    },
     SetShipRegion {
         ship: ShipId,
         region: RegionId,
@@ -175,6 +182,7 @@ pub enum Command {
     },
 
     // --- Player ---
+    /// Adds to the player's credits, in centicredits. Fails below zero.
     AdjustCredits {
         delta: i64,
     },

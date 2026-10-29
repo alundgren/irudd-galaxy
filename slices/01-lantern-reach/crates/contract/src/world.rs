@@ -61,6 +61,7 @@ pub struct WorldMeta {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Player {
     pub name: String,
+    /// In centicredits (1 cr = 100, [`crate::money`]).
     pub credits: i64,
     /// The ship the player flies by hand.
     pub ship: Option<ShipId>,
@@ -80,6 +81,7 @@ pub struct PriceSnapshot {
     pub tick: Tick,
     /// The player's docking count when it was taken: "dated by your last visit".
     pub visit: u64,
+    /// Unit prices in centicredits.
     pub prices: BTreeMap<WareId, u32>,
 }
 
@@ -150,8 +152,9 @@ pub struct Market {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct MarketLine {
     pub stock: u32,
-    /// The current unit price in credits: what the station pays for a `buys` line,
-    /// what it asks for a `sells` line. Kept up to date by the economy.
+    /// The current unit price in centicredits: what the station pays for a `buys`
+    /// line, what it asks for a `sells` line. Kept up to date by the economy. Every
+    /// price here is in centicredits ([`crate::money`]).
     pub price: u32,
     /// Where the price settles with no pressure.
     pub base_price: u32,
@@ -224,6 +227,7 @@ fn one() -> f64 {
 pub struct Ware {
     pub id: WareId,
     pub name: String,
+    /// In centicredits.
     pub base_price: u32,
     /// False for things that can't be bought or sold (the Ancients fragment).
     #[serde(default = "yes")]

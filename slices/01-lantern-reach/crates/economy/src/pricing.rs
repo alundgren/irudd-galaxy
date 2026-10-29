@@ -7,10 +7,13 @@
 //! ```
 //!
 //! Every number comes from the line and the world's
-//! [`PricingRules`](galaxy_contract::economy::PricingRules). A trade of N units is N
+//! [`PricingRules`](galaxy_contract::economy::PricingRules). Prices are in
+//! centicredits (`content/08-contract.md`, "Numbers"). A trade of N units is N
 //! single-unit trades: each unit sold adds one to stock and `sat_per_unit` to
 //! saturation, each unit bought takes one from stock, and the next unit is priced
-//! again. Unit prices are fractional; a trade's total is rounded once.
+//! again. Each unit's price is rounded half away from zero to a centicredit and paid
+//! exactly that; a trade's total is the sum. So splitting a trade into smaller ones
+//! never changes what it pays.
 
 use galaxy_contract::economy::PricingRules;
 use galaxy_contract::prelude::*;
@@ -50,13 +53,22 @@ pub fn spread_at(world: &WorldState, station: &StationId) -> f64 {
     }
 }
 
-/// The price of the next unit: what the station pays (`buys`) or asks (`sells`).
+/// The exact price of the next unit in centicredits, before rounding: what the
+/// station pays (`buys`) or asks (`sells`).
 pub fn unit_price(line: &MarketLine, rules: &PricingRules, spread: f64) -> f64 {
     let base = f64::from(line.base_price) * stock_factor(line, rules);
     match line.role {
         MarketRole::Buys => base * (1.0 - line.saturation.clamp(0.0, 1.0)),
         MarketRole::Sells => base * spread,
     }
+}
+
+/// The price the next unit trades at: [`unit_price`] rounded half away from zero to a
+/// centicredit.
+pub fn unit_cents(line: &MarketLine, rules: &PricingRules, spread: f64) -> u32 {
+    unit_price(line, rules, spread)
+        .round()
+        .clamp(0.0, f64::from(u32::MAX)) as u32
 }
 
 /// The lowest and highest prices the formula can give this line under these rules.
@@ -78,7 +90,7 @@ pub fn formula_range(line: &MarketLine, rules: &PricingRules) -> (f64, f64) {
 }
 
 /// The band a line's cached price must stay in: the formula's range, widened to whole
-/// credits.
+/// centicredits.
 pub fn band(line: &MarketLine, rules: &PricingRules) -> (u32, u32) {
     let (lo, hi) = formula_range(line, rules);
     (lo.floor().max(0.0) as u32, hi.ceil().max(0.0) as u32)
@@ -87,8 +99,7 @@ pub fn band(line: &MarketLine, rules: &PricingRules) -> (u32, u32) {
 /// The line with its cached `price`, `min_price` and `max_price` brought up to date.
 pub fn priced(line: &MarketLine, rules: &PricingRules, spread: f64) -> MarketLine {
     let (min_price, max_price) = band(line, rules);
-    let price =
-        (unit_price(line, rules, spread).round().max(0.0) as u32).clamp(min_price, max_price);
+    let price = unit_cents(line, rules, spread).clamp(min_price, max_price);
     MarketLine {
         price,
         min_price,
@@ -111,22 +122,22 @@ pub fn buy_one(line: &mut MarketLine) {
     line.stock = line.stock.saturating_sub(1);
 }
 
-/// The next `units` unit prices on `side`, in order, and the line after them. Buys
-/// stop when stock runs out.
+/// The next `units` unit prices on `side` in centicredits, in order, and the line after
+/// them. Buys stop when stock runs out.
 pub fn walk(
     line: &MarketLine,
     side: TradeSide,
     units: u32,
     rules: &PricingRules,
     spread: f64,
-) -> (Vec<f64>, MarketLine) {
+) -> (Vec<u32>, MarketLine) {
     let mut line = line.clone();
     let mut prices = Vec::with_capacity(units as usize);
     for _ in 0..units {
         if side == TradeSide::Buy && line.stock == 0 {
             break;
         }
-        prices.push(unit_price(&line, rules, spread));
+        prices.push(unit_cents(&line, rules, spread));
         match side {
             TradeSide::Sell => sell_one(&mut line, rules),
             TradeSide::Buy => buy_one(&mut line),
@@ -135,9 +146,9 @@ pub fn walk(
     (prices, line)
 }
 
-/// A trade's total in whole credits.
-pub fn total(prices: &[f64]) -> i64 {
-    prices.iter().sum::<f64>().round() as i64
+/// A trade's total in centicredits: the sum of its rounded unit prices.
+pub fn total(prices: &[u32]) -> i64 {
+    prices.iter().map(|&p| i64::from(p)).sum()
 }
 
 /// The side a ship trades on for a line: sell to a `buys` line, buy from a `sells` one.

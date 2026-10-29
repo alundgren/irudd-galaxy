@@ -11,7 +11,10 @@
 //! 3. Re-prices any line whose cached price or band is stale (new games, levers,
 //!    regard changes).
 //! 4. Scouts: a player-owned ship's docking writes that station's price snapshot; a
-//!    lane arrival in a hull with `lane_scout` writes the whole region's.
+//!    lane arrival in a hull with `lane_scout` writes the whole region's; undocking
+//!    refreshes the snapshot of the station it leaves, so it reads "as of your last
+//!    visit". Snapshots read the committed world (the end of last tick), never this
+//!    tick's proposed batches, which may yet be rejected.
 //! 5. Executes the player's trade requests from the dock screen, in order.
 //!
 //! The system is stateless: everything it remembers lives in `world.economy`.
@@ -106,6 +109,7 @@ impl System for EconomySystem {
             };
         let mut pulses = Pulses::default();
         let mut scouts: Vec<(ShipId, StationId)> = Vec::new();
+        let mut left: Vec<StationId> = Vec::new();
         for env in events {
             match &env.event {
                 Event::Dock { ship, station } => {
@@ -121,6 +125,11 @@ impl System for EconomySystem {
                     );
                     if player_owned(world, ship) {
                         scouts.push((ship.clone(), station.clone()));
+                    }
+                }
+                Event::Undock { ship, station } => {
+                    if player_owned(world, ship) {
+                        left.push(station.clone());
                     }
                 }
                 Event::Jump { ship, to, .. } => {
@@ -288,18 +297,37 @@ impl System for EconomySystem {
         {
             scouts.push((ship.id.clone(), station.clone()));
         }
+        //    Prices come from `world`, which is committed: this tick's pulses and trades
+        //    may still be rejected, and a snapshot must show prices that really were.
         let mut scouted = BTreeSet::new();
         for (ship, station) in scouts {
             if !scouted.insert(station.clone()) {
                 continue;
             }
-            let commands = scout::scout_commands(work.world(), &ship, &station);
+            let commands = scout::scout_commands(world, &ship, &station);
             work.commit(
                 ctx,
                 CommandBatch {
                     cause: cause("prices seen on docking"),
                     commands,
                 },
+            );
+        }
+        for station in left {
+            if !scouted.insert(station.clone()) {
+                continue;
+            }
+            let Some(snapshot) = scout::snapshot(world, &station) else {
+                continue;
+            };
+            work.commit(
+                ctx,
+                CommandBatch::new(cause("prices seen on leaving")).with(
+                    Command::SetPriceSnapshot {
+                        station,
+                        snapshot: Some(snapshot),
+                    },
+                ),
             );
         }
 

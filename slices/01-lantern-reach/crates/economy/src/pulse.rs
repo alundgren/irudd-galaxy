@@ -6,10 +6,15 @@
 //! weights are [`PulseRules`] data.
 //!
 //! On a station pulse of weight `w`, for each market line: producers add
-//! `production * production_scale * w` to stock (while every ware they need is in
-//! stock, and up to `target * produce_cap`); consumers remove
+//! `production * production_scale` per unit of weight for as much of the pulse as
+//! every ware they need is in stock, up to `target * produce_cap`; consumers remove
 //! `consumption * consumption_scale * w` (down to zero); a `buys` line's saturation
 //! falls by `sat_recover * w` (down to zero). Nothing else ever lowers saturation.
+//!
+//! Inputs run out part way through a pulse: an input with `s` in stock that the
+//! station uses at `c` per unit of weight lasts `s / c` of it. So a pulse of weight 2
+//! does exactly what two pulses of weight 1 do, and pulses gathered in one tick (or
+//! left pending) never make goods after their inputs are gone.
 
 use std::collections::BTreeMap;
 
@@ -91,19 +96,48 @@ pub fn is_counted(track: Option<&DockTrack>, station: &StationId) -> bool {
     track.is_none_or(|t| t.station != *station || t.away)
 }
 
-/// One line after a station pulse of `weight`. `needs_met` says whether every ware
-/// its producers need is in stock.
+/// The stock of a line with its fractional carry.
+fn exact_stock(line: &MarketLine) -> f64 {
+    f64::from(line.stock) + line.stock_carry
+}
+
+/// How much of a pulse of `weight` the station has every ware `line` needs, from 0
+/// (none of it) to 1 (all of it). A needed ware lasts while its stock is above zero,
+/// and drains at its own consumption rate during the pulse.
+pub fn producing_share(market: &Market, line: &MarketLine, weight: f64) -> f64 {
+    line.needs
+        .iter()
+        .map(|n| {
+            let Some(input) = market.lines.get(n) else {
+                return 0.0;
+            };
+            let have = exact_stock(input);
+            let rate = f64::from(input.consumption) * input.consumption_scale;
+            if have <= 0.0 {
+                0.0
+            } else if rate <= 0.0 || weight <= 0.0 || have >= rate * weight {
+                1.0
+            } else {
+                have / (rate * weight)
+            }
+        })
+        .fold(1.0, f64::min)
+}
+
+/// One line after a station pulse of `weight`. `producing` is the share of the pulse
+/// its producers run, from [`producing_share`]: 1 when it needs nothing.
 pub fn pulse_line(
     line: &MarketLine,
     weight: f64,
-    needs_met: bool,
+    producing: f64,
     rules: &PricingRules,
 ) -> MarketLine {
     let mut next = line.clone();
-    let before = f64::from(line.stock) + line.stock_carry;
+    let before = exact_stock(line);
     let mut exact = before;
-    if line.production > 0 && needs_met {
-        let made = f64::from(line.production) * line.production_scale * weight;
+    let producing = producing.clamp(0.0, 1.0);
+    if line.production > 0 && producing > 0.0 {
+        let made = f64::from(line.production) * line.production_scale * weight * producing;
         let cap = if rules.produce_cap > 0.0 && line.target > 0 {
             (f64::from(line.target) * rules.produce_cap).max(before)
         } else {
@@ -124,8 +158,8 @@ pub fn pulse_line(
     next
 }
 
-/// Every line of a market after a station pulse of `weight`. Needs are checked
-/// against stock before the pulse.
+/// Every line of a market after a station pulse of `weight`. Producers stop when a
+/// ware they need runs out during the pulse.
 pub fn pulse_market(
     market: &Market,
     weight: f64,
@@ -135,11 +169,8 @@ pub fn pulse_market(
         .lines
         .iter()
         .map(|(ware, line)| {
-            let needs_met = line
-                .needs
-                .iter()
-                .all(|n| market.lines.get(n).is_some_and(|l| l.stock > 0));
-            (ware.clone(), pulse_line(line, weight, needs_met, rules))
+            let producing = producing_share(market, line, weight);
+            (ware.clone(), pulse_line(line, weight, producing, rules))
         })
         .collect()
 }

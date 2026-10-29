@@ -66,13 +66,13 @@
       "type": "object",
       "properties": {
         "credits_earned": {
-          "description": "Credits the market paid ships.",
+          "description": "Centicredits the market paid ships.",
           "type": "integer",
           "format": "int64",
           "default": 0
         },
         "credits_spent": {
-          "description": "Credits ships paid the market.",
+          "description": "Centicredits ships paid the market.",
           "type": "integer",
           "format": "int64",
           "default": 0
@@ -203,6 +203,27 @@
           ]
         },
         {
+          "description": "Changes nothing, and fails unless `ship` is docked at `station`. A batch that\nonly makes sense at a dock (a trade) carries one, so a ship that undocked\nearlier in the same tick rejects it. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "expect_docked"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "station"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "op": {
@@ -269,6 +290,7 @@
           ]
         },
         {
+          "description": "Adds to the player's credits, in centicredits. Fails below zero.",
           "type": "object",
           "properties": {
             "delta": {
@@ -1385,6 +1407,7 @@
               "const": "buy"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0
@@ -1421,6 +1444,7 @@
               "const": "sell"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0
@@ -1958,7 +1982,7 @@
           "uniqueItems": true
         },
         "price": {
-          "description": "The current unit price in credits: what the station pays for a `buys` line,\nwhat it asks for a `sells` line. Kept up to date by the economy.",
+          "description": "The current unit price in centicredits: what the station pays for a `buys`\nline, what it asks for a `sells` line. Kept up to date by the economy. Every\nprice here is in centicredits ([`crate::money`]).",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
@@ -2382,6 +2406,7 @@
       "type": "object",
       "properties": {
         "prices": {
+          "description": "Unit prices in centicredits.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -3025,6 +3050,7 @@
       "type": "object",
       "properties": {
         "base_price": {
+          "description": "In centicredits.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0

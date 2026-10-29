@@ -71,8 +71,9 @@ pub struct LineTelemetry {
     pub stock: u32,
     pub target: u32,
     pub saturation: f64,
-    /// The next unit's price.
+    /// The next unit's exact price, in centicredits.
     pub unit_price: f64,
+    /// In centicredits.
     pub base_price: u32,
     pub price_ratio: f64,
     /// Within half a credit of the lowest price the formula allows.
@@ -170,8 +171,9 @@ fn line_telemetry(
         } else {
             unit_price / f64::from(l.base_price)
         },
-        at_floor: unit_price <= lo + 0.5,
-        at_ceiling: unit_price >= hi - 0.5,
+        // Within half a credit.
+        at_floor: unit_price <= lo + 50.0,
+        at_ceiling: unit_price >= hi - 50.0,
         production: f64::from(l.production) * l.production_scale,
         consumption: f64::from(l.consumption) * l.consumption_scale,
     }

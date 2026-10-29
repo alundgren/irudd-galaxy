@@ -256,6 +256,10 @@ fn undo_records_invert_commands() {
             flag: FlagId::new("flag.nav_chip").unwrap(),
             on: true,
         },
+        Command::ExpectDocked {
+            ship: PLAYER,
+            station: StationId::new("station.lantern_wharf").unwrap(),
+        },
         Command::SetShipDocked {
             ship: PLAYER,
             station: None,

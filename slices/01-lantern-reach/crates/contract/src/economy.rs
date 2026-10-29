@@ -172,9 +172,9 @@ pub struct ActivityTally {
     pub trades: i64,
     pub units_bought: i64,
     pub units_sold: i64,
-    /// Credits ships paid the market.
+    /// Centicredits ships paid the market.
     pub credits_spent: i64,
-    /// Credits the market paid ships.
+    /// Centicredits the market paid ships.
     pub credits_earned: i64,
 }
 
@@ -183,27 +183,30 @@ impl ActivityTally {
         *self == Self::default()
     }
 
-    /// Adds `delta` field by field.
-    pub fn add(&mut self, delta: &ActivityTally) {
-        self.pulses_milli += delta.pulses_milli;
-        self.pending_milli += delta.pending_milli;
-        self.trades += delta.trades;
-        self.units_bought += delta.units_bought;
-        self.units_sold += delta.units_sold;
-        self.credits_spent += delta.credits_spent;
-        self.credits_earned += delta.credits_earned;
+    /// `self + delta` field by field, or `None` if any field would overflow.
+    pub fn checked_add(&self, delta: &ActivityTally) -> Option<ActivityTally> {
+        Some(ActivityTally {
+            pulses_milli: self.pulses_milli.checked_add(delta.pulses_milli)?,
+            pending_milli: self.pending_milli.checked_add(delta.pending_milli)?,
+            trades: self.trades.checked_add(delta.trades)?,
+            units_bought: self.units_bought.checked_add(delta.units_bought)?,
+            units_sold: self.units_sold.checked_add(delta.units_sold)?,
+            credits_spent: self.credits_spent.checked_add(delta.credits_spent)?,
+            credits_earned: self.credits_earned.checked_add(delta.credits_earned)?,
+        })
     }
 
-    pub fn negated(&self) -> ActivityTally {
-        ActivityTally {
-            pulses_milli: -self.pulses_milli,
-            pending_milli: -self.pending_milli,
-            trades: -self.trades,
-            units_bought: -self.units_bought,
-            units_sold: -self.units_sold,
-            credits_spent: -self.credits_spent,
-            credits_earned: -self.credits_earned,
-        }
+    /// The inverse delta, or `None` if a field is `i64::MIN` (which has none).
+    pub fn checked_neg(&self) -> Option<ActivityTally> {
+        Some(ActivityTally {
+            pulses_milli: self.pulses_milli.checked_neg()?,
+            pending_milli: self.pending_milli.checked_neg()?,
+            trades: self.trades.checked_neg()?,
+            units_bought: self.units_bought.checked_neg()?,
+            units_sold: self.units_sold.checked_neg()?,
+            credits_spent: self.credits_spent.checked_neg()?,
+            credits_earned: self.credits_earned.checked_neg()?,
+        })
     }
 
     /// Pulses as a number.
@@ -238,7 +241,8 @@ pub enum TradeSide {
     Sell,
 }
 
-/// One trade a docked ship asks for. Priced unit by unit.
+/// One trade a docked ship asks for. Priced unit by unit, each unit rounded to a
+/// centicredit.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct TradeRequest {
     pub ship: ShipId,
@@ -247,7 +251,7 @@ pub struct TradeRequest {
     pub side: TradeSide,
     /// Units wanted. Without a `limit` it's all or nothing.
     pub quantity: u32,
-    /// Price limit per unit: sell only while the unit price is at least this, buy only
+    /// Price limit per unit, in centicredits: sell only while the unit price is at least this, buy only
     /// while it's at most this. With a limit the trade fills as many units as it can.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,

@@ -1,8 +1,9 @@
 //! Scouting: what the player knows about prices away from where they are.
 //!
 //! Remote prices are unknown until visited. Docking writes that station's snapshot,
-//! dated by the tick and the player's docking count, so its age reads in activity
-//! ("seen 3 dockings ago"), never in time, and nothing expires. Price reach widens
+//! and leaving refreshes it, dated by the tick and the player's docking count, so its
+//! age reads in activity ("seen 3 dockings ago"), never in time, and nothing expires.
+//! Snapshots are taken from committed state only. Prices are in centicredits. Price reach widens
 //! what is live: a hull's [`PriceReach`] (the Heron sees its whole region) and
 //! reach flags from fitted upgrades (the price glass).
 
@@ -21,8 +22,8 @@ pub fn player_dockings(world: &WorldState) -> u64 {
         .get(CounterKind::Dockings, &CounterScope::Player)
 }
 
-/// The current price of every ware at a station: what it pays or asks per unit,
-/// rounded to whole credits.
+/// The current price of every ware at a station: what it pays or asks per unit, in
+/// centicredits.
 pub fn current_prices(world: &WorldState, station: &StationId) -> BTreeMap<WareId, u32> {
     let Some(market) = world.markets.get(station) else {
         return BTreeMap::new();
@@ -122,6 +123,7 @@ pub struct KnownPrice {
     pub ware: WareId,
     /// `buys`: the station pays this; `sells`: it asks this.
     pub role: MarketRole,
+    /// In centicredits.
     pub price: u32,
 }
 
