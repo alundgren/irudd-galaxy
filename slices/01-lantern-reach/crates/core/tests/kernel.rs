@@ -272,8 +272,16 @@ fn undo_records_invert_commands() {
             rock: RockId::new("rock.shallows.ice.03").unwrap(),
             growth: RockGrowth {
                 mark: 4,
-                spent_at: Some(2),
+                milli: 250,
             },
+        },
+        Command::UpdateOrders {
+            ship: PLAYER,
+            from: Box::default(),
+            to: Box::new(OrderQueue {
+                orders: vec![Order::Undock {}],
+                ..OrderQueue::default()
+            }),
         },
         Command::SetShipActivity {
             ship: PLAYER,

@@ -113,7 +113,8 @@ impl Default for LaneRules {
 pub struct RegrowthRules {
     /// Region counters that make up a region's activity ("region pulses"), with weights.
     pub pulses: Vec<PulseWeight>,
-    /// A spent rock reforms at this share of its full yield.
+    /// A spent rock reforms (can be mined again) once regrowth has brought it back to
+    /// this share of its full yield. Reforming adds no units of its own.
     pub reform_share: f32,
 }
 
@@ -228,12 +229,13 @@ pub struct MiningRun {
 /// A rock's regrowth bookkeeping, in region activity (pulses), never time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RockGrowth {
-    /// The region activity this rock's regrowth has accounted for.
+    /// The region activity its field's regrowth has accounted for.
     #[serde(default)]
     pub mark: u64,
-    /// The region activity when it was spent; it reforms some pulses later.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub spent_at: Option<u64>,
+    /// Regrown thousandths of a unit not yet in `remaining`. A spent rock keeps all of
+    /// its regrowth here until it reaches the reform share, then reforms with it.
+    #[serde(default)]
+    pub milli: u64,
 }
 
 /// Where a ship is inside its current order, beyond `OrderQueue::current`.
@@ -248,10 +250,22 @@ pub struct OrderProgress {
     /// This lap moved cargo or credits. A lap that moves nothing stalls the loop.
     #[serde(default)]
     pub lap_moved: bool,
+    /// A lap has just ended: the loop's `until` is checked against the world as the
+    /// lap left it, before the next lap starts.
+    #[serde(default)]
+    pub lap_end: bool,
     /// Units the current buy or sell has moved so far.
     #[serde(default)]
     pub traded: u32,
-    /// A patient sell is waiting in a standing berth for its floor.
+    /// Credits the current buy or sell has moved so far.
     #[serde(default)]
-    pub waiting: bool,
+    pub credits: i64,
+    /// A patient sell is waiting in a standing berth for its floor, since its region
+    /// had this many pulses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waiting: Option<u64>,
+    /// A patient sell's floor is above what the station can pay now (its ceiling): it
+    /// waits docked, keeps its cargo and its floor, until the ceiling is back.
+    #[serde(default)]
+    pub blocked: bool,
 }

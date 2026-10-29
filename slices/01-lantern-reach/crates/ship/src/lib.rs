@@ -7,8 +7,10 @@
 //!   loop API saves, runs and assigns loops.
 //! - [`ShipSystem`]: one tick for every ship. Player input becomes motion or orders by
 //!   the unlocked tier; the context action docks, undocks, enters a lane or mines; the
-//!   order runner executes the same verbs for the player, tenders and NPC craft.
-//! - [`RegrowthSystem`]: rocks regrow and reform with region activity, never time.
+//!   order runner executes the same verbs for the player, tenders and NPC craft. A
+//!   ship's tick is one atomic batch, so a rejected mine or trade simply retries.
+//! - [`RegrowthSystem`]: rocks regrow and reform with region activity, never time:
+//!   one pool per field, given to the rock with the lowest remaining share.
 //! - [`trade`]: the [`TradeDesk`] trait that turns buy and sell orders into commands.
 //!   Pricing belongs to the economy crate, which plugs its desk in here.
 //!

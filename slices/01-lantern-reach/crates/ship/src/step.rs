@@ -1,9 +1,12 @@
-//! One tick of one ship: input or orders in, command batches out.
+//! One tick of one ship: input or orders in, one command batch out.
 //!
-//! The ship's state is copied in, changed in memory, and written back with at most
-//! one motion/activity/orders batch (a system cause) plus one batch per verb that
-//! happened (a verb cause: dock, undock, mine, trade, lane jump, order done), so
-//! history says who did what.
+//! The ship's state is copied in, changed in memory, and written back as a single
+//! batch: motion, activity, order progress (a compare-and-set on the orders), every
+//! verb's effects and events, and the facts they write. The kernel commits it whole or
+//! rejects it whole, so a mine or trade that loses to another writer never advances
+//! the order or writes its facts; the ship simply tries again next tick. The cause is
+//! the tick's first verb (dock, undock, mine, trade, lane jump, order done), or the
+//! ship system's when the ship only flew.
 
 use galaxy_contract::history::FactDraft;
 use galaxy_contract::prelude::*;
@@ -11,8 +14,10 @@ use galaxy_contract::prelude::*;
 use crate::conditions;
 use crate::controls::{self, Controls};
 use crate::flight::{self, Feel, Motion, Steer};
+use crate::regrowth::region_pulses;
 use crate::space::{self, LaneWay};
-use crate::trade::{Side, TradeDesk, TradeRequest};
+use crate::system::Claims;
+use crate::trade::{Side, TradeDesk, TradeError, TradeRequest};
 
 /// How an order ended. It goes into the `order_done` cause summary.
 #[derive(Clone, Debug, PartialEq)]
@@ -51,9 +56,18 @@ enum Travel {
     NoRoute,
 }
 
-pub(crate) struct ShipStep<'a> {
+/// What asking the desk did.
+enum Tried {
+    /// Another ship traded on this line this tick: try again next tick.
+    Busy,
+    Moved(u32),
+    Failed(TradeError),
+}
+
+pub(crate) struct ShipStep<'a, 'c> {
     w: &'a WorldState,
     desk: &'a dyn TradeDesk,
+    claims: &'c mut Claims,
     ship: &'a Ship,
     hull: &'a Hull,
     feel: Feel,
@@ -66,17 +80,22 @@ pub(crate) struct ShipStep<'a> {
     region: RegionId,
     activity: ShipActivity,
     queue: OrderQueue,
-    /// Hold units added (+) or removed (-) by this tick's batches.
+    /// Hold units added (+) or removed (-) by this tick's verbs.
     hold_delta: i64,
     /// The rock mined this tick, so a run that wasn't continued ends.
     mined: Option<RockId>,
-    out: Vec<CommandBatch>,
+    /// The verbs done this tick (the first names the cause) and what each did.
+    verbs: Vec<VerbKind>,
+    said: Vec<String>,
+    /// Their effects, events and facts.
+    commands: Vec<Command>,
 }
 
-impl<'a> ShipStep<'a> {
+impl<'a, 'c> ShipStep<'a, 'c> {
     pub(crate) fn new(
         w: &'a WorldState,
         desk: &'a dyn TradeDesk,
+        claims: &'c mut Claims,
         ship: &'a Ship,
         hull: &'a Hull,
     ) -> Self {
@@ -84,6 +103,7 @@ impl<'a> ShipStep<'a> {
         Self {
             w,
             desk,
+            claims,
             ship,
             hull,
             feel: Feel::of(&w.ship_rules.flight, hull),
@@ -102,12 +122,15 @@ impl<'a> ShipStep<'a> {
             queue: ship.orders.clone(),
             hold_delta: 0,
             mined: None,
-            out: Vec::new(),
+            verbs: Vec::new(),
+            said: Vec::new(),
+            commands: Vec::new(),
         }
     }
 
-    /// Runs the tick. `input` is the player's, for the flagship only.
-    pub(crate) fn run(mut self, input: Option<&PlayerInput>) -> Vec<CommandBatch> {
+    /// Runs the tick. `input` is the player's, for the flagship only. `None` when
+    /// nothing changed.
+    pub(crate) fn run(mut self, input: Option<&PlayerInput>) -> Option<CommandBatch> {
         let pressed = input.is_some_and(|i| i.action && !self.activity.action_held);
         if let Some(i) = input {
             self.activity.action_held = i.action;
@@ -142,13 +165,11 @@ impl<'a> ShipStep<'a> {
 
     // --- Writing back ---
 
-    fn verb(&mut self, verb: VerbKind, summary: String) -> &mut CommandBatch {
-        self.out.push(CommandBatch::new(Cause::verb(
-            self.actor.clone(),
-            verb,
-            summary,
-        )));
-        self.out.last_mut().expect("just pushed")
+    /// Notes a verb for the cause and returns the commands to add its effects to.
+    fn verb(&mut self, verb: VerbKind, summary: String) -> &mut Vec<Command> {
+        self.verbs.push(verb);
+        self.said.push(summary);
+        &mut self.commands
     }
 
     fn emit(&mut self, verb: VerbKind, summary: String, event: Event) {
@@ -172,7 +193,7 @@ impl<'a> ShipStep<'a> {
         });
     }
 
-    fn finish(mut self) -> Vec<CommandBatch> {
+    fn finish(mut self) -> Option<CommandBatch> {
         if let Some(run) = &self.activity.mining
             && self.mined.as_ref() != Some(&run.rock)
         {
@@ -184,9 +205,9 @@ impl<'a> ShipStep<'a> {
             self.motion = flight::step(&self.feel, self.motion, steer, TICK_SECONDS);
         }
         let id = &self.ship.id;
-        let mut base = CommandBatch::new(Cause::system("ship", format!("{id} flies")));
+        let mut commands = Vec::with_capacity(self.commands.len() + 3);
         if self.motion != Motion::of(self.ship) {
-            base.push(Command::SetShipMotion {
+            commands.push(Command::SetShipMotion {
                 ship: id.clone(),
                 position: self.motion.position,
                 velocity: self.motion.velocity,
@@ -194,23 +215,31 @@ impl<'a> ShipStep<'a> {
             });
         }
         if self.activity != self.ship.activity {
-            base.push(Command::SetShipActivity {
+            commands.push(Command::SetShipActivity {
                 ship: id.clone(),
                 activity: Box::new(self.activity),
             });
         }
         if self.queue != self.ship.orders {
-            base.push(Command::SetOrders {
+            // Orders given since the tick began (a loop assigned, a script) win: this
+            // batch was worked out from the old ones, so it is rejected.
+            commands.push(Command::UpdateOrders {
                 ship: id.clone(),
-                orders: self.queue,
+                from: Box::new(self.ship.orders.clone()),
+                to: Box::new(self.queue),
             });
         }
-        let mut out = Vec::with_capacity(self.out.len() + 1);
-        if !base.commands.is_empty() {
-            out.push(base);
+        commands.append(&mut self.commands);
+        if commands.is_empty() {
+            return None;
         }
-        out.append(&mut self.out);
-        out
+        let cause = match self.verbs.first() {
+            Some(&verb) => Cause::verb(self.actor, verb, self.said.join("; ")),
+            None => Cause::system("ship", format!("{id} flies")),
+        };
+        let mut batch = CommandBatch::new(cause);
+        batch.commands = commands;
+        Some(batch)
     }
 
     // --- By hand (tier 0) ---
@@ -249,7 +278,9 @@ impl<'a> ShipStep<'a> {
                 .mining
                 .as_ref()
                 .and_then(|m| self.w.rocks.get(&m.rock))
-                .filter(|r| r.remaining > 0 && space::in_reach(self.w, r, self.motion.position))
+                .filter(|r| {
+                    self.claims.left(r) > 0 && space::in_reach(self.w, r, self.motion.position)
+                })
         } else {
             None
         };
@@ -266,27 +297,25 @@ impl<'a> ShipStep<'a> {
             return;
         };
         let id = self.ship.id.clone();
-        self.verb(VerbKind::Undock, format!("{id} undocked from {station}"))
-            .push(Command::SetShipDocked {
-                ship: id.clone(),
-                station: None,
-            });
-        self.emit(
-            VerbKind::Undock,
-            format!("{id} undocked from {station}"),
-            Event::Undock { ship: id, station },
-        );
+        let commands = self.verb(VerbKind::Undock, format!("{id} undocked from {station}"));
+        commands.push(Command::SetShipDocked {
+            ship: id.clone(),
+            station: None,
+        });
+        commands.push(Command::Emit {
+            event: Event::Undock { ship: id, station },
+        });
         self.steer = Some(Steer::Brake);
     }
 
     fn dock(&mut self, station: StationId) {
         let id = self.ship.id.clone();
-        let batch = self.verb(VerbKind::Dock, format!("{id} docked at {station}"));
-        batch.push(Command::SetShipDocked {
+        let commands = self.verb(VerbKind::Dock, format!("{id} docked at {station}"));
+        commands.push(Command::SetShipDocked {
             ship: id.clone(),
             station: Some(station.clone()),
         });
-        batch.push(Command::Emit {
+        commands.push(Command::Emit {
             event: Event::Dock {
                 ship: id,
                 station: station.clone(),
@@ -332,12 +361,12 @@ impl<'a> ShipStep<'a> {
         self.region = t.to.clone();
         let id = self.ship.id.clone();
         let summary = format!("{id} rode {} into {}", t.lane, t.to);
-        let batch = self.verb(VerbKind::Fly, summary);
-        batch.push(Command::SetShipRegion {
+        let commands = self.verb(VerbKind::Fly, summary);
+        commands.push(Command::SetShipRegion {
             ship: id.clone(),
             region: t.to.clone(),
         });
-        batch.push(Command::Emit {
+        commands.push(Command::Emit {
             event: Event::Jump {
                 ship: id,
                 lane: t.lane,
@@ -358,7 +387,9 @@ impl<'a> ShipStep<'a> {
         let Some(rock) = self.w.rocks.get(rock_id) else {
             return true;
         };
-        if self.free_hold() == 0 || rock.remaining == 0 {
+        // What earlier ships haven't already taken this tick.
+        let left = self.claims.left(rock);
+        if self.free_hold() == 0 || left == 0 {
             self.end_mining(None);
             return true;
         }
@@ -381,7 +412,7 @@ impl<'a> ShipStep<'a> {
         };
         run.progress += self.hull.mining_rate.max(0.0) * hardness.max(0.0) * TICK_SECONDS;
         let whole = run.progress.floor() as u64;
-        let units = whole.min(self.free_hold()).min(u64::from(rock.remaining)) as u32;
+        let units = whole.min(self.free_hold()).min(u64::from(left)) as u32;
         let ware = self
             .w
             .rock_types
@@ -393,14 +424,15 @@ impl<'a> ShipStep<'a> {
             run.progress -= units as f32;
             run.mined += units;
             self.hold_delta += i64::from(units);
+            *self.claims.mined.entry(rock_id.clone()).or_default() += units;
             self.queue.progress.lap_moved = true;
             let id = self.ship.id.clone();
-            let batch = self.verb(VerbKind::Mine, format!("{id} mines {rock_id}"));
-            batch.push(Command::AdjustRock {
+            let commands = self.verb(VerbKind::Mine, format!("{id} mines {rock_id}"));
+            commands.push(Command::AdjustRock {
                 rock: rock_id.clone(),
                 delta: -i64::from(units),
             });
-            batch.push(Command::AdjustCargo {
+            commands.push(Command::AdjustCargo {
                 ship: id,
                 ware,
                 delta: i64::from(units),
@@ -408,7 +440,7 @@ impl<'a> ShipStep<'a> {
         }
         self.activity.mining = Some(run);
         self.mined = Some(rock_id.clone());
-        if units >= rock.remaining {
+        if units >= left {
             self.end_mining(Some(rock_id.clone()));
             return true;
         }
@@ -433,14 +465,11 @@ impl<'a> ShipStep<'a> {
             .get(&run.rock)
             .and_then(|r| self.w.rock_types.get(&r.rock_type))
             .map(|t| t.ware.clone());
-        let batch = self.verb(
-            VerbKind::Mine,
-            format!("{id} mined {} from {}", run.mined, run.rock),
-        );
+        let mut commands = Vec::new();
         if run.mined > 0
             && let Some(ware) = ware
         {
-            batch.push(Command::Emit {
+            commands.push(Command::Emit {
                 event: Event::Mine {
                     ship: id.clone(),
                     rock: run.rock.clone(),
@@ -450,15 +479,16 @@ impl<'a> ShipStep<'a> {
             });
         }
         if let Some(rock) = depleted {
-            batch.push(Command::Emit {
+            commands.push(Command::Emit {
                 event: Event::RockDepleted {
                     rock,
-                    ship: Some(id),
+                    ship: Some(id.clone()),
                 },
             });
         }
-        if batch.commands.is_empty() {
-            self.out.pop();
+        if !commands.is_empty() {
+            let summary = format!("{id} mined {} from {}", run.mined, run.rock);
+            self.verb(VerbKind::Mine, summary).append(&mut commands);
         }
     }
 
@@ -483,7 +513,9 @@ impl<'a> ShipStep<'a> {
         self.emit(verb, summary, Event::OrderDone { ship: id, verb });
         let p = &mut self.queue.progress;
         p.traded = 0;
-        p.waiting = false;
+        p.credits = 0;
+        p.waiting = None;
+        p.blocked = false;
     }
 
     /// Moves to the next top-level order; an empty queue when the last is done.
@@ -507,6 +539,14 @@ impl<'a> ShipStep<'a> {
     fn run_loop(&mut self, orders: &[Order], until: Option<&Condition>) {
         if orders.is_empty() {
             self.order_done(VerbKind::Loop, &Outcome::Skipped("an empty loop".into()));
+            self.next_order(VerbKind::Loop);
+            return;
+        }
+        // Between laps: the world now shows what the last lap's final order did.
+        if std::mem::take(&mut self.queue.progress.lap_end)
+            && until.is_some_and(|c| conditions::holds(self.w, Some(self.ship), c))
+        {
+            self.order_done(VerbKind::Loop, &Outcome::Done);
             self.next_order(VerbKind::Loop);
             return;
         }
@@ -549,10 +589,8 @@ impl<'a> ShipStep<'a> {
             Some(laps as i64),
             format!("{id} finished lap {laps}"),
         );
-        if until.is_some_and(|c| conditions::holds(self.w, Some(self.ship), c)) {
-            self.order_done(VerbKind::Loop, &Outcome::Done);
-            self.next_order(VerbKind::Loop);
-        }
+        // `until` is checked next tick, once this tick's batch has committed.
+        self.queue.progress.lap_end = until.is_some();
     }
 
     /// Runs one order for a tick. `Some` when it has finished.
@@ -716,23 +754,27 @@ impl<'a> ShipStep<'a> {
             };
         }
         self.steer = Some(Steer::Brake);
+        if self.claims.left(rock) == 0 {
+            // Another ship took the last of it this tick; see next tick whether it did.
+            return None;
+        }
         self.mine(rock_id).then_some(Outcome::Done)
     }
 
-    fn market_price(&self, station: &StationId, ware: &WareId) -> Option<u32> {
-        Some(self.w.markets.get(station)?.lines.get(ware)?.price)
-    }
-
-    fn trade(
-        &mut self,
-        side: Side,
-        ware: &WareId,
-        quantity: u32,
-        limit: Option<u32>,
-    ) -> Result<u32, String> {
+    /// Asks the desk for a trade at the station the ship is docked at, and adds it to
+    /// this tick's batch.
+    fn trade(&mut self, side: Side, ware: &WareId, quantity: u32, limit: Option<u32>) -> Tried {
         let Some(station) = self.docked.clone() else {
-            return Err("not docked".into());
+            return Tried::Failed(TradeError::Refused("not docked".into()));
         };
+        if self.ship.docked_at.as_ref() != Some(&station) {
+            // Docked this tick: the desk reads the world as the tick began.
+            return Tried::Busy;
+        }
+        let line = (station.clone(), ware.clone());
+        if self.claims.lines.contains(&line) {
+            return Tried::Busy;
+        }
         let request = TradeRequest {
             ship: self.ship.id.clone(),
             station: station.clone(),
@@ -741,44 +783,60 @@ impl<'a> ShipStep<'a> {
             quantity,
             limit,
         };
-        let trade = self
-            .desk
-            .trade(self.w, &request)
-            .map_err(|e| e.to_string())?;
+        let trade = match self.desk.trade(self.w, &request) {
+            Ok(trade) => trade,
+            Err(e) => return Tried::Failed(e),
+        };
         if trade.units > 0 {
+            self.claims.lines.insert(line);
             let id = self.ship.id.clone();
             let (verb, what) = match side {
                 Side::Buy => (VerbKind::Buy, "bought"),
                 Side::Sell => (VerbKind::Sell, "sold"),
             };
             let summary = format!("{id} {what} {} {ware} at {station}", trade.units);
-            self.verb(verb, summary).commands.extend(trade.commands);
+            self.verb(verb, summary).extend(trade.commands);
             let sign = if side == Side::Buy { 1 } else { -1 };
             self.hold_delta += sign * i64::from(trade.units);
-            self.queue.progress.traded += trade.units;
-            self.queue.progress.lap_moved = true;
+            let p = &mut self.queue.progress;
+            p.traded += trade.units;
+            p.credits += trade.total;
+            p.lap_moved = true;
         }
-        Ok(trade.units)
+        Tried::Moved(trade.units)
     }
 
+    /// Buys up to the quantity, clipped to the free hold. Stock, credits and the price
+    /// are the desk's to judge: whatever it can't do ends the order calmly.
     fn exec_buy(&mut self, ware: &WareId, quantity: &Quantity) -> Option<Outcome> {
         if self.docked.is_none() {
             return Some(Outcome::Skipped("not docked".into()));
         }
+        let free = u32::try_from(self.free_hold()).unwrap_or(u32::MAX);
         let want = match quantity {
             Quantity::Units { n } => n.saturating_sub(self.queue.progress.traded),
-            Quantity::All => u32::MAX,
-        };
+            Quantity::All => free,
+        }
+        .min(free);
+        if want == 0 {
+            return Some(Outcome::Skipped(if free == 0 {
+                "the hold is full".into()
+            } else {
+                "nothing to buy".into()
+            }));
+        }
         Some(match self.trade(Side::Buy, ware, want, None) {
-            Ok(n) if n > 0 => Outcome::Done,
-            Ok(_) => Outcome::Skipped("bought nothing".into()),
-            Err(e) => Outcome::Skipped(e),
+            Tried::Busy => return None,
+            Tried::Moved(n) if n > 0 => Outcome::Done,
+            Tried::Moved(_) => Outcome::Skipped("bought nothing".into()),
+            Tried::Failed(e) => Outcome::Skipped(e.to_string()),
         })
     }
 
     /// Sells while the price is at or above `floor`. A crewed ship then keeps the rest;
     /// a hull with a standing berth waits docked until the price is back (the patient
-    /// sell). Re-checked every tick against the market; never a timer.
+    /// sell), or, if its floor is above what the station can pay at all, waits blocked.
+    /// Re-checked every tick against the market; never a timer.
     fn exec_sell(
         &mut self,
         ware: &WareId,
@@ -803,62 +861,119 @@ impl<'a> ShipStep<'a> {
                 Outcome::Skipped("nothing to sell".into())
             });
         }
-        let Some(price) = self.market_price(&station, ware) else {
-            return Some(Outcome::Skipped(format!("{station} doesn't buy {ware}")));
-        };
-        let below = floor.is_some_and(|f| price < f);
-        let sold = if below {
-            0
-        } else {
-            match self.trade(Side::Sell, ware, want, floor) {
-                Ok(n) => n,
-                Err(e) if traded == 0 && floor.is_none() => return Some(Outcome::Skipped(e)),
-                Err(_) => 0,
-            }
-        };
-        if sold >= want {
-            self.sold_out(&station, ware, floor);
-            return Some(Outcome::Done);
-        }
-        if sold > 0 {
-            // Part sold; next tick sees the new price.
+        let patient = floor.filter(|_| self.hull.standing_berth);
+        if let Some(floor) = patient
+            && self.blocked(&station, ware, floor)
+        {
             return None;
         }
-        // Nothing sold at this price.
-        let Some(floor) = floor.filter(|_| self.hull.standing_berth) else {
-            return Some(if traded > 0 {
+        match self.trade(Side::Sell, ware, want, floor) {
+            Tried::Busy => None,
+            Tried::Moved(sold) if sold >= want => {
+                self.sold_out(&station, ware, floor);
+                Some(Outcome::Done)
+            }
+            // Part sold; next tick sees the new price.
+            Tried::Moved(sold) if sold > 0 => None,
+            Tried::Moved(_) => Some(if traded > 0 {
                 Outcome::Done
             } else {
-                Outcome::Skipped(format!("the price {price} is under the floor"))
-            });
-        };
-        if !self.queue.progress.waiting {
-            self.queue.progress.waiting = true;
-            self.fact(
-                VerbKind::Sell,
-                "patient_wait",
-                Some(i64::from(price)),
-                format!(
-                    "{} waits at {station} for {ware} to reach {floor} (now {price})",
-                    self.ship.id
-                ),
-            );
+                Outcome::Skipped("sold nothing".into())
+            }),
+            Tried::Failed(e) if e.is_price_limit() => {
+                let Some(floor) = patient else {
+                    // A crewed ship doesn't wait: it keeps the rest.
+                    return Some(if traded > 0 {
+                        Outcome::Done
+                    } else {
+                        Outcome::Skipped(e.to_string())
+                    });
+                };
+                if self.queue.progress.waiting.is_none() {
+                    self.queue.progress.waiting = Some(region_pulses(self.w, &self.region));
+                    let price = match e {
+                        TradeError::PastLimit { price, .. } => price,
+                        _ => 0,
+                    };
+                    self.fact(
+                        VerbKind::Sell,
+                        "patient_wait",
+                        Some(i64::from(price)),
+                        format!(
+                            "{} waits at {station} for {ware} to reach {floor} (now {price})",
+                            self.ship.id
+                        ),
+                    );
+                }
+                None
+            }
+            // Nothing waiting can fix (no market, not bought here ...): move on.
+            Tried::Failed(e) => Some(if traded > 0 {
+                Outcome::Done
+            } else {
+                Outcome::Skipped(e.to_string())
+            }),
         }
-        None
     }
 
-    fn sold_out(&mut self, station: &StationId, ware: &WareId, floor: Option<u32>) {
-        if !self.queue.progress.waiting {
-            return;
+    /// Whether a patient sell's floor is above what the station can pay now. Writes
+    /// `patient_blocked` when it becomes so and `patient_unblocked` when the ceiling is
+    /// back; the floor and the cargo are never touched.
+    fn blocked(&mut self, station: &StationId, ware: &WareId, floor: u32) -> bool {
+        let ceiling = self.desk.ceiling(self.w, station, ware);
+        let blocked = ceiling.is_some_and(|c| floor > c);
+        if blocked != self.queue.progress.blocked {
+            self.queue.progress.blocked = blocked;
+            let id = self.ship.id.clone();
+            let ceiling = ceiling.unwrap_or(0);
+            if blocked {
+                self.fact(
+                    VerbKind::Sell,
+                    "patient_blocked",
+                    Some(i64::from(ceiling)),
+                    format!(
+                        "{id} can't sell {ware} at {station}: its floor {floor} is above \
+                         the most it pays now ({ceiling})"
+                    ),
+                );
+            } else {
+                self.fact(
+                    VerbKind::Sell,
+                    "patient_unblocked",
+                    Some(i64::from(ceiling)),
+                    format!(
+                        "{id} can sell {ware} at {station} again: it pays up to {ceiling}, \
+                         the floor is {floor}"
+                    ),
+                );
+            }
         }
-        let traded = self.queue.progress.traded;
-        let floor = floor.unwrap_or(0);
+        blocked
+    }
+
+    /// The stack is gone. A floored sale from a standing berth is a patient sell, with
+    /// or without a wait on the way (b13 counts both).
+    fn sold_out(&mut self, station: &StationId, ware: &WareId, floor: Option<u32>) {
+        let Some(floor) = floor.filter(|_| self.hull.standing_berth) else {
+            return;
+        };
+        let p = &self.queue.progress;
+        let (sold, credits) = (p.traded, p.credits);
+        let average = if sold > 0 {
+            credits / i64::from(sold)
+        } else {
+            0
+        };
+        let waited = p.waiting.map_or(0, |since| {
+            region_pulses(self.w, &self.region).saturating_sub(since)
+        });
         self.fact(
             VerbKind::Sell,
             "patient_sold",
-            Some(i64::from(traded)),
+            Some(i64::from(sold)),
             format!(
-                "{} patiently sold {traded} {ware} at {station} (floor {floor})",
+                "{} patiently sold {sold} {ware} at {station}: {average} cr a unit, floor \
+                 {floor}, {waited} pulses waited",
                 self.ship.id
             ),
         );

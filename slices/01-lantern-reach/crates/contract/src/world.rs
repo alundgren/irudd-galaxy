@@ -235,13 +235,11 @@ pub struct RockField {
     /// Units per rock, inclusive range.
     pub amount_min: u32,
     pub amount_max: u32,
-    /// Units the whole field regrows per region pulse, shared by its rocks. Region
-    /// pulses are activity (`ship_rules.regrowth.pulses`), never time.
+    /// Units the whole field regrows per region pulse, each pulse's units going to the
+    /// rock with the lowest remaining share (spent rocks included). Region pulses are
+    /// activity (`ship_rules.regrowth.pulses`), never time. Kept in thousandths.
     #[serde(default)]
     pub regrow: f32,
-    /// Region pulses after which a spent rock reforms. Missing: never.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reform: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

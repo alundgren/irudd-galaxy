@@ -129,12 +129,17 @@ so the app and `sim run` use it. The name keys its RNG stream; don't rename casu
 
 **Ships** (`galaxy-ship`): `ShipSystem` runs every ship each tick (the flagship from
 `PlayerInput`, everyone else from orders) and `RegrowthSystem` regrows rocks from region
-activity counters. Buy and sell orders go through the `TradeDesk` trait: the economy
+activity counters. Each ship's tick is one batch (motion, activity, an `UpdateOrders`
+compare-and-set on its orders, verb effects, events and facts), so a mine or trade the
+kernel rejects never advances the order; it retries next tick. Within a tick one ship
+trades per market line and rock units are claimed in ship-ID order. Buy and sell orders
+go through the `TradeDesk` trait (`trade` plus a `ceiling` for floors): the economy
 crate implements it (a closure works too) and the app passes it to
 `galaxy_ship::systems(desk)`; `FlatDesk` is the stand-in. Control tiers are per-save
 flags named in `ship_rules.toml`: read them with `Controls::of(world)`, set them with
 `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
-the batches. Every tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
+the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every
+tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 
 **A command**: add a variant to `contract::command::Command` (Box large payloads to
 keep the enum small), add its arm in `galaxy_core::apply::apply` that validates inputs,

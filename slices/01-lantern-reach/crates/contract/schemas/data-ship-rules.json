@@ -303,7 +303,7 @@
           }
         },
         "reform_share": {
-          "description": "A spent rock reforms at this share of its full yield.",
+          "description": "A spent rock reforms (can be mined again) once regrowth has brought it back to\nthis share of its full yield. Reforming adds no units of its own.",
           "type": "number",
           "format": "float",
           "default": 0.25

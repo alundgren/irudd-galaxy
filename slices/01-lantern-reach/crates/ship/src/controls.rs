@@ -15,6 +15,7 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::ship::ControlRules;
 
 use crate::space;
+use crate::trade::TradeDesk;
 
 /// One unlockable input mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -212,6 +213,13 @@ pub enum ControlError {
     NoName,
     #[error("{0} is flown by hand, not automated")]
     Flagship(ShipId),
+    #[error("{station} pays at most {ceiling} for {ware} now: a floor of {floor} would never sell")]
+    FloorAboveCeiling {
+        station: StationId,
+        ware: WareId,
+        floor: u32,
+        ceiling: u32,
+    },
 }
 
 fn need(world: &WorldState, cap: Capability) -> Result<(), ControlError> {
@@ -282,6 +290,55 @@ fn players_ship<'w>(world: &'w WorldState, ship: &ShipId) -> Result<&'w Ship, Co
     }
 }
 
+/// Where each order in a loop trades: the station of the nearest `dock` before it,
+/// going round the loop, or where the ship is docked now if the loop never docks.
+pub fn loop_stations(ship: &Ship, orders: &[Order]) -> Vec<Option<StationId>> {
+    let docks = |o: &Order| match o {
+        Order::Dock { station } => Some(station.clone()),
+        _ => None,
+    };
+    let n = orders.len();
+    (0..n)
+        .map(|i| {
+            (1..=n)
+                .find_map(|back| docks(&orders[(i + n - back) % n]))
+                .or_else(|| ship.docked_at.clone())
+        })
+        .collect()
+}
+
+fn check_floors(
+    world: &WorldState,
+    desk: &dyn TradeDesk,
+    ship: &Ship,
+    orders: &[Order],
+) -> Result<(), ControlError> {
+    for (order, station) in orders.iter().zip(loop_stations(ship, orders)) {
+        let (
+            Order::Sell {
+                ware,
+                floor: Some(floor),
+                ..
+            },
+            Some(station),
+        ) = (order, station)
+        else {
+            continue;
+        };
+        if let Some(ceiling) = desk.ceiling(world, &station, ware)
+            && *floor > ceiling
+        {
+            return Err(ControlError::FloorAboveCeiling {
+                station,
+                ware: ware.clone(),
+                floor: *floor,
+                ceiling,
+            });
+        }
+    }
+    Ok(())
+}
+
 fn loop_queue(orders: Vec<Order>) -> OrderQueue {
     OrderQueue {
         orders: vec![Order::Loop {
@@ -324,8 +381,14 @@ pub fn run_loop(
 /// later edits to the player's loop don't change the craft until assigned again.
 /// `floor` (if any) becomes the floor of every sell in it: a craft with a standing
 /// berth then waits docked until the price is back at the floor (the patient sell).
+///
+/// Every floor is checked against what the sell's station can pay now (`desk`'s
+/// ceiling): one above it could never sell, so the assignment is refused and the
+/// player picks another. A ceiling that drops later blocks the sell instead (the
+/// runner writes `patient_blocked`); the floor is never lowered for the player.
 pub fn assign_loop(
     world: &WorldState,
+    desk: &dyn TradeDesk,
     craft: &ShipId,
     name: &str,
     floor: Option<u32>,
@@ -343,6 +406,7 @@ pub fn assign_loop(
             }
         }
     }
+    check_floors(world, desk, s, &orders)?;
     Ok(
         CommandBatch::new(loop_cause(format!("{craft} was given the loop {name:?}"))).with(
             Command::SetOrders {

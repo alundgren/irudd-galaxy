@@ -1,10 +1,12 @@
 # Rock types and fields. PROVISIONAL numbers: the content spec replaces them.
 # hardness multiplies a hull's mining rate (ice 1.0, iron 0.6, glassite 0.3).
-# A field regrows `regrow` units per region pulse, shared by its rocks; a spent rock
-# reforms after `reform` region pulses. Pulses are activity (ship_rules.toml), never time.
+# A field regrows `regrow` units per region pulse, given to the rock with the lowest
+# remaining share (spent rocks included); a spent rock reforms once regrowth brings it
+# back to ship_rules.regrowth.reform_share of its yield. Pulses are activity
+# (ship_rules.toml), never time.
 # Rocks are generated once at new game from each field, with stable IDs
 # <rock_prefix>.01, .02, ... and a layout keyed by the field ID (not the seed).
-# rock_type.regrowth is unused: regrowth is per field (regrow, reform).
+# rock_type.regrowth is unused: regrowth is per field (regrow).
 # Schema: crates/contract/schemas/data-rocks.json
 
 [[rock_type]]
@@ -40,7 +42,6 @@ count = 12
 amount_min = 40
 amount_max = 80
 regrow = 0.15
-reform = 16
 
 [[field]]
 id = "field.shallows.iron"
@@ -54,7 +55,6 @@ count = 8
 amount_min = 60
 amount_max = 100
 regrow = 0.3
-reform = 16
 
 [[field]]
 id = "field.cinder.iron"

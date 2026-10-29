@@ -315,7 +315,6 @@ fn depletion_persists_across_save_and_load_and_time_never_regrows() {
     assert_eq!(kind_count(&sim, "rock_depleted"), 1);
     assert_eq!(player(&sim).hold.count(&ICE), 3);
     step(&mut sim, &hands_off());
-    assert!(rock(&sim, &ICE_ROCK).growth.spent_at.is_some());
 
     Save::create(&path, sim.state()).unwrap();
     let loaded = Save::open(&path).unwrap().load().unwrap();
@@ -334,15 +333,40 @@ fn depletion_persists_across_save_and_load_and_time_never_regrows() {
     );
 }
 
-/// One player docking at the Wharf: a region pulse in the Shallows.
-fn pulse(sim: &mut Sim) {
-    submit(
-        sim,
-        CommandBatch::new(test_cause()).with(Command::Emit {
+/// `n` player dockings at the Wharf in one batch: `n` region pulses in the Shallows.
+fn pulses(sim: &mut Sim, n: u32) {
+    let mut batch = CommandBatch::new(test_cause());
+    for _ in 0..n {
+        batch.push(Command::Emit {
             event: Event::Dock {
                 ship: PLAYER,
                 station: WHARF,
             },
+        });
+    }
+    submit(sim, batch);
+}
+
+const ICE_FIELD: &str = "field.shallows.ice";
+
+/// The ice field's units in thousandths: what rocks hold plus regrowth set aside.
+fn field_milli(sim: &Sim) -> u64 {
+    sim.world()
+        .rocks
+        .values()
+        .filter(|r| r.field.as_str() == ICE_FIELD)
+        .map(|r| u64::from(r.remaining) * 1000 + r.growth.milli)
+        .sum()
+}
+
+fn set_regrow(sim: &mut Sim, regrow: f32) {
+    let mut field = sim.world().fields.get(ICE_FIELD).unwrap().clone();
+    field.regrow = regrow;
+    submit(
+        sim,
+        CommandBatch::new(test_cause()).with(Command::PutField {
+            id: field.id.clone(),
+            value: Some(Box::new(field)),
         }),
     );
 }
@@ -351,52 +375,85 @@ fn pulse(sim: &mut Sim) {
 fn rocks_regrow_and_reform_with_activity() {
     let mut sim = game(1);
     let full = rock(&sim, &ICE_ROCK).initial;
-    let field = sim
-        .world()
-        .fields
-        .get("field.shallows.ice")
-        .unwrap()
-        .clone();
-    let reform = field.reform.unwrap();
+    let regrow = sim.world().fields.get(ICE_FIELD).unwrap().regrow;
+    let per_pulse = (f64::from(regrow) * 1000.0).round() as u64;
 
-    // A spent rock reforms after `reform` region pulses, at a quarter of its yield.
+    // A spent rock takes every pulse (it has the lowest share) but stays spent: the
+    // field gains exactly its regrowth, however many pulses arrive at once.
     drain(&mut sim, &ICE_ROCK, 0);
     step(&mut sim, &hands_off());
-    for _ in 0..reform - 1 {
-        pulse(&mut sim);
-    }
-    assert_eq!(rock(&sim, &ICE_ROCK).remaining, 0);
-    pulse(&mut sim);
+    let before = field_milli(&sim);
+    pulses(&mut sim, 16);
     step(&mut sim, &hands_off());
-    let share = sim.world().ship_rules.regrowth.reform_share;
-    assert_eq!(
-        rock(&sim, &ICE_ROCK).remaining,
-        (full as f32 * share).ceil() as u32
-    );
-    assert_eq!(kind_count(&sim, "rock_reformed"), 1);
+    assert_eq!(field_milli(&sim), before + 16 * per_pulse);
+    assert_eq!(rock(&sim, &ICE_ROCK).remaining, 0, "below the reform share");
+    assert_eq!(rock(&sim, &ICE_ROCK).growth.milli, 16 * per_pulse);
+    assert_eq!(kind_count(&sim, "rock_reformed"), 0);
 
-    // A partly mined rock regrows with pulses: here one unit per pulse per rock.
-    let mut fast = field.clone();
-    fast.regrow = field.count as f32;
-    submit(
-        &mut sim,
-        CommandBatch::new(test_cause()).with(Command::PutField {
-            id: fast.id.clone(),
-            value: Some(Box::new(fast)),
-        }),
-    );
-    let before = rock(&sim, &ICE_ROCK).remaining;
+    // Ticks alone add nothing.
     run(&mut sim, 500, &hands_off());
-    assert_eq!(
-        rock(&sim, &ICE_ROCK).remaining,
-        before,
-        "no pulses, no growth"
-    );
+    assert_eq!(field_milli(&sim), before + 16 * per_pulse);
+
+    // It reforms once regrowth reaches the reform share, with exactly those units.
+    set_regrow(&mut sim, 1.0);
+    let share = f64::from(sim.world().ship_rules.regrowth.reform_share);
+    let reform_at = (f64::from(full) * share * 1000.0).ceil() as u64;
+    let mut given = 16 * per_pulse;
+    while given + 1000 < reform_at {
+        pulses(&mut sim, 1);
+        given += 1000;
+        assert_eq!(rock(&sim, &ICE_ROCK).remaining, 0);
+    }
+    pulses(&mut sim, 1);
+    given += 1000;
+    step(&mut sim, &hands_off());
+    let reformed = rock(&sim, &ICE_ROCK);
+    assert_eq!(u64::from(reformed.remaining), given / 1000);
+    assert_eq!(reformed.growth.milli, given % 1000);
+    assert_eq!(kind_count(&sim, "rock_reformed"), 1);
+    assert_eq!(field_milli(&sim), before + given, "reforming adds nothing");
+
+    // Each pulse goes to the lowest share, not spread over full rocks: one unit a
+    // pulse here, all of it to the one rock that isn't full.
+    let left = reformed.remaining;
     for _ in 0..5 {
-        pulse(&mut sim);
+        pulses(&mut sim, 1);
     }
     step(&mut sim, &hands_off());
-    assert_eq!(rock(&sim, &ICE_ROCK).remaining, before + 5);
+    assert_eq!(rock(&sim, &ICE_ROCK).remaining, left + 5);
+}
+
+#[test]
+fn regrowth_goes_to_the_lowest_share_and_skips_a_rock_being_mined() {
+    let mut sim = game(1);
+    set_regrow(&mut sim, 1.0);
+    let other = RockId::from_static("rock.shallows.ice.05");
+    let half = rock(&sim, &other).initial / 2;
+    drain(&mut sim, &other, half);
+    drain(&mut sim, &ICE_ROCK, 1);
+    // ICE_ROCK has the lowest share, so it takes the pulses...
+    pulses(&mut sim, 3);
+    step(&mut sim, &hands_off());
+    assert_eq!(rock(&sim, &ICE_ROCK).remaining, 4);
+    assert_eq!(rock(&sim, &other).remaining, half);
+    // ... unless it's being mined: then the next lowest does.
+    go_beside(&mut sim, &ICE_ROCK, 0.0);
+    step(&mut sim, &hold_action());
+    assert_eq!(player(&sim).activity.mining.map(|m| m.rock), Some(ICE_ROCK));
+    let mut batch = CommandBatch::new(test_cause());
+    for _ in 0..2 {
+        batch.push(Command::Emit {
+            event: Event::Dock {
+                ship: PLAYER,
+                station: WHARF,
+            },
+        });
+    }
+    sim.submit(batch);
+    run(&mut sim, 2, &hold_action());
+    let r = rock(&sim, &ICE_ROCK);
+    assert_eq!(r.remaining + player(&sim).hold.count(&ICE), 4);
+    assert_eq!(rock(&sim, &other).remaining, half + 2);
 }
 
 // --- Lanes ---
@@ -544,6 +601,7 @@ fn counting_desk(sales: Rc<Cell<u32>>) -> Box<dyn TradeDesk> {
             sales.set(sales.get() + units);
             Ok(Trade {
                 units,
+                total: 9 * i64::from(units),
                 commands: vec![
                     Command::AdjustCargo {
                         ship: r.ship.clone(),
@@ -626,7 +684,7 @@ fn locked_loops_and_automation_are_refused() {
         galaxy_ship::ControlError::Locked(Capability::Loops)
     );
     assert_eq!(
-        controls::assign_loop(sim.world(), &THIMBLE, "x", None).unwrap_err(),
+        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "x", None).unwrap_err(),
         galaxy_ship::ControlError::Locked(Capability::Automation)
     );
 }
@@ -691,7 +749,8 @@ fn a_tender_runs_a_saved_loop_and_sells_patiently() {
         }),
     );
     let floor = 10;
-    let assign = controls::assign_loop(sim.world(), &THIMBLE, "ice run", Some(floor)).unwrap();
+    let assign =
+        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "ice run", Some(floor)).unwrap();
     submit(&mut sim, assign);
     let Order::Loop { orders, .. } = &ship(&sim, &THIMBLE).orders.orders[0] else {
         panic!("a loop");
@@ -785,6 +844,460 @@ fn a_crewed_ship_does_not_wait_for_a_price() {
         2,
         "sell skipped, wait cleared"
     );
+}
+
+// --- One atomic batch per ship, and contention ---
+
+fn queue(orders: Vec<Order>) -> OrderQueue {
+    OrderQueue {
+        orders,
+        ..OrderQueue::default()
+    }
+}
+
+fn units_mined(sim: &Sim) -> u64 {
+    sim.world()
+        .counters
+        .get(CounterKind::UnitsMined, &CounterScope::Player)
+}
+
+/// The tender, docked at the Wharf beside the player, holding `ice` units.
+fn tender_at_wharf(sim: &mut Sim, ice: u32, orders: Vec<Order>) {
+    let mut t = player(sim);
+    t.id = THIMBLE;
+    t.name = "Thimble".into();
+    t.hull = HullId::from_static("hull.tender");
+    t.hold = Hold::default();
+    if ice > 0 {
+        t.hold.cargo.insert(ICE, ice);
+    }
+    t.orders = queue(orders);
+    submit(
+        sim,
+        CommandBatch::new(test_cause()).with(Command::PutShip {
+            id: THIMBLE,
+            value: Some(Box::new(t)),
+        }),
+    );
+}
+
+#[test]
+fn a_rejected_mine_neither_advances_the_order_nor_writes_its_facts() {
+    let mut sim = game(1);
+    drain(&mut sim, &ICE_ROCK, 1);
+    go_beside(&mut sim, &ICE_ROCK, 0.0);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::SetShipActivity {
+                ship: PLAYER,
+                activity: Box::new(ShipActivity {
+                    mining: Some(MiningRun {
+                        rock: ICE_ROCK,
+                        progress: 0.99,
+                        mined: 0,
+                    }),
+                    ..ShipActivity::default()
+                }),
+            })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: queue(vec![Order::Mine { rock: ICE_ROCK }]),
+            }),
+    );
+    // Something else takes the last unit first, in the same tick: the ship's whole
+    // batch (cargo, rock, `mine`, `rock_depleted`, `order_done`) is rejected.
+    sim.submit(CommandBatch::new(test_cause()).with(Command::AdjustRock {
+        rock: ICE_ROCK,
+        delta: -1,
+    }));
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
+    assert_eq!(player(&sim).hold.count(&ICE), 0);
+    assert_eq!(units_mined(&sim), 0);
+    assert_eq!(kind_count(&sim, "rock_depleted"), 0);
+    assert_eq!(kind_count(&sim, "order_done"), 0);
+    assert_eq!(player(&sim).orders.orders.len(), 1, "the order waits");
+    // Next tick it sees the spent rock and moves on calmly.
+    step(&mut sim, &hands_off());
+    assert!(player(&sim).orders.orders.is_empty());
+    assert_eq!(kind_count(&sim, "order_done"), 1);
+    assert_eq!(units_mined(&sim), 0);
+}
+
+#[test]
+fn two_ships_mining_the_last_unit_mine_it_once() {
+    let mut sim = game(1);
+    drain(&mut sim, &ICE_ROCK, 1);
+    go_beside(&mut sim, &ICE_ROCK, 0.0);
+    let run = ShipActivity {
+        mining: Some(MiningRun {
+            rock: ICE_ROCK,
+            progress: 0.99,
+            mined: 0,
+        }),
+        ..ShipActivity::default()
+    };
+    let mut t = player(&sim);
+    t.id = THIMBLE;
+    t.hull = HullId::from_static("hull.tender");
+    t.activity = run.clone();
+    t.orders = queue(vec![Order::Mine { rock: ICE_ROCK }]);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::PutShip {
+                id: THIMBLE,
+                value: Some(Box::new(t)),
+            })
+            .with(Command::SetShipActivity {
+                ship: PLAYER,
+                activity: Box::new(run),
+            })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: queue(vec![Order::Mine { rock: ICE_ROCK }]),
+            }),
+    );
+    run_until(&mut sim, 10, |s| {
+        ship(s, &THIMBLE).orders.orders.is_empty() && player(s).orders.orders.is_empty()
+    });
+    let cargo: u32 = sim.world().ships.values().map(|s| s.hold.count(&ICE)).sum();
+    assert_eq!(cargo, 1);
+    assert_eq!(units_mined(&sim), 1, "reported as mined once");
+    assert_eq!(kind_count(&sim, "rock_depleted"), 1);
+}
+
+/// FlatDesk, except that its first trade loses a compare-and-set in the kernel.
+fn loses_once(lost: Rc<Cell<bool>>) -> Box<dyn TradeDesk> {
+    Box::new(
+        move |w: &WorldState, r: &TradeRequest| -> Result<Trade, TradeError> {
+            let mut trade = FlatDesk.trade(w, r)?;
+            if !lost.replace(true) {
+                trade
+                    .commands
+                    .push(Command::AdjustCredits { delta: -i64::MAX });
+            }
+            Ok(trade)
+        },
+    )
+}
+
+#[test]
+fn a_rejected_trade_leaves_the_order_to_retry_next_tick() {
+    let lost = Rc::new(Cell::new(false));
+    let mut sim = with_desk(new_game(&data_dir(), 1).unwrap(), loses_once(lost));
+    tender_at_wharf(
+        &mut sim,
+        4,
+        vec![
+            Order::Sell {
+                ware: ICE,
+                quantity: Quantity::All,
+                floor: Some(1),
+            },
+            Order::Undock {},
+        ],
+    );
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1);
+    let t = ship(&sim, &THIMBLE);
+    assert_eq!(t.hold.count(&ICE), 4);
+    assert_eq!(t.orders.current, 0);
+    assert_eq!(t.orders.progress.traded, 0);
+    assert_eq!(kind_count(&sim, "sell"), 0);
+    assert_eq!(kind_count(&sim, "patient_sold"), 0);
+    assert_eq!(kind_count(&sim, "order_done"), 0);
+    // The retry sells.
+    step(&mut sim, &hands_off());
+    assert_eq!(ship(&sim, &THIMBLE).hold.count(&ICE), 0);
+    assert_eq!(kind_count(&sim, "sell"), 1);
+    assert_eq!(kind_count(&sim, "patient_sold"), 1);
+}
+
+#[test]
+fn two_ships_cannot_buy_the_same_last_unit() {
+    let mut sim = game(1);
+    let order = Order::Buy {
+        ware: ICE,
+        quantity: Quantity::Units { n: 1 },
+    };
+    tender_at_wharf(&mut sim, 0, vec![]);
+    let mut line = sim.world().markets.get(&WHARF).unwrap().lines[&ICE].clone();
+    line.stock = 1;
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::SetMarketLine {
+                station: WHARF,
+                ware: ICE,
+                line: Some(line),
+            })
+            .with(Command::AdjustCredits { delta: 1000 }),
+    );
+    // Both docked at the Wharf, both buying its one unit in the same tick.
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::SetOrders {
+                ship: THIMBLE,
+                orders: queue(vec![order.clone()]),
+            })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: queue(vec![order]),
+            }),
+    );
+    run_until(&mut sim, 10, |s| player(s).orders.orders.is_empty());
+    let bought: u32 = sim.world().ships.values().map(|s| s.hold.count(&ICE)).sum();
+    assert_eq!(bought, 1, "one unit of stock is one unit of cargo");
+    assert_eq!(
+        sim.world().markets.get(&WHARF).unwrap().lines[&ICE].stock,
+        0
+    );
+    assert_eq!(kind_count(&sim, "buy"), 1);
+}
+
+#[test]
+fn orders_given_during_a_tick_win_over_the_ships_stale_progress() {
+    let mut sim = game(1);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause()).with(Command::SetOrders {
+            ship: PLAYER,
+            orders: queue(vec![Order::Undock {}]),
+        }),
+    );
+    // Reassigned between ticks: the ship's tick was worked out from the old queue.
+    let new = queue(vec![Order::Dock { station: WHARF }]);
+    sim.submit(CommandBatch::new(test_cause()).with(Command::SetOrders {
+        ship: PLAYER,
+        orders: new.clone(),
+    }));
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1);
+    assert_eq!(player(&sim).orders, new);
+    assert_eq!(
+        player(&sim).docked_at,
+        Some(WHARF),
+        "the stale undock didn't happen"
+    );
+    assert_eq!(kind_count(&sim, "undock"), 0);
+}
+
+// --- Loops, the patient sell and floors ---
+
+#[test]
+fn a_loop_sees_the_condition_its_last_order_made() {
+    let mut sim = game(1);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::AdjustCredits { delta: 1000 })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: queue(vec![Order::Loop {
+                    orders: vec![
+                        Order::Buy {
+                            ware: ICE,
+                            quantity: Quantity::Units { n: 1 },
+                        },
+                        Order::Sell {
+                            ware: ICE,
+                            quantity: Quantity::All,
+                            floor: None,
+                        },
+                    ],
+                    until: Some(Condition::HoldEmpty),
+                }]),
+            }),
+    );
+    run_until(&mut sim, 20, |s| player(s).orders.orders.is_empty());
+    assert_eq!(
+        kind_count(&sim, "loop_lap"),
+        1,
+        "it stopped after the first lap"
+    );
+    assert_eq!(kind_count(&sim, "buy"), 1);
+    assert_eq!(player(&sim).hold.total(), 0);
+}
+
+#[test]
+fn a_floored_tender_sale_without_a_wait_is_a_patient_sell() {
+    let mut sim = game(1);
+    tender_at_wharf(
+        &mut sim,
+        3,
+        vec![Order::Sell {
+            ware: ICE,
+            quantity: Quantity::All,
+            floor: Some(1),
+        }],
+    );
+    step(&mut sim, &hands_off());
+    assert_eq!(ship(&sim, &THIMBLE).hold.count(&ICE), 0);
+    assert_eq!(kind_count(&sim, "patient_wait"), 0);
+    assert_eq!(
+        kind_count(&sim, "patient_sold"),
+        1,
+        "b13 counts zero pulses waited"
+    );
+    let fact = sim
+        .history()
+        .last(&HistoryQuery::kind(FactKind::from_static("patient_sold")))
+        .unwrap()
+        .clone();
+    assert_eq!(fact.amount, Some(3));
+    let FactPayload::Note(note) = &fact.payload else {
+        panic!("a note");
+    };
+    assert!(note.contains("0 pulses waited"), "{note}");
+}
+
+#[test]
+fn a_tender_does_not_wait_out_a_market_that_cannot_trade() {
+    let mut sim = with_desk(
+        new_game(&data_dir(), 1).unwrap(),
+        Box::new(galaxy_ship::ClosedDesk),
+    );
+    tender_at_wharf(
+        &mut sim,
+        1,
+        vec![
+            Order::Sell {
+                ware: ICE,
+                quantity: Quantity::All,
+                floor: Some(1),
+            },
+            Order::Undock {},
+        ],
+    );
+    run_until(&mut sim, 10, |s| ship(s, &THIMBLE).orders.orders.is_empty());
+    assert_eq!(kind_count(&sim, "patient_wait"), 0);
+    assert_eq!(ship(&sim, &THIMBLE).docked_at, None, "the next order ran");
+    assert_eq!(ship(&sim, &THIMBLE).hold.count(&ICE), 1);
+}
+
+/// Sets the Wharf's ice line's price and the most it can pay.
+fn set_ice_line(sim: &mut Sim, price: u32, max_price: u32) {
+    let mut line = sim.world().markets.get(&WHARF).unwrap().lines[&ICE].clone();
+    line.price = price;
+    line.max_price = max_price;
+    submit(
+        sim,
+        CommandBatch::new(test_cause()).with(Command::SetMarketLine {
+            station: WHARF,
+            ware: ICE,
+            line: Some(line),
+        }),
+    );
+}
+
+#[test]
+fn floors_above_the_ceiling_are_refused_and_a_falling_ceiling_blocks_the_sell() {
+    let mut sim = game(1);
+    tender_at_wharf(&mut sim, 5, vec![]);
+    unlock(&mut sim, &[Capability::Automation]);
+    let sell_ice = vec![
+        Order::Dock { station: WHARF },
+        Order::Sell {
+            ware: ICE,
+            quantity: Quantity::All,
+            floor: None,
+        },
+        Order::Undock {},
+    ];
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause()).with(Command::SetLoop {
+            name: "sell ice".into(),
+            orders: Some(sell_ice),
+        }),
+    );
+    set_ice_line(&mut sim, 5, 20);
+    step(&mut sim, &hands_off());
+
+    // Above what the Wharf could ever pay now: refused at assignment.
+    let err =
+        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(21)).unwrap_err();
+    assert!(matches!(
+        err,
+        galaxy_ship::ControlError::FloorAboveCeiling { ceiling: 20, .. }
+    ));
+    let assign =
+        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(15)).unwrap();
+    submit(&mut sim, assign);
+    run_until(&mut sim, 10, |s| kind_count(s, "patient_wait") == 1);
+
+    // The ceiling falls below the floor: blocked, once; cargo and floor kept.
+    set_ice_line(&mut sim, 5, 10);
+    run(&mut sim, 50, &hands_off());
+    assert_eq!(kind_count(&sim, "patient_blocked"), 1);
+    let t = ship(&sim, &THIMBLE);
+    assert!(t.orders.progress.blocked);
+    assert_eq!(t.docked_at, Some(WHARF));
+    assert_eq!(t.hold.count(&ICE), 5);
+    let Order::Loop { orders, .. } = &t.orders.orders[0] else {
+        panic!("a loop");
+    };
+    assert!(matches!(
+        orders[1],
+        Order::Sell {
+            floor: Some(15),
+            ..
+        }
+    ));
+    assert_eq!(
+        kind_count(&sim, "loop_stalled"),
+        0,
+        "blocked is not a stall"
+    );
+
+    // The ceiling comes back: unblocked by itself, then it sells at the floor.
+    set_ice_line(&mut sim, 5, 20);
+    run_until(&mut sim, 10, |s| kind_count(s, "patient_unblocked") == 1);
+    assert!(!ship(&sim, &THIMBLE).orders.progress.blocked);
+    set_ice_line(&mut sim, 15, 20);
+    run_until(&mut sim, 10, |s| kind_count(s, "patient_sold") == 1);
+    assert_eq!(ship(&sim, &THIMBLE).hold.count(&ICE), 0);
+}
+
+fn resume(sim: &Sim, desk: Box<dyn TradeDesk>) -> Sim {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("resume.sqlite");
+    Save::create(&path, sim.state()).unwrap();
+    with_desk(Save::open(&path).unwrap().load().unwrap(), desk)
+}
+
+fn one_unit_desk() -> Box<dyn TradeDesk> {
+    Box::new(|w: &WorldState, r: &TradeRequest| {
+        let mut r = r.clone();
+        r.quantity = r.quantity.min(1);
+        FlatDesk.trade(w, &r)
+    })
+}
+
+#[test]
+fn a_partial_sell_continues_the_same_after_save_and_load() {
+    let mut a = with_desk(new_game(&data_dir(), 1).unwrap(), one_unit_desk());
+    tender_at_wharf(
+        &mut a,
+        3,
+        vec![Order::Sell {
+            ware: ICE,
+            quantity: Quantity::Units { n: 2 },
+            floor: Some(1),
+        }],
+    );
+    step(&mut a, &hands_off());
+    assert_eq!(ship(&a, &THIMBLE).orders.progress.traded, 1);
+    let mut b = resume(&a, one_unit_desk());
+    assert_eq!(a.hash(), b.hash());
+    run(&mut a, 5, &hands_off());
+    run(&mut b, 5, &hands_off());
+    assert_eq!(a.hash(), b.hash());
+    assert_eq!(ship(&a, &THIMBLE).hold.count(&ICE), 1);
+    assert_eq!(kind_count(&a, "patient_sold"), 1);
 }
 
 // --- Determinism ---

@@ -173,6 +173,14 @@ pub enum Command {
         ship: ShipId,
         orders: OrderQueue,
     },
+    /// Replaces a ship's orders only if they still equal `from`, so orders run from the
+    /// same tick's state can't overwrite orders given since (a loop assigned, a click):
+    /// a stale one fails and its batch is rejected. The ship system uses this.
+    UpdateOrders {
+        ship: ShipId,
+        from: Box<OrderQueue>,
+        to: Box<OrderQueue>,
+    },
     /// Replaces a ship's lane transit, mining run and input edge state.
     SetShipActivity {
         ship: ShipId,

@@ -197,6 +197,20 @@ fn apply_with(
                 orders: old,
             })
         }
+        C::UpdateOrders { ship, from, to } => {
+            let s = find(&mut world.ships, ship, "ship")?;
+            if s.orders != **from {
+                return Err(CommandError::Invalid(format!(
+                    "{ship}'s orders changed since this update was worked out"
+                )));
+            }
+            s.orders = (**to).clone();
+            invert(C::UpdateOrders {
+                ship: ship.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
         C::SetShipActivity { ship, activity } => {
             if let Some(t) = &activity.transit {
                 refs.require(&world.lanes, &t.lane, "lane")?;
