@@ -392,11 +392,11 @@ fn apply_with(
             let eco = &mut world.economy;
             match scope {
                 ActivityScope::Station { station } => {
-                    require(&world.stations, station, "station")?;
+                    refs.require(&world.stations, station, "station")?;
                     adjust_tally(&mut eco.stations, station, delta);
                 }
                 ActivityScope::Region { region } => {
-                    require(&world.regions, region, "region")?;
+                    refs.require(&world.regions, region, "region")?;
                     adjust_tally(&mut eco.regions, region, delta);
                 }
             }
@@ -407,7 +407,7 @@ fn apply_with(
         }
         C::SetDockTrack { ship, track } => {
             if let Some(t) = track {
-                require(&world.stations, &t.station, "station")?;
+                refs.require(&world.stations, &t.station, "station")?;
             }
             let docks = &mut world.economy.docks;
             let old = match track {
