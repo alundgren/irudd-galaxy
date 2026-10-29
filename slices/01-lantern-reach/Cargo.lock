@@ -770,6 +770,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "galaxy-economy"
+version = "0.1.0"
+dependencies = [
+ "galaxy-contract",
+ "galaxy-core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "galaxy-mind"
 version = "0.1.0"
 dependencies = [

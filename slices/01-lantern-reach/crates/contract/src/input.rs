@@ -4,6 +4,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::TradeRequest;
 use crate::geom::Vec2;
 use crate::ids::*;
 
@@ -19,6 +20,11 @@ pub struct PlayerInput {
     /// A click this tick, once click controls are unlocked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub click: Option<Click>,
+    /// Trades the player asks for this tick (the dock screen). The economy system
+    /// executes them in order and drops invalid ones, so check them first with
+    /// `galaxy_economy::check_trade` or `quote`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trades: Vec<TradeRequest>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

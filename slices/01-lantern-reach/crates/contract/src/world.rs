@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::{EconomyState, MarketRole, PriceReach};
 use crate::events::ActivityCounters;
 use crate::geom::Vec2;
 use crate::ids::*;
@@ -17,7 +18,8 @@ use crate::store::{Record, Store};
 use crate::verbs::OrderQueue;
 
 /// Bump when the world-state JSON changes incompatibly. Saves record it.
-pub const WORLD_FORMAT_VERSION: u32 = 1;
+/// 2: money is whole centicredits (it was whole credits in 1).
+pub const WORLD_FORMAT_VERSION: u32 = 2;
 
 /// The whole simulated world. Missing stores load empty, so adding a store keeps
 /// older saves loadable.
@@ -42,6 +44,8 @@ pub struct WorldState {
     pub rumors: Store<RumorId, Rumor>,
     /// Activity counters that pace beats and unlocks (never clock time).
     pub counters: ActivityCounters,
+    /// Market rules and activity tallies (W3).
+    pub economy: EconomyState,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -58,6 +62,7 @@ pub struct WorldMeta {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Player {
     pub name: String,
+    /// In centicredits (1 cr = 100, [`crate::money`]).
     pub credits: i64,
     /// The ship the player flies by hand.
     pub ship: Option<ShipId>,
@@ -77,6 +82,7 @@ pub struct PriceSnapshot {
     pub tick: Tick,
     /// The player's docking count when it was taken: "dated by your last visit".
     pub visit: u64,
+    /// Unit prices in centicredits.
     pub prices: BTreeMap<WareId, u32>,
 }
 
@@ -142,22 +148,79 @@ pub struct Market {
     pub lines: BTreeMap<WareId, MarketLine>,
 }
 
-/// One ware at one market. Provisional fields; W3 may extend.
+/// One ware at one market. W3 (`galaxy-economy`) prices it; see
+/// [`PricingRules`](crate::economy::PricingRules) for the formula.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct MarketLine {
     pub stock: u32,
-    /// Current unit price in credits.
+    /// The current unit price in centicredits: what the station pays for a `buys`
+    /// line, what it asks for a `sells` line. Kept up to date by the economy. Every
+    /// price here is in centicredits ([`crate::money`]).
     pub price: u32,
     /// Where the price settles with no pressure.
     pub base_price: u32,
     pub min_price: u32,
     pub max_price: u32,
-    /// Units the station makes per market step (W3 defines the step; never a clock).
+    /// Units the station makes per station pulse (activity, never a clock).
     #[serde(default)]
     pub production: u32,
-    /// Units the station uses per market step.
+    /// Units the station uses per station pulse.
     #[serde(default)]
     pub consumption: u32,
+    #[serde(default)]
+    pub role: MarketRole,
+    /// The stock the station aims for; prices rise below it and fall above it. Zero:
+    /// stock doesn't move the price.
+    #[serde(default)]
+    pub target: u32,
+    /// 0 (fresh) up to the rules' `saturation_max`. Only `buys` lines saturate.
+    #[serde(default)]
+    pub saturation: f64,
+    /// Saturation added per unit sold to the station.
+    #[serde(default)]
+    pub sat_per_unit: f64,
+    /// Saturation removed per station pulse.
+    #[serde(default)]
+    pub sat_recover: f64,
+    /// Multiplies `production` (market levers).
+    #[serde(default = "one")]
+    pub production_scale: f64,
+    /// Multiplies `consumption` (market levers).
+    #[serde(default = "one")]
+    pub consumption_scale: f64,
+    /// Production runs only while each of these wares is in stock here.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub needs: BTreeSet<WareId>,
+    /// The fraction of a unit produced or used but not yet whole, in 0..1.
+    #[serde(default)]
+    pub stock_carry: f64,
+}
+
+impl Default for MarketLine {
+    fn default() -> Self {
+        Self {
+            stock: 0,
+            price: 0,
+            base_price: 0,
+            min_price: 0,
+            max_price: 0,
+            production: 0,
+            consumption: 0,
+            role: MarketRole::default(),
+            target: 0,
+            saturation: 0.0,
+            sat_per_unit: 0.0,
+            sat_recover: 0.0,
+            production_scale: 1.0,
+            consumption_scale: 1.0,
+            needs: BTreeSet::new(),
+            stock_carry: 0.0,
+        }
+    }
+}
+
+fn one() -> f64 {
+    1.0
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -165,6 +228,7 @@ pub struct MarketLine {
 pub struct Ware {
     pub id: WareId,
     pub name: String,
+    /// In centicredits.
     pub base_price: u32,
     /// False for things that can't be bought or sold (the Ancients fragment).
     #[serde(default = "yes")]
@@ -187,6 +251,9 @@ pub struct Hull {
     pub max_speed: f32,
     /// Mining units per second at nominal tick rate.
     pub mining_rate: f32,
+    /// How far the hull sees live market prices. Default: docked only.
+    #[serde(default)]
+    pub price_reach: PriceReach,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

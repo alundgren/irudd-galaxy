@@ -58,7 +58,7 @@ fn input_at(tick: u64) -> PlayerInput {
             _ => Vec2::ZERO,
         },
         action: phase >= 200,
-        click: None,
+        ..PlayerInput::default()
     }
 }
 
@@ -219,6 +219,7 @@ fn batches_apply_all_or_nothing() {
 fn undo_records_invert_commands() {
     let mut world = new_game(&data_dir(), 1).unwrap().world;
     let original = world.clone();
+    let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
     let mut kettle = world.stations.get(&KETTLE).unwrap().clone();
     kettle.id = StationId::new("gm.sixth_station").unwrap();
     kettle.name = "The sixth station".into();
@@ -255,6 +256,10 @@ fn undo_records_invert_commands() {
             flag: FlagId::new("flag.nav_chip").unwrap(),
             on: true,
         },
+        Command::ExpectDocked {
+            ship: PLAYER,
+            station: StationId::new("station.lantern_wharf").unwrap(),
+        },
         Command::SetShipDocked {
             ship: PLAYER,
             station: None,
@@ -269,10 +274,54 @@ fn undo_records_invert_commands() {
             rock: RockId::new("rock.shallows.ice.03").unwrap(),
             delta: -7,
         },
+        Command::UpdateMarketLine {
+            station: KETTLE,
+            ware: ICE,
+            from: Box::new(kettle_ice.clone()),
+            to: Box::new(MarketLine {
+                stock: kettle_ice.stock + 4,
+                saturation: 0.1,
+                ..kettle_ice.clone()
+            }),
+        },
+        Command::SetMarketRates {
+            station: KETTLE,
+            ware: ICE,
+            rates: MarketRates {
+                production: 0,
+                consumption: 7,
+                production_scale: 1.0,
+                consumption_scale: 1.5,
+            },
+        },
         Command::SetMarketLine {
             station: KETTLE,
             ware: ICE,
             line: None,
+        },
+        Command::AdjustActivity {
+            scope: ActivityScope::Station { station: KETTLE },
+            delta: ActivityTally {
+                pulses_milli: 1500,
+                trades: 1,
+                ..ActivityTally::default()
+            },
+        },
+        Command::AdjustActivity {
+            scope: ActivityScope::Region {
+                region: RegionId::new("region.lantern_shallows").unwrap(),
+            },
+            delta: ActivityTally {
+                units_sold: 20,
+                ..ActivityTally::default()
+            },
+        },
+        Command::SetDockTrack {
+            ship: PLAYER,
+            track: Some(DockTrack {
+                station: KETTLE,
+                away: true,
+            }),
         },
         Command::PutStation {
             id: kettle.id.clone(),
