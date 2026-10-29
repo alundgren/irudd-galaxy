@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NpcsFile",
+  "type": "object",
+  "properties": {
+    "npc": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Npc"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Npc": {
+      "type": "object",
+      "properties": {
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/NpcId"
+        },
+        "location": {
+          "description": "Where they can be found.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "description": "Free-form role, e.g. `dockmaster`, `hullwright`, `scholar`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "role"
+      ]
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Where a new game starts. PROVISIONAL numbers.
+# Schema: crates/contract/schemas/data-start.json
+
+[player]
+name = "Pilot"
+credits = 40
+ship = "ship.player"
+ship_name = "Wren"
+hull = "hull.wren"
+station = "station.lantern_wharf"

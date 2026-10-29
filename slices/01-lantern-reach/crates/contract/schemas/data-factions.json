@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FactionsFile",
+  "type": "object",
+  "properties": {
+    "faction": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Faction"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Faction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "standing": {
+          "description": "The player's standing. Shown through how people treat you, not a bar.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "wants": {
+          "description": "Wares this faction wants.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WareId"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

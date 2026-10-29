@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegionsFile",
+  "type": "object",
+  "properties": {
+    "region": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Region"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Region": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "id": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "center",
+        "radius"
+      ]
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

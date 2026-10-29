@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PackManifest",
+  "description": "`manifest.toml` at the root of a pack.",
+  "type": "object",
+  "properties": {
+    "data": {
+      "description": "Data files, relative to the pack root.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "depends": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PackId"
+      }
+    },
+    "description": {
+      "type": "string",
+      "default": ""
+    },
+    "id": {
+      "$ref": "#/$defs/PackId"
+    },
+    "name": {
+      "type": "string"
+    },
+    "scripts": {
+      "description": "Script files, relative to the pack root.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "uses": {
+      "description": "Hook namespaces the pack's scripts may use, e.g. `events.dock`, `stations.write`.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "version"
+  ],
+  "$defs": {
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    }
+  }
+}

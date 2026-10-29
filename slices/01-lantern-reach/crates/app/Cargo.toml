@@ -1,0 +1,24 @@
+[package]
+name = "galaxy-app"
+description = "The `galaxy` binary: the game and its JSON CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "galaxy"
+path = "src/main.rs"
+
+[dependencies]
+galaxy-contract.workspace = true
+galaxy-core.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

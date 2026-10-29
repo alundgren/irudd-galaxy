@@ -1,0 +1,15 @@
+[package]
+name = "galaxy-contract"
+description = "The shared interfaces of the Lantern Reach slice: IDs, world schema, events, verbs, commands, history."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

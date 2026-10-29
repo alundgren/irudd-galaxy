@@ -1,0 +1,1727 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorldState",
+  "description": "The whole simulated world. Missing stores load empty, so adding a store keeps\nolder saves loadable.",
+  "type": "object",
+  "properties": {
+    "counters": {
+      "description": "Activity counters that pace beats and unlocks (never clock time).",
+      "$ref": "#/$defs/ActivityCounters",
+      "default": {
+        "player": {},
+        "regions": {},
+        "stations": {}
+      }
+    },
+    "factions": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Faction"
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/RockField"
+        }
+      }
+    },
+    "hulls": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Hull"
+        }
+      }
+    },
+    "lanes": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Lane"
+        }
+      }
+    },
+    "markets": {
+      "description": "One market per station that trades, keyed by station.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Market"
+        }
+      }
+    },
+    "meta": {
+      "$ref": "#/$defs/WorldMeta",
+      "default": {
+        "format": 0,
+        "seed": 0,
+        "tick": 0
+      }
+    },
+    "npcs": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Npc"
+        }
+      }
+    },
+    "player": {
+      "$ref": "#/$defs/Player",
+      "default": {
+        "credits": 0,
+        "flags": [],
+        "name": "",
+        "price_snapshots": {},
+        "ship": null,
+        "traits": []
+      }
+    },
+    "regions": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Region"
+        }
+      }
+    },
+    "rock_types": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/RockType"
+        }
+      }
+    },
+    "rocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Rock"
+        }
+      }
+    },
+    "rumors": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Rumor"
+        }
+      }
+    },
+    "ships": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Ship"
+        }
+      }
+    },
+    "stations": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Station"
+        }
+      }
+    },
+    "wares": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/Ware"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ActivityCounters": {
+      "description": "Read-only activity counters per player, station and region.",
+      "type": "object",
+      "properties": {
+        "player": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "regions": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "stations": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "player",
+        "stations",
+        "regions"
+      ]
+    },
+    "BuildState": {
+      "description": "A station's visible growth: a stage number plus the kit parts attached.",
+      "type": "object",
+      "properties": {
+        "parts": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PartId"
+          },
+          "uniqueItems": true
+        },
+        "stage": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "stage"
+      ]
+    },
+    "Condition": {
+      "description": "A world condition. Evaluated by the engine against world state only.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "hold_full"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "hold_empty"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "price_at_least"
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "price"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "price_at_most"
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "price"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "stock_at_least"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "stock": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "stock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "counter": {
+              "$ref": "#/$defs/CounterKind"
+            },
+            "kind": {
+              "type": "string",
+              "const": "counter_at_least"
+            },
+            "scope": {
+              "$ref": "#/$defs/CounterScope"
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "counter",
+            "scope",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "kind": {
+              "type": "string",
+              "const": "flag_set"
+            }
+          },
+          "required": [
+            "kind",
+            "flag"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "all"
+            },
+            "of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "of"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "any"
+            },
+            "of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "of"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cond": {
+              "$ref": "#/$defs/Condition"
+            },
+            "kind": {
+              "type": "string",
+              "const": "not"
+            }
+          },
+          "required": [
+            "kind",
+            "cond"
+          ]
+        }
+      ]
+    },
+    "CounterKind": {
+      "description": "Activity counters. Pacing reads these, never a clock.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "dockings",
+            "jumps",
+            "sessions",
+            "units_mined",
+            "rocks_depleted",
+            "sales",
+            "purchases",
+            "scouts",
+            "orders_done"
+          ]
+        },
+        {
+          "description": "Sales and deliveries, one per transaction.",
+          "type": "string",
+          "const": "deliveries"
+        }
+      ]
+    },
+    "CounterScope": {
+      "description": "Where a counter is read.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "player"
+            }
+          },
+          "required": [
+            "scope"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "scope",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            },
+            "scope": {
+              "type": "string",
+              "const": "region"
+            }
+          },
+          "required": [
+            "scope",
+            "region"
+          ]
+        }
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "Faction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "standing": {
+          "description": "The player's standing. Shown through how people treat you, not a bar.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "wants": {
+          "description": "Wares this faction wants.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WareId"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FieldId": {
+      "description": "Stable field id, e.g. `field.shallows.ice`.",
+      "type": "string",
+      "examples": [
+        "field.shallows.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlagId": {
+      "description": "Stable flag id, e.g. `flag.nav_chip`.",
+      "type": "string",
+      "examples": [
+        "flag.nav_chip"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlyTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "description": "Travel to another region along lanes.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
+    "Hold": {
+      "type": "object",
+      "properties": {
+        "cargo": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "required": [
+        "cargo"
+      ]
+    },
+    "Hull": {
+      "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
+      "type": "object",
+      "properties": {
+        "hold_capacity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/HullId"
+        },
+        "max_speed": {
+          "description": "World units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "mining_rate": {
+          "description": "Mining units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "tier",
+        "hold_capacity",
+        "max_speed",
+        "mining_rate"
+      ]
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Lane": {
+      "description": "A lane between two regions. Gates are world positions at each end.",
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "a_gate": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "b": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "b_gate": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "id": {
+          "$ref": "#/$defs/LaneId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "a",
+        "b",
+        "a_gate",
+        "b_gate"
+      ]
+    },
+    "LaneId": {
+      "description": "Stable lane id, e.g. `lane.shallows_cinder`.",
+      "type": "string",
+      "examples": [
+        "lane.shallows_cinder"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Market": {
+      "description": "A station market as plain data. W3 (economy) owns the maths that moves it.",
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/MarketLine"
+            }
+          }
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "required": [
+        "station",
+        "lines"
+      ]
+    },
+    "MarketLine": {
+      "description": "One ware at one market. Provisional fields; W3 may extend.",
+      "type": "object",
+      "properties": {
+        "base_price": {
+          "description": "Where the price settles with no pressure.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "consumption": {
+          "description": "Units the station uses per market step.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "max_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "price": {
+          "description": "Current unit price in credits.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "production": {
+          "description": "Units the station makes per market step (W3 defines the step; never a clock).",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "stock": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "stock",
+        "price",
+        "base_price",
+        "min_price",
+        "max_price"
+      ]
+    },
+    "Npc": {
+      "type": "object",
+      "properties": {
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/NpcId"
+        },
+        "location": {
+          "description": "Where they can be found.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "description": "Free-form role, e.g. `dockmaster`, `hullwright`, `scholar`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "role"
+      ]
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Order": {
+      "description": "One order.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "to": {
+              "$ref": "#/$defs/FlyTarget"
+            },
+            "verb": {
+              "type": "string",
+              "const": "fly"
+            }
+          },
+          "required": [
+            "verb",
+            "to"
+          ]
+        },
+        {
+          "description": "Mine until the hold is full or the rock is depleted.",
+          "type": "object",
+          "properties": {
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            },
+            "verb": {
+              "type": "string",
+              "const": "mine"
+            }
+          },
+          "required": [
+            "verb",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "verb": {
+              "type": "string",
+              "const": "dock"
+            }
+          },
+          "required": [
+            "verb",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verb": {
+              "type": "string",
+              "const": "undock"
+            }
+          },
+          "required": [
+            "verb"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "$ref": "#/$defs/Quantity"
+            },
+            "verb": {
+              "type": "string",
+              "const": "buy"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "verb",
+            "ware",
+            "quantity"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "$ref": "#/$defs/Quantity"
+            },
+            "verb": {
+              "type": "string",
+              "const": "sell"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "verb",
+            "ware",
+            "quantity"
+          ]
+        },
+        {
+          "description": "Wait until a world condition holds (e.g. a price recovers above a floor).",
+          "type": "object",
+          "properties": {
+            "until": {
+              "$ref": "#/$defs/Condition"
+            },
+            "verb": {
+              "type": "string",
+              "const": "wait"
+            }
+          },
+          "required": [
+            "verb",
+            "until"
+          ]
+        },
+        {
+          "description": "Repeat `orders` until `until` holds, or forever.",
+          "type": "object",
+          "properties": {
+            "orders": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Order"
+              }
+            },
+            "until": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Condition"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "verb": {
+              "type": "string",
+              "const": "loop"
+            }
+          },
+          "required": [
+            "verb",
+            "orders"
+          ]
+        }
+      ]
+    },
+    "OrderQueue": {
+      "description": "A ship's orders and where it is in them. W2 may add progress fields.",
+      "type": "object",
+      "properties": {
+        "current": {
+          "description": "Index of the order being executed.",
+          "type": "integer",
+          "format": "uint",
+          "default": 0,
+          "minimum": 0
+        },
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Order"
+          }
+        }
+      },
+      "required": [
+        "orders"
+      ]
+    },
+    "Owner": {
+      "description": "Who owns a ship. Player-owned ships (flagship and automated craft) feed the\nplayer's activity counters.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "player"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "npc"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            }
+          },
+          "required": [
+            "kind",
+            "npc"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "kind": {
+              "type": "string",
+              "const": "faction"
+            }
+          },
+          "required": [
+            "kind",
+            "faction"
+          ]
+        }
+      ]
+    },
+    "PartId": {
+      "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
+      "type": "string",
+      "examples": [
+        "part.kettle.greenhouse_a"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Player": {
+      "description": "The player: wallet, flagship, unlocks and what they know.",
+      "type": "object",
+      "properties": {
+        "credits": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "flags": {
+          "description": "Per-save mechanic flags: control unlocks, script switches.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlagId"
+          },
+          "uniqueItems": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "price_snapshots": {
+          "description": "Scouted prices, dated by the visit they were taken on.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/PriceSnapshot"
+            }
+          }
+        },
+        "ship": {
+          "description": "The ship the player flies by hand.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShipId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "traits": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TraitId"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "name",
+        "credits"
+      ]
+    },
+    "PriceSnapshot": {
+      "description": "What the player saw at a station's market on their last visit.",
+      "type": "object",
+      "properties": {
+        "prices": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          }
+        },
+        "tick": {
+          "$ref": "#/$defs/Tick"
+        },
+        "visit": {
+          "description": "The player's docking count when it was taken: \"dated by your last visit\".",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "tick",
+        "visit",
+        "prices"
+      ]
+    },
+    "Quantity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "units"
+            },
+            "n": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "n"
+          ]
+        },
+        {
+          "description": "Everything in the hold (sell) or everything affordable that fits (buy).",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "Region": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "id": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "center",
+        "radius"
+      ]
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Rock": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldId"
+        },
+        "id": {
+          "$ref": "#/$defs/RockId"
+        },
+        "initial": {
+          "description": "Units when generated; `remaining / initial` drives the visible shrink.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "remaining": {
+          "description": "Units left. Depletion persists.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "rock_type": {
+          "$ref": "#/$defs/RockTypeId"
+        }
+      },
+      "required": [
+        "id",
+        "field",
+        "rock_type",
+        "position",
+        "remaining",
+        "initial"
+      ]
+    },
+    "RockField": {
+      "description": "An authored field. Rocks are generated from it once, at new game, with stable IDs\n`<rock_prefix>.01`, `<rock_prefix>.02`, ...",
+      "type": "object",
+      "properties": {
+        "amount_max": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "amount_min": {
+          "description": "Units per rock, inclusive range.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "center": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/FieldId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "rock_prefix": {
+          "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
+          "type": "string"
+        },
+        "rock_type": {
+          "$ref": "#/$defs/RockTypeId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "region",
+        "rock_type",
+        "rock_prefix",
+        "center",
+        "radius",
+        "count",
+        "amount_min",
+        "amount_max"
+      ]
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockType": {
+      "type": "object",
+      "properties": {
+        "hardness": {
+          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "type": "number",
+          "format": "float"
+        },
+        "id": {
+          "$ref": "#/$defs/RockTypeId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "regrowth": {
+          "description": "Units regrown per regrowth step (W2 defines the step from activity, never a clock).",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ware",
+        "hardness"
+      ]
+    },
+    "RockTypeId": {
+      "description": "Stable rock type id, e.g. `rock_type.ice`.",
+      "type": "string",
+      "examples": [
+        "rock_type.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Rumor": {
+      "description": "A rumor with a truth value. It may be true, or planted.",
+      "type": "object",
+      "properties": {
+        "claim": {
+          "description": "What it claims, in one line.",
+          "type": "string"
+        },
+        "heard_at": {
+          "description": "Stations where it's being told.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          },
+          "uniqueItems": true
+        },
+        "heard_by_player": {
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/$defs/RumorId"
+        },
+        "is_true": {
+          "type": "boolean"
+        },
+        "planted_by": {
+          "description": "Who planted it, if it's a plant.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "description": "The fact it grew from, if any.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "claim",
+        "is_true",
+        "heard_at",
+        "heard_by_player"
+      ]
+    },
+    "RumorId": {
+      "description": "Stable rumor id, e.g. `rumor.far_belt_glassite`.",
+      "type": "string",
+      "examples": [
+        "rumor.far_belt_glassite"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Service": {
+      "description": "What a station offers when docked.",
+      "type": "string",
+      "enum": [
+        "market",
+        "dockmaster",
+        "hullwright",
+        "archive"
+      ]
+    },
+    "Ship": {
+      "type": "object",
+      "properties": {
+        "docked_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "heading": {
+          "description": "Facing, radians, 0 = +x, counter-clockwise.",
+          "type": "number",
+          "format": "float"
+        },
+        "hold": {
+          "$ref": "#/$defs/Hold"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "id": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "orders": {
+          "description": "The ship's order queue (same verbs for player, automated and NPC craft).",
+          "$ref": "#/$defs/OrderQueue",
+          "default": {
+            "current": 0,
+            "orders": []
+          }
+        },
+        "owner": {
+          "$ref": "#/$defs/Owner"
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "velocity": {
+          "$ref": "#/$defs/Vec2"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "hull",
+        "owner",
+        "region",
+        "position",
+        "velocity",
+        "heading",
+        "hold"
+      ]
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Station": {
+      "type": "object",
+      "properties": {
+        "build": {
+          "$ref": "#/$defs/BuildState"
+        },
+        "dock_radius": {
+          "description": "Ships within this distance of `position` can dock.",
+          "type": "number",
+          "format": "float"
+        },
+        "id": {
+          "$ref": "#/$defs/StationId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Service"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "region",
+        "position",
+        "dock_radius",
+        "services",
+        "build"
+      ]
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Tick": {
+      "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "TraitId": {
+      "description": "Stable trait id, e.g. `trait.rich_face`.",
+      "type": "string",
+      "examples": [
+        "trait.rich_face"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Ware": {
+      "type": "object",
+      "properties": {
+        "base_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/WareId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tradeable": {
+          "description": "False for things that can't be bought or sold (the Ancients fragment).",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "base_price"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "WorldMeta": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "[`WORLD_FORMAT_VERSION`] when this state was written.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "seed": {
+          "description": "The new-game seed. Subsystem random generators derive from it.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "tick": {
+          "description": "Ticks simulated so far.",
+          "$ref": "#/$defs/Tick"
+        }
+      },
+      "required": [
+        "format",
+        "seed",
+        "tick"
+      ]
+    }
+  }
+}

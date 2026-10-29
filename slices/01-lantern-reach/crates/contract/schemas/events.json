@@ -1,0 +1,486 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EventEnvelope",
+  "description": "An emitted event as subscribers see it.",
+  "type": "object",
+  "properties": {
+    "cause": {
+      "$ref": "#/$defs/CauseId"
+    },
+    "event": {
+      "$ref": "#/$defs/Event"
+    },
+    "fact": {
+      "description": "The history fact recorded for this event; cite it.",
+      "$ref": "#/$defs/FactId"
+    },
+    "tick": {
+      "$ref": "#/$defs/Tick"
+    }
+  },
+  "required": [
+    "tick",
+    "fact",
+    "cause",
+    "event"
+  ],
+  "$defs": {
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "Event": {
+      "description": "Something that happened, with stable IDs.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "dock"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "undock"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station"
+          ]
+        },
+        {
+          "description": "Units moved from a rock into a hold.",
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "type": {
+              "type": "string",
+              "const": "mine"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "rock",
+            "ware",
+            "amount"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            },
+            "ship": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ShipId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "type": "string",
+              "const": "rock_depleted"
+            }
+          },
+          "required": [
+            "type",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "buy"
+            },
+            "unit_price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station",
+            "ware",
+            "quantity",
+            "unit_price"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "sell"
+            },
+            "unit_price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station",
+            "ware",
+            "quantity",
+            "unit_price"
+          ]
+        },
+        {
+          "description": "Cargo handed over for a goal or a station's growth, not sold.",
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "deliver"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station",
+            "ware",
+            "quantity"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/RegionId"
+            },
+            "lane": {
+              "$ref": "#/$defs/LaneId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "to": {
+              "$ref": "#/$defs/RegionId"
+            },
+            "type": {
+              "type": "string",
+              "const": "jump"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "lane",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "A price snapshot was taken at a station.",
+          "type": "object",
+          "properties": {
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "scout"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "type": {
+              "type": "string",
+              "const": "order_done"
+            },
+            "verb": {
+              "$ref": "#/$defs/VerbKind"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "verb"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quest": {
+              "$ref": "#/$defs/QuestId"
+            },
+            "step": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "quest_step"
+            }
+          },
+          "required": [
+            "type",
+            "quest",
+            "step"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "trait_id": {
+              "$ref": "#/$defs/TraitId"
+            },
+            "type": {
+              "type": "string",
+              "const": "trait_earned"
+            }
+          },
+          "required": [
+            "type",
+            "trait_id"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from_hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "to_hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "type": {
+              "type": "string",
+              "const": "prestige"
+            }
+          },
+          "required": [
+            "type",
+            "from_hull",
+            "to_hull"
+          ]
+        },
+        {
+          "description": "A play session began (the app emits it when the game starts).",
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "session_start"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "LaneId": {
+      "description": "Stable lane id, e.g. `lane.shallows_cinder`.",
+      "type": "string",
+      "examples": [
+        "lane.shallows_cinder"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "QuestId": {
+      "description": "Stable quest id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Tick": {
+      "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "TraitId": {
+      "description": "Stable trait id, e.g. `trait.rich_face`.",
+      "type": "string",
+      "examples": [
+        "trait.rich_face"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "VerbKind": {
+      "description": "Verb names, used in causes and `order_done` events.",
+      "type": "string",
+      "enum": [
+        "fly",
+        "mine",
+        "dock",
+        "undock",
+        "buy",
+        "sell",
+        "wait",
+        "loop"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

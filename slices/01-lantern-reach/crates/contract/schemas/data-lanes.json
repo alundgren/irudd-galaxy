@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LanesFile",
+  "type": "object",
+  "properties": {
+    "lane": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Lane"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Lane": {
+      "description": "A lane between two regions. Gates are world positions at each end.",
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "a_gate": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "b": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "b_gate": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "id": {
+          "$ref": "#/$defs/LaneId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "a",
+        "b",
+        "a_gate",
+        "b_gate"
+      ]
+    },
+    "LaneId": {
+      "description": "Stable lane id, e.g. `lane.shallows_cinder`.",
+      "type": "string",
+      "examples": [
+        "lane.shallows_cinder"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

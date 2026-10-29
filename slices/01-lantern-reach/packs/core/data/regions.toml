@@ -1,0 +1,25 @@
+# Regions on the one sim plane, in world units. PROVISIONAL layout.
+# Schema: crates/contract/schemas/data-regions.json
+
+# Home: calm ice and iron fields, the first goals, the hullwright.
+[[region]]
+id = "region.lantern_shallows"
+name = "Lantern Shallows"
+center = { x = 0.0, y = 0.0 }
+radius = 2000.0
+owner = "faction.wharf_cooperative"
+
+# Rich, depleting belts and the first real price gaps. Contested, so no owner.
+[[region]]
+id = "region.cinder_drift"
+name = "Cinder Drift"
+center = { x = 5200.0, y = 1200.0 }
+radius = 2000.0
+
+# Trade hub with saturating demand.
+[[region]]
+id = "region.brassmouth_narrows"
+name = "Brassmouth Narrows"
+center = { x = 2400.0, y = 5400.0 }
+radius = 1800.0
+owner = "faction.tollway_compact"

@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlayerInput",
+  "description": "What the player is doing this tick. `Default` is \"hands off\".",
+  "type": "object",
+  "properties": {
+    "action": {
+      "description": "The context action (Space) is held: mine, dock, whatever is in reach.",
+      "type": "boolean",
+      "default": false
+    },
+    "click": {
+      "description": "A click this tick, once click controls are unlocked.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Click"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "thrust": {
+      "description": "Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.",
+      "$ref": "#/$defs/Vec2",
+      "default": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  },
+  "$defs": {
+    "Click": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "description": "Shift held: append to the queue instead of replacing it.",
+          "type": "boolean",
+          "default": false
+        },
+        "target": {
+          "$ref": "#/$defs/ClickTarget"
+        }
+      },
+      "required": [
+        "target"
+      ]
+    },
+    "ClickTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

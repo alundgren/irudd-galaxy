@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HullsFile",
+  "type": "object",
+  "properties": {
+    "hull": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Hull"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Hull": {
+      "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
+      "type": "object",
+      "properties": {
+        "hold_capacity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/HullId"
+        },
+        "max_speed": {
+          "description": "World units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "mining_rate": {
+          "description": "Mining units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "tier",
+        "hold_capacity",
+        "max_speed",
+        "mining_rate"
+      ]
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}
