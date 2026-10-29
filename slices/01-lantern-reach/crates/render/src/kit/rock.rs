@@ -143,7 +143,7 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
         let speckle = paint.f32() < style.speckle_rate;
         let color = match style.cap {
             _ if in_crack(centroid) => style.crack,
-            Some(cap) if normal.z > 0.6 => cap,
+            Some(cap) if normal.z > 0.82 => cap,
             _ if speckle => style.speckle,
             _ => style.base,
         };
@@ -215,7 +215,7 @@ impl Style {
                 base: Color::hex(0x8fd3e0),
                 speckle: Color::hex(0x6fbfd6),
                 speckle_rate: 0.25,
-                cap: Some(Color::hex(0xf2fbf7)),
+                cap: Some(Color::hex(0xd8f3f0)),
                 crack: Color::hex(0x2e6f86),
                 lumpiness: 0.6,
                 squash: Vec3::new(1.15, 0.95, 0.75),

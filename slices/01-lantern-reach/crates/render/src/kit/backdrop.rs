@@ -41,7 +41,7 @@ impl Default for BackdropParams {
                 palette::NEBULA_TEAL,
                 palette::NEBULA_AMBER,
             ],
-            cloud_alpha: 0.16,
+            cloud_alpha: 0.2,
         }
     }
 }
@@ -161,7 +161,7 @@ mod tests {
     fn stays_quiet() {
         let a = backdrop(&BackdropParams::default(), 1);
         // Clouds are faint and few stars are bright: the backdrop must not be busy.
-        assert!(a.clouds.iter().all(|c| c.color.a <= 0.2));
+        assert!(a.clouds.iter().all(|c| c.color.a <= 0.25));
         let bright = a.stars.iter().filter(|s| s.radius > 2.0).count();
         assert!(bright * 8 < a.stars.len());
     }

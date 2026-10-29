@@ -19,10 +19,10 @@ swatch! {
     PARCHMENT = 0.9301, 0.8070, 0.5776;
     /// #fff4dd: light text on dark.
     CREAM = 1.0000, 0.9047, 0.7231;
-    /// #1b1430: deep space behind everything.
-    SPACE_DEEP = 0.0110, 0.0070, 0.0296;
-    /// #3a2352: the lighter top of the space gradient.
-    SPACE_HIGH = 0.0423, 0.0168, 0.0844;
+    /// #2a1f48: deep space behind everything.
+    SPACE_DEEP = 0.0232, 0.0137, 0.0648;
+    /// #4e3672: the lighter top of the space gradient.
+    SPACE_HIGH = 0.0762, 0.0369, 0.1683;
     /// #c2577a: rose nebula.
     NEBULA_ROSE = 0.5395, 0.0953, 0.1946;
     /// #e8905a: amber nebula.
@@ -66,7 +66,7 @@ mod tests {
         for (c, hex) in [
             (INK, "#2a1a2e"),
             (PARCHMENT, "#f7e8c8"),
-            (SPACE_DEEP, "#1b1430"),
+            (SPACE_DEEP, "#2a1f48"),
             (NEBULA_ROSE, "#c2577a"),
             (TERRACOTTA, "#d9774b"),
             (LANTERN, "#ffcf6b"),

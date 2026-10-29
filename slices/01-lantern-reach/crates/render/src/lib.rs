@@ -6,13 +6,16 @@
 
 pub mod camera;
 pub mod color;
+pub mod demo;
 pub mod kit;
 pub mod mesh;
 pub mod palette;
+mod renderer;
 pub mod scene;
 
 pub use camera::{Camera, Projection};
 pub use color::Color;
 pub use glam;
 pub use mesh::{MeshBuilder, MeshData, Vertex};
+pub use renderer::{RenderError, Renderer, RgbaImage};
 pub use scene::*;

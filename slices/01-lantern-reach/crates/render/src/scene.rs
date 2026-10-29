@@ -72,7 +72,7 @@ pub struct Lights {
 impl Default for Lights {
     fn default() -> Self {
         Self {
-            sun_direction: Vec3::new(-0.55, 0.45, 0.70).normalize(),
+            sun_direction: Vec3::new(-0.62, 0.48, 0.52).normalize(),
             sun_color: Color::hex(0xfff1dc),
             ambient: Color::hex(0x2c2240),
             rim: Color::hex(0xffb36b).with_alpha(0.55),
@@ -156,7 +156,7 @@ impl Default for Material {
             highlight: Color::srgb(1.12, 1.06, 0.96),
             bands: 3,
             outline: palette::INK,
-            outline_px: 3.0,
+            outline_px: 4.0,
             emissive: Color::TRANSPARENT,
             hatch: 0.6,
         }
