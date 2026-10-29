@@ -258,7 +258,7 @@ section.group { margin-top: 8px; }
             <div class="card a-blue">
               <div class="row">
                 <span class="chip a-blue">4</span>
-                <div class="col"><strong class="t-acc a-blue">Treat AI (OpenRouter / MCP / Grok Bot GM) as content and tooling, not the core toy</strong><span>Procedural markets, quest text, and GM suggestions after the economy loop works offline.</span></div>
+                <div class="col"><strong class="t-acc a-blue">Treat AI (OpenRouter / MCP / Grok Bot GM) as content and tooling, not the core toy</strong><span>Procedural markets, quest text, and GM suggestions after the economy loop works on its own.</span></div>
               </div>
             </div>
             <div class="card a-blue">
@@ -416,7 +416,7 @@ section.group { margin-top: 8px; }
             </div>
             <div class="card a-amber">
               <h4 class="card-title"><span class="tag a-amber">Open</span> <span class="t-acc a-amber">Fast-model layer (open direction)</span></h4>
-              <p>Two AI layers: the slow, strong game master owns the big picture (arcs, new systems, eras, Ancients canon), while fast, cheap models (small local LLMs or decision models, OpenRouter as an option) make the world feel alive moment to moment (NPC captains, dock chatter, station reactions, rumors, pirate and trader decisions) inside rules and budgets the game master sets. Leanings: fast models pick from what world state allows rather than invent facts; their outcomes are written back to world history for the game master; offline-first, so a small local model on the PC could carry this layer. Research (<a href="../research/fast-model-layer.html">A Fast Layer Under the Game Master</a>): the game master writes each NPC's brief and budgets; rule-based utility AI always answers first so the game is complete offline; a local Qwen3.5-4B via llama.cpp with schema-constrained output adds personality; OpenRouter (incl. TypeSafe Jev, a cloud decision-only model) is opt-in. Open: frame-rate cost, sameness, canon drift.</p>
+              <p>Two AI layers: the slow, strong game master owns the big picture (arcs, new systems, eras, Ancients canon), while fast, cheap models on OpenRouter (small LLMs or decision models such as TypeSafe Jev) make the world feel alive moment to moment (NPC captains, dock chatter, station reactions, rumors, pirate and trader decisions) inside rules and budgets the game master sets. Leanings: fast models pick from what world state allows rather than invent facts; their outcomes are written back to world history for the game master. The game is a native desktop app that always assumes internet, and this layer runs only on OpenRouter, with no local model. Research (<a href="../research/fast-model-layer.html">A Fast Layer Under the Game Master</a>): the game master writes each NPC's brief and budgets; rule-based utility AI narrows each decision to a few allowed options; TypeSafe Jev makes typed choices and a cheap model such as gpt-oss-20b writes short lines with structured output. Open: call latency, running cost, sameness, canon drift.</p>
             </div>
           </section>
           <section id="process">
@@ -455,7 +455,7 @@ section.group { margin-top: 8px; }
             <div class="card a-purple">
               <div class="row">
                 <span class="chip a-purple">6</span>
-                <div class="col"><strong class="t-acc a-purple">AI GM and content layer</strong><span>Wire optional OpenRouter / MCP / Grok Bot for quest text, rumors, procedural opportunities—offline-safe fallbacks so the game never depends on an API.</span></div>
+                <div class="col"><strong class="t-acc a-purple">AI GM and content layer</strong><span>Wire OpenRouter / MCP / Grok Bot for quest text, rumors, procedural opportunities. The game always assumes internet; a failed or slow call is retried once or that moment is skipped.</span></div>
               </div>
             </div>
             <div class="card a-cyan">
@@ -478,7 +478,7 @@ section.group { margin-top: 8px; }
               <div class="card a-green">
                 <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">In scope for personal v1</span></h4>
                 <ul class="marks a-green">
-                  <li><span class="chip a-green" aria-hidden="true">+</span> Single-player, offline-first sandbox</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Single-player sandbox, native desktop app, always online</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> Mining + hauling + trading between a handful of stations</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> Ship upgrades and one automation path (e.g. auto-mine or auto-haul)</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> Local save/load on one computer only (no sync)</li>
@@ -581,7 +581,7 @@ section.group { margin-top: 8px; }
                 </div>
                 <div>
                   <dt>Save / sync note</dt>
-                  <dd>Harder offline-first local v1; sync alone does not fix feel</dd>
+                  <dd>Harder to give a solid local save in v1; sync alone does not fix feel</dd>
                 </div>
                 <div>
                   <dt>Planning risk</dt>
@@ -595,7 +595,7 @@ section.group { margin-top: 8px; }
                 <ul class="marks a-green">
                   <li><span class="chip a-green" aria-hidden="true">+</span> Engine with reliable Mac + Windows export from day one</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> v1 local save (JSON or SQLite) with a schema that can later talk to a shared DB</li>
-                  <li><span class="chip a-green" aria-hidden="true">+</span> Offline play on one machine; AI and sync remain optional layers</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Native desktop app on one machine, always online; sync stays a later layer</li>
                 </ul>
               </div>
               <div class="card a-verm">
@@ -623,7 +623,7 @@ section.group { margin-top: 8px; }
                 <li><span class="chip a-green" aria-hidden="true">+</span> Agents propose; the game decides. Validated proposal / plugin inbox; apply at a calm moment; rollback required. No direct live mutation of running simulation state outside that contract.</li>
                 <li><span class="chip a-green" aria-hidden="true">+</span> Plugin architecture over a fixed engine core. Updated after Proto 6: the agent layer grows into full scripting (data, logic, assets) through a validated contract. Not DLL/dylib injection.</li>
                 <li><span class="chip a-green" aria-hidden="true">+</span> Hot-reload tiers: data/plugins first; native rebuild/restart only when the fixed backend changes. No hot-swapping native code.</li>
-                <li><span class="chip a-green" aria-hidden="true">+</span> Game must play offline with no agent. Agents are async/background; authored fallback always works.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> The game is a native desktop app that always assumes internet. Agents are async/background; authored goals and places are the base they build on.</li>
                 <li><span class="chip a-green" aria-hidden="true">+</span> One agent contract (CLI + JSON schemas). Do not integrate Claude Code, Codex, and Cursor at once; MCP later as a thin wrapper.</li>
                 <li><span class="chip a-green" aria-hidden="true">+</span> Two-week shape: paper toy → disposable (browser/canvas ok) prototype → vertical slice; engine in a capped parallel track.</li>
                 <li><span class="chip a-green" aria-hidden="true">+</span> Defer: sync/VPN/DB, OpenRouter/GM, combat, galaxy scale, station building, packaging/CI.</li>
@@ -675,7 +675,7 @@ section.group { margin-top: 8px; }
               <ul class="marks a-purple">
                 <li><span class="chip a-purple" aria-hidden="true">•</span> Pocket: Lantern Wharf / Cinder Drift / Kettle Dock / Glass Drift; mite automation; annex silt hook</li>
                 <li><span class="chip a-purple" aria-hidden="true">•</span> Calm path ~31.2 quiet-minutes; ~10 real minutes to click through; self-test via paper-toy.html?selftest=1</li>
-                <li><span class="chip a-purple" aria-hidden="true">•</span> Directors file JSON notes only (plugin/content); authored ledger works offline</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Directors file JSON notes only (plugin/content); authored ledger is the base</li>
                 <li><span class="chip a-purple" aria-hidden="true">•</span> Also: design.md, agent-hook.md, do-not-do.md, risks.md, proposal.schema.json, quiet-director.ps1, data/, inbox/</li>
               </ul>
             </div>
@@ -685,7 +685,7 @@ section.group { margin-top: 8px; }
               <ul class="marks a-purple">
                 <li><span class="chip a-purple" aria-hidden="true">•</span> 200 simulated sessions; median Wren (2nd hull) unlock 30.2 min (p10–p90 26.8–33.3); income 1.74× after unlock</li>
                 <li><span class="chip a-purple" aria-hidden="true">•</span> Tunable knobs + Play session + JSON export; optional node tune.js</li>
-                <li><span class="chip a-purple" aria-hidden="true">•</span> agent-hook/ with event.schema.json, AGENTS.md, authored fallbacks</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> agent-hook/ with event.schema.json, AGENTS.md, authored content</li>
                 <li><span class="chip a-purple" aria-hidden="true">•</span> Also: design.md, README.md, do-not-do.md, risks.md</li>
               </ul>
             </div>

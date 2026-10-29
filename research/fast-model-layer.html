@@ -95,7 +95,7 @@ section.group { margin-top: 8px; }
       <main>
         <article>
           <h1>A Fast Layer Under the Game Master: Small Models That Keep a Galaxy Alive</h1>
-          <p class="summary">How small, cheap models could run the everyday life of the galaxy (captains, docks, stations, rumors, pirates, traders and factions) inside rules the AI game master sets, what other games learned doing this, which local models fit an RTX 5070 Ti next to the game, and when to step up to OpenRouter.</p>
+          <p class="summary">How small, cheap models could run the everyday life of the galaxy (captains, docks, stations, rumors, pirates, traders and factions) inside rules the AI game master sets, what other games learned doing this, and which OpenRouter models, prices and structured outputs fit. The game is a native desktop app that always assumes internet, and this layer runs only on OpenRouter, with no local model.</p>
           <nav class="toc card a-blue" aria-label="On this page">
             <p class="lead"><strong>On this page</strong></p>
             <ol>
@@ -115,18 +115,16 @@ section.group { margin-top: 8px; }
                   <li><a href="#a-ground">Grounding and write-back</a></li>
                   <li><a href="#a-brief">The game master's brief for each NPC</a></li>
                   <li><a href="#a-valid">Validation</a></li>
-                  <li><a href="#a-fallback">Fallback chain</a></li>
+                  <li><a href="#a-fail">When a call fails</a></li>
                   <li><a href="#a-budget">Budgets, caching and batching</a></li>
                 </ul>
               </li>
-              <li class="a-cyan"><a href="#local">Local models</a></li>
-              <li class="a-blue"><a href="#runtimes">Runtimes on Windows</a></li>
-              <li class="a-green"><a href="#vram">VRAM fit and speed</a></li>
-              <li class="a-amber"><a href="#cloud">OpenRouter as an upgrade</a></li>
-              <li class="a-verm"><a href="#menu">Menu: what the fast layer could do</a></li>
-              <li class="a-purple"><a href="#split">What stays with the game master</a></li>
-              <li class="a-cyan"><a href="#risks">Risks and open questions</a></li>
-              <li class="a-blue"><a href="#sources">Sources</a></li>
+              <li class="a-cyan"><a href="#cloud">OpenRouter models and prices</a></li>
+              <li class="a-blue"><a href="#no-local">Why not a local model</a></li>
+              <li class="a-green"><a href="#menu">Menu: what the fast layer could do</a></li>
+              <li class="a-amber"><a href="#split">What stays with the game master</a></li>
+              <li class="a-verm"><a href="#risks">Risks and open questions</a></li>
+              <li class="a-purple"><a href="#sources">Sources</a></li>
             </ol>
           </nav>
           <section id="layers">
@@ -153,13 +151,13 @@ section.group { margin-top: 8px; }
               <li class="edge">↓ grounding packet</li>
               <li class="node a-verm">
                 <strong>Fast layer decides</strong> <span class="pill a-verm">Decision</span>
-                <p>Utility AI pre-scores options; a small model picks one or writes a short line.</p>
+                <p>Utility AI pre-scores options; a small OpenRouter model or a decision model such as TypeSafe Jev picks one or writes a short line.</p>
               </li>
               <li class="edge">↓ typed choice</li>
               <li class="node a-purple">
                 <strong>Validator</strong>
                 <p>Ids exist, rules allow it, inside the band and the budget.</p>
-                <p class="jump"><strong>↺ back to Fast layer decides</strong>: fail: utility AI picks instead</p>
+                <p class="jump"><strong>↺ back to Fast layer decides</strong>: fail: retry once, or skip that moment</p>
               </li>
               <li class="edge">↓ pass</li>
               <li class="node a-cyan terminal">
@@ -175,22 +173,22 @@ section.group { margin-top: 8px; }
               <li class="card a-green">
                 <span class="num" aria-hidden="true">1</span>
                 <div>
-                  <strong>Always-on base: utility AI</strong>
-                  <p>Every fast decision has a rule-based answer first (Infinite Axis style scoring), so the game is complete with no model at all, on any PC.</p>
+                  <strong>Pre-filter: utility AI</strong>
+                  <p>Rule-based scoring (Infinite Axis style) narrows each decision to the top few allowed options before any model sees it, and handles background ships nobody is watching.</p>
                 </div>
               </li>
               <li class="card a-green">
                 <span class="num" aria-hidden="true">2</span>
                 <div>
-                  <strong>Local model: Qwen3.5-4B at Q4_K_M</strong>
-                  <p>Apache-2.0, 4.66B parameters, small enough to leave most of a 16 GB card to the game. Alternative: Gemma 4 E4B with Google's official QAT q4_0 GGUF. Step up to Qwen3.5-9B or Ministral 3 8B when the game leaves room.</p>
+                  <strong>Typed choices: TypeSafe Jev on OpenRouter</strong>
+                  <p>Pirate, trader and station choices, yes/no and scores go to Jev through the Decisions API: $0.042 per million input tokens, output free, no text to check.</p>
                 </div>
               </li>
               <li class="card a-green">
                 <span class="num" aria-hidden="true">3</span>
                 <div>
-                  <strong>Runtime: llama.cpp (llama-server, CUDA build)</strong>
-                  <p>Runs natively on Windows, ships as a sidecar process, and constrains output with GBNF grammars or a JSON schema. Prototype with Ollama or LM Studio, which expose the same idea.</p>
+                  <strong>Short text: a cheap OpenRouter model with structured output</strong>
+                  <p>Dock lines, notice boards and rumors on openai/gpt-oss-20b ($0.018 input, $0.09 output per million tokens) with a JSON schema. Step up to mistral-small-3.2-24b or claude-haiku-5.5 where the writing needs to be better.</p>
                 </div>
               </li>
               <li class="card a-green">
@@ -203,18 +201,18 @@ section.group { margin-top: 8px; }
               <li class="card a-green">
                 <span class="num" aria-hidden="true">5</span>
                 <div>
-                  <strong>Optional cloud upgrade via OpenRouter</strong>
-                  <p>Off by default. For players who opt in: gpt-oss-20b or a similar cheap model for text, or TypeSafe Jev through the Decisions API for typed choices.</p>
+                  <strong>Native desktop app, always online</strong>
+                  <p>The game always assumes internet and the fast layer uses only OpenRouter: no local model, no bundled runtime, no share of the player's GPU. A failed or slow call is retried once or that moment is skipped.</p>
                 </div>
               </li>
             </ol>
-            <p>This is a starting point to test, not a measured result for this game: run the game and the model together on the target PC and measure frame time and decision latency before choosing.</p>
+            <p>This is a starting point to test, not a measured result for this game: measure call latency and cost per play session with the real game before choosing models.</p>
           </section>
           <section id="jev">
             <h2 class="hb a-blue">What 'jev' is</h2>
             <div class="card a-cyan">
               <p class="lead"><strong>Real: TypeSafe Jev, a decision model on OpenRouter, not a chat model</strong></p>
-              <p>Jev is a structured decision model from TypeSafe, listed on OpenRouter. It does not write text. You give it options and it returns probabilities: which option to pick, how likely yes is, or where something sits on a scale. That fits pirate, trader and station choices well. It is cloud-only with closed weights, so it cannot be the offline layer.</p>
+              <p>Jev is a structured decision model from TypeSafe, listed on OpenRouter. It does not write text. You give it options and it returns probabilities: which option to pick, how likely yes is, or where something sits on a scale. That fits pirate, trader and station choices well. It runs only on OpenRouter, which is where this layer lives anyway.</p>
             </div>
             <dl class="facts card a-cyan">
               <div>
@@ -238,12 +236,8 @@ section.group { margin-top: 8px; }
                 <dd>OpenRouter lists 22 decision models from 13 makers as of 16 October 2026, among them OpenAI, Microsoft, Perplexity, Cloudflare, Inception, Liquid and Upstage models.</dd>
               </div>
               <div>
-                <dt>Offline lookalikes</dt>
-                <dd>Liquid's d1-3B is open on Hugging Face. A community model, feder-cr/jev, claims 28 to 130 ms on a laptop CPU; it is unofficial and unverified.</dd>
-              </div>
-              <div>
                 <dt>Sources</dt>
-                <dd><span class="inline-links"><a href="https://openrouter.ai/docs/guides/community/jev">OpenRouter Jev guide</a> · <a href="https://openrouter.ai/typesafe/jev-1.14">Jev 1.14 model page</a> · <a href="https://docs.typesafe.ai/models">TypeSafe models docs</a> · <a href="https://huggingface.co/feder-cr/jev">feder-cr/jev</a></span></dd>
+                <dd><span class="inline-links"><a href="https://openrouter.ai/docs/guides/community/jev">OpenRouter Jev guide</a> · <a href="https://openrouter.ai/typesafe/jev-1.14">Jev 1.14 model page</a> · <a href="https://docs.typesafe.ai/models">TypeSafe models docs</a></span></dd>
               </div>
             </dl>
           </section>
@@ -394,7 +388,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>For this game</dt>
-                    <dd>Design offline first: if the offline path is a degraded afterthought, most players get the degraded game.</dd>
+                    <dd>A second, weaker path tends to become the game many players get. Build one path and do it well.</dd>
                   </div>
                   <div>
                     <dt>Sources</dt>
@@ -419,7 +413,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>For this game</dt>
-                    <dd>A game built on talking to a model inherits the model's online dependency and running cost.</dd>
+                    <dd>A game built on talking to a model inherits its running cost; keep calls small, typed and budgeted.</dd>
                   </div>
                   <div>
                     <dt>Sources</dt>
@@ -544,7 +538,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>For this game</dt>
-                    <dd>Even strong local GPUs give multi-second delays when the model runs on every turn; budget calls and move them off the critical path.</dd>
+                    <dd>Even strong gaming GPUs give multi-second delays when the model runs on every turn, one more reason to keep models off the player's PC; budget calls and move them off the critical path.</dd>
                   </div>
                   <div>
                     <dt>Sources</dt>
@@ -725,7 +719,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>For this game</dt>
-                    <dd>The always-on fallback, and the pre-filter that hands the model its top options.</dd>
+                    <dd>The pre-filter that hands the model its top options, and the cheap answer for background ships nobody is watching.</dd>
                   </div>
                   <div>
                     <dt>Sources</dt>
@@ -874,12 +868,12 @@ section.group { margin-top: 8px; }
                     <tr>
                       <td>Cost</td>
                       <td>Generative Agents</td>
-                      <td>Local first; call a model only on events, not every tick; per-region budgets.</td>
+                      <td>Small, cheap OpenRouter models; call a model only on events, not every tick; per-region budgets.</td>
                     </tr>
                     <tr>
                       <td>Latency</td>
                       <td>Mantella, Project AVA</td>
-                      <td>Decide ahead of time where possible; nothing waits on the model; utility AI answers if it is late.</td>
+                      <td>Decide ahead of time where possible; nothing waits on the model; a late call skips that moment.</td>
                     </tr>
                     <tr>
                       <td>Made-up facts</td>
@@ -897,14 +891,14 @@ section.group { margin-top: 8px; }
                       <td>Every decision changes something you can see: a price, a route, an offer, a relationship.</td>
                     </tr>
                     <tr>
-                      <td>Online dependency</td>
-                      <td>Suck Up!, Herika offline mode</td>
-                      <td>Full game offline; the cloud only upgrades quality.</td>
+                      <td>A weaker second path</td>
+                      <td>Herika offline mode</td>
+                      <td>One path only: OpenRouter, always online; no separate local mode to maintain.</td>
                     </tr>
                     <tr>
                       <td>GPU contention</td>
                       <td>inZOI frame dips, PUBG Ally 8 GB minimum</td>
-                      <td>Small model, low priority, decisions batched at quiet moments such as docking.</td>
+                      <td>No model on the player's GPU: the fast layer runs on OpenRouter, with calls batched at quiet moments such as docking.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -929,13 +923,13 @@ section.group { margin-top: 8px; }
                 <li class="edge">↓</li>
                 <li class="node a-amber">
                   <strong>Utility AI scores them</strong>
-                  <p>Keeps the top three or four; this is already a complete answer.</p>
-                  <p class="jump"><strong>→ Apply through game code</strong>: if the model is busy, slow or off</p>
+                  <p>Keeps the top three or four for the model.</p>
+                  <p class="jump"><strong>→ Apply through game code</strong>: background ships, or when the region's model budget is used up</p>
                 </li>
                 <li class="edge">↓ top options plus personality</li>
                 <li class="node a-verm">
-                  <strong>Small model picks</strong> <span class="pill a-verm">Decision</span>
-                  <p>Output forced to a JSON schema or grammar: an action id from the list plus typed fields.</p>
+                  <strong>OpenRouter model picks</strong> <span class="pill a-verm">Decision</span>
+                  <p>A small model with a JSON schema, or Jev returning probabilities: an action id from the list plus typed fields.</p>
                 </li>
                 <li class="edge">↓ valid choice</li>
                 <li class="node a-purple terminal"><strong>Apply through game code</strong> <span class="pill a-purple">Outcome</span></li>
@@ -951,19 +945,14 @@ section.group { margin-top: 8px; }
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Grammar (GBNF)</td>
-                      <td>Output can only be strings the grammar allows, such as one of four action ids</td>
-                      <td>llama.cpp</td>
-                    </tr>
-                    <tr>
                       <td>JSON schema</td>
                       <td>Output parses and matches the schema, including enums</td>
-                      <td>llama.cpp, Ollama, LM Studio, OpenRouter structured outputs</td>
+                      <td>OpenRouter structured outputs (model-level flag; can vary by provider)</td>
                     </tr>
                     <tr>
                       <td>Tool calling</td>
                       <td>The model names one tool and its arguments</td>
-                      <td>Most OpenRouter models; local runtimes vary</td>
+                      <td>Most OpenRouter models</td>
                     </tr>
                     <tr>
                       <td>Decision model</td>
@@ -973,7 +962,7 @@ section.group { margin-top: 8px; }
                     <tr>
                       <td>Free generation</td>
                       <td>Nothing; use only for short lines, then check them</td>
-                      <td>Any</td>
+                      <td>Any OpenRouter text model</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1102,35 +1091,14 @@ section.group { margin-top: 8px; }
                   <span class="num" aria-hidden="true">6</span>
                   <div>
                     <strong>On failure</strong>
-                    <p>Use the utility AI choice and an authored line; log the failure for tuning. Never retry in a loop.</p>
+                    <p>Drop the result, retry once at most or skip that moment, and log the failure for tuning. Never retry in a loop.</p>
                   </div>
                 </li>
               </ol>
             </section>
-            <section id="a-fallback">
-              <h3 class="hb a-green">Fallback chain</h3>
-              <ol class="flow">
-                <li class="node a-blue"><strong>Decision needed</strong></li>
-                <li class="edge">↓</li>
-                <li class="node a-amber">
-                  <strong>Local model ready and within budget?</strong> <span class="pill a-amber">Decision</span>
-                  <p>GPU headroom, queue length, deadline.</p>
-                  <p class="jump"><strong>→ Validate and apply</strong>: yes: local model decides</p>
-                </li>
-                <li class="edge">↓ no</li>
-                <li class="node a-purple">
-                  <strong>Cloud allowed and online?</strong> <span class="pill a-purple">Decision</span>
-                  <p>Player opted in, monthly budget left.</p>
-                  <p class="jump"><strong>→ Validate and apply</strong>: yes: OpenRouter decides</p>
-                </li>
-                <li class="edge">↓ no</li>
-                <li class="node a-verm">
-                  <strong>Utility AI</strong>
-                  <p>Always available, deterministic, instant.</p>
-                </li>
-                <li class="edge">↓</li>
-                <li class="node a-green terminal"><strong>Validate and apply</strong> <span class="pill a-green">Outcome</span></li>
-              </ol>
+            <section id="a-fail">
+              <h3 class="hb a-green">When a call fails</h3>
+              <p>The game always assumes internet. If an OpenRouter call fails or comes back late, retry once or skip that moment; nothing in the world waits on it. This is an engineering detail, not a separate game mode.</p>
             </section>
             <section id="a-budget">
               <h3 class="hb a-verm">Budgets, caching and batching</h3>
@@ -1149,11 +1117,11 @@ section.group { margin-top: 8px; }
                 </li>
                 <li class="card a-verm">
                   <strong>Cache by situation</strong> <span class="pill a-verm">Caching</span>
-                  <p>Same NPC, same facts, same choice set gives the same answer; reuse it. Keep the brief as a stable prompt prefix so the runtime can reuse its cache.</p>
+                  <p>Same NPC, same facts, same choice set gives the same answer; reuse it. Keep the brief as a stable prompt prefix so providers that support prompt caching can reuse it.</p>
                 </li>
                 <li class="card a-purple">
                   <strong>Rate limits per region</strong> <span class="pill a-purple">Rate limit</span>
-                  <p>A cap on model calls per region per in-game day, set by the game master. When used up, rules take over quietly.</p>
+                  <p>A cap on model calls per region per in-game day, set by the game master. When used up, minor moments in that region take the top-scored option or stay quiet.</p>
                 </li>
                 <li class="card a-cyan">
                   <strong>Pre-generated lines</strong> <span class="pill a-cyan">Reuse</span>
@@ -1162,199 +1130,10 @@ section.group { margin-top: 8px; }
               </ul>
             </section>
           </section>
-          <section id="local">
-            <h2 class="hb a-blue">Local models</h2>
-            <p>Open-weight models that fit next to a running game on a 16 GB card. Parameter counts and licenses are from the Hugging Face model pages. Quantized sizes are estimates unless noted.</p>
-            <div class="tablewrap">
-              <table class="tbl a-green">
-                <thead>
-                  <tr>
-                    <th>Model</th>
-                    <th>Size</th>
-                    <th>License</th>
-                    <th>Role here</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Qwen3.5-4B</td>
-                    <td>4.66B</td>
-                    <td>Apache-2.0</td>
-                    <td>Recommended start; Q4_K_M weights about 3 GB (estimate)</td>
-                  </tr>
-                  <tr>
-                    <td>Gemma 4 E4B</td>
-                    <td>8.0B total, effective 4B</td>
-                    <td>Apache-2.0</td>
-                    <td>Alternative start; official QAT q4_0 GGUF</td>
-                  </tr>
-                  <tr>
-                    <td>Qwen3.5-2B and 0.8B</td>
-                    <td>2.27B and 0.8B</td>
-                    <td>Apache-2.0</td>
-                    <td>Tiny tier for yes/no and scores</td>
-                  </tr>
-                  <tr>
-                    <td>LFM3-1.7B</td>
-                    <td>1.7B</td>
-                    <td>Liquid license</td>
-                    <td>Newest tiny option (GGUF published 24 October 2026); check license</td>
-                  </tr>
-                  <tr>
-                    <td>SmolLM3-3B</td>
-                    <td>3.08B</td>
-                    <td>Apache-2.0</td>
-                    <td>Fully open small baseline</td>
-                  </tr>
-                  <tr>
-                    <td>Phi-4-mini-instruct</td>
-                    <td>3.84B</td>
-                    <td>MIT</td>
-                    <td>Small baseline</td>
-                  </tr>
-                  <tr>
-                    <td>Nemotron 3 Nano 4B</td>
-                    <td>3.97B</td>
-                    <td>NVIDIA license</td>
-                    <td>Small option; check license</td>
-                  </tr>
-                  <tr>
-                    <td>Ministral 3 3B and 8B</td>
-                    <td>3.85B and 8.9B</td>
-                    <td>Apache-2.0</td>
-                    <td>Official GGUFs; good step-up</td>
-                  </tr>
-                  <tr>
-                    <td>Granite 4.2 8B</td>
-                    <td>8.79B</td>
-                    <td>Apache-2.0</td>
-                    <td>Step-up; GGUF published August 2026</td>
-                  </tr>
-                  <tr>
-                    <td>Qwen3.5-9B</td>
-                    <td>9.65B</td>
-                    <td>Apache-2.0</td>
-                    <td>Step-up when the game leaves room</td>
-                  </tr>
-                  <tr>
-                    <td>LFM2.5-8B-A1B</td>
-                    <td>8.47B, about 1B active</td>
-                    <td>Liquid license</td>
-                    <td>Mixture of experts: fast per token, full weights still need memory</td>
-                  </tr>
-                  <tr>
-                    <td>Llama 3.1 8B Instruct</td>
-                    <td>8B</td>
-                    <td>Llama 3.1 license</td>
-                    <td>Older, but the best-benchmarked baseline</td>
-                  </tr>
-                  <tr>
-                    <td>Gemma 4 12B</td>
-                    <td>11.96B</td>
-                    <td>Apache-2.0</td>
-                    <td>Quality ceiling if the game is light; QAT q4_0 GGUF</td>
-                  </tr>
-                  <tr>
-                    <td>Qwen3.6-35B-A3B</td>
-                    <td>35.95B, 3B active</td>
-                    <td>Apache-2.0</td>
-                    <td>Fast alone but too large to share the card with a game</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p>No Phi-5 small model was found on Hugging Face as of 29 October 2026. For comparison, inZOI ships a 0.5B model and PUBG Ally a 2B model, so production games are aiming small.</p>
-          </section>
-          <section id="runtimes">
-            <h2 class="hb a-blue">Runtimes on Windows</h2>
-            <div class="tablewrap">
-              <table class="tbl a-cyan">
-                <thead>
-                  <tr>
-                    <th>Runtime</th>
-                    <th>Windows</th>
-                    <th>Constrained output</th>
-                    <th>Fit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>llama.cpp (llama-server)</td>
-                    <td>Native, CUDA and Vulkan builds</td>
-                    <td>GBNF grammars, JSON schema</td>
-                    <td>Recommended to ship as a sidecar</td>
-                  </tr>
-                  <tr>
-                    <td>Ollama</td>
-                    <td>Native</td>
-                    <td>JSON schema through the format field</td>
-                    <td>Prototyping; built on llama.cpp</td>
-                  </tr>
-                  <tr>
-                    <td>LM Studio</td>
-                    <td>Native, GUI</td>
-                    <td>JSON schema structured output</td>
-                    <td>Prototyping and model shopping</td>
-                  </tr>
-                  <tr>
-                    <td>ExLlamaV3</td>
-                    <td>See repo</td>
-                    <td>See repo</td>
-                    <td>Fast GPU-only inference with its own quant format; less suited to shipping</td>
-                  </tr>
-                  <tr>
-                    <td>ONNX Runtime GenAI</td>
-                    <td>Native, DirectML and CUDA</td>
-                    <td>See current docs</td>
-                    <td>Worth a look for AMD and Intel GPU players</td>
-                  </tr>
-                  <tr>
-                    <td>vLLM</td>
-                    <td>No native Windows; WSL only</td>
-                    <td>Structured outputs</td>
-                    <td>Server batching; not for players' PCs</td>
-                  </tr>
-                  <tr>
-                    <td>TensorRT-LLM</td>
-                    <td>Windows deprecated in v0.18, removed in v0.19</td>
-                    <td>Not applicable</td>
-                    <td>Avoid on Windows</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p>Players do not need any runtime installed: the game can bundle llama-server and a GGUF file, start it on a free port, and stop it on exit.</p>
-          </section>
-          <section id="vram">
-            <h2 class="hb a-blue">VRAM fit and speed</h2>
-            <dl class="facts card a-amber">
-              <div>
-                <dt>The card</dt>
-                <dd>RTX 5070 Ti: 16 GB GDDR7 on a 256-bit bus, 896 GB/s, 1,406 AI TOPS, 300 W. Generation speed is mostly limited by memory bandwidth, and the game competes for it.</dd>
-              </div>
-              <div>
-                <dt>Measured, model running alone</dt>
-                <dd>Qwen3-8B Q4_K: 120.5 tokens/s at 4K context, 87.5 at 16K, 63.3 at 32K; prompt processing about 5,557 tokens/s at 4K. gpt-oss-20B MXFP4: 156 tokens/s. Qwen3-14B Q4_K: 74.3 tokens/s. Qwen3.6-35B-A3B Q4_K_M: 88 to 101 tokens/s. Llama 3.1 8B Q4_K_M: 4.9 GB file, median 95.3 tokens/s, about 6.4 GB VRAM with 8K context.</dd>
-              </div>
-              <div>
-                <dt>Budget for this game (estimate)</dt>
-                <dd>Leave the game its share first and give the model 4 to 6 GB including context cache. A 4B model at Q4_K_M fits with room; an 8B model fits if the game uses under about 8 GB. Measure your own build.</dd>
-              </div>
-              <div>
-                <dt>Latency class per decision (estimate)</dt>
-                <dd>A 1,500-token grounding packet plus a 40-token typed answer on an 8B model: about 0.3 s to read the prompt and 0.3 s to answer at the measured speeds, so well under a second alone and slower while the game renders. A 4B model is faster. Cached prompt prefixes cut the reading part.</dd>
-              </div>
-              <div>
-                <dt>Sources</dt>
-                <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/">NVIDIA RTX 5070 family</a> · <a href="https://tokatlas.github.io/hardware/rtx-5070-ti/">TokAtlas RTX 5070 Ti</a> · <a href="https://specpicks.com/will-it-run/llama-3.1-8b/rtx-5070-ti">SpecPicks Llama 3.1 8B</a></span></dd>
-              </div>
-            </dl>
-            <p>Because decisions in this game are not twitch reactions, a second of latency at a dock is acceptable when the utility AI has already shown a sensible default. The model is there to make the answer more personal, not to make the game wait.</p>
-          </section>
           <section id="cloud">
-            <h2 class="hb a-blue">OpenRouter as an upgrade</h2>
+            <h2 class="hb a-blue">OpenRouter models and prices</h2>
             <p>Prices in US dollars per million tokens, from the OpenRouter models API on 29 October 2026. Structured-output support is the model-level flag; it can vary by provider.</p>
-            <p>Sorted by input price (ties broken by output price).</p>
+            <p>Recommended picks: TypeSafe Jev for typed choices, openai/gpt-oss-20b for short text, and a step-up such as mistral-small-3.2-24b for rumors. Sorted by input price (ties broken by output price).</p>
             <div class="tablewrap">
               <table class="tbl a-blue">
                 <thead>
@@ -1400,7 +1179,7 @@ section.group { margin-top: 8px; }
                     <td class="r">$0.05</td>
                     <td class="r">$0.08</td>
                     <td>Varies by provider</td>
-                    <td>Same model as a local baseline</td>
+                    <td>Older, well-benchmarked baseline</td>
                   </tr>
                   <tr>
                     <td><code>google/gemma-3-12b-it</code></td>
@@ -1421,7 +1200,7 @@ section.group { margin-top: 8px; }
                     <td class="r">$0.06</td>
                     <td class="r">$0.15</td>
                     <td>Yes</td>
-                    <td>Matches a local option</td>
+                    <td>Small open model</td>
                   </tr>
                   <tr>
                     <td><code>nvidia/nemotron-3.5-lightning</code></td>
@@ -1449,7 +1228,7 @@ section.group { margin-top: 8px; }
                     <td class="r">$0.10</td>
                     <td class="r">$0.10</td>
                     <td>Yes</td>
-                    <td>Matches a local option</td>
+                    <td>Tiny and cheap, flat price</td>
                   </tr>
                   <tr>
                     <td><code>google/gemini-2.5-flash-lite</code></td>
@@ -1470,14 +1249,14 @@ section.group { margin-top: 8px; }
                     <td class="r">$0.15</td>
                     <td class="r">$0.15</td>
                     <td>Yes</td>
-                    <td>Matches a local option</td>
+                    <td>Small open model, flat price</td>
                   </tr>
                   <tr>
                     <td><code>qwen/qwen3.5-9b</code></td>
                     <td class="r">$0.17</td>
                     <td class="r">$0.25</td>
                     <td>Yes</td>
-                    <td>Matches the local step-up</td>
+                    <td>Small open model</td>
                   </tr>
                   <tr>
                     <td><code>google/gemini-3.1-flash-lite</code></td>
@@ -1499,10 +1278,18 @@ section.group { margin-top: 8px; }
                 <dd>OpenRouter's endpoint latency fields were empty when checked, so only Jev's listed 0.11 s is a published figure. Expect small cloud models to answer in a fraction of a second to a few seconds including the network, varying by provider and load.</dd>
               </div>
               <div>
-                <dt>Where cloud helps</dt>
-                <dd>Better rumor and dialogue writing, and offloading the GPU on weaker PCs. It is never required: offline the same decisions go to the local model or the utility AI.</dd>
+                <dt>Why OpenRouter only</dt>
+                <dd>One API for small LLMs and decision models, models swapped by id, and no runtime or GPU cost on the player's PC. The game always assumes internet; a failed or slow call is retried once or that moment is skipped.</dd>
               </div>
             </dl>
+          </section>
+          <section id="no-local">
+            <h2 class="hb a-blue">Why not a local model</h2>
+            <div class="card a-amber">
+              <p class="lead"><strong>Decided: OpenRouter only, no local model</strong></p>
+              <p>The game is a native desktop app that always assumes internet, so there is no reason to carry a model on the player's PC. A local model would mean bundling a runtime and model files, sharing the GPU with the game, and gating the feature on hardware, which is much harder than calling OpenRouter.</p>
+            </div>
+            <p>Context from games that did run models on the player's hardware (see the entries above): PUBG Ally needs at least an 8 GB card and shares the GPU with the game, inZOI's 0.5B model takes about 1 GB of graphics memory, and Project AVA and Mantella users saw multi-second delays even on strong GPUs.</p>
           </section>
           <section id="menu">
             <h2 class="hb a-blue">Menu: what the fast layer could do</h2>
@@ -1512,7 +1299,7 @@ section.group { margin-top: 8px; }
               <ul class="rows">
                 <li class="card a-blue">
                   <strong>Dock chatter that knows you</strong> <span class="pill a-blue">Short text</span>
-                  <p>A captain's line on docking draws on facts from your history at this station: the ore you sold last time, the convoy you helped, the debt you still owe. Facts come from the world log by id, so the line can only mention what happened. Fallback: an authored line pool keyed on the same facts.</p>
+                  <p>A captain's line on docking draws on facts from your history at this station: the ore you sold last time, the convoy you helped, the debt you still owe. Facts come from the world log by id, so the line can only mention what happened. Authored lines keyed on the same facts stay in the mix.</p>
                 </li>
                 <li class="card a-blue">
                   <strong>Haggling stance</strong> <span class="pill a-blue">Choice</span>
@@ -1637,8 +1424,8 @@ section.group { margin-top: 8px; }
             <h2 class="hb a-blue">Risks and open questions</h2>
             <ul class="rows">
               <li class="card a-verm">
-                <strong>Frame time while the model runs</strong> <span class="pill a-verm">Measure</span>
-                <p>Open: how much does a background 4B or 8B model cost the game's frame rate on this card? Needs measuring with the real game.</p>
+                <strong>Call latency</strong> <span class="pill a-verm">Measure</span>
+                <p>Open: how long do OpenRouter calls take from a player's PC with the chosen providers? Needs measuring with the real game; batching at docking keeps waits out of play.</p>
               </li>
               <li class="card a-amber">
                 <strong>Sameness creeping back</strong> <span class="pill a-amber">Risk</span>
@@ -1657,34 +1444,22 @@ section.group { margin-top: 8px; }
                 <p>Open: should a reload give the same decisions? Caching by situation and logging choices makes replays consistent.</p>
               </li>
               <li class="card a-green">
-                <strong>Licenses</strong> <span class="pill a-green">Question</span>
-                <p>Apache-2.0 and MIT models are simplest to ship. Liquid, NVIDIA and Llama licenses need reading before bundling.</p>
+                <strong>Models and prices change</strong> <span class="pill a-green">Question</span>
+                <p>OpenRouter's list moves. Keep models chosen by id in config and the typed interface stable, so one model can replace another.</p>
               </li>
               <li class="card a-verm">
-                <strong>Cloud cost and privacy</strong> <span class="pill a-verm">Question</span>
-                <p>Who pays for opt-in cloud calls, and what world data leaves the PC? A hard monthly cap and a clear setting are needed.</p>
+                <strong>Cost and privacy</strong> <span class="pill a-verm">Question</span>
+                <p>Who pays for OpenRouter calls, and what world data leaves the PC? A hard monthly cap and a clear setting are needed.</p>
               </li>
               <li class="card a-amber">
                 <strong>Jev's future</strong> <span class="pill a-amber">Risk</span>
-                <p>Decision models on OpenRouter are new; the Decisions API path is marked alpha. Keep the same typed interface so local models can replace it.</p>
+                <p>Decision models on OpenRouter are new; the Decisions API path is marked alpha. Keep the same typed interface so another OpenRouter decision model, or a small model with a JSON schema, can replace it.</p>
               </li>
             </ul>
           </section>
           <section id="sources">
             <h2 class="hb a-blue">Sources</h2>
             <p>Links were checked on 29 October 2026. Nexus Mods pages block automated checks but load in a browser. Per-project links are also listed with each entry above.</p>
-            <h3 class="hb a-cyan">Runtimes and structured output</h3>
-            <ul class="links">
-              <li><a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> — GitHub</li>
-              <li><a href="https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md">llama.cpp grammars (GBNF) and JSON schema</a> — GitHub</li>
-              <li><a href="https://ollama.com/blog/structured-outputs">Structured outputs</a> — Ollama blog</li>
-              <li><a href="https://lmstudio.ai/docs/developer/openai-compat/structured-output">Structured output</a> — LM Studio docs</li>
-              <li><a href="https://docs.vllm.ai/en/latest/getting_started/installation/gpu/">GPU installation (Windows via WSL)</a> — vLLM docs</li>
-              <li><a href="https://github.com/turboderp-org/exllamav3">ExLlamaV3</a> — GitHub</li>
-              <li><a href="https://github.com/NVIDIA/TensorRT-LLM/issues/11360">TensorRT-LLM Windows support issue</a> — GitHub</li>
-              <li><a href="https://nvidia.github.io/TensorRT-LLM/0.19.0/release-notes.html">TensorRT-LLM 0.19 release notes</a> — NVIDIA</li>
-              <li><a href="https://github.com/microsoft/onnxruntime-genai">ONNX Runtime GenAI</a> — GitHub</li>
-            </ul>
             <h3 class="hb a-blue">OpenRouter</h3>
             <ul class="links">
               <li><a href="https://openrouter.ai/api/v1/models">Models API (prices)</a> — OpenRouter</li>
@@ -1693,29 +1468,6 @@ section.group { margin-top: 8px; }
               <li><a href="https://openrouter.ai/docs/guides/community/jev">Jev guide</a> — OpenRouter docs</li>
               <li><a href="https://openrouter.ai/openai/gpt-oss-20b">gpt-oss-20b</a> — OpenRouter</li>
               <li><a href="https://openrouter.ai/qwen/qwen3.7-flash">qwen3.7-flash</a> — OpenRouter</li>
-            </ul>
-            <h3 class="hb a-green">Model pages</h3>
-            <ul class="links">
-              <li><a href="https://huggingface.co/Qwen/Qwen3.5-4B">Qwen3.5-4B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/Qwen/Qwen3.5-9B">Qwen3.5-9B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/google/gemma-4-E4B-it">Gemma 4 E4B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/google/gemma-4-12B-it">Gemma 4 12B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf">Gemma 4 12B QAT q4_0 GGUF</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512">Ministral 3 8B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/ibm-granite/granite-4.2-8b">Granite 4.2 8B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/LiquidAI/LFM2.5-8B-A1B">LFM2.5-8B-A1B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/LiquidAI/LFM2.5-2.6B">LFM2.5-2.6B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16">Nemotron 3 Nano 4B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/HuggingFaceTB/SmolLM3-3B">SmolLM3-3B</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/microsoft/Phi-4-mini-instruct">Phi-4-mini-instruct</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct">Llama 3.1 8B Instruct</a> — Hugging Face</li>
-              <li><a href="https://huggingface.co/Qwen/Qwen3.6-35B-A3B">Qwen3.6-35B-A3B</a> — Hugging Face</li>
-            </ul>
-            <h3 class="hb a-amber">Hardware</h3>
-            <ul class="links">
-              <li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/">RTX 5070 family specs</a> — NVIDIA</li>
-              <li><a href="https://tokatlas.github.io/hardware/rtx-5070-ti/">RTX 5070 Ti benchmarks</a> — TokAtlas</li>
-              <li><a href="https://specpicks.com/will-it-run/llama-3.1-8b/rtx-5070-ti">Llama 3.1 8B on RTX 5070 Ti</a> — SpecPicks</li>
             </ul>
           </section>
         </article>

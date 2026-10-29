@@ -116,7 +116,7 @@ section.group { margin-top: 8px; }
             <h2>The proposal in one card</h2>
             <div class="card a-green">
               <h4 class="card-title"><span class="tag a-green">Recommendation</span> <span class="t-acc a-green">Build Shape A, the Lantern Reach: one full arc in a small living region.</span></h4>
-              <p>Twenty systems, each about one prototype's worth, carry the player from a Tier 0 Wren flown with WASD and Space, through every control unlock and a first automated craft, to the Hearthbound choice between Tandem and Heron. Around that arc, three factions and a live game master change places and people through validated scripts, and a thin, optional fast-model layer makes traders and docks react moment to moment. Everything plays offline on an authored backbone. The code stays disposable; the design is representative.</p>
+              <p>Twenty systems, each about one prototype's worth, carry the player from a Tier 0 Wren flown with WASD and Space, through every control unlock and a first automated craft, to the Hearthbound choice between Tandem and Heron. Around that arc, three factions and a live game master change places and people through validated scripts, and a thin fast-model layer on OpenRouter makes traders and docks react moment to moment. It is a native desktop app that always assumes internet; authored goals and places form the journey the game master builds on. The code stays disposable; the design is representative.</p>
             </div>
             <div class="tablewrap">
               <table class="tbl a-blue">
@@ -337,11 +337,11 @@ section.group { margin-top: 8px; }
                   <dl class="kv">
                     <div>
                       <dt>From the plan</dt>
-                      <dd>Open direction: fast models pick from what world state allows; offline-first.</dd>
+                      <dd>Open direction: fast models on OpenRouter pick from what world state allows and write results back to history.</dd>
                     </div>
                     <div>
                       <dt>Pass signal</dt>
-                      <dd>With the layer on, traders and dock talk react to real facts; with it off, nothing breaks.</dd>
+                      <dd>Traders and dock talk react to real facts in history; a failed or slow call skips that moment without breaking anything.</dd>
                     </div>
                   </dl>
                 </div>
@@ -359,7 +359,7 @@ section.group { margin-top: 8px; }
                     </div>
                     <div>
                       <dt>Pass signal</dt>
-                      <dd>The slice answers it by including a live game master with an offline backbone.</dd>
+                      <dd>The slice answers it by including a live game master over authored goals and places.</dd>
                     </div>
                   </dl>
                 </div>
@@ -481,7 +481,7 @@ section.group { margin-top: 8px; }
             </div>
             <p>Unlocks are paced by activity (deliveries, dockings, goals met), never by a clock, and compressed for the slice compared with the real game's pacing in the plan.</p>
             <h3>What the game master does live</h3>
-            <p>It works only through the scripting engine. Every change passes validation, carries a recorded cause, appears in a place and a person, and can be rolled back in-world. An authored backbone plays the whole journey with no game master at all.</p>
+            <p>It works only through the scripting engine. Every change passes validation, carries a recorded cause, appears in a place and a person, and can be rolled back in-world. Authored goals and places carry the journey; the game master builds on them.</p>
             <div class="card a-cyan">
               <div class="row">
                 <span class="chip a-cyan">1</span>
@@ -532,13 +532,13 @@ section.group { margin-top: 8px; }
             </div>
             <h3>What the fast-model layer does</h3>
             <div class="card a-blue">
-              <h4 class="card-title"><span class="tag a-blue">Proposed</span> <span class="t-acc a-blue">Thin, optional, offline-first</span></h4>
+              <h4 class="card-title"><span class="tag a-blue">Proposed</span> <span class="t-acc a-blue">Thin, OpenRouter only, always online</span></h4>
               <ul class="marks a-blue">
                 <li><span class="chip a-blue" aria-hidden="true">•</span> NPC traders choose routes and cargo from a menu the world allows, so prices move for reasons other than the player.</li>
                 <li><span class="chip a-blue" aria-hidden="true">•</span> Dock talk picks or phrases a line only when it can cite a real fact in history; otherwise nothing is said.</li>
                 <li><span class="chip a-blue" aria-hidden="true">•</span> Rumors spread from station to station by NPC choices, carrying their truth value with them.</li>
                 <li><span class="chip a-blue" aria-hidden="true">•</span> Outcomes are written back to history, where the game master reads them.</li>
-                <li><span class="chip a-blue" aria-hidden="true">•</span> Runs on a small local model, inside a budget the game master sets; a rule-based picker replaces it when it is off.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Runs only on OpenRouter (small LLMs, or decision models such as TypeSafe Jev), inside a budget the game master sets; no local model. A failed or slow call is retried once or that moment is skipped.</li>
               </ul>
             </div>
             <h3>In and out</h3>
@@ -552,7 +552,7 @@ section.group { margin-top: 8px; }
                   <li><span class="chip a-green" aria-hidden="true">+</span> Scouted living prices with saturation</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> One automated craft, one prestige choice</li>
                   <li><span class="chip a-green" aria-hidden="true">+</span> Live game master with validation and rollback</li>
-                  <li><span class="chip a-green" aria-hidden="true">+</span> Local save on one computer, offline play</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Local save on one computer, native desktop app, always online</li>
                 </ul>
               </div>
               <div class="card a-verm">
@@ -756,7 +756,7 @@ section.group { margin-top: 8px; }
                     </div>
                     <div>
                       <dt>Answers</dt>
-                      <dd>Pause, offline-first</dd>
+                      <dd>Pause, native desktop app</dd>
                     </div>
                   </dl>
                 </div>
@@ -914,7 +914,7 @@ section.group { margin-top: 8px; }
                   <dl class="kv">
                     <div>
                       <dt>Minimum depth</dt>
-                      <dd>The authored goals of the journey, each a single readable line with a clear end state, all playable offline.</dd>
+                      <dd>The authored goals of the journey, each a single readable line with a clear end state, authored up front.</dd>
                     </div>
                     <div>
                       <dt>Answers</dt>
@@ -1040,7 +1040,7 @@ section.group { margin-top: 8px; }
                   <dl class="kv">
                     <div>
                       <dt>Minimum depth</dt>
-                      <dd>Optional. Picks from menus world state allows for NPC traders, dock talk and rumor spread; rule-based fallback.</dd>
+                      <dd>Runs on OpenRouter. Picks from menus world state allows for NPC traders, dock talk and rumor spread, and writes outcomes back to history.</dd>
                     </div>
                     <div>
                       <dt>Answers</dt>
@@ -1221,11 +1221,11 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>Game master</dt>
-                    <dd>Live, with eight change types over an offline authored backbone.</dd>
+                    <dd>Live, with eight change types over the authored goals and places.</dd>
                   </div>
                   <div>
                     <dt>Fast models</dt>
-                    <dd>Thin and optional: NPC traders, dock talk, rumor spread.</dd>
+                    <dd>Thin, on OpenRouter: NPC traders, dock talk, rumor spread.</dd>
                   </div>
                   <div>
                     <dt>Size</dt>
@@ -1509,7 +1509,7 @@ section.group { margin-top: 8px; }
             <div class="card a-purple">
               <div class="row">
                 <span class="chip a-purple">3</span>
-                <div class="col"><strong class="t-acc a-purple">Gate 3: whole journey playable</strong><span>Queues, loops, automation, pilot traits, prestige, all eight game master change types, fast-model layer toggleable.</span></div>
+                <div class="col"><strong class="t-acc a-purple">Gate 3: whole journey playable</strong><span>Queues, loops, automation, pilot traits, prestige, all eight game master change types, fast-model layer running on OpenRouter.</span></div>
               </div>
             </div>
             <div class="card a-purple">
@@ -1569,7 +1569,7 @@ section.group { margin-top: 8px; }
             <div class="card a-amber">
               <div class="row">
                 <div class="col">
-                  <strong class="t-acc a-amber">Is the fast-model layer in?</strong><span>In as a toggle with a small local model (proposed), stubbed with rules only, or out. OpenRouter as a fallback or not at all.</span>
+                  <strong class="t-acc a-amber">Is the fast-model layer in?</strong><span>In, on OpenRouter (small LLMs or a decision model such as TypeSafe Jev), or cut from the slice. No local model either way; the game always assumes internet.</span>
                   <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Shapes the slice</span></div>
                 </div>
               </div>
