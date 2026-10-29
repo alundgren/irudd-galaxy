@@ -376,22 +376,18 @@ impl Sim {
     pub fn queue_rollback(&mut self, causes: &[CauseId], summary: &str) -> RollbackPlan {
         // Rollback batches still pending are rebuilt together with the new request, so
         // every inverse runs newest cause first even when requests overlap (rolling back
-        // A, then A+B, must undo B before A).
+        // A, then A+B, must undo B before A). The rebuilt group takes the place of the
+        // first pending rollback, so it never moves past batches queued after it.
         let mut summaries: BTreeMap<CauseId, String> = BTreeMap::new();
-        let mut keep = Vec::new();
-        for b in std::mem::take(&mut self.state.kernel.pending) {
-            match &b.cause.kind {
-                CauseKind::Rollback { of } => {
-                    for c in of {
-                        summaries
-                            .entry(*c)
-                            .or_insert_with(|| b.cause.summary.clone());
-                    }
+        for b in &self.state.kernel.pending {
+            if let CauseKind::Rollback { of } = &b.cause.kind {
+                for c in of {
+                    summaries
+                        .entry(*c)
+                        .or_insert_with(|| b.cause.summary.clone());
                 }
-                _ => keep.push(b),
             }
         }
-        self.state.kernel.pending = keep;
         let mut fresh = BTreeSet::new();
         for c in causes {
             if !self.state.kernel.rolled_back.contains(c) && !summaries.contains_key(c) {
@@ -400,6 +396,10 @@ impl Sim {
             }
         }
         let mut plan = RollbackPlan::default();
+        if fresh.is_empty() {
+            // Nothing new: leave the queue exactly as it is.
+            return plan;
+        }
         let mut batches = Vec::new();
         for entry in self
             .state
@@ -431,9 +431,17 @@ impl Sim {
                 batches.push(batch);
             }
         }
-        for b in batches {
-            self.submit(b);
-        }
+        let pending = std::mem::take(&mut self.state.kernel.pending);
+        let at = pending
+            .iter()
+            .position(|b| matches!(b.cause.kind, CauseKind::Rollback { .. }));
+        let mut keep: Vec<CommandBatch> = pending
+            .into_iter()
+            .filter(|b| !matches!(b.cause.kind, CauseKind::Rollback { .. }))
+            .collect();
+        let at = at.unwrap_or(keep.len());
+        keep.splice(at..at, batches);
+        self.state.kernel.pending = keep;
         plan
     }
 }

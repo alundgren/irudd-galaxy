@@ -287,6 +287,30 @@ fn overlapping_rollback_requests_undo_newest_first() {
 }
 
 #[test]
+fn duplicate_rollback_request_keeps_queue_order() {
+    // Re-check 2: a pending rollback must not move past a normal batch queued after it.
+    let kettle = StationId::from_static("station.kettle_dock");
+    let stage = |s: &Sim| s.world().stations.get(&kettle).unwrap().build.stage;
+    let mut s = fresh();
+    s.submit(script("a").with(Command::SetStationStage {
+        station: kettle.clone(),
+        stage: 1,
+    }));
+    step(&mut s);
+    let a = s.journal()[s.journal().len() - 1].cause;
+    assert_eq!(s.queue_rollback(&[a], "undo a").batches, 1);
+    s.submit(
+        CommandBatch::new(Cause::system("test", "later")).with(Command::SetStationStage {
+            station: kettle.clone(),
+            stage: 3,
+        }),
+    );
+    assert_eq!(s.queue_rollback(&[a], "undo a again").batches, 0);
+    step(&mut s);
+    assert_eq!(stage(&s), 3);
+}
+
+#[test]
 fn rejected_rollback_can_be_retried() {
     let mut s = fresh();
     s.submit(script("plus ten").with(Command::AdjustCredits { delta: 10 }));
