@@ -1,16 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "WorldState",
-  "description": "The whole simulated world.",
+  "description": "The whole simulated world. Missing stores load empty, so adding a store keeps\nolder saves loadable.",
   "type": "object",
   "properties": {
     "counters": {
       "description": "Activity counters that pace beats and unlocks (never clock time).",
-      "$ref": "#/$defs/ActivityCounters"
+      "$ref": "#/$defs/ActivityCounters",
+      "default": {
+        "player": {},
+        "regions": {},
+        "stations": {}
+      }
     },
     "factions": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Faction"
@@ -20,6 +26,7 @@
     "fields": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/RockField"
@@ -29,6 +36,7 @@
     "hulls": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Hull"
@@ -38,6 +46,7 @@
     "lanes": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Lane"
@@ -48,6 +57,7 @@
       "description": "One market per station that trades, keyed by station.",
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Market"
@@ -55,11 +65,17 @@
       }
     },
     "meta": {
-      "$ref": "#/$defs/WorldMeta"
+      "$ref": "#/$defs/WorldMeta",
+      "default": {
+        "format": 0,
+        "seed": 0,
+        "tick": 0
+      }
     },
     "npcs": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Npc"
@@ -67,11 +83,20 @@
       }
     },
     "player": {
-      "$ref": "#/$defs/Player"
+      "$ref": "#/$defs/Player",
+      "default": {
+        "credits": 0,
+        "flags": [],
+        "name": "",
+        "price_snapshots": {},
+        "ship": null,
+        "traits": []
+      }
     },
     "regions": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Region"
@@ -81,6 +106,7 @@
     "rock_types": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/RockType"
@@ -90,6 +116,7 @@
     "rocks": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Rock"
@@ -99,6 +126,7 @@
     "rumors": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Rumor"
@@ -108,6 +136,7 @@
     "ships": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Ship"
@@ -117,6 +146,7 @@
     "stations": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Station"
@@ -126,6 +156,7 @@
     "wares": {
       "type": "object",
       "additionalProperties": false,
+      "default": {},
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Ware"
@@ -133,24 +164,6 @@
       }
     }
   },
-  "required": [
-    "meta",
-    "player",
-    "regions",
-    "lanes",
-    "stations",
-    "markets",
-    "wares",
-    "hulls",
-    "rock_types",
-    "fields",
-    "rocks",
-    "ships",
-    "factions",
-    "npcs",
-    "rumors",
-    "counters"
-  ],
   "$defs": {
     "ActivityCounters": {
       "description": "Read-only activity counters per player, station and region.",

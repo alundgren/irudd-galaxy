@@ -19,8 +19,10 @@ use crate::verbs::OrderQueue;
 /// Bump when the world-state JSON changes incompatibly. Saves record it.
 pub const WORLD_FORMAT_VERSION: u32 = 1;
 
-/// The whole simulated world.
+/// The whole simulated world. Missing stores load empty, so adding a store keeps
+/// older saves loadable.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default)]
 pub struct WorldState {
     pub meta: WorldMeta,
     pub player: Player,
