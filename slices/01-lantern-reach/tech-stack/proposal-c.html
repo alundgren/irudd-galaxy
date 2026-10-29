@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lantern Reach — Tech Stack, Proposal C</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code, pre { font-family: ui-monospace, monospace; font-size: 16px; }
+code { overflow-wrap: anywhere; }
+pre { margin: 0 0 14px; white-space: pre; overflow-x: auto; line-height: 1.45; background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; }
+pre code { font-size: 15px; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="../../../design/index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Lantern Reach — tech stack, proposal C</h1>
+          <p class="summary">The slice runs as a custom engine: a Rust simulation that changes only with a release, a sandboxed Luau layer where the game master works live, and an optional local model that never sits on the frame. It targets this PC — Windows 11, RTX 5070 Ti (16 GB), i5-14400F, 32 GB RAM — and it plays with the network off. The code stays inside <code>slices/01-lantern-reach/</code> until a later release promotes it to <code>game/</code>.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#lines">One line per layer</a></li>
+              <li class="a-cyan"><a href="#base">Base engine</a></li>
+              <li class="a-amber"><a href="#script">Scripting layer</a></li>
+              <li class="a-purple"><a href="#boundary">Boundary and API</a></li>
+              <li class="a-green"><a href="#fast">Fast-model layer</a></li>
+              <li class="a-blue"><a href="#agents">Why agents can work here</a></li>
+              <li class="a-verm"><a href="#alts">Two stacks that lost</a></li>
+              <li class="a-amber"><a href="#risks">Risks and three prototypes</a></li>
+              <li class="a-cyan"><a href="#layout">Skeleton layout</a></li>
+            </ol>
+          </nav>
+          <p>Read first, and treated here as source of truth: <a href="../../../design/vertical-slice-lantern-reach.html">the Lantern Reach slice</a> (20 systems, 14 hooks, 7 shared interfaces, 8 live change types), <a href="../../../design/high-level-plan.html">the high-level plan</a>, and <a href="../../../research/fast-model-layer.html">the fast-model research</a>. This proposal answers the slice's open stack question in favor of a first cut of the custom engine, so the line between the two layers is real code.</p>
+
+          <section id="lines">
+            <h2 class="a-blue">One line per layer</h2>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Recommendation</span> <span class="t-acc a-green">Rust sim, Luau scripts, llama.cpp beside it.</span></h4>
+              <p>The base engine owns the step, the verbs, the price formula, saves, and the hook table. Luau revisions turn those hooks on, write world facts, and hot-reload at a dock or a pause. Utility AI keeps traders moving with the model deleted. One CLI is the game master's only door.</p>
+            </div>
+            <div class="tablewrap">
+              <table class="tbl a-blue">
+                <thead>
+                  <tr>
+                    <th>Layer</th>
+                    <th>Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Language and build</th>
+                    <td>A Cargo workspace. <code>sim</code> is safe Rust with no C toolchain. Luau is linked only into the script crate, via mlua's <code>luau</code> feature.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Simulation</th>
+                    <td>One thread, fixed 60 Hz step, stable ids, a <code>World</code> that clones. The harness is the only fast-forward.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Presentation</th>
+                    <td>winit plus a single wgpu textured-quad pipeline. Kira plays new audio. The pause card draws while <code>step</code> is idle.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Save</th>
+                    <td>A directory of JSON world, JSONL history, and a snapshot stack. The CLI speaks the same JSON. SQLite waits for the later sync.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Script language</th>
+                    <td>Luau, <code>--!strict</code>, with <code>galaxy.d.luau</code> shipped in the contracts. Two entry points: <code>on_apply</code> once, <code>on_load</code> to register.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Sandbox</th>
+                    <td>A fresh Luau state per revision, <code>Lua::sandbox</code>, no <code>io</code> / <code>os</code> / <code>debug</code>, an instruction budget, and writes only through <code>galaxy.*</code>.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Hot reload</th>
+                    <td>Three tiers. Kit files swap when they parse. Script revisions swap at a calm moment. The native binary changes only with a release and a restart.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Validation and rollback</th>
+                    <td>Six gates, then a JSON report. Apply stores a pre-image. Rollback restores that image, pops the revision, and appends a history fact.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Game-master contract</th>
+                    <td>The <code>lantern</code> CLI: read state and history, propose a revision, read the report, apply or roll back. No in-game inbox.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Fast model</th>
+                    <td>Utility AI in-process always. Optional <code>llama-server</code> sidecar, Qwen3.5-4B at Q4_K_M, JSON-schema output. OpenRouter stays off.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Authored content</th>
+                    <td>JSON under <code>content/</code> plays all 17 beats with zero scripts and zero model.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Agent loop</th>
+                    <td><code>cargo test</code> for the sim, <code>lantern harness bot</code> for the journey, <code>lantern gm propose</code> for a script. Feedback is the compiler plus the validation report.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="base">
+            <h2 class="a-cyan">Base engine</h2>
+            <p>The base is the part a release replaces. It is a library plus a thin host. The slice's twenty systems live here when they are rules, and in data or scripts when they are content. Rendering is a sprite batch on purpose: the experiment is the line between the layers, and a sketched top-down game needs one shader.</p>
+            <h3>Step, world, pause</h3>
+            <p>The host polls input into a plain struct and calls <code>sim::step</code> at 60 Hz while the game is running. A hitch drops steps. The world slows on screen and does not lurch forward to catch up. The harness calls <code>step</code> in a loop with no window, and that loop is the only fast-forward. Pause sets a flag the host already has: <code>step</code> is not called, looping sounds stop, and the pause card from Proto 6 stays up. Apply and rollback are legal while that card is up, and while the ship is docked.</p>
+            <p><code>World</code> is a struct of tables keyed by stable ids (<code>station:kettle-dock</code>, <code>fact:41</code>). Ids are monotonic integers minted by the base and stored in the save. They survive reload and are never reused. Iteration uses ordered maps so two clones with the same seed and the same inputs hash the same. Each system (market, rocks, utility tie-break) has its own SplitMix64 stream in the save. The sim crate has no thread, no system clock, and no <code>HashMap</code> in world state. A canonical hash of two forks is a test.</p>
+            <p>After each step the sim returns a queue of events. It does not call scripts itself. The script crate drains the queue, runs handlers, and pushes a command buffer. The sim applies that buffer before the next step and does not re-enter <code>step</code> from a handler. A script reaction is visible on the following step. Validation uses that same loop, so the delay in play is the delay in the report.</p>
+            <h3>What the base implements</h3>
+            <p>These behaviors ship in the binary. Scripts can turn them on, parameterize them, and record facts. They cannot replace the functions.</p>
+            <ul>
+              <li>Flight integration for arcade WASD that zeroes on key-up, plus the reserved control tiers (click to fly, click to mine, click to dock, map click, queues, loops). A tier stays dark until a mechanic flag is enabled.</li>
+              <li>The order executor for <code>fly</code>, <code>mine</code>, <code>dock</code>, <code>buy</code>, <code>sell</code>, <code>wait</code>, and <code>loop</code>, shared by the player ship, the automated craft, and scripted NPC craft.</li>
+              <li>Mining: three rock types, visible depletion, persistence, regrowth driven by activity counters.</li>
+              <li>Docking rings, holds, the six commodities, hullwright and dockmaster services.</li>
+              <li>The price function: producers, consumers, saturation, recovery by activity. Scouted prices are snapshots dated by the last visit.</li>
+              <li>Faction standing as stored memory of deeds. How a person treats you is content. The storage is base.</li>
+              <li>Pilot traits as a small set of qualitative modifiers the sim already understands, and the prestige rule that the world persists while hull ranks reset for a fee.</li>
+              <li>Activity counters per player, station, and region (dockings, deliveries, jumps, sessions). No clock is readable from script.</li>
+              <li>Save, clone, history, the hook dispatcher, the validator, and the revision stack.</li>
+            </ul>
+            <h3>Save</h3>
+            <p>The running game is the in-memory <code>World</code>. A save is a directory:</p>
+            <pre><code>saves/&lt;id&gt;/
+  world.json        current world, stable ids
+  history.jsonl     append-only facts
+  revisions.json    applied revision ids, newest last
+  snapshots/        one pre-image per live revision</code></pre>
+            <p>History is a log. The world is a snapshot. Rollback restores a pre-image and appends a fact; it does not delete lines from the log. Queries that drive the sim read the world. Queries the game master makes can see superseded facts. Rebuilding the world by replaying history is a bug, and a test loads a save that contains a rolled-back revision and checks the world matches the pre-image.</p>
+            <p>The CLI prints the same JSON it stores. Agents read files. They do not scrape a window. A later sync layer can replace the directory with SQLite behind a <code>SaveStore</code> trait. The sim never opens a database during <code>step</code>.</p>
+            <h3>Presentation</h3>
+            <p>W6 owns <code>host</code>. One textured-quad pipeline draws hulls, rocks, stations, and UI from the asset kit, addressed by id. Stations are assemblies of kit parts and a stage id, which is how Kettle Dock grows and how the sixth station is born without a new mesh format. Input is an <code>Input</code> frame. The sim never calls the OS. Audio is kira, and none of the rejected mining-beam or engine loops are imported. Silence plus a few new clips is a valid slice; the host just has a clock that pauses.</p>
+            <p>The host starts as colored quads. Art arrives at the last gate. The sim, the bot, and the script jail do not wait on shaders. wgpu is there so a later Mac or Linux build does not grow a second renderer. The slice itself ships a Windows launcher only.</p>
+            <h3>What a release is</h3>
+            <p>A release is a new native binary. It is required for a new order-verb implementation, a new price formula, a new hook, a new trait modifier the sim cannot already express, a flight-model change, a save migration that is more than adding a field, and any change to the renderer or the audio device. Hot-swapping that binary is out. The player restarts.</p>
+          </section>
+
+          <section id="script">
+            <h2 class="a-amber">Scripting layer</h2>
+            <p>The game master writes a revision: a JSON manifest plus a Luau file. The CLI validates it. At a calm moment the host applies it. The authored backbone under <code>content/</code> already plays the journey, so a rejected revision leaves a complete game.</p>
+            <h3>Why Luau</h3>
+            <p>Luau is the live language because untrusted game scripts are what it is for, and because agents already write Lua. mlua's <code>luau</code> feature embeds the official language, and <code>Lua::sandbox</code> locks the state down. <code>--!strict</code> plus a <code>galaxy.d.luau</code> definition file checks calls against the hook list. The script crate is the one place the workspace needs a C++ toolchain, to compile Luau. <code>sim</code> builds without it.</p>
+            <p>Rhai would keep the whole workspace in Rust and has real operation limits. It loses because the live layer is the language written every session, and Luau is the one the game master and the coding agents already produce. Wasmtime is the stronger jail and the wrong edit loop: a live change would be a compile. It stays a later option if a revision ever comes from outside this one operator. A pure-Rust Luau VM is too new to bet the slice on.</p>
+            <h3>Two entry points</h3>
+            <p><code>on_apply</code> runs once, in the sandbox fork and then on the real world. Its writes are facts. They persist in the save. <code>on_load</code> runs whenever the revision is active: after apply, and after every load. It may register handlers, beats, and fast-model briefs. The validator rejects a world write inside <code>on_load</code>, which is what stops a shortage from being applied a second time when the save opens.</p>
+            <p>A revision that replaces another must roll the old one back in the same calm moment. The past facts stay in the log, marked superseded. There is no silent merge of two live writers.</p>
+            <h3>Sandbox</h3>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Jail</span> <span class="t-acc a-amber">The script sees <code>galaxy</code> and a pure standard library.</span></h4>
+              <ul class="marks a-amber">
+                <li><span class="chip a-amber" aria-hidden="true">1</span> Fresh Luau state per revision. <code>Lua::sandbox</code>. Libraries present: <code>math</code>, <code>string</code>, <code>table</code>. Absent: <code>io</code>, <code>os</code>, <code>debug</code>, <code>package</code>, and any file or network loader.</li>
+                <li><span class="chip a-amber" aria-hidden="true">2</span> An instruction interrupt. <code>on_apply</code> has a budget for the load. Each event handler has a tighter one. Over budget during validation rejects the revision. Over budget during play logs the failure and skips that handler. The sim keeps stepping.</li>
+                <li><span class="chip a-amber" aria-hidden="true">3</span> Values that cross the boundary are ids, numbers, strings, and plain tables. No userdata pointing into <code>World</code>. Handlers cannot hold the world across a step.</li>
+                <li><span class="chip a-amber" aria-hidden="true">4</span> Every write is tagged with the revision id by the host. The script does not supply its own cause string.</li>
+              </ul>
+            </div>
+            <h3>Hot reload, three tiers</h3>
+            <div class="tablewrap">
+              <table class="tbl a-amber">
+                <thead>
+                  <tr>
+                    <th>Tier</th>
+                    <th>What moves</th>
+                    <th>When it lands</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Kit and content files</th>
+                    <td>Sprites, stage lists, authored JSON</td>
+                    <td>When the file parses. A bad file keeps the last good sprite or table, as Proto 6 did.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Script revision</th>
+                    <td>Manifest plus Luau</td>
+                    <td>After the six gates, at a dock or a pause. Old handlers unregister, then <code>on_apply</code> and <code>on_load</code> run.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Native binary</th>
+                    <td>Sim, host, validator, verb code</td>
+                    <td>A release. The process restarts. No hot swap.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>Validation</h3>
+            <p>Every revision, including the eight live changes and the one deliberate reject, walks the same gates. The report is JSON. A failed gate stops the walk.</p>
+            <ol class="steps a-amber">
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">1</span>
+                <div>
+                  <strong>Schema and types</strong>
+                  <p>The manifest matches <code>script-manifest.schema.json</code>. The hook list is a subset of the fourteen. Luau parses, <code>--!strict</code> passes against <code>galaxy.d.luau</code>, and a host walk rejects any call outside <code>galaxy.*</code>.</p>
+                </div>
+              </li>
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">2</span>
+                <div>
+                  <strong>Canon</strong>
+                  <p>Cited nodes exist in the small Ancients graph. Terms reserved by uncited nodes fail the gate. Chapter one at Glass Drift can open. A later chapter cannot sneak in.</p>
+                </div>
+              </li>
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">3</span>
+                <div>
+                  <strong>Invariants</strong>
+                  <p>A shock names an opportunity. The manifest names a place and a person that exist. Static bans cover timers, level-scaling fields, and destruction of player property. The dynamic half of this gate runs after the sandbox.</p>
+                </div>
+              </li>
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">4</span>
+                <div>
+                  <strong>Sandbox run</strong>
+                  <p>Clone the world, run <code>on_apply</code> and <code>on_load</code>, then fast-forward headless on utility AI with the model off. Prices stay inside the bands telemetry already records. The bot can still reach the next authored beat. Player property ids are still present.</p>
+                </div>
+              </li>
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">5</span>
+                <div>
+                  <strong>Legibility</strong>
+                  <p>Every <code>lines.post</code> in that run carried a fact id that existed at post time, and a place and a person. A change nobody could meet fails here.</p>
+                </div>
+              </li>
+              <li class="card a-amber">
+                <span class="num" aria-hidden="true">6</span>
+                <div>
+                  <strong>Calm apply</strong>
+                  <p>The host is docked or paused. The pre-image is stored, then <code>on_apply</code> runs on the real world. Mid-flight, the revision stays proposed and the CLI exits with a distinct status. The report says which gate failed.</p>
+                </div>
+              </li>
+            </ol>
+            <pre><code>{
+  "revision": "sha256:…",
+  "ok": false,
+  "gates": [
+    {"name": "schema", "ok": true},
+    {"name": "canon", "ok": true},
+    {"name": "invariants", "ok": false, "detail": "shock has no opportunity"}
+  ]
+}</code></pre>
+            <h3>Rollback</h3>
+            <p>Rollback is an in-world act, not a file revert. At a calm moment the host restores that revision's pre-image, unregisters its handlers, appends a <code>revision_rolled_back</code> fact, and posts a chronicle line that cites it. The script file stays on disk so the agent can read the report and propose again. History keeps the failed attempt. The world no longer shows it. The stack pops one revision at a time, newest first, and the pre-images live in the save so a reload does not forget them.</p>
+          </section>
+
+          <section id="boundary">
+            <h2 class="a-purple">Boundary and API</h2>
+            <p>Question 7 of the slice is this section. A live change ships as a script. Anything that needed a new native function is listed, and it waits for a release. The eight slice changes all fit on the script side: station growth, a shortage, territory, a rumor, enabling a reserved verb with a teacher, Ancients chapter one, the sixth station assembled from the kit, and the chronicle.</p>
+            <div class="pair">
+              <div class="card a-cyan">
+                <h4 class="card-title"><span class="tag a-cyan">Base</span> <span class="t-acc a-cyan">Release only</span></h4>
+                <ul class="marks a-cyan">
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> Step, pause, ids, clone, save, history log</li>
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> Flight, order executor, mining math, price formula</li>
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> Trait modifiers and the prestige reset rule</li>
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> The hook table, the validator, the snapshot stack</li>
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> Window, sprites, audio device, input frame</li>
+                  <li><span class="chip a-cyan" aria-hidden="true">•</span> Utility AI and the fast-model client</li>
+                </ul>
+              </div>
+              <div class="card a-purple">
+                <h4 class="card-title"><span class="tag a-purple">Scripts</span> <span class="t-acc a-purple">Live, after the gates</span></h4>
+                <ul class="marks a-purple">
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> Beats, shortages, disputes, rumors, chronicle lines</li>
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> Market levers: scale producers and consumers, add stock</li>
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> Enabling a reserved mechanic flag, plus the teacher beat</li>
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> Kit stage and variant by id, including a new station of a known type</li>
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> Faction reactions and which deeds are remembered</li>
+                  <li><span class="chip a-purple" aria-hidden="true">•</span> NPC briefs and per-region fast-model budgets</li>
+                </ul>
+              </div>
+            </div>
+            <h3>The call list</h3>
+            <p>Scripts call this and nothing else. Writes return a fact id minted by the host. Reads return plain tables.</p>
+            <div class="tablewrap">
+              <table class="tbl a-purple">
+                <thead>
+                  <tr>
+                    <th>Hook</th>
+                    <th>Script call</th>
+                    <th>Rights</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Event hooks</th>
+                    <td><code>galaxy.events.on(name, fn)</code></td>
+                    <td>Subscribe. Names: dock, undock, mine, rock_depleted, buy, sell, scout, order_done, quest_step, trait_earned, prestige. Payload is ids.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Activity counters</th>
+                    <td><code>galaxy.counters.get(scope, id, name)</code></td>
+                    <td>Read.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">World stores</th>
+                    <td><code>get</code>, <code>patch</code>, <code>create</code></td>
+                    <td>Typed read and write. <code>create</code> takes a type id that already exists in the catalog or the kit.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Player history</th>
+                    <td><code>galaxy.history.query(filter)</code></td>
+                    <td>Read. Append happens inside every write.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Canon graph</th>
+                    <td><code>galaxy.canon.cite(node)</code></td>
+                    <td>Read. Citing a missing node fails the revision.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Market levers</th>
+                    <td><code>scale_producer</code>, <code>scale_consumer</code>, <code>add_stock</code></td>
+                    <td>Write. The price formula stays native.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Mechanic registry</th>
+                    <td><code>galaxy.mechanics.enable(flag)</code></td>
+                    <td>Write a per-save flag the base already reserved. An unknown flag fails validation.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Order verbs</th>
+                    <td><code>galaxy.orders.issue(actor, verb, args)</code></td>
+                    <td>Issue a verb the executor already implements.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Asset kit</th>
+                    <td><code>galaxy.kit.set_stage(id, stage, variant)</code></td>
+                    <td>Write. Parts come from the kit manifest.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Beat API</th>
+                    <td><code>beats.register</code>, <code>beats.mark</code></td>
+                    <td>Register preconditions and an end state. Mark progress with a fact id.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Legibility</th>
+                    <td><code>galaxy.lines.post(channel, line)</code></td>
+                    <td>Write a dock line, map note, or chronicle entry. <code>text</code>, <code>fact</code>, <code>place</code>, and <code>person</code> are required.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Fast-model budget</th>
+                    <td><code>fast.set_budget</code>, <code>fast.set_brief</code></td>
+                    <td>Write menus, bands, and a per-region call budget. The model is not invoked from Lua.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Sandbox and snapshots</th>
+                    <td>Host only</td>
+                    <td>Fork, fast-forward, compare, restore. Scripts cannot call these.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Telemetry</th>
+                    <td>Host and CLI only</td>
+                    <td><code>lantern gm metrics</code> reads economy and activity per region. The sandbox gate reads the same numbers.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <h3>A revision, the short form</h3>
+            <p>Ice shortage, one of the eight. The manifest carries the shock, the opportunity, and where a person will say it. The host sets <code>g.fact</code> to the fact id for this apply. The script only calls hooks. The beat id is registered by the revision, and the end state is one the authored backbone can already complete.</p>
+            <pre><code>{
+  "id": "shortage-ice-shallows",
+  "cause": "Heavy ice mining in the Shallows",
+  "place_id": "station:kettle-dock",
+  "person_id": "npc:dockmaster",
+  "shock": "Ice runs short at three stations",
+  "opportunity": "Bring ice, or sell rations to the greenhouse",
+  "canon": [],
+  "hooks": ["market", "lines", "events", "beats"]
+}</code></pre>
+            <pre><code>--!strict
+function on_apply(g)
+  g.market.scale_producer("station:shallows-field", "ice", 0.4)
+  g.lines.post("chronicle", {
+    text = "The ice field is thin. Kettle Dock will pay for a load.",
+    fact = g.fact,
+    place = "station:kettle-dock",
+    person = "npc:dockmaster",
+  })
+end
+
+function on_load(g)
+  g.beats.register({
+    id = "shortage-ice",
+    when = { event = "rock_depleted", commodity = "ice" },
+    end_state = "ice delivered to kettle dock",
+  })
+  g.events.on("rock_depleted", function(e)
+    if e.commodity == "ice" then
+      g.beats.mark("shortage-ice", e.fact)
+    end
+  end)
+end</code></pre>
+            <h3>Seven contracts</h3>
+            <p>W1 owns these files. Other workstreams change them by a contract edit, not by reaching past them. Each schema has fixtures. A Rust test loads the fixtures and rejects a sample that drifts. No code generator sits in the middle.</p>
+            <ul>
+              <li><code>world-state.schema.json</code> — stable ids for stations, rocks, ships, NPCs, factions, facts.</li>
+              <li><code>events.schema.json</code> — event names, payloads, and the activity counters.</li>
+              <li><code>order-verb.schema.json</code> — the shared verb set and its arguments.</li>
+              <li><code>galaxy.d.luau</code> plus the hook table above — the only surface scripts can reach.</li>
+              <li><code>script-manifest.schema.json</code> and <code>validation-report.schema.json</code> — proposal in, report out, invariants included.</li>
+              <li><code>asset-manifest.schema.json</code> — sprite slots, station stages, variants, by id.</li>
+              <li><code>text-channel.schema.json</code> — every line cites a history fact.</li>
+            </ul>
+          </section>
+
+          <section id="fast">
+            <h2 class="a-green">Fast-model layer</h2>
+            <p>The fast layer is a client behind a Rust trait, not a library inside Luau. The game master sets briefs and budgets through <code>galaxy.fast</code>. The sim decides when a decision exists. The frame never waits on a model.</p>
+            <ol class="flow">
+              <li class="node a-purple">
+                <strong>Script sets the brief</strong>
+                <p>Goals, temperament, allowed actions, limits, knowledge, voice, and what is off limits. A call budget per region.</p>
+              </li>
+              <li class="edge">↓ stored on the NPC or the region</li>
+              <li class="node a-green">
+                <strong>Something happens near the player</strong>
+                <p>A dock, a jump, a ship you can see. Background craft stay on utility AI. There is no per-tick poll.</p>
+              </li>
+              <li class="edge">↓</li>
+              <li class="node a-amber">
+                <strong>Utility AI scores the menu</strong>
+                <p>Deterministic given the world. This result is already legal. Routes and cargo commit it on this step if no model answer is already waiting.</p>
+              </li>
+              <li class="edge">↓ batch at the quiet moment</li>
+              <li class="node a-verm">
+                <strong>Sidecar, if it is on and inside budget</strong>
+                <p>llama-server, CUDA build, Qwen3.5-4B at Q4_K_M. The request is a grounding packet and a JSON schema. The answer is an action id from the menu, plus a short line only when the channel is talk.</p>
+              </li>
+              <li class="edge">↓</li>
+              <li class="node a-cyan">
+                <strong>Six checks, then the world</strong>
+                <p>Shape, ids from the packet, preconditions, the brief's bands, text length and banned canon terms. A failure keeps the utility choice and an authored line. No retry loop.</p>
+              </li>
+              <li class="edge">↓</li>
+              <li class="node a-blue terminal">
+                <strong>History</strong>
+                <p>The outcome is a fact. The game master reads it later with <code>lantern gm history</code>. Dock talk stays silent when no line passed. Silence is the authored behavior.</p>
+              </li>
+            </ol>
+            <p>The research's starting setup is the one this slice uses. Utility AI is the base, so the game is complete with the sidecar absent. The local model is Qwen3.5-4B at Q4_K_M, Apache-2.0, with weights the research estimates near 3 GB, inside a 4–6 GB VRAM budget that leaves the card to the game. The runtime is llama-server, shipped as a sidecar the host starts on a free port and stops on exit. Players install nothing. Gemma 4 E4B is the alternate weight if a measured run says Qwen is the wrong small model. OpenRouter, including a cheap structured model or TypeSafe Jev for typed choices, is a third implementation of the same trait and defaults to off. The slice's offline pass is the utility path.</p>
+            <p>World-affecting choices do not upgrade late. If the model answer is not ready when the step commits, utility stands, which avoids a route that flickers. Dock lines can wait until the next calm moment and then say nothing if the check failed. The same NPC, the same facts, and the same menu reuse a cached answer. A regional budget the script set, once spent, leaves utility in charge for the rest of that activity period.</p>
+            <p>The 2D host should be a small neighbor on a 16 GB card. That is a hope until prototype 3 measures frame time with the sidecar resident and with it killed. The sim thread never calls the server. A dead sidecar is the toggle switching off.</p>
+          </section>
+
+          <section id="agents">
+            <h2 class="a-blue">Why agents can work here</h2>
+            <p>Most of the code will be written by agents. The stack gives them a closed door for each kind of change, and a command that tells them they are wrong.</p>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">CLI</span> <span class="t-acc a-blue">One binary, three jobs.</span></h4>
+              <pre><code>lantern play
+lantern gm state --json
+lantern gm history --since fact:40 --json
+lantern gm propose scripts/shortage-ice/
+lantern gm apply sha256:…
+lantern gm rollback sha256:…
+lantern gm metrics --region cinder --json
+lantern harness bot --from beat-1 --to beat-17
+lantern harness jump beat-9</code></pre>
+              <p>Propose prints the validation report and does not apply. Apply refuses unless the session is docked or paused. There is no second integration for a named coding assistant. A later MCP wrapper can shell out to this CLI.</p>
+            </div>
+            <h3>Tests and the headless sim</h3>
+            <p><code>cargo test -p sim</code> needs no window, no GPU, and no Luau. It covers the pause (zero steps), the save round-trip (same ids), and two forks (same canonical hash). <code>cargo test -p script</code> runs the good examples and the bad fixture: a timer, a missing fact, a canon slip, a destroyed hold, a shock with no opportunity, an unknown hook, a write inside <code>on_load</code>. <code>lantern harness bot</code> is the shared journey test from the slice, run against the authored backbone with the fast model off. Jump-to-beat saves let an agent land on act 3 without playing act 1 by hand. The debug overlay is a host flag for Andreas. Agents use the JSON.</p>
+            <p>The sim API takes ids and plain structs and returns the same. No lifetimes cross a crate boundary. Agents that fight the borrow checker are almost always reaching into <code>World</code> from the wrong crate, and the fix is a command, not <code>unsafe</code>. <code>sim</code> forbids unsafe. Script FFI stays inside the script crate.</p>
+            <h3>Who touches what</h3>
+            <p>Dependencies point one way. <code>script</code> does not depend on <code>host</code>, so the jail runs headless. <code>host</code> does not depend on <code>harness</code>.</p>
+            <div class="tablewrap">
+              <table class="tbl a-blue">
+                <thead>
+                  <tr>
+                    <th>Stream</th>
+                    <th>Owns</th>
+                    <th>Stays out of</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">W1</th>
+                    <td><code>sim</code> core, save, <code>contracts/</code></td>
+                    <td>Shaders, scripts</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">W2</th>
+                    <td>Flight, orders, mining, dock, automated craft</td>
+                    <td>Price formula, Luau</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">W3</th>
+                    <td>Market, map, scouting</td>
+                    <td>Verb executor</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">W4</th>
+                    <td>Beats, factions, traits, prestige, <code>content/</code></td>
+                    <td>Renderer</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">W5</th>
+                    <td><code>script</code>, <code>gm</code>, <code>fast</code>, <code>scripts/</code></td>
+                    <td>Native verb code</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">W6</th>
+                    <td><code>host</code>, <code>assets/</code>, <code>harness</code>, launcher</td>
+                    <td>Hook semantics</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>A stub build boots when every system returns defaults, which is the slice's gate 0. The bot stays green at every merge. Tests run on this PC. The stack does not add a CI workflow.</p>
+          </section>
+
+          <section id="alts">
+            <h2 class="a-verm">Two stacks that lost</h2>
+            <p>Both would ship a window sooner. Both leave the engine line soft, which is the question this slice is here to answer.</p>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Lost</span> <span class="t-acc a-verm">Godot 4, C# for systems, GDScript for the live layer</span></h4>
+              <p>Godot already has a headless mode, a desktop export, and live script reload. It is the right place to judge flight feel if the custom engine were not the point. It loses here because the release-only side would be Godot itself. A GDScript revision can reach the scene tree, the filesystem, and nodes that were never in the fourteen hooks. Cloning a scene for a sandbox fork keeps signals and hidden state, so rollback cannot mean "restore this struct." The slice would finish without ever drawing the line it is supposed to prove.</p>
+            </div>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Lost</span> <span class="t-acc a-verm">C# and MonoGame for the base, NLua for scripts</span></h4>
+              <p>This is the serious rival. Agents write C# fluently, <code>dotnet test</code> is a fine headless loop, and MonoGame is a honest sprite host. It loses because the base and the scripts share a runtime. The path of least resistance for a new verb is a new managed assembly, which is the DLL-shaped mod the plan rules out. Rollback then has to unwind delegates and events, not restore a value. Lua under NLua can be fenced, and the fence will not hold once both sides are one GC heap and one debugger. Rust makes the illegal reach annoying in the compiler, which is the property the agent loop needs on the base. C# would win if the goal were the fastest first playable and the engine line could stay a document.</p>
+            </div>
+            <p>The web stack in the high-level plan (Tauri or a page) stays out for the reason already written there: flight, pause, and a game that is lived in sit poorly in a webview, and a JavaScript game master inside a JavaScript game has no separate jail. The HTML toys were already rejected as presentations.</p>
+          </section>
+
+          <section id="risks">
+            <h2 class="a-amber">Risks and three prototypes</h2>
+            <p>The order is the de-risking order. Prototype 1 is playable with the script crate absent. If the jail fails, the hands-on ship can still be judged, which keeps the engine experiment parallel to the game as the plan requires.</p>
+            <div class="tablewrap">
+              <table class="tbl a-amber">
+                <thead>
+                  <tr>
+                    <th>Risk</th>
+                    <th>What it looks like</th>
+                    <th>What holds it</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Borrow-checker churn</th>
+                    <td>Agents spend their turns on lifetimes in the base and avoid the game.</td>
+                    <td>Ids and command buffers cross crates. <code>sim</code> forbids unsafe. Daily game-master edits are Luau, which does not have lifetimes.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Types mistaken for proof</th>
+                    <td><code>--!strict</code> is green and the economy still runs away.</td>
+                    <td>The sandbox fast-forward and the price bands are the gate. The typecheck is only gate 1.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Flaky forks</th>
+                    <td>A <code>HashMap</code> or a clock read makes two sandboxes disagree, and someone disables the test.</td>
+                    <td>Ordered maps, per-system RNG, no clock in <code>sim</code>. The hash test is part of prototype 1.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Double-apply on load</th>
+                    <td>A shortage script runs again when the save opens and the field collapses twice.</td>
+                    <td><code>on_load</code> cannot write. A test loads the same save twice and compares hashes.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">GPU fight</th>
+                    <td>llama-server and the frame stall each other on the 5070 Ti.</td>
+                    <td>Prototype 3 measures both. The sim never awaits the server. Killing the sidecar leaves utility AI.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Contract drift</th>
+                    <td>Six workstreams invent a fifteenth hook in a system file.</td>
+                    <td>Fixtures plus the allowlist. A new hook is a W1 contract change and a release.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">C++ toolchain</th>
+                    <td>Luau fails to compile on a machine that only has rustup.</td>
+                    <td>The C++ dependency is confined to the script crate. Prototype 1 links nothing but Rust.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Rollback that lies</th>
+                    <td>Numbers return and the station art does not, or the chronicle pretends it never happened.</td>
+                    <td>The pre-image includes kit stage. Rollback appends a fact and posts a line.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ol class="steps a-green">
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">1</span>
+                <div>
+                  <strong>Headless Wren loop</strong>
+                  <p>Fixed step, real pause, one ship, one rock, dock, sell, save, load. Stable ids. Two forks of one seed match. A Rust bot flies it. A window is optional and can be colored quads. No Luau yet. This is the hands-on ship the prototypes asked for, and it is the deterministic core the later gates sit on.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">2</span>
+                <div>
+                  <strong>Script jail</strong>
+                  <p>One revision adds stock at Kettle Dock when ice is delivered. One bad revision is rejected with a report. A second revision hot-reloads at pause without a native rebuild. Rollback restores the market hash and leaves a chronicle line. This is the engine line in miniature.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">3</span>
+                <div>
+                  <strong>Fast sidecar</strong>
+                  <p>Utility AI picks a trader route. With the sidecar up, Qwen3.5-4B returns a schema-constrained pick while a sprite keeps moving. Kill llama-server and the route still resolves. Record frame time with the model resident and with it gone, on this PC, before any later weight is considered.</p>
+                </div>
+              </li>
+            </ol>
+          </section>
+
+          <section id="layout">
+            <h2 class="a-cyan">Skeleton layout</h2>
+            <p>The slice grows into this tree. Prototype 1 creates <code>crates/sim</code>, the save directory shape, and a bot stub. The rest appears as the gates need it. Nothing here is imported by <code>game/</code>. Promotion is a later release.</p>
+            <pre><code>slices/01-lantern-reach/
+  Cargo.toml                  workspace
+  rust-toolchain.toml
+  README.md                   play.cmd and the lantern CLI
+  contracts/                  W1. The seven schemas, galaxy.d.luau, fixtures
+    world-state.schema.json
+    events.schema.json
+    order-verb.schema.json
+    script-manifest.schema.json
+    validation-report.schema.json
+    asset-manifest.schema.json
+    text-channel.schema.json
+    galaxy.d.luau
+    fixtures/
+  crates/
+    sim/                      W1–W4. No window, no Luau, no unsafe
+      src/world.rs            ids, stores, hash
+      src/step.rs             fixed step, event queue, command apply
+      src/save.rs             directory save, snapshot stack
+      src/flight.rs           W2
+      src/orders.rs
+      src/mining.rs
+      src/dock.rs
+      src/craft.rs
+      src/market.rs           W3
+      src/map.rs
+      src/beats.rs            W4
+      src/factions.rs
+      src/traits.rs
+      src/prestige.rs
+    host/                     W6. winit, wgpu sprite batch, kira, pause card
+    script/                   W5. Luau vm, six gates, rollback
+    gm/                       W5. binary `lantern`, gm subcommands
+    fast/                     W5. utility AI, llama-server client, OpenRouter off
+    harness/                  W6. journey bot, jump-to-beat
+  content/                    authored backbone, plays with zero scripts
+    regions/ stations/ commodities/ factions/
+    beats/ npcs/ hulls/ canon/ traits/
+  assets/                     kit by id: hulls, station parts, rocks, ui, audio
+  scripts/
+    examples/                 the eight live changes, one directory each
+    rejected/                 one bad revision the suite must fail
+  launcher/
+    play.cmd                  starts `lantern play` on this PC
+  saves/                      gitignored run data</code></pre>
+            <p>Each example revision is a directory with <code>manifest.json</code> and <code>revision.luau</code>. The bad one lives under <code>scripts/rejected/</code> and is a permanent test, not a sample to delete once it fails. The README tells an agent the three commands that matter: <code>cargo test</code>, <code>lantern harness bot</code>, and <code>lantern gm propose</code>.</p>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>
