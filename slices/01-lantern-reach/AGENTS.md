@@ -62,7 +62,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
 | `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
 | `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
-| `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
+| `crates/progress` | `galaxy-progress` | W4 | Beat runtime, standing and regard, pilot traits, hull ranks, prestige, station services, modifiers. See "Progress". |
 | `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
 | `crates/gm` | | W5 | Game-master bridge: live socket, `gm propose`/`rollback`, sandbox run. |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
@@ -211,10 +211,40 @@ the change's facts, in dock talk and the chronicle.
 
 **Adding a hook function**: add a `FnDef` to `contract::api::FUNCTIONS` (and a
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
-`cargo xtask contract`. Reserved capabilities (`market.levers`, `orders.write`,
-`kit.write`, `beats.write`, `canon.*`, `mechanics.write`, `mind.write`,
-`telemetry.read`) are the extension points for the other workstreams: flip
-`available`, add the functions, and declaring them stops being an error.
+`cargo xtask contract`. W4's hooks (`beats.*`, `orders.*`, `mechanics.*`,
+`market.levers`, `standing.*`, `traits.read`, `pacing.*`) live in
+`crates/script/src/ctx/progress.rs`. The reserved capabilities left (`kit.write`,
+`canon.*`, `mind.write`, `telemetry.read`) are the extension points for the other
+workstreams: flip `available`, add the functions, and declaring them stops being an
+error.
+
+## Progress (W4)
+
+`galaxy-progress` is native Rust; the journey itself is Luau in `packs/core`.
+
+- **Register** `galaxy_progress::ProgressSystem` after the ship and economy systems,
+  and load `packs/core` into the `ScriptHost` (it runs the beats). The system turns
+  `PlayerInput::services` (fit an upgrade, build a tender, prestige) into one atomic
+  batch each, and after anything happens pays faction deeds, earns traits and the
+  current hull's next rank. Check a purchase first with `services::check` / `offers`.
+- **Beats**: `G.beat { id, act, goal, requires, steps, done, rewards, on_* }` in
+  `G.script { beats = { ... } }` (needs `beats.write`). Requirements are data built
+  with `G.*` helpers (`G.done`, `G.counter`, `G.fact`, `G.cargo`, `G.test(fn)` ...),
+  never time; numbers can be `G.tunable(id)` from `pacing.toml`. State lives in
+  `world.progress.beats` by stable ID, so beats survive save, load and hot reload.
+  Facts: `beat_started`, `quest_step` (the next step; `quest` is the beat ID),
+  `beat_completed`. The HUD's line is `galaxy_progress::beats::hud_goal`. Worked
+  examples: `packs/core/scripts/act1.luau` (b01-b03).
+- **Data** (all `packs/core/data/`): `upgrades.toml` (upgrades and tenders, costs,
+  sellers, unlock requirements, granted `cap.*` flags, modifiers), `controls.toml`
+  (capabilities, tiers, reserved slots), `traits.toml`, `[[rank]]` in `hulls.toml`,
+  `[[regard]]` / `[[deed]]` / `[standing]` in `factions.toml`, and `pacing.toml`
+  (tunables and `[prestige]`). The core loader checks every reference.
+- **Effects**: traits, fittings and ranks only ever add up to the fixed `Modifier`
+  list; read a ship's totals with `galaxy_progress::modifiers::for_ship`.
+- **Standing** is hidden; show `standing::tier` (regard). Change it only through
+  `standing::Deeds` (or `ctx.standing:deed`), which clamps, applies trait bonuses and
+  writes `standing_changed` / `regard_changed`.
 
 ## IDs
 

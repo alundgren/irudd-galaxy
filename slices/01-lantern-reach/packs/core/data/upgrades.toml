@@ -3,7 +3,8 @@
 # `unlock` holds; unlocks are activity counts, history or beats, never time. Fitting
 # writes `upgrade_fitted`, and each capability it grants writes `cap_unlocked`.
 # Fittings are never removed and move to a new hull at prestige.
-# Requirements: crates/contract/schemas/data-upgrades.json (`Requirement`).
+# Requirements: crates/contract/schemas/data-upgrades.json (`Requirement`). A number
+# can be `{ tunable = "id" }` to share a threshold with a beat (pacing.toml).
 
 [[upgrade]]
 id = "upgrade.mining_lens"
@@ -26,7 +27,7 @@ grants = ["cap.click_fly"]
 [upgrade.unlock]
 all = [
     { beat_done = "beat.b05_pause" },
-    { counter = { kind = "dockings", at_least = 6 } },
+    { counter = { kind = "dockings", at_least = { tunable = "b06.dockings" } } },
 ]
 
 [[upgrade]]

@@ -277,6 +277,29 @@ fn requirement(
     errors: &mut Vec<String>,
 ) {
     use Requirement as R;
+    use galaxy_contract::progress::Num;
+    let num = |n: &Num, errors: &mut Vec<String>| {
+        if let Num::Tunable { tunable } = n
+            && !world
+                .progress
+                .tunables
+                .get(tunable)
+                .is_some_and(|t| t.value.as_number().is_some())
+        {
+            errors.push(format!(
+                "{what}: requirement reads tunable `{tunable}`, which isn't a number in pacing.toml"
+            ));
+        }
+    };
+    match req {
+        R::Counter { at_least, .. }
+        | R::Facts { at_least, .. }
+        | R::Sum { at_least, .. }
+        | R::Credits { at_least }
+        | R::Cargo { at_least, .. }
+        | R::HoldFree { at_least } => num(at_least, errors),
+        _ => {}
+    }
     let mut bad = |kind: &str, id: &dyn std::fmt::Display| {
         errors.push(format!("{what}: requirement names unknown {kind} `{id}`"));
     };

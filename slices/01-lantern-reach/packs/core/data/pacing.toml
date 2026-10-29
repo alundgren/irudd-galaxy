@@ -11,8 +11,6 @@ profile = "slice"
 "b02.ice" = 20
 # b03: the first delivery to Kettle Dock's greenhouse.
 "b03.ice" = 20
-"b03.reward" = 120
-"b03.coop_standing" = 5
 # b06's precondition and the nav chip's unlock share it.
 "b06.dockings" = 6
 # b16 and the prestige offer.
