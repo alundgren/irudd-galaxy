@@ -1,0 +1,16 @@
+# Named people. PROVISIONAL: the content spec adds the rest (about 10 in the slice).
+# Schema: crates/contract/schemas/data-npcs.json
+
+[[npc]]
+id = "npc.ilse"
+name = "Ilse"
+role = "dockmaster"
+faction = "faction.wharf_cooperative"
+location = "station.lantern_wharf"
+
+[[npc]]
+id = "npc.hullwright"
+name = "The hullwright"
+role = "hullwright"
+faction = "faction.wharf_cooperative"
+location = "station.lantern_wharf"

@@ -1,0 +1,30 @@
+# Hulls. PROVISIONAL numbers: the content spec replaces them.
+# Speeds are world units per second and mining rates units per second, both at the
+# nominal 30 ticks per second.
+# Schema: crates/contract/schemas/data-hulls.json
+
+[[hull]]
+id = "hull.wren"
+name = "Wren"
+tier = 0
+hold_capacity = 20
+max_speed = 140.0
+mining_rate = 4.0
+
+# Hearthbound branch: hauler that pairs with automation.
+[[hull]]
+id = "hull.tandem"
+name = "Tandem"
+tier = 1
+hold_capacity = 60
+max_speed = 110.0
+mining_rate = 4.0
+
+# Hearthbound branch: scout with longer price reach.
+[[hull]]
+id = "hull.heron"
+name = "Heron"
+tier = 1
+hold_capacity = 24
+max_speed = 190.0
+mining_rate = 3.0

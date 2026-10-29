@@ -1,0 +1,86 @@
+# The five authored stations (the sixth is grown live by the game master).
+# PROVISIONAL positions and market numbers: the content spec replaces them.
+# Market prices default from the ware's base_price (min = base / 2, max = base * 2).
+# production / consumption are units per market step; W3 defines the step from
+# activity, never from a clock.
+# Schema: crates/contract/schemas/data-stations.json
+
+# Home station: dockmaster Ilse, the hullwright, buys iron.
+[[station]]
+id = "station.lantern_wharf"
+name = "Lantern Wharf"
+region = "region.lantern_shallows"
+position = { x = -200.0, y = 150.0 }
+dock_radius = 60.0
+owner = "faction.wharf_cooperative"
+services = ["market", "dockmaster", "hullwright"]
+market = [
+    { ware = "ware.iron_ore", stock = 20, consumption = 2 },
+    { ware = "ware.ice", stock = 10 },
+    { ware = "ware.rations", stock = 40 },
+    { ware = "ware.refined_plate", stock = 15, production = 1 },
+]
+
+# Greenhouse co-op that grows in stages from the ice and plate you bring.
+[[station]]
+id = "station.kettle_dock"
+name = "Kettle Dock"
+region = "region.lantern_shallows"
+position = { x = 700.0, y = -450.0 }
+dock_radius = 50.0
+owner = "faction.wharf_cooperative"
+services = ["market"]
+stage = 0
+parts = ["part.kettle.core"]
+market = [
+    { ware = "ware.ice", stock = 0, price = 12, consumption = 2 },
+    { ware = "ware.refined_plate", stock = 5 },
+    { ware = "ware.rations", stock = 20, production = 1 },
+]
+
+# Rough mining camp: buys plate, sells ore cheap. Contested.
+[[station]]
+id = "station.cinder_hook"
+name = "Cinder Hook"
+region = "region.cinder_drift"
+position = { x = 4600.0, y = 900.0 }
+dock_radius = 55.0
+owner = "faction.wharf_cooperative"
+services = ["market"]
+market = [
+    { ware = "ware.iron_ore", stock = 120, price = 8, production = 3 },
+    { ware = "ware.refined_plate", stock = 0, price = 44, consumption = 2 },
+    { ware = "ware.rations", stock = 10, consumption = 1 },
+]
+
+# Scholars studying an Ancients fragment.
+[[station]]
+id = "station.glass_drift_observatory"
+name = "Glass Drift Observatory"
+region = "region.cinder_drift"
+position = { x = 5700.0, y = 1800.0 }
+dock_radius = 50.0
+owner = "faction.lamplighter_society"
+services = ["market", "archive"]
+market = [
+    { ware = "ware.glassite", stock = 10 },
+    { ware = "ware.rations", stock = 15, consumption = 1 },
+    { ware = "ware.ice", stock = 5, consumption = 1 },
+]
+
+# Big market that pays well for glassite until you flood it.
+[[station]]
+id = "station.brassmouth_exchange"
+name = "Brassmouth Exchange"
+region = "region.brassmouth_narrows"
+position = { x = 2400.0, y = 5200.0 }
+dock_radius = 70.0
+owner = "faction.tollway_compact"
+services = ["market", "dockmaster"]
+market = [
+    { ware = "ware.glassite", stock = 0, price = 80, consumption = 3 },
+    { ware = "ware.iron_ore", stock = 30 },
+    { ware = "ware.refined_plate", stock = 40, production = 2 },
+    { ware = "ware.rations", stock = 60, production = 2 },
+    { ware = "ware.ice", stock = 20 },
+]

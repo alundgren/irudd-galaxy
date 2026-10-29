@@ -1,0 +1,17 @@
+# The authored backbone. W4 adds scripts; W5 owns the manifest format
+# (crates/contract/schemas/manifest.json).
+id = "core"
+name = "The Lantern Reach"
+version = "0.1.0"
+description = "Authored regions, stations, rocks, wares, hulls, factions and people."
+data = [
+    "data/wares.toml",
+    "data/hulls.toml",
+    "data/factions.toml",
+    "data/regions.toml",
+    "data/lanes.toml",
+    "data/stations.toml",
+    "data/rocks.toml",
+    "data/npcs.toml",
+    "data/start.toml",
+]

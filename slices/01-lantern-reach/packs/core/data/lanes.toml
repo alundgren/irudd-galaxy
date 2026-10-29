@@ -1,0 +1,23 @@
+# Lanes between regions; gates are world positions at each end. PROVISIONAL layout.
+# Schema: crates/contract/schemas/data-lanes.json
+
+[[lane]]
+id = "lane.shallows_cinder"
+a = "region.lantern_shallows"
+b = "region.cinder_drift"
+a_gate = { x = 1800.0, y = 400.0 }
+b_gate = { x = 3400.0, y = 1000.0 }
+
+[[lane]]
+id = "lane.shallows_brassmouth"
+a = "region.lantern_shallows"
+b = "region.brassmouth_narrows"
+a_gate = { x = 900.0, y = 1800.0 }
+b_gate = { x = 1900.0, y = 3700.0 }
+
+[[lane]]
+id = "lane.cinder_brassmouth"
+a = "region.cinder_drift"
+b = "region.brassmouth_narrows"
+a_gate = { x = 4400.0, y = 2900.0 }
+b_gate = { x = 3300.0, y = 4600.0 }

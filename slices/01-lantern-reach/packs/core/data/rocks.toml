@@ -1,0 +1,86 @@
+# Rock types and fields. PROVISIONAL numbers: the content spec replaces them.
+# Rocks are generated once at new game from each field, with stable IDs
+# <rock_prefix>.01, .02, ... and a layout keyed by the field ID (not the seed).
+# regrowth is units per regrowth step; W2 defines the step from activity, never a clock.
+# Schema: crates/contract/schemas/data-rocks.json
+
+[[rock_type]]
+id = "rock_type.ice"
+name = "Ice rock"
+ware = "ware.ice"
+hardness = 1.0
+regrowth = 2
+
+[[rock_type]]
+id = "rock_type.iron"
+name = "Iron rock"
+ware = "ware.iron_ore"
+hardness = 1.5
+regrowth = 1
+
+[[rock_type]]
+id = "rock_type.glassite"
+name = "Glassite rock"
+ware = "ware.glassite"
+hardness = 2.2
+regrowth = 0
+
+[[field]]
+id = "field.shallows.ice"
+name = "Shallows ice field"
+region = "region.lantern_shallows"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.shallows.ice"
+center = { x = 500.0, y = 300.0 }
+radius = 300.0
+count = 12
+amount_min = 40
+amount_max = 80
+
+[[field]]
+id = "field.shallows.iron"
+name = "Shallows iron field"
+region = "region.lantern_shallows"
+rock_type = "rock_type.iron"
+rock_prefix = "rock.shallows.iron"
+center = { x = -700.0, y = -500.0 }
+radius = 250.0
+count = 8
+amount_min = 60
+amount_max = 100
+
+[[field]]
+id = "field.cinder.iron"
+name = "Cinder iron belt"
+region = "region.cinder_drift"
+rock_type = "rock_type.iron"
+rock_prefix = "rock.cinder.iron"
+center = { x = 4900.0, y = 300.0 }
+radius = 400.0
+count = 12
+amount_min = 120
+amount_max = 200
+
+[[field]]
+id = "field.cinder.glassite"
+name = "Far glassite belt"
+region = "region.cinder_drift"
+rock_type = "rock_type.glassite"
+rock_prefix = "rock.cinder.glassite"
+center = { x = 6000.0, y = 900.0 }
+radius = 300.0
+count = 8
+amount_min = 40
+amount_max = 90
+
+[[field]]
+id = "field.narrows.ice"
+name = "Narrows ice drift"
+region = "region.brassmouth_narrows"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.narrows.ice"
+center = { x = 2900.0, y = 5700.0 }
+radius = 250.0
+count = 6
+amount_min = 40
+amount_max = 70

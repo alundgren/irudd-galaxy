@@ -1,0 +1,17 @@
+# Factions. PROVISIONAL: the content spec fills in wants and memory rules.
+# Schema: crates/contract/schemas/data-factions.json
+
+[[faction]]
+id = "faction.wharf_cooperative"
+name = "Wharf Cooperative"
+wants = ["ware.ice", "ware.refined_plate"]
+
+[[faction]]
+id = "faction.tollway_compact"
+name = "Tollway Compact"
+wants = ["ware.glassite", "ware.iron_ore"]
+
+[[faction]]
+id = "faction.lamplighter_society"
+name = "Lamplighter Society"
+wants = ["ware.ancients_fragment"]

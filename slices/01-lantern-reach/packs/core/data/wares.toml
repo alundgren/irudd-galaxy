@@ -1,0 +1,34 @@
+# Wares. PROVISIONAL numbers: the content spec replaces them.
+# Schema: crates/contract/schemas/data-wares.json
+
+[[ware]]
+id = "ware.ice"
+name = "Ice"
+base_price = 8
+
+[[ware]]
+id = "ware.iron_ore"
+name = "Iron ore"
+base_price = 12
+
+[[ware]]
+id = "ware.refined_plate"
+name = "Refined plate"
+base_price = 34
+
+[[ware]]
+id = "ware.glassite"
+name = "Glassite"
+base_price = 55
+
+[[ware]]
+id = "ware.rations"
+name = "Rations"
+base_price = 16
+
+# Not for sale: carried to the Lamplighters.
+[[ware]]
+id = "ware.ancients_fragment"
+name = "Ancients fragment"
+base_price = 0
+tradeable = false
