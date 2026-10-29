@@ -59,7 +59,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/core` | `galaxy-core` | W1 | Sim kernel, stores, tick, command buffer, history, events, counters, RNG, data loading, saves, hash. |
 | `crates/app` | `galaxy-app` (bin `galaxy`) | W1 started, W6 integrates | The binary: `play` plus the JSON CLI. Thin. |
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
-| `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
+| `crates/ship` | `galaxy-ship` | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
 | `crates/economy` | | W3 | Pricing and saturation maths, map, scouting, territory. |
 | `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
 | `crates/script`, `gm` | | W5 | Luau host, sandbox, packs, validator, rollback, game-master bridge. |
@@ -112,10 +112,20 @@ the game-master bridge) reads events with `Sim::subscribe` / `Sim::drain_events`
 
 **A system** (your workstream's per-tick logic): implement `galaxy_core::System`
 (`name()` + `step(&self, ctx)`), read `ctx.world`, submit batches. Register it with
-`Sim::add_system`, and add it to `galaxy_core::default_systems()` so the app and
-`sim run` use it. The name keys its RNG stream; don't rename casually.
-`placeholder::PlaceholderFlight` is a stand-in for W2: replace it in
-`default_systems()` when `crates/ship` lands.
+`Sim::add_system`. Workstream crates depend on `galaxy-core`, so they can't be listed in
+`galaxy_core::default_systems()` (the kernel's own, none so far): export a
+`systems(..)` function from your crate and add it to `game()` in `crates/app/src/main.rs`
+so the app and `sim run` use it. The name keys its RNG stream; don't rename casually.
+`placeholder::PlaceholderFlight` only drives the kernel's own tests.
+
+**Ships** (`galaxy-ship`): `ShipSystem` runs every ship each tick (the flagship from
+`PlayerInput`, everyone else from orders) and `RegrowthSystem` regrows rocks from region
+activity counters. Buy and sell orders go through the `TradeDesk` trait: the economy
+crate implements it (a closure works too) and the app passes it to
+`galaxy_ship::systems(desk)`; `FlatDesk` is the stand-in. Control tiers are per-save
+flags named in `ship_rules.toml`: read them with `Controls::of(world)`, set them with
+`controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
+the batches. Every tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 
 **A command**: add a variant to `contract::command::Command` (Box large payloads to
 keep the enum small), add its arm in `galaxy_core::apply::apply` that validates inputs,

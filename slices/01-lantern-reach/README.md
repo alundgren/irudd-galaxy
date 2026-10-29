@@ -4,8 +4,10 @@ The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining an
 trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
 PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
 
-Status: the foundation is in (shared contract, headless sim kernel, saves, JSON CLI).
-There is no window or flight yet; `galaxy play` says "not implemented yet".
+Status: the foundation is in (shared contract, headless sim kernel, saves, JSON CLI),
+plus headless ships: arcade flight, the context action, mining and regrowth, docking,
+lanes, control tiers, the order runner and the automated tender (`crates/ship`). There
+is no window yet; `galaxy play` says "not implemented yet".
 
 ## Build and check
 
@@ -57,6 +59,7 @@ point `--save`; `saves/` here is git-ignored.
 crates/contract   shared interfaces (IDs, world schema, events, verbs, commands, history)
 crates/contract/schemas   generated JSON Schemas (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
+crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
 crates/app        the galaxy binary
 packs/core        the authored backbone: manifest.toml and data/*.toml
 xtask             cargo xtask check | contract
