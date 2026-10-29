@@ -34,6 +34,7 @@ pub mod menu;
 pub mod mind;
 pub mod openrouter;
 pub mod packet;
+pub mod probe;
 pub mod situation;
 pub mod validate;
 

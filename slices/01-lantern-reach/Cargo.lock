@@ -738,6 +738,7 @@ dependencies = [
  "clap",
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-mind",
  "serde",
  "serde_json",
  "tempfile",

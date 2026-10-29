@@ -8,14 +8,15 @@ decision = "typesafe/jev-1.14"
 line = "openai/gpt-oss-20b"
 
 [limits]
-# Ticks the sim waits for an answer before taking the utility default (150 = 5 s
-# at the nominal 30 ticks/s; ticks stop while paused).
-deadline_ticks = 150
+# Ticks the sim waits for an answer before taking the utility default (300 = 10 s
+# at the nominal 30 ticks/s; ticks stop while paused). Measured: Jev answers in
+# 0.2 to 0.4 s, gpt-oss lines in 2.6 to 9.3 s.
+deadline_ticks = 300
 max_in_flight = 8
 menu_size = 4
 packet_facts = 12
 packet_bytes = 24000
-timeout_ms = 6000
+timeout_ms = 8000
 line_max_tokens = 600
 
 [budget]

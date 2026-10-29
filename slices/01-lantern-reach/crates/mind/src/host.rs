@@ -341,9 +341,12 @@ impl MindHost {
             if talk { None } else { brief.as_ref() },
             &self.config.limits,
         );
-        let facts: Vec<FactId> = packet
-            .fact_ids()
-            .into_iter()
+        // Keyed by what the answer depends on: the brief's revision, the facts the menu
+        // is about (not the routine docking that opened it) and the menu itself.
+        let facts: Vec<FactId> = menu
+            .cites
+            .iter()
+            .copied()
             .filter(|f| *f != menu.trigger)
             .collect();
         let options: Vec<(String, String)> = menu
@@ -677,7 +680,6 @@ impl MindHost {
             "brief": brief.as_ref().map_or(0, |b| b.revision),
             "cite": line.cites,
             "authored": line.text,
-            "facts": ids.iter().filter(|f| **f != menu.trigger).collect::<Vec<_>>(),
         }));
         let authored = |host: &mut Self, acc: Acc, why: &str, out: &mut Out| {
             let mut acc = acc;
