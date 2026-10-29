@@ -114,6 +114,27 @@ fn prune_pack(world: &mut WorldState, pack: &PackId) {
     }
 }
 
+/// Adds to a tally, dropping it when it returns to zero so undo restores the map
+/// exactly. Every field is checked before anything changes.
+fn adjust_tally<K: Ord + Clone + Display>(
+    map: &mut std::collections::BTreeMap<K, ActivityTally>,
+    key: &K,
+    delta: &ActivityTally,
+) -> Result<(), CommandError> {
+    let next = map
+        .get(key)
+        .cloned()
+        .unwrap_or_default()
+        .checked_add(delta)
+        .ok_or_else(|| CommandError::Invalid(format!("activity at {key} would overflow")))?;
+    if next.is_zero() {
+        map.remove(key);
+    } else {
+        map.insert(key.clone(), next);
+    }
+    Ok(())
+}
+
 fn invert(command: Command) -> Result<UndoRecord, CommandError> {
     Ok(UndoRecord::Invert { command })
 }
@@ -176,6 +197,17 @@ fn apply_with(
                 ship: ship.clone(),
                 station: old,
             })
+        }
+        C::ExpectDocked { ship, station } => {
+            if refs.check {
+                let s = world.ships.get(ship).ok_or_else(|| unknown("ship", ship))?;
+                if s.docked_at.as_ref() != Some(station) {
+                    return Err(CommandError::Invalid(format!(
+                        "{ship} isn't docked at {station}"
+                    )));
+                }
+            }
+            invert(cmd.clone())
         }
         C::SetShipRegion { ship, region } => {
             refs.require(&world.regions, region, "region")?;
@@ -329,6 +361,96 @@ fn apply_with(
                 station: station.clone(),
                 ware: ware.clone(),
                 line: old,
+            })
+        }
+        C::UpdateMarketLine {
+            station,
+            ware,
+            from,
+            to,
+        } => {
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            if *line != **from {
+                return Err(CommandError::Invalid(format!(
+                    "{ware} at {station} changed since this update was worked out"
+                )));
+            }
+            *line = (**to).clone();
+            invert(C::UpdateMarketLine {
+                station: station.clone(),
+                ware: ware.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
+        C::SetMarketRates {
+            station,
+            ware,
+            rates,
+        } => {
+            let scales = [rates.production_scale, rates.consumption_scale];
+            if scales.iter().any(|s| !s.is_finite() || *s < 0.0) {
+                return Err(CommandError::Invalid(format!(
+                    "rate scales must be finite and not negative: {scales:?}"
+                )));
+            }
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            let old = MarketRates {
+                production: line.production,
+                consumption: line.consumption,
+                production_scale: line.production_scale,
+                consumption_scale: line.consumption_scale,
+            };
+            line.production = rates.production;
+            line.consumption = rates.consumption;
+            line.production_scale = rates.production_scale;
+            line.consumption_scale = rates.consumption_scale;
+            invert(C::SetMarketRates {
+                station: station.clone(),
+                ware: ware.clone(),
+                rates: old,
+            })
+        }
+        C::AdjustActivity { scope, delta } => {
+            let inverse = delta
+                .checked_neg()
+                .ok_or_else(|| CommandError::Invalid(format!("delta {delta:?} has no inverse")))?;
+            let eco = &mut world.economy;
+            match scope {
+                ActivityScope::Station { station } => {
+                    refs.require(&world.stations, station, "station")?;
+                    adjust_tally(&mut eco.stations, station, delta)?;
+                }
+                ActivityScope::Region { region } => {
+                    refs.require(&world.regions, region, "region")?;
+                    adjust_tally(&mut eco.regions, region, delta)?;
+                }
+            }
+            invert(C::AdjustActivity {
+                scope: scope.clone(),
+                delta: inverse,
+            })
+        }
+        C::SetDockTrack { ship, track } => {
+            if let Some(t) = track {
+                refs.require(&world.stations, &t.station, "station")?;
+            }
+            let docks = &mut world.economy.docks;
+            let old = match track {
+                Some(t) => docks.insert(ship.clone(), t.clone()),
+                None => docks.remove(ship),
+            };
+            invert(C::SetDockTrack {
+                ship: ship.clone(),
+                track: old,
             })
         }
         C::PutRegion { id, value } => {

@@ -61,7 +61,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/app` | `galaxy-app` (bin `galaxy`) | W1 started, W6 integrates | The binary: `play` plus the JSON CLI. Thin. |
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
 | `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
-| `crates/economy` | | W3 | Pricing and saturation maths, map, scouting, territory. |
+| `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
 | `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
 | `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
 | `crates/gm` | | W5 | Game-master bridge: live socket, `gm propose`/`rollback`, sandbox run. |
@@ -92,6 +92,9 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   `numbers_finite` invariant guards the world, authored data with one is a load error,
   and `Save` refuses to write one (JSON can't carry it). Integer adjustments use checked
   maths and build their inverse before changing anything.
+- Money is whole centicredits (1 cr = 100, `contract::money`): `Player.credits`, every
+  price, limits and credit deltas. Data files write decimal credits and the loader
+  converts them. A trade prices each unit, rounds it to a centicredit and pays the sum.
 - Each applied command returns an `UndoRecord`. For journaled causes (`Script`, `Mind`)
   the engine keeps them, and `Sim::queue_rollback(causes, summary)` inverts them as new
   batches with a `Rollback` cause, one batch per cause (`Rollback { of: [cause] }`).

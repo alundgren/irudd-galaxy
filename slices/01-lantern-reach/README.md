@@ -75,6 +75,7 @@ crates/contract/schemas   generated JSON Schemas (commit them)
 crates/contract/api       generated galaxy.d.luau and HOOKS.md: the Luau hook API (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
+crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/app        the galaxy binary
 packs/core        the authored backbone: manifest.toml and data/*.toml
 packs/gm-examples game-master example packs: kettle_growth, and bad_script/ (must be rejected)

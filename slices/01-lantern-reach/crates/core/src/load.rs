@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use galaxy_contract::data::*;
+use galaxy_contract::money::cents_from_credits;
 use galaxy_contract::prelude::*;
 use galaxy_contract::world::WORLD_FORMAT_VERSION;
 use serde::de::DeserializeOwned;
@@ -42,6 +43,39 @@ fn read_required<T: DeserializeOwned>(dir: &Path, file: &str) -> Result<T, DataE
     })
 }
 
+/// Decimal credits from a data file as centicredits, or an error: not finite, finer than
+/// a centicredit, or outside `0..=max`.
+fn cents(credits: f64, max: i64, what: &str, errors: &mut Vec<String>) -> i64 {
+    match cents_from_credits(credits).filter(|c| (0..=max).contains(c)) {
+        Some(c) => c,
+        None => {
+            errors.push(format!(
+                "{what}: {credits} isn't a whole number of centicredits in 0..={}",
+                show_credits(max)
+            ));
+            0
+        }
+    }
+}
+
+/// A price in centicredits.
+fn price(credits: f64, what: &str, errors: &mut Vec<String>) -> u32 {
+    cents(credits, i64::from(u32::MAX), what, errors) as u32
+}
+
+fn ware(def: WareDef, errors: &mut Vec<String>) -> Ware {
+    Ware {
+        base_price: price(
+            def.base_price,
+            &format!("wares.toml: {} base_price", def.id),
+            errors,
+        ),
+        id: def.id,
+        name: def.name,
+        tradeable: def.tradeable,
+    }
+}
+
 fn collect<V: Record + Clone>(
     items: Vec<V>,
     file: &str,
@@ -69,6 +103,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let stations: StationsFile = read(dir, "stations.toml")?;
     let rocks: RocksFile = read(dir, "rocks.toml")?;
     let npcs: NpcsFile = read(dir, "npcs.toml")?;
+    let economy: EconomyRules = read(dir, "economy.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
 
     let mut errors = Vec::new();
@@ -78,7 +113,14 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
             seed,
             tick: Tick(0),
         },
-        wares: collect(wares.ware, "wares.toml", &mut errors),
+        wares: {
+            let wares = wares
+                .ware
+                .into_iter()
+                .map(|w| ware(w, &mut errors))
+                .collect();
+            collect(wares, "wares.toml", &mut errors)
+        },
         hulls: collect(hulls.hull, "hulls.toml", &mut errors),
         factions: collect(factions.faction, "factions.toml", &mut errors),
         regions: collect(regions.region, "regions.toml", &mut errors),
@@ -86,6 +128,10 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         rock_types: collect(rocks.rock_type, "rocks.toml", &mut errors),
         fields: collect(rocks.field, "rocks.toml", &mut errors),
         npcs: collect(npcs.npc, "npcs.toml", &mut errors),
+        economy: EconomyState {
+            rules: economy,
+            ..EconomyState::default()
+        },
         ..WorldState::default()
     };
 
@@ -123,16 +169,38 @@ fn build_station(world: &mut WorldState, def: StationDef, errors: &mut Vec<Strin
             ));
             continue;
         };
-        let base = l.base_price.unwrap_or(ware.base_price);
+        let what = |field: &str| format!("stations.toml: {} {} {field}", def.id, l.ware);
+        let base = l
+            .base_price
+            .map_or(ware.base_price, |p| price(p, &what("base_price"), errors));
+        let mut price_or = |p: Option<f64>, field: &str, default: u32| {
+            p.map_or(default, |p| price(p, &what(field), errors))
+        };
         let line = MarketLine {
             stock: l.stock,
-            price: l.price.unwrap_or(base),
+            price: price_or(l.price, "price", base),
             base_price: base,
-            min_price: l.min_price.unwrap_or(base / 2),
-            max_price: l.max_price.unwrap_or(base.saturating_mul(2)),
+            min_price: price_or(l.min_price, "min_price", base / 2),
+            max_price: price_or(l.max_price, "max_price", base.saturating_mul(2)),
             production: l.production,
             consumption: l.consumption,
+            role: l.role.unwrap_or(if l.production > 0 {
+                MarketRole::Sells
+            } else {
+                MarketRole::Buys
+            }),
+            target: l.target,
+            sat_per_unit: l.sat_per_unit,
+            sat_recover: l.sat_recover,
+            needs: l.needs,
+            ..MarketLine::default()
         };
+        if let Some(missing) = line.needs.iter().find(|w| !world.wares.contains(*w)) {
+            errors.push(format!(
+                "stations.toml: {} {} needs unknown `{missing}`",
+                def.id, l.ware
+            ));
+        }
         if lines.insert(l.ware.clone(), line).is_some() {
             errors.push(format!(
                 "stations.toml: {} lists `{}` twice",
@@ -220,7 +288,7 @@ fn place_player(world: &mut WorldState, start: StartDef, errors: &mut Vec<String
     world.ships.put(ship);
     world.player = Player {
         name: start.name,
-        credits: start.credits,
+        credits: cents(start.credits, i64::MAX / 2, "start.toml: credits", errors),
         ship: Some(start.ship),
         ..Player::default()
     };

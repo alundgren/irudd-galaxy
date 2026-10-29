@@ -1,0 +1,56 @@
+# The living market's rules (W3). PROVISIONAL numbers from the content spec
+# (content/SPEC.md "Activity", content/02-economy.md "Price model").
+# Schema: crates/contract/schemas/data-economy.json
+#
+# Markets move on pulses of activity, never on time. Per station pulse: producers
+# add their rate to stock, consumers remove theirs, and saturation on wares the
+# station buys falls by that line's sat_recover.
+
+[pulses]
+# A counted docking by any ship: a pulse at that station, half a pulse at every
+# other station in the region, and a region pulse.
+dock_station = 1.0
+dock_neighbours = 0.5
+dock_region = 1.0
+# A lane arrival by any ship: half a pulse at every station in the region.
+arrival_stations = 0.5
+arrival_region = 1.0
+# A re-docking at the same station counts only after the ship has been this far
+# from it, mined, or docked elsewhere (stops undock-redock loops).
+recount_distance = 300.0
+
+[pricing]
+# stock_factor = clamp(1 + stock_slope * (1 - stock / target), min, max)
+# pays = base * stock_factor * (1 - saturation); asks = base * stock_factor * spread
+stock_slope = 0.5
+stock_factor_min = 0.7
+stock_factor_max = 1.3
+saturation_max = 0.7
+# Asking spread at unowned stations; owned stations use the player's regard below.
+spread = 1.15
+# Producers stop at target * produce_cap.
+produce_cap = 2.0
+# A sale leaving saturation at or above this records a market_flooded fact.
+flood_saturation = 0.5
+
+# Regard tiers by hidden standing with the station's owner (content/05-people.md):
+# Cold, Stranger and Known, Trusted, Kin.
+[[pricing.regard]]
+min_standing = -100
+spread = 1.20
+
+[[pricing.regard]]
+min_standing = -9
+spread = 1.15
+
+[[pricing.regard]]
+min_standing = 30
+spread = 1.10
+
+[[pricing.regard]]
+min_standing = 60
+spread = 1.06
+
+[reach.flags]
+# The price glass upgrade: live prices of stations within 1200 u.
+"flag.price_glass" = 1200.0

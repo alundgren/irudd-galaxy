@@ -19,6 +19,88 @@
     "commands"
   ],
   "$defs": {
+    "ActivityScope": {
+      "description": "Where an activity tally is kept.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "scope",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            },
+            "scope": {
+              "type": "string",
+              "const": "region"
+            }
+          },
+          "required": [
+            "scope",
+            "region"
+          ]
+        }
+      ]
+    },
+    "ActivityTally": {
+      "description": "Running activity at a station or region. Integers, so undo is exact.",
+      "type": "object",
+      "properties": {
+        "credits_earned": {
+          "description": "Centicredits the market paid ships.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "credits_spent": {
+          "description": "Centicredits ships paid the market.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "pending_milli": {
+          "description": "Pulses counted but not yet applied to the market (thousandths).",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "pulses_milli": {
+          "description": "Pulses so far, in thousandths of a pulse.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "trades": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "units_bought": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "units_sold": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        }
+      }
+    },
     "Actor": {
       "description": "Who performed a verb.",
       "oneOf": [
@@ -320,6 +402,27 @@
           ]
         },
         {
+          "description": "Changes nothing, and fails unless `ship` is docked at `station`. A batch that\nonly makes sense at a dock (a trade) carries one, so a ship that undocked\nearlier in the same tick rejects it. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "expect_docked"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "station"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "op": {
@@ -386,6 +489,7 @@
           ]
         },
         {
+          "description": "Adds to the player's credits, in centicredits. Fails below zero.",
           "type": "object",
           "properties": {
             "delta": {
@@ -612,6 +716,108 @@
             "op",
             "station",
             "ware"
+          ]
+        },
+        {
+          "description": "Replaces a market line only if it still equals `from`, so trades and pulses\nworked out from the same tick's state can't overwrite each other: a stale one\nfails and its batch is rejected. The economy's trades and pulses use this.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/MarketLine"
+            },
+            "op": {
+              "type": "string",
+              "const": "update_market_line"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "to": {
+              "$ref": "#/$defs/MarketLine"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "ware",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "Sets a line's producer and consumer rates (market levers), leaving its stock,\nsaturation and prices alone.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_market_rates"
+            },
+            "rates": {
+              "$ref": "#/$defs/MarketRates"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "ware",
+            "rates"
+          ]
+        },
+        {
+          "description": "Adds to a station's or region's activity tally (pulses, trade volume).",
+          "type": "object",
+          "properties": {
+            "delta": {
+              "$ref": "#/$defs/ActivityTally"
+            },
+            "op": {
+              "type": "string",
+              "const": "adjust_activity"
+            },
+            "scope": {
+              "$ref": "#/$defs/ActivityScope"
+            }
+          },
+          "required": [
+            "op",
+            "scope",
+            "delta"
+          ]
+        },
+        {
+          "description": "Sets or clears (`None`) where a ship last docked, for the counted-docking rule.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_dock_track"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "track": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DockTrack"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "ship"
           ]
         },
         {
@@ -1424,6 +1630,23 @@
         }
       ]
     },
+    "DockTrack": {
+      "description": "A ship's last docking, for the counted-docking rule.",
+      "type": "object",
+      "properties": {
+        "away": {
+          "description": "It has since gone far enough or mined, so docking here again counts.",
+          "type": "boolean"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "required": [
+        "station",
+        "away"
+      ]
+    },
     "Event": {
       "description": "Something that happened, with stable IDs.",
       "oneOf": [
@@ -1543,6 +1766,7 @@
               "const": "buy"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0
@@ -1579,6 +1803,7 @@
               "const": "sell"
             },
             "unit_price": {
+              "description": "The average unit price, in centicredits.",
               "type": "integer",
               "format": "uint32",
               "minimum": 0
@@ -1980,6 +2205,15 @@
         "name": {
           "type": "string"
         },
+        "price_reach": {
+          "description": "How far the hull sees live market prices. Default: docked only.",
+          "$ref": "#/$defs/PriceReach",
+          "default": {
+            "lane_scout": false,
+            "radius": 0.0,
+            "region": false
+          }
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
@@ -2066,7 +2300,7 @@
       ]
     },
     "MarketLine": {
-      "description": "One ware at one market. Provisional fields; W3 may extend.",
+      "description": "One ware at one market. W3 (`galaxy-economy`) prices it; see\n[`PricingRules`](crate::economy::PricingRules) for the formula.",
       "type": "object",
       "properties": {
         "base_price": {
@@ -2076,11 +2310,17 @@
           "minimum": 0
         },
         "consumption": {
-          "description": "Units the station uses per market step.",
+          "description": "Units the station uses per station pulse.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
+        },
+        "consumption_scale": {
+          "description": "Multiplies `consumption` (market levers).",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
         },
         "max_price": {
           "type": "integer",
@@ -2092,22 +2332,71 @@
           "format": "uint32",
           "minimum": 0
         },
+        "needs": {
+          "description": "Production runs only while each of these wares is in stock here.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        },
         "price": {
-          "description": "Current unit price in credits.",
+          "description": "The current unit price in centicredits: what the station pays for a `buys`\nline, what it asks for a `sells` line. Kept up to date by the economy. Every\nprice here is in centicredits ([`crate::money`]).",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "production": {
-          "description": "Units the station makes per market step (W3 defines the step; never a clock).",
+          "description": "Units the station makes per station pulse (activity, never a clock).",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
+        "production_scale": {
+          "description": "Multiplies `production` (market levers).",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "role": {
+          "$ref": "#/$defs/MarketRole",
+          "default": "buys"
+        },
+        "sat_per_unit": {
+          "description": "Saturation added per unit sold to the station.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "sat_recover": {
+          "description": "Saturation removed per station pulse.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "saturation": {
+          "description": "0 (fresh) up to the rules' `saturation_max`. Only `buys` lines saturate.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
         "stock": {
           "type": "integer",
           "format": "uint32",
+          "minimum": 0
+        },
+        "stock_carry": {
+          "description": "The fraction of a unit produced or used but not yet whole, in 0..1.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "target": {
+          "description": "The stock the station aims for; prices rise below it and fall above it. Zero:\nstock doesn't move the price.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
           "minimum": 0
         }
       },
@@ -2117,6 +2406,51 @@
         "base_price",
         "min_price",
         "max_price"
+      ]
+    },
+    "MarketRates": {
+      "description": "The producer and consumer rates of one market line, per station pulse. Levers\nchange these without touching stock, saturation or the price formula.",
+      "type": "object",
+      "properties": {
+        "consumption": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "consumption_scale": {
+          "type": "number",
+          "format": "double"
+        },
+        "production": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "production_scale": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "production",
+        "consumption",
+        "production_scale",
+        "consumption_scale"
+      ]
+    },
+    "MarketRole": {
+      "description": "Whether a station buys a ware from ships or sells it to them. A station never\nbuys a ware it produces, or sells one it consumes.",
+      "oneOf": [
+        {
+          "description": "The station buys it (pays a price that saturation lowers).",
+          "type": "string",
+          "const": "buys"
+        },
+        {
+          "description": "The station sells it (asks a price with a spread).",
+          "type": "string",
+          "const": "sells"
+        }
       ]
     },
     "Npc": {
@@ -2412,11 +2746,35 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "PriceReach": {
+      "description": "How far a hull sees live prices. The default is \"docked only\".",
+      "type": "object",
+      "properties": {
+        "lane_scout": {
+          "description": "A lane arrival refreshes the snapshots of every station in the new region.",
+          "type": "boolean",
+          "default": false
+        },
+        "radius": {
+          "description": "Live prices of stations within this distance. Zero: docked only.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "region": {
+          "description": "Live prices of every station in the ship's region.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "PriceSnapshot": {
       "description": "What the player saw at a station's market on their last visit.",
       "type": "object",
       "properties": {
         "prices": {
+          "description": "Unit prices in centicredits.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -3145,6 +3503,7 @@
       "type": "object",
       "properties": {
         "base_price": {
+          "description": "In centicredits.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
