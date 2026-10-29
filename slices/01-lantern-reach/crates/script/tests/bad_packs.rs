@@ -160,6 +160,33 @@ fn time_trigger_is_rejected() {
 }
 
 #[test]
+fn turning_the_typecheck_off_is_rejected() {
+    // Without the analyzer: the directive alone is an error.
+    let r = check(&bad("nocheck"), None);
+    has(
+        &r,
+        ValidationStep::Types,
+        "typecheck_off",
+        "scripts/unchecked.luau",
+        Some(1),
+    );
+    assert_eq!(errors(&r).len(), 1, "{:#?}", errors(&r));
+}
+
+#[test]
+fn bare_iteration_is_rejected() {
+    let r = check(&bad("bare_iteration"), None);
+    has(
+        &r,
+        ValidationStep::Invariants,
+        "unordered_iteration",
+        "scripts/tally.luau",
+        Some(9),
+    );
+    assert_eq!(errors(&r).len(), 1, "{:#?}", errors(&r));
+}
+
+#[test]
 fn strict_typecheck_with_the_pinned_analyzer() {
     let Some(analyzer) = galaxy_script::analyzer::find(None) else {
         println!(
@@ -184,6 +211,22 @@ fn strict_typecheck_with_the_pinned_analyzer() {
         "scripts/chatter.luau",
         Some(9),
     );
+    // The analyzer alone would accept `--!nocheck` code; the directive is rejected.
+    let r = check(&bad("nocheck"), Some(&analyzer));
+    has(
+        &r,
+        ValidationStep::Types,
+        "typecheck_off",
+        "scripts/unchecked.luau",
+        Some(1),
+    );
+    let r = check(&bad("bare_iteration"), Some(&analyzer));
+    let types = r
+        .steps
+        .iter()
+        .find(|s| s.step == ValidationStep::Types)
+        .unwrap();
+    assert_eq!(types.outcome, StepOutcome::Passed, "{types:#?}");
     let r = check(&bad("undeclared_hook"), Some(&analyzer));
     has(
         &r,

@@ -184,11 +184,19 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
 **A script** returns `G.script { id, on = { ... }, after = { ... } }`. Handlers get a
 `ctx` built from `uses`: anything undeclared is absent. Rules the host enforces:
 
-- Every write takes a cause: `local why = ctx:cause { summary = ..., cites = { ev.fact } }`.
-  A handler is atomic: an error or running over the step budget discards all its writes.
-  Repeated aborts quarantine the script (`script_quarantined` fact).
-- Scripts hold no state in Luau (globals are frozen). Remember things in a declared
-  store (`ctx.store:set(store, key, value, why)`) or read them back from history.
+- Every write takes the call's one cause: `local why = ctx:cause { summary = ..., cites = { ev.fact } }`
+  (a second `ctx:cause` is an error). A handler is atomic: its writes are one batch,
+  checked against the kernel's invariants before it's submitted, and an error, a write
+  that would be rejected, or running over the step, memory or write quota discards all
+  of it. Repeated aborts quarantine the script revision for good (`script_quarantined`
+  fact; reloading the same revision doesn't clear it).
+- Scripts hold no state in Luau: each call runs the script and its modules afresh, so
+  locals and upvalues start over. Remember things in a declared store
+  (`ctx.store:set(store, key, value, why)`) or read them back from history.
+- Determinism: `tostring`/`string.format` never show addresses, `pairs`/`next` refuse
+  tables keyed by tables or functions, and loops use `pairs`, `ipairs`, `next`,
+  `string.gmatch` or `utf8.codes` (a bare `for k, v in t` is a check error). Scripts
+  are always strict: `--!nocheck` and `--!nonstrict` are check errors.
 - Pace by activity only: `G.after { dockings = 3, station = ... }`, `ctx.counters`. There
   is no `os`, timer, `math.random` (use `ctx.rng`) or `loadstring`.
 - `ctx.talk:offer`, `ctx.map:note`, `ctx.chronicle:write` need a person or a place and
@@ -204,7 +212,10 @@ last good revision if they fail. `galaxy pack test DIR` runs `tests/*.luau`.
 
 **Rollback**: `galaxy_script::rollback(sim, causes, line)` inverts the causes' writes,
 retires their pack revisions and has the pack's `[rollback]` speaker say so, citing
-the change's facts, in dock talk and the chronicle.
+the change's facts, in dock talk and the chronicle. The retirement is its own batch and
+the host stops a revision as soon as it's queued (`TickCtx::queued`), so a rolled-back
+revision runs nothing in the tick its change is undone; the lines are checked against
+the world the rollback leaves and dropped (never the retirement) if they can't be said.
 
 **Adding a hook function**: add a `FnDef` to `contract::api::FUNCTIONS` (and a
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run

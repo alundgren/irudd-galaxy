@@ -1,27 +1,30 @@
 //! The script host: loaded packs, the per-tick [`System`], dev hot reload.
 //!
-//! Each tick, for every loaded pack (in pack ID order) whose revision isn't retired,
-//! and every script (in manifest order) that isn't quarantined:
+//! Each tick, for every loaded pack (in pack ID order) whose revision isn't retired
+//! (or being retired by a rollback queued for this tick), and every script (in manifest
+//! order) that isn't quarantined:
 //!
 //! 1. each event committed last tick with an `on.<event>` handler runs it;
 //! 2. each `G.after` trigger whose activity counters are due runs once.
 //!
-//! A successful call submits its batches (one per cause, `Cause::Script`); later calls
-//! in the same tick read a copy of the world with those writes applied, so two events
-//! in one tick don't grow a station twice. An aborted call submits nothing, counts
-//! against the script, and after `limits.quarantine_after` aborts the script is
-//! quarantined (for that revision) with a `script_quarantined` history fact.
+//! A successful call's writes are one batch (`Cause::Script`). The host applies it to
+//! a copy of the world with the kernel's invariants first: if it would be rejected, the
+//! call counts as aborted and nothing is submitted. Later calls in the same tick read
+//! that copy, so two events in one tick don't grow a station twice. An aborted call
+//! submits nothing, counts against the script, and after `limits.quarantine_after`
+//! aborts the script is quarantined (for that revision, for good: loading the same
+//! revision again doesn't clear it) with a `script_quarantined` history fact.
 //!
 //! The Luau states hold no world state, so the host itself is safe to rebuild at any
 //! time: a reload swaps a pack's state between ticks and loses nothing.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use galaxy_contract::history::FactDraft;
-use galaxy_contract::pack::{Diagnostic, RollbackLine, ScriptHealth, ValidationReport};
+use galaxy_contract::pack::{Diagnostic, Location, RollbackLine, ScriptHealth, ValidationReport};
 use galaxy_contract::prelude::*;
 use galaxy_core::apply::{Staged, apply};
 use galaxy_core::{History, Sim, System, TickCtx};
@@ -29,7 +32,7 @@ use serde::Serialize;
 
 use crate::check::{CheckOptions, check_dir};
 use crate::pack::Pack;
-use crate::vm::{PackVm, Target, View};
+use crate::vm::{Abort, PackVm, Target, View};
 use crate::watch::PackWatcher;
 
 /// The name the host runs under (and its RNG streams are keyed by).
@@ -279,25 +282,25 @@ pub fn install_batches(pack: &Pack, world: &WorldState) -> Vec<CommandBatch> {
     }
 }
 
-/// Applies a batch all-or-nothing (no invariants, no history): for read-your-writes
-/// copies of the world.
-pub fn apply_atomic(world: &mut WorldState, batch: &CommandBatch) -> Result<(), String> {
-    let mut undo = Vec::new();
-    let mut staged = Staged::default();
-    for c in &batch.commands {
-        match apply(world, c, &mut staged) {
-            Ok(u) => undo.push(u),
-            Err(e) => {
-                for u in undo.iter().rev() {
-                    if let UndoRecord::Invert { command } = u {
-                        let _ = apply(world, command, &mut Staged::default());
-                    }
-                }
-                return Err(e.to_string());
-            }
-        }
+/// The world after `batch`, applied the way the kernel applies it (finite numbers,
+/// every command, then the built-in invariants), without history or events. `Err` is
+/// the reason the kernel would reject the batch. For read-your-writes copies of the
+/// world and for checking a batch before it is submitted.
+pub fn preview(world: &WorldState, batch: &CommandBatch) -> Result<WorldState, String> {
+    for (i, c) in batch.commands.iter().enumerate() {
+        galaxy_core::finite::check(c)
+            .map_err(|e| format!("command {i}: numbers must be finite: {e}"))?;
     }
-    Ok(())
+    let mut next = world.clone();
+    let mut staged = Staged::default();
+    for (i, c) in batch.commands.iter().enumerate() {
+        apply(&mut next, c, &mut staged).map_err(|e| format!("command {i}: {e}"))?;
+    }
+    for inv in galaxy_core::invariants::builtin() {
+        inv.check(&next)
+            .map_err(|e| format!("invariant `{}`: {e}", inv.name()))?;
+    }
+    Ok(next)
 }
 
 struct ScriptSystem {
@@ -321,15 +324,32 @@ impl System for ScriptSystem {
         let mut log = Vec::new();
         let mut out = Vec::new();
         let mut quarantine = CommandBatch::new(Cause::system(SYSTEM_NAME, "scripts aborted"));
+        // Revisions a rollback queued for retirement stop now, before the rollback's
+        // inverse batches apply at the end of this tick, so they can't redo the change
+        // being undone.
+        let retiring: BTreeSet<(PackId, String)> = ctx
+            .queued()
+            .iter()
+            .flat_map(|b| &b.commands)
+            .filter_map(|c| match c {
+                Command::SetRevisionRetired {
+                    pack,
+                    revision,
+                    retired: true,
+                } => Some((pack.clone(), revision.clone())),
+                _ => None,
+            })
+            .collect();
 
         for (pack_id, loaded) in &inner.packs {
             let vm = &loaded.vm;
             let revision = &vm.pack.revision;
             let limit = vm.pack.limits().quarantine_after;
-            if world
-                .packs
-                .get(pack_id)
-                .is_some_and(|p| p.retired.contains(revision))
+            if retiring.contains(&(pack_id.clone(), revision.clone()))
+                || world
+                    .packs
+                    .get(pack_id)
+                    .is_some_and(|p| p.retired.contains(revision))
             {
                 continue;
             }
@@ -337,16 +357,13 @@ impl System for ScriptSystem {
                 let key = (pack_id.clone(), script.decl.id.clone());
                 let current = |health: &BTreeMap<(PackId, String), ScriptHealth>| {
                     health.get(&key).cloned().unwrap_or_else(|| {
-                        world
-                            .packs
-                            .get(pack_id)
-                            .and_then(|p| p.health.get(&script.decl.id))
-                            .filter(|h| h.revision == *revision)
-                            .cloned()
-                            .unwrap_or_else(|| ScriptHealth {
-                                revision: revision.clone(),
-                                ..ScriptHealth::default()
-                            })
+                        ScriptHealth::for_revision(
+                            world
+                                .packs
+                                .get(pack_id)
+                                .and_then(|p| p.health.get(&script.decl.id)),
+                            revision,
+                        )
                     })
                 };
                 let mut calls: Vec<(String, Target<'_>)> = events
@@ -382,36 +399,51 @@ impl System for ScriptSystem {
                         world: scratch.as_ref().unwrap_or(world),
                         history,
                     };
-                    match vm.call(i, target, view, ctx) {
-                        Ok(mut batches) => {
-                            if let Target::Trigger { name, fired } = target {
+                    let result = vm.call(i, target, view, ctx).and_then(|batch| {
+                        let batch = match target {
+                            Target::Trigger { name, fired } => {
                                 let mark = Command::SetTriggerFired {
                                     pack: pack_id.clone(),
                                     trigger: format!("{}.{name}", script.decl.id),
-                                    fired: fired + 1,
+                                    fired: fired.saturating_add(1),
                                 };
-                                match batches.first_mut() {
-                                    Some(b) => b.push(mark),
-                                    None => batches.push(
-                                        CommandBatch::new(Cause::script(
-                                            pack_id.clone(),
-                                            revision.clone(),
-                                            format!("{handler} fired"),
-                                        ))
-                                        .with(mark),
-                                    ),
-                                }
+                                Some(match batch {
+                                    Some(b) => b.with(mark),
+                                    None => CommandBatch::new(Cause::script(
+                                        pack_id.clone(),
+                                        revision.clone(),
+                                        format!("{handler} fired"),
+                                    ))
+                                    .with(mark),
+                                })
                             }
-                            if !batches.is_empty() {
-                                let copy = scratch.get_or_insert_with(|| world.clone());
-                                for b in &batches {
-                                    let _ = apply_atomic(copy, b);
-                                }
-                            }
-                            out.extend(batches);
+                            Target::Event(_) => batch,
+                        };
+                        let Some(batch) = batch else { return Ok(None) };
+                        // The whole call's writes, checked as the kernel will check them.
+                        match preview(view.world, &batch) {
+                            Ok(after) => Ok(Some((batch, after))),
+                            Err(reason) => Err(Abort {
+                                code: "rejected_write".into(),
+                                message: format!(
+                                    "its writes would be rejected, so none apply: {reason}"
+                                ),
+                                location: Some(Location {
+                                    file: script.decl.file.clone(),
+                                    line: vm.handler_line(i, target),
+                                    column: None,
+                                }),
+                            }),
                         }
+                    });
+                    match result {
+                        Ok(Some((batch, after))) => {
+                            scratch = Some(after);
+                            out.push(batch);
+                        }
+                        Ok(None) => {}
                         Err(abort) => {
-                            h.aborts += 1;
+                            h.aborts = h.aborts.saturating_add(1);
                             let diagnostic = abort.diagnostic();
                             if h.aborts >= limit && !h.quarantined {
                                 h.quarantined = true;

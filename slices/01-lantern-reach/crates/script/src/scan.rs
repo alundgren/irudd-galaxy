@@ -2,8 +2,8 @@
 //!
 //! These checks don't need the Luau analyzer, so they always run and give precise
 //! file:line locations: hooks used against the manifest's `uses`, clock and timer
-//! APIs, unseeded randomness, forbidden globals, lines written without `cites`, and
-//! string literals that look like world IDs.
+//! APIs, unseeded randomness, forbidden globals, lines written without `cites`, loops
+//! whose order isn't stable, and string literals that look like world IDs.
 
 use std::collections::BTreeSet;
 
@@ -316,6 +316,12 @@ pub fn scan(file: &str, src: &str) -> Scan {
         if after_dot {
             continue;
         }
+        if name == "for" {
+            if let Some(d) = unordered_iteration(&toks, i, &declared, file) {
+                out.diagnostics.push(d);
+            }
+            continue;
+        }
         // ctx.<ns>:<fn>, ctx.<ns>.<fn>, ctx:<fn>
         if name == "ctx" {
             // `ctx:cause(...)` is a call; `ctx: G.Ctx` is a type annotation.
@@ -408,6 +414,55 @@ pub fn scan(file: &str, src: &str) -> Scan {
         }
     }
     out
+}
+
+/// `for ... in <iterator> do`: the iterator must be one whose order is the same on every
+/// run. A bare `for k, v in t` walks the table in its internal order, which follows
+/// heap addresses for keys that are tables or functions, and can't be intercepted at
+/// runtime; the sandbox's `pairs` and `next` refuse such tables, `ipairs`,
+/// `string.gmatch` and `utf8.codes` are ordered. Shadowing one of those names makes it
+/// unknown, so it's refused too.
+fn unordered_iteration(
+    toks: &[Token],
+    at: usize,
+    declared: &BTreeSet<String>,
+    file: &str,
+) -> Option<Diagnostic> {
+    let mut j = at + 1;
+    loop {
+        let t = toks.get(j)?;
+        if t.is("=") || t.name() == Some("do") {
+            return None; // a numeric `for`
+        }
+        if t.name() == Some("in") {
+            break;
+        }
+        j += 1;
+    }
+    let tok = |k: usize| toks.get(j + k);
+    let known = |n: &str| !declared.contains(n);
+    let ordered = match tok(1).and_then(Token::name) {
+        Some(f @ ("pairs" | "ipairs")) => known(f) && tok(2).is_some_and(|t| t.is("(")),
+        Some("next") => known("next") && tok(2).is_some_and(|t| t.is(",")),
+        Some(lib @ ("string" | "utf8")) => {
+            known(lib)
+                && tok(2).is_some_and(|t| t.is("."))
+                && matches!(
+                    (lib, tok(3).and_then(Token::name)),
+                    ("string", Some("gmatch")) | ("utf8", Some("codes"))
+                )
+        }
+        _ => false,
+    };
+    (!ordered).then(|| {
+        error(
+            "unordered_iteration",
+            "iterate with `pairs(t)`, `ipairs(t)`, `next`, `string.gmatch` or `utf8.codes`: \
+             a bare `for k, v in t` has no stable order when keys are tables or functions",
+            Some(file),
+            Some(toks[at].line),
+        )
+    })
 }
 
 /// After `ctx.talk:offer`: if the argument is a table constructor, it must have a
@@ -572,6 +627,36 @@ mod tests {
         );
         assert_eq!(bad.diagnostics[0].code, "uncited_line");
         assert_eq!(bad.diagnostics[0].location.as_ref().unwrap().line, Some(2));
+    }
+
+    #[test]
+    fn loops_must_iterate_in_a_stable_order() {
+        let ok = scan(
+            "f.luau",
+            "for i = 1, 3 do end\nfor k, v in pairs(t) do end\nfor _, x in ipairs({ 1 }) do end\n\
+             for k in next, t do end\nfor w in string.gmatch(s, \"%a+\") do end\n\
+             for k: string, v: number in pairs(t) do end\n",
+        );
+        assert!(ok.diagnostics.is_empty(), "{:?}", ok.diagnostics);
+        let bad = scan(
+            "f.luau",
+            "for k, v in t do end\nfor _, x in { 1, 2 } do end\nfor k in f() do end\n\
+             local function pairs(x) return x end\nfor k in pairs(t) do end\n",
+        );
+        let lines: Vec<_> = bad
+            .diagnostics
+            .iter()
+            .map(|d| (d.code.as_str(), d.location.as_ref().unwrap().line))
+            .collect();
+        assert_eq!(
+            lines,
+            vec![
+                ("unordered_iteration", Some(1)),
+                ("unordered_iteration", Some(2)),
+                ("unordered_iteration", Some(3)),
+                ("unordered_iteration", Some(5)),
+            ]
+        );
     }
 
     #[test]
