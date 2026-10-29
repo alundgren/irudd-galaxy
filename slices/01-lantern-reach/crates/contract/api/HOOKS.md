@@ -78,7 +78,7 @@ and `ctx.store` (the script's declared stores).
 
 ### `ctx`
 
-- `ctx:cause(spec: CauseSpec) -> Cause` (always): A cause for this handler's writes. `cites` are history fact IDs; they must exist.
+- `ctx:cause(spec: CauseSpec) -> Cause` (always): The cause for this handler's writes. `cites` are history fact IDs; they must exist. One per call: everything a handler writes applies together or not at all.
 
 ### `ctx.rng`
 
@@ -189,3 +189,24 @@ No clock, timer or wall time (`os`, `wait`, `delay`, `tick`); no `math.random`
 (use `ctx.rng`); no `loadstring`, `getfenv`, `setfenv`; `require` only sees
 `@galaxy` and the pack's own modules (`./name`). Sandbox and snapshots are CLI
 only (`galaxy gm`, `galaxy sim`).
+
+## Sandbox rules
+
+- **No memory between calls.** Each handler call runs the script and its modules
+afresh, so module-level locals start over every call. What a script must
+remember goes in its declared `stores` (saved with the world).
+- **One cause per call.** A second `ctx:cause` is an error. The call's writes are
+one batch: if any would be rejected, none apply and the call counts as aborted.
+- **Deterministic.** `tostring` and `string.format` print tables, functions and
+buffers as their type name, never an address. `pairs` and `next` refuse tables
+keyed by tables, functions or buffers (their order isn't stable), and loops must
+iterate with `pairs(t)`, `ipairs(t)`, `next`, `string.gmatch` or `utf8.codes`:
+a bare `for k, v in t do` is a check error. The garbage collector doesn't run
+during a call, so weak tables don't change under a handler.
+- **Limits.** Per call: `limits.steps_per_call` steps, `limits.memory_bytes` of
+Luau memory (everything the call allocates, garbage included), and at most
+256 writes holding 256 KiB. Arguments to `ctx` are size-checked before they are
+copied. Numbers passed to `ctx` must be whole where a whole number is expected
+and in range; nothing is truncated or wrapped.
+- **Strict types.** Every checked file is typechecked in strict mode;
+`--!nocheck` and `--!nonstrict` are check errors.

@@ -307,4 +307,33 @@ pub struct ScriptHealth {
     pub revision: String,
     pub aborts: u32,
     pub quarantined: bool,
+    /// Earlier revisions of this script that were quarantined. Loading one of them
+    /// again doesn't give it a clean start: it stays quarantined.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub quarantined_before: BTreeSet<String>,
+}
+
+impl ScriptHealth {
+    /// The health `revision` starts with, given what was stored for this script.
+    pub fn for_revision(stored: Option<&ScriptHealth>, revision: &str) -> ScriptHealth {
+        let Some(stored) = stored else {
+            return ScriptHealth {
+                revision: revision.to_owned(),
+                ..ScriptHealth::default()
+            };
+        };
+        if stored.revision == revision {
+            return stored.clone();
+        }
+        let mut before = stored.quarantined_before.clone();
+        if stored.quarantined {
+            before.insert(stored.revision.clone());
+        }
+        ScriptHealth {
+            revision: revision.to_owned(),
+            aborts: 0,
+            quarantined: before.remove(revision),
+            quarantined_before: before,
+        }
+    }
 }

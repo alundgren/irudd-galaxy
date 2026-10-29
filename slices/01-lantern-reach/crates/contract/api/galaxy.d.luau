@@ -193,7 +193,7 @@ export type Ctx = {
 	-- The pack and script running.
 	pack: string,
 	script: string,
-	-- A cause for this handler's writes. `cites` are history fact IDs; they must exist.
+	-- The cause for this handler's writes. `cites` are history fact IDs; they must exist. One per call: everything a handler writes applies together or not at all.
 	cause: (self: Ctx, spec: CauseSpec) -> Cause,
 	rng: RngApi,
 	store: StoreApi,
