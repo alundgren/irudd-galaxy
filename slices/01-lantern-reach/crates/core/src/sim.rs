@@ -1,7 +1,7 @@
 //! The sim kernel: fixed-step ticks, real pause, the command buffer, history, events,
 //! counters and rollback by cause.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use galaxy_contract::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -368,21 +368,37 @@ impl Sim {
     /// writes are listed for an in-world compensation.
     ///
     /// Each cause is rolled back at most once: causes already rolled back, or with a
-    /// rollback still pending, are skipped. A committed batch with a `Rollback` cause
+    /// rollback still pending, are skipped. Pending rollbacks are re-ordered together
+    /// with the new ones, newest cause first. `RollbackPlan` counts only the batches
+    /// for causes newly requested by this call. A committed batch with a `Rollback` cause
     /// marks every cause in its `of` as rolled back, and a later batch rolling back any
     /// of them again is rejected. A rejected rollback can be queued again.
     pub fn queue_rollback(&mut self, causes: &[CauseId], summary: &str) -> RollbackPlan {
-        let mut skip = self.state.kernel.rolled_back.clone();
-        for b in &self.state.kernel.pending {
-            if let CauseKind::Rollback { of } = &b.cause.kind {
-                skip.extend(of.iter().copied());
+        // Rollback batches still pending are rebuilt together with the new request, so
+        // every inverse runs newest cause first even when requests overlap (rolling back
+        // A, then A+B, must undo B before A).
+        let mut summaries: BTreeMap<CauseId, String> = BTreeMap::new();
+        let mut keep = Vec::new();
+        for b in std::mem::take(&mut self.state.kernel.pending) {
+            match &b.cause.kind {
+                CauseKind::Rollback { of } => {
+                    for c in of {
+                        summaries
+                            .entry(*c)
+                            .or_insert_with(|| b.cause.summary.clone());
+                    }
+                }
+                _ => keep.push(b),
             }
         }
-        let wanted: BTreeSet<CauseId> = causes
-            .iter()
-            .copied()
-            .filter(|c| !skip.contains(c))
-            .collect();
+        self.state.kernel.pending = keep;
+        let mut fresh = BTreeSet::new();
+        for c in causes {
+            if !self.state.kernel.rolled_back.contains(c) && !summaries.contains_key(c) {
+                summaries.insert(*c, summary.to_owned());
+                fresh.insert(*c);
+            }
+        }
         let mut plan = RollbackPlan::default();
         let mut batches = Vec::new();
         for entry in self
@@ -390,28 +406,31 @@ impl Sim {
             .journal
             .iter()
             .rev()
-            .filter(|e| wanted.contains(&e.cause))
+            .filter(|e| summaries.contains_key(&e.cause))
         {
             let mut batch = CommandBatch::new(Cause {
                 kind: CauseKind::Rollback {
                     of: vec![entry.cause],
                 },
-                summary: summary.to_owned(),
+                summary: summaries[&entry.cause].clone(),
                 cites: Vec::new(),
             });
             for u in entry.undo.iter().rev() {
                 match u {
                     UndoRecord::Invert { command } => batch.push(command.clone()),
-                    UndoRecord::Compensate { note } => {
+                    UndoRecord::Compensate { note } if fresh.contains(&entry.cause) => {
                         plan.compensate.push(format!("{}: {note}", entry.cause))
                     }
+                    UndoRecord::Compensate { .. } => {}
                 }
             }
             if !batch.commands.is_empty() {
+                if fresh.contains(&entry.cause) {
+                    plan.batches += 1;
+                }
                 batches.push(batch);
             }
         }
-        plan.batches = batches.len();
         for b in batches {
             self.submit(b);
         }

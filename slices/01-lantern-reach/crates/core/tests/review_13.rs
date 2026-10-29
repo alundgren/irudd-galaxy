@@ -254,6 +254,39 @@ fn rollback_queued_twice_or_overlapping_applies_once() {
 }
 
 #[test]
+fn overlapping_rollback_requests_undo_newest_first() {
+    // Re-check finding: A sets stage 0 -> 1, B sets 1 -> 2. Rolling back A, then A+B,
+    // must invert B before A and end at stage 0.
+    let kettle = StationId::from_static("station.kettle_dock");
+    let stage = |s: &Sim| s.world().stations.get(&kettle).unwrap().build.stage;
+    let mut s = fresh();
+    s.submit(script("a").with(Command::SetStationStage {
+        station: kettle.clone(),
+        stage: 0,
+    }));
+    step(&mut s);
+    s.submit(script("stage one").with(Command::SetStationStage {
+        station: kettle.clone(),
+        stage: 1,
+    }));
+    step(&mut s);
+    s.submit(script("stage two").with(Command::SetStationStage {
+        station: kettle.clone(),
+        stage: 2,
+    }));
+    step(&mut s);
+    assert_eq!(stage(&s), 2);
+    let n = s.journal().len();
+    let (a, b) = (s.journal()[n - 2].cause, s.journal()[n - 1].cause);
+
+    assert_eq!(s.queue_rollback(&[a], "undo a").batches, 1);
+    assert_eq!(s.queue_rollback(&[a, b], "undo both").batches, 1);
+    let report = step(&mut s);
+    assert_eq!(report.applied, 2);
+    assert_eq!(stage(&s), 0);
+}
+
+#[test]
 fn rejected_rollback_can_be_retried() {
     let mut s = fresh();
     s.submit(script("plus ten").with(Command::AdjustCredits { delta: 10 }));
