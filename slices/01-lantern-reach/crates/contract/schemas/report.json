@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ValidationReport",
+  "description": "The result of validating (and maybe applying) a pack revision.",
+  "type": "object",
+  "properties": {
+    "pack": {
+      "$ref": "#/$defs/PackId"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ReportStatus"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StepReport"
+      }
+    }
+  },
+  "required": [
+    "pack",
+    "revision",
+    "status",
+    "steps"
+  ],
+  "$defs": {
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "Diagnostic": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "message"
+      ]
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "ReportStatus": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "rejected"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "description": "Applied; `change` is the cause ID to roll back by.",
+          "type": "object",
+          "properties": {
+            "change": {
+              "$ref": "#/$defs/CauseId"
+            },
+            "status": {
+              "type": "string",
+              "const": "applied"
+            }
+          },
+          "required": [
+            "status",
+            "change"
+          ]
+        }
+      ]
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ]
+    },
+    "StepReport": {
+      "type": "object",
+      "properties": {
+        "diagnostics": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          }
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "step": {
+          "$ref": "#/$defs/ValidationStep"
+        }
+      },
+      "required": [
+        "step",
+        "passed"
+      ]
+    },
+    "ValidationStep": {
+      "description": "The validation pipeline, in order.",
+      "type": "string",
+      "enum": [
+        "types",
+        "canon",
+        "invariants",
+        "sandbox",
+        "legibility",
+        "stage"
+      ]
+    }
+  }
+}

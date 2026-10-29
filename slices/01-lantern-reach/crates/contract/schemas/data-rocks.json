@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RocksFile",
+  "type": "object",
+  "properties": {
+    "field": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RockField"
+      }
+    },
+    "rock_type": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RockType"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FieldId": {
+      "description": "Stable field id, e.g. `field.shallows.ice`.",
+      "type": "string",
+      "examples": [
+        "field.shallows.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockField": {
+      "description": "An authored field. Rocks are generated from it once, at new game, with stable IDs\n`<rock_prefix>.01`, `<rock_prefix>.02`, ...",
+      "type": "object",
+      "properties": {
+        "amount_max": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "amount_min": {
+          "description": "Units per rock, inclusive range.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "center": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/FieldId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "rock_prefix": {
+          "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
+          "type": "string"
+        },
+        "rock_type": {
+          "$ref": "#/$defs/RockTypeId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "region",
+        "rock_type",
+        "rock_prefix",
+        "center",
+        "radius",
+        "count",
+        "amount_min",
+        "amount_max"
+      ]
+    },
+    "RockType": {
+      "type": "object",
+      "properties": {
+        "hardness": {
+          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "type": "number",
+          "format": "float"
+        },
+        "id": {
+          "$ref": "#/$defs/RockTypeId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "regrowth": {
+          "description": "Units regrown per regrowth step (W2 defines the step from activity, never a clock).",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ware",
+        "hardness"
+      ]
+    },
+    "RockTypeId": {
+      "description": "Stable rock type id, e.g. `rock_type.ice`.",
+      "type": "string",
+      "examples": [
+        "rock_type.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

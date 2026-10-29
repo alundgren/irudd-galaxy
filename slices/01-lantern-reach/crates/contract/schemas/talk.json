@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TalkLine",
+  "description": "One line of text in the world.",
+  "type": "object",
+  "properties": {
+    "channel": {
+      "$ref": "#/$defs/Channel"
+    },
+    "cites": {
+      "description": "The facts this line is about. Never empty.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FactId"
+      },
+      "minItems": 1
+    },
+    "place": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StationId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "speaker": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NpcId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "text": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "channel",
+    "text",
+    "cites"
+  ],
+  "$defs": {
+    "Channel": {
+      "type": "string",
+      "enum": [
+        "dock_talk",
+        "map_note",
+        "chronicle"
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}
