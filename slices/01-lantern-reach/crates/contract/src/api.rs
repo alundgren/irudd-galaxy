@@ -383,7 +383,7 @@ pub const FUNCTIONS: &[FnDef] = &[
         "record",
         "history.write",
         "(fact: FactDraft, why: Cause) -> ()",
-        "Records a fact when the batch commits. Engine event kinds are reserved.",
+        "Records a fact when the batch commits. Its kind carries the pack prefix: `gm.stage_built`.",
     ),
     f(
         "stations",

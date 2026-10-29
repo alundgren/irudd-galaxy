@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use std::str::FromStr;
 
 use galaxy_contract::api;
-use galaxy_contract::events::{CounterKind, CounterScope, EventEnvelope, EventKind};
+use galaxy_contract::events::{CounterKind, CounterScope, EventEnvelope};
 use galaxy_contract::history::{FactDraft, HistoryQuery};
 use galaxy_contract::pack::{ScriptDecl, ScriptValue, ValueType};
 use galaxy_contract::prelude::*;
@@ -534,15 +534,15 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             let draft: FactDraft = lua
                 .from_value(Value::Table(fact))
                 .map_err(|e| env.fail(lua, "bad_argument", e))?;
-            if EventKind::ALL
-                .iter()
-                .any(|k| k.as_str() == draft.kind.as_str())
-            {
+            // Recorded kinds carry the pack's prefix (`gm.stage_built`); bare names
+            // are the engine's event kinds.
+            let ns = env.pack.as_str().split('.').next().unwrap_or("");
+            if !draft.kind.as_str().starts_with(&format!("{ns}.")) {
                 return Err(env.fail(
                     lua,
-                    "reserved_fact_kind",
+                    "unprefixed_fact_kind",
                     format!(
-                        "`{}` is an engine event kind; record your own kinds",
+                        "record kinds with this pack's prefix, e.g. `{ns}.stage_built`; got `{}`",
                         draft.kind
                     ),
                 ));

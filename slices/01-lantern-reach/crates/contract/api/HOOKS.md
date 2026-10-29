@@ -101,7 +101,7 @@ and `ctx.store` (the script's declared stores).
 - `ctx.history:find(q: HistoryQuery) -> { Fact }` (`history.read`): Matching facts, oldest first. At most `q.limit`, and never more than 50.
 - `ctx.history:last(q: HistoryQuery) -> Fact?` (`history.read`): The most recent matching fact.
 - `ctx.history:fact(id: FactId) -> Fact?` (`history.read`): One fact by ID.
-- `ctx.history:record(fact: FactDraft, why: Cause) -> ()` (`history.write`): Records a fact when the batch commits. Engine event kinds are reserved.
+- `ctx.history:record(fact: FactDraft, why: Cause) -> ()` (`history.write`): Records a fact when the batch commits. Its kind carries the pack prefix: `gm.stage_built`.
 
 ### `ctx.stations`
 

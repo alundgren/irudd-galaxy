@@ -4,7 +4,9 @@
 //! This adds what the design asks for on top: the pack revisions that made those
 //! causes are retired (their handlers stop, so a script whose condition still holds
 //! doesn't redo the change at once), and a person says why, in dock talk and in the
-//! chronicle, citing the facts the rolled-back change was based on or recorded.
+//! chronicle, citing the facts the rolled-back change was based on or recorded. The
+//! retirement and the lines are one batch caused by the `script_rollback` system, queued
+//! after the inverses.
 
 use std::collections::BTreeSet;
 
@@ -14,6 +16,9 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::{RollbackPlan, Sim};
 use serde::Serialize;
+
+/// The system the compensation batch is caused by.
+pub const SYSTEM_NAME: &str = "script_rollback";
 
 /// Most facts a compensating line cites.
 const MAX_CITES: usize = 16;
@@ -65,13 +70,11 @@ pub fn rollback(sim: &mut Sim, causes: &[CauseId], line: Option<&RollbackLine>) 
     let cites: Vec<FactId> = cites.into_iter().skip(skip).collect();
     let plan = sim.queue_rollback(causes, &summary);
 
-    let mut batch = CommandBatch::new(Cause {
-        kind: CauseKind::Rollback {
-            of: causes.to_vec(),
-        },
-        summary,
-        cites: cites.clone(),
-    });
+    // Not a `Rollback` cause: the kernel keeps those for the inverse batches it builds
+    // from the journal (one per cause, at most once). The lines name the change in
+    // `about` instead.
+    let mut batch =
+        CommandBatch::new(Cause::system(SYSTEM_NAME, summary).citing(cites.iter().copied()));
     for (pack, revision) in &retired {
         batch.push(Command::SetRevisionRetired {
             pack: pack.clone(),

@@ -8,14 +8,23 @@
 //!   columns and the full fact as JSON.
 //! - `causes`: recorded causes.
 //! - `journal`: undo records for journaled causes (rollback by cause).
-//! - `snapshots`: full copies of world + kernel with the history high-water marks,
-//!   taken before game-master changes (hard restore).
+//! - `snapshots`: complete states taken before game-master changes (hard restore):
+//!   world and kernel, and each log as a prefix shared with the save's own table (up
+//!   to `history_seq`, `cause_seq`, `journal_seq`) plus a `tail` of rows the snapshot
+//!   holds itself, with a `digest` of the whole timeline that is checked on load.
+//!
+//! The three logs are append-only within one timeline. [`Save::write`] compares the
+//! stored rows with the state's and replaces everything from the first difference, so
+//! writing a restored snapshot (or any state that diverged from the file) never keeps
+//! rows from a discarded timeline. Before it drops rows a snapshot still shares, it
+//! moves them into that snapshot's tail, so every listed snapshot stays loadable.
 //!
 //! Fork a save = copy the file ([`fork`]).
 
 use std::path::{Path, PathBuf};
 
 use galaxy_contract::prelude::*;
+use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde::Serialize;
 
@@ -23,7 +32,7 @@ use crate::history::History;
 use crate::sim::{KernelState, SimState};
 
 /// Bump when the table layout changes incompatibly.
-pub const SAVE_FORMAT_VERSION: u32 = 1;
+pub const SAVE_FORMAT_VERSION: u32 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SaveError {
@@ -91,7 +100,9 @@ CREATE TABLE snapshots (
     kernel TEXT NOT NULL,
     history_seq INTEGER NOT NULL,
     cause_seq INTEGER NOT NULL,
-    journal_seq INTEGER NOT NULL
+    journal_seq INTEGER NOT NULL,
+    tail TEXT NOT NULL,
+    digest TEXT NOT NULL
 );
 "#;
 
@@ -123,6 +134,164 @@ fn to_i64(n: u64) -> i64 {
     i64::try_from(n).expect("sequence numbers fit in i64")
 }
 
+/// One of the three logs a save mirrors: rows keyed by an increasing number, each
+/// holding one record as JSON.
+#[derive(Clone, Copy)]
+enum Log {
+    History,
+    Causes,
+    Journal,
+}
+
+impl Log {
+    const ALL: [Log; 3] = [Log::History, Log::Causes, Log::Journal];
+
+    fn table(self) -> &'static str {
+        match self {
+            Log::History => "history",
+            Log::Causes => "causes",
+            Log::Journal => "journal",
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Log::History | Log::Journal => "seq",
+            Log::Causes => "id",
+        }
+    }
+
+    fn json(self) -> &'static str {
+        match self {
+            Log::History => "fact",
+            Log::Causes => "cause",
+            Log::Journal => "entry",
+        }
+    }
+
+    /// The snapshot column: up to which key a snapshot shares this log's table.
+    fn mark(self) -> &'static str {
+        match self {
+            Log::History => "history_seq",
+            Log::Causes => "cause_seq",
+            Log::Journal => "journal_seq",
+        }
+    }
+}
+
+/// A log row as the save stores it.
+struct Row {
+    key: i64,
+    json: String,
+}
+
+fn row<T: Serialize>(key: u64, value: &T) -> Result<Row, SaveError> {
+    Ok(Row {
+        key: to_i64(key),
+        json: serde_json::to_string(value)?,
+    })
+}
+
+/// The state's logs as rows in key order, indexed by `Log as usize`.
+fn log_rows(state: &SimState) -> Result<[Vec<Row>; 3], SaveError> {
+    let facts = state.history.facts().iter().map(|f| row(f.id.0, f));
+    let causes = state.history.causes().values().map(|c| row(c.id.0, c));
+    let journal = (1..).zip(&state.journal).map(|(i, e)| row(i, e));
+    Ok([
+        facts.collect::<Result<_, _>>()?,
+        causes.collect::<Result<_, _>>()?,
+        journal.collect::<Result<_, _>>()?,
+    ])
+}
+
+/// Per log, the row JSON a snapshot holds itself (its rows past its marks).
+type Tail = [Vec<String>; 3];
+
+/// How many of `rows` the stored log already holds as its first rows, unchanged.
+fn shared_prefix(conn: &Connection, log: Log, rows: &[Row]) -> Result<usize, SaveError> {
+    let (key, json, table) = (log.key(), log.json(), log.table());
+    let mut stmt = conn.prepare(&format!("SELECT {key}, {json} FROM {table} ORDER BY {key}"))?;
+    let mut stored = stmt.query([])?;
+    let mut n = 0;
+    while let Some(want) = rows.get(n) {
+        let Some(r) = stored.next()? else { break };
+        let same = r.get::<_, i64>(0)? == want.key
+            && matches!(r.get_ref(1)?, ValueRef::Text(t) if t == want.json.as_bytes());
+        if !same {
+            break;
+        }
+        n += 1;
+    }
+    Ok(n)
+}
+
+/// The key of the last of the first `n` rows, 0 for none.
+fn mark_at(rows: &[Row], n: usize) -> i64 {
+    n.checked_sub(1).map_or(0, |i| rows[i].key)
+}
+
+/// The stored JSON of a log's rows with keys in `(after, upto]`, in key order.
+fn stored_json(
+    conn: &Connection,
+    log: Log,
+    after: i64,
+    upto: i64,
+) -> Result<Vec<String>, SaveError> {
+    let (key, json, table) = (log.key(), log.json(), log.table());
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {json} FROM {table} WHERE {key} > ?1 AND {key} <= ?2 ORDER BY {key}"
+    ))?;
+    let rows = stmt.query_map([after, upto], |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// BLAKE3 over every row of a timeline's three logs.
+fn timeline_digest<'a>(logs: impl IntoIterator<Item = Vec<&'a str>>) -> String {
+    let mut h = blake3::Hasher::new();
+    for rows in logs {
+        h.update(&(rows.len() as u64).to_le_bytes());
+        for json in rows {
+            h.update(&(json.len() as u64).to_le_bytes());
+            h.update(json.as_bytes());
+        }
+    }
+    h.finalize().to_hex().to_string()
+}
+
+/// JSON can't hold NaN or infinity (`serde_json` writes `null` and then can't read it
+/// back), so a state holding one is refused instead of written.
+fn check_saveable(state: &SimState) -> Result<(), SaveError> {
+    crate::finite::check(state).map_err(|e| {
+        SaveError::Json(serde::ser::Error::custom(format!(
+            "can't save a non-finite number: {e}"
+        )))
+    })
+}
+
+/// Before `log` rows with keys above `keep` are dropped, moves the ones a snapshot
+/// still shares into that snapshot's tail.
+fn detach_snapshots(conn: &Connection, log: Log, keep: i64) -> Result<(), SaveError> {
+    let mark = log.mark();
+    let affected: Vec<(i64, i64, String)> = {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT id, {mark}, tail FROM snapshots WHERE {mark} > ?1"
+        ))?;
+        let rows = stmt.query_map([keep], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect::<Result<_, _>>()?
+    };
+    for (id, shared, tail) in affected {
+        let mut tail: Tail = serde_json::from_str(&tail)?;
+        let mut moved = stored_json(conn, log, keep, shared)?;
+        moved.append(&mut tail[log as usize]);
+        tail[log as usize] = moved;
+        conn.execute(
+            &format!("UPDATE snapshots SET {mark} = ?1, tail = ?2 WHERE id = ?3"),
+            params![keep, serde_json::to_string(&tail)?, id],
+        )?;
+    }
+    Ok(())
+}
+
 impl Save {
     /// Creates a new save file holding `state`. Fails if the file exists.
     pub fn create(path: impl AsRef<Path>, state: &SimState) -> Result<Save, SaveError> {
@@ -130,6 +299,7 @@ impl Save {
         if path.exists() {
             return Err(SaveError::Exists(path));
         }
+        check_saveable(state)?;
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir)?;
         }
@@ -191,97 +361,38 @@ impl Save {
             .optional()?)
     }
 
-    /// Writes `state`: replaces the world row and syncs the append-only tables. Rows
-    /// past what `state` holds (after a hard restore) are dropped.
+    /// Writes `state`: replaces the world row and syncs the logs. Stored log rows from
+    /// the first one that differs from `state` onward (another timeline, after a hard
+    /// restore) are replaced; snapshots that shared them keep their own copies.
+    /// Refuses a state with a non-finite number in it, leaving the file as it was.
     pub fn write(&mut self, state: &SimState) -> Result<(), SaveError> {
+        check_saveable(state)?;
         let hash = crate::hash::state_hash(state);
         let world = serde_json::to_string(&state.world)?;
         let kernel = serde_json::to_string(&state.kernel)?;
+        let rows = log_rows(state)?;
         let tx = self.conn.transaction()?;
         tx.execute(
             "INSERT INTO world (id, tick, hash, world, kernel) VALUES (1, ?1, ?2, ?3, ?4)
              ON CONFLICT (id) DO UPDATE SET tick = ?1, hash = ?2, world = ?3, kernel = ?4",
             params![to_i64(state.world.meta.tick.0), hash, world, kernel],
         )?;
-
-        let last_fact = state.history.last_fact_id().map_or(0, |f| f.0);
-        tx.execute("DELETE FROM history WHERE seq > ?1", [to_i64(last_fact)])?;
-        let stored: i64 = tx.query_row("SELECT COALESCE(MAX(seq), 0) FROM history", [], |r| {
-            r.get(0)
-        })?;
-        {
-            let mut insert = tx.prepare(
-                "INSERT INTO history (seq, tick, kind, cause, ship, station, ware, rock,
-                 npc, faction, region, other, amount, fact)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        for log in Log::ALL {
+            let rows = &rows[log as usize];
+            let n = shared_prefix(&tx, log, rows)?;
+            let keep = mark_at(rows, n);
+            detach_snapshots(&tx, log, keep)?;
+            tx.execute(
+                &format!("DELETE FROM {} WHERE {} > ?1", log.table(), log.key()),
+                [keep],
             )?;
-            for f in state
-                .history
-                .facts()
-                .iter()
-                .filter(|f| to_i64(f.id.0) > stored)
-            {
-                let s = &f.subjects;
-                insert.execute(params![
-                    to_i64(f.id.0),
-                    to_i64(f.tick.0),
-                    f.kind.as_str(),
-                    to_i64(f.cause.0),
-                    s.ship.as_ref().map(|x| x.as_str()),
-                    s.station.as_ref().map(|x| x.as_str()),
-                    s.ware.as_ref().map(|x| x.as_str()),
-                    s.rock.as_ref().map(|x| x.as_str()),
-                    s.npc.as_ref().map(|x| x.as_str()),
-                    s.faction.as_ref().map(|x| x.as_str()),
-                    s.region.as_ref().map(|x| x.as_str()),
-                    s.other.as_ref().map(|x| x.as_str()),
-                    f.amount,
-                    serde_json::to_string(f)?,
-                ])?;
-            }
-        }
-
-        let last_cause = state.history.causes().keys().next_back().map_or(0, |c| c.0);
-        tx.execute("DELETE FROM causes WHERE id > ?1", [to_i64(last_cause)])?;
-        let stored: i64 =
-            tx.query_row("SELECT COALESCE(MAX(id), 0) FROM causes", [], |r| r.get(0))?;
-        {
-            let mut insert =
-                tx.prepare("INSERT INTO causes (id, tick, kind, cause) VALUES (?1, ?2, ?3, ?4)")?;
-            for c in state
-                .history
-                .causes()
-                .values()
-                .filter(|c| to_i64(c.id.0) > stored)
-            {
-                let kind = serde_json::to_value(&c.cause.kind)?["kind"]
-                    .as_str()
-                    .unwrap_or_default()
-                    .to_owned();
-                insert.execute(params![
-                    to_i64(c.id.0),
-                    to_i64(c.tick.0),
-                    kind,
-                    serde_json::to_string(c)?
-                ])?;
-            }
-        }
-
-        let journal_len = state.journal.len() as i64;
-        tx.execute("DELETE FROM journal WHERE seq > ?1", [journal_len])?;
-        let stored: i64 = tx.query_row("SELECT COALESCE(MAX(seq), 0) FROM journal", [], |r| {
-            r.get(0)
-        })?;
-        {
-            let mut insert = tx
-                .prepare("INSERT INTO journal (seq, tick, cause, entry) VALUES (?1, ?2, ?3, ?4)")?;
-            for (i, e) in state.journal.iter().enumerate().skip(stored as usize) {
-                insert.execute(params![
-                    i as i64 + 1,
-                    to_i64(e.tick.0),
-                    to_i64(e.cause.0),
-                    serde_json::to_string(e)?
-                ])?;
+            match log {
+                Log::History => insert_facts(&tx, &state.history.facts()[n..], &rows[n..])?,
+                Log::Causes => {
+                    let causes = state.history.causes().values().skip(n);
+                    insert_causes(&tx, causes, &rows[n..])?;
+                }
+                Log::Journal => insert_journal(&tx, &state.journal[n..], &rows[n..])?,
             }
         }
         tx.commit()?;
@@ -297,51 +408,11 @@ impl Save {
             })
             .optional()?
             .ok_or_else(|| SaveError::Corrupt("no world row".into()))?;
-        let world: WorldState = serde_json::from_str(&world)?;
-        let kernel: KernelState = serde_json::from_str(&kernel)?;
-        self.load_rest(world, kernel, i64::MAX, i64::MAX, i64::MAX)
-    }
-
-    fn load_rest(
-        &self,
-        world: WorldState,
-        kernel: KernelState,
-        history_seq: i64,
-        cause_seq: i64,
-        journal_seq: i64,
-    ) -> Result<SimState, SaveError> {
-        let facts = self.json_rows::<Fact>(
-            "SELECT fact FROM history WHERE seq <= ?1 ORDER BY seq",
-            history_seq,
-        )?;
-        let causes = self.json_rows::<RecordedCause>(
-            "SELECT cause FROM causes WHERE id <= ?1 ORDER BY id",
-            cause_seq,
-        )?;
-        let journal = self.json_rows::<JournalEntry>(
-            "SELECT entry FROM journal WHERE seq <= ?1 ORDER BY seq",
-            journal_seq,
-        )?;
-        Ok(SimState {
-            world,
-            kernel,
-            history: History::from_parts(facts, causes),
-            journal,
-        })
-    }
-
-    fn json_rows<T: serde::de::DeserializeOwned>(
-        &self,
-        sql: &str,
-        bound: i64,
-    ) -> Result<Vec<T>, SaveError> {
-        let mut stmt = self.conn.prepare(sql)?;
-        let rows = stmt.query_map([bound], |r| r.get::<_, String>(0))?;
-        let mut out = Vec::new();
-        for row in rows {
-            out.push(serde_json::from_str(&row?)?);
+        let mut logs: [Vec<String>; 3] = Default::default();
+        for log in Log::ALL {
+            logs[log as usize] = stored_json(&self.conn, log, i64::MIN, i64::MAX)?;
         }
-        Ok(out)
+        assemble(&world, &kernel, logs)
     }
 
     /// The stored world state as JSON, without loading the rest.
@@ -418,23 +489,44 @@ impl Save {
         Ok(out)
     }
 
-    /// Stores a snapshot of `state` (before a game-master change, say).
+    /// Stores a complete snapshot of `state` (before a game-master change, say), whether
+    /// or not `state` has been written. Log rows it shares with the save's tables are
+    /// referenced; the rest is copied into the snapshot.
     pub fn snapshot(&mut self, state: &SimState, label: &str) -> Result<i64, SaveError> {
-        self.conn.execute(
-            "INSERT INTO snapshots (tick, label, hash, world, kernel, history_seq, cause_seq, journal_seq)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        check_saveable(state)?;
+        let rows = log_rows(state)?;
+        let tx = self.conn.transaction()?;
+        let mut marks = [0; 3];
+        let mut tail = Tail::default();
+        for log in Log::ALL {
+            let rows = &rows[log as usize];
+            let n = shared_prefix(&tx, log, rows)?;
+            marks[log as usize] = mark_at(rows, n);
+            tail[log as usize] = rows[n..].iter().map(|r| r.json.clone()).collect();
+        }
+        let digest = timeline_digest(
+            rows.iter()
+                .map(|log| log.iter().map(|r| r.json.as_str()).collect()),
+        );
+        tx.execute(
+            "INSERT INTO snapshots (tick, label, hash, world, kernel, history_seq, cause_seq,
+             journal_seq, tail, digest) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 to_i64(state.world.meta.tick.0),
                 label,
                 crate::hash::state_hash(state),
                 serde_json::to_string(&state.world)?,
                 serde_json::to_string(&state.kernel)?,
-                to_i64(state.history.last_fact_id().map_or(0, |f| f.0)),
-                to_i64(state.history.causes().keys().next_back().map_or(0, |c| c.0)),
-                state.journal.len() as i64,
+                marks[0],
+                marks[1],
+                marks[2],
+                serde_json::to_string(&tail)?,
+                digest,
             ],
         )?;
-        Ok(self.conn.last_insert_rowid())
+        let id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(id)
     }
 
     pub fn snapshots(&self) -> Result<Vec<SnapshotInfo>, SaveError> {
@@ -453,26 +545,118 @@ impl Save {
     }
 
     /// The state as it was at a snapshot. `write` it back for a hard restore (that
-    /// drops later history from the file).
+    /// replaces later history in the file; other snapshots stay loadable). Fails with
+    /// [`SaveError::Corrupt`] rather than return a state with incomplete logs.
     pub fn load_snapshot(&self, id: i64) -> Result<SimState, SaveError> {
-        type Row = (String, String, i64, i64, i64);
+        type Row = (String, String, [i64; 3], String, String);
         let row: Option<Row> = self
             .conn
             .query_row(
-                "SELECT world, kernel, history_seq, cause_seq, journal_seq FROM snapshots WHERE id = ?1",
+                "SELECT world, kernel, history_seq, cause_seq, journal_seq, tail, digest
+                 FROM snapshots WHERE id = ?1",
                 [id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                |r| {
+                    let marks = [r.get(2)?, r.get(3)?, r.get(4)?];
+                    Ok((r.get(0)?, r.get(1)?, marks, r.get(5)?, r.get(6)?))
+                },
             )
             .optional()?;
-        let (world, kernel, h, c, j) = row.ok_or(SaveError::NoSnapshot(id))?;
-        self.load_rest(
-            serde_json::from_str(&world)?,
-            serde_json::from_str(&kernel)?,
-            h,
-            c,
-            j,
-        )
+        let (world, kernel, marks, tail, digest) = row.ok_or(SaveError::NoSnapshot(id))?;
+        let mut tail: Tail = serde_json::from_str(&tail)?;
+        let mut logs: [Vec<String>; 3] = Default::default();
+        for log in Log::ALL {
+            let i = log as usize;
+            logs[i] = stored_json(&self.conn, log, i64::MIN, marks[i])?;
+            logs[i].append(&mut tail[i]);
+        }
+        let found = timeline_digest(
+            logs.iter()
+                .map(|log| log.iter().map(String::as_str).collect()),
+        );
+        if found != digest {
+            return Err(SaveError::Corrupt(format!(
+                "snapshot {id} no longer matches its recorded history"
+            )));
+        }
+        assemble(&world, &kernel, logs)
     }
+}
+
+/// A state from its stored world, kernel and log rows.
+fn assemble(world: &str, kernel: &str, logs: [Vec<String>; 3]) -> Result<SimState, SaveError> {
+    fn parse<T: serde::de::DeserializeOwned>(rows: &[String]) -> Result<Vec<T>, SaveError> {
+        rows.iter().map(|r| Ok(serde_json::from_str(r)?)).collect()
+    }
+    let [facts, causes, journal] = logs;
+    Ok(SimState {
+        world: serde_json::from_str(world)?,
+        kernel: serde_json::from_str::<KernelState>(kernel)?,
+        history: History::from_parts(parse(&facts)?, parse(&causes)?),
+        journal: parse(&journal)?,
+    })
+}
+
+fn insert_facts(conn: &Connection, facts: &[Fact], rows: &[Row]) -> Result<(), SaveError> {
+    let mut insert = conn.prepare(
+        "INSERT INTO history (seq, tick, kind, cause, ship, station, ware, rock,
+         npc, faction, region, other, amount, fact)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    )?;
+    for (f, row) in facts.iter().zip(rows) {
+        let s = &f.subjects;
+        insert.execute(params![
+            row.key,
+            to_i64(f.tick.0),
+            f.kind.as_str(),
+            to_i64(f.cause.0),
+            s.ship.as_ref().map(|x| x.as_str()),
+            s.station.as_ref().map(|x| x.as_str()),
+            s.ware.as_ref().map(|x| x.as_str()),
+            s.rock.as_ref().map(|x| x.as_str()),
+            s.npc.as_ref().map(|x| x.as_str()),
+            s.faction.as_ref().map(|x| x.as_str()),
+            s.region.as_ref().map(|x| x.as_str()),
+            s.other.as_ref().map(|x| x.as_str()),
+            f.amount,
+            row.json,
+        ])?;
+    }
+    Ok(())
+}
+
+fn insert_causes<'a>(
+    conn: &Connection,
+    causes: impl Iterator<Item = &'a RecordedCause>,
+    rows: &[Row],
+) -> Result<(), SaveError> {
+    let mut insert =
+        conn.prepare("INSERT INTO causes (id, tick, kind, cause) VALUES (?1, ?2, ?3, ?4)")?;
+    for (c, row) in causes.zip(rows) {
+        let kind = serde_json::to_value(&c.cause.kind)?["kind"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        insert.execute(params![row.key, to_i64(c.tick.0), kind, row.json])?;
+    }
+    Ok(())
+}
+
+fn insert_journal(
+    conn: &Connection,
+    entries: &[JournalEntry],
+    rows: &[Row],
+) -> Result<(), SaveError> {
+    let mut insert =
+        conn.prepare("INSERT INTO journal (seq, tick, cause, entry) VALUES (?1, ?2, ?3, ?4)")?;
+    for (e, row) in entries.iter().zip(rows) {
+        insert.execute(params![
+            row.key,
+            to_i64(e.tick.0),
+            to_i64(e.cause.0),
+            row.json
+        ])?;
+    }
+    Ok(())
 }
 
 /// Forks a save: a plain file copy. Fails if `to` exists.

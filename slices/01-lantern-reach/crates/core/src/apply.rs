@@ -42,21 +42,41 @@ fn find<'a, K: Ord + Display, V>(
     store.get_mut(id).ok_or_else(|| unknown(kind, id))
 }
 
-fn require<K: Ord + Display, V>(
-    store: &Store<K, V>,
-    id: &K,
-    kind: &'static str,
-) -> Result<(), CommandError> {
-    if store.contains(id) {
-        Ok(())
-    } else {
-        Err(unknown(kind, id))
+/// Whether a command's references to other records are checked. Forward commands
+/// check them; undoing a just-applied command restores the captured values as they
+/// were, even if they referred to something that didn't exist yet (the batch is being
+/// rejected precisely because the world it left behind was broken).
+#[derive(Clone, Copy)]
+struct Refs {
+    check: bool,
+}
+
+impl Refs {
+    fn require<K: Ord + Display, V>(
+        self,
+        store: &Store<K, V>,
+        id: &K,
+        kind: &'static str,
+    ) -> Result<(), CommandError> {
+        if !self.check || store.contains(id) {
+            Ok(())
+        } else {
+            Err(unknown(kind, id))
+        }
     }
 }
 
 fn adjust_u32(value: u32, delta: i64, what: &str) -> Result<u32, CommandError> {
-    let next = i64::from(value) + delta;
-    u32::try_from(next).map_err(|_| CommandError::Invalid(format!("{what} would be {next}")))
+    i64::from(value)
+        .checked_add(delta)
+        .and_then(|next| u32::try_from(next).ok())
+        .ok_or_else(|| CommandError::Invalid(format!("{what} can't change by {delta}")))
+}
+
+/// The inverse delta, refused before anything changes if it doesn't exist
+/// (`i64::MIN`, `i32::MIN`).
+fn negate<T: Copy + Display>(delta: T, neg: impl Fn(T) -> Option<T>) -> Result<T, CommandError> {
+    neg(delta).ok_or_else(|| CommandError::Invalid(format!("delta {delta} has no inverse")))
 }
 
 fn put<V: Record + Clone>(
@@ -105,6 +125,27 @@ pub fn apply(
     cmd: &Command,
     staged: &mut Staged,
 ) -> Result<UndoRecord, CommandError> {
+    apply_with(world, cmd, staged, Refs { check: true })
+}
+
+/// Applies the inverse of a command that was just applied, without checking that the
+/// values it restores refer to existing records. Used to undo a rejected batch.
+pub(crate) fn restore(world: &mut WorldState, inverse: &Command) -> Result<(), CommandError> {
+    apply_with(
+        world,
+        inverse,
+        &mut Staged::default(),
+        Refs { check: false },
+    )
+    .map(drop)
+}
+
+fn apply_with(
+    world: &mut WorldState,
+    cmd: &Command,
+    staged: &mut Staged,
+    refs: Refs,
+) -> Result<UndoRecord, CommandError> {
     use Command as C;
     match cmd {
         C::SetShipMotion {
@@ -127,7 +168,7 @@ pub fn apply(
         }
         C::SetShipDocked { ship, station } => {
             if let Some(st) = station {
-                require(&world.stations, st, "station")?;
+                refs.require(&world.stations, st, "station")?;
             }
             let s = find(&mut world.ships, ship, "ship")?;
             let old = std::mem::replace(&mut s.docked_at, station.clone());
@@ -137,7 +178,7 @@ pub fn apply(
             })
         }
         C::SetShipRegion { ship, region } => {
-            require(&world.regions, region, "region")?;
+            refs.require(&world.regions, region, "region")?;
             let s = find(&mut world.ships, ship, "ship")?;
             let old = std::mem::replace(&mut s.region, region.clone());
             invert(C::SetShipRegion {
@@ -146,7 +187,8 @@ pub fn apply(
             })
         }
         C::AdjustCargo { ship, ware, delta } => {
-            require(&world.wares, ware, "ware")?;
+            refs.require(&world.wares, ware, "ware")?;
+            let inverse = negate(*delta, i64::checked_neg)?;
             let s = find(&mut world.ships, ship, "ship")?;
             let next = adjust_u32(s.hold.count(ware), *delta, &format!("{ware} in {ship}"))?;
             if next == 0 {
@@ -157,7 +199,7 @@ pub fn apply(
             invert(C::AdjustCargo {
                 ship: ship.clone(),
                 ware: ware.clone(),
-                delta: -delta,
+                delta: inverse,
             })
         }
         C::SetOrders { ship, orders } => {
@@ -169,6 +211,7 @@ pub fn apply(
             })
         }
         C::AdjustCredits { delta } => {
+            let inverse = negate(*delta, i64::checked_neg)?;
             let next = world
                 .player
                 .credits
@@ -176,7 +219,7 @@ pub fn apply(
                 .filter(|&c| c >= 0)
                 .ok_or_else(|| CommandError::Invalid("not enough credits".into()))?;
             world.player.credits = next;
-            invert(C::AdjustCredits { delta: -delta })
+            invert(C::AdjustCredits { delta: inverse })
         }
         C::SetFlag { flag, on } => {
             let was = if *on {
@@ -201,7 +244,7 @@ pub fn apply(
             })
         }
         C::SetPriceSnapshot { station, snapshot } => {
-            require(&world.stations, station, "station")?;
+            refs.require(&world.stations, station, "station")?;
             let snaps = &mut world.player.price_snapshots;
             let old = match snapshot {
                 Some(s) => snaps.insert(station.clone(), s.clone()),
@@ -213,11 +256,12 @@ pub fn apply(
             })
         }
         C::AdjustRock { rock, delta } => {
+            let inverse = negate(*delta, i64::checked_neg)?;
             let r = find(&mut world.rocks, rock, "rock")?;
             r.remaining = adjust_u32(r.remaining, *delta, &format!("{rock} remaining"))?;
             invert(C::AdjustRock {
                 rock: rock.clone(),
-                delta: -delta,
+                delta: inverse,
             })
         }
         C::SetStationStage { station, stage } => {
@@ -247,7 +291,7 @@ pub fn apply(
         }
         C::SetStationOwner { station, owner } => {
             if let Some(f) = owner {
-                require(&world.factions, f, "faction")?;
+                refs.require(&world.factions, f, "faction")?;
             }
             let s = find(&mut world.stations, station, "station")?;
             let old = std::mem::replace(&mut s.owner, owner.clone());
@@ -257,6 +301,7 @@ pub fn apply(
             })
         }
         C::AdjustStanding { faction, delta } => {
+            let inverse = negate(*delta, i32::checked_neg)?;
             let f = find(&mut world.factions, faction, "faction")?;
             f.standing = f
                 .standing
@@ -264,7 +309,7 @@ pub fn apply(
                 .ok_or_else(|| CommandError::Invalid("standing overflow".into()))?;
             invert(C::AdjustStanding {
                 faction: faction.clone(),
-                delta: -delta,
+                delta: inverse,
             })
         }
         C::SetMarketLine {
@@ -273,7 +318,7 @@ pub fn apply(
             line,
         } => {
             if line.is_some() {
-                require(&world.wares, ware, "ware")?;
+                refs.require(&world.wares, ware, "ware")?;
             }
             let m = find(&mut world.markets, station, "market")?;
             let old = match line {
@@ -476,10 +521,10 @@ pub fn apply(
             line.validate()
                 .map_err(|e| CommandError::Invalid(e.into()))?;
             if let Some(npc) = &line.speaker {
-                require(&world.npcs, npc, "npc")?;
+                refs.require(&world.npcs, npc, "npc")?;
             }
             if let Some(station) = &line.place {
-                require(&world.stations, station, "station")?;
+                refs.require(&world.stations, station, "station")?;
             }
             let log = &mut world.talk;
             let id = TalkId(log.last + 1);

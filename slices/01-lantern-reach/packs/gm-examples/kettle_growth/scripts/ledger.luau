@@ -16,13 +16,13 @@ ledger.STAGES = {
 	[2] = {
 		ice = 60,
 		plate = 20,
-		parts = { "kit.kettle.greenhouse_ring_a", "kit.light.warm_green" },
+		parts = { "part.kettle.greenhouse_ring_a" },
 		line = "Second ring's lit. Mostly your ice. And your plate, mostly.",
 	},
 	[3] = {
 		ice = 120,
 		plate = 50,
-		parts = { "kit.kettle.greenhouse_ring_b", "kit.kettle.orchard_lamps" },
+		parts = { "part.kettle.greenhouse_ring_b", "part.kettle.orchard_lamps" },
 		line = "The orchard lamps are on. We'll need glassite for them now, if you're passing.",
 	},
 } :: { [number]: Stage }

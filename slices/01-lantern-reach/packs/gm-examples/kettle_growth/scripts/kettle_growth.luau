@@ -77,7 +77,7 @@ local function grow(station: string, fact: string, ctx: G.Ctx)
 		}, why)
 	end
 	ctx.history:record({
-		kind = "stage_built",
+		kind = "gm.stage_built",
 		subjects = { station = KETTLE },
 		amount = to,
 		note = `Kettle Dock stage {to}`,

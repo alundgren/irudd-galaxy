@@ -14,6 +14,7 @@
 
 pub mod apply;
 pub mod bus;
+pub mod finite;
 pub mod hash;
 pub mod history;
 pub mod invariants;

@@ -26,8 +26,7 @@ fn kettle_grows_from_deliveries_and_odo_cites_them() {
     grow_to_stage_2(&mut sim);
 
     let kettle = sim.world().stations.get(&KETTLE).unwrap();
-    assert!(kettle.build.parts.contains("kit.kettle.greenhouse_ring_a"));
-    assert!(kettle.build.parts.contains("kit.light.warm_green"));
+    assert!(kettle.build.parts.contains("part.kettle.greenhouse_ring_a"));
     assert!(kettle.build.parts.is_superset(&parts_before));
 
     let talk = lines(&sim, Channel::DockTalk);
@@ -48,7 +47,7 @@ fn kettle_grows_from_deliveries_and_odo_cites_them() {
     // The change is one cause, from this pack revision, citing the deliveries.
     let built = sim
         .history()
-        .last(&HistoryQuery::kind("stage_built".parse().unwrap()))
+        .last(&HistoryQuery::kind("gm.stage_built".parse().unwrap()))
         .unwrap();
     assert_eq!(built.amount, Some(2));
     let cause = sim.history().cause(built.cause).unwrap();
@@ -140,7 +139,7 @@ fn survives_a_reload_with_its_state_intact() {
     );
     let stage3 = sim
         .history()
-        .last(&HistoryQuery::kind("stage_built".parse().unwrap()))
+        .last(&HistoryQuery::kind("gm.stage_built".parse().unwrap()))
         .unwrap();
     let cause = sim.history().cause(stage3.cause).unwrap();
     assert!(matches!(&cause.cause.kind, CauseKind::Script { revision, .. } if *revision == second));
@@ -217,7 +216,7 @@ fn rollback_restores_the_station_and_odo_explains() {
     grow_to_stage_2(&mut sim);
     let built = sim
         .history()
-        .last(&HistoryQuery::kind("stage_built".parse().unwrap()))
+        .last(&HistoryQuery::kind("gm.stage_built".parse().unwrap()))
         .unwrap()
         .clone();
     let change = built.cause;

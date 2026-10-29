@@ -102,7 +102,7 @@ export type HistoryApi = {
 	last: (self: HistoryApi, q: HistoryQuery) -> Fact?,
 	-- One fact by ID.
 	fact: (self: HistoryApi, id: FactId) -> Fact?,
-	-- Records a fact when the batch commits. Engine event kinds are reserved.
+	-- Records a fact when the batch commits. Its kind carries the pack prefix: `gm.stage_built`.
 	record: (self: HistoryApi, fact: FactDraft, why: Cause) -> (),
 }
 export type StationsApi = {
