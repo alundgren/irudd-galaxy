@@ -1,0 +1,18 @@
+[package]
+name = "galaxy-ship"
+description = "Ships: arcade flight, control tiers, the order runner, mining and rocks, docking and lanes, automated craft."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+galaxy-contract.workspace = true
+galaxy-core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

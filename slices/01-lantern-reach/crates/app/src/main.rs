@@ -329,9 +329,15 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
     }))
 }
 
+/// The game's systems: the kernel's, then the ship's. The ship's buy and sell orders
+/// use the flat stand-in desk until the economy crate's desk is wired in.
+fn game(state: galaxy_core::SimState) -> galaxy_core::Sim {
+    galaxy_core::game(state).with_systems(galaxy_ship::systems(Box::new(galaxy_ship::FlatDesk)))
+}
+
 fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
     let mut save = Save::open(path)?;
-    let mut sim = galaxy_core::game(save.load()?);
+    let mut sim = game(save.load()?);
     let start = sim.tick();
     let input = PlayerInput::default();
     let (mut applied, mut events) = (0usize, 0usize);
