@@ -73,6 +73,7 @@ pub fn deliver(sim: &mut Sim, ware: &WareId, qty: u32) {
                 station: KETTLE,
                 ware: ware.clone(),
                 quantity: qty,
+                ledger: None,
             },
         }),
     );

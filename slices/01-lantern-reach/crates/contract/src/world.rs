@@ -15,6 +15,7 @@ use crate::events::ActivityCounters;
 use crate::geom::Vec2;
 use crate::ids::*;
 use crate::pack::PackState;
+use crate::progress::{HullRecord, ProgressState};
 use crate::store::{Record, Store};
 use crate::talk::TalkLog;
 use crate::verbs::OrderQueue;
@@ -53,6 +54,8 @@ pub struct WorldState {
     pub talk: TalkLog,
     /// Market rules and activity tallies (W3).
     pub economy: EconomyState,
+    /// Beats, progression rules, tunables and mechanic slots (W4).
+    pub progress: ProgressState,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -81,6 +84,12 @@ pub struct Player {
     /// Scouted prices, dated by the visit they were taken on.
     #[serde(default)]
     pub price_snapshots: BTreeMap<StationId, PriceSnapshot>,
+    /// Upgrades fitted. They belong to the pilot and move to a new hull (W4).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub fittings: BTreeSet<UpgradeId>,
+    /// Ranks and rank windows for every hull the player has flown (W4).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub hull_records: BTreeMap<HullId, HullRecord>,
 }
 
 /// What the player saw at a station's market on their last visit.
@@ -361,6 +370,15 @@ pub struct Faction {
     /// Wares this faction wants.
     #[serde(default)]
     pub wants: Vec<WareId>,
+    /// Map and banner colour, e.g. `lantern_green`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub colour: Option<String>,
+    /// Its mark, in a few words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark: Option<String>,
+    /// Stations it claims but may not hold.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claims: Vec<StationId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

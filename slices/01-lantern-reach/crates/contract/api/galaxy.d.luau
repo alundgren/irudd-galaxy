@@ -7,14 +7,17 @@
 -- Records and payloads (generated from the contract's JSON Schemas)
 
 export type AnyId = string
+export type BeatId = string
 export type BuildState = { parts: { PartId }?, stage: number }
 export type CauseId = string
 export type FactId = string
 export type FactKind = string
 export type FactPayload = { event: Event } | { note: string }
 export type FactionId = string
+export type FlagId = string
 export type HullId = string
 export type LaneId = string
+export type LedgerId = string
 export type MarketRole = "buys" | "sells"
 export type NpcId = string
 export type PartId = string
@@ -28,11 +31,12 @@ export type StationId = string
 export type Subjects = { faction: FactionId?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, station: StationId?, ware: WareId? }
 export type Tick = number
 export type TraitId = string
+export type UpgradeId = string
 export type Vec2 = { x: number, y: number }
 export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop"
 export type WareId = string
 export type Station = { build: BuildState, dock_radius: number, id: StationId, name: string, owner: FactionId?, position: Vec2, region: RegionId, services: { Service } }
-export type Faction = { id: FactionId, name: string, standing: number?, wants: { WareId }? }
+export type Faction = { claims: { StationId }?, colour: string?, id: FactionId, mark: string?, name: string, standing: number?, wants: { WareId }? }
 export type Npc = { faction: FactionId?, id: NpcId, location: StationId?, name: string, role: string }
 export type Rumor = { claim: string, heard_at: { StationId }, heard_by_player: boolean, id: RumorId, is_true: boolean, planted_by: FactionId?, source: FactId? }
 export type Region = { center: Vec2, id: RegionId, name: string, owner: FactionId?, radius: number }
@@ -40,8 +44,8 @@ export type MarketLine = { base_price: number, consumption: number?, consumption
 export type Fact = { amount: number?, cause: CauseId, id: FactId, kind: FactKind, payload: FactPayload, subjects: Subjects, tick: Tick }
 export type FactDraft = { amount: number?, kind: FactKind, note: string, subjects: Subjects? }
 export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId?, kind: FactKind?, limit: number?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, since: Tick?, station: StationId?, ["until"]: Tick?, ware: WareId? }
-export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { trait_id: TraitId, type: "trait_earned" } | { from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" }
-export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries"
+export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" }
+export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries" | "ledger_deliveries"
 
 -- Event handler arguments: the event plus the fact it was recorded as.
 
@@ -51,14 +55,22 @@ export type MineEvent = { amount: number, cause: CauseId, fact: FactId, rock: Ro
 export type RockDepletedEvent = { cause: CauseId, fact: FactId, rock: RockId, ship: ShipId?, tick: Tick, type: "rock_depleted" }
 export type BuyEvent = { cause: CauseId, fact: FactId, quantity: number, ship: ShipId, station: StationId, tick: Tick, type: "buy", unit_price: number, ware: WareId }
 export type SellEvent = { cause: CauseId, fact: FactId, quantity: number, ship: ShipId, station: StationId, tick: Tick, type: "sell", unit_price: number, ware: WareId }
-export type DeliverEvent = { cause: CauseId, fact: FactId, quantity: number, ship: ShipId, station: StationId, tick: Tick, type: "deliver", ware: WareId }
+export type DeliverEvent = { cause: CauseId, fact: FactId, ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, tick: Tick, type: "deliver", ware: WareId }
 export type JumpEvent = { cause: CauseId, fact: FactId, from: RegionId, lane: LaneId, ship: ShipId, tick: Tick, to: RegionId, type: "jump" }
 export type ScoutEvent = { cause: CauseId, fact: FactId, ship: ShipId, station: StationId, tick: Tick, type: "scout" }
 export type OrderDoneEvent = { cause: CauseId, fact: FactId, ship: ShipId, tick: Tick, type: "order_done", verb: VerbKind }
 export type QuestStepEvent = { cause: CauseId, fact: FactId, quest: QuestId, step: string, tick: Tick, type: "quest_step" }
-export type TraitEarnedEvent = { cause: CauseId, fact: FactId, tick: Tick, trait_id: TraitId, type: "trait_earned" }
-export type PrestigeEvent = { cause: CauseId, fact: FactId, from_hull: HullId, tick: Tick, to_hull: HullId, type: "prestige" }
+export type TraitEarnedEvent = { cause: CauseId, deed_count: number?, fact: FactId, tick: Tick, trait_id: TraitId, type: "trait_earned" }
+export type PrestigeEvent = { cause: CauseId, fact: FactId, fee: number?, from_hull: HullId, tick: Tick, to_hull: HullId, type: "prestige" }
 export type SessionStartEvent = { cause: CauseId, fact: FactId, tick: Tick, type: "session_start" }
+export type BeatStartedEvent = { act: number, beat: BeatId, cause: CauseId, fact: FactId, tick: Tick, type: "beat_started" }
+export type BeatCompletedEvent = { beat: BeatId, cause: CauseId, fact: FactId, tick: Tick, type: "beat_completed" }
+export type UpgradeFittedEvent = { cause: CauseId, fact: FactId, hull: HullId, tick: Tick, type: "upgrade_fitted", upgrade: UpgradeId }
+export type CapUnlockedEvent = { cap: FlagId, cause: CauseId, fact: FactId, tick: Tick, type: "cap_unlocked" }
+export type HullRankEvent = { cause: CauseId, fact: FactId, hull: HullId, rank: number, tick: Tick, type: "hull_rank" }
+export type StandingChangedEvent = { cause: CauseId, deed: AnyId, delta: number, fact: FactId, faction: FactionId, tick: Tick, type: "standing_changed" }
+export type RegardChangedEvent = { cause: CauseId, fact: FactId, faction: FactionId, from: string, tick: Tick, to: string, type: "regard_changed" }
+export type TenderAcquiredEvent = { cause: CauseId, craft: ShipId, fact: FactId, hull: HullId, station: StationId, tick: Tick, type: "tender_acquired" }
 
 -- Hook arguments
 
@@ -70,7 +82,7 @@ export type CounterScopeArg = { station: StationId?, region: RegionId? }
 -- A line on a legibility channel. Needs `speaker` or `place`, and `cites`.
 export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites: { FactId } }
 -- `G.after` fires when every listed counter reaches its value (activity, never time).
-export type AfterSpec = { dockings: number?, deliveries: number?, jumps: number?, sessions: number?, units_mined: number?, rocks_depleted: number?, sales: number?, purchases: number?, scouts: number?, orders_done: number?, station: StationId?, region: RegionId?, every: boolean? }
+export type AfterSpec = { dockings: number?, deliveries: number?, jumps: number?, sessions: number?, units_mined: number?, rocks_depleted: number?, sales: number?, purchases: number?, scouts: number?, orders_done: number?, ledger_deliveries: number?, station: StationId?, region: RegionId?, every: boolean? }
 export type TriggerFire = { name: string, fired: number, fact: FactId? }
 export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }
 
@@ -228,6 +240,14 @@ export type Handlers = {
 	trait_earned: ((ev: TraitEarnedEvent, ctx: Ctx) -> ())?,
 	prestige: ((ev: PrestigeEvent, ctx: Ctx) -> ())?,
 	session_start: ((ev: SessionStartEvent, ctx: Ctx) -> ())?,
+	beat_started: ((ev: BeatStartedEvent, ctx: Ctx) -> ())?,
+	beat_completed: ((ev: BeatCompletedEvent, ctx: Ctx) -> ())?,
+	upgrade_fitted: ((ev: UpgradeFittedEvent, ctx: Ctx) -> ())?,
+	cap_unlocked: ((ev: CapUnlockedEvent, ctx: Ctx) -> ())?,
+	hull_rank: ((ev: HullRankEvent, ctx: Ctx) -> ())?,
+	standing_changed: ((ev: StandingChangedEvent, ctx: Ctx) -> ())?,
+	regard_changed: ((ev: RegardChangedEvent, ctx: Ctx) -> ())?,
+	tender_acquired: ((ev: TenderAcquiredEvent, ctx: Ctx) -> ())?,
 }
 export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }? }
 

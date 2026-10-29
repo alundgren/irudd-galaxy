@@ -45,7 +45,7 @@ fn read_required<T: DeserializeOwned>(dir: &Path, file: &str) -> Result<T, DataE
 
 /// Decimal credits from a data file as centicredits, or an error: not finite, finer than
 /// a centicredit, or outside `0..=max`.
-fn cents(credits: f64, max: i64, what: &str, errors: &mut Vec<String>) -> i64 {
+pub(crate) fn cents(credits: f64, max: i64, what: &str, errors: &mut Vec<String>) -> i64 {
     match cents_from_credits(credits).filter(|c| (0..=max).contains(c)) {
         Some(c) => c,
         None => {
@@ -104,7 +104,13 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let rocks: RocksFile = read(dir, "rocks.toml")?;
     let npcs: NpcsFile = read(dir, "npcs.toml")?;
     let economy: EconomyRules = read(dir, "economy.toml")?;
+    let controls: ControlsFile = read(dir, "controls.toml")?;
+    let upgrades: UpgradesFile = read(dir, "upgrades.toml")?;
+    let traits: TraitsFile = read(dir, "traits.toml")?;
+    let pacing: PacingFile = read(dir, "pacing.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
+    let ranks = hulls.rank;
+    let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
     let mut errors = Vec::new();
     let mut world = WorldState {
@@ -140,6 +146,20 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     }
     generate_rocks(&mut world, &mut errors);
     place_player(&mut world, start.player, &mut errors);
+    crate::load_progress::build(
+        &mut world,
+        crate::load_progress::Files {
+            controls,
+            upgrades,
+            traits,
+            pacing,
+            ranks,
+            standing,
+            regard,
+            deeds,
+        },
+        &mut errors,
+    );
 
     if let Err(e) = ReferencesResolve.check(&world) {
         errors.push(e);
@@ -275,7 +295,7 @@ fn place_player(world: &mut WorldState, start: StartDef, errors: &mut Vec<String
     let ship = Ship {
         id: start.ship.clone(),
         name: start.ship_name,
-        hull: start.hull,
+        hull: start.hull.clone(),
         owner: Owner::Player,
         region: station.region.clone(),
         position: station.position,
@@ -290,6 +310,7 @@ fn place_player(world: &mut WorldState, start: StartDef, errors: &mut Vec<String
         name: start.name,
         credits: cents(start.credits, i64::MAX / 2, "start.toml: credits", errors),
         ship: Some(start.ship),
+        hull_records: BTreeMap::from([(start.hull, HullRecord::default())]),
         ..Player::default()
     };
 }

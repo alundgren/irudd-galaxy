@@ -48,6 +48,10 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<RocksFile>("data-rocks"),
         one::<NpcsFile>("data-npcs"),
         one::<EconomyRules>("data-economy"),
+        one::<ControlsFile>("data-controls"),
+        one::<UpgradesFile>("data-upgrades"),
+        one::<TraitsFile>("data-traits"),
+        one::<PacingFile>("data-pacing"),
         one::<StartFile>("data-start"),
     ]
 }

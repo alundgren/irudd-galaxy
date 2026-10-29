@@ -263,6 +263,14 @@ pub const fn event_use(kind: EventKind) -> &'static str {
         EventKind::TraitEarned => "events.trait_earned",
         EventKind::Prestige => "events.prestige",
         EventKind::SessionStart => "events.session_start",
+        EventKind::BeatStarted => "events.beat_started",
+        EventKind::BeatCompleted => "events.beat_completed",
+        EventKind::UpgradeFitted => "events.upgrade_fitted",
+        EventKind::CapUnlocked => "events.cap_unlocked",
+        EventKind::HullRank => "events.hull_rank",
+        EventKind::StandingChanged => "events.standing_changed",
+        EventKind::RegardChanged => "events.regard_changed",
+        EventKind::TenderAcquired => "events.tender_acquired",
     }
 }
 
@@ -641,7 +649,7 @@ pub fn function(ns: &str, name: &str) -> Option<&'static FnDef> {
 }
 
 /// Every activity counter, for `G.after` and `ctx.counters:get`.
-pub const COUNTERS: [CounterKind; 10] = [
+pub const COUNTERS: [CounterKind; 11] = [
     CounterKind::Dockings,
     CounterKind::Deliveries,
     CounterKind::Jumps,
@@ -652,6 +660,7 @@ pub const COUNTERS: [CounterKind; 10] = [
     CounterKind::Purchases,
     CounterKind::Scouts,
     CounterKind::OrdersDone,
+    CounterKind::LedgerDeliveries,
 ];
 
 /// A counter's name in Luau and JSON.

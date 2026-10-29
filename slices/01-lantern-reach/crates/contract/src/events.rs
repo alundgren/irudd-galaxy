@@ -64,6 +64,9 @@ pub enum Event {
         station: StationId,
         ware: WareId,
         quantity: u32,
+        /// The delivery tally it counts toward (also the fact's `other` subject).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ledger: Option<LedgerId>,
     },
     Jump {
         ship: ShipId,
@@ -80,19 +83,64 @@ pub enum Event {
         ship: ShipId,
         verb: VerbKind,
     },
+    /// A beat's next step started (`quest` is the beat's ID).
     QuestStep {
         quest: QuestId,
         step: String,
     },
     TraitEarned {
         trait_id: TraitId,
+        /// How many times the deed had been done.
+        #[serde(default)]
+        deed_count: u64,
     },
     Prestige {
         from_hull: HullId,
         to_hull: HullId,
+        /// Centicredits paid to the hullwright.
+        #[serde(default)]
+        fee: i64,
     },
     /// A play session began (the app emits it when the game starts).
     SessionStart {},
+    /// A beat's preconditions held and it started.
+    BeatStarted {
+        beat: BeatId,
+        act: u32,
+    },
+    BeatCompleted {
+        beat: BeatId,
+    },
+    UpgradeFitted {
+        upgrade: UpgradeId,
+        hull: HullId,
+    },
+    /// A control capability flag was set for the first time.
+    CapUnlocked {
+        cap: FlagId,
+    },
+    HullRank {
+        hull: HullId,
+        rank: u32,
+    },
+    /// A deed moved the player's standing. The number is never shown.
+    StandingChanged {
+        faction: FactionId,
+        deed: AnyId,
+        delta: i32,
+    },
+    /// The player's regard tier with a faction changed (tier IDs).
+    RegardChanged {
+        faction: FactionId,
+        from: String,
+        to: String,
+    },
+    /// A station built the player an automated craft.
+    TenderAcquired {
+        craft: ShipId,
+        hull: HullId,
+        station: StationId,
+    },
 }
 
 /// Event names, for subscriptions and filters.
@@ -115,10 +163,18 @@ pub enum EventKind {
     TraitEarned,
     Prestige,
     SessionStart,
+    BeatStarted,
+    BeatCompleted,
+    UpgradeFitted,
+    CapUnlocked,
+    HullRank,
+    StandingChanged,
+    RegardChanged,
+    TenderAcquired,
 }
 
 impl EventKind {
-    pub const ALL: [EventKind; 14] = [
+    pub const ALL: [EventKind; 22] = [
         EventKind::Dock,
         EventKind::Undock,
         EventKind::Mine,
@@ -133,6 +189,14 @@ impl EventKind {
         EventKind::TraitEarned,
         EventKind::Prestige,
         EventKind::SessionStart,
+        EventKind::BeatStarted,
+        EventKind::BeatCompleted,
+        EventKind::UpgradeFitted,
+        EventKind::CapUnlocked,
+        EventKind::HullRank,
+        EventKind::StandingChanged,
+        EventKind::RegardChanged,
+        EventKind::TenderAcquired,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -151,6 +215,14 @@ impl EventKind {
             EventKind::TraitEarned => "trait_earned",
             EventKind::Prestige => "prestige",
             EventKind::SessionStart => "session_start",
+            EventKind::BeatStarted => "beat_started",
+            EventKind::BeatCompleted => "beat_completed",
+            EventKind::UpgradeFitted => "upgrade_fitted",
+            EventKind::CapUnlocked => "cap_unlocked",
+            EventKind::HullRank => "hull_rank",
+            EventKind::StandingChanged => "standing_changed",
+            EventKind::RegardChanged => "regard_changed",
+            EventKind::TenderAcquired => "tender_acquired",
         }
     }
 
@@ -177,6 +249,14 @@ impl Event {
             Event::TraitEarned { .. } => EventKind::TraitEarned,
             Event::Prestige { .. } => EventKind::Prestige,
             Event::SessionStart {} => EventKind::SessionStart,
+            Event::BeatStarted { .. } => EventKind::BeatStarted,
+            Event::BeatCompleted { .. } => EventKind::BeatCompleted,
+            Event::UpgradeFitted { .. } => EventKind::UpgradeFitted,
+            Event::CapUnlocked { .. } => EventKind::CapUnlocked,
+            Event::HullRank { .. } => EventKind::HullRank,
+            Event::StandingChanged { .. } => EventKind::StandingChanged,
+            Event::RegardChanged { .. } => EventKind::RegardChanged,
+            Event::TenderAcquired { .. } => EventKind::TenderAcquired,
         }
     }
 
@@ -193,10 +273,18 @@ impl Event {
             | Event::Scout { ship, .. }
             | Event::OrderDone { ship, .. } => Some(ship),
             Event::RockDepleted { ship, .. } => ship.as_ref(),
+            Event::TenderAcquired { craft, .. } => Some(craft),
             Event::QuestStep { .. }
             | Event::TraitEarned { .. }
             | Event::Prestige { .. }
-            | Event::SessionStart {} => None,
+            | Event::SessionStart {}
+            | Event::BeatStarted { .. }
+            | Event::BeatCompleted { .. }
+            | Event::UpgradeFitted { .. }
+            | Event::CapUnlocked { .. }
+            | Event::HullRank { .. }
+            | Event::StandingChanged { .. }
+            | Event::RegardChanged { .. } => None,
         }
     }
 
@@ -208,6 +296,13 @@ impl Event {
                 | Event::TraitEarned { .. }
                 | Event::Prestige { .. }
                 | Event::SessionStart {}
+                | Event::BeatStarted { .. }
+                | Event::BeatCompleted { .. }
+                | Event::UpgradeFitted { .. }
+                | Event::CapUnlocked { .. }
+                | Event::HullRank { .. }
+                | Event::StandingChanged { .. }
+                | Event::RegardChanged { .. }
         )
     }
 
@@ -226,19 +321,39 @@ impl Event {
                 s.ware = Some(ware.clone());
             }
             Event::RockDepleted { rock, .. } => s.rock = Some(rock.clone()),
-            Event::Buy { station, ware, .. }
-            | Event::Sell { station, ware, .. }
-            | Event::Deliver { station, ware, .. } => {
+            Event::Buy { station, ware, .. } | Event::Sell { station, ware, .. } => {
                 s.station = Some(station.clone());
                 s.ware = Some(ware.clone());
+            }
+            Event::Deliver {
+                station,
+                ware,
+                ledger,
+                ..
+            } => {
+                s.station = Some(station.clone());
+                s.ware = Some(ware.clone());
+                s.other = ledger.as_ref().and_then(|l| AnyId::new(l.as_str()).ok());
             }
             Event::Jump { to, lane, .. } => {
                 s.region = Some(to.clone());
                 s.other = AnyId::new(lane.as_str()).ok();
             }
             Event::QuestStep { quest, .. } => s.other = AnyId::new(quest.as_str()).ok(),
-            Event::TraitEarned { trait_id } => s.other = AnyId::new(trait_id.as_str()).ok(),
+            Event::TraitEarned { trait_id, .. } => s.other = AnyId::new(trait_id.as_str()).ok(),
             Event::Prestige { to_hull, .. } => s.other = AnyId::new(to_hull.as_str()).ok(),
+            Event::BeatStarted { beat, .. } | Event::BeatCompleted { beat } => {
+                s.other = AnyId::new(beat.as_str()).ok();
+            }
+            Event::UpgradeFitted { upgrade, .. } => s.other = AnyId::new(upgrade.as_str()).ok(),
+            Event::CapUnlocked { cap } => s.other = AnyId::new(cap.as_str()).ok(),
+            Event::HullRank { hull, .. } => s.other = AnyId::new(hull.as_str()).ok(),
+            Event::StandingChanged { faction, deed, .. } => {
+                s.faction = Some(faction.clone());
+                s.other = Some(deed.clone());
+            }
+            Event::RegardChanged { faction, .. } => s.faction = Some(faction.clone()),
+            Event::TenderAcquired { station, .. } => s.station = Some(station.clone()),
             Event::OrderDone { .. } | Event::SessionStart {} => {}
         }
         s
@@ -251,6 +366,10 @@ impl Event {
             Event::Buy { quantity, .. }
             | Event::Sell { quantity, .. }
             | Event::Deliver { quantity, .. } => Some(i64::from(*quantity)),
+            Event::TraitEarned { deed_count, .. } => i64::try_from(*deed_count).ok(),
+            Event::Prestige { fee, .. } => Some(*fee),
+            Event::HullRank { rank, .. } => Some(i64::from(*rank)),
+            Event::StandingChanged { delta, .. } => Some(i64::from(*delta)),
             _ => None,
         }
     }
@@ -265,14 +384,25 @@ impl Event {
             Event::RockDepleted { .. } => vec![(C::RocksDepleted, 1)],
             Event::Buy { .. } => vec![(C::Purchases, 1)],
             Event::Sell { .. } => vec![(C::Sales, 1), (C::Deliveries, 1)],
-            Event::Deliver { .. } => vec![(C::Deliveries, 1)],
+            Event::Deliver { ledger: None, .. } => vec![(C::Deliveries, 1)],
+            Event::Deliver {
+                ledger: Some(_), ..
+            } => vec![(C::Deliveries, 1), (C::LedgerDeliveries, 1)],
             Event::Jump { .. } => vec![(C::Jumps, 1)],
             Event::Scout { .. } => vec![(C::Scouts, 1)],
             Event::OrderDone { .. } => vec![(C::OrdersDone, 1)],
             Event::SessionStart {} => vec![(C::Sessions, 1)],
-            Event::QuestStep { .. } | Event::TraitEarned { .. } | Event::Prestige { .. } => {
-                vec![]
-            }
+            Event::QuestStep { .. }
+            | Event::TraitEarned { .. }
+            | Event::Prestige { .. }
+            | Event::BeatStarted { .. }
+            | Event::BeatCompleted { .. }
+            | Event::UpgradeFitted { .. }
+            | Event::CapUnlocked { .. }
+            | Event::HullRank { .. }
+            | Event::StandingChanged { .. }
+            | Event::RegardChanged { .. }
+            | Event::TenderAcquired { .. } => vec![],
         }
     }
 }
@@ -304,6 +434,8 @@ pub enum CounterKind {
     Purchases,
     Scouts,
     OrdersDone,
+    /// Handovers to a ledger (goal deliveries, station growth, dispute tallies).
+    LedgerDeliveries,
 }
 
 /// Where a counter is read.

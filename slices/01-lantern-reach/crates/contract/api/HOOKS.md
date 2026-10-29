@@ -46,6 +46,14 @@ and `ctx.store` (the script's declared stores).
 | `events.trait_earned` | Events | available | Subscribe with `on.<event>`. |
 | `events.prestige` | Events | available | Subscribe with `on.<event>`. |
 | `events.session_start` | Events | available | Subscribe with `on.<event>`. |
+| `events.beat_started` | Events | available | Subscribe with `on.<event>`. |
+| `events.beat_completed` | Events | available | Subscribe with `on.<event>`. |
+| `events.upgrade_fitted` | Events | available | Subscribe with `on.<event>`. |
+| `events.cap_unlocked` | Events | available | Subscribe with `on.<event>`. |
+| `events.hull_rank` | Events | available | Subscribe with `on.<event>`. |
+| `events.standing_changed` | Events | available | Subscribe with `on.<event>`. |
+| `events.regard_changed` | Events | available | Subscribe with `on.<event>`. |
+| `events.tender_acquired` | Events | available | Subscribe with `on.<event>`. |
 | `counters.read` | Counters | available | Read activity counters per player, station and region. |
 | `history.read` | History | available | Count, sum, find and read history facts. Results are capped. |
 | `history.write` | History | available | Record facts of the pack's own kinds. |
@@ -182,6 +190,14 @@ recorded as: cite it), `tick` and `cause`. They need `events.<event>` in `uses`.
 - `on.trait_earned`: `TraitEarnedEvent`
 - `on.prestige`: `PrestigeEvent`
 - `on.session_start`: `SessionStartEvent`
+- `on.beat_started`: `BeatStartedEvent`
+- `on.beat_completed`: `BeatCompletedEvent`
+- `on.upgrade_fitted`: `UpgradeFittedEvent`
+- `on.cap_unlocked`: `CapUnlockedEvent`
+- `on.hull_rank`: `HullRankEvent`
+- `on.standing_changed`: `StandingChangedEvent`
+- `on.regard_changed`: `RegardChangedEvent`
+- `on.tender_acquired`: `TenderAcquiredEvent`
 
 ## Not available to scripts
 

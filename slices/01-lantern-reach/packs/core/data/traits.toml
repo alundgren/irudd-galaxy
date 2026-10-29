@@ -1,0 +1,63 @@
+# Pilot traits (content/05-people.md, "Pilot traits"): earned by doing one deed many
+# times, each with a small qualitative effect from the fixed list of native modifiers
+# (contract `Modifier`). Never shown as a bar or a count. Kept through prestige.
+# Schema: crates/contract/schemas/data-traits.json
+
+[[trait]]
+id = "trait.rimesight"
+name = "Rimesight"
+deed = { counter = { kind = "rocks_depleted" } }
+times = 14
+effect = "The richest face of every rock glints faintly; mining while facing it yields 15% more."
+modifiers = [
+    { modifier = "rich_face", bonus = 0.15 },
+    { modifier = "feature", feature = "rich_face_glint" },
+]
+noticed_by = ["npc.orrin_vale"]
+
+[[trait]]
+id = "trait.ringwise"
+name = "Ringwise"
+deed = { counter = { kind = "dockings" } }
+times = 40
+effect = "Docking rings catch you from 25% further out, and dockmasters remember your last visit."
+modifiers = [
+    { modifier = "dock_reach", factor = 1.25 },
+    { modifier = "feature", feature = "last_visit_greeting" },
+]
+noticed_by = ["npc.orrin_vale"]
+
+# Split sales: part of a stack sold at one station, the rest later at another. The
+# economy records a `split_sale` fact for each (pending in W3).
+[[trait]]
+id = "trait.market_ear"
+name = "Market ear"
+deed = { facts = { kind = "split_sale", ship = "ship.player" } }
+times = 10
+effect = "The sell screen shows where the next unit's price will land, and the last price seen at the nearest other buyer."
+modifiers = [{ modifier = "feature", feature = "sell_preview" }]
+noticed_by = ["npc.orrin_vale"]
+
+[[trait]]
+id = "trait.lanerunner"
+name = "Lanerunner"
+deed = { counter = { kind = "jumps" } }
+times = 24
+effect = "Lane mouths catch you from 105 u, and arriving you hear the region's newest dock talk on the radio."
+modifiers = [
+    { modifier = "mouth_radius", radius = 105.0 },
+    { modifier = "feature", feature = "lane_radio" },
+]
+noticed_by = ["npc.orrin_vale", "npc.hesper_lune"]
+
+[[trait]]
+id = "trait.good_neighbour"
+name = "Good neighbour"
+deed = { counter = { kind = "ledger_deliveries" } }
+times = 12
+effect = "Standing gains from deliveries are 50% larger, and rumors reach you at the first station they spread to."
+modifiers = [
+    { modifier = "deed_bonus", tag = "delivery", factor = 1.5 },
+    { modifier = "feature", feature = "rumor_first" },
+]
+noticed_by = ["npc.orrin_vale"]

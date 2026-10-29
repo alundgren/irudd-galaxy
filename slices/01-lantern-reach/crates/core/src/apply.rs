@@ -639,6 +639,69 @@ fn apply_with(
                 retired: was,
             })
         }
+        C::PutBeat { id, value } => {
+            let beats = &mut world.progress.beats;
+            let old = match value {
+                Some(v) => beats.insert(id.clone(), (**v).clone()),
+                None => beats.remove(id),
+            };
+            invert(C::PutBeat {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::SetFitting { upgrade, fitted } => {
+            if *fitted && refs.check && !world.progress.rules.upgrades.contains_key(upgrade) {
+                return Err(unknown("upgrade", upgrade));
+            }
+            let was = if *fitted {
+                !world.player.fittings.insert(upgrade.clone())
+            } else {
+                world.player.fittings.remove(upgrade)
+            };
+            invert(C::SetFitting {
+                upgrade: upgrade.clone(),
+                fitted: was,
+            })
+        }
+        C::SetHullRecord { hull, record } => {
+            refs.require(&world.hulls, hull, "hull")?;
+            let records = &mut world.player.hull_records;
+            let old = match record {
+                Some(r) => records.insert(hull.clone(), r.clone()),
+                None => records.remove(hull),
+            };
+            invert(C::SetHullRecord {
+                hull: hull.clone(),
+                record: old,
+            })
+        }
+        C::SetTunable { id, value } => {
+            let tunables = &mut world.progress.tunables;
+            let old = match value {
+                Some(v) => tunables.insert(id.clone(), (**v).clone()),
+                None => tunables.remove(id),
+            };
+            invert(C::SetTunable {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::BindSlot { slot, mechanic } => {
+            if mechanic.is_some() && refs.check && !world.progress.rules.slots.contains_key(slot)
+            {
+                return Err(unknown("slot", slot));
+            }
+            let slots = &mut world.progress.slots;
+            let old = match mechanic {
+                Some(m) => slots.insert(slot.clone(), m.clone()),
+                None => slots.remove(slot),
+            };
+            invert(C::BindSlot {
+                slot: slot.clone(),
+                mechanic: old,
+            })
+        }
         C::Say { line } => {
             line.validate()
                 .map_err(|e| CommandError::Invalid(e.into()))?;

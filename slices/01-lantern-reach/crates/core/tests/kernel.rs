@@ -370,7 +370,7 @@ fn undo_records_invert_commands() {
         Command::Say {
             line: Box::new(TalkLine {
                 channel: Channel::DockTalk,
-                speaker: Some(NpcId::new("npc.ilse").unwrap()),
+                speaker: Some(NpcId::new("npc.ilse_marrow").unwrap()),
                 place: Some(WHARF),
                 text: "Kettle lit another ring.".into(),
                 cites: vec![FactId(1)],

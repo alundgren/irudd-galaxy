@@ -21,6 +21,7 @@ pub mod ids;
 pub mod input;
 pub mod money;
 pub mod pack;
+pub mod progress;
 pub mod schema;
 pub mod store;
 pub mod talk;
@@ -50,6 +51,10 @@ pub mod prelude {
     pub use crate::ids::*;
     pub use crate::input::{Click, ClickTarget, PlayerInput};
     pub use crate::money::{CENTS_PER_CREDIT, show_credits};
+    pub use crate::progress::{
+        BeatKind, BeatState, BeatStatus, HullRecord, Modifier, ProgressRules, ProgressState,
+        Requirement, ServiceRequest, Tunable, TunableValue,
+    };
     pub use crate::store::{Record, Store};
     pub use crate::verbs::{Condition, FlyTarget, Order, OrderQueue, Quantity, VerbKind};
     pub use crate::world::*;

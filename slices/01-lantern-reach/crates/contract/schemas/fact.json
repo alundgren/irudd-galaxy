@@ -49,6 +49,15 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "BeatId": {
+      "description": "Stable beat id, e.g. `beat.first_delivery`.",
+      "type": "string",
+      "examples": [
+        "beat.first_delivery"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "CauseId": {
       "type": "string",
       "examples": [
@@ -234,6 +243,17 @@
           "description": "Cargo handed over for a goal or a station's growth, not sold.",
           "type": "object",
           "properties": {
+            "ledger": {
+              "description": "The delivery tally it counts toward (also the fact's `other` subject).",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/LedgerId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "quantity": {
               "type": "integer",
               "format": "uint32",
@@ -331,6 +351,7 @@
           ]
         },
         {
+          "description": "A beat's next step started (`quest` is the beat's ID).",
           "type": "object",
           "properties": {
             "quest": {
@@ -353,6 +374,13 @@
         {
           "type": "object",
           "properties": {
+            "deed_count": {
+              "description": "How many times the deed had been done.",
+              "type": "integer",
+              "format": "uint64",
+              "default": 0,
+              "minimum": 0
+            },
             "trait_id": {
               "$ref": "#/$defs/TraitId"
             },
@@ -369,6 +397,12 @@
         {
           "type": "object",
           "properties": {
+            "fee": {
+              "description": "Centicredits paid to the hullwright.",
+              "type": "integer",
+              "format": "int64",
+              "default": 0
+            },
             "from_hull": {
               "$ref": "#/$defs/HullId"
             },
@@ -397,6 +431,180 @@
           },
           "required": [
             "type"
+          ]
+        },
+        {
+          "description": "A beat's preconditions held and it started.",
+          "type": "object",
+          "properties": {
+            "act": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "beat": {
+              "$ref": "#/$defs/BeatId"
+            },
+            "type": {
+              "type": "string",
+              "const": "beat_started"
+            }
+          },
+          "required": [
+            "type",
+            "beat",
+            "act"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "beat": {
+              "$ref": "#/$defs/BeatId"
+            },
+            "type": {
+              "type": "string",
+              "const": "beat_completed"
+            }
+          },
+          "required": [
+            "type",
+            "beat"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "type": {
+              "type": "string",
+              "const": "upgrade_fitted"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "type",
+            "upgrade",
+            "hull"
+          ]
+        },
+        {
+          "description": "A control capability flag was set for the first time.",
+          "type": "object",
+          "properties": {
+            "cap": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "type": {
+              "type": "string",
+              "const": "cap_unlocked"
+            }
+          },
+          "required": [
+            "type",
+            "cap"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "rank": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "hull_rank"
+            }
+          },
+          "required": [
+            "type",
+            "hull",
+            "rank"
+          ]
+        },
+        {
+          "description": "A deed moved the player's standing. The number is never shown.",
+          "type": "object",
+          "properties": {
+            "deed": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "delta": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "type": {
+              "type": "string",
+              "const": "standing_changed"
+            }
+          },
+          "required": [
+            "type",
+            "faction",
+            "deed",
+            "delta"
+          ]
+        },
+        {
+          "description": "The player's regard tier with a faction changed (tier IDs).",
+          "type": "object",
+          "properties": {
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "regard_changed"
+            }
+          },
+          "required": [
+            "type",
+            "faction",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "A station built the player an automated craft.",
+          "type": "object",
+          "properties": {
+            "craft": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "tender_acquired"
+            }
+          },
+          "required": [
+            "type",
+            "craft",
+            "hull",
+            "station"
           ]
         }
       ]
@@ -456,6 +664,15 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "FlagId": {
+      "description": "Stable flag id, e.g. `flag.nav_chip`.",
+      "type": "string",
+      "examples": [
+        "flag.nav_chip"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "HullId": {
       "description": "Stable hull id, e.g. `hull.wren`.",
       "type": "string",
@@ -470,6 +687,15 @@
       "type": "string",
       "examples": [
         "lane.shallows_cinder"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "LedgerId": {
+      "description": "Stable ledger id, e.g. `ledger.kettle_greenhouse`.",
+      "type": "string",
+      "examples": [
+        "ledger.kettle_greenhouse"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
@@ -625,6 +851,15 @@
       "type": "string",
       "examples": [
         "trait.rich_face"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "UpgradeId": {
+      "description": "Stable upgrade id, e.g. `upgrade.mining_lens`.",
+      "type": "string",
+      "examples": [
+        "upgrade.mining_lens"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"

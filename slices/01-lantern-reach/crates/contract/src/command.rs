@@ -21,6 +21,7 @@ use crate::geom::Vec2;
 use crate::history::FactDraft;
 use crate::ids::*;
 use crate::pack::{ScriptHealth, ScriptValue};
+use crate::progress::{BeatState, HullRecord, Tunable};
 use crate::talk::{Channel, SaidLine, TalkLine};
 use crate::verbs::{OrderQueue, VerbKind};
 use crate::world::*;
@@ -352,6 +353,33 @@ pub enum Command {
         revision: String,
         retired: bool,
     },
+    // --- Progress (W4) ---
+    /// Starts, moves or completes (or with `null` resets to dormant) a beat.
+    PutBeat {
+        id: BeatId,
+        value: Option<Box<BeatState>>,
+    },
+    /// Fits (or removes) an upgrade on the pilot.
+    SetFitting {
+        upgrade: UpgradeId,
+        fitted: bool,
+    },
+    /// Sets (or with `null` clears) a hull's rank record.
+    SetHullRecord {
+        hull: HullId,
+        record: Option<HullRecord>,
+    },
+    /// Sets (or with `null` removes) a tunable.
+    SetTunable {
+        id: TunableId,
+        value: Option<Box<Tunable>>,
+    },
+    /// Binds a reserved input or UI slot to a mechanic flag, or frees it.
+    BindSlot {
+        slot: SlotId,
+        mechanic: Option<FlagId>,
+    },
+
     /// Says a line on a legibility channel; it gets the next `talk.N` ID. The line
     /// must name a person or place and cite a fact. Chronicle lines are history and
     /// compensate-only.

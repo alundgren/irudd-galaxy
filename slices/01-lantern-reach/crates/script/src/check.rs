@@ -400,6 +400,7 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
             station,
             ware,
             quantity: 1,
+            ledger: None,
         },
         EventKind::Jump => Event::Jump {
             ship,
@@ -422,13 +423,67 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
             step: "sample".into(),
         },
         EventKind::TraitEarned => Event::TraitEarned {
-            trait_id: TraitId::from_static("trait.sample"),
+            trait_id: w
+                .progress
+                .rules
+                .traits
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| TraitId::from_static("trait.sample")),
+            deed_count: 1,
         },
         EventKind::Prestige => Event::Prestige {
             from_hull: hull.clone(),
             to_hull: hull,
+            fee: 0,
         },
         EventKind::SessionStart => Event::SessionStart {},
+        EventKind::BeatStarted => Event::BeatStarted {
+            beat: BeatId::from_static("beat.sample"),
+            act: 1,
+        },
+        EventKind::BeatCompleted => Event::BeatCompleted {
+            beat: BeatId::from_static("beat.sample"),
+        },
+        EventKind::UpgradeFitted => Event::UpgradeFitted {
+            upgrade: w
+                .progress
+                .rules
+                .upgrades
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| UpgradeId::from_static("upgrade.sample")),
+            hull,
+        },
+        EventKind::CapUnlocked => Event::CapUnlocked {
+            cap: FlagId::from_static("cap.sample"),
+        },
+        EventKind::HullRank => Event::HullRank { hull, rank: 1 },
+        EventKind::StandingChanged | EventKind::RegardChanged => {
+            let faction = pick(scans, "faction", w.factions.keys().map(|k| k.as_str()), w)
+                .parse()
+                .ok()?;
+            if kind == EventKind::StandingChanged {
+                Event::StandingChanged {
+                    faction,
+                    deed: AnyId::from_static("deed.sample"),
+                    delta: 1,
+                }
+            } else {
+                Event::RegardChanged {
+                    faction,
+                    from: "stranger".into(),
+                    to: "known".into(),
+                }
+            }
+        }
+        EventKind::TenderAcquired => Event::TenderAcquired {
+            craft: ShipId::from_static("craft.sample"),
+            hull,
+            station,
+        },
     })
 }
 

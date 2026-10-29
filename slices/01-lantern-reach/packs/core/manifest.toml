@@ -14,5 +14,9 @@ data = [
     "data/rocks.toml",
     "data/npcs.toml",
     "data/economy.toml",
+    "data/controls.toml",
+    "data/upgrades.toml",
+    "data/traits.toml",
+    "data/pacing.toml",
     "data/start.toml",
 ]

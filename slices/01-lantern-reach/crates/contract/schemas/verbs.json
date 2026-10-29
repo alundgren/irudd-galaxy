@@ -377,6 +377,11 @@
           "description": "Sales and deliveries, one per transaction.",
           "type": "string",
           "const": "deliveries"
+        },
+        {
+          "description": "Handovers to a ledger (goal deliveries, station growth, dispute tallies).",
+          "type": "string",
+          "const": "ledger_deliveries"
         }
       ]
     },
