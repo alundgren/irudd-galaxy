@@ -6,6 +6,7 @@ use schemars::{JsonSchema, Schema, schema_for};
 use crate::assets::AssetManifest;
 use crate::command::{CommandBatch, JournalEntry, RecordedCause, Rejection};
 use crate::data::*;
+use crate::economy::EconomyRules;
 use crate::events::EventEnvelope;
 use crate::history::{Fact, HistoryQuery};
 use crate::input::PlayerInput;
@@ -43,6 +44,7 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<StationsFile>("data-stations"),
         one::<RocksFile>("data-rocks"),
         one::<NpcsFile>("data-npcs"),
+        one::<EconomyRules>("data-economy"),
         one::<StartFile>("data-start"),
         one::<crate::ship::ShipRules>("data-ship-rules"),
     ]

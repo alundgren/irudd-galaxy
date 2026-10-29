@@ -13,6 +13,38 @@
         "stations": {}
       }
     },
+    "economy": {
+      "description": "Market rules and activity tallies (W3).",
+      "$ref": "#/$defs/EconomyState",
+      "default": {
+        "docks": {},
+        "regions": {},
+        "rules": {
+          "pricing": {
+            "flood_saturation": 1.0,
+            "produce_cap": 0.0,
+            "regard": [],
+            "saturation_max": 0.0,
+            "spread": 1.0,
+            "stock_factor_max": 1.0,
+            "stock_factor_min": 1.0,
+            "stock_slope": 0.0
+          },
+          "pulses": {
+            "arrival_region": 0.0,
+            "arrival_stations": 0.0,
+            "dock_neighbours": 0.0,
+            "dock_region": 0.0,
+            "dock_station": 0.0,
+            "recount_distance": 0.0
+          },
+          "reach": {
+            "flags": {}
+          }
+        },
+        "stations": {}
+      }
+    },
     "factions": {
       "type": "object",
       "additionalProperties": false,
@@ -263,6 +295,51 @@
         "stations",
         "regions"
       ]
+    },
+    "ActivityTally": {
+      "description": "Running activity at a station or region. Integers, so undo is exact.",
+      "type": "object",
+      "properties": {
+        "credits_earned": {
+          "description": "Centicredits the market paid ships.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "credits_spent": {
+          "description": "Centicredits ships paid the market.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "pending_milli": {
+          "description": "Pulses counted but not yet applied to the market (thousandths).",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "pulses_milli": {
+          "description": "Pulses so far, in thousandths of a pulse.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "trades": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "units_bought": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "units_sold": {
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        }
+      }
     },
     "BuildState": {
       "description": "A station's visible growth: a stage number plus the kit parts attached.",
@@ -715,6 +792,23 @@
         }
       ]
     },
+    "DockTrack": {
+      "description": "A ship's last docking, for the counted-docking rule.",
+      "type": "object",
+      "properties": {
+        "away": {
+          "description": "It has since gone far enough or mined, so docking here again counts.",
+          "type": "boolean"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "required": [
+        "station",
+        "away"
+      ]
+    },
     "DockingRules": {
       "type": "object",
       "properties": {
@@ -726,6 +820,109 @@
         }
       },
       "additionalProperties": false
+    },
+    "EconomyRules": {
+      "description": "The market's tunables. Also the schema of a pack's `data/economy.toml`.",
+      "type": "object",
+      "properties": {
+        "pricing": {
+          "$ref": "#/$defs/PricingRules",
+          "default": {
+            "flood_saturation": 1.0,
+            "produce_cap": 0.0,
+            "regard": [],
+            "saturation_max": 0.0,
+            "spread": 1.0,
+            "stock_factor_max": 1.0,
+            "stock_factor_min": 1.0,
+            "stock_slope": 0.0
+          }
+        },
+        "pulses": {
+          "$ref": "#/$defs/PulseRules",
+          "default": {
+            "arrival_region": 0.0,
+            "arrival_stations": 0.0,
+            "dock_neighbours": 0.0,
+            "dock_region": 0.0,
+            "dock_station": 0.0,
+            "recount_distance": 0.0
+          }
+        },
+        "reach": {
+          "$ref": "#/$defs/ReachRules",
+          "default": {
+            "flags": {}
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "EconomyState": {
+      "description": "Economy data and running tallies, saved with the world.",
+      "type": "object",
+      "properties": {
+        "docks": {
+          "description": "Per ship: where it last docked, for the counted-docking rule.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/DockTrack"
+            }
+          }
+        },
+        "regions": {
+          "description": "Activity per region (pulses and trades).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/ActivityTally"
+            }
+          }
+        },
+        "rules": {
+          "description": "From the pack's `economy.toml` at new game.",
+          "$ref": "#/$defs/EconomyRules",
+          "default": {
+            "pricing": {
+              "flood_saturation": 1.0,
+              "produce_cap": 0.0,
+              "regard": [],
+              "saturation_max": 0.0,
+              "spread": 1.0,
+              "stock_factor_max": 1.0,
+              "stock_factor_min": 1.0,
+              "stock_slope": 0.0
+            },
+            "pulses": {
+              "arrival_region": 0.0,
+              "arrival_stations": 0.0,
+              "dock_neighbours": 0.0,
+              "dock_region": 0.0,
+              "dock_station": 0.0,
+              "recount_distance": 0.0
+            },
+            "reach": {
+              "flags": {}
+            }
+          }
+        },
+        "stations": {
+          "description": "Activity per station (pulses and trades).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/ActivityTally"
+            }
+          }
+        }
+      }
     },
     "FactId": {
       "type": "string",
@@ -949,6 +1146,15 @@
         "name": {
           "type": "string"
         },
+        "price_reach": {
+          "description": "How far the hull sees live market prices. Default: docked only.",
+          "$ref": "#/$defs/PriceReach",
+          "default": {
+            "lane_scout": false,
+            "radius": 0.0,
+            "region": false
+          }
+        },
         "standing_berth": {
           "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
           "type": "boolean",
@@ -1067,7 +1273,7 @@
       ]
     },
     "MarketLine": {
-      "description": "One ware at one market. Provisional fields; W3 may extend.",
+      "description": "One ware at one market. W3 (`galaxy-economy`) prices it; see\n[`PricingRules`](crate::economy::PricingRules) for the formula.",
       "type": "object",
       "properties": {
         "base_price": {
@@ -1077,11 +1283,17 @@
           "minimum": 0
         },
         "consumption": {
-          "description": "Units the station uses per market step.",
+          "description": "Units the station uses per station pulse.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
+        },
+        "consumption_scale": {
+          "description": "Multiplies `consumption` (market levers).",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
         },
         "max_price": {
           "type": "integer",
@@ -1093,22 +1305,71 @@
           "format": "uint32",
           "minimum": 0
         },
+        "needs": {
+          "description": "Production runs only while each of these wares is in stock here.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        },
         "price": {
-          "description": "Current unit price in credits.",
+          "description": "The current unit price in centicredits: what the station pays for a `buys`\nline, what it asks for a `sells` line. Kept up to date by the economy. Every\nprice here is in centicredits ([`crate::money`]).",
           "type": "integer",
           "format": "uint32",
           "minimum": 0
         },
         "production": {
-          "description": "Units the station makes per market step (W3 defines the step; never a clock).",
+          "description": "Units the station makes per station pulse (activity, never a clock).",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
+        "production_scale": {
+          "description": "Multiplies `production` (market levers).",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "role": {
+          "$ref": "#/$defs/MarketRole",
+          "default": "buys"
+        },
+        "sat_per_unit": {
+          "description": "Saturation added per unit sold to the station.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "sat_recover": {
+          "description": "Saturation removed per station pulse.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "saturation": {
+          "description": "0 (fresh) up to the rules' `saturation_max`. Only `buys` lines saturate.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
         "stock": {
           "type": "integer",
           "format": "uint32",
+          "minimum": 0
+        },
+        "stock_carry": {
+          "description": "The fraction of a unit produced or used but not yet whole, in 0..1.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "target": {
+          "description": "The stock the station aims for; prices rise below it and fall above it. Zero:\nstock doesn't move the price.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
           "minimum": 0
         }
       },
@@ -1118,6 +1379,21 @@
         "base_price",
         "min_price",
         "max_price"
+      ]
+    },
+    "MarketRole": {
+      "description": "Whether a station buys a ware from ships or sells it to them. A station never\nbuys a ware it produces, or sells one it consumes.",
+      "oneOf": [
+        {
+          "description": "The station buys it (pays a price that saturation lowers).",
+          "type": "string",
+          "const": "buys"
+        },
+        {
+          "description": "The station sells it (asks a price with a spread).",
+          "type": "string",
+          "const": "sells"
+        }
       ]
     },
     "MiningRules": {
@@ -1535,6 +1811,7 @@
       "type": "object",
       "properties": {
         "credits": {
+          "description": "In centicredits (1 cr = 100, [`crate::money`]).",
           "type": "integer",
           "format": "int64"
         },
@@ -1597,11 +1874,35 @@
         "credits"
       ]
     },
+    "PriceReach": {
+      "description": "How far a hull sees live prices. The default is \"docked only\".",
+      "type": "object",
+      "properties": {
+        "lane_scout": {
+          "description": "A lane arrival refreshes the snapshots of every station in the new region.",
+          "type": "boolean",
+          "default": false
+        },
+        "radius": {
+          "description": "Live prices of stations within this distance. Zero: docked only.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "region": {
+          "description": "Live prices of every station in the ship's region.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "PriceSnapshot": {
       "description": "What the player saw at a station's market on their last visit.",
       "type": "object",
       "properties": {
         "prices": {
+          "description": "Unit prices in centicredits.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -1627,6 +1928,103 @@
         "visit",
         "prices"
       ]
+    },
+    "PricingRules": {
+      "description": "The price formula's numbers.\n\n```text\nstock_factor = clamp(1 + stock_slope * (1 - stock / target), stock_factor_min, stock_factor_max)\npays = base * stock_factor * (1 - saturation)\nasks = base * stock_factor * spread\n```",
+      "type": "object",
+      "properties": {
+        "flood_saturation": {
+          "description": "A sale that leaves saturation at or above this records a `market_flooded` fact.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "produce_cap": {
+          "description": "Producers stop at `target * produce_cap`. Zero means no cap.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "regard": {
+          "description": "Spread by the player's standing with the station's owner. The last tier whose\n`min_standing` is at or below the standing applies.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RegardSpread"
+          }
+        },
+        "saturation_max": {
+          "description": "Saturation never goes above this.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "spread": {
+          "description": "Asking-price spread at stations with no owner, or when no regard tier applies.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_factor_max": {
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_factor_min": {
+          "type": "number",
+          "format": "double",
+          "default": 1.0
+        },
+        "stock_slope": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "PulseRules": {
+      "description": "How much market activity each kind of event makes.",
+      "type": "object",
+      "properties": {
+        "arrival_region": {
+          "description": "Region pulse for that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "arrival_stations": {
+          "description": "Station pulse at every station in the region a ship arrives in by lane.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_neighbours": {
+          "description": "Station pulse at every other station in that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_region": {
+          "description": "Region pulse for that region.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "dock_station": {
+          "description": "Station pulse at the station a ship docks at (counted dockings only).",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "recount_distance": {
+          "description": "A re-docking at the same station counts only after the ship has been at least\nthis far from it, mined, or docked somewhere else. Stops undock-redock loops.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        }
+      },
+      "additionalProperties": false
     },
     "PulseWeight": {
       "type": "object",
@@ -1679,6 +2077,43 @@
             "kind"
           ]
         }
+      ]
+    },
+    "ReachRules": {
+      "description": "Price reach granted by player flags (fitted upgrades such as the price glass).",
+      "type": "object",
+      "properties": {
+        "flags": {
+          "description": "Flag -> live prices for stations within this many world units of the ship.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "number",
+              "format": "float"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "RegardSpread": {
+      "type": "object",
+      "properties": {
+        "min_standing": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "spread": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "min_standing",
+        "spread"
       ]
     },
     "Region": {
@@ -2342,6 +2777,7 @@
       "type": "object",
       "properties": {
         "base_price": {
+          "description": "In centicredits.",
           "type": "integer",
           "format": "uint32",
           "minimum": 0

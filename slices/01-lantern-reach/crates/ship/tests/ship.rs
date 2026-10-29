@@ -589,7 +589,7 @@ fn tier_zero_ignores_clicks_and_flags_unlock_modes() {
 
 // --- Orders and loops ---
 
-/// A desk that counts sales and pays a fixed 9 credits a unit.
+/// A desk that counts sales and pays a fixed 9 credits (900 centicredits) a unit.
 fn counting_desk(sales: Rc<Cell<u32>>) -> Box<dyn TradeDesk> {
     Box::new(
         move |w: &WorldState, r: &TradeRequest| -> Result<Trade, TradeError> {
@@ -601,7 +601,7 @@ fn counting_desk(sales: Rc<Cell<u32>>) -> Box<dyn TradeDesk> {
             sales.set(sales.get() + units);
             Ok(Trade {
                 units,
-                total: 9 * i64::from(units),
+                total: 900 * i64::from(units),
                 commands: vec![
                     Command::AdjustCargo {
                         ship: r.ship.clone(),
@@ -609,7 +609,7 @@ fn counting_desk(sales: Rc<Cell<u32>>) -> Box<dyn TradeDesk> {
                         delta: -i64::from(units),
                     },
                     Command::AdjustCredits {
-                        delta: 9 * i64::from(units),
+                        delta: 900 * i64::from(units),
                     },
                     Command::Emit {
                         event: Event::Sell {
@@ -617,7 +617,7 @@ fn counting_desk(sales: Rc<Cell<u32>>) -> Box<dyn TradeDesk> {
                             station: r.station.clone(),
                             ware: r.ware.clone(),
                             quantity: units,
-                            unit_price: 9,
+                            unit_price: 900,
                         },
                     },
                 ],
@@ -673,7 +673,10 @@ fn the_order_runner_completes_a_saved_loop_with_a_stub_desk() {
     run_until(&mut sim, 20_000, |s| kind_count(s, "loop_lap") >= 2);
     let cap = sim.world().hulls.get("hull.wren").unwrap().hold_capacity;
     assert_eq!(sales.get(), 2 * cap);
-    assert_eq!(sim.world().player.credits, credits + 9 * 2 * i64::from(cap));
+    assert_eq!(
+        sim.world().player.credits,
+        credits + 900 * 2 * i64::from(cap)
+    );
     assert_eq!(kind_count(&sim, "sell"), 2);
     // mine, dock, sell per lap
     assert!(kind_count(&sim, "order_done") >= 6);
@@ -752,7 +755,7 @@ fn a_tender_runs_a_saved_loop_and_sells_patiently() {
             orders: Some(ice_run()),
         }),
     );
-    let floor = 10;
+    let floor = 1000;
     let assign =
         controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "ice run", Some(floor)).unwrap();
     submit(&mut sim, assign);
@@ -762,11 +765,11 @@ fn a_tender_runs_a_saved_loop_and_sells_patiently() {
     assert!(matches!(
         orders[2],
         Order::Sell {
-            floor: Some(10),
+            floor: Some(1000),
             ..
         }
     ));
-    set_price(&mut sim, &KETTLE, &ICE, 5);
+    set_price(&mut sim, &KETTLE, &ICE, 700);
 
     // The tender works while the player stays berthed at the Wharf.
     run_until(&mut sim, 20_000, |s| kind_count(s, "patient_wait") == 1);
@@ -810,7 +813,7 @@ fn a_crewed_ship_does_not_wait_for_a_price() {
     place(&mut sim, &PLAYER, &SHALLOWS, kettle);
     step(&mut sim, &hold_action());
     assert_eq!(player(&sim).docked_at, Some(KETTLE));
-    set_price(&mut sim, &KETTLE, &ICE, 5);
+    set_price(&mut sim, &KETTLE, &ICE, 700);
     submit(
         &mut sim,
         CommandBatch::new(test_cause())
@@ -826,13 +829,13 @@ fn a_crewed_ship_does_not_wait_for_a_price() {
                         Order::Sell {
                             ware: ICE,
                             quantity: Quantity::All,
-                            floor: Some(10),
+                            floor: Some(1000),
                         },
                         Order::Wait {
                             until: Condition::PriceAtLeast {
                                 station: KETTLE,
                                 ware: ICE,
-                                price: 10,
+                                price: 1000,
                             },
                         },
                     ],
@@ -1459,23 +1462,23 @@ fn floors_above_the_ceiling_are_refused_and_a_falling_ceiling_blocks_the_sell() 
             orders: Some(sell_ice),
         }),
     );
-    set_ice_line(&mut sim, 5, 20);
+    set_ice_line(&mut sim, 500, 2000);
     step(&mut sim, &hands_off());
 
     // Above what the Wharf could ever pay now: refused at assignment.
-    let err =
-        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(21)).unwrap_err();
+    let err = controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(2100))
+        .unwrap_err();
     assert!(matches!(
         err,
-        galaxy_ship::ControlError::FloorAboveCeiling { ceiling: 20, .. }
+        galaxy_ship::ControlError::FloorAboveCeiling { ceiling: 2000, .. }
     ));
     let assign =
-        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(15)).unwrap();
+        controls::assign_loop(sim.world(), &FlatDesk, &THIMBLE, "sell ice", Some(1500)).unwrap();
     submit(&mut sim, assign);
     run_until(&mut sim, 10, |s| kind_count(s, "patient_wait") == 1);
 
     // The ceiling falls below the floor: blocked, once; cargo and floor kept.
-    set_ice_line(&mut sim, 5, 10);
+    set_ice_line(&mut sim, 500, 1000);
     run(&mut sim, 50, &hands_off());
     assert_eq!(kind_count(&sim, "patient_blocked"), 1);
     let t = ship(&sim, &THIMBLE);
@@ -1488,7 +1491,7 @@ fn floors_above_the_ceiling_are_refused_and_a_falling_ceiling_blocks_the_sell() 
     assert!(matches!(
         orders[1],
         Order::Sell {
-            floor: Some(15),
+            floor: Some(1500),
             ..
         }
     ));
@@ -1499,10 +1502,10 @@ fn floors_above_the_ceiling_are_refused_and_a_falling_ceiling_blocks_the_sell() 
     );
 
     // The ceiling comes back: unblocked by itself, then it sells at the floor.
-    set_ice_line(&mut sim, 5, 20);
+    set_ice_line(&mut sim, 500, 2000);
     run_until(&mut sim, 10, |s| kind_count(s, "patient_unblocked") == 1);
     assert!(!ship(&sim, &THIMBLE).orders.progress.blocked);
-    set_ice_line(&mut sim, 15, 20);
+    set_ice_line(&mut sim, 1500, 2000);
     run_until(&mut sim, 10, |s| kind_count(s, "patient_sold") == 1);
     assert_eq!(ship(&sim, &THIMBLE).hold.count(&ICE), 0);
 }

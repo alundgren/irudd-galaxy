@@ -34,6 +34,9 @@ hold_capacity = 16
 max_speed = 78.0
 turn_rate = 330.0
 mining_rate = 0.8
+# Long glass: live prices for the whole region; a lane arrival refreshes the
+# snapshots of every station in the new region.
+price_reach = { region = true, lane_scout = true }
 
 # The first automated craft. Its standing berth lets it wait docked for a price.
 [[hull]]

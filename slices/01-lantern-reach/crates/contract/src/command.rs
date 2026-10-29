@@ -15,6 +15,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::economy::{ActivityScope, ActivityTally, DockTrack, MarketRates};
 use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
@@ -159,6 +160,13 @@ pub enum Command {
         ship: ShipId,
         station: Option<StationId>,
     },
+    /// Changes nothing, and fails unless `ship` is docked at `station`. A batch that
+    /// only makes sense at a dock (a trade) carries one, so a ship that undocked
+    /// earlier in the same tick rejects it. Its inverse is itself.
+    ExpectDocked {
+        ship: ShipId,
+        station: StationId,
+    },
     SetShipRegion {
         ship: ShipId,
         region: RegionId,
@@ -188,6 +196,7 @@ pub enum Command {
     },
 
     // --- Player ---
+    /// Adds to the player's credits, in centicredits. Fails below zero.
     AdjustCredits {
         delta: i64,
     },
@@ -255,6 +264,23 @@ pub enum Command {
         ware: WareId,
         from: Box<MarketLine>,
         to: Box<MarketLine>,
+    },
+    /// Sets a line's producer and consumer rates (market levers), leaving its stock,
+    /// saturation and prices alone.
+    SetMarketRates {
+        station: StationId,
+        ware: WareId,
+        rates: MarketRates,
+    },
+    /// Adds to a station's or region's activity tally (pulses, trade volume).
+    AdjustActivity {
+        scope: ActivityScope,
+        delta: ActivityTally,
+    },
+    /// Sets or clears (`None`) where a ship last docked, for the counted-docking rule.
+    SetDockTrack {
+        ship: ShipId,
+        track: Option<DockTrack>,
     },
 
     // --- Whole records: create, replace, or remove with `value: null` ---

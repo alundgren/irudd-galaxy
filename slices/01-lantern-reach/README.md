@@ -60,6 +60,7 @@ crates/contract   shared interfaces (IDs, world schema, events, verbs, commands,
 crates/contract/schemas   generated JSON Schemas (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
 crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
+crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/app        the galaxy binary
 packs/core        the authored backbone: manifest.toml and data/*.toml
 xtask             cargo xtask check | contract

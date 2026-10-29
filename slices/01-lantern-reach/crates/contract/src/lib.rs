@@ -13,11 +13,13 @@ pub mod api;
 pub mod assets;
 pub mod command;
 pub mod data;
+pub mod economy;
 pub mod events;
 pub mod geom;
 pub mod history;
 pub mod ids;
 pub mod input;
+pub mod money;
 pub mod pack;
 pub mod schema;
 pub mod ship;
@@ -37,6 +39,10 @@ pub mod prelude {
         Actor, Cause, CauseKind, Command, CommandBatch, JournalEntry, RecordedCause, Rejection,
         Reversibility, UndoRecord,
     };
+    pub use crate::economy::{
+        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketRates,
+        MarketRole, PriceReach, TradeRequest, TradeSide,
+    };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,
     };
@@ -44,6 +50,7 @@ pub mod prelude {
     pub use crate::history::{Fact, FactDraft, FactPayload, HistoryQuery, Subjects};
     pub use crate::ids::*;
     pub use crate::input::{Click, ClickTarget, PlayerInput};
+    pub use crate::money::{CENTS_PER_CREDIT, show_credits};
     pub use crate::ship::{MiningRun, OrderProgress, RockGrowth, ShipActivity, ShipRules, Transit};
     pub use crate::store::{Record, Store};
     pub use crate::verbs::{Condition, FlyTarget, Order, OrderQueue, Quantity, VerbKind};
