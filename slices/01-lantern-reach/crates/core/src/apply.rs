@@ -370,6 +370,30 @@ fn apply_with(
                 line: old,
             })
         }
+        C::UpdateMarketLine {
+            station,
+            ware,
+            from,
+            to,
+        } => {
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            if *line != **from {
+                return Err(CommandError::Invalid(format!(
+                    "{ware} at {station} changed since this update was worked out"
+                )));
+            }
+            *line = (**to).clone();
+            invert(C::UpdateMarketLine {
+                station: station.clone(),
+                ware: ware.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
         C::PutRegion { id, value } => {
             let old = put(&mut world.regions, id, value, "region")?;
             invert(C::PutRegion {

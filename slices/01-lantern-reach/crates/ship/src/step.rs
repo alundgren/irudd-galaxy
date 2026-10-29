@@ -4,9 +4,11 @@
 //! batch: motion, activity, order progress (a compare-and-set on the orders), every
 //! verb's effects and events, and the facts they write. The kernel commits it whole or
 //! rejects it whole, so a mine or trade that loses to another writer never advances
-//! the order or writes its facts; the ship simply tries again next tick. The cause is
-//! the tick's first verb (dock, undock, mine, trade, lane jump, order done), or the
-//! ship system's when the ship only flew.
+//! the order or writes its facts; the ship simply tries again next tick. The player's
+//! clicks and presses are written ahead of the batch and only cleared by it, so they
+//! are replayed rather than lost when it is rejected. The cause is the tick's first
+//! verb (dock, undock, mine, trade, lane jump, order done), or the ship system's when
+//! the ship only flew.
 
 use galaxy_contract::history::FactDraft;
 use galaxy_contract::prelude::*;
@@ -79,6 +81,9 @@ pub(crate) struct ShipStep<'a, 'c> {
     docked: Option<StationId>,
     region: RegionId,
     activity: ShipActivity,
+    /// The activity as written ahead of this tick's batch, holding the player's new
+    /// input (see [`ShipActivity::held_clicks`]); `None`: nothing written ahead.
+    held: Option<ShipActivity>,
     queue: OrderQueue,
     /// Hold units added (+) or removed (-) by this tick's verbs.
     hold_delta: i64,
@@ -119,6 +124,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             docked: ship.docked_at.clone(),
             region: ship.region.clone(),
             activity: ship.activity.clone(),
+            held: None,
             queue: ship.orders.clone(),
             hold_delta: 0,
             mined: None,
@@ -128,19 +134,48 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         }
     }
 
-    /// Runs the tick. `input` is the player's, for the flagship only. `None` when
-    /// nothing changed.
-    pub(crate) fn run(mut self, input: Option<&PlayerInput>) -> Option<CommandBatch> {
-        let pressed = input.is_some_and(|i| i.action && !self.activity.action_held);
+    /// Runs the tick. `input` is the player's, for the flagship only. Returns the
+    /// tick's batch (none when nothing changed), preceded by one holding the player's
+    /// new clicks and presses when there are any: if the tick's batch is rejected, they
+    /// are replayed next tick instead of lost.
+    pub(crate) fn run(mut self, input: Option<&PlayerInput>) -> Vec<CommandBatch> {
+        // Input from ticks whose batch was rejected comes first.
+        let mut clicks = std::mem::take(&mut self.activity.held_clicks);
+        let replayed = std::mem::take(&mut self.activity.held_press);
+        let fresh_press = input.is_some_and(|i| i.action && !self.activity.action_held);
+        let pressed = replayed || fresh_press;
         if let Some(i) = input {
             self.activity.action_held = i.action;
+            clicks.extend(i.click.clone());
         }
+        let mut batches = Vec::new();
+        if fresh_press || input.is_some_and(|i| i.click.is_some()) {
+            let mut held = self.ship.activity.clone();
+            held.held_clicks = clicks.clone();
+            held.held_press = pressed;
+            let mut batch = CommandBatch::new(Cause::system(
+                "ship",
+                format!("{} holds the player's input for its tick", self.ship.id),
+            ));
+            batch.push(Command::SetShipActivity {
+                ship: self.ship.id.clone(),
+                activity: Box::new(held.clone()),
+            });
+            batches.push(batch);
+            self.held = Some(held);
+        }
+        self.act(input, &clicks, pressed);
+        batches.extend(self.finish());
+        batches
+    }
+
+    fn act(&mut self, input: Option<&PlayerInput>, clicks: &[Click], pressed: bool) {
         if let Some(t) = self.activity.transit.clone() {
             self.ride(t);
-            return self.finish();
+            return;
         }
         if let Some(input) = input {
-            if let Some(click) = &input.click {
+            for click in clicks {
                 self.click(click);
             }
             let thrust = input.thrust.clamp_length(1.0);
@@ -150,13 +185,12 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             }
             if self.idle() {
                 self.by_hand(thrust, pressed, input.action);
-                return self.finish();
+                return;
             }
         }
         if !self.idle() {
             self.run_orders();
         }
-        self.finish()
     }
 
     fn idle(&self) -> bool {
@@ -214,22 +248,27 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 heading: self.motion.heading,
             });
         }
-        if self.activity != self.ship.activity {
+        // Clears any input held ahead of this batch.
+        if &self.activity != self.held.as_ref().unwrap_or(&self.ship.activity) {
             commands.push(Command::SetShipActivity {
                 ship: id.clone(),
                 activity: Box::new(self.activity),
             });
         }
-        if self.queue != self.ship.orders {
-            // Orders given since the tick began (a loop assigned, a script) win: this
-            // batch was worked out from the old ones, so it is rejected.
+        commands.append(&mut self.commands);
+        // Orders given since the tick began (a loop assigned, a script, a cancel) win:
+        // this batch was worked out from the old ones, so it is rejected. That holds
+        // even when the queue looks unchanged (a mine under way, a flight, a wait), so
+        // every batch from a ship with orders carries the check.
+        if self.queue != self.ship.orders
+            || (!self.ship.orders.orders.is_empty() && !commands.is_empty())
+        {
             commands.push(Command::UpdateOrders {
                 ship: id.clone(),
                 from: Box::new(self.ship.orders.clone()),
                 to: Box::new(self.queue),
             });
         }
-        commands.append(&mut self.commands);
         if commands.is_empty() {
             return None;
         }

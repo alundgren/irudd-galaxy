@@ -247,6 +247,15 @@ pub enum Command {
         ware: WareId,
         line: Option<MarketLine>,
     },
+    /// Replaces a market line only if it still equals `from`, so trades and pulses
+    /// worked out from the same tick's state can't overwrite each other: a stale one
+    /// fails and its batch is rejected. The economy's trades and pulses use this.
+    UpdateMarketLine {
+        station: StationId,
+        ware: WareId,
+        from: Box<MarketLine>,
+        to: Box<MarketLine>,
+    },
 
     // --- Whole records: create, replace, or remove with `value: null` ---
     PutRegion {

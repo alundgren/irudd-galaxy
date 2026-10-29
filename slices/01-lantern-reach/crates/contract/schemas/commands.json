@@ -242,6 +242,90 @@
         }
       ]
     },
+    "Click": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "description": "Shift held: append to the queue instead of replacing it.",
+          "type": "boolean",
+          "default": false
+        },
+        "target": {
+          "$ref": "#/$defs/ClickTarget"
+        }
+      },
+      "required": [
+        "target"
+      ]
+    },
+    "ClickTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
     "Command": {
       "description": "One world change. Add a variant here, its apply/undo arm in `galaxy_core::apply`,\nand regenerate the schemas (`cargo xtask contract`).",
       "oneOf": [
@@ -686,6 +770,35 @@
             "op",
             "station",
             "ware"
+          ]
+        },
+        {
+          "description": "Replaces a market line only if it still equals `from`, so trades and pulses\nworked out from the same tick's state can't overwrite each other: a stale one\nfails and its batch is rejected. The economy's trades and pulses use this.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/MarketLine"
+            },
+            "op": {
+              "type": "string",
+              "const": "update_market_line"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "to": {
+              "$ref": "#/$defs/MarketLine"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "ware",
+            "from",
+            "to"
           ]
         },
         {
@@ -2911,6 +3024,17 @@
           "description": "The context action was held last tick. A press docks, undocks or enters a lane\nonce; holding keeps mining.",
           "type": "boolean",
           "default": false
+        },
+        "held_clicks": {
+          "description": "The player's clicks from ticks whose batch hasn't committed yet, oldest first.\nThey're written ahead of the tick's batch, cleared by it, and replayed next tick\nif it was rejected, so a click is never lost to a mine or trade that lost.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Click"
+          }
+        },
+        "held_press": {
+          "description": "Likewise for a press of the context action.",
+          "type": "boolean"
         },
         "mining": {
           "description": "The mining run under way: one `mine` event when it ends.",

@@ -221,6 +221,7 @@ fn undo_records_invert_commands() {
     let mut kettle = world.stations.get(&KETTLE).unwrap().clone();
     kettle.id = StationId::new("gm.sixth_station").unwrap();
     kettle.name = "The sixth station".into();
+    let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
     let commands = vec![
         Command::AdjustCargo {
             ship: PLAYER,
@@ -293,11 +294,25 @@ fn undo_records_invert_commands() {
                     progress: 0.5,
                     mined: 2,
                 }),
+                held_clicks: vec![Click {
+                    target: ClickTarget::Station { station: KETTLE },
+                    queue: true,
+                }],
+                held_press: true,
             }),
         },
         Command::SetLoop {
             name: "ice run".into(),
             orders: Some(vec![Order::Undock {}]),
+        },
+        Command::UpdateMarketLine {
+            station: KETTLE,
+            ware: ICE,
+            from: Box::new(kettle_ice.clone()),
+            to: Box::new(MarketLine {
+                stock: kettle_ice.stock + 4,
+                ..kettle_ice.clone()
+            }),
         },
         Command::SetMarketLine {
             station: KETTLE,

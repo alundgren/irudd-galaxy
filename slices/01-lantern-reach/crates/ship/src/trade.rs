@@ -7,9 +7,10 @@
 //!
 //! The order runner puts a trade's commands in the same batch as the order's progress
 //! and facts, so a trade the kernel rejects (a compare-and-set market update that lost
-//! to another trade in the same tick) leaves the order where it was, to retry next
+//! to another writer in the same tick) leaves the order where it was, to retry next
 //! tick. Within a tick the ship system lets one ship trade on a market line, so ships
-//! never quote the same line twice.
+//! don't quote the same line twice; the player's flagship goes first and the others
+//! take turns, so nobody waits for ever.
 //!
 //! The economy's `plan_trade` fits behind a thin adapter: map the side and the errors
 //! ([`TradeError`] notes which economy error each variant stands for), return its
@@ -136,8 +137,9 @@ impl TradeDesk for ClosedDesk {
 /// goes up and down. Credits move only for player-owned ships (NPC craft have no
 /// wallet here). The economy crate's desk replaces it.
 ///
-/// It writes the whole line (`SetMarketLine`), so it relies on the ship system's rule
-/// of one ship per market line per tick; the economy's desk uses a compare-and-set.
+/// Its stock change is a compare-and-set on the line it quoted (`UpdateMarketLine`), so
+/// a quote made stale by an earlier batch in the same tick (another trade, a script)
+/// is rejected rather than selling stock that is gone.
 pub struct FlatDesk;
 
 impl TradeDesk for FlatDesk {
@@ -218,10 +220,13 @@ impl TradeDesk for FlatDesk {
                 ware: r.ware.clone(),
                 delta: cargo * i64::from(units),
             },
-            Command::SetMarketLine {
+            // Only if the line is still the one quoted: a trade or a script that
+            // changed it earlier this tick rejects this batch, and the order retries.
+            Command::UpdateMarketLine {
                 station: r.station.clone(),
                 ware: r.ware.clone(),
-                line: Some(new_line),
+                from: Box::new(line.clone()),
+                to: Box::new(new_line),
             },
         ];
         if players {

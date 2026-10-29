@@ -131,11 +131,16 @@ so the app and `sim run` use it. The name keys its RNG stream; don't rename casu
 `PlayerInput`, everyone else from orders) and `RegrowthSystem` regrows rocks from region
 activity counters. Each ship's tick is one batch (motion, activity, an `UpdateOrders`
 compare-and-set on its orders, verb effects, events and facts), so a mine or trade the
-kernel rejects never advances the order; it retries next tick. Within a tick one ship
-trades per market line and rock units are claimed in ship-ID order. Buy and sell orders
+kernel rejects never advances the order; it retries next tick. Every batch from a ship
+with orders carries the check, even when the queue looks unchanged. The player's clicks
+and presses are written ahead of that batch (`ShipActivity::held_clicks`, `held_press`)
+and replayed if it is rejected. Within a tick one ship trades per market line and rock
+units are claimed in turn: the player's flagship first, then the others in ID order,
+rotated by one each tick so nobody waits for ever. Buy and sell orders
 go through the `TradeDesk` trait (`trade` plus a `ceiling` for floors): the economy
 crate implements it (a closure works too) and the app passes it to
-`galaxy_ship::systems(desk)`; `FlatDesk` is the stand-in. Control tiers are per-save
+`galaxy_ship::systems(desk)`; `FlatDesk` is the stand-in (its stock change is an
+`UpdateMarketLine` compare-and-set on the line it quoted). Control tiers are per-save
 flags named in `ship_rules.toml`: read them with `Controls::of(world)`, set them with
 `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
 the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every

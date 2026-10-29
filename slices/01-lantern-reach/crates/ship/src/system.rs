@@ -27,8 +27,8 @@ impl ShipSystem {
     }
 }
 
-/// What earlier ships took this tick, so later ships (in ID order) don't plan with the
-/// same units. Lives for one tick only.
+/// What earlier ships took this tick, so later ships (see [`turn_order`]) don't plan
+/// with the same units. Lives for one tick only.
 #[derive(Default)]
 pub(crate) struct Claims {
     /// Market lines a ship traded on this tick: one trade per line per tick, so two
@@ -54,15 +54,39 @@ impl System for ShipSystem {
     fn step(&self, ctx: &mut TickCtx<'_>) {
         let world = ctx.world;
         let mut claims = Claims::default();
-        for ship in world.ships.values() {
+        for ship in turn_order(world) {
             let Some(hull) = world.hulls.get(&ship.hull) else {
                 continue;
             };
             let input = (world.player.ship.as_ref() == Some(&ship.id)).then_some(ctx.input);
             let step = ShipStep::new(world, self.desk.as_ref(), &mut claims, ship, hull);
-            if let Some(batch) = step.run(input) {
+            for batch in step.run(input) {
                 ctx.submit(batch);
             }
         }
     }
+}
+
+/// Who claims contested market lines and rock units first this tick. The player's
+/// flagship always goes first: what the player asks for wins over every NPC craft and
+/// tender. The others follow in ID order, rotated by one each tick, so each is first
+/// of them at least once every `n` ticks and no ship waits for ever. The rotation
+/// reads the tick, so it survives a save.
+pub(crate) fn turn_order(world: &WorldState) -> impl Iterator<Item = &Ship> {
+    let flagship = world.player.ship.as_ref();
+    let others: Vec<&Ship> = world
+        .ships
+        .values()
+        .filter(|s| Some(&s.id) != flagship)
+        .collect();
+    let start = match others.len() {
+        0 => 0,
+        n => (world.meta.tick.0 % n as u64) as usize,
+    };
+    let (before, after) = others.split_at(start);
+    flagship
+        .and_then(|id| world.ships.get(id))
+        .into_iter()
+        .chain(after.to_vec())
+        .chain(before.to_vec())
 }

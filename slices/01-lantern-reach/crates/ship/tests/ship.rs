@@ -663,7 +663,11 @@ fn the_order_runner_completes_a_saved_loop_with_a_stub_desk() {
     assert_eq!(sim.world().player.loops["ice run"], ice_run());
     assert!(start.is_err(), "not saved yet when asked");
     let start = controls::run_loop(sim.world(), &PLAYER, "ice run").unwrap();
-    submit(&mut sim, start);
+    // It replaces the queue under way, so that tick's flight (worked out from the old
+    // queue) is rejected.
+    sim.submit(start);
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
 
     let credits = sim.world().player.credits;
     run_until(&mut sim, 20_000, |s| kind_count(s, "loop_lap") >= 2);
@@ -1083,6 +1087,246 @@ fn orders_given_during_a_tick_win_over_the_ships_stale_progress() {
         "the stale undock didn't happen"
     );
     assert_eq!(kind_count(&sim, "undock"), 0);
+}
+
+#[test]
+fn a_cancelled_mine_under_way_does_not_take_another_unit() {
+    let mut sim = game(1);
+    go_beside(&mut sim, &ICE_ROCK, 0.0);
+    // Mid-run: the next tick mines a unit without changing anything in the queue.
+    let mut orders = queue(vec![Order::Mine { rock: ICE_ROCK }]);
+    orders.progress.lap_moved = true;
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::SetShipActivity {
+                ship: PLAYER,
+                activity: Box::new(ShipActivity {
+                    mining: Some(MiningRun {
+                        rock: ICE_ROCK,
+                        progress: 0.99,
+                        mined: 0,
+                    }),
+                    ..ShipActivity::default()
+                }),
+            })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders,
+            }),
+    );
+    let before = rock(&sim, &ICE_ROCK).remaining;
+    // Cancelled between ticks: the ship's tick was worked out from the old queue.
+    sim.submit(CommandBatch::new(test_cause()).with(Command::SetOrders {
+        ship: PLAYER,
+        orders: OrderQueue::default(),
+    }));
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
+    assert_eq!(
+        player(&sim).hold.count(&ICE),
+        0,
+        "the cancelled mine took nothing"
+    );
+    assert_eq!(rock(&sim, &ICE_ROCK).remaining, before);
+    assert!(player(&sim).orders.orders.is_empty());
+}
+
+#[test]
+fn flat_desk_does_not_sell_stock_an_earlier_batch_removed() {
+    let mut sim = game(1);
+    let mut line = sim.world().markets.get(&WHARF).unwrap().lines[&ICE].clone();
+    line.stock = 1;
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::SetMarketLine {
+                station: WHARF,
+                ware: ICE,
+                line: Some(line.clone()),
+            })
+            .with(Command::AdjustCredits { delta: 1000 })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: buy_one_ice(),
+            }),
+    );
+    // Something else empties the line in the same tick, before the ship's batch.
+    line.stock = 0;
+    sim.submit(
+        CommandBatch::new(test_cause()).with(Command::SetMarketLine {
+            station: WHARF,
+            ware: ICE,
+            line: Some(line),
+        }),
+    );
+    let report = sim.step(&hands_off()).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
+    assert_eq!(player(&sim).hold.count(&ICE), 0);
+    assert_eq!(
+        sim.world().markets.get(&WHARF).unwrap().lines[&ICE].stock,
+        0
+    );
+    assert_eq!(kind_count(&sim, "buy"), 0);
+    assert_eq!(player(&sim).orders.orders.len(), 1, "the buy retries");
+    // Next tick it quotes the empty line and moves on calmly.
+    step(&mut sim, &hands_off());
+    assert!(player(&sim).orders.orders.is_empty());
+    assert_eq!(player(&sim).hold.count(&ICE), 0);
+}
+
+/// A craft that buys one ice and sells it again at the Wharf, for ever: it wants the
+/// Wharf's ice line every tick.
+fn ice_churn() -> OrderQueue {
+    queue(vec![Order::Loop {
+        orders: vec![
+            Order::Buy {
+                ware: ICE,
+                quantity: Quantity::Units { n: 1 },
+            },
+            Order::Sell {
+                ware: ICE,
+                quantity: Quantity::All,
+                floor: None,
+            },
+        ],
+        until: None,
+    }])
+}
+
+fn buy_one_ice() -> OrderQueue {
+    queue(vec![Order::Buy {
+        ware: ICE,
+        quantity: Quantity::Units { n: 1 },
+    }])
+}
+
+#[test]
+fn a_busy_craft_never_keeps_the_player_from_a_market_line() {
+    let mut sim = game(1);
+    tender_at_wharf(&mut sim, 0, vec![]);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::AdjustCredits { delta: 10000 })
+            .with(Command::SetOrders {
+                ship: THIMBLE,
+                orders: ice_churn(),
+            })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: buy_one_ice(),
+            }),
+    );
+    // The player goes first: the buy happens on the first tick it can.
+    step(&mut sim, &hands_off());
+    assert_eq!(player(&sim).hold.count(&ICE), 1);
+    assert!(player(&sim).orders.orders.is_empty());
+    run(&mut sim, 10, &hands_off());
+    assert!(
+        ship(&sim, &THIMBLE).orders.progress.laps > 0,
+        "the craft trades too"
+    );
+}
+
+#[test]
+fn craft_take_turns_on_a_contested_market_line() {
+    let mut sim = game(1);
+    tender_at_wharf(&mut sim, 0, vec![]);
+    // A second craft, after the Thimble in ID order, waiting on the same line.
+    let mut z = ship(&sim, &THIMBLE);
+    z.id = ShipId::from_static("craft.zephyr");
+    z.name = "Zephyr".into();
+    z.orders = buy_one_ice();
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::PutShip {
+                id: z.id.clone(),
+                value: Some(Box::new(z.clone())),
+            })
+            .with(Command::SetOrders {
+                ship: THIMBLE,
+                orders: ice_churn(),
+            }),
+    );
+    run_until(&mut sim, 4, |s| ship(s, &z.id).hold.count(&ICE) == 1);
+    assert!(ship(&sim, &z.id).orders.orders.is_empty());
+}
+
+#[test]
+fn a_rejected_tick_keeps_the_players_click_for_the_next() {
+    let lost = Rc::new(Cell::new(false));
+    let mut sim = with_desk(new_game(&data_dir(), 1).unwrap(), loses_once(lost));
+    unlock(&mut sim, &[Capability::Queues, Capability::ClickFly]);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::AdjustCredits { delta: 1000 })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: buy_one_ice(),
+            }),
+    );
+    let at = player(&sim).position + Vec2::new(10.0, 0.0);
+    // Shift-click a point while the buy loses in the kernel.
+    let report = sim.step(&click(ClickTarget::Point { at }, true)).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
+    assert_eq!(player(&sim).hold.count(&ICE), 0);
+    assert_eq!(
+        player(&sim).activity.held_clicks.len(),
+        1,
+        "the click is kept"
+    );
+    // The next tick replays it, once, along with the buy's retry.
+    step(&mut sim, &hands_off());
+    let p = player(&sim);
+    assert_eq!(p.hold.count(&ICE), 1);
+    assert!(p.activity.held_clicks.is_empty());
+    let flights: Vec<&Order> = p
+        .orders
+        .orders
+        .iter()
+        .filter(|o| matches!(o, Order::Fly { .. }))
+        .collect();
+    assert_eq!(
+        flights,
+        [&Order::Fly {
+            to: FlyTarget::Point { at }
+        }],
+        "{:?}",
+        p.orders
+    );
+}
+
+#[test]
+fn a_press_in_a_rejected_tick_is_replayed() {
+    let mut sim = game(1);
+    assert_eq!(player(&sim).docked_at, Some(WHARF));
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause()).with(Command::SetOrders {
+            ship: PLAYER,
+            orders: queue(vec![
+                Order::Dock { station: WHARF },
+                Order::Dock { station: WHARF },
+            ]),
+        }),
+    );
+    // The orders are cancelled in the same tick the player presses: that tick's batch
+    // was worked out from the old orders and is rejected.
+    sim.submit(CommandBatch::new(test_cause()).with(Command::SetOrders {
+        ship: PLAYER,
+        orders: OrderQueue::default(),
+    }));
+    let report = sim.step(&hold_action()).unwrap();
+    assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
+    assert!(player(&sim).activity.held_press);
+    // Released by now; the held press still undocks, by hand.
+    step(&mut sim, &hands_off());
+    assert_eq!(player(&sim).docked_at, None);
+    assert!(!player(&sim).activity.held_press);
+    assert_eq!(kind_count(&sim, "undock"), 1);
 }
 
 // --- Loops, the patient sell and floors ---

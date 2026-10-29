@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::events::CounterKind;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::input::Click;
 
 /// Tunables for ships, mining, lanes and control tiers. Saved with the world, so a
 /// save keeps the rules it was played with until something changes them.
@@ -203,6 +204,14 @@ pub struct ShipActivity {
     /// The mining run under way: one `mine` event when it ends.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mining: Option<MiningRun>,
+    /// The player's clicks from ticks whose batch hasn't committed yet, oldest first.
+    /// They're written ahead of the tick's batch, cleared by it, and replayed next tick
+    /// if it was rejected, so a click is never lost to a mine or trade that lost.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub held_clicks: Vec<Click>,
+    /// Likewise for a press of the context action.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub held_press: bool,
 }
 
 /// A lane transit: straight from `start` to `end` at the lane speed.
