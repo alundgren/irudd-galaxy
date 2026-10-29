@@ -244,6 +244,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "galaxy-economy"
+version = "0.1.0"
+dependencies = [
+ "galaxy-contract",
+ "galaxy-core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

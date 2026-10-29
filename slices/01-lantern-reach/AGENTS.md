@@ -60,7 +60,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/app` | `galaxy-app` (bin `galaxy`) | W1 started, W6 integrates | The binary: `play` plus the JSON CLI. Thin. |
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
 | `crates/ship` | | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
-| `crates/economy` | | W3 | Pricing and saturation maths, map, scouting, territory. |
+| `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
 | `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
 | `crates/script`, `gm` | | W5 | Luau host, sandbox, packs, validator, rollback, game-master bridge. |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
