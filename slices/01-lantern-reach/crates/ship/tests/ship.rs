@@ -1218,8 +1218,9 @@ fn a_busy_craft_never_keeps_the_player_from_a_market_line() {
                 orders: buy_one_ice(),
             }),
     );
-    // The player goes first: the buy happens on the first tick it can.
-    step(&mut sim, &hands_off());
+    // Queued (hands-off) orders take turns with the craft, so the player's buy lands
+    // within one rotation (two ships, two ticks); hands-on input would go first.
+    run(&mut sim, 2, &hands_off());
     assert_eq!(player(&sim).hold.count(&ICE), 1);
     assert!(player(&sim).orders.orders.is_empty());
     run(&mut sim, 10, &hands_off());
@@ -1615,4 +1616,30 @@ fn same_inputs_give_the_same_hash_and_save_load_continues_the_same() {
     let mut d = with_desk(loaded, Box::new(FlatDesk));
     scripted_run(&mut d, 2500);
     assert_eq!(d.hash(), a.hash());
+}
+
+#[test]
+fn the_players_own_automation_takes_turns_with_craft() {
+    // Re-check 2 of #17: the flagship running queued orders (no hands-on input) must
+    // not starve a tender on the same market line.
+    let mut sim = game(1);
+    tender_at_wharf(&mut sim, 0, vec![]);
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause())
+            .with(Command::AdjustCredits { delta: 10000 })
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: ice_churn(),
+            })
+            .with(Command::SetOrders {
+                ship: THIMBLE,
+                orders: buy_one_ice(),
+            }),
+    );
+    run(&mut sim, 200, &hands_off());
+    assert!(
+        ship(&sim, &THIMBLE).orders.orders.is_empty(),
+        "the tender's buy must get a turn"
+    );
 }

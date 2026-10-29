@@ -54,7 +54,7 @@ impl System for ShipSystem {
     fn step(&self, ctx: &mut TickCtx<'_>) {
         let world = ctx.world;
         let mut claims = Claims::default();
-        for ship in turn_order(world) {
+        for ship in turn_order(world, is_hands_on(world, ctx.input)) {
             let Some(hull) = world.hulls.get(&ship.hull) else {
                 continue;
             };
@@ -67,13 +67,27 @@ impl System for ShipSystem {
     }
 }
 
-/// Who claims contested market lines and rock units first this tick. The player's
-/// flagship always goes first: what the player asks for wins over every NPC craft and
-/// tender. The others follow in ID order, rotated by one each tick, so each is first
-/// of them at least once every `n` ticks and no ship waits for ever. The rotation
-/// reads the tick, so it survives a save.
-pub(crate) fn turn_order(world: &WorldState) -> impl Iterator<Item = &Ship> {
-    let flagship = world.player.ship.as_ref();
+/// Is the player steering by hand this tick (keys, Space, a click, or input held over
+/// from a rejected tick)? Only then does the flagship jump the queue.
+pub(crate) fn is_hands_on(world: &WorldState, input: &PlayerInput) -> bool {
+    let held = world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|id| world.ships.get(id))
+        .is_some_and(|s| s.activity.held_press || !s.activity.held_clicks.is_empty());
+    held || input.action || input.click.is_some() || input.thrust.length() > 0.0
+}
+
+/// Who claims contested market lines and rock units first this tick. When the player
+/// steers by hand (`hands_on`), the flagship goes first: what the player asks for wins
+/// over every NPC craft and tender. The others follow in ID order, rotated by one each
+/// tick, so each is first of them at least once every `n` ticks and no ship waits for
+/// ever. When the flagship is only running queued orders it takes its turn in the
+/// rotation like any craft, so the player's own automation can't starve a tender.
+/// The rotation reads the tick, so it survives a save.
+pub(crate) fn turn_order(world: &WorldState, hands_on: bool) -> impl Iterator<Item = &Ship> {
+    let flagship = world.player.ship.as_ref().filter(|_| hands_on);
     let others: Vec<&Ship> = world
         .ships
         .values()
