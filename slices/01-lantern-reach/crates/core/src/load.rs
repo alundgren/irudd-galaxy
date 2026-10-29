@@ -11,7 +11,7 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::world::WORLD_FORMAT_VERSION;
 use serde::de::DeserializeOwned;
 
-use crate::invariants::{Invariant, ReferencesResolve};
+use crate::invariants::{Invariant, NumbersFinite, ReferencesResolve};
 use crate::rng::SimRng;
 
 #[derive(Debug, thiserror::Error)]
@@ -99,6 +99,9 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
 
     if let Err(e) = ReferencesResolve.check(&world) {
         errors.push(e);
+    }
+    if let Err(e) = NumbersFinite.check(&world) {
+        errors.push(format!("numbers must be finite: {e}"));
     }
     for (id, h) in &world.hulls {
         if h.hold_capacity == 0 {

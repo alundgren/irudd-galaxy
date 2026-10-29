@@ -20,7 +20,20 @@ pub fn builtin() -> Vec<Box<dyn Invariant>> {
         Box::new(HoldWithinCapacity),
         Box::new(RockWithinInitial),
         Box::new(PricesInBand),
+        Box::new(NumbersFinite),
     ]
+}
+
+/// No NaN or infinite numbers anywhere in the world: saves couldn't hold them.
+pub struct NumbersFinite;
+
+impl Invariant for NumbersFinite {
+    fn name(&self) -> &'static str {
+        "numbers_finite"
+    }
+    fn check(&self, w: &WorldState) -> Result<(), String> {
+        crate::finite::check(w)
+    }
 }
 
 /// Every record's `id` equals its store key.
