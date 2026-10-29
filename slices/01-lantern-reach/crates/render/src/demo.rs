@@ -14,6 +14,8 @@ use glam::{Mat4, Quat, Vec2, Vec3};
 
 /// Rocks are re-meshed when `remaining` crosses one of this many steps.
 const ROCK_STEPS: f32 = 20.0;
+/// Height of ships above the play plane.
+const SHIP_HOVER: f32 = 6.0;
 
 pub struct DemoRock {
     pub kind: RockKind,
@@ -214,12 +216,14 @@ impl DemoWorld {
         }
 
         // The Wren, its engine glow and the mining beam.
-        let ship = MeshInstance::at(self.wren, self.ship_pos, self.ship_heading, 1.0);
+        // Ships fly a little above the plane so they pass over rocks, not through them.
+        let mut ship = MeshInstance::at(self.wren, self.ship_pos, self.ship_heading, 1.0);
+        ship.transform = Mat4::from_translation(Vec3::Z * SHIP_HOVER) * ship.transform;
         scene.meshes.push(ship);
         let back = Vec2::from_angle(self.ship_heading) * -4.6;
         if self.ship_moving {
             scene.glows.push(Glow {
-                position: (self.ship_pos + back).extend(1.0),
+                position: (self.ship_pos + back).extend(SHIP_HOVER + 1.0),
                 radius: 3.5,
                 color: palette::LANTERN.with_alpha(0.9),
             });
@@ -228,8 +232,8 @@ impl DemoWorld {
             let from = self.ship_pos + Vec2::from_angle(self.ship_heading) * 3.0;
             let to = r.pos + (from - r.pos).normalize_or_zero() * r.radius * 0.5;
             scene.lines.push(Line::beam(
-                from.extend(1.5),
-                to.extend(1.5),
+                from.extend(SHIP_HOVER),
+                to.extend(2.0),
                 1.6,
                 Color::hex(0x7ff0d8),
             ));
@@ -291,7 +295,7 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
     let mut scene = Scene::new(camera);
     scene.backdrop =
         Some(renderer.upload_backdrop(&kit::backdrop(&kit::BackdropParams::default(), 3)));
-    let mut label = |scene: &mut Scene, text: &str, at: Vec2| {
+    let label = |scene: &mut Scene, text: &str, at: Vec2| {
         if let Some(p) = camera.world_to_screen(at.extend(0.0), viewport) {
             scene.overlay.texts.push(
                 Text::new(text, p, 15.0)

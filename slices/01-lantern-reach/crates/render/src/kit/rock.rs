@@ -250,7 +250,8 @@ fn rubble(b: &mut MeshBuilder, kind: RockKind, radius: f32, mut rng: Rng) {
         let s = radius * rng.range(0.1, 0.18);
         b.paint(style.base, 0.0);
         b.with(
-            Mat4::from_translation(at) * Mat4::from_rotation_z(rng.range(0.0, 6.28)),
+            Mat4::from_translation(at)
+                * Mat4::from_rotation_z(rng.range(0.0, std::f32::consts::TAU)),
             |b| b.lathe(&[(0.0, -s * 0.6), (s, 0.0), (0.0, s * 0.7)], 5, 0.0),
         );
     }

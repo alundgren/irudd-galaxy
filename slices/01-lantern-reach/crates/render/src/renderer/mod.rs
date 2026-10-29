@@ -90,6 +90,7 @@ impl RgbaImage {
             enc.set_color(png::ColorType::Rgba);
             enc.set_depth(png::BitDepth::Eight);
             enc.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+            enc.set_compression(png::Compression::High);
             let mut w = enc
                 .write_header()
                 .map_err(|e| RenderError::Png(e.to_string()))?;
@@ -759,7 +760,7 @@ impl Renderer {
             self.format,
             wgpu::TextureFormat::Bgra8UnormSrgb | wgpu::TextureFormat::Bgra8Unorm
         ) {
-            for px in pixels.chunks_exact_mut(4) {
+            for px in pixels.as_chunks_mut::<4>().0 {
                 px.swap(0, 2);
             }
         }
@@ -1073,11 +1074,11 @@ impl Renderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            for layer in 0..text::LAYERS {
-                if panel_counts[layer] > 0 {
+            for (layer, &count) in panel_counts.iter().enumerate() {
+                if count > 0 {
                     pass.set_pipeline(&self.pipelines.panels);
                     pass.set_bind_group(0, &self.panels_bind[layer], &[]);
-                    pass.draw(0..6, 0..panel_counts[layer]);
+                    pass.draw(0..6, 0..count);
                 }
                 self.text
                     .render(layer, &mut pass)

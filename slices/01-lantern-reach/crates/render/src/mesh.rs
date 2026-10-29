@@ -54,7 +54,7 @@ impl MeshData {
     /// True when every position and normal is finite and every normal is unit length.
     pub fn is_well_formed(&self) -> bool {
         let unit = |n: [f32; 3]| (Vec3::from(n).length() - 1.0).abs() < 1e-3;
-        self.indices.len() % 3 == 0
+        self.indices.len().is_multiple_of(3)
             && self
                 .indices
                 .iter()
@@ -315,8 +315,8 @@ impl MeshBuilder {
                 color: v.color,
             });
         }
-        for t in other.indices.chunks_exact(3) {
-            let (a, b, c) = (t[0] + base, t[1] + base, t[2] + base);
+        for &[a, b, c] in other.indices.as_chunks::<3>().0 {
+            let (a, b, c) = (a + base, b + base, c + base);
             if flip {
                 self.mesh.indices.extend([a, c, b]);
             } else {
@@ -385,7 +385,7 @@ mod tests {
         let (lo, hi) = mesh.bounds().unwrap();
         assert!(lo.x <= -2.0 && hi.x >= 13.0, "{lo} {hi}");
         // For the cuboid (first 12 triangles) every face normal points away from the centre.
-        for t in mesh.indices[..36].chunks_exact(3) {
+        for t in mesh.indices[..36].as_chunks::<3>().0 {
             let v = mesh.vertices[t[0] as usize];
             let centroid: Vec3 = t
                 .iter()
@@ -409,7 +409,7 @@ mod tests {
         });
         let mesh = b.build();
         assert!(mesh.is_well_formed());
-        for t in mesh.indices.chunks_exact(3) {
+        for t in mesh.indices.as_chunks::<3>().0 {
             let v = mesh.vertices[t[0] as usize];
             let centroid: Vec3 = t
                 .iter()

@@ -44,7 +44,7 @@ pub(crate) fn tessellate(
     let right = fwd.cross(camera.up).normalize_or(Vec3::X);
     let up = right.cross(fwd);
     for glow in glows {
-        if !glow.position.is_finite() || !(glow.radius > 0.0) {
+        if !glow.position.is_finite() || !glow.radius.is_finite() || glow.radius <= 0.0 {
             continue;
         }
         let base = verts.len() as u32;
@@ -84,8 +84,8 @@ fn resample(line: &Line, seed: u32) -> Vec<Vec3> {
     }
     out.push(*pts.last().unwrap_or(&Vec3::ZERO));
     // Bend sideways (in the line's own plane, approximated as XY) with two slow sines.
-    let p1 = (seed as f32 * 1.618).fract() * 6.28;
-    let p2 = (seed as f32 * 2.414).fract() * 6.28;
+    let p1 = (seed as f32 * 1.618).fract() * std::f32::consts::TAU;
+    let p2 = (seed as f32 * 2.414).fract() * std::f32::consts::TAU;
     let mut dist = 0.0;
     let count = out.len();
     let mut bent = out.clone();
@@ -113,7 +113,7 @@ fn line_strip(
     verts: &mut Vec<FxVertex>,
     indices: &mut Vec<u32>,
 ) {
-    if !(line.width > 0.0) || !line.width.is_finite() {
+    if !line.width.is_finite() || line.width <= 0.0 {
         return;
     }
     let pts = resample(line, seed);
