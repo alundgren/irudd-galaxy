@@ -221,9 +221,10 @@ mod tests {
         let s = shape(&mut fs, &t, 1.0);
         assert!(s.size.x > 60.0 && s.size.x < 400.0, "{:?}", s.size);
         assert!(s.size.y >= 40.0, "{:?}", s.size);
-        // Bolder is wider; wrapping makes text taller.
+        // Weight is applied when rasterising (variable font), so layout stays stable.
         let bold = shape(&mut fs, &t.clone().weight(700), 1.0);
-        assert!(bold.size.x > s.size.x);
+        assert!((bold.size.x - s.size.x).abs() < s.size.x * 0.2);
+        // Wrapping makes long text taller.
         let long = Text::new(
             "a calm solo miner and trader in the Lantern Reach",
             Vec2::ZERO,
