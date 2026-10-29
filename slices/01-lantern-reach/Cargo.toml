@@ -10,6 +10,15 @@ publish = false
 
 # Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
 [workspace.dependencies]
+bytemuck = { version = "1.25", features = ["derive"] }
+glam = { version = "0.34", features = ["serde", "bytemuck"] }
+glyphon = "0.12"
+png = "0.18"
+pollster = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+wgpu = "30.0"
+winit = "0.30.13"
 
 [workspace.lints.rust]
 unsafe_code = "warn"
