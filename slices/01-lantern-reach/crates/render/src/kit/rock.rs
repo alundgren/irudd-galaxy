@@ -179,22 +179,6 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
             );
         }
     }
-    // Ice wears a couple of little crystal spikes.
-    if params.kind == RockKind::Ice && remaining > 0.3 {
-        let mut cr = rng.fork(6);
-        for _ in 0..2 {
-            let dir = (random_dir(&mut cr) + Vec3::Z).normalize();
-            let root = surface_point(&pos, dir) * scale * 0.9;
-            b.paint(Color::hex(0xeaf8f6), 0.1);
-            b.with(
-                Mat4::from_rotation_translation(Quat::from_rotation_arc(Vec3::Z, dir), root),
-                |b| {
-                    let s = scale * cr.range(0.25, 0.4);
-                    b.lathe(&[(s * 0.35, -0.2 * s), (0.0, s)], 4, 0.0);
-                },
-            );
-        }
-    }
     b.build()
 }
 
