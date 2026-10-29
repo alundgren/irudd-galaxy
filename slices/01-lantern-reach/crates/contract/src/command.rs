@@ -19,7 +19,8 @@ use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
 use crate::ids::*;
-use crate::verbs::{OrderQueue, VerbKind};
+use crate::ship::{RockGrowth, ShipActivity};
+use crate::verbs::{Order, OrderQueue, VerbKind};
 use crate::world::*;
 
 /// Why a change happened. Recorded with every batch that leaves a trace.
@@ -172,6 +173,11 @@ pub enum Command {
         ship: ShipId,
         orders: OrderQueue,
     },
+    /// Replaces a ship's lane transit, mining run and input edge state.
+    SetShipActivity {
+        ship: ShipId,
+        activity: Box<ShipActivity>,
+    },
 
     // --- Player ---
     AdjustCredits {
@@ -189,12 +195,22 @@ pub enum Command {
         station: StationId,
         snapshot: Option<PriceSnapshot>,
     },
+    /// Saves (or with `orders: null` deletes) one of the player's named loops.
+    SetLoop {
+        name: String,
+        orders: Option<Vec<Order>>,
+    },
 
     // --- Rocks ---
     /// Changes a rock's remaining units. Fails below zero.
     AdjustRock {
         rock: RockId,
         delta: i64,
+    },
+    /// Replaces a rock's regrowth bookkeeping.
+    SetRockGrowth {
+        rock: RockId,
+        growth: RockGrowth,
     },
 
     // --- Stations and factions ---

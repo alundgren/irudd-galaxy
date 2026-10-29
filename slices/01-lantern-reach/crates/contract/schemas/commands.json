@@ -367,6 +367,27 @@
           ]
         },
         {
+          "description": "Replaces a ship's lane transit, mining run and input edge state.",
+          "type": "object",
+          "properties": {
+            "activity": {
+              "$ref": "#/$defs/ShipActivity"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_ship_activity"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "activity"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "delta": {
@@ -450,6 +471,32 @@
           ]
         },
         {
+          "description": "Saves (or with `orders: null` deletes) one of the player's named loops.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_loop"
+            },
+            "orders": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "$ref": "#/$defs/Order"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "name"
+          ]
+        },
+        {
           "description": "Changes a rock's remaining units. Fails below zero.",
           "type": "object",
           "properties": {
@@ -469,6 +516,27 @@
             "op",
             "rock",
             "delta"
+          ]
+        },
+        {
+          "description": "Replaces a rock's regrowth bookkeeping.",
+          "type": "object",
+          "properties": {
+            "growth": {
+              "$ref": "#/$defs/RockGrowth"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_rock_growth"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "op",
+            "rock",
+            "growth"
           ]
         },
         {
@@ -1780,6 +1848,14 @@
       "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
       "type": "object",
       "properties": {
+        "accel": {
+          "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -1801,10 +1877,23 @@
         "name": {
           "type": "string"
         },
+        "standing_berth": {
+          "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
+          "type": "boolean",
+          "default": false
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0
+        },
+        "turn_rate": {
+          "description": "Degrees per second. Missing: `flight.turn_rate`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
         }
       },
       "additionalProperties": false,
@@ -1938,6 +2027,30 @@
         "base_price",
         "min_price",
         "max_price"
+      ]
+    },
+    "MiningRun": {
+      "type": "object",
+      "properties": {
+        "mined": {
+          "description": "Units moved into the hold so far in this run.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "progress": {
+          "description": "Fractional units cut but not yet in the hold.",
+          "type": "number",
+          "format": "float"
+        },
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        }
+      },
+      "required": [
+        "rock",
+        "progress",
+        "mined"
       ]
     },
     "Npc": {
@@ -2078,6 +2191,15 @@
         {
           "type": "object",
           "properties": {
+            "floor": {
+              "description": "Sell only while the price is at or above this. A crewed ship then keeps the\nrest; a hull with a standing berth waits docked for the price (patient sell).",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
             "quantity": {
               "$ref": "#/$defs/Quantity"
             },
@@ -2144,8 +2266,45 @@
         }
       ]
     },
+    "OrderProgress": {
+      "description": "Where a ship is inside its current order, beyond `OrderQueue::current`.",
+      "type": "object",
+      "properties": {
+        "lap_moved": {
+          "description": "This lap moved cargo or credits. A lap that moves nothing stalls the loop.",
+          "type": "boolean",
+          "default": false
+        },
+        "laps": {
+          "description": "Laps of the current loop completed.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "step": {
+          "description": "The order being run inside a `loop` order.",
+          "type": "integer",
+          "format": "uint",
+          "default": 0,
+          "minimum": 0
+        },
+        "traded": {
+          "description": "Units the current buy or sell has moved so far.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "waiting": {
+          "description": "A patient sell is waiting in a standing berth for its floor.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "OrderQueue": {
-      "description": "A ship's orders and where it is in them. W2 may add progress fields.",
+      "description": "A ship's orders and where it is in them.",
       "type": "object",
       "properties": {
         "current": {
@@ -2159,6 +2318,17 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/Order"
+          }
+        },
+        "progress": {
+          "description": "Progress inside the current order (loop step, laps, patient sell).",
+          "$ref": "#/$defs/OrderProgress",
+          "default": {
+            "lap_moved": false,
+            "laps": 0,
+            "step": 0,
+            "traded": 0,
+            "waiting": false
           }
         }
       },
@@ -2358,6 +2528,13 @@
         "field": {
           "$ref": "#/$defs/FieldId"
         },
+        "growth": {
+          "description": "Regrowth bookkeeping (activity-driven).",
+          "$ref": "#/$defs/RockGrowth",
+          "default": {
+            "mark": 0
+          }
+        },
         "id": {
           "$ref": "#/$defs/RockId"
         },
@@ -2422,8 +2599,23 @@
           "type": "number",
           "format": "float"
         },
+        "reform": {
+          "description": "Region pulses after which a spent rock reforms. Missing: never.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "region": {
           "$ref": "#/$defs/RegionId"
+        },
+        "regrow": {
+          "description": "Units the whole field regrows per region pulse, shared by its rocks. Region\npulses are activity (`ship_rules.regrowth.pulses`), never time.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
         },
         "rock_prefix": {
           "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
@@ -2447,6 +2639,28 @@
         "amount_max"
       ]
     },
+    "RockGrowth": {
+      "description": "A rock's regrowth bookkeeping, in region activity (pulses), never time.",
+      "type": "object",
+      "properties": {
+        "mark": {
+          "description": "The region activity this rock's regrowth has accounted for.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "spent_at": {
+          "description": "The region activity when it was spent; it reforms some pulses later.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
     "RockId": {
       "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
       "type": "string",
@@ -2460,7 +2674,7 @@
       "type": "object",
       "properties": {
         "hardness": {
-          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "description": "Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).",
           "type": "number",
           "format": "float"
         },
@@ -2576,6 +2790,13 @@
     "Ship": {
       "type": "object",
       "properties": {
+        "activity": {
+          "description": "Lane transit, mining run and input edge state.",
+          "$ref": "#/$defs/ShipActivity",
+          "default": {
+            "action_held": false
+          }
+        },
         "docked_at": {
           "anyOf": [
             {
@@ -2608,7 +2829,14 @@
           "$ref": "#/$defs/OrderQueue",
           "default": {
             "current": 0,
-            "orders": []
+            "orders": [],
+            "progress": {
+              "lap_moved": false,
+              "laps": 0,
+              "step": 0,
+              "traded": 0,
+              "waiting": false
+            }
           }
         },
         "owner": {
@@ -2635,6 +2863,39 @@
         "heading",
         "hold"
       ]
+    },
+    "ShipActivity": {
+      "description": "What a ship is in the middle of, beyond its motion and orders.",
+      "type": "object",
+      "properties": {
+        "action_held": {
+          "description": "The context action was held last tick. A press docks, undocks or enters a lane\nonce; holding keeps mining.",
+          "type": "boolean",
+          "default": false
+        },
+        "mining": {
+          "description": "The mining run under way: one `mine` event when it ends.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MiningRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transit": {
+          "description": "Riding a lane current.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Transit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
     "ShipId": {
       "description": "Stable ship id, e.g. `ship.player`.",
@@ -2805,6 +3066,40 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Transit": {
+      "description": "A lane transit: straight from `start` to `end` at the lane speed.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "from": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "lane": {
+          "$ref": "#/$defs/LaneId"
+        },
+        "start": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "to": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "travelled": {
+          "description": "World units travelled so far.",
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "lane",
+        "from",
+        "to",
+        "start",
+        "end",
+        "travelled"
+      ]
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",

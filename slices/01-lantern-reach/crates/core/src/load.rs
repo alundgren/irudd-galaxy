@@ -69,6 +69,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let stations: StationsFile = read(dir, "stations.toml")?;
     let rocks: RocksFile = read(dir, "rocks.toml")?;
     let npcs: NpcsFile = read(dir, "npcs.toml")?;
+    let ship_rules: ShipRules = read(dir, "ship_rules.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
 
     let mut errors = Vec::new();
@@ -86,6 +87,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         rock_types: collect(rocks.rock_type, "rocks.toml", &mut errors),
         fields: collect(rocks.field, "rocks.toml", &mut errors),
         npcs: collect(npcs.npc, "npcs.toml", &mut errors),
+        ship_rules,
         ..WorldState::default()
     };
 
@@ -188,6 +190,7 @@ fn generate_rocks(world: &mut WorldState, errors: &mut Vec<String>) {
                 position: field.center + Vec2::new(r * a.cos(), r * a.sin()),
                 remaining: amount,
                 initial: amount,
+                growth: RockGrowth::default(),
             };
             if let Some(old) = world.rocks.put(rock) {
                 errors.push(format!("rocks.toml: rock id `{}` generated twice", old.id));
@@ -213,6 +216,7 @@ fn place_player(world: &mut WorldState, start: StartDef, errors: &mut Vec<String
         docked_at: Some(station.id.clone()),
         hold: Hold::default(),
         orders: OrderQueue::default(),
+        activity: ShipActivity::default(),
     };
     world.ships.put(ship);
     world.player = Player {

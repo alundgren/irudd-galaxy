@@ -71,8 +71,23 @@
           "type": "number",
           "format": "float"
         },
+        "reform": {
+          "description": "Region pulses after which a spent rock reforms. Missing: never.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "region": {
           "$ref": "#/$defs/RegionId"
+        },
+        "regrow": {
+          "description": "Units the whole field regrows per region pulse, shared by its rocks. Region\npulses are activity (`ship_rules.regrowth.pulses`), never time.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
         },
         "rock_prefix": {
           "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
@@ -100,7 +115,7 @@
       "type": "object",
       "properties": {
         "hardness": {
-          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "description": "Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).",
           "type": "number",
           "format": "float"
         },

@@ -155,6 +155,22 @@ pub fn apply(
                 orders: old,
             })
         }
+        C::SetShipActivity { ship, activity } => {
+            if let Some(t) = &activity.transit {
+                require(&world.lanes, &t.lane, "lane")?;
+                require(&world.regions, &t.from, "region")?;
+                require(&world.regions, &t.to, "region")?;
+            }
+            if let Some(m) = &activity.mining {
+                require(&world.rocks, &m.rock, "rock")?;
+            }
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old = std::mem::replace(&mut s.activity, (**activity).clone());
+            invert(C::SetShipActivity {
+                ship: ship.clone(),
+                activity: Box::new(old),
+            })
+        }
         C::AdjustCredits { delta } => {
             let next = world
                 .player
@@ -197,6 +213,28 @@ pub fn apply(
             invert(C::SetPriceSnapshot {
                 station: station.clone(),
                 snapshot: old,
+            })
+        }
+        C::SetLoop { name, orders } => {
+            if name.trim().is_empty() {
+                return Err(CommandError::Invalid("a loop needs a name".into()));
+            }
+            let loops = &mut world.player.loops;
+            let old = match orders {
+                Some(o) => loops.insert(name.clone(), o.clone()),
+                None => loops.remove(name),
+            };
+            invert(C::SetLoop {
+                name: name.clone(),
+                orders: old,
+            })
+        }
+        C::SetRockGrowth { rock, growth } => {
+            let r = find(&mut world.rocks, rock, "rock")?;
+            let old = std::mem::replace(&mut r.growth, growth.clone());
+            invert(C::SetRockGrowth {
+                rock: rock.clone(),
+                growth: old,
             })
         }
         C::AdjustRock { rock, delta } => {

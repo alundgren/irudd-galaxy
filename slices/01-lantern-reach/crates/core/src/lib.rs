@@ -36,9 +36,13 @@ pub use save::{Save, SaveError, fork};
 pub use sim::{KernelState, RollbackPlan, Sim, SimState, TickReport};
 pub use system::{System, TickCtx};
 
-/// The systems a game runs, in tick order. Workstreams add theirs here.
+/// The kernel's own systems, in tick order (none so far).
+///
+/// Workstream crates depend on this one, so they can't be listed here: the app
+/// composes the game from these plus `galaxy_ship::systems(..)` and the others.
+/// [`placeholder::PlaceholderFlight`] stays only for the kernel's own tests.
 pub fn default_systems() -> Vec<Box<dyn System>> {
-    vec![Box::new(placeholder::PlaceholderFlight)]
+    Vec::new()
 }
 
 /// A new game's state from authored data.
@@ -46,7 +50,7 @@ pub fn new_game(data_dir: &Path, seed: u64) -> Result<SimState, DataError> {
     Ok(SimState::new(load_world(data_dir, seed)?))
 }
 
-/// A sim over `state` with the default systems.
+/// A sim over `state` with the kernel's systems only (see [`default_systems`]).
 pub fn game(state: SimState) -> Sim {
     Sim::new(state).with_systems(default_systems())
 }

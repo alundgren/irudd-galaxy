@@ -120,6 +120,12 @@ impl Invariant for ReferencesResolve {
             for ware in s.hold.cargo.keys() {
                 exists(&w.wares, ware, id)?;
             }
+            if let Some(t) = &s.activity.transit {
+                exists(&w.lanes, &t.lane, id)?;
+            }
+            if let Some(m) = &s.activity.mining {
+                exists(&w.rocks, &m.rock, id)?;
+            }
             match &s.owner {
                 Owner::Player => {}
                 Owner::Npc { npc } => exists(&w.npcs, npc, id)?,

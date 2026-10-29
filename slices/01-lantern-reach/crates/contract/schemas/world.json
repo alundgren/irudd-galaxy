@@ -87,6 +87,7 @@
       "default": {
         "credits": 0,
         "flags": [],
+        "loops": {},
         "name": "",
         "price_snapshots": {},
         "ship": null,
@@ -130,6 +131,57 @@
       "patternProperties": {
         "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
           "$ref": "#/$defs/Rumor"
+        }
+      }
+    },
+    "ship_rules": {
+      "description": "Flight, mining, lane and control-tier tunables (`ship_rules.toml`).",
+      "$ref": "#/$defs/ShipRules",
+      "default": {
+        "controls": {
+          "automation": "cap.automation",
+          "click_dock": "cap.click_dock",
+          "click_fly": "cap.click_fly",
+          "click_fly_range": 450.0,
+          "click_mine": "cap.click_mine",
+          "loop_limit": 8,
+          "loops": "cap.loops",
+          "map_travel": "cap.map_travel",
+          "queue_limit": 6,
+          "queues": "cap.queues",
+          "saved_loop_limit": 3
+        },
+        "docking": {
+          "approach": 0.6000000238418579
+        },
+        "flight": {
+          "accel_time": 0.10000000149011612,
+          "arrive_distance": 2.0,
+          "brake": 1.5,
+          "turn_rate": 270.0,
+          "turn_slowdown": 0.5
+        },
+        "lanes": {
+          "mouth_radius": 70.0,
+          "speed": 500.0
+        },
+        "mining": {
+          "radius_base": 6.0,
+          "radius_per_sqrt_unit": 3.0,
+          "reach": 40.0
+        },
+        "regrowth": {
+          "pulses": [
+            {
+              "counter": "dockings",
+              "weight": 1
+            },
+            {
+              "counter": "jumps",
+              "weight": 1
+            }
+          ],
+          "reform_share": 0.25
         }
       }
     },
@@ -437,6 +489,75 @@
         }
       ]
     },
+    "ControlRules": {
+      "description": "Control tiers as progression. Each input mode is unlocked by a per-save flag\n(`Player::flags`); the flag names are data.",
+      "type": "object",
+      "properties": {
+        "automation": {
+          "description": "The player's automated craft may run saved loops.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.automation"
+        },
+        "click_dock": {
+          "description": "Click a station: fly into the ring and dock.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.click_dock"
+        },
+        "click_fly": {
+          "description": "Click a point near the ship: fly there and stop.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.click_fly"
+        },
+        "click_fly_range": {
+          "description": "How far from the ship a click-to-fly point may be (map travel has no limit).",
+          "type": "number",
+          "format": "float",
+          "default": 450.0
+        },
+        "click_mine": {
+          "description": "Click a rock: fly into reach and mine.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.click_mine"
+        },
+        "loop_limit": {
+          "description": "Most orders in a saved loop.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 8,
+          "minimum": 0
+        },
+        "loops": {
+          "description": "Save a queue as a named loop and run it.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.loops"
+        },
+        "map_travel": {
+          "description": "Click anything on the map, any distance, routing through lanes.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.map_travel"
+        },
+        "queue_limit": {
+          "description": "Most orders in a queue.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 6,
+          "minimum": 0
+        },
+        "queues": {
+          "description": "Shift-click appends orders to a queue.",
+          "$ref": "#/$defs/FlagId",
+          "default": "cap.queues"
+        },
+        "saved_loop_limit": {
+          "description": "Most saved loops.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
     "CounterKind": {
       "description": "Activity counters. Pacing reads these, never a clock.",
       "oneOf": [
@@ -510,6 +631,18 @@
         }
       ]
     },
+    "DockingRules": {
+      "type": "object",
+      "properties": {
+        "approach": {
+          "description": "A dock order steers until the ship is this far into the ring (share of its\nradius from the centre), then docks.",
+          "type": "number",
+          "format": "float",
+          "default": 0.6000000238418579
+        }
+      },
+      "additionalProperties": false
+    },
     "FactId": {
       "type": "string",
       "examples": [
@@ -573,6 +706,43 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlightRules": {
+      "description": "Arcade flight feel. Ships stop when nothing pushes them: there is no coasting.",
+      "type": "object",
+      "properties": {
+        "accel_time": {
+          "description": "Seconds from rest to top speed, for hulls without their own `accel`.",
+          "type": "number",
+          "format": "float",
+          "default": 0.10000000149011612
+        },
+        "arrive_distance": {
+          "description": "A fly order is done within this many world units of its point.",
+          "type": "number",
+          "format": "float",
+          "default": 2.0
+        },
+        "brake": {
+          "description": "Braking is this many times stronger than accelerating, so release stops fast.",
+          "type": "number",
+          "format": "float",
+          "default": 1.5
+        },
+        "turn_rate": {
+          "description": "Degrees per second, for hulls without their own `turn_rate`.",
+          "type": "number",
+          "format": "float",
+          "default": 270.0
+        },
+        "turn_slowdown": {
+          "description": "Share of top speed lost while moving directly away from the heading (0..=1).\nThe ship swings round to face where it goes, and turn rate shapes the feel.",
+          "type": "number",
+          "format": "float",
+          "default": 0.5
+        }
+      },
+      "additionalProperties": false
     },
     "FlyTarget": {
       "oneOf": [
@@ -666,6 +836,14 @@
       "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
       "type": "object",
       "properties": {
+        "accel": {
+          "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -687,10 +865,23 @@
         "name": {
           "type": "string"
         },
+        "standing_berth": {
+          "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
+          "type": "boolean",
+          "default": false
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0
+        },
+        "turn_rate": {
+          "description": "Degrees per second. Missing: `flight.turn_rate`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
         }
       },
       "additionalProperties": false,
@@ -749,6 +940,25 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "LaneRules": {
+      "description": "Lanes are currents: every hull rides them at the same speed and can't steer.",
+      "type": "object",
+      "properties": {
+        "mouth_radius": {
+          "description": "A ship within this distance of a lane mouth can enter the lane.",
+          "type": "number",
+          "format": "float",
+          "default": 70.0
+        },
+        "speed": {
+          "description": "World units per second inside a lane.",
+          "type": "number",
+          "format": "float",
+          "default": 500.0
+        }
+      },
+      "additionalProperties": false
     },
     "Market": {
       "description": "A station market as plain data. W3 (economy) owns the maths that moves it.",
@@ -824,6 +1034,53 @@
         "base_price",
         "min_price",
         "max_price"
+      ]
+    },
+    "MiningRules": {
+      "type": "object",
+      "properties": {
+        "radius_base": {
+          "description": "A rock's radius is `radius_base + radius_per_sqrt_unit * sqrt(remaining)`.",
+          "type": "number",
+          "format": "float",
+          "default": 6.0
+        },
+        "radius_per_sqrt_unit": {
+          "type": "number",
+          "format": "float",
+          "default": 3.0
+        },
+        "reach": {
+          "description": "A ship mines while within this distance of a rock's edge.",
+          "type": "number",
+          "format": "float",
+          "default": 40.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "MiningRun": {
+      "type": "object",
+      "properties": {
+        "mined": {
+          "description": "Units moved into the hold so far in this run.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "progress": {
+          "description": "Fractional units cut but not yet in the hold.",
+          "type": "number",
+          "format": "float"
+        },
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        }
+      },
+      "required": [
+        "rock",
+        "progress",
+        "mined"
       ]
     },
     "Npc": {
@@ -964,6 +1221,15 @@
         {
           "type": "object",
           "properties": {
+            "floor": {
+              "description": "Sell only while the price is at or above this. A crewed ship then keeps the\nrest; a hull with a standing berth waits docked for the price (patient sell).",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
             "quantity": {
               "$ref": "#/$defs/Quantity"
             },
@@ -1030,8 +1296,45 @@
         }
       ]
     },
+    "OrderProgress": {
+      "description": "Where a ship is inside its current order, beyond `OrderQueue::current`.",
+      "type": "object",
+      "properties": {
+        "lap_moved": {
+          "description": "This lap moved cargo or credits. A lap that moves nothing stalls the loop.",
+          "type": "boolean",
+          "default": false
+        },
+        "laps": {
+          "description": "Laps of the current loop completed.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "step": {
+          "description": "The order being run inside a `loop` order.",
+          "type": "integer",
+          "format": "uint",
+          "default": 0,
+          "minimum": 0
+        },
+        "traded": {
+          "description": "Units the current buy or sell has moved so far.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "waiting": {
+          "description": "A patient sell is waiting in a standing berth for its floor.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "OrderQueue": {
-      "description": "A ship's orders and where it is in them. W2 may add progress fields.",
+      "description": "A ship's orders and where it is in them.",
       "type": "object",
       "properties": {
         "current": {
@@ -1045,6 +1348,17 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/Order"
+          }
+        },
+        "progress": {
+          "description": "Progress inside the current order (loop step, laps, patient sell).",
+          "$ref": "#/$defs/OrderProgress",
+          "default": {
+            "lap_moved": false,
+            "laps": 0,
+            "step": 0,
+            "traded": 0,
+            "waiting": false
           }
         }
       },
@@ -1127,6 +1441,17 @@
           },
           "uniqueItems": true
         },
+        "loops": {
+          "description": "Saved loops by the player's name for them: the orders a loop repeats.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Order"
+            }
+          },
+          "default": {}
+        },
         "name": {
           "type": "string"
         },
@@ -1195,6 +1520,24 @@
         "tick",
         "visit",
         "prices"
+      ]
+    },
+    "PulseWeight": {
+      "type": "object",
+      "properties": {
+        "counter": {
+          "$ref": "#/$defs/CounterKind"
+        },
+        "weight": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "counter",
+        "weight"
       ]
     },
     "Quantity": {
@@ -1276,11 +1619,48 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "RegrowthRules": {
+      "description": "How rocks regrow. Driven by activity counters in the field's region, never by time.",
+      "type": "object",
+      "properties": {
+        "pulses": {
+          "description": "Region counters that make up a region's activity (\"region pulses\"), with weights.",
+          "type": "array",
+          "default": [
+            {
+              "counter": "dockings",
+              "weight": 1
+            },
+            {
+              "counter": "jumps",
+              "weight": 1
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/PulseWeight"
+          }
+        },
+        "reform_share": {
+          "description": "A spent rock reforms at this share of its full yield.",
+          "type": "number",
+          "format": "float",
+          "default": 0.25
+        }
+      },
+      "additionalProperties": false
+    },
     "Rock": {
       "type": "object",
       "properties": {
         "field": {
           "$ref": "#/$defs/FieldId"
+        },
+        "growth": {
+          "description": "Regrowth bookkeeping (activity-driven).",
+          "$ref": "#/$defs/RockGrowth",
+          "default": {
+            "mark": 0
+          }
         },
         "id": {
           "$ref": "#/$defs/RockId"
@@ -1346,8 +1726,23 @@
           "type": "number",
           "format": "float"
         },
+        "reform": {
+          "description": "Region pulses after which a spent rock reforms. Missing: never.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
         "region": {
           "$ref": "#/$defs/RegionId"
+        },
+        "regrow": {
+          "description": "Units the whole field regrows per region pulse, shared by its rocks. Region\npulses are activity (`ship_rules.regrowth.pulses`), never time.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
         },
         "rock_prefix": {
           "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
@@ -1371,6 +1766,28 @@
         "amount_max"
       ]
     },
+    "RockGrowth": {
+      "description": "A rock's regrowth bookkeeping, in region activity (pulses), never time.",
+      "type": "object",
+      "properties": {
+        "mark": {
+          "description": "The region activity this rock's regrowth has accounted for.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "spent_at": {
+          "description": "The region activity when it was spent; it reforms some pulses later.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
     "RockId": {
       "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
       "type": "string",
@@ -1384,7 +1801,7 @@
       "type": "object",
       "properties": {
         "hardness": {
-          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "description": "Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).",
           "type": "number",
           "format": "float"
         },
@@ -1500,6 +1917,13 @@
     "Ship": {
       "type": "object",
       "properties": {
+        "activity": {
+          "description": "Lane transit, mining run and input edge state.",
+          "$ref": "#/$defs/ShipActivity",
+          "default": {
+            "action_held": false
+          }
+        },
         "docked_at": {
           "anyOf": [
             {
@@ -1532,7 +1956,14 @@
           "$ref": "#/$defs/OrderQueue",
           "default": {
             "current": 0,
-            "orders": []
+            "orders": [],
+            "progress": {
+              "lap_moved": false,
+              "laps": 0,
+              "step": 0,
+              "traded": 0,
+              "waiting": false
+            }
           }
         },
         "owner": {
@@ -1560,6 +1991,39 @@
         "hold"
       ]
     },
+    "ShipActivity": {
+      "description": "What a ship is in the middle of, beyond its motion and orders.",
+      "type": "object",
+      "properties": {
+        "action_held": {
+          "description": "The context action was held last tick. A press docks, undocks or enters a lane\nonce; holding keeps mining.",
+          "type": "boolean",
+          "default": false
+        },
+        "mining": {
+          "description": "The mining run under way: one `mine` event when it ends.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MiningRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transit": {
+          "description": "Riding a lane current.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Transit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
     "ShipId": {
       "description": "Stable ship id, e.g. `ship.player`.",
       "type": "string",
@@ -1568,6 +2032,76 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipRules": {
+      "description": "Tunables for ships, mining, lanes and control tiers. Saved with the world, so a\nsave keeps the rules it was played with until something changes them.",
+      "type": "object",
+      "properties": {
+        "controls": {
+          "$ref": "#/$defs/ControlRules",
+          "default": {
+            "automation": "cap.automation",
+            "click_dock": "cap.click_dock",
+            "click_fly": "cap.click_fly",
+            "click_fly_range": 450.0,
+            "click_mine": "cap.click_mine",
+            "loop_limit": 8,
+            "loops": "cap.loops",
+            "map_travel": "cap.map_travel",
+            "queue_limit": 6,
+            "queues": "cap.queues",
+            "saved_loop_limit": 3
+          }
+        },
+        "docking": {
+          "$ref": "#/$defs/DockingRules",
+          "default": {
+            "approach": 0.6000000238418579
+          }
+        },
+        "flight": {
+          "$ref": "#/$defs/FlightRules",
+          "default": {
+            "accel_time": 0.10000000149011612,
+            "arrive_distance": 2.0,
+            "brake": 1.5,
+            "turn_rate": 270.0,
+            "turn_slowdown": 0.5
+          }
+        },
+        "lanes": {
+          "$ref": "#/$defs/LaneRules",
+          "default": {
+            "mouth_radius": 70.0,
+            "speed": 500.0
+          }
+        },
+        "mining": {
+          "$ref": "#/$defs/MiningRules",
+          "default": {
+            "radius_base": 6.0,
+            "radius_per_sqrt_unit": 3.0,
+            "reach": 40.0
+          }
+        },
+        "regrowth": {
+          "$ref": "#/$defs/RegrowthRules",
+          "default": {
+            "pulses": [
+              {
+                "counter": "dockings",
+                "weight": 1
+              },
+              {
+                "counter": "jumps",
+                "weight": 1
+              }
+            ],
+            "reform_share": 0.25
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "Station": {
       "type": "object",
@@ -1642,6 +2176,40 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Transit": {
+      "description": "A lane transit: straight from `start` to `end` at the lane speed.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "from": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "lane": {
+          "$ref": "#/$defs/LaneId"
+        },
+        "start": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "to": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "travelled": {
+          "description": "World units travelled so far.",
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "lane",
+        "from",
+        "to",
+        "start",
+        "end",
+        "travelled"
+      ]
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",

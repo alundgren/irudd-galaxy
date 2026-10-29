@@ -36,13 +36,12 @@ impl System for Noise {
 
 fn sim(seed: u64) -> Sim {
     let state = new_game(&data_dir(), seed).expect("core data loads");
-    let mut sim = Sim::new(state).with_systems(default_systems());
-    sim.add_system(Box::new(Noise));
-    sim
+    resume(state)
 }
 
 fn resume(state: SimState) -> Sim {
     let mut sim = Sim::new(state).with_systems(default_systems());
+    sim.add_system(Box::new(galaxy_core::placeholder::PlaceholderFlight));
     sim.add_system(Box::new(Noise));
     sim
 }
@@ -268,6 +267,29 @@ fn undo_records_invert_commands() {
         Command::AdjustRock {
             rock: RockId::new("rock.shallows.ice.03").unwrap(),
             delta: -7,
+        },
+        Command::SetRockGrowth {
+            rock: RockId::new("rock.shallows.ice.03").unwrap(),
+            growth: RockGrowth {
+                mark: 4,
+                spent_at: Some(2),
+            },
+        },
+        Command::SetShipActivity {
+            ship: PLAYER,
+            activity: Box::new(ShipActivity {
+                action_held: true,
+                transit: None,
+                mining: Some(MiningRun {
+                    rock: RockId::new("rock.shallows.ice.03").unwrap(),
+                    progress: 0.5,
+                    mined: 2,
+                }),
+            }),
+        },
+        Command::SetLoop {
+            name: "ice run".into(),
+            orders: Some(vec![Order::Undock {}]),
         },
         Command::SetMarketLine {
             station: KETTLE,

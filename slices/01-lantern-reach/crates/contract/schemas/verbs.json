@@ -87,6 +87,15 @@
     {
       "type": "object",
       "properties": {
+        "floor": {
+          "description": "Sell only while the price is at or above this. A crewed ship then keeps the\nrest; a hull with a standing berth waits docked for the price (patient sell).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
         "quantity": {
           "$ref": "#/$defs/Quantity"
         },

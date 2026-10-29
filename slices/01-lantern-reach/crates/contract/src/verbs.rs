@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::events::{CounterKind, CounterScope};
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::ship::OrderProgress;
 
 /// Verb names, used in causes and `order_done` events.
 #[derive(
@@ -50,6 +51,10 @@ pub enum Order {
     Sell {
         ware: WareId,
         quantity: Quantity,
+        /// Sell only while the price is at or above this. A crewed ship then keeps the
+        /// rest; a hull with a standing berth waits docked for the price (patient sell).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        floor: Option<u32>,
     },
     /// Wait until a world condition holds (e.g. a price recovers above a floor).
     Wait {
@@ -146,11 +151,14 @@ pub enum Condition {
     },
 }
 
-/// A ship's orders and where it is in them. W2 may add progress fields.
+/// A ship's orders and where it is in them.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct OrderQueue {
     pub orders: Vec<Order>,
     /// Index of the order being executed.
     #[serde(default)]
     pub current: usize,
+    /// Progress inside the current order (loop step, laps, patient sell).
+    #[serde(default)]
+    pub progress: OrderProgress,
 }
