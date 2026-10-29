@@ -1,9 +1,22 @@
-# The authored backbone. W4 adds scripts; W5 owns the manifest format
-# (crates/contract/schemas/manifest.json).
+# The authored backbone: the world tables (built at new game by galaxy_core::load) and
+# the journey's beats, written through the same hooks the game master uses.
+# Schema: crates/contract/schemas/manifest.json. Hooks: crates/contract/api/HOOKS.md.
 id = "core"
 name = "The Lantern Reach"
 version = "0.1.0"
-description = "Authored regions, stations, rocks, wares, hulls, factions and people."
+description = "Authored regions, stations, rocks, wares, hulls, factions, people, progression tables and the journey's beats."
+uses = [
+    "beats.read",
+    "beats.write",
+    "events.dock",
+    "events.deliver",
+    "history.read",
+    "history.write",
+    "pacing.read",
+    "stations.read",
+    "stations.write",
+    "talk.write",
+]
 data = [
     "data/wares.toml",
     "data/hulls.toml",
@@ -20,3 +33,9 @@ data = [
     "data/pacing.toml",
     "data/start.toml",
 ]
+
+# Act 1: b01 to b03, the worked examples of the beat API.
+[[script]]
+id = "act1"
+file = "scripts/act1.luau"
+handlers = ["on.dock", "on.deliver"]

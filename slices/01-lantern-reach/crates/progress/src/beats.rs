@@ -277,3 +277,46 @@ pub fn validate(def: &BeatDef) -> Vec<String> {
     }
     out
 }
+
+/// Every tunable and beat a requirement names, for `galaxy pack check`.
+pub fn references(req: &Requirement, tunables: &mut BTreeSet<TunableId>, beats: &mut BTreeSet<BeatId>) {
+    use galaxy_contract::progress::Num;
+    use Requirement as R;
+    let mut num = |n: &Num| {
+        if let Num::Tunable { tunable } = n {
+            tunables.insert(tunable.clone());
+        }
+    };
+    match req {
+        R::All(list) | R::Any(list) => {
+            for r in list {
+                references(r, tunables, beats);
+            }
+        }
+        R::Not(r) => references(r, tunables, beats),
+        R::BeatDone(b) | R::BeatStarted(b) | R::BeatActive(b) | R::BeatStep { beat: b, .. } => {
+            beats.insert(b.clone());
+        }
+        R::Counter { at_least, .. }
+        | R::Facts { at_least, .. }
+        | R::Sum { at_least, .. }
+        | R::Credits { at_least }
+        | R::Cargo { at_least, .. }
+        | R::HoldFree { at_least } => num(at_least),
+        R::TunableIs { tunable, .. } => {
+            tunables.insert(tunable.clone());
+        }
+        _ => {}
+    }
+}
+
+/// [`references`] over a whole beat: its preconditions, steps and end state.
+pub fn def_references(def: &BeatDef) -> (BTreeSet<TunableId>, BTreeSet<BeatId>) {
+    let (mut t, mut b) = (BTreeSet::new(), BTreeSet::new());
+    references(&def.requires, &mut t, &mut b);
+    for s in &def.steps {
+        references(&s.done, &mut t, &mut b);
+    }
+    references(&def.done, &mut t, &mut b);
+    (t, b)
+}

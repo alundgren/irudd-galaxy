@@ -25,6 +25,8 @@ use serde::Serialize;
 
 use crate::vm::{RngSource, caller_location};
 
+mod progress;
+
 /// Commands written by one handler call, by cause.
 #[derive(Default)]
 pub(crate) struct Buffer {
@@ -34,6 +36,19 @@ pub(crate) struct Buffer {
 }
 
 impl Buffer {
+    /// A buffer whose cause handle 1 is `seed` (a beat transition's batch).
+    pub fn seeded(seed: CommandBatch) -> Self {
+        Self {
+            causes: vec![(seed.cause, seed.commands)],
+            failed: None,
+        }
+    }
+
+    /// Whether any write was made.
+    pub fn is_empty(&self) -> bool {
+        self.causes.iter().all(|(_, c)| c.is_empty())
+    }
+
     pub fn into_batches(self) -> Vec<CommandBatch> {
         self.causes
             .into_iter()
@@ -214,6 +229,34 @@ const QUERY_KEYS: &[&str] = &[
     "since", "until", "after", "limit",
 ];
 
+/// A scoped method: the first argument is `self`.
+fn m<'scope, 'env: 'scope, A, R>(
+    scope: &'scope Scope<'scope, 'env>,
+    env: &'env CallEnv<'env>,
+    f: impl Fn(&Lua, &'env CallEnv<'env>, A) -> mlua::Result<R> + 'scope,
+) -> mlua::Result<mlua::Function>
+where
+    A: FromLuaMulti,
+    R: IntoLuaMulti,
+{
+    scope.create_function(move |lua, (_self, args): (Value, A)| f(lua, env, args))
+}
+
+/// Registers `ns:name(...)` if the script may use it.
+fn method(
+    env: &CallEnv<'_>,
+    ns: &Table,
+    ns_name: &str,
+    name: &str,
+    f: mlua::Function,
+) -> mlua::Result<()> {
+    let def = api::function(ns_name, name).expect("every ctx method is in contract::api::FUNCTIONS");
+    if env.may(def.needs) {
+        ns.raw_set(name, f)?;
+    }
+    Ok(())
+}
+
 /// Builds `ctx` for one call.
 pub(crate) fn build<'scope, 'env: 'scope>(
     lua: &Lua,
@@ -233,19 +276,6 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         }
         Ok(())
     };
-    // A scoped method: the first argument is `self`.
-    fn m<'scope, 'env: 'scope, A, R>(
-        scope: &'scope Scope<'scope, 'env>,
-        env: &'env CallEnv<'env>,
-        f: impl Fn(&Lua, &'env CallEnv<'env>, A) -> mlua::Result<R> + 'scope,
-    ) -> mlua::Result<mlua::Function>
-    where
-        A: FromLuaMulti,
-        R: IntoLuaMulti,
-    {
-        scope.create_function(move |lua, (_self, args): (Value, A)| f(lua, env, args))
-    }
-
     // ctx:cause
     ctx.raw_set(
         "cause",
@@ -1146,7 +1176,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         .filter(|d| env.may(d.needs))
         .map(|d| d.ns)
         .collect();
-    for (name, t) in [
+    progress::add_levers(lua, scope, env, &market)?;
+    let mut tables = vec![
         ("counters", counters),
         ("history", history),
         ("stations", stations),
@@ -1158,7 +1189,9 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         ("talk", talk),
         ("map", map),
         ("chronicle", chronicle),
-    ] {
+    ];
+    tables.extend(progress::namespaces(lua, scope, env)?);
+    for (name, t) in tables {
         if present.contains(name) {
             t.set_readonly(true);
             ctx.raw_set(name, t)?;

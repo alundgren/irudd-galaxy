@@ -26,6 +26,8 @@ use serde_json::Value;
 
 use crate::events::{CounterKind, Event, EventKind};
 use crate::history::{Fact, FactDraft, HistoryQuery};
+use crate::progress::{BeatState, RegardTier, TraitDef, TunableValue};
+use crate::verbs::{Order, OrderQueue};
 use crate::world::{Faction, MarketLine, Npc, Region, Rumor, Station};
 
 /// The 14 base engine hooks from the slice design.
@@ -196,29 +198,69 @@ pub const USES: &[UseDef] = &[
         Hook::Talk,
         "Write a chronicle entry. Cites a fact; can't be rolled back.",
     ),
-    reserved(
+    cap(
         "market.levers",
         Hook::Market,
-        "Add or scale producers and consumers (W3).",
+        "Add or scale producers and consumers, set stock (galaxy-economy's levers).",
     ),
-    reserved(
+    cap(
+        "orders.read",
+        Hook::Orders,
+        "Read a craft's order queue.",
+    ),
+    cap(
         "orders.write",
         Hook::Orders,
-        "Issue verbs to scripted and automated craft (W2).",
+        "Issue verbs to scripted craft and the player's tenders, never the player ship.",
+    ),
+    cap(
+        "beats.read",
+        Hook::Beats,
+        "Read beat state, goal lines and the act.",
+    ),
+    cap(
+        "beats.write",
+        Hook::Beats,
+        "Register beats with `G.beat` in `G.script { beats = { ... } }`.",
+    ),
+    cap(
+        "mechanics.read",
+        Hook::Mechanics,
+        "Read mechanic flags and reserved slot bindings.",
+    ),
+    cap(
+        "mechanics.write",
+        Hook::Mechanics,
+        "Teach a new verb: set `mech.*` flags, bind reserved input and UI slots.",
+    ),
+    cap(
+        "standing.read",
+        Hook::Stores,
+        "Read the player's regard tier with a faction (the number stays hidden).",
+    ),
+    cap(
+        "standing.write",
+        Hook::Stores,
+        "Record a deed that moves standing (writes standing_changed, regard_changed).",
+    ),
+    cap("traits.read", Hook::Stores, "Read pilot traits."),
+    cap(
+        "pacing.read",
+        Hook::Counters,
+        "Read pacing tunables (`pacing.toml`).",
+    ),
+    cap(
+        "pacing.write",
+        Hook::Counters,
+        "Vary a pacing tunable with a cause; a rollback restores it.",
     ),
     reserved(
         "kit.write",
         Hook::Kit,
         "Assemble stations from kit recipes, register sprites (W6).",
     ),
-    reserved("beats.write", Hook::Beats, "Register beats (W4)."),
     reserved("canon.read", Hook::Canon, "Read the canon graph."),
     reserved("canon.write", Hook::Canon, "Open canon nodes."),
-    reserved(
-        "mechanics.write",
-        Hook::Mechanics,
-        "Set mechanic flags, bind reserved slots.",
-    ),
     reserved(
         "mind.write",
         Hook::Mind,
@@ -603,6 +645,277 @@ pub const FUNCTIONS: &[FnDef] = &[
         "(station: StationId, ware: WareId, why: Cause) -> ()",
         "Removes a ware's stock line.",
     ),
+    // --- Market levers (wrapping galaxy-economy) ---
+    f(
+        "market",
+        "scale_producers",
+        "market.levers",
+        "(station: StationId, ware: WareId, factor: number, why: Cause) -> ()",
+        "Multiplies a line's production (1.5 for +50%). Prices follow from supply.",
+    ),
+    f(
+        "market",
+        "scale_consumers",
+        "market.levers",
+        "(station: StationId, ware: WareId, factor: number, why: Cause) -> ()",
+        "Multiplies a line's consumption (2 for a shortage's drink).",
+    ),
+    f(
+        "market",
+        "add_producers",
+        "market.levers",
+        "(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()",
+        "Adds (or with a negative number removes) producer units per pulse.",
+    ),
+    f(
+        "market",
+        "add_consumers",
+        "market.levers",
+        "(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()",
+        "Adds (or removes) consumer units per pulse.",
+    ),
+    f(
+        "market",
+        "set_stock",
+        "market.levers",
+        "(station: StationId, ware: WareId, stock: number, why: Cause) -> ()",
+        "Sets a line's stock outright (a delivery, a gift).",
+    ),
+    f(
+        "market",
+        "levers",
+        "market.levers",
+        "(levers: { Lever }, why: Cause) -> ()",
+        "Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.",
+    ),
+    // --- Orders ---
+    f(
+        "orders",
+        "get",
+        "orders.read",
+        "(ship: ShipId) -> OrderQueue?",
+        "A craft's order queue.",
+    ),
+    f(
+        "orders",
+        "can_order",
+        "orders.read",
+        "(ship: ShipId) -> boolean",
+        "Whether scripts may give this ship orders (scripted craft and the player's tenders; never the player ship or a berthed hull).",
+    ),
+    f(
+        "orders",
+        "give",
+        "orders.write",
+        "(ship: ShipId, orders: { Order }, why: Cause) -> ()",
+        "Replaces a craft's orders with these (the same verbs the player uses).",
+    ),
+    f(
+        "orders",
+        "append",
+        "orders.write",
+        "(ship: ShipId, order: Order, why: Cause) -> ()",
+        "Adds one order to the end of a craft's queue.",
+    ),
+    f(
+        "orders",
+        "clear",
+        "orders.write",
+        "(ship: ShipId, why: Cause) -> ()",
+        "Clears a craft's orders.",
+    ),
+    // --- Beats ---
+    f(
+        "beats",
+        "state",
+        "beats.read",
+        "(id: BeatId) -> BeatState?",
+        "A started beat's state (dormant beats have none).",
+    ),
+    f(
+        "beats",
+        "is_done",
+        "beats.read",
+        "(id: BeatId) -> boolean",
+        "Whether a beat has completed.",
+    ),
+    f(
+        "beats",
+        "is_active",
+        "beats.read",
+        "(id: BeatId) -> boolean",
+        "Whether a beat has started and not completed.",
+    ),
+    f(
+        "beats",
+        "active",
+        "beats.read",
+        "() -> { BeatId }",
+        "Active beats, newest first.",
+    ),
+    f(
+        "beats",
+        "goal",
+        "beats.read",
+        "() -> GoalLine?",
+        "The one goal line the HUD shows: the newest active beat's.",
+    ),
+    f(
+        "beats",
+        "goals",
+        "beats.read",
+        "() -> { GoalLine }",
+        "Every active beat's goal line, newest first (the dockmaster's list).",
+    ),
+    f(
+        "beats",
+        "act",
+        "beats.read",
+        "() -> number",
+        "The act the journey is in (the highest act of any started beat).",
+    ),
+    f(
+        "beats",
+        "pilot",
+        "beats.read",
+        "() -> PilotView",
+        "The player as a beat sees them: ship, hull, where they're docked, cargo, hold room and credits (in credits).",
+    ),
+    f(
+        "beats",
+        "deliver",
+        "beats.write",
+        "(spec: DeliverSpec, why: Cause) -> ()",
+        "A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.",
+    ),
+    f(
+        "beats",
+        "load",
+        "beats.write",
+        "(spec: LoadSpec, why: Cause) -> ()",
+        "Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.",
+    ),
+    // --- Mechanics ---
+    f(
+        "mechanics",
+        "is_on",
+        "mechanics.read",
+        "(flag: FlagId) -> boolean",
+        "Whether a per-save flag is set (`mech.*`, `cap.*`, anything).",
+    ),
+    f(
+        "mechanics",
+        "slots",
+        "mechanics.read",
+        "() -> { [SlotId]: FlagId }",
+        "Reserved input and UI slots bound so far, and the mechanic each serves.",
+    ),
+    f(
+        "mechanics",
+        "free_slots",
+        "mechanics.read",
+        "() -> { SlotId }",
+        "Reserved slots no mechanic has bound yet.",
+    ),
+    f(
+        "mechanics",
+        "set",
+        "mechanics.write",
+        "(flag: FlagId, on: boolean, why: Cause) -> ()",
+        "Sets or clears a mechanic flag. Only `mech.*` flags: capabilities come from upgrades and beats.",
+    ),
+    f(
+        "mechanics",
+        "bind",
+        "mechanics.write",
+        "(slot: SlotId, mechanic: FlagId, why: Cause) -> ()",
+        "Binds a free reserved slot to a mechanic.",
+    ),
+    f(
+        "mechanics",
+        "unbind",
+        "mechanics.write",
+        "(slot: SlotId, why: Cause) -> ()",
+        "Frees a reserved slot.",
+    ),
+    f(
+        "mechanics",
+        "teach",
+        "mechanics.write",
+        "(spec: TeachSpec, why: Cause) -> ()",
+        "A new verb with a teacher: sets the `mech.*` flag, binds its slots, and records `<pack>.mechanic_taught` naming the teacher.",
+    ),
+    // --- Standing, traits, pacing ---
+    f(
+        "standing",
+        "tier",
+        "standing.read",
+        "(faction: FactionId) -> RegardTier?",
+        "The player's regard tier with a faction: how its people treat them.",
+    ),
+    f(
+        "standing",
+        "station_tier",
+        "standing.read",
+        "(station: StationId) -> RegardTier?",
+        "The regard tier with a station's owner (nil if it has none).",
+    ),
+    f(
+        "standing",
+        "tiers",
+        "standing.read",
+        "() -> { RegardTier }",
+        "Every regard tier, lowest first.",
+    ),
+    f(
+        "standing",
+        "deed",
+        "standing.write",
+        "(spec: DeedSpec, why: Cause) -> ()",
+        "Records a deed: moves standing (clamped, scaled by traits for `tags`) and writes `standing_changed` and, if the tier moves, `regard_changed`.",
+    ),
+    f(
+        "traits",
+        "has",
+        "traits.read",
+        "(id: TraitId) -> boolean",
+        "Whether the pilot has earned a trait.",
+    ),
+    f(
+        "traits",
+        "earned",
+        "traits.read",
+        "() -> { TraitId }",
+        "The pilot's traits, sorted.",
+    ),
+    f(
+        "traits",
+        "get",
+        "traits.read",
+        "(id: TraitId) -> TraitDef?",
+        "A trait's definition: its name, deed and effect.",
+    ),
+    f(
+        "pacing",
+        "get",
+        "pacing.read",
+        "(id: TunableId) -> TunableValue?",
+        "A tunable's current value: a number, a string or a list of strings.",
+    ),
+    f(
+        "pacing",
+        "tuned",
+        "pacing.read",
+        "(id: TunableId) -> boolean",
+        "Whether a script changed a tunable from its authored value.",
+    ),
+    f(
+        "pacing",
+        "set",
+        "pacing.write",
+        "(id: TunableId, value: TunableValue, why: Cause) -> ()",
+        "Varies a tunable. Set it while the beat that reads it is dormant; a rollback restores the authored value.",
+    ),
     f(
         "talk",
         "offer",
@@ -638,6 +951,12 @@ pub const NAMESPACES: &[(&str, &str)] = &[
     ("rumors", "RumorsApi"),
     ("territory", "TerritoryApi"),
     ("market", "MarketApi"),
+    ("orders", "OrdersApi"),
+    ("beats", "BeatsApi"),
+    ("mechanics", "MechanicsApi"),
+    ("standing", "StandingApi"),
+    ("traits", "TraitsApi"),
+    ("pacing", "PacingApi"),
     ("talk", "TalkApi"),
     ("map", "MapApi"),
     ("chronicle", "ChronicleApi"),
@@ -870,6 +1189,13 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         ("HistoryQuery", schema_value::<HistoryQuery>()),
         ("Event", schema_value::<Event>()),
         ("CounterKind", schema_value::<CounterKind>()),
+        ("BeatState", schema_value::<BeatState>()),
+        ("Order", schema_value::<Order>()),
+        ("OrderQueue", schema_value::<OrderQueue>()),
+        ("RegardTier", schema_value::<RegardTier>()),
+        ("TraitDef", schema_value::<TraitDef>()),
+        ("TunableValue", schema_value::<TunableValue>()),
+        ("IdTypes", schema_value::<IdTypes>()),
     ];
     let defs = collect_defs(&roots);
     let lu = Luau { defs: &defs };
@@ -893,7 +1219,12 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         let _ = writeln!(out, "export type {name} = {}", lu.ty(def));
     }
     for (name, s) in &roots {
-        let _ = writeln!(out, "export type {name} = {}", lu.ty(s));
+        // A root that refers to itself (an order's loop holds orders) is `$ref: "#"`.
+        let ty = lu
+            .ty(s)
+            .replace("{ # }", &format!("{{ {name} }}"))
+            .replace(": #", &format!(": {name}"));
+        let _ = writeln!(out, "export type {name} = {ty}");
     }
 
     out.push_str("\n-- Event handler arguments: the event plus the fact it was recorded as.\n\n");
@@ -951,6 +1282,7 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         "export type TriggerFire = { name: string, fired: number, fact: FactId? }\n\
          export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }\n",
     );
+    out.push_str(BEAT_TYPES);
 
     out.push_str("\n-- The ctx namespaces\n\n");
     for (ns, ty) in NAMESPACES {
@@ -991,19 +1323,110 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         handler_fields.join("\n")
     );
     out.push_str(
-        "export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }? }\n\n\
+        "export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }?, beats: { BeatSpec }? }\n\n\
          export type Galaxy = {\n\
          \t-- Declares a script. `id` matches the manifest's `[[script]] id`.\n\
          \tscript: (def: ScriptDef) -> ScriptDef,\n\
          \t-- An activity trigger: runs once when the counters reach `spec`\n\
          \t-- (or every time they grow by it again, with `every = true`).\n\
-         \tafter: (spec: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> ()) -> Trigger,\n\
-         }\n\n\
+         \tafter: (spec: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> ()) -> Trigger,\n",
+    );
+    out.push_str(BEAT_BUILDERS);
+    out.push_str(
+        "}\n\n\
          local G: Galaxy = nil :: any\n\
          return G\n",
     );
     out
 }
+
+/// Pulls the ID types hook signatures name into the generated module.
+#[derive(JsonSchema)]
+#[allow(dead_code)]
+struct IdTypes {
+    beat: crate::ids::BeatId,
+    flag: crate::ids::FlagId,
+    ledger: crate::ids::LedgerId,
+    slot: crate::ids::SlotId,
+    trait_id: crate::ids::TraitId,
+    tunable: crate::ids::TunableId,
+    upgrade: crate::ids::UpgradeId,
+    ship: crate::ids::ShipId,
+    hull: crate::ids::HullId,
+}
+
+/// Luau types for registering beats (`beats.write`) and the shapes some hooks take.
+const BEAT_TYPES: &str = "\
+-- A requirement: world state, history and activity, never time. Build them with the\n\
+-- G.* helpers below; a list of requirements means all of them.\n\
+export type Requirement = string | { [any]: any }\n\
+-- A number, or `G.tunable(id)`: the current value of a pacing tunable.\n\
+export type Num = number | { tunable: TunableId }\n\
+-- Which facts a history requirement counts: all of history, since the beat started,\n\
+-- or since its current step started.\n\
+export type Since = \"ever\" | \"start\" | \"step\"\n\
+export type FactOpts = { at_least: Num?, since: Since? }\n\
+export type StepSpec = { id: string, goal: string, done: Requirement }\n\
+-- Credits are written as credits (like data files), not centicredits.\n\
+export type RewardSpec = { credits: number?, standing: { [FactionId]: number }?, flags: { FlagId }?, fit: { UpgradeId }? }\n\
+-- What a beat callback gets. Its writes made with `beat.why` apply atomically with the\n\
+-- transition; if the callback errors, the beat waits and tries again next tick.\n\
+export type BeatInfo = { id: BeatId, transition: \"start\" | \"step\" | \"complete\", step: number, step_id: string?, why: Cause }\n\
+export type BeatHook = (ctx: Ctx, beat: BeatInfo) -> ()\n\
+export type BeatSpec = { id: BeatId, act: number, kind: (\"directed\" | \"situation\")?, giver: NpcId?, goal: string, requires: Requirement?, steps: { StepSpec }?, done: Requirement?, rewards: RewardSpec?, on_start: BeatHook?, on_step: BeatHook?, on_complete: BeatHook? }\n\
+-- The HUD's goal line for one active beat.\n\
+export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?, step: string? }\n\
+export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }\n\
+export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }\n\
+-- The player for a beat: `credits` are credits (40.5), not centicredits.\n\
+export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+export type LoadSpec = { ware: WareId, quantity: number }\n\
+export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }\n\
+-- A market lever (galaxy-economy). Prices follow from the new supply.\n\
+export type Lever = { lever: \"add_producers\" | \"add_consumers\", station: StationId, ware: WareId, per_pulse: number }\n\
+\t| { lever: \"scale_producers\" | \"scale_consumers\", station: StationId, ware: WareId, factor: number }\n\
+\t| { lever: \"set_stock\", station: StationId, ware: WareId, stock: number }\n\
+\t| { lever: \"remove_line\", station: StationId, ware: WareId }\n\
+\t| { lever: \"add_line\", station: StationId, ware: WareId, line: { [string]: any } }\n";
+
+/// The `G.*` beat and requirement builders, inside the `Galaxy` type.
+const BEAT_BUILDERS: &str = "\
+\t-- Registers a beat (needs `beats.write`). Put it in `G.script { beats = { ... } }`.\n\
+\tbeat: (def: BeatSpec) -> BeatSpec,\n\
+\t-- Requirements. Nothing here can name a time.\n\
+\talways: Requirement,\n\
+\tall: (list: { Requirement }) -> Requirement,\n\
+\tany: (list: { Requirement }) -> Requirement,\n\
+\tnever: (r: Requirement) -> Requirement,\n\
+\tdone: (beat: BeatId) -> Requirement,\n\
+\tstarted: (beat: BeatId) -> Requirement,\n\
+\tactive: (beat: BeatId) -> Requirement,\n\
+\t-- The beat has reached step `step` (0 = its first step is under way).\n\
+\tat_step: (beat: BeatId, step: number) -> Requirement,\n\
+\tcounter: (kind: CounterKind, at_least: Num, scope: CounterScopeArg?) -> Requirement,\n\
+\t-- At least one (or `opts.at_least`) history fact matches.\n\
+\tfact: (q: HistoryQuery, opts: FactOpts?) -> Requirement,\n\
+\t-- Matching facts' amounts add up to `at_least`.\n\
+\tsum: (q: HistoryQuery, at_least: Num, opts: FactOpts?) -> Requirement,\n\
+\tflag: (flag: FlagId) -> Requirement,\n\
+\ttrait: (id: TraitId) -> Requirement,\n\
+\tfitted: (id: UpgradeId) -> Requirement,\n\
+\thull: (id: HullId) -> Requirement,\n\
+\towns: (ship: ShipId) -> Requirement,\n\
+\t-- The player has at least this many credits.\n\
+\tcredits: (credits: number) -> Requirement,\n\
+\tcargo: (ware: WareId, at_least: Num) -> Requirement,\n\
+\thold_free: (at_least: Num) -> Requirement,\n\
+\tdocked_at: (station: StationId) -> Requirement,\n\
+\tdocked: () -> Requirement,\n\
+\tin_region: (region: RegionId) -> Requirement,\n\
+\t-- Regard at least this tier (`stranger`, `known`, `trusted`, `kin`).\n\
+\tregard: (faction: FactionId, tier: string) -> Requirement,\n\
+\ttunable_is: (id: TunableId, value: TunableValue) -> Requirement,\n\
+\t-- A Luau predicate over the world, for what the others can't say. Read only.\n\
+\ttest: (f: (ctx: Ctx) -> boolean) -> Requirement,\n\
+\t-- A pacing tunable's current value, wherever a number goes.\n\
+\ttunable: (id: TunableId) -> Num,\n";
 
 fn with_self(sig: &str, ty: &str) -> String {
     match sig.strip_prefix("()") {
@@ -1074,6 +1497,7 @@ pub fn hooks_md() -> String {
         };
         let _ = writeln!(out, "- `{call}` ({needs}): {}", d.doc);
     }
+    out.push_str(BEATS_MD);
     out.push_str(
         "\n## Events\n\n\
          `on.<event>` handlers get the event's fields plus `fact` (the history fact it was\n\
@@ -1091,6 +1515,45 @@ pub fn hooks_md() -> String {
     );
     out
 }
+
+const BEATS_MD: &str = "
+## Beats (`beats.write`)
+
+A script registers beats with `G.beat` in `G.script { beats = { ... } }`. The script
+host checks each beat every tick: a dormant beat starts when `requires` holds
+(`beat_started`), each step finishes when its `done` holds (the next step writes
+`quest_step`, with `quest` = the beat ID), and the beat completes when every step is
+done and its `done` holds (`beat_completed`, then `rewards`). Beat state lives in the
+world by stable ID, so beats survive save, load and hot reload.
+
+```luau
+G.beat {
+\tid = \"beat.b02_mine_by_hand\",
+\tact = 1,
+\tgiver = \"npc.ilse_marrow\",
+\tgoal = \"Hold Space beside an ice rock until your hold is full.\",
+\trequires = G.done(\"beat.b01_undock\"),
+\tdone = G.cargo(\"ware.ice\", G.tunable(\"b02.ice\")),
+\trewards = { credits = 0 },
+\ton_complete = function(ctx, beat) end, -- optional; writes with beat.why are atomic with it
+}
+```
+
+- Requirements never name a time. Build them with `G.all`, `G.any`, `G.never`,
+  `G.done`, `G.started`, `G.active`, `G.at_step`, `G.counter`, `G.fact`, `G.sum`,
+  `G.flag`, `G.trait`, `G.fitted`, `G.hull`, `G.owns`, `G.credits`, `G.cargo`,
+  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.regard`,
+  `G.tunable_is`, and `G.test(function(ctx) return ... end)` for anything else (read
+  only). A list of requirements means all of them. `G.fact`/`G.sum` take
+  `{ since = \"start\" }` or `\"step\"` to count only facts after the beat or step began.
+- Numbers can be `G.tunable(\"id\")`: pacing thresholds live in `pacing.toml`.
+- `kind = \"situation\"` marks a state-driven beat (shortage, dispute, rumor); it runs
+  the same way.
+- Callbacks `on_start`, `on_step` and `on_complete` get `(ctx, beat)`. To say a line
+  that cites the beat's fact, handle `on.beat_started` / `on.quest_step` /
+  `on.beat_completed` instead: their `ev.fact` exists.
+- `ctx.beats:goal()` is the HUD's one goal line (the newest active beat's).
+";
 
 /// `(file name, contents)` of the generated API files in `crates/contract/api/`.
 pub fn render() -> Vec<(String, String)> {

@@ -8,29 +8,40 @@
 
 export type AnyId = string
 export type BeatId = string
+export type BeatKind = "directed" | "situation"
+export type BeatStatus = "active" | "completed"
 export type BuildState = { parts: { PartId }?, stage: number }
 export type CauseId = string
+export type Condition = { kind: "hold_full" } | { kind: "hold_empty" } | { kind: "price_at_least", price: number, station: StationId, ware: WareId } | { kind: "price_at_most", price: number, station: StationId, ware: WareId } | { kind: "stock_at_least", station: StationId, stock: number, ware: WareId } | { counter: CounterKind, kind: "counter_at_least", scope: CounterScope, value: number } | { flag: FlagId, kind: "flag_set" } | { kind: "all", of: { Condition } } | { kind: "any", of: { Condition } } | { cond: Condition, kind: "not" }
+export type CounterScope = { scope: "player" } | { scope: "station", station: StationId } | { region: RegionId, scope: "region" }
 export type FactId = string
 export type FactKind = string
 export type FactPayload = { event: Event } | { note: string }
 export type FactionId = string
 export type FlagId = string
+export type FlyTarget = { at: Vec2, kind: "point" } | { kind: "station", station: StationId } | { kind: "rock", rock: RockId } | { kind: "region", region: RegionId }
 export type HullId = string
 export type LaneId = string
 export type LedgerId = string
 export type MarketRole = "buys" | "sells"
+export type Measure = { counter: { kind: CounterKind, region: RegionId?, station: StationId? } } | { facts: HistoryQuery } | { sum: HistoryQuery }
+export type Modifier = { factor: number, modifier: "mining_rate" } | { bonus: number, modifier: "rich_face" } | { modifier: "hold", units: number } | { modifier: "tender_hold", units: number } | { factor: number, modifier: "turn_rate" } | { factor: number, modifier: "speed" } | { factor: number, modifier: "dock_reach" } | { modifier: "mouth_radius", radius: number } | { modifier: "price_glass", range: number } | { factor: number, modifier: "deed_bonus", tag: string } | { feature: string, modifier: "feature" }
 export type NpcId = string
+export type PackId = string
 export type PartId = string
+export type Quantity = { kind: "units", n: number } | { kind: "all" }
 export type QuestId = string
 export type RegionId = string
 export type RockId = string
 export type RumorId = string
 export type Service = "market" | "dockmaster" | "hullwright" | "archive"
 export type ShipId = string
+export type SlotId = string
 export type StationId = string
 export type Subjects = { faction: FactionId?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, station: StationId?, ware: WareId? }
 export type Tick = number
 export type TraitId = string
+export type TunableId = string
 export type UpgradeId = string
 export type Vec2 = { x: number, y: number }
 export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop"
@@ -46,6 +57,13 @@ export type FactDraft = { amount: number?, kind: FactKind, note: string, subject
 export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId?, kind: FactKind?, limit: number?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, since: Tick?, station: StationId?, ["until"]: Tick?, ware: WareId? }
 export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" }
 export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries" | "ledger_deliveries"
+export type BeatState = { act: number, done_since: FactId?, giver: NpcId?, goal: string, kind: BeatKind?, pack: PackId, since: FactId?, started: Tick, status: BeatStatus, step: number, step_id: string?, step_since: FactId? }
+export type Order = { to: FlyTarget, verb: "fly" } | { rock: RockId, verb: "mine" } | { station: StationId, verb: "dock" } | { verb: "undock" } | { quantity: Quantity, verb: "buy", ware: WareId } | { quantity: Quantity, verb: "sell", ware: WareId } | { ["until"]: Condition, verb: "wait" } | { orders: { Order }, ["until"]: Condition?, verb: "loop" }
+export type OrderQueue = { current: number?, orders: { Order } }
+export type RegardTier = { id: string, min_standing: number, name: string, shows: string }
+export type TraitDef = { deed: Measure, effect: string, id: TraitId, modifiers: { Modifier }?, name: string, noticed_by: { NpcId }?, times: number }
+export type TunableValue = number | string | { string }
+export type IdTypes = { beat: BeatId, flag: FlagId, hull: HullId, ledger: LedgerId, ship: ShipId, slot: SlotId, trait_id: TraitId, tunable: TunableId, upgrade: UpgradeId }
 
 -- Event handler arguments: the event plus the fact it was recorded as.
 
@@ -85,6 +103,37 @@ export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites
 export type AfterSpec = { dockings: number?, deliveries: number?, jumps: number?, sessions: number?, units_mined: number?, rocks_depleted: number?, sales: number?, purchases: number?, scouts: number?, orders_done: number?, ledger_deliveries: number?, station: StationId?, region: RegionId?, every: boolean? }
 export type TriggerFire = { name: string, fired: number, fact: FactId? }
 export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }
+-- A requirement: world state, history and activity, never time. Build them with the
+-- G.* helpers below; a list of requirements means all of them.
+export type Requirement = string | { [any]: any }
+-- A number, or `G.tunable(id)`: the current value of a pacing tunable.
+export type Num = number | { tunable: TunableId }
+-- Which facts a history requirement counts: all of history, since the beat started,
+-- or since its current step started.
+export type Since = "ever" | "start" | "step"
+export type FactOpts = { at_least: Num?, since: Since? }
+export type StepSpec = { id: string, goal: string, done: Requirement }
+-- Credits are written as credits (like data files), not centicredits.
+export type RewardSpec = { credits: number?, standing: { [FactionId]: number }?, flags: { FlagId }?, fit: { UpgradeId }? }
+-- What a beat callback gets. Its writes made with `beat.why` apply atomically with the
+-- transition; if the callback errors, the beat waits and tries again next tick.
+export type BeatInfo = { id: BeatId, transition: "start" | "step" | "complete", step: number, step_id: string?, why: Cause }
+export type BeatHook = (ctx: Ctx, beat: BeatInfo) -> ()
+export type BeatSpec = { id: BeatId, act: number, kind: ("directed" | "situation")?, giver: NpcId?, goal: string, requires: Requirement?, steps: { StepSpec }?, done: Requirement?, rewards: RewardSpec?, on_start: BeatHook?, on_step: BeatHook?, on_complete: BeatHook? }
+-- The HUD's goal line for one active beat.
+export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?, step: string? }
+export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }
+export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }
+-- The player for a beat: `credits` are credits (40.5), not centicredits.
+export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+export type LoadSpec = { ware: WareId, quantity: number }
+export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }
+-- A market lever (galaxy-economy). Prices follow from the new supply.
+export type Lever = { lever: "add_producers" | "add_consumers", station: StationId, ware: WareId, per_pulse: number }
+	| { lever: "scale_producers" | "scale_consumers", station: StationId, ware: WareId, factor: number }
+	| { lever: "set_stock", station: StationId, ware: WareId, stock: number }
+	| { lever: "remove_line", station: StationId, ware: WareId }
+	| { lever: "add_line", station: StationId, ware: WareId, line: { [string]: any } }
 
 -- The ctx namespaces
 
@@ -189,6 +238,94 @@ export type MarketApi = {
 	add_line: (self: MarketApi, station: StationId, ware: WareId, line: MarketLine, why: Cause) -> (),
 	-- Removes a ware's stock line.
 	remove_line: (self: MarketApi, station: StationId, ware: WareId, why: Cause) -> (),
+	-- Multiplies a line's production (1.5 for +50%). Prices follow from supply.
+	scale_producers: (self: MarketApi, station: StationId, ware: WareId, factor: number, why: Cause) -> (),
+	-- Multiplies a line's consumption (2 for a shortage's drink).
+	scale_consumers: (self: MarketApi, station: StationId, ware: WareId, factor: number, why: Cause) -> (),
+	-- Adds (or with a negative number removes) producer units per pulse.
+	add_producers: (self: MarketApi, station: StationId, ware: WareId, per_pulse: number, why: Cause) -> (),
+	-- Adds (or removes) consumer units per pulse.
+	add_consumers: (self: MarketApi, station: StationId, ware: WareId, per_pulse: number, why: Cause) -> (),
+	-- Sets a line's stock outright (a delivery, a gift).
+	set_stock: (self: MarketApi, station: StationId, ware: WareId, stock: number, why: Cause) -> (),
+	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
+	levers: (self: MarketApi, levers: { Lever }, why: Cause) -> (),
+}
+export type OrdersApi = {
+	-- A craft's order queue.
+	get: (self: OrdersApi, ship: ShipId) -> OrderQueue?,
+	-- Whether scripts may give this ship orders (scripted craft and the player's tenders; never the player ship or a berthed hull).
+	can_order: (self: OrdersApi, ship: ShipId) -> boolean,
+	-- Replaces a craft's orders with these (the same verbs the player uses).
+	give: (self: OrdersApi, ship: ShipId, orders: { Order }, why: Cause) -> (),
+	-- Adds one order to the end of a craft's queue.
+	append: (self: OrdersApi, ship: ShipId, order: Order, why: Cause) -> (),
+	-- Clears a craft's orders.
+	clear: (self: OrdersApi, ship: ShipId, why: Cause) -> (),
+}
+export type BeatsApi = {
+	-- A started beat's state (dormant beats have none).
+	state: (self: BeatsApi, id: BeatId) -> BeatState?,
+	-- Whether a beat has completed.
+	is_done: (self: BeatsApi, id: BeatId) -> boolean,
+	-- Whether a beat has started and not completed.
+	is_active: (self: BeatsApi, id: BeatId) -> boolean,
+	-- Active beats, newest first.
+	active: (self: BeatsApi) -> { BeatId },
+	-- The one goal line the HUD shows: the newest active beat's.
+	goal: (self: BeatsApi) -> GoalLine?,
+	-- Every active beat's goal line, newest first (the dockmaster's list).
+	goals: (self: BeatsApi) -> { GoalLine },
+	-- The act the journey is in (the highest act of any started beat).
+	act: (self: BeatsApi) -> number,
+	-- The player as a beat sees them: ship, hull, where they're docked, cargo, hold room and credits (in credits).
+	pilot: (self: BeatsApi) -> PilotView,
+	-- A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
+	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
+	-- Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.
+	load: (self: BeatsApi, spec: LoadSpec, why: Cause) -> (),
+}
+export type MechanicsApi = {
+	-- Whether a per-save flag is set (`mech.*`, `cap.*`, anything).
+	is_on: (self: MechanicsApi, flag: FlagId) -> boolean,
+	-- Reserved input and UI slots bound so far, and the mechanic each serves.
+	slots: (self: MechanicsApi) -> { [SlotId]: FlagId },
+	-- Reserved slots no mechanic has bound yet.
+	free_slots: (self: MechanicsApi) -> { SlotId },
+	-- Sets or clears a mechanic flag. Only `mech.*` flags: capabilities come from upgrades and beats.
+	set: (self: MechanicsApi, flag: FlagId, on: boolean, why: Cause) -> (),
+	-- Binds a free reserved slot to a mechanic.
+	bind: (self: MechanicsApi, slot: SlotId, mechanic: FlagId, why: Cause) -> (),
+	-- Frees a reserved slot.
+	unbind: (self: MechanicsApi, slot: SlotId, why: Cause) -> (),
+	-- A new verb with a teacher: sets the `mech.*` flag, binds its slots, and records `<pack>.mechanic_taught` naming the teacher.
+	teach: (self: MechanicsApi, spec: TeachSpec, why: Cause) -> (),
+}
+export type StandingApi = {
+	-- The player's regard tier with a faction: how its people treat them.
+	tier: (self: StandingApi, faction: FactionId) -> RegardTier?,
+	-- The regard tier with a station's owner (nil if it has none).
+	station_tier: (self: StandingApi, station: StationId) -> RegardTier?,
+	-- Every regard tier, lowest first.
+	tiers: (self: StandingApi) -> { RegardTier },
+	-- Records a deed: moves standing (clamped, scaled by traits for `tags`) and writes `standing_changed` and, if the tier moves, `regard_changed`.
+	deed: (self: StandingApi, spec: DeedSpec, why: Cause) -> (),
+}
+export type TraitsApi = {
+	-- Whether the pilot has earned a trait.
+	has: (self: TraitsApi, id: TraitId) -> boolean,
+	-- The pilot's traits, sorted.
+	earned: (self: TraitsApi) -> { TraitId },
+	-- A trait's definition: its name, deed and effect.
+	get: (self: TraitsApi, id: TraitId) -> TraitDef?,
+}
+export type PacingApi = {
+	-- A tunable's current value: a number, a string or a list of strings.
+	get: (self: PacingApi, id: TunableId) -> TunableValue?,
+	-- Whether a script changed a tunable from its authored value.
+	tuned: (self: PacingApi, id: TunableId) -> boolean,
+	-- Varies a tunable. Set it while the beat that reads it is dormant; a rollback restores the authored value.
+	set: (self: PacingApi, id: TunableId, value: TunableValue, why: Cause) -> (),
 }
 export type TalkApi = {
 	-- Offers a line of dock talk. Needs a `speaker` or `place` and `cites`.
@@ -218,6 +355,12 @@ export type Ctx = {
 	rumors: RumorsApi,
 	territory: TerritoryApi,
 	market: MarketApi,
+	orders: OrdersApi,
+	beats: BeatsApi,
+	mechanics: MechanicsApi,
+	standing: StandingApi,
+	traits: TraitsApi,
+	pacing: PacingApi,
 	talk: TalkApi,
 	map: MapApi,
 	chronicle: ChronicleApi,
@@ -249,7 +392,7 @@ export type Handlers = {
 	regard_changed: ((ev: RegardChangedEvent, ctx: Ctx) -> ())?,
 	tender_acquired: ((ev: TenderAcquiredEvent, ctx: Ctx) -> ())?,
 }
-export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }? }
+export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }?, beats: { BeatSpec }? }
 
 export type Galaxy = {
 	-- Declares a script. `id` matches the manifest's `[[script]] id`.
@@ -257,6 +400,42 @@ export type Galaxy = {
 	-- An activity trigger: runs once when the counters reach `spec`
 	-- (or every time they grow by it again, with `every = true`).
 	after: (spec: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> ()) -> Trigger,
+	-- Registers a beat (needs `beats.write`). Put it in `G.script { beats = { ... } }`.
+	beat: (def: BeatSpec) -> BeatSpec,
+	-- Requirements. Nothing here can name a time.
+	always: Requirement,
+	all: (list: { Requirement }) -> Requirement,
+	any: (list: { Requirement }) -> Requirement,
+	never: (r: Requirement) -> Requirement,
+	done: (beat: BeatId) -> Requirement,
+	started: (beat: BeatId) -> Requirement,
+	active: (beat: BeatId) -> Requirement,
+	-- The beat has reached step `step` (0 = its first step is under way).
+	at_step: (beat: BeatId, step: number) -> Requirement,
+	counter: (kind: CounterKind, at_least: Num, scope: CounterScopeArg?) -> Requirement,
+	-- At least one (or `opts.at_least`) history fact matches.
+	fact: (q: HistoryQuery, opts: FactOpts?) -> Requirement,
+	-- Matching facts' amounts add up to `at_least`.
+	sum: (q: HistoryQuery, at_least: Num, opts: FactOpts?) -> Requirement,
+	flag: (flag: FlagId) -> Requirement,
+	trait: (id: TraitId) -> Requirement,
+	fitted: (id: UpgradeId) -> Requirement,
+	hull: (id: HullId) -> Requirement,
+	owns: (ship: ShipId) -> Requirement,
+	-- The player has at least this many credits.
+	credits: (credits: number) -> Requirement,
+	cargo: (ware: WareId, at_least: Num) -> Requirement,
+	hold_free: (at_least: Num) -> Requirement,
+	docked_at: (station: StationId) -> Requirement,
+	docked: () -> Requirement,
+	in_region: (region: RegionId) -> Requirement,
+	-- Regard at least this tier (`stranger`, `known`, `trusted`, `kin`).
+	regard: (faction: FactionId, tier: string) -> Requirement,
+	tunable_is: (id: TunableId, value: TunableValue) -> Requirement,
+	-- A Luau predicate over the world, for what the others can't say. Read only.
+	test: (f: (ctx: Ctx) -> boolean) -> Requirement,
+	-- A pacing tunable's current value, wherever a number goes.
+	tunable: (id: TunableId) -> Num,
 }
 
 local G: Galaxy = nil :: any

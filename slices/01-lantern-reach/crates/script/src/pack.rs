@@ -158,6 +158,11 @@ pub fn read_pack(root: &Path) -> Result<Pack, Vec<Diagnostic>> {
                     e.span().map(|s| line_of(text, s.start)),
                 )),
             },
+            // The core pack's world tables: `galaxy_core::load` builds the world from
+            // them at new game, so the host has nothing to install.
+            Some(name)
+                if manifest.id.as_str() == "core"
+                    && galaxy_contract::data::DATA_FILES.contains(&name) => {}
             _ => diags.push(error(
                 "unsupported_data",
                 format!("pack data `{file}`: only `npcs.toml` can be installed by a pack so far"),

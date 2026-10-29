@@ -29,7 +29,8 @@ use serde::Serialize;
 
 use crate::check::{CheckOptions, check_dir};
 use crate::pack::Pack;
-use crate::vm::{PackVm, Target, View};
+use crate::vm::{Abort, BeatCall, LoadedBeat, PackVm, Target, View};
+use galaxy_progress::{Eval, EvalError, beats};
 use crate::watch::PackWatcher;
 
 /// The name the host runs under (and its RNG streams are keyed by).
@@ -304,6 +305,104 @@ struct ScriptSystem {
     inner: Rc<RefCell<Inner>>,
 }
 
+/// Where an aborted call happened, for its health bookkeeping.
+struct Aborted<'a> {
+    tick: Tick,
+    pack: &'a PackId,
+    script: &'a str,
+    revision: &'a str,
+    limit: u32,
+}
+
+impl Aborted<'_> {
+    /// Counts an abort against the script, quarantining it at the limit.
+    fn record(
+        &self,
+        h: &mut ScriptHealth,
+        abort: &Abort,
+        handler: String,
+        quarantine: &mut CommandBatch,
+        log: &mut Vec<HostEvent>,
+    ) {
+        let (pack_id, revision) = (self.pack, self.revision);
+        h.aborts += 1;
+        let diagnostic = abort.diagnostic();
+        if h.aborts >= self.limit && !h.quarantined {
+            h.quarantined = true;
+            quarantine.push(Command::RecordFact {
+                fact: Box::new(FactDraft {
+                    kind: QUARANTINED,
+                    subjects: Default::default(),
+                    amount: Some(i64::from(h.aborts)),
+                    note: format!(
+                        "{pack_id}/{} (revision {revision}) quarantined after {} aborted calls; last: {}",
+                        self.script, h.aborts, abort.message
+                    ),
+                }),
+            });
+            log.push(HostEvent::Quarantined {
+                tick: self.tick,
+                pack: pack_id.clone(),
+                script: self.script.to_owned(),
+            });
+        }
+        log.push(HostEvent::Aborted {
+            tick: self.tick,
+            pack: pack_id.clone(),
+            script: self.script.to_owned(),
+            handler,
+            diagnostic,
+        });
+    }
+}
+
+/// A beat's transition as batches: the beat runtime's commands (cause handle 1), and
+/// the beat's callback for it, if any, writing atomically with them.
+#[allow(clippy::too_many_arguments)]
+fn run_transition(
+    vm: &PackVm,
+    script: usize,
+    index: usize,
+    beat: &LoadedBeat,
+    t: beats::Transition,
+    view: View<'_>,
+    pack: &PackId,
+    revision: &str,
+    tick: Tick,
+    rng: &mut dyn crate::vm::RngSource,
+) -> Result<Vec<CommandBatch>, Abort> {
+    use beats::Transition as T;
+    let def = &beat.def;
+    let commands = beats::commands(def, view.world, view.history, pack, tick, t);
+    let (hook, word, step) = match t {
+        T::Start => ("on_start", "start", 0),
+        T::Advance { to } => ("on_step", "step", to),
+        T::Complete => ("on_complete", "complete", def.steps.len() as u32),
+        T::Refresh => ("", "refresh", 0),
+    };
+    let summary = match t {
+        T::Start => format!("{} starts", def.id),
+        T::Advance { to } => format!("{} moves to step {}", def.id, to + 1),
+        T::Complete => format!("{} completes", def.id),
+        T::Refresh => format!("{} has a new goal line", def.id),
+    };
+    let seed = CommandBatch {
+        cause: Cause::script(pack.clone(), revision, summary.clone()),
+        commands,
+    };
+    if hook.is_empty() || !beat.has_hook(hook) {
+        return Ok(vec![seed]);
+    }
+    let info = BeatCall {
+        beat: &def.id,
+        transition: word,
+        step,
+        step_id: def.steps.get(step as usize).map(|s| s.id.as_str()),
+        summary: &summary,
+    };
+    vm.beat_hook(script, index, hook, &info, view, rng, seed)
+}
+
 impl System for ScriptSystem {
     fn name(&self) -> &'static str {
         SYSTEM_NAME
@@ -411,34 +510,78 @@ impl System for ScriptSystem {
                             out.extend(batches);
                         }
                         Err(abort) => {
-                            h.aborts += 1;
-                            let diagnostic = abort.diagnostic();
-                            if h.aborts >= limit && !h.quarantined {
-                                h.quarantined = true;
-                                quarantine.push(Command::RecordFact {
-                                    fact: Box::new(FactDraft {
-                                        kind: QUARANTINED,
-                                        subjects: Default::default(),
-                                        amount: Some(i64::from(h.aborts)),
-                                        note: format!(
-                                            "{pack_id}/{} (revision {revision}) quarantined after {} aborted calls; last: {}",
-                                            script.decl.id, h.aborts, abort.message
-                                        ),
-                                    }),
-                                });
-                                log.push(HostEvent::Quarantined {
-                                    tick,
-                                    pack: pack_id.clone(),
-                                    script: script.decl.id.clone(),
-                                });
-                            }
-                            log.push(HostEvent::Aborted {
+                            let at = Aborted {
                                 tick,
-                                pack: pack_id.clone(),
-                                script: script.decl.id.clone(),
-                                handler,
-                                diagnostic,
-                            });
+                                pack: pack_id,
+                                script: &script.decl.id,
+                                revision,
+                                limit,
+                            };
+                            at.record(&mut h, &abort, handler, &mut quarantine, &mut log);
+                            health.insert(key.clone(), h);
+                        }
+                    }
+                }
+                // Beats this script registers: start, advance or complete.
+                for (bi, beat) in script.beats.iter().enumerate() {
+                    let mut h = current(&health);
+                    if h.quarantined {
+                        break;
+                    }
+                    let view_world = scratch.as_ref().unwrap_or(world);
+                    let view = View {
+                        world: view_world,
+                        history,
+                    };
+                    let mut pred_abort: Option<Abort> = None;
+                    let next = {
+                        let mut tests = |idx: u32| -> Result<bool, EvalError> {
+                            vm.predicate(i, idx, view, &mut *ctx).map_err(|a| {
+                                let msg = a.message.clone();
+                                pred_abort = Some(a);
+                                EvalError::Predicate(msg)
+                            })
+                        };
+                        beats::next(&beat.def, Eval::new(view_world, history), &mut tests)
+                    };
+                    let result = match next {
+                        Ok(None) => continue,
+                        Err(e) => Err(pred_abort.take().unwrap_or_else(|| Abort {
+                            code: "bad_beat".into(),
+                            message: format!("{}: {e}", beat.def.id),
+                            location: None,
+                        })),
+                        Ok(Some(t)) => run_transition(
+                            vm,
+                            i,
+                            bi,
+                            beat,
+                            t,
+                            view,
+                            pack_id,
+                            revision,
+                            tick,
+                            &mut *ctx,
+                        ),
+                    };
+                    match result {
+                        Ok(batches) => {
+                            let copy = scratch.get_or_insert_with(|| world.clone());
+                            for b in &batches {
+                                let _ = apply_atomic(copy, b);
+                            }
+                            out.extend(batches);
+                        }
+                        Err(abort) => {
+                            let at = Aborted {
+                                tick,
+                                pack: pack_id,
+                                script: &script.decl.id,
+                                revision,
+                                limit,
+                            };
+                            let handler = format!("beat {}", beat.def.id);
+                            at.record(&mut h, &abort, handler, &mut quarantine, &mut log);
                             health.insert(key.clone(), h);
                         }
                     }

@@ -193,7 +193,32 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         }
     };
     if let Some(vm) = &vm {
+        let mut beat_ids = std::collections::BTreeMap::new();
         for s in &vm.scripts {
+            if !s.beats.is_empty() && !pack.manifest.uses.iter().any(|u| u == "beats.write") {
+                hook_diags.push(error(
+                    "undeclared_hook",
+                    format!(
+                        "script `{}` registers beats, which needs `beats.write` in `uses`",
+                        s.decl.id
+                    ),
+                    Some(&s.decl.file),
+                    None,
+                ));
+            }
+            for b in &s.beats {
+                if let Some(other) = beat_ids.insert(b.def.id.clone(), s.decl.id.clone()) {
+                    hook_diags.push(error(
+                        "duplicate_beat",
+                        format!(
+                            "beat `{}` is registered by both `{other}` and `{}`",
+                            b.def.id, s.decl.id
+                        ),
+                        Some(&s.decl.file),
+                        None,
+                    ));
+                }
+            }
             for k in &s.events {
                 let need = galaxy_contract::api::event_use(*k);
                 if !pack.manifest.uses.iter().any(|u| u == need) {
@@ -221,6 +246,52 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
             "no world to resolve IDs against",
         ),
     });
+
+    // Beats: the tunables they read exist, the beats they wait on are registered.
+    if let (Some(vm), Some(world)) = (&vm, opts.world) {
+        let registered: std::collections::BTreeSet<&BeatId> = vm
+            .scripts
+            .iter()
+            .flat_map(|s| s.beats.iter().map(|b| &b.def.id))
+            .collect();
+        let refs = steps
+            .iter_mut()
+            .find(|s| s.step == ValidationStep::References);
+        let mut extra = Vec::new();
+        for s in &vm.scripts {
+            for b in &s.beats {
+                let (tunables, beats) = galaxy_progress::beats::def_references(&b.def);
+                for t in tunables {
+                    if !world.progress.tunables.contains_key(&t) {
+                        extra.push(error(
+                            "unknown_tunable",
+                            format!("beat `{}` reads tunable `{t}`, which isn't in pacing.toml", b.def.id),
+                            Some(&s.decl.file),
+                            None,
+                        ));
+                    }
+                }
+                for other in beats {
+                    if !registered.contains(&other) && !world.progress.beats.contains_key(&other) {
+                        extra.push(diag(
+                            Severity::Warning,
+                            "unknown_beat",
+                            format!("beat `{}` waits on `{other}`, which no script in this pack registers", b.def.id),
+                            Some(&s.decl.file),
+                            None,
+                        ));
+                    }
+                }
+            }
+        }
+        if let Some(r) = refs
+            && !extra.is_empty()
+        {
+            let mut diags = std::mem::take(&mut r.diagnostics);
+            diags.extend(extra);
+            *r = step(ValidationStep::References, diags);
+        }
+    }
 
     // 5. Invariants
     let mut inv: Vec<Diagnostic> = scans
@@ -501,6 +572,40 @@ fn smoke(
     }
     let mut out = Vec::new();
     let mut rng = RngBank::new(world.meta.seed);
+    // Each beat is evaluated once against the world: tunables resolve, predicates run
+    // and return booleans.
+    let hist = history.cloned().unwrap_or_default();
+    for (i, s) in vm.scripts.iter().enumerate() {
+        for b in &s.beats {
+            let view = View {
+                world: &world,
+                history: &hist,
+            };
+            let mut abort = None;
+            let mut tests = |idx: u32| {
+                vm.predicate(i, idx, view, &mut rng).map_err(|a| {
+                    let m = a.message.clone();
+                    abort = Some(a);
+                    galaxy_progress::EvalError::Predicate(m)
+                })
+            };
+            let eval = galaxy_progress::Eval::new(&world, &hist);
+            if let Err(e) = galaxy_progress::beats::next(&b.def, eval, &mut tests) {
+                let mut d = abort.map(|a| a.diagnostic()).unwrap_or_else(|| {
+                    diag(Severity::Error, "bad_beat", e.to_string(), None, None)
+                });
+                d.message = format!("beat `{}`: {}", b.def.id, d.message);
+                if d.location.is_none() {
+                    d.location = Some(galaxy_contract::pack::Location {
+                        file: s.decl.file.clone(),
+                        line: None,
+                        column: None,
+                    });
+                }
+                out.push(d);
+            }
+        }
+    }
     for (i, s) in vm.scripts.iter().enumerate() {
         let mut targets: Vec<(String, Option<EventEnvelope>)> = Vec::new();
         for kind in &s.events {

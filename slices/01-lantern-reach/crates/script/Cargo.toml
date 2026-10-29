@@ -9,6 +9,8 @@ publish.workspace = true
 [dependencies]
 galaxy-contract.workspace = true
 galaxy-core.workspace = true
+galaxy-economy.workspace = true
+galaxy-progress.workspace = true
 blake3.workspace = true
 mlua.workspace = true
 notify.workspace = true

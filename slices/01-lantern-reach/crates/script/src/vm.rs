@@ -16,10 +16,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use galaxy_contract::events::{CounterKind, CounterScope, EventEnvelope, EventKind};
-use galaxy_contract::ids::{RegionId, StationId};
+use galaxy_contract::ids::{BeatId, FactionId, FlagId, NpcId, RegionId, StationId, UpgradeId};
 use galaxy_contract::pack::{Diagnostic, Location, ScriptDecl};
 use galaxy_contract::prelude::CommandBatch;
+use galaxy_contract::progress::{BeatDef, BeatKind, Requirement, Rewards, StepDef};
 use galaxy_contract::world::WorldState;
+use mlua::LuaSerdeExt;
 use galaxy_core::History;
 use galaxy_core::rng::{RngBank, SimRng};
 use mlua::{Function, Lua, LuaOptions, RegistryKey, StdLib, Table, Value, VmState};
@@ -101,7 +103,26 @@ pub struct VmScript {
     pub events: BTreeSet<EventKind>,
     /// Sorted by name.
     pub triggers: Vec<TriggerDef>,
+    /// Beats it registers (`G.beat`), in the order it lists them.
+    pub beats: Vec<LoadedBeat>,
+    /// `G.test` predicates, by the index `Requirement::Test` holds.
+    tests: Vec<RegistryKey>,
 }
+
+/// A beat a script registers, with its optional callbacks.
+pub struct LoadedBeat {
+    pub def: BeatDef,
+    hooks: BTreeMap<&'static str, RegistryKey>,
+}
+
+impl LoadedBeat {
+    pub fn has_hook(&self, name: &str) -> bool {
+        self.hooks.contains_key(name)
+    }
+}
+
+/// The callbacks a beat may define, by transition.
+pub const BEAT_HOOKS: [&str; 3] = ["on_start", "on_step", "on_complete"];
 
 /// One Luau unit test: its name, and how it went.
 pub type TestOutcome = (String, Result<(), Abort>);
@@ -157,6 +178,53 @@ function G.after(spec, run)
 	if type(run) ~= "function" then error("G.after: the second argument must be a function", 2) end
 	return { after = spec, run = run }
 end
+function G.beat(def)
+	if type(def) ~= "table" then error("G.beat expects a table", 2) end
+	if type(def.id) ~= "string" then error("G.beat: `id` must be a beat ID", 2) end
+	return def
+end
+G.always = "always"
+function G.all(list) return { all = list } end
+function G.any(list) return { any = list } end
+function G.never(r) return { ["not"] = r } end
+function G.done(beat) return { beat_done = beat } end
+function G.started(beat) return { beat_started = beat } end
+function G.active(beat) return { beat_active = beat } end
+function G.at_step(beat, step) return { beat_step = { beat = beat, at_least = step } } end
+function G.counter(kind, at_least, scope)
+	local c = { kind = kind, at_least = at_least }
+	if scope then c.station = scope.station; c.region = scope.region end
+	return { counter = c }
+end
+function G.fact(q, opts)
+	opts = opts or {}
+	return { facts = { query = q, at_least = opts.at_least or 1, since = opts.since or "ever" } }
+end
+function G.sum(q, at_least, opts)
+	opts = opts or {}
+	return { sum = { query = q, at_least = at_least, since = opts.since or "ever" } }
+end
+function G.flag(id) return { flag = id } end
+function G.trait(id) return { ["trait"] = id } end
+function G.fitted(id) return { fitted = id } end
+function G.hull(id) return { hull = id } end
+function G.owns(id) return { owns = id } end
+function G.credits(n)
+	if type(n) ~= "number" then error("G.credits expects a number of credits", 2) end
+	return { credits = { at_least = math.round(n * 100) } }
+end
+function G.cargo(ware, at_least) return { cargo = { ware = ware, at_least = at_least } } end
+function G.hold_free(at_least) return { hold_free = { at_least = at_least } } end
+function G.docked_at(station) return { docked_at = station } end
+function G.docked() return "docked" end
+function G.in_region(region) return { in_region = region } end
+function G.regard(faction, tier) return { regard = { faction = faction, at_least = tier } } end
+function G.tunable_is(id, value) return { tunable_is = { tunable = id, value = value } } end
+function G.test(f)
+	if type(f) ~= "function" then error("G.test expects a function(ctx) returning a boolean", 2) end
+	return { test = f }
+end
+function G.tunable(id) return { tunable = id } end
 return table.freeze(G)
 "#;
 
@@ -444,6 +512,37 @@ impl PackVm {
                 }
             }
         }
+        let mut tests = Vec::new();
+        let mut beats = Vec::new();
+        match def.get::<Value>("beats") {
+            Ok(Value::Nil) => {}
+            Ok(Value::Table(list)) => {
+                for (n, item) in list.sequence_values::<Value>().enumerate() {
+                    let parsed = item
+                        .map_err(|e| e.to_string())
+                        .and_then(|v| match v {
+                            Value::Table(t) => self.parse_beat(&t, &mut tests),
+                            _ => Err("each entry must be `G.beat { ... }`".to_owned()),
+                        });
+                    match parsed {
+                        Ok(b) => beats.push(b),
+                        Err(msg) => diags.push(error(
+                            "bad_beat",
+                            format!("`beats[{}]`: {msg}", n + 1),
+                            Some(file),
+                            None,
+                        )),
+                    }
+                }
+            }
+            Ok(_) => diags.push(error(
+                "bad_beat",
+                "`beats` must be a list of `G.beat { ... }`",
+                Some(file),
+                None,
+            )),
+            Err(e) => diags.push(error("bad_beat", e.to_string(), Some(file), None)),
+        }
         let mut triggers = Vec::new();
         // Handlers that exist but didn't parse: reported once, not also as missing.
         let mut broken = BTreeSet::new();
@@ -521,7 +620,176 @@ impl PackVm {
             def: key,
             events,
             triggers,
+            beats,
+            tests,
         })
+    }
+
+    /// Reads one `G.beat { ... }` table: its callbacks into the registry, its `G.test`
+    /// predicates into `tests`, and the rest as a [`BeatDef`].
+    fn parse_beat(&self, t: &Table, tests: &mut Vec<RegistryKey>) -> Result<LoadedBeat, String> {
+        let lua = &self.lua;
+        let mut hooks = BTreeMap::new();
+        for name in BEAT_HOOKS {
+            match t.get::<Value>(name).map_err(|e| e.to_string())? {
+                Value::Nil => {}
+                Value::Function(f) => {
+                    let key = lua.create_registry_value(f).map_err(|e| e.to_string())?;
+                    hooks.insert(name, key);
+                }
+                _ => return Err(format!("`{name}` must be a function(ctx, beat)")),
+            }
+        }
+        let plain = lua.create_table().map_err(|e| e.to_string())?;
+        for pair in t.pairs::<Value, Value>() {
+            let (k, v) = pair.map_err(|e| e.to_string())?;
+            let key = k.as_string().map(|s| s.to_string_lossy()).unwrap_or_default();
+            if BEAT_HOOKS.contains(&key.as_str()) {
+                continue;
+            }
+            let v = match key.as_str() {
+                "requires" | "done" => requirement_list(lua, strip_tests(lua, v, tests)?)?,
+                "steps" => steps(lua, strip_tests(lua, v, tests)?)?,
+                _ => strip_tests(lua, v, tests)?,
+            };
+            plain.raw_set(k, v).map_err(|e| e.to_string())?;
+        }
+        let spec: BeatSpec = lua
+            .from_value(Value::Table(plain))
+            .map_err(|e| format!("{e}"))?;
+        let def = spec.into_def()?;
+        let problems = galaxy_progress::beats::validate(&def);
+        if let Some(p) = problems.first() {
+            return Err(format!("{}: {p}", def.id));
+        }
+        Ok(LoadedBeat { def, hooks })
+    }
+
+    /// Runs a `G.test` predicate. It may read but not write; it must return a boolean.
+    pub fn predicate(
+        &self,
+        script: usize,
+        index: u32,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+    ) -> Result<bool, Abort> {
+        let s = &self.scripts[script];
+        let key = s.tests.get(index as usize).ok_or_else(|| Abort {
+            code: "bad_beat".into(),
+            message: format!("no G.test predicate {index}"),
+            location: None,
+        })?;
+        let func: Function = self
+            .lua
+            .registry_value(key)
+            .map_err(|e| abort_from(&e, None))?;
+        let (result, buffer) = self.with_ctx(script, view, rng, None, |lua, ctx| {
+            let _ = lua;
+            func.call::<Value>(ctx)
+        });
+        let v = result?;
+        if !buffer.is_empty() {
+            return Err(Abort {
+                code: "predicate_wrote".into(),
+                message: "a G.test predicate only reads; its writes were discarded".into(),
+                location: fn_location(&func),
+            });
+        }
+        match v {
+            Value::Boolean(b) => Ok(b),
+            other => Err(Abort {
+                code: "bad_predicate".into(),
+                message: format!(
+                    "a G.test predicate must return true or false, not {}",
+                    other.type_name()
+                ),
+                location: fn_location(&func),
+            }),
+        }
+    }
+
+    /// Runs a beat callback with `seed` (the transition's batch) as cause handle 1,
+    /// passed as `beat.why`. On success returns the batches, seed first.
+    #[allow(clippy::too_many_arguments)]
+    pub fn beat_hook(
+        &self,
+        script: usize,
+        beat: usize,
+        hook: &str,
+        info: &BeatCall<'_>,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+        seed: CommandBatch,
+    ) -> Result<Vec<CommandBatch>, Abort> {
+        let s = &self.scripts[script];
+        let Some(key) = s.beats.get(beat).and_then(|b| b.hooks.get(hook)) else {
+            return Ok(vec![seed]);
+        };
+        let func: Function = self
+            .lua
+            .registry_value(key)
+            .map_err(|e| abort_from(&e, None))?;
+        let (result, buffer) = self.with_ctx(script, view, rng, Some(seed), |lua, ctx| {
+            let t = lua.create_table()?;
+            t.raw_set("id", info.beat.as_str())?;
+            t.raw_set("transition", info.transition)?;
+            t.raw_set("step", info.step)?;
+            t.raw_set("step_id", info.step_id)?;
+            let why = lua.create_table()?;
+            why.raw_set("summary", info.summary)?;
+            why.raw_set("cites", lua.create_table()?)?;
+            why.raw_set("handle", 1)?;
+            why.set_readonly(true);
+            t.raw_set("why", why)?;
+            t.set_readonly(true);
+            func.call::<()>((ctx, t))
+        });
+        result?;
+        Ok(buffer.into_batches())
+    }
+
+    /// Calls `f` with a fresh `ctx` for `script` inside the step budget. Returns the
+    /// call's result and its write buffer.
+    fn with_ctx<R>(
+        &self,
+        script: usize,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+        seed: Option<CommandBatch>,
+        f: impl FnOnce(&Lua, Table) -> mlua::Result<R>,
+    ) -> (Result<R, Abort>, Buffer) {
+        let s = &self.scripts[script];
+        let buffer = RefCell::new(seed.map(Buffer::seeded).unwrap_or_default());
+        let rng = RefCell::new(&mut *rng as &mut dyn RngSource);
+        let rng_key = format!("script/{}/{}", self.pack.manifest.id, s.decl.id);
+        let env = CallEnv {
+            world: view.world,
+            history: view.history,
+            pack: &self.pack.manifest.id,
+            revision: &self.pack.revision,
+            uses: &self.pack.manifest.uses,
+            script: &s.decl,
+            buffer: &buffer,
+            rng: &rng,
+            rng_key: &rng_key,
+        };
+        let lua = &self.lua;
+        let result = self.budgeted(|| {
+            lua.scope(|scope| {
+                let ctx = ctx::build(lua, scope, &env)?;
+                f(lua, ctx)
+            })
+        });
+        let failed = buffer.borrow().failed.clone();
+        let result = result.map_err(|mut a| {
+            if a.code == "runtime_error"
+                && let Some(code) = failed
+            {
+                a.code = code;
+            }
+            a
+        });
+        (result, buffer.into_inner())
     }
 
     /// The line a Luau function is defined on.
@@ -631,6 +899,136 @@ fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
         .set_name(format!("@{path}"))
         .set_environment(env)
         .into_function()
+}
+
+/// What a beat callback is told about its beat.
+pub struct BeatCall<'a> {
+    pub beat: &'a BeatId,
+    /// `start`, `step` or `complete`.
+    pub transition: &'static str,
+    pub step: u32,
+    pub step_id: Option<&'a str>,
+    pub summary: &'a str,
+}
+
+/// A `G.beat` table as Luau writes it (credits as credits).
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BeatSpec {
+    id: BeatId,
+    act: u32,
+    #[serde(default)]
+    kind: BeatKind,
+    #[serde(default)]
+    giver: Option<NpcId>,
+    goal: String,
+    #[serde(default)]
+    requires: Requirement,
+    #[serde(default)]
+    steps: Vec<StepDef>,
+    #[serde(default)]
+    done: Requirement,
+    #[serde(default)]
+    rewards: RewardSpec,
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct RewardSpec {
+    credits: f64,
+    standing: BTreeMap<FactionId, i32>,
+    flags: Vec<FlagId>,
+    fit: Vec<UpgradeId>,
+}
+
+impl BeatSpec {
+    fn into_def(self) -> Result<BeatDef, String> {
+        let credits = galaxy_contract::money::cents_from_credits(self.rewards.credits)
+            .ok_or_else(|| {
+                format!(
+                    "{}: rewards.credits {} isn't a whole number of centicredits",
+                    self.id, self.rewards.credits
+                )
+            })?;
+        Ok(BeatDef {
+            id: self.id,
+            act: self.act,
+            kind: self.kind,
+            giver: self.giver,
+            goal: self.goal,
+            requires: self.requires,
+            steps: self.steps,
+            done: self.done,
+            rewards: Rewards {
+                credits,
+                standing: self.rewards.standing,
+                flags: self.rewards.flags,
+                fit: self.rewards.fit,
+            },
+        })
+    }
+}
+
+/// A deep copy of `v` with each `{ test = function }` replaced by `{ test = index }`
+/// (the function goes into `tests`). Any other function is an error.
+fn strip_tests(lua: &Lua, v: Value, tests: &mut Vec<RegistryKey>) -> Result<Value, String> {
+    match v {
+        Value::Table(t) => {
+            if let Ok(Value::Function(f)) = t.raw_get::<Value>("test") {
+                let key = lua.create_registry_value(f).map_err(|e| e.to_string())?;
+                tests.push(key);
+                let out = lua.create_table().map_err(|e| e.to_string())?;
+                out.raw_set("test", tests.len() - 1)
+                    .map_err(|e| e.to_string())?;
+                return Ok(Value::Table(out));
+            }
+            let out = lua.create_table().map_err(|e| e.to_string())?;
+            for pair in t.pairs::<Value, Value>() {
+                let (k, v) = pair.map_err(|e| e.to_string())?;
+                out.raw_set(k, strip_tests(lua, v, tests)?)
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(Value::Table(out))
+        }
+        Value::Function(_) => Err(
+            "functions go only in `on_start`, `on_step`, `on_complete` and `G.test(...)`".into(),
+        ),
+        other => Ok(other),
+    }
+}
+
+/// A requirement written as a list means all of them.
+fn requirement_list(lua: &Lua, v: Value) -> Result<Value, String> {
+    match &v {
+        Value::Table(t) if t.raw_len() > 0 || t.pairs::<Value, Value>().next().is_none() => {
+            let all = lua.create_table().map_err(|e| e.to_string())?;
+            all.raw_set("all", t.clone()).map_err(|e| e.to_string())?;
+            Ok(Value::Table(all))
+        }
+        _ => Ok(v),
+    }
+}
+
+/// Each step's `done` may be a list too.
+fn steps(lua: &Lua, v: Value) -> Result<Value, String> {
+    if let Value::Table(list) = &v {
+        for step in list.sequence_values::<Table>() {
+            let step = step.map_err(|e| e.to_string())?;
+            let done: Value = step.raw_get("done").map_err(|e| e.to_string())?;
+            step.raw_set("done", requirement_list(lua, done)?)
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(v)
+}
+
+fn fn_location(f: &Function) -> Option<Location> {
+    let info = f.info();
+    Some(Location {
+        file: info.source?.strip_prefix('@')?.to_owned(),
+        line: info.line_defined.and_then(|l| u32::try_from(l).ok()),
+        column: None,
+    })
 }
 
 fn fn_line(v: &Value) -> Option<u32> {
