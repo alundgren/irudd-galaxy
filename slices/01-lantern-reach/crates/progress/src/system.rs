@@ -50,6 +50,9 @@ impl System for ProgressSystem {
             "the pilot picked up a habit",
             growth::earned_traits(world, history),
         );
-        submit("the hull earned a stripe", growth::earned_rank(world, history));
+        submit(
+            "the hull earned a stripe",
+            growth::earned_rank(world, history),
+        );
     }
 }

@@ -250,7 +250,8 @@ fn method(
     name: &str,
     f: mlua::Function,
 ) -> mlua::Result<()> {
-    let def = api::function(ns_name, name).expect("every ctx method is in contract::api::FUNCTIONS");
+    let def =
+        api::function(ns_name, name).expect("every ctx method is in contract::api::FUNCTIONS");
     if env.may(def.needs) {
         ns.raw_set(name, f)?;
     }

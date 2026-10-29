@@ -203,11 +203,7 @@ pub const USES: &[UseDef] = &[
         Hook::Market,
         "Add or scale producers and consumers, set stock (galaxy-economy's levers).",
     ),
-    cap(
-        "orders.read",
-        Hook::Orders,
-        "Read a craft's order queue.",
-    ),
+    cap("orders.read", Hook::Orders, "Read a craft's order queue."),
     cap(
         "orders.write",
         Hook::Orders,

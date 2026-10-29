@@ -265,7 +265,10 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                     if !world.progress.tunables.contains_key(&t) {
                         extra.push(error(
                             "unknown_tunable",
-                            format!("beat `{}` reads tunable `{t}`, which isn't in pacing.toml", b.def.id),
+                            format!(
+                                "beat `{}` reads tunable `{t}`, which isn't in pacing.toml",
+                                b.def.id
+                            ),
                             Some(&s.decl.file),
                             None,
                         ));

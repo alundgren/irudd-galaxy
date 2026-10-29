@@ -105,9 +105,9 @@ impl<'a> Eval<'a> {
             R::BeatDone(id) => beat(id).is_some_and(|b| b.status == BeatStatus::Completed),
             R::BeatStarted(id) => beat(id).is_some(),
             R::BeatActive(id) => beat(id).is_some_and(|b| b.status == BeatStatus::Active),
-            R::BeatStep { beat: id, at_least } => beat(id).is_some_and(|b| {
-                b.status == BeatStatus::Completed || b.step >= *at_least
-            }),
+            R::BeatStep { beat: id, at_least } => {
+                beat(id).is_some_and(|b| b.status == BeatStatus::Completed || b.step >= *at_least)
+            }
             R::Counter {
                 kind,
                 at_least,
@@ -139,24 +139,23 @@ impl<'a> Eval<'a> {
             R::Trait(t) => w.player.traits.contains(t),
             R::Fitted(u) => w.player.fittings.contains(u),
             R::Hull(h) => ship.is_some_and(|s| &s.hull == h),
-            R::Owns(id) => w
-                .ships
-                .get(id)
-                .is_some_and(|s| s.owner == Owner::Player),
+            R::Owns(id) => w.ships.get(id).is_some_and(|s| s.owner == Owner::Player),
             R::Credits { at_least } => w.player.credits as f64 >= self.num(at_least)?,
             R::Cargo { ware, at_least } => {
                 f64::from(ship.map_or(0, |s| s.hold.count(ware))) >= self.num(at_least)?
             }
-            R::HoldFree { at_least } => {
-                hold_free(w, ship) as f64 >= self.num(at_least)?
-            }
+            R::HoldFree { at_least } => hold_free(w, ship) as f64 >= self.num(at_least)?,
             R::DockedAt(st) => ship.is_some_and(|s| s.docked_at.as_ref() == Some(st)),
             R::Docked => ship.is_some_and(|s| s.docked_at.is_some()),
             R::InRegion(r) => ship.is_some_and(|s| &s.region == r),
             R::Regard { faction, at_least } => {
                 match (
                     crate::standing::tier_index(w, faction),
-                    w.progress.rules.regard.iter().position(|t| &t.id == at_least),
+                    w.progress
+                        .rules
+                        .regard
+                        .iter()
+                        .position(|t| &t.id == at_least),
                 ) {
                     (Some(have), Some(need)) => have >= need,
                     _ => false,
@@ -193,7 +192,11 @@ pub fn scope(station: &Option<StationId>, region: &Option<RegionId>) -> CounterS
 
 /// The ship the player flies.
 pub fn player_ship(world: &WorldState) -> Option<&Ship> {
-    world.player.ship.as_ref().and_then(|id| world.ships.get(id))
+    world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|id| world.ships.get(id))
 }
 
 /// Free hold units on a ship, counting hold modifiers.
@@ -234,11 +237,7 @@ pub fn measure(
             let q = bounded(q);
             match until {
                 None => history.count(&q) as u64,
-                Some(_) => history
-                    .find(&q)
-                    .into_iter()
-                    .filter(|f| cut(f))
-                    .count() as u64,
+                Some(_) => history.find(&q).into_iter().filter(|f| cut(f)).count() as u64,
             }
         }
         Measure::Sum(q) => {

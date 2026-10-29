@@ -279,9 +279,13 @@ pub fn validate(def: &BeatDef) -> Vec<String> {
 }
 
 /// Every tunable and beat a requirement names, for `galaxy pack check`.
-pub fn references(req: &Requirement, tunables: &mut BTreeSet<TunableId>, beats: &mut BTreeSet<BeatId>) {
-    use galaxy_contract::progress::Num;
+pub fn references(
+    req: &Requirement,
+    tunables: &mut BTreeSet<TunableId>,
+    beats: &mut BTreeSet<BeatId>,
+) {
     use Requirement as R;
+    use galaxy_contract::progress::Num;
     let mut num = |n: &Num| {
         if let Num::Tunable { tunable } = n {
             tunables.insert(tunable.clone());

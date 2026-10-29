@@ -21,9 +21,9 @@ use galaxy_contract::pack::{Diagnostic, Location, ScriptDecl};
 use galaxy_contract::prelude::CommandBatch;
 use galaxy_contract::progress::{BeatDef, BeatKind, Requirement, Rewards, StepDef};
 use galaxy_contract::world::WorldState;
-use mlua::LuaSerdeExt;
 use galaxy_core::History;
 use galaxy_core::rng::{RngBank, SimRng};
+use mlua::LuaSerdeExt;
 use mlua::{Function, Lua, LuaOptions, RegistryKey, StdLib, Table, Value, VmState};
 
 use crate::ctx::{self, Buffer, CallEnv};
@@ -518,12 +518,10 @@ impl PackVm {
             Ok(Value::Nil) => {}
             Ok(Value::Table(list)) => {
                 for (n, item) in list.sequence_values::<Value>().enumerate() {
-                    let parsed = item
-                        .map_err(|e| e.to_string())
-                        .and_then(|v| match v {
-                            Value::Table(t) => self.parse_beat(&t, &mut tests),
-                            _ => Err("each entry must be `G.beat { ... }`".to_owned()),
-                        });
+                    let parsed = item.map_err(|e| e.to_string()).and_then(|v| match v {
+                        Value::Table(t) => self.parse_beat(&t, &mut tests),
+                        _ => Err("each entry must be `G.beat { ... }`".to_owned()),
+                    });
                     match parsed {
                         Ok(b) => beats.push(b),
                         Err(msg) => diags.push(error(
@@ -643,7 +641,10 @@ impl PackVm {
         let plain = lua.create_table().map_err(|e| e.to_string())?;
         for pair in t.pairs::<Value, Value>() {
             let (k, v) = pair.map_err(|e| e.to_string())?;
-            let key = k.as_string().map(|s| s.to_string_lossy()).unwrap_or_default();
+            let key = k
+                .as_string()
+                .map(|s| s.to_string_lossy())
+                .unwrap_or_default();
             if BEAT_HOOKS.contains(&key.as_str()) {
                 continue;
             }
@@ -943,8 +944,8 @@ struct RewardSpec {
 
 impl BeatSpec {
     fn into_def(self) -> Result<BeatDef, String> {
-        let credits = galaxy_contract::money::cents_from_credits(self.rewards.credits)
-            .ok_or_else(|| {
+        let credits =
+            galaxy_contract::money::cents_from_credits(self.rewards.credits).ok_or_else(|| {
                 format!(
                     "{}: rewards.credits {} isn't a whole number of centicredits",
                     self.id, self.rewards.credits

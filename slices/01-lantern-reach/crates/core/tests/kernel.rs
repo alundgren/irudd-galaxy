@@ -258,6 +258,46 @@ fn undo_records_invert_commands() {
             flag: FlagId::new("flag.nav_chip").unwrap(),
             on: true,
         },
+        Command::PutBeat {
+            id: BeatId::new("beat.b01_undock").unwrap(),
+            value: Some(Box::new(BeatState {
+                pack: PackId::new("core").unwrap(),
+                act: 1,
+                kind: BeatKind::Directed,
+                status: BeatStatus::Active,
+                step: 0,
+                step_id: None,
+                goal: "Undock.".into(),
+                giver: None,
+                since: None,
+                step_since: None,
+                done_since: None,
+                started: Tick(0),
+            })),
+        },
+        Command::SetFitting {
+            upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
+            fitted: true,
+        },
+        Command::SetHullRecord {
+            hull: HullId::new("hull.wren").unwrap(),
+            record: Some(HullRecord {
+                rank: 2,
+                ..HullRecord::default()
+            }),
+        },
+        Command::SetTunable {
+            id: TunableId::new("b02.ice").unwrap(),
+            value: Some(Box::new(Tunable {
+                value: TunableValue::Number(30.0),
+                authored: TunableValue::Number(20.0),
+                set_by: Some(PackId::new("gm").unwrap()),
+            })),
+        },
+        Command::BindSlot {
+            slot: SlotId::new("slot.key_t").unwrap(),
+            mechanic: Some(FlagId::new("mech.rock_tagging").unwrap()),
+        },
         Command::ExpectDocked {
             ship: PLAYER,
             station: StationId::new("station.lantern_wharf").unwrap(),

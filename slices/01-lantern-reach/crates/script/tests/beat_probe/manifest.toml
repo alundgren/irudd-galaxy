@@ -1,0 +1,30 @@
+# A test pack for the W4 hooks: a situation beat paced by counters, steps and a
+# predicate, and handlers that use orders, mechanics, standing, levers and pacing.
+id = "probe"
+name = "Beat and hook probe"
+version = "0.1.0"
+description = "Exercises G.beat, ctx.orders, ctx.mechanics, ctx.standing, ctx.market levers and ctx.pacing in tests."
+uses = [
+    "beats.read",
+    "beats.write",
+    "events.dock",
+    "events.beat_completed",
+    "history.read",
+    "history.write",
+    "mechanics.read",
+    "mechanics.write",
+    "orders.read",
+    "orders.write",
+    "standing.read",
+    "standing.write",
+    "market.read",
+    "market.levers",
+    "pacing.read",
+    "pacing.write",
+    "traits.read",
+]
+
+[[script]]
+id = "probe"
+file = "scripts/probe.luau"
+handlers = ["on.dock", "on.beat_completed"]

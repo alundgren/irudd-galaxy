@@ -86,7 +86,9 @@ impl<'w> Deeds<'w> {
         } else {
             (-100, 100)
         };
-        let after = before.saturating_add(scaled).clamp(lo.min(before), hi.max(before));
+        let after = before
+            .saturating_add(scaled)
+            .clamp(lo.min(before), hi.max(before));
         let applied = after - before;
         if applied != 0 {
             self.commands.push(Command::AdjustStanding {
@@ -145,10 +147,42 @@ pub fn last_tick_facts<'h>(world: &WorldState, history: &'h History) -> Vec<&'h 
     })
 }
 
+/// How many steps a deed rule has earned over the whole history: units carry over
+/// between dockings until they make a step, and steps past `cap_per_docking` within
+/// one docking (from one player `dock` fact to the next) are dropped, not saved up.
+pub fn earned_steps(rule: &DeedRule, history: &History, player: Option<&ShipId>) -> u64 {
+    let dock = EventKind::Dock.fact_kind();
+    let (mut steps, mut units, mut this_docking) = (0u64, 0u64, 0u32);
+    let mut step = |this_docking: &mut u32| {
+        if rule.cap_per_docking.is_none_or(|c| *this_docking < c) {
+            steps += 1;
+            *this_docking += 1;
+        }
+    };
+    for f in history.facts() {
+        if f.kind == dock && player.is_some() && f.subjects.ship.as_ref() == player {
+            this_docking = 0;
+        }
+        if !counts(rule, f, player) {
+            continue;
+        }
+        match rule.per {
+            Some(per) => {
+                units += u64::try_from(f.amount.unwrap_or(0)).unwrap_or(0);
+                while units >= per {
+                    units -= per;
+                    step(&mut this_docking);
+                }
+            }
+            None => step(&mut this_docking),
+        }
+    }
+    steps
+}
+
 /// Standing earned by deeds the facts of the last tick completed, as commands for one
-/// batch. Stateless: what's due is worked out from history (the deed's matching facts,
-/// within the player's latest docking when the rule has a per-docking cap) minus the
-/// `standing_changed` facts already written for it.
+/// batch. Stateless: what's due is the steps the rule has earned over history
+/// ([`earned_steps`]) minus the `standing_changed` facts already written for it.
 pub fn due_deeds(world: &WorldState, history: &History) -> Vec<Command> {
     let new = last_tick_facts(world, history);
     if new.is_empty() {
@@ -167,38 +201,11 @@ pub fn due_deeds(world: &WorldState, history: &History) -> Vec<Command> {
             after,
             ..HistoryQuery::default()
         };
+        let paid = history.count(&paid_q(None)) as u64;
         let steps = if rule.once {
-            u64::from(history.last(&paid_q(None)).is_none())
+            u64::from(paid == 0)
         } else {
-            // The window: from the player's latest docking (inclusive) when capped.
-            let after = rule.cap_per_docking.and_then(|_| {
-                history
-                    .last(&HistoryQuery {
-                        kind: Some(EventKind::Dock.fact_kind()),
-                        ship: player.cloned(),
-                        ..HistoryQuery::default()
-                    })
-                    .map(|d| FactId(d.id.0.saturating_sub(1)))
-            });
-            let matching = history
-                .find(&HistoryQuery {
-                    after,
-                    ..HistoryQuery::default()
-                })
-                .into_iter()
-                .filter(|f| counts(rule, f, player));
-            let earned = match rule.per {
-                Some(per) => {
-                    let units: i64 = matching.filter_map(|f| f.amount).sum();
-                    u64::try_from(units).unwrap_or(0) / per
-                }
-                None => matching.count() as u64,
-            };
-            let earned = rule
-                .cap_per_docking
-                .map_or(earned, |c| earned.min(u64::from(c)));
-            let paid = history.count(&paid_q(after)) as u64;
-            earned.saturating_sub(paid)
+            earned_steps(rule, history, player).saturating_sub(paid)
         };
         for _ in 0..steps {
             deeds.deed(&rule.faction, &rule.id, rule.delta, &rule.tags);

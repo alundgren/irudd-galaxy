@@ -688,8 +688,7 @@ fn apply_with(
             })
         }
         C::BindSlot { slot, mechanic } => {
-            if mechanic.is_some() && refs.check && !world.progress.rules.slots.contains_key(slot)
-            {
+            if mechanic.is_some() && refs.check && !world.progress.rules.slots.contains_key(slot) {
                 return Err(unknown("slot", slot));
             }
             let slots = &mut world.progress.slots;

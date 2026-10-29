@@ -30,8 +30,8 @@ use serde::Serialize;
 use crate::check::{CheckOptions, check_dir};
 use crate::pack::Pack;
 use crate::vm::{Abort, BeatCall, LoadedBeat, PackVm, Target, View};
-use galaxy_progress::{Eval, EvalError, beats};
 use crate::watch::PackWatcher;
+use galaxy_progress::{Eval, EvalError, beats};
 
 /// The name the host runs under (and its RNG streams are keyed by).
 pub const SYSTEM_NAME: &str = "script_host";
@@ -552,16 +552,7 @@ impl System for ScriptSystem {
                             location: None,
                         })),
                         Ok(Some(t)) => run_transition(
-                            vm,
-                            i,
-                            bi,
-                            beat,
-                            t,
-                            view,
-                            pack_id,
-                            revision,
-                            tick,
-                            &mut *ctx,
+                            vm, i, bi, beat, t, view, pack_id, revision, tick, &mut *ctx,
                         ),
                     };
                     match result {
