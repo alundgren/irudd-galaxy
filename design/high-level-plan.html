@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mining &amp; Trading Game — High-Level Plan</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Mining &amp; Trading Game — High-Level Plan</h1>
+          <p>Living plan for Andreas's solo space mining/trading sandbox: industry planning practice, pillars, a lean path to a vertical slice, and phased saves—local-only for v1, live sync across Mac/PC/Linux later.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#takeaway">Takeaway</a></li>
+              <li class="a-green"><a href="#industry">How games are normally planned</a></li>
+              <li class="a-amber"><a href="#solo">What good planning looks like for a solo sandbox trader</a></li>
+              <li class="a-verm"><a href="#pillars">Pillars for this game</a></li>
+              <li class="a-purple"><a href="#process">Recommended process for this project</a></li>
+              <li class="a-cyan"><a href="#scope">Suggested v1 scope vs out of scope</a></li>
+              <li class="a-blue"><a href="#platform">Platform and saves</a></li>
+              <li class="a-green"><a href="#reviews">Agent review consensus (2026-10-27)</a></li>
+              <li class="a-amber"><a href="#open">Open decisions</a></li>
+              <li class="a-verm"><a href="#sources">Sources</a></li>
+            </ol>
+          </nav>
+          <section id="takeaway">
+            <h2>Takeaway</h2>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Plan the fun loop first; document lightly and keep it alive.</span></h4>
+              <p>Modern studios treat the GDD as a living compass—not a 100-page bible—and gate full production on a proven core loop (prototype / MVP) then a vertical slice. For this solo endless trader/miner, that means lock pillars and non-goals, prove mine → haul → sell → upgrade → automate is satisfying with placeholders, then expand systems and optional AI GM content—not code the whole universe first. Saves follow the same rule: local-only for v1; live multi-machine sync later.</p>
+            </div>
+          </section>
+          <section id="industry">
+            <h2>How games are normally planned</h2>
+            <p>Industry planning has shifted from waterfall design bibles to agile, living docs plus staged proof that the game is fun and producible.</p>
+            <h3>Artifacts studios actually use</h3>
+            <div class="card a-blue">
+              <p><span class="tag a-blue">Vision</span></p>
+              <ul class="marks a-blue">
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Vision / one-pager: pitch, audience, pillars, and explicit non-goals.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Living GDD or wiki: short overview plus modular feature pages updated as the game changes (not a frozen tome).</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Core loop / MDA notes: Mechanics → Dynamics → Aesthetics so you design from the intended feeling backward.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Prototypes and vertical slice: disposable playables to find fun; then a representative polished path that proves art, UI, audio, and pipeline together before full production.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Production backlog: tickets linked to design intent; scope cuts written down.</li>
+              </ul>
+            </div>
+            <h3>Typical phases</h3>
+            <div class="col">
+              <div class="card a-blue">
+                <div class="row wrap"><span class="chip a-blue">1</span><strong class="t-acc a-blue">Concept</strong><span>Pitch, pillars, non-goals</span></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="t-acc a-purple b center">↓ slice gate</div>
+              <div class="card a-purple">
+                <div class="row wrap"><span class="chip a-purple">2</span><strong class="t-acc a-purple">Pre-prod</strong><span>Prototypes → vertical slice</span></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="t-acc a-cyan b center">↓</div>
+              <div class="card a-cyan">
+                <div class="row wrap"><span class="chip a-cyan">3</span><strong class="t-acc a-cyan">Production</strong><span>Content and systems at scale</span></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="t-acc a-purple b center">↓</div>
+              <div class="card a-purple">
+                <div class="row wrap"><span class="chip a-purple">4</span><strong class="t-acc a-purple">Polish</strong><span>Feel, bugs, UX</span></div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="t-acc a-green b center">↓</div>
+              <div class="card a-green">
+                <div class="row wrap"><span class="chip a-green">5</span><strong class="t-acc a-green">Ship / iterate</strong><span>v1 for you first</span></div>
+              </div>
+            </div>
+            <p>Concept locks direction. Pre-production answers whether it is fun and whether you can make it. Production scales only what the slice proved. Polish is feel and finish—not new pillars.</p>
+            <h3>Frameworks that keep design honest</h3>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Framework</span> <span class="t-acc a-blue">MDA (Hunicke et al.)</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>What it forces</dt>
+                  <dd>Start from Aesthetics (feel), then Dynamics, then Mechanics</dd>
+                </div>
+                <div>
+                  <dt>Use here</dt>
+                  <dd>Target: discovery, autonomy, slow mastery—not combat thrill</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Framework</span> <span class="t-acc a-blue">Schell lenses / elemental tetrad</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>What it forces</dt>
+                  <dd>Ask hard questions; balance Mechanics, Story, Aesthetics, Technology</dd>
+                </div>
+                <div>
+                  <dt>Use here</dt>
+                  <dd>Story optional and pressure-free; tech serves portable saves</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Framework</span> <span class="t-acc a-blue">Design pillars + non-goals</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>What it forces</dt>
+                  <dd>2–4 must-true statements and a written OUT list</dd>
+                </div>
+                <div>
+                  <dt>Use here</dt>
+                  <dd>No PvP, no time pressure, combat not the focus</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Framework</span> <span class="t-acc a-blue">Vertical slice (e.g. Volition / GDC)</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>What it forces</dt>
+                  <dd>Gate full production on a representative high-quality path</dd>
+                </div>
+                <div>
+                  <dt>Use here</dt>
+                  <dd>One system (mining→trade) at near-shippable quality</dd>
+                </div>
+              </dl>
+            </div>
+            <h3>Indie vs AAA documentation</h3>
+            <p>AAA often uses a master overview plus owned feature wiki pages, UX briefs, balance sheets, and QA specs. Solo/small indie wins with a one-page living GDD: pitch, core loop, OUT list, art refs, platforms—updated the day scope changes. Over-documenting before a playable loop is a common failure mode.</p>
+            <div class="card a-blue">
+              <div class="it">“We embrace documentation, but not hundreds of pages of never-maintained and rarely-used tomes.”</div>
+              <p>— Jim Highsmith, Agile Manifesto (via modern GDD practice)</p>
+            </div>
+            <h3>Common planning pitfalls</h3>
+            <div class="card a-verm">
+              <p><span class="tag a-verm">Rejected</span></p>
+              <ul class="marks a-verm">
+                <li><span class="chip a-verm" aria-hidden="true">−</span> Feature creep: stacking good ideas until nothing ships.</li>
+                <li><span class="chip a-verm" aria-hidden="true">−</span> Building systems before the fun loop (economy, AI, narrative tooling with no playable mine→sell cycle).</li>
+                <li><span class="chip a-verm" aria-hidden="true">−</span> Static 50–500 page GDDs that rot and mislead.</li>
+                <li><span class="chip a-verm" aria-hidden="true">−</span> Skipping the prototype and jumping to full production or a pretty vertical slice too early.</li>
+                <li><span class="chip a-verm" aria-hidden="true">−</span> Treating story/content volume as the product before the toy is fun.</li>
+              </ul>
+            </div>
+          </section>
+          <section id="solo">
+            <h2>What good planning looks like for a solo sandbox trader</h2>
+            <p>For one developer building an endless X3/Elite/EVE-inspired trader without PvP or combat focus, planning is a filter—not a novel.</p>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">1</span>
+                <div class="col"><strong class="t-acc a-blue">Write pillars and OUT list first</strong><span>Every new idea must strengthen the core loop or wait on a later list.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">2</span>
+                <div class="col"><strong class="t-acc a-blue">Prototype the 30-second–to-session loop with placeholders</strong><span>Mine or buy → move cargo → sell at a better price → upgrade ship/tools → optionally automate one step.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">3</span>
+                <div class="col"><strong class="t-acc a-blue">Only then add one adjacent system at a time</strong><span>Bases, routes, discovery, quest hooks—each must make the proven loop richer, not replace it.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">4</span>
+                <div class="col"><strong class="t-acc a-blue">Treat AI (OpenRouter / MCP / Grok Bot GM) as content and tooling, not the core toy</strong><span>Procedural markets, quest text, and GM suggestions after the economy loop works offline.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">5</span>
+                <div class="col"><strong class="t-acc a-blue">Keep the living Page (this document) current</strong><span>Update the same day you cut or add scope; version with the project.</span></div>
+              </div>
+            </div>
+          </section>
+          <section id="pillars">
+            <h2>Pillars for this game</h2>
+            <p>Derived from Andreas's constraints. If a feature violates a pillar, it does not ship in v1.</p>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Pillar</span> <span class="t-acc a-blue">Humble start, endless climb</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Means in play</dt>
+                  <dd>Begin as a lowly miner/trader; growth via ships, automation, bases, routes</dd>
+                </div>
+                <div>
+                  <dt>Non-negotiable</dt>
+                  <dd>No forced endgame; progress is always available</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Pillar</span> <span class="t-acc a-blue">Calm agency</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Means in play</dt>
+                  <dd>No timers, seasons, or PvP pressure; combat is optional/background at most</dd>
+                </div>
+                <div>
+                  <dt>Non-negotiable</dt>
+                  <dd>Player sets the pace</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Pillar</span> <span class="t-acc a-blue">Trade and industry fantasy</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Means in play</dt>
+                  <dd>Prices, scarcity, logistics, and automation are the drama</dd>
+                </div>
+                <div>
+                  <dt>Non-negotiable</dt>
+                  <dd>Combat is not the skill ceiling</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Pillar</span> <span class="t-acc a-blue">Discovery without homework</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Means in play</dt>
+                  <dd>Explore space, find opportunities; story arcs exist but never gate the sandbox</dd>
+                </div>
+                <div>
+                  <dt>Non-negotiable</dt>
+                  <dd>Story is optional and slow</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Pillar</span> <span class="t-acc a-blue">Portable personal universe</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Means in play</dt>
+                  <dd>Mac + Windows (+ Linux later); v1 is one machine, later live sync across clients</dd>
+                </div>
+                <div>
+                  <dt>Non-negotiable</dt>
+                  <dd>First audience is Andreas</dd>
+                </div>
+              </dl>
+            </div>
+            <h3>Design notes</h3>
+            <div class="row wrap"><span class="tag a-blue">Vision</span><span class="tag a-green">Locked</span><span class="tag a-purple">Prototype</span><span class="tag a-cyan">Engine</span><span class="tag a-verm">Rejected</span></div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Elevator pitch</span></h4>
+              <p>A calm, endless space sandbox where you start as a small miner/trader and slowly build automation, bases, and trade routes—with optional discovery and story, never pressure.</p>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Core loop (v1)</span></h4>
+              <p>Scan/choose a job → extract or buy commodity → haul → sell for margin → reinvest in capacity/automation → repeat with less busywork over time.</p>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Pacing (locked)</span></h4>
+              <p>About 1 hour a day, thousands of hours of runway. First meaningful automation around 10 hours in—not a 30-minute stamp. Regular upgrades along the way; paper toys that unlock automation in half an hour are too fast.</p>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Progression feel</span></h4>
+              <p>Incremental number-go-up + RPG talent depth (not stock-market stat spam) + X4 trade/automation. Bigger/more complex tree, fewer ranks per talent, meaningful choices. Soften visible number-optimisation; prefer abilities and qualitative benefits over calc charts.</p>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Prototype</span> <span class="t-acc a-purple">Prestige / hull track (Proto 3 starting direction)</span></h4>
+              <p>Accepted Draft 2: branching hull lineage (Wren then Tandem or Heron, then Mammoth/Firefly/Oracle). At station, P opens prestige/hullwright. World, credits, standing, depletion persist; hull ranks reset with a fee (no refund). Reframe as RPG calling + abilities, not paying to lose work. Draft 1 tree rejected as messy/stock-market. Launch: launch-draft-2.cmd under prototype-3-prestige\.</p>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Quests / horizon</span></h4>
+              <p>Mass Effect slow arcs blended with No Man's Sky curiosity: world events in space and at stations, exploration rewards, long burn story, plus an infinite world-building thread (e.g. uncovering the Ancients).</p>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Inspiration (feel, not clones)</span></h4>
+              <p>X3 / X4 economy and ownership; Elite Dangerous exploration tone; EVE industry depth—without PvP or time pressure.</p>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Presentation (locked)</span></h4>
+              <p>Top-down + Star Traders sketched/cartoony warmth (Proto 1; Proto 4 rejected gray/blue chrome). Soft illustrated industry, not hard metal X4 density. Text is either important or not there — no filler flavor paragraphs; mood via art/animation/sound. Flight is NOT Endless Sky inertia — see Flight model.</p>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Flight model (locked from Proto 1 + Proto 4)</span></h4>
+              <p>Reject inertia/rocket coasting. Prefer click-to-fly + direct arcade local WASD (stops on release). Controls ARE progression: first ship is Tier0 manual only (steering + Space; no Fly To / world-click travel / queues / loops). Unlock short click → click-mine → click-dock → longer/map click → queues → loop routes → Factorio-ward. Same order verbs for player and future automated ships.</p>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Pause (locked from Proto 6)</span></h4>
+              <p>A real pause is a core feature: the player can stop the world at any time and resume on their terms. Fits the calm, no-timers design. Liked in Proto 6 (the edit-pause with a clear PAUSED card).</p>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Prototype</span> <span class="t-acc a-purple">First automation (Proto 7 — useful direction, form not locked)</span></h4>
+              <p>A gated, late automation node that works while you are elsewhere is a good first step. The Pip drone itself is not the final form. Open: does the unlock feel like a new game opening or a checkbox; is a drone redundant once your own ship can loop (maybe drone before loops, or give it something the ship can't do); is re-tagging dry rocks a nice check-in or a chore; gate pacing is untimed; tone down numeric Mk tiers per Proto 3. Launch: play.cmd under prototype-7-late-automation\ (--skip or F9 jumps to the gate).</p>
+            </div>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Audio (needs its own pass)</span></h4>
+              <p>The synthesized mining-beam and engine loops inherited from Proto 1 are rejected as super annoying. Do not reuse them; audio gets a separate pass across prototypes.</p>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Prototype</span> <span class="t-acc a-purple">Trade / living prices (Proto 4 — weaker signal, keep direction)</span></h4>
+              <p>Chase a price gap yourself before fleets. Living prices react to trades; saturation punishes blind full-load loops. Remote prices must be scouted (aged snapshots), not shown at home dock — discovery feeds later pilot/ship info reach. No on-rails profit guidance. Market UI TBD (future AI-customized views); do not freeze Proto 4 notebook chrome. Launch: PLAY.cmd under prototype-4-two-station-trade\.</p>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Prototype</span> <span class="t-acc a-purple">World events / agent content (Proto 5)</span></h4>
+              <p>Proven: agent-made world changes can be validated, paced and rolled back while the world just evolves. (Proto 5 used JSON cards only as a test format; cards are not a core assumption.) No player approval inbox, no in-UI feedback buttons (fourth-wall talk happens with your own agent outside the game). No timers anywhere, ever: no countdowns, progress bars or days-left; time of day in words. Canon locks guard Ancients reveals. The hard problem is content, not plumbing: avoid the level-scaling trap (same wolf, bigger HP). Content must react to player history and world state. Research quest/world-event systems before building more.</p>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">Content design (from the quest and world-event research)</span></h4>
+              <p>Core rule: variety stored in flavor text runs out, but variety stored in world state does not. Goal: a good game with interesting things to do; the content format is open (storylets/cards are one possible technique, not locked). Principles: the most specific, history-aware content beats generic content, and the world remembers what happened. Changes are lasting and visible, and the player meets them again. Characters recur and remember. The Ancients work as knowledge-as-progression: history generated as structured events first, prose second. A pacing director counts player activity, never clock time. Long community and relationship arcs pay off when the player docks. A human-written backbone of fixed beats has the game master improvising between them (through the scripting engine). Avoid level scaling, Radiant-style template quests, invisible simulation, job boards as the main content, and danger that scales with wealth. Take the Nemesis idea, not its patented implementation. Broader menu of what the game master could do (32 items, base-engine hooks, 9-step script validation pipeline, ready-made prompts): <a href="../research/game-master-menu.html">The Game Master's Menu</a>.</p>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Engine (experiment)</span></h4>
+              <p>Custom engine as a fun experiment. Proto 6 proved validated live data reload (bad data rejected, last good revision keeps running, progress survives via stable IDs). Direction (from Proto 6): agents get a full scripting/modding layer that can inject data, game logic and new assets, not just data. Still no DLL injection or unvalidated edits. Key open design question: where the line sits between the immutable engine (changes only via a release) and the agent-mutable layer. Parallel to the playable loop, not a blocker. Two engines: (1) a base engine that only changes with a new release, and (2) a live-updatable scripting engine on top that can touch most of the game (logic, systems, economy, content, assets). The game master works in the scripting engine. Event cards (Proto 5) are only one small thing it can produce, not the agent interface.</p>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Agent role (locked)</span></h4>
+              <p>Game master, not virtual players: works through the live scripting engine, which can change most of the game (systems, logic, economy, quests, events, assets). They do not real-time drive NPCs or act as extra captains. The base engine validates script changes and rolls back bad ones.</p>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Open</span> <span class="t-acc a-amber">Player growth (open direction)</span></h4>
+              <p>The pilot can also evolve: a talent or skill set that grows over time alongside the world. It must be much slower and less impactful than ship and world progression, or be tied to a prestige track that resets it. Connects to the Proto 3 RPG tree (few, meaningful choices; no stat spam).</p>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Open</span> <span class="t-acc a-amber">Factions (open direction)</span></h4>
+              <p>Factions are on the table: groups with territory, needs, memory of the player and relationships with each other, which the game master can reshape over time. No combat focus, no PvP.</p>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Open</span> <span class="t-acc a-amber">Fast-model layer (open direction)</span></h4>
+              <p>Two AI layers: the slow, strong game master owns the big picture (arcs, new systems, eras, Ancients canon), while fast, cheap models (small local LLMs or decision models, OpenRouter as an option) make the world feel alive moment to moment (NPC captains, dock chatter, station reactions, rumors, pirate and trader decisions) inside rules and budgets the game master sets. Leanings: fast models pick from what world state allows rather than invent facts; their outcomes are written back to world history for the game master; offline-first, so a small local model on the PC could carry this layer. Research (<a href="../research/fast-model-layer.html">A Fast Layer Under the Game Master</a>): the game master writes each NPC's brief and budgets; rule-based utility AI always answers first so the game is complete offline; a local Qwen3.5-4B via llama.cpp with schema-constrained output adds personality; OpenRouter (incl. TypeSafe Jev, a cloud decision-only model) is opt-in. Open: frame-rate cost, sameness, canon drift.</p>
+            </div>
+          </section>
+          <section id="process">
+            <h2>Recommended process for this project</h2>
+            <p>Do not start a full prototype codebase until the decisions in Open decisions are answered enough to pick a stack. When coding starts, follow this order.</p>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">1</span>
+                <div class="col"><strong class="t-acc a-blue">Concept lock (now)</strong><span>Freeze pillars, OUT list, core loop wording, and success criteria for a session that feels worth continuing. Update this Page; no engine commitment required yet.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">2</span>
+                <div class="col"><strong class="t-acc a-blue">Paper / spreadsheet toy</strong><span>Model one local market: ore yields, haul time/cost, prices, upgrade costs. Validate that automation feels like relief, not a solved game. Hours, not weeks.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">3</span>
+                <div class="col"><strong class="t-acc a-blue">Disposable core-loop prototype</strong><span>Placeholder art. One ship, one resource, two stations, buy/sell, simple travel. Local saves only. Kill or rewrite freely.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">4</span>
+                <div class="col"><strong class="t-acc a-blue">Vertical slice (personal v1 gate)</strong><span>One polished path: mine → haul → sell → buy one automation upgrade, with real UI, local save/load on one computer, and readable feedback. Proves pipeline + feel before bases/quests/AI/sync.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">5</span>
+                <div class="col"><strong class="t-acc a-purple">Systems expansion</strong><span>Add one system at a time: multi-commodity markets, route bookmarks, a first base/module, discovery hooks. Each addition must strengthen the proven loop.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">6</span>
+                <div class="col"><strong class="t-acc a-purple">AI GM and content layer</strong><span>Wire optional OpenRouter / MCP / Grok Bot for quest text, rumors, procedural opportunities—offline-safe fallbacks so the game never depends on an API.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">7</span>
+                <div class="col"><strong class="t-acc a-cyan">Live sync (post-v1)</strong><span>Shared store on the Linux VM over VPN (likely SQLite or Postgres). Clients swap freely; save schema designed in v1 so this is a layer, not a rewrite.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">8</span>
+                <div class="col"><strong class="t-acc a-purple">Polish and personal ship</strong><span>Feel, UX, save reliability, performance. Ship a build Andreas will play for weeks; backlog the rest explicitly.</span></div>
+              </div>
+            </div>
+          </section>
+          <section id="scope">
+            <h2>Suggested v1 scope vs out of scope</h2>
+            <p>v1 is for Andreas only: enough to live in the fantasy on one computer. Everything else waits on a dated backlog.</p>
+            <div class="pair">
+              <div class="card a-green">
+                <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">In scope for personal v1</span></h4>
+                <ul class="marks a-green">
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Single-player, offline-first sandbox</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Mining + hauling + trading between a handful of stations</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Ship upgrades and one automation path (e.g. auto-mine or auto-haul)</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Local save/load on one computer only (no sync)</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Light discovery (anomalies, rumors) without mandatory quests</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Top-down sketched/cartoon art (Star Traders warmth) + click-to-fly / arcade local control—placeholders fine if the style reads early</li>
+                </ul>
+              </div>
+              <div class="card a-verm">
+                <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Explicitly out (until cut-in)</span></h4>
+                <ul class="marks a-verm">
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> PvP, MMO, always-online servers</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Seasonal timers, energy, or FOMO loops</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Combat as primary progression</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Full X4-scale universe and faction simulation on day one</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Multiplayer, Steam achievements, marketing polish</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Mandatory story that blocks free play</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Live multi-machine sync or a shared database in v1</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Deep tech that blocks the paper toy / core loop (custom engine is an intentional experiment—keep it parallel, not a gate)</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+          <section id="platform">
+            <h2>Platform and saves</h2>
+            <p>Machines: MacBook, gaming PC, and a persistent Linux VM on the same VPN. Long-term goal: live sync so Andreas can swap clients without hand-managing saves—likely a small always-on database on the Linux VM. Confirmed for v1: one computer, local saves only. Design the save schema so a later sync layer can sit on top without a rewrite.</p>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Approach</span> <span class="t-acc a-cyan">Godot</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Fit for this game</dt>
+                  <dd>Strong for 2D/3D indie; free; first-class desktop export</dd>
+                </div>
+                <div>
+                  <dt>Save / sync note</dt>
+                  <dd>v1: local user:// or SQLite; later client to DB on Linux VM</dd>
+                </div>
+                <div>
+                  <dt>Planning risk</dt>
+                  <dd>Learn GDScript/C#; 3D tooling less AAA-like</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Approach</span> <span class="t-acc a-cyan">Unity</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Fit for this game</dt>
+                  <dd>Mature desktop pipeline; huge asset/ecosystem</dd>
+                </div>
+                <div>
+                  <dt>Save / sync note</dt>
+                  <dd>v1: local files/SQLite; same later sync path</dd>
+                </div>
+                <div>
+                  <dt>Planning risk</dt>
+                  <dd>License cost/complexity; heavier project weight</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Approach</span> <span class="t-acc a-cyan">Tauri + web stack</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Fit for this game</dt>
+                  <dd>Smaller desktop shell if UI is web-first / data-heavy</dd>
+                </div>
+                <div>
+                  <dt>Save / sync note</dt>
+                  <dd>Natural fit for SQLite now + Postgres/SQLite server later</dd>
+                </div>
+                <div>
+                  <dt>Planning risk</dt>
+                  <dd>Gameplay graphics depend on webview; less native game-engine tooling</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Approach</span> <span class="t-acc a-cyan">Electron + web</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Fit for this game</dt>
+                  <dd>Familiar JS; easy tooling for tools/GM panels</dd>
+                </div>
+                <div>
+                  <dt>Save / sync note</dt>
+                  <dd>Same DB story as Tauri; larger binaries</dd>
+                </div>
+                <div>
+                  <dt>Planning risk</dt>
+                  <dd>Heavy runtime; Steam/desktop game path less idiomatic</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Approach</span> <span class="t-acc a-cyan">Browser-only</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Fit for this game</dt>
+                  <dd>Fast iteration; weak for an install-and-live-in fantasy</dd>
+                </div>
+                <div>
+                  <dt>Save / sync note</dt>
+                  <dd>Harder offline-first local v1; sync alone does not fix feel</dd>
+                </div>
+                <div>
+                  <dt>Planning risk</dt>
+                  <dd>Fails the desktop preference unless wrapped later</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="pair">
+              <div class="card a-green">
+                <h4 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Prefer early</span></h4>
+                <ul class="marks a-green">
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Engine with reliable Mac + Windows export from day one</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> v1 local save (JSON or SQLite) with a schema that can later talk to a shared DB</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Offline play on one machine; AI and sync remain optional layers</li>
+                </ul>
+              </div>
+              <div class="card a-verm">
+                <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Defer or avoid for v1</span></h4>
+                <ul class="marks a-verm">
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Locking stack before the paper economy and loop prototype</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Building live sync or a VPN database before the loop is fun</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Browser-only as the long-term home, or cloud-only saves with no local copy</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+          <section id="reviews">
+            <h2>Agent review consensus (2026-10-27)</h2>
+            <p>Dual review via T3 Code on the gaming PC: Opus 5.5 medium and Sol 6.1 high. Neither could open this Page (Cursor sign-in), so both worked from the locked vision only. Full reports: mining-game-plan-review under .agents/research on the PC.</p>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Three tracks, one product.</span></h4>
+              <p>Treat game loop, custom engine, and agent live-change as three parallel tracks. The playable game is the product; the engine experiment and agent contract stay capped and parallel, with an exit gate—if the engine gate fails, keep iterating the disposable prototype.</p>
+            </div>
+            <h3>Agreements (lock these)</h3>
+            <div class="card a-green">
+              <p><span class="tag a-green">Locked</span></p>
+              <ul class="marks a-green">
+                <li><span class="chip a-green" aria-hidden="true">+</span> Agents act as a game master through a live scripting engine over a release-only base engine (most of the game is touchable)—not virtual players and not real-time NPC drivers.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Agents propose; the game decides. Validated proposal / plugin inbox; apply at a calm moment; rollback required. No direct live mutation of running simulation state outside that contract.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Plugin architecture over a fixed engine core. Updated after Proto 6: the agent layer grows into full scripting (data, logic, assets) through a validated contract. Not DLL/dylib injection.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Hot-reload tiers: data/plugins first; native rebuild/restart only when the fixed backend changes. No hot-swapping native code.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Game must play offline with no agent. Agents are async/background; authored fallback always works.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> One agent contract (CLI + JSON schemas). Do not integrate Claude Code, Codex, and Cursor at once; MCP later as a thin wrapper.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Two-week shape: paper toy → disposable (browser/canvas ok) prototype → vertical slice; engine in a capped parallel track.</li>
+                <li><span class="chip a-green" aria-hidden="true">+</span> Defer: sync/VPN/DB, OpenRouter/GM, combat, galaxy scale, station building, packaging/CI.</li>
+              </ul>
+            </div>
+            <h3>Slice decision (locked): both in parallel</h3>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Playtest reset + pacing reset.</span></h4>
+              <p>Andreas rejected both HTML toys as non-flyable presentations. He also rejects their pacing: automation in about 30 quiet-minutes is far too fast. Target first meaningful automation around 10 hours of play, with regular upgrades before that, and content runway for about 1 hour a day across thousands of hours. Do not freeze schema or art from these toys.</p>
+            </div>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">The first quiet route</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owner</dt>
+                  <dd>Grok 4.7 Cursor cloud</dd>
+                </div>
+                <div>
+                  <dt>Art lean (for compare)</dt>
+                  <dd>Stable silhouettes + panels/portraits</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>HTML toy rejected — not flyable</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Kepler Reach</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owner</dt>
+                  <dd>Opus 5.5 T3 Code on PC</dd>
+                </div>
+                <div>
+                  <dt>Art lean (for compare)</dt>
+                  <dd>Sketchy vector ships</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>HTML toy rejected — not flyable</dd>
+                </div>
+              </dl>
+            </div>
+            <p>Art not frozen globally—each lean kept for side-by-side. Both include locked agent design: world directors + plugin/content over fixed backends. PC roots under .agents/research/mining-game-plan-review/: quiet-route/ and kepler-reach-slice/. Double-click each paper-toy.html to playtest.</p>
+            <h3>Quiet route (paper toy)</h3>
+            <div class="card a-purple">
+              <p><span class="tag a-purple">Prototype</span></p>
+              <ul class="marks a-purple">
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Pocket: Lantern Wharf / Cinder Drift / Kettle Dock / Glass Drift; mite automation; annex silt hook</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Calm path ~31.2 quiet-minutes; ~10 real minutes to click through; self-test via paper-toy.html?selftest=1</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Directors file JSON notes only (plugin/content); authored ledger works offline</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Also: design.md, agent-hook.md, do-not-do.md, risks.md, proposal.schema.json, quiet-director.ps1, data/, inbox/</li>
+              </ul>
+            </div>
+            <h3>Kepler Reach (paper toy)</h3>
+            <div class="card a-purple">
+              <p><span class="tag a-purple">Prototype</span></p>
+              <ul class="marks a-purple">
+                <li><span class="chip a-purple" aria-hidden="true">•</span> 200 simulated sessions; median Wren (2nd hull) unlock 30.2 min (p10–p90 26.8–33.3); income 1.74× after unlock</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Tunable knobs + Play session + JSON export; optional node tune.js</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> agent-hook/ with event.schema.json, AGENTS.md, authored fallbacks</li>
+                <li><span class="chip a-purple" aria-hidden="true">•</span> Also: design.md, README.md, do-not-do.md, risks.md</li>
+              </ul>
+            </div>
+            <p>Keep the design.md / schemas / do-not-do.md as reference only. Next step (tomorrow): a disposable prototype you can actually steer—top-down ship control, mine, dock, sell—then compare slice shapes from feel, not from beat-sheet UIs.</p>
+          </section>
+          <section id="open">
+            <h2>Open decisions</h2>
+            <p>Status as of this plan (Europe/Stockholm). Items stay open until this Page is edited—readers cannot tick them here.</p>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Confirm one-sentence pitch and the five pillars above</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Concept lock</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Agree personal-v1 OUT list (especially combat, multiplayer, story gating)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Scope</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Define a fun-enough test for the core loop (e.g. play a mock hour and want another)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Success criteria</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Presentation: top-down + Star Traders sketched warmth (Proto 1 liked art). Flight locked to click-to-fly / arcade WASD — Endless Sky inertia rejected</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-blue">Aesthetics</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Custom engine experiment locked (CLI-agent live rebuild + local agents); keep parallel to loop prototypes—do not block paper toy</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-cyan">Platform</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>v1 saves: local-only on one computer (no sync)—confirmed</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-cyan">Portability</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Later: pick live-sync store (e.g. SQLite or Postgres on Linux VM over VPN) and a save schema that supports it</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-cyan">Portability</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Decide when AI GM enters (after vertical slice vs tiny content helper earlier)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">AI</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Name working title (internal ok)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Identity</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Slice: BOTH in parallel (~30 min target)—Quiet route + Kepler Reach; compare after paper-toy specs/beat sheets</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Agent role locked: world directors (events/quests/economy), not virtual players/NPC drivers; plugin surface over fixed backends (no Python/DLL injection)</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-blue">Agents</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Freeze agent proposal JSON schema + one CLI contract + allowed plugin formats (e.g. HTML/data)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Agents</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Art: compare silhouettes+panels (quiet route) vs sketchy vectors (Kepler); freeze after side-by-side</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Aesthetics</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>HTML paper toys rejected (felt like presentations, not flyable prototypes)—do not freeze schema/art from them</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 1 flyable on PC (v2 click-to-fly): play.cmd under mining-game-prototypes\prototype-1-flyable\ — inertia v1 archived; art kept; controls-as-progression direction locked</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 3 Hearthbound Draft 2 accepted as prestige starting direction: branching hulls + RPG tree; launch-draft-2.cmd under prototype-3-prestige\; inertia stripped (manual thrust stop-on-release); not yet Proto 1 click-to-fly/queues</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 4 Little Circuit: trade-discovery + living prices + Tier0 manual first ship kept; Proto 1 art/text bar reinforced; market notebook NOT locked. PLAY.cmd under prototype-4-two-station-trade\</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 5 station board closed: propose-validate-apply pipeline works; no approval inbox, no in-UI feedback, no timers ever; content quality is the open problem. play.cmd under prototype-5-station-board\</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Quest and world-event research done (37 games and systems): Keeping a Living Galaxy New Page by Game Researcher. Next: decide what interesting things to do the game needs; content format stays open</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-blue">Content</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 6 hot-reload closed: validated live data reload works; keep directed quests with a clear goal; a deliberate pause must be obvious. Third prototype rejecting automation at the start, so the first ship is hands-on toward a clear goal. play.cmd --tier 0 under prototype-6-hot-reload\</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Draw the line between the immutable engine (release-only) and the agent-mutable scripting layer (data, logic, assets)</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-cyan">Engine</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Proto 7 late automation node played: useful direction, drone form not locked. Proto 2 still on PC. Next test idea: a satisfying manual loop toward a clear goal, with automation unlocks paced later</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <span>Audio pass: replace the annoying mining-beam and engine loops</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-purple">Slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <div class="col">
+                  <span>Pacing locked: ~1h/day for thousands of hours; first automation ~10h; prestige-style resets per ship/module/base/automation track (not whole world); Ancients-style infinite lore thread</span>
+                  <div class="row wrap"><span class="tag a-green">Done</span><span class="tag a-blue">Pacing</span></div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section id="sources">
+            <h2>Sources</h2>
+            <p>Reputable references used for this plan. Prefer living docs and loop-first process over heavy upfront specs.</p>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">1</span><span><a href="https://robert.zubek.net/publications/MDA.pdf">MDA: A Formal Approach to Game Design and Game Research</a></span></div>
+              <p>robert.zubek.net</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">2</span><span><a href="https://ziva.sh/blogs/game-design-document">Game Design Document: A One-Page GDD Template</a></span></div>
+              <p>ziva.sh · Mar 2026</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">3</span><span><a href="https://www.nuclino.com/articles/game-design-document-template">Game design document template (agile / living GDD)</a></span></div>
+              <p>nuclino.com · Jan 2026</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">4</span><span><a href="https://www.technologyford.com/living-game-design-document-workflow/">Living Game Design Document in Your Workflow</a></span></div>
+              <p>technologyford.com · Jan 2026</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">5</span><span><a href="https://www.youtube.com/watch?v=UvCri1tqIxQ">Extra Credits — Minimum Viable Product (scope small)</a></span></div>
+              <p>youtube.com</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">6</span><span><a href="https://xsolla.com/blog/funding-101-the-impact-of-the-vertical-slice">Funding 101: The impact of the vertical slice</a></span></div>
+              <p>xsolla.com</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">7</span><span><a href="https://www.gdcvault.com/play/1022329/The-Vertical-Slice">GDC Vault — The Vertical Slice Challenge (Volition)</a></span></div>
+              <p>gdcvault.com</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">8</span><span><a href="https://www.gameproducersguide.com/TALK-2022-Finding_the_fun_Prototyping_Core_Playable.pdf">Finding the Fun: Prototyping the Core Playable (PDF)</a></span></div>
+              <p>gameproducersguide.com</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">9</span><span><a href="https://www.routledge.com/The-Art-of-Game-Design-A-Book-of-Lenses-Third-Edition/Schell/p/book/9781138632059">The Art of Game Design: A Book of Lenses (Schell)</a></span></div>
+              <p>routledge.com</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">10</span><span><a href="https://docs.godotengine.org/en/stable/tutorials/io/data_paths.html">Godot — File paths / user:// saves</a></span></div>
+              <p>docs.godotengine.org</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row"><span class="chip a-blue">11</span><span><a href="https://www.webgamedev.com/publishing/desktop">Web Game Dev — Desktop packaging (Electron / Tauri)</a></span></div>
+              <p>webgamedev.com</p>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

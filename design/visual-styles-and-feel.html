@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Visual Styles &amp; Gameplay Feel</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Visual Styles &amp; Gameplay Feel</h1>
+          <p>The style-and-feel planning deck for the calm solo space miner/trader, as a readable page: six feel axes, eight visual directions with verdicts, the engine options, the AI-native live engine idea, and the v1 recommendation.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#fantasy">The fantasy and the hard limits</a></li>
+              <li class="a-green"><a href="#axes">Six feel axes</a></li>
+              <li class="a-amber"><a href="#glance">Eight visual directions at a glance</a></li>
+              <li class="a-verm"><a href="#dirs">The directions in detail</a></li>
+              <li class="a-purple"><a href="#stack">Free stack cheat-sheet</a></li>
+              <li class="a-cyan"><a href="#custom">Dream big: a classic custom engine</a></li>
+              <li class="a-blue"><a href="#ai">AI-native live engine</a></li>
+              <li class="a-green"><a href="#v1">v1 recommendation</a></li>
+              <li class="a-amber"><a href="#sources">Sources</a></li>
+            </ol>
+          </nav>
+          <div class="card a-verm">
+            <h3 class="card-title"><span class="tag a-verm">Rejected</span> <span class="t-acc a-verm">Superseded since this deck: flight</span></h3>
+            <p>Soft inertia was rejected after Prototype 1. The game uses arcade WASD flight that stops when you release the keys, with click-to-fly to come later. Wherever the deck says soft inertia, read it as replaced.</p>
+          </div>
+          <div class="card a-cyan">
+            <h3 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Superseded since this deck: engine</span></h3>
+            <p>The custom engine was chosen instead of starting on Godot. Wherever the deck names Godot 4 as the v1 stack, read it as replaced.</p>
+          </div>
+          <section id="fantasy">
+            <h2>The fantasy and the hard limits</h2>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">A calm miner/trader with no pressure, ever</span></h3>
+              <p>Start as a lowly miner/trader, then build automation, bases and trade routes. Discovery and optional quest arcs feed an endless, slow story.</p>
+              <dl class="kv">
+                <div>
+                  <dt>The fantasy</dt>
+                  <dd>Mine, haul, automate, expand bases and routes; discover at your own pace.</dd>
+                </div>
+                <div>
+                  <dt>Feel, not clones</dt>
+                  <dd>X3/X4 economy ownership, Elite trucking calm, EVE industry depth.</dd>
+                </div>
+                <div>
+                  <dt>v1 scope</dt>
+                  <dd>Mac + Windows · local saves only · first player: Andreas · one computer per save</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-verm">
+              <h3 class="card-title"><span class="tag a-verm">Out</span> <span class="t-acc a-verm">Hard OUT</span></h3>
+              <p>No PvP. No timers, time pressure or deadlines. Combat is never the focus.</p>
+            </div>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Later</span> <span class="t-acc a-amber">Deck recommendation</span></h3>
+              <p>Keep v1 on one computer; online play and an AI-native engine come later.</p>
+            </div>
+          </section>
+          <section id="axes">
+            <h2>Six feel axes</h2>
+            <p>Each axis runs between two extremes; every direction below maps onto them. Sweet spots are planning recommendations.</p>
+            <div class="card a-verm">
+              <h3 class="card-title"><span class="tag a-verm">Changed</span> <span class="t-acc a-verm">Flight</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Arcade mouse-aim to hard Newtonian</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Superseded: arcade WASD that stops on release, click-to-fly later. The deck said soft inertia + assisted autopilot.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Sweet spot</span> <span class="t-acc a-blue">Camera</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Chase/top-down to cockpit 1:1</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Map + optional ship view</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Sweet spot</span> <span class="t-acc a-blue">Economy pacing</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Instant loops to spreadsheet planning</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Slow routes + clear profit feedback</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Sweet spot</span> <span class="t-acc a-blue">Automation</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Always manual to empire AI fleets</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Gradual handoff, 1 ship to small fleet</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Sweet spot</span> <span class="t-acc a-blue">Discovery</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Story events to empty 1:1 galaxy</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Sparse map + text/lore rewards</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Sweet spot</span> <span class="t-acc a-blue">UI density</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Range</dt>
+                  <dd>Minimal HUD to EVE/X menus</dd>
+                </div>
+                <div>
+                  <dt>Sweet spot</dt>
+                  <dd>Readable panels, not AAA glass</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+          <section id="glance">
+            <h2>Eight visual directions at a glance</h2>
+            <div class="card a-amber">
+              <div class="row wrap"><span class="tag a-amber">Maybe</span><strong class="t-acc a-amber">Dense industrial sandbox commander</strong><span>(X4 / EVE) · MAYBE: lite version only</span></div>
+            </div>
+            <div class="card a-verm">
+              <div class="row wrap"><span class="tag a-verm">No</span><strong class="t-acc a-verm">Hard-sim cockpit immersion</strong><span>(Elite Dangerous / Star Citizen) · NO as the primary visual</span></div>
+            </div>
+            <div class="card a-green">
+              <div class="row wrap"><span class="tag a-green">Yes</span><strong class="t-acc a-green">Readable top-down trader</strong><span>(Endless Sky) · YES: strongest v1 match</span></div>
+            </div>
+            <div class="card a-amber">
+              <div class="row wrap"><span class="tag a-amber">Maybe</span><strong class="t-acc a-amber">Chunky voxel builder</strong><span>(Avorion) · MAYBE</span></div>
+            </div>
+            <div class="card a-green">
+              <div class="row wrap"><span class="tag a-green">Yes</span><strong class="t-acc a-green">Schematic data captain</strong><span>(FTL / Out There) · YES as a secondary layer</span></div>
+            </div>
+            <div class="card a-amber">
+              <div class="row wrap"><span class="tag a-amber">Maybe</span><strong class="t-acc a-amber">Painted indie multi-mode</strong><span>(Space Rangers / Star Traders) · MAYBE: steal two modes, not five genres</span></div>
+            </div>
+            <div class="card a-verm">
+              <div class="row wrap"><span class="tag a-verm">No</span><strong class="t-acc a-verm">AAA glossy explorer</strong><span>(No Man's Sky / Homeworld) · NO for v1, and likely v2</span></div>
+            </div>
+            <div class="card a-amber">
+              <div class="row wrap"><span class="tag a-amber">Maybe</span><strong class="t-acc a-amber">Arcade chase cam, Freelancer feel</strong><span>(Freelancer) · MAYBE</span></div>
+            </div>
+          </section>
+          <section id="dirs">
+            <h2>The directions in detail</h2>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Maybe</span> <span class="t-acc a-amber">1. Dense industrial sandbox commander</span></h3>
+              <div class="b">Verdict: MAYBE: lite version only</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>X4 and EVE. Lite means a few sectors and 1–3 freighters, not full X4 scale.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Dense European space-sim UI, industrial stations, sector map plus free-flight 3D.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Empire and economy first; steep menus; high automation ambition.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>X4: Mostly Positive, about 78% of 14,045 English Steam reviews. Praised for a living economy instead of X3's facade; criticized for the industrial look, UI nostalgia and fleet-automation frustration. EVE: famously dense industry UI.</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot 4 or Unity Personal: hard. Web: low-poly only. Custom engine: overkill for v1.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-verm">
+              <h3 class="card-title"><span class="tag a-verm">No</span> <span class="t-acc a-verm">2. Hard-sim cockpit immersion</span></h3>
+              <div class="b">Verdict: NO as the primary visual</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>Elite Dangerous and Star Citizen.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Detailed cockpit, diegetic MFDs, glossy space photography.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>You live in the ship; Newtonian flight; calm trucking is possible.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>Elite space trucking is praised as relaxing (TheGamer). Players call Elite's HUD cleaner than Star Citizen's prettier but harder panels (Reddit).</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Very hard. Web is a poor fit for full cockpit fidelity.</dd>
+                </div>
+                <div>
+                  <dt>Steal the feel</dt>
+                  <dd>Quiet routes, readable HUD, optional simple cockpit frame.</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>An original schematic of a cockpit frame with canopy struts, a reticle, and two diegetic screens reading "NAV · route 3 / 7" and "CARGO · ore 84%", plus a speed readout of 112.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-green">
+              <h3 class="card-title"><span class="tag a-green">Yes</span> <span class="t-acc a-green">3. Readable top-down trader</span></h3>
+              <div class="b">Verdict: YES: strongest v1 match</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>Endless Sky.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>2D top-down, readable silhouettes, sector-map galaxy.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Leisurely trade, simple flight, fleet later, story optional. Combat optional or nearly absent.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>Very Positive, about 93% of 6,453 English Steam reviews. Praised: leisurely pace, iconic ships. Watch out: early combat is harsh and trading can grind (SigTrent review).</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot 4 2D or Defold: low to medium. Web: excellent. Custom engine: unnecessary (since superseded: the custom engine was chosen).</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>An original schematic sector map with five locations (Hub, Ore belt, Shipyard, Market, Outpost) joined by dashed trade routes, with small ship triangles travelling between them.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Maybe</span> <span class="t-acc a-amber">4. Chunky voxel builder</span></h3>
+              <div class="b">Verdict: MAYBE</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>Avorion.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Blocky voxel ships, materials shown by color.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Ship-building joy, soft Newtonian flight, mine and trade; the economy is often shallower.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>PC Gamer: chunky ship building is easy and surprisingly fun; flight balances Newtonian physics with accessibility; the economy isn't dynamic, yet empire builders log hundreds of hours.</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot/Unity: medium to hard; the editor UX is the product. Web: low block counts only.</dd>
+                </div>
+                <div>
+                  <dt>For us</dt>
+                  <dd>Only if designing freighters is a pillar; otherwise skip. Building tools eat the roadmap.</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>A schematic blocky freighter made of colored squares, where each color stands for a material.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-green">
+              <h3 class="card-title"><span class="tag a-green">Yes</span> <span class="t-acc a-green">5. Schematic data captain</span></h3>
+              <div class="b">Verdict: YES as a secondary layer</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>FTL and Out There.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Ship as diagram, node maps, minimal animation; a menu-driven pulp UI cousin.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Captain decisions over piloting; pause-friendly; discovery through events and text.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>FTL: intentionally abstract, captain not pilot; brutal difficulty divides players. Out There: bold abstract menus; survival and luck heavy.</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot UI, Defold or local web: low for the look, medium for event writing. Web: excellent. Custom engine: pointless.</dd>
+                </div>
+                <div>
+                  <dt>For us</dt>
+                  <dd>YES for the map, cargo ledger and station boards. NO as the sole game, unless we embrace a spreadsheet miner.</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>The ship drawn as a room diagram (Bridge, two Cargo bays, Drill, Engine) and a jump node map with a "you" marker and an "event ?" node.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Maybe</span> <span class="t-acc a-amber">6. Painted indie multi-mode</span></h3>
+              <div class="b">Verdict: MAYBE: steal two modes, not five genres</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>Space Rangers and Star Traders.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Hand-painted 2D planets and ships, comic-illustration vibe.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Trade plus text quests plus light arcade and tactical modes; high replay value.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>Space Rangers HD: Very Positive, about 87% of English Steam reviews; living galaxy and freedom, complaints about balance and pathfinding. Star Traders: Frontiers: Very Positive, a deep captain RPG.</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot 2D: medium for systems; high with lots of art and many mini-modes. Web: good if the modes are few.</dd>
+                </div>
+              </dl>
+              <div class="row wrap"><span class="tag a-green">Keep: Painted station screens</span><span class="tag a-green">Keep: Witty text quests</span><span class="tag a-verm">Skip: Arcade combat</span><span class="tag a-verm">Skip: Tactical battles</span><span class="tag a-verm">Skip: Planet RPG</span></div>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>A mood panel of painted-style planets in a warm palette. This warmth is the "Star Traders sketched warmth" the game now aims for.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-verm">
+              <h3 class="card-title"><span class="tag a-verm">No</span> <span class="t-acc a-verm">7. AAA glossy explorer</span></h3>
+              <div class="b">Verdict: NO for v1, and likely v2</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>No Man's Sky and Homeworld.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>Lush planets, volumetric nebulae, trailer-grade lighting.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Wonder first; trade systems often shallower than Elite or X.</dd>
+                </div>
+                <div>
+                  <dt>Context</dt>
+                  <dd>NMS: sky-high hype became a storm at launch (Ars Technica). Homeworld: cinematic fleet look (The Verge).</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Extreme for solo, even with free Unity or Unreal. Web: unrealistic at this fidelity.</dd>
+                </div>
+                <div>
+                  <dt>For us</dt>
+                  <dd>Beauty is not the calm trader loop.</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>A mood drawing of a nebula and a hero planet.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Maybe</span> <span class="t-acc a-amber">8. Arcade chase cam, Freelancer feel</span></h3>
+              <div class="b">Verdict: MAYBE</div>
+              <dl class="kv">
+                <div>
+                  <dt>Inspired by</dt>
+                  <dd>Freelancer.</dd>
+                </div>
+                <div>
+                  <dt>Look</dt>
+                  <dd>3D but readable; a chase cam that banks with the ship; not a cockpit sim.</dd>
+                </div>
+                <div>
+                  <dt>Feel</dt>
+                  <dd>Mouse point-to-fly; punchy and accessible; historically combat-forward.</dd>
+                </div>
+                <div>
+                  <dt>Reception</dt>
+                  <dd>Remembered as an accessible open-world space opera (VICE). Mouse flight plus chase cam are essential to the feel (FreelancerFlightExample on GitHub).</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>Godot or Unity: medium. Web: Three.js or Babylon lite demos.</dd>
+                </div>
+                <div>
+                  <dt>For us</dt>
+                  <dd>Ship handling without Newtonian homework. Play down dogfighting; use it for cargo runs.</dd>
+                </div>
+              </dl>
+              <dl class="kv">
+                <div>
+                  <dt>Deck image</dt>
+                  <dd>A schematic banking chase cam with a mouse-aim reticle and a "cargo drop" of crates.</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+          <section id="stack">
+            <h2>Free stack cheat-sheet</h2>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Since superseded</span></h3>
+              <p>The custom engine was chosen over starting on any of these. Kept here as reference.</p>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Option</span> <span class="t-acc a-cyan">Godot 4 · open-source 2D/3D editor</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>License</dt>
+                  <dd>MIT, free forever</dd>
+                </div>
+                <div>
+                  <dt>Best for</dt>
+                  <dd>Top-down, schematic, painted</dd>
+                </div>
+                <div>
+                  <dt>Web</dt>
+                  <dd>Compatibility renderer (WebGL 2); C# web export unsupported</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Option</span> <span class="t-acc a-cyan">Unity Personal · free tier for 2D and 3D</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>License</dt>
+                  <dd>Free if under $200K revenue or funds in the last 12 months</dd>
+                </div>
+                <div>
+                  <dt>Best for</dt>
+                  <dd>Cockpit, voxel, arcade chase</dd>
+                </div>
+                <div>
+                  <dt>Watch</dt>
+                  <dd>Re-check terms if revenue or funding passes $200K</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Option</span> <span class="t-acc a-cyan">Defold · web kits (Phaser, Three.js, Babylon.js)</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>License</dt>
+                  <dd>Defold: free, no royalties. Web kits: open source*</dd>
+                </div>
+                <div>
+                  <dt>Best for</dt>
+                  <dd>Top-down, schematic; web-first prototypes</dd>
+                </div>
+                <div>
+                  <dt>Web</dt>
+                  <dd>Defold strong on 2D web; with web kits you own more tooling*</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Option</span> <span class="t-acc a-cyan">Bevy (Rust) · code-first, a middle path toward a custom engine</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>License</dt>
+                  <dd>MIT or Apache 2.0 (dual-licensed)</dd>
+                </div>
+                <div>
+                  <dt>Best for</dt>
+                  <dd>Sim-heavy games, custom middle path*</dd>
+                </div>
+                <div>
+                  <dt>Workflow</dt>
+                  <dd>Code-first; editor still early*</dd>
+                </div>
+              </dl>
+            </div>
+            <p>* Planning notes, not checked against a source: web-kit licenses and tooling, Bevy best fit and editor maturity.</p>
+          </section>
+          <section id="custom">
+            <h2>Dream big: a classic custom engine</h2>
+            <div class="card a-green">
+              <h3 class="card-title"><span class="tag a-green">Locked</span> <span class="t-acc a-green">Current decision: custom engine chosen</span></h3>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="t-acc a-cyan">When indies build engines, and what it costs a calm trader</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>When</dt>
+                  <dd>Unusual tech, independence from engine vendors, or the joy of learning. Before Unity, custom engines were common (engine survey, blood.church).</dd>
+                </div>
+                <div>
+                  <dt>Costs</dt>
+                  <dd>A long road before the first fun trade route. You rebuild UI, audio, assets and exporters that aren't the fantasy.</dd>
+                </div>
+                <div>
+                  <dt>Benefits</dt>
+                  <dd>Full control; ECS for many ships; no revenue cliff; can target web via wgpu.</dd>
+                </div>
+                <div>
+                  <dt>Middle path (deck recommendation)</dt>
+                  <dd>Bevy as a toolkit; SDL/raylib plus a custom 2D renderer; or Godot plus one custom economy module (GDExtension).</dd>
+                </div>
+                <div>
+                  <dt>Full custom from zero</dt>
+                  <dd>Overkill for hard-sim or AAA, mostly educational for top-down or schematic.</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+          <section id="ai">
+            <h2>AI-native live engine</h2>
+            <p>How the parts connect: both agents work through the Tools layer, and the Tools layer talks to the base game runtime.</p>
+            <div class="col">
+              <div class="card a-cyan">
+                <h3 class="card-title"><span class="t-acc a-cyan">Agent as GM</span></h3>
+                <p>Stories + world evolution</p>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card a-cyan">
+                <h3 class="card-title"><span class="t-acc a-cyan">Agent as live builder</span></h3>
+                <p>Mods + hot-reload</p>
+              </div>
+              <div class="t-acc a-cyan b center">↓</div>
+            </div>
+            <div class="col">
+              <div class="card a-cyan">
+                <h3 class="card-title"><span class="t-acc a-cyan">Tools</span></h3>
+                <p>API / MCP</p>
+              </div>
+              <div class="t-acc a-cyan b center">↓</div>
+            </div>
+            <div class="col">
+              <div class="card a-green">
+                <h3 class="card-title"><span class="t-acc a-green">Base game runtime</span></h3>
+                <p>Deterministic sim: economy · saves · physics</p>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Exploration · project thesis</span></h3>
+              <dl class="kv">
+                <div>
+                  <dt>Idea</dt>
+                  <dd>The base game stays flexible at runtime. You bring your own CLI agent (Claude Code, Codex, a Cursor subagent) to run the story and rebuild the game live.</dd>
+                </div>
+                <div>
+                  <dt>Split</dt>
+                  <dd>Deterministic sim (economy, saves, physics) vs a generative layer (quests, dialogue, procedural hooks).</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>A stable API/MCP surface: query world state, propose quests, patch content packs, regenerate UI or modules with guardrails.</dd>
+                </div>
+                <div>
+                  <dt>Risks</dt>
+                  <dd>Live rebuilds can break saves and balance. Answer: sandboxed mods, versioned schemas, offline fallbacks.</dd>
+                </div>
+                <div>
+                  <dt>Synergy</dt>
+                  <dd>Grok Bot as an optional GM client; OpenRouter models; or connect your own Claude or ChatGPT over MCP.</dd>
+                </div>
+                <div>
+                  <dt>Build</dt>
+                  <dd>A thin runtime that exposes tools. No full AAA engine needed first.</dd>
+                </div>
+              </dl>
+              <p>An emerging pattern and a thesis, not established genre practice. It has since grown into the two-engine plan: a base engine that changes only with a release, and a live scripting engine where the AI game master works.</p>
+            </div>
+          </section>
+          <section id="v1">
+            <h2>v1 recommendation</h2>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">v1: a readable top-down trader, proven by a small playable loop</span></h3>
+              <p>Five steps from the deck, with the superseded parts marked.</p>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">1</span>
+                <div class="col"><strong class="t-acc a-blue">Look</strong><span>Readable top-down trader in the Endless Sky lineage; combat optional.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">2</span>
+                <div class="col"><strong class="t-acc a-blue">UI spice</strong><span>Schematic cargo, market and map panels.</span></div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">3</span>
+                <div class="col"><strong class="t-acc a-blue">Later</strong><span>Fun cargo flying, now as arcade WASD that stops on release, with click-to-fly later. No cockpits, no AAA.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">4</span>
+                <div class="col"><strong class="t-acc a-cyan">Stack</strong><span>The deck said Godot 4 2D with web export; superseded by the custom engine. The AI-live track runs alongside, off the critical path.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">5</span>
+                <div class="col"><strong class="t-acc a-purple">Proof loop</strong><span>A few systems, mine, sell, buy cargo, watch profit tick up, get a bigger hold. No PvP, timers or required combat.</span></div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <h3 class="card-title"><span class="tag a-green">Good</span> <span class="t-acc a-green">Design around reception</span></h3>
+              <p>Players love calm space trucking (Elite) and readable ships with fleet growth (Endless Sky); they punish opaque automation (X4) and pretty but unreadable cockpits (Star Citizen).</p>
+            </div>
+            <div class="card a-amber">
+              <h3 class="card-title"><span class="tag a-amber">Open</span> <span class="t-acc a-amber">Parallel track</span></h3>
+              <p>Keep exploring the AI-native live engine once the loop is fun.</p>
+            </div>
+          </section>
+          <section id="sources">
+            <h2>Sources</h2>
+            <div class="card a-blue">
+              <ol class="links">
+                <li><a href="https://www.thegamer.com/im-never-happier-in-elite-dangerous-than-when-im-space-trucking/">https://www.thegamer.com/im-never-happier-in-elite-dangerous-than-when-im-space-trucking/</a></li>
+                <li><a href="https://store.steampowered.com/app/404410/Endless_Sky/">https://store.steampowered.com/app/404410/Endless_Sky/</a></li>
+                <li><a href="https://www.sigtrent.com/endless-sky-game-reivew/">https://www.sigtrent.com/endless-sky-game-reivew/</a></li>
+                <li><a href="https://store.steampowered.com/app/392160/X4_Foundations/">https://store.steampowered.com/app/392160/X4_Foundations/</a></li>
+                <li><a href="https://www.reddit.com/r/X4Foundations/comments/1of7cvb/building_your_empire_is_fun_but_actually_using_it/">https://www.reddit.com/r/X4Foundations/comments/1of7cvb/building_your_empire_is_fun_but_actually_using_it/</a></li>
+                <li><a href="https://www.eveonline.com/news/view/industry-ui">https://www.eveonline.com/news/view/industry-ui</a></li>
+                <li><a href="https://www.reddit.com/r/EliteDangerous/comments/j5slwu/as_much_as_i_love_eds_hud_design_i_do_sometimes/">https://www.reddit.com/r/EliteDangerous/comments/j5slwu/as_much_as_i_love_eds_hud_design_i_do_sometimes/</a></li>
+                <li><a href="https://www.pcgamer.com/avorion-this-is-the-chunky-space-sandbox-i-didnt-know-i-wanted/">https://www.pcgamer.com/avorion-this-is-the-chunky-space-sandbox-i-didnt-know-i-wanted/</a></li>
+                <li><a href="https://episodiccontentmag.com/2015/06/10/anything-but-sports-the-making-of-ftl-chapter-2-of-4/">https://episodiccontentmag.com/2015/06/10/anything-but-sports-the-making-of-ftl-chapter-2-of-4/</a></li>
+                <li><a href="https://www.gamespot.com/reviews/ftl-faster-than-light-review/1900-6396645/">https://www.gamespot.com/reviews/ftl-faster-than-light-review/1900-6396645/</a></li>
+                <li><a href="https://www.gamesradar.com/out-there-review/">https://www.gamesradar.com/out-there-review/</a></li>
+                <li><a href="https://store.steampowered.com/app/214730/Space_Rangers_HD_A_War_Apart/">https://store.steampowered.com/app/214730/Space_Rangers_HD_A_War_Apart/</a></li>
+                <li><a href="https://store.steampowered.com/app/335620/Star_Traders_Frontiers/">https://store.steampowered.com/app/335620/Star_Traders_Frontiers/</a></li>
+                <li><a href="https://arstechnica.com/gaming/2016/08/how-sky-high-hype-formed-a-storm-cloud-over-no-mans-skys-release/">https://arstechnica.com/gaming/2016/08/how-sky-high-hype-formed-a-storm-cloud-over-no-mans-skys-release/</a></li>
+                <li><a href="https://www.theverge.com/2015/2/24/8098381/homeworld-remastered-collection-gearbox-interview">https://www.theverge.com/2015/2/24/8098381/homeworld-remastered-collection-gearbox-interview</a></li>
+                <li><a href="https://www.vice.com/en/article/freelancer-was-the-original-open-world-space-opera/">https://www.vice.com/en/article/freelancer-was-the-original-open-world-space-opera/</a></li>
+                <li><a href="https://github.com/brihernandez/FreelancerFlightExample">https://github.com/brihernandez/FreelancerFlightExample</a></li>
+                <li><a href="https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_web.html">https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_web.html</a></li>
+                <li><a href="https://unity.com/products/unity-personal">https://unity.com/products/unity-personal</a></li>
+                <li><a href="https://defold.com/">https://defold.com/</a></li>
+                <li><a href="https://github.com/bevyengine/bevy#license">https://github.com/bevyengine/bevy#license</a></li>
+                <li><a href="https://blood.church/posts/2022-07-14-making-your-own-engine-a-survey-of-the-landscape/">https://blood.church/posts/2022-07-14-making-your-own-engine-a-survey-of-the-landscape/</a></li>
+              </ol>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

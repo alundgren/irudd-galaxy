@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vertical Slice Proposal — The Lantern Reach</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Vertical Slice Proposal — The Lantern Reach</h1>
+          <p>A proposal for one coherent, playable vertical slice of the mining and trading game, about 20 times the size of one disposable prototype: three regions, six stations, three factions, and the arc from a hands-on first ship to first automation and a first prestige choice, with the game master changing the world live. It builds on the <a href="high-level-plan.html">High-Level Plan</a> (source of truth), <a href="../research/living-galaxy.html">Keeping a Living Galaxy New</a> and <a href="../research/game-master-menu.html">The Game Master's Menu</a>. All pages are listed on <a href="index.html">Home</a>.</p>
+          <section id="contents">
+            <nav class="toc card a-blue" aria-label="On this page">
+              <p class="lead"><strong>On this page</strong></p>
+              <ol>
+                <li class="a-blue"><a href="#rec">The proposal in one card</a></li>
+                <li class="a-amber"><a href="#prove">What the slice must prove</a></li>
+                <li class="a-green"><a href="#scope">Scope</a></li>
+                <li class="a-purple"><a href="#journey">The player's journey, beat by beat</a></li>
+                <li class="a-cyan"><a href="#systems">Systems and minimum depth</a></li>
+                <li class="a-cyan"><a href="#hooks">Base engine hooks for the game master</a></li>
+                <li class="a-blue"><a href="#shapes">Alternative slice shapes</a></li>
+                <li class="a-purple"><a href="#agents">Splitting it across coding agents</a></li>
+                <li class="a-amber"><a href="#open">Open decisions for Andreas</a></li>
+              </ol>
+            </nav>
+          </section>
+          <section id="rec">
+            <h2>The proposal in one card</h2>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Recommendation</span> <span class="t-acc a-green">Build Shape A, the Lantern Reach: one full arc in a small living region.</span></h4>
+              <p>Twenty systems, each about one prototype's worth, carry the player from a Tier 0 Wren flown with WASD and Space, through every control unlock and a first automated craft, to the Hearthbound choice between Tandem and Heron. Around that arc, three factions and a live game master change places and people through validated scripts, and a thin, optional fast-model layer makes traders and docks react moment to moment. Everything plays offline on an authored backbone. The code stays disposable; the design is representative.</p>
+            </div>
+            <div class="tablewrap">
+              <table class="tbl a-blue">
+                <thead>
+                  <tr>
+                    <th>Measure</th>
+                    <th>One prototype</th>
+                    <th>This slice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Systems</th>
+                    <td>1–2</td>
+                    <td>20</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Regions</th>
+                    <td>1</td>
+                    <td>3</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Stations</th>
+                    <td>1–2</td>
+                    <td>6 (one grown live)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Factions</th>
+                    <td>0</td>
+                    <td>3</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Commodities</th>
+                    <td>1–2</td>
+                    <td>6</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Hulls</th>
+                    <td>1</td>
+                    <td>3 (Wren, Tandem, Heron)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Control tiers</th>
+                    <td>1–2</td>
+                    <td>6</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Journey beats</th>
+                    <td>a few</td>
+                    <td>17</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Game master change types</th>
+                    <td>1 (cards)</td>
+                    <td>8 (scripts)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Named NPCs</th>
+                    <td>0–2</td>
+                    <td>about 10</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section id="prove">
+            <h2>What the slice must prove</h2>
+            <p>Ten questions, each tied to an open item in the plan, each with a pass signal Andreas can feel while playing.</p>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">1</span>
+                <div class="col">
+                  <strong class="t-acc a-purple">Does a hands-on first ship stay satisfying while it works toward clear directed goals?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Proto 6 and Proto 7 next-test idea: a satisfying manual loop toward a clear goal, with automation paced later.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>Andreas keeps flying the Tier 0 Wren by choice, and every goal is readable in one line.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">2</span>
+                <div class="col">
+                  <strong class="t-acc a-purple">Do control unlocks feel like progression, from WASD plus Space to queues and loops?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Flight model lock: controls are progression; same verbs for player and automated ships.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>Each unlock removes a chore he had actually felt, and none feels like a menu checkbox.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <span class="chip a-amber">3</span>
+                <div class="col">
+                  <strong class="t-acc a-amber">Does first automation feel like a new game opening, and is it redundant once the ship can loop?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Proto 7 open questions: new game or checkbox; drone before loops, or a job the ship cannot do.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>The automated craft changes what he does next, not just how much he earns.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <span class="chip a-green">4</span>
+                <div class="col">
+                  <strong class="t-acc a-green">Do scouted living prices with saturation create real choices without on-rails guidance?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Proto 4 was a weaker signal; the direction was kept, the market UI was not frozen.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>He splits loads, scouts on purpose and remembers a price gap he found himself.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">5</span>
+                <div class="col">
+                  <strong class="t-acc a-purple">Does the Hearthbound hull choice read as an RPG calling rather than paying to lose work?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Proto 3 Draft 2 accepted as the prestige direction; reframing is still open.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>Both branches tempt him, and nothing he built in the world is lost.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">6</span>
+                <div class="col">
+                  <strong class="t-acc a-cyan">Can the game master change systems, places and people live, not just flavor text?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Proto 5: plumbing works, content repeated. Research: variety stored in world state does not run out.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>At least one change he notices on his own and can name the cause of.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">7</span>
+                <div class="col">
+                  <strong class="t-acc a-cyan">Where is the line between the release-only base engine and the live scripting engine?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Open plan item: draw the line between the immutable engine and the agent-mutable layer.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>Every game master change in the slice ships as a script; anything that needed a base change is listed.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">8</span>
+                <div class="col">
+                  <strong class="t-acc a-blue">Do slow pilot growth and factions add depth or clutter?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>New open directions from Andreas: pilot talents and factions.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>He can say what his pilot is like and which faction trusts him, without opening a stat screen.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">9</span>
+                <div class="col">
+                  <strong class="t-acc a-blue">Does a fast-model layer make the world feel alive while text stays important or absent?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Open direction: fast models pick from what world state allows; offline-first.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>With the layer on, traders and dock talk react to real facts; with it off, nothing breaks.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">10</span>
+                <div class="col">
+                  <strong class="t-acc a-cyan">When does the AI game master enter the project?</strong>
+                  <dl class="kv">
+                    <div>
+                      <dt>From the plan</dt>
+                      <dd>Open plan item: after the vertical slice, or a small helper earlier.</dd>
+                    </div>
+                    <div>
+                      <dt>Pass signal</dt>
+                      <dd>The slice answers it by including a live game master with an offline backbone.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section id="scope">
+            <h2>Scope</h2>
+            <h3>The galaxy area</h3>
+            <p>Three regions linked by lanes, each with a clear role in the arc. Names are working names.</p>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Region</span> <span class="t-acc a-green">Lantern Shallows (home)</span></h4>
+              <p>Calm ice and iron fields, the first directed goals, the hullwright.</p>
+              <dl class="kv">
+                <div>
+                  <dt>Lantern Wharf</dt>
+                  <dd>Home station, dockmaster, hullwright for control unlocks and the prestige choice. Wharf Cooperative.</dd>
+                </div>
+                <div>
+                  <dt>Kettle Dock</dt>
+                  <dd>Greenhouse co-op that visibly grows in stages from the ice and plate you bring. Wharf Cooperative.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Region</span> <span class="t-acc a-amber">Cinder Drift</span></h4>
+              <p>Rich, depleting belts and the first real price gaps.</p>
+              <dl class="kv">
+                <div>
+                  <dt>Cinder Hook</dt>
+                  <dd>Rough mining camp that buys plate and sells ore cheap. Contested between Cooperative and Compact.</dd>
+                </div>
+                <div>
+                  <dt>Glass Drift Observatory</dt>
+                  <dd>Scholars studying an Ancients fragment. Lamplighter Society.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Region</span> <span class="t-acc a-purple">Brassmouth Narrows</span></h4>
+              <p>Trade hub with saturating demand and remote-price scouting.</p>
+              <dl class="kv">
+                <div>
+                  <dt>Brassmouth Exchange</dt>
+                  <dd>Big market that pays well for glassite until you flood it. Tollway Compact.</dd>
+                </div>
+                <div>
+                  <dt>The sixth station</dt>
+                  <dd>Not authored: the game master grows it during the slice from what the player's history makes plausible.</dd>
+                </div>
+              </dl>
+            </div>
+            <h3>Factions</h3>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Faction</span> <span class="t-acc a-green">Wharf Cooperative</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Wants</dt>
+                  <dd>Miners and growers; want ice, plate and fair ore prices.</dd>
+                </div>
+                <div>
+                  <dt>Remembers</dt>
+                  <dd>Remembers deliveries and who you sided with at Cinder Hook.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Faction</span> <span class="t-acc a-amber">Tollway Compact</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Wants</dt>
+                  <dd>Merchants; want glassite and control of the Cinder ore trade.</dd>
+                </div>
+                <div>
+                  <dt>Remembers</dt>
+                  <dd>Remembers big sales and whether you flooded their market.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">Faction</span> <span class="t-acc a-purple">Lamplighter Society</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Wants</dt>
+                  <dd>Scholars; want fragments, survey data and safe passage for researchers.</dd>
+                </div>
+                <div>
+                  <dt>Remembers</dt>
+                  <dd>Remembers what you found and whom you told first.</dd>
+                </div>
+              </dl>
+            </div>
+            <p><strong>Commodities: </strong>Ice, Iron ore, Refined plate, Glassite, Rations, Ancients fragment (not for sale).</p>
+            <h3>The player arc</h3>
+            <div class="col">
+              <div class="col">
+                <div class="card a-green">
+                  <div class="row wrap"><span class="chip a-green">1</span><strong class="t-acc a-green">Act 1 — Hands on</strong><span>Tier 0: WASD plus Space</span></div>
+                </div>
+              </div>
+              <div class="col">
+                <div class="t-acc a-amber b center">↓</div>
+                <div class="card a-amber">
+                  <div class="row wrap"><span class="chip a-amber">2</span><strong class="t-acc a-amber">Act 2 — Reach out</strong><span>Click to fly, click to mine, click to dock, map click</span></div>
+                </div>
+              </div>
+              <div class="col">
+                <div class="t-acc a-purple b center">↓</div>
+                <div class="card a-purple">
+                  <div class="row wrap"><span class="chip a-purple">3</span><strong class="t-acc a-purple">Act 3 — Let go</strong><span>Queues and loops</span></div>
+                </div>
+              </div>
+              <div class="col">
+                <div class="t-acc a-blue b center">↓</div>
+                <div class="card a-blue">
+                  <div class="row wrap"><span class="chip a-blue">4</span><strong class="t-acc a-blue">Act 4 — A calling</strong><span>First prestige choice</span></div>
+                </div>
+              </div>
+            </div>
+            <p>Unlocks are paced by activity (deliveries, dockings, goals met), never by a clock, and compressed for the slice compared with the real game's pacing in the plan.</p>
+            <h3>What the game master does live</h3>
+            <p>It works only through the scripting engine. Every change passes validation, carries a recorded cause, appears in a place and a person, and can be rolled back in-world. An authored backbone plays the whole journey with no game master at all.</p>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">1</span>
+                <div class="col"><strong class="t-acc a-cyan">Grow a station from deliveries</strong><span>Kettle Dock's greenhouse gains visible stages as the player brings ice and plate; new stock appears on its market.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">2</span>
+                <div class="col"><strong class="t-acc a-cyan">Run a shortage that reacts to history</strong><span>Heavy ice mining in the Shallows starts an ice shortage touching three stations, with two ways to help and a resolution if ignored.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">3</span>
+                <div class="col"><strong class="t-acc a-cyan">Move faction territory</strong><span>The Cinder Hook dispute ends with a depot changing hands, shown on the map and in station art, with the cause recorded.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">4</span>
+                <div class="col"><strong class="t-acc a-cyan">Plant a rumor with a truth value</strong><span>A dockhand mentions a rich glassite vein; it may be real, or a Compact plant to empty a belt.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">5</span>
+                <div class="col"><strong class="t-acc a-cyan">Add a new verb with a teacher</strong><span>A named NPC introduces the first automated craft, or rock tagging, and uses it in front of the player first.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">6</span>
+                <div class="col"><strong class="t-acc a-cyan">Open an Ancients chapter</strong><span>The fragment from a rock the player mined opens chapter one at Glass Drift, inside the canon locks.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">7</span>
+                <div class="col"><strong class="t-acc a-cyan">Create the sixth station</strong><span>A station type nobody designed in advance, placed near something the player did, assembled from the runtime asset kit.</span></div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">8</span>
+                <div class="col"><strong class="t-acc a-cyan">Write the chronicle</strong><span>Every change becomes a chronicle entry and something the dockmaster can tell you when you ask what changed.</span></div>
+              </div>
+            </div>
+            <h3>What the fast-model layer does</h3>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">Proposed</span> <span class="t-acc a-blue">Thin, optional, offline-first</span></h4>
+              <ul class="marks a-blue">
+                <li><span class="chip a-blue" aria-hidden="true">•</span> NPC traders choose routes and cargo from a menu the world allows, so prices move for reasons other than the player.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Dock talk picks or phrases a line only when it can cite a real fact in history; otherwise nothing is said.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Rumors spread from station to station by NPC choices, carrying their truth value with them.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Outcomes are written back to history, where the game master reads them.</li>
+                <li><span class="chip a-blue" aria-hidden="true">•</span> Runs on a small local model, inside a budget the game master sets; a rule-based picker replaces it when it is off.</li>
+              </ul>
+            </div>
+            <h3>In and out</h3>
+            <div class="pair">
+              <div class="card a-green">
+                <h4 class="card-title"><span class="t-acc a-green">In the slice</span></h4>
+                <ul class="marks a-green">
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Calm, solo, top-down, Star Traders sketched warmth</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Arcade WASD that stops on release, real pause</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Controls as progression up to queues and loops</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Scouted living prices with saturation</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> One automated craft, one prestige choice</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Live game master with validation and rollback</li>
+                  <li><span class="chip a-green" aria-hidden="true">+</span> Local save on one computer, offline play</li>
+                </ul>
+              </div>
+              <div class="card a-verm">
+                <h4 class="card-title"><span class="t-acc a-verm">Out of the slice</span></h4>
+                <ul class="marks a-verm">
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Combat, pirates as fights, PvP, multiplayer</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Timers, countdowns, progress bars, days-left</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> An approval inbox or feedback buttons in the game</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Cards as the core content format</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Player-built bases and stations</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> A second prestige, Mammoth, Firefly or Oracle hulls</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> A full talent tree or XP bars</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Live sync, Mac packaging, the rejected mining and engine sounds</li>
+                  <li><span class="chip a-verm" aria-hidden="true">−</span> Filler flavor text</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+          <section id="journey">
+            <h2>The player's journey, beat by beat</h2>
+            <p>What Andreas sees and does, in order. Green tags mark where a new control or system unlocks.</p>
+            <div class="col">
+              <h3>Act 1 — Hands on · Tier 0: WASD plus Space</h3>
+              <div class="card a-green">
+                <div class="row">
+                  <span class="chip a-green">1</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-green">Undock the Wren</strong></div>
+                    <span>You leave Lantern Wharf in a small, sketched Wren. WASD flies, the ship stops when you let go, Space does the one thing in reach. Dockmaster Ilse asks for ice for the Kettle Dock greenhouse. One goal line, nothing else on screen.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-green">
+                <div class="row">
+                  <span class="chip a-green">2</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-green">Mine by hand</strong></div>
+                    <span>You park beside an ice rock and hold Space. The rock visibly shrinks and cracks; your hold fills. Different rocks look and behave differently.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-green">
+                <div class="row">
+                  <span class="chip a-green">3</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-green">First delivery</strong></div>
+                    <span>You drift into Kettle Dock's ring and press Space to dock. The greenhouse's first stage appears on the station itself, and stays there.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-green">
+                <div class="row">
+                  <span class="chip a-green">4</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-green">First sale and first upgrade</strong></div>
+                    <span>The next goal is a mining lens. You sell iron at the Wharf and watch the price dip a little with each unit you sell.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-green">
+                <div class="row">
+                  <span class="chip a-green">5</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-green">Pause whenever you like</strong></div>
+                    <span>Press P or Escape and the whole galaxy stops with an obvious PAUSED card. Nothing ever counts down.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Act 2 — Reach out · Click to fly, click to mine, click to dock, map click</h3>
+              <div class="card a-amber">
+                <div class="row">
+                  <span class="chip a-amber">6</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-amber">The nav chip</strong><span class="tag a-green">Unlocks: Click to fly, mine, dock</span></div>
+                    <span>The hullwright fits your first nav chip: short click-to-fly hops. Click-to-mine and click-to-dock follow as goals are met.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-amber">
+                <div class="row">
+                  <span class="chip a-amber">7</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-amber">Into Cinder Drift</strong><span class="tag a-green">Unlocks: Map click travel</span></div>
+                    <span>Ilse sends plate to the Cinder Hook camp. On the map, prices there stay unknown until you visit, then show as a snapshot dated by your last visit.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-amber">
+                <div class="row">
+                  <span class="chip a-amber">8</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-amber">Chasing a gap</strong></div>
+                    <span>Brassmouth pays well for glassite until you flood it. You learn to split loads and scout ahead. The Tollway Compact starts to remember your name.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-amber">
+                <div class="row">
+                  <span class="chip a-amber">9</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-amber">The Cinder Hook dispute</strong></div>
+                    <span>Cooperative and Compact both want the camp's ore. You choose whom to supply, in your own time. The depot changes hands on the map and both factions remember.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-amber">
+                <div class="row">
+                  <span class="chip a-amber">10</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-amber">A rumor</strong></div>
+                    <span>A dockhand mentions a rich vein in the far belt. Following it pays off, or teaches you who planted it.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Act 3 — Let go · Queues and loops</h3>
+              <div class="card a-purple">
+                <div class="row">
+                  <span class="chip a-purple">11</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-purple">Orders in a row</strong><span class="tag a-green">Unlocks: Queues, then loops</span></div>
+                    <span>Shift-click chains fly, mine, dock and sell. Then you save a loop route between two stations you trust.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-purple">
+                <div class="row">
+                  <span class="chip a-purple">12</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-purple">A shortage you caused</strong></div>
+                    <span>Your ice runs drained the Shallows. Kettle Dock, Lantern Wharf and Cinder Hook feel it. Two ways to help appear in conversation; if you ignore it, the world resolves it another way.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-purple">
+                <div class="row">
+                  <span class="chip a-purple">13</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-purple">Your first automated craft</strong><span class="tag a-green">Unlocks: First automation</span></div>
+                    <span>A named NPC shows you the first automated craft working. You hand it your saved loop with the same verbs you use. It keeps working while you fly elsewhere.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-purple">
+                <div class="row">
+                  <span class="chip a-purple">14</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-purple">Your pilot changes</strong></div>
+                    <span>Because of something you did many times, your pilot earns a trait, such as seeing a rock's richest face. It changes how you play a little, never how strong you are a lot.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <h3>Act 4 — A calling · First prestige choice</h3>
+              <div class="card a-blue">
+                <div class="row">
+                  <span class="chip a-blue">15</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-blue">The fragment</strong></div>
+                    <span>A rock you mined held an Ancients fragment. The Lamplighters at Glass Drift ask you to carry it, and chapter one opens.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-blue">
+                <div class="row">
+                  <span class="chip a-blue">16</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-blue">The hullwright's question</strong><span class="tag a-green">Unlocks: Hearthbound branch</span></div>
+                    <span>Back at Lantern Wharf you can trade the Wren up into a Tandem (hauler that pairs with automation) or a Heron (scout with longer price reach). World, credits, standing and depletion persist; hull ranks reset for a fee.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card a-blue">
+                <div class="row">
+                  <span class="chip a-blue">17</span>
+                  <div class="col">
+                    <div class="row wrap"><strong class="t-acc a-blue">Coming home</strong></div>
+                    <span>You ask Ilse what changed while you were away. She tells you, in her words. The sixth station is on the map, and the chronicle now has your name in it. The slice ends; the world keeps running.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section id="systems">
+            <h2>Systems and minimum depth</h2>
+            <p>Twenty systems, each sized at roughly one prototype's worth of work. Each is tagged with the workstream that owns it.</p>
+            <div class="row wrap"><strong>Workstreams:</strong><span class="tag a-cyan">W1 Core and world</span><span class="tag a-purple">W2 Ship and orders</span><span class="tag a-green">W3 Economy and map</span><span class="tag a-blue">W4 Progression and story</span><span class="tag a-amber">W5 Scripting and game master</span><span class="tag a-verm">W6 Presentation and integration</span></div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">1</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-cyan">Simulation core, pause, local save</strong><span class="tag a-cyan">W1</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Fixed-step sim, real pause, local save and load with stable IDs so scripts and saves survive reloads.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Pause, offline-first</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-cyan">
+              <div class="row">
+                <span class="chip a-cyan">2</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-cyan">World state, history log, event bus</strong><span class="tag a-cyan">W1</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Stores for stations, markets, factions, NPCs, rumors; an append-only history with queries; events plus activity counters.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Engine line</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">3</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-purple">Flight and control tiers</strong><span class="tag a-purple">W2</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Arcade WASD that stops on release, Space for the context action, then click to fly, mine, dock and map click as unlocks.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Controls as progression</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">4</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-purple">Orders: queues and loops</strong><span class="tag a-purple">W2</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>One verb set (fly, mine, dock, buy, sell, wait, loop) shared by the player ship and automated craft.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Same verbs</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">5</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-purple">Mining and rocks</strong><span class="tag a-purple">W2</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Three rock types, visible shrinking, depletion that persists, slow regrowth driven by activity.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Manual loop</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">6</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-purple">Docking, cargo, station services</strong><span class="tag a-purple">W2</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Ring docking, hold capacity, six commodities, a hullwright and a dockmaster at the right stations.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Manual loop</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <span class="chip a-green">7</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-green">Living market</strong><span class="tag a-green">W3</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Per-station producers and consumers, prices that react to trades, saturation that recovers with activity.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Living prices</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-green">
+              <div class="row">
+                <span class="chip a-green">8</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-green">Map, regions, scouting</strong><span class="tag a-green">W3</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Three regions, known and unknown prices, snapshots dated by your last visit, faction borders that can move.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Scouting</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">9</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-purple">First automated craft</strong><span class="tag a-purple">W2</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>One craft that runs a saved loop while the player is elsewhere, plus one thing the player ship cannot do.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Proto 7 questions</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">10</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-blue">Directed quest backbone</strong><span class="tag a-blue">W4</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>The authored goals of the journey, each a single readable line with a clear end state, all playable offline.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Clear goals</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">11</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-blue">State-driven beats</strong><span class="tag a-blue">W4</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Small situations that fire from world state and history (shortage, dispute, rumor), extendable by scripts.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Content variety</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">12</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-blue">Factions and standing</strong><span class="tag a-blue">W4</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Three factions with wants, territory and memory of deeds; standing shown in how people treat you, not a bar.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Factions</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">13</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-blue">Pilot growth</strong><span class="tag a-blue">W4</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>A handful of traits earned by deeds, small qualitative effects, no XP bar, no grind.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Pilot growth</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-blue">
+              <div class="row">
+                <span class="chip a-blue">14</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-blue">Hullwright prestige</strong><span class="tag a-blue">W4</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Wren to Tandem or Heron, each with a few meaningful abilities; world persists, hull ranks reset for a fee.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Prestige feel</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <span class="chip a-amber">15</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-amber">Scripting engine with validation and rollback</strong><span class="tag a-amber">W5</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Scripts call base hooks only; types, invariants and a sandbox run before apply; snapshot and in-world rollback.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Engine line</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <span class="chip a-amber">16</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-amber">Game master bridge</strong><span class="tag a-amber">W5</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>One CLI contract: read history and state, propose a script, get a validation report. Applies at calm moments only.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Live game master</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <span class="chip a-amber">17</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-amber">Fast-model layer</strong><span class="tag a-amber">W5</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Optional. Picks from menus world state allows for NPC traders, dock talk and rumor spread; rule-based fallback.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Living moment to moment</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <span class="chip a-amber">18</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-amber">Legibility channels</strong><span class="tag a-amber">W5</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Dock talk, ask-what-changed, map annotations, a chronicle. Every line must cite a fact in history.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Text important or absent</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-verm">
+              <div class="row">
+                <span class="chip a-verm">19</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-verm">Presentation</strong><span class="tag a-verm">W6</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Star Traders sketched art for three hulls, six stations, rocks and UI; a new audio pass that reuses none of the rejected sounds.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Feel</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+            <div class="card a-verm">
+              <div class="row">
+                <span class="chip a-verm">20</span>
+                <div class="col">
+                  <div class="row wrap"><strong class="t-acc a-verm">Dev harness</strong><span class="tag a-verm">W6</span></div>
+                  <dl class="kv">
+                    <div>
+                      <dt>Minimum depth</dt>
+                      <dd>Jump to any beat, headless fast-forward of a save, a scripted bot run of the whole journey, debug overlay.</dd>
+                    </div>
+                    <div>
+                      <dt>Answers</dt>
+                      <dd>Testability</dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section id="hooks">
+            <h2>Base engine hooks for the game master</h2>
+            <p>The smallest surface the release-only base engine must expose so all eight live change types are scripts. Anything not on this list is out of the game master's reach in the slice.</p>
+            <div class="tablewrap">
+              <table class="tbl a-cyan">
+                <thead>
+                  <tr>
+                    <th>Hook or store</th>
+                    <th>Used in the slice to</th>
+                    <th>Minimum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Event hooks</th>
+                    <td>React to dock, undock, mine, rock depleted, buy, sell, scout, order done, quest step, trait earned, prestige.</td>
+                    <td>Subscribe from a script; payload carries stable IDs.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Activity counters</th>
+                    <td>Pace beats by dockings, deliveries, jumps and sessions, never clock time.</td>
+                    <td>Read-only counters per player, station and region.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">World state stores</th>
+                    <td>Change stations and build stages, markets, factions, territory, NPCs and rumors.</td>
+                    <td>Typed reads and writes, each write tagged with a cause.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Player history</th>
+                    <td>Find what the player did and build consequences on it.</td>
+                    <td>Append-only facts with simple queries.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Canon graph</th>
+                    <td>Keep Ancients chapter one consistent and guarded.</td>
+                    <td>A small graph of locked canon nodes that scripts cite.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Market levers</th>
+                    <td>Run shortages and new stock without touching price code.</td>
+                    <td>Add or scale producers and consumers per station.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Mechanic registry</th>
+                    <td>Introduce a new verb with a teacher.</td>
+                    <td>Per-save flags plus reserved input and UI slots.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Order verb API</th>
+                    <td>Let scripted NPC craft and the automated craft use the player's verbs.</td>
+                    <td>Issue fly, mine, dock, buy, sell, wait, loop.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Runtime asset kit</th>
+                    <td>Grow Kettle Dock and assemble the sixth station.</td>
+                    <td>Modular station parts, stages and color variants by ID.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Beat API</th>
+                    <td>Add state-driven beats and directed goals.</td>
+                    <td>Register a beat with preconditions and an end state.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Legibility channels</th>
+                    <td>Make every change seen: dock talk, map notes, chronicle.</td>
+                    <td>Each line must reference a history fact ID.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Fast-model budget</th>
+                    <td>Set what fast models may decide, and how often.</td>
+                    <td>Menus of allowed choices plus a budget per region.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Sandbox and snapshots</th>
+                    <td>Validate and roll back.</td>
+                    <td>Fork a save, fast-forward headless, compare, restore.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Telemetry</th>
+                    <td>Spot exploits and runaway prices.</td>
+                    <td>Economy and activity metrics per region.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Engine</span> <span class="t-acc a-cyan">Validation every script passes, cut down for the slice</span></h4>
+              <ul class="marks a-cyan">
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Types and schema: the script only touches declared hooks and state.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Canon check against the small canon graph.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Invariants: no timers, no level scaling, no destroyed player property, every shock paired with an opportunity.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Sandbox run: fork the current save, fast-forward headless, check prices and dead ends.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Legibility check: names a place and a person where it will be noticed.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">✓</span> Snapshot, then apply at a calm moment (docked or paused); roll back in-world if it misbehaves.</li>
+              </ul>
+            </div>
+          </section>
+          <section id="shapes">
+            <h2>Alternative slice shapes</h2>
+            <p>Three shapes at a similar size, trading depth against breadth. All three are shown below.</p>
+            <section id="shape-a" class="group">
+              <h3>Shape A · The Lantern Reach (balanced)</h3>
+              <div class="card a-green">
+                <h4 class="card-title"><span class="tag a-green">Recommended</span> <span class="t-acc a-green">A · The Lantern Reach (balanced)</span></h4>
+                <dl class="kv">
+                  <div>
+                    <dt>Galaxy</dt>
+                    <dd>3 regions, 6 stations (one grown by the game master), 3 factions, 6 commodities.</dd>
+                  </div>
+                  <div>
+                    <dt>Player arc</dt>
+                    <dd>Full arc: Tier 0 Wren, all control unlocks, first automation, first prestige choice.</dd>
+                  </div>
+                  <div>
+                    <dt>Game master</dt>
+                    <dd>Live, with eight change types over an offline authored backbone.</dd>
+                  </div>
+                  <div>
+                    <dt>Fast models</dt>
+                    <dd>Thin and optional: NPC traders, dock talk, rumor spread.</dd>
+                  </div>
+                  <div>
+                    <dt>Size</dt>
+                    <dd>20 systems, 17 journey beats, about 10 named NPCs, 3 hulls.</dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="pair">
+                <div class="card a-green">
+                  <h4 class="card-title"><span class="t-acc a-green">Gains</span></h4>
+                  <ul class="marks a-green">
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Answers every open question in one coherent playable.</li>
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Ends at the prestige choice, so the long arc is felt, not described.</li>
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Each system is about one prototype's worth, which matches the 20x budget.</li>
+                  </ul>
+                </div>
+                <div class="card a-verm">
+                  <h4 class="card-title"><span class="t-acc a-verm">Costs</span></h4>
+                  <ul class="marks a-verm">
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Many systems at minimum depth; feel polish is thinner than a narrow slice.</li>
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Needs contracts frozen before agents start, or integration gets messy.</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+            <section id="shape-b" class="group">
+              <h3>Shape B · One Harbor (deep and narrow)</h3>
+              <div class="card a-purple">
+                <h4 class="card-title"><span class="tag a-purple">Alternative</span> <span class="t-acc a-purple">B · One Harbor (deep and narrow)</span></h4>
+                <dl class="kv">
+                  <div>
+                    <dt>Galaxy</dt>
+                    <dd>2 regions, 3 stations, 1 faction, 4 commodities.</dd>
+                  </div>
+                  <div>
+                    <dt>Player arc</dt>
+                    <dd>Tier 0 through loops and first automation, polished; prestige shown only as a choice screen.</dd>
+                  </div>
+                  <div>
+                    <dt>Game master</dt>
+                    <dd>Live, two change types: station growth and one shortage.</dd>
+                  </div>
+                  <div>
+                    <dt>Fast models</dt>
+                    <dd>Out.</dd>
+                  </div>
+                  <div>
+                    <dt>Size</dt>
+                    <dd>About 14 systems, each deeper, with a real art and audio pass.</dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="pair">
+                <div class="card a-green">
+                  <h4 class="card-title"><span class="t-acc a-green">Gains</span></h4>
+                  <ul class="marks a-green">
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Best answer on feel: flight, mining, docking and the first automation moment.</li>
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Least integration risk.</li>
+                  </ul>
+                </div>
+                <div class="card a-verm">
+                  <h4 class="card-title"><span class="t-acc a-verm">Costs</span></h4>
+                  <ul class="marks a-verm">
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Factions, pilot growth, prestige and the fast-model layer stay unproven.</li>
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Too small to show whether the world stays new.</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+            <section id="shape-c" class="group">
+              <h3>Shape C · Living Sector (wide and shallow)</h3>
+              <div class="card a-amber">
+                <h4 class="card-title"><span class="tag a-amber">Alternative</span> <span class="t-acc a-amber">C · Living Sector (wide and shallow)</span></h4>
+                <dl class="kv">
+                  <div>
+                    <dt>Galaxy</dt>
+                    <dd>5 regions, 12 stations, 4 factions, 8 commodities.</dd>
+                  </div>
+                  <div>
+                    <dt>Player arc</dt>
+                    <dd>Starts after the manual phase with click controls; automation early; no prestige.</dd>
+                  </div>
+                  <div>
+                    <dt>Game master</dt>
+                    <dd>Heavy: eras, territory, rumors, new stations, several Ancients chapters.</dd>
+                  </div>
+                  <div>
+                    <dt>Fast models</dt>
+                    <dd>Central: many NPC captains and stations deciding moment to moment.</dd>
+                  </div>
+                  <div>
+                    <dt>Size</dt>
+                    <dd>About 22 systems, mostly shallow, lots of content.</dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="pair">
+                <div class="card a-green">
+                  <h4 class="card-title"><span class="t-acc a-green">Gains</span></h4>
+                  <ul class="marks a-green">
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Strongest test of the game master, factions and fast models at scale.</li>
+                    <li><span class="chip a-green" aria-hidden="true">+</span> Closest to the thousands-of-sessions vision.</li>
+                  </ul>
+                </div>
+                <div class="card a-verm">
+                  <h4 class="card-title"><span class="t-acc a-verm">Costs</span></h4>
+                  <ul class="marks a-verm">
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Skips the hands-on first ship that three prototypes asked for.</li>
+                    <li><span class="chip a-verm" aria-hidden="true">−</span> Proto 5 already proved plumbing; width without feel risks repeating its content problem.</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">Recommendation</span> <span class="t-acc a-green">Recommendation: Shape A, with Shape B as the cut line.</span></h4>
+              <p>A is the only shape that reaches the prestige choice while keeping the hands-on first ship, so it answers the most open questions in one playable. If scope must shrink, cut toward B in this order: the fast-model layer, then the sixth station, then the third faction, then pilot traits. Keep the manual loop, control unlocks, automation and the live game master.</p>
+            </div>
+          </section>
+          <section id="agents">
+            <h2>Splitting it across coding agents</h2>
+            <p>Six workstreams, one T3 Code agent each (Opus or Sol), working from frozen contracts. Size is counted in systems and content, never in time.</p>
+            <h3>Contracts frozen first (owned by W1)</h3>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">Contract</span> <span class="t-acc a-cyan">Shared interfaces</span></h4>
+              <ul class="marks a-cyan">
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> World-state schema with stable IDs for every station, rock, ship, NPC, faction and fact.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Event names and payloads, including the activity counters.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Order verb schema shared by the player ship, automated craft and scripted NPCs.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Hook API surface the scripting engine may call (the table above), with nothing else reachable.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Script manifest and validation report format, including the invariants.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Asset manifest: sprite slots, station stages and variants by ID.</li>
+                <li><span class="chip a-cyan" aria-hidden="true">•</span> Text channel API where every line carries the history fact it cites.</li>
+              </ul>
+            </div>
+            <h3>Workstreams</h3>
+            <div class="card a-cyan">
+              <h4 class="card-title"><span class="tag a-cyan">W1</span> <span class="t-acc a-cyan">Core and world</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 1–2. Also owns the shared contracts and merges.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>Save format, world schema, event list.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>World stores, history, events, counters, pause, save.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>Nothing; goes first with stubs for everyone.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-purple">
+              <h4 class="card-title"><span class="tag a-purple">W2</span> <span class="t-acc a-purple">Ship and orders</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 3–6 and 9.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>3 hulls' handling, 3 rock types, docking rings.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>Order verb API, control tier flags.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>World stores and events from W1; sprites from W6.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-green">
+              <h4 class="card-title"><span class="tag a-green">W3</span> <span class="t-acc a-green">Economy and map</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 7–8.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>6 commodities, producer and consumer tables for 6 stations, 3 regions.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>Market levers, price snapshots, territory on the map.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>Events from W1; faction ownership from W4.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-blue">
+              <h4 class="card-title"><span class="tag a-blue">W4</span> <span class="t-acc a-blue">Progression and story</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 10–14.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>17 beats, 3 factions, a handful of pilot traits, Tandem and Heron ability sets, about 10 named NPCs.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>Beat API, standing, traits, prestige.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>History and counters from W1; verbs from W2; market levers from W3.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">W5</span> <span class="t-acc a-amber">Scripting and game master</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 15–18.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>8 example game master scripts, one deliberately bad script that must be rejected, the CLI contract.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>Script runtime, validation report, rollback, legibility channels, fast-model menus.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>All hooks from W1–W4 as declared in the contract.</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="card a-verm">
+              <h4 class="card-title"><span class="tag a-verm">W6</span> <span class="t-acc a-verm">Presentation and integration</span></h4>
+              <dl class="kv">
+                <div>
+                  <dt>Owns</dt>
+                  <dd>Systems 19–20 and the end-to-end journey run.</dd>
+                </div>
+                <div>
+                  <dt>Content</dt>
+                  <dd>Art for 3 hulls, 6 stations, rocks, UI; new sounds; jump-to-beat saves.</dd>
+                </div>
+                <div>
+                  <dt>Provides</dt>
+                  <dd>Asset manifest, harness, integration builds.</dd>
+                </div>
+                <div>
+                  <dt>Needs</dt>
+                  <dd>Every workstream's stubs, then real parts.</dd>
+                </div>
+              </dl>
+            </div>
+            <h3>Integration gates, by beats not dates</h3>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">0</span>
+                <div class="col"><strong class="t-acc a-purple">Contracts and stubs</strong><span>W1 publishes the contracts and a stub build where every system exists and returns defaults. All other workstreams start from it.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">1</span>
+                <div class="col"><strong class="t-acc a-purple">Gate 1: Act 1 playable end to end</strong><span>Beats 1–5 with real flight, mining, docking, market, pause and save. Placeholder art allowed.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">2</span>
+                <div class="col"><strong class="t-acc a-purple">Gate 2: Acts 1–2 playable</strong><span>Control unlocks, three regions, scouting, factions and the dispute. First game master script applied and rolled back in the harness.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">3</span>
+                <div class="col"><strong class="t-acc a-purple">Gate 3: whole journey playable</strong><span>Queues, loops, automation, pilot traits, prestige, all eight game master change types, fast-model layer toggleable.</span></div>
+              </div>
+            </div>
+            <div class="card a-purple">
+              <div class="row">
+                <span class="chip a-purple">4</span>
+                <div class="col"><strong class="t-acc a-purple">Gate 4: Andreas plays it</strong><span>Art and audio pass in; the bot run of the journey passes; the slice goes on the PC with one launcher.</span></div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <h4 class="card-title"><span class="tag a-amber">Working rule</span> <span class="t-acc a-amber">Rules for the agents</span></h4>
+              <p>Each agent may only touch its own systems and the contract through a change request to W1. Stubs stay runnable at every merge. The dev harness's bot run of the whole journey is the shared test. Disposable code is fine; a broken contract is not.</p>
+            </div>
+          </section>
+          <section id="open">
+            <h2>Open decisions for Andreas</h2>
+            <p>All open as of this proposal. The first two decide most of the rest.</p>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">Which slice shape?</strong><span>A balanced (recommended), B deep and narrow, or C wide and shallow.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Decide first</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">What does the slice run on?</strong><span>The disposable stack the prototypes used, or a first cut of the custom base engine plus scripting engine. Disposable is faster to judge; the custom engine answers the engine-line question for real.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-cyan">Decide first</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">What is the first automated craft?</strong><span>A drone, a hired captain, a tender or a second hull. And does it arrive before your own loops, or after with a job the ship cannot do?</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-purple">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">What does prestige do to pilot traits?</strong><span>Kept forever (very slow and small), reset with the hull, or one carried trait per prestige.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-amber">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">How deep are factions in the slice?</strong><span>Three with territory and memory (proposed), or two to keep the dispute simple.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-green">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">Is the fast-model layer in?</strong><span>In as a toggle with a small local model (proposed), stubbed with rules only, or out. OpenRouter as a fallback or not at all.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-blue">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">How does the game master run during play?</strong><span>A real agent run from the CLI while Andreas plays, applying at calm moments, or scripts prepared between sessions and applied on load.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-cyan">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">How compressed is the arc?</strong><span>The slice shortens the road to automation and prestige by needing fewer deliveries and dockings per unlock. How much fewer, and should a dev skip exist in the shipped slice?</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-amber">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">Audio for the slice?</strong><span>Silence plus a few soft UI sounds, or a fresh placeholder pass. The rejected mining and engine loops stay out either way.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-verm">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="card a-amber">
+              <div class="row">
+                <div class="col">
+                  <strong class="t-acc a-amber">What counts as a yes?</strong><span>Proposed: Andreas wants another session after the prestige choice, and can name one world change he noticed without being told.</span>
+                  <div class="row wrap"><span class="tag a-amber">Open</span><span class="tag a-green">Shapes the slice</span></div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

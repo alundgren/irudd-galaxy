@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Irudd Galaxy</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="index.html" aria-current="page">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Irudd Galaxy</h1>
+          <p>The one place for all the mining and trading game material: what the game is, links to every planning Page, and every prototype with its verdict and launch path.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#game">The game</a></li>
+              <li class="a-green"><a href="#pages">Pages</a></li>
+              <li class="a-amber"><a href="#prototypes">Prototypes</a></li>
+              <li class="a-verm"><a href="#backups">Backups</a></li>
+            </ol>
+          </nav>
+          <section id="game">
+            <h2>The game</h2>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Vision</span> <span class="t-acc a-blue">A calm, solo, top-down space mining and trading sandbox</span></h3>
+              <p>Star Traders sketched warmth. No PvP, no timers, and combat is never the focus.</p>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Engine 1</span> <span class="t-acc a-cyan">Base engine</span></h3>
+              <p>The custom core: simulation, economy, saves. It changes only with a release.</p>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Engine 2</span> <span class="t-acc a-cyan">Live scripting engine</span></h3>
+              <p>Where the AI game master works, shaping stories and the galaxy while you play.</p>
+            </div>
+          </section>
+          <section id="pages">
+            <h2>Pages</h2>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Plan</span> <a href="high-level-plan.html">High-Level Plan</a></h3>
+              <p>The overall plan: pillars, scope, process and open decisions.</p>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Research</span> <a href="../research/living-galaxy.html">Keeping a Living Galaxy New</a></h3>
+              <p>Research on quest and world-event systems.</p>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Game master</span> <a href="../research/game-master-menu.html">The Game Master's Menu</a></h3>
+              <p>What the AI game master can do in the scripting engine.</p>
+            </div>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Style</span> <a href="visual-styles-and-feel.html">Visual Styles &amp; Gameplay Feel</a></h3>
+              <p>The style-and-feel deck, with what has changed since.</p>
+            </div>
+            <div class="card a-purple">
+              <h3 class="card-title"><span class="tag a-purple">Slice</span> <a href="vertical-slice-lantern-reach.html">Vertical Slice Proposal — The Lantern Reach</a></h3>
+              <p>The next, larger slice: what it proves, scope, journey and agent split.</p>
+            </div>
+            <div class="card a-cyan">
+              <h3 class="card-title"><span class="tag a-cyan">Fast layer</span> <a href="../research/fast-model-layer.html">A Fast Layer Under the Game Master</a></h3>
+              <p>Small, cheap models that keep the galaxy alive moment to moment.</p>
+            </div>
+          </section>
+          <section id="prototypes">
+            <h2>Prototypes</h2>
+            <p>All launch paths are on the PC under <code>C:\Users\andre\.agents\research\mining-game-prototypes\</code></p>
+            <div class="tablewrap">
+              <table class="tbl a-purple">
+                <thead>
+                  <tr>
+                    <th>Prototype</th>
+                    <th>Status</th>
+                    <th>Verdict</th>
+                    <th>Launch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">P1 · Flyable</th>
+                    <td><span class="tag a-green">Art + arcade kept</span></td>
+                    <td>Inertia rejected; arcade/click-to-fly and the art kept.</td>
+                    <td><code>prototype-1-flyable\play.cmd</code></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P2 · Slow pacing: mine, dock, sell</th>
+                    <td><span class="tag a-amber">In progress</span></td>
+                    <td>Still in progress. Launch path not known yet.</td>
+                    <td>—</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P3 · Prestige</th>
+                    <td><span class="tag a-green">Accepted</span></td>
+                    <td>Draft 2 Hearthbound accepted.</td>
+                    <td><code>prototype-3-prestige\launch-draft-2.cmd</code></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P4 · Two-station trade</th>
+                    <td><span class="tag a-amber">Weaker signal</span></td>
+                    <td>Weaker signal; scouted living prices.</td>
+                    <td><code>prototype-4-two-station-trade\PLAY.cmd</code></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P5 · Station board</th>
+                    <td><span class="tag a-amber">Content repeats</span></td>
+                    <td>Card pipeline works, but content repeated with only different flavor text.</td>
+                    <td><code>prototype-5-station-board\play.cmd</code></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P6 · Hot reload</th>
+                    <td><span class="tag a-green">Proven</span></td>
+                    <td>Live reload proven, pause loved; led to the scripting-engine direction.</td>
+                    <td><code>prototype-6-hot-reload\play.cmd</code></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">P7 · Late automation (Pip drone)</th>
+                    <td><span class="tag a-amber">Form not locked</span></td>
+                    <td>Useful direction, form not locked, sounds annoying.</td>
+                    <td><code>prototype-7-late-automation\play.cmd</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section id="backups">
+            <h2>Backups</h2>
+            <div class="card a-green">
+              <p>Backup copies are on the PC in <code>D:\Projects\MiningTradeGame</code></p>
+            </div>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

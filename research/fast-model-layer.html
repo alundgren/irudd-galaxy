@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>A Fast Layer Under the Game Master: Small Models That Keep a Galaxy Alive</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="../design/index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>A Fast Layer Under the Game Master: Small Models That Keep a Galaxy Alive</h1>
+          <p class="summary">How small, cheap models could run the everyday life of the galaxy (captains, docks, stations, rumors, pirates, traders and factions) inside rules the AI game master sets, what other games learned doing this, which local models fit an RTX 5070 Ti next to the game, and when to step up to OpenRouter.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#layers">Two layers, two speeds</a></li>
+              <li class="a-green"><a href="#start">Recommended starting setup</a></li>
+              <li class="a-amber"><a href="#jev">What 'jev' is</a></li>
+              <li class="a-verm">
+                <a href="#cases">What other games and projects learned</a>
+                <ul>
+                  <li><a href="#failures">Failure modes and how to avoid them</a></li>
+                </ul>
+              </li>
+              <li class="a-purple">
+                <a href="#arch">Architecture patterns</a>
+                <ul>
+                  <li><a href="#a-choice">Choose from allowed actions</a></li>
+                  <li><a href="#a-ground">Grounding and write-back</a></li>
+                  <li><a href="#a-brief">The game master's brief for each NPC</a></li>
+                  <li><a href="#a-valid">Validation</a></li>
+                  <li><a href="#a-fallback">Fallback chain</a></li>
+                  <li><a href="#a-budget">Budgets, caching and batching</a></li>
+                </ul>
+              </li>
+              <li class="a-cyan"><a href="#local">Local models</a></li>
+              <li class="a-blue"><a href="#runtimes">Runtimes on Windows</a></li>
+              <li class="a-green"><a href="#vram">VRAM fit and speed</a></li>
+              <li class="a-amber"><a href="#cloud">OpenRouter as an upgrade</a></li>
+              <li class="a-verm"><a href="#menu">Menu: what the fast layer could do</a></li>
+              <li class="a-purple"><a href="#split">What stays with the game master</a></li>
+              <li class="a-cyan"><a href="#risks">Risks and open questions</a></li>
+              <li class="a-blue"><a href="#sources">Sources</a></li>
+            </ol>
+          </nav>
+          <section id="layers">
+            <h2 class="hb a-blue">Two layers, two speeds</h2>
+            <div class="card a-purple">
+              <p class="lead"><strong>The game master writes the rules of life; the fast layer lives it</strong></p>
+              <p>The slow, strong AI game master works through the live scripting engine on arcs, new systems, eras and Ancients canon. Under it, fast and cheap models make the many small decisions that make the galaxy feel inhabited: what a captain says at the dock, how a station reacts to a shortage, which rumor travels, whether a pirate attacks, how a faction nudges a tariff. Each fast decision is made inside a brief and a budget the game master set, chosen from allowed actions, checked, applied by ordinary game code, and written back to world history so the game master can see what the galaxy did.</p>
+            </div>
+            <ol class="flow">
+              <li class="node a-blue">
+                <strong>AI game master (slow, strong)</strong> <span class="pill a-blue">Actor</span>
+                <p>Arcs, systems, eras, canon. Writes NPC briefs, allowed actions, price bands and budgets through the scripting engine.</p>
+              </li>
+              <li class="edge">↓ briefs and rules</li>
+              <li class="node a-green">
+                <strong>World state and history log</strong>
+                <p>Base engine holds state, invariants and validators.</p>
+              </li>
+              <li class="edge">↓</li>
+              <li class="node a-amber">
+                <strong>Something happens</strong>
+                <p>You dock, a ware runs short, a convoy passes, a daily tick.</p>
+              </li>
+              <li class="edge">↓ grounding packet</li>
+              <li class="node a-verm">
+                <strong>Fast layer decides</strong> <span class="pill a-verm">Decision</span>
+                <p>Utility AI pre-scores options; a small model picks one or writes a short line.</p>
+              </li>
+              <li class="edge">↓ typed choice</li>
+              <li class="node a-purple">
+                <strong>Validator</strong>
+                <p>Ids exist, rules allow it, inside the band and the budget.</p>
+                <p class="jump"><strong>↺ back to Fast layer decides</strong>: fail: utility AI picks instead</p>
+              </li>
+              <li class="edge">↓ pass</li>
+              <li class="node a-cyan terminal">
+                <strong>Applied and logged</strong> <span class="pill a-cyan">Outcome</span>
+                <p>Prices, routes, offers and lines change; the outcome is written to history.</p>
+                <p class="jump"><strong>↺ back to AI game master (slow, strong)</strong>: digests of what changed</p>
+              </li>
+            </ol>
+          </section>
+          <section id="start">
+            <h2 class="hb a-blue">Recommended starting setup</h2>
+            <ol class="steps">
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">1</span>
+                <div>
+                  <strong>Always-on base: utility AI</strong>
+                  <p>Every fast decision has a rule-based answer first (Infinite Axis style scoring), so the game is complete with no model at all, on any PC.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">2</span>
+                <div>
+                  <strong>Local model: Qwen3.5-4B at Q4_K_M</strong>
+                  <p>Apache-2.0, 4.66B parameters, small enough to leave most of a 16 GB card to the game. Alternative: Gemma 4 E4B with Google's official QAT q4_0 GGUF. Step up to Qwen3.5-9B or Ministral 3 8B when the game leaves room.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">3</span>
+                <div>
+                  <strong>Runtime: llama.cpp (llama-server, CUDA build)</strong>
+                  <p>Runs natively on Windows, ships as a sidecar process, and constrains output with GBNF grammars or a JSON schema. Prototype with Ollama or LM Studio, which expose the same idea.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">4</span>
+                <div>
+                  <strong>Constrained choice, not free text</strong>
+                  <p>The model returns an action id from the allowed list plus a few typed fields; only dialogue lines are free text, and even those are length-capped and checked.</p>
+                </div>
+              </li>
+              <li class="card a-green">
+                <span class="num" aria-hidden="true">5</span>
+                <div>
+                  <strong>Optional cloud upgrade via OpenRouter</strong>
+                  <p>Off by default. For players who opt in: gpt-oss-20b or a similar cheap model for text, or TypeSafe Jev through the Decisions API for typed choices.</p>
+                </div>
+              </li>
+            </ol>
+            <p>This is a starting point to test, not a measured result for this game: run the game and the model together on the target PC and measure frame time and decision latency before choosing.</p>
+          </section>
+          <section id="jev">
+            <h2 class="hb a-blue">What 'jev' is</h2>
+            <div class="card a-cyan">
+              <p class="lead"><strong>Real: TypeSafe Jev, a decision model on OpenRouter, not a chat model</strong></p>
+              <p>Jev is a structured decision model from TypeSafe, listed on OpenRouter. It does not write text. You give it options and it returns probabilities: which option to pick, how likely yes is, or where something sits on a scale. That fits pirate, trader and station choices well. It is cloud-only with closed weights, so it cannot be the offline layer.</p>
+            </div>
+            <dl class="facts card a-cyan">
+              <div>
+                <dt>Model ids</dt>
+                <dd>typesafe/jev-1.14 (released 14 October 2026), ~typesafe/jev-latest, and typesafe/jev-1.13 still available. A related typesafe/jev-router uses Jev to pick a model per request.</dd>
+              </div>
+              <div>
+                <dt>Price and limits</dt>
+                <dd>$0.042 per million input tokens, output free, 262,144-token context. The model page lists latency of 0.11 seconds.</dd>
+              </div>
+              <div>
+                <dt>Decision types</dt>
+                <dd>Choice (one option, with probabilities and confidence), yes/no probability, Score (position on an ordered scale), and Box (an image region, Jev 1.14 only). No text and no explanations.</dd>
+              </div>
+              <div>
+                <dt>How it is called</dt>
+                <dd>Not through chat completions. OpenRouter's Decisions API (POST /api/alpha/decisions) or the System One API (POST /api/v1/systemone). Requests over about 32,000 bytes or with images use a slower, less accurate long-context mode, so keep the grounding packet small.</dd>
+              </div>
+              <div>
+                <dt>The wider category</dt>
+                <dd>OpenRouter lists 22 decision models from 13 makers as of 16 October 2026, among them OpenAI, Microsoft, Perplexity, Cloudflare, Inception, Liquid and Upstage models.</dd>
+              </div>
+              <div>
+                <dt>Offline lookalikes</dt>
+                <dd>Liquid's d1-3B is open on Hugging Face. A community model, feder-cr/jev, claims 28 to 130 ms on a laptop CPU; it is unofficial and unverified.</dd>
+              </div>
+              <div>
+                <dt>Sources</dt>
+                <dd><span class="inline-links"><a href="https://openrouter.ai/docs/guides/community/jev">OpenRouter Jev guide</a> · <a href="https://openrouter.ai/typesafe/jev-1.14">Jev 1.14 model page</a> · <a href="https://docs.typesafe.ai/models">TypeSafe models docs</a> · <a href="https://huggingface.co/feder-cr/jev">feder-cr/jev</a></span></dd>
+              </div>
+            </dl>
+          </section>
+          <section id="cases">
+            <h2 class="hb a-blue">What other games and projects learned</h2>
+            <p>Each entry says what the project is, what worked, what went wrong and what it means for this game. Steam figures are English-language review shares from the store pages.</p>
+            <section class="group">
+              <h3 class="hb a-purple">LLM characters in games · 13</h3>
+              <div class="case">
+                <h4 class="hb a-purple">PUBG Ally (Krafton with NVIDIA ACE)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>An AI teammate you talk to by voice. Beta ran 17 June to 1 July 2026 on a 2B on-device small language model plus speech recognition and speech synthesis.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>A two-speed design: the language model makes high-level choices and a faster control layer carries them out in the match. Krafton reports data from about 39,000 sessions, with positive answers ahead of negative by 25.1 points on whether players would recommend Ally.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Hardware gate: the minimum is an RTX 2080 Ti or 3060 with 8 GB of VRAM, so the feature excludes part of the audience, and the model shares the GPU with the game.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>The closest published match to this page's idea: a small model steers, ordinary game code acts. Keep the model off the frame-critical path.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://developer.nvidia.com/blog/how-krafton-built-pubg-ally-a-co-playable-character-powered-by-nvidia-ace/">NVIDIA developer blog</a> · <a href="https://www.krafton.com/en/news/press/krafton-introduces-pubg-ally-beta-test/">Krafton press release</a> · <a href="https://arxiv.org/abs/2609.29837">arXiv 2609.29837</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">inZOI Smart Zoi (Krafton with NVIDIA ACE)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A life sim where NPC thoughts and topic choices come from a 0.5B Mistral-NeMo-Minitron model running on the player's RTX GPU, applied only to characters in visible range.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Fully on-device and cheap: about 1 GB of VRAM. Scoping the model to nearby characters is a sensible budget rule. The game overall sits at Mostly Positive, 79% of 14,603 English Steam reviews, in Early Access since 27 March 2025.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Players report that the AI mostly shows up as thought bubbles and changes little of what characters actually do, plus bugs and frame-rate dips in crowds. RTX-only.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>If model output does not change prices, routes, offers or relationships, players stop noticing it. Visible consequences matter more than clever text.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/news/nvidia-ace-naraka-bladepoint-inzoi-launch-this-month/">NVIDIA news</a> · <a href="https://www.pcgamer.com/hardware/graphics-cards/with-nvidia-ace-taking-up-1-gb-of-vram-in-inzoi-team-green-will-need-to-up-its-memory-game-if-ai-npcs-take-off-in-pc-gaming/">PC Gamer on VRAM</a> · <a href="https://steamcommunity.com/app/2456740/discussions/0/836123794066162014/">Steam discussion</a> · <a href="https://store.steampowered.com/app/2456740/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Covert Protocol (Inworld with NVIDIA ACE)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A GDC 2024 tech demo: you play a detective questioning hotel NPCs by voice, with speech recognition and facial animation from NVIDIA ACE.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Showed that a full speech-in, speech-out character loop can run in a playable scene.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>It stayed a demo. Inworld has since shifted toward general AI infrastructure and a code-first runtime rather than a shipped game.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Conversation is the easy part to demo. The design work is making talk change world state in ways the rules allow.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/news/nvidia-ace-gdc-gtc-2024-ai-character-game-and-app-demo-videos/">NVIDIA GDC 2024 demos</a> · <a href="https://www.theverge.com/2024/3/19/24105681/nvidia-ai-ace-video-game-character-npc-covert-protocol">The Verge</a> · <a href="https://inworld.ai/blog/new-ai-infrastructure-scaling-games-media-characters">Inworld infrastructure post</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Ubisoft NEO NPC</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A GDC 2024 prototype: characters such as Bloom improvise dialogue with an Inworld LLM, with Audio2Face animation.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Writers supply each character's backstory, personality and guardrails, and the model improvises inside them.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>A prototype, not a shipped feature.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>The same split this page proposes: a strong author (here the game master) writes the brief and limits, and the fast model performs within them.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://news.ubisoft.com/en-us/article/5qXdxhshJBXoanFZApdG3L/how-ubisofts-new-generative-ai-prototype-changes-the-narrative-for-npcs">Ubisoft News</a> · <a href="https://www.gamedeveloper.com/design/how-do-ubisoft-s-ai-driven-npcs-handle-dynamic-player-interactions-">Game Developer</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Mantella (Skyrim and Fallout 4 mod)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A mod that lets you talk to any NPC by voice, with cloud or local LLMs.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Supports local models fully offline and documents a target of under 0.5 seconds to first response for real-time feel.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Real-world local latency is often worse: one user reported 1 to 3 seconds with a local 13B model on an RTX 3090. Value is mostly dialogue rather than world change.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Latency budgets for live talk are tight. Decisions that are not conversation can run ahead of time where seconds do not matter.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://art-from-the-machine.github.io/Mantella/pages/real_time_npcs.html">Mantella real-time NPCs docs</a> · <a href="https://www.nexusmods.com/skyrimspecialedition/mods/98631">Nexus Mods page</a> · <a href="https://www.reddit.com/r/LocalLLaMA/comments/168za8a/mantella_talk_to_aipowered_npcs_in_skyrim/">r/LocalLLaMA thread</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Herika (Skyrim mod)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A ChatGPT-driven companion for Skyrim.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>A companion that comments on what you do, connected to game events.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Its optional offline mode through KoboldCpp is described as resource-heavy and without action support, so offline play loses the part that matters.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Design offline first: if the offline path is a degraded afterthought, most players get the degraded game.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.nexusmods.com/skyrimspecialedition/mods/89931">Nexus Mods page</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Suck Up! (Proxima)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>You play a vampire talking residents into letting you in. Released 1 October 2025.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>A clear loop where free speech is the core mechanic.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Mixed reception, 62% of 224 Steam reviews, and it needs an internet connection because it uses OpenAI's ChatGPT.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>A game built on talking to a model inherits the model's online dependency and running cost.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/2726370/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Vaudeville (Bumblebee)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A murder mystery where you question AI-voiced suspects. Early Access from 30 June 2023, full release 28 November 2025.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Open-ended questioning in a 1920s setting drew attention early.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Mixed, 47% of 287 Steam reviews.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Open conversation alone does not carry a game; it needs a firm world model underneath.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/2240920/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Retail Mage (Jam &amp; Tea)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A shop-assistant wizard game, released 12 November 2024, where generative AI resolves what your free-form actions do.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>NPC motivations and quests are written by people, and the model only resolves interactions. Mostly Positive, 79% of 44 reviews (a small sample).</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Small audience, so little evidence at scale.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Human-authored goals plus model-resolved moments is a sound split; here the game master writes the goals.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/3224380/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Whispers from the Star (Anuttacon)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A voice conversation game with a stranded character, released 14 August 2025.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Very Positive, 80% of 1,664 Steam reviews: a single, deeply directed character can work.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Needs an account and an internet connection.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Focus pays: one well-directed character beats a crowd of generic talkers.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/3730100/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">1001 Nights</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>An AI-native game where the stories you tell the king turn words into weapons and items. Demo released 23 October 2024; the Steam listing names Qwen.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Model output is parsed into concrete game effects, so talk has mechanical weight.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>A demo and research project, not a long-running game.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Turn generated text into a small set of typed game effects, and let only those effects touch the world.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.1001nights.ai/">Official site</a> · <a href="https://store.steampowered.com/app/2782660/1001_Nights_Demo/">Steam demo</a> · <a href="https://researchonline.rca.ac.uk/5290/1/1001_Nights_ICIDS_final.pdf">ICIDS paper (RCA)</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">Project AVA (Razer)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Shown in 2025 as an esports AI coach concept, and in 2026 as a desk hologram companion, with early access expected in early 2027.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Local inference on gaming hardware was shown in the 2025 prototype, which ran Llama 3.2 on RTX 4090 laptop GPUs.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Hands-on reports described delays of several seconds.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Even strong local GPUs give multi-second delays when the model runs on every turn; budget calls and move them off the critical path.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.razer.com/newsroom/product-news/project-ava">Razer newsroom</a> · <a href="https://www.theverge.com/24338016/razer-project-ava-ai-gaming-copilot-coach">The Verge</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-purple">AI Dungeon (Latitude)</h4>
+                <dl class="facts card a-purple">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Free-form text adventure built on generation.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Its Story Cards feature puts world facts into the context only when their trigger words appear: a simple retrieval layer.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Free generation drifts from established facts unless the right fact is in context at the right time.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Grounding is a retrieval problem: give the fast model only the facts that matter for this moment, by id.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://help.aidungeon.com/faq/story-cards">AI Dungeon help: Story Cards</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+            <section class="group">
+              <h3 class="hb a-cyan">Agent research · 3</h3>
+              <div class="case">
+                <h4 class="hb a-cyan">Generative Agents (Smallville)</h4>
+                <dl class="facts card a-cyan">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Stanford and Google research: 25 LLM agents with a memory stream, reflection and planning living in a small town.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Believable emergent social behavior, such as agents spreading word of a party and showing up.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Running 25 agents for two game days cost thousands of dollars in model credits and took multiple real days.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Calling a large model every tick for every agent does not scale. Most agent behavior must be cheap rules, with models for the moments that matter.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2304.03442">arXiv 2304.03442</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-cyan">Project Sid (Altera)</h4>
+                <dl class="facts card a-cyan">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>10 to over 1,000 agents in Minecraft using the PIANO architecture: concurrent modules plus a cognitive controller.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>The controller acts as a bottleneck that keeps speech and actions coherent while many modules run in parallel.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Research scale and cost, not a shipped game loop.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Many fast parts need one coherence point. Here the game master and the validator play that role.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2411.00114">arXiv 2411.00114</a> · <a href="https://github.com/altera-al/project-sid">GitHub</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-cyan">CivAgent (NetEase Fuxi)</h4>
+                <dl class="facts card a-cyan">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>An LLM-based digital player for the open-source strategy game Unciv.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>The agent acts through the game's own legal moves and diplomacy rather than free text.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>A research testbed; not evidence of player reception.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>An action interface defined by the game is what makes model decisions safe to apply.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2502.20807">arXiv 2502.20807</a> · <a href="https://github.com/fuxiAIlab/CivAgent">GitHub</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+            <section class="group">
+              <h3 class="hb a-green">Non-LLM baseline · 8</h3>
+              <div class="case">
+                <h4 class="hb a-green">RimWorld storytellers</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Cassandra, Phoebe and Randy pace events; no language model at all.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Pacing and memorable emergent stories from simple rules. Overwhelmingly loved: 97% of 120,296 Steam reviews.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Raid strength scales with colony wealth, a form of level scaling that many players work around.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>A director with rules can carry a world. Avoid wealth or level scaling; let threats come from the world's own history.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://rimworldwiki.com/wiki/AI_Storytellers">RimWorld wiki: AI Storytellers</a> · <a href="https://store.steampowered.com/app/294100/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">Dwarf Fortress</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Deep world generation and simulation, with a written history of events.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>History that the world remembers gives stories without any generated text. 94% of 24,201 Steam reviews.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Much of the simulation is invisible unless the game surfaces it.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Writing outcomes to a history log is what makes an evolving world feel real; the fast layer should feed that log.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.bay12games.com/dwarves/">Bay 12 Games</a> · <a href="https://store.steampowered.com/app/975370/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">Utility AI, Infinite Axis (Dave Mark)</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Each action is scored from considerations through response curves; the best-scoring action wins.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Cheap, predictable and easy to tune by designers; runs every frame on any hardware.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Curves take tuning, and many agents with the same weights look the same.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>The always-on fallback, and the pre-filter that hands the model its top options.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.gdcvault.com/play/1021848/Building-a-Better-Centaur-AI">GDC Vault: Building a Better Centaur</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">GOAP in F.E.A.R. (Jeff Orkin)</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A planner chains actions with preconditions and effects to reach a goal.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Squad behavior that looked smart from a small state machine and an action list.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Planning cost grows with the action set, so action lists stay small.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Actions with preconditions and effects are exactly the allowed-action menu a fast model should choose from.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.gamedevs.org/uploads/three-states-plan-ai-of-fear.pdf">Three States and a Plan (PDF)</a> · <a href="https://web.archive.org/web/2020/http://alumni.media.mit.edu/~jorkin/goap.html">Orkin GOAP page (archived)</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">HTN planning</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Hierarchical task networks break a high-level task into ordered subtasks.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Designers keep control of the shape of behavior.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Authoring the networks is work, and the result is as varied as what was authored.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>A good shape for game-master briefs: the game master sets the top task, rules expand it, the model picks among branches.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.gameaipro.com/GameAIPro/GameAIPro_Chapter12_Exploring_HTN_Planners_through_Example.pdf">Game AI Pro, chapter 12 (PDF)</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">The Sims needs-based AI</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Objects advertise how much they satisfy each need; characters pick the best offer.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Rich daily behavior from a few needs and many advertising objects.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Without longer goals, behavior is local and repetitive.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Let stations, fields and contracts advertise opportunities; captains choose with needs plus personality.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://robert.zubek.net/publications/Needs-based-AI-draft.pdf">Zubek, Needs-based AI (PDF)</a> · <a href="https://www.gdcvault.com/play/1012450/Needs-Based-AI">GDC Vault: Needs-Based AI</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">X4: Foundations economy (Egosoft)</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>A simulated economy where NPC ships really mine, trade and supply station production.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>A world that runs whether or not you are watching. 78% of 14,055 Steam reviews.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>The economy is legible to players who dig, but rarely tells a story by itself.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>The fast layer's best job may be narrating and personalizing an economy that rules already run.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://www.egosoft.com/games/x4/info_en.php">Egosoft X4 info</a> · <a href="https://store.steampowered.com/app/392160/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="case">
+                <h4 class="hb a-green">Elite Dangerous background simulation</h4>
+                <dl class="facts card a-green">
+                  <div>
+                    <dt>What it is</dt>
+                    <dd>Faction influence and states shift with player actions across systems.</dd>
+                  </div>
+                  <div>
+                    <dt>What worked</dt>
+                    <dd>Player actions change the galaxy for everyone. 76% of 53,874 Steam reviews.</dd>
+                  </div>
+                  <div>
+                    <dt>What went wrong</dt>
+                    <dd>Players rely on third-party guides to understand how it works.</dd>
+                  </div>
+                  <div>
+                    <dt>For this game</dt>
+                    <dd>Make cause and effect visible: dock chatter and rumors can explain why a station changed.</dd>
+                  </div>
+                  <div>
+                    <dt>Sources</dt>
+                    <dd><span class="inline-links"><a href="https://edfieldmanual.com/wiki/Background_Simulation">ED Field Manual: Background Simulation</a> · <a href="https://store.steampowered.com/app/359320/">Steam store</a></span></dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+            <section id="failures">
+              <h3 class="hb a-blue">Failure modes and how to avoid them</h3>
+              <div class="tablewrap">
+                <table class="tbl a-verm">
+                  <thead>
+                    <tr>
+                      <th>Failure</th>
+                      <th>Seen in</th>
+                      <th>Design answer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Cost</td>
+                      <td>Generative Agents</td>
+                      <td>Local first; call a model only on events, not every tick; per-region budgets.</td>
+                    </tr>
+                    <tr>
+                      <td>Latency</td>
+                      <td>Mantella, Project AVA</td>
+                      <td>Decide ahead of time where possible; nothing waits on the model; utility AI answers if it is late.</td>
+                    </tr>
+                    <tr>
+                      <td>Made-up facts</td>
+                      <td>AI Dungeon drift</td>
+                      <td>Grounding packet of facts by id; output may only reference those ids.</td>
+                    </tr>
+                    <tr>
+                      <td>Sameness</td>
+                      <td>Uniform utility weights</td>
+                      <td>Per-NPC temperament from the game master; memory of the player; vary the facts, not just the words.</td>
+                    </tr>
+                    <tr>
+                      <td>Players ignore it</td>
+                      <td>inZOI thought bubbles</td>
+                      <td>Every decision changes something you can see: a price, a route, an offer, a relationship.</td>
+                    </tr>
+                    <tr>
+                      <td>Online dependency</td>
+                      <td>Suck Up!, Herika offline mode</td>
+                      <td>Full game offline; the cloud only upgrades quality.</td>
+                    </tr>
+                    <tr>
+                      <td>GPU contention</td>
+                      <td>inZOI frame dips, PUBG Ally 8 GB minimum</td>
+                      <td>Small model, low priority, decisions batched at quiet moments such as docking.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+          <section id="arch">
+            <h2 class="hb a-blue">Architecture patterns</h2>
+            <p>The recurring lesson across the projects above: a model is safest and most useful when it chooses among moves the game already understands, sees only the facts that matter now, and leaves a record the world can remember.</p>
+            <section id="a-choice">
+              <h3 class="hb a-blue">Choose from allowed actions</h3>
+              <ol class="flow">
+                <li class="node a-blue">
+                  <strong>Event</strong>
+                  <p>Shortage of water at Hollin Dock.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-green">
+                  <strong>Rules list allowed actions</strong>
+                  <p>raise_buy_price, post_request, ration, ask_neighbor. Each with preconditions and limits from the brief.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-amber">
+                  <strong>Utility AI scores them</strong>
+                  <p>Keeps the top three or four; this is already a complete answer.</p>
+                  <p class="jump"><strong>→ Apply through game code</strong>: if the model is busy, slow or off</p>
+                </li>
+                <li class="edge">↓ top options plus personality</li>
+                <li class="node a-verm">
+                  <strong>Small model picks</strong> <span class="pill a-verm">Decision</span>
+                  <p>Output forced to a JSON schema or grammar: an action id from the list plus typed fields.</p>
+                </li>
+                <li class="edge">↓ valid choice</li>
+                <li class="node a-purple terminal"><strong>Apply through game code</strong> <span class="pill a-purple">Outcome</span></li>
+              </ol>
+              <div class="tablewrap">
+                <table class="tbl a-blue">
+                  <thead>
+                    <tr>
+                      <th>Method</th>
+                      <th>What it guarantees</th>
+                      <th>Where</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Grammar (GBNF)</td>
+                      <td>Output can only be strings the grammar allows, such as one of four action ids</td>
+                      <td>llama.cpp</td>
+                    </tr>
+                    <tr>
+                      <td>JSON schema</td>
+                      <td>Output parses and matches the schema, including enums</td>
+                      <td>llama.cpp, Ollama, LM Studio, OpenRouter structured outputs</td>
+                    </tr>
+                    <tr>
+                      <td>Tool calling</td>
+                      <td>The model names one tool and its arguments</td>
+                      <td>Most OpenRouter models; local runtimes vary</td>
+                    </tr>
+                    <tr>
+                      <td>Decision model</td>
+                      <td>A probability per option; no text at all</td>
+                      <td>TypeSafe Jev and other OpenRouter decision models</td>
+                    </tr>
+                    <tr>
+                      <td>Free generation</td>
+                      <td>Nothing; use only for short lines, then check them</td>
+                      <td>Any</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section id="a-ground">
+              <h3 class="hb a-amber">Grounding and write-back</h3>
+              <ol class="flow">
+                <li class="node a-amber">
+                  <strong>Gather the grounding packet</strong>
+                  <p>The NPC's brief, the current state with ids, and the few history entries that involve this NPC, this station or the player. Retrieved by id and tags, like AI Dungeon's trigger-based facts.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-green">
+                  <strong>Decide or speak</strong>
+                  <p>The model may reference only ids in the packet.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-purple">
+                  <strong>Write an event record</strong>
+                  <p>Who, what, where, which ids, a reason tag, and the brief version that allowed it.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-cyan">
+                  <strong>World history log</strong>
+                  <p>Feeds future packets, rumors and the 'while you were away' digest.</p>
+                </li>
+                <li class="edge">↓ compressed summaries</li>
+                <li class="node a-blue">
+                  <strong>Game master reads digests</strong> <span class="pill a-blue">Actor</span>
+                  <p>Spots trends, adjusts briefs and bands, starts arcs from what the galaxy actually did.</p>
+                  <p class="jump"><strong>↺ back to Gather the grounding packet</strong>: updated briefs</p>
+                </li>
+              </ol>
+            </section>
+            <section id="a-brief">
+              <h3 class="hb a-purple">The game master's brief for each NPC</h3>
+              <div class="tablewrap">
+                <table class="tbl a-purple">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>What the game master sets</th>
+                      <th>Example</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Goals</td>
+                      <td>What this NPC wants this era</td>
+                      <td>Pay off the freighter; get revenge on the Varn clan</td>
+                    </tr>
+                    <tr>
+                      <td>Temperament</td>
+                      <td>A few numeric traits</td>
+                      <td>Greed 0.7, caution 0.3, warmth 0.5</td>
+                    </tr>
+                    <tr>
+                      <td>Allowed actions</td>
+                      <td>The moves this NPC may make</td>
+                      <td>Trade, tip, refuse, hail, hire escort</td>
+                    </tr>
+                    <tr>
+                      <td>Limits</td>
+                      <td>Bands and budgets</td>
+                      <td>Prices within 15% of base; at most one hostile act per week</td>
+                    </tr>
+                    <tr>
+                      <td>Knowledge</td>
+                      <td>Which facts and rumors they can know</td>
+                      <td>Local market, two rumors, your last three visits</td>
+                    </tr>
+                    <tr>
+                      <td>Voice</td>
+                      <td>Speech style and length cap</td>
+                      <td>Dry, short sentences, at most 25 words</td>
+                    </tr>
+                    <tr>
+                      <td>Off limits</td>
+                      <td>Topics only the game master may touch</td>
+                      <td>Ancients canon, new factions, new named characters</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section id="a-valid">
+              <h3 class="hb a-cyan">Validation</h3>
+              <ol class="steps">
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">1</span>
+                  <div>
+                    <strong>Shape</strong>
+                    <p>Parses, matches the schema, action id is in the allowed list.</p>
+                  </div>
+                </li>
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">2</span>
+                  <div>
+                    <strong>References</strong>
+                    <p>Every id exists and was in the grounding packet; no new named people, places or ships.</p>
+                  </div>
+                </li>
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">3</span>
+                  <div>
+                    <strong>Rules</strong>
+                    <p>Preconditions hold in the current state, which may have changed since the request.</p>
+                  </div>
+                </li>
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">4</span>
+                  <div>
+                    <strong>Limits</strong>
+                    <p>Inside the brief's bands and the region's budget.</p>
+                  </div>
+                </li>
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">5</span>
+                  <div>
+                    <strong>Text</strong>
+                    <p>Length cap, English only, no canon terms the brief forbids.</p>
+                  </div>
+                </li>
+                <li class="card a-cyan">
+                  <span class="num" aria-hidden="true">6</span>
+                  <div>
+                    <strong>On failure</strong>
+                    <p>Use the utility AI choice and an authored line; log the failure for tuning. Never retry in a loop.</p>
+                  </div>
+                </li>
+              </ol>
+            </section>
+            <section id="a-fallback">
+              <h3 class="hb a-green">Fallback chain</h3>
+              <ol class="flow">
+                <li class="node a-blue"><strong>Decision needed</strong></li>
+                <li class="edge">↓</li>
+                <li class="node a-amber">
+                  <strong>Local model ready and within budget?</strong> <span class="pill a-amber">Decision</span>
+                  <p>GPU headroom, queue length, deadline.</p>
+                  <p class="jump"><strong>→ Validate and apply</strong>: yes: local model decides</p>
+                </li>
+                <li class="edge">↓ no</li>
+                <li class="node a-purple">
+                  <strong>Cloud allowed and online?</strong> <span class="pill a-purple">Decision</span>
+                  <p>Player opted in, monthly budget left.</p>
+                  <p class="jump"><strong>→ Validate and apply</strong>: yes: OpenRouter decides</p>
+                </li>
+                <li class="edge">↓ no</li>
+                <li class="node a-verm">
+                  <strong>Utility AI</strong>
+                  <p>Always available, deterministic, instant.</p>
+                </li>
+                <li class="edge">↓</li>
+                <li class="node a-green terminal"><strong>Validate and apply</strong> <span class="pill a-green">Outcome</span></li>
+              </ol>
+            </section>
+            <section id="a-budget">
+              <h3 class="hb a-verm">Budgets, caching and batching</h3>
+              <ul class="rows">
+                <li class="card a-blue">
+                  <strong>Event-driven, not per tick</strong> <span class="pill a-blue">Budget</span>
+                  <p>Call a model when something happens to someone who matters, not on a clock for every ship. Background ships use utility AI only.</p>
+                </li>
+                <li class="card a-green">
+                  <strong>Spend near the player</strong> <span class="pill a-green">Budget</span>
+                  <p>Like inZOI's visible-range rule: model decisions for the station you are docked at and ships you can see; rules elsewhere.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Batch at quiet moments</strong> <span class="pill a-amber">Batching</span>
+                  <p>Docking and jumps are natural pauses: prepare the next station's chatter and reactions in one batch.</p>
+                </li>
+                <li class="card a-verm">
+                  <strong>Cache by situation</strong> <span class="pill a-verm">Caching</span>
+                  <p>Same NPC, same facts, same choice set gives the same answer; reuse it. Keep the brief as a stable prompt prefix so the runtime can reuse its cache.</p>
+                </li>
+                <li class="card a-purple">
+                  <strong>Rate limits per region</strong> <span class="pill a-purple">Rate limit</span>
+                  <p>A cap on model calls per region per in-game day, set by the game master. When used up, rules take over quietly.</p>
+                </li>
+                <li class="card a-cyan">
+                  <strong>Pre-generated lines</strong> <span class="pill a-cyan">Reuse</span>
+                  <p>Keep generated lines that passed validation as a growing pool keyed by facts and tone, so later moments can reuse them.</p>
+                </li>
+              </ul>
+            </section>
+          </section>
+          <section id="local">
+            <h2 class="hb a-blue">Local models</h2>
+            <p>Open-weight models that fit next to a running game on a 16 GB card. Parameter counts and licenses are from the Hugging Face model pages. Quantized sizes are estimates unless noted.</p>
+            <div class="tablewrap">
+              <table class="tbl a-green">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Size</th>
+                    <th>License</th>
+                    <th>Role here</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Qwen3.5-4B</td>
+                    <td>4.66B</td>
+                    <td>Apache-2.0</td>
+                    <td>Recommended start; Q4_K_M weights about 3 GB (estimate)</td>
+                  </tr>
+                  <tr>
+                    <td>Gemma 4 E4B</td>
+                    <td>8.0B total, effective 4B</td>
+                    <td>Apache-2.0</td>
+                    <td>Alternative start; official QAT q4_0 GGUF</td>
+                  </tr>
+                  <tr>
+                    <td>Qwen3.5-2B and 0.8B</td>
+                    <td>2.27B and 0.8B</td>
+                    <td>Apache-2.0</td>
+                    <td>Tiny tier for yes/no and scores</td>
+                  </tr>
+                  <tr>
+                    <td>LFM3-1.7B</td>
+                    <td>1.7B</td>
+                    <td>Liquid license</td>
+                    <td>Newest tiny option (GGUF published 24 October 2026); check license</td>
+                  </tr>
+                  <tr>
+                    <td>SmolLM3-3B</td>
+                    <td>3.08B</td>
+                    <td>Apache-2.0</td>
+                    <td>Fully open small baseline</td>
+                  </tr>
+                  <tr>
+                    <td>Phi-4-mini-instruct</td>
+                    <td>3.84B</td>
+                    <td>MIT</td>
+                    <td>Small baseline</td>
+                  </tr>
+                  <tr>
+                    <td>Nemotron 3 Nano 4B</td>
+                    <td>3.97B</td>
+                    <td>NVIDIA license</td>
+                    <td>Small option; check license</td>
+                  </tr>
+                  <tr>
+                    <td>Ministral 3 3B and 8B</td>
+                    <td>3.85B and 8.9B</td>
+                    <td>Apache-2.0</td>
+                    <td>Official GGUFs; good step-up</td>
+                  </tr>
+                  <tr>
+                    <td>Granite 4.2 8B</td>
+                    <td>8.79B</td>
+                    <td>Apache-2.0</td>
+                    <td>Step-up; GGUF published August 2026</td>
+                  </tr>
+                  <tr>
+                    <td>Qwen3.5-9B</td>
+                    <td>9.65B</td>
+                    <td>Apache-2.0</td>
+                    <td>Step-up when the game leaves room</td>
+                  </tr>
+                  <tr>
+                    <td>LFM2.5-8B-A1B</td>
+                    <td>8.47B, about 1B active</td>
+                    <td>Liquid license</td>
+                    <td>Mixture of experts: fast per token, full weights still need memory</td>
+                  </tr>
+                  <tr>
+                    <td>Llama 3.1 8B Instruct</td>
+                    <td>8B</td>
+                    <td>Llama 3.1 license</td>
+                    <td>Older, but the best-benchmarked baseline</td>
+                  </tr>
+                  <tr>
+                    <td>Gemma 4 12B</td>
+                    <td>11.96B</td>
+                    <td>Apache-2.0</td>
+                    <td>Quality ceiling if the game is light; QAT q4_0 GGUF</td>
+                  </tr>
+                  <tr>
+                    <td>Qwen3.6-35B-A3B</td>
+                    <td>35.95B, 3B active</td>
+                    <td>Apache-2.0</td>
+                    <td>Fast alone but too large to share the card with a game</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>No Phi-5 small model was found on Hugging Face as of 29 October 2026. For comparison, inZOI ships a 0.5B model and PUBG Ally a 2B model, so production games are aiming small.</p>
+          </section>
+          <section id="runtimes">
+            <h2 class="hb a-blue">Runtimes on Windows</h2>
+            <div class="tablewrap">
+              <table class="tbl a-cyan">
+                <thead>
+                  <tr>
+                    <th>Runtime</th>
+                    <th>Windows</th>
+                    <th>Constrained output</th>
+                    <th>Fit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>llama.cpp (llama-server)</td>
+                    <td>Native, CUDA and Vulkan builds</td>
+                    <td>GBNF grammars, JSON schema</td>
+                    <td>Recommended to ship as a sidecar</td>
+                  </tr>
+                  <tr>
+                    <td>Ollama</td>
+                    <td>Native</td>
+                    <td>JSON schema through the format field</td>
+                    <td>Prototyping; built on llama.cpp</td>
+                  </tr>
+                  <tr>
+                    <td>LM Studio</td>
+                    <td>Native, GUI</td>
+                    <td>JSON schema structured output</td>
+                    <td>Prototyping and model shopping</td>
+                  </tr>
+                  <tr>
+                    <td>ExLlamaV3</td>
+                    <td>See repo</td>
+                    <td>See repo</td>
+                    <td>Fast GPU-only inference with its own quant format; less suited to shipping</td>
+                  </tr>
+                  <tr>
+                    <td>ONNX Runtime GenAI</td>
+                    <td>Native, DirectML and CUDA</td>
+                    <td>See current docs</td>
+                    <td>Worth a look for AMD and Intel GPU players</td>
+                  </tr>
+                  <tr>
+                    <td>vLLM</td>
+                    <td>No native Windows; WSL only</td>
+                    <td>Structured outputs</td>
+                    <td>Server batching; not for players' PCs</td>
+                  </tr>
+                  <tr>
+                    <td>TensorRT-LLM</td>
+                    <td>Windows deprecated in v0.18, removed in v0.19</td>
+                    <td>Not applicable</td>
+                    <td>Avoid on Windows</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>Players do not need any runtime installed: the game can bundle llama-server and a GGUF file, start it on a free port, and stop it on exit.</p>
+          </section>
+          <section id="vram">
+            <h2 class="hb a-blue">VRAM fit and speed</h2>
+            <dl class="facts card a-amber">
+              <div>
+                <dt>The card</dt>
+                <dd>RTX 5070 Ti: 16 GB GDDR7 on a 256-bit bus, 896 GB/s, 1,406 AI TOPS, 300 W. Generation speed is mostly limited by memory bandwidth, and the game competes for it.</dd>
+              </div>
+              <div>
+                <dt>Measured, model running alone</dt>
+                <dd>Qwen3-8B Q4_K: 120.5 tokens/s at 4K context, 87.5 at 16K, 63.3 at 32K; prompt processing about 5,557 tokens/s at 4K. gpt-oss-20B MXFP4: 156 tokens/s. Qwen3-14B Q4_K: 74.3 tokens/s. Qwen3.6-35B-A3B Q4_K_M: 88 to 101 tokens/s. Llama 3.1 8B Q4_K_M: 4.9 GB file, median 95.3 tokens/s, about 6.4 GB VRAM with 8K context.</dd>
+              </div>
+              <div>
+                <dt>Budget for this game (estimate)</dt>
+                <dd>Leave the game its share first and give the model 4 to 6 GB including context cache. A 4B model at Q4_K_M fits with room; an 8B model fits if the game uses under about 8 GB. Measure your own build.</dd>
+              </div>
+              <div>
+                <dt>Latency class per decision (estimate)</dt>
+                <dd>A 1,500-token grounding packet plus a 40-token typed answer on an 8B model: about 0.3 s to read the prompt and 0.3 s to answer at the measured speeds, so well under a second alone and slower while the game renders. A 4B model is faster. Cached prompt prefixes cut the reading part.</dd>
+              </div>
+              <div>
+                <dt>Sources</dt>
+                <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/">NVIDIA RTX 5070 family</a> · <a href="https://tokatlas.github.io/hardware/rtx-5070-ti/">TokAtlas RTX 5070 Ti</a> · <a href="https://specpicks.com/will-it-run/llama-3.1-8b/rtx-5070-ti">SpecPicks Llama 3.1 8B</a></span></dd>
+              </div>
+            </dl>
+            <p>Because decisions in this game are not twitch reactions, a second of latency at a dock is acceptable when the utility AI has already shown a sensible default. The model is there to make the answer more personal, not to make the game wait.</p>
+          </section>
+          <section id="cloud">
+            <h2 class="hb a-blue">OpenRouter as an upgrade</h2>
+            <p>Prices in US dollars per million tokens, from the OpenRouter models API on 29 October 2026. Structured-output support is the model-level flag; it can vary by provider.</p>
+            <p>Sorted by input price (ties broken by output price).</p>
+            <div class="tablewrap">
+              <table class="tbl a-blue">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th class="r">Input</th>
+                    <th class="r">Output</th>
+                    <th>Structured</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>openai/gpt-oss-20b</code></td>
+                    <td class="r">$0.018</td>
+                    <td class="r">$0.09</td>
+                    <td>Yes</td>
+                    <td>Cheapest general option with structured output</td>
+                  </tr>
+                  <tr>
+                    <td><code>qwen/qwen3.7-flash</code></td>
+                    <td class="r">$0.03</td>
+                    <td class="r">$0.13</td>
+                    <td>Tools only</td>
+                    <td>Cheap; use tool calling as the constraint</td>
+                  </tr>
+                  <tr>
+                    <td><code>typesafe/jev-1.14</code></td>
+                    <td class="r">$0.042</td>
+                    <td class="r">free</td>
+                    <td>Decisions API</td>
+                    <td>Typed choices and scores, no text</td>
+                  </tr>
+                  <tr>
+                    <td><code>deepseek/deepseek-v4.1-flash</code></td>
+                    <td class="r">$0.045</td>
+                    <td class="r">$0.50</td>
+                    <td>Yes</td>
+                    <td>Batch variant listed at $0.05 / $0.15</td>
+                  </tr>
+                  <tr>
+                    <td><code>meta-llama/llama-3.1-8b-instruct</code></td>
+                    <td class="r">$0.05</td>
+                    <td class="r">$0.08</td>
+                    <td>Varies by provider</td>
+                    <td>Same model as a local baseline</td>
+                  </tr>
+                  <tr>
+                    <td><code>google/gemma-3-12b-it</code></td>
+                    <td class="r">$0.05</td>
+                    <td class="r">$0.15</td>
+                    <td>Yes</td>
+                    <td>Older Gemma, low price</td>
+                  </tr>
+                  <tr>
+                    <td><code>openai/gpt-5-nano</code></td>
+                    <td class="r">$0.05</td>
+                    <td class="r">$0.40</td>
+                    <td>Yes</td>
+                    <td>Small closed model</td>
+                  </tr>
+                  <tr>
+                    <td><code>ibm-granite/granite-4.2-8b</code></td>
+                    <td class="r">$0.06</td>
+                    <td class="r">$0.15</td>
+                    <td>Yes</td>
+                    <td>Matches a local option</td>
+                  </tr>
+                  <tr>
+                    <td><code>nvidia/nemotron-3.5-lightning</code></td>
+                    <td class="r">$0.07</td>
+                    <td class="r">$0.20</td>
+                    <td>Yes</td>
+                    <td>Free tier also listed</td>
+                  </tr>
+                  <tr>
+                    <td><code>mistralai/mistral-small-3.2-24b-instruct</code></td>
+                    <td class="r">$0.075</td>
+                    <td class="r">$0.20</td>
+                    <td>Yes</td>
+                    <td>Stronger writing for rumors</td>
+                  </tr>
+                  <tr>
+                    <td><code>google/gemma-4-26b-a4b-it</code></td>
+                    <td class="r">$0.076</td>
+                    <td class="r">$0.26</td>
+                    <td>Yes</td>
+                    <td>Free tier also listed</td>
+                  </tr>
+                  <tr>
+                    <td><code>mistralai/ministral-3b-2512</code></td>
+                    <td class="r">$0.10</td>
+                    <td class="r">$0.10</td>
+                    <td>Yes</td>
+                    <td>Matches a local option</td>
+                  </tr>
+                  <tr>
+                    <td><code>google/gemini-2.5-flash-lite</code></td>
+                    <td class="r">$0.10</td>
+                    <td class="r">$0.40</td>
+                    <td>Yes</td>
+                    <td>Large-provider small model</td>
+                  </tr>
+                  <tr>
+                    <td><code>anthropic/claude-haiku-5.5</code></td>
+                    <td class="r">$0.10</td>
+                    <td class="r">$0.50</td>
+                    <td>Yes</td>
+                    <td>Batch variant listed at $0.05 / $0.25</td>
+                  </tr>
+                  <tr>
+                    <td><code>mistralai/ministral-8b-2512</code></td>
+                    <td class="r">$0.15</td>
+                    <td class="r">$0.15</td>
+                    <td>Yes</td>
+                    <td>Matches a local option</td>
+                  </tr>
+                  <tr>
+                    <td><code>qwen/qwen3.5-9b</code></td>
+                    <td class="r">$0.17</td>
+                    <td class="r">$0.25</td>
+                    <td>Yes</td>
+                    <td>Matches the local step-up</td>
+                  </tr>
+                  <tr>
+                    <td><code>google/gemini-3.1-flash-lite</code></td>
+                    <td class="r">$0.25</td>
+                    <td class="r">$1.50</td>
+                    <td>Yes</td>
+                    <td>Upper end of the cheap tier</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <dl class="facts card a-purple">
+              <div>
+                <dt>What 1,000 decisions cost (arithmetic on listed prices)</dt>
+                <dd>With 1,500 input and 50 output tokens each: about $0.03 on gpt-oss-20b, about $0.06 on Jev (input only), about $0.15 on ministral-8b.</dd>
+              </div>
+              <div>
+                <dt>Latency classes (estimate)</dt>
+                <dd>OpenRouter's endpoint latency fields were empty when checked, so only Jev's listed 0.11 s is a published figure. Expect small cloud models to answer in a fraction of a second to a few seconds including the network, varying by provider and load.</dd>
+              </div>
+              <div>
+                <dt>Where cloud helps</dt>
+                <dd>Better rumor and dialogue writing, and offloading the GPU on weaker PCs. It is never required: offline the same decisions go to the local model or the utility AI.</dd>
+              </div>
+            </dl>
+          </section>
+          <section id="menu">
+            <h2 class="hb a-blue">Menu: what the fast layer could do</h2>
+            <p>Each idea is calm (no timers), reacts to your history, never scales to your level, and needs no approval inbox. The tag says what kind of output it needs.</p>
+            <section class="group">
+              <h3 class="hb a-blue">Docks and captains · 4</h3>
+              <ul class="rows">
+                <li class="card a-blue">
+                  <strong>Dock chatter that knows you</strong> <span class="pill a-blue">Short text</span>
+                  <p>A captain's line on docking draws on facts from your history at this station: the ore you sold last time, the convoy you helped, the debt you still owe. Facts come from the world log by id, so the line can only mention what happened. Fallback: an authored line pool keyed on the same facts.</p>
+                </li>
+                <li class="card a-blue">
+                  <strong>Haggling stance</strong> <span class="pill a-blue">Choice</span>
+                  <p>When you trade with a named captain, the model picks one stance from an allowed set (generous, firm, wary, desperate) based on their personality and their record with you. Prices stay inside the band the game master set; the stance only picks the point in the band and the tone.</p>
+                </li>
+                <li class="card a-blue">
+                  <strong>Tip or silence</strong> <span class="pill a-blue">Yes / no</span>
+                  <p>A captain decides whether to share a tip about a rich field or a quiet route, based on how you treated them before. Remembered goodwill becomes useful information, not a reward screen.</p>
+                </li>
+                <li class="card a-blue">
+                  <strong>Hails in passing</strong> <span class="pill a-blue">Choice</span>
+                  <p>Passing ships choose to greet, ignore, warn or ask for help, from an allowed list and your reputation with their faction. Calm by default: no forced stops, no timers.</p>
+                </li>
+              </ul>
+            </section>
+            <section class="group">
+              <h3 class="hb a-amber">Stations and shortages · 3</h3>
+              <ul class="rows">
+                <li class="card a-amber">
+                  <strong>Shortage reactions</strong> <span class="pill a-amber">Choice</span>
+                  <p>When stock of a ware falls below a threshold, the station picks among allowed responses: raise its buy price within the band, post a supply request on the notice board, ration sales, or ask a neighboring station. Different stations react differently because their briefs differ.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Station mood</strong> <span class="pill a-amber">Score</span>
+                  <p>A station's mood on an ordered scale, from thriving to strained, scored from its recent history. Mood feeds prices, chatter and which requests appear.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Notice board in the station's voice</strong> <span class="pill a-amber">Short text</span>
+                  <p>Requests and announcements written from the real state of the station: what it lacks, who it trusts, what happened last week. Text only; the request itself is created by rules.</p>
+                </li>
+              </ul>
+            </section>
+            <section class="group">
+              <h3 class="hb a-purple">Rumors · 3</h3>
+              <ul class="rows">
+                <li class="card a-purple">
+                  <strong>Rumors from real events</strong> <span class="pill a-purple">Short text</span>
+                  <p>Events in the world log become rumors told at bars and over comms. The game master sets how much each rumor may distort and which ones may be false; the fast model only phrases and spreads them.</p>
+                </li>
+                <li class="card a-purple">
+                  <strong>Who tells you what</strong> <span class="pill a-purple">Choice</span>
+                  <p>An NPC picks which rumor to share from the ones they know, weighted by relationship and personality. A friend shares what helps you; a rival shares what helps them.</p>
+                </li>
+                <li class="card a-purple">
+                  <strong>Rumor decay</strong> <span class="pill a-purple">Score</span>
+                  <p>How stale a rumor has become as it travels, scored per hop. Old rumors get vaguer; the facts behind them do not change.</p>
+                </li>
+              </ul>
+            </section>
+            <section class="group">
+              <h3 class="hb a-verm">Pirates and traders · 3</h3>
+              <ul class="rows">
+                <li class="card a-verm">
+                  <strong>Trader route choice</strong> <span class="pill a-verm">Choice</span>
+                  <p>Trader captains pick among known profitable routes using their own risk tolerance and what they have heard. The result is an economy with personalities, not a uniform optimizer.</p>
+                </li>
+                <li class="card a-verm">
+                  <strong>Pirate decisions</strong> <span class="pill a-verm">Choice</span>
+                  <p>A pirate picks to shadow, demand toll, attack or leave, within an aggression budget the game master sets per region. Never scaled to the player's level or wealth; tied to history, such as a pirate you spared before.</p>
+                </li>
+                <li class="card a-verm">
+                  <strong>Escorts and convoys</strong> <span class="pill a-verm">Choice</span>
+                  <p>Traders decide whether to hire an escort or group up after news of piracy, which changes where the safe lanes are.</p>
+                </li>
+              </ul>
+            </section>
+            <section class="group">
+              <h3 class="hb a-cyan">Faction micro-moves · 2</h3>
+              <ul class="rows">
+                <li class="card a-cyan">
+                  <strong>Daily small moves</strong> <span class="pill a-cyan">Choice</span>
+                  <p>Patrol placement, a tariff nudge within band, a minor gesture to a neighbor. The game master sets each faction's strategic stance and limits; the fast layer fills in the daily texture.</p>
+                </li>
+                <li class="card a-cyan">
+                  <strong>Reaction to your reputation</strong> <span class="pill a-cyan">Score</span>
+                  <p>How warm a faction office is with you, scored from your record: discounts, docking priority, or a cold shoulder.</p>
+                </li>
+              </ul>
+            </section>
+            <section class="group">
+              <h3 class="hb a-green">Mining and the log · 2</h3>
+              <ul class="rows">
+                <li class="card a-green">
+                  <strong>Prospectors and depletion</strong> <span class="pill a-green">Choice</span>
+                  <p>NPC miners notice depleted fields and move on, claim new ones, or compete with you, leaving visible traces in the world.</p>
+                </li>
+                <li class="card a-green">
+                  <strong>While you were away</strong> <span class="pill a-green">Short text</span>
+                  <p>A short ship-log digest of what changed since your last visit to a region, written only from logged events. It explains the evolving world without an inbox or approvals.</p>
+                </li>
+              </ul>
+            </section>
+          </section>
+          <section id="split">
+            <h2 class="hb a-blue">What stays with the game master</h2>
+            <div class="pair">
+              <section>
+                <h3 class="hb a-green">Fast layer</h3>
+                <ul>
+                  <li>Individual captain, pirate and trader choices</li>
+                  <li>Station reactions within price bands</li>
+                  <li>Dock chatter, hails and notice-board wording</li>
+                  <li>Phrasing and spreading existing rumors</li>
+                  <li>Daily faction moves within a stance</li>
+                  <li>Away digests from logged events</li>
+                </ul>
+              </section>
+              <section>
+                <h3 class="hb a-purple">Game master</h3>
+                <ul>
+                  <li>Arcs, eras and new systems</li>
+                  <li>Ancients canon and all mysteries</li>
+                  <li>Creating factions and named characters</li>
+                  <li>Each NPC's goals, temperament and limits</li>
+                  <li>Bands, budgets and which rumors may be false</li>
+                  <li>Reading digests and changing the rules</li>
+                </ul>
+              </section>
+            </div>
+          </section>
+          <section id="risks">
+            <h2 class="hb a-blue">Risks and open questions</h2>
+            <ul class="rows">
+              <li class="card a-verm">
+                <strong>Frame time while the model runs</strong> <span class="pill a-verm">Measure</span>
+                <p>Open: how much does a background 4B or 8B model cost the game's frame rate on this card? Needs measuring with the real game.</p>
+              </li>
+              <li class="card a-amber">
+                <strong>Sameness creeping back</strong> <span class="pill a-amber">Risk</span>
+                <p>Small models fall into stock phrasing. Mitigation: vary facts and temperament, cap reuse of a line, and keep authored lines in the mix.</p>
+              </li>
+              <li class="card a-purple">
+                <strong>Drift from canon</strong> <span class="pill a-purple">Risk</span>
+                <p>A fast model could hint at Ancients lore. The brief forbids it and the validator checks for canon terms.</p>
+              </li>
+              <li class="card a-cyan">
+                <strong>Players not noticing</strong> <span class="pill a-cyan">Risk</span>
+                <p>If decisions do not change visible things, the work is wasted, as inZOI shows. Every menu item should move a price, route, offer or relationship.</p>
+              </li>
+              <li class="card a-blue">
+                <strong>Determinism and saves</strong> <span class="pill a-blue">Question</span>
+                <p>Open: should a reload give the same decisions? Caching by situation and logging choices makes replays consistent.</p>
+              </li>
+              <li class="card a-green">
+                <strong>Licenses</strong> <span class="pill a-green">Question</span>
+                <p>Apache-2.0 and MIT models are simplest to ship. Liquid, NVIDIA and Llama licenses need reading before bundling.</p>
+              </li>
+              <li class="card a-verm">
+                <strong>Cloud cost and privacy</strong> <span class="pill a-verm">Question</span>
+                <p>Who pays for opt-in cloud calls, and what world data leaves the PC? A hard monthly cap and a clear setting are needed.</p>
+              </li>
+              <li class="card a-amber">
+                <strong>Jev's future</strong> <span class="pill a-amber">Risk</span>
+                <p>Decision models on OpenRouter are new; the Decisions API path is marked alpha. Keep the same typed interface so local models can replace it.</p>
+              </li>
+            </ul>
+          </section>
+          <section id="sources">
+            <h2 class="hb a-blue">Sources</h2>
+            <p>Links were checked on 29 October 2026. Nexus Mods pages block automated checks but load in a browser. Per-project links are also listed with each entry above.</p>
+            <h3 class="hb a-cyan">Runtimes and structured output</h3>
+            <ul class="links">
+              <li><a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> — GitHub</li>
+              <li><a href="https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md">llama.cpp grammars (GBNF) and JSON schema</a> — GitHub</li>
+              <li><a href="https://ollama.com/blog/structured-outputs">Structured outputs</a> — Ollama blog</li>
+              <li><a href="https://lmstudio.ai/docs/developer/openai-compat/structured-output">Structured output</a> — LM Studio docs</li>
+              <li><a href="https://docs.vllm.ai/en/latest/getting_started/installation/gpu/">GPU installation (Windows via WSL)</a> — vLLM docs</li>
+              <li><a href="https://github.com/turboderp-org/exllamav3">ExLlamaV3</a> — GitHub</li>
+              <li><a href="https://github.com/NVIDIA/TensorRT-LLM/issues/11360">TensorRT-LLM Windows support issue</a> — GitHub</li>
+              <li><a href="https://nvidia.github.io/TensorRT-LLM/0.19.0/release-notes.html">TensorRT-LLM 0.19 release notes</a> — NVIDIA</li>
+              <li><a href="https://github.com/microsoft/onnxruntime-genai">ONNX Runtime GenAI</a> — GitHub</li>
+            </ul>
+            <h3 class="hb a-blue">OpenRouter</h3>
+            <ul class="links">
+              <li><a href="https://openrouter.ai/api/v1/models">Models API (prices)</a> — OpenRouter</li>
+              <li><a href="https://openrouter.ai/docs/guides/features/structured-outputs">Structured outputs</a> — OpenRouter docs</li>
+              <li><a href="https://openrouter.ai/docs/guides/features/tool-calling">Tool calling</a> — OpenRouter docs</li>
+              <li><a href="https://openrouter.ai/docs/guides/community/jev">Jev guide</a> — OpenRouter docs</li>
+              <li><a href="https://openrouter.ai/openai/gpt-oss-20b">gpt-oss-20b</a> — OpenRouter</li>
+              <li><a href="https://openrouter.ai/qwen/qwen3.7-flash">qwen3.7-flash</a> — OpenRouter</li>
+            </ul>
+            <h3 class="hb a-green">Model pages</h3>
+            <ul class="links">
+              <li><a href="https://huggingface.co/Qwen/Qwen3.5-4B">Qwen3.5-4B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/Qwen/Qwen3.5-9B">Qwen3.5-9B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/google/gemma-4-E4B-it">Gemma 4 E4B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/google/gemma-4-12B-it">Gemma 4 12B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf">Gemma 4 12B QAT q4_0 GGUF</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512">Ministral 3 8B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/ibm-granite/granite-4.2-8b">Granite 4.2 8B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/LiquidAI/LFM2.5-8B-A1B">LFM2.5-8B-A1B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/LiquidAI/LFM2.5-2.6B">LFM2.5-2.6B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16">Nemotron 3 Nano 4B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/HuggingFaceTB/SmolLM3-3B">SmolLM3-3B</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/microsoft/Phi-4-mini-instruct">Phi-4-mini-instruct</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct">Llama 3.1 8B Instruct</a> — Hugging Face</li>
+              <li><a href="https://huggingface.co/Qwen/Qwen3.6-35B-A3B">Qwen3.6-35B-A3B</a> — Hugging Face</li>
+            </ul>
+            <h3 class="hb a-amber">Hardware</h3>
+            <ul class="links">
+              <li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/">RTX 5070 family specs</a> — NVIDIA</li>
+              <li><a href="https://tokatlas.github.io/hardware/rtx-5070-ti/">RTX 5070 Ti benchmarks</a> — TokAtlas</li>
+              <li><a href="https://specpicks.com/will-it-run/llama-3.1-8b/rtx-5070-ti">Llama 3.1 8B on RTX 5070 Ti</a> — SpecPicks</li>
+            </ul>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>
