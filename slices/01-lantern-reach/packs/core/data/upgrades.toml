@@ -127,7 +127,9 @@ grants = ["cap.loops"]
 unlock = { facts = { query = { kind = "queue_done", ship = "ship.player" }, at_least = 4 } }
 
 # Tenders. Building one writes `tender_acquired`; it starts berthed at its station.
-# `cap.automation` comes from beat b13, not from the purchase.
+# Thimble (b13 step 2) grants `cap.automation`: b13's last step is Thimble running one
+# of the player's loops, so assigning it has to work before b13 completes. b13's own
+# reward lists the flag too, which grants nothing once it's set.
 [[craft]]
 id = "craft.thimble"
 name = "Thimble"
@@ -136,6 +138,7 @@ hull = "hull.tender"
 cost = 2400
 seller = "npc.tamsin_oddway"
 station = "station.kettle_dock"
+grants = ["cap.automation"]
 unlock = { beat_step = { beat = "beat.b13_first_tender", at_least = 1 } }
 
 [[craft]]

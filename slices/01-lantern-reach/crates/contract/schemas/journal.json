@@ -445,6 +445,58 @@
           ]
         },
         {
+          "description": "Changes nothing, and fails unless a ship `ship` flying `hull` exists, or (with\n`hull: null`) unless no ship `ship` exists. A purchase that builds a ship or\ntrades a hull carries one, so a second request worked out from the same tick's\nstate is rejected instead of charged again. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HullId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_ship"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship"
+          ]
+        },
+        {
+          "description": "Replaces a ship's hull and name, leaving everything else (cargo, activity,\norders) as committed. Prestige uses it after an [`Command::ExpectShip`].",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_ship_hull"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "hull",
+            "name"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "op": {
@@ -800,6 +852,33 @@
             "op",
             "faction",
             "delta"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless `faction`'s standing is within `min..=max`.\nDeeds carry one ahead of each `AdjustStanding`: the band of standings the deed\nwould have the same effect from (the same delta after the clamp, the same regard\ntiers), so a deed worked out before another batch moved the standing out of it\nis rejected, and one it doesn't affect still applies. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "max": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "min": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_standing"
+            }
+          },
+          "required": [
+            "op",
+            "faction",
+            "min",
+            "max"
           ]
         },
         {
@@ -1472,6 +1551,27 @@
           ]
         },
         {
+          "description": "Fails unless `upgrade` is (`fitted: true`) or isn't (`false`) fitted. Changes\nnothing; its inverse is itself. A purchase carries one so it can't be charged\ntwice in one tick.",
+          "type": "object",
+          "properties": {
+            "fitted": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_fitting"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "op",
+            "upgrade",
+            "fitted"
+          ]
+        },
+        {
           "description": "Sets (or with `null` clears) a hull's rank record.",
           "type": "object",
           "properties": {
@@ -1481,6 +1581,33 @@
             "op": {
               "type": "string",
               "const": "set_hull_record"
+            },
+            "record": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HullRecord"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "hull"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless the hull's rank record is `record` (`null`:\nnone). Rank earning and prestige carry one ahead of `SetHullRecord`, so neither\nwrites a record worked out before the other changed it. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_hull_record"
             },
             "record": {
               "anyOf": [

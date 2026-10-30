@@ -1,6 +1,7 @@
 //! Station services: what hullwrights and dockmasters fit and build, and the
 //! hullwright's prestige. Each purchase is one atomic batch: if any part of it can't
-//! apply (not enough credits, undocked earlier in the tick), none of it does.
+//! apply (not enough credits, undocked earlier in the tick, already bought by an
+//! earlier request in the same tick), none of it does and nothing is charged.
 
 use std::collections::BTreeSet;
 
@@ -185,6 +186,12 @@ pub fn batch(
                     station: station.clone(),
                 });
             }
+            // Checked when it applies, so a second request for it this tick fails
+            // whole instead of charging again.
+            b.push(Command::ExpectFitting {
+                upgrade: upgrade.clone(),
+                fitted: false,
+            });
             if u.cost > 0 {
                 b.push(Command::AdjustCredits { delta: -u.cost });
             }
@@ -202,6 +209,10 @@ pub fn batch(
             b.push(Command::ExpectDocked {
                 ship: ship.id.clone(),
                 station: c.station.clone(),
+            });
+            b.push(Command::ExpectShip {
+                ship: craft.clone(),
+                hull: None,
             });
             if c.cost > 0 {
                 b.push(Command::AdjustCredits { delta: -c.cost });

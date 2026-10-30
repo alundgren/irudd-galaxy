@@ -126,7 +126,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }
 -- The player for a beat: `credits` are credits (40.5), not centicredits.
-export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+-- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.
+export type Spot = { x: number, y: number, region: RegionId? }
+export type FieldId = string
+-- Read-only depletion views. `left` is remaining / full (1 when full is 0).
+export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number }
+export type RockView = { id: RockId, field: FieldId, position: Vec2, remaining: number, initial: number, left: number }
 export type LoadSpec = { ware: WareId, quantity: number }
 export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }
 -- A market lever (galaxy-economy). Prices follow from the new supply.
@@ -279,8 +285,14 @@ export type BeatsApi = {
 	goals: (self: BeatsApi) -> { GoalLine },
 	-- The act the journey is in (the highest act of any started beat).
 	act: (self: BeatsApi) -> number,
-	-- The player as a beat sees them: ship, hull, where they're docked, cargo, hold room and credits (in credits).
+	-- The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
 	pilot: (self: BeatsApi) -> PilotView,
+	-- How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
+	distance: (self: BeatsApi, to: StationId | Spot) -> number?,
+	-- A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
+	field: (self: BeatsApi, id: FieldId) -> FieldView?,
+	-- One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
+	rock: (self: BeatsApi, id: RockId) -> RockView?,
 	-- A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
 	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
 	-- Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.

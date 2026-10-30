@@ -99,6 +99,16 @@ pub struct Player {
     pub loops: BTreeMap<String, Vec<crate::verbs::Order>>,
 }
 
+impl Player {
+    /// Whether `ship` is a hull the player left at prestige. A berthed hull is kept for
+    /// good and can't be flown, ordered or automated.
+    pub fn is_berthed(&self, ship: &ShipId) -> bool {
+        self.hull_records
+            .values()
+            .any(|r| r.berthed_as.as_ref() == Some(ship))
+    }
+}
+
 /// What the player saw at a station's market on their last visit.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PriceSnapshot {

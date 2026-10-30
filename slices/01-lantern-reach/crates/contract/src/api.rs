@@ -776,7 +776,28 @@ pub const FUNCTIONS: &[FnDef] = &[
         "pilot",
         "beats.read",
         "() -> PilotView",
-        "The player as a beat sees them: ship, hull, where they're docked, cargo, hold room and credits (in credits).",
+        "The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).",
+    ),
+    f(
+        "beats",
+        "distance",
+        "beats.read",
+        "(to: StationId | Spot) -> number?",
+        "How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).",
+    ),
+    f(
+        "beats",
+        "field",
+        "beats.read",
+        "(id: FieldId) -> FieldView?",
+        "A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.",
+    ),
+    f(
+        "beats",
+        "rock",
+        "beats.read",
+        "(id: RockId) -> RockView?",
+        "One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.",
     ),
     f(
         "beats",
@@ -1376,7 +1397,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }\n\
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }\n\
 -- The player for a beat: `credits` are credits (40.5), not centicredits.\n\
-export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+-- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
+export type Spot = { x: number, y: number, region: RegionId? }\n\
+export type FieldId = string\n\
+-- Read-only depletion views. `left` is remaining / full (1 when full is 0).\n\
+export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number }\n\
+export type RockView = { id: RockId, field: FieldId, position: Vec2, remaining: number, initial: number, left: number }\n\
 export type LoadSpec = { ware: WareId, quantity: number }\n\
 export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }\n\
 -- A market lever (galaxy-economy). Prices follow from the new supply.\n\

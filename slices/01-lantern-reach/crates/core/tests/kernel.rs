@@ -224,6 +224,7 @@ fn undo_records_invert_commands() {
     kettle.id = StationId::new("gm.sixth_station").unwrap();
     kettle.name = "The sixth station".into();
     let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
+    let coop = world.factions.get(&COOP).unwrap().standing;
     let commands = vec![
         Command::AdjustCargo {
             ship: PLAYER,
@@ -253,6 +254,11 @@ fn undo_records_invert_commands() {
             faction: COOP,
             delta: 3,
         },
+        Command::ExpectStanding {
+            faction: COOP,
+            min: coop + 3,
+            max: coop + 3,
+        },
         Command::SetFlag {
             flag: FlagId::new("flag.nav_chip").unwrap(),
             on: true,
@@ -278,12 +284,36 @@ fn undo_records_invert_commands() {
             upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
             fitted: true,
         },
+        Command::ExpectFitting {
+            upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
+            fitted: true,
+        },
         Command::SetHullRecord {
             hull: HullId::new("hull.wren").unwrap(),
             record: Some(HullRecord {
                 rank: 2,
                 ..HullRecord::default()
             }),
+        },
+        Command::ExpectHullRecord {
+            hull: HullId::new("hull.wren").unwrap(),
+            record: Some(HullRecord {
+                rank: 2,
+                ..HullRecord::default()
+            }),
+        },
+        Command::ExpectShip {
+            ship: PLAYER,
+            hull: Some(HullId::new("hull.wren").unwrap()),
+        },
+        Command::ExpectShip {
+            ship: ShipId::new("ship.berth.wren").unwrap(),
+            hull: None,
+        },
+        Command::SetShipHull {
+            ship: PLAYER,
+            hull: HullId::new("hull.tandem").unwrap(),
+            name: "Tandem".into(),
         },
         Command::SetTunable {
             id: TunableId::new("b02.ice").unwrap(),

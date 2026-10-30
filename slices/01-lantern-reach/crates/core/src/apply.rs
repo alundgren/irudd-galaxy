@@ -209,6 +209,36 @@ fn apply_with(
             }
             invert(cmd.clone())
         }
+        C::ExpectShip { ship, hull } => {
+            if refs.check {
+                match (world.ships.get(ship), hull) {
+                    (None, None) => {}
+                    (Some(s), Some(h)) if s.hull == *h => {}
+                    (Some(_), None) => {
+                        return Err(CommandError::Invalid(format!("{ship} already exists")));
+                    }
+                    (Some(s), Some(h)) => {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} flies {}, not {h}",
+                            s.hull
+                        )));
+                    }
+                    (None, Some(_)) => return Err(unknown("ship", ship)),
+                }
+            }
+            invert(cmd.clone())
+        }
+        C::SetShipHull { ship, hull, name } => {
+            refs.require(&world.hulls, hull, "hull")?;
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old_hull = std::mem::replace(&mut s.hull, hull.clone());
+            let old_name = std::mem::replace(&mut s.name, name.clone());
+            invert(C::SetShipHull {
+                ship: ship.clone(),
+                hull: old_hull,
+                name: old_name,
+            })
+        }
         C::SetShipRegion { ship, region } => {
             refs.require(&world.regions, region, "region")?;
             let s = find(&mut world.ships, ship, "ship")?;
@@ -395,6 +425,20 @@ fn apply_with(
                 faction: faction.clone(),
                 delta: inverse,
             })
+        }
+        C::ExpectStanding { faction, min, max } => {
+            if refs.check {
+                let f = world
+                    .factions
+                    .get(faction)
+                    .ok_or_else(|| unknown("faction", faction))?;
+                if !(*min..=*max).contains(&f.standing) {
+                    return Err(CommandError::Invalid(format!(
+                        "{faction}'s standing changed since this deed was worked out"
+                    )));
+                }
+            }
+            invert(cmd.clone())
         }
         C::SetMarketLine {
             station,
@@ -715,6 +759,24 @@ fn apply_with(
                 upgrade: upgrade.clone(),
                 fitted: was,
             })
+        }
+        C::ExpectFitting { upgrade, fitted } => {
+            if refs.check && world.player.fittings.contains(upgrade) != *fitted {
+                return Err(CommandError::Invalid(if *fitted {
+                    format!("{upgrade} isn't fitted")
+                } else {
+                    format!("{upgrade} is already fitted")
+                }));
+            }
+            invert(cmd.clone())
+        }
+        C::ExpectHullRecord { hull, record } => {
+            if refs.check && world.player.hull_records.get(hull) != record.as_ref() {
+                return Err(CommandError::Invalid(format!(
+                    "{hull}'s rank record changed since this was worked out"
+                )));
+            }
+            invert(cmd.clone())
         }
         C::SetHullRecord { hull, record } => {
             refs.require(&world.hulls, hull, "hull")?;

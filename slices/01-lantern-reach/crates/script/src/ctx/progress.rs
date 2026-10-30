@@ -265,6 +265,67 @@ fn number(env: &CallEnv<'_>, lua: &Lua, v: &Value, what: &str) -> mlua::Result<f
     }
 }
 
+/// A position as Luau sees it (`Vec2`).
+fn point(lua: &Lua, p: Vec2) -> mlua::Result<Table> {
+    let t = lua.create_table()?;
+    t.raw_set("x", f64::from(p.x))?;
+    t.raw_set("y", f64::from(p.y))?;
+    Ok(t)
+}
+
+/// `part / whole`, 1 when there's no whole.
+fn share(part: u64, whole: u64) -> f64 {
+    if whole == 0 {
+        1.0
+    } else {
+        part as f64 / whole as f64
+    }
+}
+
+impl CallEnv<'_> {
+    /// A `ctx.beats:distance` target: a station ID, or a `Spot` table. Returns the
+    /// region it's in (`None`: the ship's) and the point.
+    fn spot(&self, lua: &Lua, to: Value) -> mlua::Result<(Option<RegionId>, Vec2)> {
+        match to {
+            Value::String(s) => {
+                let id = self.station(lua, &s)?;
+                let st = self.world.stations.get(&id).ok_or_else(|| {
+                    self.fail(lua, "unknown_id", format!("no station `{id}`"))
+                })?;
+                Ok((Some(st.region.clone()), st.position))
+            }
+            Value::Table(t) => {
+                only_keys(self, lua, &t, "ctx.beats:distance", &["x", "y", "region"])?;
+                let coord = |k: &str| -> mlua::Result<f32> {
+                    let n = number(self, lua, &t.raw_get::<Value>(k)?, k)?;
+                    Ok(n as f32)
+                };
+                let at = Vec2::new(coord("x")?, coord("y")?);
+                if !(at.x.is_finite() && at.y.is_finite()) {
+                    return Err(self.fail(lua, "bad_number", "a spot must be finite"));
+                }
+                let region = t
+                    .raw_get::<Option<LuaString>>("region")?
+                    .map(|r| {
+                        let id: RegionId = self.id(lua, &r)?;
+                        if self.world.regions.contains(&id) {
+                            Ok(id)
+                        } else {
+                            Err(self.fail(lua, "unknown_id", format!("no region `{id}`")))
+                        }
+                    })
+                    .transpose()?;
+                Ok((region, at))
+            }
+            _ => Err(self.fail(
+                lua,
+                "bad_argument",
+                "ctx.beats:distance takes a station ID or `{ x = ..., y = ..., region = ... }`",
+            )),
+        }
+    }
+}
+
 /// The player's ship, docked at `station`.
 fn docked_player<'w>(env: &CallEnv<'w>, lua: &Lua, station: &StationId) -> mlua::Result<&'w Ship> {
     let ship = galaxy_progress::eval::player_ship(env.world)
@@ -499,6 +560,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 t.raw_set("hull", s.hull.as_str())?;
                 t.raw_set("docked_at", s.docked_at.as_ref().map(|d| d.to_string()))?;
                 t.raw_set("region", s.region.as_str())?;
+                t.raw_set("position", point(lua, s.position)?)?;
             }
             let cargo = lua.create_table()?;
             for (ware, n) in ship.map(|s| &s.hold.cargo).into_iter().flatten() {
@@ -508,6 +570,72 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             t.raw_set("hold_free", galaxy_progress::eval::hold_free(w, ship))?;
             t.raw_set("credits", w.player.credits as f64 / 100.0)?;
             Ok(t)
+        })?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "distance",
+        m(scope, env, |lua, env, to: Value| {
+            let (region, at) = env.spot(lua, to)?;
+            let Some(ship) = galaxy_progress::eval::player_ship(env.world) else {
+                return Ok(None);
+            };
+            if region.as_ref().is_some_and(|r| *r != ship.region) {
+                return Ok(None);
+            }
+            Ok(Some(f64::from(ship.position.distance(at))))
+        })?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "field",
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
+            let w = env.world;
+            let Some(field) = w.fields.get(id.as_str()) else {
+                return Ok(None);
+            };
+            let (mut rocks, mut remaining, mut full) = (0u32, 0u64, 0u64);
+            for r in w.rocks.values().filter(|r| r.field == field.id) {
+                rocks += 1;
+                remaining += u64::from(r.remaining);
+                full += u64::from(r.initial);
+            }
+            let t = lua.create_table()?;
+            t.raw_set("id", field.id.as_str())?;
+            t.raw_set("region", field.region.as_str())?;
+            t.raw_set("rocks", rocks)?;
+            t.raw_set("remaining", remaining)?;
+            t.raw_set("full", full)?;
+            t.raw_set("left", share(remaining, full))?;
+            Ok(Some(t))
+        })?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "rock",
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
+            let Some(r) = env.world.rocks.get(id.as_str()) else {
+                return Ok(None);
+            };
+            let t = lua.create_table()?;
+            t.raw_set("id", r.id.as_str())?;
+            t.raw_set("field", r.field.as_str())?;
+            t.raw_set("position", point(lua, r.position)?)?;
+            t.raw_set("remaining", r.remaining)?;
+            t.raw_set("initial", r.initial)?;
+            t.raw_set(
+                "left",
+                share(u64::from(r.remaining), u64::from(r.initial)),
+            )?;
+            Ok(Some(t))
         })?,
     )?;
     method(
@@ -541,6 +669,15 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     ),
                 ));
             }
+            // Checked again when it applies: an undock earlier in the tick rejects it.
+            env.push(
+                lua,
+                &why,
+                Command::ExpectDocked {
+                    ship: ship.id.clone(),
+                    station: station.clone(),
+                },
+            )?;
             env.push(
                 lua,
                 &why,
@@ -579,9 +716,9 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             let quantity = units(env, lua, &spec.get::<Value>("quantity")?)?;
             let ship = galaxy_progress::eval::player_ship(env.world)
                 .ok_or_else(|| env.fail(lua, "no_ship", "the player has no ship"))?;
-            if ship.docked_at.is_none() {
+            let Some(station) = ship.docked_at.clone() else {
                 return Err(env.fail(lua, "not_docked", "cargo is loaded at a dock"));
-            }
+            };
             let free = galaxy_progress::eval::hold_free(env.world, Some(ship));
             if free < u64::from(quantity) {
                 return Err(env.fail(
@@ -590,6 +727,14 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     format!("the hold has room for {free}, not {quantity}"),
                 ));
             }
+            env.push(
+                lua,
+                &why,
+                Command::ExpectDocked {
+                    ship: ship.id.clone(),
+                    station,
+                },
+            )?;
             env.push(
                 lua,
                 &why,
@@ -828,7 +973,9 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 .iter()
                 .map(|t| env.arg(lua, t))
                 .collect::<mlua::Result<_>>()?;
-            let mut deeds = standing::Deeds::new(env.world);
+            // Counts the standing this call has already written (earlier deeds, a beat
+            // transition's rewards), so the clamp and the tier hold across the call.
+            let mut deeds = standing::Deeds::after(env.world, &env.buffer.borrow().commands);
             deeds.deed(&faction, &deed, delta, &tags);
             for c in deeds.commands {
                 env.push(lua, &why, c)?;

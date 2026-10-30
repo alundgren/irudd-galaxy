@@ -26,11 +26,7 @@ pub struct PrestigeOffer {
 
 /// Whether a ship is a hull the player left at prestige.
 pub fn is_berthed(world: &WorldState, ship: &ShipId) -> bool {
-    world
-        .player
-        .hull_records
-        .values()
-        .any(|r| r.berthed_as.as_ref() == Some(ship))
+    world.player.is_berthed(ship)
 }
 
 /// The offer, if its requirement holds for the hull the player flies (whether or not
@@ -97,6 +93,13 @@ pub fn check(world: &WorldState, history: &History, to: &HullId) -> Result<(), R
 
 /// The prestige batch: the fee, the old hull berthed as its own ship, the player's
 /// ship on the new hull, the frozen and fresh rank records, and a `prestige` fact.
+///
+/// Worked out from the tick's starting world, so everything it relies on is checked
+/// against the committed state when it applies: still docked, still flying the old
+/// hull, no berth yet, both rank records unchanged. A second request in the same tick,
+/// or a rank earned first, makes it fail whole (nothing charged). It never writes the
+/// flown ship whole: only its hull and name change, so cargo, credits and activity
+/// committed earlier in the tick stay.
 pub fn batch(world: &WorldState, history: &History, to: &HullId) -> Result<CommandBatch, Refusal> {
     check(world, history, to)?;
     let o = offer(world, history).ok_or(Refusal::Locked)?;
@@ -118,40 +121,56 @@ pub fn batch(world: &WorldState, history: &History, to: &HullId) -> Result<Comma
         ship: ship.id.clone(),
         station: o.station.clone(),
     });
+    b.push(Command::ExpectShip {
+        ship: ship.id.clone(),
+        hull: Some(o.from.clone()),
+    });
+    b.push(Command::ExpectShip {
+        ship: o.berth_as.clone(),
+        hull: None,
+    });
     if o.fee > 0 {
         b.push(Command::AdjustCredits { delta: -o.fee });
     }
+    // The berth is a new ship: empty, idle and docked where the trade happens.
     let mut berth = ship.clone();
     berth.id = o.berth_as.clone();
     berth.velocity = Vec2::ZERO;
     berth.hold = Hold::default();
     berth.orders = OrderQueue::default();
+    berth.activity = ShipActivity::default();
     b.push(Command::PutShip {
         id: o.berth_as.clone(),
         value: Some(Box::new(berth)),
     });
-    let mut flown = ship.clone();
-    flown.hull = to.clone();
-    flown.name = to_name;
-    flown.velocity = Vec2::ZERO;
-    flown.orders = OrderQueue::default();
-    b.push(Command::PutShip {
-        id: ship.id.clone(),
-        value: Some(Box::new(flown)),
+    b.push(Command::SetShipHull {
+        ship: ship.id.clone(),
+        hull: to.clone(),
+        name: to_name,
     });
-    let old = world
-        .player
-        .hull_records
-        .get(&o.from)
-        .cloned()
-        .unwrap_or_default();
+    if !ship.orders.orders.is_empty() {
+        b.push(Command::UpdateOrders {
+            ship: ship.id.clone(),
+            from: Box::new(ship.orders.clone()),
+            to: Box::default(),
+        });
+    }
+    let old = world.player.hull_records.get(&o.from).cloned();
+    b.push(Command::ExpectHullRecord {
+        hull: o.from.clone(),
+        record: old.clone(),
+    });
     b.push(Command::SetHullRecord {
         hull: o.from.clone(),
         record: Some(HullRecord {
             until: head,
             berthed_as: Some(o.berth_as.clone()),
-            ..old
+            ..old.unwrap_or_default()
         }),
+    });
+    b.push(Command::ExpectHullRecord {
+        hull: to.clone(),
+        record: world.player.hull_records.get(to).cloned(),
     });
     b.push(Command::SetHullRecord {
         hull: to.clone(),

@@ -5,6 +5,12 @@
 //! 2. After anything happened (facts committed last tick): standing from faction
 //!    deeds, pilot traits, and the next hull rank, each as its own batch.
 //!
+//! Every batch is worked out from the tick's starting world and checks what it relies
+//! on when it applies (`Expect*`), so a purchase asked for twice, a rank earned on the
+//! prestige tick, or a deed whose standing another batch moved fails whole instead of
+//! overwriting. Deeds are worked out after the standing changes already queued this
+//! tick (by systems that run earlier, such as the script host).
+//!
 //! Beats run in the script host, which owns the packs that register them.
 
 use galaxy_contract::prelude::*;
@@ -25,6 +31,14 @@ impl System for ProgressSystem {
 
     fn step(&self, ctx: &mut TickCtx<'_>) {
         let (world, history) = (ctx.world, ctx.history);
+        // Standing other systems (the script host's beats and deeds) change this tick.
+        let earlier: Vec<Command> = ctx
+            .queued()
+            .iter()
+            .flat_map(|b| &b.commands)
+            .filter(|c| matches!(c, Command::AdjustStanding { .. }))
+            .cloned()
+            .collect();
         let requests = ctx.input.services.clone();
         for req in &requests {
             if let Ok(batch) = services::batch(world, history, req) {
@@ -44,7 +58,7 @@ impl System for ProgressSystem {
         };
         submit(
             "factions remember what the player did",
-            standing::due_deeds(world, history),
+            standing::due_deeds(world, history, &earlier),
         );
         submit(
             "the pilot picked up a habit",

@@ -170,6 +170,21 @@ pub enum Command {
         ship: ShipId,
         station: StationId,
     },
+    /// Changes nothing, and fails unless a ship `ship` flying `hull` exists, or (with
+    /// `hull: null`) unless no ship `ship` exists. A purchase that builds a ship or
+    /// trades a hull carries one, so a second request worked out from the same tick's
+    /// state is rejected instead of charged again. Its inverse is itself.
+    ExpectShip {
+        ship: ShipId,
+        hull: Option<HullId>,
+    },
+    /// Replaces a ship's hull and name, leaving everything else (cargo, activity,
+    /// orders) as committed. Prestige uses it after an [`Command::ExpectShip`].
+    SetShipHull {
+        ship: ShipId,
+        hull: HullId,
+        name: String,
+    },
     SetShipRegion {
         ship: ShipId,
         region: RegionId,
@@ -250,6 +265,16 @@ pub enum Command {
     AdjustStanding {
         faction: FactionId,
         delta: i32,
+    },
+    /// Changes nothing, and fails unless `faction`'s standing is within `min..=max`.
+    /// Deeds carry one ahead of each `AdjustStanding`: the band of standings the deed
+    /// would have the same effect from (the same delta after the clamp, the same regard
+    /// tiers), so a deed worked out before another batch moved the standing out of it
+    /// is rejected, and one it doesn't affect still applies. Its inverse is itself.
+    ExpectStanding {
+        faction: FactionId,
+        min: i32,
+        max: i32,
     },
 
     // --- Markets ---
@@ -388,8 +413,22 @@ pub enum Command {
         upgrade: UpgradeId,
         fitted: bool,
     },
+    /// Fails unless `upgrade` is (`fitted: true`) or isn't (`false`) fitted. Changes
+    /// nothing; its inverse is itself. A purchase carries one so it can't be charged
+    /// twice in one tick.
+    ExpectFitting {
+        upgrade: UpgradeId,
+        fitted: bool,
+    },
     /// Sets (or with `null` clears) a hull's rank record.
     SetHullRecord {
+        hull: HullId,
+        record: Option<HullRecord>,
+    },
+    /// Changes nothing, and fails unless the hull's rank record is `record` (`null`:
+    /// none). Rank earning and prestige carry one ahead of `SetHullRecord`, so neither
+    /// writes a record worked out before the other changed it. Its inverse is itself.
+    ExpectHullRecord {
         hull: HullId,
         record: Option<HullRecord>,
     },
@@ -434,6 +473,19 @@ impl Command {
             }
             _ => Reversibility::Reversible,
         }
+    }
+
+    /// Whether the command only checks the world (`Expect*`). A check holds when it's
+    /// applied; a rollback has nothing of it to undo, so rollback batches leave it out.
+    pub fn is_expectation(&self) -> bool {
+        matches!(
+            self,
+            Command::ExpectDocked { .. }
+                | Command::ExpectShip { .. }
+                | Command::ExpectStanding { .. }
+                | Command::ExpectFitting { .. }
+                | Command::ExpectHullRecord { .. }
+        )
     }
 }
 

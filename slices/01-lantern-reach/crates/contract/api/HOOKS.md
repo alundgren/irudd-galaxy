@@ -190,7 +190,10 @@ and `ctx.store` (the script's declared stores).
 - `ctx.beats:goal() -> GoalLine?` (`beats.read`): The one goal line the HUD shows: the newest active beat's.
 - `ctx.beats:goals() -> { GoalLine }` (`beats.read`): Every active beat's goal line, newest first (the dockmaster's list).
 - `ctx.beats:act() -> number` (`beats.read`): The act the journey is in (the highest act of any started beat).
-- `ctx.beats:pilot() -> PilotView` (`beats.read`): The player as a beat sees them: ship, hull, where they're docked, cargo, hold room and credits (in credits).
+- `ctx.beats:pilot() -> PilotView` (`beats.read`): The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
+- `ctx.beats:distance(to: StationId | Spot) -> number?` (`beats.read`): How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
+- `ctx.beats:field(id: FieldId) -> FieldView?` (`beats.read`): A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
+- `ctx.beats:rock(id: RockId) -> RockView?` (`beats.read`): One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
 - `ctx.beats:deliver(spec: DeliverSpec, why: Cause) -> ()` (`beats.write`): A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
 - `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.
 

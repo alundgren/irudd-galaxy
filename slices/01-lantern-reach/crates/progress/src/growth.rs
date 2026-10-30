@@ -33,17 +33,14 @@ pub fn earned_traits(world: &WorldState, history: &History) -> Vec<Command> {
 }
 
 /// The next rank of the hull the player flies, if its deed is done: the new record
-/// and a `hull_rank` fact. One rank per check.
+/// (behind an `ExpectHullRecord` on the one it was worked out from) and a `hull_rank`
+/// fact. One rank per check.
 pub fn earned_rank(world: &WorldState, history: &History) -> Vec<Command> {
     let Some(ship) = player_ship(world) else {
         return Vec::new();
     };
-    let record = world
-        .player
-        .hull_records
-        .get(&ship.hull)
-        .cloned()
-        .unwrap_or_default();
+    let stored = world.player.hull_records.get(&ship.hull).cloned();
+    let record = stored.clone().unwrap_or_default();
     if record.until.is_some() {
         return Vec::new();
     }
@@ -59,7 +56,13 @@ pub fn earned_rank(world: &WorldState, history: &History) -> Vec<Command> {
     if measure(world, history, &next.deed, record.since, None) < next.at_least {
         return Vec::new();
     }
+    // Only the rank changes, and only if the record is still the one read here: a
+    // prestige committed earlier in the tick froze it, and must keep its berth.
     vec![
+        Command::ExpectHullRecord {
+            hull: ship.hull.clone(),
+            record: stored,
+        },
         Command::SetHullRecord {
             hull: ship.hull.clone(),
             record: Some(HullRecord {

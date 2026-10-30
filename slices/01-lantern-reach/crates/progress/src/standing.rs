@@ -43,6 +43,12 @@ pub fn station_tier<'w>(world: &'w WorldState, station: &StationId) -> Option<&'
 
 /// Standing changes for one batch. Tracks what earlier deeds in the batch did, so the
 /// clamp and the tier change are right when several deeds touch one faction.
+///
+/// Each deed is written as `ExpectStanding` then `AdjustStanding`. The expectation is
+/// the band of standings the deed has the same effect from ([`same_effect`]), so a
+/// batch worked out before another batch moved that faction's standing in the same
+/// tick fails whole if it would now overshoot the range or name the wrong regard tier,
+/// and still applies if the other change doesn't matter to it.
 pub struct Deeds<'w> {
     world: &'w WorldState,
     pending: BTreeMap<FactionId, i32>,
@@ -58,10 +64,23 @@ impl<'w> Deeds<'w> {
         }
     }
 
+    /// Deeds for a batch that already holds `earlier` commands (a script call's
+    /// buffer, a beat transition's rewards): their standing changes count first.
+    pub fn after(world: &'w WorldState, earlier: &[Command]) -> Self {
+        let mut deeds = Self::new(world);
+        for c in earlier {
+            if let Command::AdjustStanding { faction, delta } = c {
+                let p = deeds.pending.entry(faction.clone()).or_insert(0);
+                *p = p.saturating_add(*delta);
+            }
+        }
+        deeds
+    }
+
     /// The standing a faction will have once this batch applies.
     pub fn standing(&self, faction: &FactionId) -> Option<i32> {
         let base = self.world.factions.get(faction)?.standing;
-        Some(base + self.pending.get(faction).copied().unwrap_or(0))
+        Some(base.saturating_add(self.pending.get(faction).copied().unwrap_or(0)))
     }
 
     /// Records one deed. Gains are scaled by traits that boost `tags` (rounded half
@@ -90,6 +109,13 @@ impl<'w> Deeds<'w> {
             .saturating_add(scaled)
             .clamp(lo.min(before), hi.max(before));
         let applied = after - before;
+        let (from, to) = (tier_of(self.world, before), tier_of(self.world, after));
+        let (min, max) = same_effect(self.world, before, scaled, applied, (lo, hi), (from, to));
+        self.commands.push(Command::ExpectStanding {
+            faction: faction.clone(),
+            min,
+            max,
+        });
         if applied != 0 {
             self.commands.push(Command::AdjustStanding {
                 faction: faction.clone(),
@@ -103,7 +129,6 @@ impl<'w> Deeds<'w> {
                 delta: applied,
             },
         });
-        let (from, to) = (tier_of(self.world, before), tier_of(self.world, after));
         if from != to
             && let (Some(f), Some(t)) = (from, to)
         {
@@ -117,6 +142,51 @@ impl<'w> Deeds<'w> {
         }
         *self.pending.entry(faction.clone()).or_insert(0) += applied;
         Some(applied)
+    }
+}
+
+/// The standings a tier spans (`None`: below the first tier).
+fn tier_band(world: &WorldState, tier: Option<usize>) -> (i32, i32) {
+    let regard = &world.progress.rules.regard;
+    let start = |i: usize| regard.get(i).map(|t| t.min_standing);
+    let lo = tier.and_then(start).unwrap_or(i32::MIN);
+    let next = tier.map_or(0, |i| i + 1);
+    let hi = start(next).map_or(i32::MAX, |m| m.saturating_sub(1));
+    (lo, hi)
+}
+
+/// The standings `b` a deed worked out from `before` has the same effect from: `b`
+/// in the tier `from`, `b + applied` in the tier `to`, and (unless the clamp cut the
+/// deed, which only `before` itself gives) `b + scaled` inside the range.
+fn same_effect(
+    world: &WorldState,
+    before: i32,
+    scaled: i32,
+    applied: i32,
+    (lo, hi): (i32, i32),
+    (from, to): (Option<usize>, Option<usize>),
+) -> (i32, i32) {
+    let unclamped = applied == scaled && (lo..=hi).contains(&before);
+    if !unclamped {
+        return (before, before);
+    }
+    let (f_lo, f_hi) = tier_band(world, from);
+    let (t_lo, t_hi) = tier_band(world, to);
+    let min = lo
+        .saturating_sub(scaled)
+        .max(lo)
+        .max(f_lo)
+        .max(t_lo.saturating_sub(applied));
+    let max = hi
+        .saturating_sub(scaled)
+        .min(hi)
+        .min(f_hi)
+        .min(t_hi.saturating_sub(applied));
+    // `before` is always in its own band; anything odd falls back to it alone.
+    if (min..=max).contains(&before) {
+        (min, max)
+    } else {
+        (before, before)
     }
 }
 
@@ -183,13 +253,15 @@ pub fn earned_steps(rule: &DeedRule, history: &History, player: Option<&ShipId>)
 /// Standing earned by deeds the facts of the last tick completed, as commands for one
 /// batch. Stateless: what's due is the steps the rule has earned over history
 /// ([`earned_steps`]) minus the `standing_changed` facts already written for it.
-pub fn due_deeds(world: &WorldState, history: &History) -> Vec<Command> {
+/// `earlier` is what applies ahead of the batch this tick (other systems' queued
+/// batches), so the deeds are worked out from the standing they will meet.
+pub fn due_deeds(world: &WorldState, history: &History, earlier: &[Command]) -> Vec<Command> {
     let new = last_tick_facts(world, history);
     if new.is_empty() {
         return Vec::new();
     }
     let player = world.player.ship.as_ref();
-    let mut deeds = Deeds::new(world);
+    let mut deeds = Deeds::after(world, earlier);
     let mut done = BTreeSet::new();
     for rule in &world.progress.rules.deeds {
         if !done.insert(rule.id.clone()) || !new.iter().any(|f| counts(rule, f, player)) {

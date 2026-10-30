@@ -199,6 +199,8 @@ pub enum ControlError {
     UnknownShip(ShipId),
     #[error("{0} isn't the player's")]
     NotPlayers(ShipId),
+    #[error("{0} is berthed for good and can't be flown")]
+    Berthed(ShipId),
     #[error("there are no orders to save")]
     NothingQueued,
     #[error("a loop holds at most {0} orders")]
@@ -288,10 +290,12 @@ fn players_ship<'w>(world: &'w WorldState, ship: &ShipId) -> Result<&'w Ship, Co
         .ships
         .get(ship)
         .ok_or_else(|| ControlError::UnknownShip(ship.clone()))?;
-    if s.owner == Owner::Player {
-        Ok(s)
-    } else {
+    if s.owner != Owner::Player {
         Err(ControlError::NotPlayers(ship.clone()))
+    } else if world.player.is_berthed(ship) {
+        Err(ControlError::Berthed(ship.clone()))
+    } else {
+        Ok(s)
     }
 }
 
