@@ -252,16 +252,21 @@ fn act_two_runs_the_lanes_settles_the_hook_and_follows_the_rumor() {
     assert!(p.has_fact("core.rumor_followed"));
     let resolved = p.facts("core.rumor_resolved");
     assert_eq!(resolved.len(), 1);
-    // No NPC craft has docked at Brassmouth in this run: it's a stale tale, and the
-    // Shoals hold three small iron rocks.
-    assert_eq!(resolved[0].amount, Some(0));
+    // Traffic determines the story now: the vein follows the source's fixed truth.
+    let truth = p
+        .world()
+        .rumors
+        .get("rumor.ember_shoals_vein")
+        .unwrap()
+        .is_true;
+    assert_eq!(resolved[0].amount, Some(i64::from(truth)));
     let shoals = p
         .world()
         .rocks
         .values()
         .filter(|r| r.field.as_str() == "field.ember_shoals")
         .count();
-    assert_eq!(shoals, 3);
+    assert_eq!(shoals, if truth { 6 } else { 3 });
 
     for b in [
         "beat.b06_nav_chip",

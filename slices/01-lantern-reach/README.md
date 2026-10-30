@@ -92,6 +92,8 @@ points the way), drift into its ring, press Space, and sell.
 
 ## Named trader traffic
 
+![Little Mercy and Quiet Lamp leaving the Wharf](docs/screenshots/npc-traders.png)
+
 Little Mercy, Ninefold, Even Keel and Quiet Lamp fly from the starting world.
 Their faction, hull, home, allowed stations and wares, load limits and route
 preferences are in `packs/core/data/craft.toml`. They use the same order runner

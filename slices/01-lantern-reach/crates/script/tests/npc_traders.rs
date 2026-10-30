@@ -194,6 +194,8 @@ fn npc_dockings_move_the_dispute_tallies() {
     let mut setup = common::pilot::Setup { state: &mut s };
     setup.done(&["beat.b07_cinder_drift"]);
     setup.tunable("b09.hook_dockings", 0.0);
+    setup.tunable("dispute.hook.win", 4.0);
+    setup.tunable("dispute.hook.lead", 0.0);
     let mut f = Fleet::open(s, true);
     f.until(|f| f.has("core.dispute_tally"));
     let tallies: Vec<_> = f
@@ -209,6 +211,20 @@ fn npc_dockings_move_the_dispute_tallies() {
             .as_ref()
             .is_some_and(|s| s.as_str() == "craft.ninefold")
     }));
+    f.until(|f| f.has("core.territory_changed"));
+    assert_eq!(
+        f.sim
+            .world()
+            .stations
+            .get("station.cinder_hook")
+            .unwrap()
+            .owner
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "faction.tollway_compact",
+        "NPC traffic can settle the dispute while the player stays docked"
+    );
 }
 
 #[test]

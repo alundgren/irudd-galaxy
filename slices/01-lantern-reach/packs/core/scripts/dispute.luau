@@ -256,6 +256,11 @@ return G.script({
 					math.floor(units * 1000 + 0.5),
 					`{units} toward the depot for {faction}`
 				)
+				local at = ctx.beats:pilot().docked_at
+				if at ~= nil and winner(ctx, faction, units) ~= nil then
+					ctx.beats:expect_docked(at, why)
+					settle(ctx, why, faction, units)
+				end
 				return
 			end
 			if ev.ship ~= ids.PLAYER then

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::pricing::{self, spread_at};
 use crate::trade::TradeError;
 
-/// What a trader may do. Pack data (`traders.toml`) once NPC craft are wired in.
+/// What a trader may do. The mind builds this from saved `craft.toml` policies.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct TraderProfile {
     pub ship: ShipId,

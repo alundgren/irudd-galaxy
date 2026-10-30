@@ -310,10 +310,11 @@ impl View {
             if let Some(at) = screen(pos) {
                 let rect = place(&placed, at, G2::new(110.0, 20.0), false, viewport);
                 placed.push(rect);
-                scene
-                    .overlay
-                    .texts
-                    .push(Text::new(ship.name.clone(), G2::new(rect.x, rect.y), 13.0).weight(600));
+                scene.overlay.texts.push(
+                    Text::new(ship.name.clone(), G2::new(rect.x, rect.y), 13.0)
+                        .weight(600)
+                        .color(palette::CREAM),
+                );
             }
         }
 
