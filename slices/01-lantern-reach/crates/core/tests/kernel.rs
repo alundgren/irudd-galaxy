@@ -314,6 +314,18 @@ fn undo_records_invert_commands() {
             id: KETTLE,
             value: Some(Box::new(galaxy_kit::StationRecipe::kettle_dock(1))),
         },
+        Command::PutStationPart {
+            id: "part.wharf.market".parse().unwrap(),
+            value: Some(Box::new(galaxy_contract::parts::StationPart {
+                state: galaxy_contract::parts::PartState::Closed,
+                line: "I've shut the stalls while the awning's re-stitched.".into(),
+                ..world
+                    .station_parts
+                    .get("part.wharf.market")
+                    .unwrap()
+                    .clone()
+            })),
+        },
         Command::AdjustCargo {
             ship: PLAYER,
             ware: ICE,

@@ -393,6 +393,12 @@ pub enum Command {
         id: StationId,
         value: Option<Box<galaxy_kit::StationRecipe>>,
     },
+    /// Adds, changes (`Some`) or removes (`None`) a station part
+    /// ([`crate::parts::StationPart`]). Checked by `galaxy_core::parts::check`.
+    PutStationPart {
+        id: StationPartId,
+        value: Option<Box<crate::parts::StationPart>>,
+    },
     PutMapOverlay {
         id: String,
         value: Option<Box<crate::live::MapOverlay>>,
@@ -621,6 +627,7 @@ impl Command {
             Command::PutSurveyBuoy { .. } => "put_survey_buoy",
             Command::SetCanonStatus { .. } => "set_canon_status",
             Command::PutStationRecipe { .. } => "put_station_recipe",
+            Command::PutStationPart { .. } => "put_station_part",
             Command::PutMapOverlay { .. } => "put_map_overlay",
             Command::PutRegion { .. } => "put_region",
             Command::PutLane { .. } => "put_lane",

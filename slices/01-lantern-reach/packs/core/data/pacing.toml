@@ -17,6 +17,9 @@ profile = "slice"
 "b06.dockings" = 6
 # b16 and the prestige offer.
 "b16.dockings" = 60
+# A station part's news ribbon (New, Changed, Closed) on the station key stays for this
+# many dockings after the change (station_parts.toml, issue #47 3.1).
+"station.ribbon_dockings" = 3
 
 # --- Act 2 ---------------------------------------------------------------------------
 # b07: Ilse's consignment of plate for Rook.

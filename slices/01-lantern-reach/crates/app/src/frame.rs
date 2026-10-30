@@ -1,34 +1,95 @@
 //! One frame: the world (or the map) plus the screen's panels. The window and
 //! `galaxy shot` build frames the same way, so a shot shows exactly what play shows.
 
+use galaxy_contract::prelude::*;
 use render::glam::Vec2 as G2;
-use render::{Overlay, Scene};
+use render::{Camera, Overlay, Rect, Scene};
 
 use crate::session::Session;
 use crate::ui::{self, Button, UiState};
-use crate::view::{CameraRig, View, g};
+use crate::view::{CameraRig, TILT, View, g};
 
-/// Where the camera should look: the flagship, drawn between ticks. Docked, the station
-/// sits in the middle of the space the dock screen leaves free.
-pub fn camera_target(session: &Session, rig: &CameraRig, alpha: f32, viewport: G2) -> Option<G2> {
+/// Where the camera should be: what it looks at, and docked, how much it sees (`None`:
+/// the flight zoom from the data).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CameraGoal {
+    pub center: G2,
+    pub zoom: Option<f32>,
+}
+
+/// The share of the screen's height the whole station fills when docked.
+const DOCK_FILL: f32 = 0.6;
+/// How far right of the middle the whole station sits, as a share of the width.
+const OVERVIEW_SHIFT: f32 = 0.07;
+/// The narrowest room left of the station that bubbles keep to.
+const BUBBLE_MIN_W: f32 = 340.0;
+/// How much closer the camera comes when a room opens.
+const ROOM_ZOOM: f32 = 0.85;
+
+/// The room open at the dock now: the part, if the flagship is docked at its station.
+pub fn open_room<'a>(session: &'a Session, ui_state: &UiState) -> Option<&'a StationPart> {
+    let docked = session.flagship()?.docked_at.as_ref()?;
+    let id = ui_state.room.as_ref()?;
+    session
+        .world()
+        .station_parts
+        .get(id)
+        .filter(|p| &p.station == docked)
+}
+
+/// The camera's goal. Flying, the flagship, drawn between ticks. Docked, the camera
+/// comes in close on the whole station (its art and every module); with a room open,
+/// closer still, on the room's module in the middle of the space the room leaves free.
+pub fn camera_goal(
+    session: &Session,
+    ui_state: &UiState,
+    alpha: f32,
+    viewport: G2,
+) -> Option<CameraGoal> {
     let ship = session.flagship()?;
-    if let Some(st) = ship
-        .docked_at
-        .as_ref()
-        .and_then(|s| session.world().stations.get(s))
-    {
-        let panel = (ui::DOCK_PANEL_WIDTH + 18.0) * ui::ui_scale(viewport);
-        let free = viewport.x - panel;
-        let shift_px = viewport.x * 0.5 - free * 0.5;
-        let wpp = rig.camera().world_per_pixel(viewport);
-        return Some(g(st.position) + G2::new(shift_px * wpp, 0.0));
+    let world = session.world();
+    let Some(st) = ship.docked_at.as_ref().and_then(|s| world.stations.get(s)) else {
+        let poses = session.poses(alpha);
+        return Some(CameraGoal {
+            center: poses
+                .get(&ship.id)
+                .map_or(g(ship.position), |p| g(p.position)),
+            zoom: None,
+        });
+    };
+    let recipe = galaxy_core::parts::recipe_of(world, st);
+    let to_world = crate::view::station_transform(st, &recipe);
+    let centre = to_world.w_axis.truncate().truncate();
+    let mut reach = recipe.footprint() * to_world.x_axis.truncate().length();
+    for p in ui::station::parts_here(world, &st.id) {
+        if let Some((at, r)) = crate::view::modules::module_point(world, p) {
+            reach = reach.max(at.distance(centre) + r);
+        }
     }
-    let poses = session.poses(alpha);
-    Some(
-        poses
-            .get(&ship.id)
-            .map_or(g(ship.position), |p| g(p.position)),
-    )
+    let zoom = (reach * 2.0 / DOCK_FILL).max(160.0);
+    let Some(part) = open_room(session, ui_state) else {
+        // A little right of the middle: talk bubbles open on the left.
+        let wpp = Camera::top_down(centre, zoom)
+            .with_tilt(TILT)
+            .world_per_pixel(viewport);
+        return Some(CameraGoal {
+            center: centre - G2::new(viewport.x * OVERVIEW_SHIFT * wpp, 0.0),
+            zoom: Some(zoom),
+        });
+    };
+    let zoom = zoom * ROOM_ZOOM;
+    let at = crate::view::modules::module_point(world, part).map_or(centre, |(p, _)| p);
+    // The module in the middle of what the room leaves free on its left.
+    let canvas = ui::canvas(viewport);
+    let free = ui::station::room_rect(world, &st.id, canvas).x * ui::ui_scale(viewport);
+    let shift_px = viewport.x * 0.5 - free * 0.5;
+    let wpp = Camera::top_down(at, zoom)
+        .with_tilt(TILT)
+        .world_per_pixel(viewport);
+    Some(CameraGoal {
+        center: at + G2::new(shift_px * wpp, 0.0),
+        zoom: Some(zoom),
+    })
 }
 
 /// Builds the frame's scene and the buttons on it. `alpha` is how far into the next
@@ -56,6 +117,8 @@ pub fn compose(
     };
     let mut panels = Overlay::default();
     let mut buttons = Vec::new();
+    // The open log pins every job with who gave it, so the banner steps aside for it.
+    let log_open = ui_state.log_open && !ui_state.map_open && ui_state.confirm.is_none();
     let mut scene = if ui_state.map_open {
         // The map's camera depends only on the window's shape, so its labels and cards
         // can be laid out on the canvas too and scaled with the panels.
@@ -85,51 +148,26 @@ pub fn compose(
             Some(ui::log::icon_area(log_new, canvas)),
             canvas,
         );
+        let mut hovered = None;
         // The prestige card is modal. Every text draws after every panel, so whatever
-        // sat under the card would print over it: leave the dock screen and talk out.
+        // sat under the card would print over it: leave the station frame and talk out.
         if ui_state.confirm.is_none()
             && let Some(station) = docked
         {
-            let first = panels.panels.len();
-            buttons.extend(ui::dock_panel(
+            hovered = station_frame(
                 &mut panels,
-                world,
-                history,
-                &station,
+                &mut buttons,
+                session,
                 &on_canvas,
-                ui::Notices {
-                    trade: session.trades.notice.as_deref(),
-                    service: session.services.notice.as_deref(),
-                    fitted: session.services.fitted.as_deref(),
-                },
-                canvas,
-            ));
-            let card = panels.panels.get(first).map(|p| p.rect);
-            // The bubble rises from the speaker's part of the station, in the room left
-            // of the card. The open log covers the station, so no bubble then.
-            if !ui_state.log_open
-                && let Some(b) = session.bubble()
-            {
-                let bounds = ui::talk::bounds(
-                    ui::goal_rect(world, canvas),
-                    card,
-                    ui::log::icon_area(log_new, canvas),
-                    canvas,
-                );
-                let anchor = session
-                    .anchors
-                    .anchor(world, &b.line, &station)
-                    .and_then(|at| camera.world_to_screen(g(at).extend(0.0), viewport))
-                    .map_or(bounds.center(), |p| p / scale);
-                let (_, bubble) =
-                    ui::talk::dock_bubble(&mut panels, world, &b, anchor, bounds, &on_canvas);
-                buttons.extend(bubble);
-            }
+                &camera,
+                &station,
+                log_open,
+                (viewport, canvas, scale),
+            );
         }
+        view.draw_modules(&mut s, world, rig, hovered.as_ref());
         s
     };
-    // The open log pins every job with who gave it, so the banner steps aside for it.
-    let log_open = ui_state.log_open && !ui_state.map_open && ui_state.confirm.is_none();
     if ui_state.map_open {
         ui::map_goal(&mut panels, world, canvas);
     } else if !log_open {
@@ -183,4 +221,118 @@ pub fn compose(
         buttons.clear();
     }
     (scene, buttons)
+}
+
+/// The station frame at the dock: module targets and signs, the plate, the station key,
+/// the open room and the talk bubble rising from its speaker's module. Returns the
+/// hovered part (by `ui_state.hover`, else the mouse over a key icon or a module).
+#[allow(clippy::too_many_arguments)]
+fn station_frame(
+    panels: &mut Overlay,
+    buttons: &mut Vec<Button>,
+    session: &Session,
+    ui_state: &UiState,
+    camera: &Camera,
+    station: &StationId,
+    log_open: bool,
+    (viewport, canvas, scale): (G2, G2, f32),
+) -> Option<StationPartId> {
+    let world = session.world();
+    let log_new = session.talk.log_new();
+    let room = open_room(session, ui_state);
+    let room_rect = room.map(|_| ui::station::room_rect(world, station, canvas));
+    let key = ui::station::key_rects(world, station, canvas);
+    let key_area = ui::station::key_area(world, station, canvas);
+    let plate = ui::station::plate_rect(world, station);
+    let mut cover: Vec<Rect> = vec![plate, ui::log::icon_area(log_new, canvas)];
+    cover.extend(key_area);
+    cover.extend(room_rect);
+    cover.extend(ui::hold_rect(world, canvas));
+    if log_open {
+        cover.push(ui::log::panel_rect(canvas));
+    } else {
+        cover.extend(ui::goal_rect(world, canvas));
+    }
+    let targets: Vec<ui::station::Target> =
+        ui::station::module_targets(world, station, camera, viewport, scale)
+            .into_iter()
+            .filter(|t| !cover.iter().any(|r| ui::contains(r, t.at)))
+            .collect();
+    let cursor = ui_state.cursor;
+    let hovered = ui_state
+        .hover
+        .clone()
+        .or_else(|| {
+            let c = cursor?;
+            key.iter()
+                .find(|(_, r)| ui::contains(r, c))
+                .map(|(id, _)| id.clone())
+        })
+        .or_else(|| {
+            let c = cursor.filter(|c| !cover.iter().any(|r| ui::contains(r, *c)))?;
+            ui::station::module_at(&targets, c).cloned()
+        });
+    // Modules first: every panel's buttons sit on top of them.
+    buttons.extend(ui::station::module_buttons(&targets, canvas));
+    // The bubble, laid out first so no sign prints through it.
+    let bubble = (!log_open).then(|| session.bubble()).flatten().map(|b| {
+        let mut bounds =
+            ui::station::bubble_bounds(world, station, room.is_some(), log_new, canvas);
+        // Over the whole station, bubbles keep to the space left of it when that's
+        // roomy enough, so every module stays in view.
+        if room.is_none()
+            && let Some(left) = ui::station::art_left(world, station, camera, viewport, scale)
+            && left - ui::GAP - bounds.x >= BUBBLE_MIN_W
+        {
+            bounds.w = bounds.w.min(left - ui::GAP - bounds.x);
+        }
+        let anchor = session
+            .anchors
+            .anchor(world, &b.line, station)
+            .and_then(|at| camera.world_to_screen(g(at).extend(0.0), viewport))
+            .map_or(bounds.center(), |p| p / scale);
+        let rect = ui::talk::layout(&b, world, anchor, bounds).rect;
+        (b, anchor, bounds, rect)
+    });
+    let mut avoid = cover.clone();
+    avoid.extend(bubble.as_ref().map(|(.., r)| *r));
+    if let (Some(area), true) = (
+        key_area,
+        key.iter().any(|(id, _)| hovered.as_ref() == Some(id)),
+    ) {
+        // The hovered icon's headline above the key.
+        avoid.push(Rect::new(0.0, area.y - 80.0, canvas.x, 80.0));
+    }
+    ui::station::signs(panels, world, &targets, hovered.as_ref(), &avoid, canvas);
+    if !log_open {
+        ui::station::plate(panels, world, station);
+    }
+    buttons.extend(ui::station::key(
+        panels,
+        world,
+        station,
+        ui_state,
+        hovered.as_ref(),
+        canvas,
+    ));
+    if let (Some(part), Some(rect)) = (room, room_rect) {
+        let r = ui::rooms::Room {
+            world,
+            history: session.sim().history(),
+            station,
+            part,
+            ui: ui_state,
+            notices: ui::Notices {
+                trade: session.trades.notice.as_deref(),
+                service: session.services.notice.as_deref(),
+                fitted: session.services.fitted.as_deref(),
+            },
+        };
+        buttons.extend(ui::rooms::draw(panels, &r, rect));
+    }
+    if let Some((b, anchor, bounds, _)) = bubble {
+        let (_, bubble) = ui::talk::dock_bubble(panels, world, &b, anchor, bounds, ui_state);
+        buttons.extend(bubble);
+    }
+    hovered
 }

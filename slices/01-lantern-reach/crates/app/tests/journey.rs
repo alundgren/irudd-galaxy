@@ -789,16 +789,41 @@ fn station_services_list_offers_and_refuse_calmly() {
     assert!(lens[0].owned, "{:?}", lens[0]);
 }
 
-#[test]
-fn the_dock_screen_draws_services_with_working_buttons() {
-    let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
+/// Draws the room of the `kind` part at `station`: its buttons and texts.
+fn room(
+    s: &Session,
+    station: &StationId,
+    kind: galaxy_contract::parts::RoomKind,
+    ui_state: &UiState,
+    notices: ui::Notices<'_>,
+    canvas: render::glam::Vec2,
+) -> (Vec<ui::Button>, render::Overlay) {
+    let part = ui::rooms::of_kind(s.world(), station, kind)
+        .unwrap_or_else(|| panic!("{station} has a {kind:?} room"));
     let mut o = render::Overlay::default();
-    let canvas = render::glam::Vec2::new(1280.0, 720.0);
-    let buttons = ui::dock_panel(
+    let (_, buttons) = ui::rooms::panel(
         &mut o,
         s.world(),
         s.sim().history(),
+        station,
+        &part,
+        ui_state,
+        notices,
+        canvas,
+    )
+    .unwrap();
+    (buttons, o)
+}
+
+#[test]
+fn the_wharf_and_office_rooms_draw_services_with_working_buttons() {
+    use galaxy_contract::parts::RoomKind;
+    let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
+    let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    let (buttons, o) = room(
+        &s,
         &WHARF,
+        RoomKind::Wharf,
         &UiState::default(),
         ui::Notices::default(),
         canvas,
@@ -808,15 +833,26 @@ fn the_dock_screen_draws_services_with_working_buttons() {
             .iter()
             .any(|b| b.action == ui::UiAction::Service(ServiceRequest::Fit { upgrade: LENS }))
     );
-    assert!(
-        buttons
-            .iter()
-            .any(|b| b.action == ui::UiAction::AskWhatChanged)
-    );
     assert!(o.texts.iter().any(|t| t.text == "Mining lens  ·  600 cr"));
     for b in &buttons {
         assert!(b.rect.y + b.rect.h <= canvas.y, "{b:?} fits");
     }
+    // "Ask what changed" moved into the dockmaster's office.
+    let (office, _) = room(
+        &s,
+        &WHARF,
+        RoomKind::Dockmaster,
+        &UiState::default(),
+        ui::Notices::default(),
+        canvas,
+    );
+    assert!(
+        office
+            .iter()
+            .any(|b| b.action == ui::UiAction::AskWhatChanged)
+    );
+    // Every room has Back.
+    assert!(buttons.iter().any(|b| b.action == ui::UiAction::CloseRoom));
 }
 
 #[test]
@@ -833,12 +869,10 @@ fn every_authored_station_has_an_ask_what_changed_button() {
             .unwrap_or_else(|| panic!("{station}: no dockmaster to ask"));
         let keeper = dockmaster.keeper.as_ref().expect("a resident dockmaster");
         assert_eq!(s.world().npcs.get(keeper).unwrap().role, "dockmaster");
-        let mut o = render::Overlay::default();
-        let buttons = ui::dock_panel(
-            &mut o,
-            s.world(),
-            s.sim().history(),
+        let (buttons, _) = room(
+            &s,
             station,
+            galaxy_contract::parts::RoomKind::Dockmaster,
             &UiState::default(),
             ui::Notices::default(),
             canvas,
@@ -847,7 +881,13 @@ fn every_authored_station_has_an_ask_what_changed_button() {
             buttons
                 .iter()
                 .any(|b| b.action == ui::UiAction::AskWhatChanged),
-            "{station}: no Ask button"
+            "{station}: no Ask button in the office"
+        );
+        // And a market room at every station.
+        assert!(
+            ui::rooms::of_kind(s.world(), station, galaxy_contract::parts::RoomKind::Market)
+                .is_some(),
+            "{station}: no market"
         );
     }
 }
@@ -973,7 +1013,7 @@ fn crowded_wharf() -> Session {
 }
 
 #[test]
-fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
+fn a_crowded_wharf_keeps_undock_and_every_service_on_screen() {
     let s = crowded_wharf();
     let offered: Vec<ServiceRequest> =
         hooks::station_services(s.world(), s.sim().history(), &WHARF)
@@ -1001,53 +1041,50 @@ fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
         render::glam::Vec2::new(960.0, 540.0),
         render::glam::Vec2::new(1280.0, 720.0),
     ] {
-        // Page through the services with the panel's own Up / Down buttons.
-        let mut ui_state = UiState::default();
+        // Page through each room's services with its own Up / Down buttons: the wharf
+        // (Orrin's offers) and the office (asking, and anything else for sale).
         let mut seen = std::collections::BTreeSet::new();
-        for _ in 0..20 {
-            let mut o = render::Overlay::default();
-            let buttons = ui::dock_panel(
-                &mut o,
-                s.world(),
-                s.sim().history(),
-                &WHARF,
-                &ui_state,
-                notices,
-                canvas,
-            );
-            for b in &buttons {
-                assert!(
-                    b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y,
-                    "{canvas}: {b:?} is on screen"
-                );
-                assert!(b.rect.x >= 0.0 && b.rect.x + b.rect.w <= canvas.x);
-            }
-            for p in &o.panels {
-                assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
-            }
-            assert!(
-                o.texts
-                    .iter()
-                    .any(|t| t.text == ui::DOCK_FOOT && t.pos.y + t.size <= canvas.y),
-                "{canvas}: how to undock shows"
-            );
-            for b in &buttons {
-                match &b.action {
-                    ui::UiAction::Service(r) => {
-                        seen.insert(format!("{r:?}"));
-                    }
-                    ui::UiAction::AskWhatChanged => {
-                        seen.insert("ask".to_owned());
-                    }
-                    _ => {}
+        for kind in [
+            galaxy_contract::parts::RoomKind::Wharf,
+            galaxy_contract::parts::RoomKind::Dockmaster,
+        ] {
+            let mut ui_state = UiState::default();
+            for _ in 0..20 {
+                let (buttons, o) = room(&s, &WHARF, kind, &ui_state, notices, canvas);
+                for b in &buttons {
+                    assert!(
+                        b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y,
+                        "{canvas}: {b:?} is on screen"
+                    );
+                    assert!(b.rect.x >= 0.0 && b.rect.x + b.rect.w <= canvas.x);
                 }
+                for p in &o.panels {
+                    assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
+                }
+                assert!(
+                    o.texts
+                        .iter()
+                        .any(|t| t.text == ui::DOCK_FOOT && t.pos.y + t.size <= canvas.y),
+                    "{canvas}: how to undock shows"
+                );
+                for b in &buttons {
+                    match &b.action {
+                        ui::UiAction::Service(r) => {
+                            seen.insert(format!("{r:?}"));
+                        }
+                        ui::UiAction::AskWhatChanged => {
+                            seen.insert("ask".to_owned());
+                        }
+                        _ => {}
+                    }
+                }
+                let down = buttons.iter().find_map(|b| match b.action {
+                    ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => Some(n),
+                    _ => None,
+                });
+                let Some(next) = down else { break };
+                ui_state.services_first = next;
             }
-            let down = buttons.iter().find_map(|b| match b.action {
-                ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => Some(n),
-                _ => None,
-            });
-            let Some(next) = down else { break };
-            ui_state.services_first = next;
         }
         for r in &offered {
             assert!(

@@ -896,6 +896,29 @@ fn apply_with(
                 value: old.map(Box::new),
             })
         }
+        C::PutStationPart { id, value } => {
+            if let Some(v) = value {
+                if &v.id != id {
+                    return Err(CommandError::Invalid(format!(
+                        "station part `{}` stored under `{id}`",
+                        v.id
+                    )));
+                }
+                if refs.check {
+                    crate::parts::check(world, v).map_err(|e| {
+                        CommandError::Invalid(format!("station part {id}: {}", e.join("; ")))
+                    })?;
+                }
+            }
+            let old = match value {
+                Some(v) => world.station_parts.insert(id.clone(), (**v).clone()),
+                None => world.station_parts.remove(id),
+            };
+            invert(C::PutStationPart {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
         C::PutMapOverlay { id, value } => {
             if let Some(v) = value
                 && (!v.radius.is_finite()

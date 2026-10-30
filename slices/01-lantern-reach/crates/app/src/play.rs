@@ -108,6 +108,8 @@ struct App {
     audio: galaxy_audio::Audio,
     /// Which cues each tick asks for.
     cues: crate::sound::Cues,
+    /// Where the camera was framing (the dock and the open room): a change glides.
+    framing: (Option<StationId>, Option<StationPartId>),
 }
 
 /// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
@@ -253,6 +255,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         bridge,
         audio,
         cues,
+        framing: (None, None),
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -430,10 +433,35 @@ impl App {
             UiAction::LogFrom(first) => self.ui.log_first = first,
             UiAction::Replay(r) => self.ui.replay = r,
             UiAction::Absorb => {}
+            UiAction::OpenRoom(id) => self.open_room(Some(id)),
+            UiAction::CloseRoom => self.open_room(None),
         }
     }
 
+    /// Opens a station part's room beside its module, or (`None`) goes back to the
+    /// whole station. The market's selection and the services' page start over.
+    fn open_room(&mut self, room: Option<StationPartId>) {
+        if self.docked().is_none() {
+            return;
+        }
+        if room != self.ui.room {
+            self.ui.selected = 0;
+            self.ui.services_first = 0;
+        }
+        self.ui.room = room;
+    }
+
     fn key_pressed(&mut self, key: Key) {
+        // At the dock, Esc goes back from a room to the whole station first.
+        if key == Key::Escape
+            && !self.session.is_paused()
+            && self.ui.room.is_some()
+            && self.docked().is_some()
+            && self.ui.confirm.is_none()
+        {
+            self.open_room(None);
+            return;
+        }
         if matches!(key, Key::P | Key::Escape) {
             self.toggle_pause();
             return;
@@ -466,6 +494,11 @@ impl App {
             return;
         }
         let Some(cursor) = self.ui.cursor else { return };
+        // A click during a camera glide lands it at once.
+        if self.rig.gliding() {
+            self.rig.skip_glide();
+            return;
+        }
         if let Some(action) = ui::hit(&self.buttons, cursor).cloned() {
             self.act(action);
             return;
@@ -520,6 +553,7 @@ impl App {
             }
             if out.undocked {
                 self.ui.confirm = None;
+                self.ui.room = None;
             }
         }
         for note in self.session.game_mut().take_notes() {
@@ -530,10 +564,28 @@ impl App {
         let Some(r) = &mut self.running else { return };
         r.view.sync(&mut r.renderer, self.session.world());
         let viewport = r.renderer.logical_size();
-        if let Some(target) = crate::frame::camera_target(&self.session, &self.rig, alpha, viewport)
-        {
-            self.rig.fit(self.session.world());
-            self.rig.follow(target, dt as f32);
+        if let Some(goal) = crate::frame::camera_goal(&self.session, &self.ui, alpha, viewport) {
+            // Docking, undocking and opening or closing a room glide the camera there.
+            let framing = (
+                self.session.flagship().and_then(|f| f.docked_at.clone()),
+                crate::frame::open_room(&self.session, &self.ui).map(|p| p.id.clone()),
+            );
+            if framing != self.framing {
+                self.framing = framing;
+                self.rig.begin_glide();
+            }
+            let world = self.session.world();
+            match goal.zoom {
+                Some(zoom) => self.rig.glide_to(goal.center, zoom, dt as f32),
+                None if self.rig.gliding() => {
+                    let zoom = self.rig.flight_zoom(world);
+                    self.rig.glide_to(goal.center, zoom, dt as f32);
+                }
+                None => {
+                    self.rig.fit(world);
+                    self.rig.follow(goal.center, dt as f32);
+                }
+            }
         }
         let (scene, buttons) = crate::frame::compose(
             &r.view,
@@ -597,10 +649,18 @@ impl ApplicationHandler for App {
         };
         let mut view = View::new();
         view.sync(&mut renderer, self.session.world());
-        if let Some(target) =
-            crate::frame::camera_target(&self.session, &self.rig, 1.0, renderer.logical_size())
+        if let Some(goal) =
+            crate::frame::camera_goal(&self.session, &self.ui, 1.0, renderer.logical_size())
         {
-            self.rig.center = target;
+            self.rig.center = goal.center;
+            match goal.zoom {
+                Some(zoom) => self.rig.zoom = zoom,
+                None => self.rig.fit(self.session.world()),
+            }
+            self.framing = (
+                self.docked(),
+                crate::frame::open_room(&self.session, &self.ui).map(|p| p.id.clone()),
+            );
         }
         self.last = Instant::now();
         self.step.reset();
@@ -680,6 +740,13 @@ impl ApplicationHandler for App {
                 button: MouseButton::Right,
                 ..
             } => {
+                // At the dock, a right-click goes back to the whole station.
+                if !self.ui.map_open && !self.session.is_paused() && self.docked().is_some() {
+                    if self.ui.confirm.is_none() {
+                        self.open_room(None);
+                    }
+                    return;
+                }
                 if !self.ui.map_open
                     && !self.session.is_paused()
                     && self.docked().is_none()

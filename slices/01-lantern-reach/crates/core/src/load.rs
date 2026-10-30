@@ -147,6 +147,33 @@ pub fn craft_backfill(dir: &Path, world: &WorldState) -> Result<Vec<CommandBatch
     Ok(batches)
 }
 
+/// The cause name of [`parts_backfill`]'s batch.
+pub const PARTS_BACKFILL: &str = "parts_backfill";
+
+/// A batch that gives a world with no station parts (a save made before them) the
+/// parts `dir`'s `station_parts.toml` authors, caused by the system
+/// [`PARTS_BACKFILL`]. Stations that don't exist in the world are skipped. `None` when
+/// the world has parts already or the data has none.
+pub fn parts_backfill(dir: &Path, world: &WorldState) -> Result<Option<CommandBatch>, DataError> {
+    if !world.station_parts.is_empty() {
+        return Ok(None);
+    }
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batch = CommandBatch::new(Cause::system(
+        PARTS_BACKFILL,
+        "station parts a save made before them lacks",
+    ));
+    for part in fresh.station_parts.values() {
+        if world.stations.contains(&part.station) && world.npcs.contains(&part.keeper) {
+            batch = batch.with(Command::PutStationPart {
+                id: part.id.clone(),
+                value: Some(Box::new(part.clone())),
+            });
+        }
+    }
+    Ok((!batch.commands.is_empty()).then_some(batch))
+}
+
 /// The cause name of [`pacing_backfill`]'s batch.
 pub const PACING_BACKFILL: &str = "pacing_backfill";
 
@@ -191,6 +218,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let start: StartFile = read_required(dir, "start.toml")?;
     let canon: galaxy_contract::canon::CanonFile = read(dir, "canon.toml")?;
     let craft: CraftFile = read(dir, "craft.toml")?;
+    let parts: galaxy_contract::parts::StationPartsFile = read(dir, "station_parts.toml")?;
     let ranks = hulls.rank;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
@@ -281,6 +309,20 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         }
         world.ships.put(ship);
         world.traders.insert(def.id.clone(), def);
+    }
+    // Station parts last of the places: each is checked against the stations, people
+    // and the parts before it.
+    for part in parts.part {
+        if world.station_parts.contains(&part.id) {
+            errors.push(format!("station_parts.toml: duplicate id `{}`", part.id));
+            continue;
+        }
+        match crate::parts::check(&world, &part) {
+            Ok(()) => {
+                world.station_parts.put(part);
+            }
+            Err(e) => errors.push(format!("station_parts.toml: {}: {}", part.id, e.join("; "))),
+        }
     }
     crate::load_progress::build(
         &mut world,

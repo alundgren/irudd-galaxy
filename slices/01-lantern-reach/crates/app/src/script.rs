@@ -25,7 +25,12 @@
 //! - `:replay:N`: in the open log, replay the Nth visit, newest first (1-based);
 //! - `:click:X:Y`, `:qclick:X:Y`: click the play plane at world point X,Y (resolved to a
 //!   station, rock or point as the window does), or shift-click to queue it;
-//! - `:mapclick:REGION`: click a region on the map (map travel).
+//! - `:mapclick:REGION`: click a region on the map (map travel);
+//! - `:room:PART`: at the dock, click a part's module (or its key icon) to open its
+//!   room, by part ID (`part.wharf.wharf`) or room kind (`:room:market`,
+//!   `:room:dockmaster`); `:back`: back to the whole station (Esc, right-click);
+//! - `:hover:PART`: show a part's module and key icon hovered, as the mouse would
+//!   (`:hover:` with nothing clears it).
 //!
 //! Example: `w,wait*3,w*75,wait*30,space*150` flies off the dock, flies ahead (east
 //! from a new game's Wharf) for two and a half seconds, coasts to a stop, then mines
@@ -53,6 +58,9 @@ enum Step {
     Replay(usize),
     Click { at: (f32, f32), queue: bool },
     MapClick(String),
+    Room(String),
+    Back,
+    Hover(String),
 }
 
 fn point(raw: &str, rest: &str) -> Result<(f32, f32), String> {
@@ -120,6 +128,9 @@ fn parse(script: &str) -> Result<Vec<Step>, String> {
                 queue: true,
             },
             t if t.starts_with(":mapclick:") => Step::MapClick(t[10..].to_owned()),
+            t if t.starts_with(":room:") => Step::Room(t[6..].to_owned()),
+            ":back" => Step::Back,
+            t if t.starts_with(":hover:") => Step::Hover(t[7..].to_owned()),
             "wait" => Step::Hold(Vec::new(), n),
             keys => Step::Hold(
                 keys.split('+')
@@ -250,6 +261,22 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                 click(session, &mut keys, Click { target, queue });
                 ticks += 1;
             }
+            Step::Room(which) => {
+                let id = docked_part(session, &which)?;
+                if ui_state.room.as_ref() != Some(&id) {
+                    ui_state.selected = 0;
+                    ui_state.services_first = 0;
+                }
+                ui_state.room = Some(id);
+            }
+            Step::Back => ui_state.room = None,
+            Step::Hover(which) => {
+                ui_state.hover = if which.is_empty() {
+                    None
+                } else {
+                    Some(docked_part(session, &which)?)
+                };
+            }
             Step::MapClick(region) => {
                 let region: RegionId = region.parse().map_err(|e| format!("{e}"))?;
                 let queue = keys.held(Key::Shift);
@@ -304,6 +331,29 @@ fn click(session: &mut Session, keys: &mut Keys, click: Click) {
     session.tick(keys.tick_input(docked, Some(click)));
 }
 
+/// The part at the dock named by ID or by room kind (`market`, `wharf`, `dockmaster`).
+fn docked_part(session: &Session, which: &str) -> Result<StationPartId, String> {
+    let Some(station) = session.flagship().and_then(|f| f.docked_at.clone()) else {
+        return Err(format!("`{which}`: rooms need the ship docked"));
+    };
+    let world = session.world();
+    let parts = ui::station::parts_here(world, &station);
+    parts
+        .iter()
+        .find(|p| {
+            p.id.as_str() == which
+                || serde_json::to_value(p.room)
+                    .ok()
+                    .and_then(|v| v.as_str().map(str::to_owned))
+                    == Some(which.to_owned())
+        })
+        .map(|p| p.id.clone())
+        .ok_or_else(|| {
+            let ids: Vec<&str> = parts.iter().map(|p| p.id.as_str()).collect();
+            format!("`{which}`: no such part at {station} (it has {ids:?})")
+        })
+}
+
 fn docked_lines(session: &Session) -> Vec<ui::DockLine> {
     session
         .flagship()
@@ -338,6 +388,15 @@ mod tests {
         assert_eq!(
             parse(":talk*3,:skip,:log,:replay:2").unwrap(),
             vec![Step::Talk(3), Step::Skip, Step::Log, Step::Replay(2)]
+        );
+        assert_eq!(
+            parse(":room:market,:hover:part.wharf.wharf,:back,:hover:").unwrap(),
+            vec![
+                Step::Room("market".into()),
+                Step::Hover("part.wharf.wharf".into()),
+                Step::Back,
+                Step::Hover(String::new()),
+            ]
         );
         assert!(parse(":replay:0").is_err());
         assert!(parse("x*3").is_err());
