@@ -223,9 +223,10 @@ impl Invariant for HoldWithinCapacity {
 }
 
 /// The fit model holds together: a single socket on the flagship holds one part, a
-/// part is in one place at a time (fitted, one locker, or on order), and every locker
-/// and order belongs to a ship that exists. Power isn't checked here: the hullwright
-/// refuses a fit over the cap, and nothing else fits parts.
+/// part is in one place at a time (fitted, one locker, or on order), every locker and
+/// order belongs to a ship that exists, and the flagship's parts stay within its power
+/// cap. The hullwright refuses a fit over the cap while planning; this catches two fits
+/// planned on the same starting world in one tick, so the second batch is undone.
 pub struct FitsHold;
 
 impl Invariant for FitsHold {
@@ -259,6 +260,14 @@ impl Invariant for FitsHold {
             if !seen.insert(u) {
                 return Err(format!("{u} is on order and the player has it already"));
             }
+        }
+        if let Some(b) = fit::flagship_budget(w)
+            && b.power_used > b.power_cap
+        {
+            return Err(format!(
+                "fitted parts draw {} power; the hull carries {}",
+                b.power_used, b.power_cap
+            ));
         }
         Ok(())
     }

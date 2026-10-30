@@ -248,6 +248,38 @@ fn a_fit_over_the_power_cap_is_refused_and_the_preview_shows_it() {
     assert_eq!((b.power_used, b.power_cap), (3, 4));
 }
 
+/// Two refits asked for in one tick are each planned on the same starting fit, so each
+/// alone fits the cap; the second to commit must be undone, not leave the Wren over it.
+#[test]
+fn two_refits_in_one_tick_respect_the_combined_power_cap() {
+    let mut s = at_the_wharf();
+    service(&mut s, ServiceRequest::Fit { upgrade: LENS });
+    act(
+        &mut s,
+        [LAMP, FINS]
+            .into_iter()
+            .map(|p| Command::SetLocker {
+                ship: PLAYER,
+                part: p,
+                stored: true,
+            })
+            .collect(),
+    );
+    let both = PlayerInput {
+        services: vec![
+            ServiceRequest::Refit { upgrade: LAMP },
+            ServiceRequest::Refit { upgrade: FINS },
+        ],
+        ..PlayerInput::default()
+    };
+    let r = tick(&mut s, &both);
+    assert_eq!(r.rejected.len(), 1, "{:#?}", r.rejected);
+    run(&mut s, 1);
+    let b = hullwright::budget(s.world()).unwrap();
+    assert!(b.power_used <= b.power_cap, "{b:?}");
+    assert_eq!(locker(&s).len(), 1, "the refused part stays in the locker");
+}
+
 #[test]
 fn the_stat_preview_shows_before_and_after() {
     let s = at_the_wharf();
