@@ -1009,6 +1009,217 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
     assert!(again.lines.is_empty(), "{:?}", again.lines);
 }
 
+/// News arriving while the player is at the Wharf, after its ambient dock talk.
+fn news_fact(p: &mut Pilot, kind: &str, subjects: Subjects, amount: Option<i64>) -> FactId {
+    let kind = FactKind::new(kind).unwrap();
+    p.s.submit(
+        CommandBatch::new(Cause::system("test", "news from the Reach")).with(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: kind.clone(),
+                subjects,
+                amount,
+                note: "News from the Reach".into(),
+            }),
+        }),
+    );
+    p.tick();
+    p.s.sim()
+        .history()
+        .last(&HistoryQuery {
+            kind: Some(kind),
+            ..HistoryQuery::default()
+        })
+        .unwrap()
+        .id
+}
+
+fn assert_distinct_news(p: &Pilot, answer: &hooks::Answer) {
+    let mut facts = std::collections::BTreeSet::new();
+    let mut places = std::collections::BTreeSet::new();
+    for line in &answer.lines {
+        let mut line_places = std::collections::BTreeSet::new();
+        for cite in &line.cites {
+            assert!(facts.insert(*cite), "a repeated fact: {answer:?}");
+            let fact = p.s.sim().history().fact(*cite).unwrap();
+            line_places.insert(fact.subjects.station.clone());
+        }
+        for place in line_places {
+            assert!(places.insert(place), "a repeated place: {answer:?}");
+        }
+    }
+}
+
+#[test]
+fn asking_what_changed_leaves_room_for_other_places_after_several_kettle_facts() {
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(3);
+    // The re-check's three eligible Ilse lines, all about Kettle.
+    let stage = news_fact(
+        &mut p,
+        "core.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let delivery = news_fact(
+        &mut p,
+        "deliver",
+        Subjects {
+            station: Some(KETTLE),
+            other: Some(AnyId::from_static("ledger.kettle_greenhouse")),
+            ..Subjects::default()
+        },
+        None,
+    );
+    let shortage = news_fact(
+        &mut p,
+        "core.shortage_started",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        None,
+    );
+    let hook = news_fact(
+        &mut p,
+        "core.territory_changed",
+        Subjects {
+            station: Some(StationId::from_static("station.cinder_hook")),
+            faction: Some(FactionId::from_static("faction.wharf_cooperative")),
+            ..Subjects::default()
+        },
+        None,
+    );
+    // No authored line: the digest must still have room after the pack's picks.
+    let brass = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(StationId::from_static("station.brassmouth_exchange")),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    // A second Kettle fact with a digest must not get its own line either.
+    let kettle_digest = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(2),
+    );
+
+    let answer = p.ask();
+    assert_distinct_news(&p, &answer);
+    assert_eq!(answer.lines.len(), 3, "{answer:?}");
+    for fact in [stage, hook, brass] {
+        assert!(answer.lines.iter().any(|l| l.cites == [fact]), "{answer:?}");
+    }
+    assert_eq!(answer.digest.len(), 1);
+    assert_eq!(answer.digest[0].cites, [brass]);
+    p.tick(); // Commit the digest before inspecting what was actually said.
+    let said = citations(&p.s);
+    for fact in [stage, hook, brass] {
+        assert_eq!(said.get(&fact), Some(&1));
+    }
+    for fact in [delivery, shortage, kettle_digest] {
+        assert!(
+            !said.contains_key(&fact),
+            "skipped news must not be retired"
+        );
+    }
+    // Later questions can tell the skipped news, but never the same fact again.
+    let again = p.ask();
+    assert_distinct_news(&p, &again);
+    assert!(
+        again
+            .lines
+            .iter()
+            .flat_map(|l| &l.cites)
+            .all(|f| !said.contains_key(f))
+    );
+}
+
+#[test]
+fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
+    use galaxy_contract::talk::TalkLine;
+
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(3);
+    let kettle = news_fact(
+        &mut p,
+        "core.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let brass_station = StationId::from_static("station.brassmouth_exchange");
+    let brass = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(brass_station.clone()),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let mut entries = Vec::new();
+    for station in [
+        StationId::from_static("station.cinder_hook"),
+        StationId::from_static("station.glass_drift_observatory"),
+        KETTLE,
+        brass_station,
+    ] {
+        entries.push(news_fact(
+            &mut p,
+            "test.chronicle_news",
+            Subjects {
+                station: Some(station),
+                ..Subjects::default()
+            },
+            None,
+        ));
+    }
+    let mut batch = CommandBatch::new(Cause::system("test", "the chronicle records the news"));
+    // Newest entries repeat places covered by the pack and digest. They must not
+    // crowd the two older, eligible chronicle entries out of the answer.
+    for fact in [entries[0], entries[1], entries[1], entries[2], entries[3]] {
+        batch.push(Command::Say {
+            line: Box::new(TalkLine {
+                channel: Channel::Chronicle,
+                speaker: Some(ILSE),
+                place: Some(WHARF), // Place is where said; citations name the news.
+                text: "Ilse adds news to the chronicle.".into(),
+                cites: vec![fact],
+                about: Vec::new(),
+                choices: Vec::new(),
+            }),
+        });
+    }
+    p.s.submit(batch);
+    p.tick();
+    let answer = p.ask();
+    assert_distinct_news(&p, &answer);
+    assert_eq!(answer.lines.len(), 4, "{answer:?}");
+    assert_eq!(answer.digest.len(), 1);
+    assert_eq!(answer.digest[0].cites, [brass]);
+    assert!(answer.lines.iter().any(|l| l.cites == [kettle]));
+    let chronicle: Vec<_> = answer
+        .lines
+        .iter()
+        .filter(|l| l.channel == Channel::Chronicle)
+        .flat_map(|l| &l.cites)
+        .copied()
+        .collect();
+    assert_eq!(chronicle, [entries[0], entries[1]]);
+}
+
 #[test]
 fn modifiers_change_mining_rate_and_hold() {
     // The same few seconds of mining by hand, without and with the lens.

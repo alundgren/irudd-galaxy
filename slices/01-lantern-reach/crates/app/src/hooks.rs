@@ -288,9 +288,10 @@ const ANSWER_CHRONICLE: usize = 2;
 /// The dockmaster's answer at `station`, once the core pack has answered the question
 /// (`asked`, its `core.asked_what_changed` fact): the lines the pack said with it (its
 /// authored lines, or Ilse's homecoming in b17), then digest lines for the rest of what
-/// happened since the player's previous docking there (one per place), then the
-/// chronicle entries written since. Like all ambient talk, a digest line never tells a
-/// fact some said line already cites, or one a `queued` batch is about to say.
+/// happened since the player's previous docking there, then the chronicle entries
+/// written since. The whole answer shares one line per cited place and never repeats
+/// a fact. Like all ambient talk, a digest line never tells a fact some said line
+/// already cites, or one a `queued` batch is about to say.
 pub fn what_changed(
     world: &WorldState,
     history: &History,
@@ -313,16 +314,11 @@ pub fn what_changed(
         .map(|l| l.line.clone())
         .collect();
     let mut cited = TalkLines::cited_facts(world, queued);
-    cited.extend(out.iter().flat_map(|l| l.cites.iter().copied()));
-    let mut places: BTreeSet<Option<StationId>> = out
-        .iter()
-        .map(|l| {
-            l.cites
-                .first()
-                .and_then(|f| history.fact(*f))
-                .and_then(|f| f.subjects.station.clone())
-        })
-        .collect();
+    let mut answer_cites: BTreeSet<FactId> =
+        out.iter().flat_map(|l| l.cites.iter().copied()).collect();
+    cited.extend(&answer_cites);
+    let mut places: BTreeSet<Option<StationId>> =
+        out.iter().flat_map(|l| cited_places(history, l)).collect();
     let mut digest = Vec::new();
     for f in history.facts().iter().rev().take_while(|f| f.id > since) {
         if out.len() + digest.len() >= ANSWER_LINES {
@@ -338,6 +334,7 @@ pub fn what_changed(
         if !places.insert(place.clone()) {
             continue;
         }
+        answer_cites.insert(f.id);
         digest.push(TalkLine {
             channel: Channel::DockTalk,
             speaker: speaker.clone(),
@@ -350,20 +347,44 @@ pub fn what_changed(
     }
     out.extend(digest.iter().cloned());
     let since_tick = history.fact(since).map_or(Tick(0), |f| f.tick);
-    let chronicle: Vec<TalkLine> = world
+    let mut chronicle: Vec<TalkLine> = world
         .talk
-        .on(Channel::Chronicle)
+        .lines
+        .values()
+        .rev()
+        .filter(|l| l.line.channel == Channel::Chronicle)
         .filter(|l| l.tick >= since_tick)
+        .filter(|l| {
+            let line_places = cited_places(history, &l.line);
+            if l.line.cites.iter().any(|f| answer_cites.contains(f))
+                || line_places.iter().any(|p| places.contains(p))
+            {
+                return false;
+            }
+            answer_cites.extend(&l.line.cites);
+            places.extend(line_places);
+            true
+        })
+        .take(ANSWER_CHRONICLE)
         .map(|l| l.line.clone())
         .collect();
-    let skip = chronicle.len().saturating_sub(ANSWER_CHRONICLE);
-    out.extend(chronicle.into_iter().skip(skip));
+    chronicle.reverse();
+    out.extend(chronicle);
     Answer {
         station: station.clone(),
         speaker,
         lines: out,
         digest,
     }
+}
+
+/// A line is about its cited facts' stations, not necessarily where it was spoken.
+/// Facts without a station share one place, matching the pack's selection rule.
+fn cited_places(history: &History, line: &TalkLine) -> BTreeSet<Option<StationId>> {
+    line.cites
+        .iter()
+        .map(|f| history.fact(*f).and_then(|f| f.subjects.station.clone()))
+        .collect()
 }
 
 /// An answer someone at the dock is waiting for: a choice a line offered, not yet

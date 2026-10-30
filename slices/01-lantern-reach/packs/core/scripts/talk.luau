@@ -5,7 +5,8 @@
 -- the most specific eligible line whose fact is newer than the player's previous
 -- docking there, ties to the newest fact. Any dockmaster can be asked "What changed?":
 -- they give up to three eligible lines citing facts since the player's last docking
--- there, most specific first. If no line qualifies, nobody speaks.
+-- there, at most one per place, most specific first. If no line qualifies, nobody
+-- speaks.
 local G = require("@galaxy")
 local ids = require("../lib/ids")
 local util = require("../lib/util")
@@ -48,16 +49,20 @@ return G.script({
 			local here = ctx.history:last({ kind = "dock", ship = ids.PLAYER, station = ev.station })
 			local prev = if here then previous(ctx, ev.station, here.tick) else nil
 			local picks = lines.candidates(ctx, ev.station, if prev then prev.id else nil, false)
-			-- Up to three, one per fact. The question is recorded even when nobody has a
-			-- line: the dock screen waits on it, and fills in plain digest lines.
+			-- Up to three, one per cited place and fact. Record the question even when
+			-- nobody has a line: the dock screen waits on it and fills in digest lines.
 			local said: { lines.Pick } = {}
 			local cited: { [string]: boolean } = {}
+			local places: { [string]: boolean } = {}
 			for _, pick in ipairs(picks) do
 				if #said >= 3 then
 					break
 				end
-				if not cited[pick.fact.id] then
+				-- Facts without a station share one place, as in the plain digest.
+				local place = pick.fact.subjects.station or ""
+				if not cited[pick.fact.id] and not places[place] then
 					cited[pick.fact.id] = true
+					places[place] = true
 					table.insert(said, pick)
 				end
 			end
