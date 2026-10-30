@@ -128,11 +128,13 @@ class App:
                 self.flash("Undocked", 1.2)
             else:
                 ship.thrusting = ship.retro = False
+                ship.auto_stop_v = None
         elif self.state == "docking":
             self.dock_t = min(1.0, self.dock_t + dt / 0.4)
             k = self.dock_t * self.dock_t * (3 - 2 * self.dock_t)
             ship.pos, ship.vel, ship.thrusting = self.dock_from.lerp(STATION, k), V(), False
             ship.retro = False
+            ship.auto_stop_v = None
             if self.dock_t >= 1:
                 self.state = "docked"
         if self.state == "free":
@@ -444,7 +446,7 @@ class App:
             f"Preset: {self.preset_name}{' (edited)' if self.preset_dirty else ''}",
             f"Max speed {s.max_speed:.0f}   accel {s.accel:.0f}   inertia {s.inertia:.2f}",
             f"Turn {s.turn_rate:.0f}°/s   brake {s.brake:.0f}   auto-brake "
-            + (f"{s.auto_brake_strength:.0f}" if s.auto_brake else "off"),
+            + (f"{s.auto_brake_time:.1f}s" if s.auto_brake else "off"),
             f"Boost x{s.boost:.2f}   zoom {s.zoom:.2f}   lead {s.lead:.2f} s",
             f"Course hold {'on' if s.course_hold else 'off'}",
             where,
@@ -555,28 +557,38 @@ def selftest(app):
     v0 = app.ship.vel.length()
     run(1.0)
     check(v0 > 100 and abs(app.ship.vel.length() - v0) < 1, "inertia 1: coasts forever")
+    app.settings.inertia = 1.0
     app.settings.auto_brake = True
-    app.settings.auto_brake_strength = 200
-    before = app.ship.vel.length()
-    run(1.0)
-    slowed = before - app.ship.vel.length()
-    check(150 < slowed < 250, f"auto-brake strength 200 drops about 200 px/s in one second ({slowed:.0f})")
-    app.settings.inertia = 0.4
-    app.settings.auto_brake = True
-    app.settings.auto_brake_strength = 0
-    run(0.4, up=True)
-    held = app.ship.vel.length()
-    run(1.0)
-    check(held > 80 and abs(app.ship.vel.length() - held) < 5,
-          f"auto-brake 0 coasts instead of the inertia stop ({held:.0f} -> {app.ship.vel.length():.0f})")
+    app.settings.auto_brake_time = 2.0
+    app.set_scheme(3)
+
+    def release_from(speed):
+        app.state = "free"
+        app.ship.pos = V(20000, 20000)
+        app.ship.vel = app.ship.fwd * speed
+        app.ship.auto_stop_v = None
+        run(1.0)
+        mid = app.ship.vel.length()
+        run(1.0)
+        return mid, app.ship.vel.length()
+
+    mid_fast, end_fast = release_from(400)
+    mid_slow, end_slow = release_from(80)
+    check(abs(mid_fast - 200) < 8 and end_fast < 1, f"2s stop from 400 is half at 1s ({mid_fast:.0f}) and done ({end_fast:.0f})")
+    check(abs(mid_slow - 40) < 4 and end_slow < 1, f"2s stop from 80 is half at 1s ({mid_slow:.0f}) and done ({end_slow:.0f})")
+    app.settings.auto_brake_time = 0
+    app.ship.vel = app.ship.fwd * 300
+    app.ship.auto_stop_v = None
+    run(1 / 60)
+    check(app.ship.vel.length() < 1, "time to stop 0 halts on release")
 
     with tempfile.TemporaryDirectory() as tmp:
         app.settings.turn_rate = 123
         app.settings.inertia = 1.0
-        app.settings.auto_brake_strength = 250
+        app.settings.auto_brake_time = 2.5
         path = save_preset(tmp, "My Test Ship", app.settings)
         name, s2 = load_preset(path)
-        check(name == "My Test Ship" and s2.turn_rate == 123 and s2.inertia == 1.0 and s2.auto_brake_strength == 250,
+        check(name == "My Test Ship" and s2.turn_rate == 123 and s2.inertia == 1.0 and s2.auto_brake_time == 2.5,
               "preset save/load round trip")
         app.screen.fill(BLACK)
         app.draw()

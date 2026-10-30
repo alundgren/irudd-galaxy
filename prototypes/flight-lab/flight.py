@@ -16,7 +16,7 @@ class Settings:
     turn_rate: float = 300.0  # deg/s
     brake: float = 1600.0  # px/s^2, Space (and S in the schemes that brake)
     auto_brake: bool = False
-    auto_brake_strength: float = 100.0  # px/s^2 of the whole release stop while auto-brake is on. 0 coasts.
+    auto_brake_time: float = 2.0  # seconds to reach a full stop after release, at any speed. 0 stops now.
     boost: float = 1.6  # multiplies max speed and acceleration while Shift is held
     zoom: float = 1.0
     lead: float = 0.25  # seconds of velocity the camera looks ahead
@@ -33,7 +33,7 @@ KNOBS = [
     ("inertia", "Inertia (0 stop, 1 Newton)", 0.0, 1.0, 0.01, "{:.2f}"),
     ("turn_rate", "Turn rate", 30, 900, 10, "{:.0f} °/s"),
     ("brake", "Brake strength", 0, 6000, 50, "{:.0f} px/s²"),
-    ("auto_brake_strength", "Auto-brake (0 coasts)", 0, 6000, 50, "{:.0f} px/s²"),
+    ("auto_brake_time", "Time to stop", 0.0, 10.0, 0.1, "{:.1f} s"),
     ("boost", "Boost (Shift)", 1.0, 3.0, 0.05, "x{:.2f}"),
     ("zoom", "Camera zoom", 0.2, 2.0, 0.05, "{:.2f}"),
     ("lead", "Camera lead", 0.0, 1.0, 0.05, "{:.2f} s"),
@@ -94,6 +94,9 @@ class Ship:
         self.angle = -math.pi / 2
         self.thrusting = False
         self.retro = False
+        self.auto_stop_v = None  # velocity captured when an auto-brake stop begins
+        self.auto_stop_left = 0.0
+        self.auto_stop_T = None
 
     @property
     def fwd(self):
@@ -116,6 +119,7 @@ def fly(ship, s, thrust, target_speed, brake, boosting, dt):
     ship.retro = bool(ship.thrusting and thrust.dot(ship.fwd) < 0)
     rate = s.brake if brake else 0.0
     if ship.thrusting:
+        ship.auto_stop_v = None
         along = v.dot(thrust)
         side = v - thrust * along
         if along >= 0:
@@ -130,11 +134,20 @@ def fly(ship, s, thrust, target_speed, brake, boosting, dt):
             along = max(target, min(along - acc * dt, target + (along - target) * keep))
         v = thrust * along + side * keep
     else:
-        # Auto-brake replaces the inertia coast. Otherwise a low slider still
-        # stops dead, because inertia 0.4 bleeds speed in a fraction of a second.
+        # While auto-brake is on, speed falls in a straight line to zero in the
+        # chosen number of seconds, from whatever speed the release started at.
         if s.auto_brake and not brake:
-            rate = s.auto_brake_strength
+            if ship.auto_stop_v is None or ship.auto_stop_T != s.auto_brake_time:
+                ship.auto_stop_v = V(v)
+                ship.auto_stop_T = s.auto_brake_time
+                ship.auto_stop_left = s.auto_brake_time
+            ship.auto_stop_left -= dt
+            if ship.auto_stop_T <= 0 or ship.auto_stop_left <= 0:
+                v = V()
+            else:
+                v = ship.auto_stop_v * (ship.auto_stop_left / ship.auto_stop_T)
         else:
+            ship.auto_stop_v = None
             v *= keep
     if rate > 0:
         sp = v.length()
