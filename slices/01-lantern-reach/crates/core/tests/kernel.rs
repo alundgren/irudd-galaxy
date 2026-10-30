@@ -77,7 +77,7 @@ fn core_data_builds_the_lantern_reach() {
     assert_eq!(w.regions.len(), 3);
     assert_eq!(w.stations.len(), 5);
     assert_eq!(w.wares.len(), 6);
-    assert_eq!(w.rock_types.len(), 3);
+    assert_eq!(w.rock_types.len(), 4);
     assert!(w.rocks.contains("rock.shallows.ice.03"));
     assert!(w.lanes.len() >= 2);
     assert_eq!(w.ships.get(&PLAYER).unwrap().docked_at, Some(WHARF));

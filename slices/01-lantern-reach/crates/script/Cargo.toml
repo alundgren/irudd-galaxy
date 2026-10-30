@@ -24,4 +24,5 @@ toml.workspace = true
 workspace = true
 
 [dev-dependencies]
+galaxy-mind.workspace = true
 galaxy-ship.workspace = true

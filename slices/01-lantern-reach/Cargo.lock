@@ -1006,6 +1006,7 @@ dependencies = [
  "galaxy-contract",
  "galaxy-core",
  "galaxy-economy",
+ "galaxy-mind",
  "galaxy-progress",
  "galaxy-ship",
  "mlua",

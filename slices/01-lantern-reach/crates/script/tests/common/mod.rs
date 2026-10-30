@@ -1,6 +1,8 @@
 //! Shared helpers for the script host tests. All headless.
 #![allow(dead_code)]
 
+pub mod pilot;
+
 use std::path::{Path, PathBuf};
 
 use galaxy_contract::prelude::*;
