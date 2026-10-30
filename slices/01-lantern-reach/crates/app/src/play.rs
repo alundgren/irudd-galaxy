@@ -83,8 +83,6 @@ struct App {
     started: Instant,
     /// A click for the next tick.
     click: Option<Click>,
-    /// Ticks the context action is pressed for by a button (Undock).
-    press: u8,
     buttons: Vec<Button>,
     error: Option<String>,
     render_errors: u32,
@@ -136,7 +134,6 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         last: Instant::now(),
         started: Instant::now(),
         click: None,
-        press: 0,
         buttons: Vec::new(),
         error: None,
         render_errors: 0,
@@ -192,8 +189,9 @@ impl App {
         let now_paused = self.session.toggle_pause();
         self.step.reset();
         self.last = Instant::now();
+        // Both ways: nothing held or pressed across the card counts afterwards.
+        self.keys.clear();
         if now_paused {
-            self.keys.clear();
             self.autosave();
         }
     }
@@ -218,7 +216,7 @@ impl App {
         match action {
             UiAction::Trade { line, amount } => self.trade(line, amount),
             UiAction::Select(i) => self.ui.selected = i,
-            UiAction::Undock => self.press = 2,
+            UiAction::Undock => self.keys.press_action(),
             UiAction::CloseMap => self.ui.map_open = false,
         }
     }
@@ -293,12 +291,7 @@ impl App {
         for i in 0..ticks {
             let docked = self.docked().is_some();
             let click = if i == 0 { self.click.take() } else { None };
-            let mut input = input::player_input(&self.keys, docked, click);
-            if self.press > 0 {
-                // A button press: one tick down, one up, so it reads as a press.
-                input.action = self.press == 2;
-                self.press -= 1;
-            }
+            let input = self.keys.tick_input(docked, click);
             let out = self.session.tick(input);
             if out.docked.is_some() {
                 self.ui.selected = 0;
@@ -407,8 +400,7 @@ impl ApplicationHandler for App {
             } => {
                 let Some(key) = key_of(code) else { return };
                 let down = state == ElementState::Pressed;
-                self.keys.set(key, down);
-                if down && !repeat {
+                if self.keys.event(key, down, repeat) {
                     self.key_pressed(key);
                 }
             }

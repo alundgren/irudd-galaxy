@@ -1,21 +1,31 @@
-//! Dock-screen trades that are never silently lost.
+//! Dock-screen trades that are never silently lost or falsely acknowledged.
 //!
-//! The economy runs the player's `PlayerInput::trades` against the world at the start
-//! of the tick, and its market-line write is a compare-and-set. If another ship (an
-//! order-driven tender or NPC craft) or a script trades or moves the same line in the
-//! same tick, the player's batch is rejected and the economy doesn't retry it. So the
-//! app keeps each request as an *intent*: it sends the oldest one every tick until the
-//! tick's events show it went through, or `check_trade` says it can't happen any more,
-//! in which case the dock screen shows one calm line saying why.
+//! A market line's write is a compare-and-set, and the economy never retries a
+//! `PlayerInput::trades` request that loses it. So the app keeps each request as an
+//! *intent* and plans the oldest one itself every tick (`trade::trade_batch`, the batch
+//! the economy would build), submitting it between ticks. Batches submitted between
+//! ticks apply first, before any system's, so the player's explicit dock action wins
+//! over everything worked out from the start-of-tick world: the flagship's own queued
+//! orders, tenders and NPC craft. They lose the line instead and retry next tick, as
+//! their order runners already do.
+//!
+//! An intent is acknowledged only from committed state: a Buy or Sell event for it in
+//! the tick's events whose recorded cause is exactly the one submitted. Another trade
+//! on the same line (the flagship's own order, say) has a different cause, so it can't
+//! settle the intent. If something submitted earlier (a script) moved the line first,
+//! the intent goes again next tick, until it applies or `check_trade` says it can't
+//! happen any more; then the dock screen shows one calm line saying why.
 
 use std::collections::VecDeque;
 
 use galaxy_contract::prelude::*;
+use galaxy_core::History;
+use galaxy_economy::trade::trade_batch;
 use galaxy_economy::{TradeError, check_trade};
 
 /// How many ticks an intent is retried while the market keeps losing it to others. At
 /// 30 ticks a second it gives up after about three seconds; it never happens in play
-/// unless something trades the same line every single tick.
+/// unless a script moves the same line every single tick.
 pub const MAX_TRIES: u32 = 90;
 
 /// What became of the oldest intent after a tick.
@@ -35,6 +45,8 @@ pub enum Settled {
 struct Intent {
     request: TradeRequest,
     tries: u32,
+    /// The cause of the batch submitted for it this tick, if one was.
+    sent: Option<Cause>,
 }
 
 /// The dock screen's trade intents, oldest first.
@@ -49,7 +61,11 @@ impl DockTrades {
     /// Asks for a trade. A request that can't happen right now is refused at once.
     pub fn request(&mut self, world: &WorldState, request: TradeRequest) {
         match check_trade(world, &request) {
-            Ok(()) => self.queue.push_back(Intent { request, tries: 0 }),
+            Ok(()) => self.queue.push_back(Intent {
+                request,
+                tries: 0,
+                sent: None,
+            }),
             Err(e) => self.notice = Some(refusal(world, &e)),
         }
     }
@@ -64,26 +80,36 @@ impl DockTrades {
         self.notice = None;
     }
 
-    /// The trades for this tick's input: the oldest intent, one at a time, so its
-    /// result can be read unambiguously from the tick's events.
-    pub fn for_tick(&self) -> Vec<TradeRequest> {
-        self.queue
-            .front()
-            .map(|i| i.request.clone())
-            .into_iter()
-            .collect()
+    /// The batch to submit before this tick: the oldest intent planned against the
+    /// world as it is now, one at a time so its result reads unambiguously. `None` when
+    /// nothing is waiting or it can't be planned ([`DockTrades::settle`] then says why).
+    pub fn batch_for_tick(&mut self, world: &WorldState) -> Option<CommandBatch> {
+        let front = self.queue.front_mut()?;
+        front.sent = None;
+        let batch = trade_batch(world, &front.request).ok()?;
+        front.sent = Some(batch.cause.clone());
+        Some(batch)
     }
 
-    /// Settles the oldest intent from the tick's committed events and the world after
-    /// the tick.
-    pub fn settle(&mut self, world: &WorldState, events: &[EventEnvelope]) -> Settled {
+    /// Settles the oldest intent from the tick's committed events, the causes they
+    /// were recorded with, and the world after the tick.
+    pub fn settle(
+        &mut self,
+        world: &WorldState,
+        history: &History,
+        events: &[EventEnvelope],
+    ) -> Settled {
         let Some(front) = self.queue.front_mut() else {
             return Settled::Idle;
         };
-        if events
-            .iter()
-            .any(|e| went_through(&front.request, &e.event))
-        {
+        let sent = front.sent.take();
+        let ours = |e: &EventEnvelope| {
+            sent.as_ref().is_some_and(|cause| {
+                went_through(&front.request, &e.event)
+                    && history.cause(e.cause).is_some_and(|c| c.cause == *cause)
+            })
+        };
+        if events.iter().any(ours) {
             self.queue.pop_front();
             self.notice = None;
             return Settled::Applied;

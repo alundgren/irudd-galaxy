@@ -38,19 +38,42 @@ pub enum Key {
     ZoomIn,
 }
 
-/// Which keys are down.
+/// Which keys are down, plus a Space press the ticks haven't seen yet.
+///
+/// Ticks run at 30 Hz and key events arrive between them, so a tap can go down and up
+/// before the next tick. The press is latched and delivered to the next tick anyway
+/// ([`Keys::tick_input`]). The OS's auto-repeat never counts: a key held through a
+/// pause or a focus loss (both [`Keys::clear`]) stays let go until it's really pressed
+/// again.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Keys {
     down: BTreeSet<Key>,
+    /// A fresh Space press (or the Undock button) no tick has seen yet.
+    action_press: bool,
+    /// The action the last tick was given.
+    action_sent: bool,
 }
 
 impl Keys {
-    pub fn set(&mut self, key: Key, down: bool) {
-        if down {
-            self.down.insert(key);
-        } else {
-            self.down.remove(&key);
+    /// A key event from the window. Returns true for a fresh press: one that isn't
+    /// auto-repeat and isn't of a key already down.
+    pub fn event(&mut self, key: Key, down: bool, repeat: bool) -> bool {
+        if repeat {
+            return false;
         }
+        if !down {
+            self.down.remove(&key);
+            return false;
+        }
+        let fresh = self.down.insert(key);
+        if fresh && key == Key::Space {
+            self.action_press = true;
+        }
+        fresh
+    }
+
+    pub fn set(&mut self, key: Key, down: bool) {
+        self.event(key, down, false);
     }
 
     pub fn press(&mut self, key: Key) {
@@ -61,9 +84,41 @@ impl Keys {
         self.set(key, false);
     }
 
-    /// Lets go of everything (the window lost focus).
+    /// A press of the context action that isn't a key (the Undock button).
+    pub fn press_action(&mut self) {
+        self.action_press = true;
+    }
+
+    /// Lets go of everything and forgets any press not yet delivered: the window lost
+    /// focus, or the PAUSED card opened or closed. Keys still physically down then need
+    /// a real release and press to count again.
     pub fn clear(&mut self) {
         self.down.clear();
+        self.action_press = false;
+    }
+
+    /// The context action for the next tick. A press since the last tick reaches it
+    /// even if the key was already let go. If the last tick had it held (so the key was
+    /// let go and pressed again in between), this tick sees it let go and the next one
+    /// sees the press.
+    pub fn take_action(&mut self) -> bool {
+        let action = if self.action_press && self.action_sent {
+            false
+        } else {
+            let pressed = std::mem::take(&mut self.action_press);
+            pressed || self.held(Key::Space)
+        };
+        self.action_sent = action;
+        action
+    }
+
+    /// The next tick's input, taking any latched press ([`Keys::take_action`]).
+    pub fn tick_input(&mut self, docked: bool, click: Option<Click>) -> PlayerInput {
+        let action = self.take_action();
+        PlayerInput {
+            action,
+            ..player_input(self, docked, click)
+        }
     }
 
     pub fn held(&self, key: Key) -> bool {
@@ -81,8 +136,9 @@ pub fn thrust(keys: &Keys) -> Vec2 {
     v.normalize_or_zero()
 }
 
-/// This tick's input. While docked the keys drive the dock screen, so there is no
-/// thrust (Space still undocks). `click` is consumed by the first tick it goes into.
+/// The input the held keys make. While docked the keys drive the dock screen, so there
+/// is no thrust (Space still undocks). `click` is consumed by the first tick it goes
+/// into. The window and scripts use [`Keys::tick_input`], which adds latched presses.
 pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerInput {
     PlayerInput {
         thrust: if docked { Vec2::ZERO } else { thrust(keys) },
@@ -177,6 +233,58 @@ mod tests {
         assert!(player_input(&k, true, None).action, "Space undocks");
         k.release(Key::Space);
         assert!(!player_input(&k, false, None).action);
+    }
+
+    #[test]
+    fn a_tap_between_ticks_reaches_the_next_tick_once() {
+        let mut k = Keys::default();
+        assert!(k.event(Key::Space, true, false));
+        assert!(!k.event(Key::Space, false, false));
+        assert!(k.tick_input(true, None).action, "the tap is latched");
+        assert!(!k.tick_input(true, None).action, "and delivered once");
+    }
+
+    #[test]
+    fn a_quick_release_and_repress_reads_as_a_new_press() {
+        let mut k = Keys::default();
+        k.press(Key::Space);
+        assert!(k.take_action());
+        // Let go and pressed again before the next tick.
+        k.release(Key::Space);
+        k.press(Key::Space);
+        assert!(!k.take_action(), "this tick sees the release");
+        assert!(k.take_action(), "the next sees the press");
+        assert!(k.take_action(), "then it's held");
+    }
+
+    #[test]
+    fn auto_repeat_and_keys_held_through_a_clear_dont_count() {
+        let mut k = Keys::default();
+        k.press(Key::Space);
+        assert!(k.take_action());
+        // The PAUSED card opens (or focus goes) with Space still down, and closes.
+        k.clear();
+        assert!(!k.event(Key::Space, true, true), "repeat isn't a press");
+        assert!(!k.held(Key::Space));
+        assert!(!k.take_action());
+        assert!(!k.event(Key::W, true, true));
+        assert_eq!(k.tick_input(false, None).thrust, Vec2::ZERO);
+        // A real release and press does.
+        k.event(Key::Space, false, false);
+        assert!(k.event(Key::Space, true, false));
+        assert!(k.take_action());
+    }
+
+    #[test]
+    fn a_press_latched_before_a_clear_is_forgotten() {
+        let mut k = Keys::default();
+        k.press(Key::Space);
+        k.release(Key::Space);
+        k.clear();
+        assert!(!k.take_action());
+        k.press_action();
+        assert!(k.take_action(), "the Undock button presses");
+        assert!(!k.take_action());
     }
 
     #[test]

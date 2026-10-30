@@ -5,8 +5,9 @@
 //!   time the card opens (content spec b05). The sim doesn't tick while paused, so the
 //!   fact commits on the first tick after the card closes; if the game quits paused,
 //!   the batch is saved with the kernel's pending batches and commits next time.
-//! - **Dock trades** go through [`DockTrades`], resubmitted until they apply or are
-//!   refused.
+//! - **Dock trades** go through [`DockTrades`]: submitted ahead of each tick so they
+//!   win their market line, resubmitted until they apply or are refused, and settled
+//!   only by their own committed events.
 //! - **Poses** from before and after the last tick, so drawing can interpolate between
 //!   fixed ticks.
 
@@ -168,13 +169,15 @@ impl Session {
         }
     }
 
-    /// Runs one tick with `input` (plus the oldest dock trade intent). Does nothing
-    /// while paused.
-    pub fn tick(&mut self, mut input: PlayerInput) -> TickOutcome {
+    /// Runs one tick with `input`, the oldest dock trade intent submitted ahead of it.
+    /// Does nothing while paused.
+    pub fn tick(&mut self, input: PlayerInput) -> TickOutcome {
         if self.sim.is_paused() {
             return TickOutcome::default();
         }
-        input.trades = self.trades.for_tick();
+        if let Some(batch) = self.trades.batch_for_tick(self.sim.world()) {
+            self.sim.submit(batch);
+        }
         let before = poses(self.sim.world());
         if self.sim.step(&input).is_none() {
             return TickOutcome::default();
@@ -200,7 +203,8 @@ impl Session {
         if out.undocked {
             self.trades.clear();
         } else {
-            let settled = self.trades.settle(self.sim.world(), &self.last_events);
+            let (world, history) = (self.sim.world(), self.sim.history());
+            let settled = self.trades.settle(world, history, &self.last_events);
             if settled != Settled::Idle {
                 out.trade = Some(settled);
             }

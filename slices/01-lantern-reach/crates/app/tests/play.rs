@@ -252,6 +252,145 @@ fn buy_max_fits_the_hold_stock_and_credits() {
     assert!(galaxy_economy::check_trade(s.world(), &more).is_err());
 }
 
+fn buy_one_ration_order() -> OrderQueue {
+    OrderQueue {
+        orders: vec![Order::Buy {
+            ware: RATIONS,
+            quantity: Quantity::Units { n: 1 },
+        }],
+        ..OrderQueue::default()
+    }
+}
+
+#[test]
+fn another_buy_on_the_line_cant_acknowledge_a_dock_trade() {
+    // Something else buys the very same thing for the flagship ahead of the dock
+    // trade: same ship, station, ware and quantity, but not the dock screen's batch.
+    let mut s = settled_session();
+    let req = buy_rations(&s);
+    s.request_trade(req.clone());
+    let mut other = galaxy_economy::trade::trade_batch(s.world(), &req).unwrap();
+    other.cause = Cause::system("test", "someone else's buy for the flagship");
+    s.submit(other);
+
+    let out = s.tick(PlayerInput::default());
+    assert_eq!(
+        flagship(&s).hold.count(&RATIONS),
+        1,
+        "the other buy went in"
+    );
+    assert_eq!(out.trade, Some(Settled::Retrying), "not the dock trade");
+    assert_eq!(s.trades.pending(), 1);
+    let out = s.tick(PlayerInput::default());
+    assert_eq!(out.trade, Some(Settled::Applied));
+    assert_eq!(flagship(&s).hold.count(&RATIONS), 2);
+    assert_eq!(s.trades.pending(), 0);
+}
+
+#[test]
+fn the_dock_trade_wins_over_the_flagships_own_order() {
+    // The review's case: the docked flagship has a queued buy of one ration, and the
+    // player asks the dock screen for one more. Both must happen, and the dock screen
+    // must only report its own.
+    let mut state = settled_session().state().clone();
+    let id = state.world.player.ship.clone().unwrap();
+    state.world.ships.get_mut(&id).unwrap().orders = buy_one_ration_order();
+    let mut s = Session::new(state);
+    s.request_trade(buy_rations(&s));
+
+    let out = s.tick(PlayerInput::default());
+    assert_eq!(
+        out.trade,
+        Some(Settled::Applied),
+        "the explicit action goes first"
+    );
+    assert_eq!(flagship(&s).hold.count(&RATIONS), 1);
+    let buys = |s: &Session| {
+        s.last_events()
+            .iter()
+            .filter(|e| matches!(e.event, Event::Buy { .. }))
+            .count()
+    };
+    assert_eq!(buys(&s), 1, "the order lost the line this tick");
+    for _ in 0..10 {
+        s.tick(PlayerInput::default());
+    }
+    assert_eq!(flagship(&s).hold.count(&RATIONS), 2, "the order buys after");
+    let orders = &flagship(&s).orders;
+    assert!(
+        orders.current >= orders.orders.len(),
+        "and its order is done"
+    );
+    assert_eq!(s.trades.pending(), 0);
+}
+
+#[test]
+fn the_dock_trade_wins_over_a_craft_on_the_same_line() {
+    let mut state = settled_session().state().clone();
+    let mut craft = state
+        .world
+        .ships
+        .get(state.world.player.ship.as_ref().unwrap())
+        .unwrap()
+        .clone();
+    craft.id = ShipId::from_static("craft.contender");
+    craft.orders = buy_one_ration_order();
+    state.world.ships.put(craft.clone());
+    let mut s = Session::new(state);
+    s.request_trade(buy_rations(&s));
+    assert_eq!(s.tick(PlayerInput::default()).trade, Some(Settled::Applied));
+    for _ in 0..20 {
+        s.tick(PlayerInput::default());
+    }
+    let craft_hold = s.world().ships.get(&craft.id).unwrap().hold.count(&RATIONS);
+    assert_eq!(craft_hold, 1, "the craft buys a tick later");
+    assert_eq!(
+        flagship(&s).hold.count(&RATIONS),
+        1,
+        "exactly one, no duplicate"
+    );
+    assert_eq!(s.trades.pending(), 0);
+}
+
+#[test]
+fn a_space_tap_between_ticks_still_undocks() {
+    let mut s = Session::new(new_state());
+    let mut keys = Keys::default();
+    // Down and up between two fixed ticks.
+    keys.event(Key::Space, true, false);
+    keys.event(Key::Space, false, false);
+    s.tick(keys.tick_input(true, None));
+    assert!(flagship(&s).docked_at.is_none(), "the tap reached the sim");
+}
+
+#[test]
+fn space_held_across_the_pause_card_doesnt_toggle_again() {
+    let mut s = Session::new(new_state());
+    let mut keys = Keys::default();
+    keys.event(Key::Space, true, false);
+    s.tick(keys.tick_input(true, None));
+    assert!(flagship(&s).docked_at.is_none());
+    // P with Space still down, then P again (the window clears the keys both ways).
+    s.pause();
+    keys.clear();
+    s.resume();
+    keys.clear();
+    for _ in 0..3 {
+        // The OS keeps repeating the held key.
+        assert!(!keys.event(Key::Space, true, true));
+        s.tick(keys.tick_input(false, None));
+    }
+    assert!(
+        flagship(&s).docked_at.is_none(),
+        "a repeat isn't another press"
+    );
+    // A real release and press still docks (the ship is still in the ring).
+    keys.event(Key::Space, false, false);
+    keys.event(Key::Space, true, false);
+    s.tick(keys.tick_input(false, None));
+    assert!(flagship(&s).docked_at.is_some());
+}
+
 #[test]
 fn space_undocks_wasd_flies_and_holding_space_mines() {
     let mut s = Session::new(new_state());

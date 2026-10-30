@@ -13,7 +13,7 @@
 //!
 //! Example: `d*120,space*150` flies right for four seconds, then mines for five.
 
-use crate::input::{Key, Keys, player_input};
+use crate::input::{Key, Keys};
 use crate::session::Session;
 use crate::ui::{self, Amount, UiState};
 
@@ -81,14 +81,18 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                     keys.press(*k);
                 }
                 for _ in 0..n {
-                    let docked = session.flagship().is_some_and(|f| f.docked_at.is_some());
-                    session.tick(player_input(&keys, docked, None));
+                    tick(session, &mut keys);
                     ticks += 1;
                 }
-                keys.clear();
+                // Released, as the window would see it: a press no tick took yet stays
+                // latched for the next step.
+                for k in &held {
+                    keys.release(*k);
+                }
             }
             Step::Pause => {
                 session.toggle_pause();
+                keys.clear();
             }
             Step::Map => ui_state.map_open = !ui_state.map_open,
             Step::Select(d) => {
@@ -107,13 +111,22 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                 }
                 // Let it settle.
                 for _ in 0..3 {
-                    session.tick(player_input(&keys, true, None));
+                    tick(session, &mut keys);
                     ticks += 1;
                 }
             }
         }
     }
     Ok(ticks)
+}
+
+/// One tick with the keys, as the window runs it: none while paused.
+fn tick(session: &mut Session, keys: &mut Keys) {
+    if session.is_paused() {
+        return;
+    }
+    let docked = session.flagship().is_some_and(|f| f.docked_at.is_some());
+    session.tick(keys.tick_input(docked, None));
 }
 
 fn docked_lines(session: &Session) -> Vec<ui::DockLine> {
