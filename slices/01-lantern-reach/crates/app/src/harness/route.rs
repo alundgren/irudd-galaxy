@@ -308,6 +308,10 @@ impl Pilot {
                 self.service(req)?;
             }
             self.save_loop(
+                "Wharf plate run",
+                vec![dock(WHARF), buy(PLATE), dock(KETTLE), sell(PLATE)],
+            )?;
+            self.save_loop(
                 "plate run",
                 vec![dock(BRASS), buy(PLATE), dock(HOOK), sell(PLATE)],
             )?;

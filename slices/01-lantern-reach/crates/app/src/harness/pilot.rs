@@ -149,7 +149,12 @@ impl Pilot {
 
     pub fn act(&mut self, action: Action) -> Result {
         let n = self.options.until as usize;
-        if (self.options.at_start && self.active(n)) || (!self.options.at_start && self.done(n)) {
+        let maintenance =
+            matches!(&action, Action::Assign { name, .. } if name == "Wharf plate run");
+        if !maintenance
+            && ((self.options.at_start && self.active(n))
+                || (!self.options.at_start && self.done(n)))
+        {
             return Err(Halt::Reached);
         }
         if self.options.at_start && self.done(n) {
@@ -179,6 +184,13 @@ impl Pilot {
         }
         let dockings = self.counter(CounterKind::Dockings);
         let facts = &self.game.sim().history().facts()[self.seen..];
+        let tender_stalled = facts.iter().any(|f| {
+            matches!(f.kind.as_str(), "loop_stalled" | "patient_blocked")
+                && f.subjects
+                    .ship
+                    .as_ref()
+                    .is_some_and(|s| s.as_str() == "craft.thimble")
+        });
         let player_ships: std::collections::BTreeSet<_> = self
             .world()
             .ships
@@ -226,6 +238,15 @@ impl Pilot {
             return Err(Halt::Failed(
                 "a script aborted or was quarantined; see script_events".into(),
             ));
+        }
+        // Automation remains our responsibility after its teaching beat. Respond
+        // to a newly observed stall, including while earning the prestige fee.
+        if tender_stalled && self.world().player.loops.contains_key("Wharf plate run") {
+            self.act(Action::Assign {
+                name: "Wharf plate run".into(),
+                ship: ShipId::from_static("craft.thimble"),
+                floor: 4000,
+            })?;
         }
         Ok(())
     }

@@ -883,7 +883,7 @@ fn journey_run(
         game,
         RunOptions {
             until,
-            max_ticks: ticks.unwrap_or(2_000_000),
+            max_ticks: ticks.unwrap_or(RunOptions::default().max_ticks),
             record: record.is_some(),
             ..RunOptions::default()
         },

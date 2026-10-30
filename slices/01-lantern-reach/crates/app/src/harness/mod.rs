@@ -101,7 +101,7 @@ impl Default for RunOptions {
         Self {
             until: 17,
             at_start: false,
-            max_ticks: 2_000_000,
+            max_ticks: 4_000_000,
             record: false,
             prestige: HullId::from_static("hull.tandem"),
         }
