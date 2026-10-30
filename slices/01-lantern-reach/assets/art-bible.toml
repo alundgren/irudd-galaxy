@@ -1,0 +1,252 @@
+# Art bible for the Lantern Reach kit.
+#
+# The renderer loads this file and checks station recipes against it. Colours are
+# sRGB hex. Lightness is OKLab L (0 is black, 1 is white). Chroma is the OKLab
+# distance from grey. The sky stays coloured, the ink is warm and not black, and
+# paint is never neutral grey or blue-grey chrome.
+
+[ink]
+color = "#2a1a2e"
+# Silhouette weight in logical pixels, [min, max]. The kit uses the midpoint.
+station_px = [4.0, 5.0]
+ship_px = [3.0, 4.0]
+rock_px = [2.5, 3.5]
+prop_px = [2.0, 3.0]
+# Inner crease lines, about half a silhouette.
+inner_px = [1.5, 2.5]
+# Edges sharper than this (degrees) get an inner line. Gentler rock facets stay bare.
+crease_degrees = 50.0
+# Linear-RGB distance between neighbouring paint that counts as a colour border.
+color_edge = 0.22
+# View-depth jump, in world units, that inks a step whose normals still agree.
+depth_step = 0.55
+
+[hatch]
+station = 0.35
+ship = 0.22
+rock = 0.85
+prop = 0.12
+
+[ranges]
+hull_l = [0.55, 0.96]
+trim_l = [0.14, 0.86]
+accent_l = [0.14, 0.92]
+glow_l = [0.50, 1.0]
+glass_l = [0.40, 0.97]
+leaf_l = [0.18, 0.86]
+# Enough colour to refuse grey chrome, not so much the hull fluoresces.
+chroma = [0.018, 0.24]
+glow_chroma = [0.04, 0.34]
+# A hull stays this far above the lighter end of its region's sky, in OKLab L.
+hull_above_sky = 0.22
+# How near a palette slot must be to a faction swatch to count as carrying it.
+faction_distance = 0.16
+
+[budget]
+min_parts = 1
+max_parts = 48
+max_decals = 12
+max_of_kind = 8
+
+[budget.kind]
+hub = 2
+docking_ring = 2
+arm = 8
+greenhouse = 4
+antenna = 6
+tank = 8
+sail = 4
+lantern = 8
+lens = 4
+cargo_pod = 8
+crane = 2
+solar_petal = 4
+lamp_mast = 6
+dome = 4
+habitat_ring = 2
+beacon = 4
+signage = 6
+antenna_cluster = 4
+docking_arm = 6
+banner = 4
+arch = 6
+spire = 2
+block = 8
+scaffold = 3
+
+# Parameter ranges a recipe's parts must stay inside. Same units as the kit.
+[proportions.hub]
+radius = [1.0, 40.0]
+height = [0.5, 40.0]
+tiers = [1.0, 4.0]
+sides = [4.0, 24.0]
+
+[proportions.docking_ring]
+radius = [2.0, 60.0]
+tube = [0.2, 30.0]
+spokes = [0.0, 12.0]
+inner = [0.0, 60.0]
+
+[proportions.arm]
+length = [0.5, 80.0]
+width = [0.2, 12.0]
+
+[proportions.greenhouse]
+radius = [1.0, 30.0]
+stage = [0.0, 3.0]
+
+[proportions.antenna]
+height = [0.5, 40.0]
+
+[proportions.tank]
+radius = [0.3, 12.0]
+length = [0.5, 40.0]
+count = [1.0, 4.0]
+
+[proportions.sail]
+length = [0.5, 60.0]
+width = [0.5, 30.0]
+
+[proportions.lantern]
+height = [0.3, 20.0]
+
+[proportions.lens]
+radius = [1.0, 30.0]
+
+[proportions.cargo_pod]
+radius = [0.6, 8.0]
+length = [1.0, 20.0]
+
+[proportions.crane]
+height = [2.0, 30.0]
+reach = [2.0, 24.0]
+
+[proportions.solar_petal]
+length = [2.0, 30.0]
+count = [2.0, 8.0]
+
+[proportions.lamp_mast]
+height = [2.0, 24.0]
+
+[proportions.dome]
+radius = [1.5, 20.0]
+
+[proportions.habitat_ring]
+radius = [4.0, 40.0]
+tube = [0.4, 4.0]
+
+[proportions.beacon]
+height = [1.5, 20.0]
+
+[proportions.signage]
+width = [2.0, 16.0]
+height = [1.2, 10.0]
+number = [0.0, 99.0]
+
+[proportions.antenna_cluster]
+height = [2.0, 24.0]
+count = [2.0, 6.0]
+
+[proportions.docking_arm]
+length = [3.0, 30.0]
+
+[proportions.banner]
+width = [2.0, 14.0]
+height = [1.5, 10.0]
+
+[proportions.arch]
+width = [3.0, 24.0]
+height = [2.0, 16.0]
+
+[proportions.spire]
+height = [4.0, 36.0]
+radius = [0.6, 8.0]
+
+[proportions.block]
+width = [2.0, 20.0]
+depth = [2.0, 20.0]
+height = [1.5, 16.0]
+
+[proportions.scaffold]
+radius = [2.0, 24.0]
+height = [1.5, 16.0]
+
+[proportions.stripe]
+length = [1.0, 30.0]
+width = [0.3, 8.0]
+bands = [2.0, 8.0]
+
+[proportions.chevron]
+length = [1.0, 16.0]
+width = [0.4, 8.0]
+
+[proportions.sigil]
+size = [1.0, 12.0]
+
+[proportions.number]
+value = [0.0, 99.0]
+size = [0.8, 8.0]
+
+# Wharf Cooperative: lantern green and warm gold, round and hand-built.
+[factions."faction.wharf_cooperative"]
+name = "Wharf Cooperative"
+primary = "#2f9d86"
+secondary = "#e7b15a"
+mark = "lantern_kettle"
+motif = "round"
+hull = "#f4e2c4"
+trim = "#2f9d86"
+accent = "#e7b15a"
+glow = "#ffcf6b"
+glass = "#b7e6cf"
+leaf = "#5cbf5a"
+
+# Tollway Compact: brass and deep red, square and ordered.
+[factions."faction.tollway_compact"]
+name = "Tollway Compact"
+primary = "#c98f4a"
+secondary = "#8f3040"
+mark = "toll_key"
+motif = "square"
+hull = "#f3ddb0"
+trim = "#c98f4a"
+accent = "#8f3040"
+glow = "#ffcf6b"
+glass = "#f0d8b0"
+leaf = "#c9a06a"
+
+# Lamplighter Society: amber on warm midnight, tall and pointed.
+[factions."faction.lamplighter_society"]
+name = "Lamplighter Society"
+primary = "#e0a050"
+secondary = "#3a2d5c"
+mark = "open_lamp"
+motif = "pointed"
+hull = "#f6ead4"
+trim = "#3a2d5c"
+accent = "#e0a050"
+glow = "#ffcf6b"
+glass = "#c9b6f0"
+leaf = "#8fbf7a"
+
+# Regions tint the sky. They do not recolour a station's own paint.
+[regions."region.lantern_shallows"]
+name = "Lantern Shallows"
+sky_top = "#3a3470"
+sky_bottom = "#1d1a3e"
+clouds = ["#2f8f8a", "#6b4aa0", "#4a7fb0"]
+cloud_alpha = 0.2
+
+[regions."region.cinder_drift"]
+name = "Cinder Drift"
+sky_top = "#55304a"
+sky_bottom = "#24162a"
+clouds = ["#e8905a", "#c2577a", "#9a4a3a"]
+cloud_alpha = 0.24
+
+[regions."region.brassmouth_narrows"]
+name = "Brassmouth Narrows"
+sky_top = "#4e3672"
+sky_bottom = "#2a1f48"
+clouds = ["#6b4aa0", "#c98f4a", "#c2577a"]
+cloud_alpha = 0.2

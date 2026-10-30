@@ -9,6 +9,7 @@
 //! station centre.
 
 use super::rng::Rng;
+use crate::art_bible::ArtBible;
 use crate::color::Color;
 use crate::mesh::{MeshBuilder, MeshData};
 use crate::palette;
@@ -44,6 +45,20 @@ impl Default for StationPalette {
             glow: palette::WINDOW,
             glass: Color::hex(0x9fe0c8),
             leaf: palette::LEAF,
+        }
+    }
+}
+
+impl StationPalette {
+    /// The faction's authored paint, from the art bible.
+    pub fn from_faction(style: &crate::art_bible::FactionStyle) -> Self {
+        Self {
+            hull: style.hull,
+            trim: style.trim,
+            accent: style.accent,
+            glow: style.glow,
+            glass: style.glass,
+            leaf: style.leaf,
         }
     }
 }
@@ -200,6 +215,12 @@ pub struct StationRecipe {
     #[serde(default)]
     pub palette: StationPalette,
     pub parts: Vec<Part>,
+    /// Faction id (`faction.wharf_cooperative`). The art bible checks its colour pair.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub faction: Option<String>,
+    /// Region id. When set, the hull must stay lighter than that region's sky.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
 }
 
 /// Limits a recipe must stay within.
@@ -326,6 +347,113 @@ impl StationRecipe {
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
+    /// Checks colours, part counts and proportions against the art bible.
+    ///
+    /// [`Self::validate`] still checks that a recipe can build. This one checks that it
+    /// belongs in the Lantern Reach: faction pairs, no grey or chrome paint, and the
+    /// bible's budgets. The game master calls it before accepting a station.
+    pub fn validate_art(&self, bible: &ArtBible) -> Result<(), Vec<RecipeError>> {
+        let mut errs = Vec::new();
+        let mut err =
+            |part: Option<usize>, message: String| errs.push(RecipeError { part, message });
+
+        if self.parts.len() < bible.budget.min_parts || self.parts.len() > bible.budget.max_parts {
+            err(
+                None,
+                format!(
+                    "{} parts; expected {}..={}",
+                    self.parts.len(),
+                    bible.budget.min_parts,
+                    bible.budget.max_parts
+                ),
+            );
+        }
+        let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+        for (i, part) in self.parts.iter().enumerate() {
+            let (kind, params) = part_params(&part.kind);
+            *counts.entry(kind).or_default() += 1;
+            for (name, value) in params {
+                if let Some(message) = bible.proportion_issue(kind, name, value) {
+                    err(Some(i), message);
+                }
+            }
+            if let Some(color) = part.color
+                && let Some(issue) = bible.check_paint(color)
+            {
+                err(Some(i), format!("paint {}", issue.message));
+            }
+        }
+        for (kind, n) in &counts {
+            let cap = bible.kind_cap(kind);
+            if *n > cap as usize {
+                err(None, format!("{n} {kind} parts; at most {cap}"));
+            }
+        }
+
+        for (role, color) in [
+            ("hull", self.palette.hull),
+            ("trim", self.palette.trim),
+            ("accent", self.palette.accent),
+            ("glow", self.palette.glow),
+            ("glass", self.palette.glass),
+            ("leaf", self.palette.leaf),
+        ] {
+            if let Some(issue) = bible.check_role(role, color) {
+                let slot = issue.role.unwrap_or(role);
+                err(None, format!("{slot} {}", issue.message));
+            }
+        }
+
+        let sky_l = self
+            .region
+            .as_deref()
+            .and_then(|id| bible.sky_lightness(id))
+            .unwrap_or_else(|| crate::art_bible::oklab_l(crate::palette::SPACE_HIGH));
+        let hull_l = crate::art_bible::oklab_l(self.palette.hull);
+        if hull_l + 1e-4 < sky_l + bible.ranges.hull_above_sky {
+            err(
+                None,
+                format!(
+                    "hull lightness {hull_l:.2} is under {sky_l:.2} + {:.2} above the sky",
+                    bible.ranges.hull_above_sky
+                ),
+            );
+        }
+
+        if let Some(id) = &self.faction {
+            match bible.faction(id) {
+                None => err(None, format!("unknown faction {id}")),
+                Some(style) => {
+                    let slots = [
+                        self.palette.hull,
+                        self.palette.trim,
+                        self.palette.accent,
+                        self.palette.glow,
+                    ];
+                    let near = |swatch: Color| {
+                        slots.iter().any(|c| {
+                            ArtBible::oklab_distance(*c, swatch) <= bible.ranges.faction_distance
+                        })
+                    };
+                    if !near(style.primary) {
+                        err(
+                            None,
+                            format!("palette misses {id} primary {}", style.primary.to_hex()),
+                        );
+                    }
+                    if !near(style.secondary) {
+                        err(
+                            None,
+                            format!("palette misses {id} secondary {}", style.secondary.to_hex()),
+                        );
+                    }
+                }
+            }
+        }
+
+        if errs.is_empty() { Ok(()) } else { Err(errs) }
+    }
+
     /// The radius of a circle around the centre that contains every part.
     pub fn footprint(&self) -> f32 {
         self.parts
@@ -342,7 +470,9 @@ impl StationRecipe {
         Self {
             name: "Lantern Wharf".into(),
             seed: 1,
-            palette: StationPalette::default(),
+            palette: StationPalette::from_faction(coop()),
+            faction: Some("faction.wharf_cooperative".into()),
+            region: Some("region.lantern_shallows".into()),
             parts: vec![
                 p(
                     Hub {
@@ -424,12 +554,9 @@ impl StationRecipe {
         Self {
             name: "Kettle Dock".into(),
             seed: 2,
-            palette: StationPalette {
-                hull: Color::hex(0xf3e2c0),
-                trim: palette::SAGE,
-                accent: palette::MUSTARD,
-                ..StationPalette::default()
-            },
+            palette: StationPalette::from_faction(coop()),
+            faction: Some("faction.wharf_cooperative".into()),
+            region: Some("region.lantern_shallows".into()),
             parts: vec![
                 p(
                     Hub {
@@ -552,13 +679,9 @@ impl StationRecipe {
         Self {
             name: "Brassmouth".into(),
             seed: 3,
-            palette: StationPalette {
-                hull: Color::hex(0xe9c98f),
-                trim: palette::BRASS,
-                accent: palette::NEBULA_VIOLET,
-                glow: palette::LANTERN,
-                ..StationPalette::default()
-            },
+            palette: StationPalette::from_faction(faction("faction.tollway_compact")),
+            faction: Some("faction.tollway_compact".into()),
+            region: Some("region.brassmouth_narrows".into()),
             parts,
         }
     }
@@ -571,16 +694,15 @@ impl StationRecipe {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
         let patch = Color::hex(0xb98a5e);
+        let mut palette = StationPalette::from_faction(coop());
+        // The camp is still the co-op's, but the hull is sun-baked sand.
+        palette.hull = Color::hex(0xe2c09a);
         Self {
             name: "Cinder Hook".into(),
             seed: 4,
-            palette: StationPalette {
-                hull: Color::hex(0xd8b48a),
-                trim: Color::hex(0x6e4a3e),
-                accent: palette::TERRACOTTA,
-                glow: Color::hex(0xffb65c),
-                ..StationPalette::default()
-            },
+            palette,
+            faction: Some("faction.wharf_cooperative".into()),
+            region: Some("region.cinder_drift".into()),
             parts: vec![
                 p(
                     Hub {
@@ -732,17 +854,77 @@ impl StationRecipe {
         Self {
             name: "Glass Drift Observatory".into(),
             seed: 5,
-            palette: StationPalette {
-                hull: Color::hex(0xeee2cc),
-                trim: palette::NEBULA_VIOLET,
-                accent: palette::TEAL,
-                glow: palette::LANTERN,
-                glass: Color::hex(0xa8e6f0),
-                ..StationPalette::default()
-            },
+            palette: StationPalette::from_faction(faction("faction.lamplighter_society")),
+            faction: Some("faction.lamplighter_society".into()),
+            region: Some("region.cinder_drift".into()),
             parts,
         }
     }
+}
+
+/// The bible's name for a part, and the parameters it checks.
+fn part_params(kind: &PartKind) -> (&'static str, Vec<(&'static str, f32)>) {
+    match *kind {
+        PartKind::Hub {
+            radius,
+            height,
+            tiers,
+            sides,
+        } => (
+            "hub",
+            vec![
+                ("radius", radius),
+                ("height", height),
+                ("tiers", tiers as f32),
+                ("sides", sides as f32),
+            ],
+        ),
+        PartKind::DockingRing {
+            radius,
+            tube,
+            spokes,
+            inner,
+        } => (
+            "docking_ring",
+            vec![
+                ("radius", radius),
+                ("tube", tube),
+                ("spokes", spokes as f32),
+                ("inner", inner),
+            ],
+        ),
+        PartKind::Arm { length, width } => ("arm", vec![("length", length), ("width", width)]),
+        PartKind::Greenhouse { radius, stage } => (
+            "greenhouse",
+            vec![("radius", radius), ("stage", stage as f32)],
+        ),
+        PartKind::Antenna { height, .. } => ("antenna", vec![("height", height)]),
+        PartKind::Tank {
+            radius,
+            length,
+            count,
+        } => (
+            "tank",
+            vec![
+                ("radius", radius),
+                ("length", length),
+                ("count", count as f32),
+            ],
+        ),
+        PartKind::Sail { length, width } => ("sail", vec![("length", length), ("width", width)]),
+        PartKind::Lantern { height } => ("lantern", vec![("height", height)]),
+        PartKind::Lens { radius } => ("lens", vec![("radius", radius)]),
+    }
+}
+
+fn faction(id: &str) -> &crate::art_bible::FactionStyle {
+    ArtBible::bundled()
+        .faction(id)
+        .unwrap_or_else(|| panic!("art bible missing {id}"))
+}
+
+fn coop() -> &'static crate::art_bible::FactionStyle {
+    faction("faction.wharf_cooperative")
 }
 
 /// How far a part reaches from its placement, before scaling.
@@ -1307,9 +1489,32 @@ mod tests {
     }
 
     #[test]
+    fn art_bible_rejects_grey_paint_and_unknown_factions() {
+        let bible = ArtBible::bundled();
+        let mut grey = StationRecipe::lantern_wharf();
+        grey.palette.hull = Color::hex(0x808080);
+        let errs = grey.validate_art(bible).unwrap_err();
+        assert!(
+            errs.iter()
+                .any(|e| e.part.is_none() && e.to_string().contains("hull")),
+            "{errs:?}"
+        );
+        let mut unknown = StationRecipe::lantern_wharf();
+        unknown.faction = Some("faction.nope".into());
+        let errs = unknown.validate_art(bible).unwrap_err();
+        assert!(
+            errs.iter()
+                .any(|e| e.to_string().contains("unknown faction")),
+            "{errs:?}"
+        );
+    }
+
+    #[test]
     fn presets_validate_and_build() {
         for r in presets() {
             r.validate().unwrap_or_else(|e| panic!("{}: {e:?}", r.name));
+            r.validate_art(ArtBible::bundled())
+                .unwrap_or_else(|e| panic!("{} art: {e:?}", r.name));
             let m = station(&r);
             assert!(m.is_well_formed(), "{}", r.name);
             assert!(m.radius() <= r.footprint() * 1.2 + 4.0, "{}", r.name);
@@ -1325,6 +1530,8 @@ mod tests {
             name: "stubby".into(),
             seed: 1,
             palette: StationPalette::default(),
+            faction: None,
+            region: None,
             parts: vec![
                 Part::new(
                     PartKind::Hub {
@@ -1422,6 +1629,8 @@ mod tests {
             name: "nothing".into(),
             seed: 0,
             palette: StationPalette::default(),
+            faction: None,
+            region: None,
             parts: vec![],
         };
         assert_eq!(empty.validate().unwrap_err().len(), 2);

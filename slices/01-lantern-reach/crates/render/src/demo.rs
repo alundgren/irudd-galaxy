@@ -326,6 +326,8 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
             name: format!("stage {stage}"),
             seed: 2,
             palette: StationRecipe::kettle_dock(0).palette,
+            faction: None,
+            region: None,
             parts: vec![kit::Part::new(
                 kit::PartKind::Greenhouse { radius: 7.5, stage },
                 kit::Placement::default(),
