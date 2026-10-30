@@ -1666,3 +1666,28 @@ fn the_line_pick_probe_says_authored_lines() {
         );
     }
 }
+
+/// A drafted line (opt-in free phrasing) that echoes the key in a JSON escape: the key
+/// is redacted from the decoded text and cites before anything stores or shows them.
+#[test]
+fn an_escaped_key_in_a_drafted_line_is_redacted_after_decoding() {
+    const KEY: &str = "sk-or-v1-0123456789abcdefSECRET";
+    let escaped = String::from(r"s") + &KEY[1..];
+    let content = format!(r#"{{"text":"Ilse says {escaped} hi","cite":"{escaped}"}}"#);
+    let mock = Mock::default();
+    mock.ok(json!({ "choices": [{ "message": { "content": content } }] }));
+    let mut mind = OpenRouterMind::with_transport(
+        mock.clone(),
+        ApiKey::new(KEY),
+        Models::default(),
+        &Limits::default(),
+    );
+    let sample = probe::sample_line(&config());
+    let r = mind.line(&sample.req);
+    let shown = format!(
+        "{:?} {}",
+        r.result,
+        serde_json::to_string(&r.result.as_ref().ok()).unwrap()
+    );
+    assert!(!shown.contains("SECRET"), "{shown}");
+}

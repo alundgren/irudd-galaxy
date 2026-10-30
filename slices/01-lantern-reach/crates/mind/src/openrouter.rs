@@ -504,7 +504,16 @@ impl<T: Transport> Mind for OpenRouterMind<T> {
             req.max_attempts,
             req.deadline_ms,
         );
-        reply(posted, &self.models.line, parse_line)
+        // Model-written text is kept for exact replay (opt-in free phrasing only).
+        // Redact the key from the *decoded* text and cites, so an echo in any JSON
+        // encoding is caught before it is stored, shown or quoted anywhere.
+        let key = &self.key;
+        reply(posted, &self.models.line, |v| {
+            parse_line(v).map(|d| LineDraft {
+                text: key.redact(&d.text),
+                cites: d.cites.iter().map(|c| key.redact(c)).collect(),
+            })
+        })
     }
 }
 
