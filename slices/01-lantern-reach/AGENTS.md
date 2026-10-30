@@ -236,9 +236,10 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `next, t`, between `in` and `do` (checked on a tokenizer that follows Luau's lexer;
   `for k, v in t` and `pairs(a) and t` are check errors). Scripts are always strict:
   the first line is `--!strict`, and `!nocheck`/`!nonstrict` anywhere is a check error.
-- Bounded: each handler call runs in a fresh Luau state (so memory outcomes don't
-  depend on earlier calls), native helpers that do O(n) work charge the step budget
-  (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
+- Bounded: each handler call, beat callback and `G.test` predicate runs in a fresh
+  Luau state (so memory outcomes don't depend on earlier calls; the pack's bytecode is
+  compiled once and shared), native helpers that do O(n) work, world views such as
+  `ctx.beats:field` included, charge the step budget (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
   1 KiB with a marker. Known gap: comparing two long strings (`a < b`) is one VM
   opcode and isn't metered; it is bounded only by the memory limit, which caps string
   length.
@@ -287,7 +288,12 @@ error.
   `world.progress.beats` by stable ID, so beats survive save, load and hot reload.
   Facts: `beat_started`, `quest_step` (the next step; `quest` is the beat ID),
   `beat_completed`. The HUD's line is `galaxy_progress::beats::hud_goal`. Worked
-  examples: `packs/core/scripts/act1.luau` (b01-b03).
+  examples: `packs/core/scripts/act1.luau` (b01-b03). A transition (with its
+  callback's writes) is checked like a handler batch, against the world the kernel
+  will apply it to; only one that will commit is visible to later beats that tick, so
+  a successor never unlocks on a completion the kernel would reject. A live `G.test`
+  costs about 0.3 ms a tick (a fresh state per call): list data requirements
+  ahead of it, since a list stops at the first that fails.
 - **Data** (all `packs/core/data/`): `upgrades.toml` (upgrades and tenders, costs,
   sellers, unlock requirements, granted `cap.*` flags, modifiers), `controls.toml`
   (capabilities, tiers, reserved slots), `traits.toml`, `[[rank]]` in `hulls.toml`,

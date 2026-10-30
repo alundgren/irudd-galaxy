@@ -10,6 +10,7 @@ use galaxy_progress::{beats, standing};
 use mlua::{Lua, LuaSerdeExt, LuaString, Scope, Table, Value};
 
 use super::{CallEnv, m, method, only_keys, to_lua};
+use crate::meter::RECORDS_PER_STEP;
 
 /// A goal line as Luau sees it.
 fn goal_table(lua: &Lua, g: &beats::GoalLine) -> mlua::Result<Table> {
@@ -531,6 +532,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         "beats",
         "goals",
         m(scope, env, |lua, env, (): ()| {
+            let scanned = u64::try_from(env.world.progress.beats.len()).unwrap_or(u64::MAX);
+            env.budget.charge(lua, 1 + scanned / RECORDS_PER_STEP)?;
             beats::goal_lines(env.world)
                 .iter()
                 .map(|g| goal_table(lua, g))
@@ -600,9 +603,12 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             let Some(field) = w.fields.get(id.as_str()) else {
                 return Ok(None);
             };
+            // The scan visits every rock in the world, so it pays for all of them first.
+            let scanned = u64::try_from(w.rocks.len()).unwrap_or(u64::MAX);
+            env.budget.charge(lua, 1 + scanned / RECORDS_PER_STEP)?;
             let (mut rocks, mut remaining, mut full) = (0u32, 0u64, 0u64);
             for r in w.rocks.values().filter(|r| r.field == field.id) {
-                rocks += 1;
+                rocks = rocks.saturating_add(1);
                 remaining += u64::from(r.remaining);
                 full += u64::from(r.initial);
             }

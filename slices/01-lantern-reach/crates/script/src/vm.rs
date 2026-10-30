@@ -11,16 +11,17 @@
 //! - A VM interrupt counts steps (loop back-edges and calls) per handler call, and
 //!   native helpers charge steps for the work they do ([`crate::meter`]); over the
 //!   budget, every further step fails, so even `pcall` can't keep a loop alive.
-//! - **Each handler call runs in a fresh Luau state**, with the collector stopped, and
-//!   may allocate `limits.memory_bytes` (garbage included). Luau's allocator hands out
-//!   whole pages, so in a reused state how close a call gets to the limit depends on
-//!   which pages earlier calls left half full; a fresh state makes the same allocations
-//!   every time. So whether a call runs out of memory, and what weak tables hold,
-//!   depends only on the call itself.
+//! - **Each handler call, beat callback and `G.test` predicate runs in a fresh Luau
+//!   state**, with the collector stopped, and may allocate `limits.memory_bytes`
+//!   (garbage included). Luau's allocator hands out whole pages, so in a reused state
+//!   how close a call gets to the limit depends on which pages earlier calls left half
+//!   full; a fresh state makes the same allocations every time. So whether a call runs out of memory, and what weak tables hold,
+//!   depends only on the call itself. The pack's bytecode is compiled once and shared
+//!   by its fresh states, so a fresh state costs little more than its libraries.
 //! - Text a script makes that leaves the VM (abort messages, `print` lines) is cut to
 //!   [`TEXT_CAP`] bytes with a marker, so it can't bloat the log, history or saves.
-//! - **No memory between calls.** Every handler call runs the script and the modules
-//!   it requires afresh in its fresh state, so locals and upvalues can't carry anything
+//! - **No memory between calls.** Every call runs the script and the modules it
+//!   requires afresh in its fresh state, so locals and upvalues can't carry anything
 //!   from one call to the next: the script's declared stores are its only memory, and
 //!   a restored save replays exactly.
 //! - **No addresses.** `tostring`, `string.format` (and so string interpolation) and
@@ -180,6 +181,34 @@ pub struct PackVm {
     budget: Rc<Budget>,
     /// `print` output, newest last (dev only; capped).
     pub log: Rc<RefCell<Vec<String>>>,
+    code: Code,
+}
+
+/// Bytecode for the pack's sources, compiled once and shared by every fresh state of
+/// the pack: compiling is most of what a fresh state costs. Keyed by the source text,
+/// so a file always runs the code it was checked as.
+#[derive(Clone, Default)]
+struct Code(Rc<RefCell<BTreeMap<String, Rc<[u8]>>>>);
+
+impl Code {
+    /// The bytecode for `src`, or `None` if it doesn't compile (loading the text then
+    /// reports the error, exactly as before).
+    fn of(&self, src: &str) -> Option<Rc<[u8]>> {
+        if let Some(b) = self.0.borrow().get(src) {
+            return Some(b.clone());
+        }
+        let b: Rc<[u8]> = mlua::chunk::Compiler::new().compile(src).ok()?.into();
+        self.0.borrow_mut().insert(src.to_owned(), b.clone());
+        Some(b)
+    }
+}
+
+thread_local! {
+    /// The prelude's bytecode, compiled once per thread.
+    static PRELUDE_CODE: Rc<[u8]> = mlua::chunk::Compiler::new()
+        .compile(PRELUDE)
+        .expect("the prelude compiles")
+        .into();
 }
 
 const PRELUDE: &str = r#"
@@ -418,11 +447,15 @@ impl PackVm {
 
     /// A state with the sandbox, `G` and `require`, but no scripts loaded.
     pub fn bare(pack: Rc<Pack>) -> mlua::Result<PackVm> {
-        Self::bare_with_log(pack, Rc::new(RefCell::new(Vec::new())))
+        Self::bare_with_log(pack, Rc::new(RefCell::new(Vec::new())), Code::default())
     }
 
     /// [`PackVm::bare`], printing to `log`.
-    fn bare_with_log(pack: Rc<Pack>, log: Rc<RefCell<Vec<String>>>) -> mlua::Result<PackVm> {
+    fn bare_with_log(
+        pack: Rc<Pack>,
+        log: Rc<RefCell<Vec<String>>>,
+        code: Code,
+    ) -> mlua::Result<PackVm> {
         let libs = StdLib::TABLE
             | StdLib::STRING
             | StdLib::UTF8
@@ -482,7 +515,9 @@ impl PackVm {
         })?;
         globals.raw_set("print", print)?;
 
-        let g: Table = lua.load(PRELUDE).set_name("=galaxy").eval()?;
+        lua.set_app_data(code.clone());
+        let prelude = PRELUDE_CODE.with(Rc::clone);
+        let g: Table = lua.load(&prelude[..]).set_name("=galaxy").call(())?;
         lua.set_named_registry_value("galaxy.G", g)?;
         lua.set_named_registry_value("galaxy.modules", lua.create_table()?)?;
         lua.set_named_registry_value("galaxy.loading", lua.create_table()?)?;
@@ -544,6 +579,7 @@ impl PackVm {
             scripts: Vec::new(),
             budget,
             log,
+            code,
         })
     }
 
@@ -844,7 +880,7 @@ impl PackVm {
         Ok(LoadedBeat { def, index, hooks })
     }
 
-    /// The function at `path` in a fresh (or this tick's) instance of `script`.
+    /// The function at `path` in a fresh instance of a script.
     fn function_at(&self, instance: &Table, path: &[PathKey]) -> mlua::Result<Function> {
         let mut v = Value::Table(instance.clone());
         for k in path {
@@ -866,15 +902,14 @@ impl PackVm {
         }
     }
 
-    /// Runs a `G.test` predicate. It may read but not write; it must return a boolean.
-    /// `instance` caches one fresh instance of the script for every predicate of a tick.
+    /// Runs a `G.test` predicate on a fresh instance of its script, in a fresh Luau
+    /// state, like a handler call. It may read but not write; it must return a boolean.
     pub fn predicate(
         &self,
         script: usize,
         index: u32,
         view: View<'_>,
         rng: &mut dyn RngSource,
-        instance: &mut Option<Table>,
     ) -> Result<bool, Abort> {
         let s = &self.scripts[script];
         let path = s.tests.get(index as usize).cloned().ok_or_else(|| Abort {
@@ -882,17 +917,9 @@ impl PackVm {
             message: format!("no G.test predicate {index}"),
             location: None,
         })?;
-        let (result, buffer) = self.with_ctx(script, view, rng, None, |lua, ctx| {
-            let def = match instance {
-                Some(t) => t.clone(),
-                None => {
-                    let t = self.instantiate(&self.scripts[script].decl.file)?;
-                    *instance = Some(t.clone());
-                    t
-                }
-            };
-            let f = self.function_at(&def, &path)?;
-            let _ = lua;
+        let fresh = self.fresh()?;
+        let (result, buffer) = fresh.with_ctx(&s.decl, view, rng, None, |_, ctx| {
+            let f = fresh.function_at(&fresh.instantiate(&s.decl.file)?, &path)?;
             f.call::<Value>(ctx)
         });
         let v = result?;
@@ -916,9 +943,9 @@ impl PackVm {
         }
     }
 
-    /// Runs a beat callback on a fresh instance of its script, its buffer seeded with
-    /// the transition's batch: `beat.why` is that batch's cause, so the callback's
-    /// writes and the transition apply together or not at all.
+    /// Runs a beat callback on a fresh instance of its script, in a fresh Luau state,
+    /// its buffer seeded with the transition's batch: `beat.why` is that batch's cause,
+    /// so the callback's writes and the transition apply together or not at all.
     #[allow(clippy::too_many_arguments)]
     pub fn beat_hook(
         &self,
@@ -939,8 +966,9 @@ impl PackVm {
             PathKey::Index(b.index),
             PathKey::Key(hook.to_owned()),
         ];
-        let (result, buffer) = self.with_ctx(script, view, rng, Some(seed), |lua, ctx| {
-            let f = self.function_at(&self.instantiate(&self.scripts[script].decl.file)?, &path)?;
+        let fresh = self.fresh()?;
+        let (result, buffer) = fresh.with_ctx(&s.decl, view, rng, Some(seed), |lua, ctx| {
+            let f = fresh.function_at(&fresh.instantiate(&s.decl.file)?, &path)?;
             let t = lua.create_table()?;
             t.raw_set("id", info.beat.as_str())?;
             t.raw_set("transition", info.transition)?;
@@ -959,27 +987,32 @@ impl PackVm {
         Ok(buffer.into_batch())
     }
 
-    /// Calls `f` with a fresh `ctx` for `script` inside the step budget, and returns
-    /// its result (with quota and ctx error codes applied) and its write buffer.
+    /// A fresh state for this pack, with no scripts loaded, printing to the same log.
+    fn fresh(&self) -> Result<PackVm, Abort> {
+        Self::bare_with_log(self.pack.clone(), self.log.clone(), self.code.clone())
+            .map_err(|e| abort_from(&e, Some("vm")))
+    }
+
+    /// Calls `f` with a fresh `ctx` for the script `decl` inside the step budget, and
+    /// returns its result (with quota and ctx error codes applied) and its write buffer.
     fn with_ctx<R>(
         &self,
-        script: usize,
+        decl: &ScriptDecl,
         view: View<'_>,
         rng: &mut dyn RngSource,
         seed: Option<CommandBatch>,
         f: impl FnOnce(&Lua, Table) -> mlua::Result<R>,
     ) -> (Result<R, Abort>, Buffer) {
-        let s = &self.scripts[script];
         let buffer = RefCell::new(seed.map(Buffer::seeded).unwrap_or_default());
         let rng = RefCell::new(&mut *rng as &mut dyn RngSource);
-        let rng_key = format!("script/{}/{}", self.pack.manifest.id, s.decl.id);
+        let rng_key = format!("script/{}/{}", self.pack.manifest.id, decl.id);
         let env = CallEnv {
             world: view.world,
             history: view.history,
             pack: &self.pack.manifest.id,
             revision: &self.pack.revision,
             uses: &self.pack.manifest.uses,
-            script: &s.decl,
+            script: decl,
             buffer: &buffer,
             rng: &rng,
             rng_key: &rng_key,
@@ -1056,9 +1089,8 @@ impl PackVm {
         view: View<'_>,
         rng: &mut dyn RngSource,
     ) -> Result<Option<CommandBatch>, Abort> {
-        let fresh = Self::bare_with_log(self.pack.clone(), self.log.clone())
-            .map_err(|e| abort_from(&e, Some("vm")))?;
-        fresh.call_here(&self.scripts[script].decl, target, view, rng)
+        self.fresh()?
+            .call_here(&self.scripts[script].decl, target, view, rng)
     }
 
     /// Runs one handler of the script `decl` in this state.
@@ -1142,7 +1174,7 @@ impl PackVm {
     }
 }
 
-/// Compiles a pack file as a chunk with its own read-only environment.
+/// Loads a pack file (its cached bytecode) as a chunk with its own read-only environment.
 fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
     let env = lua.create_table()?;
     let mt = lua.create_table()?;
@@ -1153,7 +1185,12 @@ fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
     mt.raw_set("__metatable", false)?;
     env.set_metatable(Some(mt))?;
     env.set_readonly(true);
-    lua.load(src)
+    let code = lua.app_data_ref::<Code>().and_then(|c| c.of(src));
+    let chunk = match &code {
+        Some(b) => lua.load(&b[..]),
+        None => lua.load(src),
+    };
+    chunk
         .set_name(format!("@{path}"))
         .set_environment(env)
         .into_function()

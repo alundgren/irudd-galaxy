@@ -5,12 +5,15 @@
 //! order) that isn't quarantined:
 //!
 //! 1. each event committed last tick with an `on.<event>` handler runs it;
-//! 2. each `G.after` trigger whose activity counters are due runs once.
+//! 2. each `G.after` trigger whose activity counters are due runs once;
+//! 3. each beat it registers starts, advances or completes if its requirements hold.
+//!    `G.test` predicates and the transition's callback each run in a fresh state.
 //!
-//! A successful call's writes are one batch (`Cause::Script`). The host first checks it
-//! the way the kernel will ([`TickCtx::preview`]): against the world the kernel will
-//! apply it to (the batches queued ahead of it this tick, then the script batches
-//! before it) and with every invariant of the sim. If it would be rejected, the call
+//! A successful call's writes (or a beat transition with its callback's) are one batch
+//! (`Cause::Script`). The host first checks it the way the kernel will
+//! ([`TickCtx::preview`]): against the world the kernel will apply it to (the batches
+//! queued ahead of it this tick, then the script batches before it) and with every
+//! invariant of the sim. If it would be rejected, the call
 //! counts as aborted and nothing is submitted. Later calls in the same tick read the
 //! tick-start world plus the script writes before them, so two events in one tick
 //! don't grow a station twice. An aborted call
@@ -567,9 +570,8 @@ impl System for ScriptSystem {
                         }
                     }
                 }
-                // Beats this script registers: start, advance or complete. Predicates
-                // share one fresh instance of the script per tick.
-                let mut instance = None;
+                // Beats this script registers: start, advance or complete. Every
+                // predicate and callback runs in its own fresh state, like a handler.
                 for (bi, beat) in script.beats.iter().enumerate() {
                     let mut h = current(&health);
                     if h.quarantined {
@@ -582,12 +584,11 @@ impl System for ScriptSystem {
                     let mut pred_abort: Option<Abort> = None;
                     let next = {
                         let mut tests = |idx: u32| -> Result<bool, EvalError> {
-                            vm.predicate(i, idx, view, &mut *ctx, &mut instance)
-                                .map_err(|a| {
-                                    let msg = a.message.clone();
-                                    pred_abort = Some(a);
-                                    EvalError::Predicate(msg)
-                                })
+                            vm.predicate(i, idx, view, &mut *ctx).map_err(|a| {
+                                let msg = a.message.clone();
+                                pred_abort = Some(a);
+                                EvalError::Predicate(msg)
+                            })
                         };
                         beats::next(&beat.def, Eval::new(view.world, history), &mut tests)
                     };
@@ -603,7 +604,13 @@ impl System for ScriptSystem {
                         )
                         .and_then(|batch| match batch {
                             None => Ok(None),
-                            Some(batch) => match preview(view.world, &batch) {
+                            // Checked as the kernel will check it, like a handler's
+                            // batch, so a transition the queued batches would reject
+                            // never reaches the reads of later beats.
+                            Some(batch) => match ctx.preview(
+                                projected.get_or_insert_with(|| ctx.projected()),
+                                &batch,
+                            ) {
                                 Ok(after) => Ok(Some((batch, after))),
                                 Err(reason) => Err(Abort {
                                     code: "rejected_write".into(),
@@ -622,7 +629,12 @@ impl System for ScriptSystem {
                     };
                     match result {
                         Ok(Some((batch, after))) => {
-                            scratch = Some(after);
+                            projected = Some(after);
+                            // Only a transition that will commit is read: a successor
+                            // sees its predecessor done once the completion applies.
+                            if let Ok(read) = preview(view.world, &batch) {
+                                scratch = Some(read);
+                            }
                             out.push(batch);
                         }
                         Ok(None) => {}

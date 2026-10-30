@@ -604,12 +604,11 @@ fn smoke(
             };
             let mut abort = None;
             let mut tests = |idx: u32| {
-                vm.predicate(i, idx, view, &mut rng, &mut None)
-                    .map_err(|a| {
-                        let m = a.message.clone();
-                        abort = Some(a);
-                        galaxy_progress::EvalError::Predicate(m)
-                    })
+                vm.predicate(i, idx, view, &mut rng).map_err(|a| {
+                    let m = a.message.clone();
+                    abort = Some(a);
+                    galaxy_progress::EvalError::Predicate(m)
+                })
             };
             let eval = galaxy_progress::Eval::new(&world, &hist);
             if let Err(e) = galaxy_progress::beats::next(&b.def, eval, &mut tests) {

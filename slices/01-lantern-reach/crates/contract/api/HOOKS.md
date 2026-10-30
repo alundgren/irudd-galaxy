@@ -274,6 +274,10 @@ G.beat {
 - Callbacks `on_start`, `on_step` and `on_complete` get `(ctx, beat)`. To say a line
   that cites the beat's fact, handle `on.beat_started` / `on.quest_step` /
   `on.beat_completed` instead: their `ev.fact` exists.
+- A transition and its callback's writes are one batch, checked like a handler's
+  against the world the kernel will apply it to. If it would be rejected (say the
+  player undocked earlier in the tick), none of it applies, the call counts as aborted
+  and later beats don't see it: a successor unlocks only on a completion that commits.
 - `ctx.beats:goal()` is the HUD's one goal line (the newest active beat's).
 
 ## Events
@@ -315,9 +319,10 @@ only (`galaxy gm`, `galaxy sim`).
 
 ## Sandbox rules
 
-- **No memory between calls.** Each handler call runs the script and its modules
-afresh in a fresh Luau state, so module-level locals start over every call. What
-a script must remember goes in its declared `stores` (saved with the world).
+- **No memory between calls.** Each handler call, beat callback and `G.test`
+predicate runs the script and its modules afresh in a fresh Luau state, so
+module-level locals start over every call. What a script must remember goes in
+its declared `stores` (saved with the world).
 - **One cause per call.** A second `ctx:cause` is an error. The call's writes are
 one batch: if any would be rejected, none apply and the call counts as aborted.
 - **Deterministic.** `tostring` and `string.format` print tables, functions and
