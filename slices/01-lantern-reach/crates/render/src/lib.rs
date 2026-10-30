@@ -4,6 +4,7 @@
 //! [`kit`] of parametric meshes. It knows nothing about the simulation: the app turns
 //! world state into a [`Scene`] each frame and hands it to a [`Renderer`].
 
+pub mod art_bible;
 pub mod camera;
 pub mod color;
 pub mod demo;
@@ -13,6 +14,7 @@ pub mod palette;
 mod renderer;
 pub mod scene;
 
+pub use art_bible::{ArtBible, InkRole};
 pub use camera::{Camera, Projection};
 pub use color::Color;
 pub use glam;

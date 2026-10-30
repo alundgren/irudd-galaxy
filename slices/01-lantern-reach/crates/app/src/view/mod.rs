@@ -18,8 +18,8 @@ use galaxy_contract::prelude::*;
 use render::glam::{Mat4, Quat, Vec2 as G2, Vec3};
 use render::kit::{self, RockParams, StationLight, StationRecipe};
 use render::{
-    BackdropHandle, Camera, Color, Glow, Line, MAX_POINT_LIGHTS, MeshHandle, MeshInstance,
-    PointLight, Renderer, Scene, palette,
+    ArtBible, BackdropHandle, Camera, Color, Glow, InkRole, Line, MAX_POINT_LIGHTS, MeshHandle,
+    MeshInstance, PointLight, Renderer, Scene, palette,
 };
 
 use crate::session::Pose;
@@ -364,9 +364,10 @@ impl View {
             if !near(pos, s.dock_radius * 2.0) {
                 continue;
             }
-            scene
-                .meshes
-                .push(MeshInstance::new(art.mesh, art.transform));
+            scene.meshes.push(
+                MeshInstance::new(art.mesh, art.transform)
+                    .with_material(ArtBible::bundled().material(InkRole::Station)),
+            );
             for l in &art.lights {
                 let p = art.transform.transform_point3(l.position);
                 let scale = art.transform.x_axis.length();
@@ -427,10 +428,13 @@ impl View {
             }
             let seed = seed_of(rock.id.as_str());
             let spin = (seed % 628) as f32 / 100.0 + time * (0.02 + (seed % 7) as f32 * 0.006);
-            scene.meshes.push(MeshInstance::new(
-                art.mesh,
-                Mat4::from_rotation_translation(Quat::from_rotation_z(spin), pos.extend(0.0)),
-            ));
+            scene.meshes.push(
+                MeshInstance::new(
+                    art.mesh,
+                    Mat4::from_rotation_translation(Quat::from_rotation_z(spin), pos.extend(0.0)),
+                )
+                .with_material(ArtBible::bundled().material(InkRole::Rock)),
+            );
         }
 
         // Ships, engine glow and the mining beam.
@@ -461,7 +465,8 @@ impl View {
                 SHIP_SCALE
             };
             let hover = SHIP_HOVER;
-            let mut inst = MeshInstance::at(mesh, pos, pose.heading, scale);
+            let mut inst = MeshInstance::at(mesh, pos, pose.heading, scale)
+                .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * hover) * inst.transform;
             scene.meshes.push(inst);
             let fwd = G2::from_angle(pose.heading);

@@ -55,7 +55,7 @@ A first loop: undock with Space, fly right into the ice field, hold Space beside
 until your hold fills, fly down and right to Kettle Dock (the marker at the screen edge
 points the way), drift into its ring, press Space, and sell.
 
-![The dock screen at Kettle Dock](docs/screenshots/dock.png)
+![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
 
 ## Build and check
 
