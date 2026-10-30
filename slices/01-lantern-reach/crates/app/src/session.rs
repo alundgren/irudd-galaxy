@@ -71,12 +71,7 @@ struct Asking {
     npc: NpcId,
     /// The newest fact when it was asked: the answer's fact comes after it.
     after: FactId,
-    /// Ticks since: if the pack never answers (a quarantined script), the digest does.
-    ticks: u32,
 }
-
-/// Ticks to wait for the pack's answer before the digest answers alone.
-const ANSWER_WAIT: u32 = 6;
 
 /// What a tick did that the app reacts to.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -332,7 +327,6 @@ impl Session {
                 station,
                 npc: npc.clone(),
                 after: self.sim().history().last_fact_id().unwrap_or(FactId(0)),
-                ticks: 0,
             });
             self.answer = None;
         }
@@ -375,34 +369,23 @@ impl Session {
     }
 
     /// Once the core pack has answered the question (its `core.asked_what_changed`
-    /// fact), builds the answer and says its digest lines.
+    /// fact), builds the answer and says its digest lines. Until then, or until the
+    /// ship leaves, the question waits: no answer beats one the pack didn't give.
     fn settle_answer(&mut self) {
-        let Some(asking) = &mut self.asking else {
+        let Some(asking) = self.asking.clone() else {
             return;
         };
-        asking.ticks += 1;
-        let asking = asking.clone();
         let sim = self.game.sim();
         let history = sim.history();
-        let newer = || {
-            history
-                .facts()
-                .iter()
-                .rev()
-                .take_while(|f| f.id > asking.after)
-        };
-        let by = |f: &&Fact| f.subjects.npc.as_ref() == Some(&asking.npc);
-        let asked = match newer().filter(by).find(|f| f.kind == hooks::ASKED) {
-            Some(f) => f.clone(),
-            None if asking.ticks < ANSWER_WAIT => return,
-            // The pack never answered: the digest answers alone, citing the reply.
-            None => match newer().filter(by).find(|f| f.kind.as_str() == "reply") {
-                Some(f) => f.clone(),
-                None => {
-                    self.asking = None;
-                    return;
-                }
-            },
+        let Some(asked) = history
+            .facts()
+            .iter()
+            .rev()
+            .take_while(|f| f.id > asking.after)
+            .find(|f| f.kind == hooks::ASKED && f.subjects.npc.as_ref() == Some(&asking.npc))
+            .cloned()
+        else {
+            return;
         };
         let answer = hooks::what_changed(
             sim.world(),
