@@ -124,6 +124,64 @@ impl Pilot {
         self.orders(vec![])?;
         self.idle(4)
     }
+    /// Run A with `gm.compact_plant`: read Pip's survey buoy, then tell Rook at the Hook.
+    fn compact_proof(&mut self) -> Result {
+        if !self.installed("gm.compact_plant") {
+            return Ok(());
+        }
+        for _ in 0..6 {
+            if self.has("survey_buoy_read") {
+                break;
+            }
+            match self.unread_buoy() {
+                Some((region, at, radius)) => {
+                    self.region(&region)?;
+                    self.fly(at, radius * 0.5)?;
+                    self.press()?;
+                    self.idle(4)?;
+                }
+                // Pip marks the buoy at a docking once the planted story is out.
+                None => {
+                    self.go(&BRASS)?;
+                    self.go(&HOOK)?;
+                }
+            }
+        }
+        if !self.has("survey_buoy_read") {
+            return Ok(());
+        }
+        for _ in 0..6 {
+            if self.has("survey_reward_claimed") {
+                break;
+            }
+            self.go(&HOOK)?;
+            if self.offers("npc.rook_adeyemi", "gm.compact_plant.claim") {
+                self.reply("npc.rook_adeyemi", "gm.compact_plant.claim")?;
+            } else {
+                self.go(&GDO)?;
+            }
+        }
+        Ok(())
+    }
+    /// Run A with `gm.rock_tagging`: once Magpie has shown a lamp, accept Juno's lesson.
+    fn juno_lesson(&mut self) -> Result {
+        if !self.installed("gm.rock_tagging") {
+            return Ok(());
+        }
+        for _ in 0..40 {
+            if self.has("gm.mechanic_taught") {
+                break;
+            }
+            self.go(&HOOK)?;
+            if self.offers("npc.juno_brask", "gm.rock_tagging.learn") {
+                self.reply("npc.juno_brask", "gm.rock_tagging.learn")?;
+                continue;
+            }
+            // Depleted Cinder rocks open the lesson; each circuit ends at the Hook.
+            self.circuit()?;
+        }
+        Ok(())
+    }
     pub fn journey(&mut self) -> Result {
         self.idle(3)?;
         if !self.done(1) {
@@ -203,8 +261,11 @@ impl Pilot {
             self.go(&GDO)?;
             self.sell_all(&GLASS)?;
         }
+        if self.done(10) && !self.has("survey_reward_claimed") {
+            self.compact_proof()?;
+        }
         // Run A's installed growth pack reads real sales/deliveries at Kettle.
-        if self.cap("flag.gm_examples")
+        if self.installed("gm.kettle_growth")
             && self
                 .world()
                 .stations
@@ -246,6 +307,7 @@ impl Pilot {
             self.glass_loop()?;
         }
         self.orders(vec![])?;
+        self.juno_lesson()?;
         if !self.done(12) {
             for _ in 0..150 {
                 if self.active(12) {
@@ -385,6 +447,17 @@ impl Pilot {
             self.go(&GDO)?;
             self.reply("npc.nell_quillon", "choice.fragment_leave")?;
         }
+        // Run A with `gm.ancients_bearing`: Nell writes the bearing at a later
+        // Observatory docking, after b15 completes.
+        if self.installed("gm.ancients_bearing") && self.done(15) {
+            for _ in 0..4 {
+                if self.has("gm.canon_opened") {
+                    break;
+                }
+                self.go(&HOOK)?;
+                self.go(&GDO)?;
+            }
+        }
         if !self.done(16) {
             let req = ServiceRequest::Prestige {
                 to: self.options.prestige.clone(),
@@ -397,6 +470,16 @@ impl Pilot {
                 self.circuit()?;
             }
             self.service(req)?;
+        }
+        // Run A with `gm.sixth_station`: Wynn founds the Halt at a docking once the
+        // pilot's record is long enough. The fast profile's prestige can come first.
+        if self.installed("gm.sixth_station") && !self.done(17) {
+            for _ in 0..40 {
+                if self.has("gm.station_founded") {
+                    break;
+                }
+                self.shuttle()?;
+            }
         }
         if !self.done(17) {
             for s in [KETTLE, HOOK, BRASS, WHARF] {

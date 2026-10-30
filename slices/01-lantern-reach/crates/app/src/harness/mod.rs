@@ -6,6 +6,7 @@ mod route;
 
 use crate::game::{Game, GameOptions};
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::Channel;
 use galaxy_core::SimState;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -119,6 +120,14 @@ pub fn run(game: Game, options: RunOptions) -> Result<Run, String> {
         return Err("beat must be in 1..=17".into());
     }
     let mut p = pilot::Pilot::new(game, options);
+    eprintln!(
+        "journey: installed game-master packs {:?}",
+        CHANGE_TYPES
+            .iter()
+            .filter(|(_, pack)| p.installed(pack))
+            .map(|(_, pack)| pack)
+            .collect::<Vec<_>>()
+    );
     let result = p.journey();
     let mut error = match result {
         Ok(()) | Err(pilot::Halt::Reached) => None,
@@ -130,6 +139,19 @@ pub fn run(game: Game, options: RunOptions) -> Result<Run, String> {
         && (1..=17).any(|n| !p.done(n))
     {
         error = Some("the closing beat completed with earlier beats missing".into());
+    }
+    if error.is_none() && p.finished() {
+        let missing: Vec<_> = p
+            .change_types()
+            .into_iter()
+            .filter(|c| c["status"] == "missing")
+            .map(|c| c["change"].clone())
+            .collect();
+        if !missing.is_empty() {
+            error = Some(format!(
+                "installed game-master changes never happened: {missing:?}"
+            ));
+        }
     }
     p.finish_recording();
     let report = p.report(error);
@@ -162,6 +184,71 @@ pub fn jump(packs: &std::path::Path, seed: u64, gm: bool, beat: u32) -> Result<R
             ..RunOptions::default()
         },
     )
+}
+
+/// Run A's change types (`07-pacing.md`, "What each run checks"), each with the
+/// game-master pack that makes it. A type is only expected while its pack is installed.
+pub const CHANGE_TYPES: [(&str, &str); 8] = [
+    ("stage_built", "gm.kettle_growth"),
+    ("shortage_started", "gm.shortage_tuning"),
+    ("border_moved", "gm.territory_map"),
+    ("rumor_exposed", "gm.compact_plant"),
+    ("mechanic_taught", "gm.rock_tagging"),
+    ("canon_opened", "gm.ancients_bearing"),
+    ("station_founded", "gm.sixth_station"),
+    ("chronicle", "gm.chronicle"),
+];
+
+/// Whether history (or, for the chronicle, the talk log) holds a change type's evidence.
+pub fn change_seen(change: &str, world: &WorldState, history: &galaxy_core::History) -> bool {
+    let facts = history.facts();
+    let any = |kind: &str, ok: &dyn Fn(&Fact) -> bool| {
+        facts.iter().any(|f| f.kind.as_str() == kind && ok(f))
+    };
+    let other = |f: &Fact, id: &str| f.subjects.other.as_ref().is_some_and(|o| o.as_str() == id);
+    match change {
+        "stage_built" => any("gm.stage_built", &|f| {
+            f.subjects.station.as_ref() == Some(&pilot::KETTLE) && f.amount.is_some_and(|n| n >= 2)
+        }),
+        // Core marks a start it took from tuned pacing; the tuning pack's fact precedes it.
+        "shortage_started" => any("core.shortage_started", &|s| {
+            matches!(&s.payload, FactPayload::Note(n) if n.ends_with("(tuned)"))
+                && any("gm.shortage_tuned", &|t| t.tick <= s.tick)
+        }),
+        "border_moved" => any("gm.border_moved", &|_| true),
+        "rumor_exposed" => any("gm.rumor_exposed", &|_| true),
+        "mechanic_taught" => any("gm.mechanic_taught", &|f| other(f, "mech.rock_tagging")),
+        "canon_opened" => any("gm.canon_opened", &|f| other(f, "canon.second_fragment")),
+        "station_founded" => any("gm.station_founded", &|_| true),
+        // The chronicle hook writes talk lines on its channel, not a fact kind.
+        "chronicle" => world.talk.on(Channel::Chronicle).next().is_some(),
+        _ => false,
+    }
+}
+
+/// Each change type as `checked`, `missing` (installed, not seen) or `not_installed`.
+/// A journey stopped before b17 reports an unseen type as `not_reached`.
+pub fn change_types(
+    world: &WorldState,
+    history: &galaxy_core::History,
+    installed: &dyn Fn(&str) -> bool,
+    finished: bool,
+) -> Vec<Value> {
+    CHANGE_TYPES
+        .iter()
+        .map(|(change, pack)| {
+            let status = if !installed(pack) {
+                "not_installed"
+            } else if change_seen(change, world, history) {
+                "checked"
+            } else if finished {
+                "missing"
+            } else {
+                "not_reached"
+            };
+            json!({"change":change,"pack":pack,"status":status})
+        })
+        .collect()
 }
 
 pub(super) fn health(game: &Game) -> Value {

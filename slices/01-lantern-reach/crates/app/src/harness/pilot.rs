@@ -4,6 +4,7 @@ use super::{
 };
 use crate::game::Game;
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::Channel;
 use galaxy_contract::verbs::{Order, Quantity};
 use serde_json::{Value, json};
 
@@ -145,6 +146,50 @@ impl Pilot {
     }
     pub fn cap(&self, id: &str) -> bool {
         self.world().player.flags.contains(id)
+    }
+    /// Whether this game installed (and accepted) the named pack.
+    pub fn installed(&self, pack: &str) -> bool {
+        self.game
+            .reports()
+            .iter()
+            .any(|r| r.accepted() && r.pack.as_str() == pack)
+    }
+    /// A full journey that completed every beat, so Run A's changes are due.
+    pub fn finished(&self) -> bool {
+        self.options.until == 17 && !self.options.at_start && (1..=17).all(|n| self.done(n))
+    }
+    pub fn change_types(&self) -> Vec<Value> {
+        super::change_types(
+            self.world(),
+            self.game.sim().history(),
+            &|pack| self.installed(pack),
+            self.finished(),
+        )
+    }
+    /// Whether a person's dock talk offers this answer, as the dock panel shows it.
+    pub fn offers(&self, npc: &str, choice: &str) -> bool {
+        self.world().talk.on(Channel::DockTalk).any(|l| {
+            l.line.speaker.as_ref().is_some_and(|s| s.as_str() == npc)
+                && l.line.choices.iter().any(|c| c.id.as_str() == choice)
+        })
+    }
+    /// An unread survey buoy as the map draws it: region, position and reading radius.
+    /// Read through the saved world, which holds the buoy store only where a pack
+    /// that places buoys is part of this build.
+    pub fn unread_buoy(&self) -> Option<(RegionId, Vec2, f32)> {
+        let world = serde_json::to_value(self.world()).ok()?;
+        world
+            .get("survey_buoys")?
+            .as_object()?
+            .values()
+            .filter(|b| b["read"] != true)
+            .find_map(|b| {
+                Some((
+                    serde_json::from_value(b["region"].clone()).ok()?,
+                    serde_json::from_value(b["position"].clone()).ok()?,
+                    b["radius"].as_f64()? as f32,
+                ))
+            })
     }
 
     pub fn act(&mut self, action: Action) -> Result {
@@ -547,17 +592,6 @@ impl Pilot {
             .count();
         let gm_causes = self.game.sim().history().causes().values().filter(|c|
             matches!(&c.cause.kind, CauseKind::Script { pack, .. } if pack.as_str().starts_with("gm."))).count();
-        let missing: Vec<_> = [
-            "gm.border_moved",
-            "gm.rumor_exposed",
-            "gm.mechanic_taught",
-            "gm.canon_opened",
-            "gm.station_founded",
-            "gm.chronicle",
-        ]
-        .into_iter()
-        .filter(|k| !self.has(k))
-        .collect();
         json!({"ok":error.is_none(),"error":error,"tick":self.game.sim().tick(),
             "from_tick":self.start,"ticks_run":self.game.sim().tick().0-self.start,
             "target":{"beat":self.options.until,"at_start":self.options.at_start},
@@ -567,7 +601,7 @@ impl Pilot {
             "loop_stalled":facts.iter().filter(|f|f.kind.as_str()=="loop_stalled").collect::<Vec<_>>(),
             "script_events":self.script_events,
             "script_health":super::health(&self.game),"rejected":self.rejected,
-            "gm_facts":gm_facts,"gm_causes":gm_causes,"missing_gm_change_types":missing,
+            "gm_facts":gm_facts,"gm_causes":gm_causes,"gm_change_types":self.change_types(),
             "hash":self.game.sim().hash()})
     }
 }

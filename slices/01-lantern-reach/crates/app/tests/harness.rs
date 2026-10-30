@@ -66,6 +66,33 @@ fn exercise(gm: bool, profile: Profile, hull: &str) {
             .iter()
             .all(|c| c["centicredits"].as_i64().unwrap() >= 0)
     );
+    // Every change type whose pack is installed must have happened; the others are
+    // reported as absent, so Run A tightens as game-master packs land.
+    let types = run.report["gm_change_types"].as_array().unwrap();
+    assert_eq!(types.len(), harness::CHANGE_TYPES.len());
+    for t in types {
+        let installed = gm
+            && run
+                .game
+                .reports()
+                .iter()
+                .any(|r| r.accepted() && r.pack.as_str() == t["pack"]);
+        let change = t["change"].as_str().unwrap();
+        assert_eq!(
+            harness::change_seen(change, run.game.sim().world(), history),
+            installed,
+            "{t}"
+        );
+        assert_eq!(
+            t["status"],
+            if installed {
+                "checked"
+            } else {
+                "not_installed"
+            },
+            "{t}"
+        );
+    }
     if gm {
         assert!(
             history
@@ -264,4 +291,45 @@ fn an_early_pause_does_not_replace_the_pause_after_the_lens() {
     assert!(pauses[0].tick < started.tick);
     assert!(pauses[1].tick > started.tick);
     assert_eq!(run.report["completed"], 5);
+}
+
+#[test]
+fn the_chronicle_is_checked_on_its_talk_channel() {
+    use galaxy_contract::talk::{Channel, SaidLine, TalkLine};
+    let mut state = galaxy_app::game::new_state(&packs(), 7, true).unwrap();
+    let installed = |pack: &str| pack == "gm.chronicle";
+    let chronicle = |state: &galaxy_core::SimState| {
+        harness::change_types(&state.world, &state.history, &installed, true)
+            .into_iter()
+            .find(|t| t["change"] == "chronicle")
+            .unwrap()["status"]
+            .clone()
+    };
+    assert_eq!(chronicle(&state), "missing");
+    // The hook writes entries as talk lines; no `gm.chronicle` fact kind exists.
+    state.world.talk.last = 1;
+    state.world.talk.lines.insert(
+        TalkId(1),
+        SaidLine {
+            id: TalkId(1),
+            tick: Tick(1),
+            line: TalkLine {
+                channel: Channel::Chronicle,
+                speaker: Some("npc.ilse_marrow".parse().unwrap()),
+                place: Some("station.lantern_wharf".parse().unwrap()),
+                text: "At Lantern Wharf, a greenhouse ring lit up. Ilse remembers.".into(),
+                cites: vec![FactId(1)],
+                about: vec![],
+                choices: vec![],
+            },
+        },
+    );
+    assert_eq!(chronicle(&state), "checked");
+    let others = harness::change_types(&state.world, &state.history, &installed, true);
+    assert!(
+        others
+            .iter()
+            .filter(|t| t["change"] != "chronicle")
+            .all(|t| t["status"] == "not_installed")
+    );
 }
