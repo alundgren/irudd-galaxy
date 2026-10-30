@@ -364,12 +364,15 @@ fn play_act_one(p: &mut Pilot) {
         "{:?}",
         said(&p.s, &ODO)
     );
-    // The talk panel shows it, naming Odo and Kettle Dock.
-    let talk = hooks::talk_lines(p.s.world(), p.s.sim().history(), 3);
-    assert!(
-        talk.iter()
-            .any(|l| l.speaker.as_ref() == Some(&ODO) && l.place.as_ref() == Some(&KETTLE))
-    );
+    // It waits as a bubble at Kettle Dock, naming Odo and the dock.
+    let waiting: Vec<_> =
+        p.s.talk
+            .queue(&KETTLE)
+            .filter_map(|id| p.s.world().talk.lines.get(&id))
+            .collect();
+    assert!(waiting.iter().any(|l| {
+        l.line.speaker.as_ref() == Some(&ODO) && l.line.place.as_ref() == Some(&KETTLE)
+    }));
     assert_eq!(p.s.world().stations.get(&KETTLE).unwrap().build.stage, 1);
     // Odo names Orrin, the hullwright, as the goal turns to him.
     assert!(
@@ -596,11 +599,11 @@ fn before_b14() -> SimState {
     state
 }
 
-/// b14 through the dock screen: Orrin's question shows as a button in the talk panel
-/// (and key 1), and picking it goes out as `PlayerInput::replies` through the session;
-/// the core pack answers, b14 completes and the choice closes.
+/// b14 through the dock: Orrin's question shows as a button on his bubble (and key 1),
+/// and picking it goes out as `PlayerInput::replies` through the session; the core pack
+/// answers, b14 completes, the choice closes and his bubble is done.
 #[test]
-fn orrins_question_is_answered_with_the_talk_panels_button() {
+fn orrins_question_is_answered_with_his_bubbles_button() {
     let mut p = Pilot::new(session(before_b14()));
     p.tick();
     // The docking that makes Ringwise: the habit b14 waits on.
@@ -623,17 +626,24 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
     assert_eq!(open[0].npc, orrin);
     assert_eq!(open[0].choice.as_str(), "choice.ask_orrin");
 
-    // The talk panel draws it as a button; clicking it is the session's reply.
+    // Orrin's bubble draws it as a button; clicking it is the session's reply. Until
+    // then a click on the bubble doesn't move past it.
     let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let bubble = p.s.bubble().expect("Orrin's question waits");
+    assert_eq!(bubble.line.speaker.as_ref(), Some(&orrin));
+    assert!(!p.s.next_line(), "it waits for an answer");
     let mut o = render::Overlay::default();
-    let buttons = ui::talk(
+    let bounds = render::Rect::new(18.0, 120.0, 460.0, 500.0);
+    let (_, buttons) = ui::talk::dock_bubble(
         &mut o,
         p.s.world(),
-        p.s.sim().history(),
-        None,
-        &open,
+        &bubble,
+        bounds.center(),
+        bounds,
         &UiState::default(),
-        canvas,
     );
     let action = buttons
         .iter()
@@ -642,7 +652,7 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
             _ => None,
         })
         .expect("an answer button");
-    assert!(o.texts.iter().any(|t| t.text == "1   What do you mean?"));
+    assert!(o.texts.iter().any(|t| t.text == "1  What do you mean?"));
     for b in &buttons {
         assert!(b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y, "{b:?}");
     }
@@ -662,6 +672,11 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
     assert!(
         hooks::open_choices(p.s.world(), p.s.sim().history(), &WHARF).is_empty(),
         "answered"
+    );
+    let asked = bubble.talk.expect("a line in the talk log");
+    assert!(
+        !p.s.talk.queue(&WHARF).any(|id| id == asked),
+        "his question's bubble is done"
     );
     // A reply where nobody asked anything is dropped: no key does anything now.
     assert!(!p.s.reply_to_open(0));
@@ -1740,4 +1755,170 @@ fn finishing_a_queue_of_three_orders_is_queue_done() {
     assert_eq!(done.len(), 1);
     assert_eq!(done[0].subjects.ship.as_ref(), Some(&id));
     assert_eq!(done[0].amount, Some(3));
+}
+
+/// Talk at the dock (#47 Phase 2): Ilse's welcome waits as a bubble at the Wharf, ends
+/// when the ship leaves and comes back at the next docking there; what's said in flight
+/// goes to the log and its icon counts it; the book's record round-trips.
+#[test]
+fn talk_waits_at_its_dock_and_what_is_said_in_flight_goes_to_the_log() {
+    use galaxy_app::ui::log::{self, Entry};
+    use galaxy_app::ui::talk::{TalkBook, Voice};
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(5);
+    let welcome = p.s.bubble().expect("Ilse's welcome");
+    assert_eq!(welcome.line.speaker.as_ref(), Some(&ILSE));
+    assert_eq!(welcome.voice, Voice::Person);
+    assert!(welcome.advances(), "no answers: a click moves on");
+    let id = welcome.talk.unwrap();
+
+    // Flying off ends the bubbles; the welcome still waits at the Wharf.
+    p.undock();
+    assert!(p.s.bubble().is_none(), "nothing lingers in flight");
+    assert!(p.s.talk.queue(&WHARF).any(|t| t == id));
+    let (w, h) = (p.s.world(), p.s.sim().history());
+    let visits = log::visits(w, h);
+    assert_eq!(visits.len(), 1, "the opening stay is a visit");
+    assert_eq!(visits[0].station, WHARF);
+    assert!(visits[0].until.is_some());
+    assert!(visits[0].bubbles().iter().any(|l| l.id == id));
+
+    // A person's line and a notice said in flight: both go to the log, counted new.
+    let cite = h.last_fact_id().unwrap();
+    let line = |channel, speaker: Option<NpcId>, text: &str| Command::Say {
+        line: Box::new(galaxy_contract::talk::TalkLine {
+            channel,
+            speaker,
+            place: Some(KETTLE),
+            text: text.to_owned(),
+            cites: vec![cite],
+            about: Vec::new(),
+            choices: Vec::new(),
+        }),
+    };
+    let before = p.s.talk.log_new();
+    p.s.submit(
+        CommandBatch::new(Cause::system("test", "news in flight"))
+            .with(line(Channel::DockTalk, Some(ODO), "The beans are up."))
+            .with(line(Channel::Chronicle, None, "A greenhouse ring lit up.")),
+    );
+    p.ticks(1);
+    assert_eq!(p.s.talk.log_new(), before + 2, "the icon counts both");
+    assert!(p.s.bubble().is_none(), "no box mid-flight");
+    let (w, h) = (p.s.world(), p.s.sim().history());
+    let entries = log::entries(w, &log::visits(w, h));
+    assert!(matches!(&entries[0], Entry::Notice(l) if l.line.text == "A greenhouse ring lit up."));
+    assert!(matches!(&entries[1], Entry::Said(l) if l.line.speaker == Some(ODO)));
+    assert!(matches!(entries.last(), Some(Entry::Visit(0))));
+    let mut ui_state = UiState::default();
+    ui_state.toggle_log(&mut p.s.talk);
+    assert!(ui_state.log_open);
+    assert_eq!(p.s.talk.log_new(), 0, "opened: nothing new");
+
+    // The record keeps it all.
+    let record = p.s.talk.record();
+    assert_eq!(TalkBook::from_record(&record).record(), record);
+
+    // Back at the Wharf, the welcome is shown first; a click moves past it.
+    p.dock_at(&WHARF);
+    assert_eq!(p.s.bubble().and_then(|b| b.talk), Some(id));
+    assert!(p.s.next_line());
+    assert!(!p.s.talk.queue(&WHARF).any(|t| t == id), "seen");
+    // Skip clears the rest of what waits here.
+    p.s.skip_talk();
+    assert!(p.s.bubble().is_none_or(|b| !b.advances()));
+}
+
+/// The log pins what the player has open (#47 Phase 2): the job from Ilse, her offer to
+/// carry plate while it's unanswered, then the plate itself once accepted.
+#[test]
+fn the_log_pins_jobs_open_offers_and_cargo_for_someone() {
+    use galaxy_app::ui::log;
+    let run = galaxy_app::harness::jump(&packs(), 1, false, 7).unwrap();
+    let mut p = Pilot::new(Session::with_game(run.game));
+    p.ticks(3);
+    assert_eq!(p.docked(), Some(WHARF));
+    let pins = |p: &Pilot| {
+        let (w, h) = (p.s.world(), p.s.sim().history());
+        log::pinned(w, h, &log::visits(w, h))
+    };
+    let ilse = "Ilse Marrow  ·  Lantern Wharf";
+    assert!(pins(&p).iter().any(|x| x.tag == "Job" && x.head == ilse));
+    assert!(
+        pins(&p).iter().any(|x| x.tag == "Offer" && x.head == ilse),
+        "{:?}",
+        pins(&p)
+    );
+    // Click to her question, then accept.
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let ask = p.s.bubble().expect("Ilse's offer");
+    assert_eq!(ask.line.speaker.as_ref(), Some(&ILSE));
+    let accept = ask
+        .choices
+        .iter()
+        .find(|(_, c)| c.text.starts_with("Accept"))
+        .map(|(_, c)| c.choice.clone())
+        .expect("an Accept answer");
+    assert!(p.s.reply(ILSE, accept));
+    p.ticks(4);
+    let pinned = pins(&p);
+    assert!(
+        !pinned.iter().any(|x| x.tag == "Offer" && x.head == ilse),
+        "answered: {pinned:?}"
+    );
+    let cargo = pinned
+        .iter()
+        .find(|x| x.tag == "Cargo")
+        .expect("the plate is pinned");
+    assert!(cargo.body.contains("Rook") && cargo.body.contains("Cinder Hook"));
+    // The confirmation of what came aboard waits as a bubble here.
+    let shown: Vec<_> = std::iter::from_fn(|| {
+        let b = p.s.bubble().filter(|b| b.advances())?;
+        p.s.next_line();
+        Some(b)
+    })
+    .take(20)
+    .collect();
+    assert!(
+        shown
+            .iter()
+            .any(|b| b.voice == galaxy_app::ui::talk::Voice::Confirmed),
+        "{shown:?}"
+    );
+}
+
+/// A line waiting for an answer never holds the rest hostage: asking what changed while
+/// Ilse's offer waits, a click sets the offer aside, the answer shows, and the offer
+/// comes back after it.
+#[test]
+fn a_waiting_offer_steps_aside_for_what_was_said_after_it() {
+    let run = galaxy_app::harness::jump(&packs(), 1, false, 7).unwrap();
+    let mut p = Pilot::new(Session::with_game(run.game));
+    p.ticks(3);
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let offer = p.s.bubble().expect("Ilse's offer");
+    assert!(!offer.choices.is_empty());
+    assert!(!p.s.next_line(), "alone, it stays");
+    assert!(p.s.ask_what_changed());
+    p.ticks(4);
+    let waiting = p.s.bubble().unwrap();
+    assert_eq!(waiting.talk, offer.talk, "oldest first");
+    assert!(waiting.more > 0 && waiting.clickable());
+    assert!(p.s.next_line(), "set aside");
+    let answer = p.s.bubble().unwrap();
+    assert_ne!(answer.talk, offer.talk, "the answer shows");
+    let mut back = false;
+    for _ in 0..10 {
+        if p.s.bubble().unwrap().talk == offer.talk {
+            back = true;
+            break;
+        }
+        assert!(p.s.next_line());
+    }
+    assert!(back, "the offer comes back after the rest");
+    assert!(!p.s.next_line(), "and waits for its answer");
 }

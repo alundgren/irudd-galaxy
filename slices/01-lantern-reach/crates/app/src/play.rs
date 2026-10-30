@@ -73,6 +73,8 @@ pub fn key_of(code: KeyCode) -> Option<Key> {
         KeyCode::Digit7 | KeyCode::Numpad7 => Key::Answer(6),
         KeyCode::Digit8 | KeyCode::Numpad8 => Key::Answer(7),
         KeyCode::Digit9 | KeyCode::Numpad9 => Key::Answer(8),
+        KeyCode::KeyL => Key::Log,
+        KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
         _ => return None,
     })
 }
@@ -214,6 +216,15 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         Default::default()
     });
     session.hints = ui::HintBook::new(rules, taught);
+    // Where talk bubbles rise from, and which lines wait at which dock in this save. A
+    // save with no record (or one that can't be read) starts from its current visit.
+    session.anchors =
+        ui::talk::TalkAnchors::load(&crate::game::core_data(&opts.packs)).map_err(|e| (4, e))?;
+    match saves::read_talk(choice.path()) {
+        Ok(Some(record)) => session.talk = ui::talk::TalkBook::from_record(&record),
+        Ok(None) => {}
+        Err(e) => eprintln!("{e}"),
+    }
     // Staged packs apply now (loading is a calm moment), and the live socket opens.
     let mut save = save;
     let bridge = start_bridge(bridge, &mut session, &mut save);
@@ -268,6 +279,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     drop(bridge);
     let path = saver.path().to_path_buf();
     saver.save_hints(session.hints.counts().clone());
+    saver.save_talk(session.talk.record());
     let saved = saver.finish(Some(session.state().clone()));
     run.map_err(|e| (1, e.to_string()))?;
     if let Some(e) = error {
@@ -357,6 +369,9 @@ impl App {
         if self.session.hints.take_changed() {
             self.saver.save_hints(self.session.hints.counts().clone());
         }
+        if self.session.talk.take_changed() {
+            self.saver.save_talk(self.session.talk.record());
+        }
     }
 
     fn viewport(&self) -> G2 {
@@ -407,6 +422,14 @@ impl App {
             UiAction::AskWhatChanged => {
                 self.session.ask_what_changed();
             }
+            UiAction::NextLine => {
+                self.session.next_line();
+            }
+            UiAction::SkipTalk => self.session.skip_talk(),
+            UiAction::ToggleLog => self.ui.toggle_log(&mut self.session.talk),
+            UiAction::LogFrom(first) => self.ui.log_first = first,
+            UiAction::Replay(r) => self.ui.replay = r,
+            UiAction::Absorb => {}
         }
     }
 
@@ -420,6 +443,12 @@ impl App {
         }
         match key {
             Key::M => self.ui.map_open = !self.ui.map_open,
+            Key::Log if !self.ui.map_open && self.ui.confirm.is_none() => {
+                self.ui.toggle_log(&mut self.session.talk);
+            }
+            Key::Enter if !self.ui.map_open && self.ui.confirm.is_none() => {
+                self.ui.enter(&mut self.session);
+            }
             Key::ZoomIn => self.rig.zoom_by(1.0),
             Key::ZoomOut => self.rig.zoom_by(-1.0),
             // The dock screen is mouse-first: WASD stays the ship's (flying off undocks).

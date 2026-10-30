@@ -76,54 +76,85 @@ pub fn compose(
             ui_state.goal_marker,
         );
         let docked = session.flagship().and_then(|f| f.docked_at.clone());
-        let answer = session
-            .answer
-            .as_ref()
-            .filter(|a| docked.as_ref() == Some(&a.station));
-        let choices = docked
-            .as_ref()
-            .map(|st| crate::hooks::open_choices(world, history, st))
-            .unwrap_or_default();
-        // The hint pill keeps clear of the talk panel in the bottom-left column.
-        let talk = ui::talk_rect(world, history, answer, &choices, canvas)
-            .filter(|_| ui_state.confirm.is_none());
-        ui::hint(&mut panels, world, &session.hints, talk, canvas);
+        let log_new = session.talk.log_new();
+        // The hint pill keeps clear of the log icon in the bottom-left corner.
+        ui::hint(
+            &mut panels,
+            world,
+            &session.hints,
+            Some(ui::log::icon_area(log_new, canvas)),
+            canvas,
+        );
         // The prestige card is modal. Every text draws after every panel, so whatever
-        // sat under the card would print over it: leave the talk and dock screen out.
-        if ui_state.confirm.is_none() {
-            buttons.extend(ui::talk(
+        // sat under the card would print over it: leave the dock screen and talk out.
+        if ui_state.confirm.is_none()
+            && let Some(station) = docked
+        {
+            let first = panels.panels.len();
+            buttons.extend(ui::dock_panel(
                 &mut panels,
                 world,
                 history,
-                answer,
-                &choices,
+                &station,
                 &on_canvas,
+                ui::Notices {
+                    trade: session.trades.notice.as_deref(),
+                    service: session.services.notice.as_deref(),
+                    fitted: session.services.fitted.as_deref(),
+                },
                 canvas,
             ));
-            if let Some(station) = docked {
-                buttons.extend(ui::dock_panel(
-                    &mut panels,
-                    world,
-                    history,
-                    &station,
-                    &on_canvas,
-                    ui::Notices {
-                        trade: session.trades.notice.as_deref(),
-                        service: session.services.notice.as_deref(),
-                        fitted: session.services.fitted.as_deref(),
-                    },
+            let card = panels.panels.get(first).map(|p| p.rect);
+            // The bubble rises from the speaker's part of the station, in the room left
+            // of the card. The open log covers the station, so no bubble then.
+            if !ui_state.log_open
+                && let Some(b) = session.bubble()
+            {
+                let bounds = ui::talk::bounds(
+                    ui::goal_rect(world, canvas),
+                    card,
+                    ui::log::icon_area(log_new, canvas),
                     canvas,
-                ));
+                );
+                let anchor = session
+                    .anchors
+                    .anchor(world, &b.line, &station)
+                    .and_then(|at| camera.world_to_screen(g(at).extend(0.0), viewport))
+                    .map_or(bounds.center(), |p| p / scale);
+                let (_, bubble) =
+                    ui::talk::dock_bubble(&mut panels, world, &b, anchor, bounds, &on_canvas);
+                buttons.extend(bubble);
             }
         }
         s
     };
+    // The open log pins every job with who gave it, so the banner steps aside for it.
+    let log_open = ui_state.log_open && !ui_state.map_open && ui_state.confirm.is_none();
     if ui_state.map_open {
         ui::map_goal(&mut panels, world, canvas);
-    } else {
+    } else if !log_open {
         ui::goal(&mut panels, world, canvas);
     }
     ui::hold(&mut panels, world, canvas);
+    // The ship log: its icon bottom left, and the panel over the left column when open.
+    if !ui_state.map_open && ui_state.confirm.is_none() {
+        buttons.extend(ui::log::icon(
+            &mut panels,
+            session.talk.log_new(),
+            ui_state.log_open,
+            &on_canvas,
+            canvas,
+        ));
+        if log_open {
+            buttons.extend(ui::log::panel(
+                &mut panels,
+                world,
+                history,
+                &on_canvas,
+                canvas,
+            ));
+        }
+    }
     if let Some(to) = &ui_state.confirm
         && session.flagship().is_some_and(|f| f.docked_at.is_some())
     {

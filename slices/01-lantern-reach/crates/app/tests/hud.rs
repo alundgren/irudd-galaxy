@@ -1,6 +1,7 @@
-//! The HUD laid out against itself (#34, #35), all active goals with their sources
-//! (#46), the station card's fitted state and faction (#44), and hints that retire once
-//! they've taught (1.8). Pure rect maths over real worlds: no window or GPU.
+//! The HUD laid out against itself (#34, #35), talk bubbles and the ship log among it
+//! (#47 Phase 2), all active goals with their sources (#46), the station card's fitted
+//! state and faction (#44), and hints that retire once they've taught (1.8). Pure rect
+//! maths over real worlds: no window or GPU.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -96,7 +97,7 @@ fn add_goals(w: &mut WorldState) {
     }
 }
 
-/// Three of the longest lines the talk panel takes.
+/// Three of the longest lines the talk log takes.
 fn add_talk(w: &mut WorldState) {
     let text = "I've been watching the lanes since before your hull was cut, and I can tell you the current runs warmer east of the Wharf this time of the shift. Mind the ore barges; they don't turn for anyone, least of all a Wren with a full hold. If you see Rook, tell him the plate is coming, and that I said so. He'll grumble, but he'll know what it means and he'll wait.";
     assert!(text.len() <= 400);
@@ -123,7 +124,7 @@ fn add_talk(w: &mut WorldState) {
     }
 }
 
-/// The busiest flying HUD: goals, a full talk panel, wares in the hold, undocked.
+/// The busiest flying HUD: goals, long talk lines, wares in the hold, undocked.
 fn busy_flying() -> Session {
     let mut state = new_state();
     let w = &mut state.world;
@@ -181,64 +182,123 @@ fn assert_apart(size: (f32, f32), rects: &[(&str, Rect)], canvas: G2) {
 #[test]
 fn nothing_on_the_flying_hud_overlaps() {
     let s = busy_flying();
-    let (w, h) = (s.world(), s.sim().history());
+    let w = s.world();
     let hint = longest_hint(w);
     for size in SIZES {
         let canvas = ui::canvas(G2::new(size.0, size.1));
         let goal = ui::goal_rect(w, canvas).expect("goals show");
         let hold = ui::hold_rect(w, canvas).expect("the hold shows");
-        let talk = ui::talk_rect(w, h, None, &[], canvas).expect("talk shows");
-        let pill = ui::hint_rect(&hint, canvas, Some(talk));
+        // The icon with a wide "new" tag.
+        let icon = ui::log::icon_area(120, canvas);
+        let pill = ui::hint_rect(&hint, canvas, Some(icon));
         // The mining readout is the same pill.
-        let mining = ui::hint_rect("Mining ice  ·  1.5 a second", canvas, Some(talk));
+        let mining = ui::hint_rect("Mining ice  ·  1.5 a second", canvas, Some(icon));
+        let log = ui::log::panel_rect(canvas);
         assert_apart(
             size,
             &[
                 ("goal", goal),
                 ("hold", hold),
-                ("talk", talk),
+                ("log icon", icon),
                 ("hint", pill),
             ],
             canvas,
         );
         assert!(
-            !overlaps(&mining, &talk),
-            "{size:?}: mining pill under talk"
+            !overlaps(&mining, &icon),
+            "{size:?}: mining pill on the icon"
+        );
+        // The open log keeps clear of the hold, the icon and the pill (the goal banner
+        // steps aside for it).
+        assert_apart(
+            size,
+            &[
+                ("log", log),
+                ("hold", hold),
+                ("log icon", icon),
+                ("hint", pill),
+            ],
+            canvas,
         );
     }
 }
 
 #[test]
-fn the_talk_panel_gives_way_under_a_tall_goal_banner() {
+fn the_open_log_takes_the_goal_banners_place_and_pins_every_job() {
     let s = busy_flying();
-    let (w, h) = (s.world(), s.sim().history());
-    let canvas = ui::canvas(G2::new(1280.0, 720.0));
-    let goal = ui::goal_rect(w, canvas).unwrap();
-    let talk = ui::talk_rect(w, h, None, &[], canvas).unwrap();
-    assert!(talk.y >= goal.y + goal.h, "{talk:?} under {goal:?}");
-    // The drawn panel is the measured one.
-    let mut o = render::Overlay::default();
-    ui::talk(&mut o, w, h, None, &[], &UiState::default(), canvas);
-    assert_eq!(o.panels[0].rect, talk);
+    let w = s.world();
+    let ui_state = UiState {
+        log_open: true,
+        ..UiState::default()
+    };
+    let view = galaxy_app::view::View::new();
+    let rig = galaxy_app::view::CameraRig::new(G2::ZERO);
+    let (scene, _) = galaxy_app::frame::compose(&view, &s, &rig, &ui_state, 1.0, 0.0, ui::DESIGN);
+    let goals = hooks::goals(w);
+    for g in &goals {
+        // Each job once: pinned in the log, not on the banner as well.
+        let shown = scene
+            .overlay
+            .texts
+            .iter()
+            .filter(|t| t.text == g.source)
+            .count();
+        assert_eq!(shown, 1, "{}", g.source);
+    }
+    let log = ui::log::panel_rect(ui::DESIGN);
+    assert!(
+        scene.overlay.panels.iter().any(|p| p.rect == log),
+        "the panel is drawn where it's measured"
+    );
 }
 
 #[test]
-fn the_hint_pill_keeps_clear_of_the_talk_panel_and_centres_without_it() {
+fn the_hint_pill_keeps_clear_of_the_log_icon_and_centres_without_it() {
     let canvas = G2::new(1280.0, 720.0);
     let text = "Space  ·  ride the lantern current to Brassmouth Narrows";
     let alone = ui::hint_rect(text, canvas, None);
     assert!((alone.center().x - 640.0).abs() < 0.5, "centred: {alone:?}");
-    let talk = Rect::new(18.0, 600.0, ui::TALK_WIDTH, 102.0);
-    let moved = ui::hint_rect(text, canvas, Some(talk));
-    assert!(!overlaps(&moved, &talk), "{moved:?}");
+    // Something wide in the corner pushes it right, at the same height.
+    let wide = Rect::new(18.0, 600.0, 460.0, 102.0);
+    let moved = ui::hint_rect(text, canvas, Some(wide));
+    assert!(!overlaps(&moved, &wide), "{moved:?}");
     assert_eq!(moved.y, alone.y, "it stays low");
-    // A talk panel that doesn't reach the pill leaves it centred.
-    let short = Rect::new(18.0, 300.0, ui::TALK_WIDTH, 100.0);
-    assert_eq!(ui::hint_rect(text, canvas, Some(short)), alone);
+    // The log icon is small: the pill stays centred.
+    let icon = ui::log::icon_area(3, canvas);
+    assert_eq!(ui::hint_rect(text, canvas, Some(icon)), alone);
+}
+
+/// A bubble with the longest line the talk log takes and four answers.
+fn long_bubble() -> ui::talk::Bubble {
+    let text = "I've been watching the lanes since before your hull was cut, and I can tell you the current runs warmer east of the Wharf this time of the shift. Mind the ore barges; they don't turn for anyone, least of all a Wren with a full hold. If you see Rook, tell him the plate is coming, and that I said so. He'll grumble, but he'll know what it means and he'll wait.";
+    let choices: Vec<OpenChoice> = (0..4)
+        .map(|i| OpenChoice {
+            npc: ILSE,
+            choice: AnyId::new(format!("choice.t{i}")).unwrap(),
+            text: "Tell me more about the lanes".to_owned(),
+        })
+        .collect();
+    let line = TalkLine {
+        channel: Channel::DockTalk,
+        speaker: Some(ILSE),
+        place: Some(WHARF),
+        text: text.to_owned(),
+        cites: vec![FactId(1)],
+        about: Vec::new(),
+        choices: choices
+            .iter()
+            .map(|c| galaxy_contract::talk::TalkChoice {
+                id: c.choice.clone(),
+                text: c.text.clone(),
+            })
+            .collect(),
+    };
+    assert!(line.validate().is_ok());
+    ui::talk::Bubble::new(Some(TalkId(1)), line, &choices, 3)
 }
 
 #[test]
-fn docked_the_card_talk_goal_and_hold_keep_apart() {
+fn docked_the_bubble_card_goal_hold_and_log_icon_keep_apart() {
     let mut state = new_state();
     let w = &mut state.world;
     add_goals(w);
@@ -249,13 +309,7 @@ fn docked_the_card_talk_goal_and_hold_keep_apart() {
     }
     let s = Session::new(state);
     let (w, h) = (s.world(), s.sim().history());
-    let choices: Vec<OpenChoice> = (0..3)
-        .map(|i| OpenChoice {
-            npc: ILSE,
-            choice: AnyId::new(format!("choice.t{i}")).unwrap(),
-            text: "Tell me more about the lanes".to_owned(),
-        })
-        .collect();
+    let bubble = long_bubble();
     for size in SIZES {
         let canvas = ui::canvas(G2::new(size.0, size.1));
         let mut o = render::Overlay::default();
@@ -269,18 +323,50 @@ fn docked_the_card_talk_goal_and_hold_keep_apart() {
             canvas,
         );
         let card = o.panels[0].rect;
-        let talk = ui::talk_rect(w, h, None, &choices, canvas).unwrap();
         let goal = ui::goal_rect(w, canvas).unwrap();
         let hold = ui::hold_rect(w, canvas).unwrap();
-        assert!(
-            !overlaps(&card, &talk),
-            "{size:?}: card {card:?} over talk {talk:?}"
-        );
-        assert!(
-            !overlaps(&talk, &goal),
-            "{size:?}: talk {talk:?} under goal {goal:?}"
-        );
-        assert!(!overlaps(&talk, &hold), "{size:?}: talk under the hold");
+        let icon = ui::log::icon_area(5, canvas);
+        let bounds = ui::talk::bounds(Some(goal), Some(card), icon, canvas);
+        // Wherever the speaker's spot is on screen, even off the room's edges.
+        for anchor in [
+            bounds.center(),
+            G2::new(bounds.x, bounds.y),
+            G2::new(bounds.x + bounds.w, bounds.y + bounds.h),
+            G2::new(-40.0, canvas.y * 0.5),
+        ] {
+            let mut o = render::Overlay::default();
+            let (rect, buttons) =
+                ui::talk::dock_bubble(&mut o, w, &bubble, anchor, bounds, &UiState::default());
+            assert_apart(
+                size,
+                &[
+                    ("bubble", rect),
+                    ("card", card),
+                    ("goal", goal),
+                    ("hold", hold),
+                    ("log icon", icon),
+                ],
+                canvas,
+            );
+            // Every answer is a button inside the bubble, numbered as its key.
+            let answers: Vec<_> = buttons
+                .iter()
+                .filter(|b| matches!(b.action, ui::UiAction::Reply { .. }))
+                .collect();
+            assert_eq!(answers.len(), 4, "{size:?}");
+            for b in &answers {
+                assert!(
+                    b.rect.x >= rect.x
+                        && b.rect.x + b.rect.w <= rect.x + rect.w + 0.5
+                        && b.rect.y >= rect.y
+                        && b.rect.y + b.rect.h <= rect.y + rect.h + 0.5,
+                    "{size:?}: answer {:?} outside {rect:?}",
+                    b.rect
+                );
+            }
+            assert!(o.texts.iter().any(|t| t.text.starts_with("1  ")));
+            assert!(o.texts.iter().any(|t| t.text.starts_with("4  ")));
+        }
     }
 }
 
@@ -536,4 +622,81 @@ fn every_context_hint_has_a_kind() {
     for k in [HintKind::Dock, HintKind::Ride, HintKind::Mine] {
         assert!(kinds.contains(&k), "{k:?} was sampled");
     }
+}
+
+/// The ship log never grows with history (#47 Phase 2): three hundred notices fill the
+/// same panel as three, one page at a time; notices are dark tickets marked "Notice",
+/// apart from people's lines.
+#[test]
+fn the_log_pages_instead_of_growing_and_marks_each_kind() {
+    let canvas = ui::DESIGN;
+    let draw = |notices: u64| {
+        let mut state = new_state();
+        let w = &mut state.world;
+        add_goals(w);
+        for i in 0..notices {
+            let id = TalkId(i + 1);
+            let line = TalkLine {
+                channel: Channel::Chronicle,
+                speaker: None,
+                place: Some(HOOK),
+                text: format!("A chandlery opened at Cinder Hook, number {i}."),
+                cites: vec![FactId(1)],
+                about: Vec::new(),
+                choices: Vec::new(),
+            };
+            w.talk.lines.insert(
+                id,
+                SaidLine {
+                    id,
+                    tick: Tick(10 + i),
+                    line,
+                },
+            );
+            w.talk.last = i + 1;
+        }
+        let s = Session::new(state);
+        let mut o = render::Overlay::default();
+        let ui_state = UiState {
+            log_open: true,
+            ..UiState::default()
+        };
+        let buttons = ui::log::panel(&mut o, s.world(), s.sim().history(), &ui_state, canvas);
+        (o, buttons)
+    };
+    let (few, _) = draw(3);
+    let (many, buttons) = draw(300);
+    assert_eq!(few.panels[0].rect, many.panels[0].rect, "same size");
+    let notices = |o: &render::Overlay| o.texts.iter().filter(|t| t.text == "NOTICE").count();
+    assert_eq!(notices(&few), 3);
+    assert!(
+        (1..=12).contains(&notices(&many)),
+        "one page: {}",
+        notices(&many)
+    );
+    assert!(
+        many.texts.iter().any(|t| t.text.ends_with(" of 300")),
+        "it says how far it goes"
+    );
+    assert!(
+        buttons
+            .iter()
+            .any(|b| matches!(b.action, ui::UiAction::LogFrom(n) if n > 0)),
+        "Older"
+    );
+    // Pinned jobs head the panel with their word.
+    assert!(many.texts.iter().any(|t| t.text == "JOB"));
+    // A notice's text is white on its dark ticket; everything else black on light.
+    for t in &many.texts {
+        assert!(
+            t.color == render::Color::WHITE || t.color == render::Color::BLACK,
+            "{}: pure white or black",
+            t.text
+        );
+    }
+    assert!(
+        many.texts
+            .iter()
+            .any(|t| t.text.starts_with("A chandlery") && t.color == render::Color::WHITE)
+    );
 }

@@ -13,7 +13,7 @@
 //! - [`hooks`]: what progression and the legibility channels will fill in (goal line,
 //!   talk, chronicle, station services), with placeholders until they land.
 //! - [`view`]: world to scene: stations, rocks, ships, lanes, the camera, backdrops.
-//! - [`ui`]: the HUD, dock screen, map and talk panels.
+//! - [`ui`]: the HUD, dock screen, map, talk bubbles and the ship log.
 //! - [`saves`]: the per-user save folder and the background saver.
 //! - [`sound`]: which sound cues a tick asks for, and `galaxy audio render`.
 //! - [`frame`]: one frame's scene and buttons, shared by the window and the shot.
