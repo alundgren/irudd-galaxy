@@ -401,6 +401,16 @@ fn undo_records_invert_commands() {
                 consumption_scale: 1.5,
             },
         },
+        Command::SetMarketBase {
+            station: KETTLE,
+            ware: ICE,
+            base: MarketBase {
+                base_price: 1680,
+                min_price: 353,
+                max_price: 2184,
+                price: 1900,
+            },
+        },
         Command::SetMarketLine {
             station: KETTLE,
             ware: ICE,
@@ -493,6 +503,7 @@ fn undo_records_invert_commands() {
                 text: "Kettle lit another ring.".into(),
                 cites: vec![FactId(1)],
                 about: Vec::new(),
+                choices: Vec::new(),
             }),
         },
         Command::SetRumorHeard {

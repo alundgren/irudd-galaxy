@@ -515,6 +515,41 @@ fn apply_with(
                 rates: old,
             })
         }
+        C::SetMarketBase {
+            station,
+            ware,
+            base,
+        } => {
+            if base.base_price == 0
+                || base.min_price > base.max_price
+                || base.price < base.min_price
+                || base.price > base.max_price
+            {
+                return Err(CommandError::Invalid(format!(
+                    "a base price needs a band holding its price: {base:?}"
+                )));
+            }
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            let old = MarketBase {
+                base_price: line.base_price,
+                min_price: line.min_price,
+                max_price: line.max_price,
+                price: line.price,
+            };
+            line.base_price = base.base_price;
+            line.min_price = base.min_price;
+            line.max_price = base.max_price;
+            line.price = base.price;
+            invert(C::SetMarketBase {
+                station: station.clone(),
+                ware: ware.clone(),
+                base: old,
+            })
+        }
         C::AdjustActivity { scope, delta } => {
             let inverse = delta
                 .checked_neg()

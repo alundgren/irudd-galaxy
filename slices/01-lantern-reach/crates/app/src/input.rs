@@ -146,6 +146,7 @@ pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerIn
         click,
         trades: Vec::new(),
         services: Vec::new(),
+        replies: Vec::new(),
     }
 }
 

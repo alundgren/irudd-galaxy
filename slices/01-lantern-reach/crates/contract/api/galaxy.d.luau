@@ -56,7 +56,7 @@ export type MarketLine = { base_price: number, consumption: number?, consumption
 export type Fact = { amount: number?, cause: CauseId, id: FactId, kind: FactKind, payload: FactPayload, subjects: Subjects, tick: Tick }
 export type FactDraft = { amount: number?, kind: FactKind, note: string, subjects: Subjects? }
 export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId?, kind: FactKind?, limit: number?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, since: Tick?, station: StationId?, ["until"]: Tick?, ware: WareId? }
-export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" } | { session: number, type: "paused" }
+export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" } | { session: number, type: "paused" } | { choice: AnyId, npc: NpcId, ship: ShipId, station: StationId, type: "reply" }
 export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries" | "ledger_deliveries"
 export type BeatState = { act: number, done_since: FactId?, giver: NpcId?, goal: string, kind: BeatKind?, pack: PackId, since: FactId?, started: Tick, status: BeatStatus, step: number, step_id: string?, step_since: FactId? }
 export type Order = { to: FlyTarget, verb: "fly" } | { rock: RockId, verb: "mine" } | { station: StationId, verb: "dock" } | { verb: "undock" } | { quantity: Quantity, verb: "buy", ware: WareId } | { floor: number?, quantity: Quantity, verb: "sell", ware: WareId } | { ["until"]: Condition, verb: "wait" } | { orders: { Order }, ["until"]: Condition?, verb: "loop" }
@@ -91,6 +91,7 @@ export type StandingChangedEvent = { cause: CauseId, deed: AnyId, delta: number,
 export type RegardChangedEvent = { cause: CauseId, fact: FactId, faction: FactionId, from: string, tick: Tick, to: string, type: "regard_changed" }
 export type TenderAcquiredEvent = { cause: CauseId, craft: ShipId, fact: FactId, hull: HullId, station: StationId, tick: Tick, type: "tender_acquired" }
 export type PausedEvent = { cause: CauseId, fact: FactId, session: number, tick: Tick, type: "paused" }
+export type ReplyEvent = { cause: CauseId, choice: AnyId, fact: FactId, npc: NpcId, ship: ShipId, station: StationId, tick: Tick, type: "reply" }
 
 -- Hook arguments
 
@@ -100,7 +101,10 @@ export type CauseSpec = { summary: string, cites: { FactId }? }
 export type Cause = { summary: string, cites: { FactId }, handle: number }
 export type CounterScopeArg = { station: StationId?, region: RegionId? }
 -- A line on a legibility channel. Needs `speaker` or `place`, and `cites`.
-export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites: { FactId } }
+export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites: { FactId }, choices: { TalkChoice }? }
+-- An answer a dock-talk line offers (at most 4); picking one sends a `reply` event
+-- naming the speaker and the choice's `id`.
+export type TalkChoice = { id: string, text: string }
 -- `G.after` fires when every listed counter reaches its value (activity, never time).
 export type AfterSpec = { dockings: number?, deliveries: number?, jumps: number?, sessions: number?, units_mined: number?, rocks_depleted: number?, sales: number?, purchases: number?, scouts: number?, orders_done: number?, ledger_deliveries: number?, station: StationId?, region: RegionId?, every: boolean? }
 export type TriggerFire = { name: string, fired: number, fact: FactId? }
@@ -126,20 +130,32 @@ export type BeatSpec = { id: BeatId, act: number, kind: ("directed" | "situation
 export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?, step: string? }
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }
--- The player for a beat: `credits` are credits (40.5), not centicredits.
-export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+-- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.
 export type Spot = { x: number, y: number, region: RegionId? }
 export type FieldId = string
--- Read-only depletion views. `left` is remaining / full (1 when full is 0).
-export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number }
+-- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's
+-- `regrow` is units per region pulse.
+export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number, regrow: number }
 export type RockView = { id: RockId, field: FieldId, position: Vec2, remaining: number, initial: number, left: number }
-export type LoadSpec = { ware: WareId, quantity: number }
+-- A craft as scripts see it (`ctx.space:craft`). `owner` is a person or faction ID, or
+-- "player" for the player's own craft.
+export type CraftView = { id: ShipId, name: string, hull: HullId, owner: string, docked_at: StationId?, region: RegionId, position: Vec2, cargo: { [WareId]: number } }
+-- A scripted craft to launch: owned by `npc`, berthed at `station`, with `cargo`.
+export type CraftSpec = { id: ShipId, name: string, hull: HullId, npc: NpcId, station: StationId, cargo: { [WareId]: number }? }
+-- A rock field to lay out: one rock per position, each with `amount` units.
+export type FieldSpec = { id: FieldId, name: string, region: RegionId, rock_type: string, center: Vec2, radius: number, amount: number, regrow: number?, rocks: { Vec2 } }
+-- Goal cargo for the player's ship. A consignment loads at a dock; `found = true` is
+-- something found in space (a fragment in a spent rock) and loads wherever the ship is.
+export type LoadSpec = { ware: WareId, quantity: number, found: boolean? }
 export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }
--- A market lever (galaxy-economy). Prices follow from the new supply.
+-- A market lever (galaxy-economy). Prices follow from the new supply; `set_base`
+-- (centicredits) and `scale_base` move a line's base price itself.
 export type Lever = { lever: "add_producers" | "add_consumers", station: StationId, ware: WareId, per_pulse: number }
-	| { lever: "scale_producers" | "scale_consumers", station: StationId, ware: WareId, factor: number }
+	| { lever: "scale_producers" | "scale_consumers" | "scale_base", station: StationId, ware: WareId, factor: number }
 	| { lever: "set_stock", station: StationId, ware: WareId, stock: number }
+	| { lever: "set_base", station: StationId, ware: WareId, base_price: number }
 	| { lever: "remove_line", station: StationId, ware: WareId }
 	| { lever: "add_line", station: StationId, ware: WareId, line: { [string]: any } }
 
@@ -256,8 +272,20 @@ export type MarketApi = {
 	add_consumers: (self: MarketApi, station: StationId, ware: WareId, per_pulse: number, why: Cause) -> (),
 	-- Sets a line's stock outright (a delivery, a gift).
 	set_stock: (self: MarketApi, station: StationId, ware: WareId, stock: number, why: Cause) -> (),
+	-- Activity pulses a station has had so far (fractional). Pace by these, never by time.
+	pulses: (self: MarketApi, station: StationId) -> number,
 	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
 	levers: (self: MarketApi, levers: { Lever }, why: Cause) -> (),
+}
+export type SpaceApi = {
+	-- A non-player craft as scripts see it: hull, owner, where it is docked, region, position and cargo. `nil` if there's no such ship.
+	craft: (self: SpaceApi, id: ShipId) -> CraftView?,
+	-- Launches a scripted craft owned by a named person (a teacher's tender, a prospector's skiff), berthed at a station with its cargo. New IDs are namespaced by the pack.
+	put_craft: (self: SpaceApi, spec: CraftSpec, why: Cause) -> (),
+	-- Lays out a new rock field with its rocks at authored positions (a rumored vein found). New IDs are namespaced by the pack.
+	put_field: (self: SpaceApi, spec: FieldSpec, why: Cause) -> (),
+	-- Sets a field's regrowth per region pulse (letting a field rest). A rollback restores it.
+	set_regrow: (self: SpaceApi, field: FieldId, per_pulse: number, why: Cause) -> (),
 }
 export type OrdersApi = {
 	-- A craft's order queue.
@@ -296,8 +324,10 @@ export type BeatsApi = {
 	rock: (self: BeatsApi, id: RockId) -> RockView?,
 	-- A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
 	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
-	-- Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.
+	-- Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
 	load: (self: BeatsApi, spec: LoadSpec, why: Cause) -> (),
+	-- Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
+	pay: (self: BeatsApi, credits: number, why: Cause) -> (),
 }
 export type MechanicsApi = {
 	-- Whether a per-save flag is set (`mech.*`, `cap.*`, anything).
@@ -369,6 +399,7 @@ export type Ctx = {
 	rumors: RumorsApi,
 	territory: TerritoryApi,
 	market: MarketApi,
+	space: SpaceApi,
 	orders: OrdersApi,
 	beats: BeatsApi,
 	mechanics: MechanicsApi,
@@ -406,6 +437,7 @@ export type Handlers = {
 	regard_changed: ((ev: RegardChangedEvent, ctx: Ctx) -> ())?,
 	tender_acquired: ((ev: TenderAcquiredEvent, ctx: Ctx) -> ())?,
 	paused: ((ev: PausedEvent, ctx: Ctx) -> ())?,
+	reply: ((ev: ReplyEvent, ctx: Ctx) -> ())?,
 }
 export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }?, beats: { BeatSpec }? }
 

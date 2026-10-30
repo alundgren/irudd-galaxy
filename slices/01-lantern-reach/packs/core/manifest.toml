@@ -1,22 +1,51 @@
 # The authored backbone: the world tables (built at new game by galaxy_core::load) and
-# the journey's beats, written through the same hooks the game master uses.
+# the journey's 17 beats, written through the same hooks the game master uses. A save
+# with only this pack plays the whole journey (content/SPEC.md, "Packs").
 # Schema: crates/contract/schemas/manifest.json. Hooks: crates/contract/api/HOOKS.md.
+lib = true
 id = "core"
 name = "The Lantern Reach"
-version = "0.1.0"
-description = "Authored regions, stations, rocks, wares, hulls, factions, people, progression tables and the journey's beats."
+version = "0.2.0"
+description = "Authored regions, stations, rocks, wares, hulls, factions, people, progression tables and the journey's 17 beats."
 uses = [
     "beats.read",
     "beats.write",
-    "events.dock",
+    "events.beat_completed",
+    "events.beat_started",
+    "events.buy",
     "events.deliver",
+    "events.dock",
+    "events.jump",
+    "events.mine",
+    "events.paused",
+    "events.quest_step",
+    "events.reply",
+    "events.rock_depleted",
+    "events.sell",
+    "events.undock",
     "history.read",
     "history.write",
+    "map.write",
+    "market.levers",
+    "market.read",
+    "npcs.read",
+    "orders.read",
+    "orders.write",
     "pacing.read",
+    "rumors.read",
+    "rumors.write",
+    "space.read",
+    "space.write",
+    "standing.read",
+    "standing.write",
     "stations.read",
     "stations.write",
     "talk.write",
+    "traits.read",
 ]
+# Made live by the beats: the Ember Shoals rumor and, once someone finds out what's
+# there, its field (b10).
+creates = ["rumor.ember_shoals_vein", "field.ember_shoals"]
 data = [
     "data/wares.toml",
     "data/hulls.toml",
@@ -35,8 +64,86 @@ data = [
     "data/mind.toml",
 ]
 
-# Act 1: b01 to b03, the worked examples of the beat API.
+# Ambient dock talk reads history widely (every line pool at a station), and history
+# queries charge for the whole log: the backbone gets the host's largest step budget.
+[limits]
+steps_per_call = 1000000
+
+# Act 1, b01 to b05: the worked examples of the beat API.
 [[script]]
 id = "act1"
 file = "scripts/act1.luau"
 handlers = ["on.dock", "on.deliver"]
+
+# Act 2's directed beats, b06 to b08.
+[[script]]
+id = "act2"
+file = "scripts/act2.luau"
+handlers = ["on.beat_started", "on.sell", "on.dock", "on.deliver"]
+
+# b09, the Cinder Hook dispute.
+[[script]]
+id = "dispute"
+file = "scripts/dispute.luau"
+handlers = ["on.beat_started", "on.reply", "on.sell", "on.dock", "on.paused"]
+# The name the player supplies the Hook in ("" for nobody).
+stores = { dispute = { side = "string" } }
+
+# b10, the Ember Shoals rumor.
+[[script]]
+id = "rumor"
+file = "scripts/rumor.luau"
+handlers = ["on.beat_started", "on.beat_completed", "on.dock"]
+
+# Act 3's directed beats, b11 and b14.
+[[script]]
+id = "act3"
+file = "scripts/act3.luau"
+handlers = ["on.beat_started", "on.dock", "on.reply"]
+
+# b12, the Rimewater ice shortage. The store freezes what it read when it started.
+[[script]]
+id = "shortage"
+file = "scripts/shortage.luau"
+handlers = ["on.dock", "on.reply", "on.mine", "on.buy", "on.sell"]
+
+[script.stores.shortage]
+stations = "string"
+quota = "number"
+pulses = "number"
+base1 = "number"
+base2 = "number"
+base3 = "number"
+base4 = "number"
+way_b = "number"
+rest = "number"
+rest_regrow = "number"
+ignored = "number"
+done = "number"
+
+# b13, the first tender. `since`: the docking Little Pail's demonstration began at.
+[[script]]
+id = "tender"
+file = "scripts/tender.luau"
+handlers = ["on.dock"]
+stores = { demo = { since = "string" } }
+
+# The fragment and b15, Ancients chapter 1. `glint`: a spent rock where the fragment
+# waits while the hold is full.
+[[script]]
+id = "fragment"
+file = "scripts/fragment.luau"
+handlers = ["on.rock_depleted", "on.sell", "on.undock", "on.dock", "on.quest_step", "on.jump", "on.reply"]
+stores = { fragment = { glint = "string" } }
+
+# Act 4, b16 and b17.
+[[script]]
+id = "act4"
+file = "scripts/act4.luau"
+handlers = ["on.beat_started", "on.dock", "on.reply"]
+
+# Ambient dock talk and "What changed?".
+[[script]]
+id = "talk"
+file = "scripts/talk.luau"
+handlers = ["on.dock", "on.reply"]

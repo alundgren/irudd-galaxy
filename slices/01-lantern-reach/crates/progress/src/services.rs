@@ -165,6 +165,35 @@ pub fn check(world: &WorldState, history: &History, req: &ServiceRequest) -> Res
 }
 
 /// The batch that carries out a purchase, after [`check`].
+/// The `reply` event for an answer the player gives at the dock: only when the
+/// player's ship is docked where that person is. `None` otherwise (dropped).
+pub fn reply(world: &WorldState, reply: &Reply) -> Option<CommandBatch> {
+    let ship = player_ship(world)?;
+    let station = ship.docked_at.clone()?;
+    let npc = world.npcs.get(&reply.npc)?;
+    if npc.location.as_ref() != Some(&station) {
+        return None;
+    }
+    let mut b = CommandBatch::new(Cause::system(
+        SERVICES,
+        format!("the player answered {}: {}", npc.name, reply.choice),
+    ));
+    // Checked when it applies: an undock earlier in the tick drops the answer.
+    b.push(Command::ExpectDocked {
+        ship: ship.id.clone(),
+        station: station.clone(),
+    });
+    b.push(Command::Emit {
+        event: Event::Reply {
+            ship: ship.id.clone(),
+            npc: npc.id.clone(),
+            station,
+            choice: reply.choice.clone(),
+        },
+    });
+    Some(b)
+}
+
 pub fn batch(
     world: &WorldState,
     history: &History,

@@ -1,7 +1,9 @@
 //! The per-tick progress system.
 //!
-//! 1. Each service the player asked for this tick (`PlayerInput::services`) becomes
-//!    one atomic batch; one that doesn't apply is dropped (check it first).
+//! 1. Each answer the player gave at the dock (`PlayerInput::replies`) becomes a
+//!    `reply` event, and each service the player asked for this tick
+//!    (`PlayerInput::services`) one atomic batch; one that doesn't apply is dropped
+//!    (check it first).
 //! 2. After anything happened (facts committed last tick): standing from faction
 //!    deeds, pilot traits, and the next hull rank, each as its own batch.
 //!
@@ -39,6 +41,11 @@ impl System for ProgressSystem {
             .filter(|c| matches!(c, Command::AdjustStanding { .. }))
             .cloned()
             .collect();
+        for reply in &ctx.input.replies {
+            if let Some(batch) = services::reply(world, reply) {
+                ctx.submit(batch);
+            }
+        }
         let requests = ctx.input.services.clone();
         let mut prestige = false;
         for req in &requests {

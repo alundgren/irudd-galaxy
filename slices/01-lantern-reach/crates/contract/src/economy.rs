@@ -50,6 +50,17 @@ pub struct MarketRates {
     pub consumption_scale: f64,
 }
 
+/// A market line's base price and the price band and current price that follow from
+/// it, in centicredits. A base lever (a shortage, a change of owner) sets all four at
+/// once and leaves stock, saturation and rates alone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct MarketBase {
+    pub base_price: u32,
+    pub min_price: u32,
+    pub max_price: u32,
+    pub price: u32,
+}
+
 /// Economy data and running tallies, saved with the world.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

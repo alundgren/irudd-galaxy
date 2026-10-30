@@ -55,6 +55,7 @@ and `ctx.store` (the script's declared stores).
 | `events.regard_changed` | Events | available | Subscribe with `on.<event>`. |
 | `events.tender_acquired` | Events | available | Subscribe with `on.<event>`. |
 | `events.paused` | Events | available | Subscribe with `on.<event>`. |
+| `events.reply` | Events | available | Subscribe with `on.<event>`. |
 | `counters.read` | Counters | available | Read activity counters per player, station and region. |
 | `history.read` | History | available | Count, sum, find and read history facts. Results are capped. |
 | `history.write` | History | available | Record facts of the pack's own kinds. |
@@ -74,6 +75,8 @@ and `ctx.store` (the script's declared stores).
 | `map.write` | Talk | available | Pin a map note to a place. Cites a fact. |
 | `chronicle.write` | Talk | available | Write a chronicle entry. Cites a fact; can't be rolled back. |
 | `market.levers` | Market | available | Add or scale producers and consumers, set stock (galaxy-economy's levers). |
+| `space.read` | Stores | available | Read scripted and NPC craft: where they are and what they carry. |
+| `space.write` | Stores | available | Launch scripted craft, lay out new rock fields, rest a field's regrowth. |
 | `orders.read` | Orders | available | Read a craft's order queue. |
 | `orders.write` | Orders | available | Issue verbs to scripted craft and the player's tenders, never the player ship. |
 | `beats.read` | Beats | available | Read beat state, goal lines and the act. |
@@ -172,6 +175,7 @@ and `ctx.store` (the script's declared stores).
 - `ctx.market:add_producers(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()` (`market.levers`): Adds (or with a negative number removes) producer units per pulse.
 - `ctx.market:add_consumers(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()` (`market.levers`): Adds (or removes) consumer units per pulse.
 - `ctx.market:set_stock(station: StationId, ware: WareId, stock: number, why: Cause) -> ()` (`market.levers`): Sets a line's stock outright (a delivery, a gift).
+- `ctx.market:pulses(station: StationId) -> number` (`market.read`): Activity pulses a station has had so far (fractional). Pace by these, never by time.
 - `ctx.market:levers(levers: { Lever }, why: Cause) -> ()` (`market.levers`): Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
 
 ### `ctx.orders`
@@ -196,7 +200,15 @@ and `ctx.store` (the script's declared stores).
 - `ctx.beats:field(id: FieldId) -> FieldView?` (`beats.read`): A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
 - `ctx.beats:rock(id: RockId) -> RockView?` (`beats.read`): One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
 - `ctx.beats:deliver(spec: DeliverSpec, why: Cause) -> ()` (`beats.write`): A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
-- `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.
+- `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
+- `ctx.beats:pay(credits: number, why: Cause) -> ()` (`beats.write`): Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
+
+### `ctx.space`
+
+- `ctx.space:craft(id: ShipId) -> CraftView?` (`space.read`): A non-player craft as scripts see it: hull, owner, where it is docked, region, position and cargo. `nil` if there's no such ship.
+- `ctx.space:put_craft(spec: CraftSpec, why: Cause) -> ()` (`space.write`): Launches a scripted craft owned by a named person (a teacher's tender, a prospector's skiff), berthed at a station with its cargo. New IDs are namespaced by the pack.
+- `ctx.space:put_field(spec: FieldSpec, why: Cause) -> ()` (`space.write`): Lays out a new rock field with its rocks at authored positions (a rumored vein found). New IDs are namespaced by the pack.
+- `ctx.space:set_regrow(field: FieldId, per_pulse: number, why: Cause) -> ()` (`space.write`): Sets a field's regrowth per region pulse (letting a field rest). A rollback restores it.
 
 ### `ctx.mechanics`
 
@@ -309,6 +321,7 @@ recorded as: cite it), `tick` and `cause`. They need `events.<event>` in `uses`.
 - `on.regard_changed`: `RegardChangedEvent`
 - `on.tender_acquired`: `TenderAcquiredEvent`
 - `on.paused`: `PausedEvent`
+- `on.reply`: `ReplyEvent`
 
 ## Not available to scripts
 

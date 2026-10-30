@@ -112,7 +112,7 @@ grants = ["cap.queues"]
 all = [
     { beat_done = "beat.b08_chasing_a_gap" },
     { flag = "cap.map_travel" },
-    { counter = { kind = "dockings", at_least = 26 } },
+    { counter = { kind = "dockings", at_least = { tunable = "b11.dockings" } } },
 ]
 
 # A gift once the player has finished 4 queues (`queue_done` facts from the ship crate).

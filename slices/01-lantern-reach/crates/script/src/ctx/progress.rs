@@ -573,6 +573,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             t.raw_set("cargo", cargo)?;
             t.raw_set("hold_free", galaxy_progress::eval::hold_free(w, ship))?;
             t.raw_set("credits", w.player.credits as f64 / 100.0)?;
+            t.raw_set("name", w.player.name.as_str())?;
             Ok(t)
         })?,
     )?;
@@ -619,6 +620,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             t.raw_set("remaining", remaining)?;
             t.raw_set("full", full)?;
             t.raw_set("left", share(remaining, full))?;
+            t.raw_set("regrow", f64::from(field.regrow))?;
             Ok(Some(t))
         })?,
     )?;
@@ -712,17 +714,25 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         "beats",
         "load",
         m(scope, env, |lua, env, (spec, why): (Table, Table)| {
-            only_keys(env, lua, &spec, "ctx.beats:load", &["ware", "quantity"])?;
+            only_keys(
+                env,
+                lua,
+                &spec,
+                "ctx.beats:load",
+                &["ware", "quantity", "found"],
+            )?;
             let ware: WareId = env.id(lua, &spec.get::<LuaString>("ware")?)?;
             if !env.world.wares.contains(&ware) {
                 return Err(env.fail(lua, "unknown_id", format!("no ware `{ware}`")));
             }
             let quantity = units(env, lua, &spec.get::<Value>("quantity")?)?;
+            let found = spec.get::<Option<bool>>("found")?.unwrap_or(false);
             let ship = galaxy_progress::eval::player_ship(env.world)
                 .ok_or_else(|| env.fail(lua, "no_ship", "the player has no ship"))?;
-            let Some(station) = ship.docked_at.clone() else {
+            let station = ship.docked_at.clone();
+            if station.is_none() && !found {
                 return Err(env.fail(lua, "not_docked", "cargo is loaded at a dock"));
-            };
+            }
             let free = galaxy_progress::eval::hold_free(env.world, Some(ship));
             if free < u64::from(quantity) {
                 return Err(env.fail(
@@ -731,14 +741,18 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     format!("the hold has room for {free}, not {quantity}"),
                 ));
             }
-            env.push(
-                lua,
-                &why,
-                Command::ExpectDocked {
-                    ship: ship.id.clone(),
-                    station,
-                },
-            )?;
+            // Checked when it applies: a consignment needs the ship still docked; a
+            // find needs only the room, which the hold invariant checks.
+            if let Some(station) = station.filter(|_| !found) {
+                env.push(
+                    lua,
+                    &why,
+                    Command::ExpectDocked {
+                        ship: ship.id.clone(),
+                        station,
+                    },
+                )?;
+            }
             env.push(
                 lua,
                 &why,
@@ -746,6 +760,31 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     ship: ship.id.clone(),
                     ware,
                     delta: i64::from(quantity),
+                },
+            )
+        })?,
+    )?;
+
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "pay",
+        m(scope, env, |lua, env, (credits, why): (Value, Table)| {
+            let credits = number(env, lua, &credits, "credits")?;
+            let cents = (credits * CENTS_PER_CREDIT as f64 * 100.0).round() / 100.0;
+            if !(cents >= 1.0 && cents <= 1e12 && cents.fract() == 0.0) {
+                return Err(env.fail(
+                    lua,
+                    "bad_number",
+                    "`credits` is more than 0, in whole centicredits (40.25), and below 10^10",
+                ));
+            }
+            env.push(
+                lua,
+                &why,
+                Command::AdjustCredits {
+                    delta: cents as i64,
                 },
             )
         })?,

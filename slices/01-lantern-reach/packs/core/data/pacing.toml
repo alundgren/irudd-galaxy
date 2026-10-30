@@ -15,8 +15,104 @@ profile = "slice"
 "b06.dockings" = 6
 # b16 and the prestige offer.
 "b16.dockings" = 60
-# Little Pail's demonstration starts at this ice saturation or below (b13).
+
+# --- Act 2 ---------------------------------------------------------------------------
+# b07: Ilse's consignment of plate for Rook.
+"b07.plate" = 20
+# b08: glassite sold at Brassmouth, across this many separate dockings.
+"b08.glassite" = 30
+"b08.dockings" = 2
+# b09 starts once the player has docked at Cinder Hook this often.
+"b09.hook_dockings" = 3
+# b10 starts once the player has docked at Brassmouth this often.
+"b10.brass_dockings" = 3
+
+# The Cinder Hook dispute (b09, content/04-journey.md). Tallies are in units: plate
+# and rations the player sells at the Hook in a side's name, and NPC dockings there.
+"dispute.hook.plate" = 1
+"dispute.hook.rations" = 0.5
+"dispute.hook.ninefold" = 4
+"dispute.hook.little_mercy" = 3
+# The depot changes hands when a tally reaches `win` and leads by `lead`.
+"dispute.hook.win" = 100
+"dispute.hook.lead" = 30
+# Paid by Rook if the side the player backed wins.
+"dispute.hook.reward" = 300
+# Standing: backed the winner / backed the loser, for the side backed and the other.
+"dispute.hook.won_backed" = 12
+"dispute.hook.won_other" = -6
+"dispute.hook.lost_backed" = 4
+"dispute.hook.lost_other" = -2
+# Base prices after the handover (credits).
+"dispute.hook.coop.hook_ore" = 8
+"dispute.hook.coop.wharf_ore" = 12
+"dispute.hook.coop.wharf_plate" = 27
+"dispute.hook.compact.hook_ore" = 5
+"dispute.hook.compact.brass_ore" = 14
+"dispute.hook.compact.hook_ice" = 17
+# The Compact side's paired opportunity: Hookside's regrowth is multiplied by this.
+"dispute.hook.compact.hookside_regrow" = 2
+
+# The Ember Shoals rumor (b10). The craft whose docking brought the story to
+# Brassmouth decides its truth; a game-master pack may set `override` to
+# [truth, planted_by, source] before Pip tells it ("" when not set).
+"rumor.ember_shoals.true_sources" = ["craft.ninefold", "craft.quiet_lamp"]
+"rumor.ember_shoals.override" = ""
+# Where the Shoals are, how close counts as following the rumor, and what's there.
+"rumor.ember_shoals.x" = 6700
+"rumor.ember_shoals.y" = 1900
+"rumor.ember_shoals.follow_radius" = 500
+"rumor.ember_shoals.rich_rocks" = 6
+"rumor.ember_shoals.rich_units" = 40
+"rumor.ember_shoals.stale_rocks" = 3
+"rumor.ember_shoals.stale_units" = 20
+
+# --- Act 3 ---------------------------------------------------------------------------
+# b11 starts at this many dockings (the order slate's unlock shares it).
+"b11.dockings" = 26
+# b11 step 3: laps of the player's own saved loop.
+"b11.laps" = 2
+
+# The Rimewater ice shortage (b12). It starts when Rimewater is at `trigger_left`
+# of full or less and the player has mined `mined` Shallows ice.
+"shortage.rimewater_ice.trigger_left" = 0.7
+"shortage.rimewater_ice.mined" = 120
+# Where the shock lands (Kettle Dock always), and way A's quota. A game-master pack
+# may tune these while the shortage is dormant.
+"shortage.rimewater_ice.stations" = ["station.kettle_dock", "station.lantern_wharf", "station.cinder_hook"]
+"shortage.rimewater_ice.way_a_quota" = 40
+# The shock: ice base price and ice drink at each station.
+"shortage.rimewater_ice.price_factor" = 1.4
+"shortage.rimewater_ice.drink_factor" = 2
+# Way B: plate for Kettle's condenser, Rimewater's regrowth while it rests (until it
+# is back to `rest_until` of full), and the condenser's lasting drink cut.
+"shortage.rimewater_ice.way_b_plate" = 20
+"shortage.rimewater_ice.rest_factor" = 4
+"shortage.rimewater_ice.rest_until" = 0.8
+"shortage.rimewater_ice.condenser_drink" = 2
+# Ignored: after this many station pulses at Kettle Dock the Compact brings ice.
+"shortage.rimewater_ice.ignored_pulses" = 40
+"shortage.rimewater_ice.compact_ice" = 120
+# Standing for each way.
+"shortage.rimewater_ice.way_a_standing" = 8
+"shortage.rimewater_ice.way_b_standing" = 10
+# Compact standing per this many units of ice bought at Brassmouth during it.
+"shortage.rimewater_ice.brass_ice_per" = 20
+
+# b13 starts once the player's own loops have run this many laps.
+"b13.loop_laps" = 4
+# Little Pail's demonstration starts at this Kettle ice saturation or below, with
+# this much of Tamsin's ice, and a floor at this share of Kettle's ice price.
 "tender_demo.max_sat" = 0.6
+"tender_demo.ice" = 12
+"tender_demo.floor_share" = 0.9
+
+# --- Act 4 ---------------------------------------------------------------------------
+# The fragment drops from the next glassite rock the player spends once b13 is done
+# and they've mined this much glassite in all.
+"fragment.glassite_mined" = 80
+# b17: counted dockings since prestige at stations other than the Wharf.
+"b17.dockings_elsewhere" = 3
 
 # Hullwright prestige (Hearthbound). The fee is paid to Orrin and not refunded. Only
 # hull ranks reset; the old hull stays berthed at the Wharf as `berth_as`.

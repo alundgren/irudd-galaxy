@@ -130,6 +130,7 @@ pub fn rollback(sim: &mut Sim, causes: &[CauseId], line: Option<&RollbackLine>) 
         ),
         cites: cites.clone(),
         about: causes.to_vec(),
+        choices: Vec::new(),
     };
     let chronicle = TalkLine {
         channel: Channel::Chronicle,

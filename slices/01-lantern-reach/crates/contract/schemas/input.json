@@ -20,6 +20,13 @@
         }
       ]
     },
+    "replies": {
+      "description": "Answers the player gives at the dock this tick: a choice a line offered, or a\nstanding question. Each becomes a `reply` event when the player is docked\nwhere that person is; others are dropped.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Reply"
+      }
+    },
     "services": {
       "description": "Purchases asked for at the dock this tick: upgrades, tenders, prestige. The\nprogress system runs each as one atomic batch; check them first with\n`galaxy_progress::services::check`.",
       "type": "array",
@@ -44,6 +51,15 @@
     }
   },
   "$defs": {
+    "AnyId": {
+      "description": "Stable entity id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "Click": {
       "type": "object",
       "properties": {
@@ -137,6 +153,15 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "RegionId": {
       "description": "Stable region id, e.g. `region.lantern_shallows`.",
       "type": "string",
@@ -145,6 +170,22 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Reply": {
+      "description": "One answer at the dock: to whom, and which choice (a line's `choices` ID, or a\nstanding question such as `choice.what_changed`).",
+      "type": "object",
+      "properties": {
+        "choice": {
+          "$ref": "#/$defs/AnyId"
+        },
+        "npc": {
+          "$ref": "#/$defs/NpcId"
+        }
+      },
+      "required": [
+        "npc",
+        "choice"
+      ]
     },
     "RockId": {
       "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",

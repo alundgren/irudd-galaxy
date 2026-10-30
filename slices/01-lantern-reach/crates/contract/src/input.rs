@@ -31,6 +31,19 @@ pub struct PlayerInput {
     /// `galaxy_progress::services::check`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub services: Vec<ServiceRequest>,
+    /// Answers the player gives at the dock this tick: a choice a line offered, or a
+    /// standing question. Each becomes a `reply` event when the player is docked
+    /// where that person is; others are dropped.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replies: Vec<Reply>,
+}
+
+/// One answer at the dock: to whom, and which choice (a line's `choices` ID, or a
+/// standing question such as `choice.what_changed`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct Reply {
+    pub npc: NpcId,
+    pub choice: AnyId,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

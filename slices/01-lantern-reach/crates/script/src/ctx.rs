@@ -34,6 +34,7 @@ use crate::meter::{Budget, FACTS_PER_STEP, table_slots};
 use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number};
 
 mod progress;
+mod space;
 
 /// Most commands one handler call can write.
 pub const MAX_CALL_WRITES: usize = 256;
@@ -1259,6 +1260,21 @@ pub(crate) fn build<'scope, 'env: 'scope>(
     method(
         &market,
         "market",
+        "pulses",
+        m(scope, env, |lua, env, station: LuaString| {
+            let station = env.station(lua, &station)?;
+            let milli = env
+                .world
+                .economy
+                .stations
+                .get(&station)
+                .map_or(0, |t| t.pulses_milli);
+            Ok(milli as f64 / 1000.0)
+        })?,
+    )?;
+    method(
+        &market,
+        "market",
         "add_line",
         m(
             scope,
@@ -1342,7 +1358,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             lua,
             &spec,
             channel.as_str(),
-            &["speaker", "place", "text", "cites"],
+            &["speaker", "place", "text", "cites", "choices"],
         )?;
         let cites: Option<Vec<String>> = spec.get("cites")?;
         let Some(cites) = cites.filter(|c| !c.is_empty()) else {
@@ -1371,6 +1387,10 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             text: spec.get::<Option<String>>("text")?.unwrap_or_default(),
             cites: env.cites(lua, cites)?,
             about: Vec::new(),
+            choices: match spec.get::<Option<Table>>("choices")? {
+                Some(t) => env.decode(lua, t, "choices")?,
+                None => Vec::new(),
+            },
         };
         line.validate()
             .map_err(|e| env.fail(lua, "illegible_line", e))?;
@@ -1431,6 +1451,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         ("chronicle", chronicle),
     ];
     tables.extend(progress::namespaces(lua, scope, env)?);
+    tables.push(("space", space::namespace(lua, scope, env)?));
     for (name, t) in tables {
         if present.contains(name) {
             t.set_readonly(true);

@@ -1091,6 +1091,7 @@ impl MindHost {
                 text,
                 cites,
                 about: Vec::new(),
+                choices: Vec::new(),
             },
             source,
             pick,

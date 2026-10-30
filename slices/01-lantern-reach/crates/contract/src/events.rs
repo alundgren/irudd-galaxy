@@ -147,6 +147,16 @@ pub enum Event {
     Paused {
         session: u64,
     },
+    /// The player answered someone at a dock: picked one of the choices a line
+    /// offered, or asked a standing question ("What changed?"). `choice` is the
+    /// choice's ID (`choice.side_coop`). The progress system emits it from
+    /// `PlayerInput::replies` when the player's ship is docked where the person is.
+    Reply {
+        ship: ShipId,
+        npc: NpcId,
+        station: StationId,
+        choice: AnyId,
+    },
 }
 
 /// Event names, for subscriptions and filters.
@@ -178,10 +188,11 @@ pub enum EventKind {
     RegardChanged,
     TenderAcquired,
     Paused,
+    Reply,
 }
 
 impl EventKind {
-    pub const ALL: [EventKind; 23] = [
+    pub const ALL: [EventKind; 24] = [
         EventKind::Dock,
         EventKind::Undock,
         EventKind::Mine,
@@ -205,6 +216,7 @@ impl EventKind {
         EventKind::RegardChanged,
         EventKind::TenderAcquired,
         EventKind::Paused,
+        EventKind::Reply,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -232,6 +244,7 @@ impl EventKind {
             EventKind::RegardChanged => "regard_changed",
             EventKind::TenderAcquired => "tender_acquired",
             EventKind::Paused => "paused",
+            EventKind::Reply => "reply",
         }
     }
 
@@ -267,6 +280,7 @@ impl Event {
             Event::RegardChanged { .. } => EventKind::RegardChanged,
             Event::TenderAcquired { .. } => EventKind::TenderAcquired,
             Event::Paused { .. } => EventKind::Paused,
+            Event::Reply { .. } => EventKind::Reply,
         }
     }
 
@@ -281,7 +295,8 @@ impl Event {
             | Event::Deliver { ship, .. }
             | Event::Jump { ship, .. }
             | Event::Scout { ship, .. }
-            | Event::OrderDone { ship, .. } => Some(ship),
+            | Event::OrderDone { ship, .. }
+            | Event::Reply { ship, .. } => Some(ship),
             Event::RockDepleted { ship, .. } => ship.as_ref(),
             Event::TenderAcquired { craft, .. } => Some(craft),
             Event::QuestStep { .. }
@@ -366,6 +381,16 @@ impl Event {
             }
             Event::RegardChanged { faction, .. } => s.faction = Some(faction.clone()),
             Event::TenderAcquired { station, .. } => s.station = Some(station.clone()),
+            Event::Reply {
+                npc,
+                station,
+                choice,
+                ..
+            } => {
+                s.npc = Some(npc.clone());
+                s.station = Some(station.clone());
+                s.other = Some(choice.clone());
+            }
             Event::OrderDone { .. } | Event::SessionStart {} | Event::Paused { .. } => {}
         }
         s
@@ -415,7 +440,8 @@ impl Event {
             | Event::StandingChanged { .. }
             | Event::RegardChanged { .. }
             | Event::TenderAcquired { .. }
-            | Event::Paused { .. } => vec![],
+            | Event::Paused { .. }
+            | Event::Reply { .. } => vec![],
         }
     }
 }
