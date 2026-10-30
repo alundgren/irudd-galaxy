@@ -30,13 +30,16 @@ pub enum Invalid {
     Text(String),
 }
 
+/// Validation messages never quote the model's text: they are kept as fallback reasons
+/// in history and spend notes, and model output is untrusted.
+///
 /// 1. Shape: the answer is a choice, and the choice is on the menu.
 pub fn choice(menu: &Menu, decision: &Decision) -> Result<usize, Invalid> {
     match decision {
         Decision::Choice { choice, .. } => wire_index(choice)
             .filter(|i| *i < menu.options.len())
-            .ok_or_else(|| Invalid::Shape(format!("`{choice}` is not on the menu"))),
-        other => Err(Invalid::Shape(format!("expected a choice, got {other:?}"))),
+            .ok_or_else(|| Invalid::Shape("the choice is not on the menu".into())),
+        _ => Err(Invalid::Shape("expected a choice".into())),
     }
 }
 
@@ -313,11 +316,13 @@ pub fn line(draft: &LineDraft, rules: &LineRules<'_>) -> Result<CleanLine, Inval
         .iter()
         .map(|c| {
             c.parse::<FactId>()
-                .map_err(|_| Invalid::Shape(format!("`{c}` is not a fact ID")))
+                .map_err(|_| Invalid::Shape("a cite is not a fact ID".into()))
         })
         .collect::<Result<_, _>>()?;
-    if let Some(c) = cites.iter().find(|c| !rules.facts.contains_key(c)) {
-        return Err(Invalid::Reference(format!("{c} is not in the packet")));
+    if cites.iter().any(|c| !rules.facts.contains_key(c)) {
+        return Err(Invalid::Reference(
+            "a cited fact is not in the packet".into(),
+        ));
     }
     if !cites.contains(&rules.cite) {
         return Err(Invalid::Reference(format!(
@@ -371,10 +376,10 @@ fn grounded(text: &str, cites: &[FactId], rules: &LineRules<'_>) -> Result<(), I
     let nameable = nameable.join("\n");
 
     let have = numbers(&stated);
-    if let Some(n) = numbers(text).into_iter().find(|n| !have.contains(n)) {
-        return Err(Invalid::Text(format!(
-            "the number {n} isn't in the line or its facts"
-        )));
+    if numbers(text).into_iter().any(|n| !have.contains(&n)) {
+        return Err(Invalid::Text(
+            "a number isn't in the line or its facts".into(),
+        ));
     }
 
     let line = tokens(text);
@@ -382,13 +387,13 @@ fn grounded(text: &str, cites: &[FactId], rules: &LineRules<'_>) -> Result<(), I
         .iter()
         .filter_map(|t| claim_of(t, rules.claims))
         .collect();
-    if let Some(t) = line
+    if line
         .iter()
-        .find(|t| claim_of(t, rules.claims).is_some_and(|c| !stated_claims.contains(c)))
+        .any(|t| claim_of(t, rules.claims).is_some_and(|c| !stated_claims.contains(c)))
     {
-        return Err(Invalid::Text(format!(
-            "`{t}` isn't in the line or its facts"
-        )));
+        return Err(Invalid::Text(
+            "a claim isn't in the line or its facts".into(),
+        ));
     }
 
     let near = tokens(&nameable);
@@ -436,7 +441,7 @@ fn grounded(text: &str, cites: &[FactId], rules: &LineRules<'_>) -> Result<(), I
         let parts = tokens(&w);
         let checked = !starts || parts.iter().any(|p| name_words.contains(p));
         if checked && !parts.iter().all(|p| near_words.contains(p)) {
-            return Err(Invalid::Text(format!("unknown name `{w}`")));
+            return Err(Invalid::Text("an unknown name".into()));
         }
     }
     Ok(())

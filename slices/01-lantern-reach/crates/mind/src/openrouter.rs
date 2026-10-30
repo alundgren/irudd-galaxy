@@ -23,7 +23,7 @@ use serde_json::{Value, json};
 
 use crate::config::{Limits, Models};
 use crate::mind::{
-    Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply,
+    Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply, wire_index,
 };
 
 /// The OpenRouter API key. Never printed: `Debug` and `Display` are redacted.
@@ -343,6 +343,11 @@ pub fn parse_decision(req: &DecisionRequest, v: &Value) -> Result<Decision, Mind
                 .get("choice")
                 .and_then(Value::as_str)
                 .ok_or_else(|| bad("choice is not a string"))?;
+            // Keep only a well-formed option ID: anything else (which could echo
+            // text we never want stored) is malformed, and never quoted.
+            if wire_index(choice).is_none() || choice.len() > 8 {
+                return Err(bad("choice is not an option ID"));
+            }
             Ok(Decision::Choice {
                 choice: choice.to_owned(),
                 confidence: a.get("confidence").and_then(Value::as_f64),
@@ -590,5 +595,21 @@ mod tests {
         assert_eq!(l.text, "Hello.");
         assert_eq!(l.cites, vec!["fact.4".to_owned()]);
         assert!(parse_line(&json!({"choices":[]})).is_err());
+    }
+}
+
+#[cfg(test)]
+mod choice_id_tests {
+    use super::*;
+
+    #[test]
+    fn a_choice_that_is_not_an_option_id_is_malformed_and_not_quoted() {
+        let req = crate::probe::sample_decision();
+        for bad in ["sk-or-v1-0123", "o1 sk-or", "o99999999999", "x"] {
+            let v = json!({ "answers": { "pick": { "type": "choice", "choice": bad } } });
+            let err = parse_decision(&req, &v).unwrap_err();
+            let shown = format!("{err} {err:?}");
+            assert!(!shown.contains(bad), "{shown}");
+        }
     }
 }

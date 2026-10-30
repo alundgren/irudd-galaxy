@@ -722,7 +722,13 @@ fn a_line_citing_a_missing_fact_is_rejected_for_the_authored_line() {
     assert_eq!(line.talk.text, "12 ice. The beans will hear about this.");
     assert_eq!(line.talk.cites, vec![fact]);
     let n = &notes(&sim, "mind.line")[0];
-    assert!(n.why.iter().any(|w| w.contains("fact.999")), "{:?}", n.why);
+    // The reason is recorded without quoting the model's text.
+    assert!(
+        n.why.iter().any(|w| w.contains("not in the packet")),
+        "{:?}",
+        n.why
+    );
+    assert!(!n.why.iter().any(|w| w.contains("fact.999")), "{:?}", n.why);
 }
 
 #[test]
