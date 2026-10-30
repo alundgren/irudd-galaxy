@@ -723,6 +723,7 @@ impl Renderer {
             outline_normal: [0.0, 0.0, 1.0],
             color: [0.0; 4],
             span: [0.0; 2],
+            facet: 0.0,
         }];
         let (verts, idx): (&[Vertex], &[u32]) = if mesh.is_empty() {
             (&zero, &[0, 0, 0])
@@ -1561,7 +1562,8 @@ fn create_pipelines(
         array_stride: std::mem::size_of::<Vertex>() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
-            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2
+            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2,
+            5 => Float32
         ],
     };
     let fx_vertex_layout = wgpu::VertexBufferLayout {

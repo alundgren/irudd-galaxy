@@ -207,33 +207,35 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
 
     let scale = radius * rock_scale(remaining);
     let mut paint = rng.fork(4);
-    for ((t, &(g, f)), &c) in tris.iter().zip(&group).zip(&crack) {
-        let [a, bb, cc] = [pos[t[0]], pos[t[1]], pos[t[2]]];
-        let normal = (bb - a).cross(cc - a).normalize_or_zero();
-        // Caps are chosen on the uncut rock, so a chip never flips one.
-        let [la, lb, lc] = [lumpy[t[0]], lumpy[t[1]], lumpy[t[2]]];
-        let upright = (lb - la).cross(lc - la).normalize_or_zero().z > 0.82;
-        let speckle = paint.f32() < style.speckle_rate;
-        // A mined face shows a warm interior, like a cut fruit, coming through as the
-        // cut reaches it. A crack darkens to its ink colour as it opens.
-        let skin = match style.cap {
-            Some(cap) if upright => cap,
-            _ if speckle => style.speckle,
-            _ => style.base,
-        };
-        let color = if g > 0 {
-            skin.lerp(style.bite, f)
-        } else {
-            skin
-        };
-        b.paint(color.lerp(style.crack, c), 0.0);
-        let normals = t.map(|i| {
-            let skin = smooth[i][0].try_normalize().unwrap_or(normal);
-            let cut = smooth[i][g].try_normalize().unwrap_or(normal);
-            skin.lerp(cut, f).try_normalize().unwrap_or(normal)
-        });
-        b.tri_shaded(a * scale, bb * scale, cc * scale, normals);
-    }
+    b.part(|b| {
+        for ((t, &(g, f)), &c) in tris.iter().zip(&group).zip(&crack) {
+            let [a, bb, cc] = [pos[t[0]], pos[t[1]], pos[t[2]]];
+            let normal = (bb - a).cross(cc - a).normalize_or_zero();
+            // Caps are chosen on the uncut rock, so a chip never flips one.
+            let [la, lb, lc] = [lumpy[t[0]], lumpy[t[1]], lumpy[t[2]]];
+            let upright = (lb - la).cross(lc - la).normalize_or_zero().z > 0.82;
+            let speckle = paint.f32() < style.speckle_rate;
+            // A mined face shows a warm interior, like a cut fruit, coming through as the
+            // cut reaches it. A crack darkens to its ink colour as it opens.
+            let skin = match style.cap {
+                Some(cap) if upright => cap,
+                _ if speckle => style.speckle,
+                _ => style.base,
+            };
+            let color = if g > 0 {
+                skin.lerp(style.bite, f)
+            } else {
+                skin
+            };
+            b.paint(color.lerp(style.crack, c), 0.0);
+            let normals = t.map(|i| {
+                let skin = smooth[i][0].try_normalize().unwrap_or(normal);
+                let cut = smooth[i][g].try_normalize().unwrap_or(normal);
+                skin.lerp(cut, f).try_normalize().unwrap_or(normal)
+            });
+            b.tri_shaded(a * scale, bb * scale, cc * scale, normals);
+        }
+    });
 
     // Glassite grows glowing crystals; they break off as the rock is mined.
     if params.kind == RockKind::Glassite {

@@ -20,8 +20,10 @@ struct VIn {
     @location(1) normal: vec3<f32>,
     @location(2) outline_normal: vec3<f32>,
     @location(3) color: vec4<f32>,
-    // x: minor facet span, y: major facet span, both in mesh units.
+    // x: minor part span, y: major part span, both in mesh units.
     @location(4) span: vec2<f32>,
+    // Minor span of the vertex's own facet, in mesh units.
+    @location(5) facet: f32,
     @builtin(instance_index) ii: u32,
 };
 
@@ -35,6 +37,7 @@ struct VOut {
     // The instance origin in physical pixels: hatching is drawn relative to it, so
     // it travels with the object instead of swimming as the camera pans.
     @location(5) @interpolate(flat) anchor: vec2<f32>,
+    @location(6) @interpolate(flat) facet: f32,
 };
 
 // Min and max column lengths of the instance matrix (uniform scale collapses them).
@@ -92,6 +95,7 @@ fn vs_main(v: VIn) -> VOut {
     o.color = v.color;
     o.ii = v.ii;
     o.span = v.span;
+    o.facet = v.facet;
     let origin = g.view_proj * inst.model[3];
     let ndc = origin.xy / max(abs(origin.w), 1e-4);
     o.anchor = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * g.viewport.xy;
@@ -212,9 +216,10 @@ fn fs_outline(in: OOut) -> @location(0) vec4<f32> {
     return in.color;
 }
 
-// Geometry buffer for the inner-ink pass: octahedral normal, 16-bit view depth
-// packed into two unorm bytes, and the unlit paint. Flat per face, so a crease
-// is a step between neighbouring pixels rather than a gradient.
+// Geometry buffer for the inner-ink pass: octahedral normal and a 16-bit view
+// depth split into two bytes (stored exactly in a half-float target), and the
+// unlit paint. A flat-shaded crease is a step between neighbouring pixels; a
+// smooth-shaded skin bends gently and only its real creases ink.
 
 struct GeomOut {
     @location(0) geom: vec4<f32>,
@@ -249,7 +254,7 @@ fn fs_geom(in: VOut) -> GeomOut {
     // fade lines out on features only a few pixels across.
     var minor_px = 48.0;
     if in.span.y > 0.0 {
-        minor_px = feature_px(in.world, in.span.x * instance_extent(inst.model).x);
+        minor_px = feature_px(in.world, in.facet * instance_extent(inst.model).x);
     }
     var o: GeomOut;
     o.geom = vec4<f32>(oct, f32(q >> 8u) / 255.0, f32(q & 255u) / 255.0);
