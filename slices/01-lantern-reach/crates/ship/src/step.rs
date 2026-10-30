@@ -10,6 +10,7 @@
 //! verb (dock, undock, mine, trade, lane jump, order done), or the ship system's when
 //! the ship only flew.
 
+use galaxy_contract::geom;
 use galaxy_contract::history::FactDraft;
 use galaxy_contract::modifiers::Modifiers;
 use galaxy_contract::prelude::*;
@@ -400,7 +401,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             self.motion.position = t.start + dir * t.travelled;
             self.motion.velocity = dir * self.w.ship_rules.lanes.speed;
             if dir != Vec2::ZERO {
-                self.motion.heading = dir.y.atan2(dir.x);
+                self.motion.heading = geom::atan2(dir.y, dir.x);
             }
             self.activity.transit = Some(t);
             return;

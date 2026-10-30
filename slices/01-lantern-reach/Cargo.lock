@@ -982,6 +982,7 @@ name = "galaxy-contract"
 version = "0.1.0"
 dependencies = [
  "galaxy-kit",
+ "libm",
  "schemars",
  "serde",
  "serde_json",

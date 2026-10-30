@@ -41,6 +41,9 @@ interprocess = "2.4.7"
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 notify = "8.2.1"
 # Audio: only the cpal backend; the cues are synthesised in code, so no decoders yet.
+# Pure-Rust float maths for the sim, so replays match on every OS (std's sin, cos,
+# atan2 and hypot call the platform's C library, which rounds differently on macOS).
+libm = "0.2.16"
 kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
 png = "0.18"
 pollster = "1.0"

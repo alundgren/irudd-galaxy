@@ -8,6 +8,7 @@
 
 use std::f32::consts::{PI, TAU};
 
+use galaxy_contract::geom;
 use galaxy_contract::prelude::*;
 use galaxy_contract::ship::FlightRules;
 
@@ -113,10 +114,10 @@ pub fn step(feel: &Feel, m: Motion, steer: Steer, dt: f32) -> Motion {
 
     let mut heading = m.heading;
     if dir != Vec2::ZERO {
-        let want = dir.y.atan2(dir.x);
+        let want = geom::atan2(dir.y, dir.x);
         heading = turn_toward(heading, want, feel.turn * dt);
         let off = angle_diff(want, heading);
-        speed *= 1.0 - feel.slowdown * (1.0 - off.cos()) * 0.5;
+        speed *= 1.0 - feel.slowdown * (1.0 - geom::cos(off)) * 0.5;
     }
     let wanted = dir * speed;
 

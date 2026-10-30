@@ -6,6 +6,7 @@
 //! when the keys are released. Thrust while docked undocks; holding the action while
 //! stopped inside a station's dock radius docks. Stateless, as systems must be.
 
+use galaxy_contract::geom;
 use galaxy_contract::prelude::*;
 
 use crate::system::{System, TickCtx};
@@ -86,7 +87,7 @@ impl System for PlaceholderFlight {
             return;
         }
         let heading = if moving {
-            thrust.y.atan2(thrust.x)
+            geom::atan2(thrust.y, thrust.x)
         } else {
             ship.heading
         };

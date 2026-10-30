@@ -151,4 +151,11 @@ three unless it sits under a platform heading.
 
 **macOS**
 
-- Unchecked so far. The first developer on a Mac adds what they learn here.
+- `cargo xtask check` passes on Apple Silicon.
+- On a MacBook keyboard, F3 (the beat overlay) needs Fn + F3; plain F3 is Mission Control.
+- Sim maths must give the same bits on every OS, or replays recorded on one platform
+  diverge on another. Use `galaxy_contract::geom` (`sin`, `cos`, `atan2`,
+  `Vec2::length`), not `f32::sin` and friends: those call the platform's C library.
+- A Linux check can run in Docker (`rust:1-bookworm`, plus `pkg-config` and
+  `libasound2-dev`). Mount folders under your home folder; `/tmp` may not be shared with
+  the Docker VM.
