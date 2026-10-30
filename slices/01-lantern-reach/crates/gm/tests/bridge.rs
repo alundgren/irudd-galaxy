@@ -51,6 +51,11 @@ fn open_bridge(path: &Path, sim: &mut Sim) -> Bridge {
 
 /// A fresh endpoint per test, so tests can run at once.
 fn temp_endpoint(dir: &Path) -> Endpoint {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
     let key = galaxy_gm::live::save_key(dir);
     if cfg!(windows) {
         Endpoint {
@@ -169,6 +174,93 @@ fn socket_round_trip() {
     drop(server);
     assert!(!gm_dir.join("live.json").exists());
     assert_eq!(std::fs::read_dir(&registry).unwrap().count(), 0);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn live_socket_and_discovery_stay_private() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    // Cover the normal save directory, the short-path fallback, and an override.
+    for location in ["normal", "long", "explicit"] {
+        let gm_dir = dir.path().join(if location == "long" {
+            "g".repeat(100)
+        } else {
+            location.to_owned()
+        });
+        let endpoint = (location == "explicit").then(|| temp_endpoint(dir.path()));
+        let registry = dir.path().join("registry");
+        let server = Server::start(ServerOptions {
+            save: dir.path().join(format!("{location}.sqlite")),
+            gm_dir: gm_dir.clone(),
+            registry: Some(registry.clone()),
+            endpoint,
+            limits: Limits::default(),
+        })
+        .unwrap();
+        let discovery = server.discovery();
+        let socket = Path::new(&discovery.endpoint.name);
+        let parent = socket.parent().unwrap().to_owned();
+        let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(socket), 0o600);
+        assert_eq!(mode(&parent), 0o700);
+        assert_eq!(mode(&gm_dir.join("live.json")), 0o600);
+        assert_eq!(
+            mode(&registry.join(format!(
+                "{}.json",
+                galaxy_gm::live::save_key(&discovery.save)
+            ))),
+            0o600
+        );
+        match location {
+            "normal" => assert_eq!(parent, gm_dir),
+            "long" => assert_ne!(parent, gm_dir),
+            "explicit" => assert_eq!(parent, dir.path()),
+            _ => unreachable!(),
+        }
+        // The endpoint accepts a client before discovery is used by the game loop.
+        drop(Client::connect(discovery, Some(Duration::from_secs(2))).unwrap());
+        let socket = socket.to_owned();
+        drop(server);
+        assert!(!socket.exists());
+        assert!(!gm_dir.join("live.json").exists());
+        if location == "long" {
+            assert!(!parent.exists(), "the fallback directory is removed too");
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn explicit_live_socket_requires_a_private_parent() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let public = dir.path().join("public");
+    std::fs::create_dir(&public).unwrap();
+    std::fs::set_permissions(&public, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let gm_dir = dir.path().join("private.gm");
+    let result = Server::start(ServerOptions {
+        save: dir.path().join("test.sqlite"),
+        gm_dir: gm_dir.clone(),
+        registry: None,
+        endpoint: Some(Endpoint {
+            kind: EndpointKind::UnixSocket,
+            name: public.join("t.sock").to_string_lossy().into_owned(),
+        }),
+        limits: Limits::default(),
+    });
+    let error = result
+        .err()
+        .expect("a public parent must be refused before bind");
+    assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+    assert_eq!(
+        std::fs::metadata(&public).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    assert!(!public.join("t.sock").exists());
+    assert!(!gm_dir.join("live.json").exists());
 }
 
 #[test]

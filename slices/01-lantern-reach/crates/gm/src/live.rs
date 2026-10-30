@@ -467,7 +467,8 @@ pub struct ServerOptions {
     pub gm_dir: PathBuf,
     /// The per-user registry folder (a copy of `live.json` named by the save key).
     pub registry: Option<PathBuf>,
-    /// Overrides the endpoint (tests use a fresh name each).
+    /// Overrides the endpoint (tests use a fresh name each). On macOS a Unix
+    /// socket must be inside an existing directory with no group or other access.
     pub endpoint: Option<Endpoint>,
     pub limits: Limits,
 }
@@ -500,19 +501,42 @@ impl Server {
                 &mut socket_dir,
             )?,
         };
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            // macOS ignores socket permissions for access checks and cannot fchmod
+            // an unbound socket. The directory must protect it from the start,
+            // including when the caller supplies an endpoint outside gm_dir.
+            let parent = Path::new(&endpoint.name)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            let metadata = std::fs::metadata(parent)?;
+            if !metadata.is_dir() || metadata.permissions().mode() & 0o077 != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "the live socket needs a private parent directory (mode 0700)",
+                ));
+            }
+        }
         let listener = {
             let name = endpoint.to_name()?;
             let options = ListenerOptions::new()
                 .name(name)
                 .nonblocking(ListenerNonblockingMode::Both)
                 .try_overwrite(true);
-            #[cfg(unix)]
+            #[cfg(all(unix, not(target_os = "macos")))]
             let options = {
                 use interprocess::os::unix::local_socket::ListenerOptionsExt;
                 options.mode(0o600)
             };
             options.create_sync()?
         };
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&endpoint.name, std::fs::Permissions::from_mode(0o600))?;
+        }
         let token = random_token()?;
         let discovery = Discovery {
             protocol: PROTOCOL,
@@ -596,7 +620,10 @@ fn default_endpoint(
         // Socket paths are short (about 100 bytes); fall back to a private temp folder.
         let mut path = gm_dir.join(format!("{key}.sock"));
         if path.as_os_str().len() > 100 {
-            let dir = tempfile::Builder::new().prefix("galaxy-").tempdir()?;
+            let dir = tempfile::Builder::new()
+                .prefix("galaxy-")
+                .permissions(std::fs::Permissions::from_mode(0o700))
+                .tempdir()?;
             path = dir.path().join(format!("{key}.sock"));
             *socket_dir = Some(dir);
         } else {
