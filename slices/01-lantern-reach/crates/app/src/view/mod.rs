@@ -230,24 +230,21 @@ impl View {
         }
         for ship in world.ships.values() {
             let key = paint_key(world, ship);
-            if !self.hulls.contains_key(&key) {
-                let params = match &key.1 {
-                    None => recipes::hull_params(&ship.hull),
-                    Some(f) => recipes::npc_hull_params(&ship.hull, Some(f)),
+            self.hulls.entry(key).or_insert_with_key(|(hull, faction)| {
+                let params = match faction {
+                    None => recipes::hull_params(hull),
+                    Some(f) => recipes::npc_hull_params(hull, Some(f)),
                 };
-                let mesh = r.upload_mesh(&kit::hull(&params, seed_of(ship.hull.as_str())));
-                self.hulls.insert(key, mesh);
-            }
+                r.upload_mesh(&kit::hull(&params, seed_of(hull.as_str())))
+            });
         }
         let mut regions: Vec<Option<RegionId>> = vec![None];
         regions.extend(world.regions.keys().cloned().map(Some));
         for region in regions {
-            if !self.backdrops.contains_key(&region) {
+            self.backdrops.entry(region).or_insert_with_key(|region| {
                 let seed = region.as_ref().map_or(7, |r| seed_of(r.as_str()));
-                let b =
-                    r.upload_backdrop(&kit::backdrop(&recipes::backdrop(region.as_ref()), seed));
-                self.backdrops.insert(region, b);
-            }
+                r.upload_backdrop(&kit::backdrop(&recipes::backdrop(region.as_ref()), seed))
+            });
         }
     }
 

@@ -157,7 +157,7 @@ pub fn credits(cents: i64) -> String {
     let tenths = (cents as f64 / 10.0).round() as i64;
     let sign = if tenths < 0 { "-" } else { "" };
     let t = tenths.unsigned_abs();
-    if t % 10 == 0 {
+    if t.is_multiple_of(10) {
         format!("{sign}{} cr", t / 10)
     } else {
         format!("{sign}{}.{} cr", t / 10, t % 10)

@@ -139,7 +139,7 @@ fn contend(s: &mut Session) {
 fn without_the_app_a_contended_dock_trade_is_lost() {
     // The bug the app works around: one `PlayerInput.trades` request that loses the
     // line's compare-and-set is never retried by the economy.
-    let mut s = settled_session();
+    let s = settled_session();
     let req = buy_rations(&s);
     let mut sim = galaxy_app::game::game(s.state().clone());
     let input = PlayerInput {
@@ -222,12 +222,12 @@ fn a_trade_that_cant_happen_is_refused_with_one_calm_line() {
 fn a_trade_refused_after_it_was_queued_says_why() {
     let mut s = settled_session();
     // Asked for while affordable; another buy spends the money first.
-    let mut all = buy_rations(&s);
-    all.quantity = 2;
-    s.request_trade(all.clone());
-    let mut big = buy_rations(&s);
-    big.quantity = 2;
-    s.request_trade(big);
+    let two = TradeRequest {
+        quantity: 2,
+        ..buy_rations(&s)
+    };
+    s.request_trade(two.clone());
+    s.request_trade(two);
     for _ in 0..4 {
         s.tick(PlayerInput::default());
     }
