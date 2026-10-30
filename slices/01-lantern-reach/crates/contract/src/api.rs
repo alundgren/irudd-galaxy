@@ -827,6 +827,13 @@ pub const FUNCTIONS: &[FnDef] = &[
     ),
     f(
         "beats",
+        "expect_docked",
+        "beats.write",
+        "(station: StationId, why: Cause) -> ()",
+        "Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.",
+    ),
+    f(
+        "beats",
         "load",
         "beats.write",
         "(spec: LoadSpec, why: Cause) -> ()",

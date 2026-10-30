@@ -39,28 +39,40 @@ local function try_load(ctx: G.Ctx, cite: string): boolean
 	return true
 end
 
--- How many separate Brassmouth dockings since b08 started had a glassite sale.
+-- How many separate Brassmouth dockings since b08 started had a glassite sale: counted
+-- one sale at a time into the `b08` store (`brass_sale`), so a long b08 never loses
+-- later visits to a history window.
 local function brass_glassite_dockings(ctx: G.Ctx): number
-	local since = util.since(ctx, ids.B08)
-	local docks = util.find_all(ctx, { kind = "dock", ship = ids.PLAYER, station = ids.BRASS }, since, 200)
-	local sells =
-		util.find_all(ctx, { kind = "sell", ship = ids.PLAYER, station = ids.BRASS, ware = ids.GLASSITE }, since, 200)
-	local seen: { [number]: boolean } = {}
-	local n = 0
-	for _, s in ipairs(sells) do
-		-- The docking a sale happened in: the newest one before it.
-		local at = 0
-		for _, d in ipairs(docks) do
-			if util.seq(d.id) < util.seq(s.id) then
-				at = util.seq(d.id)
-			end
-		end
-		if at > 0 and not seen[at] then
-			seen[at] = true
-			n += 1
-		end
+	local n = ctx.store:get("b08", "dockings")
+	return if type(n) == "number" then n else 0
+end
+
+-- A glassite sale at Brassmouth during b08: if it is the first in this docking, one
+-- more docking counts. Stops once b08 has the dockings it needs.
+local function brass_sale(ev: G.SellEvent, ctx: G.Ctx)
+	if ev.ship ~= ids.PLAYER or ev.station ~= ids.BRASS or ev.ware ~= ids.GLASSITE then
+		return
 	end
-	return n
+	if not ctx.beats:is_active(ids.B08) then
+		return
+	end
+	local n = brass_glassite_dockings(ctx)
+	if n >= util.num(ctx, "b08.dockings") then
+		return
+	end
+	-- The docking the sale happened in: the player's newest at Brassmouth before it.
+	local dock = util.before(ctx, { kind = "dock", ship = ids.PLAYER, station = ids.BRASS }, ev.tick + 1)
+	local since = util.since(ctx, ids.B08)
+	-- A visit that began before b08 started doesn't count (the old rule).
+	if dock == nil or (since ~= nil and util.seq(dock.id) < util.seq(since)) then
+		return
+	end
+	if ctx.store:get("b08", "dock") == dock.id then
+		return
+	end
+	local why = ctx:cause({ summary = "a Brassmouth docking with a glassite sale", cites = { ev.fact } })
+	ctx.store:set("b08", "dock", dock.id, why)
+	ctx.store:set("b08", "dockings", n + 1, why)
 end
 
 return G.script({
@@ -129,6 +141,7 @@ return G.script({
 			if ev.ship == ids.PLAYER and ev.station == ids.WHARF then
 				try_load(ctx, ev.fact)
 			end
+			brass_sale(ev, ctx)
 		end,
 		dock = function(ev: G.DockEvent, ctx: G.Ctx)
 			if ev.ship ~= ids.PLAYER then

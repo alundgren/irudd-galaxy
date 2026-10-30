@@ -715,6 +715,28 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         env,
         &beat_ns,
         "beats",
+        "expect_docked",
+        m(
+            scope,
+            env,
+            |lua, env, (station, why): (LuaString, Table)| {
+                let station = env.station(lua, &station)?;
+                let ship = docked_player(env, lua, &station)?;
+                env.push(
+                    lua,
+                    &why,
+                    Command::ExpectDocked {
+                        ship: ship.id.clone(),
+                        station,
+                    },
+                )
+            },
+        )?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
         "load",
         m(scope, env, |lua, env, (spec, why): (Table, Table)| {
             only_keys(

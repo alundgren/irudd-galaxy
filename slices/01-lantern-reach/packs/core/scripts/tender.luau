@@ -43,11 +43,17 @@ local function sell_order(floor: number): { G.Order }
 end
 
 -- The newest market change at Kettle's ice since `after`: the shortage starting or
--- ending.
+-- ending, or any lever that moved the ice base there (a `market_base_changed` fact,
+-- whoever pulled it: the shortage, a game-master pack).
 local function market_moved(ctx: G.Ctx, after: string): G.Fact?
 	local best: G.Fact? = nil
-	for _, kind in ipairs({ "core.shortage_started", "core.shortage_resolved" }) do
-		local f = ctx.history:last({ kind = kind, after = after })
+	local queries: { G.HistoryQuery } = {
+		{ kind = "core.shortage_started", after = after },
+		{ kind = "core.shortage_resolved", after = after },
+		{ kind = "market_base_changed", station = ids.KETTLE, ware = ids.ICE, after = after },
+	}
+	for _, q in ipairs(queries) do
+		local f = ctx.history:last(q)
 		if f ~= nil and (best == nil or util.seq(f.id) > util.seq(best.id)) then
 			best = f
 		end

@@ -324,6 +324,8 @@ export type BeatsApi = {
 	rock: (self: BeatsApi, id: RockId) -> RockView?,
 	-- A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
 	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
+	-- Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.
+	expect_docked: (self: BeatsApi, station: StationId, why: Cause) -> (),
 	-- Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
 	load: (self: BeatsApi, spec: LoadSpec, why: Cause) -> (),
 	-- Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.

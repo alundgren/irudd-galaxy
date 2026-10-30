@@ -5,7 +5,8 @@
 -- at any time). Plate and rations the player sells there in a side's name, and NPC
 -- craft docking there, fill two tallies; when one reaches `win` with a lead of
 -- `lead`, the depot changes hands at the next calm moment (the player docked or
--- paused). Every number is a `dispute.hook.*` tunable.
+-- paused; a winning sale by the player's tender while they fly waits for one).
+-- Every number is a `dispute.hook.*` tunable.
 local G = require("@galaxy")
 local ids = require("../lib/ids")
 local util = require("../lib/util")
@@ -224,8 +225,15 @@ return G.script({
 				math.floor(units * 1000 + 0.5),
 				`{units} toward the depot for {faction}`
 			)
-			-- Docked at the Hook: a calm moment.
-			settle(ctx, why, faction, units)
+			-- A calm moment only if the player is docked: a tender's sale while the
+			-- player flies just counts, and the handover waits for their next docking
+			-- or pause. Checked again when it applies, so an undock this tick can't
+			-- slip past it.
+			local at = ctx.beats:pilot().docked_at
+			if at ~= nil and winner(ctx, faction, units) ~= nil then
+				ctx.beats:expect_docked(at, why)
+				settle(ctx, why, faction, units)
+			end
 		end,
 		dock = function(ev: G.DockEvent, ctx: G.Ctx)
 			if not ctx.beats:is_active(ids.B09) then
@@ -251,8 +259,13 @@ return G.script({
 				return
 			end
 			if winner(ctx, nil, 0) ~= nil then
-				-- The player docked: a calm moment for the handover.
-				settle(ctx, ctx:cause({ summary = "the Hook depot changes hands", cites = { ev.fact } }), nil, 0)
+				-- The player docked: a calm moment for the handover, while they stay.
+				local at = ctx.beats:pilot().docked_at
+				if at ~= nil then
+					local why = ctx:cause({ summary = "the Hook depot changes hands", cites = { ev.fact } })
+					ctx.beats:expect_docked(at, why)
+					settle(ctx, why, nil, 0)
+				end
 				return
 			end
 			-- While the dispute runs, Rook keeps the choice open at every Hook docking.

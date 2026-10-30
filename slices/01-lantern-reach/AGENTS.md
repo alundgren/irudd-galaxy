@@ -271,12 +271,19 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   most 4, needs a `speaker`). The player's pick (or a standing question such as
   `choice.what_changed`) comes in as `PlayerInput::replies`; the progress system turns
   each into a `reply` event (`on.reply`: `npc`, `station`, `choice`) only while the
-  player is docked where that person is.
+  player is docked where that person is. In play the talk panel shows the open
+  choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dock screen's
+  "Ask what changed" sends `choice.what_changed` to the dockmaster: the core pack's
+  `talk` script answers (Ilse's b17 homecoming in `act4`) and records
+  `core.asked_what_changed`. `galaxy shot --keys` has `:reply:N` and `:reply:CHOICE`.
 - `ctx.space` launches scripted craft owned by a person (`put_craft`: a teacher's
   tender), lays out live rock fields (`put_field`: a rumored vein) and rests a field's
   regrowth (`set_regrow`); `ctx.space:craft` reads any non-player craft. Market base
   levers (`set_base` in centicredits, `scale_base`) move a line's base price, so
-  standing tender floors see the new ceiling.
+  standing tender floors see the new ceiling; one that moves it records
+  `market_base_changed` (station, ware, amount = the new base). A change that must
+  wait for a calm moment calls `ctx.beats:expect_docked(station, why)`: the call's
+  writes apply only if the player is still docked there.
 
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and
@@ -375,7 +382,9 @@ error.
   the script host, the fast-model fake; input, trades, services, replies and orders).
   Its `Setup` starts a later act the way `beat jump` will: beats done, fittings, flags,
   counters, and lower pacing tunables for long waits. A beat marked done that way has
-  no `beat_completed` fact, so a line citing one stays unsaid.
+  no `beat_completed` fact, so a line citing one stays unsaid. `journey_fixes.rs` holds
+  the review regressions. `crates/app/tests/journey.rs` plays the same journey
+  through the app's `Game` and `Session` at the keys (Act 1 into b07, a reply).
 
 ## IDs
 

@@ -7,6 +7,10 @@
 //! with its own cause (a script pack revision, a fast-model decision), so the change
 //! is journaled and can be rolled back.
 //!
+//! Base levers (`SetBase`, `ScaleBase`) that move a line's base price also record a
+//! `market_base_changed` fact (station, ware, amount = the new base in centicredits),
+//! so scripts and people can notice the change and cite it.
+//!
 //! Rates go through [`Command::SetMarketRates`], which leaves stock and saturation
 //! alone, so rolling a lever back restores the rates without undoing trades made
 //! since. Adding, removing and restocking lines use `SetMarketLine` / `PutMarket`.
@@ -180,7 +184,7 @@ fn base_commands(
         &world.economy.rules.pricing,
         spread_at(world, station),
     );
-    Ok(vec![Command::SetMarketBase {
+    let mut out = vec![Command::SetMarketBase {
         station: station.clone(),
         ware: ware.clone(),
         base: MarketBase {
@@ -189,8 +193,32 @@ fn base_commands(
             max_price: new.max_price,
             price: new.price,
         },
-    }])
+    }];
+    // A base that moves is something people notice (a standing floor may now sit
+    // above the price band): one `market_base_changed` fact, amount the new base.
+    if new.base_price != old.base_price {
+        out.push(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: FactKind::from_static(BASE_CHANGED),
+                subjects: Subjects {
+                    station: Some(station.clone()),
+                    ware: Some(ware.clone()),
+                    ..Subjects::default()
+                },
+                amount: Some(i64::from(new.base_price)),
+                note: format!(
+                    "{ware} base at {station}: {} -> {} cr",
+                    show_credits(i64::from(old.base_price)),
+                    show_credits(i64::from(new.base_price))
+                ),
+            }),
+        });
+    }
+    Ok(out)
 }
+
+/// The fact kind a base lever records when it moves a line's base price.
+pub const BASE_CHANGED: &str = "market_base_changed";
 
 /// The commands for one lever against the world as it is.
 pub fn lever_commands(world: &WorldState, lever: &Lever) -> Result<Vec<Command>, LeverError> {

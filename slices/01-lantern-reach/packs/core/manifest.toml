@@ -80,6 +80,8 @@ handlers = ["on.dock", "on.deliver"]
 id = "act2"
 file = "scripts/act2.luau"
 handlers = ["on.beat_started", "on.sell", "on.dock", "on.deliver"]
+# b08: the Brassmouth dockings with a glassite sale so far, and the last one counted.
+stores = { b08 = { dockings = "number", dock = "string" } }
 
 # b09, the Cinder Hook dispute.
 [[script]]

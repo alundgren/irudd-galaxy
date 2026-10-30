@@ -79,6 +79,9 @@ radius = 300.0
 count = 8
 amount_min = 40
 amount_max = 90
+# Glass Drift's regrowth (content/01-galaxy.md): b15's fragment waits on a glassite
+# rock spent after b13, so a field mined out earlier must come back with activity.
+regrow = 0.15
 
 [[field]]
 id = "field.narrows.ice"

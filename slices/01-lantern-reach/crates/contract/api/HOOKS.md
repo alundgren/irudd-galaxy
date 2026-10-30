@@ -200,6 +200,7 @@ and `ctx.store` (the script's declared stores).
 - `ctx.beats:field(id: FieldId) -> FieldView?` (`beats.read`): A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
 - `ctx.beats:rock(id: RockId) -> RockView?` (`beats.read`): One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
 - `ctx.beats:deliver(spec: DeliverSpec, why: Cause) -> ()` (`beats.write`): A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
+- `ctx.beats:expect_docked(station: StationId, why: Cause) -> ()` (`beats.write`): Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.
 - `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
 - `ctx.beats:pay(credits: number, why: Cause) -> ()` (`beats.write`): Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
 
