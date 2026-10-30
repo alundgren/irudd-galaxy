@@ -134,7 +134,7 @@ impl<'a> Eval<'a> {
                 query,
                 at_least,
                 since,
-            } => self.history.sum(&self.windowed(query, *since)) as f64 >= self.num(at_least)?,
+            } => sum(self.history, &self.windowed(query, *since)) as f64 >= self.num(at_least)?,
             R::Flag(f) => w.player.flags.contains(f),
             R::Trait(t) => w.player.traits.contains(t),
             R::Fitted(u) => w.player.fittings.contains(u),
@@ -243,15 +243,31 @@ pub fn measure(
         Measure::Sum(q) => {
             let q = bounded(q);
             let total: i64 = match until {
-                None => history.sum(&q),
+                None => sum(history, &q),
                 Some(_) => history
                     .find(&q)
                     .into_iter()
                     .filter(|f| cut(f))
                     .filter_map(|f| f.amount)
-                    .sum(),
+                    .fold(0i64, i64::saturating_add),
             };
             u64::try_from(total).unwrap_or(0)
         }
     }
+}
+
+/// Matching facts' amounts added up, saturating instead of failing when they don't fit
+/// in an `i64` (scripts write amounts too).
+fn sum(history: &History, q: &HistoryQuery) -> i64 {
+    history.sum(q).unwrap_or_else(|| {
+        let all = HistoryQuery {
+            limit: None,
+            ..q.clone()
+        };
+        history
+            .find(&all)
+            .into_iter()
+            .filter_map(|f| f.amount)
+            .fold(0i64, i64::saturating_add)
+    })
 }

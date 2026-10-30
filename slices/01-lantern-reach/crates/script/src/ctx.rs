@@ -30,7 +30,8 @@ use galaxy_core::History;
 use mlua::{FromLuaMulti, IntoLuaMulti, Lua, LuaSerdeExt, LuaString, Scope, Table, Value};
 use serde::Serialize;
 
-use crate::vm::{RngSource, by_reference, caller_location, whole_number};
+use crate::meter::{Budget, FACTS_PER_STEP, table_slots};
+use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number};
 
 mod progress;
 
@@ -121,6 +122,8 @@ pub(crate) struct CallEnv<'a> {
     pub buffer: &'a RefCell<Buffer>,
     pub rng: &'a RefCell<&'a mut dyn RngSource>,
     pub rng_key: &'a str,
+    /// The call's step budget: reading a table argument or history charges it.
+    pub budget: &'a Budget,
 }
 
 /// Longest cause summary, in bytes.
@@ -178,35 +181,45 @@ impl CallEnv<'_> {
     /// string or number keys, at most [`MAX_TABLE_ENTRIES`] entries in all,
     /// [`MAX_TABLE_DEPTH`] levels and [`MAX_TABLE_BYTES`] of strings. Every violation
     /// gives the same message, so it doesn't depend on the order the table is walked.
+    ///
+    /// Each table walked charges the step budget for its slots first.
     fn measured(&self, lua: &Lua, t: &Table, what: &str) -> mlua::Result<()> {
-        fn walk(t: &Table, depth: usize, entries: &mut usize, bytes: &mut usize) -> bool {
+        fn walk(
+            env: &CallEnv<'_>,
+            lua: &Lua,
+            t: &Table,
+            depth: usize,
+            entries: &mut usize,
+            bytes: &mut usize,
+        ) -> mlua::Result<bool> {
             if depth > MAX_TABLE_DEPTH {
-                return false;
+                return Ok(false);
             }
+            env.budget.charge(lua, 1 + table_slots(t))?;
             for pair in t.pairs::<Value, Value>() {
-                let Ok((k, v)) = pair else { return false };
+                let Ok((k, v)) = pair else { return Ok(false) };
                 *entries += 1;
                 match &k {
                     Value::String(s) => *bytes += s.as_bytes().len(),
                     Value::Integer(_) | Value::Number(_) => {}
-                    _ => return false,
+                    _ => return Ok(false),
                 }
                 let ok = match &v {
                     Value::String(s) => {
                         *bytes += s.as_bytes().len();
                         true
                     }
-                    Value::Table(inner) => walk(inner, depth + 1, entries, bytes),
+                    Value::Table(inner) => walk(env, lua, inner, depth + 1, entries, bytes)?,
                     other => !by_reference(other),
                 };
                 if !ok || *entries > MAX_TABLE_ENTRIES || *bytes > MAX_TABLE_BYTES {
-                    return false;
+                    return Ok(false);
                 }
             }
-            true
+            Ok(true)
         }
         let (mut entries, mut bytes) = (0, 0);
-        if walk(t, 1, &mut entries, &mut bytes) {
+        if walk(self, lua, t, 1, &mut entries, &mut bytes)? {
             Ok(())
         } else {
             Err(self.fail(
@@ -708,8 +721,11 @@ pub(crate) fn build<'scope, 'env: 'scope>(
 
     // ctx.history
     let history = lua.create_table()?;
+    // A query reads every fact, so it charges the budget for them.
     let query = |env: &CallEnv<'_>, lua: &Lua, q: Table| -> mlua::Result<HistoryQuery> {
         only_keys(env, lua, &q, "history query", QUERY_KEYS)?;
+        let facts = u64::try_from(env.history.len()).unwrap_or(u64::MAX);
+        env.budget.charge(lua, 1 + facts / FACTS_PER_STEP)?;
         lua.from_value(Value::Table(q))
             .map_err(|e| env.fail(lua, "bad_query", e))
     };
@@ -726,7 +742,13 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         "history",
         "sum",
         m(scope, env, move |lua, env, q: Table| {
-            Ok(env.history.sum(&query(env, lua, q)?))
+            env.history.sum(&query(env, lua, q)?).ok_or_else(|| {
+                env.fail(
+                    lua,
+                    "bad_number",
+                    "the matching facts' amounts add up to more than a whole number can hold",
+                )
+            })
         })?,
     )?;
     method(
@@ -769,6 +791,14 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         "record",
         m(scope, env, |lua, env, (fact, why): (Table, Table)| {
             let draft: FactDraft = env.decode(lua, fact, "ctx.history:record")?;
+            // History is kept for good: a note is at most 1 KiB, like any script text.
+            if draft.note.len() > TEXT_CAP {
+                return Err(env.fail(
+                    lua,
+                    "too_long",
+                    format!("a fact's note is at most {TEXT_CAP} bytes"),
+                ));
+            }
             // Recorded kinds carry the pack's prefix (`gm.stage_built`); bare names
             // are the engine's event kinds.
             let ns = env.pack.as_str().split('.').next().unwrap_or("");

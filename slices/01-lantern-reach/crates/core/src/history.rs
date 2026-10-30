@@ -76,13 +76,14 @@ impl History {
         self.window(q).iter().filter(|f| q.matches(f)).count()
     }
 
-    /// Sum of `amount` over matching facts.
-    pub fn sum(&self, q: &HistoryQuery) -> i64 {
+    /// Sum of `amount` over matching facts, or `None` if it doesn't fit in an `i64`
+    /// (amounts come from scripts too, so they can be anything).
+    pub fn sum(&self, q: &HistoryQuery) -> Option<i64> {
         self.window(q)
             .iter()
             .filter(|f| q.matches(f))
             .filter_map(|f| f.amount)
-            .sum()
+            .try_fold(0i64, i64::checked_add)
     }
 
     /// Matching facts, oldest first, at most `q.limit`.

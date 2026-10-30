@@ -208,8 +208,10 @@ The live layer is Luau, run by `galaxy-script`. The hook reference is generated:
 The worked example is `packs/gm-examples/kettle_growth`.
 
 **A pack** is a folder: `manifest.toml` (schema `crates/contract/schemas/manifest.json`),
-`scripts/*.luau`, `data/*.toml` (only `npcs.toml` installs so far) and optional
-`tests/*.luau`. Its revision is a BLAKE3 hash of its files; every write a script makes
+`scripts/*.luau`, optional `lib/*.luau` (with `lib = true` in the manifest),
+`data/*.toml` (only `npcs.toml` installs so far) and optional `tests/*.luau`. `require`
+loads only from the script roots (`scripts/`, and `lib/` if declared; never `tests/`),
+and every check covers exactly those files (`Pack::loadable`). Its revision is a BLAKE3 hash of its files; every write a script makes
 is caused by `Cause::Script { pack, revision }`, so a revision can be rolled back. The
 manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), each
 `[[script]]` with its `handlers` (`on.<event>`, `after.<trigger>`) and typed `stores`,
@@ -222,15 +224,22 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   (a second `ctx:cause` is an error). A handler is atomic: its writes are one batch,
   checked against the kernel's invariants before it's submitted, and an error, a write
   that would be rejected, or running over the step, memory or write quota discards all
-  of it. Repeated aborts quarantine the script revision for good (`script_quarantined`
+  of it. The check (`TickCtx::preview`) runs on the world the kernel will apply the
+  batch to: the batches queued ahead of it this tick, and every invariant of the sim. Repeated aborts quarantine the script revision for good (`script_quarantined`
   fact; reloading the same revision doesn't clear it).
 - Scripts hold no state in Luau: each call runs the script and its modules afresh, so
   locals and upvalues start over. Remember things in a declared store
   (`ctx.store:set(store, key, value, why)`) or read them back from history.
 - Determinism: `tostring`/`string.format` never show addresses, `pairs`/`next` refuse
-  tables keyed by tables or functions, and loops use `pairs`, `ipairs`, `next`,
-  `string.gmatch` or `utf8.codes` (a bare `for k, v in t` is a check error). Scripts
-  are always strict: `--!nocheck` and `--!nonstrict` are check errors.
+  tables keyed by tables or functions, and a generic `for` names exactly one
+  `pairs(...)`, `ipairs(...)`, `string.gmatch(...)` or `utf8.codes(...)` call, or
+  `next, t`, between `in` and `do` (checked on a tokenizer that follows Luau's lexer;
+  `for k, v in t` and `pairs(a) and t` are check errors). Scripts are always strict:
+  the first line is `--!strict`, and `!nocheck`/`!nonstrict` anywhere is a check error.
+- Bounded: each handler call runs in a fresh Luau state (so memory outcomes don't
+  depend on earlier calls), native helpers that do O(n) work charge the step budget
+  (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
+  1 KiB with a marker.
 - Pace by activity only: `G.after { dockings = 3, station = ... }`, `ctx.counters`. There
   is no `os`, timer, `math.random` (use `ctx.rng`) or `loadstring`.
 - `ctx.talk:offer`, `ctx.map:note`, `ctx.chronicle:write` need a person or a place and

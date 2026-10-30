@@ -10,7 +10,7 @@ use common::*;
 use galaxy_contract::prelude::*;
 use galaxy_core::Sim;
 use galaxy_progress::ProgressSystem;
-use galaxy_script::ScriptHost;
+use galaxy_script::{HostEvent, ScriptHost};
 
 const WHARF: StationId = StationId::from_static("station.lantern_wharf");
 const BRASS: StationId = StationId::from_static("station.brassmouth_exchange");
@@ -194,7 +194,7 @@ fn two_deeds_in_one_call_stop_at_the_top_of_the_range() {
 
 #[test]
 fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
-    let (mut sim, _host) = review_sim(14);
+    let (mut sim, host) = review_sim(14);
     act(
         &mut sim,
         vec![Command::AdjustCargo {
@@ -212,9 +212,19 @@ fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
             station: None,
         }],
     });
+    // The host checks the call against the queued undock and drops it whole (before
+    // the kernel would reject it at the end of the tick).
     let r = sim.step(&PlayerInput::default()).unwrap();
-    assert_eq!(r.rejected.len(), 1, "{:#?}", r.rejected);
-    assert!(matches!(r.rejected[0].cause.kind, CauseKind::Script { .. }));
+    assert!(r.rejected.is_empty(), "{:#?}", r.rejected);
+    let aborted: Vec<String> = host
+        .take_events()
+        .into_iter()
+        .filter_map(|e| match e {
+            HostEvent::Aborted { diagnostic, .. } => Some(diagnostic.code),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(aborted, vec!["rejected_write".to_owned()]);
     let ship = sim.world().ships.get(&PLAYER).unwrap();
     assert_eq!(ship.hold.count(&ICE), 5, "the cargo stays aboard");
     assert!(facts(&sim, "deliver").is_empty());

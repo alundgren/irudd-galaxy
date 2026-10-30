@@ -38,9 +38,14 @@ return {
 		assert(require("../scripts/helper").answer == 42)
 	end,
 	memory_is_limited = function()
+		-- (`string.rep` of 200 MB would run over the step budget first: it charges per
+		-- byte. Doubling by concatenation reaches 32 MB in a few steps.)
 		assert(fails(function()
-			local _ = string.rep("x", 200 * 1024 * 1024)
-		end), "a 200 MB string is over the pack's limit")
+			local s = string.rep("x", 1024 * 1024)
+			for _ = 1, 5 do
+				s = s .. s
+			end
+		end), "a 32 MB string is over the pack's limit")
 	end,
 	budget_survives_pcall = function()
 		-- Even caught, the budget error recurs at every step, so this test must fail.

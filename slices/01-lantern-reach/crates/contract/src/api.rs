@@ -1535,27 +1535,36 @@ pub fn hooks_md() -> String {
         "\n## Not available to scripts\n\n\
          No clock, timer or wall time (`os`, `wait`, `delay`, `tick`); no `math.random`\n\
          (use `ctx.rng`); no `loadstring`, `getfenv`, `setfenv`; `require` only sees\n\
-         `@galaxy` and the pack's own modules (`./name`). Sandbox and snapshots are CLI\n\
+         `@galaxy` and the pack's own modules (`./name`) under `scripts/`, plus `lib/` if\n\
+         the manifest sets `lib = true` (never `tests/`). Sandbox and snapshots are CLI\n\
          only (`galaxy gm`, `galaxy sim`).\n\n\
          ## Sandbox rules\n\n\
          - **No memory between calls.** Each handler call runs the script and its modules\n\
-           afresh, so module-level locals start over every call. What a script must\n\
-           remember goes in its declared `stores` (saved with the world).\n\
+           afresh in a fresh Luau state, so module-level locals start over every call. What\n\
+           a script must remember goes in its declared `stores` (saved with the world).\n\
          - **One cause per call.** A second `ctx:cause` is an error. The call's writes are\n\
            one batch: if any would be rejected, none apply and the call counts as aborted.\n\
          - **Deterministic.** `tostring` and `string.format` print tables, functions and\n\
            buffers as their type name, never an address. `pairs` and `next` refuse tables\n\
-           keyed by tables, functions or buffers (their order isn't stable), and loops must\n\
-           iterate with `pairs(t)`, `ipairs(t)`, `next`, `string.gmatch` or `utf8.codes`:\n\
-           a bare `for k, v in t do` is a check error. The garbage collector doesn't run\n\
-           during a call, so weak tables don't change under a handler.\n\
+           keyed by tables, functions or buffers (their order isn't stable). A generic\n\
+           `for` names exactly one `pairs(...)`, `ipairs(...)`, `string.gmatch(...)` or\n\
+           `utf8.codes(...)` call, or `next, t`, between `in` and `do` (or a local that\n\
+           only aliases one of them): anything else, such as `for k, v in t` or\n\
+           `pairs(a) and t`, is a check error. The garbage collector doesn't run during a\n\
+           call, so weak tables don't change under a handler.\n\
          - **Limits.** Per call: `limits.steps_per_call` steps, `limits.memory_bytes` of\n\
            Luau memory (everything the call allocates, garbage included), and at most\n\
-           256 writes holding 256 KiB. Arguments to `ctx` are size-checked before they are\n\
+           256 writes holding 256 KiB. Library functions that do work in proportion to\n\
+           their input (`pairs`, `next`, `table.sort`, `string.rep`, `string.find`, history\n\
+           queries ...) charge steps for it: one per table slot or element, one per 64\n\
+           bytes. Text that leaves the call (error messages, `print`) is cut to 1 KiB,\n\
+           and a recorded fact's note is at most 1 KiB.\n\
+           Arguments to `ctx` are size-checked before they are\n\
            copied. Numbers passed to `ctx` must be whole where a whole number is expected\n\
            and in range; nothing is truncated or wrapped.\n\
-         - **Strict types.** Every checked file is typechecked in strict mode;\n\
-           `--!nocheck` and `--!nonstrict` are check errors.\n",
+         - **Strict types.** Every file a script can load is typechecked in strict mode.\n\
+           Its first line must be `--!strict`, and `!nocheck` or `!nonstrict` anywhere in\n\
+           it, even in a comment or string, is a check error.\n",
     );
     out
 }

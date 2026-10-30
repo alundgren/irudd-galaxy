@@ -7,10 +7,13 @@
 //! 1. each event committed last tick with an `on.<event>` handler runs it;
 //! 2. each `G.after` trigger whose activity counters are due runs once.
 //!
-//! A successful call's writes are one batch (`Cause::Script`). The host applies it to
-//! a copy of the world with the kernel's invariants first: if it would be rejected, the
-//! call counts as aborted and nothing is submitted. Later calls in the same tick read
-//! that copy, so two events in one tick don't grow a station twice. An aborted call
+//! A successful call's writes are one batch (`Cause::Script`). The host first checks it
+//! the way the kernel will ([`TickCtx::preview`]): against the world the kernel will
+//! apply it to (the batches queued ahead of it this tick, then the script batches
+//! before it) and with every invariant of the sim. If it would be rejected, the call
+//! counts as aborted and nothing is submitted. Later calls in the same tick read the
+//! tick-start world plus the script writes before them, so two events in one tick
+//! don't grow a station twice. An aborted call
 //! submits nothing, counts against the script, and after `limits.quarantine_after`
 //! aborts the script is quarantined (for that revision, for good: loading the same
 //! revision again doesn't clear it) with a `script_quarantined` history fact.
@@ -32,7 +35,7 @@ use serde::Serialize;
 
 use crate::check::{CheckOptions, check_dir};
 use crate::pack::Pack;
-use crate::vm::{Abort, BeatCall, LoadedBeat, PackVm, Target, View};
+use crate::vm::{Abort, BeatCall, LoadedBeat, PackVm, Target, View, clip_text};
 use crate::watch::PackWatcher;
 use galaxy_progress::{Eval, EvalError, beats};
 
@@ -339,7 +342,7 @@ impl Aborted<'_> {
                     amount: Some(i64::from(h.aborts)),
                     note: format!(
                         "{pack_id}/{} (revision {revision}) quarantined after {} aborted calls; last: {}",
-                        self.script, h.aborts, abort.message
+                        self.script, h.aborts, clip_text(&abort.message)
                     ),
                 }),
             });
@@ -417,8 +420,12 @@ impl System for ScriptSystem {
         let history = ctx.history;
         let events = ctx.events;
         let tick = ctx.tick;
-        // A copy with this tick's script writes applied, made on the first write.
+        // What later calls read: the tick-start world plus this tick's script writes,
+        // made on the first write.
         let mut scratch: Option<WorldState> = None;
+        // What the kernel will apply the next script batch to: the tick start, the
+        // batches queued ahead of the host, and the script batches so far.
+        let mut projected: Option<WorldState> = None;
         let mut health: BTreeMap<(PackId, String), ScriptHealth> = BTreeMap::new();
         let mut log = Vec::new();
         let mut out = Vec::new();
@@ -520,7 +527,8 @@ impl System for ScriptSystem {
                         };
                         let Some(batch) = batch else { return Ok(None) };
                         // The whole call's writes, checked as the kernel will check them.
-                        match preview(view.world, &batch) {
+                        let base = projected.get_or_insert_with(|| ctx.projected());
+                        match ctx.preview(base, &batch) {
                             Ok(after) => Ok(Some((batch, after))),
                             Err(reason) => Err(Abort {
                                 code: "rejected_write".into(),
@@ -537,7 +545,12 @@ impl System for ScriptSystem {
                     });
                     match result {
                         Ok(Some((batch, after))) => {
-                            scratch = Some(after);
+                            projected = Some(after);
+                            // Reads see the write. (If only the queued batches make it
+                            // apply, the reads go without it.)
+                            if let Ok(read) = preview(view.world, &batch) {
+                                scratch = Some(read);
+                            }
                             out.push(batch);
                         }
                         Ok(None) => {}

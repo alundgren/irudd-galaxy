@@ -5,23 +5,30 @@
 //!   `gcinfo` are removed. There is no `os`, `io` or `debug`.
 //! - Sandbox mode freezes the libraries and globals; each chunk runs in its own
 //!   read-only environment, so scripts can't stash state in globals.
-//! - `require` sees `@galaxy` and the pack's own modules (`./name`, `../dir/name`),
-//!   from the in-memory copy of the pack that was hashed and checked.
-//! - A VM interrupt counts steps (loop back-edges and calls) per handler call; over
-//!   the budget, every further step fails, so even `pcall` can't keep a loop alive.
-//! - Each call starts from a collected heap with the collector stopped, and may
-//!   allocate `limits.memory_bytes` (garbage included). So whether a call runs out of
-//!   memory, and what weak tables hold, depends only on the call itself.
+//! - `require` sees `@galaxy` and the pack's own modules (`./name`, `../dir/name`)
+//!   in its script roots ([`Pack::loadable`]), from the in-memory copy of the pack
+//!   that was hashed and checked: exactly the files the checks covered.
+//! - A VM interrupt counts steps (loop back-edges and calls) per handler call, and
+//!   native helpers charge steps for the work they do ([`crate::meter`]); over the
+//!   budget, every further step fails, so even `pcall` can't keep a loop alive.
+//! - **Each handler call runs in a fresh Luau state**, with the collector stopped, and
+//!   may allocate `limits.memory_bytes` (garbage included). Luau's allocator hands out
+//!   whole pages, so in a reused state how close a call gets to the limit depends on
+//!   which pages earlier calls left half full; a fresh state makes the same allocations
+//!   every time. So whether a call runs out of memory, and what weak tables hold,
+//!   depends only on the call itself.
+//! - Text a script makes that leaves the VM (abort messages, `print` lines) is cut to
+//!   [`TEXT_CAP`] bytes with a marker, so it can't bloat the log, history or saves.
 //! - **No memory between calls.** Every handler call runs the script and the modules
-//!   it requires afresh, so locals and upvalues can't carry anything from one call to
-//!   the next: the script's declared stores are its only memory, and a restored save
-//!   replays exactly.
+//!   it requires afresh in its fresh state, so locals and upvalues can't carry anything
+//!   from one call to the next: the script's declared stores are its only memory, and
+//!   a restored save replays exactly.
 //! - **No addresses.** `tostring`, `string.format` (and so string interpolation) and
 //!   `print` show tables, functions and buffers as their type name; `pairs` and `next`
 //!   refuse tables keyed by them (their order follows heap addresses). `table.foreach`
 //!   is removed. Bare `for k, v in t` loops are rejected by the static scan.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
@@ -41,6 +48,7 @@ use mlua::{
 };
 
 use crate::ctx::{self, Buffer, CallEnv};
+use crate::meter::{self, Budget};
 use crate::pack::{Pack, error};
 
 /// Where a script's random numbers come from: the sim's saved streams in a tick, or a
@@ -76,7 +84,7 @@ impl Abort {
         Diagnostic {
             severity: galaxy_contract::pack::Severity::Error,
             code: self.code.clone(),
-            message: self.message.clone(),
+            message: clip_text(&self.message),
             location: self.location.clone(),
         }
     }
@@ -165,22 +173,6 @@ pub struct View<'a> {
     pub history: &'a History,
 }
 
-/// Step counter shared with the interrupt.
-#[derive(Default)]
-pub(crate) struct Budget {
-    left: Cell<u64>,
-    exhausted: Cell<bool>,
-    at: RefCell<Option<Location>>,
-}
-
-impl Budget {
-    fn reset(&self, steps: u64) {
-        self.left.set(steps);
-        self.exhausted.set(false);
-        *self.at.borrow_mut() = None;
-    }
-}
-
 pub struct PackVm {
     lua: Lua,
     pub pack: Rc<Pack>,
@@ -253,8 +245,32 @@ return table.freeze(G)
 "#;
 
 const LOG_CAP: usize = 200;
-/// Longest `print` line kept, in bytes (longer ones are cut before they're copied).
-const LOG_LINE_CAP: usize = 1024;
+/// Longest script-made text kept outside the VM, in bytes, marker included: abort
+/// messages (which reach the host log and history) and `print` lines.
+pub const TEXT_CAP: usize = 1024;
+/// Ends text that was cut to [`TEXT_CAP`].
+pub const CUT_MARKER: &str = " [... cut]";
+
+/// `text`, cut to at most [`TEXT_CAP`] bytes (at a character boundary, with
+/// [`CUT_MARKER`]) if it's longer.
+pub fn clip_text(text: &str) -> String {
+    clip_bytes(text.as_bytes())
+}
+
+/// Like [`clip_text`] for bytes that may not be UTF-8. Reads at most `TEXT_CAP + 1`
+/// of them.
+pub(crate) fn clip_bytes(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(TEXT_CAP + 1)]);
+    // (Decoding can grow an invalid byte into a three-byte replacement character.)
+    if bytes.len() <= TEXT_CAP && text.len() <= TEXT_CAP {
+        return text.into_owned();
+    }
+    let mut keep = TEXT_CAP - CUT_MARKER.len();
+    while !text.is_char_boundary(keep) {
+        keep -= 1;
+    }
+    format!("{}{CUT_MARKER}", &text[..keep])
+}
 
 /// Values that are only their identity: printing or hashing one exposes an address.
 pub(crate) fn by_reference(v: &Value) -> bool {
@@ -297,25 +313,6 @@ fn stable_tostring(lua: &Lua, raw: &Function, v: Value) -> mlua::Result<LuaStrin
     }
 }
 
-/// Fails if a table has a key whose position depends on its address.
-fn stable_keys(t: &Table, what: &str) -> mlua::Result<()> {
-    for pair in t.pairs::<Value, Value>() {
-        let (k, _) = pair?;
-        if by_reference(&k) {
-            return Err(unstable_order(what, &k));
-        }
-    }
-    Ok(())
-}
-
-fn unstable_order(what: &str, k: &Value) -> mlua::Error {
-    mlua::Error::runtime(format!(
-        "{what}: this table has a {} as a key, and the order of such keys changes from \
-         run to run; key it by strings or numbers",
-        k.type_name()
-    ))
-}
-
 /// Replaces the standard functions that can expose heap addresses or address order.
 /// Runs before the sandbox freezes the libraries.
 fn install_stable_library(lua: &Lua, globals: &Table) -> mlua::Result<()> {
@@ -341,25 +338,6 @@ fn install_stable_library(lua: &Lua, globals: &Table) -> mlua::Result<()> {
         raw_format.call::<MultiValue>(args)
     })?;
     string.raw_set("format", format)?;
-
-    let raw_next: Function = globals.get("next")?;
-    let next = lua.create_function(move |_, (t, k): (Table, Value)| {
-        if k.is_nil() {
-            stable_keys(&t, "next")?;
-        }
-        let out: MultiValue = raw_next.call((t, k))?;
-        if let Some(k) = out.front().filter(|k| by_reference(k)) {
-            return Err(unstable_order("next", k));
-        }
-        Ok(out)
-    })?;
-    let next_fn = next.clone();
-    let pairs = lua.create_function(move |_, t: Table| {
-        stable_keys(&t, "pairs")?;
-        Ok((next_fn.clone(), t, Value::Nil))
-    })?;
-    globals.raw_set("next", next)?;
-    globals.raw_set("pairs", pairs)?;
 
     let table: Table = globals.get("table")?;
     table.raw_set("foreach", Value::Nil)?;
@@ -398,6 +376,7 @@ fn root_message(e: &mlua::Error) -> (bool, String) {
 }
 
 /// Resolves `./x` or `../dir/x` against the requiring file's folder, inside the pack.
+/// `require` then loads it only if it's [`Pack::loadable`].
 fn resolve(from: &str, name: &str) -> Option<String> {
     let mut parts: Vec<&str> = from.split('/').collect();
     parts.pop(); // the file itself
@@ -439,6 +418,11 @@ impl PackVm {
 
     /// A state with the sandbox, `G` and `require`, but no scripts loaded.
     pub fn bare(pack: Rc<Pack>) -> mlua::Result<PackVm> {
+        Self::bare_with_log(pack, Rc::new(RefCell::new(Vec::new())))
+    }
+
+    /// [`PackVm::bare`], printing to `log`.
+    fn bare_with_log(pack: Rc<Pack>, log: Rc<RefCell<Vec<String>>>) -> mlua::Result<PackVm> {
         let libs = StdLib::TABLE
             | StdLib::STRING
             | StdLib::UTF8
@@ -454,16 +438,7 @@ impl PackVm {
         budget.reset(limits.steps_per_call);
         let b = budget.clone();
         lua.set_interrupt(move |lua| {
-            if b.exhausted.get() {
-                return Err(mlua::Error::runtime("over budget"));
-            }
-            let left = b.left.get();
-            if left == 0 {
-                b.exhausted.set(true);
-                *b.at.borrow_mut() = caller_location(lua, 0).or_else(|| caller_location(lua, 1));
-                return Err(mlua::Error::runtime("over budget"));
-            }
-            b.left.set(left - 1);
+            b.tick(lua)?;
             Ok(VmState::Continue)
         });
 
@@ -481,10 +456,10 @@ impl PackVm {
         math.raw_set("random", Value::Nil)?;
         math.raw_set("randomseed", Value::Nil)?;
 
-        let log = Rc::new(RefCell::new(Vec::new()));
         let sink = log.clone();
         let print = lua.create_function(move |lua, args: Variadic<Value>| {
             let raw: Function = lua.named_registry_value("galaxy.tostring")?;
+            // Copies at most one byte past the cap, so the cut is noticed.
             let mut line: Vec<u8> = Vec::new();
             for (i, a) in args.into_iter().enumerate() {
                 if i > 0 {
@@ -492,9 +467,9 @@ impl PackVm {
                 }
                 let s = stable_tostring(lua, &raw, a)?;
                 let bytes = s.as_bytes();
-                let room = LOG_LINE_CAP.saturating_sub(line.len());
+                let room = (TEXT_CAP + 1).saturating_sub(line.len());
                 line.extend_from_slice(&bytes[..bytes.len().min(room)]);
-                if line.len() >= LOG_LINE_CAP {
+                if line.len() > TEXT_CAP {
                     break;
                 }
             }
@@ -502,7 +477,7 @@ impl PackVm {
             if l.len() >= LOG_CAP {
                 l.remove(0);
             }
-            l.push(String::from_utf8_lossy(&line).into_owned());
+            l.push(clip_bytes(&line));
             Ok(())
         })?;
         globals.raw_set("print", print)?;
@@ -528,6 +503,13 @@ impl PackVm {
                     "require(\"{name}\"): only `@galaxy` and the pack's own modules (`./name`) can be required"
                 ))
             })?;
+            if !files.loadable(&path) {
+                let roots: Vec<String> = files.script_roots().iter().map(|r| format!("`{r}/`")).collect();
+                return Err(mlua::Error::runtime(format!(
+                    "require(\"{name}\"): `{path}` isn't a module in this pack's script roots ({})",
+                    roots.join(", ")
+                )));
+            }
             let modules: Table = lua.named_registry_value("galaxy.modules")?;
             if let Some(v) = modules.raw_get::<Option<Value>>(path.as_str())? {
                 return Ok(v);
@@ -549,6 +531,8 @@ impl PackVm {
         })?;
         globals.raw_set("require", require)?;
         install_stable_library(&lua, &globals)?;
+        meter::install_iteration(&lua, &globals, &budget)?;
+        meter::install(&lua, &globals, &budget)?;
         // Chunks read these (frozen by sandbox mode), never the writable per-thread
         // proxy sandbox mode installs, so no script can stash state in a global.
         lua.set_named_registry_value("galaxy.globals", globals)?;
@@ -570,10 +554,10 @@ impl PackVm {
     /// Runs `f` with a fresh step budget and memory allowance. Returns an abort if it
     /// ran over either, or if the host panicked.
     ///
-    /// The heap is collected first and the collector stays off while `f` runs, so the
-    /// call may allocate exactly `limits.memory_bytes`, garbage included: running out
-    /// doesn't depend on what earlier calls left behind, and weak tables don't change
-    /// under the call.
+    /// The heap is fully collected first and the collector stays off while `f` runs,
+    /// so the call may allocate exactly `limits.memory_bytes`, garbage included:
+    /// running out doesn't depend on what earlier calls left behind, and weak tables
+    /// don't change under the call.
     pub(crate) fn budgeted<R>(&self, f: impl FnOnce() -> mlua::Result<R>) -> Result<R, Abort> {
         let limits = self.pack.limits();
         self.budget.reset(limits.steps_per_call);
@@ -902,7 +886,7 @@ impl PackVm {
             let def = match instance {
                 Some(t) => t.clone(),
                 None => {
-                    let t = self.instantiate(script)?;
+                    let t = self.instantiate(&self.scripts[script].decl.file)?;
                     *instance = Some(t.clone());
                     t
                 }
@@ -956,7 +940,7 @@ impl PackVm {
             PathKey::Key(hook.to_owned()),
         ];
         let (result, buffer) = self.with_ctx(script, view, rng, Some(seed), |lua, ctx| {
-            let f = self.function_at(&self.instantiate(script)?, &path)?;
+            let f = self.function_at(&self.instantiate(&self.scripts[script].decl.file)?, &path)?;
             let t = lua.create_table()?;
             t.raw_set("id", info.beat.as_str())?;
             t.raw_set("transition", info.transition)?;
@@ -999,6 +983,7 @@ impl PackVm {
             buffer: &buffer,
             rng: &rng,
             rng_key: &rng_key,
+            budget: &self.budget,
         };
         let lua = &self.lua;
         let result = self.budgeted(|| {
@@ -1043,11 +1028,10 @@ impl PackVm {
 
     /// Runs a script's file afresh, with an empty module cache, and returns its
     /// definition. Nothing a previous call left in a local or upvalue is reachable.
-    fn instantiate(&self, script: usize) -> mlua::Result<Table> {
+    fn instantiate(&self, file: &str) -> mlua::Result<Table> {
         let lua = &self.lua;
         lua.set_named_registry_value("galaxy.modules", lua.create_table()?)?;
         lua.set_named_registry_value("galaxy.loading", lua.create_table()?)?;
-        let file = self.scripts[script].decl.file.as_str();
         let src = self
             .pack
             .files
@@ -1056,9 +1040,9 @@ impl PackVm {
         load_chunk(lua, file, src)?.call::<Table>(())
     }
 
-    /// Calls one handler on a fresh instance of its script. On success returns its
-    /// batch (its one cause and every write, if it wrote anything); on error, over
-    /// budget or over quota, nothing.
+    /// Calls one handler on a fresh instance of its script, in a fresh Luau state. On
+    /// success returns its batch (its one cause and every write, if it wrote
+    /// anything); on error, over budget or over quota, nothing.
     pub fn call(
         &self,
         script: usize,
@@ -1066,24 +1050,37 @@ impl PackVm {
         view: View<'_>,
         rng: &mut dyn RngSource,
     ) -> Result<Option<CommandBatch>, Abort> {
-        let s = &self.scripts[script];
+        let fresh = Self::bare_with_log(self.pack.clone(), self.log.clone())
+            .map_err(|e| abort_from(&e, Some("vm")))?;
+        fresh.call_here(&self.scripts[script].decl, target, view, rng)
+    }
+
+    /// Runs one handler of the script `decl` in this state.
+    fn call_here(
+        &self,
+        decl: &ScriptDecl,
+        target: Target<'_>,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+    ) -> Result<Option<CommandBatch>, Abort> {
         let buffer = RefCell::new(Buffer::default());
         let rng = RefCell::new(&mut *rng as &mut dyn RngSource);
-        let rng_key = format!("script/{}/{}", self.pack.manifest.id, s.decl.id);
+        let rng_key = format!("script/{}/{}", self.pack.manifest.id, decl.id);
         let env = CallEnv {
             world: view.world,
             history: view.history,
             pack: &self.pack.manifest.id,
             revision: &self.pack.revision,
             uses: &self.pack.manifest.uses,
-            script: &s.decl,
+            script: decl,
             buffer: &buffer,
             rng: &rng,
             rng_key: &rng_key,
+            budget: &self.budget,
         };
         let lua = &self.lua;
         let result = self.budgeted(|| {
-            let func = handler_of(&self.instantiate(script)?, target)?;
+            let func = handler_of(&self.instantiate(&decl.file)?, target)?;
             lua.scope(|scope| {
                 let ctx = ctx::build(lua, scope, &env)?;
                 match target {
@@ -1366,14 +1363,16 @@ stack traceback:",
     if memory {
         return Abort {
             code: "out_of_memory".into(),
-            message: format!("ran out of memory ({msg}); its writes were discarded"),
+            message: clip_text(&format!(
+                "ran out of memory ({msg}); its writes were discarded"
+            )),
             location: None,
         };
     }
     let (location, message) = split_location(&msg);
     Abort {
         code: code.unwrap_or("runtime_error").to_owned(),
-        message,
+        message: clip_text(&message),
         location,
     }
 }

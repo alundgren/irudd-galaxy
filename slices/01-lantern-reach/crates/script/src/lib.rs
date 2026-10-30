@@ -2,7 +2,9 @@
 //! legibility channels (system 18).
 //!
 //! - [`pack`]: reading a pack folder; the revision is a content hash.
-//! - [`vm`]: one sandboxed Luau state per pack, step budget and memory limit.
+//! - [`vm`]: the sandboxed Luau states (a fresh one per handler call), step budget
+//!   and memory limit.
+//! - [`meter`]: what native helpers charge to the step budget.
 //! - [`ctx`]: the hook API a handler sees, built from the manifest's `uses`.
 //! - [`host`]: [`ScriptHost`], the per-tick system, install and dev hot reload.
 //! - [`check`]: the fast validation pipeline behind `galaxy pack check`.
@@ -18,6 +20,7 @@ pub mod analyzer;
 pub mod check;
 pub mod ctx;
 pub mod host;
+pub mod meter;
 pub mod pack;
 pub mod rollback;
 pub mod scan;

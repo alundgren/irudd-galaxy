@@ -54,38 +54,58 @@ pub fn find(explicit: Option<&Path>) -> Option<PathBuf> {
     None
 }
 
-/// Directives that would lower a file's typecheck below strict (`--!nocheck`,
-/// `--!nonstrict`). A source directive overrides the analyzer's `--mode=strict`, so
-/// they are errors in every checked file, wherever they appear.
+/// The mode directive checks, over every file a script can load:
+///
+/// - `!nocheck` or `!nonstrict` anywhere in the file, in any case, in a comment or
+///   not, is an error. A source directive overrides the analyzer's `--mode=strict`,
+///   and the analyzer accepts one after a block comment on the same line, so this
+///   doesn't try to tell a directive from a mention: a false positive costs nothing.
+/// - The first non-blank line must be `--!strict`.
 pub fn mode_directives(pack: &Pack) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    for (file, src) in pack.script_files() {
+    let at = |file: &str, line: usize| {
+        Some(Location {
+            file: file.to_owned(),
+            line: u32::try_from(line).ok(),
+            column: None,
+        })
+    };
+    for (file, src) in pack.loadable_files() {
+        let first = src.lines().enumerate().find(|(_, l)| !l.trim().is_empty());
+        let strict = first.is_some_and(|(_, l)| {
+            l.trim()
+                .strip_prefix("--!strict")
+                .is_some_and(|rest| rest.trim().is_empty())
+        });
+        if !strict {
+            out.push(Diagnostic {
+                severity: Severity::Error,
+                code: "not_strict".into(),
+                message: "a pack script's first line must be `--!strict`".into(),
+                location: at(file, first.map_or(1, |(n, _)| n + 1)),
+            });
+        }
         for (n, line) in src.lines().enumerate() {
-            let Some(rest) = line.trim_start().strip_prefix("--!") else {
-                continue;
-            };
-            let mode = rest.split_whitespace().next().unwrap_or("");
-            if matches!(mode, "nocheck" | "nonstrict") {
-                out.push(Diagnostic {
-                    severity: Severity::Error,
-                    code: "typecheck_off".into(),
-                    message: format!(
-                        "`--!{mode}` would turn off the strict typecheck; pack scripts are always \
-                         checked `--!strict`"
-                    ),
-                    location: Some(Location {
-                        file: file.to_owned(),
-                        line: u32::try_from(n + 1).ok(),
-                        column: None,
-                    }),
-                });
+            let lower = line.to_ascii_lowercase();
+            for mode in ["!nocheck", "!nonstrict"] {
+                if lower.contains(mode) {
+                    out.push(Diagnostic {
+                        severity: Severity::Error,
+                        code: "typecheck_off".into(),
+                        message: format!(
+                            "`{mode}` would turn off the strict typecheck, so it can't appear \
+                             anywhere in a pack script (even in a comment or string)"
+                        ),
+                        location: at(file, n + 1),
+                    });
+                }
             }
         }
     }
     out
 }
 
-/// Typechecks the pack's scripts and modules in strict mode.
+/// Typechecks, in strict mode, every file a script can load.
 pub fn typecheck(pack: &Pack, analyzer: &Path) -> Result<Vec<Diagnostic>, String> {
     let dir = tempfile::Builder::new()
         .prefix("galaxy-typecheck-")
@@ -103,7 +123,7 @@ pub fn typecheck(pack: &Pack, analyzer: &Path) -> Result<Vec<Diagnostic>, String
     )
     .map_err(|e| e.to_string())?;
     let mut args = vec!["--mode=strict".to_owned(), "--formatter=gnu".to_owned()];
-    for (rel, src) in pack.script_files() {
+    for (rel, src) in pack.loadable_files() {
         let path = root.join("pack").join(rel);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
