@@ -225,7 +225,7 @@
       "description": "A purchase the player asks for at a dock this tick. The progress system runs each\nas one atomic batch and drops ones that don't apply; check with\n`galaxy_progress::services::check` first.",
       "oneOf": [
         {
-          "description": "Buy and fit an upgrade.",
+          "description": "Buy and fit an upgrade (the Ready tab). A part already in that socket goes to\nthe hull's locker in its place.",
           "type": "object",
           "properties": {
             "service": {
@@ -273,6 +273,77 @@
           "required": [
             "service",
             "to"
+          ]
+        },
+        {
+          "description": "Take a part off into the hull's locker.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "remove"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
+          ]
+        },
+        {
+          "description": "Fit a part from the hull's locker. A part already in that socket goes to the\nlocker in its place.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "refit"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
+          ]
+        },
+        {
+          "description": "Make a part from materials in the hold, with its blueprint. `fit`: fit it\nstraight away (a part in that socket goes to the locker); otherwise it goes\ninto the locker.",
+          "type": "object",
+          "properties": {
+            "fit": {
+              "type": "boolean"
+            },
+            "service": {
+              "type": "string",
+              "const": "make"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
+          ]
+        },
+        {
+          "description": "Order a part from the wharf keeper's friend: paid now, sent after the next\ndocking at the friend's station, into the hull's locker.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "order"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
           ]
         }
       ]

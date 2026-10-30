@@ -16,6 +16,7 @@ pub mod command;
 pub mod data;
 pub mod economy;
 pub mod events;
+pub mod fit;
 pub mod geom;
 pub mod history;
 pub mod ids;

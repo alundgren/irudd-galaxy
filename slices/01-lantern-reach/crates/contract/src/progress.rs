@@ -27,6 +27,8 @@ pub struct ProgressState {
     pub tunables: BTreeMap<TunableId, Tunable>,
     /// Reserved input and UI slots, bound to the mechanic that uses them.
     pub slots: BTreeMap<SlotId, FlagId>,
+    /// The hulls' parts lockers and parts on order (`crate::fit`).
+    pub fit: crate::fit::FitState,
 }
 
 // --- Beats ---------------------------------------------------------------------------
@@ -319,9 +321,14 @@ pub struct ProgressRules {
     pub standing_max: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prestige: Option<PrestigeRules>,
+    /// Sockets, hull budgets, wharves and blueprints (`crate::fit`). Empty in a save
+    /// from before the fit model until the game backfills it on open.
+    pub fit: crate::fit::FitRules,
 }
 
-/// A fitting a station sells. Fittings are never removed and move with the pilot.
+/// A fitting a station sells: a ship part for a socket, or a control module for the
+/// control rack (`crate::fit`). Fittings move with the pilot to a new hull; control
+/// modules are never taken off, parts can go to the hull's locker and back.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct UpgradeDef {
     pub id: UpgradeId,
@@ -343,6 +350,27 @@ pub struct UpgradeDef {
     pub grants: Vec<FlagId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modifiers: Vec<Modifier>,
+    /// The socket it fits (`socket.rack` for control modules). `None` only in a save
+    /// from before the fit model, until it's backfilled: then it counts as a module.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub socket: Option<SocketId>,
+    /// Power pips it draws while fitted.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub power: u32,
+    /// Its weight against the hull's free mass.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub mass: u32,
+    /// How it looks on the ship (`lens`, `pods`, `fins` ...), for the renderer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub look: Option<String>,
+    /// Which tab of the wharf at `station` it comes from: Ready (the default, for
+    /// `cost`), Make or Friends.
+    #[serde(default, skip_serializing_if = "crate::fit::PartSource::is_ready")]
+    pub source: crate::fit::PartSource,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// An automated craft a station builds for the player (a tender).
@@ -551,6 +579,10 @@ pub enum Modifier {
     MouthRadius { radius: f32 },
     /// Live prices of stations within this distance (price glass: 1200).
     PriceGlass { range: f32 },
+    /// Mines from this many world units further off (the long-throw drill).
+    MiningReach { units: f32 },
+    /// Shows what's left in rocks within this distance (the seam lamp).
+    SeamLamp { range: f32 },
     /// Multiplies standing gains from deeds with this tag (Good neighbour: delivery x1.5).
     DeedBonus { tag: String, factor: f64 },
     /// A named presentation feature for the app and talk (`sell_preview`,
@@ -584,10 +616,27 @@ pub struct HullRecord {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "service", rename_all = "snake_case")]
 pub enum ServiceRequest {
-    /// Buy and fit an upgrade.
+    /// Buy and fit an upgrade (the Ready tab). A part already in that socket goes to
+    /// the hull's locker in its place.
     Fit { upgrade: UpgradeId },
     /// Have a craft built (a tender).
     Build { craft: ShipId },
     /// Hullwright prestige to a new hull.
     Prestige { to: HullId },
+    /// Take a part off into the hull's locker.
+    Remove { upgrade: UpgradeId },
+    /// Fit a part from the hull's locker. A part already in that socket goes to the
+    /// locker in its place.
+    Refit { upgrade: UpgradeId },
+    /// Make a part from materials in the hold, with its blueprint. `fit`: fit it
+    /// straight away (a part in that socket goes to the locker); otherwise it goes
+    /// into the locker.
+    Make {
+        upgrade: UpgradeId,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fit: bool,
+    },
+    /// Order a part from the wharf keeper's friend: paid now, sent after the next
+    /// docking at the friend's station, into the hull's locker.
+    Order { upgrade: UpgradeId },
 }

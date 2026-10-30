@@ -556,13 +556,21 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
     if let FactPayload::Note(note) = &f.payload {
         // Station growth from the core pack or a game-master pack: its note is the
         // authored description ("Kettle Dock stage 1: a fogged glass dome").
-        return kind.ends_with("stage_built").then(|| note.clone());
+        // The hullwright's own lines ("Removed mining lens to the Wren's locker").
+        let fit = kind.starts_with("part_") || kind == "blueprint_found";
+        return (kind.ends_with("stage_built") || fit).then(|| note.clone());
     }
     let FactPayload::Event(event) = &f.payload else {
         return None;
     };
     let rules = &world.progress.rules;
     match event {
+        // A part's own `part_fitted` fact says it, with the price.
+        Event::UpgradeFitted { upgrade, .. }
+            if !galaxy_contract::fit::is_module(world, upgrade) =>
+        {
+            None
+        }
         Event::UpgradeFitted { upgrade, .. } => {
             let u = rules.upgrades.get(upgrade)?;
             // By first name, as people at the dock say it.

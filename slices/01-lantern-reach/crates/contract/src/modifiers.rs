@@ -1,6 +1,8 @@
 //! The native modifiers a ship has from the pilot's traits and fittings and its hull's
 //! ranks, added up. Traits and fittings belong to the pilot, so they apply to the
-//! ship the player flies; tenders get only `tender_hold`.
+//! ship the player flies; tenders get only `tender_hold`. The flagship's fitted mass
+//! past its hull's free allowance ([`crate::fit`]) multiplies `speed` and `turn_rate`
+//! down here too, so flight reads one number for each.
 //!
 //! This lives in the contract, not in `galaxy-progress`, because the kernel's own
 //! invariants (a hold within its capacity), the ship crate (flight, mining, docking,
@@ -11,7 +13,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::ids::ShipId;
+use crate::ids::{ShipId, UpgradeId};
 use crate::progress::Modifier;
 use crate::world::{Owner, Ship, WorldState};
 
@@ -31,6 +33,10 @@ pub struct Modifiers {
     pub mouth_radius: Option<f32>,
     /// Live-price range, if a modifier gives one.
     pub price_glass: Option<f32>,
+    /// World units added to mining reach.
+    pub mining_reach: f32,
+    /// The seam lamp's range, if one is fitted.
+    pub seam_lamp: Option<f32>,
     /// Presentation features (`sell_preview`, `lane_radio` ...).
     pub features: BTreeSet<String>,
 }
@@ -47,6 +53,8 @@ impl Default for Modifiers {
             dock_reach: 1.0,
             mouth_radius: None,
             price_glass: None,
+            mining_reach: 0.0,
+            seam_lamp: None,
             features: BTreeSet::new(),
         }
     }
@@ -67,6 +75,10 @@ impl Modifiers {
             }
             Modifier::PriceGlass { range } => {
                 self.price_glass = Some(self.price_glass.map_or(*range, |r| r.max(*range)));
+            }
+            Modifier::MiningReach { units } => self.mining_reach += units,
+            Modifier::SeamLamp { range } => {
+                self.seam_lamp = Some(self.seam_lamp.map_or(*range, |r| r.max(*range)));
             }
             Modifier::Feature { feature } => {
                 self.features.insert(feature.clone());
@@ -91,6 +103,11 @@ fn player_ship(world: &WorldState) -> Option<&Ship> {
 
 /// Every modifier the pilot carries: traits, fittings, and the current hull's ranks.
 pub fn pilot(world: &WorldState) -> Vec<&Modifier> {
+    pilot_with(world, &world.player.fittings)
+}
+
+/// [`pilot`] with `fittings` in place of what's fitted now (a fit preview).
+pub fn pilot_with<'w>(world: &'w WorldState, fittings: &BTreeSet<UpgradeId>) -> Vec<&'w Modifier> {
     let rules = &world.progress.rules;
     let mut out: Vec<&Modifier> = Vec::new();
     for t in &world.player.traits {
@@ -98,7 +115,7 @@ pub fn pilot(world: &WorldState) -> Vec<&Modifier> {
             out.extend(&def.modifiers);
         }
     }
-    for u in &world.player.fittings {
+    for u in fittings {
         if let Some(def) = rules.upgrades.get(u) {
             out.extend(&def.modifiers);
         }
@@ -120,14 +137,28 @@ pub fn pilot(world: &WorldState) -> Vec<&Modifier> {
     out
 }
 
+/// The flagship's modifiers with `fittings` fitted: the pilot's, and the mass past
+/// the hull's free allowance taken off top speed and turn rate.
+pub fn flagship_with(world: &WorldState, fittings: &BTreeSet<UpgradeId>) -> Modifiers {
+    let mut m = Modifiers::default();
+    for x in pilot_with(world, fittings) {
+        m.add(x);
+    }
+    if let Some(ship) = player_ship(world) {
+        let budget = crate::fit::budget(world, &ship.hull, fittings);
+        let (speed, turn) = crate::fit::mass_factors(world, &budget);
+        m.speed *= speed;
+        m.turn_rate *= turn;
+    }
+    m
+}
+
 /// The modifiers for one ship: the flagship gets the pilot's, a player tender gets
 /// the `tender_hold` bonuses, and anyone else's ship gets none.
 pub fn for_ship(world: &WorldState, ship: &ShipId) -> Modifiers {
     let mut m = Modifiers::default();
     if world.player.ship.as_ref() == Some(ship) {
-        for x in pilot(world) {
-            m.add(x);
-        }
+        return flagship_with(world, &world.player.fittings);
     } else if world
         .ships
         .get(ship)
@@ -153,8 +184,9 @@ pub fn hold_capacity(world: &WorldState, ship: &Ship) -> u64 {
 }
 
 /// The flagship's hold capacity on `hull` straight after a prestige: that hull's
-/// capacity plus the pilot's trait and fitting hold modifiers (they carry across). The
-/// new hull starts unstriped, so no rank adds anything yet.
+/// capacity plus the pilot's trait and fitting hold modifiers (they carry across, but
+/// a part the new hull can't take goes to the locker). The new hull starts unstriped,
+/// so no rank adds anything yet.
 pub fn hold_capacity_after_prestige(world: &WorldState, hull: &crate::ids::HullId) -> u64 {
     let rules = &world.progress.rules;
     let base = world
@@ -167,10 +199,12 @@ pub fn hold_capacity_after_prestige(world: &WorldState, hull: &crate::ids::HullI
         .iter()
         .filter_map(|t| rules.traits.get(t))
         .flat_map(|d| &d.modifiers);
+    let left = crate::fit::left_at_prestige(world, hull);
     let fittings = world
         .player
         .fittings
         .iter()
+        .filter(|u| !left.contains(*u))
         .filter_map(|u| rules.upgrades.get(u))
         .flat_map(|d| &d.modifiers);
     let extra: u64 = traits

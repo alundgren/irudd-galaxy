@@ -14,6 +14,8 @@ use crate::load::cents;
 pub(crate) struct Files {
     pub controls: ControlsFile,
     pub upgrades: UpgradesFile,
+    pub parts: ShipPartsFile,
+    pub hull_fits: Vec<galaxy_contract::fit::HullFit>,
     pub traits: TraitsFile,
     pub pacing: PacingFile,
     pub ranks: Vec<RankDef>,
@@ -65,6 +67,11 @@ pub(crate) fn build(world: &mut WorldState, files: Files, errors: &mut Vec<Strin
             unlock: u.unlock,
             grants: u.grants,
             modifiers: u.modifiers,
+            socket: u.socket,
+            power: u.power,
+            mass: u.mass,
+            look: u.look,
+            source: u.source,
         };
         if let Some(old) = rules.upgrades.insert(def.id.clone(), def) {
             errors.push(format!("upgrades.toml: duplicate upgrade `{}`", old.id));
@@ -89,6 +96,28 @@ pub(crate) fn build(world: &mut WorldState, files: Files, errors: &mut Vec<Strin
         };
         if let Some(old) = rules.crafts.insert(def.id.clone(), def) {
             errors.push(format!("upgrades.toml: duplicate craft `{}`", old.id));
+        }
+    }
+    let fit = &mut rules.fit;
+    fit.mass = files.parts.mass;
+    for x in files.parts.socket {
+        if let Some(old) = fit.sockets.insert(x.id.clone(), x) {
+            errors.push(format!("ship_parts.toml: duplicate socket `{}`", old.id));
+        }
+    }
+    for x in files.parts.wharf {
+        if let Some(old) = fit.wharves.insert(x.station.clone(), x) {
+            errors.push(format!("ship_parts.toml: two wharves at `{}`", old.station));
+        }
+    }
+    for x in files.parts.blueprint {
+        if let Some(old) = fit.blueprints.insert(x.id.clone(), x) {
+            errors.push(format!("ship_parts.toml: duplicate blueprint `{}`", old.id));
+        }
+    }
+    for x in files.hull_fits {
+        if let Some(old) = fit.hulls.insert(x.hull.clone(), x) {
+            errors.push(format!("hulls.toml: two [[fit]] tables for `{}`", old.hull));
         }
     }
     for t in files.traits.traits {
@@ -183,6 +212,7 @@ fn check(world: &WorldState, rules: &ProgressRules, errors: &mut Vec<String>) {
         grants(&u.grants, &what, errors);
         requirement(&u.unlock, world, rules, &what, errors);
     }
+    check_fit(world, rules, errors);
     for c in rules.crafts.values() {
         let what = format!("upgrades.toml: {}", c.id);
         npc(&c.seller, &what, errors);
@@ -284,6 +314,123 @@ fn check(world: &WorldState, rules: &ProgressRules, errors: &mut Vec<String>) {
             }
         }
         requirement(&p.requires, world, rules, what, errors);
+    }
+}
+
+/// The fit model's data: sockets, hull fits, wharves, blueprints and each part's
+/// socket and source refer to things that exist, and hold together.
+fn check_fit(world: &WorldState, rules: &ProgressRules, errors: &mut Vec<String>) {
+    use galaxy_contract::fit::PartSource;
+    let fit = &rules.fit;
+    let socket = |id: &SocketId, what: &str, errors: &mut Vec<String>| {
+        if !fit.sockets.contains_key(id) {
+            errors.push(format!("{what}: unknown socket `{id}`"));
+        }
+    };
+    let m = &fit.mass;
+    if !(0.0..=1.0).contains(&m.floor) || m.speed_per_unit < 0.0 || m.turn_per_unit < 0.0 {
+        errors.push("ship_parts.toml: [mass] floor must be 0..=1 and the shares 0 or more".into());
+    }
+    for h in fit.hulls.values() {
+        let what = format!("hulls.toml: [[fit]] {}", h.hull);
+        if !world.hulls.contains(&h.hull) {
+            errors.push(format!("{what}: unknown hull"));
+        }
+        let mut seen = BTreeSet::new();
+        for s in &h.sockets {
+            socket(s, &what, errors);
+            if !seen.insert(s) {
+                errors.push(format!("{what}: `{s}` listed twice"));
+            }
+        }
+    }
+    for w in fit.wharves.values() {
+        let what = format!("ship_parts.toml: wharf at {}", w.station);
+        if !world.stations.contains(&w.station) {
+            errors.push(format!("{what}: unknown station"));
+        }
+        if !world.npcs.contains(&w.keeper) {
+            errors.push(format!("{what}: unknown keeper `{}`", w.keeper));
+        }
+        for s in &w.sockets {
+            socket(s, &what, errors);
+            if fit.sockets.get(s).is_some_and(|d| d.rack) {
+                errors.push(format!("{what}: the control rack needs no wharf"));
+            }
+        }
+    }
+    for b in fit.blueprints.values() {
+        let what = format!("ship_parts.toml: blueprint {}", b.id);
+        match rules.upgrades.get(&b.part) {
+            Some(u) if matches!(&u.source, PartSource::Make { blueprint, .. } if blueprint == &b.id) =>
+                {}
+            _ => errors.push(format!(
+                "{what}: `{}` isn't a part made with this blueprint",
+                b.part
+            )),
+        }
+        requirement(&b.found, world, rules, &what, errors);
+    }
+    for u in rules.upgrades.values() {
+        let what = format!("upgrades.toml: {}", u.id);
+        let Some(s) = &u.socket else {
+            if !fit.is_empty() {
+                errors.push(format!(
+                    "{what}: needs a `socket` (`socket.rack` for a control module)"
+                ));
+            }
+            continue;
+        };
+        socket(s, &what, errors);
+        let rack = fit.sockets.get(s).is_some_and(|d| d.rack);
+        if rack && !u.source.is_ready() {
+            errors.push(format!(
+                "{what}: a control module comes ready from its seller"
+            ));
+        }
+        if !rack && u.look.is_none() {
+            errors.push(format!("{what}: a part needs a `look` for the renderer"));
+        }
+        if !u.source.is_ready() || (!rack && u.station.is_some()) {
+            let wharf = u.station.as_ref().and_then(|st| fit.wharves.get(st));
+            match wharf {
+                None => errors.push(format!("{what}: its `station` has no wharf")),
+                Some(w) if !w.sockets.contains(s) => errors.push(format!(
+                    "{what}: the wharf at {} doesn't work on `{s}`",
+                    w.station
+                )),
+                Some(_) => {}
+            }
+        }
+        match &u.source {
+            PartSource::Ready => {}
+            PartSource::Make {
+                blueprint,
+                materials,
+            } => {
+                if !fit.blueprints.contains_key(blueprint) {
+                    errors.push(format!(
+                        "{what}: no blueprint `{blueprint}` in ship_parts.toml"
+                    ));
+                }
+                if materials.is_empty() || materials.iter().any(|m| m.units == 0) {
+                    errors.push(format!("{what}: making it needs materials"));
+                }
+                for m in materials {
+                    if !world.wares.contains(&m.ware) {
+                        errors.push(format!("{what}: unknown ware `{}`", m.ware));
+                    }
+                }
+            }
+            PartSource::Friend { npc, station } => {
+                if !world.npcs.contains(npc) {
+                    errors.push(format!("{what}: unknown npc `{npc}`"));
+                }
+                if !world.stations.contains(station) {
+                    errors.push(format!("{what}: unknown station `{station}`"));
+                }
+            }
+        }
     }
 }
 

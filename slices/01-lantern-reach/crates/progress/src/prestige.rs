@@ -2,8 +2,9 @@
 //!
 //! Only hull ranks reset: the new hull starts at rank 0 with its own rank window.
 //! The world, credits minus the fee, standing, history, depletion, pilot traits,
-//! tenders, capabilities and every fitting stay. The old hull is berthed at the
-//! hullwright's station as its own ship and can't be flown again.
+//! tenders, capabilities, every fitting and the hull's locker stay: the flagship keeps
+//! its ship ID, so its parts and locker move with the hull's lineage. The old hull is
+//! berthed at the hullwright's station as its own ship and can't be flown again.
 
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
@@ -157,6 +158,9 @@ pub fn batch(world: &WorldState, history: &History, to: &HullId) -> Result<Comma
         hull: to.clone(),
         name: to_name,
     });
+    // Fitted parts come across; one the new hull can't take goes to its locker.
+    b.commands
+        .extend(crate::hullwright::prestige_commands(world, ship, to));
     if !ship.orders.orders.is_empty() {
         b.push(Command::UpdateOrders {
             ship: ship.id.clone(),

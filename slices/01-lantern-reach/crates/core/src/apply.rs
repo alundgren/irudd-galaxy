@@ -1202,6 +1202,100 @@ fn apply_with(
             }
             invert(cmd.clone())
         }
+        C::SetLocker { ship, part, stored } => {
+            if refs.check {
+                refs.require(&world.ships, ship, "ship")?;
+                if *stored && !world.progress.rules.upgrades.contains_key(part) {
+                    return Err(unknown("upgrade", part));
+                }
+            }
+            let lockers = &mut world.progress.fit.lockers;
+            if lockers.get(ship).is_some_and(|l| l.contains(part)) == *stored {
+                if refs.check {
+                    return Err(CommandError::Invalid(if *stored {
+                        format!("{part} is already in {ship}'s locker")
+                    } else {
+                        format!("{part} isn't in {ship}'s locker")
+                    }));
+                }
+                // Nothing changes; neither does doing it again.
+                return invert(cmd.clone());
+            }
+            if *stored {
+                lockers
+                    .entry(ship.clone())
+                    .or_default()
+                    .insert(part.clone());
+            } else if let Some(l) = lockers.get_mut(ship) {
+                l.remove(part);
+                if l.is_empty() {
+                    lockers.remove(ship);
+                }
+            }
+            invert(C::SetLocker {
+                ship: ship.clone(),
+                part: part.clone(),
+                stored: !*stored,
+            })
+        }
+        C::SetPartOrder { part, order } => {
+            let orders = &mut world.progress.fit.orders;
+            if refs.check {
+                match order {
+                    Some(o) => {
+                        if &o.part != part {
+                            return Err(CommandError::Invalid(format!(
+                                "the order for {part} names {}",
+                                o.part
+                            )));
+                        }
+                        if orders.contains_key(part) {
+                            return Err(CommandError::Invalid(format!(
+                                "{part} is already on order"
+                            )));
+                        }
+                    }
+                    None if !orders.contains_key(part) => {
+                        return Err(CommandError::Invalid(format!("{part} isn't on order")));
+                    }
+                    None => {}
+                }
+            }
+            let old = match order {
+                Some(o) => orders.insert(part.clone(), (**o).clone()),
+                None => orders.remove(part),
+            };
+            invert(C::SetPartOrder {
+                part: part.clone(),
+                order: old.map(Box::new),
+            })
+        }
+        C::PutUpgrade { id, value } => {
+            if refs.check
+                && let Some(v) = value
+                && &v.id != id
+            {
+                return Err(CommandError::Invalid(format!(
+                    "upgrade stored under `{id}` has id `{}`",
+                    v.id
+                )));
+            }
+            let upgrades = &mut world.progress.rules.upgrades;
+            let old = match value {
+                Some(v) => upgrades.insert(id.clone(), (**v).clone()),
+                None => upgrades.remove(id),
+            };
+            invert(C::PutUpgrade {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::SetFitRules { rules } => {
+            let old = std::mem::replace(&mut world.progress.rules.fit, (**rules).clone());
+            invert(C::SetFitRules {
+                rules: Box::new(old),
+            })
+        }
         C::ExpectHullRecord { hull, record } => {
             if refs.check && world.player.hull_records.get(hull) != record.as_ref() {
                 return Err(CommandError::Invalid(format!(

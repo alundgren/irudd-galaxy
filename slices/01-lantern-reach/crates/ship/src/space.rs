@@ -150,16 +150,61 @@ pub fn rock_radius(world: &WorldState, rock: &Rock) -> f32 {
     full * (spent + (1.0 - spent) * share.sqrt())
 }
 
-/// Whether a ship at `pos` can mine `rock`.
-pub fn in_reach(world: &WorldState, rock: &Rock, pos: Vec2) -> bool {
-    rock.position.distance(pos) - rock_radius(world, rock) <= world.ship_rules.mining.reach
+/// How far from a rock's drawn edge `ship` mines: the rules' reach plus its
+/// `mining_reach` modifiers (the long-throw drill).
+pub fn mining_reach(world: &WorldState, ship: &ShipId) -> f32 {
+    reach_with(world, &galaxy_contract::modifiers::for_ship(world, ship))
 }
 
-/// The nearest unspent rock in mining reach.
+/// Mining reach with these modifiers.
+pub fn reach_with(world: &WorldState, m: &galaxy_contract::modifiers::Modifiers) -> f32 {
+    world.ship_rules.mining.reach + m.mining_reach.max(0.0)
+}
+
+/// Whether a ship at `pos` can mine `rock` with the rules' reach (no reach
+/// modifiers: bots and tests). [`in_reach_of`] adds a ship's own.
+pub fn in_reach(world: &WorldState, rock: &Rock, pos: Vec2) -> bool {
+    within_reach(world, rock, pos, world.ship_rules.mining.reach)
+}
+
+/// Whether `ship` at `pos` can mine `rock`.
+pub fn in_reach_of(world: &WorldState, ship: &ShipId, rock: &Rock, pos: Vec2) -> bool {
+    within_reach(world, rock, pos, mining_reach(world, ship))
+}
+
+/// Whether `rock`'s drawn edge is within `reach` of `pos`.
+pub fn within_reach(world: &WorldState, rock: &Rock, pos: Vec2, reach: f32) -> bool {
+    rock.position.distance(pos) - rock_radius(world, rock) <= reach
+}
+
+/// The nearest unspent rock in the rules' mining reach, for a ship with no reach
+/// modifiers (bots and tests). [`rock_in_reach_of`] adds a ship's own.
 pub fn rock_in_reach<'w>(world: &'w WorldState, region: &RegionId, pos: Vec2) -> Option<&'w Rock> {
+    nearest_within(world, region, pos, world.ship_rules.mining.reach)
+}
+
+/// The nearest unspent rock `ship` at `pos` can mine.
+pub fn rock_in_reach_of<'w>(
+    world: &'w WorldState,
+    ship: &ShipId,
+    region: &RegionId,
+    pos: Vec2,
+) -> Option<&'w Rock> {
+    nearest_within(world, region, pos, mining_reach(world, ship))
+}
+
+/// The nearest unspent rock in `region` whose edge is within `reach` of `pos`.
+pub fn nearest_within<'w>(
+    world: &'w WorldState,
+    region: &RegionId,
+    pos: Vec2,
+    reach: f32,
+) -> Option<&'w Rock> {
     nearest(
         world.rocks.values().filter(|r| {
-            r.remaining > 0 && rock_region(world, r) == Some(region) && in_reach(world, r, pos)
+            r.remaining > 0
+                && rock_region(world, r) == Some(region)
+                && within_reach(world, r, pos, reach)
         }),
         |r| r.position.distance(pos),
     )
@@ -187,7 +232,7 @@ pub fn press_at<'w>(world: &'w WorldState, ship: &Ship, pos: Vec2) -> Option<Pre
     if let Some(way) = mouth_within(world, &ship.region, pos, m.mouth_radius) {
         return Some(Press::Ride(way));
     }
-    rock_in_reach(world, &ship.region, pos).map(Press::Mine)
+    nearest_within(world, &ship.region, pos, reach_with(world, &m)).map(Press::Mine)
 }
 
 /// How far `pos` is past the edge of `region` (the drawn region circle), if it is.

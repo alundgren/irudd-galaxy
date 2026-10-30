@@ -81,6 +81,9 @@ pub struct HullsFile {
     /// Hull ranks: deeds done in a hull (W4). Prestige resets them.
     #[serde(default)]
     pub rank: Vec<RankDef>,
+    /// Each fittable hull's sockets, power cap and free mass (`crate::fit`).
+    #[serde(default)]
+    pub fit: Vec<crate::fit::HullFit>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -148,6 +151,32 @@ pub struct UpgradeData {
     pub grants: Vec<FlagId>,
     #[serde(default)]
     pub modifiers: Vec<Modifier>,
+    /// The socket it fits (`socket.rack` for control modules). See `ship_parts.toml`.
+    #[serde(default)]
+    pub socket: Option<SocketId>,
+    #[serde(default)]
+    pub power: u32,
+    #[serde(default)]
+    pub mass: u32,
+    #[serde(default)]
+    pub look: Option<String>,
+    #[serde(default)]
+    pub source: crate::fit::PartSource,
+}
+
+/// `ship_parts.toml`: the fit model's sockets, wharves, blueprints and mass rules
+/// (`crate::fit`). The parts themselves are upgrades (`upgrades.toml`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShipPartsFile {
+    #[serde(default)]
+    pub socket: Vec<crate::fit::SocketDef>,
+    #[serde(default)]
+    pub wharf: Vec<crate::fit::WharfDef>,
+    #[serde(default)]
+    pub blueprint: Vec<crate::fit::BlueprintDef>,
+    #[serde(default)]
+    pub mass: crate::fit::MassRules,
 }
 
 /// A craft (tender) as authored; `cost` in credits.

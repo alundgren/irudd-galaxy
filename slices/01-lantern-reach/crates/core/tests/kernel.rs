@@ -376,6 +376,29 @@ fn undo_records_invert_commands() {
             upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
             fitted: true,
         },
+        Command::SetLocker {
+            ship: PLAYER,
+            part: UpgradeId::new("upgrade.hold_pods").unwrap(),
+            stored: true,
+        },
+        Command::SetPartOrder {
+            part: UpgradeId::new("upgrade.seam_lamp").unwrap(),
+            order: Some(Box::new(galaxy_contract::fit::PartOrder {
+                part: UpgradeId::new("upgrade.seam_lamp").unwrap(),
+                ship: PLAYER,
+                from: NpcId::new("npc.hesper_lune").unwrap(),
+                station: StationId::new("station.glass_drift_observatory").unwrap(),
+                since: None,
+                paid: 90_000,
+            })),
+        },
+        Command::PutUpgrade {
+            id: UpgradeId::new("upgrade.swift_fins").unwrap(),
+            value: None,
+        },
+        Command::SetFitRules {
+            rules: Box::default(),
+        },
         Command::SetHullRecord {
             hull: HullId::new("hull.wren").unwrap(),
             record: Some(HullRecord {

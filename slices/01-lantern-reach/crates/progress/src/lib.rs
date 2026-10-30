@@ -6,7 +6,8 @@
 //! - [`standing`]: hidden standing, regard tiers, faction deeds.
 //! - [`growth`]: pilot traits and hull ranks, earned from deeds done many times.
 //! - [`services`]: what hullwrights and dockmasters fit and build; [`prestige`]: the
-//!   hullwright's Hearthbound trade-up.
+//!   hullwright's Hearthbound trade-up; [`hullwright`]: ship parts in sockets, power
+//!   and mass, the hull's locker, Ready / Make / Friends, and the room's read API.
 //! - [`survey`]: survey-buoy rewards, paid on a reply with standing deeds.
 //! - [`modifiers`]: the native effects of traits, fittings and ranks, added up per
 //!   ship, for the ship, economy and app crates.
@@ -19,6 +20,7 @@
 pub mod beats;
 pub mod eval;
 pub mod growth;
+pub mod hullwright;
 pub mod modifiers;
 pub mod prestige;
 pub mod services;

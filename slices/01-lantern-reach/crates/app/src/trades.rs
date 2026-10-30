@@ -260,6 +260,13 @@ impl ServiceDesk {
     /// After the tick: did the purchase sent with it go through?
     pub fn settle(&mut self, world: &WorldState, history: &History, events: &[EventEnvelope]) {
         let Some(req) = self.sent.take() else { return };
+        // A hullwright service (a part taken off, refitted, made or ordered) is
+        // settled by its own fact this tick, whose note is the line to show.
+        if let Some(note) = part_note(world, history, &req) {
+            self.fitted = Some(format!("{note}."));
+            self.notice = None;
+            return;
+        }
         let bought = events.iter().any(|e| match (&req, &e.event) {
             (ServiceRequest::Fit { upgrade }, Event::UpgradeFitted { upgrade: u, .. }) => {
                 u == upgrade
@@ -286,10 +293,45 @@ impl ServiceDesk {
     }
 }
 
+/// This tick's `part_*` fact for a hullwright service on a part, if it went through:
+/// its note ("Removed mining lens to the Wren's locker").
+fn part_note(world: &WorldState, history: &History, req: &ServiceRequest) -> Option<String> {
+    let part = match req {
+        ServiceRequest::Remove { upgrade }
+        | ServiceRequest::Refit { upgrade }
+        | ServiceRequest::Make { upgrade, .. }
+        | ServiceRequest::Order { upgrade } => upgrade,
+        ServiceRequest::Fit { upgrade } if !galaxy_contract::fit::is_module(world, upgrade) => {
+            upgrade
+        }
+        _ => return None,
+    };
+    history
+        .facts()
+        .iter()
+        .rev()
+        .take_while(|f| f.tick == world.meta.tick)
+        .find(|f| {
+            f.kind.as_str().starts_with("part_")
+                && f.subjects.other.as_ref().map(|o| o.as_str()) == Some(part.as_str())
+        })
+        .and_then(|f| match &f.payload {
+            FactPayload::Note(n) => Some(n.clone()),
+            _ => None,
+        })
+}
+
 /// What a purchase is called on screen.
 pub fn service_name(world: &WorldState, req: &ServiceRequest) -> String {
     let rules = &world.progress.rules;
     match req {
+        ServiceRequest::Remove { upgrade }
+        | ServiceRequest::Refit { upgrade }
+        | ServiceRequest::Make { upgrade, .. }
+        | ServiceRequest::Order { upgrade } => rules
+            .upgrades
+            .get(upgrade)
+            .map_or_else(|| upgrade.to_string(), |u| u.name.clone()),
         ServiceRequest::Fit { upgrade } => rules
             .upgrades
             .get(upgrade)
@@ -352,6 +394,11 @@ pub fn service_done(world: &WorldState, req: &ServiceRequest) -> String {
             "You fly the {} now. Everything you fitted came across.",
             world.hulls.get(to).map_or(to.as_str(), |h| h.name.as_str())
         ),
+        // Settled by their own facts' notes (`part_note`).
+        ServiceRequest::Remove { .. }
+        | ServiceRequest::Refit { .. }
+        | ServiceRequest::Make { .. }
+        | ServiceRequest::Order { .. } => "Done.".into(),
     }
 }
 
@@ -379,6 +426,7 @@ pub fn service_refusal(
             format!("{name} holds {room}. You carry {holds}: sell or deliver some first.")
         }
         R::NoShip | R::Unknown(_) => "That can't be bought here.".into(),
+        R::Fit(f) => f.to_string(),
     }
 }
 
