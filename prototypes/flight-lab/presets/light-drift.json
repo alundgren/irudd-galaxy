@@ -1,0 +1,15 @@
+{
+  "name": "light drift",
+  "settings": {
+    "max_speed": 400.0,
+    "accel": 1320.0,
+    "inertia": 0.3,
+    "turn_rate": 300.0,
+    "brake": 1600.0,
+    "auto_brake": false,
+    "boost": 1.6,
+    "zoom": 1.0,
+    "lead": 0.25,
+    "course_hold": true
+  }
+}
