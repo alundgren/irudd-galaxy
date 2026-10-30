@@ -549,6 +549,21 @@ fn apply_with(
                 track: old,
             })
         }
+        C::SetSplitStack { ware, station } => {
+            refs.require(&world.wares, ware, "ware")?;
+            if let Some(s) = station {
+                refs.require(&world.stations, s, "station")?;
+            }
+            let stacks = &mut world.economy.split_stacks;
+            let old = match station {
+                Some(s) => stacks.insert(ware.clone(), s.clone()),
+                None => stacks.remove(ware),
+            };
+            invert(C::SetSplitStack {
+                ware: ware.clone(),
+                station: old,
+            })
+        }
         C::PutRegion { id, value } => {
             let old = put(&mut world.regions, id, value, "region")?;
             invert(C::PutRegion {

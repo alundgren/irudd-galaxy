@@ -80,8 +80,8 @@ fn fit(world: &WorldState, r: &TradeRequest) -> Result<u32, TradeError> {
             n => Ok(n),
         },
         Side::Buy => {
-            let capacity = world.hulls.get(&ship.hull).map_or(0, |h| h.hold_capacity);
-            let free = u32::try_from(u64::from(capacity).saturating_sub(ship.hold.total()))
+            let capacity = galaxy_contract::modifiers::hold_capacity(world, ship);
+            let free = u32::try_from(capacity.saturating_sub(ship.hold.total()))
                 .unwrap_or(u32::MAX);
             let want = r.quantity.min(free);
             if stock == 0 {

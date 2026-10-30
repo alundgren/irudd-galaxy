@@ -430,6 +430,10 @@ fn undo_records_invert_commands() {
                 away: true,
             }),
         },
+        Command::SetSplitStack {
+            ware: ICE,
+            station: Some(KETTLE),
+        },
         Command::PutStation {
             id: kettle.id.clone(),
             value: Some(Box::new(kettle)),

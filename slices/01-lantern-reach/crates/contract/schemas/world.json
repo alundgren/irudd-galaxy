@@ -40,6 +40,9 @@
           },
           "reach": {
             "flags": {}
+          },
+          "scouting": {
+            "far_docking": 10
           }
         },
         "stations": {}
@@ -218,7 +221,8 @@
           "saved_loop_limit": 3
         },
         "docking": {
-          "approach": 0.6000000238418579
+          "approach": 0.6000000238418579,
+          "transfer_reach": 120.0
         },
         "flight": {
           "accel_time": 0.10000000149011612,
@@ -1202,6 +1206,12 @@
           "type": "number",
           "format": "float",
           "default": 0.6000000238418579
+        },
+        "transfer_reach": {
+          "description": "A coupled hull hands cargo to a tender within this distance in space (both\ndocked at the same station always works).",
+          "type": "number",
+          "format": "float",
+          "default": 120.0
         }
       },
       "additionalProperties": false
@@ -1238,6 +1248,12 @@
           "$ref": "#/$defs/ReachRules",
           "default": {
             "flags": {}
+          }
+        },
+        "scouting": {
+          "$ref": "#/$defs/ScoutRules",
+          "default": {
+            "far_docking": 10
           }
         }
       },
@@ -1293,6 +1309,19 @@
             },
             "reach": {
               "flags": {}
+            },
+            "scouting": {
+              "far_docking": 10
+            }
+          }
+        },
+        "split_stacks": {
+          "description": "Per ware: the station where the player last sold part of the stack and kept\nthe rest. Selling that ware at another station is a split sale.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/StationId"
             }
           }
         },
@@ -2295,6 +2324,11 @@
           ],
           "format": "float"
         },
+        "coupling": {
+          "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
+          "type": "boolean",
+          "default": false
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -3179,6 +3213,31 @@
           "required": [
             "verb",
             "orders"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders, both docked at the same station or\nwithin `docking.transfer_reach` in space. Only a hull with `coupling` (the\nTandem) can. Writes a `transfer` fact.",
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "$ref": "#/$defs/Quantity"
+            },
+            "to": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "verb": {
+              "type": "string",
+              "const": "transfer"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "verb",
+            "ware",
+            "quantity",
+            "to"
           ]
         }
       ]
@@ -4817,6 +4876,20 @@
         "line"
       ]
     },
+    "ScoutRules": {
+      "description": "Scouting tunables.",
+      "type": "object",
+      "properties": {
+        "far_docking": {
+          "description": "The player docking at a station whose snapshot is more than this many player\ndockings old is a far docking (`far_docking` fact; the Heron's \"Far-sighted\").",
+          "type": "integer",
+          "format": "uint64",
+          "default": 10,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
     "ScriptHealth": {
       "description": "How a script's current revision has behaved.",
       "type": "object",
@@ -5039,7 +5112,8 @@
         "docking": {
           "$ref": "#/$defs/DockingRules",
           "default": {
-            "approach": 0.6000000238418579
+            "approach": 0.6000000238418579,
+            "transfer_reach": 120.0
           }
         },
         "flight": {
@@ -5550,16 +5624,25 @@
     },
     "VerbKind": {
       "description": "Verb names, used in causes and `order_done` events.",
-      "type": "string",
-      "enum": [
-        "fly",
-        "mine",
-        "dock",
-        "undock",
-        "buy",
-        "sell",
-        "wait",
-        "loop"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fly",
+            "mine",
+            "dock",
+            "undock",
+            "buy",
+            "sell",
+            "wait",
+            "loop"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders (the Tandem's Coupling).",
+          "type": "string",
+          "const": "transfer"
+        }
       ]
     },
     "Ware": {

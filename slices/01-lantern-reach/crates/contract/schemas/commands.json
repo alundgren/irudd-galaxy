@@ -1195,6 +1195,33 @@
           ]
         },
         {
+          "description": "Sets or clears (`None`) the station where the player sold part of a ware's\nstack and kept the rest, for `split_sale` facts.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_split_stack"
+            },
+            "station": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StationId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "ware"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "id": {
@@ -3058,6 +3085,11 @@
           ],
           "format": "float"
         },
+        "coupling": {
+          "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
+          "type": "boolean",
+          "default": false
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -3630,6 +3662,31 @@
           "required": [
             "verb",
             "orders"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders, both docked at the same station or\nwithin `docking.transfer_reach` in space. Only a hull with `coupling` (the\nTandem) can. Writes a `transfer` fact.",
+          "type": "object",
+          "properties": {
+            "quantity": {
+              "$ref": "#/$defs/Quantity"
+            },
+            "to": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "verb": {
+              "type": "string",
+              "const": "transfer"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "verb",
+            "ware",
+            "quantity",
+            "to"
           ]
         }
       ]
@@ -4748,16 +4805,25 @@
     },
     "VerbKind": {
       "description": "Verb names, used in causes and `order_done` events.",
-      "type": "string",
-      "enum": [
-        "fly",
-        "mine",
-        "dock",
-        "undock",
-        "buy",
-        "sell",
-        "wait",
-        "loop"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fly",
+            "mine",
+            "dock",
+            "undock",
+            "buy",
+            "sell",
+            "wait",
+            "loop"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders (the Tandem's Coupling).",
+          "type": "string",
+          "const": "transfer"
+        }
       ]
     },
     "Ware": {

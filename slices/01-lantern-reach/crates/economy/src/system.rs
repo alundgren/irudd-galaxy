@@ -16,6 +16,10 @@
 //!    visit". Snapshots read the committed world (the end of last tick), never this
 //!    tick's proposed batches, which may yet be rejected.
 //! 5. Executes the player's trade requests from the dock screen, in order.
+//! 6. Writes the facts progression counts: `far_docking` when the flagship docks
+//!    where its snapshot is more than `scouting.far_docking` of its dockings old, and
+//!    `split_sale` when it sells a ware at one station after selling part of that
+//!    stack at another and keeping the rest (`economy.split_stacks`).
 //!
 //! The system is stateless: everything it remembers lives in `world.economy`.
 //! Batches are worked out against a scratch copy of the world that each earlier batch
@@ -85,6 +89,30 @@ fn cause(summary: &str) -> Cause {
     Cause::system(NAME, summary)
 }
 
+/// A fact for one of the player's trading deeds.
+fn deed(
+    kind: &'static str,
+    ship: &ShipId,
+    station: &StationId,
+    ware: Option<&WareId>,
+    amount: Option<i64>,
+    note: String,
+) -> Command {
+    Command::RecordFact {
+        fact: Box::new(FactDraft {
+            kind: FactKind::from_static(kind),
+            subjects: Subjects {
+                ship: Some(ship.clone()),
+                station: Some(station.clone()),
+                ware: ware.cloned(),
+                ..Subjects::default()
+            },
+            amount,
+            note,
+        }),
+    }
+}
+
 impl System for EconomySystem {
     fn name(&self) -> &'static str {
         NAME
@@ -110,6 +138,71 @@ impl System for EconomySystem {
         let mut pulses = Pulses::default();
         let mut scouts: Vec<(ShipId, StationId)> = Vec::new();
         let mut left: Vec<StationId> = Vec::new();
+        let mut deeds = CommandBatch::new(cause("trading deeds"));
+        let mut stacks = world.economy.split_stacks.clone();
+        let flagship = world.player.ship.as_ref();
+        for env in events {
+            match &env.event {
+                Event::Dock { ship, station } if Some(ship) == flagship => {
+                    if let Some(snap) = world.player.price_snapshots.get(station) {
+                        let ago = scout::dockings_ago(world, snap);
+                        if ago > rules.scouting.far_docking {
+                            deeds.push(deed(
+                                "far_docking",
+                                ship,
+                                station,
+                                None,
+                                Some(ago as i64),
+                                format!("{ship} docked at {station}, last seen {ago} dockings ago"),
+                            ));
+                        }
+                    }
+                }
+                Event::Sell {
+                    ship,
+                    station,
+                    ware,
+                    quantity,
+                    ..
+                } if Some(ship) == flagship => {
+                    if stacks.get(ware).is_some_and(|s| s != station) {
+                        deeds.push(deed(
+                            "split_sale",
+                            ship,
+                            station,
+                            Some(ware),
+                            Some(i64::from(*quantity)),
+                            format!("{ship} sold the rest of a {ware} stack at {station}"),
+                        ));
+                        stacks.remove(ware);
+                    }
+                    let kept = world
+                        .ships
+                        .get(ship)
+                        .is_some_and(|s| s.hold.count(ware) > 0);
+                    if kept {
+                        stacks.insert(ware.clone(), station.clone());
+                    } else {
+                        stacks.remove(ware);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let wares: BTreeSet<&WareId> = stacks
+            .keys()
+            .chain(world.economy.split_stacks.keys())
+            .collect();
+        for ware in wares {
+            let now = stacks.get(ware);
+            if world.economy.split_stacks.get(ware) != now {
+                deeds.push(Command::SetSplitStack {
+                    ware: ware.clone(),
+                    station: now.cloned(),
+                });
+            }
+        }
+        work.commit(ctx, deeds);
         for env in events {
             match &env.event {
                 Event::Dock { ship, station } => {

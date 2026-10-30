@@ -81,11 +81,17 @@ pub struct DockingRules {
     /// A dock order steers until the ship is this far into the ring (share of its
     /// radius from the centre), then docks.
     pub approach: f32,
+    /// A coupled hull hands cargo to a tender within this distance in space (both
+    /// docked at the same station always works).
+    pub transfer_reach: f32,
 }
 
 impl Default for DockingRules {
     fn default() -> Self {
-        Self { approach: 0.6 }
+        Self {
+            approach: 0.6,
+            transfer_reach: 120.0,
+        }
     }
 }
 

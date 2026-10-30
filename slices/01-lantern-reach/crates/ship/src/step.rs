@@ -11,6 +11,7 @@
 //! the ship only flew.
 
 use galaxy_contract::history::FactDraft;
+use galaxy_contract::modifiers::Modifiers;
 use galaxy_contract::prelude::*;
 
 use crate::conditions;
@@ -72,6 +73,9 @@ pub(crate) struct ShipStep<'a, 'c> {
     claims: &'c mut Claims,
     ship: &'a Ship,
     hull: &'a Hull,
+    /// The pilot's traits, fittings and hull ranks, added up (the flagship's), or a
+    /// tender's hold bonus. Read through `galaxy_contract::modifiers`.
+    mods: Modifiers,
     feel: Feel,
     actor: Actor,
     // The ship as it ends the tick.
@@ -105,13 +109,16 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         hull: &'a Hull,
     ) -> Self {
         let flagship = w.player.ship.as_ref() == Some(&ship.id);
+        let mods = galaxy_contract::modifiers::for_ship(w, &ship.id);
+        let feel = Feel::of(&w.ship_rules.flight, hull).modified(&mods);
         Self {
             w,
             desk,
             claims,
             ship,
             hull,
-            feel: Feel::of(&w.ship_rules.flight, hull),
+            mods,
+            feel,
             actor: if flagship {
                 Actor::Player
             } else {
@@ -299,11 +306,12 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             return;
         }
         if pressed {
-            if let Some(station) = space::ring_at(self.w, &self.region, self.motion.position) {
+            let at = self.motion.position;
+            if let Some(station) = space::ring_within(self.w, &self.region, at, self.mods.dock_reach) {
                 self.dock(station.id.clone());
                 return;
             }
-            if let Some(way) = space::mouth_at(self.w, &self.region, self.motion.position) {
+            if let Some(way) = space::mouth_within(self.w, &self.region, at, self.mods.mouth_radius) {
                 self.enter_lane(way);
                 return;
             }
@@ -417,7 +425,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
 
     fn free_hold(&self) -> u64 {
         let used = i64::try_from(self.ship.hold.total()).unwrap_or(i64::MAX) + self.hold_delta;
-        u64::from(self.hull.hold_capacity).saturating_sub(used.max(0) as u64)
+        galaxy_contract::modifiers::hold_capacity(self.w, self.ship).saturating_sub(used.max(0) as u64)
     }
 
     /// Mines `rock` for one tick. Returns true once the run is over (hold full or rock
@@ -449,7 +457,8 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 }
             }
         };
-        run.progress += self.hull.mining_rate.max(0.0) * hardness.max(0.0) * TICK_SECONDS;
+        let rate = self.hull.mining_rate.max(0.0) * self.mods.mining_rate.max(0.0) as f32;
+        run.progress += rate * hardness.max(0.0) * TICK_SECONDS;
         let whole = run.progress.floor() as u64;
         let units = whole.min(self.free_hold()).min(u64::from(left)) as u32;
         let ware = self
@@ -685,7 +694,81 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 conditions::holds(self.w, Some(self.ship), until).then_some(Outcome::Done)
             }
             Order::Loop { .. } => Some(Outcome::Skipped("a loop inside a loop".into())),
+            Order::Transfer { ware, quantity, to } => Some(self.exec_transfer(ware, quantity, to)),
         }
+    }
+
+    /// The Coupling: hands cargo to one of the player's tenders alongside, in one go.
+    fn exec_transfer(&mut self, ware: &WareId, quantity: &Quantity, to: &ShipId) -> Outcome {
+        if !self.hull.coupling {
+            return Outcome::Skipped("only a coupled hull can hand cargo over".into());
+        }
+        let Some(tender) = self.w.ships.get(to).filter(|t| {
+            t.id != self.ship.id
+                && t.owner == Owner::Player
+                && !self.w.player.is_berthed(&t.id)
+                && self.w.hulls.get(&t.hull).is_some_and(|h| h.standing_berth)
+        }) else {
+            return Outcome::Skipped(format!("{to} isn't one of your tenders"));
+        };
+        let alongside = match (&self.docked, &tender.docked_at) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => {
+                tender.region == self.region
+                    && tender.position.distance(self.motion.position)
+                        <= self.w.ship_rules.docking.transfer_reach
+            }
+            _ => false,
+        };
+        if !alongside {
+            return Outcome::Skipped(format!("{to} isn't alongside"));
+        }
+        let have = self.ship.hold.count(ware);
+        let free = galaxy_contract::modifiers::hold_capacity(self.w, tender)
+            .saturating_sub(tender.hold.total());
+        let want = match quantity {
+            Quantity::Units { n } => *n,
+            Quantity::All => u32::MAX,
+        };
+        let n = want.min(have).min(u32::try_from(free).unwrap_or(u32::MAX));
+        if n == 0 {
+            return Outcome::Skipped(if have == 0 {
+                format!("no {ware} to hand over")
+            } else {
+                format!("{to}'s hold is full")
+            });
+        }
+        self.hold_delta -= i64::from(n);
+        self.queue.progress.lap_moved = true;
+        let id = self.ship.id.clone();
+        let fact = FactDraft {
+            kind: FactKind::from_static("transfer"),
+            subjects: Subjects {
+                ship: Some(id.clone()),
+                station: self.docked.clone(),
+                ware: Some(ware.clone()),
+                region: Some(self.region.clone()),
+                other: AnyId::new(to.as_str()).ok(),
+                ..Subjects::default()
+            },
+            amount: Some(i64::from(n)),
+            note: format!("{id} handed {n} {ware} to {to}"),
+        };
+        let commands = self.verb(VerbKind::Transfer, format!("{id} hands {n} {ware} to {to}"));
+        commands.push(Command::AdjustCargo {
+            ship: id,
+            ware: ware.clone(),
+            delta: -i64::from(n),
+        });
+        commands.push(Command::AdjustCargo {
+            ship: to.clone(),
+            ware: ware.clone(),
+            delta: i64::from(n),
+        });
+        commands.push(Command::RecordFact {
+            fact: Box::new(fact),
+        });
+        Outcome::Done
     }
 
     fn dest(&self, to: &FlyTarget) -> Option<Dest> {
