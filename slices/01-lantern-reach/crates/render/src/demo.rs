@@ -347,15 +347,11 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
             )],
         };
         let mesh = renderer.upload_mesh(&kit::station(&recipe));
-        let pos = Vec2::new(10.0 + stage as f32 * 24.0, -12.0);
+        let pos = Vec2::new(28.0 + stage as f32 * 36.0, -8.0);
         scene
             .meshes
             .push(MeshInstance::at(mesh, pos, 0.0, 1.0).with_material(station_mat));
-        label(
-            &mut scene,
-            &format!("greenhouse {stage}"),
-            pos - Vec2::Y * 11.0,
-        );
+        label(&mut scene, &stage.to_string(), pos - Vec2::Y * 12.0);
     }
     // Row 2: hulls.
     for (i, p) in [
@@ -367,11 +363,11 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
     .enumerate()
     {
         let mesh = renderer.upload_mesh(&kit::hull(p, 1));
-        let pos = Vec2::new(-100.0 + i as f32 * 30.0, -14.0);
+        let pos = Vec2::new(-108.0 + i as f32 * 34.0, -16.0);
         scene.meshes.push(
             MeshInstance::at(mesh, pos, std::f32::consts::FRAC_PI_2, 2.2).with_material(ship_mat),
         );
-        label(&mut scene, &format!("{:?}", p.class), pos - Vec2::Y * 12.0);
+        label(&mut scene, &format!("{:?}", p.class), pos - Vec2::Y * 20.0);
     }
     // Row 3: rocks at full, half and nearly gone.
     let kinds = [RockKind::Ice, RockKind::Iron, RockKind::Glassite];
@@ -381,7 +377,7 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
                 &RockParams::new(*kind, 4.5, *remaining),
                 40 + k as u64,
             ));
-            let pos = Vec2::new(-112.0 + j as f32 * 15.0 + k as f32 * 76.0, -50.0);
+            let pos = Vec2::new(-120.0 + j as f32 * 16.0 + k as f32 * 80.0, -62.0);
             scene
                 .meshes
                 .push(MeshInstance::at(mesh, pos, 0.3, 1.0).with_material(rock_mat));
