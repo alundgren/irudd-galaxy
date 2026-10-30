@@ -5,8 +5,12 @@
 //! 1. `manifest`: `manifest.toml` and data files against their schemas; files exist;
 //!    `uses` are known and implemented.
 //! 2. `types`: strict Luau typecheck against `galaxy.d.luau` (needs `luau-analyze`).
-//!    A `--!nocheck` or `--!nonstrict` directive is an error even without the
-//!    analyzer: source can't turn the strict check off.
+//!    Even without the analyzer, every file must start with `--!strict` and may not
+//!    contain `!nocheck` or `!nonstrict` anywhere: source can't turn the strict check
+//!    off.
+//!
+//! Every step that reads Luau reads exactly the files `require` can load
+//! ([`Pack::loadable`]): the script roots, never `tests/`.
 //! 3. `hooks`: every `ctx` hook a script calls is declared in `uses`; each script
 //!    loads and defines exactly the handlers its manifest lists.
 //! 4. `references`: every ID a script or the manifest names exists in the world or is
@@ -180,7 +184,7 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
 
     // 3. Hooks (static scan, then load the scripts)
     let scans: Vec<(String, scan::Scan)> = pack
-        .script_files()
+        .loadable_files()
         .map(|(f, src)| (f.to_owned(), scan::scan(f, src)))
         .collect();
     let has_stores = |file: &str| {

@@ -35,6 +35,11 @@ pub struct PackManifest {
     /// the pack is installed, if the world doesn't have them yet.
     #[serde(default)]
     pub data: Vec<String>,
+    /// `true` makes `lib/` a script root next to `scripts/`: scripts may `require`
+    /// modules there. Only the script roots are loadable, and every check covers
+    /// exactly the files in them.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub lib: bool,
     #[serde(default)]
     pub depends: Vec<PackId>,
     /// IDs the scripts create at runtime (so the reference check knows them).

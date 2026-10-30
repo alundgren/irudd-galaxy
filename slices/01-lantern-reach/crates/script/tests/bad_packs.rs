@@ -170,7 +170,15 @@ fn turning_the_typecheck_off_is_rejected() {
         "scripts/unchecked.luau",
         Some(1),
     );
-    assert_eq!(errors(&r).len(), 1, "{:#?}", errors(&r));
+    // And the first line isn't `--!strict`.
+    has(
+        &r,
+        ValidationStep::Types,
+        "not_strict",
+        "scripts/unchecked.luau",
+        Some(1),
+    );
+    assert_eq!(errors(&r).len(), 2, "{:#?}", errors(&r));
 }
 
 #[test]

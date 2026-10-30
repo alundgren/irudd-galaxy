@@ -47,7 +47,7 @@ pub struct PackData {
 }
 
 impl Pack {
-    /// Luau source files (`scripts/` and `tests/`), sorted.
+    /// Every Luau file in the pack, sorted.
     pub fn luau_files(&self) -> impl Iterator<Item = (&str, &str)> {
         self.files
             .iter()
@@ -55,9 +55,40 @@ impl Pack {
             .map(|(p, s)| (p.as_str(), s.as_str()))
     }
 
-    /// Luau files under `scripts/`: declared scripts and the modules they require.
-    pub fn script_files(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.luau_files().filter(|(p, _)| p.starts_with("scripts/"))
+    /// The folders scripts load code from: `scripts/`, and `lib/` if the manifest
+    /// sets `lib = true`. Never `tests/`.
+    pub fn script_roots(&self) -> &'static [&'static str] {
+        if self.manifest.lib {
+            &["scripts", "lib"]
+        } else {
+            &["scripts"]
+        }
+    }
+
+    /// Can a script load `path`? It must be a `.luau` file under a script root, every
+    /// segment a plain name (`[A-Za-z0-9_-]`, plus the extension), and in the pack.
+    /// `require` loads only these, and the typecheck, the directive check and the scan
+    /// run over exactly these, so nothing that runs escapes a check.
+    pub fn loadable(&self, path: &str) -> bool {
+        let mut segs = path.split('/');
+        let root_ok = segs
+            .next()
+            .is_some_and(|r| self.script_roots().contains(&r));
+        let Some(stem) = path.strip_suffix(".luau") else {
+            return false;
+        };
+        let names_ok = stem.split('/').all(|seg| {
+            !seg.is_empty()
+                && seg
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        });
+        root_ok && names_ok && path.contains('/') && self.files.contains_key(path)
+    }
+
+    /// The Luau files scripts can load (see [`Pack::loadable`]), sorted.
+    pub fn loadable_files(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.luau_files().filter(|(p, _)| self.loadable(p))
     }
 
     pub fn test_files(&self) -> impl Iterator<Item = (&str, &str)> {
@@ -296,6 +327,22 @@ fn check_manifest(m: &PackManifest, files: &BTreeMap<String, String>) -> Vec<Dia
                     ));
                 }
             }
+        }
+    }
+    for path in files.keys().filter(|p| p.ends_with(".luau")) {
+        let root = path.split('/').next().unwrap_or("");
+        let reachable = root == "scripts" || root == "tests" || (root == "lib" && m.lib);
+        if !reachable {
+            d.push(diag(
+                Severity::Warning,
+                "unloadable_file",
+                format!(
+                    "`{path}` is outside the script roots, so nothing can load it: scripts load \
+                     modules from `scripts/` (and `lib/` with `lib = true` in the manifest)"
+                ),
+                Some(path),
+                None,
+            ));
         }
     }
     let l = &m.limits;

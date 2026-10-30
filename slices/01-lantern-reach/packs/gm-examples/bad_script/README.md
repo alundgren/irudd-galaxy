@@ -11,5 +11,5 @@ with a precise report (file, line, reason); `crates/script/tests/bad_packs.rs` k
 | `uncited_talk` | A talk line without `cites` | invariants (and types) | `uncited_line` |
 | `unpaired_shock` | A shock whose opportunity isn't declared | invariants | `unpaired_shock` |
 | `timer_trigger` | `G.after { seconds = 30 }` | hooks | `bad_trigger` |
-| `nocheck` | `--!nocheck` turns the strict typecheck off | types | `typecheck_off` |
+| `nocheck` | `--!nocheck` turns the strict typecheck off | types | `typecheck_off`, `not_strict` |
 | `bare_iteration` | A bare `for k in t` loop, whose order isn't stable | invariants | `unordered_iteration` |

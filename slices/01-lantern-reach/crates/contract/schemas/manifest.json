@@ -35,6 +35,10 @@
       "description": "`core`, or namespaced for game-master packs: `gm.kettle_growth`.",
       "$ref": "#/$defs/PackId"
     },
+    "lib": {
+      "description": "`true` makes `lib/` a script root next to `scripts/`: scripts may `require`\nmodules there. Only the script roots are loadable, and every check covers\nexactly the files in them.",
+      "type": "boolean"
+    },
     "limits": {
       "$ref": "#/$defs/Limits",
       "default": {
