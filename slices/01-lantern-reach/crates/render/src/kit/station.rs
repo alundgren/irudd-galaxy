@@ -1389,13 +1389,27 @@ fn part_reach(kind: &PartKind) -> f32 {
     }
 }
 
+/// A conservative bound on how far a decal's geometry reaches from its placement
+/// point: the half-diagonal of its footprint (corners, not just the long side), with a
+/// margin, so `validate` can promise the built mesh stays inside the station radius
+/// whatever the decal's turn.
 fn decal_reach(kind: &DecalKind) -> f32 {
-    match *kind {
-        DecalKind::Stripe { length, width, .. } | DecalKind::Chevron { length, width } => {
-            length.max(width) * 0.5
+    const MARGIN: f32 = 1.1;
+    let half_diagonal = |x: f32, y: f32| 0.5 * x.hypot(y);
+    MARGIN
+        * match *kind {
+            DecalKind::Stripe { length, width, .. } | DecalKind::Chevron { length, width } => {
+                half_diagonal(length, width)
+            }
+            // The backing plate is `1.2 * size` square; the mark sits inside it.
+            DecalKind::Sigil { size } => half_diagonal(1.2 * size, 1.2 * size),
+            // The backing plate is `1.35 * size` by `1.4 * size`, or `2.3 * size` for
+            // two digits (see `build_decal`).
+            DecalKind::Number { value, size } => {
+                let wide = if value >= 10 { 2.3 } else { 1.4 };
+                half_diagonal(1.35 * size, wide * size)
+            }
         }
-        DecalKind::Sigil { size } | DecalKind::Number { size, .. } => size,
-    }
 }
 
 /// Builds a station mesh from a recipe. Invalid values are clamped so this never panics,
@@ -3031,6 +3045,25 @@ mod tests {
                     .any(|t| t.contains("decal 0") && t.contains("reaches")),
                 "{text:?}"
             );
+        }
+
+        // Re-check of #23: a two-digit plate at the edge. Its backing plate's corner
+        // reaches about 121.3, past the 120 limit, so both checks must refuse it.
+        let mut plate = StationRecipe::lantern_wharf();
+        plate.decals = vec![Decal::new(
+            DecalKind::Number {
+                value: 42,
+                size: 8.0,
+            },
+            Placement {
+                distance: 112.0,
+                turn: 90.0,
+                ..Placement::default()
+            },
+        )];
+        for errs in both(&plate) {
+            let text: Vec<_> = errs.iter().map(|e| e.to_string()).collect();
+            assert!(text.iter().any(|t| t.contains("reaches")), "{text:?}");
         }
 
         let mut nan = StationRecipe::lantern_wharf();
