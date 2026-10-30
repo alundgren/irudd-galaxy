@@ -1,11 +1,12 @@
 # Authored dock-talk lines (content/05-people.md). Each cites a fact kind, optionally
 # narrowed by the fact's subjects (`ware`, `station`, `other`: an upgrade, trait, hull
-# or ledger ID). On a docking, the station's people offer the lines whose fact is newer
-# than the player's previous docking there; the decision model may pick one, and the
-# game fills `{qty}`, `{ware}` and `{station}` from the cited fact. A fact any said line
-# already cites isn't cited again, and a line retires after `max_uses` sayings. Lines
-# whose conditions or slots the engine can't check yet (counts like `n >= 10`, `first`,
-# `{trait_name}`) wait until it can: no line is better than a wrong one.
+# or ledger ID) and its exact `amount` (a `stage_built` fact's stage). On a docking,
+# the station's people offer the lines whose fact is newer than the player's previous
+# docking there; the decision model may pick one, and the game fills `{qty}`, `{ware}`
+# and `{station}` from the cited fact. A fact any said line already cites isn't cited
+# again, and a line retires after `max_uses` sayings. Lines whose conditions or slots
+# the engine can't check yet (counts like `n >= 10`, `first`, `{trait_name}`, ranges
+# like `stage >= 2`) wait until it can: no line is better than a wrong one.
 # Read by galaxy-mind (`TalkLines`), not by the world loader.
 
 max_uses = 3
@@ -49,6 +50,7 @@ text = "A Heron. You'll see the prices before I do, then."
 id = "line.ilse_marrow.11"
 npc = "npc.ilse_marrow"
 cites = "stage_built"
+amount = 1
 station = "station.kettle_dock"
 text = "Odo's got a pane up at Kettle. One dome, and it fogs. He's never been prouder of anything."
 
@@ -105,6 +107,7 @@ text = "{qty} ice. The beans will hear about this."
 id = "line.odo_fenn.02"
 npc = "npc.odo_fenn"
 cites = "stage_built"
+amount = 1
 station = "station.kettle_dock"
 text = "First pane's up. It fogs in the mornings. Well. When we call it morning."
 

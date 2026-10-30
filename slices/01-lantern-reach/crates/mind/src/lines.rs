@@ -1,7 +1,8 @@
 //! Authored dock-talk lines (`data/lines.toml`) and the line source the game uses.
 //!
 //! A line names its speaker, the fact kind it cites and, optionally, which subjects
-//! that fact must have (`ware`, `station`, `other`: an upgrade, a trait, a hull ...).
+//! that fact must have (`ware`, `station`, `other`: an upgrade, a trait, a hull ...)
+//! and which `amount` (a `stage_built` fact's stage).
 //! [`TalkLines`] is the [`LineSource`] behind dock talk in play. On top of
 //! [`crate::LinePool`]'s rule (a fact of the line's kind, newer than
 //! the player's previous docking here, every slot filled) it applies the two rules of
@@ -63,6 +64,9 @@ pub struct LineDef {
     /// ... about this entity (an upgrade, trait, hull, beat ...).
     #[serde(default)]
     pub other: Option<String>,
+    /// ... with exactly this amount (a `stage_built` fact's stage).
+    #[serde(default)]
+    pub amount: Option<i64>,
     /// Slots: `{qty}`, `{ware}`, `{station}`, filled from the cited fact.
     pub text: String,
 }
@@ -71,6 +75,7 @@ impl LineDef {
     fn matches(&self, fact: &Fact) -> bool {
         let s = &fact.subjects;
         same_kind(&self.cites, fact.kind.as_str())
+            && self.amount.is_none_or(|a| fact.amount == Some(a))
             && self
                 .ware
                 .as_ref()
@@ -91,6 +96,7 @@ impl LineDef {
             + u32::from(self.ware.is_some())
             + u32::from(self.station.is_some())
             + u32::from(self.other.is_some())
+            + u32::from(self.amount.is_some())
     }
 }
 
