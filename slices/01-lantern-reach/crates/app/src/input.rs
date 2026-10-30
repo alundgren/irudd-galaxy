@@ -36,6 +36,8 @@ pub enum Key {
     /// Zoom (also the mouse wheel).
     ZoomOut,
     ZoomIn,
+    /// The number keys 1 to 9: pick that answer at the dock (0-based).
+    Answer(u8),
 }
 
 /// Which keys are down, plus a Space press the ticks haven't seen yet.
@@ -146,6 +148,7 @@ pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerIn
         click,
         trades: Vec::new(),
         services: Vec::new(),
+        replies: Vec::new(),
     }
 }
 

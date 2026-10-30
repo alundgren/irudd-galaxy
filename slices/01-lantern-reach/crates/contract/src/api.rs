@@ -203,6 +203,16 @@ pub const USES: &[UseDef] = &[
         Hook::Market,
         "Add or scale producers and consumers, set stock (galaxy-economy's levers).",
     ),
+    cap(
+        "space.read",
+        Hook::Stores,
+        "Read scripted and NPC craft: where they are and what they carry.",
+    ),
+    cap(
+        "space.write",
+        Hook::Stores,
+        "Launch scripted craft, lay out new rock fields, rest a field's regrowth.",
+    ),
     cap("orders.read", Hook::Orders, "Read a craft's order queue."),
     cap(
         "orders.write",
@@ -310,6 +320,7 @@ pub const fn event_use(kind: EventKind) -> &'static str {
         EventKind::RegardChanged => "events.regard_changed",
         EventKind::TenderAcquired => "events.tender_acquired",
         EventKind::Paused => "events.paused",
+        EventKind::Reply => "events.reply",
     }
 }
 
@@ -681,6 +692,13 @@ pub const FUNCTIONS: &[FnDef] = &[
     ),
     f(
         "market",
+        "pulses",
+        "market.read",
+        "(station: StationId) -> number",
+        "Activity pulses a station has had so far (fractional). Pace by these, never by time.",
+    ),
+    f(
+        "market",
         "levers",
         "market.levers",
         "(levers: { Lever }, why: Cause) -> ()",
@@ -809,10 +827,53 @@ pub const FUNCTIONS: &[FnDef] = &[
     ),
     f(
         "beats",
+        "expect_docked",
+        "beats.write",
+        "(station: StationId, why: Cause) -> ()",
+        "Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.",
+    ),
+    f(
+        "beats",
         "load",
         "beats.write",
         "(spec: LoadSpec, why: Cause) -> ()",
-        "Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.",
+        "Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.",
+    ),
+    f(
+        "beats",
+        "pay",
+        "beats.write",
+        "(credits: number, why: Cause) -> ()",
+        "Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.",
+    ),
+    // --- Space ---
+    f(
+        "space",
+        "craft",
+        "space.read",
+        "(id: ShipId) -> CraftView?",
+        "A non-player craft as scripts see it: hull, owner, where it is docked, region, position and cargo. `nil` if there's no such ship.",
+    ),
+    f(
+        "space",
+        "put_craft",
+        "space.write",
+        "(spec: CraftSpec, why: Cause) -> ()",
+        "Launches a scripted craft owned by a named person (a teacher's tender, a prospector's skiff), berthed at a station with its cargo. New IDs are namespaced by the pack.",
+    ),
+    f(
+        "space",
+        "put_field",
+        "space.write",
+        "(spec: FieldSpec, why: Cause) -> ()",
+        "Lays out a new rock field with its rocks at authored positions (a rumored vein found). New IDs are namespaced by the pack.",
+    ),
+    f(
+        "space",
+        "set_regrow",
+        "space.write",
+        "(field: FieldId, per_pulse: number, why: Cause) -> ()",
+        "Sets a field's regrowth per region pulse (letting a field rest). A rollback restores it.",
     ),
     // --- Mechanics ---
     f(
@@ -970,6 +1031,7 @@ pub const NAMESPACES: &[(&str, &str)] = &[
     ("rumors", "RumorsApi"),
     ("territory", "TerritoryApi"),
     ("market", "MarketApi"),
+    ("space", "SpaceApi"),
     ("orders", "OrdersApi"),
     ("beats", "BeatsApi"),
     ("mechanics", "MechanicsApi"),
@@ -1285,7 +1347,10 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
          export type Cause = { summary: string, cites: { FactId }, handle: number }\n\
          export type CounterScopeArg = { station: StationId?, region: RegionId? }\n\
          -- A line on a legibility channel. Needs `speaker` or `place`, and `cites`.\n\
-         export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites: { FactId } }\n",
+         export type LineSpec = { speaker: NpcId?, place: StationId?, text: string, cites: { FactId }, choices: { TalkChoice }? }\n\
+         -- An answer a dock-talk line offers (at most 4); picking one sends a `reply` event\n\
+         -- naming the speaker and the choice's `id`.\n\
+         export type TalkChoice = { id: string, text: string }\n",
     );
     let counter_fields: Vec<String> = COUNTERS
         .iter()
@@ -1397,20 +1462,32 @@ export type BeatSpec = { id: BeatId, act: number, kind: (\"directed\" | \"situat
 export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?, step: string? }\n\
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }\n\
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }\n\
--- The player for a beat: `credits` are credits (40.5), not centicredits.\n\
-export type PilotView = { ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+-- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.\n\
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
 export type Spot = { x: number, y: number, region: RegionId? }\n\
 export type FieldId = string\n\
--- Read-only depletion views. `left` is remaining / full (1 when full is 0).\n\
-export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number }\n\
+-- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's\n\
+-- `regrow` is units per region pulse.\n\
+export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number, regrow: number }\n\
 export type RockView = { id: RockId, field: FieldId, position: Vec2, remaining: number, initial: number, left: number }\n\
-export type LoadSpec = { ware: WareId, quantity: number }\n\
+-- A craft as scripts see it (`ctx.space:craft`). `owner` is a person or faction ID, or\n\
+-- \"player\" for the player's own craft.\n\
+export type CraftView = { id: ShipId, name: string, hull: HullId, owner: string, docked_at: StationId?, region: RegionId, position: Vec2, cargo: { [WareId]: number } }\n\
+-- A scripted craft to launch: owned by `npc`, berthed at `station`, with `cargo`.\n\
+export type CraftSpec = { id: ShipId, name: string, hull: HullId, npc: NpcId, station: StationId, cargo: { [WareId]: number }? }\n\
+-- A rock field to lay out: one rock per position, each with `amount` units.\n\
+export type FieldSpec = { id: FieldId, name: string, region: RegionId, rock_type: string, center: Vec2, radius: number, amount: number, regrow: number?, rocks: { Vec2 } }\n\
+-- Goal cargo for the player's ship. A consignment loads at a dock; `found = true` is\n\
+-- something found in space (a fragment in a spent rock) and loads wherever the ship is.\n\
+export type LoadSpec = { ware: WareId, quantity: number, found: boolean? }\n\
 export type DeedSpec = { faction: FactionId, deed: string, delta: number, tags: { string }? }\n\
--- A market lever (galaxy-economy). Prices follow from the new supply.\n\
+-- A market lever (galaxy-economy). Prices follow from the new supply; `set_base`\n\
+-- (centicredits) and `scale_base` move a line's base price itself.\n\
 export type Lever = { lever: \"add_producers\" | \"add_consumers\", station: StationId, ware: WareId, per_pulse: number }\n\
-\t| { lever: \"scale_producers\" | \"scale_consumers\", station: StationId, ware: WareId, factor: number }\n\
+\t| { lever: \"scale_producers\" | \"scale_consumers\" | \"scale_base\", station: StationId, ware: WareId, factor: number }\n\
 \t| { lever: \"set_stock\", station: StationId, ware: WareId, stock: number }\n\
+\t| { lever: \"set_base\", station: StationId, ware: WareId, base_price: number }\n\
 \t| { lever: \"remove_line\", station: StationId, ware: WareId }\n\
 \t| { lever: \"add_line\", station: StationId, ware: WareId, line: { [string]: any } }\n";
 
@@ -1445,6 +1522,8 @@ const BEAT_BUILDERS: &str = "\
 \tdocked_at: (station: StationId) -> Requirement,\n\
 \tdocked: () -> Requirement,\n\
 \tin_region: (region: RegionId) -> Requirement,\n\
+\t-- The player is in the spot's region, within `within` u of it.\n\
+\tnear: (spot: { x: Num, y: Num, region: RegionId }, within: Num) -> Requirement,\n\
 \t-- Regard at least this tier (`stranger`, `known`, `trusted`, `kin`).\n\
 \tregard: (faction: FactionId, tier: string) -> Requirement,\n\
 \ttunable_is: (id: TunableId, value: TunableValue) -> Requirement,\n\
@@ -1608,7 +1687,7 @@ G.beat {
 - Requirements never name a time. Build them with `G.all`, `G.any`, `G.never`,
   `G.done`, `G.started`, `G.active`, `G.at_step`, `G.counter`, `G.fact`, `G.sum`,
   `G.flag`, `G.trait`, `G.fitted`, `G.hull`, `G.owns`, `G.credits`, `G.cargo`,
-  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.regard`,
+  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.near`, `G.regard`,
   `G.tunable_is`, and `G.test(function(ctx) return ... end)` for anything else (read
   only). A list of requirements means all of them. `G.fact`/`G.sum` take
   `{ since = \"start\" }` or `\"step\"` to count only facts after the beat or step began.

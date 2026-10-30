@@ -8,9 +8,12 @@
 //! - The talk panel shows what was said since the flagship last docked: dock talk and
 //!   chronicle entries from the world's talk log, each naming a person or a place and
 //!   citing a fact.
-//! - "What changed?" ([`what_changed`]) is a dockmaster's answer: their authored lines
-//!   for facts since the player's previous docking there, chronicle entries, and
-//!   digest lines that say plainly what a fact records, each citing it.
+//! - "What changed?" ([`what_changed`]) is a dockmaster's answer: the lines the core
+//!   pack said when the player asked (a `choice.what_changed` reply), digest lines that
+//!   say plainly what a fact records, each citing it, and chronicle entries.
+//! - Open choices ([`open_choices`]) are the answers people at the dock are waiting
+//!   for; the dock shows them as buttons (keys 1 to 9) and the pick goes out as a
+//!   `PlayerInput::replies` entry.
 //! - Station services ([`station_services`]) are the hullwright's, tender keeper's and
 //!   dockmaster's offers, from [`services::offers`].
 
@@ -267,88 +270,190 @@ pub struct Answer {
     pub speaker: Option<NpcId>,
     /// Each names a person or place and cites a fact. Empty: nothing has.
     pub lines: Vec<TalkLine>,
+    /// The plain digest lines among `lines`, which the app says itself (the pack said
+    /// the rest).
+    pub digest: Vec<TalkLine>,
 }
 
-/// The fact kind recorded when the player asks (b17 waits on it).
-pub const ASKED: FactKind = FactKind::from_static("asked_what_changed");
+/// The standing question every dockmaster answers, sent as a reply.
+pub const WHAT_CHANGED: &str = "choice.what_changed";
+
+/// The fact kind the core pack records when the player asks (b17 waits on it).
+pub const ASKED: FactKind = FactKind::from_static("core.asked_what_changed");
 
 /// How many lines an answer has at most (`05-people.md`: up to 3, plus the chronicle).
 const ANSWER_LINES: usize = 3;
 const ANSWER_CHRONICLE: usize = 2;
 
-/// The dockmaster's answer at `station`: their authored lines for facts since the
-/// player's previous docking there (most specific first, one per place), then digest
-/// lines for the rest of what happened, then the chronicle entries written since. Like
-/// all ambient talk, it never tells a fact some said line already cites, or one a
-/// `queued` batch is about to say (an ambient line picked at the docking).
+/// The dockmaster's answer at `station`, once the core pack has answered the question
+/// (`asked`, its `core.asked_what_changed` fact): the lines the pack said with it (its
+/// authored lines, or Ilse's homecoming in b17), then digest lines for the rest of what
+/// happened since the player's previous docking there, then the chronicle entries
+/// written since. The whole answer shares one line per cited place and never repeats
+/// a fact. Like all ambient talk, a digest line never tells a fact some said line
+/// already cites, or one a `queued` batch is about to say.
 pub fn what_changed(
     world: &WorldState,
     history: &History,
     queued: &[CommandBatch],
-    lines: &TalkLines,
     station: &StationId,
+    asked: &Fact,
 ) -> Answer {
-    let speaker = keeper(world, station, "dockmaster");
+    let speaker = asked
+        .subjects
+        .npc
+        .clone()
+        .or_else(|| keeper(world, station, "dockmaster"));
     let since = previous_docking(world, history, station);
-    let mut out: Vec<TalkLine> = Vec::new();
-    if let Some(npc) = &speaker {
-        for c in lines.what_changed(world, history, queued, since, npc, ANSWER_LINES) {
-            let place = history
-                .fact(c.cites)
-                .and_then(|f| f.subjects.station.clone())
-                .or_else(|| Some(station.clone()));
-            out.push(TalkLine {
-                channel: Channel::DockTalk,
-                speaker: Some(npc.clone()),
-                place,
-                text: c.text,
-                cites: vec![c.cites],
-                about: Vec::new(),
-            });
-        }
-    }
-    // Facts any said or queued line already cites (ambient talk tells each once), and
-    // the ones the dockmaster's own lines just took.
+    // What the pack said in the batch that recorded the question.
+    let mut out: Vec<TalkLine> = world
+        .talk
+        .on(Channel::DockTalk)
+        .filter(|l| l.tick == asked.tick)
+        .filter(|l| l.line.place.as_ref() == Some(station) || l.line.speaker == speaker)
+        .map(|l| l.line.clone())
+        .collect();
     let mut cited = TalkLines::cited_facts(world, queued);
-    cited.extend(out.iter().flat_map(|l| l.cites.iter().copied()));
-    let mut places: BTreeSet<Option<StationId>> = out.iter().map(|l| l.place.clone()).collect();
+    let mut answer_cites: BTreeSet<FactId> =
+        out.iter().flat_map(|l| l.cites.iter().copied()).collect();
+    cited.extend(&answer_cites);
+    let mut places: BTreeSet<Option<StationId>> =
+        out.iter().flat_map(|l| cited_places(history, l)).collect();
+    let mut digest = Vec::new();
     for f in history.facts().iter().rev().take_while(|f| f.id > since) {
-        if out.len() >= ANSWER_LINES {
+        if out.len() + digest.len() >= ANSWER_LINES {
             break;
         }
         if cited.contains(&f.id) {
             continue;
         }
-        let Some(text) = digest(world, f) else {
+        let Some(text) = self::digest(world, f) else {
             continue;
         };
         let place = f.subjects.station.clone();
         if !places.insert(place.clone()) {
             continue;
         }
-        out.push(TalkLine {
+        answer_cites.insert(f.id);
+        digest.push(TalkLine {
             channel: Channel::DockTalk,
             speaker: speaker.clone(),
             place: place.or_else(|| Some(station.clone())),
             text,
             cites: vec![f.id],
             about: Vec::new(),
+            choices: Vec::new(),
         });
     }
+    out.extend(digest.iter().cloned());
     let since_tick = history.fact(since).map_or(Tick(0), |f| f.tick);
-    let chronicle: Vec<TalkLine> = world
+    let mut chronicle: Vec<TalkLine> = world
         .talk
-        .on(Channel::Chronicle)
+        .lines
+        .values()
+        .rev()
+        .filter(|l| l.line.channel == Channel::Chronicle)
         .filter(|l| l.tick >= since_tick)
+        .filter(|l| {
+            let line_places = cited_places(history, &l.line);
+            if l.line.cites.iter().any(|f| answer_cites.contains(f))
+                || line_places.iter().any(|p| places.contains(p))
+            {
+                return false;
+            }
+            answer_cites.extend(&l.line.cites);
+            places.extend(line_places);
+            true
+        })
+        .take(ANSWER_CHRONICLE)
         .map(|l| l.line.clone())
         .collect();
-    let skip = chronicle.len().saturating_sub(ANSWER_CHRONICLE);
-    out.extend(chronicle.into_iter().skip(skip));
+    chronicle.reverse();
+    out.extend(chronicle);
     Answer {
         station: station.clone(),
         speaker,
         lines: out,
+        digest,
     }
+}
+
+/// A line is about its cited facts' stations, not necessarily where it was spoken.
+/// Facts without a station share one place, matching the pack's selection rule.
+fn cited_places(history: &History, line: &TalkLine) -> BTreeSet<Option<StationId>> {
+    line.cites
+        .iter()
+        .map(|f| history.fact(*f).and_then(|f| f.subjects.station.clone()))
+        .collect()
+}
+
+/// An answer someone at the dock is waiting for: a choice a line offered, not yet
+/// picked.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OpenChoice {
+    pub npc: NpcId,
+    pub choice: AnyId,
+    /// What the player says.
+    pub text: String,
+}
+
+/// Most open choices the dock shows (keys 1 to 9).
+pub const MAX_OPEN_CHOICES: usize = 9;
+
+/// The choices people at `station` offered since the flagship docked there and nobody
+/// has answered yet, oldest line first. A line closes once one of its choices is
+/// picked; a choice offered again (a re-asked question) shows once, from its newest
+/// line.
+pub fn open_choices(world: &WorldState, history: &History, station: &StationId) -> Vec<OpenChoice> {
+    let docked_here = world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|s| world.ships.get(s))
+        .is_some_and(|s| s.docked_at.as_ref() == Some(station));
+    if !docked_here {
+        return Vec::new();
+    }
+    let since = last_docking(world, history);
+    let replies: Vec<&Fact> = history
+        .facts()
+        .iter()
+        .rev()
+        .take_while(|f| f.tick >= since)
+        .filter(|f| f.kind.as_str() == "reply")
+        .collect();
+    let mut out: Vec<OpenChoice> = Vec::new();
+    for said in world.talk.on(Channel::DockTalk).filter(|l| l.tick >= since) {
+        let line = &said.line;
+        let Some(npc) = &line.speaker else { continue };
+        if line.choices.is_empty()
+            || world.npcs.get(npc).and_then(|n| n.location.as_ref()) != Some(station)
+        {
+            continue;
+        }
+        let answered = replies.iter().any(|r| {
+            r.tick >= said.tick
+                && r.subjects.npc.as_ref() == Some(npc)
+                && line
+                    .choices
+                    .iter()
+                    .any(|c| r.subjects.other.as_ref() == Some(&c.id))
+        });
+        if answered {
+            continue;
+        }
+        for c in &line.choices {
+            out.retain(|o| !(&o.npc == npc && o.choice == c.id));
+            out.push(OpenChoice {
+                npc: npc.clone(),
+                choice: c.id.clone(),
+                text: c.text.clone(),
+            });
+        }
+    }
+    let skip = out.len().saturating_sub(MAX_OPEN_CHOICES);
+    out.drain(..skip);
+    out
 }
 
 /// The player's previous docking at `station` before the current one.

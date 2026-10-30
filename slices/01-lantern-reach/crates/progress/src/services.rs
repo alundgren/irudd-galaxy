@@ -35,6 +35,8 @@ pub enum Refusal {
     NotSold,
     #[error("the hullwright has no hull for that here")]
     NoBranch,
+    #[error("the new hull holds {room}; sell or deliver down from {holds} first")]
+    HoldTooFull { holds: u64, room: u32 },
 }
 
 /// One line on a seller's list.
@@ -162,6 +164,35 @@ pub fn check(world: &WorldState, history: &History, req: &ServiceRequest) -> Res
         }
         ServiceRequest::Prestige { to } => crate::prestige::check(world, history, to),
     }
+}
+
+/// The `reply` event for an answer the player gives at the dock: only when the
+/// player's ship is docked where that person is. `None` otherwise (dropped).
+pub fn reply(world: &WorldState, reply: &Reply) -> Option<CommandBatch> {
+    let ship = player_ship(world)?;
+    let station = ship.docked_at.clone()?;
+    let npc = world.npcs.get(&reply.npc)?;
+    if npc.location.as_ref() != Some(&station) {
+        return None;
+    }
+    let mut b = CommandBatch::new(Cause::system(
+        SERVICES,
+        format!("the player answered {}: {}", npc.name, reply.choice),
+    ));
+    // Checked when it applies: an undock earlier in the tick drops the answer.
+    b.push(Command::ExpectDocked {
+        ship: ship.id.clone(),
+        station: station.clone(),
+    });
+    b.push(Command::Emit {
+        event: Event::Reply {
+            ship: ship.id.clone(),
+            npc: npc.id.clone(),
+            station,
+            choice: reply.choice.clone(),
+        },
+    });
+    Some(b)
 }
 
 /// The batch that carries out a purchase, after [`check`].

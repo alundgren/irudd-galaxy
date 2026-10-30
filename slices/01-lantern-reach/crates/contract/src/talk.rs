@@ -51,7 +51,26 @@ pub struct TalkLine {
     /// Changes this line is about, e.g. the causes a rollback undid.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub about: Vec<CauseId>,
+    /// Answers the player may give (dock talk only). Picking one sends a
+    /// `PlayerInput::replies` entry naming the speaker and the choice's ID, which the
+    /// sim records as a `reply` event.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<TalkChoice>,
 }
+
+/// One answer a line offers.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct TalkChoice {
+    /// Stable ID, e.g. `choice.side_coop`.
+    pub id: AnyId,
+    /// What the player says, in a few words.
+    pub text: String,
+}
+
+/// Most choices one line offers.
+pub const MAX_CHOICES: usize = 4;
+/// Longest choice text, in bytes.
+pub const MAX_CHOICE_LEN: usize = 80;
 
 /// Longest line, in bytes.
 pub const MAX_LINE_LEN: usize = 400;
@@ -71,6 +90,18 @@ impl TalkLine {
             Err("a line needs text")
         } else if self.text.len() > MAX_LINE_LEN {
             Err("a line is at most 400 bytes")
+        } else if !self.choices.is_empty() && self.channel != Channel::DockTalk {
+            Err("only dock talk offers choices")
+        } else if !self.choices.is_empty() && self.speaker.is_none() {
+            Err("a line with choices needs a speaker to answer")
+        } else if self.choices.len() > MAX_CHOICES {
+            Err("a line offers at most 4 choices")
+        } else if self
+            .choices
+            .iter()
+            .any(|c| c.text.trim().is_empty() || c.text.len() > MAX_CHOICE_LEN)
+        {
+            Err("a choice needs text of at most 80 bytes")
         } else {
             Ok(())
         }

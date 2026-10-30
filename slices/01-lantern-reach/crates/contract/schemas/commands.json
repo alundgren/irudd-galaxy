@@ -1147,6 +1147,31 @@
           ]
         },
         {
+          "description": "Sets a line's base price with the band and price that follow from it (market\nbase levers), leaving its stock, saturation and rates alone.",
+          "type": "object",
+          "properties": {
+            "base": {
+              "$ref": "#/$defs/MarketBase"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_market_base"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "ware",
+            "base"
+          ]
+        },
+        {
           "description": "Adds to a station's or region's activity tally (pulses, trade volume).",
           "type": "object",
           "properties": {
@@ -2838,6 +2863,35 @@
             "type",
             "session"
           ]
+        },
+        {
+          "description": "The player answered someone at a dock: picked one of the choices a line\noffered, or asked a standing question (\"What changed?\"). `choice` is the\nchoice's ID (`choice.side_coop`). The progress system emits it from\n`PlayerInput::replies` when the player's ship is docked where the person is.",
+          "type": "object",
+          "properties": {
+            "choice": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "reply"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "npc",
+            "station",
+            "choice"
+          ]
         }
       ]
     },
@@ -3294,6 +3348,38 @@
       "required": [
         "station",
         "lines"
+      ]
+    },
+    "MarketBase": {
+      "description": "A market line's base price and the price band and current price that follow from\nit, in centicredits. A base lever (a shortage, a change of owner) sets all four at\nonce and leaves stock, saturation and rates alone.",
+      "type": "object",
+      "properties": {
+        "base_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "max_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "base_price",
+        "min_price",
+        "max_price",
+        "price"
       ]
     },
     "MarketLine": {
@@ -4635,6 +4721,24 @@
         }
       }
     },
+    "TalkChoice": {
+      "description": "One answer a line offers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable ID, e.g. `choice.side_coop`.",
+          "$ref": "#/$defs/AnyId"
+        },
+        "text": {
+          "description": "What the player says, in a few words.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ]
+    },
     "TalkId": {
       "type": "string",
       "examples": [
@@ -4655,6 +4759,13 @@
         },
         "channel": {
           "$ref": "#/$defs/Channel"
+        },
+        "choices": {
+          "description": "Answers the player may give (dock talk only). Picking one sends a\n`PlayerInput::replies` entry naming the speaker and the choice's ID, which the\nsim records as a `reply` event.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TalkChoice"
+          }
         },
         "cites": {
           "description": "The facts this line is about. Never empty.",

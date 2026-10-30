@@ -75,7 +75,19 @@ pub fn compose(
             .answer
             .as_ref()
             .filter(|a| docked.as_ref() == Some(&a.station));
-        ui::talk(&mut panels, world, history, answer, canvas);
+        let choices = docked
+            .as_ref()
+            .map(|st| crate::hooks::open_choices(world, history, st))
+            .unwrap_or_default();
+        buttons.extend(ui::talk(
+            &mut panels,
+            world,
+            history,
+            answer,
+            &choices,
+            &on_canvas,
+            canvas,
+        ));
         if let Some(station) = docked {
             buttons.extend(ui::dock_panel(
                 &mut panels,

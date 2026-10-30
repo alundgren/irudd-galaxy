@@ -148,6 +148,37 @@ pub fn hold_capacity(world: &WorldState, ship: &Ship) -> u64 {
     base + u64::from(for_ship(world, &ship.id).hold)
 }
 
+/// The flagship's hold capacity on `hull` straight after a prestige: that hull's
+/// capacity plus the pilot's trait and fitting hold modifiers (they carry across). The
+/// new hull starts unstriped, so no rank adds anything yet.
+pub fn hold_capacity_after_prestige(world: &WorldState, hull: &crate::ids::HullId) -> u64 {
+    let rules = &world.progress.rules;
+    let base = world
+        .hulls
+        .get(hull)
+        .map_or(0, |h| u64::from(h.hold_capacity));
+    let traits = world
+        .player
+        .traits
+        .iter()
+        .filter_map(|t| rules.traits.get(t))
+        .flat_map(|d| &d.modifiers);
+    let fittings = world
+        .player
+        .fittings
+        .iter()
+        .filter_map(|u| rules.upgrades.get(u))
+        .flat_map(|d| &d.modifiers);
+    let extra: u64 = traits
+        .chain(fittings)
+        .map(|m| match m {
+            Modifier::Hold { units } => u64::from(*units),
+            _ => 0,
+        })
+        .sum();
+    base + extra
+}
+
 /// The multiplier traits give standing gains from deeds with any of these tags.
 pub fn deed_bonus(world: &WorldState, tags: &[String]) -> f64 {
     pilot(world)

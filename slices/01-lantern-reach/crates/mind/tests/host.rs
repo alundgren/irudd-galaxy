@@ -1748,6 +1748,7 @@ fn a_late_line_whose_fact_was_cited_meanwhile_is_withheld() {
                 text: "12 ice. The beans will hear about this.".into(),
                 cites: vec![fact],
                 about: Vec::new(),
+                choices: Vec::new(),
             }),
         }),
     );

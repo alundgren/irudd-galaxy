@@ -1898,6 +1898,35 @@
             "type",
             "session"
           ]
+        },
+        {
+          "description": "The player answered someone at a dock: picked one of the choices a line\noffered, or asked a standing question (\"What changed?\"). `choice` is the\nchoice's ID (`choice.side_coop`). The progress system emits it from\n`PlayerInput::replies` when the player's ship is docked where the person is.",
+          "type": "object",
+          "properties": {
+            "choice": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "reply"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "npc",
+            "station",
+            "choice"
+          ]
         }
       ]
     },
@@ -4548,6 +4577,39 @@
           ]
         },
         {
+          "description": "The player ship is in `region`, within `within` u of (`x`, `y`): it went\nsomewhere (a rumored vein, a buoy). Any of the numbers can be a tunable.",
+          "type": "object",
+          "properties": {
+            "near": {
+              "type": "object",
+              "properties": {
+                "region": {
+                  "$ref": "#/$defs/RegionId"
+                },
+                "within": {
+                  "$ref": "#/$defs/Num"
+                },
+                "x": {
+                  "$ref": "#/$defs/Num"
+                },
+                "y": {
+                  "$ref": "#/$defs/Num"
+                }
+              },
+              "required": [
+                "region",
+                "x",
+                "y",
+                "within"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "near"
+          ]
+        },
+        {
           "description": "The player's regard with a faction is at least this tier (by tier ID).",
           "type": "object",
           "properties": {
@@ -5281,6 +5343,24 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "TalkChoice": {
+      "description": "One answer a line offers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Stable ID, e.g. `choice.side_coop`.",
+          "$ref": "#/$defs/AnyId"
+        },
+        "text": {
+          "description": "What the player says, in a few words.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ]
+    },
     "TalkId": {
       "type": "string",
       "examples": [
@@ -5301,6 +5381,13 @@
         },
         "channel": {
           "$ref": "#/$defs/Channel"
+        },
+        "choices": {
+          "description": "Answers the player may give (dock talk only). Picking one sends a\n`PlayerInput::replies` entry naming the speaker and the choice's ID, which the\nsim records as a `reply` event.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TalkChoice"
+          }
         },
         "cites": {
           "description": "The facts this line is about. Never empty.",

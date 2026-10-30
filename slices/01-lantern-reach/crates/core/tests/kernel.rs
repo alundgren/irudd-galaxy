@@ -77,7 +77,7 @@ fn core_data_builds_the_lantern_reach() {
     assert_eq!(w.regions.len(), 3);
     assert_eq!(w.stations.len(), 5);
     assert_eq!(w.wares.len(), 6);
-    assert_eq!(w.rock_types.len(), 3);
+    assert_eq!(w.rock_types.len(), 4);
     assert!(w.rocks.contains("rock.shallows.ice.03"));
     assert!(w.lanes.len() >= 2);
     assert_eq!(w.ships.get(&PLAYER).unwrap().docked_at, Some(WHARF));
@@ -401,6 +401,16 @@ fn undo_records_invert_commands() {
                 consumption_scale: 1.5,
             },
         },
+        Command::SetMarketBase {
+            station: KETTLE,
+            ware: ICE,
+            base: MarketBase {
+                base_price: 1680,
+                min_price: 353,
+                max_price: 2184,
+                price: 1900,
+            },
+        },
         Command::SetMarketLine {
             station: KETTLE,
             ware: ICE,
@@ -501,6 +511,7 @@ fn undo_records_invert_commands() {
                 text: "Kettle lit another ring.".into(),
                 cites: vec![FactId(1)],
                 about: Vec::new(),
+                choices: Vec::new(),
             }),
         },
         Command::SetRumorHeard {

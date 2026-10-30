@@ -345,7 +345,9 @@ fn requirement(
         R::Hull(h) if !world.hulls.contains(h) => bad("hull", h),
         R::Cargo { ware, .. } if !world.wares.contains(ware) => bad("ware", ware),
         R::DockedAt(s) if !world.stations.contains(s) => bad("station", s),
-        R::InRegion(r) if !world.regions.contains(r) => bad("region", r),
+        R::InRegion(r) | R::Near { region: r, .. } if !world.regions.contains(r) => {
+            bad("region", r)
+        }
         R::Regard { faction, at_least } => {
             if !world.factions.contains(faction) {
                 bad("faction", faction);

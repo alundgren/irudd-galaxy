@@ -216,6 +216,18 @@ impl Pilot {
         self.s.request_service(req);
         self.ticks(3);
     }
+
+    /// Asks the dockmaster what changed, as the button does, and waits for the answer.
+    fn ask(&mut self) -> hooks::Answer {
+        assert!(self.s.ask_what_changed(), "a dockmaster to ask");
+        for _ in 0..10 {
+            self.tick();
+            if let Some(a) = &self.s.answer {
+                return a.clone();
+            }
+        }
+        panic!("the dockmaster never answered");
+    }
 }
 
 fn status(s: &Session, beat: &str) -> Option<BeatStatus> {
@@ -234,6 +246,24 @@ fn said(s: &Session, by: &NpcId) -> Vec<String> {
 #[test]
 fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     let mut p = Pilot::new(session(new_state(true)));
+    play_act_one(&mut p);
+
+    // Dock talk came from the core pack's line pools, each line booked as it was said.
+    let said_lines =
+        p.s.sim()
+            .history()
+            .facts()
+            .iter()
+            .filter(|f| f.kind.as_str() == "core.npc_line")
+            .count();
+    assert!(
+        said_lines > 0,
+        "the people of the Shallows said authored lines"
+    );
+}
+
+/// Plays b01 to b05 at the keys and the dock screen, checking the goal line follows.
+fn play_act_one(p: &mut Pilot) {
     // gm-examples is installed on a new game and runs beside core.
     let packs: Vec<String> =
         p.s.game()
@@ -335,25 +365,241 @@ fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     p.s.resume();
     p.ticks(4);
     assert_eq!(status(&p.s, "beat.b05_pause"), Some(BeatStatus::Completed));
-    assert_eq!(p.goal(), None, "Act 1 is done; b06 waits on more dockings");
+    // The trips that paid for the lens made the dockings b06 waits for: it opens at once.
+    assert_eq!(
+        p.goal().as_deref(),
+        Some("Orrin has a nav chip: click where you want the Wren to go.")
+    );
 
     let goals: Vec<String> = p.goals.iter().flatten().cloned().collect();
-    assert_eq!(goals.len(), 5, "{goals:#?}");
+    assert_eq!(goals.len(), 6, "{goals:#?}");
     assert!(goals[0].starts_with("Ilse needs ice"));
     assert!(goals[1].starts_with("Hold Space"));
     assert!(goals[2].starts_with("Fly into Kettle Dock"));
     assert!(goals[3].starts_with("Orrin can fit a mining lens"));
     assert!(goals[4].starts_with("Press P or Esc"));
+    assert!(goals[5].starts_with("Orrin has a nav chip"));
+}
 
-    // The fast-model layer ran on the fake (never the network) and booked its picks.
-    let picks =
-        p.s.sim()
-            .history()
-            .facts()
+/// The play path and the script path agree past Act 1: from b05's end, at the keys and
+/// the dock screen through the real composition, b06 (the nav chip, paid for with ice)
+/// and b07 (Ilse's plate, by lane, to Rook at Cinder Hook).
+#[test]
+fn act_one_crosses_into_act_two_at_the_keys() {
+    let mut p = Pilot::new(session(new_state(true)));
+    play_act_one(&mut p);
+    assert_eq!(status(&p.s, "beat.b06_nav_chip"), Some(BeatStatus::Active));
+
+    // b06: more ice to Kettle until the chip is affordable, then Orrin fits it.
+    let chip = UpgradeId::from_static("upgrade.nav_chip");
+    let mut trips = 0;
+    while p.s.world().player.credits < 900 * CENTS_PER_CREDIT {
+        p.undock();
+        p.mine_ice_until_full();
+        p.dock_at(&KETTLE);
+        p.sell_all(&ICE);
+        trips += 1;
+        // Kettle's ice price sits low once the player has sold it plenty: about 50 cr
+        // a hold with the lens.
+        assert!(trips < 24, "selling ice should pay for the nav chip");
+    }
+    p.undock();
+    p.dock_at(&WHARF);
+    p.buy(ServiceRequest::Fit {
+        upgrade: chip.clone(),
+    });
+    assert!(
+        p.s.world().player.fittings.contains(&chip),
+        "{:?}",
+        p.s.services.notice
+    );
+    p.ticks(3);
+    assert_eq!(
+        status(&p.s, "beat.b06_nav_chip"),
+        Some(BeatStatus::Completed)
+    );
+
+    // b07: docked at the Wharf with an empty hold, Ilse loads the plate at once.
+    let plate = WareId::from_static("ware.refined_plate");
+    p.ticks(3);
+    assert_eq!(
+        p.ship().hold.count(&plate),
+        20,
+        "Ilse loaded the consignment"
+    );
+    assert_eq!(
+        p.goal().as_deref(),
+        Some(
+            "Ilse has 20 plate for Rook at Cinder Hook. The Cinder lane starts east of the Wharf."
+        )
+    );
+    // Into the Cinder lane's mouth by hand, Space, and ride it.
+    p.undock();
+    let lane =
+        p.s.world()
+            .lanes
+            .get("lane.shallows_cinder")
+            .unwrap()
+            .clone();
+    p.fly_to(lane.a_gate, 10.0);
+    p.tap();
+    for _ in 0..3000 {
+        p.tick();
+        if p.ship().region == lane.b && p.ship().activity.transit.is_none() {
+            break;
+        }
+    }
+    assert_eq!(p.ship().region, lane.b, "the lane carried the ship");
+    let hook = StationId::from_static("station.cinder_hook");
+    p.dock_at(&hook);
+    p.ticks(5);
+    assert_eq!(
+        status(&p.s, "beat.b07_cinder_drift"),
+        Some(BeatStatus::Completed)
+    );
+    assert_eq!(p.ship().hold.count(&plate), 0, "handed to Rook");
+    assert!(
+        p.s.world()
+            .player
+            .fittings
+            .contains(&UpgradeId::from_static("upgrade.lane_chart")),
+        "Rook's gift"
+    );
+    let rook = NpcId::from_static("npc.rook_adeyemi");
+    assert!(
+        said(&p.s, &rook).iter().any(|t| t.contains("Ilse's plate")),
+        "{:?}",
+        said(&p.s, &rook)
+    );
+}
+
+/// Act 3 up to b14: b01 to b13 done, with what they earned, docked at the Wharf, one
+/// docking short of Ringwise.
+fn before_b14() -> SimState {
+    let mut state = new_state(false);
+    let w = &mut state.world;
+    let beats = [
+        "beat.b01_undock",
+        "beat.b02_mine_by_hand",
+        "beat.b03_first_delivery",
+        "beat.b04_first_sale",
+        "beat.b05_pause",
+        "beat.b06_nav_chip",
+        "beat.b07_cinder_drift",
+        "beat.b08_chasing_a_gap",
+        "beat.b09_hook_dispute",
+        "beat.b10_rumor",
+        "beat.b11_orders",
+        "beat.b12_ice_shortage",
+        "beat.b13_first_tender",
+    ];
+    for (i, id) in beats.iter().enumerate() {
+        w.progress.beats.insert(
+            BeatId::new(*id).unwrap(),
+            BeatState {
+                pack: "core".parse().unwrap(),
+                act: 1,
+                kind: BeatKind::Directed,
+                status: BeatStatus::Completed,
+                step: 0,
+                step_id: None,
+                goal: String::new(),
+                giver: None,
+                since: None,
+                step_since: None,
+                done_since: None,
+                started: Tick(i as u64),
+            },
+        );
+    }
+    for u in [
+        "upgrade.mining_lens",
+        "upgrade.nav_chip",
+        "upgrade.lane_chart",
+        "upgrade.order_slate",
+        "upgrade.loop_log",
+    ] {
+        w.player.fittings.insert(UpgradeId::new(u).unwrap());
+    }
+    let ringwise = w.progress.rules.traits.get("trait.ringwise").unwrap().times;
+    let have = w.counters.get(CounterKind::Dockings, &CounterScope::Player);
+    w.counters.bump(
+        CounterKind::Dockings,
+        &CounterScope::Player,
+        (ringwise - 1).saturating_sub(have),
+    );
+    state
+}
+
+/// b14 through the dock screen: Orrin's question shows as a button in the talk panel
+/// (and key 1), and picking it goes out as `PlayerInput::replies` through the session;
+/// the core pack answers, b14 completes and the choice closes.
+#[test]
+fn orrins_question_is_answered_with_the_talk_panels_button() {
+    let mut p = Pilot::new(session(before_b14()));
+    p.tick();
+    // The docking that makes Ringwise: the habit b14 waits on.
+    p.undock();
+    p.dock_at(&WHARF);
+    p.ticks(5);
+    assert!(
+        p.s.world()
+            .player
+            .traits
+            .contains(&TraitId::from_static("trait.ringwise"))
+    );
+    assert_eq!(
+        status(&p.s, "beat.b14_pilot_changes"),
+        Some(BeatStatus::Active)
+    );
+    let orrin = NpcId::from_static("npc.orrin_vale");
+    let open = hooks::open_choices(p.s.world(), p.s.sim().history(), &WHARF);
+    assert_eq!(open.len(), 1, "{open:?}");
+    assert_eq!(open[0].npc, orrin);
+    assert_eq!(open[0].choice.as_str(), "choice.ask_orrin");
+
+    // The talk panel draws it as a button; clicking it is the session's reply.
+    let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    let mut o = render::Overlay::default();
+    let buttons = ui::talk(
+        &mut o,
+        p.s.world(),
+        p.s.sim().history(),
+        None,
+        &open,
+        &UiState::default(),
+        canvas,
+    );
+    let action = buttons
+        .iter()
+        .find_map(|b| match &b.action {
+            ui::UiAction::Reply { npc, choice } => Some((npc.clone(), choice.clone())),
+            _ => None,
+        })
+        .expect("an answer button");
+    assert!(o.texts.iter().any(|t| t.text == "1   What do you mean?"));
+    for b in &buttons {
+        assert!(b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y, "{b:?}");
+    }
+    assert!(p.s.reply(action.0, action.1));
+    p.ticks(4);
+    assert_eq!(
+        status(&p.s, "beat.b14_pilot_changes"),
+        Some(BeatStatus::Completed)
+    );
+    assert!(
+        said(&p.s, &orrin)
             .iter()
-            .filter(|f| f.kind.as_str() == galaxy_mind::LINE_FACT)
-            .count();
-    assert!(picks > 0, "dock talk picked at least one authored line");
+            .any(|t| t == "You don't dock any more, you arrive. The ring knows you."),
+        "{:?}",
+        said(&p.s, &orrin)
+    );
+    assert!(
+        hooks::open_choices(p.s.world(), p.s.sim().history(), &WHARF).is_empty(),
+        "answered"
+    );
+    // A reply where nobody asked anything is dropped: no key does anything now.
+    assert!(!p.s.reply_to_open(0));
 }
 
 #[test]
@@ -556,8 +802,8 @@ fn asking_right_after_docking_never_repeats_the_ambient_line() {
     );
     p.ticks(1);
     let stage = p.s.sim().history().last_fact_id().unwrap();
-    // Dock, and stop on the tick the docking commits: the mind's pump has just queued
-    // Ilse's ambient line about it.
+    // Dock, and stop on the tick the docking commits: Ilse's ambient line about it is
+    // said on the next tick.
     let wharf = p.s.world().stations.get(&WHARF).unwrap().clone();
     p.fly_to(wharf.position, wharf.dock_radius * 0.5);
     p.keys.press_action();
@@ -568,21 +814,18 @@ fn asking_right_after_docking_never_repeats_the_ambient_line() {
         }
     }
     assert_eq!(p.docked(), Some(WHARF));
-    let queued = |s: &Session| {
-        s.sim()
-            .state()
-            .kernel
-            .pending
-            .iter()
-            .flat_map(|b| &b.commands)
-            .any(|c| matches!(c, Command::Say { line } if line.cites.contains(&stage)))
-    };
-    assert!(queued(&p.s), "an ambient line about the pane is queued");
-    // The player asks before the next tick: the answer leaves that fact to Ilse's line.
-    let answer = p.s.ask_what_changed().cloned().unwrap();
+    // The player asks before that tick: the answer leaves the fact to Ilse's line.
+    let answer = p.ask();
     assert!(
         answer.lines.iter().all(|l| !l.cites.contains(&stage)),
         "{answer:?}"
+    );
+    assert!(
+        said(&p.s, &ILSE)
+            .iter()
+            .any(|t| t.starts_with("Odo's got a pane up at Kettle")),
+        "{:?}",
+        said(&p.s, &ILSE)
     );
     p.ticks(3);
     assert_eq!(citations(&p.s).get(&stage), Some(&1));
@@ -725,10 +968,7 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
     p.undock();
     p.dock_at(&WHARF);
     p.ticks(3);
-    let answer =
-        p.s.ask_what_changed()
-            .cloned()
-            .expect("the Wharf has a dockmaster");
+    let answer = p.ask();
     assert_eq!(answer.speaker, Some(ILSE));
     let texts: Vec<&str> = answer.lines.iter().map(|l| l.text.as_str()).collect();
     assert!(
@@ -741,7 +981,6 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
             assert!(p.s.sim().history().fact(*f).is_some(), "cites a real fact");
         }
     }
-    p.ticks(1);
     let asked =
         p.s.sim()
             .history()
@@ -750,6 +989,8 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
             .filter(|f| f.kind == hooks::ASKED)
             .count();
     assert_eq!(asked, 1);
+    // The digest lines commit with the next tick.
+    p.ticks(1);
     // Said, so neither ambient talk nor the next question tells those facts again.
     for line in answer
         .lines
@@ -764,8 +1005,219 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
                 .any(|l| l.line.cites == line.cites)
         );
     }
-    let again = p.s.ask_what_changed().cloned().unwrap();
+    let again = p.ask();
     assert!(again.lines.is_empty(), "{:?}", again.lines);
+}
+
+/// News arriving while the player is at the Wharf, after its ambient dock talk.
+fn news_fact(p: &mut Pilot, kind: &str, subjects: Subjects, amount: Option<i64>) -> FactId {
+    let kind = FactKind::new(kind).unwrap();
+    p.s.submit(
+        CommandBatch::new(Cause::system("test", "news from the Reach")).with(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: kind.clone(),
+                subjects,
+                amount,
+                note: "News from the Reach".into(),
+            }),
+        }),
+    );
+    p.tick();
+    p.s.sim()
+        .history()
+        .last(&HistoryQuery {
+            kind: Some(kind),
+            ..HistoryQuery::default()
+        })
+        .unwrap()
+        .id
+}
+
+fn assert_distinct_news(p: &Pilot, answer: &hooks::Answer) {
+    let mut facts = std::collections::BTreeSet::new();
+    let mut places = std::collections::BTreeSet::new();
+    for line in &answer.lines {
+        let mut line_places = std::collections::BTreeSet::new();
+        for cite in &line.cites {
+            assert!(facts.insert(*cite), "a repeated fact: {answer:?}");
+            let fact = p.s.sim().history().fact(*cite).unwrap();
+            line_places.insert(fact.subjects.station.clone());
+        }
+        for place in line_places {
+            assert!(places.insert(place), "a repeated place: {answer:?}");
+        }
+    }
+}
+
+#[test]
+fn asking_what_changed_leaves_room_for_other_places_after_several_kettle_facts() {
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(3);
+    // The re-check's three eligible Ilse lines, all about Kettle.
+    let stage = news_fact(
+        &mut p,
+        "core.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let delivery = news_fact(
+        &mut p,
+        "deliver",
+        Subjects {
+            station: Some(KETTLE),
+            other: Some(AnyId::from_static("ledger.kettle_greenhouse")),
+            ..Subjects::default()
+        },
+        None,
+    );
+    let shortage = news_fact(
+        &mut p,
+        "core.shortage_started",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        None,
+    );
+    let hook = news_fact(
+        &mut p,
+        "core.territory_changed",
+        Subjects {
+            station: Some(StationId::from_static("station.cinder_hook")),
+            faction: Some(FactionId::from_static("faction.wharf_cooperative")),
+            ..Subjects::default()
+        },
+        None,
+    );
+    // No authored line: the digest must still have room after the pack's picks.
+    let brass = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(StationId::from_static("station.brassmouth_exchange")),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    // A second Kettle fact with a digest must not get its own line either.
+    let kettle_digest = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(2),
+    );
+
+    let answer = p.ask();
+    assert_distinct_news(&p, &answer);
+    assert_eq!(answer.lines.len(), 3, "{answer:?}");
+    for fact in [stage, hook, brass] {
+        assert!(answer.lines.iter().any(|l| l.cites == [fact]), "{answer:?}");
+    }
+    assert_eq!(answer.digest.len(), 1);
+    assert_eq!(answer.digest[0].cites, [brass]);
+    p.tick(); // Commit the digest before inspecting what was actually said.
+    let said = citations(&p.s);
+    for fact in [stage, hook, brass] {
+        assert_eq!(said.get(&fact), Some(&1));
+    }
+    for fact in [delivery, shortage, kettle_digest] {
+        assert!(
+            !said.contains_key(&fact),
+            "skipped news must not be retired"
+        );
+    }
+    // Later questions can tell the skipped news, but never the same fact again.
+    let again = p.ask();
+    assert_distinct_news(&p, &again);
+    assert!(
+        again
+            .lines
+            .iter()
+            .flat_map(|l| &l.cites)
+            .all(|f| !said.contains_key(f))
+    );
+}
+
+#[test]
+fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
+    use galaxy_contract::talk::TalkLine;
+
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(3);
+    let kettle = news_fact(
+        &mut p,
+        "core.stage_built",
+        Subjects {
+            station: Some(KETTLE),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let brass_station = StationId::from_static("station.brassmouth_exchange");
+    let brass = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(brass_station.clone()),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    let mut entries = Vec::new();
+    for station in [
+        StationId::from_static("station.cinder_hook"),
+        StationId::from_static("station.glass_drift_observatory"),
+        KETTLE,
+        brass_station,
+    ] {
+        entries.push(news_fact(
+            &mut p,
+            "test.chronicle_news",
+            Subjects {
+                station: Some(station),
+                ..Subjects::default()
+            },
+            None,
+        ));
+    }
+    let mut batch = CommandBatch::new(Cause::system("test", "the chronicle records the news"));
+    // Newest entries repeat places covered by the pack and digest. They must not
+    // crowd the two older, eligible chronicle entries out of the answer.
+    for fact in [entries[0], entries[1], entries[1], entries[2], entries[3]] {
+        batch.push(Command::Say {
+            line: Box::new(TalkLine {
+                channel: Channel::Chronicle,
+                speaker: Some(ILSE),
+                place: Some(WHARF), // Place is where said; citations name the news.
+                text: "Ilse adds news to the chronicle.".into(),
+                cites: vec![fact],
+                about: Vec::new(),
+                choices: Vec::new(),
+            }),
+        });
+    }
+    p.s.submit(batch);
+    p.tick();
+    let answer = p.ask();
+    assert_distinct_news(&p, &answer);
+    assert_eq!(answer.lines.len(), 4, "{answer:?}");
+    assert_eq!(answer.digest.len(), 1);
+    assert_eq!(answer.digest[0].cites, [brass]);
+    assert!(answer.lines.iter().any(|l| l.cites == [kettle]));
+    let chronicle: Vec<_> = answer
+        .lines
+        .iter()
+        .filter(|l| l.channel == Channel::Chronicle)
+        .flat_map(|l| &l.cites)
+        .copied()
+        .collect();
+    assert_eq!(chronicle, [entries[0], entries[1]]);
 }
 
 #[test]

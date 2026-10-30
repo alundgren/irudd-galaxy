@@ -3,7 +3,8 @@
 //! A line names its speaker, the fact kind it cites and, optionally, which subjects
 //! that fact must have (`ware`, `station`, `other`: an upgrade, a trait, a hull ...)
 //! and which `amount` (a `stage_built` fact's stage).
-//! [`TalkLines`] is the [`LineSource`] behind dock talk in play. On top of
+//! [`TalkLines`] is a [`LineSource`] for packs that ship their lines as data (the core
+//! pack's own lines are Luau line pools, said by its `talk` script). On top of
 //! [`crate::LinePool`]'s rule (a fact of the line's kind, newer than
 //! the player's previous docking here, every slot filled) it applies the two rules of
 //! ambient talk (`05-people.md`):

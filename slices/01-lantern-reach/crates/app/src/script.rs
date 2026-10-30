@@ -14,6 +14,9 @@
 //!   (`upgrade.mining_lens`), a tender (`craft.thimble`) or a prestige hull
 //!   (`hull.tandem`);
 //! - `:ask`: ask the dockmaster what changed;
+//! - `:reply:N`: pick the Nth open answer at the dock (1-based, as the number keys and
+//!   the talk panel's buttons number them), or `:reply:CHOICE` by its ID
+//!   (`:reply:choice.side_coop`); then the ticks run so the scripts answer;
 //! - `:click:X:Y`, `:qclick:X:Y`: click the play plane at world point X,Y (resolved to a
 //!   station, rock or point as the window does), or shift-click to queue it;
 //! - `:mapclick:REGION`: click a region on the map (map travel).
@@ -35,6 +38,7 @@ enum Step {
     Trade(Amount),
     Buy(String),
     Ask,
+    Reply(String),
     Click { at: (f32, f32), queue: bool },
     MapClick(String),
 }
@@ -83,6 +87,7 @@ fn parse(script: &str) -> Result<Vec<Step>, String> {
             ":trade" => Step::Trade(Amount::One),
             ":tradeall" => Step::Trade(Amount::Most),
             ":ask" => Step::Ask,
+            t if t.starts_with(":reply:") => Step::Reply(t[7..].to_owned()),
             t if t.starts_with(":buy:") => Step::Buy(t[5..].to_owned()),
             t if t.starts_with(":click:") => Step::Click {
                 at: point(raw, &t[7..])?,
@@ -160,8 +165,34 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
             }
             Step::Ask => {
                 session.ask_what_changed();
-                tick(session, &mut keys);
-                ticks += 1;
+                // The reply, the pack's answer, and the digest lines it leaves.
+                for _ in 0..4 {
+                    tick(session, &mut keys);
+                    ticks += 1;
+                }
+            }
+            Step::Reply(which) => {
+                let Some(station) = session.flagship().and_then(|f| f.docked_at.clone()) else {
+                    return Err(format!("`:reply:{which}` needs the ship docked"));
+                };
+                let open =
+                    crate::hooks::open_choices(session.world(), session.sim().history(), &station);
+                let index = match which.parse::<usize>() {
+                    Ok(n) if n >= 1 => Some(n - 1),
+                    Ok(_) => None,
+                    Err(_) => open.iter().position(|c| c.choice.as_str() == which),
+                };
+                let Some(i) = index.filter(|i| *i < open.len()) else {
+                    let offered: Vec<&str> = open.iter().map(|c| c.choice.as_str()).collect();
+                    return Err(format!(
+                        "`:reply:{which}`: no such answer open here (open: {offered:?})"
+                    ));
+                };
+                session.reply_to_open(i);
+                for _ in 0..4 {
+                    tick(session, &mut keys);
+                    ticks += 1;
+                }
             }
             Step::Click { at, queue } => {
                 let world = session.world();
@@ -248,6 +279,13 @@ mod tests {
                 Step::Pause,
                 Step::Hold(vec![], 5),
                 Step::Trade(Amount::Most),
+            ]
+        );
+        assert_eq!(
+            parse(":reply:2,:reply:choice.side_coop").unwrap(),
+            vec![
+                Step::Reply("2".into()),
+                Step::Reply("choice.side_coop".into())
             ]
         );
         assert!(parse("x*3").is_err());

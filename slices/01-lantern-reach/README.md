@@ -53,14 +53,20 @@ stays and what resets before you trade up. At a dockmaster, **Ask what changed**
 up to three things that happened since you were last there, each about a real event.
 
 The talk panel at the bottom left shows what people said since you last docked, with
-who and where. It's empty, and hidden, until someone has something to say.
+who and where. It's empty, and hidden, until someone has something to say. When
+someone asks you something (Rook's question about the depot, Orrin's about your
+flying, Nell's about the fragment), your answers are buttons under their line; the
+number keys **1** to **9** pick them too.
 
 ![Orrin's list on the Wharf's dock screen](docs/screenshots/dock-services.png)
 
+![Rook asks whose name the plate is in](docs/screenshots/dock-replies.png)
+
 The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
 examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
-save without them. With `OPENROUTER_API_KEY` set, a fast model picks which authored line
-someone says; without it people say their most specific line, and the log says so once.
+save without them. Dock talk is the core pack's: people say their most specific
+authored line. The fast-model layer (`OPENROUTER_API_KEY`) is attached but doesn't
+pick dock lines yet; without a key the log says so once.
 `--hot-reload` reloads packs as you edit them (development).
 
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
@@ -129,7 +135,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
 | `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
-| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |

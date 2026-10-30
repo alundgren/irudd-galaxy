@@ -15,7 +15,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::economy::{ActivityScope, ActivityTally, DockTrack, MarketRates};
+use crate::economy::{ActivityScope, ActivityTally, DockTrack, MarketBase, MarketRates};
 use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
@@ -299,6 +299,13 @@ pub enum Command {
         station: StationId,
         ware: WareId,
         rates: MarketRates,
+    },
+    /// Sets a line's base price with the band and price that follow from it (market
+    /// base levers), leaving its stock, saturation and rates alone.
+    SetMarketBase {
+        station: StationId,
+        ware: WareId,
+        base: MarketBase,
     },
     /// Adds to a station's or region's activity tally (pulses, trade volume).
     AdjustActivity {

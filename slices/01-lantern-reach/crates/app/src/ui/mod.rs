@@ -111,6 +111,11 @@ pub enum UiAction {
     CancelPrestige,
     /// Ask the dockmaster what changed.
     AskWhatChanged,
+    /// Answer someone at the dock with one of the choices their line offered.
+    Reply {
+        npc: NpcId,
+        choice: AnyId,
+    },
     /// Show the dock screen's services from this row (the Up and Down buttons).
     ServicesFrom(usize),
 }
@@ -481,17 +486,23 @@ fn talk_row(o: &mut Overlay, world: &WorldState, line: &TalkLine, x: f32, y: f32
     24.0 + rows * 20.0
 }
 
+/// The height of one answer button in the talk panel.
+const CHOICE_H: f32 = 34.0;
+
 /// The talk panel, bottom left: what was said since the flagship last docked (dock
 /// talk and the chronicle), each naming its speaker and place. While docked after
-/// asking "What changed?", the dockmaster's answer instead. Nothing when nobody has
-/// spoken.
+/// asking "What changed?", the dockmaster's answer instead. Below the lines, a button
+/// for each answer someone here is waiting for (`choices`, keys 1 to 9). Nothing when
+/// nobody has spoken. Returns the answer buttons.
 pub fn talk(
     o: &mut Overlay,
     world: &WorldState,
     history: &History,
     answer: Option<&hooks::Answer>,
+    choices: &[hooks::OpenChoice],
+    ui: &UiState,
     viewport: G2,
-) {
+) -> Vec<Button> {
     let w = 460.0;
     let inner = w - 32.0;
     let (title, lines): (Option<String>, Vec<TalkLine>) = match answer {
@@ -510,8 +521,8 @@ pub fn talk(
                 .collect(),
         ),
     };
-    if lines.is_empty() && title.is_none() {
-        return;
+    if lines.is_empty() && title.is_none() && choices.is_empty() {
+        return Vec::new();
     }
     // Measure first, then draw bottom up from the screen's edge.
     let title_h = if title.is_some() { 30.0 } else { 0.0 };
@@ -519,8 +530,17 @@ pub fn talk(
         .iter()
         .map(|l| 24.0 + (text_width(&l.text, 16.0) / inner).ceil().max(1.0) * 20.0)
         .collect();
-    let empty_h = if lines.is_empty() { 26.0 } else { 0.0 };
-    let h = 20.0 + title_h + empty_h + heights.iter().sum::<f32>();
+    let empty_h = if lines.is_empty() && title.is_some() {
+        26.0
+    } else {
+        0.0
+    };
+    let choices_h = if choices.is_empty() {
+        0.0
+    } else {
+        24.0 + choices.len() as f32 * (CHOICE_H + 6.0)
+    };
+    let h = 20.0 + title_h + empty_h + heights.iter().sum::<f32>() + choices_h;
     let rect = Rect::new(18.0, viewport.y - h - 18.0, w, h);
     o.panels.push(Panel {
         fill: palette::PARCHMENT.with_alpha(0.95),
@@ -532,16 +552,53 @@ pub fn talk(
         o.texts.push(Text::new(t, G2::new(x, y), 17.0).weight(700));
         y += title_h;
     }
-    if lines.is_empty() {
+    if lines.is_empty() && empty_h > 0.0 {
         o.texts.push(
             Text::new("Nothing new since you were last here.", G2::new(x, y), 16.0)
                 .weight(500)
                 .color(palette::INK.with_alpha(0.7)),
         );
+        y += empty_h;
     }
     for line in &lines {
         y += talk_row(o, world, line, x, y, inner);
     }
+    let mut buttons = Vec::new();
+    if !choices.is_empty() {
+        // Who is waiting: one name, or "Your answer" when several people asked.
+        let first = &choices[0].npc;
+        let head = if choices.iter().all(|c| &c.npc == first) {
+            let name = world
+                .npcs
+                .get(first)
+                .map_or_else(|| first.to_string(), |n| n.name.clone());
+            format!("Answer {name}")
+        } else {
+            "Your answer".to_owned()
+        };
+        o.texts.push(
+            Text::new(head, G2::new(x, y + 2.0), 14.0)
+                .weight(700)
+                .color(palette::TERRACOTTA),
+        );
+        y += 24.0;
+        for (i, c) in choices.iter().enumerate() {
+            let rect = Rect::new(x, y, inner, CHOICE_H);
+            buttons.push(button(
+                o,
+                ui,
+                rect,
+                &format!("{}   {}", i + 1, c.text),
+                true,
+                UiAction::Reply {
+                    npc: c.npc.clone(),
+                    choice: c.choice.clone(),
+                },
+            ));
+            y += CHOICE_H + 6.0;
+        }
+    }
+    buttons
 }
 
 /// The prestige confirm card: what stays, what resets, and the fee.

@@ -263,6 +263,12 @@ function G.hold_free(at_least) return { hold_free = { at_least = at_least } } en
 function G.docked_at(station) return { docked_at = station } end
 function G.docked() return "docked" end
 function G.in_region(region) return { in_region = region } end
+function G.near(spot, within)
+	if type(spot) ~= "table" or spot.region == nil then
+		error("G.near expects a spot { x, y, region } and a distance", 2)
+	end
+	return { near = { region = spot.region, x = spot.x, y = spot.y, within = within } }
+end
 function G.regard(faction, tier) return { regard = { faction = faction, at_least = tier } } end
 function G.tunable_is(id, value) return { tunable_is = { tunable = id, value = value } } end
 function G.test(f)

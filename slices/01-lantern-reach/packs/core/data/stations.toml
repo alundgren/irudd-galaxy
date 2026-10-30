@@ -48,7 +48,6 @@ name = "Cinder Hook"
 region = "region.cinder_drift"
 position = { x = 4600.0, y = 900.0 }
 dock_radius = 55.0
-owner = "faction.wharf_cooperative"
 services = ["market"]
 market = [
     { ware = "ware.ice", role = "buys", base_price = 14, target = 100, stock = 70, consumption = 2, sat_per_unit = 0.03, sat_recover = 0.05 },

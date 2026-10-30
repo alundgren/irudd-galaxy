@@ -79,6 +79,9 @@ radius = 300.0
 count = 8
 amount_min = 40
 amount_max = 90
+# Glass Drift's regrowth (content/01-galaxy.md): b15's fragment waits on a glassite
+# rock spent after b13, so a field mined out earlier must come back with activity.
+regrow = 0.15
 
 [[field]]
 id = "field.narrows.ice"
@@ -91,3 +94,28 @@ radius = 250.0
 count = 6
 amount_min = 40
 amount_max = 70
+
+# Rich glassite: only in the Ember Shoals, laid out live by beat b10 if the rumor is
+# true (content/01-galaxy.md). Like glassite, with bright seams; quicker to cut.
+[[rock_type]]
+id = "rock_type.rich_glassite"
+name = "Rich glassite rock"
+ware = "ware.glassite"
+hardness = 0.45
+regrowth = 0
+
+# Hookside: a small ice field by Cinder Hook, outside the Shallows. Free ice when
+# Rimewater runs thin (b12's paired opportunity); its regrowth doubles if the
+# Compact takes the Hook depot (b09).
+[[field]]
+id = "field.hookside"
+name = "Hookside"
+region = "region.cinder_drift"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.hookside"
+center = { x = 4250.0, y = 1250.0 }
+radius = 140.0
+count = 5
+amount_min = 30
+amount_max = 30
+regrow = 0.2

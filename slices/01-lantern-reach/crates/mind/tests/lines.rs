@@ -1,5 +1,6 @@
-//! The authored lines' conditions against real facts: the core pack's `lines.toml` over
-//! a new game. Headless and offline.
+//! `TalkLines`' conditions against real facts over a new game: a pack's `lines.toml`
+//! (the core pack's own lines live in its Luau line pools; these two are copies of its
+//! stage-1 lines). Headless and offline.
 
 use std::path::{Path, PathBuf};
 
@@ -35,6 +36,25 @@ fn stage_built(sim: &mut Sim, kind: &'static str, stage: i64) -> FactId {
     sim.history().last_fact_id().unwrap()
 }
 
+/// Ilse's and Odo's stage-1 lines, as a pack's `lines.toml` would carry them.
+const STAGE_ONE: &str = r#"
+[[line]]
+id = "line.ilse_marrow.11"
+npc = "npc.ilse_marrow"
+cites = "stage_built"
+amount = 1
+station = "station.kettle_dock"
+text = "Odo's got a pane up at Kettle. One dome, and it fogs. He's never been prouder of anything."
+
+[[line]]
+id = "line.odo_fenn.02"
+npc = "npc.odo_fenn"
+cites = "stage_built"
+amount = 1
+station = "station.kettle_dock"
+text = "First pane's up. It fogs in the mornings. Well. When we call it morning."
+"#;
+
 fn answer(sim: &Sim, lines: &TalkLines, npc: &NpcId) -> Vec<(String, FactId)> {
     lines
         .what_changed(sim.world(), sim.history(), &[], FactId(0), npc, 3)
@@ -45,7 +65,7 @@ fn answer(sim: &Sim, lines: &TalkLines, npc: &NpcId) -> Vec<(String, FactId)> {
 
 #[test]
 fn stage_one_lines_cite_only_the_stage_one_fact() {
-    let lines = TalkLines::load_dir(&data_dir()).unwrap();
+    let lines = TalkLines::from_toml(STAGE_ONE).unwrap();
     let mut sim = Sim::new(galaxy_core::new_game(&data_dir(), 1).unwrap());
     // A later stage alone: the "one dome" and "first pane" lines would misreport it.
     let two = stage_built(&mut sim, "gm.stage_built", 2);

@@ -66,6 +66,15 @@ pub fn key_of(code: KeyCode) -> Option<Key> {
         KeyCode::Escape => Key::Escape,
         KeyCode::Minus | KeyCode::NumpadSubtract => Key::ZoomOut,
         KeyCode::Equal | KeyCode::NumpadAdd => Key::ZoomIn,
+        KeyCode::Digit1 | KeyCode::Numpad1 => Key::Answer(0),
+        KeyCode::Digit2 | KeyCode::Numpad2 => Key::Answer(1),
+        KeyCode::Digit3 | KeyCode::Numpad3 => Key::Answer(2),
+        KeyCode::Digit4 | KeyCode::Numpad4 => Key::Answer(3),
+        KeyCode::Digit5 | KeyCode::Numpad5 => Key::Answer(4),
+        KeyCode::Digit6 | KeyCode::Numpad6 => Key::Answer(5),
+        KeyCode::Digit7 | KeyCode::Numpad7 => Key::Answer(6),
+        KeyCode::Digit8 | KeyCode::Numpad8 => Key::Answer(7),
+        KeyCode::Digit9 | KeyCode::Numpad9 => Key::Answer(8),
         _ => return None,
     })
 }
@@ -373,6 +382,9 @@ impl App {
             }
             UiAction::CancelPrestige => self.ui.confirm = None,
             UiAction::ServicesFrom(first) => self.ui.services_first = first,
+            UiAction::Reply { npc, choice } => {
+                self.session.reply(npc, choice);
+            }
             UiAction::AskWhatChanged => {
                 self.session.ask_what_changed();
             }
@@ -398,6 +410,10 @@ impl App {
             Key::E | Key::Enter => {
                 let amount = if shift { Amount::Most } else { Amount::One };
                 self.trade(self.ui.selected, amount);
+            }
+            // The prestige card takes no answers under it.
+            Key::Answer(i) if self.ui.confirm.is_none() => {
+                self.session.reply_to_open(usize::from(i));
             }
             _ => {}
         }

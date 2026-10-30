@@ -636,6 +636,35 @@
             "type",
             "session"
           ]
+        },
+        {
+          "description": "The player answered someone at a dock: picked one of the choices a line\noffered, or asked a standing question (\"What changed?\"). `choice` is the\nchoice's ID (`choice.side_coop`). The progress system emits it from\n`PlayerInput::replies` when the player's ship is docked where the person is.",
+          "type": "object",
+          "properties": {
+            "choice": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "reply"
+            }
+          },
+          "required": [
+            "type",
+            "ship",
+            "npc",
+            "station",
+            "choice"
+          ]
         }
       ]
     },
@@ -731,6 +760,15 @@
       "type": "string",
       "examples": [
         "ledger.kettle_greenhouse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"

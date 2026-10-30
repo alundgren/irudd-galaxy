@@ -211,13 +211,10 @@ fn core_beats_b01_to_b03_complete_from_history_and_world_state() {
             .iter()
             .any(|o| o.name == "Mining lens")
     );
-    // b04 follows: Orrin's lens is the next goal.
-    assert_eq!(
-        beats::hud_goal(sim.world())
-            .map(|g| g.beat.to_string())
-            .as_deref(),
-        Some("beat.b04_first_sale")
-    );
+    // b04 follows: the HUD points at the lens.
+    let next = beats::hud_goal(sim.world()).expect("b04 is the goal after b03");
+    assert_eq!(next.beat.as_str(), "beat.b04_first_sale");
+    assert!(next.goal.contains("mining lens"));
 }
 
 #[test]

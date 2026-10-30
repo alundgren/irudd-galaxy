@@ -759,6 +759,39 @@
           ]
         },
         {
+          "description": "The player ship is in `region`, within `within` u of (`x`, `y`): it went\nsomewhere (a rumored vein, a buoy). Any of the numbers can be a tunable.",
+          "type": "object",
+          "properties": {
+            "near": {
+              "type": "object",
+              "properties": {
+                "region": {
+                  "$ref": "#/$defs/RegionId"
+                },
+                "within": {
+                  "$ref": "#/$defs/Num"
+                },
+                "x": {
+                  "$ref": "#/$defs/Num"
+                },
+                "y": {
+                  "$ref": "#/$defs/Num"
+                }
+              },
+              "required": [
+                "region",
+                "x",
+                "y",
+                "within"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "near"
+          ]
+        },
+        {
           "description": "The player's regard with a faction is at least this tier (by tier ID).",
           "type": "object",
           "properties": {

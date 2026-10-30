@@ -287,6 +287,9 @@ pub fn service_refusal(
         R::NotDocked(station) => format!("Dock at {} for that.", station_name(world, station)),
         R::NoBranch => "The hullwright has no hull for that here.".into(),
         R::NotSold => format!("{name} can't be bought; it's given."),
+        R::HoldTooFull { holds, room } => {
+            format!("{name} holds {room}. You carry {holds}: sell or deliver some first.")
+        }
         R::NoShip | R::Unknown(_) => "That can't be bought here.".into(),
     }
 }

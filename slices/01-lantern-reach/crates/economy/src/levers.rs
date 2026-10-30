@@ -7,6 +7,10 @@
 //! with its own cause (a script pack revision, a fast-model decision), so the change
 //! is journaled and can be rolled back.
 //!
+//! Base levers (`SetBase`, `ScaleBase`) that move a line's base price also record a
+//! `market_base_changed` fact (station, ware, amount = the new base in centicredits),
+//! so scripts and people can notice the change and cite it.
+//!
 //! Rates go through [`Command::SetMarketRates`], which leaves stock and saturation
 //! alone, so rolling a lever back restores the rates without undoing trades made
 //! since. Adding, removing and restocking lines use `SetMarketLine` / `PutMarket`.
@@ -62,6 +66,20 @@ pub enum Lever {
         ware: WareId,
         stock: u32,
     },
+    /// Sets a line's base price, in centicredits (a change of owner, the end of a
+    /// shortage). Its band and price follow from the formula; stock, saturation and
+    /// rates stay. Standing tender floors are checked against the new ceiling.
+    SetBase {
+        station: StationId,
+        ware: WareId,
+        base_price: u32,
+    },
+    /// Multiplies a line's base price (1.4 for a shortage), rounded to a centicredit.
+    ScaleBase {
+        station: StationId,
+        ware: WareId,
+        factor: f64,
+    },
 }
 
 /// A new market line. Its price comes from the formula.
@@ -100,6 +118,8 @@ pub enum LeverError {
     NegativeRate(i64),
     #[error("a scale factor must be finite and not negative ({0})")]
     BadFactor(f64),
+    #[error("a base price must be at least 0.01 cr ({0})")]
+    BadBase(f64),
     #[error("lever {index} doesn't apply: {reason}")]
     Apply { index: usize, reason: String },
 }
@@ -143,6 +163,62 @@ fn check_factor(factor: f64) -> Result<(), LeverError> {
         Err(LeverError::BadFactor(factor))
     }
 }
+
+/// `SetMarketBase` for a new base price (centicredits), with the band and price the
+/// formula gives it on the line as it is.
+fn base_commands(
+    world: &WorldState,
+    station: &StationId,
+    ware: &WareId,
+    base: f64,
+) -> Result<Vec<Command>, LeverError> {
+    if !(base.is_finite() && (1.0..=f64::from(u32::MAX)).contains(&base)) {
+        return Err(LeverError::BadBase(base / 100.0));
+    }
+    let old = line(world, station, ware)?;
+    let new = pricing::priced(
+        &MarketLine {
+            base_price: base as u32,
+            ..old.clone()
+        },
+        &world.economy.rules.pricing,
+        spread_at(world, station),
+    );
+    let mut out = vec![Command::SetMarketBase {
+        station: station.clone(),
+        ware: ware.clone(),
+        base: MarketBase {
+            base_price: new.base_price,
+            min_price: new.min_price,
+            max_price: new.max_price,
+            price: new.price,
+        },
+    }];
+    // A base that moves is something people notice (a standing floor may now sit
+    // above the price band): one `market_base_changed` fact, amount the new base.
+    if new.base_price != old.base_price {
+        out.push(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: FactKind::from_static(BASE_CHANGED),
+                subjects: Subjects {
+                    station: Some(station.clone()),
+                    ware: Some(ware.clone()),
+                    ..Subjects::default()
+                },
+                amount: Some(i64::from(new.base_price)),
+                note: format!(
+                    "{ware} base at {station}: {} -> {} cr",
+                    show_credits(i64::from(old.base_price)),
+                    show_credits(i64::from(new.base_price))
+                ),
+            }),
+        });
+    }
+    Ok(out)
+}
+
+/// The fact kind a base lever records when it moves a line's base price.
+pub const BASE_CHANGED: &str = "market_base_changed";
 
 /// The commands for one lever against the world as it is.
 pub fn lever_commands(world: &WorldState, lever: &Lever) -> Result<Vec<Command>, LeverError> {
@@ -250,6 +326,20 @@ pub fn lever_commands(world: &WorldState, lever: &Lever) -> Result<Vec<Command>,
                 ware: ware.clone(),
                 line: None,
             }])
+        }
+        Lever::SetBase {
+            station,
+            ware,
+            base_price,
+        } => base_commands(world, station, ware, f64::from(*base_price)),
+        Lever::ScaleBase {
+            station,
+            ware,
+            factor,
+        } => {
+            check_factor(*factor)?;
+            let base = f64::from(line(world, station, ware)?.base_price) * factor;
+            base_commands(world, station, ware, base.round())
         }
         Lever::SetStock {
             station,

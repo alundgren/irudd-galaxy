@@ -337,8 +337,12 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
     }
 }
 
-/// Does `id` exist in the world?
+/// Does `id` exist in the world? A pacing tunable's ID counts, whatever its family
+/// (`rumor.ember_shoals.override` is a tunable, not a rumor).
 fn exists(world: &WorldState, id: &str) -> bool {
+    if world.progress.tunables.contains_key(id) {
+        return true;
+    }
     match id.split('.').next().unwrap_or("") {
         "station" => world.stations.contains(id),
         "npc" => world.npcs.contains(id),
@@ -574,6 +578,17 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
             station,
         },
         EventKind::Paused => Event::Paused { session: 1 },
+        EventKind::Reply => Event::Reply {
+            ship,
+            npc: w
+                .npcs
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| NpcId::from_static("npc.sample")),
+            station,
+            choice: AnyId::from_static("choice.sample"),
+        },
     })
 }
 

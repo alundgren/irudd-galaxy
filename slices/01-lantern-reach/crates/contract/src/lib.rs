@@ -42,8 +42,8 @@ pub mod prelude {
         Reversibility, UndoRecord,
     };
     pub use crate::economy::{
-        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketRates,
-        MarketRole, PriceReach, TradeRequest, TradeSide,
+        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketBase,
+        MarketRates, MarketRole, PriceReach, TradeRequest, TradeSide,
     };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,
@@ -51,7 +51,7 @@ pub mod prelude {
     pub use crate::geom::Vec2;
     pub use crate::history::{Fact, FactDraft, FactPayload, HistoryQuery, Subjects};
     pub use crate::ids::*;
-    pub use crate::input::{Click, ClickTarget, PlayerInput};
+    pub use crate::input::{Click, ClickTarget, PlayerInput, Reply};
     pub use crate::money::{CENTS_PER_CREDIT, show_credits};
     pub use crate::progress::{
         BeatKind, BeatState, BeatStatus, HullRecord, Modifier, ProgressRules, ProgressState,
