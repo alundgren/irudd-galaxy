@@ -189,6 +189,12 @@ impl System for EconomySystem {
                 _ => {}
             }
         }
+        // A stack that left the hold some other way (delivered, handed over) is no
+        // longer split: the next stack of that ware is a stack of its own, and selling
+        // it elsewhere isn't a split sale. Delivering needs a docking and mining an
+        // undocking, so this tick's empty hold is seen before a new stack is mined.
+        let hold = flagship.and_then(|s| world.ships.get(s)).map(|s| &s.hold);
+        stacks.retain(|ware, _| hold.is_some_and(|h| h.count(ware) > 0));
         let wares: BTreeSet<&WareId> = stacks
             .keys()
             .chain(world.economy.split_stacks.keys())

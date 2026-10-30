@@ -782,6 +782,43 @@ fn selling_part_of_a_stack_here_and_the_rest_elsewhere_is_a_split_sale() {
 }
 
 #[test]
+fn handing_over_the_rest_of_a_stack_clears_the_split_mark() {
+    let mut p = Pilot::new(session(with_ice(new_state(false), 10)));
+    p.ticks(3);
+    let world = p.s.world();
+    let line = ui::dock_lines(world, &WHARF)
+        .into_iter()
+        .find(|l| l.ware == ICE)
+        .unwrap();
+    let mut req = ui::trade_request(world, &WHARF, &line, Amount::One).unwrap();
+    req.quantity = 4;
+    p.s.request_trade(req);
+    p.ticks(4);
+    assert_eq!(p.s.world().economy.split_stacks.get(&ICE), Some(&WHARF));
+    // The other 6 leave the hold without a sale (a delivery, a hand-over).
+    let ship = p.ship().id.clone();
+    let cargo = |delta: i64| {
+        CommandBatch::new(Cause::system("test", "cargo")).with(Command::AdjustCargo {
+            ship: ship.clone(),
+            ware: ICE,
+            delta,
+        })
+    };
+    p.s.submit(cargo(-6));
+    p.ticks(2);
+    assert_eq!(p.ship().hold.count(&ICE), 0);
+    assert!(p.s.world().economy.split_stacks.is_empty(), "the mark retired");
+    // A new stack, sold whole elsewhere: not a split sale.
+    p.undock();
+    p.s.submit(cargo(8));
+    p.dock_at(&KETTLE);
+    p.sell_all(&ICE);
+    p.ticks(2);
+    assert_eq!(p.ship().hold.count(&ICE), 0);
+    assert!(facts_of(&p.s, "split_sale").is_empty());
+}
+
+#[test]
 fn docking_where_the_snapshot_is_old_is_a_far_docking() {
     let mut state = new_state(false);
     state.world.economy.rules.scouting.far_docking = 1;
