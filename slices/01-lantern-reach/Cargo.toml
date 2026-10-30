@@ -15,6 +15,8 @@ galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
 galaxy-ship = { path = "crates/ship" }
 galaxy-economy = { path = "crates/economy" }
+galaxy-audio = { path = "crates/audio" }
+render = { path = "crates/render" }
 galaxy-mind = { path = "crates/mind" }
 
 # Third party (all MIT or MIT/Apache-2.0)
@@ -22,8 +24,11 @@ anyhow = "1.0.104"
 blake3 = "1.8.7"
 bytemuck = { version = "1.25", features = ["derive"] }
 clap = { version = "4.6.7", features = ["derive"] }
+directories = "6.0"
 glam = { version = "0.34", features = ["serde", "bytemuck"] }
 glyphon = "0.12"
+# Audio: only the cpal backend for now; the slice ships silent, decoders come with sounds.
+kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
 png = "0.18"
 pollster = "1.0"
 rand_core = "0.10.1"
