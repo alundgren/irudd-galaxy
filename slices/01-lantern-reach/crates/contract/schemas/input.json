@@ -20,6 +20,13 @@
         }
       ]
     },
+    "services": {
+      "description": "Purchases asked for at the dock this tick: upgrades, tenders, prestige. The\nprogress system runs each as one atomic batch; check them first with\n`galaxy_progress::services::check`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ServiceRequest"
+      }
+    },
     "thrust": {
       "description": "Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.",
       "$ref": "#/$defs/Vec2",
@@ -121,6 +128,15 @@
         }
       ]
     },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "RegionId": {
       "description": "Stable region id, e.g. `region.lantern_shallows`.",
       "type": "string",
@@ -138,6 +154,62 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ServiceRequest": {
+      "description": "A purchase the player asks for at a dock this tick. The progress system runs each\nas one atomic batch and drops ones that don't apply; check with\n`galaxy_progress::services::check` first.",
+      "oneOf": [
+        {
+          "description": "Buy and fit an upgrade.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "fit"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
+          ]
+        },
+        {
+          "description": "Have a craft built (a tender).",
+          "type": "object",
+          "properties": {
+            "craft": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "service": {
+              "type": "string",
+              "const": "build"
+            }
+          },
+          "required": [
+            "service",
+            "craft"
+          ]
+        },
+        {
+          "description": "Hullwright prestige to a new hull.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "prestige"
+            },
+            "to": {
+              "$ref": "#/$defs/HullId"
+            }
+          },
+          "required": [
+            "service",
+            "to"
+          ]
+        }
+      ]
     },
     "ShipId": {
       "description": "Stable ship id, e.g. `ship.player`.",
@@ -204,6 +276,15 @@
         "buy",
         "sell"
       ]
+    },
+    "UpgradeId": {
+      "description": "Stable upgrade id, e.g. `upgrade.mining_lens`.",
+      "type": "string",
+      "examples": [
+        "upgrade.mining_lens"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",

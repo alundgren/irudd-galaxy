@@ -211,6 +211,7 @@ pub fn describe(world: &WorldState, fact: &Fact) -> String {
                 station,
                 ware,
                 quantity,
+                ..
             } => format!(
                 "{} delivered {quantity} {} to {}",
                 n.of(ship.as_str()),

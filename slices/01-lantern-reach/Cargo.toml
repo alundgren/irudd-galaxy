@@ -16,6 +16,7 @@ galaxy-core = { path = "crates/core" }
 galaxy-ship = { path = "crates/ship" }
 galaxy-economy = { path = "crates/economy" }
 galaxy-script = { path = "crates/script" }
+galaxy-progress = { path = "crates/progress" }
 galaxy-audio = { path = "crates/audio" }
 render = { path = "crates/render" }
 galaxy-mind = { path = "crates/mind" }

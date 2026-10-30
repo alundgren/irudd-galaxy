@@ -115,6 +115,124 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "BeatId": {
+      "description": "Stable beat id, e.g. `beat.first_delivery`.",
+      "type": "string",
+      "examples": [
+        "beat.first_delivery"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "BeatKind": {
+      "description": "Directed beats are the authored backbone; situations (a shortage, a dispute, a\nrumor) fire from world state and history. Both run the same way.",
+      "type": "string",
+      "enum": [
+        "directed",
+        "situation"
+      ]
+    },
+    "BeatState": {
+      "description": "Where a started beat is. Dormant beats have no state at all.",
+      "type": "object",
+      "properties": {
+        "act": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "done_since": {
+          "description": "Facts after this one happened since the beat completed.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "giver": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "goal": {
+          "description": "The one goal line the HUD shows while the beat is active.",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BeatKind",
+          "default": "directed"
+        },
+        "pack": {
+          "description": "The pack that registered it.",
+          "$ref": "#/$defs/PackId"
+        },
+        "since": {
+          "description": "Facts after this one happened since the beat started (`None`: from the start of\nhistory). Beats order by facts, never by time.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started": {
+          "description": "The tick it started on, for ordering goal lines (newest first).",
+          "$ref": "#/$defs/Tick"
+        },
+        "status": {
+          "$ref": "#/$defs/BeatStatus"
+        },
+        "step": {
+          "description": "The step under way, from 0. Equal to the number of steps once every step is\ndone and the beat waits on its end state.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "step_id": {
+          "description": "The current step's ID, if the beat has steps and one is under way.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "step_since": {
+          "description": "Facts after this one happened since the current step started.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pack",
+        "act",
+        "status",
+        "step",
+        "goal",
+        "started"
+      ]
+    },
+    "BeatStatus": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed"
+      ]
+    },
     "BuildState": {
       "description": "A station's visible growth: a stage number plus the kit parts attached.",
       "type": "object",
@@ -324,6 +442,58 @@
             "op",
             "ship",
             "station"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless a ship `ship` flying `hull` exists, or (with\n`hull: null`) unless no ship `ship` exists. A purchase that builds a ship or\ntrades a hull carries one, so a second request worked out from the same tick's\nstate is rejected instead of charged again. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HullId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_ship"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship"
+          ]
+        },
+        {
+          "description": "Replaces a ship's hull and name, leaving everything else (cargo, activity,\norders) as committed. Prestige uses it after an [`Command::ExpectShip`].",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_ship_hull"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "hull",
+            "name"
           ]
         },
         {
@@ -682,6 +852,33 @@
             "op",
             "faction",
             "delta"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless `faction`'s standing is within `min..=max`.\nDeeds carry one ahead of each `AdjustStanding`: the band of standings the deed\nwould have the same effect from (the same delta after the clamp, the same regard\ntiers), so a deed worked out before another batch moved the standing out of it\nis rejected, and one it doesn't affect still applies. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "max": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "min": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_standing"
+            }
+          },
+          "required": [
+            "op",
+            "faction",
+            "min",
+            "max"
           ]
         },
         {
@@ -1331,6 +1528,183 @@
           ]
         },
         {
+          "description": "Starts, moves or completes (or with `null` resets to dormant) a beat.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/BeatId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_beat"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BeatState"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Fits (or removes) an upgrade on the pilot.",
+          "type": "object",
+          "properties": {
+            "fitted": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_fitting"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "op",
+            "upgrade",
+            "fitted"
+          ]
+        },
+        {
+          "description": "Fails unless `upgrade` is (`fitted: true`) or isn't (`false`) fitted. Changes\nnothing; its inverse is itself. A purchase carries one so it can't be charged\ntwice in one tick.",
+          "type": "object",
+          "properties": {
+            "fitted": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_fitting"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "op",
+            "upgrade",
+            "fitted"
+          ]
+        },
+        {
+          "description": "Sets (or with `null` clears) a hull's rank record.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_hull_record"
+            },
+            "record": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HullRecord"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "hull"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless the hull's rank record is `record` (`null`:\nnone). Rank earning and prestige carry one ahead of `SetHullRecord`, so neither\nwrites a record worked out before the other changed it. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_hull_record"
+            },
+            "record": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HullRecord"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "hull"
+          ]
+        },
+        {
+          "description": "Sets (or with `null` removes) a tunable.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/TunableId"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_tunable"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Tunable"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Binds a reserved input or UI slot to a mechanic flag, or frees it.",
+          "type": "object",
+          "properties": {
+            "mechanic": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlagId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "type": "string",
+              "const": "bind_slot"
+            },
+            "slot": {
+              "$ref": "#/$defs/SlotId"
+            }
+          },
+          "required": [
+            "op",
+            "slot"
+          ]
+        },
+        {
           "description": "Says a line on a legibility channel; it gets the next `talk.N` ID. The line\nmust name a person or place and cite a fact. Chronicle lines are history and\ncompensate-only.",
           "type": "object",
           "properties": {
@@ -1602,6 +1976,11 @@
           "description": "Sales and deliveries, one per transaction.",
           "type": "string",
           "const": "deliveries"
+        },
+        {
+          "description": "Handovers to a ledger (goal deliveries, station growth, dispute tallies).",
+          "type": "string",
+          "const": "ledger_deliveries"
         }
       ]
     },
@@ -1849,6 +2228,17 @@
           "description": "Cargo handed over for a goal or a station's growth, not sold.",
           "type": "object",
           "properties": {
+            "ledger": {
+              "description": "The delivery tally it counts toward (also the fact's `other` subject).",
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/LedgerId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "quantity": {
               "type": "integer",
               "format": "uint32",
@@ -1946,6 +2336,7 @@
           ]
         },
         {
+          "description": "A beat's next step started (`quest` is the beat's ID).",
           "type": "object",
           "properties": {
             "quest": {
@@ -1968,6 +2359,13 @@
         {
           "type": "object",
           "properties": {
+            "deed_count": {
+              "description": "How many times the deed had been done.",
+              "type": "integer",
+              "format": "uint64",
+              "default": 0,
+              "minimum": 0
+            },
             "trait_id": {
               "$ref": "#/$defs/TraitId"
             },
@@ -1984,6 +2382,12 @@
         {
           "type": "object",
           "properties": {
+            "fee": {
+              "description": "Centicredits paid to the hullwright.",
+              "type": "integer",
+              "format": "int64",
+              "default": 0
+            },
             "from_hull": {
               "$ref": "#/$defs/HullId"
             },
@@ -2015,6 +2419,180 @@
           ]
         },
         {
+          "description": "A beat's preconditions held and it started.",
+          "type": "object",
+          "properties": {
+            "act": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "beat": {
+              "$ref": "#/$defs/BeatId"
+            },
+            "type": {
+              "type": "string",
+              "const": "beat_started"
+            }
+          },
+          "required": [
+            "type",
+            "beat",
+            "act"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "beat": {
+              "$ref": "#/$defs/BeatId"
+            },
+            "type": {
+              "type": "string",
+              "const": "beat_completed"
+            }
+          },
+          "required": [
+            "type",
+            "beat"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "type": {
+              "type": "string",
+              "const": "upgrade_fitted"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "type",
+            "upgrade",
+            "hull"
+          ]
+        },
+        {
+          "description": "A control capability flag was set for the first time.",
+          "type": "object",
+          "properties": {
+            "cap": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "type": {
+              "type": "string",
+              "const": "cap_unlocked"
+            }
+          },
+          "required": [
+            "type",
+            "cap"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "rank": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "hull_rank"
+            }
+          },
+          "required": [
+            "type",
+            "hull",
+            "rank"
+          ]
+        },
+        {
+          "description": "A deed moved the player's standing. The number is never shown.",
+          "type": "object",
+          "properties": {
+            "deed": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "delta": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "type": {
+              "type": "string",
+              "const": "standing_changed"
+            }
+          },
+          "required": [
+            "type",
+            "faction",
+            "deed",
+            "delta"
+          ]
+        },
+        {
+          "description": "The player's regard tier with a faction changed (tier IDs).",
+          "type": "object",
+          "properties": {
+            "faction": {
+              "$ref": "#/$defs/FactionId"
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "regard_changed"
+            }
+          },
+          "required": [
+            "type",
+            "faction",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "A station built the player an automated craft.",
+          "type": "object",
+          "properties": {
+            "craft": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "type": {
+              "type": "string",
+              "const": "tender_acquired"
+            }
+          },
+          "required": [
+            "type",
+            "craft",
+            "hull",
+            "station"
+          ]
+        },
+        {
           "description": "The PAUSED card opened. The app submits it every time the card opens; the sim\ndoesn't tick while paused, so it commits on the first tick after the card\ncloses. `session` is the `sessions` counter of the play session it happened in.",
           "type": "object",
           "properties": {
@@ -2033,6 +2611,31 @@
             "session"
           ]
         }
+      ]
+    },
+    "EventEnvelope": {
+      "description": "An emitted event as subscribers see it.",
+      "type": "object",
+      "properties": {
+        "cause": {
+          "$ref": "#/$defs/CauseId"
+        },
+        "event": {
+          "$ref": "#/$defs/Event"
+        },
+        "fact": {
+          "description": "The history fact recorded for this event; cite it.",
+          "$ref": "#/$defs/FactId"
+        },
+        "tick": {
+          "$ref": "#/$defs/Tick"
+        }
+      },
+      "required": [
+        "tick",
+        "fact",
+        "cause",
+        "event"
       ]
     },
     "FactDraft": {
@@ -2081,8 +2684,29 @@
     "Faction": {
       "type": "object",
       "properties": {
+        "claims": {
+          "description": "Stations it claims but may not hold.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          }
+        },
+        "colour": {
+          "description": "Map and banner colour, e.g. `lantern_green`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "id": {
           "$ref": "#/$defs/FactionId"
+        },
+        "mark": {
+          "description": "Its mark, in a few words.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "name": {
           "type": "string"
@@ -2204,6 +2828,25 @@
         }
       ]
     },
+    "HandlerRetry": {
+      "description": "An event handler call to run again because its writes lost to contention: a valid\nwrite the projection rejected only because the world changed earlier in the tick.",
+      "type": "object",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/EventEnvelope"
+        },
+        "lost": {
+          "description": "Times the call has lost so far (the first run included).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "event",
+        "lost"
+      ]
+    },
     "Hold": {
       "type": "object",
       "properties": {
@@ -2303,6 +2946,54 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "HullRecord": {
+      "description": "What the player did in one hull. Kept for every hull they've flown.",
+      "type": "object",
+      "properties": {
+        "berthed_as": {
+          "description": "Where the hull is kept now that the player flies another.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShipId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "description": "Ranks earned in it (0 = none).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "since": {
+          "description": "Facts after this one count toward its ranks (`None`: all of history).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "until": {
+          "description": "Set when the player left the hull at prestige; its ranks are frozen.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rank"
+      ]
+    },
     "Lane": {
       "description": "A lane between two regions. Gates are world positions at each end.",
       "type": "object",
@@ -2337,6 +3028,15 @@
       "type": "string",
       "examples": [
         "lane.shallows_cinder"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "LedgerId": {
+      "description": "Stable ledger id, e.g. `ledger.kettle_greenhouse`.",
+      "type": "string",
+      "examples": [
+        "ledger.kettle_greenhouse"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
@@ -3342,6 +4042,13 @@
           },
           "uniqueItems": true
         },
+        "retries": {
+          "description": "Event handler calls that lost to contention and run again next tick, oldest\nfirst. Kept across a new revision: the event still happened.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HandlerRetry"
+          }
+        },
         "revision": {
           "description": "The revision these counts are for; a new revision starts clean.",
           "type": "string"
@@ -3510,6 +4217,15 @@
       "type": "string",
       "examples": [
         "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "SlotId": {
+      "description": "Stable slot id, e.g. `slot.key_t`.",
+      "type": "string",
+      "examples": [
+        "slot.key_t"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
@@ -3770,6 +4486,59 @@
         "travelled"
       ]
     },
+    "Tunable": {
+      "description": "A pacing number or choice. `authored` is what the pack data says; a script may\nchange `value` with a cause, and a rollback restores it.",
+      "type": "object",
+      "properties": {
+        "authored": {
+          "$ref": "#/$defs/TunableValue"
+        },
+        "set_by": {
+          "description": "The pack whose script last changed it (`None`: the pack data's value).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/TunableValue"
+        }
+      },
+      "required": [
+        "value",
+        "authored"
+      ]
+    },
+    "TunableId": {
+      "description": "Stable tunable id, e.g. `nav_chip.dockings`.",
+      "type": "string",
+      "examples": [
+        "nav_chip.dockings"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TunableValue": {
+      "anyOf": [
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
     "UndoRecord": {
       "description": "What it takes to undo one applied command.",
       "oneOf": [
@@ -3808,6 +4577,15 @@
           ]
         }
       ]
+    },
+    "UpgradeId": {
+      "description": "Stable upgrade id, e.g. `upgrade.mining_lens`.",
+      "type": "string",
+      "examples": [
+        "upgrade.mining_lens"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",

@@ -8,10 +8,11 @@ Status: Act 1 is playable in a window. Under it: the shared contract, the headle
 kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, control
 tiers, orders, the tender), the living market and map (`crates/economy`) and the
 cel-shaded renderer (`crates/render`), the Luau script host (`crates/script`: sandboxed
-packs, the hook API, `galaxy pack check`, hot reload, rollback by cause) and the
-fast-model layer (`crates/mind`). Beats, scripts and dock talk aren't wired into play yet:
-the goal line is a placeholder that follows Act 1 (ice to Kettle Dock, then iron ore at
-the Wharf).
+packs, the hook API, `galaxy pack check`, hot reload, rollback by cause), the fast-model
+layer (`crates/mind`) and progress (`crates/progress`): the beat runtime with b01 to b03
+in the core pack, standing, traits, hull ranks, prestige and station services. Beats,
+scripts and dock talk aren't wired into play yet: the goal line is a placeholder that
+follows Act 1 (ice to Kettle Dock, then iron ore at the Wharf).
 
 ![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
 
@@ -127,12 +128,13 @@ crates/core       headless sim kernel, data loading, saves, determinism hash
 crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
+crates/progress   beats, standing and regard, traits, hull ranks, prestige, station services
 crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
 crates/audio      a silent kira wrapper; a missing audio device never stops the game
 crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
 crates/app        the galaxy binary: play, shot and the JSON CLI
                   session (pause, dock trades), input, view (world to scene), ui, saves
-packs/core        the authored backbone: manifest.toml and data/*.toml
+packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/ (the journey's beats)
 packs/gm-examples game-master example packs: kettle_growth, and bad_script/ (must be rejected)
 tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
 xtask             cargo xtask check | contract | fetch-luau

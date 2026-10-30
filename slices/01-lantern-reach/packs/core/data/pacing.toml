@@ -1,0 +1,33 @@
+# The pacing profile (content/07-pacing.md). Tunables are the numbers and choices
+# beats read through `G.tunable(id)` / `ctx.pacing:get(id)`; a game-master script may
+# vary one with a cause while its beat is dormant, and a rollback restores it. The
+# engine assumes no pace: a slower profile changes these numbers, nothing else.
+# Schema: crates/contract/schemas/data-pacing.json
+
+profile = "slice"
+
+[tunables]
+# b02: fill the hold with ice by hand.
+"b02.ice" = 20
+# b03: the first delivery to Kettle Dock's greenhouse.
+"b03.ice" = 20
+# b06's precondition and the nav chip's unlock share it.
+"b06.dockings" = 6
+# b16 and the prestige offer.
+"b16.dockings" = 60
+# Little Pail's demonstration starts at this ice saturation or below (b13).
+"tender_demo.max_sat" = 0.6
+
+# Hullwright prestige (Hearthbound). The fee is paid to Orrin and not refunded. Only
+# hull ranks reset; the old hull stays berthed at the Wharf as `berth_as`.
+[prestige]
+station = "station.lantern_wharf"
+seller = "npc.orrin_vale"
+fee = 8000
+# The offer appears once b16 has started (its preconditions held).
+requires = { beat_started = "beat.b16_hullwrights_question" }
+
+[[prestige.branch]]
+from = "hull.wren"
+to = ["hull.tandem", "hull.heron"]
+berth_as = "ship.berth.wren"

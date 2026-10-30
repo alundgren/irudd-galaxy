@@ -339,11 +339,12 @@ fn rolling_back_everything_a_revision_did_still_retires_it() {
     grow_to_stage_2(&mut sim);
     let id = pack_id(KETTLE_PACK);
     let revision = host.revision(&id).unwrap();
-    // Every cause, including the install that brought Odo, the rollback's speaker.
+    // Every cause the revision made. The core pack has Odo now, so the install brought
+    // nobody and rolling everything back leaves him (the rollback's speaker) in place.
     let causes = causes_of(&sim, &id, &revision);
     let out = galaxy_script::rollback(&mut sim, &causes, host.rollback_line(&id).as_ref());
     step(&mut sim, 1); // nothing rejected
-    assert!(!sim.world().npcs.contains(&ODO), "the install was undone");
+    assert!(sim.world().npcs.contains(&ODO), "core's Odo stays");
     assert_eq!(stage(&sim), 0);
     assert!(
         sim.world()
@@ -353,8 +354,8 @@ fn rolling_back_everything_a_revision_did_still_retires_it() {
             .retired
             .contains(&revision)
     );
-    let line = out.line.expect("a line from the place, without Odo");
-    assert_eq!((line.speaker, line.place), (None, Some(KETTLE)));
+    let line = out.line.expect("Odo says it, at Kettle");
+    assert_eq!((line.speaker, line.place), (Some(ODO), Some(KETTLE)));
     assert_eq!(lines(&sim, Channel::DockTalk).len(), 1);
     assert_eq!(lines(&sim, Channel::Chronicle).len(), 1);
 }
@@ -971,9 +972,14 @@ fn preview_sees_queued_batches_and_added_invariants() {
             stage: 5,
         }),
     );
-    // `step` asserts the kernel rejects nothing: the host caught it first.
+    // `step` asserts the kernel rejects nothing: the host caught it first. Valid on
+    // the world the handler read, it lost to the queued batch: contention, retried.
     step(&mut sim, 1);
     assert_eq!(stage(&sim), 5);
+    assert!(aborts(&host).is_empty());
+    // Run again on the world with Kettle grown, the write breaks the invariant there
+    // too: a fault.
+    step(&mut sim, 1);
     let a = aborts(&host);
     assert_eq!(a.len(), 1, "{a:?}");
     assert_eq!(a[0].0, "rejected_write");

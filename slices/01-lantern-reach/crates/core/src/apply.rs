@@ -209,6 +209,36 @@ fn apply_with(
             }
             invert(cmd.clone())
         }
+        C::ExpectShip { ship, hull } => {
+            if refs.check {
+                match (world.ships.get(ship), hull) {
+                    (None, None) => {}
+                    (Some(s), Some(h)) if s.hull == *h => {}
+                    (Some(_), None) => {
+                        return Err(CommandError::Invalid(format!("{ship} already exists")));
+                    }
+                    (Some(s), Some(h)) => {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} flies {}, not {h}",
+                            s.hull
+                        )));
+                    }
+                    (None, Some(_)) => return Err(unknown("ship", ship)),
+                }
+            }
+            invert(cmd.clone())
+        }
+        C::SetShipHull { ship, hull, name } => {
+            refs.require(&world.hulls, hull, "hull")?;
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old_hull = std::mem::replace(&mut s.hull, hull.clone());
+            let old_name = std::mem::replace(&mut s.name, name.clone());
+            invert(C::SetShipHull {
+                ship: ship.clone(),
+                hull: old_hull,
+                name: old_name,
+            })
+        }
         C::SetShipRegion { ship, region } => {
             refs.require(&world.regions, region, "region")?;
             let s = find(&mut world.ships, ship, "ship")?;
@@ -395,6 +425,20 @@ fn apply_with(
                 faction: faction.clone(),
                 delta: inverse,
             })
+        }
+        C::ExpectStanding { faction, min, max } => {
+            if refs.check {
+                let f = world
+                    .factions
+                    .get(faction)
+                    .ok_or_else(|| unknown("faction", faction))?;
+                if !(*min..=*max).contains(&f.standing) {
+                    return Err(CommandError::Invalid(format!(
+                        "{faction}'s standing changed since this deed was worked out"
+                    )));
+                }
+            }
+            invert(cmd.clone())
         }
         C::SetMarketLine {
             station,
@@ -714,6 +758,86 @@ fn apply_with(
                 pack: pack.clone(),
                 revision: revision.clone(),
                 retired: was,
+            })
+        }
+        C::PutBeat { id, value } => {
+            let beats = &mut world.progress.beats;
+            let old = match value {
+                Some(v) => beats.insert(id.clone(), (**v).clone()),
+                None => beats.remove(id),
+            };
+            invert(C::PutBeat {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::SetFitting { upgrade, fitted } => {
+            if *fitted && refs.check && !world.progress.rules.upgrades.contains_key(upgrade) {
+                return Err(unknown("upgrade", upgrade));
+            }
+            let was = if *fitted {
+                !world.player.fittings.insert(upgrade.clone())
+            } else {
+                world.player.fittings.remove(upgrade)
+            };
+            invert(C::SetFitting {
+                upgrade: upgrade.clone(),
+                fitted: was,
+            })
+        }
+        C::ExpectFitting { upgrade, fitted } => {
+            if refs.check && world.player.fittings.contains(upgrade) != *fitted {
+                return Err(CommandError::Invalid(if *fitted {
+                    format!("{upgrade} isn't fitted")
+                } else {
+                    format!("{upgrade} is already fitted")
+                }));
+            }
+            invert(cmd.clone())
+        }
+        C::ExpectHullRecord { hull, record } => {
+            if refs.check && world.player.hull_records.get(hull) != record.as_ref() {
+                return Err(CommandError::Invalid(format!(
+                    "{hull}'s rank record changed since this was worked out"
+                )));
+            }
+            invert(cmd.clone())
+        }
+        C::SetHullRecord { hull, record } => {
+            refs.require(&world.hulls, hull, "hull")?;
+            let records = &mut world.player.hull_records;
+            let old = match record {
+                Some(r) => records.insert(hull.clone(), r.clone()),
+                None => records.remove(hull),
+            };
+            invert(C::SetHullRecord {
+                hull: hull.clone(),
+                record: old,
+            })
+        }
+        C::SetTunable { id, value } => {
+            let tunables = &mut world.progress.tunables;
+            let old = match value {
+                Some(v) => tunables.insert(id.clone(), (**v).clone()),
+                None => tunables.remove(id),
+            };
+            invert(C::SetTunable {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::BindSlot { slot, mechanic } => {
+            if mechanic.is_some() && refs.check && !world.progress.rules.slots.contains_key(slot) {
+                return Err(unknown("slot", slot));
+            }
+            let slots = &mut world.progress.slots;
+            let old = match mechanic {
+                Some(m) => slots.insert(slot.clone(), m.clone()),
+                None => slots.remove(slot),
+            };
+            invert(C::BindSlot {
+                slot: slot.clone(),
+                mechanic: old,
             })
         }
         C::Say { line } => {

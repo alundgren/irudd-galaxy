@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::events::EventEnvelope;
 use crate::ids::*;
 
 /// `manifest.toml` at the root of a pack.
@@ -149,9 +150,12 @@ pub struct Limits {
     pub steps_per_call: u64,
     /// Memory limit for the pack's Luau state.
     pub memory_bytes: u64,
-    /// Aborted handler calls (per script and revision) before the script is
-    /// quarantined.
+    /// Aborted calls (per script and revision) before the script is quarantined.
+    /// Only script faults abort; a write that loses to contention never counts.
     pub quarantine_after: u32,
+    /// Times an event handler whose writes lost to contention is run again for the
+    /// same event, one tick apart, before it is dropped (`script_contention_dropped`).
+    pub contention_retries: u32,
 }
 
 impl Default for Limits {
@@ -160,6 +164,7 @@ impl Default for Limits {
             steps_per_call: 100_000,
             memory_bytes: 16 * 1024 * 1024,
             quarantine_after: 3,
+            contention_retries: 3,
         }
     }
 }
@@ -306,7 +311,7 @@ pub struct PackState {
 }
 
 /// How a script's current revision has behaved.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ScriptHealth {
     /// The revision these counts are for; a new revision starts clean.
     pub revision: String,
@@ -316,6 +321,19 @@ pub struct ScriptHealth {
     /// again doesn't give it a clean start: it stays quarantined.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub quarantined_before: BTreeSet<String>,
+    /// Event handler calls that lost to contention and run again next tick, oldest
+    /// first. Kept across a new revision: the event still happened.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub retries: Vec<HandlerRetry>,
+}
+
+/// An event handler call to run again because its writes lost to contention: a valid
+/// write the projection rejected only because the world changed earlier in the tick.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct HandlerRetry {
+    pub event: EventEnvelope,
+    /// Times the call has lost so far (the first run included).
+    pub lost: u32,
 }
 
 impl ScriptHealth {
@@ -339,6 +357,7 @@ impl ScriptHealth {
             aborts: 0,
             quarantined: before.remove(revision),
             quarantined_before: before,
+            retries: stored.retries.clone(),
         }
     }
 }

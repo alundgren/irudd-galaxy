@@ -46,6 +46,14 @@ and `ctx.store` (the script's declared stores).
 | `events.trait_earned` | Events | available | Subscribe with `on.<event>`. |
 | `events.prestige` | Events | available | Subscribe with `on.<event>`. |
 | `events.session_start` | Events | available | Subscribe with `on.<event>`. |
+| `events.beat_started` | Events | available | Subscribe with `on.<event>`. |
+| `events.beat_completed` | Events | available | Subscribe with `on.<event>`. |
+| `events.upgrade_fitted` | Events | available | Subscribe with `on.<event>`. |
+| `events.cap_unlocked` | Events | available | Subscribe with `on.<event>`. |
+| `events.hull_rank` | Events | available | Subscribe with `on.<event>`. |
+| `events.standing_changed` | Events | available | Subscribe with `on.<event>`. |
+| `events.regard_changed` | Events | available | Subscribe with `on.<event>`. |
+| `events.tender_acquired` | Events | available | Subscribe with `on.<event>`. |
 | `events.paused` | Events | available | Subscribe with `on.<event>`. |
 | `counters.read` | Counters | available | Read activity counters per player, station and region. |
 | `history.read` | History | available | Count, sum, find and read history facts. Results are capped. |
@@ -65,13 +73,21 @@ and `ctx.store` (the script's declared stores).
 | `talk.write` | Talk | available | Offer dock talk. Names a person or place and cites a fact. |
 | `map.write` | Talk | available | Pin a map note to a place. Cites a fact. |
 | `chronicle.write` | Talk | available | Write a chronicle entry. Cites a fact; can't be rolled back. |
-| `market.levers` | Market | reserved | Add or scale producers and consumers (W3). |
-| `orders.write` | Orders | reserved | Issue verbs to scripted and automated craft (W2). |
+| `market.levers` | Market | available | Add or scale producers and consumers, set stock (galaxy-economy's levers). |
+| `orders.read` | Orders | available | Read a craft's order queue. |
+| `orders.write` | Orders | available | Issue verbs to scripted craft and the player's tenders, never the player ship. |
+| `beats.read` | Beats | available | Read beat state, goal lines and the act. |
+| `beats.write` | Beats | available | Register beats with `G.beat` in `G.script { beats = { ... } }`. |
+| `mechanics.read` | Mechanics | available | Read mechanic flags and reserved slot bindings. |
+| `mechanics.write` | Mechanics | available | Teach a new verb: set `mech.*` flags, bind reserved input and UI slots. |
+| `standing.read` | Stores | available | Read the player's regard tier with a faction (the number stays hidden). |
+| `standing.write` | Stores | available | Record a deed that moves standing (writes standing_changed, regard_changed). |
+| `traits.read` | Stores | available | Read pilot traits. |
+| `pacing.read` | Counters | available | Read pacing tunables (`pacing.toml`). |
+| `pacing.write` | Counters | available | Vary a pacing tunable with a cause; a rollback restores it. |
 | `kit.write` | Kit | reserved | Assemble stations from kit recipes, register sprites (W6). |
-| `beats.write` | Beats | reserved | Register beats (W4). |
 | `canon.read` | Canon | reserved | Read the canon graph. |
 | `canon.write` | Canon | reserved | Open canon nodes. |
-| `mechanics.write` | Mechanics | reserved | Set mechanic flags, bind reserved slots. |
 | `mind.write` | Mind | reserved | Fast-model menus, briefs and budgets (W5, next wave). |
 | `telemetry.read` | Telemetry | reserved | Economy and activity metrics. |
 
@@ -151,6 +167,65 @@ and `ctx.store` (the script's declared stores).
 - `ctx.market:lines(station: StationId) -> { [WareId]: MarketLine }` (`market.read`): Every stock line at a market.
 - `ctx.market:add_line(station: StationId, ware: WareId, line: MarketLine, why: Cause) -> ()` (`market.lines`): Adds a ware the market didn't trade yet. Prices must sit inside the line's band.
 - `ctx.market:remove_line(station: StationId, ware: WareId, why: Cause) -> ()` (`market.lines`): Removes a ware's stock line.
+- `ctx.market:scale_producers(station: StationId, ware: WareId, factor: number, why: Cause) -> ()` (`market.levers`): Multiplies a line's production (1.5 for +50%). Prices follow from supply.
+- `ctx.market:scale_consumers(station: StationId, ware: WareId, factor: number, why: Cause) -> ()` (`market.levers`): Multiplies a line's consumption (2 for a shortage's drink).
+- `ctx.market:add_producers(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()` (`market.levers`): Adds (or with a negative number removes) producer units per pulse.
+- `ctx.market:add_consumers(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()` (`market.levers`): Adds (or removes) consumer units per pulse.
+- `ctx.market:set_stock(station: StationId, ware: WareId, stock: number, why: Cause) -> ()` (`market.levers`): Sets a line's stock outright (a delivery, a gift).
+- `ctx.market:levers(levers: { Lever }, why: Cause) -> ()` (`market.levers`): Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
+
+### `ctx.orders`
+
+- `ctx.orders:get(ship: ShipId) -> OrderQueue?` (`orders.read`): A craft's order queue.
+- `ctx.orders:can_order(ship: ShipId) -> boolean` (`orders.read`): Whether scripts may give this ship orders (scripted craft and the player's tenders; never the player ship or a berthed hull).
+- `ctx.orders:give(ship: ShipId, orders: { Order }, why: Cause) -> ()` (`orders.write`): Replaces a craft's orders with these (the same verbs the player uses).
+- `ctx.orders:append(ship: ShipId, order: Order, why: Cause) -> ()` (`orders.write`): Adds one order to the end of a craft's queue.
+- `ctx.orders:clear(ship: ShipId, why: Cause) -> ()` (`orders.write`): Clears a craft's orders.
+
+### `ctx.beats`
+
+- `ctx.beats:state(id: BeatId) -> BeatState?` (`beats.read`): A started beat's state (dormant beats have none).
+- `ctx.beats:is_done(id: BeatId) -> boolean` (`beats.read`): Whether a beat has completed.
+- `ctx.beats:is_active(id: BeatId) -> boolean` (`beats.read`): Whether a beat has started and not completed.
+- `ctx.beats:active() -> { BeatId }` (`beats.read`): Active beats, newest first.
+- `ctx.beats:goal() -> GoalLine?` (`beats.read`): The one goal line the HUD shows: the newest active beat's.
+- `ctx.beats:goals() -> { GoalLine }` (`beats.read`): Every active beat's goal line, newest first (the dockmaster's list).
+- `ctx.beats:act() -> number` (`beats.read`): The act the journey is in (the highest act of any started beat).
+- `ctx.beats:pilot() -> PilotView` (`beats.read`): The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
+- `ctx.beats:distance(to: StationId | Spot) -> number?` (`beats.read`): How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
+- `ctx.beats:field(id: FieldId) -> FieldView?` (`beats.read`): A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
+- `ctx.beats:rock(id: RockId) -> RockView?` (`beats.read`): One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
+- `ctx.beats:deliver(spec: DeliverSpec, why: Cause) -> ()` (`beats.write`): A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
+- `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo (a consignment) into the docked player ship. Fails without the hold room.
+
+### `ctx.mechanics`
+
+- `ctx.mechanics:is_on(flag: FlagId) -> boolean` (`mechanics.read`): Whether a per-save flag is set (`mech.*`, `cap.*`, anything).
+- `ctx.mechanics:slots() -> { [SlotId]: FlagId }` (`mechanics.read`): Reserved input and UI slots bound so far, and the mechanic each serves.
+- `ctx.mechanics:free_slots() -> { SlotId }` (`mechanics.read`): Reserved slots no mechanic has bound yet.
+- `ctx.mechanics:set(flag: FlagId, on: boolean, why: Cause) -> ()` (`mechanics.write`): Sets or clears a mechanic flag. Only `mech.*` flags: capabilities come from upgrades and beats.
+- `ctx.mechanics:bind(slot: SlotId, mechanic: FlagId, why: Cause) -> ()` (`mechanics.write`): Binds a free reserved slot to a mechanic.
+- `ctx.mechanics:unbind(slot: SlotId, why: Cause) -> ()` (`mechanics.write`): Frees a reserved slot.
+- `ctx.mechanics:teach(spec: TeachSpec, why: Cause) -> ()` (`mechanics.write`): A new verb with a teacher: sets the `mech.*` flag, binds its slots, and records `<pack>.mechanic_taught` naming the teacher.
+
+### `ctx.standing`
+
+- `ctx.standing:tier(faction: FactionId) -> RegardTier?` (`standing.read`): The player's regard tier with a faction: how its people treat them.
+- `ctx.standing:station_tier(station: StationId) -> RegardTier?` (`standing.read`): The regard tier with a station's owner (nil if it has none).
+- `ctx.standing:tiers() -> { RegardTier }` (`standing.read`): Every regard tier, lowest first.
+- `ctx.standing:deed(spec: DeedSpec, why: Cause) -> ()` (`standing.write`): Records a deed: moves standing (clamped, scaled by traits for `tags`) and writes `standing_changed` and, if the tier moves, `regard_changed`.
+
+### `ctx.traits`
+
+- `ctx.traits:has(id: TraitId) -> boolean` (`traits.read`): Whether the pilot has earned a trait.
+- `ctx.traits:earned() -> { TraitId }` (`traits.read`): The pilot's traits, sorted.
+- `ctx.traits:get(id: TraitId) -> TraitDef?` (`traits.read`): A trait's definition: its name, deed and effect.
+
+### `ctx.pacing`
+
+- `ctx.pacing:get(id: TunableId) -> TunableValue?` (`pacing.read`): A tunable's current value: a number, a string or a list of strings.
+- `ctx.pacing:tuned(id: TunableId) -> boolean` (`pacing.read`): Whether a script changed a tunable from its authored value.
+- `ctx.pacing:set(id: TunableId, value: TunableValue, why: Cause) -> ()` (`pacing.write`): Varies a tunable. Set it while the beat that reads it is dormant; a rollback restores the authored value.
 
 ### `ctx.talk`
 
@@ -163,6 +238,48 @@ and `ctx.store` (the script's declared stores).
 ### `ctx.chronicle`
 
 - `ctx.chronicle:write(line: LineSpec, why: Cause) -> ()` (`chronicle.write`): Writes a chronicle entry. Needs a `speaker` or `place` and `cites`.
+
+## Beats (`beats.write`)
+
+A script registers beats with `G.beat` in `G.script { beats = { ... } }`. The script
+host checks each beat every tick: a dormant beat starts when `requires` holds
+(`beat_started`), each step finishes when its `done` holds (the next step writes
+`quest_step`, with `quest` = the beat ID), and the beat completes when every step is
+done and its `done` holds (`beat_completed`, then `rewards`). Beat state lives in the
+world by stable ID, so beats survive save, load and hot reload.
+
+```luau
+G.beat {
+	id = "beat.b02_mine_by_hand",
+	act = 1,
+	giver = "npc.ilse_marrow",
+	goal = "Hold Space beside an ice rock until your hold is full.",
+	requires = G.done("beat.b01_undock"),
+	done = G.cargo("ware.ice", G.tunable("b02.ice")),
+	rewards = { credits = 0 },
+	on_complete = function(ctx, beat) end, -- optional; writes with beat.why are atomic with it
+}
+```
+
+- Requirements never name a time. Build them with `G.all`, `G.any`, `G.never`,
+  `G.done`, `G.started`, `G.active`, `G.at_step`, `G.counter`, `G.fact`, `G.sum`,
+  `G.flag`, `G.trait`, `G.fitted`, `G.hull`, `G.owns`, `G.credits`, `G.cargo`,
+  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.regard`,
+  `G.tunable_is`, and `G.test(function(ctx) return ... end)` for anything else (read
+  only). A list of requirements means all of them. `G.fact`/`G.sum` take
+  `{ since = "start" }` or `"step"` to count only facts after the beat or step began.
+- Numbers can be `G.tunable("id")`: pacing thresholds live in `pacing.toml`.
+- `kind = "situation"` marks a state-driven beat (shortage, dispute, rumor); it runs
+  the same way.
+- Callbacks `on_start`, `on_step` and `on_complete` get `(ctx, beat)`. To say a line
+  that cites the beat's fact, handle `on.beat_started` / `on.quest_step` /
+  `on.beat_completed` instead: their `ev.fact` exists.
+- A transition and its callback's writes are one batch, checked like a handler's
+  against the world the kernel will apply it to. If it would be rejected, none of it
+  applies and later beats don't see it: a successor unlocks only on a completion that
+  commits. A transition that loses to contention (say the player undocked earlier in
+  the tick) doesn't count as an abort; the beat is checked again next tick.
+- `ctx.beats:goal()` is the HUD's one goal line (the newest active beat's).
 
 ## Events
 
@@ -183,6 +300,14 @@ recorded as: cite it), `tick` and `cause`. They need `events.<event>` in `uses`.
 - `on.trait_earned`: `TraitEarnedEvent`
 - `on.prestige`: `PrestigeEvent`
 - `on.session_start`: `SessionStartEvent`
+- `on.beat_started`: `BeatStartedEvent`
+- `on.beat_completed`: `BeatCompletedEvent`
+- `on.upgrade_fitted`: `UpgradeFittedEvent`
+- `on.cap_unlocked`: `CapUnlockedEvent`
+- `on.hull_rank`: `HullRankEvent`
+- `on.standing_changed`: `StandingChangedEvent`
+- `on.regard_changed`: `RegardChangedEvent`
+- `on.tender_acquired`: `TenderAcquiredEvent`
 - `on.paused`: `PausedEvent`
 
 ## Not available to scripts
@@ -195,11 +320,24 @@ only (`galaxy gm`, `galaxy sim`).
 
 ## Sandbox rules
 
-- **No memory between calls.** Each handler call runs the script and its modules
-afresh in a fresh Luau state, so module-level locals start over every call. What
-a script must remember goes in its declared `stores` (saved with the world).
+- **No memory between calls.** Each handler call, beat callback and `G.test`
+predicate runs the script and its modules afresh in a fresh Luau state, so
+module-level locals start over every call. What a script must remember goes in
+its declared `stores` (saved with the world).
 - **One cause per call.** A second `ctx:cause` is an error. The call's writes are
-one batch: if any would be rejected, none apply and the call counts as aborted.
+one batch: if any would be rejected, none apply.
+- **Faults and contention.** Only script faults count as aborts toward
+`limits.quarantine_after`: an error, running over the step, memory or write
+quota, an invalid argument, an undeclared hook, or a write that would be
+rejected on the world the call read. A write that is valid there but loses to
+a change made earlier in the tick (the ship undocked, cargo moved, a
+compare-and-set or `Expect*` check failed) is contention and never counts. A
+beat transition or `after.` trigger simply tries again next tick. An `on.`
+handler runs again for the same event next tick, up to
+`limits.contention_retries` times (default 3); if it still loses it is dropped
+with a `script_contention_dropped` fact. The retry reads the world as it is
+then, so check what you rely on (`ctx.beats:pilot().docked_at`) rather than
+letting a hook raise.
 - **Deterministic.** `tostring` and `string.format` print tables, functions and
 buffers as their type name, never an address. `pairs` and `next` refuse tables
 keyed by tables, functions or buffers (their order isn't stable). A generic

@@ -10,7 +10,9 @@
 //!
 //! Units: one step per table slot walked (array and hash part, full or empty: a walk
 //! visits every slot) or element moved, compared or shifted, and one per
-//! [`BYTES_PER_STEP`] bytes of string or buffer a helper reads.
+//! [`BYTES_PER_STEP`] bytes of string or buffer a helper reads. Views over the world or
+//! history charge one per [`FACTS_PER_STEP`] facts or [`RECORDS_PER_STEP`] records
+//! they scan.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -24,6 +26,8 @@ use crate::vm::{caller_location, whole_number};
 pub(crate) const BYTES_PER_STEP: u64 = 64;
 /// History facts a query reads per step.
 pub(crate) const FACTS_PER_STEP: u64 = 16;
+/// World records (rocks, ...) a view scans per step.
+pub(crate) const RECORDS_PER_STEP: u64 = 16;
 
 /// The step counter shared by the interrupt and the native helpers.
 #[derive(Default)]

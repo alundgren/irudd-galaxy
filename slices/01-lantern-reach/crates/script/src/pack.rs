@@ -19,6 +19,7 @@ pub const MAX_LIMITS: Limits = Limits {
     steps_per_call: 1_000_000,
     memory_bytes: 64 * 1024 * 1024,
     quarantine_after: 10,
+    contention_retries: 10,
 };
 
 /// Largest file a pack may contain.
@@ -93,6 +94,7 @@ impl Pack {
             steps_per_call: l.steps_per_call.clamp(1, MAX_LIMITS.steps_per_call),
             memory_bytes: l.memory_bytes.clamp(1024 * 1024, MAX_LIMITS.memory_bytes),
             quarantine_after: l.quarantine_after.clamp(1, MAX_LIMITS.quarantine_after),
+            contention_retries: l.contention_retries.min(MAX_LIMITS.contention_retries),
         }
     }
 
@@ -180,6 +182,13 @@ pub fn read_pack(root: &Path) -> Result<Pack, Vec<Diagnostic>> {
                     e.span().map(|s| line_of(text, s.start)),
                 )),
             },
+            // The core pack's world tables: `galaxy_core::load` builds the world from
+            // them at new game, so the host has nothing to install. Its config files
+            // (`mind.toml`) belong to the crates that read them.
+            Some(name)
+                if manifest.id.as_str() == "core"
+                    && (galaxy_contract::data::DATA_FILES.contains(&name)
+                        || galaxy_contract::data::CONFIG_FILES.contains(&name)) => {}
             _ => diags.push(error(
                 "unsupported_data",
                 format!("pack data `{file}`: only `npcs.toml` can be installed by a pack so far"),
@@ -343,13 +352,14 @@ fn check_manifest(m: &PackManifest, files: &BTreeMap<String, String>) -> Vec<Dia
     if l.steps_per_call > max.steps_per_call
         || l.memory_bytes > max.memory_bytes
         || l.quarantine_after > max.quarantine_after
+        || l.contention_retries > max.contention_retries
     {
         d.push(diag(
             Severity::Warning,
             "limits_clamped",
             format!(
-                "limits are clamped to the engine maxima: {} steps per call, {} bytes, quarantine after {}",
-                max.steps_per_call, max.memory_bytes, max.quarantine_after
+                "limits are clamped to the engine maxima: {} steps per call, {} bytes, quarantine after {}, {} contention retries",
+                max.steps_per_call, max.memory_bytes, max.quarantine_after, max.contention_retries
             ),
             at,
             None,

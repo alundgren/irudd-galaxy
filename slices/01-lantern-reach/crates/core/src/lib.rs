@@ -19,6 +19,7 @@ pub mod hash;
 pub mod history;
 pub mod invariants;
 pub mod load;
+mod load_progress;
 pub mod placeholder;
 pub mod rng;
 pub mod save;

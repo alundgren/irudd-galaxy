@@ -8,7 +8,8 @@ use crate::trade::TradeDesk;
 
 /// Every ship, every tick: flight, the context action, mining, docking, lanes and the
 /// order runner. The player's input steers the player's flagship; every other ship
-/// (tenders, NPC craft) runs its orders with the same verbs.
+/// (tenders, NPC craft) runs its orders with the same verbs. Hulls berthed at prestige
+/// (`Player::is_berthed`) are skipped.
 ///
 /// Each ship's tick is one batch: its motion, activity, order progress, the effects of
 /// its verbs and their facts commit together or not at all. A batch the kernel
@@ -55,6 +56,11 @@ impl System for ShipSystem {
         let world = ctx.world;
         let mut claims = Claims::default();
         for ship in turn_order(world, is_hands_on(world, ctx.input)) {
+            // A hull left at prestige is kept, not flown: it never runs orders, even
+            // ones a script or a stale save gave it.
+            if world.player.is_berthed(&ship.id) {
+                continue;
+            }
             let Some(hull) = world.hulls.get(&ship.hull) else {
                 continue;
             };

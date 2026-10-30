@@ -61,7 +61,7 @@ Controls are progression. Each capability is a flag (`cap.*`) set by an upgrade 
 | 3: map travel | `cap.map_travel` | Click a station, field or lane mouth on the map: the ship routes there, entering lanes on its own. No distance limit. | `upgrade.lane_chart` (beat b07 reward) |
 | 4: queues | `cap.queues` | **Shift-click** appends orders, up to 8. The queue shows as a row of verb icons; any order can be removed, and a `sell` icon can take a floor. | `upgrade.order_slate` |
 | 5: loops | `cap.loops` | Save the current queue as a named loop (so a loop has up to 8 orders, the same limit as a queue; up to 3 saved loops). A loop repeats until the player stops it or it stalls. There is no separate loop editor: to change a loop, load it into the queue, edit, and save it again. | `upgrade.loop_log` |
-| First automation | `cap.automation` | Tenders run saved loops while the player does anything else. | Beat b13 |
+| First automation | `cap.automation` | Tenders run saved loops while the player does anything else. | Beat b13: building Thimble (step 2) |
 
 **Space priority at Tier 0:** inside a docking ring, dock; else inside a lane mouth, enter the lane; else within 40 u of a loose fragment, pick it up; else within mining reach of a rock, mine while held. Docked, Space undocks.
 
@@ -80,7 +80,7 @@ All upgrades are fitted by the named seller at their station. Costs are fixed. U
 | `upgrade.price_glass` | Price glass | Live prices of stations within 1200 u | 1800 | docked at all 5 authored stations | Hesper (Glass Drift Observatory) |
 | `upgrade.order_slate` | Order slate | `cap.queues` | 2000 | b08 complete, `cap.map_travel`, and `player.dockings` >= 26 | Orrin |
 | `upgrade.loop_log` | Loop log | `cap.loops` | gift | `player.queues_done` >= 4 | Orrin |
-| `craft.thimble` (tender) | First tender | `cap.automation` (with b13) | 2400 | b13 step 1 done | Tamsin (Kettle Dock) |
+| `craft.thimble` (tender) | First tender | `cap.automation` (on purchase, b13 step 2, so step 3 can assign it a loop) | 2400 | b13 step 1 done | Tamsin (Kettle Dock) |
 | `craft.button` (second tender) | Second tender | A second tender | 2400 | Tandem hull and b13 complete | Tamsin |
 
 Every fitting writes `upgrade_fitted`. Every capability writes `cap_unlocked`. Fittings are never removed.

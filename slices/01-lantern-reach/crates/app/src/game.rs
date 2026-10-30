@@ -6,11 +6,15 @@ use galaxy_core::{Sim, SimState, System};
 
 /// The game's systems, in tick order: the kernel's, the ship's (buy and sell orders go
 /// through the economy's desk), then the economy's (pulses, scouting, re-pricing and
-/// the player's dock-screen trades), which reads the dockings the ships made.
+/// the player's dock-screen trades), which reads the dockings the ships made, then
+/// progress (station services, faction deeds, pilot traits and hull ranks).
 pub fn game(state: SimState) -> Sim {
     galaxy_core::game(state)
         .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)))
-        .with_systems([Box::new(galaxy_economy::EconomySystem) as Box<dyn System>])
+        .with_systems([
+            Box::new(galaxy_economy::EconomySystem) as Box<dyn System>,
+            Box::new(galaxy_progress::ProgressSystem),
+        ])
 }
 
 /// Finds the packs folder: the flag, `GALAXY_PACKS`, or the nearest `packs/core` above

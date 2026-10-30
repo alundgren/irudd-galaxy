@@ -258,6 +258,19 @@ string_id!(
     /// A journey beat.
     BeatId, kind = "beat", min_segments = 2, example = "beat.first_delivery");
 string_id!(
+    /// A station upgrade a hullwright or dockmaster fits (`upgrade.mining_lens`).
+    UpgradeId, kind = "upgrade", min_segments = 2, example = "upgrade.mining_lens");
+string_id!(
+    /// A delivery tally a station keeps (`ledger.kettle_greenhouse`).
+    LedgerId, kind = "ledger", min_segments = 2, example = "ledger.kettle_greenhouse");
+string_id!(
+    /// A pacing number or choice a beat reads and a script may vary
+    /// (`shortage.rimewater_ice.way_a_quota`).
+    TunableId, kind = "tunable", min_segments = 2, example = "nav_chip.dockings");
+string_id!(
+    /// A reserved input or UI slot a taught mechanic can bind (`slot.key_t`).
+    SlotId, kind = "slot", min_segments = 2, example = "slot.key_t");
+string_id!(
     /// An asset (sprite, mesh recipe, sound) by ID.
     AssetId, kind = "asset", min_segments = 2, example = "asset.station.kettle_dock");
 string_id!(
