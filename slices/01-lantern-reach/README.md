@@ -91,6 +91,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR]` | The game in a window (see Play). Prints the save and tick when it closes. |
 | `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade` and `:tradeall` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `play --beat N`, `beat jump`, `pack check`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
@@ -110,10 +111,14 @@ crates/ship       flight, control tiers, orders and loops, mining, docking, lane
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
 crates/audio      a silent kira wrapper; a missing audio device never stops the game
+crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
 crates/app        the galaxy binary: play, shot and the JSON CLI
                   session (pause, dock trades), input, view (world to scene), ui, saves
 packs/core        the authored backbone: manifest.toml and data/*.toml
 xtask             cargo xtask check | contract
 ```
+
+Live fast-model tests are ignored by default:
+`cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
 
 Coding agents: read [AGENTS.md](AGENTS.md).

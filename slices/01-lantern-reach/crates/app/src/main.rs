@@ -115,6 +115,21 @@ enum Cmd {
         #[arg(long)]
         write: bool,
     },
+    /// The fast-model layer on OpenRouter.
+    Mind {
+        #[command(subcommand)]
+        command: MindCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum MindCmd {
+    /// One live Jev choice and one live gpt-oss line, with latency and cost. Needs
+    /// `OPENROUTER_API_KEY`.
+    Try {
+        #[command(flatten)]
+        packs: PacksArg,
+    },
 }
 
 #[derive(Subcommand)]
@@ -315,6 +330,9 @@ fn main() -> ExitCode {
             keys,
             write,
         } => shot(save, out, map, &size, zoom, keys, write),
+        Cmd::Mind {
+            command: MindCmd::Try { packs },
+        } => mind_try(packs.packs),
     };
     match result {
         Ok(value) => {
@@ -493,4 +511,19 @@ fn api_dump(name: Option<&str>) -> Out {
             .map(|(_, s)| s.to_value())
             .ok_or_else(|| Fail::input(format!("no schema named `{name}`"))),
     }
+}
+
+fn mind_try(packs: Option<PathBuf>) -> Out {
+    use galaxy_mind::{MindConfig, MindError};
+    let data = packs_dir(packs)?.join("core").join("data");
+    let config = MindConfig::load_dir(&data).map_err(|e| Fail::input(e.to_string()))?;
+    galaxy_mind::probe::live(&config).map_err(|e| match e {
+        MindError::NoKey => Fail::input(e.to_string()),
+        e => Fail {
+            code: 1,
+            kind: "mind",
+            message: e.to_string(),
+            command: None,
+        },
+    })
 }

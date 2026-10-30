@@ -9,7 +9,8 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 - **Which pack.** Lines marked **(gm)** ship in `gm-examples` and exist only when it is installed; they cite facts only `gm-examples` writes, or add a variation on top. Every other line is `core`.
 - **Dock talk:** on each counted docking, at most one line from the station's NPCs: the most specific eligible line (the one with the most matching conditions) whose fact is newer than the player's previous docking there. Ties go to the newest fact.
 - **"What changed?":** any dockmaster can be asked. They give up to 3 eligible lines citing facts since the player's last docking at that station, at most one per place, most specific first.
-- **Fast-model phrasing:** the short-line model may rephrase an eligible line in the NPC's voice, citing the same fact, in at most 20 words. If the call fails or is slow, the authored line below is used word for word. The model may never pick a fact that has no authored line here.
+- **Fast-model pick and fill:** when several lines are eligible, the decision model may pick the one the player most needs to hear (a typed choice, no free text). The game fills the picked line's placeholders from its cited fact and says it as written, so every word shown is authored text or a fact value. If the call fails or is slow, the most specific line is said. The model may never pick a fact that has no authored line here.
+- **Free phrasing (opt-in, off by default):** with `talk.free_phrasing` in `mind.toml`, the short-line model may rephrase the picked line in the NPC's voice, citing the same fact, in at most 20 words. Its text is checked (best effort) and the authored line is said whenever the check fails or the call does.
 - Placeholders: `{qty}`, `{ware}`, `{station}`, `{n}`, `{pulses}`, `{avg}`, `{floor}`, `{ceiling}`, `{quota}`, `{hull}`, `{source}` (who a rumor came from), `{truth_word}` ("true" or "empty"), `{trait_name}`, `{pilot}` (the pilot's name), `{tender}` (the tender's name). Each fills from the cited fact's fields, never from anything else.
 
 ## Named NPCs
@@ -235,7 +236,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 
 ### Any dockmaster
 
-Spoken by whichever dockmaster the player meets, in that NPC's own voice (the fast model may rephrase, citing the same fact).
+Spoken by whichever dockmaster the player meets (with free phrasing on, the fast model may rephrase it in that NPC's voice, citing the same fact).
 
 | Line | Cites | Text |
 | --- | --- | --- |

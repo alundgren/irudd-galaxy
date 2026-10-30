@@ -21,6 +21,7 @@ galaxy-core.workspace = true
 galaxy-economy.workspace = true
 galaxy-ship.workspace = true
 render.workspace = true
+galaxy-mind.workspace = true
 clap.workspace = true
 directories.workspace = true
 serde.workspace = true

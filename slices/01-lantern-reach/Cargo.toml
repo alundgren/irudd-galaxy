@@ -17,6 +17,7 @@ galaxy-ship = { path = "crates/ship" }
 galaxy-economy = { path = "crates/economy" }
 galaxy-audio = { path = "crates/audio" }
 render = { path = "crates/render" }
+galaxy-mind = { path = "crates/mind" }
 
 # Third party (all MIT or MIT/Apache-2.0)
 anyhow = "1.0.104"
@@ -39,6 +40,8 @@ serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 toml = "1.1.8"
+# HTTP for the fast-model layer: rustls (no OpenSSL), no gzip.
+ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
 wgpu = "30.0"
 winit = "0.30.13"
 
