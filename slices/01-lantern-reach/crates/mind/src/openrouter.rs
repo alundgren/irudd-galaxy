@@ -237,18 +237,22 @@ impl<T: Transport> OpenRouterMind<T> {
                         let v =
                             parsed.map_err(|e| MindError::Malformed(format!("not JSON: {e}")))?;
                         // OpenRouter can report an upstream failure inside a 200.
+                        // Upstream error text is never copied into an error: it could
+                        // echo the key in a form redaction misses (a JSON escape, say).
+                        // Only the numeric code is kept.
                         match v.get("error") {
                             Some(err) => Err(match err.get("code").and_then(Value::as_u64) {
                                 Some(429) => MindError::RateLimited,
                                 Some(c @ 500..=599) => MindError::Server(c as u16),
-                                _ => MindError::Malformed(short(&err.to_string())),
+                                Some(c) => MindError::Malformed(format!("upstream error {c}")),
+                                None => MindError::Malformed("upstream error".into()),
                             }),
                             None => Ok(v),
                         }
                     }
                     429 => Err(MindError::RateLimited),
                     s @ 500..=599 => Err(MindError::Server(s)),
-                    s => Err(MindError::Http(s, short(&r.body))),
+                    s => Err(MindError::Http(s, "upstream error".into())),
                 }
             });
             let Err(e) = &out.result else {
@@ -292,10 +296,6 @@ fn reply<T>(
         attempts: posted.attempts,
         hold_ticks: 0,
     }
-}
-
-fn short(s: &str) -> String {
-    s.chars().take(200).collect()
 }
 
 fn cost(v: &Value) -> f64 {

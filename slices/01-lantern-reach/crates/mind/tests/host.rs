@@ -1597,7 +1597,15 @@ fn routine_dockings_keep_the_cache_key() {
 fn an_upstream_error_that_echoes_the_key_is_redacted() {
     const KEY: &str = "sk-or-v1-0123456789abcdefSECRET";
     let echo = |m: &str| format!("{m} {KEY}");
-    let cases: [Vec<Result<HttpReply, MindError>>; 4] = [
+    // The key with its first letter as a JSON unicode escape: raw replacement can't see
+    // it, and parsing restores it. Upstream text is never copied into errors, so it
+    // can't come back out either.
+    let escaped = format!(
+        r#"{{"error":{{"code":400,"message":"Bearer s{}"}}}}"#,
+        &KEY[1..]
+    );
+    let cases: [Vec<Result<HttpReply, MindError>>; 5] = [
+        vec![Ok(HttpReply::new(200, escaped))],
         vec![Ok(HttpReply::new(
             401,
             json!({"error": {"message": echo("No auth credentials for")}}).to_string(),
@@ -1635,7 +1643,6 @@ fn an_upstream_error_that_echoes_the_key_is_redacted() {
         );
         assert!(!shown.contains("sk-or-v1"), "{shown}");
         assert!(!shown.contains("SECRET"), "{shown}");
-        assert!(shown.contains("<redacted>"), "{shown}");
     }
 }
 

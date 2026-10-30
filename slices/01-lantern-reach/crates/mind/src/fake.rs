@@ -167,6 +167,10 @@ impl Recording {
 /// Replays a [`Recording`]: the next recorded occurrence for the request's stage and
 /// key, held back as many ticks as the original took; `NotRecorded` (nothing sent, so
 /// the host takes the default) once a situation's occurrences run out.
+/// Known limit: a call still out when the host shut down is booked as `unsettled`, and
+/// replays as an ordinary failed call (`not_recorded`): same attempts and spend, but a
+/// different fallback reason and spend note, so the history differs from the original
+/// from that point. Golden replays and the journey bot never shut down mid-call.
 #[derive(Clone, Debug)]
 pub struct RecordedMind {
     recording: Recording,
