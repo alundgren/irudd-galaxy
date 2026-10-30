@@ -501,11 +501,10 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
     p.undock();
     p.dock_at(&WHARF);
     p.ticks(3);
-    let answer = p
-        .s
-        .ask_what_changed()
-        .cloned()
-        .expect("the Wharf has a dockmaster");
+    let answer =
+        p.s.ask_what_changed()
+            .cloned()
+            .expect("the Wharf has a dockmaster");
     assert_eq!(answer.speaker, Some(ILSE));
     let texts: Vec<&str> = answer.lines.iter().map(|l| l.text.as_str()).collect();
     assert!(
@@ -519,18 +518,27 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
         }
     }
     p.ticks(1);
-    let asked = p
-        .s
-        .sim()
-        .history()
-        .facts()
-        .iter()
-        .filter(|f| f.kind == hooks::ASKED)
-        .count();
+    let asked =
+        p.s.sim()
+            .history()
+            .facts()
+            .iter()
+            .filter(|f| f.kind == hooks::ASKED)
+            .count();
     assert_eq!(asked, 1);
     // Said, so neither ambient talk nor the next question tells those facts again.
-    for line in answer.lines.iter().filter(|l| l.channel == Channel::DockTalk) {
-        assert!(p.s.world().talk.lines.values().any(|l| l.line.cites == line.cites));
+    for line in answer
+        .lines
+        .iter()
+        .filter(|l| l.channel == Channel::DockTalk)
+    {
+        assert!(
+            p.s.world()
+                .talk
+                .lines
+                .values()
+                .any(|l| l.line.cites == line.cites)
+        );
     }
     let again = p.s.ask_what_changed().cloned().unwrap();
     assert!(again.lines.is_empty(), "{:?}", again.lines);
