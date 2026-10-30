@@ -402,8 +402,9 @@ fn compiler() -> mlua::chunk::Compiler {
 /// `round`, `abs`, `fmod`, `modf`, `frexp`, `ldexp`, `min`, `max`, `clamp`, `sign`,
 /// `deg`, `rad`. `math.noise` (fusable C++ with a table of its own) is removed.
 fn install_portable_math(lua: &Lua, globals: &Table) -> mlua::Result<()> {
+    type Unary = fn(f64) -> f64;
     let math: Table = globals.get("math")?;
-    let unary: [(&str, fn(f64) -> f64); 11] = [
+    let unary: [(&str, Unary); 11] = [
         ("sin", libm::sin),
         ("cos", libm::cos),
         ("tan", libm::tan),
@@ -487,9 +488,7 @@ fn install_portable_math(lua: &Lua, globals: &Table) -> mlua::Result<()> {
     )?;
     vector.raw_set(
         "dot",
-        lua.create_function(move |_, (a, b): (Vector, Vector)| {
-            Ok(f64::from(dot(v3(a), v3(b))))
-        })?,
+        lua.create_function(move |_, (a, b): (Vector, Vector)| Ok(f64::from(dot(v3(a), v3(b)))))?,
     )?;
     vector.raw_set(
         "angle",

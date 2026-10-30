@@ -138,6 +138,8 @@ struct InstanceGpu {
     highlight: [f32; 4],
     outline: [f32; 4],
     emissive: [f32; 4],
+    /// x: morph weight, y: hatch scale (0 for the instance's own).
+    morph: [f32; 4],
 }
 
 #[repr(C)]
@@ -724,6 +726,10 @@ impl Renderer {
             color: [0.0; 4],
             span: [0.0; 2],
             facet: 0.0,
+            morph_position: [0.0; 3],
+            morph_normal: [0.0, 0.0, 1.0],
+            morph_color: [0.0; 4],
+            bite: [0.0; 2],
         }];
         let (verts, idx): (&[Vertex], &[u32]) = if mesh.is_empty() {
             (&zero, &[0, 0, 0])
@@ -1018,6 +1024,7 @@ impl Renderer {
                     mat.outline_px.clamp(0.0, 32.0) * self.scale,
                 ],
                 emissive: mat.emissive.to_array(),
+                morph: [inst.morph, inst.hatch_scale, 0.0, 0.0],
             });
             let k = gpu_instances.len() as u32 - 1;
             match runs.last_mut() {
@@ -1563,7 +1570,7 @@ fn create_pipelines(
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
             0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2,
-            5 => Float32
+            5 => Float32, 6 => Float32x3, 7 => Float32x3, 8 => Float32x4, 9 => Float32x2
         ],
     };
     let fx_vertex_layout = wgpu::VertexBufferLayout {
@@ -1704,7 +1711,8 @@ fn create_pipelines(
             buffers: &[Some(fx_vertex_layout)],
             cull: None,
             // Single-sampled: effects are drawn after the MSAA resolve, on top of
-            // inner ink, depth-tested against the geom buffer.
+            // inner ink, depth-tested against the geom buffer (beams aren't: see
+            // `vs_fx`).
             depth: depth(false, wgpu::CompareFunction::LessEqual),
             blend: premul,
             samples: 1,

@@ -334,28 +334,37 @@ fn solid_change(a: &RgbaImage, b: &RgbaImage) -> usize {
 #[test]
 #[ignore = "needs a GPU"]
 fn a_slowly_mined_rock_never_pops_a_block() {
-    // Mapped as the game does: re-meshed at every 1/20 of `remaining`, turning, and
-    // scaled between re-meshes. A flat-shaded facet flipping cel band, or a crack or
-    // chip appearing at once, changes a solid patch between two frames.
+    // Mapped as the game does: meshed at every 1/20 of `remaining`, morphing towards
+    // the next step in between, turning, and scaled with what is left. A facet
+    // flipping cel band, or a crack or chip appearing at once, changes a solid patch
+    // between two frames.
     let mut r = renderer(320, 320);
     let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 52.0).with_tilt(14.0));
     let mut worst = (0, 0);
     for kind in [RockKind::Ice, RockKind::Iron, RockKind::Glassite] {
-        let mesh_at = |remaining: f32| kit::rock(&RockParams::new(kind, 10.0, remaining), 42);
-        let handle = r.upload_mesh(&mesh_at(1.0));
-        let (mut meshed, mut step) = (1.0f32, 20);
+        let mesh_at = |step: i32| {
+            let params = RockParams::new(kind, 10.0, step as f32 / 20.0);
+            kit::rock_morph(&params, (step - 1) as f32 / 20.0, 42)
+        };
+        let mut step = 20;
+        let handle = r.upload_mesh(&mesh_at(step));
         let mut last: Option<RgbaImage> = None;
         for frame in 0..90 {
             let remaining = 1.0 - frame as f32 * 0.01;
             let s = (remaining * 20.0).ceil() as i32;
             if s != step {
                 step = s;
-                meshed = remaining;
-                r.update_mesh(handle, &mesh_at(remaining));
+                r.update_mesh(handle, &mesh_at(step));
             }
-            let mut inst = MeshInstance::at(handle, Vec2::ZERO, frame as f32 * 0.012, 1.0);
-            let k = kit::rock_scale(remaining) / kit::rock_scale(meshed);
-            inst.transform *= render::glam::Mat4::from_scale(Vec3::splat(k));
+            let morph = (step as f32 - remaining * 20.0).clamp(0.0, 1.0);
+            let inst = MeshInstance::at(
+                handle,
+                Vec2::ZERO,
+                frame as f32 * 0.012,
+                kit::rock_scale(remaining),
+            )
+            .with_morph(morph)
+            .with_hatch_scale(1.0);
             scene.meshes = vec![inst];
             let img = r.render_to_rgba(&scene).unwrap();
             if let Some(prev) = &last {
@@ -369,9 +378,10 @@ fn a_slowly_mined_rock_never_pops_a_block() {
         r.remove_mesh(handle);
     }
     // The rock is about 110 pixels across. The flat-shaded rocks this replaced popped
-    // over 2 000 pixels in a frame; edges moving and glassite wearing stay near 20.
+    // over 2 000 pixels in a frame, and stepped re-meshes about 20; morphing between
+    // steps changes no solid patch at all.
     assert!(
-        worst.0 < 120,
+        worst.0 < 10,
         "{} pixels changed as a solid patch at frame {}",
         worst.0,
         worst.1

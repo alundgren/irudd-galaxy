@@ -6,8 +6,10 @@
 //! on the sim's ring, and a ship is a few times its kit size.
 //!
 //! [`View`] keeps the uploaded meshes and re-meshes what changes: a rock when its
-//! `remaining` crosses one of [`ROCK_STEPS`] visible steps, a station when its build
-//! stage moves (Kettle Dock's greenhouse), a hull the first time it's seen.
+//! `remaining` crosses one of [`ROCK_STEPS`] steps, a station when its build stage
+//! moves (Kettle Dock's greenhouse), a hull the first time it's seen. A rock's mesh
+//! morphs from one step to the next as it is mined, and its instance shrinks with what
+//! is left, so its shape and shading change continuously.
 
 mod live;
 pub mod map;
@@ -26,7 +28,8 @@ use render::{
 
 use crate::session::Pose;
 
-/// Rocks are re-meshed when `remaining / initial` crosses one of this many steps.
+/// Rocks are re-meshed when `remaining / initial` crosses one of this many steps, and
+/// morph between them.
 pub const ROCK_STEPS: f32 = 20.0;
 /// Ships are drawn this many times their kit size (a Wren is about 30 units long).
 pub const SHIP_SCALE: f32 = 5.0;
@@ -105,10 +108,8 @@ struct StationArt {
 struct RockArt {
     mesh: MeshHandle,
     step: i32,
-    /// The `remaining` fraction the mesh was built for. Between re-meshes the instance
-    /// scales the rock on to its current size, so it shrinks smoothly.
-    frac: f32,
-    /// The mesh as uploaded, for placing the mining beam on its surface.
+    /// The mesh as uploaded (full size, morphing from this step to the next), for
+    /// placing the mining beam on its surface.
     data: render::MeshData,
 }
 
@@ -136,14 +137,19 @@ fn rock_frac(rock: &Rock) -> f32 {
     (rock.remaining as f32 / rock.initial.max(1) as f32).clamp(0.0, 1.0)
 }
 
-/// Where a rock is drawn: turning slowly about its seed's spin, and scaled from the size
-/// it was meshed at to its size now.
+/// How far a rock's mesh is drawn towards its next step: 0 at the step it was meshed
+/// for, 1 at the next one down.
+fn rock_morph(rock: &Rock, step: i32) -> f32 {
+    (step as f32 - rock_frac(rock) * ROCK_STEPS).clamp(0.0, 1.0)
+}
+
+/// Where a rock is drawn: turning slowly about its seed's spin, and scaled from its
+/// full-size mesh to what is left. Rubble is meshed at its own size.
 fn rock_transform(rock: &Rock, art: &RockArt, time: f32) -> Mat4 {
     let seed = seed_of(rock.id.as_str());
     let spin = (seed % 628) as f32 / 100.0 + time * (0.02 + (seed % 7) as f32 * 0.006);
-    let frac = rock_frac(rock);
-    let scale = if frac > 0.0 && art.frac > 0.0 {
-        kit::rock_scale(frac) / kit::rock_scale(art.frac)
+    let scale = if art.step > 0 {
+        kit::rock_scale(rock_frac(rock))
     } else {
         1.0
     };
@@ -158,19 +164,24 @@ fn rock_transform(rock: &Rock, art: &RockArt, time: f32) -> Mat4 {
 fn rock_hit(rock: &Rock, art: &RockArt, time: f32, from: Vec3) -> Option<Vec3> {
     let to_local = rock_transform(rock, art, time).inverse();
     let dir = g(rock.position).extend(0.0) - from;
-    let t = art.data.raycast(
+    let t = art.data.morphed(rock_morph(rock, art.step)).raycast(
         to_local.transform_point3(from),
         to_local.transform_vector3(dir),
     )?;
     Some(from + dir * t)
 }
 
-fn rock_params(world: &WorldState, rock: &Rock) -> RockParams {
-    let frac = rock_frac(rock);
-    RockParams::new(
+/// A rock's mesh for `step`: the rock at that step, morphing into the next one down.
+fn rock_mesh(world: &WorldState, rock: &Rock, step: i32) -> render::MeshData {
+    let params = RockParams::new(
         recipes::rock_kind(world, &rock.rock_type),
         rock_full_radius(world, rock),
-        frac,
+        step as f32 / ROCK_STEPS,
+    );
+    kit::rock_morph(
+        &params,
+        (step - 1) as f32 / ROCK_STEPS,
+        seed_of(rock.id.as_str()),
     )
 }
 
@@ -258,22 +269,14 @@ impl View {
                 Some(a) if a.step == step => {}
                 Some(a) => {
                     a.step = step;
-                    a.frac = rock_frac(rock);
-                    a.data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    a.data = rock_mesh(world, rock, step);
                     r.update_mesh(a.mesh, &a.data);
                 }
                 None => {
-                    let data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    let data = rock_mesh(world, rock, step);
                     let mesh = r.upload_mesh(&data);
-                    self.rocks.insert(
-                        rock.id.clone(),
-                        RockArt {
-                            mesh,
-                            step,
-                            frac: rock_frac(rock),
-                            data,
-                        },
-                    );
+                    self.rocks
+                        .insert(rock.id.clone(), RockArt { mesh, step, data });
                 }
             }
         }
@@ -477,7 +480,9 @@ impl View {
             }
             scene.meshes.push(
                 MeshInstance::new(art.mesh, rock_transform(rock, art, time))
-                    .with_material(ArtBible::bundled().material(InkRole::Rock)),
+                    .with_material(ArtBible::bundled().material(InkRole::Rock))
+                    .with_morph(rock_morph(rock, art.step))
+                    .with_hatch_scale(1.0),
             );
         }
 
@@ -535,9 +540,9 @@ impl View {
                 && !docked
                 && let Some(rock) = world.rocks.get(&run.rock)
             {
-                // From the nose tip to where the beam meets the rock's drawn surface.
-                // The renderer lifts beams and glows towards the camera, so neither the
-                // hull nor the rock cuts them.
+                // From the nose tip to where the beam meets the rock's drawn surface
+                // (as morphed and scaled this frame). The renderer draws beams over
+                // what they cross, so the end must sit on the surface, not inside it.
                 let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
                 let from = (pos + fwd * nose).extend(hover);
                 let to = self
@@ -545,10 +550,10 @@ impl View {
                     .get(&rock.id)
                     .and_then(|art| rock_hit(rock, art, time, from))
                     .unwrap_or_else(|| {
+                        // No surface in the way: the rock's edge facing the ship.
                         let r = g(rock.position);
                         let radius = galaxy_ship::space::rock_radius(world, rock);
-                        (r + (from.truncate() - r).normalize_or_zero() * radius * 0.6)
-                            .extend(radius * 0.4)
+                        (r + (from.truncate() - r).normalize_or_zero() * radius).extend(0.0)
                     });
                 // A fitted boost (the mining lens) shows: a wider, quicker beam.
                 let boost = (galaxy_contract::modifiers::for_ship(world, &ship.id).mining_rate
@@ -625,5 +630,31 @@ mod tests {
         assert_eq!(rock_step(&rock), 19);
         rock.remaining = 0;
         assert_eq!(rock_step(&rock), 0);
+    }
+
+    #[test]
+    fn rocks_morph_continuously_between_steps() {
+        let mut rock = Rock {
+            id: RockId::from_static("rock.a.01"),
+            field: FieldId::from_static("field.a"),
+            rock_type: RockTypeId::from_static("rock_type.ice"),
+            position: Vec2::ZERO,
+            remaining: 1000,
+            initial: 1000,
+            growth: RockGrowth::default(),
+        };
+        // Mined a unit at a time, the drawn stage (step minus morph) only ever falls,
+        // and by a sliver each unit, across re-meshes too.
+        let mut last = ROCK_STEPS;
+        for remaining in (1..1000).rev() {
+            rock.remaining = remaining;
+            let step = rock_step(&rock);
+            let shown = step as f32 - rock_morph(&rock, step);
+            assert!(
+                shown <= last + 1e-4 && last - shown < 0.03,
+                "{remaining}: {last} -> {shown}"
+            );
+            last = shown;
+        }
     }
 }

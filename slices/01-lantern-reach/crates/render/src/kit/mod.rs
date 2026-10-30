@@ -14,7 +14,7 @@ mod station;
 
 pub use backdrop::{Backdrop, BackdropParams, Blob, backdrop};
 pub use rng::Rng;
-pub use rock::{RockKind, RockParams, rock, rock_scale};
+pub use rock::{RockKind, RockParams, rock, rock_morph, rock_scale};
 pub use ship::{HullClass, HullColors, HullParams, hull};
 pub use station::{
     Decal, DecalKind, MAX_PARTS, MAX_STATION_RADIUS, PART_KINDS, Part, PartKind, Placement,
