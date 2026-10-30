@@ -82,6 +82,15 @@ pub fn check(world: &WorldState, history: &History, to: &HullId) -> Result<(), R
     if world.ships.contains(&o.berth_as) {
         return Err(Refusal::AlreadyOwned);
     }
+    // The cargo moves across with the pilot: the new hull must hold it.
+    if let Some(h) = world.hulls.get(to)
+        && ship.hold.total() > u64::from(h.hold_capacity)
+    {
+        return Err(Refusal::HoldTooFull {
+            holds: ship.hold.total(),
+            room: h.hold_capacity,
+        });
+    }
     if world.player.credits < o.fee {
         return Err(Refusal::Credits {
             need: show_credits(o.fee),

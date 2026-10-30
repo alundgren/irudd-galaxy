@@ -41,8 +41,8 @@ pub mod prelude {
         Reversibility, UndoRecord,
     };
     pub use crate::economy::{
-        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketBase, MarketRates,
-        MarketRole, PriceReach, TradeRequest, TradeSide,
+        ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketBase,
+        MarketRates, MarketRole, PriceReach, TradeRequest, TradeSide,
     };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,

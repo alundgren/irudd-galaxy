@@ -35,6 +35,8 @@ pub enum Refusal {
     NotSold,
     #[error("the hullwright has no hull for that here")]
     NoBranch,
+    #[error("the new hull holds {room}; sell or deliver down from {holds} first")]
+    HoldTooFull { holds: u64, room: u32 },
 }
 
 /// One line on a seller's list.
@@ -164,7 +166,6 @@ pub fn check(world: &WorldState, history: &History, req: &ServiceRequest) -> Res
     }
 }
 
-/// The batch that carries out a purchase, after [`check`].
 /// The `reply` event for an answer the player gives at the dock: only when the
 /// player's ship is docked where that person is. `None` otherwise (dropped).
 pub fn reply(world: &WorldState, reply: &Reply) -> Option<CommandBatch> {
@@ -194,6 +195,7 @@ pub fn reply(world: &WorldState, reply: &Reply) -> Option<CommandBatch> {
     Some(b)
 }
 
+/// The batch that carries out a purchase, after [`check`].
 pub fn batch(
     world: &WorldState,
     history: &History,

@@ -168,7 +168,7 @@ fn base_commands(
     ware: &WareId,
     base: f64,
 ) -> Result<Vec<Command>, LeverError> {
-    if !(base.is_finite() && base >= 1.0 && base <= f64::from(u32::MAX)) {
+    if !(base.is_finite() && (1.0..=f64::from(u32::MAX)).contains(&base)) {
         return Err(LeverError::BadBase(base / 100.0));
     }
     let old = line(world, station, ware)?;

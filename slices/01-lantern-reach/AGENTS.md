@@ -261,6 +261,19 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `cites` with existing fact IDs.
 - Reads see the world as the tick started, plus the writes of handler calls that ran
   earlier this tick (not the current call's own writes).
+- A fact a call records exists only once the batch commits: say the line that cites it
+  from a later call (an `on.beat_started` handler for an `on_start` callback's facts,
+  the next docking for a handler's).
+- **Answers at the dock**: a dock-talk line may offer `choices` (`{ id, text }`, at
+  most 4, needs a `speaker`). The player's pick (or a standing question such as
+  `choice.what_changed`) comes in as `PlayerInput::replies`; the progress system turns
+  each into a `reply` event (`on.reply`: `npc`, `station`, `choice`) only while the
+  player is docked where that person is.
+- `ctx.space` launches scripted craft owned by a person (`put_craft`: a teacher's
+  tender), lays out live rock fields (`put_field`: a rumored vein) and rests a field's
+  regrowth (`set_regrow`); `ctx.space:craft` reads any non-player craft. Market base
+  levers (`set_base` in centicredits, `scale_base`) move a line's base price, so
+  standing tender floors see the new ceiling.
 
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and
@@ -299,14 +312,19 @@ error.
   never time; numbers can be `G.tunable(id)` from `pacing.toml`. State lives in
   `world.progress.beats` by stable ID, so beats survive save, load and hot reload.
   Facts: `beat_started`, `quest_step` (the next step; `quest` is the beat ID),
-  `beat_completed`. The HUD's line is `galaxy_progress::beats::hud_goal`. Worked
-  examples: `packs/core/scripts/act1.luau` (b01-b03). A transition (with its
+  `beat_completed`. The HUD's line is `galaxy_progress::beats::hud_goal`. The
+  journey is `packs/core/scripts/` (one script per act or situation: `act1` to `act4`,
+  `dispute`, `rumor`, `shortage`, `tender`, `fragment`, plus `talk` for ambient dock
+  talk); `lib/ids.luau` maps the spec's IDs onto the data's, `lib/lines.luau` holds every
+  core NPC line, `lib/canon.luau` the canon graph. Worked examples:
+  `packs/core/scripts/act1.luau` (b01-b05). A transition (with its
   callback's writes) is checked like a handler batch, against the world the kernel
   will apply it to; only one that will commit is visible to later beats that tick, so
   a successor never unlocks on a completion the kernel would reject. One that loses to
   contention is checked again next tick and never counts toward quarantine. A live `G.test`
   costs about 0.3 ms a tick (a fresh state per call): list data requirements
-  ahead of it, since a list stops at the first that fails.
+  ahead of it, since a list stops at the first that fails, and prefer data
+  (`G.near(spot, within)` for "went somewhere") where there is one.
 - **Data** (all `packs/core/data/`): `upgrades.toml` (upgrades and tenders, costs,
   sellers, unlock requirements, granted `cap.*` flags, modifiers), `controls.toml`
   (capabilities, tiers, reserved slots), `traits.toml`, `[[rank]]` in `hulls.toml`,
@@ -326,6 +344,12 @@ error.
 - **Predicates** (`G.test`) read position and depletion through `ctx.beats:pilot()`
   (`position`), `ctx.beats:distance`, `ctx.beats:field` and `ctx.beats:rock`; keep
   their thresholds in `pacing.toml`.
+- **Journey tests**: `crates/script/tests/journey_core.rs` plays each act headless with
+  only `packs/core`, through `crates/script/tests/common/pilot.rs` (the real systems,
+  the script host, the fast-model fake; input, trades, services, replies and orders).
+  Its `Setup` starts a later act the way `beat jump` will: beats done, fittings, flags,
+  counters, and lower pacing tunables for long waits. A beat marked done that way has
+  no `beat_completed` fact, so a line citing one stays unsaid.
 
 ## IDs
 

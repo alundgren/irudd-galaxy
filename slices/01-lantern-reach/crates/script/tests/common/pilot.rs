@@ -26,8 +26,8 @@ use galaxy_contract::verbs::{FlyTarget, Order, OrderQueue, Quantity};
 use galaxy_core::{Sim, SimState, System, new_game};
 use galaxy_mind::{FakeMind, Inline, MindConfig, MindHost};
 use galaxy_progress::ProgressSystem;
-use galaxy_script::host::HostEvent;
 use galaxy_script::ScriptHost;
+use galaxy_script::host::HostEvent;
 
 use super::{core_data, slice};
 
@@ -150,6 +150,8 @@ pub struct Pilot {
     pub mind: MindHost,
     /// Batches the kernel rejected (contention is normal; faults are not).
     pub rejected: usize,
+    /// The latest rejections' causes and reasons, for failure messages.
+    pub rejections: Vec<String>,
 }
 
 impl Pilot {
@@ -179,6 +181,7 @@ impl Pilot {
             host,
             mind,
             rejected: 0,
+            rejections: Vec::new(),
         }
     }
 
@@ -209,6 +212,13 @@ impl Pilot {
     pub fn tick(&mut self, input: &PlayerInput) {
         let report = self.sim.step(input).expect("not paused");
         self.rejected += report.rejected.len();
+        for r in &report.rejected {
+            if self.rejections.len() >= 20 {
+                self.rejections.remove(0);
+            }
+            self.rejections
+                .push(format!("{}: {}: {}", r.tick.0, r.cause.summary, r.reason));
+        }
         self.mind.pump(&mut self.sim);
         for e in self.host.take_events() {
             match e {
@@ -286,7 +296,11 @@ impl Pilot {
     pub fn dock_by_hand(&mut self, station: &StationId) {
         self.undock();
         let s = self.world().stations.get(station).unwrap().clone();
-        assert_eq!(self.ship().region, s.region, "{station} is in another region");
+        assert_eq!(
+            self.ship().region,
+            s.region,
+            "{station} is in another region"
+        );
         self.fly_to(s.position, (s.dock_radius * 0.5).max(5.0));
         self.press();
         assert_eq!(self.docked(), Some(station), "didn't dock at {station}");
@@ -337,14 +351,18 @@ impl Pilot {
     /// Replaces the flagship's orders, as clicks and the queue do.
     pub fn orders(&mut self, orders: Vec<Order>) {
         self.sim.submit(
-            CommandBatch::new(Cause::verb(Actor::Player, VerbKind::Fly, "the player's orders"))
-                .with(Command::SetOrders {
-                    ship: PLAYER,
-                    orders: OrderQueue {
-                        orders,
-                        ..OrderQueue::default()
-                    },
-                }),
+            CommandBatch::new(Cause::verb(
+                Actor::Player,
+                VerbKind::Fly,
+                "the player's orders",
+            ))
+            .with(Command::SetOrders {
+                ship: PLAYER,
+                orders: OrderQueue {
+                    orders,
+                    ..OrderQueue::default()
+                },
+            }),
         );
         self.idle(1);
     }
@@ -461,7 +479,10 @@ impl Pilot {
         self.service(ServiceRequest::Fit {
             upgrade: upgrade.parse().unwrap(),
         });
-        assert!(self.world().player.fittings.contains(upgrade), "{upgrade} fitted");
+        assert!(
+            self.world().player.fittings.contains(upgrade),
+            "{upgrade} fitted"
+        );
     }
 
     /// Answers someone at the dock: a line's choice, or a standing question.
@@ -530,9 +551,12 @@ impl Pilot {
 
     /// Whether `beat` completed (its `beat_completed` fact exists).
     pub fn completed(&self, beat: &str) -> bool {
-        self.facts("beat_completed")
-            .iter()
-            .any(|f| f.subjects.other.as_ref().is_some_and(|o| o.as_str() == beat))
+        self.facts("beat_completed").iter().any(|f| {
+            f.subjects
+                .other
+                .as_ref()
+                .is_some_and(|o| o.as_str() == beat)
+        })
     }
 
     /// Dock talk said so far.

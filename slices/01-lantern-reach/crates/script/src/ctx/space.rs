@@ -106,7 +106,10 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
             let fail = |what: &str, id: &dyn std::fmt::Display| {
                 env.fail(lua, "unknown_id", format!("no {what} `{id}`"))
             };
-            let hull = w.hulls.get(&spec.hull).ok_or_else(|| fail("hull", &spec.hull))?;
+            let hull = w
+                .hulls
+                .get(&spec.hull)
+                .ok_or_else(|| fail("hull", &spec.hull))?;
             if !w.npcs.contains(&spec.npc) {
                 return Err(fail("npc", &spec.npc));
             }
@@ -185,11 +188,7 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
                 ));
             }
             if !w.regions.contains(&spec.region) {
-                return Err(env.fail(
-                    lua,
-                    "unknown_id",
-                    format!("no region `{}`", spec.region),
-                ));
+                return Err(env.fail(lua, "unknown_id", format!("no region `{}`", spec.region)));
             }
             if !w.rock_types.contains(&spec.rock_type) {
                 return Err(env.fail(
@@ -217,7 +216,11 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
                 ));
             }
             // Rock IDs follow the field's: `field.ember_shoals` -> `rock.ember_shoals.01`.
-            let name = spec.id.as_str().strip_prefix("field.").unwrap_or(spec.id.as_str());
+            let name = spec
+                .id
+                .as_str()
+                .strip_prefix("field.")
+                .unwrap_or(spec.id.as_str());
             let prefix = format!("rock.{name}");
             let mut rocks = Vec::with_capacity(spec.rocks.len());
             for (i, at) in spec.rocks.iter().enumerate() {
@@ -281,10 +284,12 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
             env,
             |lua, env, (id, per_pulse, why): (LuaString, Value, Table)| {
                 let id: FieldId = env.id(lua, &id)?;
-                let mut field =
-                    env.world.fields.get(&id).cloned().ok_or_else(|| {
-                        env.fail(lua, "unknown_id", format!("no field `{id}`"))
-                    })?;
+                let mut field = env
+                    .world
+                    .fields
+                    .get(&id)
+                    .cloned()
+                    .ok_or_else(|| env.fail(lua, "unknown_id", format!("no field `{id}`")))?;
                 let regrow = match per_pulse {
                     Value::Integer(i) => i as f64,
                     Value::Number(n) => n,

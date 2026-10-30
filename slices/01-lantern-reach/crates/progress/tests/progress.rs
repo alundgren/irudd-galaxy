@@ -250,6 +250,39 @@ fn prestige_without_the_fee_is_refused_and_changes_nothing() {
 }
 
 #[test]
+fn prestige_into_a_smaller_hold_is_refused_while_the_cargo_would_not_fit() {
+    let mut s = sim(7);
+    ready_for_prestige(&mut s);
+    s.submit(
+        CommandBatch::new(Cause::system("test", "a full hold")).with(Command::AdjustCargo {
+            ship: PLAYER,
+            ware: "ware.ice".parse().unwrap(),
+            delta: 20,
+        }),
+    );
+    run(&mut s, 1);
+    let heron = ServiceRequest::Prestige {
+        to: "hull.heron".parse().unwrap(),
+    };
+    assert!(matches!(
+        services::check(s.world(), s.history(), &heron),
+        Err(Refusal::HoldTooFull {
+            holds: 20,
+            room: 16
+        })
+    ));
+    // The Tandem holds 40: that one is fine.
+    assert!(
+        services::check(
+            s.world(),
+            s.history(),
+            &ServiceRequest::Prestige { to: TANDEM }
+        )
+        .is_ok()
+    );
+}
+
+#[test]
 fn upgrade_purchases_are_atomic() {
     let mut s = sim(6);
     set_beat(&mut s, "beat.b03_first_delivery", BeatStatus::Completed, 0);

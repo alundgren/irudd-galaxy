@@ -773,7 +773,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(scope, env, |lua, env, (credits, why): (Value, Table)| {
             let credits = number(env, lua, &credits, "credits")?;
             let cents = (credits * CENTS_PER_CREDIT as f64 * 100.0).round() / 100.0;
-            if !(cents >= 1.0 && cents <= 1e12 && cents.fract() == 0.0) {
+            if !((1.0..=1e12).contains(&cents) && cents.fract() == 0.0) {
                 return Err(env.fail(
                     lua,
                     "bad_number",
