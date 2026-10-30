@@ -294,6 +294,16 @@ pub fn propose(t: &mut Target, dir: &Path, opts: &ProposeOptions, wait: Option<D
                 propose::skip_stage(&mut report);
                 return Err(CliError::rejected(report_json(&report)));
             }
+            // Validating can take minutes: stage over a fresh connection rather than
+            // one the game may have closed as idle.
+            let discovery = c.discovery.clone();
+            **c = Client::connect(&discovery, Some(CALL_TIMEOUT)).map_err(|e| {
+                CliError::new(
+                    4,
+                    "no_live_game",
+                    format!("the game stopped answering: {e}"),
+                )
+            })?;
             let store = GmStore::for_save(&save);
             let rel = import(&store, dir, &report)?;
             let staged = c.call("gm.stage", json!({ "dir": rel, "report": report }))?;
@@ -390,8 +400,8 @@ pub fn rollback(t: &mut Target, change: &str, build: impl FnOnce(SimState) -> Si
                 .map_err(|e| CliError::new(4, "bad_input", e))?;
             let mut out = bridge::rollback_change(&mut sim, b.store(), b.state(), change)?;
             let report = sim.step(&PlayerInput::default());
-            b.after_tick(&sim);
             file.write(sim.state())?;
+            b.after_tick(&sim);
             out["applies"] = json!("applied: one hands-off tick ran and the save was written");
             out["tick"] = json!(sim.tick());
             out["rejected"] = json!(report.map(|r| r.rejected).unwrap_or_default());

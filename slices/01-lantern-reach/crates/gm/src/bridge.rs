@@ -5,24 +5,33 @@
 //! - **Open.** Loads the save's game-master state, loads every applied pack revision
 //!   that wasn't rolled back into a `ScriptHost`, and attaches the host to the sim.
 //! - **Calm moments** (docked or paused, and loading a save): staged packs apply.
-//!   Each one gets a snapshot first (`Save::snapshot`, through [`Snapshots`]), its fast
-//!   checks run again against the world as it is now, and one batch caused by the pack
-//!   revision installs its data and records a `gm_change_applied` fact. That batch's
-//!   cause is the change ID; the bridge reads it back when the batch commits.
+//!   Each one gets a snapshot first (`Save::snapshot`, through [`Snapshots`]) and
+//!   applies only once that snapshot is written and the world is still the one it
+//!   holds; a failed snapshot leaves the pack staged. Then its fast checks run again
+//!   against the world as it is now, and one batch caused by the pack revision installs
+//!   its data and records a `gm_change_applied` fact. That batch's cause is the change
+//!   ID; the bridge reads it back when the batch commits.
+//! - **Crash safety.** `state.json` records intent, never proof: the save does. On
+//!   open, every entry is checked against the save's history and its queued batches
+//!   ([`reconcile`]). An applied entry whose apply batch the save doesn't hold goes back
+//!   to staged (and applies again at the next calm moment), a staged one the save
+//!   already holds counts as applied, and change IDs are the save's own.
 //! - **Requests** from the live socket are answered in [`Bridge::serve`], between
-//!   frames, at most [`MAX_REQUESTS_PER_SERVE`] at a time. Slow work (writing a fork,
-//!   validating an inbox entry) runs on a thread and answers from there.
+//!   frames, at most [`MAX_REQUESTS_PER_SERVE`] at a time. Reads (`state.*`,
+//!   `history.query`, `gm.digest`) run on a read thread from a copy of the state, and
+//!   other slow work (writing a fork, validating an inbox entry) on a thread of its own.
 //! - **Watchers** get every new fact, talk line, script trouble, game-master change
 //!   and calm-moment change as a stream item.
 //! - **Inbox**: at a calm moment the game claims the first pack folder in `gm-inbox/`
 //!   next to the save, validates it in full on a thread (sandbox children included),
 //!   writes `<name>.result.json` beside it, and stages it if it was accepted.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver};
+use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 
-use galaxy_contract::history::FactDraft;
+use galaxy_contract::history::{FactDraft, FactPayload};
 use galaxy_contract::pack::{ReportStatus, ValidationReport};
 use galaxy_contract::prelude::*;
 use galaxy_core::{Save, Sim, SimState};
@@ -35,7 +44,7 @@ use crate::live::{Incoming, Op, Server, ServerOptions, StreamSink, WireError};
 use crate::propose::{self, ProposeOptions};
 use crate::reads;
 use crate::sandbox::SandboxRules;
-use crate::store::{AppliedPack, GmState, GmStore, QuarantinedPack, StagedPack};
+use crate::store::{AppliedPack, GmState, GmStore, QuarantinedPack, READY, StagedPack};
 
 /// The system name the bridge's own batches are caused by.
 pub const SYSTEM_NAME: &str = "gm_bridge";
@@ -45,6 +54,10 @@ pub const APPLIED: FactKind = FactKind::from_static("gm_change_applied");
 pub const MAX_REQUESTS_PER_SERVE: usize = 32;
 /// Facts a `watch --since` replays before it goes live.
 const MAX_REPLAY: usize = 500;
+/// Watchers at once.
+pub const MAX_WATCHERS: usize = 8;
+/// Reads waiting for the read thread; more are refused as `busy`.
+const READ_QUEUE: usize = 16;
 /// Script troubles kept for `gm status`.
 const TROUBLE_LOG: usize = 50;
 
@@ -65,7 +78,7 @@ impl Snapshots for Save {
     }
 }
 
-/// No snapshots (tests of staging alone).
+/// Refuses every snapshot, so nothing applies (tests).
 pub struct NoSnapshots;
 
 impl Snapshots for NoSnapshots {
@@ -81,6 +94,58 @@ pub struct BridgeOptions {
     pub exe: Option<PathBuf>,
     pub analyzer: Option<PathBuf>,
     pub rules: SandboxRules,
+}
+
+/// A snapshot asked for before applying `stage`, taken at `at`.
+struct PendingSnapshot {
+    stage: String,
+    at: Moment,
+    rx: Receiver<Result<i64, String>>,
+}
+
+/// Between ticks the state only changes by a tick or a submitted batch, so the tick
+/// and the number of queued batches name it.
+type Moment = (Tick, usize);
+
+fn moment(sim: &Sim) -> Moment {
+    (sim.tick(), sim.state().kernel.pending.len())
+}
+
+/// The read thread, and the state copy it answers from (shared while the state
+/// doesn't change).
+struct Reader {
+    tx: SyncSender<(Arc<SimState>, Incoming)>,
+    copy: Option<(Moment, Arc<SimState>)>,
+}
+
+impl Reader {
+    fn start() -> Option<Reader> {
+        let (tx, rx) = mpsc::sync_channel::<(Arc<SimState>, Incoming)>(READ_QUEUE);
+        std::thread::Builder::new()
+            .name("gm-read".into())
+            .spawn(move || {
+                while let Ok((state, req)) = rx.recv() {
+                    let result = read(&state, &req.op);
+                    req.respond(result);
+                }
+            })
+            .ok()?;
+        Some(Reader { tx, copy: None })
+    }
+}
+
+/// A read op, answered from a copy of the state.
+fn read(state: &SimState, op: &Op) -> Result<Value, WireError> {
+    let world = || serde_json::to_value(&state.world).expect("worlds serialize");
+    match op {
+        Op::StateGet { path } => reads::state_get(&world(), path.as_deref()).map_err(Into::into),
+        Op::StateQuery(q) => reads::state_query(&world(), q).map_err(Into::into),
+        Op::HistoryQuery(q) => Ok(reads::history_query(&state.history, q)),
+        Op::Digest { since } => {
+            Ok(serde_json::to_value(digest(state, *since)).expect("digests serialize"))
+        }
+        _ => Err(WireError::runtime("not a read")),
+    }
 }
 
 struct InboxJob {
@@ -99,7 +164,12 @@ pub struct Bridge {
     seen_fact: Option<FactId>,
     seen_talk: u64,
     calm: Option<bool>,
-    snapshots: Vec<(String, Receiver<Result<i64, String>>)>,
+    /// Staged packs waiting for their snapshot to be written.
+    snapshotting: Vec<PendingSnapshot>,
+    /// Staged packs whose snapshot failed during this calm moment, with the error. They
+    /// are tried again at the next one.
+    snapshot_failed: BTreeMap<String, String>,
+    reader: Option<Reader>,
     inbox: Option<InboxJob>,
     trouble: VecDeque<Value>,
     dirty: bool,
@@ -134,9 +204,9 @@ impl Bridge {
     /// [`Bridge::apply_staged`]).
     pub fn open(save: &Path, sim: &mut Sim, opts: BridgeOptions) -> Result<Bridge, String> {
         let store = GmStore::for_save(save);
-        let state = store.load()?;
+        let mut state = store.load()?;
+        let (dirty, mut notes) = reconcile(&mut state, sim);
         let host = ScriptHost::new(None);
-        let mut notes = Vec::new();
         for a in state.current() {
             if retired(sim.world(), &a.pack, &a.revision) {
                 continue;
@@ -161,14 +231,14 @@ impl Bridge {
             seen_fact: None,
             seen_talk: sim.world().talk.last,
             calm: None,
-            snapshots: Vec::new(),
+            snapshotting: Vec::new(),
+            snapshot_failed: BTreeMap::new(),
+            reader: None,
             inbox: None,
             trouble: VecDeque::new(),
-            dirty: false,
+            dirty,
             notes,
         };
-        // Change IDs whose batch committed before the last write of state.json.
-        bridge.scan_facts(sim, None);
         bridge.seen_fact = sim.history().last_fact_id();
         bridge.flush();
         Ok(bridge)
@@ -181,6 +251,7 @@ impl Bridge {
             gm_dir: self.store.dir().to_path_buf(),
             registry,
             endpoint: None,
+            limits: crate::live::Limits::default(),
         })
         .map_err(|e| format!("can't open the live socket: {e}"))?;
         self.server = Some(server);
@@ -237,105 +308,181 @@ impl Bridge {
         Ok(entry)
     }
 
-    /// Applies every staged pack. Call at a calm moment (or on load), between ticks.
-    /// Returns what happened to each.
+    /// Applies staged packs. Call at a calm moment (or on load), between ticks. Each
+    /// one gets a snapshot first and applies only once the snapshot is written and the
+    /// world is still the one it holds: for a [`SnapshotTicket::Pending`] snapshot that
+    /// is a later call. A failed snapshot leaves the pack staged until the next calm
+    /// moment. Returns what happened.
     pub fn apply_staged(&mut self, sim: &mut Sim, snaps: &mut dyn Snapshots) -> Vec<Value> {
-        let staged = std::mem::take(&mut self.state.staged);
         let mut out = Vec::new();
-        for s in staged {
-            self.dirty = true;
-            let label = format!("before {} {} ({})", s.pack, short(&s.revision), s.stage);
-            let snapshot = match snaps.snapshot(sim.state(), &label) {
-                SnapshotTicket::Done(Ok(id)) => Some(id),
-                SnapshotTicket::Done(Err(e)) => {
-                    self.notes.push(format!("snapshot before {}: {e}", s.stage));
-                    None
-                }
-                SnapshotTicket::Pending(rx) => {
-                    self.snapshots.push((s.stage.clone(), rx));
-                    None
-                }
-            };
-            let report = if retired(sim.world(), &s.pack, &s.revision) {
-                Err("this revision was rolled back, and a rolled-back revision never runs again; change the pack and propose the new revision".to_owned())
-            } else {
-                self.store.read_copy(&s.dir, &s.revision).map(|_| {
-                    self.host
-                        .load(&self.store.abs(&s.dir), sim.world(), sim.history())
-                })
-            };
-            let report = match report {
-                Ok(r) if r.accepted() => r,
-                other => {
-                    let (reason, report) = match other {
-                        Ok(r) => {
-                            let why = r
-                                .errors()
-                                .next()
-                                .map_or("its checks failed".to_owned(), |d| d.message.clone());
-                            (why, Some(r))
-                        }
-                        Err(e) => (e, None),
-                    };
-                    let q = QuarantinedPack {
-                        stage: s.stage.clone(),
-                        pack: s.pack.clone(),
-                        revision: s.revision.clone(),
-                        tick: sim.tick(),
-                        reason: format!("failed its checks at the calm moment: {reason}"),
-                        report,
-                    };
-                    let item = json!({ "type": "gm", "what": "quarantined", "stage": q.stage,
-                        "pack": q.pack, "revision": q.revision, "reason": q.reason });
-                    self.broadcast(&item);
-                    out.push(item);
-                    self.state.quarantined.push(q);
-                    continue;
-                }
-            };
-            let _ = report;
-            let mut batch = CommandBatch::new(Cause::script(
-                s.pack.clone(),
-                s.revision.clone(),
-                format!("the game master applied {} ({})", s.name, s.stage),
-            ));
-            if let Some(pack) = self.host.pack(&s.pack) {
-                for b in galaxy_script::host::install_batches(&pack, sim.world()) {
-                    batch.commands.extend(b.commands);
-                }
+        self.poll_snapshots(sim, &mut out);
+        let waiting: Vec<StagedPack> = self
+            .state
+            .staged
+            .iter()
+            .filter(|s| {
+                !self.snapshotting.iter().any(|p| p.stage == s.stage)
+                    && !self.snapshot_failed.contains_key(&s.stage)
+            })
+            .cloned()
+            .collect();
+        for s in waiting {
+            // Cheap checks first: a pack that can't apply gets no snapshot.
+            if let Err(reason) = self.quick_check(sim, &s) {
+                self.quarantine(sim, &s.stage, reason, None, &mut out);
+                continue;
             }
-            batch.push(Command::RecordFact {
-                fact: Box::new(FactDraft {
-                    kind: APPLIED,
-                    subjects: Subjects {
-                        other: AnyId::new(s.pack.as_str()).ok(),
-                        ..Subjects::default()
-                    },
-                    amount: None,
-                    note: format!("{} revision {} applied ({})", s.pack, s.revision, s.stage),
+            let label = format!("before {} {} ({})", s.pack, short(&s.revision), s.stage);
+            let at = moment(sim);
+            match snaps.snapshot(sim.state(), &label) {
+                SnapshotTicket::Done(Ok(id)) => self.apply_one(sim, &s.stage, id, &mut out),
+                SnapshotTicket::Done(Err(e)) => self.snapshot_failed(&s.stage, e, &mut out),
+                SnapshotTicket::Pending(rx) => self.snapshotting.push(PendingSnapshot {
+                    stage: s.stage,
+                    at,
+                    rx,
                 }),
-            });
-            sim.submit(batch);
-            let item = json!({ "type": "gm", "what": "applied", "stage": s.stage,
-                "pack": s.pack, "revision": s.revision, "snapshot": snapshot,
-                "tick": sim.tick(), "change": "pending: known when the batch commits next tick" });
-            self.broadcast(&item);
-            out.push(item);
-            self.state.applied.push(AppliedPack {
-                stage: s.stage,
-                pack: s.pack,
-                revision: s.revision,
-                name: s.name,
-                dir: s.dir,
-                source: s.source,
-                tick: sim.tick(),
-                snapshot,
-                change: None,
-                report: s.report,
-            });
+            }
         }
         self.flush();
         out
+    }
+
+    /// Snapshots that finished: their pack applies if the player is still calm and the
+    /// world hasn't moved on since (otherwise it is snapshotted again at the next calm
+    /// moment).
+    fn poll_snapshots(&mut self, sim: &mut Sim, out: &mut Vec<Value>) {
+        let mut done = Vec::new();
+        self.snapshotting.retain(|p| match p.rx.try_recv() {
+            Ok(r) => {
+                done.push((p.stage.clone(), p.at, r));
+                false
+            }
+            Err(mpsc::TryRecvError::Empty) => true,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                done.push((p.stage.clone(), p.at, Err("the save thread stopped".into())));
+                false
+            }
+        });
+        for (stage, at, r) in done {
+            match r {
+                Ok(id) if is_calm(sim) && moment(sim) == at => {
+                    self.apply_one(sim, &stage, id, out);
+                }
+                Ok(_) => {}
+                Err(e) => self.snapshot_failed(&stage, e, out),
+            }
+        }
+        self.flush();
+    }
+
+    fn snapshot_failed(&mut self, stage: &str, e: String, out: &mut Vec<Value>) {
+        self.notes.push(format!(
+            "snapshot before {stage}: {e}; it stays staged until the next calm moment"
+        ));
+        let item = json!({ "type": "gm", "what": "snapshot_failed", "stage": stage, "error": e });
+        self.broadcast(&item);
+        out.push(item);
+        self.snapshot_failed.insert(stage.to_owned(), e);
+    }
+
+    /// The checks that need no snapshot: not rolled back, and the copy is intact.
+    fn quick_check(&self, sim: &Sim, s: &StagedPack) -> Result<(), String> {
+        if retired(sim.world(), &s.pack, &s.revision) {
+            return Err("this revision was rolled back, and a rolled-back revision never runs again; change the pack and propose the new revision".to_owned());
+        }
+        self.store.read_copy(&s.dir, &s.revision).map(|_| ())
+    }
+
+    fn quarantine(
+        &mut self,
+        sim: &Sim,
+        stage: &str,
+        reason: String,
+        report: Option<ValidationReport>,
+        out: &mut Vec<Value>,
+    ) {
+        let Some(i) = self.state.staged.iter().position(|s| s.stage == stage) else {
+            return;
+        };
+        let s = self.state.staged.remove(i);
+        self.dirty = true;
+        let q = QuarantinedPack {
+            stage: s.stage,
+            pack: s.pack,
+            revision: s.revision,
+            tick: sim.tick(),
+            reason: format!("failed its checks at the calm moment: {reason}"),
+            report,
+        };
+        let item = json!({ "type": "gm", "what": "quarantined", "stage": q.stage,
+            "pack": q.pack, "revision": q.revision, "reason": q.reason });
+        self.broadcast(&item);
+        out.push(item);
+        self.state.quarantined.push(q);
+    }
+
+    /// Applies a staged pack whose snapshot `snapshot` holds the world as it is now.
+    fn apply_one(&mut self, sim: &mut Sim, stage: &str, snapshot: i64, out: &mut Vec<Value>) {
+        let Some(s) = self.state.staged.iter().find(|s| s.stage == stage).cloned() else {
+            return;
+        };
+        if let Err(reason) = self.quick_check(sim, &s) {
+            self.quarantine(sim, stage, reason, None, out);
+            return;
+        }
+        let report = self
+            .host
+            .load(&self.store.abs(&s.dir), sim.world(), sim.history());
+        if !report.accepted() {
+            let why = report
+                .errors()
+                .next()
+                .map_or("its checks failed".to_owned(), |d| d.message.clone());
+            self.quarantine(sim, stage, why, Some(report), out);
+            return;
+        }
+        self.state.staged.retain(|x| x.stage != stage);
+        self.dirty = true;
+        let mut batch = CommandBatch::new(Cause::script(
+            s.pack.clone(),
+            s.revision.clone(),
+            format!("the game master applied {} ({})", s.name, s.stage),
+        ));
+        if let Some(pack) = self.host.pack(&s.pack) {
+            for b in galaxy_script::host::install_batches(&pack, sim.world()) {
+                batch.commands.extend(b.commands);
+            }
+        }
+        batch.push(Command::RecordFact {
+            fact: Box::new(FactDraft {
+                kind: APPLIED,
+                subjects: Subjects {
+                    other: AnyId::new(s.pack.as_str()).ok(),
+                    ..Subjects::default()
+                },
+                amount: None,
+                note: applied_note(&s.pack, &s.revision, &s.stage),
+            }),
+        });
+        sim.submit(batch);
+        let item = json!({ "type": "gm", "what": "applied", "stage": s.stage,
+            "pack": s.pack, "revision": s.revision, "snapshot": snapshot,
+            "tick": sim.tick(), "change": "pending: known when the batch commits next tick" });
+        self.broadcast(&item);
+        out.push(item);
+        self.state.applied.push(AppliedPack {
+            stage: s.stage,
+            pack: s.pack,
+            revision: s.revision,
+            name: s.name,
+            dir: s.dir,
+            source: s.source,
+            tick: sim.tick(),
+            snapshot: Some(snapshot),
+            change: None,
+            report: s.report,
+        });
     }
 
     /// Fills in change IDs from `gm_change_applied` facts after `after`.
@@ -345,13 +492,10 @@ impl Bridge {
         let mut items = Vec::new();
         for f in &facts[from..] {
             if f.kind == APPLIED
-                && let Some(rc) = sim.history().cause(f.cause)
-                && let CauseKind::Script { pack, revision } = &rc.cause.kind
-                && let Some(a) = self
-                    .state
-                    .applied
-                    .iter_mut()
-                    .find(|a| &a.pack == pack && &a.revision == revision && a.change.is_none())
+                && let FactPayload::Note(note) = &f.payload
+                && let Some(a) = self.state.applied.iter_mut().find(|a| {
+                    a.change.is_none() && applied_note(&a.pack, &a.revision, &a.stage) == *note
+                })
             {
                 a.change = Some(f.cause);
                 self.dirty = true;
@@ -362,7 +506,7 @@ impl Bridge {
         items
     }
 
-    /// After ticks: change IDs, snapshots, and stream items for watchers.
+    /// After ticks: change IDs and stream items for watchers.
     pub fn after_tick(&mut self, sim: &Sim) {
         let seen = self.seen_fact;
         let items = self.scan_facts(sim, seen);
@@ -404,30 +548,14 @@ impl Bridge {
         let calm = is_calm(sim);
         if self.calm != Some(calm) {
             self.calm = Some(calm);
+            if !calm {
+                // Failed snapshots are tried again at the next calm moment.
+                self.snapshot_failed.clear();
+            }
             self.broadcast(
                 &json!({ "type": "calm", "calm": calm, "paused": sim.is_paused(),
                 "docked_at": docked_at(sim.world()), "tick": sim.tick() }),
             );
-        }
-        let mut done = Vec::new();
-        self.snapshots.retain(|(stage, rx)| match rx.try_recv() {
-            Ok(r) => {
-                done.push((stage.clone(), r));
-                false
-            }
-            Err(mpsc::TryRecvError::Empty) => true,
-            Err(mpsc::TryRecvError::Disconnected) => false,
-        });
-        for (stage, r) in done {
-            match r {
-                Ok(id) => {
-                    if let Some(a) = self.state.applied.iter_mut().find(|a| a.stage == stage) {
-                        a.snapshot = Some(id);
-                        self.dirty = true;
-                    }
-                }
-                Err(e) => self.notes.push(format!("snapshot before {stage}: {e}")),
-            }
         }
         self.flush();
     }
@@ -455,13 +583,14 @@ impl Bridge {
             }
             self.work_inbox(sim);
         } else {
+            // Snapshots that finish now are dropped: the moment has passed.
+            self.poll_snapshots(sim, &mut Vec::new());
             self.poll_inbox(sim);
         }
         left
     }
 
     fn handle(&mut self, req: Incoming, sim: &mut Sim) -> Option<Incoming> {
-        let world_json = |sim: &Sim| serde_json::to_value(sim.world()).expect("worlds serialize");
         let op = req.op.clone();
         let result: Result<Value, WireError> = match &op {
             Op::Hello {} => Ok(json!({
@@ -477,13 +606,9 @@ impl Bridge {
                 "staged": self.state.staged.len(),
                 "applied": self.state.applied.len(),
             })),
-            Op::StateGet { path } => {
-                reads::state_get(&world_json(sim), path.as_deref()).map_err(WireError::from)
-            }
-            Op::StateQuery(q) => reads::state_query(&world_json(sim), q).map_err(WireError::from),
-            Op::HistoryQuery(q) => Ok(reads::history_query(sim.history(), q)),
-            Op::Digest { since } => {
-                Ok(serde_json::to_value(digest(sim.state(), *since)).expect("digests serialize"))
+            Op::StateGet { .. } | Op::StateQuery(_) | Op::HistoryQuery(_) | Op::Digest { .. } => {
+                self.read(req, sim);
+                return None;
             }
             Op::Status {} => Ok(self.status(sim)),
             Op::Fork { to } => {
@@ -527,7 +652,7 @@ impl Bridge {
                 }
                 r.map_err(WireError::from)
             }
-            Op::Watch { since } => {
+            Op::Watch { since } if self.watchers.len() < MAX_WATCHERS => {
                 let ack = json!({ "watching": true, "tick": sim.tick(), "calm": is_calm(sim) });
                 let mut sink = req.into_stream(ack);
                 if let Some(since) = since {
@@ -542,10 +667,47 @@ impl Bridge {
                 self.watchers.push(sink);
                 return None;
             }
+            Op::Watch { .. } => Err(WireError::new(
+                1,
+                "busy",
+                format!("{MAX_WATCHERS} watchers are already connected"),
+            )),
             Op::Shot { .. } => return Some(req),
         };
         req.respond(result);
         None
+    }
+
+    /// Hands a read to the read thread, with a copy of the state as it is now.
+    fn read(&mut self, req: Incoming, sim: &Sim) {
+        if self.reader.is_none() {
+            self.reader = Reader::start();
+        }
+        let Some(reader) = &mut self.reader else {
+            req.respond(Err(WireError::runtime("can't start the read thread")));
+            return;
+        };
+        let at = moment(sim);
+        let state = match &reader.copy {
+            Some((when, s)) if *when == at => s.clone(),
+            _ => {
+                let s = Arc::new(sim.state().clone());
+                reader.copy = Some((at, s.clone()));
+                s
+            }
+        };
+        match reader.tx.try_send((state, req)) {
+            Ok(()) => {}
+            Err(TrySendError::Full((_, req))) => req.respond(Err(WireError::new(
+                1,
+                "busy",
+                "the game is still answering earlier reads; try again",
+            ))),
+            Err(TrySendError::Disconnected((_, req))) => {
+                self.reader = None;
+                req.respond(Err(WireError::runtime("the read thread stopped")));
+            }
+        }
     }
 
     /// The packs that run now: `(pack, absolute copy folder)`.
@@ -560,6 +722,16 @@ impl Bridge {
         v["calm"] = json!(is_calm(sim));
         v["live"] = json!(self.server.is_some());
         v["inbox"]["validating"] = json!(self.inbox.as_ref().map(|j| j.name.clone()));
+        if let Some(staged) = v["staged"].as_array_mut() {
+            for s in staged {
+                let stage = s["stage"].as_str().unwrap_or_default().to_owned();
+                if self.snapshotting.iter().any(|p| p.stage == stage) {
+                    s["snapshot"] = json!("writing");
+                } else if let Some(e) = self.snapshot_failed.get(&stage) {
+                    s["snapshot"] = json!(format!("failed: {e}"));
+                }
+            }
+        }
         v["script_trouble"] = json!(self.trouble.iter().collect::<Vec<_>>());
         v
     }
@@ -586,9 +758,14 @@ impl Bridge {
             claimed = claimed_root.join(format!("{name}-{n}"));
             n += 1;
         }
-        // Claim it: a rename, so two games never take the same entry.
+        // Claim it: a rename, so two games never take the same entry. The marker goes:
+        // it isn't part of the pack.
         if std::fs::rename(&src, &claimed).is_err() {
             return;
+        }
+        if let Err(e) = std::fs::remove_file(claimed.join(READY)) {
+            self.notes
+                .push(format!("{}: {e}", claimed.join(READY).display()));
         }
         let state = sim.state().clone();
         let running = self.running_dirs(sim.world());
@@ -683,6 +860,97 @@ impl Bridge {
     }
 }
 
+/// The note of the `gm_change_applied` fact that applies `stage`: what ties a save's
+/// history to an entry in `state.json`.
+pub fn applied_note(pack: &PackId, revision: &str, stage: &str) -> String {
+    format!("{pack} revision {revision} applied ({stage})")
+}
+
+/// Matches `state.json` to what the save holds (see the module docs): applied entries
+/// whose apply batch is neither committed nor queued in the save go back to staged,
+/// staged ones the save already applied move to applied, and change IDs are the
+/// save's. Returns whether anything changed, and notes.
+pub fn reconcile(state: &mut GmState, sim: &Sim) -> (bool, Vec<String>) {
+    // Apply facts the save committed, and apply batches it holds queued, by note.
+    let mut committed: BTreeMap<String, (CauseId, Tick)> = BTreeMap::new();
+    for f in sim.history().facts().iter().filter(|f| f.kind == APPLIED) {
+        if let FactPayload::Note(note) = &f.payload
+            && sim
+                .history()
+                .cause(f.cause)
+                .is_some_and(|c| matches!(c.cause.kind, CauseKind::Script { .. }))
+        {
+            committed.entry(note.clone()).or_insert((f.cause, f.tick));
+        }
+    }
+    let queued: BTreeSet<String> = sim
+        .state()
+        .kernel
+        .pending
+        .iter()
+        .filter(|b| matches!(b.cause.kind, CauseKind::Script { .. }))
+        .flat_map(|b| &b.commands)
+        .filter_map(|c| match c {
+            Command::RecordFact { fact } if fact.kind == APPLIED => Some(fact.note.clone()),
+            _ => None,
+        })
+        .collect();
+    let mut changed = false;
+    let mut notes = Vec::new();
+    let mut applied = Vec::new();
+    let mut staged = Vec::new();
+    for mut a in std::mem::take(&mut state.applied) {
+        let note = applied_note(&a.pack, &a.revision, &a.stage);
+        if let Some((c, _)) = committed.get(&note) {
+            changed |= a.change != Some(*c);
+            a.change = Some(*c);
+            applied.push(a);
+        } else if queued.contains(&note) {
+            changed |= a.change.take().is_some();
+            applied.push(a);
+        } else {
+            changed = true;
+            notes.push(format!(
+                "{} ({}) was applied after the save was last written; it applies again at the next calm moment",
+                a.pack, a.stage
+            ));
+            staged.push(StagedPack {
+                stage: a.stage,
+                pack: a.pack,
+                revision: a.revision,
+                name: a.name,
+                dir: a.dir,
+                source: a.source,
+                report: a.report,
+            });
+        }
+    }
+    for s in std::mem::take(&mut state.staged) {
+        let note = applied_note(&s.pack, &s.revision, &s.stage);
+        let done = committed.get(&note).copied();
+        if done.is_none() && !queued.contains(&note) {
+            staged.push(s);
+            continue;
+        }
+        changed = true;
+        applied.push(AppliedPack {
+            stage: s.stage,
+            pack: s.pack,
+            revision: s.revision,
+            name: s.name,
+            dir: s.dir,
+            source: s.source,
+            tick: done.map_or(sim.tick(), |(_, t)| t),
+            snapshot: None,
+            change: done.map(|(c, _)| c),
+            report: s.report,
+        });
+    }
+    state.applied = applied;
+    state.staged = staged;
+    (changed, notes)
+}
+
 /// Adds a staged entry for a copy already in the store, appending the `stage` step
 /// (`note` says when it applies, given the stage ID). `report` must be accepted.
 pub fn stage_entry(
@@ -769,15 +1037,28 @@ fn failed_report(why: &str) -> ValidationReport {
     }
 }
 
-/// Pack folders waiting in an inbox, by name.
+/// Pack folders waiting in an inbox, by name: complete ones, with their [`READY`]
+/// marker written. Hidden folders (`.name`) are never looked at.
 pub fn inbox_entries(inbox: &Path) -> Vec<(String, PathBuf)> {
+    inbox_folders(inbox, true)
+}
+
+/// Folders in an inbox without their [`READY`] marker yet: still being copied.
+pub fn inbox_incomplete(inbox: &Path) -> Vec<String> {
+    inbox_folders(inbox, false)
+        .into_iter()
+        .map(|(n, _)| n)
+        .collect()
+}
+
+fn inbox_folders(inbox: &Path, ready: bool) -> Vec<(String, PathBuf)> {
     let Ok(entries) = std::fs::read_dir(inbox) else {
         return Vec::new();
     };
     let mut out: Vec<(String, PathBuf)> = entries
         .filter_map(Result::ok)
         .map(|e| e.path())
-        .filter(|p| p.join("manifest.toml").is_file())
+        .filter(|p| p.is_dir() && p.join(READY).is_file() == ready)
         .filter_map(|p| {
             let name = p.file_name()?.to_string_lossy().into_owned();
             (!name.starts_with('.')).then_some((name, p))
@@ -872,13 +1153,14 @@ pub fn status_value(
         .into_iter()
         .map(|(n, _)| n)
         .collect();
+    let incomplete = inbox_incomplete(&store.inbox());
     json!({
         "save": store.save(),
         "gm_dir": store.dir(),
         "staged": staged,
         "applied": applied,
         "quarantined": quarantined,
-        "inbox": { "dir": store.inbox(), "waiting": waiting },
+        "inbox": { "dir": store.inbox(), "waiting": waiting, "incomplete": incomplete },
     })
 }
 

@@ -769,8 +769,10 @@ fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
         rejected.extend(report.rejected);
     }
     if !dry_run {
-        bridge.after_tick(&sim);
+        // The save first: state.json never runs ahead of it (and if it did, the next
+        // load would reconcile it).
         save.write(sim.state())?;
+        bridge.after_tick(&sim);
     }
     Ok(json!({
         "from_tick": start,

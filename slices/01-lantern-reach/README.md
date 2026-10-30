@@ -126,7 +126,8 @@ or `--analyzer`, or `$GALAXY_LUAU_ANALYZE`); without it, it rejects unless you p
 a Unix socket elsewhere): the newest game, or the one playing `--live SAVE`. Only the local
 user can connect. A game master's guide, with the JSON shapes, is
 [GM-AGENTS.md](GM-AGENTS.md). Each save keeps its game-master state in `<save>.gm/` next
-to it, and a running game picks up pack folders dropped into `gm-inbox/` there.
+to it, and a running game picks up pack folders dropped into `gm-inbox/` there once
+they hold a `READY` file (write it last).
 
 The CLI finds `packs/` through `--packs`, then `$GALAXY_PACKS`, then the nearest
 `packs/core` above the working directory or the executable. Saves go wherever you

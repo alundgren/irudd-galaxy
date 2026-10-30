@@ -67,7 +67,7 @@ ask Andreas to start one (`play.cmd`), or work on a save file. Otherwise you get
   "save": ".../saves/lantern-1793323926.sqlite",
   "gm_dir": ".../saves/lantern-1793323926.gm",
   "staged": [], "applied": [], "quarantined": [], "script_trouble": [],
-  "inbox": { "dir": ".../saves/gm-inbox", "waiting": [], "validating": null }
+  "inbox": { "dir": ".../saves/gm-inbox", "waiting": [], "incomplete": [], "validating": null }
 }
 ```
 
@@ -191,6 +191,10 @@ The full pipeline, as one report:
    error; `nothing_fired` is a warning when the pack did nothing in that much activity).
 5. `stage`: the copy is stored by revision in `<save>.gm/packs/` and staged. It applies at
    the next calm moment: a snapshot first, then one batch caused by your pack revision.
+   It applies only once the snapshot is written and the world is still the one the
+   snapshot holds; if the snapshot fails, the pack stays staged and is tried again at
+   the next calm moment (`gm status` shows `"snapshot": "writing"` or `"failed: ..."`
+   on the staged entry).
 
 ```json
 {
@@ -232,7 +236,7 @@ galaxy gm status --live
   "staged": [], "quarantined": [], "script_trouble": [] }
 ```
 
-`state` is `applying` (staged batch not committed yet, e.g. still paused), `running`,
+`state` is `applying` (its batch is queued but not committed yet, e.g. still paused), `running`,
 `superseded` (a newer revision runs), `rolled_back` or `not_loaded`. A script that keeps
 aborting is quarantined (listed under `quarantined` and `script_trouble`); roll its change
 back and fix it. Then read the digest again and take a screenshot when the player is
@@ -280,13 +284,26 @@ galaxy shot --live --out shots/after.png
 galaxy gm rollback cause.8 --live             # if it misbehaves: the ring comes down, Odo says why
 ```
 
+If the game stops between applying a pack and writing the save, nothing is lost or
+doubled: on the next load the bridge checks `state.json` against the save, and a pack
+whose apply the save doesn't hold is staged again under the same `stage.N` (it applies
+at that load, which is a calm moment).
+
 ## The inbox (no CLI, no socket)
 
-Copy a pack folder into `gm-inbox/` next to the save (the `inbox.dir` in `gm status`).
-At its next calm moment the running game claims it (moves it into `<save>.gm/inbox/`),
-validates it in full like `propose`, writes `gm-inbox/<folder>.result.json`
-(`{ "entry", "claimed", "stage"?, "report" }`) and, if accepted, stages it for the calm
-moment after. One entry at a time, in name order.
+1. Copy a pack folder into `gm-inbox/` next to the save (the `inbox.dir` in `gm status`),
+   say `gm-inbox/my_pack/`.
+2. When every file is there, create an empty file `READY` in it
+   (`gm-inbox/my_pack/READY`). Write it **last**: until it exists the game leaves the
+   folder alone (`gm status` lists it under `inbox.incomplete`), so a half-copied pack is
+   never taken. Folders whose name starts with `.` are never looked at, so you can also
+   copy into `gm-inbox/.my_pack/`, add `READY`, and rename it to `my_pack/`.
+
+At its next calm moment the running game claims it (moves it into `<save>.gm/inbox/` and
+removes `READY`, which isn't part of the pack), validates it in full like `propose`,
+writes `gm-inbox/<folder>.result.json` (`{ "entry", "claimed", "stage"?, "report" }`)
+and, if accepted, stages it for the calm moment after. One entry at a time, in name
+order.
 
 ## The socket, for tools that speak it directly
 
@@ -308,3 +325,18 @@ file), `gm.stage {dir, report}` (a copy already in `<save>.gm/packs/`, with its 
 report), `gm.rollback {change}`, `shot {out}`, `watch {since?}`. `watch` answers `ok`, then
 sends `{"stream": <id>, "item": {...}}` lines. The game answers between frames and never
 waits for a slow client.
+
+Limits, so no client can hold the game up:
+
+- One request at a time per connection, a line of at most 1 MiB. Paths, filters and
+  fields are at most 1024 bytes, and a `state.query` takes at most 64 filters or fields
+  (`bad_input` otherwise). A reply is at most 32 MiB: ask for less (`path`, `fields`,
+  `limit`) if you get the error.
+- At most 16 connections and 8 watchers; over that the answer is `busy` (exit 1). Reads
+  wait in a short queue; when it's full they are `busy` too: try again.
+- The first line (with the token) must arrive within 10 s of connecting, and any line
+  within 10 s of its first byte. A connection with nothing in flight that stays quiet
+  for 15 minutes is closed: reconnect.
+- A client that stops reading for 30 s is disconnected (a watcher's stream ends with
+  it). Read your stream promptly; while you are slow, items drop and a `lagged` item
+  says how many.

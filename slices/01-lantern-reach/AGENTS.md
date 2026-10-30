@@ -260,9 +260,14 @@ the world the rollback leaves and dropped (never the retirement) if they can't b
 game-master folder (`<save>.gm/state.json`) says run, and attaches a `ScriptHost`; the app
 (`galaxy play`, `galaxy sim run`) calls `Bridge::serve` / `apply_staged` / `after_tick`
 between ticks, never inside one. A staged pack applies at a calm moment (docked or
-paused, or on load): snapshot, the fast checks again, then one batch caused by the pack
-revision that installs its data and records `gm_change_applied`; that batch's cause is
-the change ID. The sandbox step runs `galaxy sim sandbox` as child processes on forks
+paused, or on load): snapshot, and only once that is written (and the world hasn't moved
+since) the fast checks again, then one batch caused by the pack revision that installs
+its data and records `gm_change_applied`; that batch's cause is the change ID. A failed
+snapshot leaves the pack staged. `state.json` is intent, the save is proof:
+`bridge::reconcile` matches it to the save's facts and queued batches on open, so a crash
+between apply and save re-applies the pack instead of losing or doubling it. Reads on the
+live socket run on a read thread from a copy of the state; the socket's I/O thread is
+non-blocking and enforces `live::Limits`. The sandbox step runs `galaxy sim sandbox` as child processes on forks
 with `bot::ActivityBot` flying the region's stations, so its length is dockings, never
 time. Its thresholds are `SandboxRules`.
 

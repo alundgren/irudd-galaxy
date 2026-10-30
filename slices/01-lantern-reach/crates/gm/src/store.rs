@@ -8,6 +8,7 @@
 //!     live.json                  the live socket's discovery file, while the game runs
 //!     inbox/                     inbox entries the game has claimed
 //! saves/gm-inbox/                drop a pack folder here; a running game picks it up
+//!     <name>/READY               ... once this marker says the copy is complete
 //! ```
 //!
 //! Pack copies are content-addressed (the revision is the hash of the files), so a game
@@ -24,6 +25,10 @@ use serde::{Deserialize, Serialize};
 
 pub const STATE_FILE: &str = "state.json";
 pub const INBOX: &str = "gm-inbox";
+/// The file a game master writes last into an inbox entry: until it exists the entry
+/// is still being copied and the game leaves it alone. Removed when the entry is
+/// claimed (it isn't part of the pack's revision).
+pub const READY: &str = "READY";
 
 /// Everything the bridge remembers about a save's game-master packs.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

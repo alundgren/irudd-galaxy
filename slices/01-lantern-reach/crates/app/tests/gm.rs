@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use galaxy_contract::prelude::*;
 use galaxy_core::{Save, Sim};
 use galaxy_gm::{Bridge, BridgeOptions};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 const ODO: NpcId = NpcId::from_static("npc.odo_fenn");
 
@@ -467,19 +467,26 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
     )
     .unwrap();
     let inbox = bridge.store().inbox();
-    let copy = |from: &Path, to: &Path| {
+    // Copy the files, then write the READY marker last, as GM-AGENTS.md says.
+    let copy = |from: &Path, to: &Path, ready: bool| {
         let pack = galaxy_script::read_pack(from).unwrap();
         for (f, text) in &pack.files {
             let p = to.join(f);
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
             std::fs::write(p, text).unwrap();
         }
+        if ready {
+            std::fs::write(to.join(galaxy_gm::store::READY), b"").unwrap();
+        }
     };
-    copy(&example("kettle_growth"), &inbox.join("a_kettle"));
+    copy(&example("kettle_growth"), &inbox.join("a_kettle"), true);
     copy(
         &example("bad_sandbox/silent_owner"),
         &inbox.join("b_silent"),
+        true,
     );
+    // Still being copied: no marker, so the game leaves it alone.
+    copy(&example("kettle_growth"), &inbox.join("c_copying"), false);
     assert_eq!(galaxy_gm::bridge::inbox_entries(&inbox).len(), 2);
 
     // Paused: calm. The game claims entries one at a time and validates them on a
@@ -497,6 +504,14 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
     assert!(
         galaxy_gm::bridge::inbox_entries(&inbox).is_empty(),
         "both were claimed"
+    );
+    assert!(
+        inbox.join("c_copying/manifest.toml").is_file(),
+        "not claimed"
+    );
+    assert_eq!(
+        bridge.status(&sim)["inbox"]["incomplete"],
+        json!(["c_copying"])
     );
     let good: Value =
         serde_json::from_str(&std::fs::read_to_string(inbox.join("a_kettle.result.json")).unwrap())
