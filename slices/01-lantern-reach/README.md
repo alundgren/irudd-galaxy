@@ -53,14 +53,20 @@ stays and what resets before you trade up. At a dockmaster, **Ask what changed**
 up to three things that happened since you were last there, each about a real event.
 
 The talk panel at the bottom left shows what people said since you last docked, with
-who and where. It's empty, and hidden, until someone has something to say.
+who and where. It's empty, and hidden, until someone has something to say. When
+someone asks you something (Rook's question about the depot, Orrin's about your
+flying, Nell's about the fragment), your answers are buttons under their line; the
+number keys **1** to **9** pick them too.
 
 ![Orrin's list on the Wharf's dock screen](docs/screenshots/dock-services.png)
 
+![Rook asks whose name the plate is in](docs/screenshots/dock-replies.png)
+
 The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
 examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
-save without them. With `OPENROUTER_API_KEY` set, a fast model picks which authored line
-someone says; without it people say their most specific line, and the log says so once.
+save without them. Dock talk is the core pack's: people say their most specific
+authored line. The fast-model layer (`OPENROUTER_API_KEY`) is attached but doesn't
+pick dock lines yet; without a key the log says so once.
 `--hot-reload` reloads packs as you edit them (development).
 
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
