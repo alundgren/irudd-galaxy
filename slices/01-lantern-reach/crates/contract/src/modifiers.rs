@@ -153,7 +153,10 @@ pub fn hold_capacity(world: &WorldState, ship: &Ship) -> u64 {
 /// new hull starts unstriped, so no rank adds anything yet.
 pub fn hold_capacity_after_prestige(world: &WorldState, hull: &crate::ids::HullId) -> u64 {
     let rules = &world.progress.rules;
-    let base = world.hulls.get(hull).map_or(0, |h| u64::from(h.hold_capacity));
+    let base = world
+        .hulls
+        .get(hull)
+        .map_or(0, |h| u64::from(h.hold_capacity));
     let traits = world
         .player
         .traits

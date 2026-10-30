@@ -9,8 +9,14 @@
 //! changed earlier in the tick.
 //!
 //! Outside the tick, the fast-model layer ([`MindHost`]) is pumped after every step:
-//! it reads new facts, may pick a dock-talk line, and its answers come back as ordinary
-//! batches. A line it decides on is said through the talk log (`Command::Say`).
+//! it reads new facts and its answers come back as ordinary batches; a line it decides
+//! on is said through the talk log (`Command::Say`).
+//!
+//! - **Dock talk** has one owner: the core pack (`scripts/talk.luau` over the line pools
+//!   in `lib/lines.luau`) says the ambient line at each docking and answers "What
+//!   changed?" (a `choice.what_changed` reply), and the beat scripts say their
+//!   conversations. The mind opens no dock-talk menu of its own, so no line is picked
+//!   twice.
 //!
 //! - **Packs.** `core` must load; it is checked with the strict typecheck when
 //!   `luau-analyze` is found and loads without it, with a logged warning, when it isn't.
@@ -42,9 +48,7 @@ use galaxy_contract::talk::TalkLine;
 use galaxy_core::{Sim, SimState, System, TickReport};
 use galaxy_gm::{Bridge, BridgeOptions};
 use galaxy_mind::executor::{Done, Executor, Job};
-use galaxy_mind::{
-    DockTalk, FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, TalkLines, Worker,
-};
+use galaxy_mind::{FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, Worker};
 use galaxy_script::ScriptHost;
 
 /// Set on saves that install `gm-examples`. New games get it unless `--no-gm`.
@@ -152,7 +156,6 @@ pub struct Game {
     sim: Sim,
     scripts: ScriptHost,
     mind: Option<MindHost>,
-    lines: TalkLines,
     hot_reload: bool,
     /// What a player or developer should know (warnings, skipped packs, the mind).
     notes: Vec<String>,
@@ -256,7 +259,6 @@ impl Game {
         }
 
         let data = core_data(&opts.packs);
-        let lines = TalkLines::load_dir(&data).map_err(|e| e.to_string())?;
         let mind = match &opts.mind {
             MindMode::Off => None,
             mode => {
@@ -280,18 +282,13 @@ impl Game {
                         }
                     },
                 };
-                let mut host = MindHost::new(config, BoxedExec(exec), sim.history());
-                host.add_provider(DockTalk {
-                    lines: lines.clone(),
-                });
-                Some(host)
+                Some(MindHost::new(config, BoxedExec(exec), sim.history()))
             }
         };
         Ok(Game {
             sim,
             scripts,
             mind,
-            lines,
             hot_reload: opts.hot_reload,
             notes,
             reports,
@@ -331,10 +328,6 @@ impl Game {
 
     pub fn scripts(&self) -> &ScriptHost {
         &self.scripts
-    }
-
-    pub fn lines(&self) -> &TalkLines {
-        &self.lines
     }
 
     /// The packs' validation reports, as loaded.

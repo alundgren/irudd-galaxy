@@ -62,7 +62,6 @@ data = [
     "data/pacing.toml",
     "data/start.toml",
     "data/mind.toml",
-    "data/lines.toml",
 ]
 
 # Ambient dock talk reads history widely (every line pool at a station), and history

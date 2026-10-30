@@ -10,9 +10,12 @@
 //!   only by their own committed events.
 //! - **Station services** go through [`ServiceDesk`]: a purchase rides the next tick's
 //!   `PlayerInput::services` and is settled by its own committed event.
-//! - **"What changed?"** at the dockmaster: [`Session::ask_what_changed`] records
-//!   `asked_what_changed`, has the dockmaster say the answer's lines and keeps the
-//!   answer up until the ship leaves.
+//! - **Answers at the dock** go through [`Session::reply`]: a choice a line offered
+//!   rides the next tick's `PlayerInput::replies`, and the scripts answer it.
+//! - **"What changed?"** at the dockmaster ([`Session::ask_what_changed`]) is the same
+//!   reply (`choice.what_changed`): the core pack records `core.asked_what_changed`
+//!   and has the dockmaster say the answer's lines; the session adds digest lines for
+//!   what's left, says them, and keeps the answer up until the ship leaves.
 //! - **Poses** from before and after the last tick, so drawing can interpolate between
 //!   fixed ticks.
 //!
@@ -61,6 +64,20 @@ impl Pose {
     }
 }
 
+/// "What changed?", sent and waiting for the core pack's answer.
+#[derive(Clone, Debug)]
+struct Asking {
+    station: StationId,
+    npc: NpcId,
+    /// The newest fact when it was asked: the answer's fact comes after it.
+    after: FactId,
+    /// Ticks since: if the pack never answers (a quarantined script), the digest does.
+    ticks: u32,
+}
+
+/// Ticks to wait for the pack's answer before the digest answers alone.
+const ANSWER_WAIT: u32 = 6;
+
 /// What a tick did that the app reacts to.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickOutcome {
@@ -83,6 +100,10 @@ pub struct Session {
     pub services: ServiceDesk,
     /// The dockmaster's answer to "What changed?", while docked where it was asked.
     pub answer: Option<Answer>,
+    /// The question, asked and not answered yet.
+    asking: Option<Asking>,
+    /// Answers for the next tick's `PlayerInput::replies`.
+    replies: Vec<Reply>,
     /// Poses before the last tick, for interpolation.
     before: BTreeMap<ShipId, Pose>,
     /// Events committed by the last tick.
@@ -112,6 +133,8 @@ impl Session {
             trades: DockTrades::default(),
             services: ServiceDesk::default(),
             answer: None,
+            asking: None,
+            replies: Vec::new(),
             before,
             last_events: Vec::new(),
         }
@@ -219,6 +242,7 @@ impl Session {
         if let Some(req) = self.services.for_tick() {
             input.services.push(req);
         }
+        input.replies.append(&mut self.replies);
         let before = poses(self.world());
         if self.game.step(&input).is_none() {
             return TickOutcome::default();
@@ -246,7 +270,10 @@ impl Session {
             self.trades.clear();
             self.services.clear();
             self.answer = None;
+            self.asking = None;
+            self.replies.clear();
         } else {
+            self.settle_answer();
             let (world, history) = (self.game.sim().world(), self.game.sim().history());
             let settled = self.trades.settle(world, history, &self.last_events);
             if settled != Settled::Idle {
@@ -292,49 +319,113 @@ impl Session {
         self.services.request(sim.world(), sim.history(), request);
     }
 
-    /// Asks the dockmaster where the flagship is docked what changed. Records
-    /// `asked_what_changed`; the dockmaster says the answer's lines (so ambient talk
-    /// won't repeat them), and the answer stays up until the ship leaves.
-    pub fn ask_what_changed(&mut self) -> Option<&Answer> {
-        let station = self.flagship()?.docked_at.clone()?;
+    /// Answers `npc` at the dock with `choice` (a line's choice, or a standing question
+    /// such as `choice.what_changed`) on the next tick. "What changed?" also opens the
+    /// answer panel once the pack answers ([`Session::ask_what_changed`]). False when
+    /// not docked.
+    pub fn reply(&mut self, npc: NpcId, choice: AnyId) -> bool {
+        let Some(station) = self.flagship().and_then(|f| f.docked_at.clone()) else {
+            return false;
+        };
+        if choice.as_str() == hooks::WHAT_CHANGED {
+            self.asking = Some(Asking {
+                station,
+                npc: npc.clone(),
+                after: self.sim().history().last_fact_id().unwrap_or(FactId(0)),
+                ticks: 0,
+            });
+            self.answer = None;
+        }
+        self.replies.retain(|r| r.npc != npc || r.choice != choice);
+        self.replies.push(Reply { npc, choice });
+        true
+    }
+
+    /// Picks open choice `index` (0-based, in [`hooks::open_choices`] order) where the
+    /// flagship is docked, as its button or number key does.
+    pub fn reply_to_open(&mut self, index: usize) -> bool {
+        let Some(station) = self.flagship().and_then(|f| f.docked_at.clone()) else {
+            return false;
+        };
+        let open = hooks::open_choices(self.world(), self.sim().history(), &station);
+        match open.into_iter().nth(index) {
+            Some(c) => self.reply(c.npc, c.choice),
+            None => false,
+        }
+    }
+
+    /// Asks the dockmaster where the flagship is docked what changed: a
+    /// `choice.what_changed` reply on the next tick. The answer ([`Session::answer`])
+    /// comes up once the core pack has answered, and stays until the ship leaves.
+    /// False when there's no dockmaster here.
+    pub fn ask_what_changed(&mut self) -> bool {
+        let Some(station) = self.flagship().and_then(|f| f.docked_at.clone()) else {
+            return false;
+        };
+        let Some(npc) = hooks::keeper(self.world(), &station, "dockmaster") else {
+            return false;
+        };
+        let choice = AnyId::new(hooks::WHAT_CHANGED).expect("a valid choice ID");
+        self.reply(npc, choice)
+    }
+
+    /// Whether "What changed?" is asked and waiting for its answer.
+    pub fn is_asking(&self) -> bool {
+        self.asking.is_some()
+    }
+
+    /// Once the core pack has answered the question (its `core.asked_what_changed`
+    /// fact), builds the answer and says its digest lines.
+    fn settle_answer(&mut self) {
+        let Some(asking) = &mut self.asking else {
+            return;
+        };
+        asking.ticks += 1;
+        let asking = asking.clone();
         let sim = self.game.sim();
+        let history = sim.history();
+        let newer = || {
+            history
+                .facts()
+                .iter()
+                .rev()
+                .take_while(|f| f.id > asking.after)
+        };
+        let by = |f: &&Fact| f.subjects.npc.as_ref() == Some(&asking.npc);
+        let asked = match newer().filter(by).find(|f| f.kind == hooks::ASKED) {
+            Some(f) => f.clone(),
+            None if asking.ticks < ANSWER_WAIT => return,
+            // The pack never answered: the digest answers alone, citing the reply.
+            None => match newer().filter(by).find(|f| f.kind.as_str() == "reply") {
+                Some(f) => f.clone(),
+                None => {
+                    self.asking = None;
+                    return;
+                }
+            },
+        };
         let answer = hooks::what_changed(
             sim.world(),
-            sim.history(),
+            history,
             &sim.state().kernel.pending,
-            self.game.lines(),
-            &station,
+            &asking.station,
+            &asked,
         );
-        let mut batch = CommandBatch::new(Cause::verb(
-            Actor::Player,
-            VerbKind::Wait,
-            "the player asked the dockmaster what changed",
-        ))
-        .with(Command::RecordFact {
-            fact: Box::new(FactDraft {
-                kind: hooks::ASKED,
-                subjects: Subjects {
-                    npc: answer.speaker.clone(),
-                    station: Some(station.clone()),
-                    ship: self.world().player.ship.clone(),
-                    ..Subjects::default()
-                },
-                amount: Some(answer.lines.len() as i64),
-                note: format!("asked what changed at {station}"),
-            }),
-        });
-        for line in answer
-            .lines
-            .iter()
-            .filter(|l| l.channel != galaxy_contract::talk::Channel::Chronicle)
-        {
-            batch.push(Command::Say {
-                line: Box::new(line.clone()),
-            });
+        if !answer.digest.is_empty() {
+            let mut batch = CommandBatch::new(Cause::verb(
+                Actor::Player,
+                VerbKind::Wait,
+                "the dockmaster tells what changed",
+            ));
+            for line in &answer.digest {
+                batch.push(Command::Say {
+                    line: Box::new(line.clone()),
+                });
+            }
+            self.sim_mut().submit(batch);
         }
-        self.sim_mut().submit(batch);
+        self.asking = None;
         self.answer = Some(answer);
-        self.answer.as_ref()
     }
 
     /// Submits a batch between ticks (tests and dev tools).

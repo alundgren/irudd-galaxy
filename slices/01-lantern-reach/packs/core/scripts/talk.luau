@@ -48,8 +48,18 @@ return G.script({
 			local here = ctx.history:last({ kind = "dock", ship = ids.PLAYER, station = ev.station })
 			local prev = if here then previous(ctx, ev.station, here.tick) else nil
 			local picks = lines.candidates(ctx, ev.station, if prev then prev.id else nil, false)
-			if #picks == 0 then
-				return
+			-- Up to three, one per fact. The question is recorded even when nobody has a
+			-- line: the dock screen waits on it, and fills in plain digest lines.
+			local said: { lines.Pick } = {}
+			local cited: { [string]: boolean } = {}
+			for _, pick in ipairs(picks) do
+				if #said >= 3 then
+					break
+				end
+				if not cited[pick.fact.id] then
+					cited[pick.fact.id] = true
+					table.insert(said, pick)
+				end
 			end
 			local why = ctx:cause({ summary = `{npc.name} says what changed`, cites = { ev.fact } })
 			util.record(
@@ -57,20 +67,11 @@ return G.script({
 				why,
 				"asked_what_changed",
 				{ npc = ev.npc, station = ev.station },
-				nil,
+				#said,
 				`The player asked {npc.name} what changed`
 			)
-			local cited: { [string]: boolean } = {}
-			local n = 0
-			for _, pick in ipairs(picks) do
-				if n >= 3 then
-					break
-				end
-				if not cited[pick.fact.id] then
-					cited[pick.fact.id] = true
-					n += 1
-					lines.say(ctx, why, pick, ev.station)
-				end
+			for _, pick in ipairs(said) do
+				lines.say(ctx, why, pick, ev.station)
 			end
 		end,
 	},
