@@ -44,6 +44,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `state get --save PATH [--path a/b/c]` | The world state, or a slash-separated part of it. |
 | `history query --save PATH [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since T] [--until T] [--limit N]` | History facts, oldest first. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
+| `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `play`, `beat jump`, `pack check`, `gm propose`, `gm rollback`, `shot` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
@@ -62,8 +63,12 @@ crates/core       headless sim kernel, data loading, saves, determinism hash
 crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/app        the galaxy binary
+crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
 packs/core        the authored backbone: manifest.toml and data/*.toml
 xtask             cargo xtask check | contract
 ```
+
+Live fast-model tests are ignored by default:
+`cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
 
 Coding agents: read [AGENTS.md](AGENTS.md).

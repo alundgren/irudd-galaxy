@@ -15,4 +15,5 @@ data = [
     "data/npcs.toml",
     "data/economy.toml",
     "data/start.toml",
+    "data/mind.toml",
 ]
