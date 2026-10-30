@@ -28,6 +28,7 @@ galaxy-mind.workspace = true
 galaxy-gm.workspace = true
 clap.workspace = true
 directories.workspace = true
+log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 winit.workspace = true

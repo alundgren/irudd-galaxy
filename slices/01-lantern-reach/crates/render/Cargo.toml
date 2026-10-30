@@ -11,6 +11,7 @@ galaxy-kit.workspace = true
 bytemuck.workspace = true
 glam.workspace = true
 glyphon.workspace = true
+log.workspace = true
 png.workspace = true
 pollster.workspace = true
 serde.workspace = true

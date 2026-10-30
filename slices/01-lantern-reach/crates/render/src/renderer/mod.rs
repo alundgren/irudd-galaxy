@@ -469,6 +469,15 @@ impl Renderer {
         size: (u32, u32),
         scale: f32,
     ) -> Result<Self, RenderError> {
+        let info = adapter.get_info();
+        log::info!(
+            "adapter {} ({:?}, {:?}), driver {} {}",
+            info.name,
+            info.backend,
+            info.device_type,
+            info.driver,
+            info.driver_info
+        );
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("render"),
             required_features: wgpu::Features::empty(),

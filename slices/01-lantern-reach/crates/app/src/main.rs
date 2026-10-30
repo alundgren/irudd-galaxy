@@ -92,6 +92,9 @@ enum Cmd {
         /// (off by default; the game leaves finding the way to you).
         #[arg(long)]
         goal_marker: bool,
+        /// Show frames and sim ticks a second, top left (F2 toggles it while playing).
+        #[arg(long)]
+        fps: bool,
     },
     /// Earn a journey checkpoint through real player actions.
     Beat {
@@ -495,7 +498,44 @@ impl From<SaveError> for Fail {
 
 type Out = Result<Value, Fail>;
 
+/// Prints log lines to stderr: our crates' from info up (the GPU adapter at startup),
+/// everyone else's (wgpu ...) errors only.
+struct StderrLog;
+
+impl log::Log for StderrLog {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        let from = meta.target().split("::").next().unwrap_or("");
+        let ours = from == "render" || from.starts_with("galaxy");
+        meta.level()
+            <= if ours {
+                log::Level::Info
+            } else {
+                log::Level::Error
+            }
+    }
+
+    fn log(&self, record: &log::Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let from = record.target().split("::").next().unwrap_or("");
+        match record.level() {
+            log::Level::Info => eprintln!("{from}: {}", record.args()),
+            level => eprintln!(
+                "{from} {}: {}",
+                level.as_str().to_lowercase(),
+                record.args()
+            ),
+        }
+    }
+
+    fn flush(&self) {}
+}
+
 fn main() -> ExitCode {
+    if log::set_logger(&StderrLog).is_ok() {
+        log::set_max_level(log::LevelFilter::Info);
+    }
     let cli = Cli::parse();
     let result = match cli.command {
         Cmd::New {
@@ -583,18 +623,22 @@ fn main() -> ExitCode {
             no_gm,
             hot_reload,
             goal_marker,
-        } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
-            beat,
-            save,
-            new,
-            seed,
-            packs: packs.packs,
-            no_gm,
-            hot_reload,
-            quit_after_frames,
-            goal_marker,
-        })
-        .map_err(fail),
+            fps,
+        } => {
+            galaxy_app::ui::fps::set_shown(fps);
+            galaxy_app::play::play(galaxy_app::play::PlayArgs {
+                beat,
+                save,
+                new,
+                seed,
+                packs: packs.packs,
+                no_gm,
+                hot_reload,
+                quit_after_frames,
+                goal_marker,
+            })
+            .map_err(fail)
+        }
         Cmd::Beat {
             command:
                 BeatCmd::Jump {

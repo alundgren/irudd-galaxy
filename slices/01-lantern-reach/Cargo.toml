@@ -37,6 +37,8 @@ glam = { version = "0.34", features = ["serde", "bytemuck"] }
 glyphon = "0.12"
 # Local sockets for the game-master bridge: a named pipe on Windows, a Unix socket elsewhere.
 interprocess = "2.4.7"
+# The logging facade wgpu already logs through; the app prints our crates' lines.
+log = "0.4.34"
 # Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 notify = "8.2.1"
