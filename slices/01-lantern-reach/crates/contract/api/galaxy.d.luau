@@ -174,9 +174,9 @@ export type CanonApi = {
 	open: (self: CanonApi, id: string, why: Cause) -> (),
 }
 export type KitApi = {
-	-- Found a namespaced station from a JSON recipe validated against the shared art bible.
+	-- Found a namespaced station from a JSON recipe validated against the shared art bible. Needs `npcs.write` and `market.lines` too. A later revision of the pack that founded it reopens its rolled-back scaffold in place.
 	station: (self: KitApi, station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> (),
-	-- Place a survey buoy. Space in reach reads its log and records survey_buoy_read.
+	-- Place or replace a survey buoy, unread and unclaimed. Space in reach reads its log and records survey_buoy_read. A reward is paid natively on a reply to its person: credits need `beats.write`, standing (a deed) needs `standing.write`.
 	buoy: (self: KitApi, id: string, buoy: SurveyBuoy, why: Cause) -> (),
 	-- Put or remove a namespaced map border or bearing.
 	overlay: (self: KitApi, id: string, overlay: MapOverlay?, why: Cause) -> (),

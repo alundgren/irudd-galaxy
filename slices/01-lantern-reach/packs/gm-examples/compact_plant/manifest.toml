@@ -4,7 +4,7 @@ version = "0.1.0"
 depends = ["core"]
 lib = true
 observes = ["rumor.ember_shoals_vein"]
-uses = ["events.beat_completed", "events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "pacing.read", "pacing.write", "territory.read", "rumors.read", "kit.write"]
+uses = ["events.beat_completed", "events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "pacing.read", "pacing.write", "territory.read", "rumors.read", "kit.write", "standing.write"]
 [[shock]]
 id = "stale_claim"
 summary = "A planted stale claim costs a journey."

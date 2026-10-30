@@ -665,15 +665,89 @@ fn apply_with(
                 market,
             })
         }
-        C::ExpectBuoyReward { id } => {
-            if !world
-                .survey_buoys
+        C::SetFoundedStation {
+            station,
+            recipe,
+            market,
+        } => {
+            let id = &station.id;
+            let old = world
+                .stations
                 .get(id)
-                .is_some_and(|b| b.read && b.reward.as_ref().is_some_and(|r| !r.claimed))
+                .cloned()
+                .ok_or_else(|| unknown("station", id))?;
+            let old_recipe = world
+                .station_recipes
+                .get(id)
+                .cloned()
+                .ok_or_else(|| unknown("recipe", id))?;
+            if refs.check {
+                if old.region != station.region || old.position != station.position {
+                    return Err(CommandError::Invalid(format!(
+                        "{id} keeps its region and position when its ring changes"
+                    )));
+                }
+                let open = world.markets.contains(id);
+                if market.is_some() == open || (!open && !old.services.is_empty()) {
+                    return Err(CommandError::Invalid(format!(
+                        "{id}'s ring is already {}",
+                        if open { "open" } else { "closed" }
+                    )));
+                }
+                if market.as_ref().is_some_and(|m| &m.station != id) {
+                    return Err(CommandError::Invalid(format!(
+                        "market for {id} names another station"
+                    )));
+                }
+                // A shut ring is a bare scaffold frame; only an open one is a station.
+                if market.is_some() {
+                    recipe
+                        .validate_art(galaxy_kit::art_bible::ArtBible::bundled())
+                        .map_err(|e| CommandError::Invalid(format!("invalid recipe {e:?}")))?;
+                }
+            }
+            let old_market = match market {
+                Some(m) => world.markets.insert(id.clone(), (**m).clone()),
+                None => world.markets.remove(id),
+            };
+            world.stations.insert(id.clone(), (**station).clone());
+            world.station_recipes.insert(id.clone(), (**recipe).clone());
+            invert(C::SetFoundedStation {
+                station: Box::new(old),
+                recipe: Box::new(old_recipe),
+                market: old_market.map(Box::new),
+            })
+        }
+        C::UpdateSurveyBuoy { id, from, to } => {
+            if !to.radius.is_finite()
+                || to.radius <= 0.0
+                || !to.position.x.is_finite()
+                || !to.position.y.is_finite()
             {
-                return Err(CommandError::Invalid(
-                    "survey reward no longer available".into(),
-                ));
+                return Err(CommandError::Invalid("invalid buoy".into()));
+            }
+            let buoy = world
+                .survey_buoys
+                .get_mut(id)
+                .ok_or_else(|| CommandError::Invalid(format!("no survey buoy {id}")))?;
+            if *buoy != **from {
+                return Err(CommandError::Invalid(format!(
+                    "survey buoy {id} changed since this update was worked out"
+                )));
+            }
+            *buoy = (**to).clone();
+            invert(C::UpdateSurveyBuoy {
+                id: id.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
+        C::ExpectFlag { flag, on } => {
+            if world.player.flags.contains(flag) != *on {
+                return Err(CommandError::Invalid(format!(
+                    "{flag} is no longer {}",
+                    if *on { "set" } else { "clear" }
+                )));
             }
             invert(cmd.clone())
         }

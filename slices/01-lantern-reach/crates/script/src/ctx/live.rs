@@ -1,7 +1,58 @@
 //! Canon and render-free runtime assets.
 use super::*;
 use galaxy_contract::canon::CanonStatus;
-use galaxy_contract::live::MapOverlay;
+use galaxy_contract::live::{MapOverlay, SurveyBuoy};
+
+/// Whether a founded station's ring is open: a rollback shuts it to a scaffold with no
+/// market and no services.
+fn open_ring(world: &WorldState, id: &StationId) -> bool {
+    world.markets.contains(id)
+        || world
+            .stations
+            .get(id)
+            .is_some_and(|s| !s.services.is_empty())
+}
+
+/// The host is the boundary for what a pack may pay. A buoy's reward is paid natively
+/// when the pilot claims it, so placing or replacing one that pays credits needs
+/// `beats.write` (the capability of `ctx.beats:pay`) and one that moves standing needs
+/// `standing.write` (the payment is a standing deed). Whether the pilot has read it and
+/// claimed its reward is the pilot's doing: a script never sets either.
+fn check_buoy(lua: &Lua, env: &CallEnv<'_>, id: &str, buoy: &SurveyBuoy) -> mlua::Result<()> {
+    let old = env.world.survey_buoys.get(id);
+    let claimed = |b: &SurveyBuoy| b.reward.as_ref().is_some_and(|r| r.claimed);
+    if buoy.read && !old.is_some_and(|b| b.read) {
+        return Err(env.fail(
+            lua,
+            "native_state",
+            "a buoy is read by the pilot; place it with `read = false`",
+        ));
+    }
+    if claimed(buoy) && !old.is_some_and(claimed) {
+        return Err(env.fail(
+            lua,
+            "native_state",
+            "a reward is claimed by the pilot; place it with `claimed = false`",
+        ));
+    }
+    if let Some(reward) = &buoy.reward {
+        if reward.credits > 0 && !env.may("beats.write") {
+            return Err(env.fail(
+                lua,
+                "undeclared_hook",
+                "a buoy reward that pays credits needs `beats.write` in uses",
+            ));
+        }
+        if !reward.standing.is_empty() && !env.may("standing.write") {
+            return Err(env.fail(
+                lua,
+                "undeclared_hook",
+                "a buoy reward that moves standing needs `standing.write` in uses",
+            ));
+        }
+    }
+    Ok(())
+}
 
 pub(super) fn namespaces<'scope, 'env: 'scope>(
     lua: &Lua,
@@ -89,11 +140,38 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 Table,
                 Table,
             )| {
+                // A station brings a resident and a market: the pack must hold the
+                // capabilities that write them.
+                for need in ["npcs.write", "market.lines"] {
+                    if !env.may(need) {
+                        return Err(env.fail(
+                            lua,
+                            "undeclared_hook",
+                            format!("founding a station needs `{need}` in uses"),
+                        ));
+                    }
+                }
                 let station: Station = env.decode(lua, station, "ctx.kit:station")?;
                 env.check_new_id(lua, station.id.as_str(), false)?;
-                if env.world.stations.contains(&station.id) {
-                    return Err(env.fail(lua, "exists", "station already exists"));
-                }
+                // A rollback leaves a founded station as a closed scaffold. A later
+                // revision of the pack that founded it (its ID carries the pack's own
+                // prefix) may reopen it in place; anything else already there is taken.
+                let reopen = match env.world.stations.get(&station.id) {
+                    None => false,
+                    Some(old)
+                        if station
+                            .id
+                            .as_str()
+                            .starts_with(&format!("{}.", env.pack.as_str()))
+                            && env.world.station_recipes.contains_key(&station.id)
+                            && !open_ring(env.world, &station.id)
+                            && old.region == station.region
+                            && old.position == station.position =>
+                    {
+                        true
+                    }
+                    Some(_) => return Err(env.fail(lua, "exists", "station already exists")),
+                };
                 if recipe.as_bytes().len() > 16 * 1024 {
                     return Err(env.fail(lua, "too_large", "recipe exceeds 16 KiB"));
                 }
@@ -152,12 +230,14 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 });
                 if station.position.distance(region.center) > region.radius - 150.0
                     || !nearby_fact
-                    || !env.world.station_recipes.is_empty()
                     || env
                         .world
-                        .stations
-                        .values()
-                        .any(|s| s.position.distance(station.position) < 600.0)
+                        .station_recipes
+                        .keys()
+                        .any(|id| id != &station.id && open_ring(env.world, id))
+                    || env.world.stations.values().any(|s| {
+                        s.id != station.id && s.position.distance(station.position) < 600.0
+                    })
                     || env
                         .world
                         .fields
@@ -188,6 +268,31 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     return Err(env.fail(lua, "station", "a new station needs a market"));
                 }
                 let id = station.id.clone();
+                let market = Market {
+                    station: id.clone(),
+                    lines,
+                };
+                if reopen {
+                    // One reversible command: rolling this revision back shuts the
+                    // ring again and leaves the scaffold as it was.
+                    env.push(
+                        lua,
+                        &why,
+                        Command::SetFoundedStation {
+                            station: Box::new(station),
+                            recipe: Box::new(recipe),
+                            market: Some(Box::new(market)),
+                        },
+                    )?;
+                    return env.push(
+                        lua,
+                        &why,
+                        Command::PutNpc {
+                            id: npc.id.clone(),
+                            value: Some(Box::new(npc)),
+                        },
+                    );
+                }
                 env.push(
                     lua,
                     &why,
@@ -209,8 +314,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     lua,
                     &why,
                     Command::PutMarket {
-                        id: id.clone(),
-                        value: Some(Box::new(Market { station: id, lines })),
+                        id,
+                        value: Some(Box::new(market)),
                     },
                 )
             },
@@ -252,7 +357,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             |lua, env, (id, value, why): (LuaString, Table, Table)| {
                 let id = env.arg(lua, &id)?;
                 env.check_new_id(lua, &id, false)?;
-                let value = env.decode(lua, value, "ctx.kit:buoy")?;
+                let value: SurveyBuoy = env.decode(lua, value, "ctx.kit:buoy")?;
+                check_buoy(lua, env, &id, &value)?;
                 env.push(
                     lua,
                     &why,

@@ -1325,19 +1325,80 @@
           ]
         },
         {
+          "description": "Replaces a founded station's record and recipe, keeping its ID, region and\nposition (ships docked or berthed there stay where they are), and opens\n(`market: Some`) or shuts (`None`) its ring. Forward it must toggle: reopening\nneeds a closed scaffold (no market, no services), shutting needs an open ring.\nIts inverse is itself with the old values.",
           "type": "object",
           "properties": {
+            "market": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Market"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "type": "string",
+              "const": "set_founded_station"
+            },
+            "recipe": {
+              "$ref": "#/$defs/StationRecipe"
+            },
+            "station": {
+              "$ref": "#/$defs/Station"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "recipe"
+          ]
+        },
+        {
+          "description": "Replaces a survey buoy only if it still equals `from`, so a read or a reward\nclaim worked out from the tick's start loses to a removal or replacement queued\nahead of it. Its inverse swaps `from` and `to`.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/SurveyBuoy"
+            },
             "id": {
               "type": "string"
             },
             "op": {
               "type": "string",
-              "const": "expect_buoy_reward"
+              "const": "update_survey_buoy"
+            },
+            "to": {
+              "$ref": "#/$defs/SurveyBuoy"
             }
           },
           "required": [
             "op",
-            "id"
+            "id",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless the per-save flag `flag` is set (`on: true`)\nor clear (`false`). A rock lamp carries one, so a lamp worked out before the\nmechanic was taken back in the same tick is rejected. Its inverse is itself.",
+          "type": "object",
+          "properties": {
+            "flag": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "on": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_flag"
+            }
+          },
+          "required": [
+            "op",
+            "flag",
+            "on"
           ]
         },
         {

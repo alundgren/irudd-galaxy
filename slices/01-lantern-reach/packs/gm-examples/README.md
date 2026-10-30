@@ -25,14 +25,17 @@ Changes check the current docking before writing. The bridge stages installation
 at calm moments. Rolling back retires the revision and says its manifest's line
 in-world. History and chronicle entries remain, with a compensating entry.
 A founded station closes to a scaffold, preserving a berth for any ship already
-there. Its market and new person are removed; orders skip its closed ring.
+there. Its market and new person are removed; orders skip its closed ring. A later
+revision of the same pack reopens the scaffold in place (`SetFoundedStation`), and
+the one-new-station cap counts only open rings.
 
 ## Needed a base change
 
 - `galaxy-kit`: recipe data, palettes, colour validation, and art-bible checks moved
   out of `render`; the renderer still builds meshes and lighting.
 - `ctx.kit.station`: atomic station, recipe, resident dockmaster, and market, with
-  player-history placement checks; a closed-scaffold rollback.
+  player-history placement checks; a closed-scaffold rollback. It also needs
+  `npcs.write` and `market.lines`.
 - `ctx.kit.overlay` and `ctx.kit.buoy`: saved borders/bearings and a readable survey
   log, drawn by the app's small runtime drawing adapter.
 - `canon.toml`, manifest `opens`/`asserts`, `ctx.canon`, reversible revelation,
@@ -43,12 +46,17 @@ there. Its market and new person are removed; orders skip its closed ring.
   orders, six-lamp cap, and the fallback to ordinary richest-rock mining.
 - Optional dependency records in manifest `observes`, for records core creates later.
 - Native survey-proof rewards claimed through dock replies, so rollback keeps earned
-  credits and standing.
+  credits and standing. `galaxy-progress` pays them, standing as a deed. The host
+  gates a reward on the pack's `beats.write` (credits) and `standing.write`
+  (standing), and only the pilot sets a buoy read or a reward claimed. Reads and
+  claims are compare-and-set (`UpdateSurveyBuoy`), and lamps carry `ExpectFlag`, so
+  a removal or retirement queued in the same tick wins.
 - Reject game-master packs that register journey beats.
 - Keep repeated dockmaster questions from replaying the same chronicle page.
 
 Validation lives in `crates/app/tests/gm_examples.rs` (real CLI proposals and
-rollback), `crates/script/tests/live_layers.rs` (types, canon and art rejection),
+rollback), `crates/script/tests/live_layers.rs` (types, canon and art rejection, and the
+PR #31 review regressions),
 and `crates/script/tests/journey_gm.rs` (the existing journey acts with all layers).
 The viewed [sixth-station shot](../../docs/screenshots/gm-sixth-station.png) is 212 KB.
 

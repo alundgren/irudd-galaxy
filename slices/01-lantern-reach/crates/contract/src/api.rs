@@ -385,14 +385,14 @@ pub const FUNCTIONS: &[FnDef] = &[
         "station",
         "kit.write",
         "(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()",
-        "Found a namespaced station from a JSON recipe validated against the shared art bible.",
+        "Found a namespaced station from a JSON recipe validated against the shared art bible. Needs `npcs.write` and `market.lines` too. A later revision of the pack that founded it reopens its rolled-back scaffold in place.",
     ),
     f(
         "kit",
         "buoy",
         "kit.write",
         "(id: string, buoy: SurveyBuoy, why: Cause) -> ()",
-        "Place a survey buoy. Space in reach reads its log and records survey_buoy_read.",
+        "Place or replace a survey buoy, unread and unclaimed. Space in reach reads its log and records survey_buoy_read. A reward is paid natively on a reply to its person: credits need `beats.write`, standing (a deed) needs `standing.write`.",
     ),
     f(
         "kit",

@@ -335,8 +335,30 @@ pub enum Command {
     CloseFoundedStation {
         id: StationId,
     },
-    ExpectBuoyReward {
+    /// Replaces a founded station's record and recipe, keeping its ID, region and
+    /// position (ships docked or berthed there stay where they are), and opens
+    /// (`market: Some`) or shuts (`None`) its ring. Forward it must toggle: reopening
+    /// needs a closed scaffold (no market, no services), shutting needs an open ring.
+    /// Its inverse is itself with the old values.
+    SetFoundedStation {
+        station: Box<Station>,
+        recipe: Box<galaxy_kit::StationRecipe>,
+        market: Option<Box<Market>>,
+    },
+    /// Replaces a survey buoy only if it still equals `from`, so a read or a reward
+    /// claim worked out from the tick's start loses to a removal or replacement queued
+    /// ahead of it. Its inverse swaps `from` and `to`.
+    UpdateSurveyBuoy {
         id: String,
+        from: Box<crate::live::SurveyBuoy>,
+        to: Box<crate::live::SurveyBuoy>,
+    },
+    /// Changes nothing, and fails unless the per-save flag `flag` is set (`on: true`)
+    /// or clear (`false`). A rock lamp carries one, so a lamp worked out before the
+    /// mechanic was taken back in the same tick is rejected. Its inverse is itself.
+    ExpectFlag {
+        flag: FlagId,
+        on: bool,
     },
     SetRockTag {
         rock: RockId,
@@ -541,7 +563,7 @@ impl Command {
     pub fn is_expectation(&self) -> bool {
         matches!(
             self,
-            Command::ExpectBuoyReward { .. }
+            Command::ExpectFlag { .. }
                 | Command::ExpectDocked { .. }
                 | Command::ExpectShip { .. }
                 | Command::ExpectStanding { .. }

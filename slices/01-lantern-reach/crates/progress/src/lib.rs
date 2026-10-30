@@ -7,6 +7,7 @@
 //! - [`growth`]: pilot traits and hull ranks, earned from deeds done many times.
 //! - [`services`]: what hullwrights and dockmasters fit and build; [`prestige`]: the
 //!   hullwright's Hearthbound trade-up.
+//! - [`survey`]: survey-buoy rewards, paid on a reply with standing deeds.
 //! - [`modifiers`]: the native effects of traits, fittings and ranks, added up per
 //!   ship, for the ship, economy and app crates.
 //! - [`ProgressSystem`]: the per-tick system. Register it after the ship and economy
@@ -22,6 +23,7 @@ pub mod modifiers;
 pub mod prestige;
 pub mod services;
 pub mod standing;
+pub mod survey;
 mod system;
 
 pub use eval::{Eval, EvalError};

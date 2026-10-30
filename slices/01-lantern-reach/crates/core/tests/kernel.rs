@@ -252,6 +252,29 @@ fn undo_records_invert_commands() {
                 read: false,
             })),
         },
+        Command::UpdateSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            from: Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: false,
+            }),
+            to: Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: true,
+            }),
+        },
+        Command::ExpectFlag {
+            flag: FlagId::new("mech.rock_tagging").unwrap(),
+            on: false,
+        },
         Command::SetRockTag {
             rock: world.rocks.keys().next().unwrap().clone(),
             on: true,
@@ -850,4 +873,121 @@ fn a_rejected_station_foundation_or_closure_restores_the_exact_records() {
     assert_eq!(sim.step(&PlayerInput::default()).unwrap().rejected.len(), 1);
     before.meta.tick = sim.world().meta.tick;
     assert_eq!(sim.world(), &before);
+}
+
+#[test]
+fn a_closed_scaffold_reopens_in_place_and_shuts_again_exactly() {
+    let mut world = new_game(&data_dir(), 7).unwrap().world;
+    let source =
+        std::fs::read_to_string(data_dir().join("../../gm-examples/sixth_station/lib/recipe.luau"))
+            .unwrap();
+    let json = source
+        .split("[=[")
+        .nth(1)
+        .unwrap()
+        .split("]=]")
+        .next()
+        .unwrap();
+    let recipe: galaxy_kit::StationRecipe = serde_json::from_str(json).unwrap();
+    let mut station = world.stations.get(&WHARF).unwrap().clone();
+    station.id = "gm.test_station".parse().unwrap();
+    let id = station.id.clone();
+    let mut market = world.markets.get(&WHARF).unwrap().clone();
+    market.station = id.clone();
+    let mut staged = galaxy_core::apply::Staged::default();
+    let apply = |world: &mut WorldState, c: &Command, staged: &mut galaxy_core::apply::Staged| {
+        galaxy_core::apply::apply(world, c, staged)
+    };
+    apply(
+        &mut world,
+        &Command::FoundStation {
+            station: Box::new(station.clone()),
+            recipe: Box::new(recipe.clone()),
+            market: Some(Box::new(market.clone())),
+        },
+        &mut staged,
+    )
+    .unwrap();
+    // A rollback's closure leaves a scaffold: no market, no services.
+    apply(
+        &mut world,
+        &Command::CloseFoundedStation { id: id.clone() },
+        &mut staged,
+    )
+    .unwrap();
+    let closed = world.clone();
+    assert!(!closed.markets.contains(&id));
+
+    let reopen = Command::SetFoundedStation {
+        station: Box::new(station.clone()),
+        recipe: Box::new(recipe.clone()),
+        market: Some(Box::new(market.clone())),
+    };
+    let undo = apply(&mut world, &reopen, &mut staged).unwrap();
+    assert_eq!(world.stations.get(&id), Some(&station));
+    assert_eq!(world.station_recipes.get(&id), Some(&recipe));
+    assert_eq!(world.markets.get(&id), Some(&market));
+    assert!(
+        apply(&mut world, &reopen, &mut staged).is_err(),
+        "an open ring can't be reopened"
+    );
+    let UndoRecord::Invert { command } = undo else {
+        panic!("reopening inverts exactly")
+    };
+    apply(&mut world, &command, &mut staged).unwrap();
+    assert_eq!(world, closed, "shutting it restores the exact scaffold");
+
+    let mut moved = station.clone();
+    moved.position.x += 1000.0;
+    assert!(
+        apply(
+            &mut world,
+            &Command::SetFoundedStation {
+                station: Box::new(moved),
+                recipe: Box::new(recipe),
+                market: Some(Box::new(market)),
+            },
+            &mut staged,
+        )
+        .is_err(),
+        "a reopened ring stays where its berths are"
+    );
+    assert_eq!(world, closed);
+}
+
+#[test]
+fn a_survey_buoy_update_loses_to_a_removal_or_replacement() {
+    let mut world = new_game(&data_dir(), 1).unwrap().world;
+    let mut staged = galaxy_core::apply::Staged::default();
+    let buoy = galaxy_contract::live::SurveyBuoy {
+        region: "region.lantern_shallows".parse().unwrap(),
+        position: Vec2::ZERO,
+        radius: 40.0,
+        planted_by: COOP,
+        reward: None,
+        read: false,
+    };
+    let read = galaxy_contract::live::SurveyBuoy {
+        read: true,
+        ..buoy.clone()
+    };
+    let update = Command::UpdateSurveyBuoy {
+        id: "gm.test.buoy".into(),
+        from: Box::new(buoy.clone()),
+        to: Box::new(read),
+    };
+    assert!(galaxy_core::apply::apply(&mut world, &update, &mut staged).is_err());
+    let mut moved = buoy.clone();
+    moved.position.x = 50.0;
+    galaxy_core::apply::apply(
+        &mut world,
+        &Command::PutSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            value: Some(Box::new(moved.clone())),
+        },
+        &mut staged,
+    )
+    .unwrap();
+    assert!(galaxy_core::apply::apply(&mut world, &update, &mut staged).is_err());
+    assert_eq!(world.survey_buoys["gm.test.buoy"], moved);
 }

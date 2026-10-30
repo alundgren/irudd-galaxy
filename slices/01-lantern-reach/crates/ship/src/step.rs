@@ -660,7 +660,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             }
             Order::Mine { rock } => self.exec_mine(rock),
             Order::Tag { rock } => {
-                if !self.w.player.flags.contains("mech.rock_tagging")
+                if !self.w.player.flags.contains(crate::live::ROCK_TAGGING)
                     && !matches!(self.ship.owner, Owner::Npc { .. })
                 {
                     return Some(Outcome::Skipped("rock lamps are off".into()));
@@ -679,6 +679,13 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 }
                 if self.w.rock_tags.len() >= 6 && !self.w.rock_tags.contains(rock) {
                     return Some(Outcome::Skipped("six lamps already burn".into()));
+                }
+                if !matches!(self.ship.owner, Owner::Npc { .. }) {
+                    // The pilot's craft lose their lamps with the mechanic.
+                    self.commands.push(Command::ExpectFlag {
+                        flag: FlagId::new(crate::live::ROCK_TAGGING).unwrap(),
+                        on: true,
+                    });
                 }
                 self.commands.push(Command::SetRockTag {
                     rock: rock.clone(),
@@ -703,7 +710,8 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                     let rock = run.rock.clone();
                     return self.exec_mine(&rock);
                 }
-                let tagged = *prefer_tagged && self.w.player.flags.contains("mech.rock_tagging");
+                let tagged =
+                    *prefer_tagged && self.w.player.flags.contains(crate::live::ROCK_TAGGING);
                 let rock = self
                     .w
                     .rocks

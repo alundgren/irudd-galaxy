@@ -106,8 +106,8 @@ and `ctx.store` (the script's declared stores).
 
 ### `ctx.kit`
 
-- `ctx.kit:station(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()` (`kit.write`): Found a namespaced station from a JSON recipe validated against the shared art bible.
-- `ctx.kit:buoy(id: string, buoy: SurveyBuoy, why: Cause) -> ()` (`kit.write`): Place a survey buoy. Space in reach reads its log and records survey_buoy_read.
+- `ctx.kit:station(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()` (`kit.write`): Found a namespaced station from a JSON recipe validated against the shared art bible. Needs `npcs.write` and `market.lines` too. A later revision of the pack that founded it reopens its rolled-back scaffold in place.
+- `ctx.kit:buoy(id: string, buoy: SurveyBuoy, why: Cause) -> ()` (`kit.write`): Place or replace a survey buoy, unread and unclaimed. Space in reach reads its log and records survey_buoy_read. A reward is paid natively on a reply to its person: credits need `beats.write`, standing (a deed) needs `standing.write`.
 - `ctx.kit:overlay(id: string, overlay: MapOverlay?, why: Cause) -> ()` (`kit.write`): Put or remove a namespaced map border or bearing.
 
 ### `ctx`
