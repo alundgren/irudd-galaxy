@@ -703,6 +703,7 @@ impl Renderer {
             normal: [0.0, 0.0, 1.0],
             outline_normal: [0.0, 0.0, 1.0],
             color: [0.0; 4],
+            span: [0.0; 2],
         }];
         let (verts, idx): (&[Vertex], &[u32]) = if mesh.is_empty() {
             (&zero, &[0, 0, 0])
@@ -1162,16 +1163,11 @@ impl Renderer {
                     }
                 }
             }
-            if !fxi.is_empty() {
-                pass.set_pipeline(&self.pipelines.fx);
-                pass.set_vertex_buffer(0, self.fx_vertices.buf.slice(..));
-                pass.set_index_buffer(self.fx_indices.buf.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..fxi.len() as u32, 0, 0..1);
-            }
         }
-        // Inner ink: a non-multisampled normal and paint buffer, then a fullscreen
-        // edge pass. Silhouette pixels stay with the inverted hull drawn above.
-        if !runs.is_empty() {
+        // Inner ink, then lines and glows. Ink is composited onto the resolved
+        // colour before effects, and effects depth-test against the geom depth,
+        // so a beam or glow in front of a crease stays visible.
+        if !runs.is_empty() || !fxi.is_empty() {
             let clear_geom = wgpu::Operations {
                 load: wgpu::LoadOp::Clear(wgpu::Color {
                     r: 0.0,
@@ -1202,7 +1198,7 @@ impl Renderer {
                         view: &self.geom_depth,
                         depth_ops: Some(wgpu::Operations {
                             load: wgpu::LoadOp::Clear(1.0),
-                            store: wgpu::StoreOp::Discard,
+                            store: wgpu::StoreOp::Store,
                         }),
                         stencil_ops: None,
                     }),
@@ -1210,9 +1206,11 @@ impl Renderer {
                     occlusion_query_set: None,
                     multiview_mask: None,
                 });
-                pass.set_pipeline(&self.pipelines.geom);
-                pass.set_bind_group(0, &self.globals_bind, &[]);
-                pass.set_bind_group(1, &self.instances_bind, &[]);
+                if !runs.is_empty() {
+                    pass.set_pipeline(&self.pipelines.geom);
+                    pass.set_bind_group(0, &self.globals_bind, &[]);
+                    pass.set_bind_group(1, &self.instances_bind, &[]);
+                }
                 for &(mesh, start, count) in &runs {
                     let Some(m) = self.meshes.get(mesh as usize).and_then(|s| s.mesh.as_ref())
                     else {
@@ -1223,7 +1221,7 @@ impl Renderer {
                     pass.draw_indexed(0..m.index_count, 0, start..start + count);
                 }
             }
-            {
+            if !runs.is_empty() {
                 let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("ink"),
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1244,6 +1242,36 @@ impl Renderer {
                 pass.set_bind_group(0, &self.ink_bind, &[]);
                 pass.draw(0..3, 0..1);
             }
+        }
+        if !fxi.is_empty() {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("effects"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.geom_depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.pipelines.fx);
+            pass.set_bind_group(0, &self.globals_bind, &[]);
+            pass.set_vertex_buffer(0, self.fx_vertices.buf.slice(..));
+            pass.set_index_buffer(self.fx_indices.buf.slice(..), wgpu::IndexFormat::Uint32);
+            pass.draw_indexed(0..fxi.len() as u32, 0, 0..1);
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1513,7 +1541,7 @@ fn create_pipelines(
         array_stride: std::mem::size_of::<Vertex>() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
-            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4
+            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2
         ],
     };
     let fx_vertex_layout = wgpu::VertexBufferLayout {
@@ -1656,9 +1684,11 @@ fn create_pipelines(
             fs: "fs_fx",
             buffers: &[Some(fx_vertex_layout)],
             cull: None,
+            // Single-sampled: effects are drawn after the MSAA resolve, on top of
+            // inner ink, depth-tested against the geom buffer.
             depth: depth(false, wgpu::CompareFunction::LessEqual),
             blend: premul,
-            samples,
+            samples: 1,
             formats: &surface,
         }),
         gradient: make(Spec {

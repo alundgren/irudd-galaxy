@@ -383,11 +383,6 @@ impl StationRecipe {
                     err(Some(i), format!("{name} is {v}; expected {lo}..={hi}"));
                 }
             };
-            check("at.angle", at.angle, -720.0, 720.0);
-            check("at.distance", at.distance, 0.0, MAX_STATION_RADIUS);
-            check("at.z", at.z, -40.0, 40.0);
-            check("at.turn", at.turn, -720.0, 720.0);
-            check("at.scale", at.scale, 0.1, 5.0);
             match part.kind {
                 PartKind::Hub {
                     radius,
@@ -494,6 +489,9 @@ impl StationRecipe {
                     check("height", height, 1.5, 16.0);
                 }
             }
+            for message in placement_problems(at) {
+                err(Some(i), message);
+            }
             let reach = at.distance + part_reach(&part.kind) * at.scale;
             if reach.is_finite() && reach > MAX_STATION_RADIUS {
                 err(
@@ -501,6 +499,9 @@ impl StationRecipe {
                     format!("reaches {reach:.1} from the centre; at most {MAX_STATION_RADIUS}"),
                 );
             }
+        }
+        for (i, decal) in self.decals.iter().enumerate() {
+            errs.extend(decal_placement_errors(decal, i));
         }
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
@@ -562,6 +563,9 @@ impl StationRecipe {
                 && let Some(issue) = bible.check_paint(color)
             {
                 err(None, format!("decal {i} paint {}", issue.message));
+            }
+            for e in decal_placement_errors(decal, i) {
+                err(e.part, e.message);
             }
         }
         for (kind, n) in &counts {
@@ -1480,6 +1484,41 @@ pub fn station_lights(recipe: &StationRecipe) -> Vec<StationLight> {
         }
     }
     out
+}
+
+fn placement_problems(at: &Placement) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut check = |name: &str, v: f32, lo: f32, hi: f32| {
+        if !v.is_finite() || !(lo..=hi).contains(&v) {
+            out.push(format!("{name} is {v}; expected {lo}..={hi}"));
+        }
+    };
+    check("at.angle", at.angle, -720.0, 720.0);
+    check("at.distance", at.distance, 0.0, MAX_STATION_RADIUS);
+    check("at.z", at.z, -40.0, 40.0);
+    check("at.turn", at.turn, -720.0, 720.0);
+    check("at.scale", at.scale, 0.1, 5.0);
+    out
+}
+
+fn decal_placement_errors(decal: &Decal, index: usize) -> Vec<RecipeError> {
+    let mut errs: Vec<RecipeError> = placement_problems(&decal.at)
+        .into_iter()
+        .map(|message| RecipeError {
+            part: None,
+            message: format!("decal {index}: {message}"),
+        })
+        .collect();
+    let reach = decal.at.distance + decal_reach(&decal.kind) * decal.at.scale;
+    if reach.is_finite() && reach > MAX_STATION_RADIUS {
+        errs.push(RecipeError {
+            part: None,
+            message: format!(
+                "decal {index}: reaches {reach:.1} from the centre; at most {MAX_STATION_RADIUS}"
+            ),
+        });
+    }
+    errs
 }
 
 fn sanitize_placement(at: &Placement) -> Placement {
@@ -2962,6 +3001,75 @@ mod tests {
             parts: vec![],
         };
         assert_eq!(empty.validate().unwrap_err().len(), 2);
+    }
+
+    #[test]
+    fn decal_placement_and_reach_are_rejected() {
+        let bible = ArtBible::bundled();
+        let both = |recipe: &StationRecipe| {
+            vec![
+                recipe.validate().unwrap_err(),
+                recipe.validate_art(bible).unwrap_err(),
+            ]
+        };
+
+        // Every field is inside its own range. The transformed reach is not.
+        let mut far = StationRecipe::lantern_wharf();
+        far.decals = vec![Decal::new(
+            DecalKind::Sigil { size: 12.0 },
+            Placement {
+                distance: 120.0,
+                scale: 5.0,
+                ..Placement::default()
+            },
+        )];
+        assert!(far.decals[0].at.scale <= 5.0);
+        for errs in both(&far) {
+            let text: Vec<_> = errs.iter().map(|e| e.to_string()).collect();
+            assert!(
+                text.iter()
+                    .any(|t| t.contains("decal 0") && t.contains("reaches")),
+                "{text:?}"
+            );
+        }
+
+        let mut nan = StationRecipe::lantern_wharf();
+        nan.decals = vec![Decal::new(
+            DecalKind::Sigil { size: 2.0 },
+            Placement {
+                distance: f32::NAN,
+                ..Placement::default()
+            },
+        )];
+        for errs in both(&nan) {
+            assert!(
+                errs.iter()
+                    .any(|e| e.to_string().contains("decal 0: at.distance")),
+                "{errs:?}"
+            );
+        }
+
+        let mut range = StationRecipe::lantern_wharf();
+        range.decals = vec![Decal::new(
+            DecalKind::Number {
+                value: 4,
+                size: 2.0,
+            },
+            Placement {
+                scale: 9.0,
+                z: 80.0,
+                ..Placement::default()
+            },
+        )];
+        for errs in both(&range) {
+            let text = errs
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(text.contains("decal 0: at.scale"), "{text}");
+            assert!(text.contains("decal 0: at.z"), "{text}");
+        }
     }
 
     #[test]

@@ -18,7 +18,8 @@ inner_px = [1.5, 2.5]
 crease_degrees = 50.0
 # Linear-RGB distance between neighbouring paint that counts as a colour border.
 color_edge = 0.22
-# View-depth jump, in world units, that inks a step whose normals still agree.
+# Minimum break in the local depth plane, in world units. A continuous slope
+# is not a break. The shader also scales this by view depth.
 depth_step = 0.55
 
 [hatch]
