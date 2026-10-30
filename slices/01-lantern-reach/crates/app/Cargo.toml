@@ -23,6 +23,7 @@ galaxy-script.workspace = true
 galaxy-ship.workspace = true
 render.workspace = true
 galaxy-mind.workspace = true
+galaxy-gm.workspace = true
 clap.workspace = true
 directories.workspace = true
 serde.workspace = true

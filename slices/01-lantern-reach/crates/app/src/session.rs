@@ -114,6 +114,11 @@ impl Session {
         &self.sim
     }
 
+    /// The sim, for code that works between ticks (the game-master bridge).
+    pub fn sim_mut(&mut self) -> &mut Sim {
+        &mut self.sim
+    }
+
     pub fn world(&self) -> &WorldState {
         self.sim.world()
     }
