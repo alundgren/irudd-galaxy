@@ -79,6 +79,86 @@ fn mesh_is_drawn_with_an_ink_outline() {
 
 #[test]
 #[ignore = "needs a GPU"]
+fn inner_ink_marks_a_roof_ridge_and_spares_a_flat_slab() {
+    fn painted(quads: &[[Vec3; 4]]) -> render::MeshData {
+        let mut b = render::MeshBuilder::new();
+        b.paint(Color::hex(0xf4e2c4), 0.0);
+        for q in quads {
+            b.quad(q[0], q[1], q[2], q[3]);
+        }
+        b.build()
+    }
+    let roof = painted(&[
+        [
+            Vec3::new(-10.0, -12.0, 0.0),
+            Vec3::new(10.0, -12.0, 0.0),
+            Vec3::new(10.0, 0.0, 8.0),
+            Vec3::new(-10.0, 0.0, 8.0),
+        ],
+        [
+            Vec3::new(10.0, 12.0, 0.0),
+            Vec3::new(-10.0, 12.0, 0.0),
+            Vec3::new(-10.0, 0.0, 8.0),
+            Vec3::new(10.0, 0.0, 8.0),
+        ],
+    ]);
+    let slab = painted(&[[
+        Vec3::new(-10.0, -12.0, 1.0),
+        Vec3::new(10.0, -12.0, 1.0),
+        Vec3::new(10.0, 12.0, 1.0),
+        Vec3::new(-10.0, 12.0, 1.0),
+    ]]);
+    let interior_ink = |mesh: render::MeshData| {
+        let mut r = renderer(200, 200);
+        let handle = r.upload_mesh(&mesh);
+        let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 36.0).with_tilt(14.0));
+        scene.clear_color = Color::hex(0xffffff);
+        let mut inst = MeshInstance::at(handle, Vec2::ZERO, 0.0, 1.0);
+        inst.material.hatch = 0.0;
+        scene.meshes.push(inst);
+        let img = r.render_to_rgba(&scene).unwrap();
+        let dark = |p: [u8; 4]| p[0] < 70 && p[1] < 50 && p[2] < 70;
+        let white = |p: [u8; 4]| p[0] > 250 && p[1] > 250 && p[2] > 250;
+        let mut n = 0;
+        for y in 0..img.height {
+            for x in 0..img.width {
+                if !dark(img.pixel(x, y)) {
+                    continue;
+                }
+                let mut near_bg = false;
+                for dy in -10i32..=10 {
+                    for dx in -10i32..=10 {
+                        let xx = x as i32 + dx;
+                        let yy = y as i32 + dy;
+                        if !(0..img.width as i32).contains(&xx)
+                            || !(0..img.height as i32).contains(&yy)
+                            || white(img.pixel(xx as u32, yy as u32))
+                        {
+                            near_bg = true;
+                        }
+                    }
+                }
+                if !near_bg {
+                    n += 1;
+                }
+            }
+        }
+        n
+    };
+    let ridge = interior_ink(roof);
+    let flat = interior_ink(slab);
+    assert!(
+        ridge > 12,
+        "roof ridge should carry inner ink, got {ridge}"
+    );
+    assert!(
+        flat < 6,
+        "a flat slab has no interior crease, got {flat}"
+    );
+}
+
+#[test]
+#[ignore = "needs a GPU"]
 fn paused_card_covers_the_centre() {
     let mut r = renderer(640, 360);
     let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 50.0));

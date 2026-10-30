@@ -128,3 +128,41 @@ fn vs_outline(v: VIn) -> OOut {
 fn fs_outline(in: OOut) -> @location(0) vec4<f32> {
     return in.color;
 }
+
+// Geometry buffer for the inner-ink pass: octahedral normal, 16-bit view depth
+// packed into two unorm bytes, and the unlit paint. Flat per face, so a crease
+// is a step between neighbouring pixels rather than a gradient.
+
+struct GeomOut {
+    @location(0) geom: vec4<f32>,
+    @location(1) albedo: vec4<f32>,
+};
+
+fn sign_nz(v: vec2<f32>) -> vec2<f32> {
+    return vec2<f32>(select(-1.0, 1.0, v.x >= 0.0), select(-1.0, 1.0, v.y >= 0.0));
+}
+
+fn oct_encode(n: vec3<f32>) -> vec2<f32> {
+    let n2 = n / max(abs(n.x) + abs(n.y) + abs(n.z), 1e-5);
+    var oct = n2.xy;
+    if n2.z < 0.0 {
+        oct = (1.0 - abs(n2.yx)) * sign_nz(n2.xy);
+    }
+    return oct * 0.5 + 0.5;
+}
+
+@fragment
+fn fs_geom(in: VOut) -> GeomOut {
+    let inst = instances[in.ii];
+    let oct = oct_encode(normalize(in.normal));
+    let fwd = g.camera_fwd.xyz;
+    let d = dot(in.world - g.camera_pos.xyz, fwd / max(length(fwd), 1e-5));
+    // 0..2048 world units from the camera plane. The play camera sits near 400,
+    // and a 16-bit step is about 0.03 units, finer than the ink depth threshold.
+    let q = u32(clamp(d / 2048.0, 0.0, 1.0) * 65535.0 + 0.5);
+    let albedo = clamp(in.color.rgb * inst.tint.rgb, vec3<f32>(0.0), vec3<f32>(1.0));
+    var o: GeomOut;
+    o.geom = vec4<f32>(oct, f32(q >> 8u) / 255.0, f32(q & 255u) / 255.0);
+    o.albedo = vec4<f32>(albedo, 1.0);
+    return o;
+}

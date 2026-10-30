@@ -126,7 +126,7 @@ from the station centre.
 
 ## How it draws
 
-One MSAA (4x) world pass with a depth buffer, then an overlay pass:
+One MSAA (4x) world pass with a depth buffer, an inner-ink pass, then an overlay pass:
 
 1. Backdrop: a vertical gradient with a soft vignette, then instanced soft nebula puffs and
    stars on repeating tiles.
@@ -135,10 +135,18 @@ One MSAA (4x) world pass with a depth buffer, then an overlay pass:
    in the shadow band, and self-lit paint (vertex alpha) for windows, lanterns and engines.
 3. Ink outlines: an inverted hull. Back faces are pushed out by a constant number of pixels
    along normals averaged across hard edges, so outlines don't crack at corners and keep
-   their weight at any zoom. Works the same with a perspective camera.
-4. Lines, beams and glows: camera-facing ribbons with soft ink-edged sides, dashes and
+   their weight at any zoom. Works the same with a perspective camera. This is the
+   silhouette only.
+4. Inner ink: a second, non-multisampled pass writes an octahedral normal, a 16-bit view
+   depth and the unlit paint into two `Rgba8Unorm` targets. A fullscreen pass then draws a
+   line where neighbouring surface pixels crease harder than the art bible's angle, where
+   the paint changes, or where the depth steps while the normals still agree. Pixels with
+   no surface neighbour are left to the hull outline, so rocks do not become wireframes.
+   `textureLoad` and plain unorm targets keep the pass the same on DX12, Vulkan and Metal.
+   Widths come from `assets/art-bible.toml`.
+5. Lines, beams and glows: camera-facing ribbons with soft ink-edged sides, dashes and
    hand-drawn wobble; additive beams and glows.
-5. Overlay: rounded SDF panels with an ink border and soft shadow, glyphon text, and the
+6. Overlay: rounded SDF panels with an ink border and soft shadow, glyphon text, and the
    PAUSED card (dimmed world, big centred card) drawn above everything.
 
 ## Assets and licences

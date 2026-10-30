@@ -183,13 +183,14 @@ impl ArtBible {
     }
 
     /// Uniforms for the inner-ink pass: crease cosine, colour-edge distance,
-    /// depth step, sample radius in pixels.
+    /// depth step, sample radius in pixels. The radius is half the inner width,
+    /// so a line is about `inner_px` wide.
     pub fn ink_uniforms(&self) -> [f32; 4] {
         [
             self.ink.crease_degrees.to_radians().cos(),
             self.ink.color_edge,
             self.ink.depth_step,
-            mid(self.ink.inner_px).clamp(1.0, 4.0),
+            (mid(self.ink.inner_px) * 0.5).round().clamp(1.0, 3.0),
         ]
     }
 
