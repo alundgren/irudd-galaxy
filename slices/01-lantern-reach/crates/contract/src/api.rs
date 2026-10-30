@@ -907,7 +907,7 @@ pub const FUNCTIONS: &[FnDef] = &[
         "pay",
         "beats.write",
         "(credits: number, why: Cause) -> ()",
-        "Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.",
+        "Pays the player credits (credits, not centicredits; more than 0): a fee for a hand-in or an offer the player accepted. The call's cause must cite the player's `reply` agreeing to it, or none of its writes apply (`unconfirmed_change`). Never takes credits.",
     ),
     // --- Space ---
     f(

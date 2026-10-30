@@ -288,7 +288,7 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
          and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). \
          From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that \
          hands its cargo over (or the `set_consignment` that hands over its ledger's \
-         consignment);`standing_changed` (`standing.write` or \
+         consignment); `standing_changed` (`standing.write` or \
          `factions.write`) right after the `adjust_standing` (or, for no change, the \
          `expect_standing`) of its faction, and `regard_changed` right after that \
          `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other \

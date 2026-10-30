@@ -18,11 +18,19 @@ local function carried(ctx: G.Ctx): G.Consigned?
 	return ctx.beats:pilot().consigned[ids.CONSIGNMENT]
 end
 
+-- Whether b07 waits on the player to take Ilse's plate: its first step, or (a save
+-- from before consignments, whose plate went aboard as cargo) its second with nothing
+-- of hers aboard.
+local function waiting(ctx: G.Ctx): boolean
+	local step = util.step(ctx, ids.B07)
+	return (step == 0 or step == 1) and carried(ctx) == nil
+end
+
 -- Ilse asks the player to carry the plate, while b07 waits for an answer and the
 -- player is at the Wharf. `cite` is the fact that brought it up (the beat starting, a
 -- docking, a sale that made room).
 local function ask_to_carry(ctx: G.Ctx, cite: string)
-	if util.step(ctx, ids.B07) ~= 0 or carried(ctx) ~= nil then
+	if not waiting(ctx) then
 		return
 	end
 	if ctx.beats:pilot().docked_at ~= ids.WHARF then
@@ -263,7 +271,7 @@ return G.script({
 				return
 			end
 			local step = util.step(ctx, ids.B07)
-			if ev.npc == ids.ILSE and ev.station == ids.WHARF and step == 0 then
+			if ev.npc == ids.ILSE and ev.station == ids.WHARF and waiting(ctx) then
 				if ev.choice == ids.ACCEPT_CONSIGNMENT then
 					accept(ctx, ev)
 				elseif ev.choice == ids.DECLINE_CONSIGNMENT then

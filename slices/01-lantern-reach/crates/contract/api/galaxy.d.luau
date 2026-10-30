@@ -360,7 +360,7 @@ export type BeatsApi = {
 	consign: (self: BeatsApi, spec: ConsignSpec, why: Cause) -> (),
 	-- Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.
 	deliver_consignment: (self: BeatsApi, ledger: LedgerId, why: Cause) -> (),
-	-- Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
+	-- Pays the player credits (credits, not centicredits; more than 0): a fee for a hand-in or an offer the player accepted. The call's cause must cite the player's `reply` agreeing to it, or none of its writes apply (`unconfirmed_change`). Never takes credits.
 	pay: (self: BeatsApi, credits: number, why: Cause) -> (),
 }
 export type MechanicsApi = {

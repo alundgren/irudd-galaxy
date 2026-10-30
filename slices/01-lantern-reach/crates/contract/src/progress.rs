@@ -116,7 +116,11 @@ pub struct StepDef {
     pub done: Requirement,
 }
 
-/// What a beat pays when it completes. Credits are centicredits.
+/// What a beat pays when it completes. Credits are centicredits. A pack's beats leave
+/// `credits` at 0 and `fit` empty: a completion is never the player's say-so, so
+/// `galaxy pack check` and the script host refuse them (`galaxy_script::confirm`).
+/// Fees are paid in the reply handler that settles the hand-in; gifts are offered on
+/// the giver's list.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Rewards {

@@ -30,7 +30,9 @@ fn players(world: &WorldState, ship: &ShipId) -> bool {
 /// What a command changes of the player's (and whether it only adds cargo), or `None`.
 fn touches(world: &WorldState, c: &Command) -> Option<(&'static str, bool)> {
     match c {
-        Command::AdjustCargo { ship, delta, .. } if players(world, ship) => Some(("hold", *delta > 0)),
+        Command::AdjustCargo { ship, delta, .. } if players(world, ship) => {
+            Some(("hold", *delta > 0))
+        }
         Command::SetConsignment { ship, .. } if players(world, ship) => Some(("hold", false)),
         Command::AdjustCredits { .. } => Some(("credits", false)),
         Command::SetFitting { .. } => Some(("fitted parts", false)),
@@ -57,7 +59,11 @@ fn confirms(world: &WorldState, history: &History, fact: FactId) -> Option<bool>
 
 /// Whether `batch` keeps the rule. `Err` names the first change the player didn't
 /// confirm.
-pub fn confirmed(world: &WorldState, history: &History, batch: &CommandBatch) -> Result<(), String> {
+pub fn confirmed(
+    world: &WorldState,
+    history: &History,
+    batch: &CommandBatch,
+) -> Result<(), String> {
     let mut changes = batch
         .commands
         .iter()

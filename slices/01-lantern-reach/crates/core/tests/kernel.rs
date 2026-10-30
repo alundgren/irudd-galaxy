@@ -278,6 +278,34 @@ fn undo_records_invert_commands() {
             flag: FlagId::new("mech.rock_tagging").unwrap(),
             on: false,
         },
+        // A consignment loaded, a second one loaded, the first handed over.
+        Command::SetConsignment {
+            ship: PLAYER,
+            ledger: "ledger.hook_consignment".parse().unwrap(),
+            consignment: Some(Box::new(galaxy_contract::world::Consignment {
+                ware: ICE,
+                quantity: 5,
+                owner: "npc.ilse_marrow".parse().unwrap(),
+                to: "npc.rook_adeyemi".parse().unwrap(),
+                station: "station.cinder_hook".parse().unwrap(),
+            })),
+        },
+        Command::SetConsignment {
+            ship: PLAYER,
+            ledger: "ledger.kettle_greenhouse".parse().unwrap(),
+            consignment: Some(Box::new(galaxy_contract::world::Consignment {
+                ware: ICE,
+                quantity: 3,
+                owner: "npc.ilse_marrow".parse().unwrap(),
+                to: "npc.odo_fenn".parse().unwrap(),
+                station: KETTLE,
+            })),
+        },
+        Command::SetConsignment {
+            ship: PLAYER,
+            ledger: "ledger.hook_consignment".parse().unwrap(),
+            consignment: None,
+        },
         Command::SetRockTag {
             rock: world.rocks.keys().next().unwrap().clone(),
             on: true,
@@ -1117,4 +1145,64 @@ fn a_survey_buoy_update_loses_to_a_removal_or_replacement() {
     .unwrap();
     assert!(galaxy_core::apply::apply(&mut world, &update, &mut staged).is_err());
     assert_eq!(world.survey_buoys["gm.test.buoy"], moved);
+}
+
+/// #31: a docking where the ship last docked, before it has gone `recount_distance`
+/// away, mined or docked elsewhere (the economy's docking track says so), is still a
+/// `dock` fact, but with an amount of 0, and it moves no counter.
+#[test]
+fn a_re_dock_on_the_spot_is_a_docking_but_not_a_counted_one() {
+    let mut s = sim(3);
+    let dock = |s: &mut Sim, away: Option<bool>| {
+        let mut b = CommandBatch::new(Cause::system("test", "docks"));
+        if let Some(away) = away {
+            b.push(Command::SetDockTrack {
+                ship: PLAYER,
+                track: Some(DockTrack {
+                    station: WHARF,
+                    away,
+                }),
+            });
+        }
+        s.submit(b);
+        s.step(&PlayerInput::default()).unwrap();
+        s.submit(
+            CommandBatch::new(Cause::system("test", "dock")).with(Command::Emit {
+                event: Event::Dock {
+                    ship: PLAYER,
+                    station: WHARF,
+                },
+            }),
+        );
+        s.step(&PlayerInput::default()).unwrap();
+    };
+    let dockings = |s: &Sim| {
+        s.world().counters.get(
+            CounterKind::Dockings,
+            &CounterScope::Station { station: WHARF },
+        )
+    };
+    let last = |s: &Sim| {
+        s.history()
+            .last(&HistoryQuery::kind(EventKind::Dock.fact_kind()))
+            .unwrap()
+            .amount
+    };
+    // Last docked here and never left: not counted.
+    dock(&mut s, Some(false));
+    assert_eq!(dockings(&s), 0);
+    assert_eq!(last(&s), Some(0));
+    // Gone far enough (or mined) since: counted, the fact as before.
+    dock(&mut s, Some(true));
+    assert_eq!(dockings(&s), 1);
+    assert_eq!(last(&s), None);
+    // No track at all (a ship's first docking): counted.
+    s.submit(
+        CommandBatch::new(Cause::system("test", "forget")).with(Command::SetDockTrack {
+            ship: PLAYER,
+            track: None,
+        }),
+    );
+    dock(&mut s, None);
+    assert_eq!(dockings(&s), 2);
 }

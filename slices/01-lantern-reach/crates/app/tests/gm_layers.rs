@@ -15,7 +15,6 @@ use galaxy_script::host::HostEvent;
 
 /// Not `gm.`-prefixed: the layer, not the ID, carries the restriction.
 const PROBE: PackId = PackId::from_static("probe");
-const REWARD: i64 = 123 * CENTS_PER_CREDIT;
 
 fn slice() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -52,7 +51,8 @@ fn benign(dir: &Path) {
 }
 
 /// The forbidden revision: the same pack registers a beat that completes on docking
-/// and pays 123 credits (the re-check's probe).
+/// and rewards a control flag (the re-check's probe; it paid credits until beats
+/// stopped paying any).
 fn forbidden(dir: &Path) {
     write(
         dir,
@@ -63,7 +63,7 @@ fn forbidden(dir: &Path) {
         "--!strict\nlocal G = require(\"@galaxy\")\n\
          return G.script({ id = \"main\", on = { dock = function(_ev: G.DockEvent, _ctx: G.Ctx) end },\n\
          \tbeats = { G.beat({ id = \"beat.probe_reward\", act = 1, goal = \"Dock anywhere.\",\n\
-         \t\tdone = G.docked(), rewards = { credits = 12300 } }) } })\n",
+         \t\tdone = G.docked(), rewards = { flags = { \"cap.click_fly\" } } }) } })\n",
     );
 }
 
@@ -94,8 +94,9 @@ fn rejected_as_backbone(report: &galaxy_contract::pack::ValidationReport) {
     assert!(codes.contains(&"gm_backbone"), "{codes:?}");
 }
 
-fn credits(game: &Game) -> i64 {
-    game.sim().world().player.credits
+/// Whether the forbidden beat's reward reached the world.
+fn rewarded(game: &Game) -> bool {
+    game.sim().world().player.flags.contains("cap.click_fly")
 }
 
 fn no_probe_beat(game: &Game) {
@@ -145,7 +146,6 @@ fn an_applied_layer_keeps_its_restrictions_through_every_reload() {
     let (mut game, bridge) = open_game(&path);
     assert_eq!(layer(&game), Some(PackLayer::GameMaster));
     assert_eq!(game.scripts().layer(&PROBE), Some(PackLayer::GameMaster));
-    let before = credits(&game);
 
     // 2. A plain load of the forbidden revision (what a dev reload of a changed folder
     //    does) is checked as a layer and refused.
@@ -166,7 +166,7 @@ fn an_applied_layer_keeps_its_restrictions_through_every_reload() {
     for _ in 0..3 {
         game.step(&PlayerInput::default());
     }
-    assert_eq!(credits(&game), before, "no reward");
+    assert!(!rewarded(&game), "no reward");
     no_probe_beat(&game);
     drop((game, bridge));
 
@@ -185,7 +185,6 @@ fn an_applied_layer_keeps_its_restrictions_through_every_reload() {
     // 5. Run anyway, past every check: the host runs it as the layer the world records.
     //    The beat never starts and nothing is paid.
     game.scripts().load_unchecked(&bad).unwrap();
-    let before = credits(&game);
     game.sim_mut()
         .submit(
             CommandBatch::new(Cause::system("test", "dock")).with(Command::SetShipDocked {
@@ -196,7 +195,7 @@ fn an_applied_layer_keeps_its_restrictions_through_every_reload() {
     for _ in 0..4 {
         game.step(&PlayerInput::default());
     }
-    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    assert!(!rewarded(&game), "no reward");
     no_probe_beat(&game);
     let aborts: Vec<String> = game
         .scripts()
@@ -325,9 +324,8 @@ fn a_reload_that_renames_a_layer_never_promotes_it() {
     );
     assert_eq!(host.layer(&RENAMED), None);
     assert_eq!(host.layer(&PROBE), Some(PackLayer::GameMaster));
-    let before = credits(&game);
     dock_and_run(&mut game, 4);
-    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    assert!(!rewarded(&game), "no reward");
     no_probe_beat(&game);
     assert_eq!(recorded(&game, &RENAMED), None, "never recorded as core");
 
@@ -368,9 +366,8 @@ fn a_reload_that_renames_a_layer_never_promotes_it() {
     rejected_as_backbone(&host.reload(&RENAMED, game.sim_mut()).unwrap());
     host.load_unchecked(&src).unwrap();
     assert_eq!(host.layer(&RENAMED), Some(PackLayer::GameMaster));
-    let before = credits(&game);
     dock_and_run(&mut game, 4);
-    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    assert!(!rewarded(&game), "no reward");
     no_probe_beat(&game);
     assert_eq!(host.revision(&CORE), Some(core));
 }
@@ -408,9 +405,8 @@ fn a_layer_named_core_never_touches_the_backbone() {
     assert_eq!(out[0]["what"], "quarantined", "{out:?}");
     assert_eq!(game.scripts().revision(&CORE), Some(core.clone()));
     assert_eq!(game.scripts().layer(&CORE), Some(PackLayer::Core));
-    let before = credits(&game);
     dock_and_run(&mut game, 4);
-    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    assert!(!rewarded(&game), "no reward");
     no_probe_beat(&game);
     drop((game, bridge));
 

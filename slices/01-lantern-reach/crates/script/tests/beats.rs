@@ -196,7 +196,10 @@ fn core_beats_b01_to_b03_complete_from_history_and_world_state() {
     let credits = sim.world().player.credits;
     dock_at(&mut sim, &KETTLE);
     step(&mut sim, 3);
-    assert!(facts(&sim, "deliver").is_empty(), "docking hands nothing over");
+    assert!(
+        facts(&sim, "deliver").is_empty(),
+        "docking hands nothing over"
+    );
     assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 20);
     deliver_ice(&mut sim);
     let deliveries = facts(&sim, "deliver");

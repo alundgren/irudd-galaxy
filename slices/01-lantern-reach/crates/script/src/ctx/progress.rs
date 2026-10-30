@@ -954,11 +954,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 .get(&c.to)
                 .is_none_or(|n| n.location.as_ref() != Some(&c.station))
             {
-                return Err(env.fail(
-                    lua,
-                    "not_here",
-                    format!("{} isn't at {}", c.to, c.station),
-                ));
+                return Err(env.fail(lua, "not_here", format!("{} isn't at {}", c.to, c.station)));
             }
             env.push(
                 lua,

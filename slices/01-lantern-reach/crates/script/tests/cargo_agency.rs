@@ -121,11 +121,7 @@ fn ice_stays_aboard_until_the_player_picks_deliver_and_a_line_says_what_came_bac
     p.idle(4);
     assert_eq!(p.cargo(&ICE), 20, "docking took no ice");
     assert!(!p.is_done(B03));
-    for choice in [
-        "choice.deliver_ice",
-        "choice.sell_ice",
-        "choice.keep_ice",
-    ] {
+    for choice in ["choice.deliver_ice", "choice.sell_ice", "choice.keep_ice"] {
         assert!(offered(&p, "npc.odo_fenn", choice), "{choice} offered");
     }
 
@@ -144,7 +140,8 @@ fn ice_stays_aboard_until_the_player_picks_deliver_and_a_line_says_what_came_bac
     assert!(p.is_done(B03));
     let said = notices(&p, &KETTLE);
     assert!(
-        said.iter().any(|t| t == "Delivered 20 ice to Odo · +120 cr"),
+        said.iter()
+            .any(|t| t == "Delivered 20 ice to Odo · +120 cr"),
         "{said:?}"
     );
     assert!(p.heard("npc.odo_fenn", "20 ice. The beans will hear about this."));
@@ -172,7 +169,8 @@ fn a_part_delivery_says_how_much_is_still_to_go_and_pays_only_when_full() {
     assert!(!p.is_done(B03));
     let said = notices(&p, &KETTLE);
     assert!(
-        said.iter().any(|t| t == "Delivered 10 ice to Odo · 10 more to go"),
+        said.iter()
+            .any(|t| t == "Delivered 10 ice to Odo · 10 more to go"),
         "{said:?}"
     );
     // No fee yet: it comes with the delivery that fills the greenhouse.
@@ -232,7 +230,11 @@ fn ilses_plate_is_offered_carried_as_hers_unsellable_and_counts_only_at_rook() {
     // #32: the market won't buy it, here or anywhere.
     let credits = p.credits();
     p.sell(&PLATE, 20);
-    assert!(p.facts("sell").iter().all(|f| f.subjects.ware.as_ref() != Some(&PLATE)));
+    assert!(
+        p.facts("sell")
+            .iter()
+            .all(|f| f.subjects.ware.as_ref() != Some(&PLATE))
+    );
     assert_eq!(p.credits(), credits);
     assert!(p.ship().hold.consigned.contains_key(&CONSIGNMENT));
 
@@ -548,7 +550,8 @@ fn third_person(world: &WorldState) -> Vec<String> {
             let npc = world.npcs.get(l.line.speaker.as_ref()?)?;
             let first = npc.name.split_whitespace().next()?;
             let text = l.line.text.replace(&format!("I'm {first}"), "");
-            text.contains(first).then(|| format!("{}: {}", npc.name, l.line.text))
+            text.contains(first)
+                .then(|| format!("{}: {}", npc.name, l.line.text))
         })
         .collect()
 }
@@ -566,8 +569,10 @@ fn goal_lines_state_the_amounts_pacing_asks_for() {
             .as_number()
             .unwrap_or_else(|| panic!("{id}"))
     };
-    let act1 = std::fs::read_to_string(common::slice().join("packs/core/scripts/act1.luau")).unwrap();
-    let act2 = std::fs::read_to_string(common::slice().join("packs/core/scripts/act2.luau")).unwrap();
+    let act1 =
+        std::fs::read_to_string(common::slice().join("packs/core/scripts/act1.luau")).unwrap();
+    let act2 =
+        std::fs::read_to_string(common::slice().join("packs/core/scripts/act2.luau")).unwrap();
     assert!(act1.contains("goal = \"P or Esc · pause\""));
     assert!(act2.contains(&format!(
         "Sell {} there, over {} separate visits.",

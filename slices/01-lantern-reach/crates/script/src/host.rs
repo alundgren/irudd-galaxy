@@ -965,9 +965,8 @@ impl System for ScriptSystem {
                                     Failed::Fault(undeclared("its writes need", reason, location()))
                                 },
                             )?;
-                            crate::confirm::confirmed(view.world, history, &batch).map_err(
-                                |reason| Failed::Fault(unconfirmed(reason, location())),
-                            )?;
+                            crate::confirm::confirmed(view.world, history, &batch)
+                                .map_err(|reason| Failed::Fault(unconfirmed(reason, location())))?;
                             // The whole call's writes, checked as the kernel will check them.
                             let base = projected.get_or_insert_with(|| ctx.projected());
                             check(ctx, base, view.world, &batch)
