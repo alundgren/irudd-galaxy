@@ -70,3 +70,19 @@ fn render_writes_one_wav_per_take() {
     let wavs = std::fs::read_dir(dir.path()).unwrap().count();
     assert_eq!(wavs, reports.len());
 }
+
+/// Opens the real device and plays every cue once. Needs an audio device, so it's
+/// ignored by default: `cargo test -p galaxy-audio --test cues -- --ignored`.
+#[test]
+#[ignore]
+fn plays_every_cue_on_the_device() {
+    let mut audio = galaxy_audio::Audio::open(None);
+    assert!(audio.has_device(), "{:?}", audio.problem());
+    for (i, cue) in Cue::ALL.into_iter().enumerate() {
+        audio.play(cue, i as u64);
+        std::thread::sleep(std::time::Duration::from_millis(900));
+    }
+    audio.set_paused(true);
+    audio.set_paused(false);
+    assert!(audio.toggle_mute());
+}

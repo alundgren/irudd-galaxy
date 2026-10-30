@@ -15,6 +15,7 @@
 //! - [`view`]: world to scene: stations, rocks, ships, lanes, the camera, backdrops.
 //! - [`ui`]: the HUD, dock screen, map and talk panels.
 //! - [`saves`]: the per-user save folder and the background saver.
+//! - [`sound`]: which sound cues a tick asks for, and `galaxy audio render`.
 //! - [`frame`]: one frame's scene and buttons, shared by the window and the shot.
 //! - [`play`]: the window. [`shot`]: the same scene, headless, to a PNG, optionally
 //!   after a [`script`]ed input run.
@@ -28,6 +29,7 @@ pub mod saves;
 pub mod script;
 pub mod session;
 pub mod shot;
+pub mod sound;
 pub mod trades;
 pub mod ui;
 pub mod view;
