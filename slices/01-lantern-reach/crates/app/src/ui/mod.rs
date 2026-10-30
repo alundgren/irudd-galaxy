@@ -1,6 +1,7 @@
 //! The screen's panels, minimal and warm: the active goals with who gave them, the hold
 //! and credits, a hint for what Space does when something is in reach (until it has
-//! taught it, [`hints`]), the dock screen, the talk panel and the PAUSED card. No
+//! taught it, [`hints`]), the dock screen, talk bubbles over whoever speaks at the dock
+//! ([`talk`]), the ship log behind one small icon ([`log`]) and the PAUSED card. No
 //! timers, no progress bars; text is important or absent.
 //!
 //! Layout is logical pixels from the viewport, so it needs no renderer and can be
@@ -11,17 +12,20 @@
 //! down to the window ([`ui_scale`], [`scale_overlay`]), so a small window shows all of
 //! them smaller rather than clipping any. Inside the canvas they're laid out against
 //! each other so none covers another: the goal banner between the edge and the hold
-//! (beside the title on the map), the talk panel in the bottom-left column under the
-//! banner, the dock screen clear of that column, and the hint pill clear of the talk
-//! panel. A market with more lines than fit scrolls with the selection. The window
-//! won't shrink below [`MIN_WINDOW`], where the text is still readable.
+//! (beside the title on the map), the log icon in the bottom-left corner, the log panel
+//! in the left column between the banner and the icon, the dock screen on the right
+//! with room left of it for the station and its bubbles, the bubbles inside that room,
+//! and the hint pill clear of the log icon. A market with more lines than fit scrolls
+//! with the selection. The window won't shrink below [`MIN_WINDOW`], where the text is
+//! still readable.
 
 pub mod dock;
 pub mod fps;
 pub mod hints;
+pub mod log;
+pub mod talk;
 
 use galaxy_contract::prelude::*;
-use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::History;
 use render::glam::Vec2 as G2;
 use render::{Align, Camera, Color, Overlay, Panel, PausedCard, Rect, Text, palette};
@@ -38,9 +42,8 @@ pub const DOCK_PANEL_WIDTH: f32 = 600.0;
 /// The hold panel's width on the canvas.
 pub const HOLD_PANEL_WIDTH: f32 = 200.0;
 
-/// The talk panel's width on the canvas. It owns the bottom-left column: the dock
-/// screen and the hint pill keep clear of it.
-pub const TALK_WIDTH: f32 = 460.0;
+/// The room the dock screen leaves on its left for the station and its talk bubbles.
+pub const BUBBLE_ROOM: f32 = 460.0;
 
 /// The space between a panel and the canvas edge, and between two panels.
 const MARGIN: f32 = 18.0;
@@ -117,6 +120,41 @@ pub struct UiState {
     /// Mark the goal's station at the screen edge, in gold, wherever it is: an
     /// accessibility aid, off by default (`play --goal-marker`). Discovery comes first.
     pub goal_marker: bool,
+    /// The ship log is open.
+    pub log_open: bool,
+    /// The first log entry on the page.
+    pub log_first: usize,
+    /// A visit replayed in the log.
+    pub replay: Option<log::Replay>,
+}
+
+impl UiState {
+    /// L or the log icon: opens the ship log on its newest page (nothing in it is new
+    /// any more), or closes it.
+    pub fn toggle_log(&mut self, talk: &mut talk::TalkBook) {
+        self.log_open = !self.log_open;
+        self.replay = None;
+        self.log_first = 0;
+        if self.log_open {
+            talk.read_log();
+        }
+    }
+
+    /// Enter: the next line of a replay in the open log, else the next talk bubble at
+    /// the dock.
+    pub fn enter(&mut self, session: &mut crate::session::Session) {
+        if !self.log_open {
+            session.next_line();
+            return;
+        }
+        if let Some(r) = self.replay {
+            let len = log::replay_len(session.world(), session.sim().history(), r.from);
+            self.replay = (r.line + 1 < len).then_some(log::Replay {
+                line: r.line + 1,
+                ..r
+            });
+        }
+    }
 }
 
 /// Compact developer diagnostics; no sim state changes and no model calls.
@@ -202,6 +240,18 @@ pub enum UiAction {
     },
     /// Show the dock screen's services from this row (the Up and Down buttons).
     ServicesFrom(usize),
+    /// The talk bubble was clicked: the next line (Enter too).
+    NextLine,
+    /// Skip the rest of what's waiting here (lines waiting for an answer stay).
+    SkipTalk,
+    /// Open or close the ship log (the icon, or L).
+    ToggleLog,
+    /// Show the log's entries from this one (Newer and Older).
+    LogFrom(usize),
+    /// Replay a visit's line in the log, or go back to the list.
+    Replay(Option<log::Replay>),
+    /// A panel's background: the click stops there.
+    Absorb,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -228,6 +278,21 @@ pub fn text_width(text: &str, size: f32) -> f32 {
     text.chars().count() as f32 * size * 0.52
 }
 
+/// `text` cut to about `width` of text at `size` (at a word, with an ellipsis), so a row
+/// never grows past its room.
+pub fn clip(text: &str, size: f32, width: f32) -> String {
+    if text_width(text, size) <= width {
+        return text.to_owned();
+    }
+    let keep = ((width / (size * 0.52)).floor() as usize).saturating_sub(1);
+    let cut: String = text.chars().take(keep).collect();
+    let cut = match cut.rfind(' ') {
+        Some(i) if i > keep / 2 => &cut[..i],
+        _ => cut.as_str(),
+    };
+    format!("{}…", cut.trim_end_matches([',', ';', ':', '.', ' ']))
+}
+
 fn button(
     o: &mut Overlay,
     ui: &UiState,
@@ -237,8 +302,9 @@ fn button(
     action: UiAction,
 ) -> Button {
     let hover = ui.cursor.is_some_and(|c| contains(&rect, c));
+    // Disabled is a bare thin outline, never greyed-out text.
     let fill = if !enabled {
-        palette::PARCHMENT.lerp(palette::INK, 0.12)
+        palette::PARCHMENT.with_alpha(0.0)
     } else if hover {
         palette::LANTERN
     } else {
@@ -247,7 +313,8 @@ fn button(
     o.panels.push(Panel {
         radius: 8.0,
         fill,
-        border_px: 2.0,
+        border: BLACK,
+        border_px: if enabled { 2.0 } else { 1.0 },
         shadow: false,
         ..Panel::new(rect)
     });
@@ -257,12 +324,8 @@ fn button(
             G2::new(rect.center().x, rect.y + rect.h * 0.5 - 9.0),
             15.0,
         )
-        .weight(600)
-        .color(if enabled {
-            palette::INK
-        } else {
-            palette::INK.with_alpha(0.45)
-        })
+        .weight(if enabled { 600 } else { 500 })
+        .color(BLACK)
         .align(Align::Center),
     );
     Button { rect, action }
@@ -483,7 +546,7 @@ pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
                 16.0,
             )
             .weight(500)
-            .color(palette::CREAM.with_alpha(0.85)),
+            .color(WHITE),
         );
     }
 }
@@ -606,8 +669,8 @@ const HINT_SIZE: f32 = 19.0;
 const HINT_H: f32 = 44.0;
 
 /// Where the hint pill goes: low and centred, unless that would cover `avoid` (the
-/// talk panel in the bottom-left column); then centred in the room right of it, or
-/// above it if that room is too narrow.
+/// log icon in the bottom-left corner); then centred in the room right of it, or above
+/// it if that room is too narrow.
 pub fn hint_rect(text: &str, viewport: G2, avoid: Option<Rect>) -> Rect {
     let w = text_width(text, HINT_SIZE) + 40.0;
     let centred = Rect::new((viewport.x - w) * 0.5, viewport.y - 84.0, w, HINT_H);
@@ -629,8 +692,8 @@ fn grow(r: &Rect, by: f32) -> Rect {
     Rect::new(r.x - by, r.y - by, r.w + 2.0 * by, r.h + 2.0 * by)
 }
 
-/// The Space hint, low in the middle of the screen and clear of the talk panel
-/// (`avoid`). A hint that has taught enough ([`HintBook`]) stays away.
+/// The Space hint, low in the middle of the screen and clear of the log icon (`avoid`).
+/// A hint that has taught enough ([`HintBook`]) stays away.
 pub fn hint(
     o: &mut Overlay,
     world: &WorldState,
@@ -768,209 +831,6 @@ pub fn edge_markers(
                 .align(align),
         );
     }
-}
-
-/// One line in the talk panel: who (and where), then what was said.
-fn talk_row(o: &mut Overlay, world: &WorldState, line: &TalkLine, x: f32, y: f32, w: f32) -> f32 {
-    let who = hooks::speaker(world, line);
-    let place = hooks::place(world, line);
-    let head = match (who, place) {
-        (Some(w), Some(p)) => format!("{w}  ·  {p}"),
-        (Some(w), None) => w,
-        (None, Some(p)) => p,
-        (None, None) => String::new(),
-    };
-    let head = if line.channel == Channel::Chronicle {
-        format!("Chronicle  ·  {head}")
-    } else {
-        head
-    };
-    o.texts.push(
-        Text::new(head, G2::new(x, y), 14.0)
-            .weight(700)
-            .color(BLACK),
-    );
-    let rows = (text_width(&line.text, 16.0) / w).ceil().max(1.0);
-    o.texts.push(
-        Text::new(line.text.clone(), G2::new(x, y + 17.0), 16.0)
-            .weight(500)
-            .color(BLACK)
-            .wrap(w),
-    );
-    24.0 + rows * 20.0
-}
-
-/// The height of one answer button in the talk panel.
-const CHOICE_H: f32 = 34.0;
-
-/// The talk panel measured: its rect, title and the lines that fit.
-struct TalkLayout {
-    rect: Rect,
-    title: Option<String>,
-    lines: Vec<TalkLine>,
-    title_h: f32,
-    empty_h: f32,
-}
-
-/// Measures the talk panel: bottom left, as tall as its lines and choices, but never
-/// up into the goal banner. When it would be, the oldest lines give way.
-fn talk_layout(
-    world: &WorldState,
-    history: &History,
-    answer: Option<&hooks::Answer>,
-    choices: &[hooks::OpenChoice],
-    viewport: G2,
-) -> Option<TalkLayout> {
-    let w = TALK_WIDTH;
-    let inner = w - 32.0;
-    let (title, mut lines): (Option<String>, Vec<TalkLine>) = match answer {
-        Some(a) => (
-            Some(match a.speaker.as_ref().and_then(|n| world.npcs.get(n)) {
-                Some(n) => format!("What changed?  ·  {}", n.name),
-                None => "What changed?".to_owned(),
-            }),
-            a.lines.clone(),
-        ),
-        None => (
-            None,
-            hooks::talk_lines(world, history, 3)
-                .into_iter()
-                .filter(|l| hooks::is_talk(l) && l.validate().is_ok())
-                .collect(),
-        ),
-    };
-    if lines.is_empty() && title.is_none() && choices.is_empty() {
-        return None;
-    }
-    let title_h = if title.is_some() { 30.0 } else { 0.0 };
-    let line_h = |l: &TalkLine| 24.0 + (text_width(&l.text, 16.0) / inner).ceil().max(1.0) * 20.0;
-    let choices_h = if choices.is_empty() {
-        0.0
-    } else {
-        24.0 + choices.len() as f32 * (CHOICE_H + 6.0)
-    };
-    // The banner sits over the column's top when it reaches that far left.
-    let column = Rect::new(MARGIN, 0.0, w, viewport.y);
-    let ceiling = goal_rect(world, viewport)
-        .filter(|g| overlaps(g, &column))
-        .map_or(MARGIN, |g| g.y + g.h + GAP);
-    let room = viewport.y - MARGIN - ceiling;
-    let height = |lines: &[TalkLine]| {
-        let empty_h = if lines.is_empty() && title.is_some() {
-            26.0
-        } else {
-            0.0
-        };
-        let h = 20.0 + title_h + empty_h + lines.iter().map(line_h).sum::<f32>() + choices_h;
-        (h, empty_h)
-    };
-    while lines.len() > 1 && height(&lines).0 > room {
-        lines.remove(0);
-    }
-    let (h, empty_h) = height(&lines);
-    Some(TalkLayout {
-        rect: Rect::new(MARGIN, viewport.y - h - MARGIN, w, h),
-        title,
-        lines,
-        title_h,
-        empty_h,
-    })
-}
-
-/// Where the talk panel goes, if anything is said (the hint pill keeps clear of it).
-pub fn talk_rect(
-    world: &WorldState,
-    history: &History,
-    answer: Option<&hooks::Answer>,
-    choices: &[hooks::OpenChoice],
-    viewport: G2,
-) -> Option<Rect> {
-    talk_layout(world, history, answer, choices, viewport).map(|l| l.rect)
-}
-
-/// The talk panel, bottom left: what was said since the flagship last docked (dock
-/// talk and the chronicle), each naming its speaker and place. While docked after
-/// asking "What changed?", the dockmaster's answer instead. Below the lines, a button
-/// for each answer someone here is waiting for (`choices`, keys 1 to 9). Nothing when
-/// nobody has spoken. Returns the answer buttons.
-pub fn talk(
-    o: &mut Overlay,
-    world: &WorldState,
-    history: &History,
-    answer: Option<&hooks::Answer>,
-    choices: &[hooks::OpenChoice],
-    ui: &UiState,
-    viewport: G2,
-) -> Vec<Button> {
-    let Some(TalkLayout {
-        rect,
-        title,
-        lines,
-        title_h,
-        empty_h,
-    }) = talk_layout(world, history, answer, choices, viewport)
-    else {
-        return Vec::new();
-    };
-    let inner = rect.w - 32.0;
-    o.panels.push(Panel {
-        fill: palette::PARCHMENT.with_alpha(0.95),
-        ..Panel::new(rect)
-    });
-    let x = rect.x + 16.0;
-    let mut y = rect.y + 12.0;
-    if let Some(t) = title {
-        o.texts
-            .push(Text::new(t, G2::new(x, y), 17.0).weight(700).color(BLACK));
-        y += title_h;
-    }
-    if lines.is_empty() && empty_h > 0.0 {
-        o.texts.push(
-            Text::new("Nothing new since you were last here.", G2::new(x, y), 16.0)
-                .weight(500)
-                .color(BLACK),
-        );
-        y += empty_h;
-    }
-    for line in &lines {
-        y += talk_row(o, world, line, x, y, inner);
-    }
-    let mut buttons = Vec::new();
-    if !choices.is_empty() {
-        // Who is waiting: one name, or "Your answer" when several people asked.
-        let first = &choices[0].npc;
-        let head = if choices.iter().all(|c| &c.npc == first) {
-            let name = world
-                .npcs
-                .get(first)
-                .map_or_else(|| first.to_string(), |n| n.name.clone());
-            format!("Answer {name}")
-        } else {
-            "Your answer".to_owned()
-        };
-        o.texts.push(
-            Text::new(head, G2::new(x, y + 2.0), 14.0)
-                .weight(700)
-                .color(BLACK),
-        );
-        y += 24.0;
-        for (i, c) in choices.iter().enumerate() {
-            let rect = Rect::new(x, y, inner, CHOICE_H);
-            buttons.push(button(
-                o,
-                ui,
-                rect,
-                &format!("{}   {}", i + 1, c.text),
-                true,
-                UiAction::Reply {
-                    npc: c.npc.clone(),
-                    choice: c.choice.clone(),
-                },
-            ));
-            y += CHOICE_H + 6.0;
-        }
-    }
-    buttons
 }
 
 /// The prestige confirm card: what stays, what resets, and the fee.
@@ -1193,7 +1053,7 @@ pub fn dock_panel(
     let natural = fixed + market_full + services_full;
     // Under the goal banner and the hold, which share the top right; if it doesn't fit
     // there (a full hold makes the hold panel tall), beside the hold, under the goal,
-    // as long as that keeps clear of the talk panel's column.
+    // as long as that leaves the station and its bubbles their room.
     let goal_bottom = goal_rect(world, viewport).map_or(0.0, |r| r.y + r.h + 12.0);
     let hold = hold_rect(world, viewport);
     let under = hold
@@ -1202,7 +1062,7 @@ pub fn dock_panel(
         .max(90.0);
     let beside = hold
         .map(|r| r.x - GAP - w)
-        .filter(|x| *x >= MARGIN + TALK_WIDTH + GAP);
+        .filter(|x| *x >= MARGIN + BUBBLE_ROOM + GAP);
     let (top, x0) = match beside {
         Some(x) if natural > viewport.y - under - 18.0 => (goal_bottom.max(90.0), x),
         _ => (under, viewport.x - w - 18.0),
@@ -1278,7 +1138,7 @@ pub fn dock_panel(
         o.texts.push(
             Text::new("No market here.", G2::new(col_ware, y), 17.0)
                 .weight(500)
-                .color(palette::INK.with_alpha(0.7)),
+                .color(BLACK),
         );
         y += 30.0;
     } else {
@@ -1381,7 +1241,7 @@ pub fn dock_panel(
                     13.0,
                 )
                 .weight(500)
-                .color(palette::INK.with_alpha(0.6)),
+                .color(BLACK),
             );
             buttons.push(button(
                 o,
@@ -1447,7 +1307,7 @@ pub fn dock_panel(
                 o.texts.push(
                     Text::new(offer.effect.as_str(), G2::new(col_ware, y + 23.0), 14.0)
                         .weight(500)
-                        .color(palette::INK.with_alpha(0.75))
+                        .color(BLACK)
                         .wrap(w - 48.0 - 140.0),
                 );
                 if let Some(blocked) = offer.blocked.as_deref() {
@@ -1507,7 +1367,7 @@ pub fn dock_panel(
                 13.0,
             )
             .weight(500)
-            .color(palette::INK.with_alpha(0.6)),
+            .color(BLACK),
         );
         buttons.push(button(
             o,

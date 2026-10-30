@@ -106,6 +106,10 @@ id = "slot.hold_column"
 kind = "ui"
 name = "Column on the hold screen"
 
+# Screen keys, not ship controls (never taught, never bound to a slot); each has a
+# button too: L opens or closes the ship log (the Log icon, bottom left). Enter shows
+# the next talk bubble at the dock (or click the bubble). 1 to 9 pick a bubble's answer.
+
 # Developer keys, not game controls (never taught, never bound to a slot): F2 shows
 # frames and sim ticks a second (`galaxy play --fps` starts with it on), F3 the debug
 # overlay, N mutes the sound.

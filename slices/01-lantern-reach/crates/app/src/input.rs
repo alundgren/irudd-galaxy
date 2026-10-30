@@ -33,6 +33,10 @@ pub enum Key {
     ZoomIn,
     /// The number keys 1 to 9: pick that answer at the dock (0-based).
     Answer(u8),
+    /// L: open or close the ship log.
+    Log,
+    /// Enter: the next talk bubble (or the next line of a replay in the log).
+    Enter,
 }
 
 /// Which keys are down, plus a Space press the ticks haven't seen yet.

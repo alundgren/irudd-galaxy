@@ -56,6 +56,8 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "can't find the packs folder; set GALAXY_PACKS".to_owned(),
     ))?;
     let rules = crate::ui::HintRules::load(&crate::game::core_data(&packs)).map_err(|e| (4, e))?;
+    let anchors =
+        crate::ui::talk::TalkAnchors::load(&crate::game::core_data(&packs)).map_err(|e| (4, e))?;
     let seed = state.world.meta.seed;
     // The same composition as play: the game master's applied packs run in the game's
     // script host too (staged ones wait for a real load).
@@ -69,6 +71,10 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     let mut session = Session::with_game(game);
     let taught = crate::saves::read_hints(&args.save).map_err(|e| (4, e))?;
     session.hints = crate::ui::HintBook::new(rules, taught);
+    session.anchors = anchors;
+    if let Some(record) = crate::saves::read_talk(&args.save).map_err(|e| (4, e))? {
+        session.talk = crate::ui::talk::TalkBook::from_record(&record);
+    }
     let mut ui_state = UiState {
         map_open: args.map,
         ..UiState::default()
@@ -81,6 +87,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
             save.write(session.state())
                 .map_err(|e| (1, e.to_string()))?;
             crate::saves::write_hints(&args.save, session.hints.counts()).map_err(|e| (1, e))?;
+            crate::saves::write_talk(&args.save, &session.talk.record()).map_err(|e| (1, e))?;
         }
     }
     let mut renderer =
@@ -127,14 +134,16 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "notice": session.trades.notice,
         "service_notice": session.services.notice,
         "fitted": session.services.fitted,
-        "talk": crate::hooks::talk_lines(world, session.sim().history(), 3)
-            .iter()
-            .map(|l| json!({
-                "speaker": crate::hooks::speaker(world, l),
-                "place": crate::hooks::place(world, l),
-                "text": l.text,
-            }))
-            .collect::<Vec<_>>(),
+        "bubble": session.bubble().map(|b| json!({
+            "speaker": crate::hooks::speaker(world, &b.line),
+            "place": crate::hooks::place(world, &b.line),
+            "voice": format!("{:?}", b.voice).to_lowercase(),
+            "text": b.line.text,
+            "choices": b.choices.iter().map(|(_, c)| c.text.clone()).collect::<Vec<_>>(),
+            "more": b.more,
+        })),
+        "log_new": session.talk.log_new(),
+        "log_open": ui_state.log_open,
         "written": args.write && args.keys.is_some(),
     }))
 }

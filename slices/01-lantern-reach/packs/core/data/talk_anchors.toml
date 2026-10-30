@@ -1,0 +1,32 @@
+# Where talk bubbles rise from on a docked station (issue #47, Phase 2). Each person's
+# bubble rises from their part of the station: a spot on the station's art, by role, or
+# by person where someone stands apart. The dockmaster speaks from the office.
+#
+# A spot is an angle in degrees (0 = east, 90 = north, counterclockwise) and a reach
+# from the station's centre as a fraction of its docking ring's radius. Station modules
+# (Phase 3) will replace the spots; the role and person maps stay. Read by the app
+# (crates/app/src/ui/talk.rs).
+
+# A person with no role or person entry here, and anyone not at this station.
+default = "hub"
+# Lines with no speaker: the dock's confirmations ("Delivered 20 ice to Odo · +120 cr")
+# and notices.
+notices = "hub"
+
+[spots]
+hub = { angle = 90, reach = 0.0 }
+office = { angle = 170, reach = 0.85 }
+cradle = { angle = 20, reach = 0.95 }
+berths = { angle = 300, reach = 0.9 }
+stalls = { angle = 230, reach = 0.85 }
+lamp = { angle = 120, reach = 0.9 }
+
+[roles]
+dockmaster = "office"
+hullwright = "cradle"
+tender_keeper = "berths"
+dockhand = "stalls"
+prospector = "stalls"
+archivist = "lamp"
+
+[people]

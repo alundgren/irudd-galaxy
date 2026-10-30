@@ -10,12 +10,17 @@
 //!   only by their own committed events.
 //! - **Station services** go through [`ServiceDesk`]: a purchase rides the next tick's
 //!   `PlayerInput::services` and is settled by its own committed event.
+//! - **Talk at the dock** ([`TalkBook`]): after every tick the session sorts what was
+//!   said. Dock talk waits as bubbles at its dock ([`Session::bubble`]) until the player
+//!   clicks past it ([`Session::next_line`]) or answers it; the rest goes to the ship
+//!   log. Like the hint counts, the book belongs to the save file, not the world.
 //! - **Answers at the dock** go through [`Session::reply`]: a choice a line offered
 //!   rides the next tick's `PlayerInput::replies`, and the scripts answer it.
 //! - **"What changed?"** at the dockmaster ([`Session::ask_what_changed`]) is the same
 //!   reply (`choice.what_changed`): the core pack records `core.asked_what_changed`
 //!   and has the dockmaster say the answer's lines; the session adds digest lines for
-//!   what's left, says them, and keeps the answer up until the ship leaves.
+//!   what's left and says them, so they come up as bubbles. The answer's notices (and
+//!   "nothing new") follow them until the ship leaves.
 //! - **Poses** from before and after the last tick, so drawing can interpolate between
 //!   fixed ticks.
 //! - **Hints** ([`HintBook`]): after every tick the session counts the hint actions the
@@ -28,6 +33,7 @@
 use std::collections::BTreeMap;
 
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::bus::Subscriber;
 use galaxy_core::{Sim, SimState};
 
@@ -35,6 +41,7 @@ use crate::game::{Game, GameOptions};
 use crate::hooks::{self, Answer};
 use crate::trades::{DockTrades, ServiceDesk, Settled};
 use crate::ui::hints::{Acts, HintBook, HintRules};
+use crate::ui::talk::{Bubble, TalkAnchors, TalkBook};
 
 /// The app's cause name for what it submits itself.
 pub const APP: &str = "app";
@@ -99,8 +106,17 @@ pub struct Session {
     pub services: ServiceDesk,
     /// How far each context hint has taught, in this save.
     pub hints: HintBook,
+    /// Which lines wait to be seen at which dock, and what's new in the log.
+    pub talk: TalkBook,
+    /// Where each speaker's bubbles rise from.
+    pub anchors: TalkAnchors,
     /// The dockmaster's answer to "What changed?", while docked where it was asked.
     pub answer: Option<Answer>,
+    /// How many of the answer's own bubbles ([`Session::answer_extras`]) were seen.
+    answer_seen: usize,
+    /// Lines waiting for an answer that the player set aside for now, in the order they
+    /// were; they show after the rest, until the ship leaves.
+    later: Vec<TalkId>,
     /// The question, asked and not answered yet.
     asking: Option<Asking>,
     /// Answers for the next tick's `PlayerInput::replies`.
@@ -125,6 +141,8 @@ impl Session {
             .unwrap_or_else(|e| panic!("{e}"));
         let mut s = Self::with_game(game);
         s.hints = HintBook::new(rules, Default::default());
+        s.anchors = TalkAnchors::load(&crate::game::core_data(&packs_root()))
+            .unwrap_or_else(|e| panic!("{e}"));
         s
     }
 
@@ -132,6 +150,7 @@ impl Session {
     pub fn with_game(mut game: Game) -> Self {
         let sub = game.sim_mut().subscribe("app");
         let before = poses(game.sim().world());
+        let talk = TalkBook::fresh(game.sim().world(), game.sim().history());
         Self {
             game,
             sub,
@@ -139,7 +158,11 @@ impl Session {
             trades: DockTrades::default(),
             services: ServiceDesk::default(),
             hints: HintBook::default(),
+            talk,
+            anchors: TalkAnchors::default(),
             answer: None,
+            answer_seen: 0,
+            later: Vec::new(),
             asking: None,
             replies: Vec::new(),
             before,
@@ -257,6 +280,7 @@ impl Session {
         }
         self.before = before;
         self.hints.observe(acts, self.game.sim().world());
+        self.talk.observe(self.game.sim().world());
         let sub = self.sub.clone();
         self.last_events = self.sim_mut().drain_events(&sub);
         let flagship = self.world().player.ship.clone();
@@ -279,6 +303,8 @@ impl Session {
             self.trades.clear();
             self.services.clear();
             self.answer = None;
+            self.answer_seen = 0;
+            self.later.clear();
             self.asking = None;
             self.replies.clear();
         } else {
@@ -343,6 +369,11 @@ impl Session {
                 after: self.sim().history().last_fact_id().unwrap_or(FactId(0)),
             });
             self.answer = None;
+            self.answer_seen = 0;
+        } else {
+            // The line that asked is answered: its bubble is done.
+            let world = self.game.sim().world();
+            self.talk.answered(world, &npc, &choice);
         }
         self.replies.retain(|r| r.npc != npc || r.choice != choice);
         self.replies.push(Reply { npc, choice });
@@ -425,6 +456,102 @@ impl Session {
         self.answer = Some(answer);
     }
 
+    /// The answer's own bubbles, after the lines it said: its notices, or the
+    /// dockmaster's "nothing new" when it found nothing.
+    fn answer_extras(&self) -> Vec<TalkLine> {
+        let Some(a) = &self.answer else {
+            return Vec::new();
+        };
+        if a.lines.is_empty() {
+            return vec![TalkLine {
+                channel: Channel::DockTalk,
+                speaker: a.speaker.clone(),
+                place: Some(a.station.clone()),
+                text: "Nothing new since you were last here.".to_owned(),
+                cites: Vec::new(),
+                about: Vec::new(),
+                choices: Vec::new(),
+            }];
+        }
+        a.lines
+            .iter()
+            .filter(|l| l.channel != Channel::DockTalk)
+            .cloned()
+            .collect()
+    }
+
+    /// The talk bubble showing at the dock now: the oldest line waiting here, then the
+    /// "What changed?" answer's notices, then any line set aside while it waited for an
+    /// answer ([`Session::next_line`]). While someone waits for an answer whose line
+    /// was already seen, that line again, so the answer can always be clicked. `None`
+    /// in flight or when nothing is waiting.
+    pub fn bubble(&self) -> Option<Bubble> {
+        let station = self.flagship()?.docked_at.clone()?;
+        let (world, history) = (self.world(), self.sim().history());
+        let open = hooks::open_choices(world, history, &station);
+        // Everything still to show here, in order: (talk ID, line).
+        let queued = self
+            .talk
+            .queue(&station)
+            .filter_map(|id| Some((id, world.talk.lines.get(&id)?)));
+        let (later, now): (Vec<_>, Vec<_>) = queued.partition(|(id, _)| self.later.contains(id));
+        let lines: Vec<(Option<TalkId>, TalkLine)> = now
+            .into_iter()
+            .map(|(id, l)| (Some(id), l.line.clone()))
+            .chain(
+                self.answer_extras()
+                    .into_iter()
+                    .skip(self.answer_seen)
+                    .map(|l| (None, l)),
+            )
+            .chain(later.into_iter().map(|(id, l)| (Some(id), l.line.clone())))
+            .collect();
+        if let Some((id, line)) = lines.first() {
+            return Some(Bubble::new(*id, line.clone(), &open, lines.len() - 1));
+        }
+        let first = open.first()?;
+        let since = hooks::last_docking(world, history);
+        let asking = world
+            .talk
+            .on(Channel::DockTalk)
+            .filter(|l| l.tick >= since && l.line.speaker.as_ref() == Some(&first.npc))
+            .filter(|l| l.line.choices.iter().any(|c| c.id == first.choice))
+            .last()?;
+        Some(Bubble::new(Some(asking.id), asking.line.clone(), &open, 0))
+    }
+
+    /// Moves past the bubble showing now (a click on it, or Enter). One that waits for
+    /// an answer is set aside behind the other lines here, and comes back after them;
+    /// alone, it stays. False when nothing moved.
+    pub fn next_line(&mut self) -> bool {
+        let Some(b) = self.bubble() else {
+            return false;
+        };
+        match (b.talk, b.advances()) {
+            (Some(id), true) => self.talk.seen(id),
+            (None, true) => self.answer_seen += 1,
+            (Some(id), false) if b.more > 0 => {
+                // Behind everything else: a second time round it goes last again.
+                self.later.retain(|l| *l != id);
+                self.later.push(id);
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// Skips what's waiting at this dock (it stays in the log). Lines that wait for an
+    /// answer stay up.
+    pub fn skip_talk(&mut self) {
+        let Some(station) = self.flagship().and_then(|f| f.docked_at.clone()) else {
+            return;
+        };
+        let world = self.game.sim().world();
+        let open = hooks::open_choices(world, self.game.sim().history(), &station);
+        self.talk.skip(world, &station, &open);
+        self.answer_seen = self.answer_extras().len();
+    }
+
     /// Submits a batch between ticks (tests and dev tools).
     pub fn submit(&mut self, batch: CommandBatch) {
         self.sim_mut().submit(batch);
@@ -434,6 +561,11 @@ impl Session {
     pub fn finish(&mut self) {
         self.game.finish();
     }
+}
+
+/// The packs folder, for the headless constructor.
+fn packs_root() -> std::path::PathBuf {
+    crate::game::packs_dir(None).expect("the packs folder (packs/core)")
 }
 
 fn poses(world: &WorldState) -> BTreeMap<ShipId, Pose> {

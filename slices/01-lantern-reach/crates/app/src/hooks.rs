@@ -7,14 +7,14 @@
 //! - The goal banner lists every active beat's goal, newest first, each with who gave
 //!   it and where they are ([`goals`]). A goal nobody gave isn't shown: no objective
 //!   appears without a named source.
-//! - The talk panel shows what was said since the flagship last docked: dock talk and
-//!   chronicle entries from the world's talk log, each naming a person or a place and
-//!   citing a fact.
+//! - Talk at the dock ([`crate::ui::talk`]) and the ship log ([`crate::ui::log`]) read
+//!   the world's talk log: dock talk, chronicle entries and map notes, each naming a
+//!   person or a place and citing a fact.
 //! - "What changed?" ([`what_changed`]) is a dockmaster's answer: the lines the core
 //!   pack said when the player asked (a `choice.what_changed` reply), digest lines that
 //!   say plainly what a fact records, each citing it, and chronicle entries.
 //! - Open choices ([`open_choices`]) are the answers people at the dock are waiting
-//!   for; the dock shows them as buttons (keys 1 to 9) and the pick goes out as a
+//!   for; their bubbles show them as buttons (keys 1 to 9) and the pick goes out as a
 //!   `PlayerInput::replies` entry.
 //! - Station services ([`station_services`]) are the hullwright's, tender keeper's and
 //!   dockmaster's offers, from [`services::offers`].
@@ -22,7 +22,7 @@
 use std::collections::BTreeSet;
 
 use galaxy_contract::prelude::*;
-use galaxy_contract::talk::{Channel, SaidLine, TalkLine};
+use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::History;
 use galaxy_mind::TalkLines;
 use galaxy_progress::{beats, prestige, services};
@@ -89,7 +89,7 @@ pub fn goal_place(world: &WorldState) -> Option<StationId> {
 }
 
 /// The tick of the flagship's most recent docking (0 before any).
-fn last_docking(world: &WorldState, history: &History) -> Tick {
+pub fn last_docking(world: &WorldState, history: &History) -> Tick {
     history
         .last(&HistoryQuery {
             kind: Some(FactKind::from_static("dock")),
@@ -97,30 +97,6 @@ fn last_docking(world: &WorldState, history: &History) -> Tick {
             ..HistoryQuery::default()
         })
         .map_or(Tick(0), |f| f.tick)
-}
-
-/// The latest lines for the talk panel, newest last: dock talk and chronicle entries
-/// said since the flagship last docked (so they stay up on the way to the next
-/// station), at most `limit`.
-pub fn talk_lines(world: &WorldState, history: &History, limit: usize) -> Vec<TalkLine> {
-    let since = last_docking(world, history);
-    let mut out: Vec<&SaidLine> = world
-        .talk
-        .lines
-        .values()
-        .filter(|l| l.tick >= since)
-        .filter(|l| matches!(l.line.channel, Channel::DockTalk | Channel::Chronicle))
-        .collect();
-    let skip = out.len().saturating_sub(limit);
-    out.drain(..skip);
-    out.into_iter().map(|l| l.line.clone()).collect()
-}
-
-/// The latest chronicle entries, newest last.
-pub fn chronicle(world: &WorldState, limit: usize) -> Vec<TalkLine> {
-    let all: Vec<&SaidLine> = world.talk.on(Channel::Chronicle).collect();
-    let skip = all.len().saturating_sub(limit);
-    all[skip..].iter().map(|l| l.line.clone()).collect()
 }
 
 /// The speaker's name for a line, if it has one.
@@ -143,11 +119,6 @@ pub fn place(world: &WorldState, line: &TalkLine) -> Option<String> {
             .get(s)
             .map_or_else(|| s.to_string(), |s| s.name.clone()),
     )
-}
-
-/// Whether `line` belongs in the talk panel.
-pub fn is_talk(line: &TalkLine) -> bool {
-    matches!(line.channel, Channel::DockTalk | Channel::Chronicle)
 }
 
 /// The NPC at `station` with `role`, if any.

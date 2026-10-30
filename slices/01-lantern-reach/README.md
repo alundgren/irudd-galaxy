@@ -73,15 +73,7 @@ The goal banner at the top lists every active goal, newest first, each under who
 it and where they are ("Rook Adeyemi · Cinder Hook"). A goal nobody gave doesn't show.
 On the map the banner sits beside the map's title, so both stay readable.
 
-The talk panel at the bottom left shows what people said since you last docked, with
-who and where. It's empty, and hidden, until someone has something to say. When
-someone asks you something (Rook's question about the depot, Orrin's about your
-flying, Nell's about the fragment), your answers are buttons under their line; the
-number keys **1** to **9** pick them too.
-
 ![Orrin's list on the Wharf's dock screen](docs/screenshots/dock-services.png)
-
-![Rook asks whose name the plate is in](docs/screenshots/dock-replies.png)
 
 The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
 examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
@@ -102,9 +94,50 @@ wherever it is.
 The window opens at 1280x720, the size the panels are laid out for, and won't shrink
 below 960x540. Below 1280x720 the panels scale down to fit rather than clipping, and a
 market longer than the screen scrolls with the selection. The panels are laid out
-against each other so none covers another: the hint pill moves right of the talk
-panel when they'd meet, and the talk panel drops its oldest lines rather than run up
-under the goal banner.
+against each other so none covers another: bubbles stay in the room left of the dock
+screen, under the goal banner and above the log icon, and get wider before they'd run
+out of it; the hint pill moves right of the log icon when they'd meet.
+
+### Talk and the ship log
+
+At a dock, people talk in short bubbles over the part of the station they work at: the
+dockmaster speaks from the office, Orrin from his cradle, Tamsin from the berths
+(`packs/core/data/talk_anchors.toml` maps each role, or a person, to a spot on the
+station's art). Click a bubble, or press **Enter**, for the next line, oldest first;
+the bubble's foot says how many more are waiting, and **Skip** sends the rest to the
+log. When someone asks you something (Odo's Deliver / Sell / Keep, Ilse's plate, Rook's
+question about the depot, Orrin's about your flying), the answers are buttons on their
+bubble, numbered for the keys **1** to **9**, and the bubble waits for one. What you
+gave and got comes back as a dark ticket marked **Confirmed** ("Delivered 20 ice to
+Odo · +120 cr").
+
+Flying off ends the bubbles: nothing stays on screen in flight. Anything you didn't
+click through is said again the next time you dock there.
+
+The **Log** icon sits bottom left; click it or press **L**. While it's open the goal
+banner steps aside, because the log pins the same jobs at its top:
+
+- **Pinned:** every active **Job** under who gave it and where, **Cargo** you carry
+  for someone ("20 refined plate in your hold for Rook at Cinder Hook"), and each
+  **Offer** you left unanswered at a dock, with its answers and where to give them.
+- **One line per visit**, newest first, ordered by dockings: the dock and who spoke,
+  then what happened ("Kettle Dock · Odo" over "Delivered 20 ice to Odo · +120 cr;
+  sold 5 ice"). Click a visit (**Replay**) to step through that visit's bubbles again.
+- **Said:** a person's line that reached you in flight, marked "in flight".
+- **Notice:** a dark ticket about a place (a world change, a note on the map).
+
+![Odo asks what to do with the ice: Deliver, Sell or Keep](docs/screenshots/dock-bubble.png)
+
+![The ship log: a pinned job and offer, one line per visit](docs/screenshots/ship-log.png)
+
+Every kind carries its word and its own shape, so none depends on colour. The panel's
+size is fixed by the screen; older entries page with **Newer** and **Older**. When
+anything was said in flight or noticed since you last opened the log, the icon carries
+a blue tag with the count ("2 new").
+
+The log is read from what the save already holds (the docking facts, the talk lines,
+the trades). Which lines are still waiting at which dock, and the "new" count, are kept
+in the save file's own `app_talk` table, like the hint counts.
 
 ### Hints
 
@@ -288,7 +321,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload] [--goal-marker]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
 | `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
-| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `w,wait*3,w*75,wait*30,space*240` (fly off the dock, fly east, coast to a stop, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `w,wait*3,w*75,wait*30,space*240` (fly off the dock, fly east, coast to a stop, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:talk` (click the bubble, `:talk*3` three times), `:skip`, `:log`, `:replay:N` (the Nth visit in the open log), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |

@@ -16,8 +16,13 @@
 //!   (`hull.tandem`);
 //! - `:ask`: ask the dockmaster what changed;
 //! - `:reply:N`: pick the Nth open answer at the dock (1-based, as the number keys and
-//!   the talk panel's buttons number them), or `:reply:CHOICE` by its ID
+//!   the bubbles' buttons number them), or `:reply:CHOICE` by its ID
 //!   (`:reply:choice.side_coop`); then the ticks run so the scripts answer;
+//! - `:talk`: click the talk bubble (or press Enter): its next line, or in the open log
+//!   the replay's next line; `:talk*N` clicks N times;
+//! - `:skip`: the bubble's Skip: what's waiting at this dock goes to the log;
+//! - `:log`: open or close the ship log (L, or the log icon);
+//! - `:replay:N`: in the open log, replay the Nth visit, newest first (1-based);
 //! - `:click:X:Y`, `:qclick:X:Y`: click the play plane at world point X,Y (resolved to a
 //!   station, rock or point as the window does), or shift-click to queue it;
 //! - `:mapclick:REGION`: click a region on the map (map travel).
@@ -42,6 +47,10 @@ enum Step {
     Buy(String),
     Ask,
     Reply(String),
+    Talk(u32),
+    Skip,
+    Log,
+    Replay(usize),
     Click { at: (f32, f32), queue: bool },
     MapClick(String),
 }
@@ -90,6 +99,16 @@ fn parse(script: &str) -> Result<Vec<Step>, String> {
             ":trade" => Step::Trade(Amount::One),
             ":tradeall" => Step::Trade(Amount::Most),
             ":ask" => Step::Ask,
+            ":talk" => Step::Talk(n),
+            ":skip" => Step::Skip,
+            ":log" => Step::Log,
+            t if t.starts_with(":replay:") => Step::Replay(
+                t[8..]
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|n| *n >= 1)
+                    .ok_or_else(|| format!("`{raw}` needs a visit number from 1"))?,
+            ),
             t if t.starts_with(":reply:") => Step::Reply(t[7..].to_owned()),
             t if t.starts_with(":buy:") => Step::Buy(t[5..].to_owned()),
             t if t.starts_with(":click:") => Step::Click {
@@ -197,6 +216,31 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                     ticks += 1;
                 }
             }
+            Step::Talk(n) => {
+                for _ in 0..n {
+                    ui_state.enter(session);
+                }
+            }
+            Step::Skip => session.skip_talk(),
+            Step::Log => ui_state.toggle_log(&mut session.talk),
+            Step::Replay(n) => {
+                if !ui_state.log_open {
+                    return Err(format!("`:replay:{n}` needs the log open (`:log`)"));
+                }
+                let (world, history) = (session.world(), session.sim().history());
+                let visits = ui::log::visits(world, history);
+                let from = ui::log::entries(world, &visits)
+                    .into_iter()
+                    .filter_map(|e| match e {
+                        ui::log::Entry::Visit(i) if !visits[i].bubbles().is_empty() => {
+                            Some(visits[i].from)
+                        }
+                        _ => None,
+                    })
+                    .nth(n - 1)
+                    .ok_or_else(|| format!("`:replay:{n}`: the log has fewer visits"))?;
+                ui_state.replay = Some(ui::log::Replay { from, line: 0 });
+            }
             Step::Click { at, queue } => {
                 let world = session.world();
                 let Some(region) = session.flagship().map(|f| f.region.clone()) else {
@@ -291,6 +335,11 @@ mod tests {
                 Step::Reply("choice.side_coop".into())
             ]
         );
+        assert_eq!(
+            parse(":talk*3,:skip,:log,:replay:2").unwrap(),
+            vec![Step::Talk(3), Step::Skip, Step::Log, Step::Replay(2)]
+        );
+        assert!(parse(":replay:0").is_err());
         assert!(parse("x*3").is_err());
         assert!(parse("w*lots").is_err());
     }
