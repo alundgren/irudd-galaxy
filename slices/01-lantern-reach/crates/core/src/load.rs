@@ -146,6 +146,31 @@ pub fn craft_backfill(dir: &Path, world: &WorldState) -> Result<Vec<CommandBatch
     Ok(batches)
 }
 
+/// The cause name of [`pacing_backfill`]'s batch.
+pub const PACING_BACKFILL: &str = "pacing_backfill";
+
+/// A batch that adds the tunables `dir`'s `pacing.toml` defines and the world lacks (a
+/// save made before they were authored), each at its authored value, caused by the
+/// system [`PACING_BACKFILL`]. A tunable the world has, tuned or not, is left alone, so
+/// saved overrides stay. `None` when nothing is missing. The result depends only on
+/// `dir` and the world, so it repeats exactly.
+pub fn pacing_backfill(dir: &Path, world: &WorldState) -> Result<Option<CommandBatch>, DataError> {
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batch = CommandBatch::new(Cause::system(
+        PACING_BACKFILL,
+        "pacing tunables a save made before them lacks",
+    ));
+    for (id, tunable) in &fresh.progress.tunables {
+        if !world.progress.tunables.contains_key(id) {
+            batch = batch.with(Command::SetTunable {
+                id: id.clone(),
+                value: Some(Box::new(tunable.clone())),
+            });
+        }
+    }
+    Ok((!batch.commands.is_empty()).then_some(batch))
+}
+
 /// Reads `dir` and builds the starting world for `seed`.
 pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let wares: WaresFile = read(dir, "wares.toml")?;

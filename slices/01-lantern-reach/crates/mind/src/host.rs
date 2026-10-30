@@ -266,10 +266,11 @@ impl MindHost {
                         p.resume(&cx, &facts[..from])
                             .into_iter()
                             .filter(|m| {
-                                !sim.state().kernel.pending.iter().any(|b| {
-                                    matches!(b.cause.kind, CauseKind::Mind { .. })
-                                        && b.cause.cites.contains(&m.trigger)
-                                })
+                                !sim.state()
+                                    .kernel
+                                    .pending
+                                    .iter()
+                                    .any(|b| m.answered_by(&b.cause))
                             })
                             .map(|m| (i, m)),
                     );

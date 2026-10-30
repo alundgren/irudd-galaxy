@@ -13,7 +13,7 @@
 //! - [`RumorSpread`]: an NPC craft docks and carries a rumor from its last station,
 //!   with the rumor's truth value unchanged.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
@@ -54,6 +54,18 @@ pub struct Menu {
     pub cites: Vec<FactId>,
     /// Must still hold when the answer is applied.
     pub preconditions: Vec<Precondition>,
+}
+
+impl Menu {
+    /// Whether `cause` is this menu's outcome: a fast-model decision on the same kind
+    /// of menu, for the same person, citing the same trigger. Another menu the same
+    /// docking opened (a rumor the craft carried in) doesn't answer this one.
+    pub fn answered_by(&self, cause: &Cause) -> bool {
+        matches!(&cause.kind, CauseKind::Mind { npc, decision }
+            if *npc == self.npc
+                && decision.split_once(':').is_some_and(|(kind, _)| kind == self.kind))
+            && cause.cites.contains(&self.trigger)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -165,17 +177,18 @@ impl<P: PlanSource> MenuProvider for TraderMenus<P> {
 
     /// A craft whose route choice was still out when the save was written sits docked
     /// with no orders, and only a new docking would ask again. On reopening, each such
-    /// craft is asked again for its last docking, unless a committed decision already
-    /// answered it (the host also skips one whose answer is queued in the save). The
-    /// outcome is the model's pick or the utility default, so it never stays parked.
+    /// craft is asked again for its last docking, unless a committed route decision for
+    /// that craft already answered it (the host also skips one whose answer is queued in
+    /// the save). Other decisions citing the docking, such as the rumor it carried in,
+    /// don't count. The outcome is the model's pick or the utility default, so it never
+    /// stays parked.
     fn resume(&self, cx: &MenuCtx<'_>, facts: &[Fact]) -> Vec<Menu> {
-        let settled: BTreeSet<FactId> = cx
+        let decided: Vec<(&Cause, Option<&ShipId>)> = cx
             .history
             .facts()
             .iter()
             .filter(|f| f.kind.as_str() == crate::DECISION_FACT)
-            .filter_map(|f| cx.history.cause(f.cause))
-            .flat_map(|c| c.cause.cites.iter().copied())
+            .filter_map(|f| Some((&cx.history.cause(f.cause)?.cause, f.subjects.ship.as_ref())))
             .collect();
         let mut out = Vec::new();
         for (id, ship) in cx.world.ships.iter() {
@@ -197,9 +210,12 @@ impl<P: PlanSource> MenuProvider for TraderMenus<P> {
             if let Some(f) = last
                 && facts.last().is_some_and(|saved| f.id <= saved.id)
                 && docked(f).is_some_and(|(_, at)| ship.docked_at.as_ref() == Some(at))
-                && !settled.contains(&f.id)
             {
-                out.extend(self.menus(cx, f));
+                out.extend(self.menus(cx, f).into_iter().filter(|m| {
+                    !decided
+                        .iter()
+                        .any(|(cause, ship)| *ship == m.ship.as_ref() && m.answered_by(cause))
+                }));
             }
         }
         out

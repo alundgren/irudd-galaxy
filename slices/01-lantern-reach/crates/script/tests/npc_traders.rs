@@ -5,6 +5,7 @@ use common::{core_data, slice};
 use galaxy_contract::prelude::*;
 use galaxy_core::{Save, Sim, SimState};
 use galaxy_mind::executor::{Done, Executor, Job};
+use galaxy_mind::menu::{RUMOR_SPREAD, TRADER_ROUTE};
 use galaxy_mind::{FakeMind, Inline, MindConfig, MindHost};
 use galaxy_script::{ScriptHost, host::HostEvent};
 
@@ -81,7 +82,8 @@ impl Fleet {
         Self::build(s, default_only, Inline::new(FakeMind::new(seed)), true)
     }
 
-    /// `backfill`: queue the named traders an older save lacks, as `Game::open` does.
+    /// `backfill`: queue the tunables and named traders an older save lacks, as
+    /// `Game::open` does.
     fn build(
         s: SimState,
         default_only: bool,
@@ -91,7 +93,7 @@ impl Fleet {
         let mut sim = galaxy_core::game(s)
             .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)));
         if backfill {
-            galaxy_core::queue_craft_backfill(&mut sim, &core_data()).unwrap();
+            galaxy_core::queue_backfill(&mut sim, &core_data()).unwrap();
         }
         sim.add_system(Box::new(galaxy_economy::EconomySystem));
         let scripts = ScriptHost::new(None);
@@ -384,6 +386,34 @@ fn older_save_gets_its_named_traders_and_the_ignored_shortage_resolves() {
 }
 
 #[test]
+fn older_save_without_a_newer_tunable_plays_past_the_ignored_shortage() {
+    // A save made before named traders and before `relief_fallback_pulses`: the
+    // shortage's dock handler reads the tunable once relief is flagged.
+    const FALLBACK: &str = "shortage.rimewater_ice.relief_fallback_pulses";
+    let mut s = ignored_shortage(107);
+    older(&mut s);
+    let authored = s.world.progress.tunables.remove(FALLBACK).unwrap();
+    // `Fleet::step` fails on any script abort.
+    let mut f = Fleet::build(
+        save_and_load(&s),
+        true,
+        Inline::new(FakeMind::new(107)),
+        true,
+    );
+    f.until(|f| f.has("core.shortage_started"));
+    f.until(|f| f.has("core.shortage_resolved"));
+    assert_eq!(f.fact("core.shortage_resolved").unwrap().amount, Some(0));
+    let w = f.sim.world();
+    assert!(w.player.flags.contains("mech.even_keel_relief"));
+    assert_eq!(w.progress.tunables.get(FALLBACK), Some(&authored));
+    // The save's own values stay.
+    assert_eq!(
+        w.progress.tunables["shortage.rimewater_ice.ignored_pulses"].value,
+        TunableValue::Number(0.0)
+    );
+}
+
+#[test]
 fn ignored_shortage_resolves_without_even_keel() {
     // An older save the backfill couldn't reach: no Even Keel at all.
     let mut s = ignored_shortage(104);
@@ -503,4 +533,137 @@ fn route_choices_pending_at_save_are_asked_again_on_restore() {
         }
     }
     assert!(answered.values().all(|&n| n == 1), "{answered:?}");
+}
+
+/// Answers every model job at once except route choices, which it keeps thinking about.
+struct RoutesThinking {
+    inner: Inline,
+    routes: usize,
+}
+
+impl Executor for RoutesThinking {
+    fn submit(&mut self, ticket: u64, job: Job) -> bool {
+        if matches!(&job, Job::Decide(r) if r.instructions.contains("trade plan")) {
+            self.routes += 1;
+            return true;
+        }
+        self.inner.submit(ticket, job)
+    }
+    fn poll(&mut self) -> Vec<Done> {
+        self.inner.poll()
+    }
+    fn in_flight(&self) -> usize {
+        self.routes + self.inner.in_flight()
+    }
+}
+
+/// The menu kinds of the committed `mind.decision`s citing `trigger`.
+fn decisions(sim: &Sim, trigger: FactId) -> Vec<String> {
+    sim.history()
+        .facts()
+        .iter()
+        .filter(|f| f.kind.as_str() == galaxy_mind::DECISION_FACT)
+        .filter_map(|f| sim.history().cause(f.cause))
+        .filter(|c| c.cause.cites.contains(&trigger))
+        .filter_map(|c| match &c.cause.kind {
+            CauseKind::Mind { decision, .. } => decision.split_once(':').map(|(k, _)| k.into()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_rumor_answered_at_the_docking_does_not_settle_its_pending_route_on_restore() {
+    let mut s = state(109);
+    let rumor: RumorId = "rumor.test_cargo".parse().unwrap();
+    s.world.rumors.put(Rumor {
+        id: rumor.clone(),
+        claim: "A chart from Brassmouth".into(),
+        is_true: false,
+        heard_at: [BRASS.parse().unwrap()].into(),
+        source: None,
+        planted_by: None,
+        heard_by_player: false,
+    });
+    // Fly until a craft leaves Brassmouth carrying the rumor.
+    let mut a = Fleet::open(s, false);
+    let last_stop = |sim: &Sim, ship: &ShipId| {
+        sim.history()
+            .facts()
+            .iter()
+            .rev()
+            .find_map(|f| match &f.payload {
+                FactPayload::Event(Event::Dock { station, .. })
+                    if f.subjects.ship.as_ref() == Some(ship) =>
+                {
+                    Some(station.clone())
+                }
+                _ => None,
+            })
+    };
+    let leaving = |f: &Fleet| {
+        let w = f.sim.world();
+        w.traders
+            .keys()
+            .find(|id| {
+                let ship = w.ships.get(*id).unwrap();
+                ship.docked_at.is_none()
+                    && !ship.orders.orders.is_empty()
+                    && last_stop(&f.sim, id).is_some_and(|s| s.as_str() == BRASS)
+                    && w.rumors.get(&rumor).unwrap().heard_at.len() == 1
+            })
+            .cloned()
+    };
+    a.until(|f| leaving(f).is_some());
+    let craft = leaving(&a).unwrap();
+    let left = a.sim.history().last_fact_id().unwrap();
+
+    // It docks with the rumor: that choice finishes while its route choice is still out.
+    let mut b = Fleet::build(
+        save_and_load(a.sim.state()),
+        false,
+        RoutesThinking {
+            inner: Inline::new(FakeMind::new(109)),
+            routes: 0,
+        },
+        true,
+    );
+    let docking = |sim: &Sim| {
+        sim.history()
+            .facts()
+            .iter()
+            .find(|f| {
+                f.id > left
+                    && f.subjects.ship.as_ref() == Some(&craft)
+                    && matches!(f.payload, FactPayload::Event(Event::Dock { .. }))
+            })
+            .map(|f| f.id)
+    };
+    b.until(|f| docking(&f.sim).is_some_and(|d| !decisions(&f.sim, d).is_empty()));
+    let docked = docking(&b.sim).unwrap();
+    b.run(20);
+    assert_eq!(
+        decisions(&b.sim, docked),
+        [RUMOR_SPREAD],
+        "only the rumor answered"
+    );
+    let ship = b.sim.world().ships.get(&craft).unwrap();
+    assert!(
+        ship.docked_at.is_some() && ship.orders.orders.is_empty(),
+        "{craft} is parked"
+    );
+    let saved = b.sim.history().last_fact_id().unwrap();
+
+    // Restored, the route is asked again once and the craft flies on.
+    let mut c = Fleet::open(save_and_load(b.sim.state()), false);
+    c.run(650);
+    let mut kinds = decisions(&c.sim, docked);
+    kinds.sort();
+    assert_eq!(kinds, [RUMOR_SPREAD, TRADER_ROUTE]);
+    assert!(
+        c.sim.history().facts().iter().any(|f| f.id > saved
+            && f.subjects.ship.as_ref() == Some(&craft)
+            && f.kind.as_str() == "undock"),
+        "{craft} left the docking it was parked at"
+    );
 }

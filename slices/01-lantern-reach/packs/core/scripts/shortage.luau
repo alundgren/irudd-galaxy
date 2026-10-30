@@ -202,10 +202,14 @@ return G.script({
 				local pulses = ctx.market:pulses(ids.KETTLE)
 				local flagged = ctx.store:get("shortage", "relief_pulses")
 				local keel = ev.ship == ids.EVEN_KEEL and ev.station == ids.KETTLE
-				local fallback = ctx.space:craft(ids.EVEN_KEEL) == nil
-					or (
-						type(flagged) == "number"
-						and pulses - flagged >= util.num(ctx, T .. "relief_fallback_pulses")
+				-- Read the threshold only when it decides: Even Keel's arrival needs none.
+				local fallback = not keel
+					and (
+						ctx.space:craft(ids.EVEN_KEEL) == nil
+						or (
+							type(flagged) == "number"
+							and pulses - flagged >= util.num(ctx, T .. "relief_fallback_pulses")
+						)
 					)
 				if flagged ~= nil and not keel and not fallback then
 					return

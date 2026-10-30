@@ -36,8 +36,10 @@
 //!   order as `core` and `gm-examples`, and a new revision of a pack replaces the one
 //!   running. The sandbox child loads its packs the same way ([`Game::open_with`]).
 //! - **Hot reload** ([`GameOptions::hot_reload`]) is for development only.
-//! - **Older saves.** A save made before `craft.toml` gets its named traders on open:
-//!   one `craft_backfill` system batch per craft, applied with the first step.
+//! - **Older saves.** A save made before newer authored data gets it on open, applied
+//!   with the first step: one `pacing_backfill` system batch with the `pacing.toml`
+//!   tunables it lacks (at their authored values; saved ones stay), then one
+//!   `craft_backfill` batch per named trader it lacks.
 //! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
 //!   then steps once so its batches apply; save after it.
 
@@ -204,8 +206,8 @@ impl Game {
     ) -> Result<Game, String> {
         let mut sim = native(state);
         let mut notes = Vec::new();
-        // A save made before `craft.toml` gets its named traders (no-op otherwise).
-        galaxy_core::queue_craft_backfill(&mut sim, &core_data(&opts.packs))
+        // A save made before newer tunables or named traders gets them (no-op otherwise).
+        galaxy_core::queue_backfill(&mut sim, &core_data(&opts.packs))
             .map_err(|e| e.to_string())?;
         let analyzer = galaxy_script::analyzer::find(None);
         if analyzer.is_none() {

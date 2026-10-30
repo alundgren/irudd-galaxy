@@ -114,7 +114,8 @@ If Even Keel can't come (it isn't in the save, or Kettle sees
 `relief_fallback_pulses` more pulses first), the Compact sends the ice anyway.
 Little Mercy gains the ice road after player relief and the Observatory route
 after a Cooperative victory. A save made before the traders gets them when it
-opens (one `craft_backfill` system batch per craft, at home with orders to dock).
+opens (one `craft_backfill` system batch per craft, at home with orders to dock),
+and any `pacing.toml` tunable it lacks at its authored value (`pacing_backfill`).
 A route choice still out when an autosave was written is asked again on restore,
 so no trader stays parked.
 
