@@ -95,6 +95,31 @@ points the way), drift into its ring, press Space, and sell.
 
 ![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
 
+## Named trader traffic
+
+![Little Mercy and Quiet Lamp leaving the Wharf](docs/screenshots/npc-traders.png)
+
+Little Mercy, Ninefold, Even Keel and Quiet Lamp fly from the starting world.
+Their faction, hull, home, allowed stations and wares, load limits and route
+preferences are in `packs/core/data/craft.toml`. They use the same order runner
+and compare-and-set market trades as the player, carrying at most eight units
+of a ware and trading at most two wares per docking. The economy ranks complete
+plans; the trader mind picks among the best few when available, with the top
+utility plan as the default. Decisions happen on docking, never on a timer.
+
+Their faction-painted hulls appear in flight and on the map. Dockings count
+for the Hook dispute and carry rumors from the previous station without changing
+truth. After enough activity during an ignored shortage, Even Keel favours Kettle;
+its actual arrival delivers the Compact relief. The preference lasts afterwards.
+If Even Keel can't come (it isn't in the save, or Kettle sees
+`relief_fallback_pulses` more pulses first), the Compact sends the ice anyway.
+Little Mercy gains the ice road after player relief and the Observatory route
+after a Cooperative victory. A save made before the traders gets them when it
+opens (one `craft_backfill` system batch per craft, at home with orders to dock),
+and any `pacing.toml` tunable it lacks at its authored value (`pacing_backfill`).
+A route choice still out when an autosave was written is asked again on restore,
+so no trader stays parked.
+
 ## Playing on Linux
 
 Desktop Linux on x86_64 with a Vulkan driver, under X11 or Wayland. Install the build

@@ -93,6 +93,9 @@ profile = "slice"
 # Ignored: after this many station pulses at Kettle Dock the Compact brings ice.
 "shortage.rimewater_ice.ignored_pulses" = 40
 "shortage.rimewater_ice.compact_ice" = 120
+# Ignored, and Even Keel hasn't docked at Kettle within this many more Kettle pulses
+# (or isn't in the save): the Compact sends the ice anyway.
+"shortage.rimewater_ice.relief_fallback_pulses" = 40
 # Standing for each way.
 "shortage.rimewater_ice.way_a_standing" = 8
 "shortage.rimewater_ice.way_b_standing" = 10

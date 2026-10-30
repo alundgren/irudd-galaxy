@@ -21,7 +21,12 @@ fn data_dir() -> PathBuf {
 
 /// A new game with the real systems, one tick in so the economy has priced it.
 fn game() -> Sim {
-    let mut sim = galaxy_core::game(new_game(&data_dir(), 3).unwrap())
+    let mut state = new_game(&data_dir(), 3).unwrap();
+    // Price one actor's trade without unrelated arrivals producing stock.
+    for (id, _) in std::mem::take(&mut state.world.traders) {
+        state.world.ships.remove(&id);
+    }
+    let mut sim = galaxy_core::game(state)
         .with_systems(galaxy_ship::systems(Box::new(EconomyDesk)))
         .with_systems([Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>]);
     step(&mut sim);
