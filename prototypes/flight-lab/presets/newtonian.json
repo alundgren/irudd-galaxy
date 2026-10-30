@@ -1,0 +1,15 @@
+{
+  "name": "newtonian",
+  "settings": {
+    "max_speed": 500,
+    "accel": 700,
+    "inertia": 1.0,
+    "turn_rate": 220,
+    "brake": 900,
+    "auto_brake": false,
+    "boost": 1.8,
+    "zoom": 0.7,
+    "lead": 0.6,
+    "course_hold": true
+  }
+}

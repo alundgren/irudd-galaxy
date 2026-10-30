@@ -1,0 +1,15 @@
+{
+  "name": "snappy",
+  "settings": {
+    "max_speed": 440,
+    "accel": 2400,
+    "inertia": 0.1,
+    "turn_rate": 480,
+    "brake": 3000,
+    "auto_brake": true,
+    "boost": 1.5,
+    "zoom": 1.0,
+    "lead": 0.2,
+    "course_hold": true
+  }
+}

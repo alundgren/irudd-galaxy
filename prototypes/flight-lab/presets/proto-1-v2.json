@@ -1,0 +1,15 @@
+{
+  "name": "proto 1 v2",
+  "settings": {
+    "max_speed": 330,
+    "accel": 1100,
+    "inertia": 0.0,
+    "turn_rate": 400,
+    "brake": 1760,
+    "auto_brake": true,
+    "boost": 1.0,
+    "zoom": 1.0,
+    "lead": 0.15,
+    "course_hold": true
+  }
+}
