@@ -70,7 +70,9 @@ and checked the same way.
   muted = false
   ```
 
-  A file that can't be read leaves the defaults in place and isn't overwritten.
+  A file that can't be read leaves the defaults in place and is never overwritten that
+  session: N still mutes, in memory, and says once that it isn't kept. Changes are
+  written on a background thread, never on the frame.
 
 ## Checking without ears
 

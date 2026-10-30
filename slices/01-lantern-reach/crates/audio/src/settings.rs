@@ -2,9 +2,13 @@
 //!
 //! Volumes are 0.0 (off) to 1.0 (full) and multiply down the mixer: master, then the
 //! UI and world tracks under it. A missing file means the defaults (and is written so
-//! the player can find it); a broken one means the defaults too, and is left alone.
+//! the player can find it); a broken one means the defaults too, and is left alone for
+//! the whole session. Changes in play are written by a [`Writer`] on its own thread.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 
 use serde::{Deserialize, Serialize};
 
@@ -33,30 +37,51 @@ impl Default for Settings {
     }
 }
 
+/// What reading the settings file found.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Loaded {
+    pub settings: Settings,
+    /// Something about the file worth telling the player.
+    pub note: Option<String>,
+    /// False when the file is there but couldn't be read or parsed. It's the player's,
+    /// and may hold settings they can fix, so nothing writes over it.
+    pub writable: bool,
+}
+
 impl Settings {
-    /// Reads the file. Missing: the defaults, written out. Unreadable: the defaults and
-    /// a note saying why.
-    pub fn load_or_create(path: &Path) -> (Self, Option<String>) {
+    /// Reads the file. Missing: the defaults, written out. Unreadable: the defaults, a
+    /// note saying why, and not [`Loaded::writable`].
+    pub fn load_or_create(path: &Path) -> Loaded {
+        let broken = |e: String| Loaded {
+            settings: Self::default(),
+            note: Some(format!(
+                "{}: {e}; using the defaults and leaving the file alone",
+                path.display()
+            )),
+            writable: false,
+        };
         match std::fs::read_to_string(path) {
             Ok(text) => match Self::parse(&text) {
-                Ok(s) => (s, None),
-                Err(e) => (
-                    Self::default(),
-                    Some(format!("{}: {e}; using the defaults", path.display())),
-                ),
+                Ok(settings) => Loaded {
+                    settings,
+                    note: None,
+                    writable: true,
+                },
+                Err(e) => broken(e),
             },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let s = Self::default();
-                let note = s
+                let settings = Self::default();
+                let note = settings
                     .save(path)
                     .err()
                     .map(|e| format!("{}: {e}", path.display()));
-                (s, note)
+                Loaded {
+                    settings,
+                    note,
+                    writable: true,
+                }
             }
-            Err(e) => (
-                Self::default(),
-                Some(format!("{}: {e}; using the defaults", path.display())),
-            ),
+            Err(e) => broken(e.to_string()),
         }
     }
 
@@ -95,6 +120,77 @@ impl Settings {
     }
 }
 
+/// Writes the settings file on a background thread, so a change in play never waits on
+/// the disk. Settings queued while one is being written are coalesced: only the newest
+/// is written. Dropping it waits for the queued write.
+pub struct Writer {
+    tx: Option<Sender<Settings>>,
+    handle: Option<JoinHandle<()>>,
+    error: Arc<Mutex<Option<String>>>,
+}
+
+impl Writer {
+    pub fn start(path: PathBuf) -> Self {
+        let (tx, rx) = mpsc::channel::<Settings>();
+        let error = Arc::new(Mutex::new(None));
+        let errors = error.clone();
+        let shown = path.display().to_string();
+        let spawned = std::thread::Builder::new()
+            .name("sound-settings".into())
+            .spawn(move || {
+                while let Ok(mut s) = rx.recv() {
+                    while let Ok(newer) = rx.try_recv() {
+                        s = newer;
+                    }
+                    let result = s.save(&path).err().map(|e| format!("{shown}: {e}"));
+                    if let Ok(mut slot) = errors.lock() {
+                        *slot = result;
+                    }
+                }
+            });
+        let handle = match spawned {
+            Ok(h) => Some(h),
+            Err(e) => {
+                if let Ok(mut slot) = error.lock() {
+                    *slot = Some(format!("no thread to write the sound settings: {e}"));
+                }
+                None
+            }
+        };
+        Self {
+            tx: handle.is_some().then_some(tx),
+            handle,
+            error,
+        }
+    }
+
+    /// Queues `s` to be written. Returns at once.
+    pub fn write(&self, s: Settings) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(s);
+        }
+    }
+
+    /// The last write's error, if it failed.
+    pub fn last_error(&self) -> Option<String> {
+        self.error.lock().ok().and_then(|e| e.clone())
+    }
+
+    /// Waits for every queued write and stops the thread.
+    pub fn finish(&mut self) {
+        self.tx = None;
+        if let Some(h) = self.handle.take() {
+            let _ = h.join();
+        }
+    }
+}
+
+impl Drop for Writer {
+    fn drop(&mut self) {
+        self.finish();
+    }
+}
+
 /// A 0..=1 volume as decibels for kira (-60 dB is kira's silence).
 pub fn volume_db(v: f32) -> f32 {
     if v <= 0.001 {
@@ -112,13 +208,21 @@ mod tests {
     fn settings_round_trip_through_their_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("saves").join(FILE);
-        let (s, note) = Settings::load_or_create(&path);
-        assert_eq!(s, Settings::default());
-        assert!(note.is_none(), "{note:?}");
+        let loaded = Settings::load_or_create(&path);
+        assert_eq!(loaded.settings, Settings::default());
+        assert!(loaded.note.is_none(), "{:?}", loaded.note);
+        assert!(loaded.writable);
         assert!(path.exists(), "the defaults are written out");
-        let muted = Settings { muted: true, ..s };
-        muted.save(&path).unwrap();
-        assert_eq!(Settings::load_or_create(&path).0, muted);
+        let muted = Settings {
+            muted: true,
+            ..loaded.settings
+        };
+        let mut writer = Writer::start(path.clone());
+        writer.write(Settings::default());
+        writer.write(muted);
+        writer.finish();
+        assert!(writer.last_error().is_none());
+        assert_eq!(Settings::load_or_create(&path).settings, muted);
     }
 
     #[test]
@@ -126,9 +230,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(FILE);
         std::fs::write(&path, "master = \"loud\"\n").unwrap();
-        let (s, note) = Settings::load_or_create(&path);
-        assert_eq!(s, Settings::default());
-        assert!(note.is_some());
+        let loaded = Settings::load_or_create(&path);
+        assert_eq!(loaded.settings, Settings::default());
+        assert!(loaded.note.is_some());
+        assert!(!loaded.writable, "nothing may write over it");
         assert_eq!(
             std::fs::read_to_string(&path).unwrap(),
             "master = \"loud\"\n"

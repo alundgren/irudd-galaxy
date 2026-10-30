@@ -41,6 +41,16 @@ struct Output {
     takes: Vec<Vec<StaticSoundData>>,
 }
 
+/// Where changes to the settings go.
+enum Store {
+    /// Nowhere: no settings file.
+    Nowhere,
+    /// The file, written in the background.
+    File(settings::Writer),
+    /// The file didn't load at startup, so it's never written. Changes last the session.
+    Protected { path: PathBuf, told: bool },
+}
+
 /// The game's audio. Silent when no device could be opened.
 pub struct Audio {
     out: Option<Output>,
@@ -48,8 +58,8 @@ pub struct Audio {
     problem: Option<String>,
     director: Director,
     settings: Settings,
-    /// Where the settings are kept, if anywhere.
-    settings_path: Option<PathBuf>,
+    /// Where changes to the settings are kept.
+    store: Store,
     /// Something about the settings file worth telling the player.
     note: Option<String>,
     paused: bool,
@@ -61,13 +71,7 @@ impl Audio {
     /// (and written with the defaults if missing); `None` uses the defaults. Never
     /// fails: without a device the game is silent and [`Audio::problem`] says why.
     pub fn open(settings_file: Option<PathBuf>) -> Self {
-        let mut audio = Self::silent();
-        if let Some(path) = &settings_file {
-            let (s, note) = Settings::load_or_create(path);
-            audio.settings = s;
-            audio.note = note;
-        }
-        audio.settings_path = settings_file;
+        let mut audio = Self::without_device(settings_file);
         match Output::open(&audio.settings) {
             Ok(out) => audio.out = Some(out),
             Err(e) => audio.problem = Some(e),
@@ -82,11 +86,28 @@ impl Audio {
             problem: None,
             director: Director::new(),
             settings: Settings::default(),
-            settings_path: None,
+            store: Store::Nowhere,
             note: None,
             paused: false,
             clock: Instant::now(),
         }
+    }
+
+    /// The settings from `settings_file`, read as [`Audio::open`] reads them, but no
+    /// device.
+    pub fn without_device(settings_file: Option<PathBuf>) -> Self {
+        let mut audio = Self::silent();
+        if let Some(path) = settings_file {
+            let loaded = Settings::load_or_create(&path);
+            audio.settings = loaded.settings;
+            audio.note = loaded.note;
+            audio.store = if loaded.writable {
+                Store::File(settings::Writer::start(path))
+            } else {
+                Store::Protected { path, told: false }
+            };
+        }
+        audio
     }
 
     /// True when an output device is open.
@@ -100,8 +121,20 @@ impl Audio {
     }
 
     /// A problem reading or writing the settings file, if there was one.
-    pub fn settings_note(&self) -> Option<&str> {
-        self.note.as_deref()
+    pub fn settings_note(&self) -> Option<String> {
+        match &self.store {
+            Store::File(w) => w.last_error(),
+            _ => None,
+        }
+        .or_else(|| self.note.clone())
+    }
+
+    /// Waits for the settings writes queued so far. They finish on their own; this is
+    /// for tests and the end of play.
+    pub fn finish_writes(&mut self) {
+        if let Store::File(w) = &mut self.store {
+            w.finish();
+        }
     }
 
     pub fn settings(&self) -> Settings {
@@ -162,8 +195,9 @@ impl Audio {
         }
     }
 
-    /// N: mutes or unmutes everything and keeps the choice in the settings file.
-    /// Returns true when now muted.
+    /// N: mutes or unmutes everything and keeps the choice in the settings file,
+    /// written in the background. A file that didn't load at startup is never written:
+    /// the choice lasts the session, and that's said once. Returns true when now muted.
     pub fn toggle_mute(&mut self) -> bool {
         self.settings.muted = !self.settings.muted;
         let s = self.settings;
@@ -172,10 +206,21 @@ impl Audio {
                 .main_track()
                 .set_volume(Decibels(master_db(&s)), tween(0.15));
         }
-        if let Some(path) = &self.settings_path
-            && let Err(e) = s.save(path)
-        {
-            self.note = Some(format!("{}: {e}", path.display()));
+        match &mut self.store {
+            Store::Nowhere => {}
+            Store::File(w) => w.write(s),
+            Store::Protected { path, told } => {
+                if !*told {
+                    *told = true;
+                    let line = format!(
+                        "{}: didn't load at startup, so it isn't overwritten; \
+                         the mute holds for this session only",
+                        path.display()
+                    );
+                    eprintln!("sound: {line}");
+                    self.note = Some(line);
+                }
+            }
         }
         s.muted
     }
@@ -375,5 +420,35 @@ mod tests {
         a.play(Cue::OreTick, 2);
         assert!(a.toggle_mute());
         assert!(!a.toggle_mute());
+    }
+
+    #[test]
+    fn mute_is_written_in_the_background() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(settings::FILE);
+        let mut a = Audio::without_device(Some(path.clone()));
+        assert!(a.toggle_mute());
+        a.finish_writes();
+        assert!(a.settings_note().is_none(), "{:?}", a.settings_note());
+        assert!(Settings::load_or_create(&path).settings.muted);
+    }
+
+    #[test]
+    fn a_settings_file_that_didnt_load_is_never_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(settings::FILE);
+        let broken = "# mine\nmaster = \"loud\"\n";
+        std::fs::write(&path, broken).unwrap();
+        let mut a = Audio::without_device(Some(path.clone()));
+        let startup = a.settings_note().unwrap();
+        assert!(a.toggle_mute(), "the mute still applies, in memory");
+        let told = a.settings_note().unwrap();
+        assert_ne!(told, startup, "the first change says it isn't kept");
+        assert!(!a.toggle_mute());
+        assert!(a.toggle_mute());
+        assert!(a.settings().muted);
+        assert_eq!(a.settings_note().unwrap(), told, "said once");
+        a.finish_writes();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), broken);
     }
 }
