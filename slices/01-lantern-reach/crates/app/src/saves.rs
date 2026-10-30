@@ -75,6 +75,12 @@ impl SaveFolder {
     }
 }
 
+/// Where running games register their live socket (`--live` without a save looks
+/// here): `.live/` in the per-user save folder.
+pub fn live_registry() -> Option<PathBuf> {
+    SaveFolder::user().map(|f| f.dir().join(".live"))
+}
+
 /// The save `galaxy play` uses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SaveChoice {
@@ -120,6 +126,12 @@ pub fn choose(
 
 enum Job {
     Write(Box<SimState>),
+    /// A snapshot of this state (before a game-master change), answered on `reply`.
+    Snapshot {
+        state: Box<SimState>,
+        label: String,
+        reply: Sender<Result<i64, String>>,
+    },
     Stop,
 }
 
@@ -159,6 +171,21 @@ impl Saver {
         let _ = self.tx.send(Job::Write(Box::new(state)));
     }
 
+    /// Queues a snapshot of `state` (`Save::snapshot`) after the writes queued before
+    /// it. Returns at once; the snapshot ID arrives on the receiver.
+    pub fn snapshot(&self, state: SimState, label: &str) -> Receiver<Result<i64, String>> {
+        let (reply, rx) = mpsc::channel();
+        let job = Job::Snapshot {
+            state: Box::new(state),
+            label: label.to_owned(),
+            reply: reply.clone(),
+        };
+        if self.tx.send(job).is_err() {
+            let _ = reply.send(Err("the save thread has stopped".into()));
+        }
+        rx
+    }
+
     /// The last write error, if the last write failed.
     pub fn last_error(&self) -> Option<String> {
         self.last_error.lock().ok().and_then(|e| e.clone())
@@ -182,18 +209,39 @@ impl Saver {
 }
 
 fn run(mut save: Save, rx: Receiver<Job>, errors: Arc<Mutex<Option<String>>>) {
-    while let Ok(job) = rx.recv() {
+    let mut next_job: Option<Job> = None;
+    loop {
+        let job = match next_job.take() {
+            Some(j) => j,
+            None => match rx.recv() {
+                Ok(j) => j,
+                Err(_) => return,
+            },
+        };
         let mut latest = match job {
             Job::Write(s) => s,
+            Job::Snapshot {
+                state,
+                label,
+                reply,
+            } => {
+                let _ = reply.send(save.snapshot(&state, &label).map_err(|e| e.to_string()));
+                continue;
+            }
             Job::Stop => return,
         };
         let mut stop = false;
-        // Coalesce: whatever queued up meanwhile, only the newest state matters.
+        // Coalesce: whatever queued up meanwhile, only the newest state matters. A
+        // snapshot keeps its place after the writes before it.
         while let Ok(next) = rx.try_recv() {
             match next {
                 Job::Write(s) => latest = s,
                 Job::Stop => {
                     stop = true;
+                    break;
+                }
+                snapshot @ Job::Snapshot { .. } => {
+                    next_job = Some(snapshot);
                     break;
                 }
             }
@@ -205,6 +253,12 @@ fn run(mut save: Save, rx: Receiver<Job>, errors: Arc<Mutex<Option<String>>>) {
         if stop {
             return;
         }
+    }
+}
+
+impl galaxy_gm::Snapshots for Saver {
+    fn snapshot(&mut self, state: &SimState, label: &str) -> galaxy_gm::SnapshotTicket {
+        galaxy_gm::SnapshotTicket::Pending(Saver::snapshot(self, state.clone(), label))
     }
 }
 

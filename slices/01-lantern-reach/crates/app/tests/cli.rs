@@ -63,6 +63,19 @@ fn new_run_inspect() {
     assert_eq!(world["meta"]["tick"], 90);
     let (code, _) = galaxy(&["state", "get", "--save", save, "--path", "nope"]);
     assert_eq!(code, 4);
+    // Dotted paths keep IDs whole.
+    let (_, dotted) = galaxy(&[
+        "state",
+        "get",
+        "--save",
+        save,
+        "--path",
+        "stations.station.kettle_dock.build.stage",
+    ]);
+    assert_eq!(dotted, 0);
+    // Reads need a target.
+    let (code, _) = galaxy(&["state", "get"]);
+    assert_eq!(code, 2);
 
     let (code, history) = galaxy(&["history", "query", "--save", save, "--kind", "dock"]);
     assert_eq!(code, 0);
@@ -83,12 +96,7 @@ fn api_dump_prints_schemas() {
 
 #[test]
 fn stubs_say_not_implemented() {
-    for args in [
-        &["play", "--beat", "3"][..],
-        &["beat", "jump", "5"],
-        &["gm", "propose", "./change"],
-        &["gm", "rollback", "cause.3"],
-    ] {
+    for args in [&["play", "--beat", "3"][..], &["beat", "jump", "5"]] {
         let (code, out) = galaxy(args);
         assert_eq!(code, 3, "{args:?}");
         assert_eq!(out["error"], "not implemented yet");

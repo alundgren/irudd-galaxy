@@ -64,11 +64,11 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
 | `crates/progress` | `galaxy-progress` | W4 | Beat runtime, standing and regard, pilot traits, hull ranks, prestige, station services, modifiers. See "Progress". |
 | `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
-| `crates/gm` | | W5 | Game-master bridge: live socket, `gm propose`/`rollback`, sandbox run. |
+| `crates/gm` | `galaxy-gm` | W5 | Game-master bridge: live socket, `--live` reads, digest, `gm propose` (sandbox run in child processes), calm-moment staging, inbox, rollback. Agents acting as game master read [GM-AGENTS.md](GM-AGENTS.md). |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
 | `xtask` | `xtask` | W1 | `cargo xtask check`, `cargo xtask contract`, `cargo xtask fetch-luau`. |
 | `packs/core` | | W4 (+W3 data) | The authored backbone: `manifest.toml`, `data/*.toml`, later scripts. |
-| `packs/gm-examples` | | W5 | Game-master example packs; `bad_script/` holds packs that must be rejected. |
+| `packs/gm-examples` | | W5 | Game-master example packs; `bad_script/` holds packs `pack check` must reject, `bad_sandbox/` packs only the sandbox catches. |
 
 Contract changes go through W1: change `crates/contract`, run `cargo xtask contract`,
 and the schema diff in the PR is what gets reviewed.
@@ -274,6 +274,21 @@ the change's facts, in dock talk and the chronicle. The retirement is its own ba
 the host stops a revision as soon as it's queued (`TickCtx::queued`), so a rolled-back
 revision runs nothing in the tick its change is undone; the lines are checked against
 the world the rollback leaves and dropped (never the retirement) if they can't be said.
+
+**The game-master bridge** (`galaxy-gm`): `Bridge::open` loads the packs a save's
+game-master folder (`<save>.gm/state.json`) says run, and attaches a `ScriptHost`; the app
+(`galaxy play`, `galaxy sim run`) calls `Bridge::serve` / `apply_staged` / `after_tick`
+between ticks, never inside one. A staged pack applies at a calm moment (docked or
+paused, or on load): snapshot, and only once that is written (and the world hasn't moved
+since) the fast checks again, then one batch caused by the pack revision that installs
+its data and records `gm_change_applied`; that batch's cause is the change ID. A failed
+snapshot leaves the pack staged. `state.json` is intent, the save is proof:
+`bridge::reconcile` matches it to the save's facts and queued batches on open, so a crash
+between apply and save re-applies the pack instead of losing or doubling it. Reads on the
+live socket run on a read thread from a copy of the state; the socket's I/O thread is
+non-blocking and enforces `live::Limits`. The sandbox step runs `galaxy sim sandbox` as child processes on forks
+with `bot::ActivityBot` flying the region's stations, so its length is dockings, never
+time. Its thresholds are `SandboxRules`.
 
 **Adding a hook function**: add a `FnDef` to `contract::api::FUNCTIONS` (and a
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
