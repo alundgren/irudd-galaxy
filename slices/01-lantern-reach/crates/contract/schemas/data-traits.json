@@ -418,6 +418,24 @@
           ]
         },
         {
+          "description": "Multiplies the camera's zoom (below 1 shows more around the ship).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "zoom"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
           "description": "Multiplies docking ring reach (Ringwise: 1.25).",
           "type": "object",
           "properties": {

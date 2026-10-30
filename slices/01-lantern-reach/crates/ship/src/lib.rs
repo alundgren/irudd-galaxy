@@ -1,10 +1,13 @@
 //! `galaxy-ship`: ships, for the player and everyone else (slice systems 3 to 6 and 9).
 //!
-//! - [`flight`]: arcade flight. Quick to speed, quicker to stop, no coasting; the ship
-//!   swings round to face where it goes at its hull's turn rate.
+//! - [`flight`]: tank flight with inertia by hand (A/D turn, W/S thrust, Space brakes,
+//!   Shift boosts, an auto-brake stops the ship once thrust is let go); orders steer
+//!   straight to their point. [`flight::steer_to`] gives bots the same keys a player
+//!   presses.
 //! - [`controls`]: control tiers as progression. Per-save flags (names are data) unlock
 //!   click-to-fly, click-to-mine, click-to-dock, map travel, queues and loops; the
-//!   loop API saves, runs and assigns loops.
+//!   loop API saves, runs and assigns loops; [`controls::describe`] fills the rules'
+//!   limits into control text.
 //! - [`ShipSystem`]: one tick for every ship. Player input becomes motion or orders by
 //!   the unlocked tier; flying off undocks; the context action docks, enters a lane or mines; the
 //!   order runner executes the same verbs for the player, tenders and NPC craft. A

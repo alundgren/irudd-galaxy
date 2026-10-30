@@ -491,6 +491,7 @@ impl App {
         let viewport = r.renderer.logical_size();
         if let Some(target) = crate::frame::camera_target(&self.session, &self.rig, alpha, viewport)
         {
+            self.rig.fit(self.session.world());
             self.rig.follow(target, dt as f32);
         }
         let (scene, buttons) = crate::frame::compose(

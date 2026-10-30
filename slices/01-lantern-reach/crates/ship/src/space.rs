@@ -197,6 +197,15 @@ pub fn past_edge(world: &WorldState, region: &RegionId, pos: Vec2) -> Option<f32
     (depth > 0.0).then_some(depth)
 }
 
+/// `pos`, or the nearest point on the edge of `region` if it is past it: where a fly
+/// order can actually stop, since the edge current carries ships back in.
+pub fn within_edge(world: &WorldState, region: &RegionId, pos: Vec2) -> Vec2 {
+    match (world.regions.get(region), past_edge(world, region, pos)) {
+        (Some(r), Some(_)) => r.center + (pos - r.center).normalize_or_zero() * r.radius,
+        _ => pos,
+    }
+}
+
 /// Where the edge current carries a ship at `pos` in `dt` seconds: straight back
 /// toward its region's centre, faster the further out it is, never past the edge.
 /// Inside the edge it does nothing.

@@ -3559,6 +3559,14 @@
           ],
           "format": "float"
         },
+        "brake": {
+          "description": "World units per second squared when braking. Missing: `accel` times\n`flight.brake`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "coupling": {
           "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
           "type": "boolean",
@@ -5728,6 +5736,12 @@
               "type": "null"
             }
           ]
+        },
+        "stopping": {
+          "description": "Ticks left in the auto-brake's stop after thrust was let go. Speed falls in a\nstraight line to zero over the stop, from whatever it was at the release.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
         },
         "transit": {
           "description": "Riding a lane current.",

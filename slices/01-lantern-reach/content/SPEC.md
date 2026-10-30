@@ -24,7 +24,7 @@ Sources it builds on: issue #10 (brief), the kickoff comment on PR #11 (decision
 
 - World units are `u`. The slice plays on the `z = 0` plane of a right-handed world: `+x` is east, `+y` is north on the map. Every position in this spec is `(x, y)` with `z = 0`, so a later 3D view uses the same coordinates.
 - Speeds are in `u` per simulated second, turn rates in degrees per simulated second. The simulation runs at a fixed step the engine chooses. Nothing in content reads wall-clock time.
-- Ship speed means top speed under WASD or orders. Arcade flight: the ship reaches top speed almost at once and stops when the key is released (no inertia). The ship's heading swings toward the input direction at the hull's turn rate, and it moves along its heading, so turn rate shapes how a hull feels.
+- Ship speed means top speed under the flight keys or orders. By hand the ship flies with tank controls and some inertia (the locked preset from issue #47): A/D turn it at the hull's turn rate, W/S thrust along its heading, Shift boosts x2, and letting go coasts until the auto-brake stops it, in 1.0 s from any speed. Orders steer straight to their point. All of it is data (`hulls.toml`, `ship_rules.toml`).
 - Minute estimates in this spec are only for checking the design. They are never data the engine reads, and none of them appears in the game.
 
 ### Stable IDs

@@ -379,9 +379,9 @@ fn flight_keys_held_into_a_docking_dont_undock_until_pressed_again() {
     let mut ui = UiState::default();
     galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
     assert!(flagship(&s).docked_at.is_none());
-    // Space in the ring with D held: it docks, and stays docked while D is down.
+    // Space in the ring with W held: it docks, and stays docked while W is down.
     let mut keys = Keys::default();
-    keys.press(Key::D);
+    keys.press(Key::W);
     keys.press(Key::Space);
     s.tick(keys.tick_input(false, None));
     assert!(flagship(&s).docked_at.is_some(), "docked");
@@ -389,10 +389,10 @@ fn flight_keys_held_into_a_docking_dont_undock_until_pressed_again() {
     for _ in 0..10 {
         s.tick(keys.tick_input(true, None));
     }
-    assert!(flagship(&s).docked_at.is_some(), "D held from the approach");
-    keys.release(Key::D);
+    assert!(flagship(&s).docked_at.is_some(), "W held from the approach");
+    keys.release(Key::W);
     s.tick(keys.tick_input(true, None));
-    keys.press(Key::D);
+    keys.press(Key::W);
     s.tick(keys.tick_input(true, None));
     assert!(flagship(&s).docked_at.is_none(), "a fresh press flies off");
 }
@@ -435,15 +435,21 @@ fn flying_off_undocks_wasd_flies_and_holding_space_mines() {
     let mut s = Session::new(new_state());
     let mut ui = UiState::default();
     assert!(flagship(&s).docked_at.is_some());
-    galaxy_app::script::run(&mut s, &mut ui, "d,wait*3,d*200").unwrap();
+    // D only turns the ship: it doesn't fly off. W does, and the Wren starts out
+    // facing east, toward Rimewater's ice.
+    galaxy_app::script::run(&mut s, &mut ui, "d,wait*3").unwrap();
+    assert!(flagship(&s).docked_at.is_some(), "turning doesn't undock");
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3,w*75").unwrap();
     let ship = flagship(&s);
     assert!(ship.docked_at.is_none());
     assert!(ship.position.x > 150.0, "{:?}", ship.position);
     let let_go = ship.position;
-    // Arcade flight: it brakes to a stop within a few ticks and stays there.
-    galaxy_app::script::run(&mut s, &mut ui, "wait*5").unwrap();
+    // Let go: it coasts, and the auto-brake stops it in a second.
+    galaxy_app::script::run(&mut s, &mut ui, "wait*30").unwrap();
+    assert_eq!(flagship(&s).velocity, Vec2::ZERO);
     let before = flagship(&s).position;
-    assert!(before.distance(let_go) < 5.0);
+    let coasted = before.distance(let_go);
+    assert!((60.0..90.0).contains(&coasted), "coasted {coasted} u");
     galaxy_app::script::run(&mut s, &mut ui, "wait*30").unwrap();
     assert_eq!(
         flagship(&s).position,

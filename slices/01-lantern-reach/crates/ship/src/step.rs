@@ -869,14 +869,18 @@ impl<'a, 'c> ShipStep<'a, 'c> {
     fn dest(&self, to: &FlyTarget) -> Option<Dest> {
         let arrive = self.w.ship_rules.flight.arrive_distance;
         Some(match to {
-            FlyTarget::Point { at } => Dest {
-                region: space::region_at(self.w, *at)
+            FlyTarget::Point { at } => {
+                let region = space::region_at(self.w, *at)
                     .cloned()
-                    .unwrap_or_else(|| self.region.clone()),
-                point: Some(*at),
-                within: arrive,
-                stop: true,
-            },
+                    .unwrap_or_else(|| self.region.clone());
+                Dest {
+                    // Past the edge the current would hold the ship off the point.
+                    point: Some(space::within_edge(self.w, &region, *at)),
+                    region,
+                    within: arrive,
+                    stop: true,
+                }
+            }
             FlyTarget::Station { station } => {
                 let s = self.w.stations.get(station)?;
                 Dest {

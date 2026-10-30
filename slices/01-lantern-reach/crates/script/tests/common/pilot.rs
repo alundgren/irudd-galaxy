@@ -261,16 +261,18 @@ impl Pilot {
 
     // --- Tier 0: by hand ------------------------------------------------------------
 
-    /// Flies by WASD to `to` (in the current region) and stops there.
+    /// Flies by the tank keys to `to` (in the current region) and stops there.
     pub fn fly_to(&mut self, to: Vec2, close: f32) {
         for _ in 0..PATIENCE {
-            let off = to - self.ship().position;
-            if off.length() <= close {
+            let ship = self.ship();
+            if ship.position.distance(to) <= close && ship.velocity == Vec2::ZERO {
                 break;
             }
-            let stick = off.normalize_or_zero() * (off.length() / 60.0).min(1.0);
+            let feel = galaxy_ship::flight::Feel::of_ship(self.world(), ship).unwrap();
+            let keys =
+                galaxy_ship::flight::steer_to(&feel, galaxy_ship::flight::Motion::of(ship), to, close);
             self.tick(&PlayerInput {
-                thrust: stick,
+                thrust: keys,
                 ..PlayerInput::default()
             });
         }
@@ -287,7 +289,7 @@ impl Pilot {
         }
     }
 
-    /// Undocks by flying off: one tick of thrust.
+    /// Undocks by flying off: one tick of W.
     pub fn undock(&mut self) {
         if self.docked().is_some() {
             self.tick(&PlayerInput {

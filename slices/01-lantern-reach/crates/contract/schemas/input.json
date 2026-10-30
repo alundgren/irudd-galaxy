@@ -5,9 +5,13 @@
   "type": "object",
   "properties": {
     "action": {
-      "description": "The context action (Space) is held: mine, dock, whatever is in reach.",
+      "description": "Space is held. A press docks or rides a lane current when one is in reach; a\npress beside a rock starts mining and holding keeps it going; otherwise held\nSpace brakes.",
       "type": "boolean",
       "default": false
+    },
+    "boost": {
+      "description": "Shift is held: boost (the flight rules' `boost` times top speed and thrust).",
+      "type": "boolean"
     },
     "click": {
       "description": "A click this tick, once click controls are unlocked.",
@@ -40,7 +44,7 @@
       "default": false
     },
     "thrust": {
-      "description": "Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.",
+      "description": "The flight keys as two axes, each in -1..=1. Tank controls: `y` is W/S, thrust\nforward or backward along the heading; `x` is A/D, turning (+1 = D, clockwise).\nLetting go coasts, then the auto-brake stops the ship. Docked, thrust (`y`) flies\noff.",
       "$ref": "#/$defs/Vec2",
       "default": {
         "x": 0.0,

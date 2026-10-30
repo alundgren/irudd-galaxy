@@ -389,6 +389,22 @@ fn past_the_edge_a_current_carries_the_ship_back() {
     assert!((500.0..700.0).contains(&furthest), "furthest {furthest}");
 }
 
+#[test]
+fn a_fly_order_past_the_edge_stops_on_the_edge() {
+    let mut sim = game(1);
+    unlock(&mut sim, &[Capability::ClickFly]);
+    let region = sim.world().regions.get(&SHALLOWS).unwrap().clone();
+    let near = region.center + Vec2::new(-(region.radius - 100.0), 0.0);
+    afloat(&mut sim, near);
+    let out = region.center + Vec2::new(-(region.radius + 250.0), 0.0);
+    step(&mut sim, &click(ClickTarget::Point { at: out }, false));
+    assert!(!player(&sim).orders.orders.is_empty(), "the click made an order");
+    run_until(&mut sim, 30 * 30, |s| player(s).orders.orders.is_empty());
+    let p = player(&sim).position;
+    assert!(player(&sim).orders.orders.is_empty(), "done, at {p:?}");
+    assert!((region.center.distance(p) - region.radius).abs() < 3.0, "{p:?}");
+}
+
 // --- Mining parks at the drawn rock ---
 
 #[test]

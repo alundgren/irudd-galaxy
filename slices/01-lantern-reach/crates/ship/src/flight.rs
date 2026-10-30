@@ -326,12 +326,12 @@ pub fn steer_to(feel: &Feel, m: Motion, to: Vec2, close: f32) -> Vec2 {
     // the auto-brake's stop at the speed let go of, so this eases in.
     let thrust = if err.abs() < 0.6 {
         let room = (dist - close * 0.5).max(0.0);
-        let coast = feel
+        let stops_in_room = feel
             .stop_ticks
             .map_or(f32::INFINITY, |t| 2.0 * room / (t as f32 * TICK_SECONDS));
         let speed = (1.2 * feel.accel * room)
             .sqrt()
-            .min(coast)
+            .min(stops_in_room)
             .min(feel.speed);
         let facing = geom::cos(err);
         (speed / feel.speed.max(f32::EPSILON) * facing).clamp(0.0, 1.0)
