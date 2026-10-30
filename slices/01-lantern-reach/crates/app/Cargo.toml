@@ -24,6 +24,7 @@ galaxy-ship.workspace = true
 galaxy-progress.workspace = true
 render.workspace = true
 galaxy-mind.workspace = true
+galaxy-gm.workspace = true
 clap.workspace = true
 directories.workspace = true
 serde.workspace = true

@@ -108,20 +108,29 @@ Or build once and call `target/debug/galaxy` directly.
 | Command | What it does |
 |---|---|
 | `new --save PATH [--seed N] [--packs DIR] [--no-gm]` | New save from the core pack, installing `gm-examples` unless `--no-gm`. Seed defaults to 1. |
-| `sim run --save PATH --ticks N [--dry-run] [--packs DIR] [--no-gm]` | Fast-forward the whole game (scripts, beats, progress; the seeded fake mind, never the network) with hands-off input; prints tick, hash and the packs that ran; writes back unless `--dry-run`. |
-| `state get --save PATH [--path a/b/c]` | The world state, or a slash-separated part of it. |
-| `history query --save PATH [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since T] [--until T] [--limit N]` | History facts, oldest first. |
+| `sim run --save PATH --ticks N [--dry-run] [--packs DIR] [--no-gm]` | Fast-forward the whole game (scripts, beats, progress; the seeded fake mind, never the network) with hands-off input; prints tick, hash and the packs that ran; writes back unless `--dry-run`. Game-master packs applied to the save run in the same script host, and staged ones apply first. |
+| `sim sandbox --save PATH [--pack DIR]... [--dockings N] [--packs DIR]` | One sandbox run (what `gm propose` starts as a child process): the whole game with these packs loaded beside core and gm-examples, the activity bot flying N dockings; prints telemetry and what each pack did. Never writes. |
+| `state get (--save PATH \| --live [SAVE]) [--path P]` | The world state, or part of it: dotted (`stations.station.kettle_dock.build`, IDs stay whole) or slash-separated. |
+| `state query STORE (--save PATH \| --live) [--where F=V]... [--fields a,b] [--limit N]` | Records of one store matching filters (`F~text` for a substring). |
+| `history query (--save PATH \| --live) [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since fact.N\|T] [--until T] [--limit N]` | History facts, oldest first. `--since fact.N`: after that fact; a number: from that tick. |
+| `watch --live [SAVE] [--since fact.N] [--count N]` | Streams the running game's facts, talk lines, game-master and calm-moment events, one JSON object per line. |
+| `gm digest (--save PATH \| --live) [--since fact.N]` | What changed since a fact, grouped by place and person, citing fact IDs. |
+| `gm propose DIR (--save PATH \| --live) [--wait] [--dockings N] [--no-typecheck]` | Full validation (fast checks, a sandbox run with and without the pack in child processes, legibility), then stage: live, it applies at the next calm moment (docked or paused); on a save, at the next load. Prints the report; exit 5 if rejected. |
+| `gm status (--save PATH \| --live)` | Applied, staged and quarantined packs, with change IDs. |
+| `gm rollback CHANGE (--save PATH \| --live)` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, and its speaker says why. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
+| `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
 | `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
-| `play --beat N`, `beat jump`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
+| `play --beat N`, `beat jump` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
-`4` bad input (missing or existing save, invalid data, unknown path or ID), `5` rejected
-(`pack check` rejected the pack or `pack test` had failures; the report is on stdout).
+`4` bad input (missing or existing save, invalid data, unknown path or ID, no running game
+for `--live`), `5` rejected (`pack check` or `gm propose` rejected the pack, or `pack test`
+had failures; the report is on stdout).
 
 ```sh
 cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth
@@ -132,6 +141,13 @@ cargo run -p galaxy-app -- pack test packs/gm-examples/kettle_growth
 `pack check` needs `luau-analyze` for the strict typecheck (`cargo xtask fetch-luau`,
 or `--analyzer`, or `$GALAXY_LUAU_ANALYZE`); without it, it rejects unless you pass
 `--no-typecheck`.
+
+`--live` talks to the running `galaxy play` over a local socket (a named pipe on Windows,
+a Unix socket elsewhere): the newest game, or the one playing `--live SAVE`. Only the local
+user can connect. A game master's guide, with the JSON shapes, is
+[GM-AGENTS.md](GM-AGENTS.md). Each save keeps its game-master state in `<save>.gm/` next
+to it, and a running game picks up pack folders dropped into `gm-inbox/` there once
+they hold a `READY` file (write it last).
 
 The CLI finds `packs/` through `--packs`, then `$GALAXY_PACKS`, then the nearest
 `packs/core` above the working directory or the executable. Saves go wherever you
@@ -151,10 +167,11 @@ crates/progress   beats, standing and regard, traits, hull ranks, prestige, stat
 crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
 crates/audio      a silent kira wrapper; a missing audio device never stops the game
 crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
+crates/gm         the game-master bridge: live socket, digest, propose with a sandbox run, staging, rollback
 crates/app        the galaxy binary: play, shot and the JSON CLI
                   session (pause, dock trades), input, view (world to scene), ui, saves
 packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/ (the journey's beats)
-packs/gm-examples game-master example packs: kettle_growth, and bad_script/ (must be rejected)
+packs/gm-examples game-master example packs: kettle_growth; bad_script/ and bad_sandbox/ (must be rejected)
 tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
 xtask             cargo xtask check | contract | fetch-luau
 ```
@@ -162,4 +179,4 @@ xtask             cargo xtask check | contract | fetch-luau
 Live fast-model tests are ignored by default:
 `cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
 
-Coding agents: read [AGENTS.md](AGENTS.md).
+Coding agents: read [AGENTS.md](AGENTS.md). Game-master agents: [GM-AGENTS.md](GM-AGENTS.md).

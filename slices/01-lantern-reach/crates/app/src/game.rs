@@ -22,6 +22,11 @@
 //!   thread when `OPENROUTER_API_KEY` is set, and otherwise no model: people say their
 //!   most specific authored line, and the log says so once. [`MindMode::Fake`] (`sim
 //!   run`, `shot`, tests) answers with the seeded `FakeMind` inline, never the network.
+//! - **One script host.** The game master's packs run in the same host: the bridge
+//!   ([`Game::open_gm`]) loads the save's applied packs into it before it is attached,
+//!   and stages, applies and rolls back packs there, so a gm pack runs in the same tick
+//!   order as `core` and `gm-examples`, and a new revision of a pack replaces the one
+//!   running. The sandbox child loads its packs the same way ([`Game::open_with`]).
 //! - **Hot reload** ([`GameOptions::hot_reload`]) is for development only.
 //! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
 //!   then steps once so its batches apply; save after it.
@@ -33,6 +38,7 @@ use galaxy_contract::pack::{Severity, ValidationReport};
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::TalkLine;
 use galaxy_core::{Sim, SimState, System, TickReport};
+use galaxy_gm::{Bridge, BridgeOptions};
 use galaxy_mind::executor::{Done, Executor, Job};
 use galaxy_mind::{
     DockTalk, FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, TalkLines, Worker,
@@ -166,6 +172,20 @@ fn said_cause(line: &SpokenLine) -> Cause {
 impl Game {
     /// Builds the game over `state`. Fails only if the core pack can't load.
     pub fn open(state: SimState, opts: &GameOptions) -> Result<Game, String> {
+        Self::open_with(state, opts, &mut |_, _| {})
+    }
+
+    /// Builds the game over `state`, running `hook` on its script host after `core`
+    /// and `gm-examples` are loaded and before the host is attached: the game-master
+    /// bridge loads the save's applied packs there ([`Game::open_gm`]), the sandbox
+    /// child its packs. A pack loaded there replaces one with the same ID, runs at the
+    /// host's place in the tick order (before progress), and installs its data with
+    /// the rest.
+    pub fn open_with(
+        state: SimState,
+        opts: &GameOptions,
+        hook: galaxy_gm::Hook<'_>,
+    ) -> Result<Game, String> {
         let mut sim = native(state);
         let mut notes = Vec::new();
         let analyzer = galaxy_script::analyzer::find(None);
@@ -209,6 +229,7 @@ impl Game {
                 }
             }
         }
+        hook(&scripts, &sim);
         scripts.attach(&mut sim);
         sim.add_system(Box::new(galaxy_progress::ProgressSystem));
         if opts.hot_reload
@@ -258,6 +279,28 @@ impl Game {
             notes,
             reports,
         })
+    }
+
+    /// Builds the game with the game-master bridge for the save at `save`: the bridge
+    /// loads the packs the game master applied into the game's own script host, so
+    /// they run in the same tick order as `core` and `gm-examples`, and it stages,
+    /// applies and rolls back packs in that host. The game still opens if the bridge
+    /// can't (an unreadable game-master folder): that is the second result.
+    pub fn open_gm(
+        state: SimState,
+        opts: &GameOptions,
+        save: &Path,
+        bridge: BridgeOptions,
+    ) -> Result<(Game, Result<Bridge, String>), String> {
+        let mut opened = None;
+        let mut bridge = Some(bridge);
+        let game = Self::open_with(state, opts, &mut |host, sim| {
+            if let Some(b) = bridge.take() {
+                opened = Some(Bridge::open(save, sim, host, b));
+            }
+        })?;
+        let bridge = opened.unwrap_or_else(|| Err("the bridge wasn't opened".to_owned()));
+        Ok((game, bridge))
     }
 
     pub fn sim(&self) -> &Sim {
@@ -335,6 +378,21 @@ impl Game {
         self.sim.set_paused(false);
         self.sim.step(&PlayerInput::default());
         self.sim.set_paused(paused);
+    }
+}
+
+impl galaxy_gm::Composed for Game {
+    fn sim(&self) -> &Sim {
+        &self.sim
+    }
+    fn sim_mut(&mut self) -> &mut Sim {
+        &mut self.sim
+    }
+    fn scripts(&self) -> &ScriptHost {
+        &self.scripts
+    }
+    fn step(&mut self, input: &PlayerInput) -> Option<TickReport> {
+        Game::step(self, input)
     }
 }
 

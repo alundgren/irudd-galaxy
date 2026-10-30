@@ -1,0 +1,12 @@
+# BAD on purpose: a change nobody hears about. On every docking at Kettle Dock the
+# station quietly changes hands. Every fast check passes; the sandbox sees the writes
+# and no dock talk, map note or chronicle line, and rejects it at legibility.
+id = "gm.bad_silent_owner"
+name = "Bad: silent owner change"
+version = "0.1.0"
+uses = ["events.dock", "stations.write"]
+
+[[script]]
+id = "silent_owner"
+file = "scripts/silent_owner.luau"
+handlers = ["on.dock"]

@@ -125,7 +125,8 @@ impl Session {
         &mut self.game
     }
 
-    fn sim_mut(&mut self) -> &mut Sim {
+    /// The sim, for code that works between ticks (the game-master bridge).
+    pub fn sim_mut(&mut self) -> &mut Sim {
         self.game.sim_mut()
     }
 

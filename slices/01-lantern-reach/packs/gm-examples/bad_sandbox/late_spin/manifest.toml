@@ -1,0 +1,12 @@
+# BAD on purpose: a runaway that waits. The smoke run sees a new game (no dockings) and
+# passes; in the sandbox, once the player has docked twice, every docking spins until
+# the step budget cuts it off, and after three aborts the script is quarantined.
+id = "gm.bad_late_spin"
+name = "Bad: late spin"
+version = "0.1.0"
+uses = ["events.dock", "counters.read"]
+
+[[script]]
+id = "late_spin"
+file = "scripts/late_spin.luau"
+handlers = ["on.dock"]

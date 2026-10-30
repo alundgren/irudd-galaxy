@@ -56,8 +56,15 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "can't find the packs folder; set GALAXY_PACKS".to_owned(),
     ))?;
     let seed = state.world.meta.seed;
-    let game = crate::game::Game::open(state, &crate::game::GameOptions::headless(packs, seed))
-        .map_err(|e| (4, e))?;
+    // The same composition as play: the game master's applied packs run in the game's
+    // script host too (staged ones wait for a real load).
+    let (game, _bridge) = crate::game::Game::open_gm(
+        state,
+        &crate::game::GameOptions::headless(packs, seed),
+        &args.save,
+        galaxy_gm::BridgeOptions::default(),
+    )
+    .map_err(|e| (4, e))?;
     let mut session = Session::with_game(game);
     let mut ui_state = UiState {
         map_open: args.map,

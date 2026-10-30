@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use galaxy_contract::prelude::*;
 use galaxy_core::Save;
@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
@@ -93,6 +93,33 @@ struct App {
     render_errors: u32,
     frames: u32,
     quit_after_frames: Option<u32>,
+    /// The game-master bridge, serviced between frames ([`App::serve_bridge`]).
+    bridge: Option<galaxy_gm::Bridge>,
+}
+
+/// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
+/// applies staged packs with a snapshot first and opens the live socket. A problem
+/// here is printed and the game goes on without the bridge (or without the socket).
+fn start_bridge(
+    bridge: Result<galaxy_gm::Bridge, String>,
+    session: &mut Session,
+    save: &mut Save,
+) -> Option<galaxy_gm::Bridge> {
+    let mut bridge = match bridge {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("game master: {e}");
+            return None;
+        }
+    };
+    bridge.apply_staged(session.sim_mut(), save);
+    if let Err(e) = bridge.start_live(saves::live_registry()) {
+        eprintln!("game master: {e}");
+    }
+    for n in bridge.notes.drain(..) {
+        eprintln!("game master: {n}");
+    }
+    Some(bridge)
 }
 
 /// Opens the window and plays until it's closed. Returns a JSON summary.
@@ -131,12 +158,23 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         mind: MindMode::Live,
         hot_reload: args.hot_reload,
     };
-    let mut game = Game::open(state, &opts).map_err(|e| (4, e))?;
+    // One composition: the game-master bridge loads the packs the game master applied
+    // into the game's script host, beside core and gm-examples.
+    let bridge_opts = galaxy_gm::BridgeOptions {
+        exe: std::env::current_exe().ok(),
+        analyzer: galaxy_script::analyzer::find(None),
+        ..galaxy_gm::BridgeOptions::default()
+    };
+    let (mut game, bridge) =
+        Game::open_gm(state, &opts, choice.path(), bridge_opts).map_err(|e| (4, e))?;
     for note in game.take_notes() {
         eprintln!("{note}");
     }
     let packs_loaded: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
     let mut session = Session::with_game(game);
+    // Staged packs apply now (loading is a calm moment), and the live socket opens.
+    let mut save = save;
+    let bridge = start_bridge(bridge, &mut session, &mut save);
     session.begin();
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
@@ -155,6 +193,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         render_errors: 0,
         frames: 0,
         quit_after_frames: args.quit_after_frames,
+        bridge,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -164,10 +203,20 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         error,
         frames,
         render_errors,
+        bridge,
         ..
     } = app;
     // The mind books every call still out and its last batches apply, then the save.
     session.finish();
+    let gm = bridge.as_ref().map(|b| {
+        json!({
+            "applied": b.state().applied.len(),
+            "staged": b.state().staged.len(),
+            "live": b.server().map(|s| s.discovery().endpoint.clone()),
+        })
+    });
+    // Closes the socket and removes the discovery files.
+    drop(bridge);
     let path = saver.path().to_path_buf();
     let saved = saver.finish(Some(session.state().clone()));
     run.map_err(|e| (1, e.to_string()))?;
@@ -183,6 +232,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         "packs": packs_loaded,
         "frames": frames,
         "render_errors": render_errors,
+        "gm": gm,
         "audio": if audio.has_device() { "silent (device open)".to_owned() } else {
             format!("no device: {}", audio.problem().unwrap_or("none"))
         },
@@ -190,6 +240,66 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
 }
 
 impl App {
+    /// Between frames: the bridge answers requests and applies staged packs at a calm
+    /// moment; a live `shot` renders what's on screen now and writes it on a thread.
+    fn serve_bridge(&mut self) {
+        let Some(bridge) = &mut self.bridge else {
+            return;
+        };
+        let left = bridge.serve(self.session.sim_mut(), &mut self.saver);
+        for n in bridge.notes.drain(..) {
+            eprintln!("game master: {n}");
+        }
+        for req in left {
+            let galaxy_gm::live::Op::Shot { out } = req.op.clone() else {
+                req.respond(Err(galaxy_gm::live::WireError::input("not handled here")));
+                continue;
+            };
+            let image = self.capture();
+            let world = self.session.world();
+            let info = json!({
+                "out": out,
+                "tick": world.meta.tick,
+                "paused": self.session.is_paused(),
+                "map": self.ui.map_open,
+                "docked_at": self.docked(),
+                "position": self.session.flagship().map(|s| s.position),
+                "goal": crate::hooks::goal_line(world),
+            });
+            let _ = std::thread::Builder::new()
+                .name("gm-shot".into())
+                .spawn(move || {
+                    let result = image.and_then(|img| {
+                        img.save_png(&out).map_err(|e| e.to_string())?;
+                        let mut info = info;
+                        info["width"] = json!(img.width);
+                        info["height"] = json!(img.height);
+                        Ok(info)
+                    });
+                    req.respond(result.map_err(galaxy_gm::live::WireError::runtime));
+                });
+        }
+    }
+
+    /// What the window shows now, read back as RGBA.
+    fn capture(&mut self) -> Result<render::RgbaImage, String> {
+        let Some(r) = &mut self.running else {
+            return Err("the window isn't open yet".into());
+        };
+        let viewport = r.renderer.logical_size();
+        let time = (Instant::now() - self.started).as_secs_f32();
+        let (scene, _) = crate::frame::compose(
+            &r.view,
+            &self.session,
+            &self.rig,
+            &self.ui,
+            self.step.alpha(),
+            time,
+            viewport,
+        );
+        r.renderer.render_to_rgba(&scene).map_err(|e| e.to_string())
+    }
+
     fn docked(&self) -> Option<StationId> {
         self.session.flagship().and_then(|f| f.docked_at.clone())
     }
@@ -370,6 +480,15 @@ impl App {
 }
 
 impl ApplicationHandler for App {
+    /// After each batch of window events, so never inside a tick. Wakes at least ten
+    /// times a second so the bridge answers while the window is minimised.
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        self.serve_bridge();
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + Duration::from_millis(100),
+        ));
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.running.is_some() {
             return;
