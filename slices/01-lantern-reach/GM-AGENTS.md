@@ -24,6 +24,8 @@ Code agents changing the engine read [AGENTS.md](AGENTS.md) instead. Pack author
   reports it as `undeclared_capability`. The table is in HOOKS.md, "What each write
   needs". A game-master layer never registers journey beats, whatever its ID, and
   the save remembers that a pack is a game-master layer, so a reload never lifts it.
+  Changing your pack's ID makes it a new game-master layer, never a core one, and it
+  can't be `core` or a core pack's ID (`gm_core_id`).
 - **Facts in your own namespace.** Record kinds under your pack's whole ID
   (`gm.my_pack.noticed`), never `core.*` or another pack's. Open canon with
   `ctx.canon:open` and teach with `ctx.mechanics:teach`; they record

@@ -327,15 +327,21 @@ fails without one), and a new route a pack writes through must call
   `deliver` after its `adjust_cargo`, `standing_changed` after its deed's change.
   `ctx.history:record` refuses the protected names (`needs::PROTECTED_FACTS`). So no
   beat precondition can be met by a forged fact (`crates/script/tests/provenance.rs`).
-- **Layers.** Game-master layers (`gm-examples`, applied, staged and sandboxed packs:
-  `ScriptHost::load_layer`, `CheckOptions::game_master`) may not register or drive
-  journey beats or pay their rewards, whatever their ID, and may not take `core`'s
-  namespace or a core-layer pack's ID (`gm_core_id`). Each pack's layer is recorded
-  in the world (`PackState::layer`, by `ScriptHost::record_layers` from `install` and
-  the bridge's apply, as a system batch no rollback undoes) and never changes. Every
-  later load reads it: the check (`check_pack`) and the host's run (the beat route is
-  refused for a layer the world or the host knows), whichever path loads the pack
-  (`reload`, the dev watcher, `play`, `sim run`, the bridge, the sandbox).
+- **Layers.** A pack's layer comes from the path that loads it, never from its ID or
+  from it being new. Only the authored backbone (`Game` loads the packs root's `core/`
+  with `ScriptHost::load`) is core. Game-master layers (`gm-examples`, applied, staged
+  and sandboxed packs: `ScriptHost::load_layer`, `CheckOptions::game_master`) may not
+  register or drive journey beats or pay their rewards, whatever their ID, and may not
+  take `core`'s namespace or the ID of a pack the world records or the host runs as
+  core (`gm_core_id`, `CheckOptions::core_ids`), so they never replace the core VM. A
+  reload keeps the folder's layer: a game-master folder whose manifest names a new ID
+  is a new game-master layer, never one already loaded (`reload_id_taken`). Each
+  pack's layer is recorded in the world (`PackState::layer`, by
+  `ScriptHost::record_layers` from `install` and the bridge's apply, as a system batch
+  no rollback undoes) and never changes. Every later load reads it: the check
+  (`check_pack`) and the host's run (the beat route is refused for a layer the world
+  or the host knows), whichever path loads the pack (`reload`, the dev watcher,
+  `play`, `sim run`, the bridge, the sandbox).
 
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and
