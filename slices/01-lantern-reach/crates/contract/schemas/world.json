@@ -1181,6 +1181,72 @@
         "delta"
       ]
     },
+    "DockTalkCandidate": {
+      "description": "A script's fitting authored line, with slots already filled from `cite`.\nThe mind may select its ID; it never supplies text for these requests.",
+      "type": "object",
+      "properties": {
+        "cite": {
+          "$ref": "#/$defs/FactId"
+        },
+        "line": {
+          "$ref": "#/$defs/AnyId"
+        },
+        "npc": {
+          "$ref": "#/$defs/NpcId"
+        },
+        "specificity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "line",
+        "npc",
+        "text",
+        "cite",
+        "specificity"
+      ]
+    },
+    "DockTalkRequest": {
+      "description": "Saved with the request event, so an unanswered docking survives save/load.\nCandidate zero is the script's complete default; order is preserved.",
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DockTalkCandidate"
+          }
+        },
+        "docking": {
+          "$ref": "#/$defs/FactId"
+        },
+        "pack": {
+          "$ref": "#/$defs/PackId"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "ship": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "required": [
+        "pack",
+        "revision",
+        "docking",
+        "ship",
+        "station",
+        "candidates"
+      ]
+    },
     "DockTrack": {
       "description": "A ship's last docking, for the counted-docking rule.",
       "type": "object",
@@ -1341,6 +1407,44 @@
     "Event": {
       "description": "Something that happened, with stable IDs.",
       "oneOf": [
+        {
+          "description": "A script offers ordered authored lines for one docking.",
+          "type": "object",
+          "properties": {
+            "request": {
+              "$ref": "#/$defs/DockTalkRequest"
+            },
+            "type": {
+              "type": "string",
+              "const": "talk_requested"
+            }
+          },
+          "required": [
+            "type",
+            "request"
+          ]
+        },
+        {
+          "description": "The mind returns only an offered ID. The script rechecks and says it.",
+          "type": "object",
+          "properties": {
+            "line": {
+              "$ref": "#/$defs/AnyId"
+            },
+            "request": {
+              "$ref": "#/$defs/FactId"
+            },
+            "type": {
+              "type": "string",
+              "const": "talk_picked"
+            }
+          },
+          "required": [
+            "type",
+            "request",
+            "line"
+          ]
+        },
         {
           "type": "object",
           "properties": {

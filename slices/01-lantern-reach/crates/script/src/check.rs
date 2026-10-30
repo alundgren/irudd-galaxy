@@ -462,6 +462,20 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
         .cloned()
         .unwrap_or_else(|| HullId::from_static("hull.sample"));
     Some(match kind {
+        EventKind::TalkRequested => Event::TalkRequested {
+            request: Box::new(galaxy_contract::talk::DockTalkRequest {
+                pack: PackId::from_static("sample"),
+                revision: "sample".into(),
+                docking: FactId(1),
+                ship,
+                station,
+                candidates: Vec::new(),
+            }),
+        },
+        EventKind::TalkPicked => Event::TalkPicked {
+            request: FactId(1),
+            line: AnyId::from_static("line.sample"),
+        },
         EventKind::Dock => Event::Dock { ship, station },
         EventKind::Undock => Event::Undock { ship, station },
         EventKind::Mine => Event::Mine {

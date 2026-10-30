@@ -32,6 +32,8 @@ and `ctx.store` (the script's declared stores).
 
 | `uses` | Hook | Status | What |
 |---|---|---|---|
+| `events.talk_requested` | Events | available | Subscribe with `on.<event>`. |
+| `events.talk_picked` | Events | available | Subscribe with `on.<event>`. |
 | `events.dock` | Events | available | Subscribe with `on.<event>`. |
 | `events.undock` | Events | available | Subscribe with `on.<event>`. |
 | `events.mine` | Events | available | Subscribe with `on.<event>`. |
@@ -72,6 +74,7 @@ and `ctx.store` (the script's declared stores).
 | `market.read` | Market | available | Read market stock lines. |
 | `market.lines` | Market | available | Add or remove a ware's stock line at a market. |
 | `talk.write` | Talk | available | Offer dock talk. Names a person or place and cites a fact. |
+| `talk.pick` | Talk | available | Offer ordered authored candidates to the mind and read its selection, checking citations. |
 | `map.write` | Talk | available | Pin a map note to a place. Cites a fact. |
 | `chronicle.write` | Talk | available | Write a chronicle entry. Cites a fact; can't be rolled back. |
 | `market.levers` | Market | available | Add or scale producers and consumers, set stock (galaxy-economy's levers). |
@@ -243,6 +246,9 @@ and `ctx.store` (the script's declared stores).
 ### `ctx.talk`
 
 - `ctx.talk:offer(line: LineSpec, why: Cause) -> ()` (`talk.write`): Offers a line of dock talk. Needs a `speaker` or `place` and `cites`.
+- `ctx.talk:request(docking: FactId, candidates: { DockTalkCandidate }, why: Cause) -> ()` (`talk.pick`): Saves ordered authored candidates for the mind to pick. Slots are filled by the script from each cited fact. Candidate one is the complete fallback. At most 32 candidates; returns an on.talk_picked event, never generated text.
+- `ctx.talk:selected(request: FactId, line: string) -> DockTalkCandidate?` (`talk.pick`): Reads an offered candidate only if this pack revision, docking and speaker still match and its fact has not been said. Otherwise nil. Recheck docking when saying it.
+- `ctx.talk:cited(fact: FactId) -> boolean` (`talk.pick`): Whether any dock-talk line already cites this fact, including this call's buffered lines.
 
 ### `ctx.map`
 
@@ -299,6 +305,8 @@ G.beat {
 `on.<event>` handlers get the event's fields plus `fact` (the history fact it was
 recorded as: cite it), `tick` and `cause`. They need `events.<event>` in `uses`.
 
+- `on.talk_requested`: `TalkRequestedEvent`
+- `on.talk_picked`: `TalkPickedEvent`
 - `on.dock`: `DockEvent`
 - `on.undock`: `UndockEvent`
 - `on.mine`: `MineEvent`
