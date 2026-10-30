@@ -5,7 +5,8 @@ struct VIn {
     @location(0) pos: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) color: vec4<f32>,
-    // x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam), y: dash, z: gap.
+    // x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam). Dashed: y dash, z gap.
+    // Beam: y width, z length (world units).
     @location(3) params: vec4<f32>,
 };
 
@@ -34,13 +35,18 @@ fn fs_fx(in: VOut) -> @location(0) vec4<f32> {
     let aa = max(fwidth(in.uv.y), 1e-4);
     let aax = max(fwidth(in.uv.x), 1e-4);
     if kind > 2.5 {
-        // Beam: hot white core, coloured falloff, a slow shimmer along its length.
+        // Beam: hot white core, coloured falloff, a slow shimmer along its length
+        // measured in beam widths (world units alias to stripes when zoomed out), and
+        // soft rounded-off ends.
         let a = abs(in.uv.y);
-        let shimmer = 0.8 + 0.2 * sin(in.uv.x * 2.2 - g.camera_pos.w * 9.0);
+        let width = max(in.params.y, 1e-3);
+        let shimmer = 0.8 + 0.2 * sin(in.uv.x / width * 1.6 - g.camera_pos.w * 9.0);
+        let cap = width * 0.6;
+        let ends = smoothstep(0.0, cap, in.uv.x) * smoothstep(0.0, cap, in.params.z - in.uv.x);
         let glow = exp(-a * a * 5.0) * shimmer;
         let core = exp(-a * a * 40.0);
         let rgb = c.rgb * glow * 1.4 + vec3<f32>(1.0, 0.96, 0.85) * core;
-        return vec4<f32>(rgb * c.a, 0.0);
+        return vec4<f32>(rgb * c.a * ends, 0.0);
     }
     if kind > 1.5 {
         let d = length(in.uv);

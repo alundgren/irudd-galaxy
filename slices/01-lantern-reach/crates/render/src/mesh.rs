@@ -10,7 +10,9 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Vertex {
     pub position: [f32; 3],
-    /// Face normal (flat shading drives the cel bands).
+    /// Shading normal. The face normal for flat-shaded geometry; a smooth surface
+    /// ([`MeshBuilder::tri_shaded`]) stores the normal of the surface it approximates,
+    /// so cel bands move across it instead of whole facets flipping band.
     pub normal: [f32; 3],
     /// Normal averaged over every face sharing this position. The ink outline pushes the
     /// hull out along it, so hard edges don't crack open.
@@ -54,6 +56,38 @@ impl MeshData {
             .iter()
             .map(|v| Vec3::from(v.position).length())
             .fold(0.0, f32::max)
+    }
+
+    /// Where the ray `origin + dir * t` first enters the mesh: the smallest `t >= 0`
+    /// at a front face, or `None` if it misses. `dir` needn't be unit length, so `t` is
+    /// the same in any affinely transformed space (mesh space or world space).
+    pub fn raycast(&self, origin: Vec3, dir: Vec3) -> Option<f32> {
+        let mut best: Option<f32> = None;
+        for t in self.indices.as_chunks::<3>().0 {
+            let [a, b, c] = t.map(|i| Vec3::from(self.vertices[i as usize].position));
+            let (e1, e2) = (b - a, c - a);
+            let p = dir.cross(e2);
+            let det = e1.dot(p);
+            // Front faces only: the ray must come from outside.
+            if det <= 1e-12 {
+                continue;
+            }
+            let s = origin - a;
+            let u = s.dot(p) / det;
+            if !(0.0..=1.0).contains(&u) {
+                continue;
+            }
+            let q = s.cross(e1);
+            let v = dir.dot(q) / det;
+            if v < 0.0 || u + v > 1.0 {
+                continue;
+            }
+            let hit = e2.dot(q) / det;
+            if hit >= 0.0 && best.is_none_or(|b| hit < b) {
+                best = Some(hit);
+            }
+        }
+        best
     }
 
     /// True when every position and normal is finite and every normal is unit length.
@@ -150,6 +184,33 @@ impl MeshBuilder {
             });
         }
         self.mesh.indices.extend([base, base + 1, base + 2]);
+    }
+
+    /// Adds a triangle shaded with its own per-corner normals (`na nb nc`, before the
+    /// current transform) instead of the face normal: one facet of a smooth surface.
+    /// Returns false, and adds nothing, for a degenerate triangle.
+    pub fn tri_shaded(&mut self, a: Vec3, b: Vec3, c: Vec3, normals: [Vec3; 3]) -> bool {
+        let start = self.mesh.vertices.len();
+        self.tri(a, b, c);
+        if self.mesh.vertices.len() == start {
+            return false;
+        }
+        let m = Mat3::from_mat4(self.transform);
+        let to_world = if m.determinant().abs() > 1e-12 {
+            m.inverse().transpose()
+        } else {
+            Mat3::IDENTITY
+        };
+        let mut ns = normals.map(|n| (to_world * n).normalize_or_zero());
+        if self.transform.determinant() < 0.0 {
+            ns.swap(1, 2);
+        }
+        for (v, n) in self.mesh.vertices[start..].iter_mut().zip(ns) {
+            if n != Vec3::ZERO {
+                v.normal = n.into();
+            }
+        }
+        true
     }
 
     /// Adds a flat quad `a b c d` (counter-clockwise).
@@ -483,6 +544,34 @@ mod tests {
             };
             assert!((centroid - centre).dot(Vec3::from(v.normal)) > 0.0);
         }
+    }
+
+    #[test]
+    fn shaded_triangles_keep_their_normals() {
+        let mut b = MeshBuilder::new();
+        let up = Vec3::new(0.0, 0.3, 1.0).normalize();
+        assert!(b.tri_shaded(Vec3::ZERO, Vec3::X, Vec3::Y, [Vec3::Z, up, Vec3::Z]));
+        assert!(!b.tri_shaded(Vec3::ZERO, Vec3::X, Vec3::X * 2.0, [Vec3::Z; 3]));
+        let mesh = b.build();
+        assert!(mesh.is_well_formed());
+        assert_eq!(mesh.vertices.len(), 3);
+        assert!((Vec3::from(mesh.vertices[1].normal) - up).length() < 1e-6);
+    }
+
+    #[test]
+    fn raycast_finds_the_near_surface() {
+        let mut b = MeshBuilder::new();
+        b.cuboid(Vec3::splat(2.0));
+        let mesh = b.build();
+        let t = mesh.raycast(Vec3::new(-5.0, 0.2, 0.1), Vec3::X).unwrap();
+        assert!((t - 4.0).abs() < 1e-4, "{t}");
+        // An unnormalised direction scales t.
+        let t = mesh
+            .raycast(Vec3::new(0.0, 0.0, 9.0), Vec3::NEG_Z * 2.0)
+            .unwrap();
+        assert!((t - 4.0).abs() < 1e-4, "{t}");
+        assert!(mesh.raycast(Vec3::new(-5.0, 3.0, 0.0), Vec3::X).is_none());
+        assert!(mesh.raycast(Vec3::new(5.0, 0.0, 0.0), Vec3::X).is_none());
     }
 
     #[test]

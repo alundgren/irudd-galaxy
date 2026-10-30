@@ -24,6 +24,11 @@ use winit::window::Window;
 /// Multisampling for smooth ink edges, when the adapter supports it.
 const MSAA: u32 = 4;
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+/// The inner-ink normal and depth buffer. Half floats keep the octahedral normal to
+/// a few hundredths of a degree (8-bit unorm wobbled by about a degree, enough to
+/// flicker a crease near the art bible's angle as a ship turned). Core WebGPU, so
+/// every backend renders to it.
+const GEOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 /// Backdrop scroll, in logical pixels per world unit moved by the camera.
 const STAR_PARALLAX: f32 = 0.6;
 const CLOUD_PARALLAX: f32 = 0.25;
@@ -389,16 +394,19 @@ impl Renderer {
         }))
         .map_err(|e| RenderError::NoAdapter(e.to_string()))?;
         let caps = surface.get_capabilities(&adapter);
-        let format = caps
+        let surface_format = caps
             .formats
             .iter()
             .copied()
             .find(|f| f.is_srgb())
             .or_else(|| caps.formats.first().copied())
             .ok_or_else(|| RenderError::Surface("no surface formats".into()))?;
+        // Colours are linear and the GPU encodes them. A surface without an sRGB format
+        // is drawn through an sRGB view of it, so it isn't too dark.
+        let format = surface_format.add_srgb_suffix();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format,
+            format: surface_format,
             width: size.width.max(1),
             height: size.height.max(1),
             present_mode: wgpu::PresentMode::AutoVsync,
@@ -407,7 +415,11 @@ impl Renderer {
                 .first()
                 .copied()
                 .unwrap_or(wgpu::CompositeAlphaMode::Auto),
-            view_formats: vec![],
+            view_formats: if format == surface_format {
+                vec![]
+            } else {
+                vec![format]
+            },
             desired_maximum_frame_latency: 2,
             color_space: wgpu::SurfaceColorSpace::Auto,
         };
@@ -800,9 +812,10 @@ impl Renderer {
                 }
             },
         };
-        let view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(self.format),
+            ..Default::default()
+        });
         let encoder = self.encode(scene, &view)?;
         self.queue.submit([encoder.finish()]);
         if let Target::Window { window, .. } = &self.target {
@@ -1443,7 +1456,7 @@ fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
         height: size.1,
         depth_or_array_layers: 1,
     };
-    let color = |label: &str| {
+    let color = |label: &str, format| {
         device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
@@ -1451,7 +1464,7 @@ fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                     | wgpu::TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
@@ -1459,8 +1472,8 @@ fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
             .create_view(&wgpu::TextureViewDescriptor::default())
     };
     GeomTargets {
-        geom: color("geom normals"),
-        albedo: color("geom paint"),
+        geom: color("geom normals", GEOM_FORMAT),
+        albedo: color("geom paint", wgpu::TextureFormat::Rgba8Unorm),
         depth: device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some("geom depth"),
@@ -1625,10 +1638,7 @@ fn create_pipelines(
         })
     };
     let surface = [format];
-    let geom_formats = [
-        wgpu::TextureFormat::Rgba8Unorm,
-        wgpu::TextureFormat::Rgba8Unorm,
-    ];
+    let geom_formats = [GEOM_FORMAT, wgpu::TextureFormat::Rgba8Unorm];
     let less = wgpu::CompareFunction::Less;
     Pipelines {
         mesh: make(Spec {
