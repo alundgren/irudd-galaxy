@@ -178,7 +178,13 @@ impl Hands {
     /// The flight keys of `input`. Space brakes unless the caller used it for
     /// something else this tick.
     pub fn of(input: &PlayerInput) -> Hands {
-        let axis = |a: f32| if a.is_finite() { a.clamp(-1.0, 1.0) } else { 0.0 };
+        let axis = |a: f32| {
+            if a.is_finite() {
+                a.clamp(-1.0, 1.0)
+            } else {
+                0.0
+            }
+        };
         Hands {
             turn: axis(input.thrust.x),
             thrust: axis(input.thrust.y),
@@ -424,7 +430,10 @@ mod tests {
         let feel = wren();
         let (m, _) = run(&feel, rest(), 0, hands(0.0, 1.0), 90);
         assert!((m.velocity.length() - 165.0).abs() < 0.01, "{m:?}");
-        assert!(m.velocity.y.abs() < 1e-3 && m.velocity.x > 0.0, "along the nose");
+        assert!(
+            m.velocity.y.abs() < 1e-3 && m.velocity.x > 0.0,
+            "along the nose"
+        );
         let boost = Hands {
             boost: true,
             ..hands(0.0, 1.0)

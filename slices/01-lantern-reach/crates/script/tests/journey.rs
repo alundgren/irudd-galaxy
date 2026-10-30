@@ -62,6 +62,16 @@ fn status(sim: &Sim, beat: &str) -> Option<BeatStatus> {
 }
 
 fn fly(sim: &mut Sim, to: Vec2, arrived: impl Fn(&Sim) -> bool) {
+    if player(sim).docked_at.is_some() {
+        // Fly off first: turning alone doesn't undock.
+        step(
+            sim,
+            &PlayerInput {
+                thrust: Vec2::new(0.0, 1.0),
+                ..PlayerInput::default()
+            },
+        );
+    }
     for _ in 0..3000 {
         if arrived(sim) {
             break;

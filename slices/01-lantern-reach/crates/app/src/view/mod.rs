@@ -621,11 +621,17 @@ fn edge_current(scene: &mut Scene, region: &Region, pose: Option<&Pose>, ship: &
         let tip = at - dir * size;
         let a = at + side * size;
         let b = at - side * size;
-        Line::path(vec![a.extend(-6.0), tip.extend(-6.0), b.extend(-6.0)], 4.0, color)
+        Line::path(
+            vec![a.extend(-6.0), tip.extend(-6.0), b.extend(-6.0)],
+            4.0,
+            color,
+        )
     };
     for k in -4..=4 {
         let dir = G2::from_angle(k as f32 * 110.0 / region.radius).rotate(out);
-        scene.lines.push(chevron(c + dir * region.radius, dir, 16.0));
+        scene
+            .lines
+            .push(chevron(c + dir * region.radius, dir, 16.0));
     }
     let depth = d - region.radius;
     if depth > 0.0 {
@@ -673,7 +679,10 @@ mod tests {
         assert!((rig.zoom - wheeled).abs() < 1e-3, "the wheel's zoom stays");
         world.ship_rules.flight.zoom = 0.5;
         rig.fit(&world);
-        assert!((rig.zoom - wheeled * 2.0).abs() < 1e-2, "and rides on the data's");
+        assert!(
+            (rig.zoom - wheeled * 2.0).abs() < 1e-2,
+            "and rides on the data's"
+        );
     }
 
     #[test]

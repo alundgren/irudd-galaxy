@@ -269,8 +269,12 @@ impl Pilot {
                 break;
             }
             let feel = galaxy_ship::flight::Feel::of_ship(self.world(), ship).unwrap();
-            let keys =
-                galaxy_ship::flight::steer_to(&feel, galaxy_ship::flight::Motion::of(ship), to, close);
+            let keys = galaxy_ship::flight::steer_to(
+                &feel,
+                galaxy_ship::flight::Motion::of(ship),
+                to,
+                close,
+            );
             self.tick(&PlayerInput {
                 thrust: keys,
                 ..PlayerInput::default()

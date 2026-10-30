@@ -242,11 +242,17 @@ fn a_and_d_turn_at_the_hull_rate_and_s_backs_off() {
     // Half a second of D turns 90 degrees clockwise, without moving the ship.
     run(&mut sim, 15, &keys(1.0, 0.0, false));
     let h = player(&sim).heading;
-    assert!((h + std::f32::consts::FRAC_PI_2).abs() < 1e-3, "heading {h}");
+    assert!(
+        (h + std::f32::consts::FRAC_PI_2).abs() < 1e-3,
+        "heading {h}"
+    );
     assert_eq!(player(&sim).velocity, Vec2::ZERO);
     run(&mut sim, 30, &keys(-1.0, 0.0, false));
     let h = player(&sim).heading;
-    assert!((h - std::f32::consts::FRAC_PI_2).abs() < 1e-3, "A: heading {h}");
+    assert!(
+        (h - std::f32::consts::FRAC_PI_2).abs() < 1e-3,
+        "A: heading {h}"
+    );
     // Facing +y, S thrusts toward -y.
     run(&mut sim, 60, &keys(0.0, -1.0, false));
     let v = player(&sim).velocity;
@@ -302,7 +308,10 @@ fn editing_the_data_changes_top_speed_turn_rate_and_zoom() {
     ticks_to_stop(&mut sim);
     run(&mut sim, 30, &keys(1.0, 0.0, false));
     let h = player(&sim).heading;
-    assert!((h + std::f32::consts::FRAC_PI_2).abs() < 1e-3, "90 deg/s: {h}");
+    assert!(
+        (h + std::f32::consts::FRAC_PI_2).abs() < 1e-3,
+        "90 deg/s: {h}"
+    );
 
     let rules = edited_data("ship_rules.toml", |t| {
         t.replacen("zoom = 0.8 ", "zoom = 0.5 ", 1)
@@ -398,11 +407,17 @@ fn a_fly_order_past_the_edge_stops_on_the_edge() {
     afloat(&mut sim, near);
     let out = region.center + Vec2::new(-(region.radius + 250.0), 0.0);
     step(&mut sim, &click(ClickTarget::Point { at: out }, false));
-    assert!(!player(&sim).orders.orders.is_empty(), "the click made an order");
+    assert!(
+        !player(&sim).orders.orders.is_empty(),
+        "the click made an order"
+    );
     run_until(&mut sim, 30 * 30, |s| player(s).orders.orders.is_empty());
     let p = player(&sim).position;
     assert!(player(&sim).orders.orders.is_empty(), "done, at {p:?}");
-    assert!((region.center.distance(p) - region.radius).abs() < 3.0, "{p:?}");
+    assert!(
+        (region.center.distance(p) - region.radius).abs() < 3.0,
+        "{p:?}"
+    );
 }
 
 // --- Mining parks at the drawn rock ---
@@ -413,7 +428,10 @@ fn a_mine_order_parks_beside_the_rock_and_does_not_slide_when_mining_starts() {
     unlock(&mut sim, &[Capability::ClickFly, Capability::ClickMine]);
     let r = rock(&sim, &ICE_ROCK);
     afloat(&mut sim, r.position - Vec2::new(300.0, 40.0));
-    step(&mut sim, &click(ClickTarget::Rock { rock: ICE_ROCK }, false));
+    step(
+        &mut sim,
+        &click(ClickTarget::Rock { rock: ICE_ROCK }, false),
+    );
     run_until(&mut sim, 30 * 30, |s| player(s).activity.mining.is_some());
     let started = player(&sim);
     assert!(started.activity.mining.is_some(), "mining");
@@ -501,7 +519,11 @@ fn docking_needs_the_ring() {
         "docked, Space does nothing"
     );
     step(&mut sim, &thrust(1.0, 0.0));
-    assert_eq!(player(&sim).docked_at, Some(KETTLE), "turning doesn't undock");
+    assert_eq!(
+        player(&sim).docked_at,
+        Some(KETTLE),
+        "turning doesn't undock"
+    );
     step(&mut sim, &thrust(0.0, 1.0));
     assert_eq!(player(&sim).docked_at, None, "flying off undocks");
     assert_eq!(kind_count(&sim, "undock"), 1);
