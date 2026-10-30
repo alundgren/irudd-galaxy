@@ -380,9 +380,12 @@ error.
 - **Journey tests**: `crates/script/tests/journey_core.rs` plays each act headless with
   only `packs/core`, through `crates/script/tests/common/pilot.rs` (the real systems,
   the script host, the fast-model fake; input, trades, services, replies and orders).
-  Its `Setup` starts a later act the way `beat jump` will: beats done, fittings, flags,
+  Its `Setup` seeds focused later-act fixtures: beats done, fittings, flags,
   counters, and lower pacing tunables for long waits. A beat marked done that way has
-  no `beat_completed` fact, so a line citing one stays unsaid. `journey_fixes.rs` holds
+  no `beat_completed` fact, so a line citing one stays unsaid. The app's
+  `harness` instead plays earlier beats through `Game`; `beat jump` saves that real
+  history. `crates/app/tests/harness.rs` runs all 17 beats with and without the GM
+  examples, plus golden replay. `journey_fixes.rs` holds
   the review regressions. `crates/app/tests/journey.rs` plays the same journey
   through the app's `Game` and `Session` at the keys (Act 1 into b07, a reply).
 

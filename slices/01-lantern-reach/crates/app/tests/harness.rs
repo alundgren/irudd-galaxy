@@ -18,7 +18,12 @@ fn exercise(gm: bool, profile: Profile, hull: &str) {
     let report_dir = packs().join("../target/harness");
     std::fs::create_dir_all(&report_dir).unwrap();
     std::fs::write(
-        report_dir.join(if gm { "run-a.json" } else { "run-b.json" }),
+        report_dir.join(match (gm, profile, hull) {
+            (true, _, _) => "run-a.json",
+            (false, Profile::Slice, _) => "full-run-b.json",
+            (false, _, "hull.heron") => "heron-run-b.json",
+            _ => "run-b.json",
+        }),
         serde_json::to_vec_pretty(&run.report).unwrap(),
     )
     .unwrap();
@@ -198,4 +203,38 @@ fn f3_panel_is_small_and_contains_diagnostics() {
     assert_eq!(overlay.panels.len(), 1);
     assert!(overlay.panels[0].rect.h < 200.0);
     assert!(overlay.texts.len() >= 4);
+}
+
+#[test]
+fn an_early_pause_does_not_replace_the_pause_after_the_lens() {
+    let mut game = harness::fresh(&packs(), 9, false, Profile::Fast).unwrap();
+    harness::replay::apply(&mut game, &harness::replay::Action::Pause).unwrap();
+    let run = harness::run(
+        game,
+        RunOptions {
+            until: 5,
+            ..RunOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(run.report["ok"], true);
+    let history = run.game.sim().history().facts();
+    let started = history
+        .iter()
+        .find(|f| {
+            f.kind.as_str() == "beat_started"
+                && f.subjects
+                    .other
+                    .as_ref()
+                    .is_some_and(|id| id.as_str() == harness::BEATS[3])
+        })
+        .unwrap();
+    let pauses: Vec<_> = history
+        .iter()
+        .filter(|f| f.kind.as_str() == "paused")
+        .collect();
+    assert_eq!(pauses.len(), 2);
+    assert!(pauses[0].tick < started.tick);
+    assert!(pauses[1].tick > started.tick);
+    assert_eq!(run.report["completed"], 5);
 }

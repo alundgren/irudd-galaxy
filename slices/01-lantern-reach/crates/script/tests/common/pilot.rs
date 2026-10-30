@@ -62,7 +62,8 @@ impl Setup<'_> {
         &mut self.state.world
     }
 
-    /// Marks beats as completed (and earlier ones started), as `beat jump` will.
+    /// Seeds a focused act fixture without completion facts. The app's `beat jump`
+    /// instead plays earlier beats, preserving their real history and citations.
     pub fn done(&mut self, beats: &[&str]) {
         let w = &mut self.state.world;
         for (i, id) in beats.iter().enumerate() {

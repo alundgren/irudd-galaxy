@@ -356,6 +356,39 @@ impl Pilot {
             .min_by_key(|r| (r.remaining, r.id.clone()))
             .map(|r| r.id.clone())
     }
+    /// A depleted renewable field needs region activity, not idle ticks. Visit its
+    /// stations until regrowth exposes a rock again, always within the run budget.
+    pub fn renewable_rock(&mut self, field: &FieldId) -> Result<RockId> {
+        let region = self
+            .world()
+            .fields
+            .get(field)
+            .ok_or_else(|| format!("unknown field {field}"))?
+            .region
+            .clone();
+        let stations: Vec<_> = self
+            .world()
+            .stations
+            .values()
+            .filter(|s| s.region == region)
+            .take(2)
+            .map(|s| s.id.clone())
+            .collect();
+        for _ in 0..512 {
+            if let Some(rock) = self.rock(field) {
+                return Ok(rock);
+            }
+            if stations.len() < 2 {
+                break;
+            }
+            for station in &stations {
+                self.go(station)?;
+            }
+        }
+        Err(Halt::Failed(format!(
+            "{field} did not regrow after counted regional visits"
+        )))
+    }
     pub fn mine(&mut self, rock: RockId) -> Result {
         if self.cap("cap.click_mine") && self.cap("cap.map_travel") {
             return self.click(ClickTarget::Rock { rock });

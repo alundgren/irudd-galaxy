@@ -5,6 +5,9 @@ use galaxy_contract::verbs::Order;
 
 impl Pilot {
     fn ore_run(&mut self) -> Result {
+        if self.rock(&TIN).is_none() {
+            self.renewable_rock(&TIN)?;
+        }
         self.fill(&TIN)?;
         self.go(&WHARF)?;
         self.sell_all(&ORE)
@@ -56,6 +59,7 @@ impl Pilot {
     }
     /// Split glassite across buyers, then carry Brassmouth plate to the Hook.
     fn circuit(&mut self) -> Result {
+        self.renewable_rock(&GLASS_FIELD)?;
         self.fill(&GLASS_FIELD)?;
         self.go(&BRASS)?;
         self.sell_all(&ORE)?;
@@ -74,9 +78,7 @@ impl Pilot {
         self.go(&KETTLE)
     }
     fn glass_loop(&mut self) -> Result {
-        let rock = self
-            .rock(&GLASS_FIELD)
-            .ok_or("Glass Drift exhausted".to_owned())?;
+        let rock = self.renewable_rock(&GLASS_FIELD)?;
         // The current Order contract mines a rock, not a field. Refresh the target
         // between laps so depletion doesn't turn the field policy into a dead loop.
         self.save_loop(
@@ -209,7 +211,7 @@ impl Pilot {
             }
             if !self.fitted("upgrade.loop_log") {
                 for _ in 0..4 {
-                    let rock = self.rock(&TIN).ok_or("Tinroot exhausted".to_owned())?;
+                    let rock = self.renewable_rock(&TIN)?;
                     self.queue(vec![Order::Mine { rock }, dock(WHARF), sell(ORE)])?;
                 }
                 self.fit("upgrade.loop_log")?;
@@ -277,6 +279,7 @@ impl Pilot {
                     }
                     self.circuit()?;
                 }
+                self.go(&KETTLE)?;
                 self.service(req)?;
             }
             self.save_loop(
@@ -342,9 +345,8 @@ impl Pilot {
                 if self.has("core.fragment_found") {
                     break;
                 }
-                if let Some(rock) = self.rock(&GLASS_FIELD) {
-                    self.mine(rock)?;
-                }
+                let rock = self.renewable_rock(&GLASS_FIELD)?;
+                self.mine(rock)?;
                 self.go(&GDO)?;
                 self.sell_all(&GLASS)?;
             }
