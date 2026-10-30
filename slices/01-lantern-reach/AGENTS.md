@@ -275,7 +275,13 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dock screen's
   "Ask what changed" sends `choice.what_changed` to the dockmaster: the core pack's
   `talk` script answers (Ilse's b17 homecoming in `act4`) and records
-  `core.asked_what_changed`. `galaxy shot --keys` has `:reply:N` and `:reply:CHOICE`.
+  `core.asked_what_changed`. Ambient talk declares `talk.pick` and calls `ctx.talk:request` with ordered,
+  authored candidates filled from cited facts. `MindHost` picks an ID using Jev or
+  candidate one as the complete default, and emits `talk_picked` with a
+  `Cause::Mind` and `mind.decision` fact. `ctx.talk:selected` rechecks the current
+  docking, pack revision, speaker and citation before the script says/retires it.
+  Requests and results are saved events; unresolved requests resume on load.
+  `galaxy shot --keys` has `:reply:N` and `:reply:CHOICE`.
 - `ctx.space` launches scripted craft owned by a person (`put_craft`: a teacher's
   tender), lays out live rock fields (`put_field`: a rumored vein) and rests a field's
   regrowth (`set_regrow`); `ctx.space:craft` reads any non-player craft. Market base

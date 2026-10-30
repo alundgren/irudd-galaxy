@@ -189,6 +189,11 @@ pub const USES: &[UseDef] = &[
         "Offer dock talk. Names a person or place and cites a fact.",
     ),
     cap(
+        "talk.pick",
+        Hook::Talk,
+        "Offer ordered authored candidates to the mind and read its selection, checking citations.",
+    ),
+    cap(
         "map.write",
         Hook::Talk,
         "Pin a map note to a place. Cites a fact.",
@@ -297,6 +302,8 @@ pub fn uses() -> Vec<UseDef> {
 /// The capability that lets a script handle `on.<kind>`.
 pub const fn event_use(kind: EventKind) -> &'static str {
     match kind {
+        EventKind::TalkRequested => "events.talk_requested",
+        EventKind::TalkPicked => "events.talk_picked",
         EventKind::Dock => "events.dock",
         EventKind::Undock => "events.undock",
         EventKind::Mine => "events.mine",
@@ -1002,6 +1009,27 @@ pub const FUNCTIONS: &[FnDef] = &[
         "talk.write",
         "(line: LineSpec, why: Cause) -> ()",
         "Offers a line of dock talk. Needs a `speaker` or `place` and `cites`.",
+    ),
+    f(
+        "talk",
+        "request",
+        "talk.pick",
+        "(docking: FactId, candidates: { DockTalkCandidate }, why: Cause) -> ()",
+        "Saves ordered authored candidates for the mind to pick. Slots are filled by the script from each cited fact. Candidate one is the complete fallback. At most 32 candidates; returns an on.talk_picked event, never generated text.",
+    ),
+    f(
+        "talk",
+        "selected",
+        "talk.pick",
+        "(request: FactId, line: string) -> DockTalkCandidate?",
+        "Reads an offered candidate only if this pack revision, docking and speaker still match and its fact has not been said. Otherwise nil. Recheck docking when saying it.",
+    ),
+    f(
+        "talk",
+        "cited",
+        "talk.pick",
+        "(fact: FactId) -> boolean",
+        "Whether any dock-talk line already cites this fact, including this call's buffered lines.",
     ),
     f(
         "map",

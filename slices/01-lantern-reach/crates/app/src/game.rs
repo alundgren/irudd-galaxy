@@ -12,11 +12,11 @@
 //! it reads new facts and its answers come back as ordinary batches; a line it decides
 //! on is said through the talk log (`Command::Say`).
 //!
-//! - **Dock talk** has one owner: the core pack (`scripts/talk.luau` over the line pools
-//!   in `lib/lines.luau`) says the ambient line at each docking and answers "What
-//!   changed?" (a `choice.what_changed` reply), and the beat scripts say their
-//!   conversations. The mind opens no dock-talk menu of its own, so no line is picked
-//!   twice.
+//! - **Dock talk** has one catalog: the core pack (`lib/lines.luau`). Its talk
+//!   script offers ordered, filled candidates; the mind returns one ID (or the
+//!   script's default) through `talk_picked`. The script rechecks the docking and
+//!   citation, then says and retires the line through its normal talk path.
+//!   "What changed?" and beat conversations stay authored script replies.
 //!
 //! - **Packs.** `core` must load; it is checked with the strict typecheck when
 //!   `luau-analyze` is found and loads without it, with a logged warning, when it isn't.
@@ -64,7 +64,7 @@ pub enum MindMode {
     Live,
     /// The seeded fake, inline: deterministic and offline.
     Fake { seed: u64 },
-    /// No mind at all: nobody speaks unless a script says so.
+    /// No model calls: script menus still receive their authored default.
     Off,
 }
 
@@ -274,7 +274,12 @@ impl Game {
 
         let data = core_data(&opts.packs);
         let mind = match &opts.mind {
-            MindMode::Off => None,
+            MindMode::Off => {
+                let mut config = MindConfig::load_dir(&data).map_err(|e| e.to_string())?;
+                config.talk.pick = false;
+                config.talk.free_phrasing = false;
+                Some(MindHost::new(config, NoModel, sim.history()))
+            }
             mode => {
                 let mut config = MindConfig::load_dir(&data).map_err(|e| e.to_string())?;
                 let exec: Box<dyn Executor> = match mode {
