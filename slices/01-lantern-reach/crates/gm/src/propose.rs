@@ -3,7 +3,7 @@
 //!
 //! 1. The fast checks of `galaxy pack check` (manifest, types, hooks, references,
 //!    invariants, smoke) against the world the pack would join.
-//! 2. `canon`: skipped; the slice has no canon graph yet (an info line says so).
+//! 2. `canon`: declared revelations and assertions against the authored graph.
 //! 3. `sandbox`: [`crate::sandbox`] forks the base save and flies the activity loop
 //!    with and without the pack in two child processes, then compares telemetry,
 //!    handler health and rejected batches.
@@ -105,14 +105,23 @@ pub fn validate(
             history: Some(&state.history),
             analyzer: opts.analyzer.as_deref(),
             require_typecheck: opts.require_typecheck,
+            // Always a game-master layer; the world's records name the core packs.
+            game_master: true,
+            ..Default::default()
         },
     );
     let mut report = checked.report;
     drop(checked.vm);
-    report.steps.push(skipped(
-        ValidationStep::Canon,
-        "the slice has no canon graph yet; nothing to check against",
-    ));
+    report.steps.retain(|s| s.step != ValidationStep::Canon);
+    match galaxy_script::read_pack(dir) {
+        Ok(pack) => report
+            .steps
+            .push(galaxy_script::canon::check(&pack, &state.world, true)),
+        Err(_) => report
+            .steps
+            .push(skipped(ValidationStep::Canon, "manifest failed")),
+    }
+    settle(&mut report);
     if !report.accepted() {
         report
             .steps

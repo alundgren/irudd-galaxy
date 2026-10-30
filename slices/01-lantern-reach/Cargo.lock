@@ -981,9 +981,11 @@ dependencies = [
 name = "galaxy-contract"
 version = "0.1.0"
 dependencies = [
+ "galaxy-kit",
  "schemars",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
@@ -992,6 +994,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "galaxy-contract",
+ "galaxy-kit",
  "rand_core",
  "rand_pcg",
  "rusqlite",
@@ -1034,6 +1037,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "galaxy-kit"
+version = "0.1.0"
+dependencies = [
+ "glam 0.34.1",
+ "schemars",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "galaxy-mind"
 version = "0.1.0"
 dependencies = [
@@ -1069,6 +1083,7 @@ dependencies = [
  "galaxy-contract",
  "galaxy-core",
  "galaxy-economy",
+ "galaxy-kit",
  "galaxy-mind",
  "galaxy-progress",
  "galaxy-ship",
@@ -2603,6 +2618,7 @@ name = "render"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "galaxy-kit",
  "glam 0.34.1",
  "glyphon",
  "png",

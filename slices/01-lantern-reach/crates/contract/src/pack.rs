@@ -43,9 +43,18 @@ pub struct PackManifest {
     pub lib: bool,
     #[serde(default)]
     pub depends: Vec<PackId>,
+    /// Canon revelations this pack is permitted to perform.
+    #[serde(default)]
+    pub opens: Vec<String>,
+    /// Explicit canon assertions checked against locked/open nodes.
+    #[serde(default)]
+    pub asserts: Vec<String>,
     /// IDs the scripts create at runtime (so the reference check knows them).
     #[serde(default)]
     pub creates: Vec<AnyId>,
+    /// Optional records created later by dependencies; reads must tolerate absence.
+    #[serde(default)]
+    pub observes: Vec<AnyId>,
     /// Changes that make something worse for the player. Each names its paired
     /// opportunity.
     #[serde(default, rename = "shock")]
@@ -314,6 +323,25 @@ pub struct PackState {
     /// doesn't bring back an older revision of the pack.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub off: bool,
+    /// The layer the pack runs as, recorded the first time it loads or is applied
+    /// (`SetPackLayer`). Saved, so every later load of the pack (a reload, `play`,
+    /// `sim run`, the bridge, the sandbox) keeps a game-master layer's restrictions,
+    /// whichever path loads it and whatever its ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<PackLayer>,
+}
+
+/// Which layer a pack runs as.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PackLayer {
+    /// The authored backbone (`core`), trusted to drive its own journey beats.
+    Core,
+    /// A game-master layer (`gm-examples`, applied, staged and sandboxed packs): it
+    /// may never register or drive journey beats, nor pay their rewards.
+    GameMaster,
 }
 
 /// How a script's current revision has behaved.

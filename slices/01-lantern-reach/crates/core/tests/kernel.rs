@@ -229,6 +229,63 @@ fn undo_records_invert_commands() {
     let mut mercy_route = world.traders[&mercy].clone();
     mercy_route.max_units_per_ware = 4;
     let commands = vec![
+        Command::SetCanonStatus {
+            id: "canon.second_fragment".into(),
+            status: galaxy_contract::canon::CanonStatus::Open,
+        },
+        Command::PutMapOverlay {
+            id: "gm.test.border".into(),
+            value: Some(Box::new(galaxy_contract::live::MapOverlay {
+                region: "region.lantern_shallows".parse().unwrap(),
+                center: Vec2::ZERO,
+                radius: 100.0,
+                owner: None,
+                contested: true,
+                direction: None,
+            })),
+        },
+        Command::PutSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            value: Some(Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: false,
+            })),
+        },
+        Command::UpdateSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            from: Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: false,
+            }),
+            to: Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: true,
+            }),
+        },
+        Command::ExpectFlag {
+            flag: FlagId::new("mech.rock_tagging").unwrap(),
+            on: false,
+        },
+        Command::SetRockTag {
+            rock: world.rocks.keys().next().unwrap().clone(),
+            on: true,
+        },
+        Command::PutStationRecipe {
+            id: KETTLE,
+            value: Some(Box::new(galaxy_kit::StationRecipe::kettle_dock(1))),
+        },
         Command::AdjustCargo {
             ship: PLAYER,
             ware: ICE,
@@ -414,6 +471,17 @@ fn undo_records_invert_commands() {
                 price: 1900,
             },
         },
+        Command::SetMarketStock {
+            station: KETTLE,
+            ware: ICE,
+            stock: MarketStock {
+                stock: 3,
+                stock_carry: 0.0,
+                min_price: 353,
+                max_price: 2184,
+                price: 2000,
+            },
+        },
         Command::SetMarketLine {
             station: KETTLE,
             ware: ICE,
@@ -514,6 +582,10 @@ fn undo_records_invert_commands() {
             pack: PackId::new("gm.kettle_growth").unwrap(),
             off: true,
         },
+        Command::SetPackLayer {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            layer: Some(galaxy_contract::pack::PackLayer::GameMaster),
+        },
         Command::Say {
             line: Box::new(TalkLine {
                 channel: Channel::DockTalk,
@@ -535,6 +607,8 @@ fn undo_records_invert_commands() {
     let mut undo = Vec::new();
     for c in &commands {
         assert_eq!(c.reversibility(), Reversibility::Reversible);
+        // `op` names the command as serde does: the key of `needs::COMMAND_NEEDS`.
+        assert_eq!(serde_json::to_value(c).unwrap()["op"], c.op());
         undo.push(galaxy_core::apply::apply(&mut world, c, &mut staged).unwrap());
     }
     assert_ne!(world, original);
@@ -874,4 +948,173 @@ fn bad_data_is_rejected_with_reasons() {
     .unwrap();
     let err = new_game(dir.path(), 1).unwrap_err().to_string();
     assert!(err.contains("wares.toml"), "{err}");
+}
+
+#[test]
+fn a_rejected_station_foundation_or_closure_restores_the_exact_records() {
+    let mut sim = Sim::new(new_game(&data_dir(), 7).unwrap());
+    let source =
+        std::fs::read_to_string(data_dir().join("../../gm-examples/sixth_station/lib/recipe.luau"))
+            .unwrap();
+    let json = source
+        .split("[=[")
+        .nth(1)
+        .unwrap()
+        .split("]=]")
+        .next()
+        .unwrap();
+    let recipe: galaxy_kit::StationRecipe = serde_json::from_str(json).unwrap();
+    let mut station = sim.world().stations.get(&WHARF).unwrap().clone();
+    station.id = "gm.test_station".parse().unwrap();
+    let id = station.id.clone();
+    let mut market = sim.world().markets.get(&WHARF).unwrap().clone();
+    market.station = id.clone();
+    let found = Command::FoundStation {
+        station: Box::new(station),
+        recipe: Box::new(recipe),
+        market: Some(Box::new(market)),
+    };
+    let fail = Command::AdjustCredits { delta: i64::MIN };
+    let mut before = sim.world().clone();
+    sim.submit(
+        CommandBatch::new(Cause::system("test", "reject the foundation"))
+            .with(found.clone())
+            .with(fail.clone()),
+    );
+    assert_eq!(sim.step(&PlayerInput::default()).unwrap().rejected.len(), 1);
+    before.meta.tick = sim.world().meta.tick;
+    assert_eq!(sim.world(), &before);
+    sim.submit(CommandBatch::new(Cause::system("test", "found the station")).with(found));
+    assert!(
+        sim.step(&PlayerInput::default())
+            .unwrap()
+            .rejected
+            .is_empty()
+    );
+    let mut before = sim.world().clone();
+    sim.submit(
+        CommandBatch::new(Cause::system("test", "reject the closure"))
+            .with(Command::CloseFoundedStation { id })
+            .with(fail),
+    );
+    assert_eq!(sim.step(&PlayerInput::default()).unwrap().rejected.len(), 1);
+    before.meta.tick = sim.world().meta.tick;
+    assert_eq!(sim.world(), &before);
+}
+
+#[test]
+fn a_closed_scaffold_reopens_in_place_and_shuts_again_exactly() {
+    let mut world = new_game(&data_dir(), 7).unwrap().world;
+    let source =
+        std::fs::read_to_string(data_dir().join("../../gm-examples/sixth_station/lib/recipe.luau"))
+            .unwrap();
+    let json = source
+        .split("[=[")
+        .nth(1)
+        .unwrap()
+        .split("]=]")
+        .next()
+        .unwrap();
+    let recipe: galaxy_kit::StationRecipe = serde_json::from_str(json).unwrap();
+    let mut station = world.stations.get(&WHARF).unwrap().clone();
+    station.id = "gm.test_station".parse().unwrap();
+    let id = station.id.clone();
+    let mut market = world.markets.get(&WHARF).unwrap().clone();
+    market.station = id.clone();
+    let mut staged = galaxy_core::apply::Staged::default();
+    let apply = |world: &mut WorldState, c: &Command, staged: &mut galaxy_core::apply::Staged| {
+        galaxy_core::apply::apply(world, c, staged)
+    };
+    apply(
+        &mut world,
+        &Command::FoundStation {
+            station: Box::new(station.clone()),
+            recipe: Box::new(recipe.clone()),
+            market: Some(Box::new(market.clone())),
+        },
+        &mut staged,
+    )
+    .unwrap();
+    // A rollback's closure leaves a scaffold: no market, no services.
+    apply(
+        &mut world,
+        &Command::CloseFoundedStation { id: id.clone() },
+        &mut staged,
+    )
+    .unwrap();
+    let closed = world.clone();
+    assert!(!closed.markets.contains(&id));
+
+    let reopen = Command::SetFoundedStation {
+        station: Box::new(station.clone()),
+        recipe: Box::new(recipe.clone()),
+        market: Some(Box::new(market.clone())),
+    };
+    let undo = apply(&mut world, &reopen, &mut staged).unwrap();
+    assert_eq!(world.stations.get(&id), Some(&station));
+    assert_eq!(world.station_recipes.get(&id), Some(&recipe));
+    assert_eq!(world.markets.get(&id), Some(&market));
+    assert!(
+        apply(&mut world, &reopen, &mut staged).is_err(),
+        "an open ring can't be reopened"
+    );
+    let UndoRecord::Invert { command } = undo else {
+        panic!("reopening inverts exactly")
+    };
+    apply(&mut world, &command, &mut staged).unwrap();
+    assert_eq!(world, closed, "shutting it restores the exact scaffold");
+
+    let mut moved = station.clone();
+    moved.position.x += 1000.0;
+    assert!(
+        apply(
+            &mut world,
+            &Command::SetFoundedStation {
+                station: Box::new(moved),
+                recipe: Box::new(recipe),
+                market: Some(Box::new(market)),
+            },
+            &mut staged,
+        )
+        .is_err(),
+        "a reopened ring stays where its berths are"
+    );
+    assert_eq!(world, closed);
+}
+
+#[test]
+fn a_survey_buoy_update_loses_to_a_removal_or_replacement() {
+    let mut world = new_game(&data_dir(), 1).unwrap().world;
+    let mut staged = galaxy_core::apply::Staged::default();
+    let buoy = galaxy_contract::live::SurveyBuoy {
+        region: "region.lantern_shallows".parse().unwrap(),
+        position: Vec2::ZERO,
+        radius: 40.0,
+        planted_by: COOP,
+        reward: None,
+        read: false,
+    };
+    let read = galaxy_contract::live::SurveyBuoy {
+        read: true,
+        ..buoy.clone()
+    };
+    let update = Command::UpdateSurveyBuoy {
+        id: "gm.test.buoy".into(),
+        from: Box::new(buoy.clone()),
+        to: Box::new(read),
+    };
+    assert!(galaxy_core::apply::apply(&mut world, &update, &mut staged).is_err());
+    let mut moved = buoy.clone();
+    moved.position.x = 50.0;
+    galaxy_core::apply::apply(
+        &mut world,
+        &Command::PutSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            value: Some(Box::new(moved.clone())),
+        },
+        &mut staged,
+    )
+    .unwrap();
+    assert!(galaxy_core::apply::apply(&mut world, &update, &mut staged).is_err());
+    assert_eq!(world.survey_buoys["gm.test.buoy"], moved);
 }

@@ -4,6 +4,150 @@
   "description": "The whole simulated world. Missing stores load empty, so adding a store keeps\nolder saves loadable.",
   "type": "object",
   "properties": {
+    "canon": {
+      "$ref": "#/$defs/CanonState",
+      "default": {
+        "edges": [
+          {
+            "from": "canon.lantern_makers",
+            "rel": "supports",
+            "to": "canon.lane_lanterns"
+          },
+          {
+            "from": "canon.lantern_makers",
+            "rel": "supports",
+            "to": "canon.glass_drift_lens"
+          },
+          {
+            "from": "canon.glass_drift_lens",
+            "rel": "supports",
+            "to": "canon.fragment_is_lens_shard"
+          },
+          {
+            "from": "canon.fragment_is_lens_shard",
+            "rel": "supports",
+            "to": "canon.fragments_sing"
+          },
+          {
+            "from": "canon.fragments_sing",
+            "rel": "supports",
+            "to": "canon.second_fragment"
+          },
+          {
+            "from": "canon.fragments_sing",
+            "rel": "relates",
+            "to": "canon.lane_lanterns"
+          },
+          {
+            "from": "canon.glass_drift_lens",
+            "rel": "raises",
+            "to": "canon.lens_purpose"
+          },
+          {
+            "from": "canon.glass_drift_lens",
+            "rel": "raises",
+            "to": "canon.who_broke_the_lens"
+          },
+          {
+            "from": "canon.no_fragment_trade",
+            "rel": "explains",
+            "to": "canon.glass_drift_lens"
+          }
+        ],
+        "nodes": {
+          "canon.fragment_is_lens_shard": {
+            "during": "beat.b15_fragment",
+            "id": "canon.fragment_is_lens_shard",
+            "opener": "core:b15.1",
+            "requires": null,
+            "statement": "The fragment is an unbroken shard of the great lens, not dust. It is warm and can't be scratched.",
+            "status": "sealed",
+            "step": 0
+          },
+          "canon.fragments_sing": {
+            "during": "beat.b15_fragment",
+            "id": "canon.fragments_sing",
+            "opener": "core:b15.2",
+            "requires": null,
+            "statement": "Carried through a lane current, a fragment sings in tune with the lane lamps.",
+            "status": "sealed",
+            "step": 1
+          },
+          "canon.glass_drift_lens": {
+            "during": null,
+            "id": "canon.glass_drift_lens",
+            "opener": null,
+            "requires": null,
+            "statement": "The Glass Drift is the wreck of one great lens. Glassite is its dust.",
+            "status": "locked",
+            "step": null
+          },
+          "canon.lane_lanterns": {
+            "during": null,
+            "id": "canon.lane_lanterns",
+            "opener": null,
+            "requires": null,
+            "statement": "The lamps along the lanes are Lantern-maker work. The Lamplighter Society was founded to keep them lit, and doesn't know how they work.",
+            "status": "locked",
+            "step": null
+          },
+          "canon.lantern_makers": {
+            "during": null,
+            "id": "canon.lantern_makers",
+            "opener": null,
+            "requires": null,
+            "statement": "Long before the Reach was settled, a people the Lamplighters call the Lantern-makers built the lane currents. Nobody knows what they looked like.",
+            "status": "locked",
+            "step": null
+          },
+          "canon.lens_purpose": {
+            "during": null,
+            "id": "canon.lens_purpose",
+            "opener": null,
+            "requires": null,
+            "statement": "What the great lens was for.",
+            "status": "question",
+            "step": null
+          },
+          "canon.no_fragment_trade": {
+            "during": null,
+            "id": "canon.no_fragment_trade",
+            "opener": null,
+            "requires": null,
+            "statement": "The Society never buys or sells fragments. It keeps them, or returns them to whoever found them.",
+            "status": "locked",
+            "step": null
+          },
+          "canon.no_living_ancients": {
+            "during": null,
+            "id": "canon.no_living_ancients",
+            "opener": null,
+            "requires": null,
+            "statement": "Any claim that a Lantern-maker is alive or present in the Reach, or that an Ancients object grants power over ships, minds or prices.",
+            "status": "forbidden",
+            "step": null
+          },
+          "canon.second_fragment": {
+            "during": null,
+            "id": "canon.second_fragment",
+            "opener": "pack",
+            "requires": "beat.b15_fragment",
+            "statement": "The fragment's song is loudest when facing Brassmouth Narrows. (A direction only, never a location.)",
+            "status": "sealed",
+            "step": null
+          },
+          "canon.who_broke_the_lens": {
+            "during": null,
+            "id": "canon.who_broke_the_lens",
+            "opener": null,
+            "requires": null,
+            "statement": "Who or what broke it.",
+            "status": "question",
+            "step": null
+          }
+        }
+      }
+    },
     "counters": {
       "description": "Activity counters that pace beats and unlocks (never clock time).",
       "$ref": "#/$defs/ActivityCounters",
@@ -87,6 +231,13 @@
           "$ref": "#/$defs/Lane"
         }
       }
+    },
+    "map_overlays": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/MapOverlay"
+      },
+      "default": {}
     },
     "markets": {
       "description": "One market per station that trades, keyed by station.",
@@ -172,6 +323,14 @@
           "$ref": "#/$defs/Region"
         }
       }
+    },
+    "rock_tags": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RockId"
+      },
+      "uniqueItems": true
     },
     "rock_types": {
       "type": "object",
@@ -265,6 +424,16 @@
         }
       }
     },
+    "station_recipes": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/StationRecipe"
+        }
+      }
+    },
     "stations": {
       "type": "object",
       "additionalProperties": false,
@@ -274,6 +443,13 @@
           "$ref": "#/$defs/Station"
         }
       }
+    },
+    "survey_buoys": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/SurveyBuoy"
+      },
+      "default": {}
     },
     "talk": {
       "description": "Dock talk, map notes and chronicle entries.",
@@ -547,6 +723,111 @@
         "stage"
       ]
     },
+    "CanonEdge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "rel": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "rel"
+      ]
+    },
+    "CanonNode": {
+      "type": "object",
+      "properties": {
+        "during": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BeatId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "opener": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BeatId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statement": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CanonStatus"
+        },
+        "step": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "statement"
+      ]
+    },
+    "CanonState": {
+      "type": "object",
+      "properties": {
+        "edges": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CanonEdge"
+          }
+        },
+        "nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/CanonNode"
+          }
+        }
+      },
+      "required": [
+        "nodes"
+      ]
+    },
+    "CanonStatus": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "sealed",
+        "open",
+        "question",
+        "forbidden"
+      ]
+    },
     "CapabilityDef": {
       "description": "A control capability (`cap.click_fly`). The ship crate reads the same flag names\nfrom `ship_rules.toml`.",
       "type": "object",
@@ -672,6 +953,22 @@
           "properties": {
             "kind": {
               "type": "string",
+              "const": "tag"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
               "const": "region"
             },
             "region": {
@@ -684,6 +981,10 @@
           ]
         }
       ]
+    },
+    "Color": {
+      "description": "A linear-space RGBA colour.\n\nAuthor colours with [`Color::hex`] or [`Color::srgb`], which convert from sRGB the way\na colour picker shows them. Serde reads and writes `\"#rrggbb\"` / `\"#rrggbbaa\"` strings so\nrecipes stay readable for people and game-master agents.",
+      "type": "string"
     },
     "Condition": {
       "description": "A world condition. Evaluated by the engine against world state only.",
@@ -1090,6 +1391,129 @@
         "hull",
         "cost",
         "station"
+      ]
+    },
+    "Decal": {
+      "description": "A mark painted on a station: stripes, a chevron, the faction sigil or a number.\n\nDecals are geometry, slightly raised, so the inner-ink pass can outline them.\nThey lie in the play plane and read from above.",
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Placement",
+          "default": {
+            "angle": 0.0,
+            "distance": 0.0,
+            "scale": 1.0,
+            "turn": 0.0,
+            "z": 0.0
+          }
+        },
+        "color": {
+          "description": "Overrides the decal's main colour. The backing stays hull-coloured.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Color"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "description": "Alternating bands along +X.",
+          "type": "object",
+          "properties": {
+            "bands": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 3,
+              "minimum": 0
+            },
+            "decal": {
+              "type": "string",
+              "const": "stripe"
+            },
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "decal",
+            "length",
+            "width"
+          ]
+        },
+        {
+          "description": "Repeated V marks along +X.",
+          "type": "object",
+          "properties": {
+            "decal": {
+              "type": "string",
+              "const": "chevron"
+            },
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "decal",
+            "length",
+            "width"
+          ]
+        },
+        {
+          "description": "The station's faction mark. Stations with no faction get the co-op's lantern.",
+          "type": "object",
+          "properties": {
+            "decal": {
+              "type": "string",
+              "const": "sigil"
+            },
+            "size": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "decal",
+            "size"
+          ]
+        },
+        {
+          "description": "One or two digits, seven-segment, laid flat.",
+          "type": "object",
+          "properties": {
+            "decal": {
+              "type": "string",
+              "const": "number"
+            },
+            "size": {
+              "type": "number",
+              "format": "float"
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          "required": [
+            "decal",
+            "size"
+          ]
+        }
       ]
     },
     "DeedFilter": {
@@ -2655,6 +3079,52 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "MapOverlay": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "contested": {
+          "type": "boolean",
+          "default": false
+        },
+        "direction": {
+          "description": "A bearing has a direction, never a destination.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Vec2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "region",
+        "center",
+        "radius"
+      ]
+    },
     "Market": {
       "description": "A station market as plain data. W3 (economy) owns the maths that moves it.",
       "type": "object",
@@ -3238,6 +3708,42 @@
         {
           "type": "object",
           "properties": {
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            },
+            "verb": {
+              "type": "string",
+              "const": "tag"
+            }
+          },
+          "required": [
+            "verb",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/FieldId"
+            },
+            "prefer_tagged": {
+              "type": "boolean",
+              "default": false
+            },
+            "verb": {
+              "type": "string",
+              "const": "mine_field"
+            }
+          },
+          "required": [
+            "verb",
+            "field"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
             "station": {
               "$ref": "#/$defs/StationId"
             },
@@ -3536,6 +4042,21 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
     },
+    "PackLayer": {
+      "description": "Which layer a pack runs as.",
+      "oneOf": [
+        {
+          "description": "The authored backbone (`core`), trusted to drive its own journey beats.",
+          "type": "string",
+          "const": "core"
+        },
+        {
+          "description": "A game-master layer (`gm-examples`, applied, staged and sandboxed packs): it\nmay never register or drive journey beats, nor pay their rewards.",
+          "type": "string",
+          "const": "game_master"
+        }
+      ]
+    },
     "PackState": {
       "description": "What a world keeps for one installed pack. Scripts hold no state in Luau; this is\nwhere anything they remember lives, so a reload or a save loses nothing.",
       "type": "object",
@@ -3547,6 +4068,17 @@
             "$ref": "#/$defs/ScriptHealth"
           },
           "default": {}
+        },
+        "layer": {
+          "description": "The layer the pack runs as, recorded the first time it loads or is applied\n(`SetPackLayer`). Saved, so every later load of the pack (a reload, `play`,\n`sim run`, the bridge, the sandbox) keeps a game-master layer's restrictions,\nwhichever path loads it and whatever its ID.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackLayer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "off": {
           "description": "Set by a rollback of any change the pack made: no revision of the pack runs,\nfrom any source (`gm-examples`, an applied revision, the inbox), until the game\nmaster applies a new revision, whose apply batch clears it. Saved, so a reload\ndoesn't bring back an older revision of the pack.",
@@ -3587,6 +4119,600 @@
         }
       }
     },
+    "Part": {
+      "description": "One part of a recipe.",
+      "type": "object",
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/Placement",
+          "default": {
+            "angle": 0.0,
+            "distance": 0.0,
+            "scale": 1.0,
+            "turn": 0.0,
+            "z": 0.0
+          }
+        },
+        "color": {
+          "description": "Overrides the part's main colour slot.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Color"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "description": "The core: stacked tiers with a ring of lit windows and a capped top.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "hub"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            },
+            "sides": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 8,
+              "minimum": 0
+            },
+            "tiers": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 2,
+              "minimum": 0
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "height"
+          ]
+        },
+        {
+          "description": "The ring a ship drifts into to dock. Spokes run inwards to `inner`.",
+          "type": "object",
+          "properties": {
+            "inner": {
+              "type": "number",
+              "format": "float",
+              "default": 0.0
+            },
+            "part": {
+              "type": "string",
+              "const": "docking_ring"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            },
+            "spokes": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 4,
+              "minimum": 0
+            },
+            "tube": {
+              "type": "number",
+              "format": "float",
+              "default": 1.600000023841858
+            }
+          },
+          "required": [
+            "part",
+            "radius"
+          ]
+        },
+        {
+          "description": "A truss reaching outwards from the placement.",
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "arm"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "length",
+            "width"
+          ]
+        },
+        {
+          "description": "A greenhouse that grows through `stage` 0 (scaffold) to 3 (glazed and blooming).",
+          "type": "object",
+          "properties": {
+            "part": {
+              "type": "string",
+              "const": "greenhouse"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            },
+            "stage": {
+              "type": "integer",
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "stage"
+          ]
+        },
+        {
+          "description": "A mast with a dish and a blinking tip.",
+          "type": "object",
+          "properties": {
+            "dish": {
+              "type": "boolean",
+              "default": true
+            },
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "antenna"
+            }
+          },
+          "required": [
+            "part",
+            "height"
+          ]
+        },
+        {
+          "description": "Side-by-side storage capsules.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 1,
+              "minimum": 0
+            },
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "tank"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "length"
+          ]
+        },
+        {
+          "description": "A flat solar sail reaching outwards.",
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "sail"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "length",
+            "width"
+          ]
+        },
+        {
+          "description": "A warm lantern on a post: the Lantern Reach's signature.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "lantern"
+            }
+          },
+          "required": [
+            "part",
+            "height"
+          ]
+        },
+        {
+          "description": "A big glass lens in a brass rim on a mount, tilted outwards: an observatory's\ntelescope.",
+          "type": "object",
+          "properties": {
+            "part": {
+              "type": "string",
+              "const": "lens"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius"
+          ]
+        },
+        {
+          "description": "A rounded cargo capsule with a hatch on top.",
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "cargo_pod"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "length"
+          ]
+        },
+        {
+          "description": "A mast, a jib and a hanging hook.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "crane"
+            },
+            "reach": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "height",
+            "reach"
+          ]
+        },
+        {
+          "description": "A fan of flat solar petals around a hub.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 3,
+              "minimum": 0
+            },
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "solar_petal"
+            }
+          },
+          "required": [
+            "part",
+            "length"
+          ]
+        },
+        {
+          "description": "A tall harbour light: post, cage and a warm lamp.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "lamp_mast"
+            }
+          },
+          "required": [
+            "part",
+            "height"
+          ]
+        },
+        {
+          "description": "A glass dome on a rim.",
+          "type": "object",
+          "properties": {
+            "part": {
+              "type": "string",
+              "const": "dome"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius"
+          ]
+        },
+        {
+          "description": "A ring of little cabins.",
+          "type": "object",
+          "properties": {
+            "part": {
+              "type": "string",
+              "const": "habitat_ring"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            },
+            "tube": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "tube"
+          ]
+        },
+        {
+          "description": "A navigation beacon with a glowing head.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "beacon"
+            }
+          },
+          "required": [
+            "part",
+            "height"
+          ]
+        },
+        {
+          "description": "A board that lies almost flat so it reads from above. `number` 0 draws no digits.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "number": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 0,
+              "minimum": 0
+            },
+            "part": {
+              "type": "string",
+              "const": "signage"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "width",
+            "height"
+          ]
+        },
+        {
+          "description": "Several leaning dishes on one base.",
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "format": "uint32",
+              "default": 3,
+              "minimum": 0
+            },
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "antenna_cluster"
+            }
+          },
+          "required": [
+            "part",
+            "height"
+          ]
+        },
+        {
+          "description": "A heavy arm ending in an open claw.",
+          "type": "object",
+          "properties": {
+            "length": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "docking_arm"
+            }
+          },
+          "required": [
+            "part",
+            "length"
+          ]
+        },
+        {
+          "description": "An awning, tilted just enough to catch the light from above.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "banner"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "width",
+            "height"
+          ]
+        },
+        {
+          "description": "A gate. The faction motif decides round, square or pointed.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "arch"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "width",
+            "height"
+          ]
+        },
+        {
+          "description": "A tall tower, the observatory's landmark.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "spire"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "height",
+            "radius"
+          ]
+        },
+        {
+          "description": "A chunky building with a roof, a door and windows.",
+          "type": "object",
+          "properties": {
+            "depth": {
+              "type": "number",
+              "format": "float"
+            },
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "block"
+            },
+            "width": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "width",
+            "depth",
+            "height"
+          ]
+        },
+        {
+          "description": "An open frame of posts and braces.",
+          "type": "object",
+          "properties": {
+            "height": {
+              "type": "number",
+              "format": "float"
+            },
+            "part": {
+              "type": "string",
+              "const": "scaffold"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "part",
+            "radius",
+            "height"
+          ]
+        }
+      ]
+    },
     "PartId": {
       "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
       "type": "string",
@@ -3595,6 +4721,42 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Placement": {
+      "description": "Where a part sits, in polar coordinates around the station centre.",
+      "type": "object",
+      "properties": {
+        "angle": {
+          "description": "Direction from the centre, degrees counter-clockwise from +X.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "distance": {
+          "description": "Distance from the centre in world units.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "scale": {
+          "description": "Uniform scale.",
+          "type": "number",
+          "format": "float",
+          "default": 1.0
+        },
+        "turn": {
+          "description": "Extra turn of the part around its own Z axis, degrees.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "z": {
+          "description": "Height above the play plane.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        }
+      }
     },
     "Player": {
       "description": "The player: wallet, flagship, unlocks and what they know.",
@@ -5480,6 +6642,177 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "StationPalette": {
+      "description": "The colours a station is painted with. Parts pick slots from it.",
+      "type": "object",
+      "properties": {
+        "accent": {
+          "description": "Caps, tanks and highlights.",
+          "$ref": "#/$defs/Color",
+          "default": "#3fa7a0"
+        },
+        "glass": {
+          "description": "Greenhouse glass.",
+          "$ref": "#/$defs/Color",
+          "default": "#9fe0c8"
+        },
+        "glow": {
+          "description": "Windows, beacons and lanterns (self-lit).",
+          "$ref": "#/$defs/Color",
+          "default": "#ffe29a"
+        },
+        "hull": {
+          "description": "Main hull plating.",
+          "$ref": "#/$defs/Color",
+          "default": "#efdcb4"
+        },
+        "leaf": {
+          "description": "Plants.",
+          "$ref": "#/$defs/Color",
+          "default": "#5cbf5a"
+        },
+        "trim": {
+          "description": "Bands, trusses and rings.",
+          "$ref": "#/$defs/Color",
+          "default": "#d9774b"
+        }
+      }
+    },
+    "StationRecipe": {
+      "description": "A station: a name, a seed for small variations, a palette and parts.",
+      "type": "object",
+      "properties": {
+        "decals": {
+          "description": "Stripes, sigils and numbers. Not structural, so they have their own budget.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Decal"
+          }
+        },
+        "faction": {
+          "description": "Faction id (`faction.wharf_cooperative`). The art bible checks its colour pair.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "palette": {
+          "$ref": "#/$defs/StationPalette",
+          "default": {
+            "accent": "#3fa7a0",
+            "glass": "#9fe0c8",
+            "glow": "#ffe29a",
+            "hull": "#efdcb4",
+            "leaf": "#5cbf5a",
+            "trim": "#d9774b"
+          }
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Part"
+          }
+        },
+        "region": {
+          "description": "Region id. When set, the hull must stay lighter than that region's sky.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "required": [
+        "name",
+        "parts"
+      ]
+    },
+    "SurveyBuoy": {
+      "type": "object",
+      "properties": {
+        "planted_by": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "radius": {
+          "type": "number",
+          "format": "float"
+        },
+        "read": {
+          "type": "boolean",
+          "default": false
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "reward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SurveyReward"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "region",
+        "position",
+        "radius",
+        "planted_by"
+      ]
+    },
+    "SurveyReward": {
+      "description": "A player-claimed opportunity. The native reply pays it, so rollback keeps earnings.",
+      "type": "object",
+      "properties": {
+        "choice": {
+          "$ref": "#/$defs/AnyId"
+        },
+        "claimed": {
+          "type": "boolean",
+          "default": false
+        },
+        "credits": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "person": {
+          "$ref": "#/$defs/NpcId"
+        },
+        "standing": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "person",
+        "choice",
+        "credits",
+        "standing"
+      ]
+    },
     "TalkChoice": {
       "description": "One answer a line offers.",
       "type": "object",
@@ -5937,7 +7270,8 @@
             "buy",
             "sell",
             "wait",
-            "loop"
+            "loop",
+            "tag"
           ]
         },
         {

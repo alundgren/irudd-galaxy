@@ -18,6 +18,9 @@ pub struct PlayerInput {
     /// The context action (Space) is held: mine, dock, whatever is in reach.
     #[serde(default)]
     pub action: bool,
+    /// Tag the nearest rock (reserved T input).
+    #[serde(default)]
+    pub tag: bool,
     /// A click this tick, once click controls are unlocked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub click: Option<Click>,
@@ -60,5 +63,6 @@ pub enum ClickTarget {
     Point { at: Vec2 },
     Station { station: StationId },
     Rock { rock: RockId },
+    Tag { rock: RockId },
     Region { region: RegionId },
 }

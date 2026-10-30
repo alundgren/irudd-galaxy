@@ -1,0 +1,22 @@
+id = "gm.rock_tagging"
+name = "Rock tagging"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "mechanics.read", "mechanics.write", "counters.read", "space.read", "space.write", "orders.write", "events.reply"]
+creates = ["gm.rock_tagging.magpie", "gm.rock_tagging.learn"]
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.dock", "on.session_start", "on.reply"]
+stores = { progress = { third = "boolean", taught = "boolean" } }
+[[script]]
+id = "demo"
+file = "scripts/demo.luau"
+handlers = ["on.dock", "on.session_start"]
+stores = { progress = { started = "boolean" } }
+[rollback]
+speaker = "npc.juno_brask"
+place = "station.cinder_hook"
+text = "Pull your lamps in for a bit, the buoys are acting up. Your loops will pick rocks the old way."

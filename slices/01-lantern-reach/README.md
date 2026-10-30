@@ -294,14 +294,16 @@ crates/ship       flight, control tiers, orders and loops, mining, docking, lane
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
 crates/progress   beats, standing and regard, traits, hull ranks, prestige, station services
-crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
+crates/kit        render-free station recipes, palettes and art-bible validation
+crates/render     the cel-shaded wgpu renderer; builds meshes from kit recipes (knows no sim)
 crates/audio      five soft cues synthesised offline (fundsp) and played through kira; never required
 crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
 crates/gm         the game-master bridge: live socket, digest, propose with a sandbox run, staging, rollback
 crates/app        the galaxy binary: play, shot and the JSON CLI
                   session (pause, dock trades), input, view (world to scene), ui, saves
 packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/ (the journey's beats)
-packs/gm-examples game-master example packs: kettle_growth; bad_script/ and bad_sandbox/ (must be rejected)
+packs/gm-examples eight optional game-master layers; see its README for validation and base hooks
+                  bad_script/ and bad_sandbox/ must be rejected
 tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
 xtask             cargo xtask check | contract | fetch-luau
 ```

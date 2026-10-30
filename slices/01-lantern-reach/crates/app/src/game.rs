@@ -260,7 +260,8 @@ impl Game {
                     ));
                     continue;
                 }
-                let report = scripts.load(&dir, sim.world(), sim.history());
+                // Game-master examples are game-master layers, whatever their IDs.
+                let report = scripts.load_layer(&dir, sim.world(), sim.history());
                 if !report.accepted() {
                     let why = report
                         .errors()

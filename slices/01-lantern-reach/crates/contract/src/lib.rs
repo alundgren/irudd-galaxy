@@ -11,6 +11,7 @@
 
 pub mod api;
 pub mod assets;
+pub mod canon;
 pub mod command;
 pub mod data;
 pub mod economy;
@@ -19,8 +20,10 @@ pub mod geom;
 pub mod history;
 pub mod ids;
 pub mod input;
+pub mod live;
 pub mod modifiers;
 pub mod money;
+pub mod needs;
 pub mod pack;
 pub mod progress;
 pub mod schema;
@@ -43,7 +46,7 @@ pub mod prelude {
     };
     pub use crate::economy::{
         ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketBase,
-        MarketRates, MarketRole, PriceReach, TradeRequest, TradeSide,
+        MarketRates, MarketRole, MarketStock, PriceReach, TradeRequest, TradeSide,
     };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,

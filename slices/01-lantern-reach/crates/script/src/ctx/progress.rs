@@ -70,7 +70,12 @@ impl CallEnv<'_> {
             Order::Dock { station } if !w.stations.contains(station) => {
                 Err(missing("station", station))
             }
-            Order::Mine { rock } if !w.rocks.contains(rock) => Err(missing("rock", rock)),
+            Order::Mine { rock } | Order::Tag { rock } if !w.rocks.contains(rock) => {
+                Err(missing("rock", rock))
+            }
+            Order::MineField { field, .. } if !w.fields.contains(field) => {
+                Err(missing("field", field))
+            }
             Order::Buy { ware, .. } | Order::Sell { ware, .. } | Order::Transfer { ware, .. }
                 if !w.wares.contains(ware) =>
             {
@@ -109,6 +114,21 @@ impl CallEnv<'_> {
     }
 
     fn levers(&self, lua: &Lua, why: &Table, levers: &[Lever]) -> mlua::Result<()> {
+        // Adding or removing a line is `market.lines`, in a bulk call as on its own.
+        if let Some(i) = levers
+            .iter()
+            .position(|l| matches!(l, Lever::AddLine { .. } | Lever::RemoveLine { .. }))
+            && !self.may("market.lines")
+        {
+            return Err(self.fail(
+                lua,
+                "undeclared_hook",
+                format!(
+                    "lever {} adds or removes a market line, which needs `market.lines` in `uses`",
+                    i + 1
+                ),
+            ));
+        }
         let summary: String = why.raw_get("summary").unwrap_or_default();
         let batch = lever_batch(self.world, Cause::system("lever", summary), levers)
             .map_err(|e| self.fail(lua, "bad_lever", e))?;
@@ -966,8 +986,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     },
                 )?;
             }
-            let ns = env.pack.as_str().split('.').next().unwrap_or("core");
-            let kind = FactKind::new(format!("{ns}.mechanic_taught"))
+            let kind = FactKind::new(format!("{}.mechanic_taught", env.pack))
                 .map_err(|e| env.fail(lua, "bad_id", e))?;
             env.push(
                 lua,

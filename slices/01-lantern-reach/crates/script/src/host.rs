@@ -11,7 +11,28 @@
 //!    `G.test` predicates and the transition's callback each run in a fresh state.
 //!
 //! A successful call's writes (or a beat transition with its callback's) are one batch
-//! (`Cause::Script`). The host first checks it the way the kernel will
+//! (`Cause::Script`). The host first checks that the pack declares every capability
+//! the batch's commands need ([`galaxy_contract::needs`]): a command it may not cause
+//! is a fault, whichever route wrote it (a hook, a beat's rewards, a trigger). That is
+//! defence in depth on top of the per-hook gating of `ctx`, and it covers the routes
+//! that aren't one hook. Pack data installs ([`install_batches`]) answer to the same
+//! table. A beat transition is checked in two parts: the beat runtime's own commands
+//! (`Route::Beat`: the beat's state, its events, its rewards) and its callback's
+//! writes (`Route::Hooks`), so a callback can't borrow the runtime's right to write
+//! journey events. A game-master layer has no beat route at all.
+//!
+//! Each pack's layer (core or game master) comes from the path that loads it, never
+//! from its ID or from it being new: [`ScriptHost::load`] is the core path (the
+//! authored backbone), [`ScriptHost::load_layer`] the game-master one (`gm-examples`,
+//! the bridge, the sandbox), and a reload keeps the folder's layer even if its manifest
+//! names a new ID. A game-master layer never takes `core`'s namespace or a core pack's
+//! ID. The layer is recorded in the world's pack state the first time the pack loads or
+//! is applied ([`ScriptHost::record_layers`]), and every later load keeps it: a pack
+//! the world or the host knows as a game-master layer is checked as one
+//! ([`CheckOptions::game_master`]) and run as one, whichever path loads it (a reload,
+//! the dev watcher, `play`, `sim run`, the bridge, the sandbox).
+//!
+//! Then it checks the batch the way the kernel will
 //! ([`TickCtx::preview`]): against the world the kernel will apply it to (the batches
 //! queued ahead of it this tick, then the script batches before it) and with every
 //! invariant of the sim. If it would be rejected, nothing is submitted, and the same
@@ -42,8 +63,10 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use galaxy_contract::history::FactDraft;
+use galaxy_contract::needs::{Caller, Route};
 use galaxy_contract::pack::{
-    Diagnostic, HandlerRetry, Location, RollbackLine, ScriptHealth, ValidationReport,
+    Diagnostic, HandlerRetry, Location, PackLayer, ReportStatus, RollbackLine, ScriptHealth,
+    StepOutcome, StepReport, ValidationReport, ValidationStep,
 };
 use galaxy_contract::prelude::*;
 use galaxy_core::apply::{Staged, apply};
@@ -78,6 +101,25 @@ pub fn pack_off(world: &WorldState, queued: &[CommandBatch], pack: &PackId) -> b
         }
     }
     off
+}
+
+/// The layer the world records `pack` as (`PackState::layer`), counting the batches
+/// still `queued`.
+pub fn recorded_layer(
+    world: &WorldState,
+    queued: &[CommandBatch],
+    pack: &PackId,
+) -> Option<PackLayer> {
+    let mut layer = world.packs.get(pack).and_then(|p| p.layer);
+    for c in queued.iter().flat_map(|b| &b.commands) {
+        if let Command::SetPackLayer { pack: p, layer: l } = c
+            && p == pack
+            && layer.is_none()
+        {
+            layer = *l;
+        }
+    }
+    layer
 }
 
 /// Something the host did that a developer (or the overlay) wants to see.
@@ -120,11 +162,16 @@ pub enum HostEvent {
     Loaded { report: ValidationReport },
     /// A reload failed the checks; the last good revision keeps running.
     ReloadRejected { report: ValidationReport },
+    /// A pack's data would write something its `uses` don't allow, so none of it was
+    /// installed.
+    InstallRefused { pack: PackId, reason: String },
 }
 
 struct Loaded {
     root: PathBuf,
     vm: PackVm,
+    /// The layer it was loaded as. A game-master layer stays one in this host.
+    layer: PackLayer,
 }
 
 #[derive(Default)]
@@ -159,28 +206,121 @@ impl ScriptHost {
         host
     }
 
-    /// Checks and loads a pack against this world. A pack with the same ID is
-    /// replaced only if the new one passes.
+    /// Checks and loads a pack against this world as a core-layer pack: the path for
+    /// the authored backbone (`Game` loads the packs root's `core/` folder here) and
+    /// for tests. A pack with the same ID is replaced only if the new one passes. A
+    /// pack the host or the world already knows as a game-master layer still loads as
+    /// one: this path never promotes a pack.
     pub fn load(&self, dir: &Path, world: &WorldState, history: &History) -> ValidationReport {
-        let analyzer = self.inner.borrow().analyzer.clone();
-        let checked = check_dir(
-            dir,
-            CheckOptions {
-                world: Some(world),
-                history: Some(history),
-                analyzer: analyzer.as_deref(),
-                require_typecheck: false,
-            },
-        );
-        let report = checked.report.clone();
+        self.load_as(dir, world, history, PackLayer::Core, None)
+    }
+
+    /// [`ScriptHost::load`] for a game-master layer (`gm-examples`, and `galaxy-gm`'s
+    /// applied, staged and sandboxed packs): checked and run as one whatever its ID
+    /// ([`CheckOptions::game_master`]). It may not take `core`'s namespace or the ID
+    /// of a pack the host runs or the world records as core (`gm_core_id`), so it
+    /// never replaces a core pack's VM. [`ScriptHost::record_layers`] writes the layer
+    /// into the world, so every later load of the pack, by any path, keeps it.
+    pub fn load_layer(
+        &self,
+        dir: &Path,
+        world: &WorldState,
+        history: &History,
+    ) -> ValidationReport {
+        self.load_as(dir, world, history, PackLayer::GameMaster, None)
+    }
+
+    /// Checks and loads `dir` as `path`, the layer its load path gives it. The layer
+    /// never comes from the pack's ID or from it being new: only a game-master layer
+    /// the host or the world already knows for that ID overrides it. `reloads` is the
+    /// loaded pack whose folder this is ([`ScriptHost::reload`]): if the folder now
+    /// names another ID, that is a new pack of the same layer, which replaces the old
+    /// entry, and never one that is already loaded.
+    fn load_as(
+        &self,
+        dir: &Path,
+        world: &WorldState,
+        history: &History,
+        path: PackLayer,
+        reloads: Option<&PackId>,
+    ) -> ValidationReport {
+        let (analyzer, core_ids) = {
+            let inner = self.inner.borrow();
+            let core_ids: Vec<PackId> = inner
+                .packs
+                .iter()
+                .filter(|(_, l)| l.layer == PackLayer::Core)
+                .map(|(id, _)| id.clone())
+                .collect();
+            (inner.analyzer.clone(), core_ids)
+        };
+        let run = |game_master| {
+            check_dir(
+                dir,
+                CheckOptions {
+                    world: Some(world),
+                    history: Some(history),
+                    analyzer: analyzer.as_deref(),
+                    require_typecheck: false,
+                    game_master,
+                    core_ids: &core_ids,
+                },
+            )
+        };
+        let mut checked = run(path == PackLayer::GameMaster);
+        // A pack this host runs as a game-master layer stays one, whichever path loads
+        // it again. The check itself also reads the layer the world records.
+        let id = checked.pack.as_ref().map(|p| p.manifest.id.clone());
+        let known = id.as_ref().is_some_and(|id| {
+            self.inner
+                .borrow()
+                .packs
+                .get(id)
+                .is_some_and(|l| l.layer == PackLayer::GameMaster)
+        });
+        if known && path == PackLayer::Core {
+            checked = run(true);
+        }
+        let recorded = id
+            .as_ref()
+            .and_then(|id| world.packs.get(id).and_then(|p| p.layer));
+        let layer =
+            if path == PackLayer::GameMaster || known || recorded == Some(PackLayer::GameMaster) {
+                PackLayer::GameMaster
+            } else {
+                PackLayer::Core
+            };
+        let mut report = checked.report.clone();
         let mut inner = self.inner.borrow_mut();
+        let renamed = reloads.filter(|old| id.as_ref().is_some_and(|id| id != *old));
+        if let (Some(old), Some(id)) = (renamed, &id)
+            && inner.packs.contains_key(id)
+        {
+            refuse(
+                &mut report,
+                "reload_id_taken",
+                format!(
+                    "the folder of `{old}` now names `{id}`, which another loaded pack holds: \
+                     a reload never replaces a different pack"
+                ),
+            );
+        }
         match checked.vm {
             Some(vm) if report.accepted() => {
+                if let Some(old) = renamed {
+                    // The folder is a new pack now, in the same layer: the old ID stops
+                    // running here, and the watcher follows the folder.
+                    inner.packs.remove(old);
+                    if let Some(w) = &mut inner.watcher {
+                        w.rename(old, &report.pack);
+                    }
+                }
                 inner.packs.insert(
                     report.pack.clone(),
                     Loaded {
                         root: dir.to_path_buf(),
                         vm,
+                        layer,
                     },
                 );
                 inner.log(HostEvent::Loaded {
@@ -196,21 +336,56 @@ impl ScriptHost {
 
     /// Loads a pack without the validation pipeline, only failing if its scripts
     /// don't load. For harnesses and tests that need a bad script running (the
-    /// budget, discard and quarantine paths); never the game-master path.
+    /// budget, discard and quarantine paths); never the game-master path. It runs as a
+    /// core-layer pack unless the host or the world knows it as a game-master layer.
     pub fn load_unchecked(&self, dir: &Path) -> Result<(), Vec<Diagnostic>> {
         let pack = Rc::new(crate::pack::read_pack(dir)?);
         let vm = PackVm::new(pack.clone())?;
-        self.inner.borrow_mut().packs.insert(
+        let mut inner = self.inner.borrow_mut();
+        let layer = inner
+            .packs
+            .get(&pack.manifest.id)
+            .map_or(PackLayer::Core, |l| l.layer);
+        inner.packs.insert(
             pack.manifest.id.clone(),
             Loaded {
                 root: dir.to_path_buf(),
                 vm,
+                layer,
             },
         );
         Ok(())
     }
 
-    /// Loads a pack into a running sim and installs its data.
+    /// The layer the host runs `pack` as, if it's loaded.
+    pub fn layer(&self, pack: &PackId) -> Option<PackLayer> {
+        self.inner.borrow().packs.get(pack).map(|l| l.layer)
+    }
+
+    /// Records each loaded pack's layer in the world (`PackState::layer`) where the
+    /// world (with the batches queued) doesn't have one yet: one system batch, so it
+    /// is never journaled and no rollback forgets it. Call between ticks; `install`
+    /// (and so `attach`, `load_into` and `reload`) calls it, and the game-master
+    /// bridge calls it when it applies a pack.
+    pub fn record_layers(&self, sim: &mut Sim) {
+        let inner = self.inner.borrow();
+        let mut batch = CommandBatch::new(Cause::system(SYSTEM_NAME, "records the packs' layers"));
+        for (id, l) in &inner.packs {
+            if recorded_layer(sim.world(), &sim.state().kernel.pending, id).is_none() {
+                batch.push(Command::SetPackLayer {
+                    pack: id.clone(),
+                    layer: Some(l.layer),
+                });
+            }
+        }
+        drop(inner);
+        if !batch.commands.is_empty() {
+            sim.submit(batch);
+        }
+    }
+
+    /// Loads a pack into a running sim as a core-layer pack ([`ScriptHost::load`]) and
+    /// installs its data.
     pub fn load_into(&self, dir: &Path, sim: &mut Sim) -> ValidationReport {
         let report = self.load(dir, sim.world(), sim.history());
         if report.accepted() {
@@ -234,14 +409,26 @@ impl ScriptHost {
 
     /// Submits the records each pack's data defines that the world doesn't have yet.
     /// They apply at the end of the next tick, caused by the pack revision.
+    /// A pack whose data needs a capability it doesn't declare installs nothing
+    /// ([`HostEvent::InstallRefused`]).
     pub fn install(&self, sim: &mut Sim) -> usize {
-        let batches: Vec<CommandBatch> = self
-            .inner
-            .borrow()
-            .packs
-            .values()
-            .flat_map(|l| install_batches(&l.vm.pack, sim.world()))
-            .collect();
+        self.record_layers(sim);
+        let mut inner = self.inner.borrow_mut();
+        let mut batches: Vec<CommandBatch> = Vec::new();
+        let mut refused = Vec::new();
+        for (id, l) in &inner.packs {
+            match install_batches(&l.vm.pack, sim.world()) {
+                Ok(b) => batches.extend(b),
+                Err(reason) => refused.push(HostEvent::InstallRefused {
+                    pack: id.clone(),
+                    reason,
+                }),
+            }
+        }
+        for e in refused {
+            inner.log(e);
+        }
+        drop(inner);
         let n = batches.len();
         for b in batches {
             sim.submit(b);
@@ -250,10 +437,21 @@ impl ScriptHost {
     }
 
     /// Re-reads one pack from disk and swaps it in if it passes the fast checks.
-    /// Call between ticks. If it fails, the last good revision keeps running.
+    /// Call between ticks. If it fails, the last good revision keeps running. The
+    /// folder keeps the layer it was loaded as: a game-master layer whose manifest now
+    /// names another ID is a new game-master layer (never `core`, a core pack's ID or
+    /// another loaded pack's), not a core pack.
     pub fn reload(&self, pack: &PackId, sim: &mut Sim) -> Option<ValidationReport> {
-        let root = self.inner.borrow().packs.get(pack)?.root.clone();
-        Some(self.load_into(&root, sim))
+        let (root, layer) = {
+            let inner = self.inner.borrow();
+            let l = inner.packs.get(pack)?;
+            (l.root.clone(), l.layer)
+        };
+        let report = self.load_as(&root, sim.world(), sim.history(), layer, Some(pack));
+        if report.accepted() {
+            self.install(sim);
+        }
+        Some(report)
     }
 
     /// Starts watching every loaded pack's folder for changes.
@@ -324,8 +522,27 @@ impl ScriptHost {
     }
 }
 
-/// Batches that create a pack's data records missing from `world`.
-pub fn install_batches(pack: &Pack, world: &WorldState) -> Vec<CommandBatch> {
+/// Whether `pack`, running as `layer`, may cause `commands` along `route`: its
+/// manifest declares every capability they need and their provenance holds
+/// ([`galaxy_contract::needs::COMMAND_NEEDS`]). `Err` names the first command that
+/// needs more and what it lacks.
+pub fn declared(
+    pack: &Pack,
+    layer: PackLayer,
+    route: Route,
+    commands: &[Command],
+) -> Result<(), String> {
+    let caller = Caller {
+        pack: &pack.manifest.id,
+        uses: &pack.manifest.uses,
+        layer,
+    };
+    galaxy_contract::needs::check(commands, &caller, route)
+}
+
+/// Batches that create a pack's data records missing from `world`. `Err` if the pack
+/// doesn't declare what they need (`npcs.toml` needs `npcs.write`): nothing installs.
+pub fn install_batches(pack: &Pack, world: &WorldState) -> Result<Vec<CommandBatch>, String> {
     let mut batch = CommandBatch::new(Cause::script(
         pack.manifest.id.clone(),
         pack.revision.clone(),
@@ -340,9 +557,45 @@ pub fn install_batches(pack: &Pack, world: &WorldState) -> Vec<CommandBatch> {
         }
     }
     if batch.commands.is_empty() {
-        Vec::new()
-    } else {
-        vec![batch]
+        return Ok(Vec::new());
+    }
+    let layer = world
+        .packs
+        .get(&pack.manifest.id)
+        .and_then(|p| p.layer)
+        .unwrap_or(PackLayer::GameMaster);
+    declared(pack, layer, Route::Data, &batch.commands)
+        .map_err(|e| format!("its data can't install: {e}"))?;
+    Ok(vec![batch])
+}
+
+/// Rejects `report` with an error in its invariants step.
+fn refuse(report: &mut ValidationReport, code: &str, message: String) {
+    let d = crate::pack::error(code, message, Some("manifest.toml"), None);
+    match report
+        .steps
+        .iter_mut()
+        .find(|s| s.step == ValidationStep::Invariants)
+    {
+        Some(s) => {
+            s.diagnostics.push(d);
+            s.outcome = StepOutcome::Failed;
+        }
+        None => report.steps.push(StepReport {
+            step: ValidationStep::Invariants,
+            outcome: StepOutcome::Failed,
+            diagnostics: vec![d],
+        }),
+    }
+    report.status = ReportStatus::Rejected;
+}
+
+/// The fault for a batch that needs a capability its pack doesn't declare.
+fn undeclared(what: &str, reason: String, location: Option<Location>) -> Abort {
+    Abort {
+        code: "undeclared_capability".into(),
+        message: format!("{what} a capability the pack doesn't declare, so none apply: {reason}"),
+        location,
     }
 }
 
@@ -497,7 +750,7 @@ fn run_transition(
     revision: &str,
     tick: Tick,
     rng: &mut dyn crate::vm::RngSource,
-) -> Result<Option<CommandBatch>, Abort> {
+) -> Result<Option<(CommandBatch, usize)>, Abort> {
     use beats::Transition as T;
     let def = &beat.def;
     let commands = beats::commands(def, view.world, view.history, pack, tick, t);
@@ -517,8 +770,10 @@ fn run_transition(
         cause: Cause::script(pack.clone(), revision, summary.clone()),
         commands,
     };
+    // The runtime's own commands come first; the callback's writes follow them.
+    let runtime = seed.commands.len();
     if hook.is_empty() || !beat.has_hook(hook) {
-        return Ok(Some(seed));
+        return Ok(Some((seed, runtime)));
     }
     let info = BeatCall {
         beat: &def.id,
@@ -527,7 +782,9 @@ fn run_transition(
         step_id: def.steps.get(step as usize).map(|s| s.id.as_str()),
         summary: &summary,
     };
-    vm.beat_hook(script, index, hook, &info, view, rng, seed)
+    Ok(vm
+        .beat_hook(script, index, hook, &info, view, rng, seed)?
+        .map(|b| (b, runtime)))
 }
 
 impl System for ScriptSystem {
@@ -570,6 +827,15 @@ impl System for ScriptSystem {
 
         for (pack_id, loaded) in &inner.packs {
             let vm = &loaded.vm;
+            // A game-master layer as the host loaded it or as the world records it: a
+            // reload by any path never lifts its restrictions.
+            let layer = if loaded.layer == PackLayer::GameMaster
+                || recorded_layer(world, ctx.queued(), pack_id) == Some(PackLayer::GameMaster)
+            {
+                PackLayer::GameMaster
+            } else {
+                PackLayer::Core
+            };
             let revision = &vm.pack.revision;
             let limits = vm.pack.limits();
             let (limit, retry_limit) = (limits.quarantine_after, limits.contention_retries);
@@ -677,6 +943,18 @@ impl System for ScriptSystem {
                                 Target::Event(_) => batch,
                             };
                             let Some(batch) = batch else { return Ok(None) };
+                            let location = || {
+                                Some(Location {
+                                    file: script.decl.file.clone(),
+                                    line: vm.handler_line(i, target),
+                                    column: None,
+                                })
+                            };
+                            declared(&vm.pack, layer, Route::Hooks, &batch.commands).map_err(
+                                |reason| {
+                                    Failed::Fault(undeclared("its writes need", reason, location()))
+                                },
+                            )?;
                             // The whole call's writes, checked as the kernel will check them.
                             let base = projected.get_or_insert_with(|| ctx.projected());
                             check(ctx, base, view.world, &batch)
@@ -687,11 +965,7 @@ impl System for ScriptSystem {
                                         message: format!(
                                             "its writes would be rejected, so none apply: {reason}"
                                         ),
-                                        location: Some(Location {
-                                            file: script.decl.file.clone(),
-                                            line: vm.handler_line(i, target),
-                                            column: None,
-                                        }),
+                                        location: location(),
                                     })
                                 })
                         });
@@ -797,7 +1071,28 @@ impl System for ScriptSystem {
                         )
                         .map_err(Failed::Fault)
                         .and_then(|batch| {
-                            let Some(batch) = batch else { return Ok(None) };
+                            let Some((batch, runtime)) = batch else { return Ok(None) };
+                            // Its rewards and callback writes answer to the pack's
+                            // `uses` like a handler's (a standing reward needs
+                            // `standing.write`). The runtime's part is the beat route
+                            // (none for a game-master layer); the callback's is hooks.
+                            let (own, callback) = batch.commands.split_at(runtime);
+                            declared(&vm.pack, layer, Route::Beat, own)
+                                .and_then(|()| {
+                                    declared(&vm.pack, layer, Route::Hooks, callback)
+                                        .map_err(|e| format!("its callback: {e}"))
+                                })
+                                .map_err(|reason| {
+                                    Failed::Fault(undeclared(
+                                        &format!("{}'s transition needs", beat.def.id),
+                                        reason,
+                                        Some(Location {
+                                            file: script.decl.file.clone(),
+                                            line: None,
+                                            column: None,
+                                        }),
+                                    ))
+                                })?;
                             // Checked as the kernel will check it, like a handler's
                             // batch, so a transition the queued batches would reject
                             // never reaches the reads of later beats.

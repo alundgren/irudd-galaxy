@@ -154,14 +154,9 @@ return G.script({
 					text = "Rings only let crewed ships trade and go. Keeps the ring clear. A tender's got no crew to get bored, so we give it a standing berth. It can sit there and listen to the dock for as long as it likes.",
 					cites = { sold.id },
 				}, why)
-				util.record(
-					ctx,
-					why,
-					"mechanic_taught",
-					{ npc = ids.TAMSIN, station = ids.KETTLE, other = ids.TENDER_MECH },
-					nil,
-					"Tamsin taught the tender and its patient sell"
-				)
+				-- Teaching is a checked change: only `ctx.mechanics:teach` records
+				-- `core.mechanic_taught` (npc = Tamsin, other = the mechanic).
+				ctx.mechanics:teach({ mechanic = ids.TENDER_MECH, teacher = ids.TAMSIN }, why)
 				return
 			end
 			-- No demonstration while the Shallows are short of ice

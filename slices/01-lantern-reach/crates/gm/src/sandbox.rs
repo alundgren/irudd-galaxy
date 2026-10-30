@@ -249,7 +249,7 @@ pub fn run_child<G: Composed>(
     let mut packs = Vec::new();
     let mut game = open(state, &mut |host: &ScriptHost, sim: &Sim| {
         for dir in &args.packs {
-            let report = host.load(dir, sim.world(), sim.history());
+            let report = host.load_layer(dir, sim.world(), sim.history());
             if report.accepted() {
                 packs.push(report.pack.clone());
             } else {

@@ -24,6 +24,7 @@ pub enum Key {
     Left,
     Right,
     Space,
+    T,
     Shift,
     /// Trade the selected dock line.
     E,
@@ -52,6 +53,7 @@ pub struct Keys {
     down: BTreeSet<Key>,
     /// A fresh Space press (or the Undock button) no tick has seen yet.
     action_press: bool,
+    tag_press: bool,
     /// The action the last tick was given.
     action_sent: bool,
 }
@@ -70,6 +72,9 @@ impl Keys {
         let fresh = self.down.insert(key);
         if fresh && key == Key::Space {
             self.action_press = true;
+        }
+        if fresh && key == Key::T {
+            self.tag_press = true;
         }
         fresh
     }
@@ -97,6 +102,7 @@ impl Keys {
     pub fn clear(&mut self) {
         self.down.clear();
         self.action_press = false;
+        self.tag_press = false;
     }
 
     /// The context action for the next tick. A press since the last tick reaches it
@@ -119,6 +125,7 @@ impl Keys {
         let action = self.take_action();
         PlayerInput {
             action,
+            tag: std::mem::take(&mut self.tag_press),
             ..player_input(self, docked, click)
         }
     }
@@ -145,6 +152,7 @@ pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerIn
     PlayerInput {
         thrust: if docked { Vec2::ZERO } else { thrust(keys) },
         action: keys.held(Key::Space),
+        tag: false,
         click,
         trades: Vec::new(),
         services: Vec::new(),

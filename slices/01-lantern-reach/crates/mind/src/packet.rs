@@ -304,7 +304,7 @@ pub fn build(
         knows.is_empty()
             || knows
                 .iter()
-                .any(|k| k == kind || kind.split_once('.').is_some_and(|(_, rest)| rest == k))
+                .any(|k| k == kind || kind.rsplit_once('.').is_some_and(|(_, rest)| rest == k))
     };
     let about = |f: &Fact| {
         let s = &f.subjects;

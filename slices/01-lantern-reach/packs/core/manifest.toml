@@ -7,7 +7,8 @@ id = "core"
 name = "The Lantern Reach"
 version = "0.2.0"
 description = "Authored regions, stations, rocks, wares, hulls, factions, people, progression tables and the journey's 17 beats."
-uses = [
+opens = ["canon.fragment_is_lens_shard", "canon.fragments_sing"]
+uses = ["canon.read", "canon.write",
     "beats.read",
     "beats.write",
     "events.beat_completed",
@@ -30,6 +31,7 @@ uses = [
     "market.levers",
     "market.read",
     "npcs.read",
+    "npcs.write",
     "orders.read",
     "orders.write",
     "pacing.read",

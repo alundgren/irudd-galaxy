@@ -98,6 +98,26 @@ impl Invariant for ReferencesResolve {
         "references_resolve"
     }
     fn check(&self, w: &WorldState) -> Result<(), String> {
+        for id in w.station_recipes.keys() {
+            exists(&w.stations, id, &"station recipe")?;
+        }
+        for rock in &w.rock_tags {
+            exists(&w.rocks, rock, &"rock lamp")?;
+        }
+        for (id, o) in &w.map_overlays {
+            exists(&w.regions, &o.region, id)?;
+            maybe(&w.factions, &o.owner, id)?;
+        }
+        for (id, b) in &w.survey_buoys {
+            exists(&w.regions, &b.region, id)?;
+            exists(&w.factions, &b.planted_by, id)?;
+            if let Some(reward) = &b.reward {
+                exists(&w.npcs, &reward.person, id)?;
+                for faction in reward.standing.keys() {
+                    exists(&w.factions, faction, id)?;
+                }
+            }
+        }
         for (id, r) in &w.regions {
             maybe(&w.factions, &r.owner, id)?;
         }

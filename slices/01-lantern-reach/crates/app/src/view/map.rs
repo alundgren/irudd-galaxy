@@ -3,6 +3,7 @@
 
 use galaxy_contract::prelude::*;
 use galaxy_economy::{Control, MapView, PriceKnowledge};
+use render::art_bible::ArtMaterial;
 use render::glam::{Mat4, Vec2 as G2, Vec3};
 use render::{
     Align, ArtBible, Camera, Glow, InkRole, Line, MeshInstance, Panel, Rect, Scene, Text, palette,
@@ -130,6 +131,7 @@ impl View {
         let map = MapView::build(world);
         let camera = map_camera(&map, viewport);
         let mut scene = Scene::new(camera);
+        crate::view::live::draw(&mut scene, world);
         scene.time = time;
         scene.backdrop = self.backdrop_at(world, Vec2::new(-1.0e9, -1.0e9));
         let wpp = camera.world_per_pixel(viewport);

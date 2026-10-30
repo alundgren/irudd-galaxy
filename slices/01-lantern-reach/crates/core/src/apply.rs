@@ -550,6 +550,42 @@ fn apply_with(
                 base: old,
             })
         }
+        C::SetMarketStock {
+            station,
+            ware,
+            stock,
+        } => {
+            if stock.min_price > stock.max_price
+                || stock.price < stock.min_price
+                || stock.price > stock.max_price
+            {
+                return Err(CommandError::Invalid(format!(
+                    "a stock needs a band holding its price: {stock:?}"
+                )));
+            }
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            let old = MarketStock {
+                stock: line.stock,
+                stock_carry: line.stock_carry,
+                min_price: line.min_price,
+                max_price: line.max_price,
+                price: line.price,
+            };
+            line.stock = stock.stock;
+            line.stock_carry = stock.stock_carry;
+            line.min_price = stock.min_price;
+            line.max_price = stock.max_price;
+            line.price = stock.price;
+            invert(C::SetMarketStock {
+                station: station.clone(),
+                ware: ware.clone(),
+                stock: old,
+            })
+        }
         C::AdjustActivity { scope, delta } => {
             let inverse = delta
                 .checked_neg()
@@ -597,6 +633,243 @@ fn apply_with(
             invert(C::SetSplitStack {
                 ware: ware.clone(),
                 station: old,
+            })
+        }
+        C::FoundStation {
+            station,
+            recipe,
+            market,
+        } => {
+            if refs.check && world.stations.contains(&station.id) {
+                return Err(CommandError::Invalid("station exists".into()));
+            }
+            recipe
+                .validate_art(galaxy_kit::art_bible::ArtBible::bundled())
+                .map_err(|e| CommandError::Invalid(format!("invalid recipe {e:?}")))?;
+            world
+                .stations
+                .insert(station.id.clone(), (**station).clone());
+            world
+                .station_recipes
+                .insert(station.id.clone(), (**recipe).clone());
+            world.markets.insert(
+                station.id.clone(),
+                market.as_deref().cloned().unwrap_or_else(|| Market {
+                    station: station.id.clone(),
+                    lines: Default::default(),
+                }),
+            );
+            invert(C::CloseFoundedStation {
+                id: station.id.clone(),
+            })
+        }
+        C::CloseFoundedStation { id } => {
+            let market = world.markets.get(id).cloned().map(Box::new);
+            let old = world
+                .stations
+                .get(id)
+                .cloned()
+                .ok_or_else(|| unknown("station", id))?;
+            let recipe = world
+                .station_recipes
+                .get(id)
+                .cloned()
+                .ok_or_else(|| unknown("recipe", id))?;
+            if refs.check {
+                let station = world.stations.get_mut(id).unwrap();
+                station.services.clear();
+                station.build.stage = 0;
+                world.markets.remove(id);
+                let mut frame = recipe.clone();
+                frame.parts = vec![galaxy_kit::Part::new(
+                    galaxy_kit::PartKind::Scaffold {
+                        radius: 12.0,
+                        height: 6.0,
+                    },
+                    Default::default(),
+                )];
+                frame.decals.clear();
+                world.station_recipes.insert(id.clone(), frame);
+            } else {
+                world.stations.remove(id);
+                world.station_recipes.remove(id);
+                world.markets.remove(id);
+            }
+            invert(C::FoundStation {
+                station: Box::new(old),
+                recipe: Box::new(recipe),
+                market,
+            })
+        }
+        C::SetFoundedStation {
+            station,
+            recipe,
+            market,
+        } => {
+            let id = &station.id;
+            let old = world
+                .stations
+                .get(id)
+                .cloned()
+                .ok_or_else(|| unknown("station", id))?;
+            let old_recipe = world
+                .station_recipes
+                .get(id)
+                .cloned()
+                .ok_or_else(|| unknown("recipe", id))?;
+            if refs.check {
+                if old.region != station.region || old.position != station.position {
+                    return Err(CommandError::Invalid(format!(
+                        "{id} keeps its region and position when its ring changes"
+                    )));
+                }
+                let open = world.markets.contains(id);
+                if market.is_some() == open || (!open && !old.services.is_empty()) {
+                    return Err(CommandError::Invalid(format!(
+                        "{id}'s ring is already {}",
+                        if open { "open" } else { "closed" }
+                    )));
+                }
+                if market.as_ref().is_some_and(|m| &m.station != id) {
+                    return Err(CommandError::Invalid(format!(
+                        "market for {id} names another station"
+                    )));
+                }
+                // A shut ring is a bare scaffold frame; only an open one is a station.
+                if market.is_some() {
+                    recipe
+                        .validate_art(galaxy_kit::art_bible::ArtBible::bundled())
+                        .map_err(|e| CommandError::Invalid(format!("invalid recipe {e:?}")))?;
+                }
+            }
+            let old_market = match market {
+                Some(m) => world.markets.insert(id.clone(), (**m).clone()),
+                None => world.markets.remove(id),
+            };
+            world.stations.insert(id.clone(), (**station).clone());
+            world.station_recipes.insert(id.clone(), (**recipe).clone());
+            invert(C::SetFoundedStation {
+                station: Box::new(old),
+                recipe: Box::new(old_recipe),
+                market: old_market.map(Box::new),
+            })
+        }
+        C::UpdateSurveyBuoy { id, from, to } => {
+            if !to.radius.is_finite()
+                || to.radius <= 0.0
+                || !to.position.x.is_finite()
+                || !to.position.y.is_finite()
+            {
+                return Err(CommandError::Invalid("invalid buoy".into()));
+            }
+            let buoy = world
+                .survey_buoys
+                .get_mut(id)
+                .ok_or_else(|| CommandError::Invalid(format!("no survey buoy {id}")))?;
+            if *buoy != **from {
+                return Err(CommandError::Invalid(format!(
+                    "survey buoy {id} changed since this update was worked out"
+                )));
+            }
+            *buoy = (**to).clone();
+            invert(C::UpdateSurveyBuoy {
+                id: id.clone(),
+                from: to.clone(),
+                to: from.clone(),
+            })
+        }
+        C::ExpectFlag { flag, on } => {
+            if world.player.flags.contains(flag) != *on {
+                return Err(CommandError::Invalid(format!(
+                    "{flag} is no longer {}",
+                    if *on { "set" } else { "clear" }
+                )));
+            }
+            invert(cmd.clone())
+        }
+        C::SetRockTag { rock, on } => {
+            refs.require(&world.rocks, rock, "rock")?;
+            let old = world.rock_tags.contains(rock);
+            if *on && !old && world.rock_tags.len() >= 6 {
+                return Err(CommandError::Invalid("at most six lamps".into()));
+            }
+            if *on {
+                world.rock_tags.insert(rock.clone());
+            } else {
+                world.rock_tags.remove(rock);
+            }
+            invert(C::SetRockTag {
+                rock: rock.clone(),
+                on: old,
+            })
+        }
+        C::PutSurveyBuoy { id, value } => {
+            if let Some(v) = value
+                && (!v.radius.is_finite()
+                    || v.radius <= 0.0
+                    || !v.position.x.is_finite()
+                    || !v.position.y.is_finite())
+            {
+                return Err(CommandError::Invalid("invalid buoy".into()));
+            }
+            let old = match value {
+                Some(v) => world.survey_buoys.insert(id.clone(), (**v).clone()),
+                None => world.survey_buoys.remove(id),
+            };
+            invert(C::PutSurveyBuoy {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::SetCanonStatus { id, status } => {
+            let n = world
+                .canon
+                .nodes
+                .get_mut(id)
+                .ok_or_else(|| CommandError::Invalid(format!("no canon node {id}")))?;
+            let old = n.status;
+            n.status = *status;
+            invert(C::SetCanonStatus {
+                id: id.clone(),
+                status: old,
+            })
+        }
+        C::PutStationRecipe { id, value } => {
+            if refs.check
+                && let Some(v) = value
+            {
+                let errors = v.validate_art(galaxy_kit::art_bible::ArtBible::bundled());
+                if let Err(errors) = errors {
+                    return Err(CommandError::Invalid(format!(
+                        "invalid station recipe: {errors:?}"
+                    )));
+                }
+            }
+            let old = match value {
+                Some(v) => world.station_recipes.insert(id.clone(), (**v).clone()),
+                None => world.station_recipes.remove(id),
+            };
+            invert(C::PutStationRecipe {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::PutMapOverlay { id, value } => {
+            if let Some(v) = value
+                && (!v.radius.is_finite()
+                    || v.radius <= 0.0
+                    || !v.center.x.is_finite()
+                    || !v.center.y.is_finite())
+            {
+                return Err(CommandError::Invalid("invalid map overlay".into()));
+            }
+            let old = match value {
+                Some(v) => world.map_overlays.insert(id.clone(), (**v).clone()),
+                None => world.map_overlays.remove(id),
+            };
+            invert(C::PutMapOverlay {
+                id: id.clone(),
+                value: old.map(Box::new),
             })
         }
         C::PutRegion { id, value } => {
@@ -835,6 +1108,21 @@ fn apply_with(
             invert(C::SetPackOff {
                 pack: pack.clone(),
                 off: was,
+            })
+        }
+        C::SetPackLayer { pack, layer } => {
+            let was = world.packs.get(pack).and_then(|p| p.layer);
+            // Unrecording (an inverse) is allowed; switching layers never is.
+            if refs.check && was.is_some() && layer.is_some() && was != *layer {
+                return Err(CommandError::Invalid(format!(
+                    "{pack} already runs as {was:?}; a pack's layer never changes"
+                )));
+            }
+            world.packs.entry(pack.clone()).or_default().layer = *layer;
+            prune_pack(world, pack);
+            invert(C::SetPackLayer {
+                pack: pack.clone(),
+                layer: was,
             })
         }
         C::PutBeat { id, value } => {

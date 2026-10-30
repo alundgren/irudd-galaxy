@@ -9,9 +9,11 @@
 //! `remaining` crosses one of [`ROCK_STEPS`] visible steps, a station when its build
 //! stage moves (Kettle Dock's greenhouse), a hull the first time it's seen.
 
+mod live;
 pub mod map;
 pub mod recipes;
 
+use render::art_bible::ArtMaterial;
 use std::collections::BTreeMap;
 
 use galaxy_contract::prelude::*;
@@ -189,7 +191,11 @@ impl View {
             if !stale {
                 continue;
             }
-            let recipe = recipes::station_recipe(s);
+            let recipe = world
+                .station_recipes
+                .get(&s.id)
+                .cloned()
+                .unwrap_or_else(|| recipes::station_recipe(s));
             let data = kit::station(&recipe);
             let mesh = match self.stations.get(&s.id) {
                 Some(a) => {
@@ -269,6 +275,7 @@ impl View {
     ) -> Scene {
         let camera = rig.camera();
         let mut scene = Scene::new(camera);
+        crate::view::live::draw(&mut scene, world);
         scene.time = time;
         scene.backdrop = self.backdrop_at(world, Vec2::new(rig.center.x, rig.center.y));
         let aspect = viewport.x / viewport.y.max(1.0);

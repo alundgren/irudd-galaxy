@@ -20,6 +20,7 @@ export type FactId = string
 export type FactKind = string
 export type FactPayload = { event: Event } | { note: string }
 export type FactionId = string
+export type FieldId = string
 export type FlagId = string
 export type FlyTarget = { at: Vec2, kind: "point" } | { kind: "station", station: StationId } | { kind: "rock", rock: RockId } | { kind: "region", region: RegionId }
 export type HullId = string
@@ -47,7 +48,7 @@ export type TraitId = string
 export type TunableId = string
 export type UpgradeId = string
 export type Vec2 = { x: number, y: number }
-export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop" | "transfer"
+export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop" | "tag" | "transfer"
 export type WareId = string
 export type Station = { build: BuildState, dock_radius: number, id: StationId, name: string, owner: FactionId?, position: Vec2, region: RegionId, services: { Service } }
 export type Faction = { claims: { StationId }?, colour: string?, id: FactionId, mark: string?, name: string, standing: number?, wants: { WareId }? }
@@ -61,7 +62,7 @@ export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId
 export type Event = { request: DockTalkRequest, type: "talk_requested" } | { line: AnyId, request: FactId, type: "talk_picked" } | { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" } | { session: number, type: "paused" } | { choice: AnyId, npc: NpcId, ship: ShipId, station: StationId, type: "reply" }
 export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries" | "ledger_deliveries"
 export type BeatState = { act: number, done_since: FactId?, giver: NpcId?, goal: string, kind: BeatKind?, pack: PackId, since: FactId?, started: Tick, status: BeatStatus, step: number, step_id: string?, step_since: FactId? }
-export type Order = { to: FlyTarget, verb: "fly" } | { rock: RockId, verb: "mine" } | { station: StationId, verb: "dock" } | { verb: "undock" } | { quantity: Quantity, verb: "buy", ware: WareId } | { floor: number?, quantity: Quantity, verb: "sell", ware: WareId } | { ["until"]: Condition, verb: "wait" } | { orders: { Order }, ["until"]: Condition?, verb: "loop" } | { quantity: Quantity, to: ShipId, verb: "transfer", ware: WareId }
+export type Order = { to: FlyTarget, verb: "fly" } | { rock: RockId, verb: "mine" } | { rock: RockId, verb: "tag" } | { field: FieldId, prefer_tagged: boolean?, verb: "mine_field" } | { station: StationId, verb: "dock" } | { verb: "undock" } | { quantity: Quantity, verb: "buy", ware: WareId } | { floor: number?, quantity: Quantity, verb: "sell", ware: WareId } | { ["until"]: Condition, verb: "wait" } | { orders: { Order }, ["until"]: Condition?, verb: "loop" } | { quantity: Quantity, to: ShipId, verb: "transfer", ware: WareId }
 export type OrderQueue = { current: number?, orders: { Order }, progress: OrderProgress? }
 export type RegardTier = { id: string, min_standing: number, name: string, shows: string }
 export type TraitDef = { deed: Measure, effect: string, id: TraitId, modifiers: { Modifier }?, name: string, noticed_by: { NpcId }?, times: number }
@@ -113,6 +114,8 @@ export type TalkChoice = { id: string, text: string }
 export type AfterSpec = { dockings: number?, deliveries: number?, jumps: number?, sessions: number?, units_mined: number?, rocks_depleted: number?, sales: number?, purchases: number?, scouts: number?, orders_done: number?, ledger_deliveries: number?, station: StationId?, region: RegionId?, every: boolean? }
 export type TriggerFire = { name: string, fired: number, fact: FactId? }
 export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }
+export type SurveyBuoy = { region: RegionId, position: Vec2, radius: number, planted_by: FactionId, read: boolean?, reward: { person: NpcId, choice: AnyId, credits: number, standing: { [FactionId]: number }, claimed: boolean? }? }
+export type MapOverlay = { region: RegionId, center: Vec2, radius: number, owner: FactionId?, contested: boolean?, direction: Vec2? }
 -- A requirement: world state, history and activity, never time. Build them with the
 -- G.* helpers below; a list of requirements means all of them.
 export type Requirement = string | { [any]: any }
@@ -138,7 +141,6 @@ export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, 
 export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.
 export type Spot = { x: number, y: number, region: RegionId? }
-export type FieldId = string
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's
 -- `regrow` is units per region pulse.
 export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number, regrow: number }
@@ -165,6 +167,20 @@ export type Lever = { lever: "add_producers" | "add_consumers", station: Station
 
 -- The ctx namespaces
 
+export type CanonApi = {
+	-- Read a canon node's current status.
+	status: (self: CanonApi, id: string) -> string?,
+	-- Open a manifest-declared node when its authored prerequisites hold. Reversible.
+	open: (self: CanonApi, id: string, why: Cause) -> (),
+}
+export type KitApi = {
+	-- Found a namespaced station from a JSON recipe validated against the shared art bible. Needs `npcs.write` and `market.lines` too. A later revision of the pack that founded it reopens its rolled-back scaffold in place.
+	station: (self: KitApi, station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> (),
+	-- Place or replace a survey buoy, unread and unclaimed. Space in reach reads its log and records survey_buoy_read. A reward is paid natively on a reply to its person: credits need `beats.write`, standing (a deed) needs `standing.write`.
+	buoy: (self: KitApi, id: string, buoy: SurveyBuoy, why: Cause) -> (),
+	-- Put or remove a namespaced map border or bearing.
+	overlay: (self: KitApi, id: string, overlay: MapOverlay?, why: Cause) -> (),
+}
 export type RngApi = {
 	-- A whole number in `lo..=hi` from the script's seeded stream.
 	int: (self: RngApi, lo: number, hi: number) -> number,
@@ -278,7 +294,7 @@ export type MarketApi = {
 	set_stock: (self: MarketApi, station: StationId, ware: WareId, stock: number, why: Cause) -> (),
 	-- Activity pulses a station has had so far (fractional). Pace by these, never by time.
 	pulses: (self: MarketApi, station: StationId) -> number,
-	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
+	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call. `add_line` and `remove_line` levers need `market.lines` too.
 	levers: (self: MarketApi, levers: { Lever }, why: Cause) -> (),
 }
 export type SpaceApi = {
@@ -401,6 +417,8 @@ export type Ctx = {
 	script: string,
 	-- The cause for this handler's writes. `cites` are history fact IDs; they must exist. One per call: everything a handler writes applies together or not at all.
 	cause: (self: Ctx, spec: CauseSpec) -> Cause,
+	canon: CanonApi,
+	kit: KitApi,
 	rng: RngApi,
 	store: StoreApi,
 	counters: CountersApi,

@@ -4,6 +4,14 @@
   "description": "`manifest.toml` at the root of a pack.",
   "type": "object",
   "properties": {
+    "asserts": {
+      "description": "Explicit canon assertions checked against locked/open nodes.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
     "creates": {
       "description": "IDs the scripts create at runtime (so the reference check knows them).",
       "type": "array",
@@ -50,6 +58,22 @@
     },
     "name": {
       "type": "string"
+    },
+    "observes": {
+      "description": "Optional records created later by dependencies; reads must tolerate absence.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnyId"
+      }
+    },
+    "opens": {
+      "description": "Canon revelations this pack is permitted to perform.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
     },
     "opportunity": {
       "type": "array",

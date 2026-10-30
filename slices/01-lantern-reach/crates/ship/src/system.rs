@@ -53,7 +53,18 @@ impl System for ShipSystem {
     }
 
     fn step(&self, ctx: &mut TickCtx<'_>) {
-        let world = ctx.world;
+        // A retiring layer can remove a demonstration craft or close a ring
+        // between ticks. Do not fly or trade against those stale records.
+        let retiring = ctx.queued().iter().any(|b| {
+            b.commands.iter().any(|c| {
+                matches!(
+                    c,
+                    Command::PutShip { value: None, .. } | Command::CloseFoundedStation { .. }
+                )
+            })
+        });
+        let projected = retiring.then(|| ctx.projected());
+        let world = projected.as_ref().unwrap_or(ctx.world);
         let mut claims = Claims::default();
         for ship in turn_order(world, is_hands_on(world, ctx.input)) {
             // A hull left at prestige is kept, not flown: it never runs orders, even

@@ -977,6 +977,7 @@ fn the_core_pack_passes_every_check_with_the_strict_typecheck() {
             history: Some(p.sim.history()),
             analyzer: Some(&analyzer),
             require_typecheck: true,
+            ..Default::default()
         },
     );
     let r = checked.report;

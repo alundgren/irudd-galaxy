@@ -588,7 +588,27 @@ fn assemble(world: &str, kernel: &str, logs: [Vec<String>; 3]) -> Result<SimStat
         rows.iter().map(|r| Ok(serde_json::from_str(r)?)).collect()
     }
     let [facts, causes, journal] = logs;
-    let world: WorldState = serde_json::from_str(world)?;
+    let legacy_canon = serde_json::from_str::<serde_json::Value>(world)?
+        .get("canon")
+        .is_none();
+    let mut world: WorldState = serde_json::from_str(world)?;
+    let facts: Vec<Fact> = parse(&facts)?;
+    if legacy_canon {
+        for f in facts
+            .iter()
+            .filter(|f| f.kind.as_str() == "core.canon_opened")
+        {
+            if let Some(n) = f
+                .subjects
+                .other
+                .as_ref()
+                .and_then(|id| world.canon.nodes.get_mut(id.as_str()))
+                && n.status == galaxy_contract::canon::CanonStatus::Sealed
+            {
+                n.status = galaxy_contract::canon::CanonStatus::Open;
+            }
+        }
+    }
     // World format 2 stores money as centicredits; format 1 stored whole credits.
     // Snapshots carry their own world, so this guards them too.
     if world.meta.format != WORLD_FORMAT_VERSION {
@@ -600,7 +620,7 @@ fn assemble(world: &str, kernel: &str, logs: [Vec<String>; 3]) -> Result<SimStat
     Ok(SimState {
         world,
         kernel: serde_json::from_str::<KernelState>(kernel)?,
-        history: History::from_parts(parse(&facts)?, parse(&causes)?),
+        history: History::from_parts(facts, parse(&causes)?),
         journal: parse(&journal)?,
     })
 }

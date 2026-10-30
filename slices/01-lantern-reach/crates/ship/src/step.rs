@@ -659,6 +659,71 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 }
             }
             Order::Mine { rock } => self.exec_mine(rock),
+            Order::Tag { rock } => {
+                if !self.w.player.flags.contains(crate::live::ROCK_TAGGING)
+                    && !matches!(self.ship.owner, Owner::Npc { .. })
+                {
+                    return Some(Outcome::Skipped("rock lamps are off".into()));
+                }
+                let Some(r) = self.w.rocks.get(rock) else {
+                    return Some(Outcome::Skipped("no rock".into()));
+                };
+                let dest = Dest {
+                    region: self.w.fields.get(&r.field)?.region.clone(),
+                    point: Some(r.position),
+                    within: self.w.ship_rules.mining.reach,
+                    stop: true,
+                };
+                if !matches!(self.travel(&dest), Travel::Arrived) {
+                    return None;
+                }
+                if self.w.rock_tags.len() >= 6 && !self.w.rock_tags.contains(rock) {
+                    return Some(Outcome::Skipped("six lamps already burn".into()));
+                }
+                if !matches!(self.ship.owner, Owner::Npc { .. }) {
+                    // The pilot's craft lose their lamps with the mechanic.
+                    self.commands.push(Command::ExpectFlag {
+                        flag: FlagId::new(crate::live::ROCK_TAGGING).unwrap(),
+                        on: true,
+                    });
+                }
+                self.commands.push(Command::SetRockTag {
+                    rock: rock.clone(),
+                    on: true,
+                });
+                self.fact(
+                    VerbKind::Tag,
+                    "tagged",
+                    None,
+                    format!("a lamp burns on {rock}"),
+                );
+                Some(Outcome::Done)
+            }
+            Order::MineField {
+                field,
+                prefer_tagged,
+            } => {
+                // Finish the rock we started before choosing the next richest one.
+                // Otherwise each unit mined can make another rock richer and send
+                // the ship back and forth without completing either run.
+                if let Some(run) = &self.activity.mining {
+                    let rock = run.rock.clone();
+                    return self.exec_mine(&rock);
+                }
+                let tagged =
+                    *prefer_tagged && self.w.player.flags.contains(crate::live::ROCK_TAGGING);
+                let rock = self
+                    .w
+                    .rocks
+                    .values()
+                    .filter(|r| &r.field == field && r.remaining > 0)
+                    .max_by_key(|r| (tagged && self.w.rock_tags.contains(&r.id), r.remaining))
+                    .map(|r| r.id.clone());
+                match rock {
+                    Some(id) => self.exec_mine(&id),
+                    None => Some(Outcome::Skipped("field is spent".into())),
+                }
+            }
             Order::Dock { station } => {
                 if self.docked.as_ref() == Some(station) {
                     return Some(Outcome::Done);
@@ -666,6 +731,9 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 let Some(s) = self.w.stations.get(station) else {
                     return Some(Outcome::Skipped(format!("no station {station}")));
                 };
+                if s.services.is_empty() {
+                    return Some(Outcome::Skipped("the ring is closed".into()));
+                }
                 let dest = Dest {
                     region: s.region.clone(),
                     point: Some(s.position),

@@ -265,13 +265,13 @@ pub const USES: &[UseDef] = &[
         Hook::Counters,
         "Vary a pacing tunable with a cause; a rollback restores it.",
     ),
-    reserved(
+    cap(
         "kit.write",
         Hook::Kit,
         "Assemble stations from kit recipes, register sprites (W6).",
     ),
-    reserved("canon.read", Hook::Canon, "Read the canon graph."),
-    reserved("canon.write", Hook::Canon, "Open canon nodes."),
+    cap("canon.read", Hook::Canon, "Read the canon graph."),
+    cap("canon.write", Hook::Canon, "Open canon nodes."),
     reserved(
         "mind.write",
         Hook::Mind,
@@ -366,6 +366,41 @@ const fn f(
 
 /// Every hook function, grouped by namespace.
 pub const FUNCTIONS: &[FnDef] = &[
+    f(
+        "canon",
+        "status",
+        "canon.read",
+        "(id: string) -> string?",
+        "Read a canon node's current status.",
+    ),
+    f(
+        "canon",
+        "open",
+        "canon.write",
+        "(id: string, why: Cause) -> ()",
+        "Open a manifest-declared node when its authored prerequisites hold. Reversible.",
+    ),
+    f(
+        "kit",
+        "station",
+        "kit.write",
+        "(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()",
+        "Found a namespaced station from a JSON recipe validated against the shared art bible. Needs `npcs.write` and `market.lines` too. A later revision of the pack that founded it reopens its rolled-back scaffold in place.",
+    ),
+    f(
+        "kit",
+        "buoy",
+        "kit.write",
+        "(id: string, buoy: SurveyBuoy, why: Cause) -> ()",
+        "Place or replace a survey buoy, unread and unclaimed. Space in reach reads its log and records survey_buoy_read. A reward is paid natively on a reply to its person: credits need `beats.write`, standing (a deed) needs `standing.write`.",
+    ),
+    f(
+        "kit",
+        "overlay",
+        "kit.write",
+        "(id: string, overlay: MapOverlay?, why: Cause) -> ()",
+        "Put or remove a namespaced map border or bearing.",
+    ),
     f(
         "",
         "cause",
@@ -709,7 +744,7 @@ pub const FUNCTIONS: &[FnDef] = &[
         "levers",
         "market.levers",
         "(levers: { Lever }, why: Cause) -> ()",
-        "Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.",
+        "Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call. `add_line` and `remove_line` levers need `market.lines` too.",
     ),
     // --- Orders ---
     f(
@@ -1049,6 +1084,8 @@ pub const FUNCTIONS: &[FnDef] = &[
 
 /// Namespaces on `ctx`, in the order they appear in the `Ctx` type.
 pub const NAMESPACES: &[(&str, &str)] = &[
+    ("canon", "CanonApi"),
+    ("kit", "KitApi"),
     ("rng", "RngApi"),
     ("store", "StoreApi"),
     ("counters", "CountersApi"),
@@ -1394,6 +1431,8 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         "export type TriggerFire = { name: string, fired: number, fact: FactId? }\n\
          export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }\n",
     );
+    out.push_str("export type SurveyBuoy = { region: RegionId, position: Vec2, radius: number, planted_by: FactionId, read: boolean?, reward: { person: NpcId, choice: AnyId, credits: number, standing: { [FactionId]: number }, claimed: boolean? }? }\n");
+    out.push_str("export type MapOverlay = { region: RegionId, center: Vec2, radius: number, owner: FactionId?, contested: boolean?, direction: Vec2? }\n");
     out.push_str(BEAT_TYPES);
 
     out.push_str("\n-- The ctx namespaces\n\n");
@@ -1494,7 +1533,6 @@ export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, 
 export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
 export type Spot = { x: number, y: number, region: RegionId? }\n\
-export type FieldId = string\n\
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's\n\
 -- `regrow` is units per region pulse.\n\
 export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number, regrow: number }\n\
@@ -1567,6 +1605,20 @@ fn with_self(sig: &str, ty: &str) -> String {
     }
 }
 
+/// `uses` clauses as Markdown: `a` or `b`, and `c`.
+fn clauses_md(clauses: &[&[&str]]) -> String {
+    clauses
+        .iter()
+        .map(|c| {
+            c.iter()
+                .map(|u| format!("`{u}`"))
+                .collect::<Vec<_>>()
+                .join(" or ")
+        })
+        .collect::<Vec<_>>()
+        .join(" and ")
+}
+
 /// `HOOKS.md`: the human-readable hook reference.
 pub fn hooks_md() -> String {
     let mut out = String::from(
@@ -1630,6 +1682,42 @@ pub fn hooks_md() -> String {
         let _ = writeln!(out, "- `{call}` ({needs}): {}", d.doc);
     }
     out.push_str(BEATS_MD);
+    out.push_str(
+        "\n## What each write needs\n\n\
+         The hooks above are gated one by one, but a pack also writes through routes that\n\
+         aren't one hook: a beat's transition and rewards, a trigger's bookkeeping, its\n\
+         `data` files, a buoy reward the pilot claims later. Every batch a pack causes is\n\
+         checked against this table before it is submitted (`galaxy_contract::needs`):\n\
+         handler and trigger calls, beat transitions with their rewards and callbacks, and\n\
+         data installs. A command whose capability isn't in `uses` rejects the whole batch\n\
+         as a fault, naming the command and what it lacks. `galaxy pack check` checks the\n\
+         same table against what the pack's data would install and its beats' rewards\n\
+         would write (`npcs.toml` needs `npcs.write`). `a` or `b` means either will do;\n\
+         \"never\" means only the engine, native systems, the player's verbs, the host or\n\
+         a rollback writes it; \"beat runtime only\" means only a core-layer pack's\n\
+         `G.beat` transition writes it, never a hook, a callback or data, and never a\n\
+         game-master layer (recorded in the world's pack state, so a reload keeps it).\n\n\
+         Provenance: a pack records facts only in its own namespace, `<pack-id>.*` (the\n\
+         whole ID). Engine events (docking, trades, mining ...) never come from a pack,\n\
+         and the journey's beat events only from the beat runtime. A fact or event that\n\
+         reports a checked change comes right after that change in the same batch\n\
+         (`<pack-id>.canon_opened` after `ctx.canon:open`'s `set_canon_status`), so no\n\
+         beat precondition can be met by a forged fact.\n\n\
+         | Command | Needs | From |\n|---|---|---|\n",
+    );
+    for r in crate::needs::COMMAND_NEEDS {
+        let needs = match r.needs {
+            crate::needs::Needs::Nothing => "nothing (a check)".to_owned(),
+            crate::needs::Needs::Own => "nothing (the pack's own state)".to_owned(),
+            crate::needs::Needs::Never => "never".to_owned(),
+            crate::needs::Needs::Payload => "by payload".to_owned(),
+            crate::needs::Needs::Uses(clauses) => clauses_md(clauses),
+            crate::needs::Needs::Beat(clauses) => {
+                format!("beat runtime only, {}", clauses_md(clauses))
+            }
+        };
+        let _ = writeln!(out, "| `{}` | {needs} | {} |", r.op, r.note);
+    }
     out.push_str(
         "\n## Events\n\n\
          `on.<event>` handlers get the event's fields plus `fact` (the history fact it was\n\

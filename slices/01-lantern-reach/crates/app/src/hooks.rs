@@ -347,6 +347,11 @@ pub fn what_changed(
     }
     out.extend(digest.iter().cloned());
     let since_tick = history.fact(since).map_or(Tick(0), |f| f.tick);
+    // Chronicle pages have already been included in the previous answer at this
+    // dock. Keep them in history without replaying them on every question.
+    let previous_question = history.facts().iter().rev().find(|f| {
+        f.kind == ASKED && f.id < asked.id && f.subjects.station.as_ref() == Some(station)
+    });
     let mut chronicle: Vec<TalkLine> = world
         .talk
         .lines
@@ -354,6 +359,7 @@ pub fn what_changed(
         .rev()
         .filter(|l| l.line.channel == Channel::Chronicle)
         .filter(|l| l.tick >= since_tick)
+        .filter(|l| previous_question.is_none_or(|q| l.tick > q.tick))
         .filter(|l| {
             let line_places = cited_places(history, &l.line);
             if l.line.cites.iter().any(|f| answer_cites.contains(f))

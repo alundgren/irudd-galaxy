@@ -12,7 +12,10 @@
 //! Every step that reads Luau reads exactly the files `require` can load
 //! ([`Pack::loadable`]): the script roots, never `tests/`.
 //! 3. `hooks`: every `ctx` hook a script calls is declared in `uses`; each script
-//!    loads and defines exactly the handlers its manifest lists.
+//!    loads and defines exactly the handlers its manifest lists; what the pack's data
+//!    would install and its beats' rewards would write is declared too
+//!    ([`galaxy_contract::needs`]: `npcs.toml` needs `npcs.write`, a standing reward
+//!    `standing.write`).
 //! 4. `references`: every ID a script or the manifest names exists in the world or is
 //!    created by this pack.
 //! 5. `invariants`: no clock or timer APIs, no unseeded randomness, every line cites a
@@ -29,8 +32,10 @@ use std::rc::Rc;
 
 use galaxy_contract::events::{Event, EventEnvelope, EventKind};
 use galaxy_contract::history::{Fact, FactPayload};
+use galaxy_contract::needs::Route;
 use galaxy_contract::pack::{
-    Diagnostic, ReportStatus, Severity, StepOutcome, StepReport, ValidationReport, ValidationStep,
+    Diagnostic, PackLayer, ReportStatus, Severity, StepOutcome, StepReport, ValidationReport,
+    ValidationStep,
 };
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
@@ -51,6 +56,15 @@ pub struct CheckOptions<'a> {
     /// `require_typecheck` is set.
     pub analyzer: Option<&'a Path>,
     pub require_typecheck: bool,
+    /// The pack is a game-master layer (`gm-examples`, or proposed, staged, applied or
+    /// sandboxed by `galaxy-gm`), whatever its ID says: it may not register journey
+    /// beats. A pack the world records as a game-master layer (`PackState::layer`) is
+    /// checked as one even without this, so a reload by any path keeps it.
+    pub game_master: bool,
+    /// The IDs a core-layer pack holds in the host loading this one. A game-master
+    /// layer may not take one (`gm_core_id`), so it never replaces a core pack's VM,
+    /// even before the world records that pack's layer.
+    pub core_ids: &'a [PackId],
 }
 
 /// A checked pack: the report, and the pack and its loaded VM when they got that far.
@@ -145,6 +159,17 @@ pub fn check_dir(dir: &Path, opts: CheckOptions<'_>) -> Checked {
 /// Checks a pack that was read successfully.
 pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
     let mut steps = vec![step(ValidationStep::Manifest, pack.warnings.clone())];
+    let id = &pack.manifest.id;
+    let recorded = opts
+        .world
+        .and_then(|w| w.packs.get(id))
+        .and_then(|p| p.layer);
+    let game_master = opts.game_master || recorded == Some(PackLayer::GameMaster);
+    let layer = if game_master {
+        PackLayer::GameMaster
+    } else {
+        PackLayer::Core
+    };
 
     // 2. Types
     let mut modes = crate::analyzer::mode_directives(&pack);
@@ -231,6 +256,22 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                     ));
                 }
             }
+            // A beat's rewards are written by its completion, under the pack's cause:
+            // they answer to the same table as its hooks.
+            if let Some(world) = opts.world {
+                for b in &s.beats {
+                    let rewards =
+                        galaxy_progress::beats::reward_commands(world, &b.def.id, &b.def.rewards);
+                    if let Err(e) = crate::host::declared(&pack, layer, Route::Beat, &rewards) {
+                        hook_diags.push(error(
+                            "undeclared_capability",
+                            format!("beat `{}`'s rewards: {e}", b.def.id),
+                            Some(&s.decl.file),
+                            None,
+                        ));
+                    }
+                }
+            }
             for k in &s.events {
                 let need = galaxy_contract::api::event_use(*k);
                 if !pack.manifest.uses.iter().any(|u| u == need) {
@@ -247,6 +288,16 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                 }
             }
         }
+    }
+    // What the pack's data installs into a world that has none of it yet.
+    if let Err(e) = crate::host::install_batches(&pack, &WorldState::default()) {
+        let file = pack
+            .manifest
+            .data
+            .iter()
+            .find(|f| f.ends_with("npcs.toml"))
+            .map(String::as_str);
+        hook_diags.push(error("undeclared_capability", e, file, None));
     }
     steps.push(step(ValidationStep::Hooks, hook_diags));
 
@@ -308,12 +359,44 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         }
     }
 
+    if let Some(world) = opts.world {
+        steps.push(crate::canon::check(&pack, world, false));
+    }
+
     // 5. Invariants
     let mut inv: Vec<Diagnostic> = scans
         .iter()
         .flat_map(|(_, s)| s.diagnostics.clone())
         .collect();
     inv.extend(pack::unpaired_shocks(&pack.manifest));
+    if (game_master || id.as_str().starts_with("gm."))
+        && vm
+            .as_ref()
+            .is_some_and(|v| v.scripts.iter().any(|s| !s.beats.is_empty()))
+    {
+        inv.push(error(
+            "gm_backbone",
+            "Game-master layers may not register journey beats",
+            None,
+            None,
+        ));
+    }
+    // A game-master layer never takes the place of a core-layer pack: not `core`'s
+    // namespace, not a pack the world records as core, and not one the loading host
+    // runs as core.
+    if game_master
+        && (id.as_str() == "core"
+            || id.as_str().starts_with("core.")
+            || recorded == Some(PackLayer::Core)
+            || opts.core_ids.contains(id))
+    {
+        inv.push(error(
+            "gm_core_id",
+            format!("a game-master layer can't use the ID `{id}`: it belongs to the core layer"),
+            Some("manifest.toml"),
+            None,
+        ));
+    }
     steps.push(step(ValidationStep::Invariants, inv));
 
     // 6. Smoke, on a VM of its own: the one returned never ran a handler.
@@ -321,7 +404,7 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         (Some(_), Some(world)) => match PackVm::new(pack.clone()) {
             Ok(trial) => step(
                 ValidationStep::Smoke,
-                smoke(&trial, &scans, world, opts.history),
+                smoke(&trial, layer, &scans, world, opts.history),
             ),
             Err(d) => step(ValidationStep::Smoke, d),
         },
@@ -361,7 +444,12 @@ fn exists(world: &WorldState, id: &str) -> bool {
 
 fn references(pack: &Pack, scans: &[(String, scan::Scan)], world: &WorldState) -> Vec<Diagnostic> {
     let created = pack.created_ids();
-    let known = |id: &str| exists(world, id) || created.contains(id);
+    let known = |id: &str| {
+        exists(world, id)
+            || created.contains(id)
+            || (!pack.manifest.depends.is_empty()
+                && pack.manifest.observes.iter().any(|v| v.as_str() == id))
+    };
     let mut out = Vec::new();
     for (file, s) in scans {
         for (id, line) in &s.ids {
@@ -610,12 +698,13 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
 /// wouldn't apply are warnings (the sample event may not fit the script).
 fn smoke(
     vm: &PackVm,
+    layer: PackLayer,
     scans: &[(String, scan::Scan)],
     world: &WorldState,
     history: Option<&History>,
 ) -> Vec<Diagnostic> {
     let mut world = world.clone();
-    for batch in crate::host::install_batches(&vm.pack, &world) {
+    for batch in crate::host::install_batches(&vm.pack, &world).unwrap_or_default() {
         if let Ok(next) = crate::host::preview(&world, &batch) {
             world = next;
         }
@@ -708,7 +797,21 @@ fn smoke(
             };
             match vm.call(i, target, view, &mut rng) {
                 Ok(batch) => {
-                    if let Some(Err(reason)) = batch.map(|b| crate::host::preview(&world, &b)) {
+                    // The host would fault this call: its writes need a capability the
+                    // manifest doesn't list.
+                    if let Some(Err(reason)) = batch
+                        .as_ref()
+                        .map(|b| crate::host::declared(&vm.pack, layer, Route::Hooks, &b.commands))
+                    {
+                        out.push(error(
+                            "undeclared_capability",
+                            format!("`{handler}` on a sample event: {reason}"),
+                            Some(&s.decl.file),
+                            vm.handler_line(i, target),
+                        ));
+                    } else if let Some(Err(reason)) =
+                        batch.map(|b| crate::host::preview(&world, &b))
+                    {
                         out.push(diag(
                             Severity::Warning,
                             "apply_failed",

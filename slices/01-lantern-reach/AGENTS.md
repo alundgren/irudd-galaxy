@@ -169,9 +169,10 @@ tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 **A command**: add a variant to `contract::command::Command` (Box large payloads to
 keep the enum small), add its arm in `galaxy_core::apply::apply` that validates inputs,
 makes the change and returns the exact inverse (`UndoRecord::Invert`) or a
-`Compensate` note, mark it in `Command::reversibility` if it's compensate-only, add a
-round-trip case to `undo_records_invert_commands` in `crates/core/tests/kernel.rs`,
-run `cargo xtask contract`.
+`Compensate` note, mark it in `Command::reversibility` if it's compensate-only, add its
+`op` to `Command::op`, give it a row in `contract::needs::COMMAND_NEEDS` (what a pack must
+declare to cause it, or `Never`), add a round-trip case to `undo_records_invert_commands`
+in `crates/core/tests/kernel.rs`, run `cargo xtask contract`.
 
 **An event**: add a variant to `contract::events::Event` with stable-ID fields, a
 matching `EventKind` (with its `as_str` name, which is also its fact kind), and fill in
@@ -192,7 +193,8 @@ incompatible changes.
 
 **A fact kind**: no code needed. Record one with
 `Command::RecordFact { fact: Box::new(FactDraft { kind, subjects, amount, note }) }`.
-Pack kinds are namespaced by pack (`gm.kettle.stage_up`). To index a new kind of
+A pack records kinds only in its own namespace, its whole ID
+(`gm.kettle_growth.stage_built`; see "Capabilities, one table"). To index a new kind of
 subject, add a field to `history::Subjects` and a column plus index in the save's
 `history` table (`crates/core/src/save.rs`).
 
@@ -212,7 +214,8 @@ The worked example is `packs/gm-examples/kettle_growth`.
 
 **A pack** is a folder: `manifest.toml` (schema `crates/contract/schemas/manifest.json`),
 `scripts/*.luau`, optional `lib/*.luau` (with `lib = true` in the manifest),
-`data/*.toml` (only `npcs.toml` installs so far) and optional `tests/*.luau`. `require`
+`data/*.toml` (only `npcs.toml` installs so far, and it needs `npcs.write`) and
+optional `tests/*.luau`. `require`
 loads only from the script roots (`scripts/`, and `lib/` if declared; never `tests/`),
 and every check covers exactly those files (`Pack::loadable`). Its revision is a BLAKE3 hash of its files; every write a script makes
 is caused by `Cause::Script { pack, revision }`, so a revision can be rolled back. The
@@ -291,6 +294,55 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   wait for a calm moment calls `ctx.beats:expect_docked(station, why)`: the call's
   writes apply only if the player is still docked there.
 
+**Capabilities, one table**: `uses` bounds everything a pack can change, by every
+route, not only the `ctx` hooks. `galaxy_contract::needs::COMMAND_NEEDS` maps every
+`Command` to the capabilities a pack needs to cause it (`Expect*` checks need nothing,
+the pack's own stores and triggers need nothing, engine-only commands are "never", and
+a few depend on their payload: an `emit` by event, a `record_fact` by kind, a `say` by
+channel, a buoy by its reward). The script host checks **every** batch a pack causes
+against it before submitting it (handler and trigger calls, beat transitions with their
+rewards and callbacks, data installs): a command the manifest doesn't allow rejects the
+whole batch as a fault (`undeclared_capability`, naming the command and what it lacks).
+That is defence in depth on top of the per-hook gating. A survey-buoy reward is
+checked when the pack places it (`put_survey_buoy`); the pilot's claim later pays
+exactly that. `galaxy pack check` applies the same table to what the pack's data would
+install (`npcs.toml` needs `npcs.write`) and its beats' rewards would write (standing
+needs `standing.write`). **A new command needs a row** (`every_command_has_a_row`
+fails without one), and a new route a pack writes through must call
+`host::declared` with its `Route` before it submits.
+
+- **Routes.** A batch is checked by where it came from (`needs::Route`): `Hooks` (a
+  handler, trigger or beat callback), `Beat` (the beat runtime's own transition: the
+  beat's state, `beat_started` / `quest_step` / `beat_completed`, its rewards) or
+  `Data`. A beat transition is checked in two parts, so a callback can't borrow the
+  runtime's right to write journey events. `put_beat`, `set_fitting`, non-`mech.`
+  flags and the beat events are beat-runtime only.
+- **Provenance.** A pack records facts only in its own namespace, `<pack-id>.*` (the
+  whole ID: `core.probe` can't write `core.*`, `gm.a` can't write `gm.b.*`). Engine
+  events (docking, trades, mining ...) never come from a pack. A fact or event that
+  reports a checked change must come right after it in the same batch:
+  `<pack-id>.canon_opened` after the `set_canon_status` that opens its node
+  (`ctx.canon:open`, gated by `opens`), `<pack-id>.mechanic_taught` after its `mech.*`
+  flag (`ctx.mechanics:teach`), `market_base_changed` after its `set_market_base`,
+  `deliver` after its `adjust_cargo`, `standing_changed` after its deed's change.
+  `ctx.history:record` refuses the protected names (`needs::PROTECTED_FACTS`). So no
+  beat precondition can be met by a forged fact (`crates/script/tests/provenance.rs`).
+- **Layers.** A pack's layer comes from the path that loads it, never from its ID or
+  from it being new. Only the authored backbone (`Game` loads the packs root's `core/`
+  with `ScriptHost::load`) is core. Game-master layers (`gm-examples`, applied, staged
+  and sandboxed packs: `ScriptHost::load_layer`, `CheckOptions::game_master`) may not
+  register or drive journey beats or pay their rewards, whatever their ID, and may not
+  take `core`'s namespace or the ID of a pack the world records or the host runs as
+  core (`gm_core_id`, `CheckOptions::core_ids`), so they never replace the core VM. A
+  reload keeps the folder's layer: a game-master folder whose manifest names a new ID
+  is a new game-master layer, never one already loaded (`reload_id_taken`). Each
+  pack's layer is recorded in the world (`PackState::layer`, by
+  `ScriptHost::record_layers` from `install` and the bridge's apply, as a system batch
+  no rollback undoes) and never changes. Every later load reads it: the check
+  (`check_pack`) and the host's run (the beat route is refused for a layer the world
+  or the host knows), whichever path loads the pack (`reload`, the dev watcher,
+  `play`, `sim run`, the bridge, the sandbox).
+
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and
 prints a `ValidationReport` with codes and file:line locations. Dev hot reload
@@ -328,8 +380,8 @@ time. Its thresholds are `SandboxRules`.
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
 `cargo xtask contract`. W4's hooks (`beats.*`, `orders.*`, `mechanics.*`,
 `market.levers`, `standing.*`, `traits.read`, `pacing.*`) live in
-`crates/script/src/ctx/progress.rs`. The reserved capabilities left (`kit.write`,
-`canon.*`, `mind.write`, `telemetry.read`) are the extension points for the other
+`crates/script/src/ctx/progress.rs`. Runtime recipe and canon hooks live in `ctx/live.rs`. The reserved capabilities left (
+`mind.write`, `telemetry.read`) are the extension points for the other
 workstreams: flip `available`, add the functions, and declaring them stops being an
 error.
 
@@ -352,7 +404,7 @@ error.
   journey is `packs/core/scripts/` (one script per act or situation: `act1` to `act4`,
   `dispute`, `rumor`, `shortage`, `tender`, `fragment`, plus `talk` for ambient dock
   talk); `lib/ids.luau` maps the spec's IDs onto the data's, `lib/lines.luau` holds every
-  core NPC line, `lib/canon.luau` the canon graph. Worked examples:
+  core NPC line; `data/canon.toml` holds the canon graph and `lib/canon.luau` delegates openings to `ctx.canon`. Worked examples:
   `packs/core/scripts/act1.luau` (b01-b05). A transition (with its
   callback's writes) is checked like a handler batch, against the world the kernel
   will apply it to; only one that will commit is visible to later beats that tick, so

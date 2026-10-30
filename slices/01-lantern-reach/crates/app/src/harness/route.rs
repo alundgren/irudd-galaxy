@@ -169,7 +169,7 @@ impl Pilot {
             return Ok(());
         }
         for _ in 0..40 {
-            if self.has("gm.mechanic_taught") {
+            if self.has("gm.rock_tagging.mechanic_taught") {
                 break;
             }
             self.go(&HOOK)?;
@@ -451,7 +451,7 @@ impl Pilot {
         // Observatory docking, after b15 completes.
         if self.installed("gm.ancients_bearing") && self.done(15) {
             for _ in 0..4 {
-                if self.has("gm.canon_opened") {
+                if self.has("gm.ancients_bearing.canon_opened") {
                     break;
                 }
                 self.go(&HOOK)?;
@@ -475,7 +475,7 @@ impl Pilot {
         // pilot's record is long enough. The fast profile's prestige can come first.
         if self.installed("gm.sixth_station") && !self.done(17) {
             for _ in 0..40 {
-                if self.has("gm.station_founded") {
+                if self.has("gm.sixth_station.station_founded") {
                     break;
                 }
                 self.shuttle()?;

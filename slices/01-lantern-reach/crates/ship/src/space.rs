@@ -21,10 +21,11 @@ pub fn ring_within<'w>(
 ) -> Option<&'w Station> {
     let reach = (reach as f32).max(0.0);
     nearest(
-        world
-            .stations
-            .values()
-            .filter(|s| &s.region == region && s.position.distance(pos) <= s.dock_radius * reach),
+        world.stations.values().filter(|s| {
+            !s.services.is_empty()
+                && &s.region == region
+                && s.position.distance(pos) <= s.dock_radius * reach
+        }),
         |s| s.position.distance(pos),
     )
 }

@@ -39,6 +39,42 @@
     {
       "type": "object",
       "properties": {
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "tag"
+        }
+      },
+      "required": [
+        "verb",
+        "rock"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldId"
+        },
+        "prefer_tagged": {
+          "type": "boolean",
+          "default": false
+        },
+        "verb": {
+          "type": "string",
+          "const": "mine_field"
+        }
+      },
+      "required": [
+        "verb",
+        "field"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
         "station": {
           "$ref": "#/$defs/StationId"
         },
@@ -469,6 +505,15 @@
           ]
         }
       ]
+    },
+    "FieldId": {
+      "description": "Stable field id, e.g. `field.shallows.ice`.",
+      "type": "string",
+      "examples": [
+        "field.shallows.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "FlagId": {
       "description": "Stable flag id, e.g. `flag.nav_chip`.",

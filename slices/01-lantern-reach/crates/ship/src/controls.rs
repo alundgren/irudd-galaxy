@@ -162,6 +162,9 @@ pub fn click_order(
                 })
             }
         }
+        ClickTarget::Tag { rock } => (world.player.flags.contains("mech.rock_tagging")
+            && controls.has(Capability::ClickMine))
+        .then(|| Order::Tag { rock: rock.clone() }),
         ClickTarget::Region { region } => map.then(|| Order::Fly {
             to: FlyTarget::Region {
                 region: region.clone(),

@@ -1,0 +1,25 @@
+id = "gm.compact_plant"
+name = "Compact plant"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+observes = ["rumor.ember_shoals_vein"]
+uses = ["events.beat_completed", "events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "pacing.read", "pacing.write", "territory.read", "rumors.read", "kit.write", "standing.write"]
+[[shock]]
+id = "stale_claim"
+summary = "A planted stale claim costs a journey."
+opportunity = "proof"
+[[opportunity]]
+id = "proof"
+summary = "The buoy exposes the plant, and the authored three iron rocks remain available."
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.beat_completed", "on.dock", "on.session_start"]
+stores = { progress = { buoy = "boolean", exposed = "boolean", tuned = "boolean" } }
+[rollback]
+speaker = "npc.pip_calloway"
+place = "station.brassmouth_exchange"
+text = "Forget what I said about the surveyor. Saffron says I had it muddled."
+

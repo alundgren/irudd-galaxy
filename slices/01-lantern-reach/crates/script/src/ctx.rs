@@ -33,6 +33,7 @@ use serde::Serialize;
 use crate::meter::{Budget, FACTS_PER_STEP, table_slots};
 use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number};
 
+mod live;
 mod progress;
 mod space;
 mod talk;
@@ -119,6 +120,7 @@ pub(crate) struct CallEnv<'a> {
     pub history: &'a History,
     pub pack: &'a PackId,
     pub revision: &'a str,
+    pub opens: &'a [String],
     pub uses: &'a [String],
     pub script: &'a ScriptDecl,
     pub buffer: &'a RefCell<Buffer>,
@@ -336,10 +338,11 @@ impl CallEnv<'_> {
         need.is_empty() || self.uses.iter().any(|u| u == need)
     }
 
-    /// New records a pack creates live are namespaced by the pack's first segment.
+    /// New records a pack creates live are namespaced by the pack's first segment
+    /// (`core` itself, and only `core`, names its records freely).
     fn check_new_id(&self, lua: &Lua, id: &str, exists: bool) -> mlua::Result<()> {
         let ns = self.pack.as_str().split('.').next().unwrap_or("");
-        if exists || ns == "core" || id.starts_with(&format!("{ns}.")) {
+        if exists || self.pack.as_str() == "core" || id.starts_with(&format!("{ns}.")) {
             Ok(())
         } else {
             Err(self.fail(
@@ -801,17 +804,39 @@ pub(crate) fn build<'scope, 'env: 'scope>(
                     format!("a fact's note is at most {TEXT_CAP} bytes"),
                 ));
             }
-            // Recorded kinds carry the pack's prefix (`gm.stage_built`); bare names
-            // are the engine's event kinds.
-            let ns = env.pack.as_str().split('.').next().unwrap_or("");
-            if !draft.kind.as_str().starts_with(&format!("{ns}.")) {
+            // Recorded kinds live in the pack's own namespace, its whole ID
+            // (`gm.kettle_growth.stage_built`); bare names are the engine's event kinds,
+            // and another pack's kinds are its own.
+            let ns = env.pack.as_str();
+            let Some(name) = draft
+                .kind
+                .as_str()
+                .strip_prefix(ns)
+                .and_then(|k| k.strip_prefix('.'))
+            else {
                 return Err(env.fail(
                     lua,
                     "unprefixed_fact_kind",
                     format!(
-                        "record kinds with this pack's prefix, e.g. `{ns}.stage_built`; got `{}`",
+                        "record kinds in this pack's namespace, e.g. `{ns}.stage_built`; got `{}`",
                         draft.kind
                     ),
+                ));
+            };
+            // These report a checked change, so only the hook that makes it records
+            // them (`galaxy_contract::needs`).
+            // (Kinds match by their last segment when lines cite them.)
+            let last = name.rsplit('.').next().unwrap_or(name);
+            if galaxy_contract::needs::PROTECTED_FACTS.contains(&last) {
+                let hook = if last == "canon_opened" {
+                    "ctx.canon:open"
+                } else {
+                    "ctx.mechanics:teach"
+                };
+                return Err(env.fail(
+                    lua,
+                    "protected_fact_kind",
+                    format!("`{}` is recorded only by `{hook}`", draft.kind),
                 ));
             }
             env.push(
@@ -1454,6 +1479,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
     ];
     tables.extend(progress::namespaces(lua, scope, env)?);
     tables.push(("space", space::namespace(lua, scope, env)?));
+    tables.extend(live::namespaces(lua, scope, env)?);
     for (name, t) in tables {
         if present.contains(name) {
             t.set_readonly(true);

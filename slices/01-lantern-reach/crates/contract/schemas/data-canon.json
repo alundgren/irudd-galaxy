@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CanonFile",
+  "type": "object",
+  "properties": {
+    "edge": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CanonEdge"
+      }
+    },
+    "node": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CanonNode"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "node"
+  ],
+  "$defs": {
+    "BeatId": {
+      "description": "Stable beat id, e.g. `beat.first_delivery`.",
+      "type": "string",
+      "examples": [
+        "beat.first_delivery"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "CanonEdge": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "rel": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "rel"
+      ]
+    },
+    "CanonNode": {
+      "type": "object",
+      "properties": {
+        "during": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BeatId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "opener": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requires": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BeatId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statement": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CanonStatus"
+        },
+        "step": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "statement"
+      ]
+    },
+    "CanonStatus": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "sealed",
+        "open",
+        "question",
+        "forbidden"
+      ]
+    }
+  }
+}
