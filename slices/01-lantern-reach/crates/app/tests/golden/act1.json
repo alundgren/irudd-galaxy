@@ -114,8 +114,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.0870779
+            "x": 0.48014,
+            "y": 0.87719184
           },
           "action": false
         }
@@ -127,8 +127,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707789
+            "x": 0.9989786,
+            "y": 0.04518603
           },
           "action": false
         }
@@ -140,8 +140,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.087077886
+            "x": 0.9989786,
+            "y": 0.04518605
           },
           "action": false
         }
@@ -153,8 +153,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707787
+            "x": 0.9989786,
+            "y": 0.045186035
           },
           "action": false
         }
@@ -166,8 +166,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707786
+            "x": 0.99897856,
+            "y": 0.045186047
           },
           "action": false
         }
@@ -179,8 +179,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707784
+            "x": 0.99897856,
+            "y": 0.045186028
           },
           "action": false
         }
@@ -192,8 +192,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.99620146,
-            "y": 0.08707782
+            "x": 0.5165366,
+            "y": 0.8562652
           },
           "action": false
         }
@@ -205,8 +205,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.99620146,
-            "y": 0.0870778
+            "x": 0.9999148,
+            "y": -0.013047936
           },
           "action": false
         }
@@ -218,8 +218,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.087077774
+            "x": 0.9999148,
+            "y": -0.013047919
           },
           "action": false
         }
@@ -231,8 +231,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962016,
-            "y": 0.08707775
+            "x": 0.9999148,
+            "y": -0.013047898
           },
           "action": false
         }
@@ -244,8 +244,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707778
+            "x": 0.9999148,
+            "y": -0.013047873
           },
           "action": false
         }
@@ -257,8 +257,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.087077744
+            "x": 0.56550944,
+            "y": 0.8247419
           },
           "action": false
         }
@@ -270,8 +270,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707778
+            "x": 0.99517363,
+            "y": -0.09813042
           },
           "action": false
         }
@@ -283,8 +283,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.08707775
+            "x": 0.99517363,
+            "y": -0.098130405
           },
           "action": false
         }
@@ -296,8 +296,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.99620146,
-            "y": 0.0870778
+            "x": 0.9951736,
+            "y": -0.09813038
           },
           "action": false
         }
@@ -309,8 +309,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962015,
-            "y": 0.087077744
+            "x": 0.99517363,
+            "y": -0.09813037
           },
           "action": false
         }
@@ -322,8 +322,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962016,
-            "y": 0.087077826
+            "x": 0.6336723,
+            "y": 0.7736016
           },
           "action": false
         }
@@ -335,8 +335,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.9962016,
-            "y": 0.08707775
+            "x": 0.96730804,
+            "y": -0.25360408
           },
           "action": false
         }
@@ -348,8 +348,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.7836651,
-            "y": 0.068500094
+            "x": 0.9673081,
+            "y": -0.25360405
           },
           "action": false
         }
@@ -361,8 +361,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.5224436,
-            "y": 0.045666803
+            "x": 0.7475773,
+            "y": 0.66417485
           },
           "action": false
         }
@@ -374,8 +374,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34829584,
-            "y": 0.030444466
+            "x": 0.8097755,
+            "y": -0.4990266
           },
           "action": false
         }
@@ -387,8 +387,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.23219723,
-            "y": 0.02029631
+            "x": 0.5398505,
+            "y": -0.33268443
           },
           "action": false
         }
@@ -400,8 +400,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.15479828,
-            "y": 0.013530942
+            "x": 0.35990018,
+            "y": -0.22178969
           },
           "action": false
         }
@@ -413,8 +413,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.103199005,
-            "y": 0.0090207
+            "x": 0.23993343,
+            "y": -0.14785978
           },
           "action": false
         }
@@ -426,8 +426,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.06879934,
-            "y": 0.0060138702
+            "x": 0.15995575,
+            "y": -0.09857326
           },
           "action": false
         }
@@ -439,8 +439,34 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.04586622,
-            "y": 0.0040092464
+            "x": 0.106637314,
+            "y": -0.065715574
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.07109155,
+            "y": -0.043810315
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.047394224,
+            "y": -0.029206805
           },
           "action": false
         }
@@ -491,8 +517,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281298,
-            "y": -0.9108158
+            "x": 0.4120629,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -504,8 +530,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.412813,
-            "y": -0.91081583
+            "x": 0.41206294,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -517,8 +543,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281304,
-            "y": -0.91081583
+            "x": 0.41206288,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -530,8 +556,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281304,
-            "y": -0.9108158
+            "x": 0.41206294,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -543,8 +569,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281307,
-            "y": -0.91081583
+            "x": 0.41206288,
+            "y": -0.91115534
           },
           "action": false
         }
@@ -556,8 +582,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281307,
-            "y": -0.9108157
+            "x": 0.4120629,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -569,8 +595,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128131,
-            "y": -0.9108158
+            "x": 0.41206294,
+            "y": -0.91115534
           },
           "action": false
         }
@@ -582,8 +608,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128131,
-            "y": -0.9108157
+            "x": 0.41206294,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -595,8 +621,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281316,
-            "y": -0.9108158
+            "x": 0.4120629,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -608,8 +634,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281313,
-            "y": -0.91081566
+            "x": 0.41206294,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -621,8 +647,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281316,
-            "y": -0.91081566
+            "x": 0.41206285,
+            "y": -0.91115534
           },
           "action": false
         }
@@ -634,8 +660,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281325,
-            "y": -0.9108158
+            "x": 0.41206288,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -647,8 +673,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128132,
-            "y": -0.9108157
+            "x": 0.41206282,
+            "y": -0.9111554
           },
           "action": false
         }
@@ -660,8 +686,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281316,
-            "y": -0.9108157
+            "x": 0.4120628,
+            "y": -0.9111555
           },
           "action": false
         }
@@ -673,8 +699,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281313,
-            "y": -0.9108157
+            "x": 0.41206273,
+            "y": -0.91115546
           },
           "action": false
         }
@@ -686,8 +712,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128131,
-            "y": -0.9108158
+            "x": 0.4120627,
+            "y": -0.91115546
           },
           "action": false
         }
@@ -699,8 +725,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.412813,
-            "y": -0.91081583
+            "x": 0.41206264,
+            "y": -0.9111555
           },
           "action": false
         }
@@ -712,8 +738,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281298,
-            "y": -0.91081583
+            "x": 0.41206262,
+            "y": -0.9111556
           },
           "action": false
         }
@@ -725,8 +751,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281295,
-            "y": -0.9108159
+            "x": 0.41206256,
+            "y": -0.9111556
           },
           "action": false
         }
@@ -738,8 +764,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281286,
-            "y": -0.91081583
+            "x": 0.41206244,
+            "y": -0.9111555
           },
           "action": false
         }
@@ -751,8 +777,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281277,
-            "y": -0.91081583
+            "x": 0.41206238,
+            "y": -0.9111557
           },
           "action": false
         }
@@ -764,8 +790,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128127,
-            "y": -0.91081595
+            "x": 0.4120623,
+            "y": -0.91115576
           },
           "action": false
         }
@@ -777,8 +803,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.4128126,
-            "y": -0.91081595
+            "x": 0.41206238,
+            "y": -0.91115564
           },
           "action": false
         }
@@ -790,8 +816,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281247,
-            "y": -0.910816
+            "x": 0.41206223,
+            "y": -0.9111557
           },
           "action": false
         }
@@ -803,8 +829,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281265,
-            "y": -0.91081595
+            "x": 0.4120624,
+            "y": -0.91115564
           },
           "action": false
         }
@@ -816,8 +842,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281247,
-            "y": -0.910816
+            "x": 0.4120622,
+            "y": -0.9111557
           },
           "action": false
         }
@@ -829,8 +855,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.41281274,
-            "y": -0.9108159
+            "x": 0.41206244,
+            "y": -0.91115564
           },
           "action": false
         }
@@ -842,8 +868,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.39404804,
-            "y": -0.86941487
+            "x": 0.40181732,
+            "y": -0.88850236
           },
           "action": false
         }
@@ -855,8 +881,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.2626987,
-            "y": -0.5796098
+            "x": 0.26787823,
+            "y": -0.59233475
           },
           "action": false
         }
@@ -868,8 +894,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.17513275,
-            "y": -0.38640636
+            "x": 0.17858547,
+            "y": -0.39488983
           },
           "action": false
         }
@@ -946,8 +972,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120353
+            "x": -0.99375856,
+            "y": -0.11155214
           },
           "action": false
         }
@@ -959,8 +985,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120352
+            "x": -0.99375856,
+            "y": -0.111552164
           },
           "action": false
         }
@@ -972,8 +998,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120353
+            "x": -0.9937585,
+            "y": -0.11155215
           },
           "action": false
         }
@@ -985,8 +1011,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120352
+            "x": -0.9937585,
+            "y": -0.11155217
           },
           "action": false
         }
@@ -998,86 +1024,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120354
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120352
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120353
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937976,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120353
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120352
+            "x": -0.9937585,
+            "y": -0.111552164
           },
           "action": false
         }
@@ -1089,8 +1037,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120352
+            "x": -0.9937586,
+            "y": -0.111552194
           },
           "action": false
         }
@@ -1102,99 +1050,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120352
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120352
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120352
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120351
+            "x": -0.9937586,
+            "y": -0.1115522
           },
           "action": false
         }
@@ -1206,21 +1063,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 3,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120352
+            "x": -0.9937586,
+            "y": -0.111552216
           },
           "action": false
         }
@@ -1232,8 +1076,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120353
+            "x": -0.9937585,
+            "y": -0.111552216
           },
           "action": false
         }
@@ -1245,8 +1089,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120351
+            "x": -0.9937585,
+            "y": -0.11155223
           },
           "action": false
         }
@@ -1258,8 +1102,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.111203514
+            "x": -0.9937586,
+            "y": -0.11155225
           },
           "action": false
         }
@@ -1271,8 +1115,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203514
+            "x": -0.99375856,
+            "y": -0.11155225
           },
           "action": false
         }
@@ -1284,8 +1128,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.111203514
+            "x": -0.99375856,
+            "y": -0.11155227
           },
           "action": false
         }
@@ -1297,21 +1141,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203454
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 2,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120344
+            "x": -0.99375856,
+            "y": -0.11155228
           },
           "action": false
         }
@@ -1323,8 +1154,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120344
+            "x": -0.9937585,
+            "y": -0.11155228
           },
           "action": false
         }
@@ -1336,8 +1167,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120343
+            "x": -0.9937586,
+            "y": -0.11155231
           },
           "action": false
         }
@@ -1349,21 +1180,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120343
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 2,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": -0.99379766,
-            "y": -0.111203425
+            "x": -0.9937586,
+            "y": -0.11155232
           },
           "action": false
         }
@@ -1375,8 +1193,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120341
+            "x": -0.99375856,
+            "y": -0.111552335
           },
           "action": false
         }
@@ -1388,8 +1206,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.1112034
+            "x": -0.99375856,
+            "y": -0.11155234
           },
           "action": false
         }
@@ -1401,8 +1219,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.99379766,
-            "y": -0.11120338
+            "x": -0.99375856,
+            "y": -0.11155236
           },
           "action": false
         }
@@ -1414,8 +1232,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937976,
-            "y": -0.11120335
+            "x": -0.99375856,
+            "y": -0.11155238
           },
           "action": false
         }
@@ -1427,8 +1245,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120332
+            "x": -0.99375856,
+            "y": -0.1115524
           },
           "action": false
         }
@@ -1440,8 +1258,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.111203276
+            "x": -0.99375856,
+            "y": -0.11155242
           },
           "action": false
         }
@@ -1453,8 +1271,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.9937977,
-            "y": -0.11120319
+            "x": -0.9937585,
+            "y": -0.111552425
           },
           "action": false
         }
@@ -1466,8 +1284,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.8524903,
-            "y": -0.09539117
+            "x": -0.99375856,
+            "y": -0.11155246
           },
           "action": false
         }
@@ -1479,8 +1297,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.5683267,
-            "y": -0.06359439
+            "x": -0.9937586,
+            "y": -0.11155249
           },
           "action": false
         }
@@ -1492,8 +1310,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.37888467,
-            "y": -0.04239655
+            "x": -0.9937585,
+            "y": -0.11155251
           },
           "action": false
         }
@@ -1505,8 +1323,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.25258976,
-            "y": -0.028264366
+            "x": -0.9937586,
+            "y": -0.11155255
           },
           "action": false
         }
@@ -1518,8 +1336,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.16839303,
-            "y": -0.01884291
+            "x": -0.9937585,
+            "y": -0.11155257
           },
           "action": false
         }
@@ -1531,8 +1349,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.11226188,
-            "y": -0.012562223
+            "x": -0.9937585,
+            "y": -0.11155261
           },
           "action": false
         }
@@ -1544,8 +1362,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.07484139,
-            "y": -0.008374532
+            "x": -0.9937585,
+            "y": -0.11155264
           },
           "action": false
         }
@@ -1557,8 +1375,268 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": -0.04989412,
-            "y": -0.0055830213
+            "x": -0.9937585,
+            "y": -0.11155269
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.111552745
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.11155281
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99375856,
+            "y": -0.111552894
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99375844,
+            "y": -0.11155296
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.111553065
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.111553185
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.11155334
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.1115532
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99375844,
+            "y": -0.11155301
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.11155323
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937585,
+            "y": -0.111552976
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99375844,
+            "y": -0.11155329
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.85080296,
+            "y": -0.0955056
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.56720185,
+            "y": -0.06367069
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.37813443,
+            "y": -0.04244741
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.25208962,
+            "y": -0.028298274
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.16805989,
+            "y": -0.018865798
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.112039775,
+            "y": -0.012577481
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.07469305,
+            "y": -0.008384705
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.049795363,
+            "y": -0.0055898027
           },
           "action": false
         }
@@ -1609,8 +1687,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.3487934,
-            "y": 0.9371996
+            "x": 0.34880692,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1622,8 +1700,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879342,
-            "y": 0.93719965
+            "x": 0.34880692,
+            "y": 0.9371945
           },
           "action": false
         }
@@ -1635,21 +1713,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879342,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879345,
-            "y": 0.9371996
+            "x": 0.34880692,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1661,47 +1726,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879348,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.3487935,
-            "y": 0.93719965
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879354,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879357,
-            "y": 0.9371996
+            "x": 0.34880695,
+            "y": 0.93719465
           },
           "action": false
         }
@@ -1713,8 +1739,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.3487936,
-            "y": 0.9371996
+            "x": 0.34880695,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1726,8 +1752,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879366,
-            "y": 0.9371996
+            "x": 0.34880692,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1739,164 +1765,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.3487937,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879363,
-            "y": 0.9371995
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.3487937,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879366,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.3487937,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879363,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.3487937,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879366,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879372,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879366,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879363,
-            "y": 0.9371996
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879366,
-            "y": 0.93719953
-          },
-          "action": false
-        }
-      }
-    },
-    {
-      "count": 1,
-      "input": {
-        "action": "input",
-        "value": {
-          "thrust": {
-            "x": 0.34879375,
-            "y": 0.9371995
+            "x": 0.34880695,
+            "y": 0.93719465
           },
           "action": false
         }
@@ -1908,8 +1778,34 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879377,
-            "y": 0.93719953
+            "x": 0.34880692,
+            "y": 0.9371946
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34880695,
+            "y": 0.93719465
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34880692,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1921,8 +1817,21 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879383,
-            "y": 0.93719953
+            "x": 0.34880695,
+            "y": 0.9371946
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 5,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34880692,
+            "y": 0.9371946
           },
           "action": false
         }
@@ -1934,8 +1843,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.34879383,
-            "y": 0.9371995
+            "x": 0.34880692,
+            "y": 0.9371947
           },
           "action": false
         }
@@ -1947,8 +1856,8 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.30254173,
-            "y": 0.8129211
+            "x": 0.3488069,
+            "y": 0.93719465
           },
           "action": false
         }
@@ -1960,8 +1869,86 @@
         "action": "input",
         "value": {
           "thrust": {
-            "x": 0.20169449,
-            "y": 0.54194736
+            "x": 0.34880686,
+            "y": 0.9371946
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3488069,
+            "y": 0.93719465
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34880686,
+            "y": 0.93719465
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3488068,
+            "y": 0.93719465
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34880677,
+            "y": 0.93719465
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.30249783,
+            "y": 0.8127693
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.20166525,
+            "y": 0.5418463
           },
           "action": false
         }
@@ -2087,181 +2074,187 @@
   "checkpoints": [
     {
       "tick": 5,
-      "hash": "f864d6c9db01b747f571f8ba569e5f3bf1831d75707315f08e384e0bc9acfd9b",
+      "hash": "7b73736656fc74f3de82c52a9595a7a760356c3d910bbc269cf8081b078184df",
       "stores": {
-        "history": "d36b9e24685b706f5519621ea21b3bb19de9c811a0383288d7c5f1e422346fa2",
-        "journal": "ef0ae01cfc3ce0f89cdbf3da19b4bc26967e43483408deda739aeb96a64884b7",
-        "kernel": "3b551abfcf4e878b3fcd58bec8c020ddd8291a847a8de12129f2c3a8338fbd34",
+        "history": "692743ccc1e51aae559672ccac3926d25c2ee9bdf57b2a56da26e351f7267ea7",
+        "journal": "f19e552e7b5afa6f6bfbc41f9b9a08c1d3bf48830e204484ba9fd4d4d69075b7",
+        "kernel": "5fa1064c3a9f5f3c8d59830072aee070731d300cf55ba8ae7b26787e4f2a5404",
         "world.counters": "1b0fd7ab04756be198ec03062959cd0eb596aaf346fcb10b8f915f67995673c3",
-        "world.economy": "831b3b0368c11847848e31fd3cacd2a6840179e1aa5882e9ff5a6fd35c855aa3",
+        "world.economy": "6ad75a4446ea058ff62389683e6e7f6894f49a87cac6a4f0af2642d4d501ca06",
         "world.factions": "1a716b3229185dd526b1c0de4387b50c6a9e4a65f2ae9e2a292a3024c8e322fa",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "e5371288494fa9322828a5c04aec0bf59628ba3e1dadca1e4c03e46c44e90527",
+        "world.markets": "c7f29502848af00d893f516c86ae860d0621e2b56de3c08ab4d505a23ca948c3",
         "world.meta": "5712dafd9d817098c5a324dae4dc5ae43e50826e0e1dffcc9cfc3ef1efd1207b",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
-        "world.progress": "328cf75cadabee0b94ff138aa641362ee3a4ac2ce400cad820894a6dd1d55dfd",
+        "world.player": "ff6992bb979289c0652647b812218b43a470bc061318bb88736fbe8883534b51",
+        "world.progress": "ce5cf79c1517fb6335971347aac3312a5922ce4fbcf8af629d960a60aabcfda0",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "4ccbf72d9fec183dc3bed8ae0539a2376622b9007477e5d7dd7d9487805e5484",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "327ce42da6e744ffd0995d06833eb0cbc69752bea142bb1137068f6ea901d098",
+        "world.ships": "0984e6ae298952e72be5624287b761d9e40cf9089c62ecd1cce50a61b06452a0",
         "world.stations": "050ad9de963f430ffeffaaeeed2e47118e146b28f7ff0df2f0b22f5a4fb13193",
         "world.talk": "8a4264ac607d8ebdcc04b223fb5cc9c75385a875b85368f6addceabf89cd3e94",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
-      "tick": 59,
-      "hash": "0ae77a3c4fd5c79a1d2f40b38e896f33aa7cfdaeebb0aebd0ca77f47d80aad0b",
+      "tick": 61,
+      "hash": "0241013361f963d45f13c4bdb8fe260a9049f1704863299a3b63f37ee2238b20",
       "stores": {
-        "history": "af3b9029716f3206ddaecb76d79f84a03b127be73a31e7b93a54e8d176d5d450",
-        "journal": "5c6caa7624f56592c142c55b9f8d5669f3925c8f82c8595df4b94692e285415e",
-        "kernel": "b654099ae165c73cd613b00e38195f91991d373fa5e1d7f0f37d9b1f699e5fd9",
+        "history": "20e8982382050769611f530b37f78c11826428831af29ebb655a40878c9165d7",
+        "journal": "f63885a137e95770672bdeaf67cf3cbd79ce97d926600eea0504a87eec694b92",
+        "kernel": "6cfda86f85537dfd9e30f0832ec653b2122a136db41fabec623855910540cba8",
         "world.counters": "819e5d7a6eb25d6bd794d3480301ea85d8dc568321228a9d600c75a879da8787",
-        "world.economy": "831b3b0368c11847848e31fd3cacd2a6840179e1aa5882e9ff5a6fd35c855aa3",
+        "world.economy": "863551e98c9a7abefac2b7cc30161b5a2c64c05a64401c091fe797d1b75bce86",
         "world.factions": "1a716b3229185dd526b1c0de4387b50c6a9e4a65f2ae9e2a292a3024c8e322fa",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "e5371288494fa9322828a5c04aec0bf59628ba3e1dadca1e4c03e46c44e90527",
-        "world.meta": "c5fe0a3e1d85b6195f38296fb0beaa6304d664cfc49a6f0e9ab629fd23a00be2",
+        "world.markets": "c7f29502848af00d893f516c86ae860d0621e2b56de3c08ab4d505a23ca948c3",
+        "world.meta": "36df557a86011b818ec1384897e6bc89fa910dcee4218f7d1fa8a8f15f0bb51f",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
-        "world.progress": "ee829942145d30bcc65ca7ba866a0b0483a08b28063de2be9af0618216826a5a",
+        "world.player": "ff6992bb979289c0652647b812218b43a470bc061318bb88736fbe8883534b51",
+        "world.progress": "1ed52e3555ea2e8d917b0d5c2572cc37a04cf58261fb235cec4be0c3181190f9",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "fa97d00f9da4b9743c95a96e831f2fcd771650fc107c399008b524c9d2a8b288",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "5cf37b5c3aa8e47c336953c1c6cf0202a93c4f67158e6b21ebffb7a8c1567502",
+        "world.ships": "84e974d0e02b11bfc31a158c29c2b048cd085d252fd87a1a24c93fca15070bfe",
         "world.stations": "050ad9de963f430ffeffaaeeed2e47118e146b28f7ff0df2f0b22f5a4fb13193",
         "world.talk": "8a4264ac607d8ebdcc04b223fb5cc9c75385a875b85368f6addceabf89cd3e94",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
-      "tick": 97,
-      "hash": "c88d8a38b35e070de5e9b566f9acee7107c299d11093f7e04dc6b8e81a425356",
+      "tick": 99,
+      "hash": "a62a40f4f3a5bbf827cdafa9665e46fcab35f3dd4eb8856bbccb72b80f8c9e8e",
       "stores": {
-        "history": "6f10141dc874e0dbbe3f5e4abe55dd6a8e81b0446d83e4f81b11794b0c5c3dc8",
-        "journal": "6807727756d66ccafd7aa301d90c2e83c1b49ebd8377eb06a1793ccbc6f7c3f5",
-        "kernel": "50da897a85ee62443c6dc0916254c2f4acb63005ee52ac50b75b89a2e7d72512",
+        "history": "2aff9ddd224367475075daf5c71fe9af22bf4c078d3a823d0cdb7575cfa0dce6",
+        "journal": "5c0a60ad8ef61b879a7decd8a55be6ce69339a6d3781a67043185e95049c31a0",
+        "kernel": "8fbcc22b927b76b2ad420dbbd08234b7d2220327ea8dfd0613edbeaec46581ac",
         "world.counters": "ace910038356e6b9003a302752ad3974210e0cfcf4c70e3ee11e2dfeb4a0cdfd",
-        "world.economy": "75675c2c6824e9518037117c9cd68ebd250804f827461bc20f4c2ad2ff851f90",
+        "world.economy": "1eb516d6d25bafdd56954a9d8d3d20cb44f621d6410c86054285161e25416ca1",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "15708eca9723b8de97f8818b9b63bd78d31f799176699a595b85b1f1d3b563e9",
-        "world.meta": "4e97912493b618f1f0007b388ef860969627f8ab0413845d3d16b98f5509a69f",
+        "world.markets": "aa96610d778d529a9634e456ea7281333a659766f9f23b6d0c42a98db3088383",
+        "world.meta": "119679269718bb961048352d5258b355d78e43cff09770e4c75a4f8232b48c19",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "32d0f7c6c3510b4f26a8de36d9ae19b50e970f4d0e9df2adb2886a6b4531ff90",
-        "world.progress": "c573e0fd7ed89df867905262e8e76f747f4e4580fef2561531bfc5164d853cbd",
+        "world.player": "f25743a3c0715d38d8feb0db698485b8c015dd12f8bc0e7072db5bdcf6c724e5",
+        "world.progress": "4039f654a3b56540807ee5ddc6359be732a8c26d174912345e1ba96fa71f2b43",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "6387e03ad8fd476311d30fcc4d2195f182b81bb46db5b8d19788d129f84095a4",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "b9be06f939db6365042d3cf08de59bb898f7196717da0b660fda65a966360b55",
+        "world.ships": "b730e24fa30c082ce973f438cda8e3383d4f6e0fb2b4be2fb23e0cd407a2df00",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "4f01a3840720637318c290290bc41284ea84ec2c7180e215984014e112f28a99",
+        "world.talk": "9f22ea2c93abe8e76a471386c9434e6f7783b8e7de8bff1ebd87e87f99c32f4c",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
-      "tick": 240,
-      "hash": "0f82f66e96e73057d6b31199cdbd74f88a4a4df4fbf8bd8c5a5e87047457d88c",
+      "tick": 242,
+      "hash": "848fccc6b2f109184f6d500c5ceeea5d1f3e49ee089cc806a59a55a1119e73a8",
       "stores": {
-        "history": "4d14a1238a75793fa2e4367f404e56996d84eb30e7dd21ed5cee6e0c11e7bc0a",
-        "journal": "0ce67e84222c588a8a37c332dd5c32c572d7c15ee7eb43192f2a2b7f0a9249e2",
-        "kernel": "55596a7cb76dd57af65430536bca0c4f8d5fca2d2f3979f00312c062da820401",
+        "history": "e4bf90c52c03be39c20989146d734872203beea86222fae55118f9dd54dc10a5",
+        "journal": "5de1cc06ba3be613be675b823895667c30477f954df0e8695d95e56860396b19",
+        "kernel": "60ecc4bbd6a2506345b97bd92237dc5356eed4b3bd83dd26a9c5f7ec49558822",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
-        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.economy": "9b89d064140ecc0af04b386a6252e4e35492cc41c0e88b467dd2d475897ab5b9",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
-        "world.meta": "4475e88bf7f58dca83d298a245c101bbae09dae9f3279e4eb04a3abd3c7bb070",
+        "world.markets": "5ac55aa043cd8e3edd64f67a1c93fac17f454679c731b15d17d5c6c701a075ca",
+        "world.meta": "ce803443b979fdcd2c8b419c6568abb1195a51fe156df0fdfb0786ea37b7870e",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "ba47f1517c14b43c1c0c6b6377abb19414bb9077a4c8a0f85c780f2b82f58248",
+        "world.player": "1f308864fe5224765d022f661af045d5270b4fdf4a64200868f64c2f5412d2c1",
+        "world.progress": "44357981b24bf4095ce463852e646aecfcc673418c9a92ff4b303446cf5062b3",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.ships": "6d75d84378092dad1ea72e081d03d29a57d374e3f420bf3df2b1ebc94f49ba50",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
+        "world.talk": "2166efe3acece94e7831b3b39d8aca3ef1083fcbebe2c8794c3b5966b1702b43",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
-      "tick": 245,
-      "hash": "f39f65202ba83c694082b8d14ba50bc35d0ddf0775664ecaf9b93b7db4d56809",
+      "tick": 247,
+      "hash": "4e391d2d76930aead401b872f0b7d889ff41cec0b49770713b46a9dcb8ed6b59",
       "stores": {
-        "history": "2929f701196f1ab75b0b61363c8212bec1c857a49bb34aec462e078df6648a7e",
-        "journal": "b0b653056448fb680ca352dc57f25c458e66995807ca7d1e29d3250cd05f7752",
-        "kernel": "48224709b0792269e71009c99c31f87d52b2344de43bae15707895500a11fd39",
+        "history": "50373cfc7dd8471c52692c22c80816ef5357b65f00d6a9a7730acf3b2c959481",
+        "journal": "07e1cadcd528569d7a542a829ec04023ef6890e1d49441c884030c72dc2420a9",
+        "kernel": "f7f6c49f89c63471c267a8efae33fd8e27c85b9930e107bae6f1990af45e4756",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
-        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.economy": "9b89d064140ecc0af04b386a6252e4e35492cc41c0e88b467dd2d475897ab5b9",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
-        "world.meta": "7619156ccf7a77265d06e83dcf75d58ca263a139dbf000fe420c9a335e1786d4",
+        "world.markets": "5ac55aa043cd8e3edd64f67a1c93fac17f454679c731b15d17d5c6c701a075ca",
+        "world.meta": "bb16e3171c96481ce5f187caa3c2e4857aeeb17653c70366f74c556e3ac58839",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "fc3eba79948de344fd19fa771c225927fd26c80c6a3f4f4bac94ae0381928929",
+        "world.player": "1f308864fe5224765d022f661af045d5270b4fdf4a64200868f64c2f5412d2c1",
+        "world.progress": "f8f4967b7a8acb231b78090587e95fbd2ad3a946f471d69a5273ea6314465dc9",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.ships": "00b52d22a9e9d8f8f321568840fb75f5e2d2834bcd2966003477c671c0375202",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
+        "world.talk": "2166efe3acece94e7831b3b39d8aca3ef1083fcbebe2c8794c3b5966b1702b43",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
-      "tick": 245,
-      "hash": "f39f65202ba83c694082b8d14ba50bc35d0ddf0775664ecaf9b93b7db4d56809",
+      "tick": 247,
+      "hash": "4e391d2d76930aead401b872f0b7d889ff41cec0b49770713b46a9dcb8ed6b59",
       "stores": {
-        "history": "2929f701196f1ab75b0b61363c8212bec1c857a49bb34aec462e078df6648a7e",
-        "journal": "b0b653056448fb680ca352dc57f25c458e66995807ca7d1e29d3250cd05f7752",
-        "kernel": "48224709b0792269e71009c99c31f87d52b2344de43bae15707895500a11fd39",
+        "history": "50373cfc7dd8471c52692c22c80816ef5357b65f00d6a9a7730acf3b2c959481",
+        "journal": "07e1cadcd528569d7a542a829ec04023ef6890e1d49441c884030c72dc2420a9",
+        "kernel": "f7f6c49f89c63471c267a8efae33fd8e27c85b9930e107bae6f1990af45e4756",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
-        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.economy": "9b89d064140ecc0af04b386a6252e4e35492cc41c0e88b467dd2d475897ab5b9",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
         "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
-        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.hulls": "386330f677b63c941367abf39bef9ab700d9f479d0b3b94b2629791a99a09635",
         "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
-        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
-        "world.meta": "7619156ccf7a77265d06e83dcf75d58ca263a139dbf000fe420c9a335e1786d4",
+        "world.markets": "5ac55aa043cd8e3edd64f67a1c93fac17f454679c731b15d17d5c6c701a075ca",
+        "world.meta": "bb16e3171c96481ce5f187caa3c2e4857aeeb17653c70366f74c556e3ac58839",
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
-        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "fc3eba79948de344fd19fa771c225927fd26c80c6a3f4f4bac94ae0381928929",
+        "world.player": "1f308864fe5224765d022f661af045d5270b4fdf4a64200868f64c2f5412d2c1",
+        "world.progress": "f8f4967b7a8acb231b78090587e95fbd2ad3a946f471d69a5273ea6314465dc9",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
         "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
-        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.ships": "00b52d22a9e9d8f8f321568840fb75f5e2d2834bcd2966003477c671c0375202",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
+        "world.talk": "2166efe3acece94e7831b3b39d8aca3ef1083fcbebe2c8794c3b5966b1702b43",
+        "world.traders": "7cf8fa766e3a1341c42980b4ac7b2e00e1e9cb3dee95efaa673eb4433f360924",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     }
