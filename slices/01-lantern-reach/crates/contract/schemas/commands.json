@@ -1202,6 +1202,31 @@
           ]
         },
         {
+          "description": "Sets a line's stock with the band and price that follow from it (the stock\nlever), leaving its base price, saturation and rates alone. Adding or removing\na line is [`Command::SetMarketLine`].",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_market_stock"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "stock": {
+              "$ref": "#/$defs/MarketStock"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "op",
+            "station",
+            "ware",
+            "stock"
+          ]
+        },
+        {
           "description": "Adds to a station's or region's activity tally (pulses, trade volume).",
           "type": "object",
           "properties": {
@@ -4080,6 +4105,44 @@
           "type": "string",
           "const": "sells"
         }
+      ]
+    },
+    "MarketStock": {
+      "description": "A market line's stock and the price band and current price that follow from it, in\ncenticredits. The stock lever (a delivery, a gift) sets them at once and leaves the\nbase price, saturation and rates alone.",
+      "type": "object",
+      "properties": {
+        "max_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "min_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "stock": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "stock_carry": {
+          "description": "The fraction of a unit produced or used but not yet whole, in 0..1.",
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "stock",
+        "stock_carry",
+        "min_price",
+        "max_price",
+        "price"
       ]
     },
     "MiningRun": {

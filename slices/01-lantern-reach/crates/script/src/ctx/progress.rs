@@ -114,6 +114,21 @@ impl CallEnv<'_> {
     }
 
     fn levers(&self, lua: &Lua, why: &Table, levers: &[Lever]) -> mlua::Result<()> {
+        // Adding or removing a line is `market.lines`, in a bulk call as on its own.
+        if let Some(i) = levers
+            .iter()
+            .position(|l| matches!(l, Lever::AddLine { .. } | Lever::RemoveLine { .. }))
+            && !self.may("market.lines")
+        {
+            return Err(self.fail(
+                lua,
+                "undeclared_hook",
+                format!(
+                    "lever {} adds or removes a market line, which needs `market.lines` in `uses`",
+                    i + 1
+                ),
+            ));
+        }
         let summary: String = why.raw_get("summary").unwrap_or_default();
         let batch = lever_batch(self.world, Cause::system("lever", summary), levers)
             .map_err(|e| self.fail(lua, "bad_lever", e))?;

@@ -169,9 +169,10 @@ tunable is data (`hulls.toml`, `rocks.toml`, `ship_rules.toml`).
 **A command**: add a variant to `contract::command::Command` (Box large payloads to
 keep the enum small), add its arm in `galaxy_core::apply::apply` that validates inputs,
 makes the change and returns the exact inverse (`UndoRecord::Invert`) or a
-`Compensate` note, mark it in `Command::reversibility` if it's compensate-only, add a
-round-trip case to `undo_records_invert_commands` in `crates/core/tests/kernel.rs`,
-run `cargo xtask contract`.
+`Compensate` note, mark it in `Command::reversibility` if it's compensate-only, add its
+`op` to `Command::op`, give it a row in `contract::needs::COMMAND_NEEDS` (what a pack must
+declare to cause it, or `Never`), add a round-trip case to `undo_records_invert_commands`
+in `crates/core/tests/kernel.rs`, run `cargo xtask contract`.
 
 **An event**: add a variant to `contract::events::Event` with stable-ID fields, a
 matching `EventKind` (with its `as_str` name, which is also its fact kind), and fill in
@@ -212,7 +213,8 @@ The worked example is `packs/gm-examples/kettle_growth`.
 
 **A pack** is a folder: `manifest.toml` (schema `crates/contract/schemas/manifest.json`),
 `scripts/*.luau`, optional `lib/*.luau` (with `lib = true` in the manifest),
-`data/*.toml` (only `npcs.toml` installs so far) and optional `tests/*.luau`. `require`
+`data/*.toml` (only `npcs.toml` installs so far, and it needs `npcs.write`) and
+optional `tests/*.luau`. `require`
 loads only from the script roots (`scripts/`, and `lib/` if declared; never `tests/`),
 and every check covers exactly those files (`Pack::loadable`). Its revision is a BLAKE3 hash of its files; every write a script makes
 is caused by `Cause::Script { pack, revision }`, so a revision can be rolled back. The
@@ -290,6 +292,24 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `market_base_changed` (station, ware, amount = the new base). A change that must
   wait for a calm moment calls `ctx.beats:expect_docked(station, why)`: the call's
   writes apply only if the player is still docked there.
+
+**Capabilities, one table**: `uses` bounds everything a pack can change, by every
+route, not only the `ctx` hooks. `galaxy_contract::needs::COMMAND_NEEDS` maps every
+`Command` to the capabilities a pack needs to cause it (`Expect*` checks need nothing,
+the pack's own stores and triggers need nothing, engine-only commands are "never", and
+a few depend on their payload: an `emit` by event, a `record_fact` by kind, a `say` by
+channel, a buoy by its reward). The script host checks **every** batch a pack causes
+against it before submitting it (handler and trigger calls, beat transitions with their
+rewards and callbacks, data installs): a command the manifest doesn't allow rejects the
+whole batch as a fault (`undeclared_capability`, naming the command and what it lacks).
+That is defence in depth on top of the per-hook gating. A survey-buoy reward is
+checked when the pack places it (`put_survey_buoy`); the pilot's claim later pays
+exactly that. `galaxy pack check` applies the same table to what the pack's data would
+install (`npcs.toml` needs `npcs.write`) and its beats' rewards would write (standing
+needs `standing.write`). **A new command needs a row** (`every_command_has_a_row`
+fails without one), and a new route a pack writes through must call
+`host::declared` before it submits. Game-master layers (`ScriptHost::load_layer`,
+`CheckOptions::game_master`) may not register journey beats, whatever their ID.
 
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and

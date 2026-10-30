@@ -51,7 +51,14 @@ the one-new-station cap counts only open rings.
   (standing), and only the pilot sets a buoy read or a reward claimed. Reads and
   claims are compare-and-set (`UpdateSurveyBuoy`), and lamps carry `ExpectFlag`, so
   a removal or retirement queued in the same tick wins.
-- Reject game-master packs that register journey beats.
+- Reject game-master packs that register journey beats, judged by how the pack is
+  loaded (`ScriptHost::load_layer`, `CheckOptions::game_master`), not by its ID.
+- One capability table for every route a pack writes through
+  (`galaxy_contract::needs::COMMAND_NEEDS`): the host checks every batch a pack causes,
+  beat rewards and data installs included, and `pack check` checks what a pack's data
+  and beat rewards imply. `kettle_growth` (and `core`) now declare `npcs.write` for
+  their `npcs.toml`; the stock lever writes `SetMarketStock`, so only adding or removing
+  a line needs `market.lines`.
 - Keep repeated dockmaster questions from replaying the same chronicle page.
 
 Validation lives in `crates/app/tests/gm_examples.rs` (real CLI proposals and

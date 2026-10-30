@@ -21,6 +21,7 @@ fn check(dir: &std::path::Path, analyzer: Option<&std::path::Path>) -> Validatio
             history: Some(&state.history),
             analyzer,
             require_typecheck: analyzer.is_some(),
+            ..Default::default()
         },
     )
     .report

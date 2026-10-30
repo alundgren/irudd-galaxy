@@ -15,7 +15,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::economy::{ActivityScope, ActivityTally, DockTrack, MarketBase, MarketRates};
+use crate::economy::{
+    ActivityScope, ActivityTally, DockTrack, MarketBase, MarketRates, MarketStock,
+};
 use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
@@ -307,6 +309,14 @@ pub enum Command {
         ware: WareId,
         base: MarketBase,
     },
+    /// Sets a line's stock with the band and price that follow from it (the stock
+    /// lever), leaving its base price, saturation and rates alone. Adding or removing
+    /// a line is [`Command::SetMarketLine`].
+    SetMarketStock {
+        station: StationId,
+        ware: WareId,
+        stock: MarketStock,
+    },
     /// Adds to a station's or region's activity tally (pulses, trade volume).
     AdjustActivity {
         scope: ActivityScope,
@@ -548,6 +558,83 @@ pub enum Reversibility {
 }
 
 impl Command {
+    /// The command's `op` tag (its serde name): what [`crate::needs::COMMAND_NEEDS`] is
+    /// keyed by.
+    pub fn op(&self) -> &'static str {
+        match self {
+            Command::SetShipMotion { .. } => "set_ship_motion",
+            Command::SetShipDocked { .. } => "set_ship_docked",
+            Command::ExpectDocked { .. } => "expect_docked",
+            Command::ExpectShip { .. } => "expect_ship",
+            Command::SetShipHull { .. } => "set_ship_hull",
+            Command::SetShipRegion { .. } => "set_ship_region",
+            Command::AdjustCargo { .. } => "adjust_cargo",
+            Command::SetOrders { .. } => "set_orders",
+            Command::UpdateOrders { .. } => "update_orders",
+            Command::SetShipActivity { .. } => "set_ship_activity",
+            Command::AdjustCredits { .. } => "adjust_credits",
+            Command::SetFlag { .. } => "set_flag",
+            Command::SetTrait { .. } => "set_trait",
+            Command::SetPriceSnapshot { .. } => "set_price_snapshot",
+            Command::SetLoop { .. } => "set_loop",
+            Command::AdjustRock { .. } => "adjust_rock",
+            Command::SetRockGrowth { .. } => "set_rock_growth",
+            Command::SetStationStage { .. } => "set_station_stage",
+            Command::SetStationPart { .. } => "set_station_part",
+            Command::SetStationOwner { .. } => "set_station_owner",
+            Command::AdjustStanding { .. } => "adjust_standing",
+            Command::ExpectStanding { .. } => "expect_standing",
+            Command::SetMarketLine { .. } => "set_market_line",
+            Command::UpdateMarketLine { .. } => "update_market_line",
+            Command::SetMarketRates { .. } => "set_market_rates",
+            Command::SetMarketBase { .. } => "set_market_base",
+            Command::SetMarketStock { .. } => "set_market_stock",
+            Command::AdjustActivity { .. } => "adjust_activity",
+            Command::SetDockTrack { .. } => "set_dock_track",
+            Command::SetSplitStack { .. } => "set_split_stack",
+            Command::FoundStation { .. } => "found_station",
+            Command::CloseFoundedStation { .. } => "close_founded_station",
+            Command::SetFoundedStation { .. } => "set_founded_station",
+            Command::UpdateSurveyBuoy { .. } => "update_survey_buoy",
+            Command::ExpectFlag { .. } => "expect_flag",
+            Command::SetRockTag { .. } => "set_rock_tag",
+            Command::PutSurveyBuoy { .. } => "put_survey_buoy",
+            Command::SetCanonStatus { .. } => "set_canon_status",
+            Command::PutStationRecipe { .. } => "put_station_recipe",
+            Command::PutMapOverlay { .. } => "put_map_overlay",
+            Command::PutRegion { .. } => "put_region",
+            Command::PutLane { .. } => "put_lane",
+            Command::PutStation { .. } => "put_station",
+            Command::PutMarket { .. } => "put_market",
+            Command::PutWare { .. } => "put_ware",
+            Command::PutHull { .. } => "put_hull",
+            Command::PutRockType { .. } => "put_rock_type",
+            Command::PutField { .. } => "put_field",
+            Command::PutRock { .. } => "put_rock",
+            Command::PutShip { .. } => "put_ship",
+            Command::PutFaction { .. } => "put_faction",
+            Command::PutNpc { .. } => "put_npc",
+            Command::PutRumor { .. } => "put_rumor",
+            Command::SetRumorHeard { .. } => "set_rumor_heard",
+            Command::Emit { .. } => "emit",
+            Command::RecordFact { .. } => "record_fact",
+            Command::SetScriptValue { .. } => "set_script_value",
+            Command::SetTriggerFired { .. } => "set_trigger_fired",
+            Command::SetScriptHealth { .. } => "set_script_health",
+            Command::SetRevisionRetired { .. } => "set_revision_retired",
+            Command::SetPackOff { .. } => "set_pack_off",
+            Command::PutBeat { .. } => "put_beat",
+            Command::SetFitting { .. } => "set_fitting",
+            Command::ExpectFitting { .. } => "expect_fitting",
+            Command::SetHullRecord { .. } => "set_hull_record",
+            Command::ExpectHullRecord { .. } => "expect_hull_record",
+            Command::SetTunable { .. } => "set_tunable",
+            Command::BindSlot { .. } => "bind_slot",
+            Command::Say { .. } => "say",
+            Command::PutTalk { .. } => "put_talk",
+        }
+    }
+
     pub fn reversibility(&self) -> Reversibility {
         match self {
             Command::Emit { .. } | Command::RecordFact { .. } => Reversibility::CompensateOnly,

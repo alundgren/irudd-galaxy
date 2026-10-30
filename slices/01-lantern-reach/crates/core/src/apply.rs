@@ -550,6 +550,42 @@ fn apply_with(
                 base: old,
             })
         }
+        C::SetMarketStock {
+            station,
+            ware,
+            stock,
+        } => {
+            if stock.min_price > stock.max_price
+                || stock.price < stock.min_price
+                || stock.price > stock.max_price
+            {
+                return Err(CommandError::Invalid(format!(
+                    "a stock needs a band holding its price: {stock:?}"
+                )));
+            }
+            let m = find(&mut world.markets, station, "market")?;
+            let line = m
+                .lines
+                .get_mut(ware)
+                .ok_or_else(|| unknown("market line", &format!("{station}/{ware}")))?;
+            let old = MarketStock {
+                stock: line.stock,
+                stock_carry: line.stock_carry,
+                min_price: line.min_price,
+                max_price: line.max_price,
+                price: line.price,
+            };
+            line.stock = stock.stock;
+            line.stock_carry = stock.stock_carry;
+            line.min_price = stock.min_price;
+            line.max_price = stock.max_price;
+            line.price = stock.price;
+            invert(C::SetMarketStock {
+                station: station.clone(),
+                ware: ware.clone(),
+                stock: old,
+            })
+        }
         C::AdjustActivity { scope, delta } => {
             let inverse = delta
                 .checked_neg()

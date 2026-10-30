@@ -16,6 +16,7 @@ uses = [
     "stations.write",
     "market.read",
     "market.lines",
+    "npcs.write",
     "talk.write",
     "map.write",
 ]

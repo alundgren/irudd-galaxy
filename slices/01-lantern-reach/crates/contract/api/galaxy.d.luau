@@ -294,7 +294,7 @@ export type MarketApi = {
 	set_stock: (self: MarketApi, station: StationId, ware: WareId, stock: number, why: Cause) -> (),
 	-- Activity pulses a station has had so far (fractional). Pace by these, never by time.
 	pulses: (self: MarketApi, station: StationId) -> number,
-	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
+	-- Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call. `add_line` and `remove_line` levers need `market.lines` too.
 	levers: (self: MarketApi, levers: { Lever }, why: Cause) -> (),
 }
 export type SpaceApi = {

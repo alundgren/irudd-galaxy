@@ -18,6 +18,11 @@ Code agents changing the engine read [AGENTS.md](AGENTS.md) instead. Pack author
 - **No timers.** Pace by activity: `G.after { dockings = 3, station = ... }`. There is no
   clock, and no pacing number belongs in Rust.
 - **Shocks come with opportunities** (declared in the manifest).
+- **`uses` bounds everything.** Declare every capability your pack's writes need, by
+  any route: hooks, beat rewards, buoy rewards, `data/npcs.toml` (`npcs.write`). The
+  host rejects a batch with a command your `uses` doesn't allow, and `pack check`
+  reports it as `undeclared_capability`. The table is in HOOKS.md, "What each write
+  needs". A game-master layer never registers journey beats, whatever its ID.
 - **Changes land at calm moments**, when the player is docked or paused. Don't try to make
   them land mid-flight.
 - **Ask before a big change.** Show Andreas the digest and a screenshot, say what you'd

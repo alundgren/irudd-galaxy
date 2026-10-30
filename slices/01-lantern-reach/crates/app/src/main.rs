@@ -765,6 +765,7 @@ fn pack_check(
             history: Some(&state.history),
             analyzer: analyzer.as_deref(),
             require_typecheck: !no_typecheck,
+            ..Default::default()
         },
     );
     let report = serde_json::to_value(&checked.report).expect("reports serialize");

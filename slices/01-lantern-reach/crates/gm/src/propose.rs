@@ -105,6 +105,7 @@ pub fn validate(
             history: Some(&state.history),
             analyzer: opts.analyzer.as_deref(),
             require_typecheck: opts.require_typecheck,
+            game_master: true,
         },
     );
     let mut report = checked.report;

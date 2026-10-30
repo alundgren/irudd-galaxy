@@ -222,7 +222,9 @@ impl Pilot {
         self.mind.pump(&mut self.sim);
         for e in self.host.take_events() {
             match e {
-                HostEvent::Aborted { .. } | HostEvent::Quarantined { .. } => {
+                HostEvent::Aborted { .. }
+                | HostEvent::Quarantined { .. }
+                | HostEvent::InstallRefused { .. } => {
                     panic!("a core script failed: {e:#?}")
                 }
                 _ => {}

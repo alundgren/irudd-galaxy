@@ -12,7 +12,10 @@
 //! Every step that reads Luau reads exactly the files `require` can load
 //! ([`Pack::loadable`]): the script roots, never `tests/`.
 //! 3. `hooks`: every `ctx` hook a script calls is declared in `uses`; each script
-//!    loads and defines exactly the handlers its manifest lists.
+//!    loads and defines exactly the handlers its manifest lists; what the pack's data
+//!    would install and its beats' rewards would write is declared too
+//!    ([`galaxy_contract::needs`]: `npcs.toml` needs `npcs.write`, a standing reward
+//!    `standing.write`).
 //! 4. `references`: every ID a script or the manifest names exists in the world or is
 //!    created by this pack.
 //! 5. `invariants`: no clock or timer APIs, no unseeded randomness, every line cites a
@@ -51,6 +54,9 @@ pub struct CheckOptions<'a> {
     /// `require_typecheck` is set.
     pub analyzer: Option<&'a Path>,
     pub require_typecheck: bool,
+    /// The pack is a game-master layer (proposed, staged, applied or sandboxed by
+    /// `galaxy-gm`), whatever its ID says: it may not register journey beats.
+    pub game_master: bool,
 }
 
 /// A checked pack: the report, and the pack and its loaded VM when they got that far.
@@ -231,6 +237,22 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                     ));
                 }
             }
+            // A beat's rewards are written by its completion, under the pack's cause:
+            // they answer to the same table as its hooks.
+            if let Some(world) = opts.world {
+                for b in &s.beats {
+                    let rewards =
+                        galaxy_progress::beats::reward_commands(world, &b.def.id, &b.def.rewards);
+                    if let Err(e) = crate::host::declared(&pack, &rewards) {
+                        hook_diags.push(error(
+                            "undeclared_capability",
+                            format!("beat `{}`'s rewards: {e}", b.def.id),
+                            Some(&s.decl.file),
+                            None,
+                        ));
+                    }
+                }
+            }
             for k in &s.events {
                 let need = galaxy_contract::api::event_use(*k);
                 if !pack.manifest.uses.iter().any(|u| u == need) {
@@ -247,6 +269,16 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                 }
             }
         }
+    }
+    // What the pack's data installs into a world that has none of it yet.
+    if let Err(e) = crate::host::install_batches(&pack, &WorldState::default()) {
+        let file = pack
+            .manifest
+            .data
+            .iter()
+            .find(|f| f.ends_with("npcs.toml"))
+            .map(String::as_str);
+        hook_diags.push(error("undeclared_capability", e, file, None));
     }
     steps.push(step(ValidationStep::Hooks, hook_diags));
 
@@ -318,7 +350,7 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         .flat_map(|(_, s)| s.diagnostics.clone())
         .collect();
     inv.extend(pack::unpaired_shocks(&pack.manifest));
-    if pack.manifest.id.as_str().starts_with("gm.")
+    if (opts.game_master || pack.manifest.id.as_str().starts_with("gm."))
         && vm
             .as_ref()
             .is_some_and(|v| v.scripts.iter().any(|s| !s.beats.is_empty()))
@@ -636,7 +668,7 @@ fn smoke(
     history: Option<&History>,
 ) -> Vec<Diagnostic> {
     let mut world = world.clone();
-    for batch in crate::host::install_batches(&vm.pack, &world) {
+    for batch in crate::host::install_batches(&vm.pack, &world).unwrap_or_default() {
         if let Ok(next) = crate::host::preview(&world, &batch) {
             world = next;
         }
@@ -729,7 +761,21 @@ fn smoke(
             };
             match vm.call(i, target, view, &mut rng) {
                 Ok(batch) => {
-                    if let Some(Err(reason)) = batch.map(|b| crate::host::preview(&world, &b)) {
+                    // The host would fault this call: its writes need a capability the
+                    // manifest doesn't list.
+                    if let Some(Err(reason)) = batch
+                        .as_ref()
+                        .map(|b| crate::host::declared(&vm.pack, &b.commands))
+                    {
+                        out.push(error(
+                            "undeclared_capability",
+                            format!("`{handler}` on a sample event: {reason}"),
+                            Some(&s.decl.file),
+                            vm.handler_line(i, target),
+                        ));
+                    } else if let Some(Err(reason)) =
+                        batch.map(|b| crate::host::preview(&world, &b))
+                    {
                         out.push(diag(
                             Severity::Warning,
                             "apply_failed",

@@ -744,7 +744,7 @@ pub const FUNCTIONS: &[FnDef] = &[
         "levers",
         "market.levers",
         "(levers: { Lever }, why: Cause) -> ()",
-        "Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.",
+        "Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call. `add_line` and `remove_line` levers need `market.lines` too.",
     ),
     // --- Orders ---
     f(
@@ -1668,6 +1668,40 @@ pub fn hooks_md() -> String {
         let _ = writeln!(out, "- `{call}` ({needs}): {}", d.doc);
     }
     out.push_str(BEATS_MD);
+    out.push_str(
+        "\n## What each write needs\n\n\
+         The hooks above are gated one by one, but a pack also writes through routes that\n\
+         aren't one hook: a beat's transition and rewards, a trigger's bookkeeping, its\n\
+         `data` files, a buoy reward the pilot claims later. Every batch a pack causes is\n\
+         checked against this table before it is submitted (`galaxy_contract::needs`):\n\
+         handler and trigger calls, beat transitions with their rewards and callbacks, and\n\
+         data installs. A command whose capability isn't in `uses` rejects the whole batch\n\
+         as a fault, naming the command and what it lacks. `galaxy pack check` checks the\n\
+         same table against what the pack's data would install and its beats' rewards\n\
+         would write (`npcs.toml` needs `npcs.write`). `a` or `b` means either will do;\n\
+         \"never\" means only the engine, native systems, the player's verbs, the host or\n\
+         a rollback writes it.\n\n\
+         | Command | Needs | From |\n|---|---|---|\n",
+    );
+    for r in crate::needs::COMMAND_NEEDS {
+        let needs = match r.needs {
+            crate::needs::Needs::Nothing => "nothing (a check)".to_owned(),
+            crate::needs::Needs::Own => "nothing (the pack's own state)".to_owned(),
+            crate::needs::Needs::Never => "never".to_owned(),
+            crate::needs::Needs::Payload => "by payload".to_owned(),
+            crate::needs::Needs::Uses(clauses) => clauses
+                .iter()
+                .map(|c| {
+                    c.iter()
+                        .map(|u| format!("`{u}`"))
+                        .collect::<Vec<_>>()
+                        .join(" or ")
+                })
+                .collect::<Vec<_>>()
+                .join(" and "),
+        };
+        let _ = writeln!(out, "| `{}` | {needs} | {} |", r.op, r.note);
+    }
     out.push_str(
         "\n## Events\n\n\
          `on.<event>` handlers get the event's fields plus `fact` (the history fact it was\n\

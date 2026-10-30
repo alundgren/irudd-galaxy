@@ -61,6 +61,19 @@ pub struct MarketBase {
     pub price: u32,
 }
 
+/// A market line's stock and the price band and current price that follow from it, in
+/// centicredits. The stock lever (a delivery, a gift) sets them at once and leaves the
+/// base price, saturation and rates alone.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct MarketStock {
+    pub stock: u32,
+    /// The fraction of a unit produced or used but not yet whole, in 0..1.
+    pub stock_carry: f64,
+    pub min_price: u32,
+    pub max_price: u32,
+    pub price: u32,
+}
+
 /// Economy data and running tallies, saved with the world.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

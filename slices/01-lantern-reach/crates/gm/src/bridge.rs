@@ -233,7 +233,7 @@ impl Bridge {
                 host.unload(&a.pack);
                 continue;
             }
-            let report = host.load(&store.abs(&a.dir), sim.world(), sim.history());
+            let report = host.load_layer(&store.abs(&a.dir), sim.world(), sim.history());
             if !report.accepted() {
                 let why = report
                     .errors()
@@ -459,7 +459,7 @@ impl Bridge {
         }
         let report = self
             .host
-            .load(&self.store.abs(&s.dir), sim.world(), sim.history());
+            .load_layer(&self.store.abs(&s.dir), sim.world(), sim.history());
         if !report.accepted() {
             let why = report
                 .errors()
@@ -468,6 +468,19 @@ impl Bridge {
             self.quarantine(sim, stage, why, Some(report), out);
             return;
         }
+        // Its data answers to its `uses` (`npcs.toml` needs `npcs.write`). The check
+        // above already refused a pack whose data doesn't; this is the backstop.
+        let installs = match self.host.pack(&s.pack) {
+            Some(pack) => match galaxy_script::host::install_batches(&pack, sim.world()) {
+                Ok(installs) => installs,
+                Err(reason) => {
+                    self.host.unload(&s.pack);
+                    self.quarantine(sim, stage, reason, Some(report), out);
+                    return;
+                }
+            },
+            None => Vec::new(),
+        };
         self.state.staged.retain(|x| x.stage != stage);
         self.dirty = true;
         let mut batch = CommandBatch::new(Cause::script(
@@ -475,10 +488,8 @@ impl Bridge {
             s.revision.clone(),
             format!("the game master applied {} ({})", s.name, s.stage),
         ));
-        if let Some(pack) = self.host.pack(&s.pack) {
-            for b in galaxy_script::host::install_batches(&pack, sim.world()) {
-                batch.commands.extend(b.commands);
-            }
+        for b in installs {
+            batch.commands.extend(b.commands);
         }
         // A pack a rollback switched off runs again only from this: the game master
         // applying a new revision of it. Rolling this revision back switches it off

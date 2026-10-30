@@ -11,7 +11,12 @@
 //!    `G.test` predicates and the transition's callback each run in a fresh state.
 //!
 //! A successful call's writes (or a beat transition with its callback's) are one batch
-//! (`Cause::Script`). The host first checks it the way the kernel will
+//! (`Cause::Script`). The host first checks that the pack declares every capability
+//! the batch's commands need ([`galaxy_contract::needs`]): a command it may not cause
+//! is a fault, whichever route wrote it (a hook, a beat's rewards, a trigger). That is
+//! defence in depth on top of the per-hook gating of `ctx`, and it covers the routes
+//! that aren't one hook. Pack data installs ([`install_batches`]) answer to the same
+//! table. Then it checks the batch the way the kernel will
 //! ([`TickCtx::preview`]): against the world the kernel will apply it to (the batches
 //! queued ahead of it this tick, then the script batches before it) and with every
 //! invariant of the sim. If it would be rejected, nothing is submitted, and the same
@@ -120,6 +125,9 @@ pub enum HostEvent {
     Loaded { report: ValidationReport },
     /// A reload failed the checks; the last good revision keeps running.
     ReloadRejected { report: ValidationReport },
+    /// A pack's data would write something its `uses` don't allow, so none of it was
+    /// installed.
+    InstallRefused { pack: PackId, reason: String },
 }
 
 struct Loaded {
@@ -162,6 +170,27 @@ impl ScriptHost {
     /// Checks and loads a pack against this world. A pack with the same ID is
     /// replaced only if the new one passes.
     pub fn load(&self, dir: &Path, world: &WorldState, history: &History) -> ValidationReport {
+        self.load_checked(dir, world, history, false)
+    }
+
+    /// [`ScriptHost::load`] for a game-master layer (`galaxy-gm`'s applied, staged and
+    /// sandboxed packs): checked as one whatever its ID ([`CheckOptions::game_master`]).
+    pub fn load_layer(
+        &self,
+        dir: &Path,
+        world: &WorldState,
+        history: &History,
+    ) -> ValidationReport {
+        self.load_checked(dir, world, history, true)
+    }
+
+    fn load_checked(
+        &self,
+        dir: &Path,
+        world: &WorldState,
+        history: &History,
+        game_master: bool,
+    ) -> ValidationReport {
         let analyzer = self.inner.borrow().analyzer.clone();
         let checked = check_dir(
             dir,
@@ -170,6 +199,7 @@ impl ScriptHost {
                 history: Some(history),
                 analyzer: analyzer.as_deref(),
                 require_typecheck: false,
+                game_master,
             },
         );
         let report = checked.report.clone();
@@ -234,14 +264,25 @@ impl ScriptHost {
 
     /// Submits the records each pack's data defines that the world doesn't have yet.
     /// They apply at the end of the next tick, caused by the pack revision.
+    /// A pack whose data needs a capability it doesn't declare installs nothing
+    /// ([`HostEvent::InstallRefused`]).
     pub fn install(&self, sim: &mut Sim) -> usize {
-        let batches: Vec<CommandBatch> = self
-            .inner
-            .borrow()
-            .packs
-            .values()
-            .flat_map(|l| install_batches(&l.vm.pack, sim.world()))
-            .collect();
+        let mut inner = self.inner.borrow_mut();
+        let mut batches: Vec<CommandBatch> = Vec::new();
+        let mut refused = Vec::new();
+        for (id, l) in &inner.packs {
+            match install_batches(&l.vm.pack, sim.world()) {
+                Ok(b) => batches.extend(b),
+                Err(reason) => refused.push(HostEvent::InstallRefused {
+                    pack: id.clone(),
+                    reason,
+                }),
+            }
+        }
+        for e in refused {
+            inner.log(e);
+        }
+        drop(inner);
         let n = batches.len();
         for b in batches {
             sim.submit(b);
@@ -324,8 +365,16 @@ impl ScriptHost {
     }
 }
 
-/// Batches that create a pack's data records missing from `world`.
-pub fn install_batches(pack: &Pack, world: &WorldState) -> Vec<CommandBatch> {
+/// Whether `pack`'s manifest declares every capability `commands` need
+/// ([`galaxy_contract::needs::COMMAND_NEEDS`]). `Err` names the first command that
+/// needs more and what it lacks.
+pub fn declared(pack: &Pack, commands: &[Command]) -> Result<(), String> {
+    galaxy_contract::needs::check(commands, &pack.manifest.id, &pack.manifest.uses)
+}
+
+/// Batches that create a pack's data records missing from `world`. `Err` if the pack
+/// doesn't declare what they need (`npcs.toml` needs `npcs.write`): nothing installs.
+pub fn install_batches(pack: &Pack, world: &WorldState) -> Result<Vec<CommandBatch>, String> {
     let mut batch = CommandBatch::new(Cause::script(
         pack.manifest.id.clone(),
         pack.revision.clone(),
@@ -340,9 +389,18 @@ pub fn install_batches(pack: &Pack, world: &WorldState) -> Vec<CommandBatch> {
         }
     }
     if batch.commands.is_empty() {
-        Vec::new()
-    } else {
-        vec![batch]
+        return Ok(Vec::new());
+    }
+    declared(pack, &batch.commands).map_err(|e| format!("its data can't install: {e}"))?;
+    Ok(vec![batch])
+}
+
+/// The fault for a batch that needs a capability its pack doesn't declare.
+fn undeclared(what: &str, reason: String, location: Option<Location>) -> Abort {
+    Abort {
+        code: "undeclared_capability".into(),
+        message: format!("{what} a capability the pack doesn't declare, so none apply: {reason}"),
+        location,
     }
 }
 
@@ -677,6 +735,16 @@ impl System for ScriptSystem {
                                 Target::Event(_) => batch,
                             };
                             let Some(batch) = batch else { return Ok(None) };
+                            let location = || {
+                                Some(Location {
+                                    file: script.decl.file.clone(),
+                                    line: vm.handler_line(i, target),
+                                    column: None,
+                                })
+                            };
+                            declared(&vm.pack, &batch.commands).map_err(|reason| {
+                                Failed::Fault(undeclared("its writes need", reason, location()))
+                            })?;
                             // The whole call's writes, checked as the kernel will check them.
                             let base = projected.get_or_insert_with(|| ctx.projected());
                             check(ctx, base, view.world, &batch)
@@ -687,11 +755,7 @@ impl System for ScriptSystem {
                                         message: format!(
                                             "its writes would be rejected, so none apply: {reason}"
                                         ),
-                                        location: Some(Location {
-                                            file: script.decl.file.clone(),
-                                            line: vm.handler_line(i, target),
-                                            column: None,
-                                        }),
+                                        location: location(),
                                     })
                                 })
                         });
@@ -798,6 +862,20 @@ impl System for ScriptSystem {
                         .map_err(Failed::Fault)
                         .and_then(|batch| {
                             let Some(batch) = batch else { return Ok(None) };
+                            // Its rewards and callback writes answer to the pack's
+                            // `uses` like a handler's (a standing reward needs
+                            // `standing.write`).
+                            declared(&vm.pack, &batch.commands).map_err(|reason| {
+                                Failed::Fault(undeclared(
+                                    &format!("{}'s transition needs", beat.def.id),
+                                    reason,
+                                    Some(Location {
+                                        file: script.decl.file.clone(),
+                                        line: None,
+                                        column: None,
+                                    }),
+                                ))
+                            })?;
                             // Checked as the kernel will check it, like a handler's
                             // batch, so a transition the queued batches would reject
                             // never reaches the reads of later beats.

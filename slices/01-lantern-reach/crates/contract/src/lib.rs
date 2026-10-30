@@ -23,6 +23,7 @@ pub mod input;
 pub mod live;
 pub mod modifiers;
 pub mod money;
+pub mod needs;
 pub mod pack;
 pub mod progress;
 pub mod schema;
@@ -45,7 +46,7 @@ pub mod prelude {
     };
     pub use crate::economy::{
         ActivityScope, ActivityTally, DockTrack, EconomyRules, EconomyState, MarketBase,
-        MarketRates, MarketRole, PriceReach, TradeRequest, TradeSide,
+        MarketRates, MarketRole, MarketStock, PriceReach, TradeRequest, TradeSide,
     };
     pub use crate::events::{
         ActivityCounters, CounterKind, CounterScope, Event, EventEnvelope, EventKind,

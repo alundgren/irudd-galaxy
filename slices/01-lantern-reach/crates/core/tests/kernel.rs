@@ -468,6 +468,17 @@ fn undo_records_invert_commands() {
                 price: 1900,
             },
         },
+        Command::SetMarketStock {
+            station: KETTLE,
+            ware: ICE,
+            stock: MarketStock {
+                stock: 3,
+                stock_carry: 0.0,
+                min_price: 353,
+                max_price: 2184,
+                price: 2000,
+            },
+        },
         Command::SetMarketLine {
             station: KETTLE,
             ware: ICE,
@@ -581,6 +592,8 @@ fn undo_records_invert_commands() {
     let mut undo = Vec::new();
     for c in &commands {
         assert_eq!(c.reversibility(), Reversibility::Reversible);
+        // `op` names the command as serde does: the key of `needs::COMMAND_NEEDS`.
+        assert_eq!(serde_json::to_value(c).unwrap()["op"], c.op());
         undo.push(galaxy_core::apply::apply(&mut world, c, &mut staged).unwrap());
     }
     assert_ne!(world, original);

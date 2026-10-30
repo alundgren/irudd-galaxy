@@ -13,7 +13,9 @@
 //!
 //! Rates go through [`Command::SetMarketRates`], which leaves stock and saturation
 //! alone, so rolling a lever back restores the rates without undoing trades made
-//! since. Adding, removing and restocking lines use `SetMarketLine` / `PutMarket`.
+//! since. Restocking goes through [`Command::SetMarketStock`] (stock and the prices
+//! that follow); adding and removing lines use `SetMarketLine` / `PutMarket`, which a
+//! script may cause only with `market.lines` (`galaxy_contract::needs`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -356,10 +358,16 @@ pub fn lever_commands(world: &WorldState, lever: &Lever) -> Result<Vec<Command>,
                 &world.economy.rules.pricing,
                 spread_at(world, station),
             );
-            Ok(vec![Command::SetMarketLine {
+            Ok(vec![Command::SetMarketStock {
                 station: station.clone(),
                 ware: ware.clone(),
-                line: Some(new),
+                stock: MarketStock {
+                    stock: new.stock,
+                    stock_carry: new.stock_carry,
+                    min_price: new.min_price,
+                    max_price: new.max_price,
+                    price: new.price,
+                },
             }])
         }
     }

@@ -22,6 +22,7 @@ fn every_example_has_strict_types_and_valid_hooks() {
                 history: Some(sim.history()),
                 analyzer: Some(&analyzer),
                 require_typecheck: true,
+                ..Default::default()
             },
         )
         .report;
@@ -444,6 +445,7 @@ fn a_buoy_reward_needs_the_packs_credit_and_standing_capabilities() {
                 history: Some(p.sim.history()),
                 analyzer: None,
                 require_typecheck: false,
+                ..Default::default()
             },
         )
         .report;
@@ -678,6 +680,7 @@ fn a_new_sixth_station_revision_reopens_its_rolled_back_scaffold() {
             history: Some(p.sim.history()),
             analyzer: None,
             require_typecheck: false,
+            ..Default::default()
         },
     )
     .report;

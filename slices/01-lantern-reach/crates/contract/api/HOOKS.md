@@ -190,7 +190,7 @@ and `ctx.store` (the script's declared stores).
 - `ctx.market:add_consumers(station: StationId, ware: WareId, per_pulse: number, why: Cause) -> ()` (`market.levers`): Adds (or removes) consumer units per pulse.
 - `ctx.market:set_stock(station: StationId, ware: WareId, stock: number, why: Cause) -> ()` (`market.levers`): Sets a line's stock outright (a delivery, a gift).
 - `ctx.market:pulses(station: StationId) -> number` (`market.read`): Activity pulses a station has had so far (fractional). Pace by these, never by time.
-- `ctx.market:levers(levers: { Lever }, why: Cause) -> ()` (`market.levers`): Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call.
+- `ctx.market:levers(levers: { Lever }, why: Cause) -> ()` (`market.levers`): Several levers in order, each seeing the ones before it. Use this to compose levers on one line in one call. `add_line` and `remove_line` levers need `market.lines` too.
 
 ### `ctx.orders`
 
@@ -310,6 +310,93 @@ G.beat {
   commits. A transition that loses to contention (say the player undocked earlier in
   the tick) doesn't count as an abort; the beat is checked again next tick.
 - `ctx.beats:goal()` is the HUD's one goal line (the newest active beat's).
+
+## What each write needs
+
+The hooks above are gated one by one, but a pack also writes through routes that
+aren't one hook: a beat's transition and rewards, a trigger's bookkeeping, its
+`data` files, a buoy reward the pilot claims later. Every batch a pack causes is
+checked against this table before it is submitted (`galaxy_contract::needs`):
+handler and trigger calls, beat transitions with their rewards and callbacks, and
+data installs. A command whose capability isn't in `uses` rejects the whole batch
+as a fault, naming the command and what it lacks. `galaxy pack check` checks the
+same table against what the pack's data would install and its beats' rewards
+would write (`npcs.toml` needs `npcs.write`). `a` or `b` means either will do;
+"never" means only the engine, native systems, the player's verbs, the host or
+a rollback writes it.
+
+| Command | Needs | From |
+|---|---|---|
+| `set_ship_motion` | never | Flight. |
+| `set_ship_docked` | never | Docking. |
+| `expect_docked` | nothing (a check) | A check. |
+| `expect_ship` | nothing (a check) | A check. |
+| `set_ship_hull` | never | Prestige. |
+| `set_ship_region` | never | Lane jumps. |
+| `adjust_cargo` | `beats.write` | `ctx.beats:deliver` and `ctx.beats:load`. |
+| `set_orders` | `orders.write` | `ctx.orders:give`, `append`, `clear`. |
+| `update_orders` | never | The ship system. |
+| `set_ship_activity` | never | The ship system. |
+| `adjust_credits` | `beats.write` | `ctx.beats:pay` and a beat's `rewards.credits`. |
+| `set_flag` | by payload | A `mech.*` flag needs `mechanics.write` (`ctx.mechanics:set`, `teach`) or `beats.write` (a beat's `rewards.flags`); any other flag needs `beats.write`. |
+| `set_trait` | never | Traits are earned natively. |
+| `set_price_snapshot` | never | Scouting. |
+| `set_loop` | never | The player's loops. |
+| `adjust_rock` | never | Mining. |
+| `set_rock_growth` | never | Regrowth. |
+| `set_station_stage` | `stations.write` | `ctx.stations:set_stage`. |
+| `set_station_part` | `stations.write` | `ctx.stations:attach`, `detach`. |
+| `set_station_owner` | `stations.write` or `territory.write` | `ctx.stations:set_owner`, `ctx.territory:set_station_owner`. |
+| `adjust_standing` | `standing.write` or `factions.write` | `ctx.standing:deed`, `ctx.factions:adjust_standing`, a beat's `rewards.standing`. |
+| `expect_standing` | nothing (a check) | A check. |
+| `set_market_line` | `market.lines` | Adds or removes a line: `ctx.market:add_line`, `remove_line`, and the `add_line` / `remove_line` levers. |
+| `update_market_line` | never | Trades and pulses. |
+| `set_market_rates` | `market.levers` | Producer and consumer levers. |
+| `set_market_base` | `market.levers` | `set_base` / `scale_base` levers. |
+| `set_market_stock` | `market.levers` | `ctx.market:set_stock` and the `set_stock` lever. |
+| `adjust_activity` | never | The economy's tallies. |
+| `set_dock_track` | never | Counted dockings. |
+| `set_split_stack` | never | Split sales. |
+| `found_station` | by payload | `ctx.kit:station`: `kit.write`, plus `market.lines` if it carries a market. |
+| `close_founded_station` | never | A founding's inverse: rollbacks only. |
+| `set_founded_station` | by payload | `ctx.kit:station` reopening its pack's scaffold: `kit.write`, plus `market.lines` if it opens a market. |
+| `update_survey_buoy` | never | The pilot reading a buoy or claiming its reward. |
+| `expect_flag` | nothing (a check) | A check. |
+| `set_rock_tag` | never | The player's rock lamps. |
+| `put_survey_buoy` | by payload | `ctx.kit:buoy`: `kit.write`; a reward paying credits also needs `beats.write`, one moving standing `standing.write`. Never placed read or claimed. |
+| `set_canon_status` | `canon.write` | `ctx.canon:open`. |
+| `put_station_recipe` | never | Recipes come with `found_station`. |
+| `put_map_overlay` | `kit.write` | `ctx.kit:overlay`. |
+| `put_region` | `territory.write` | `ctx.territory:set_owner`. |
+| `put_lane` | never | Authored data. |
+| `put_station` | never | Authored data; packs found stations with `found_station`. |
+| `put_market` | `market.lines` | A first line at a station without a market (`add_line` lever, `ctx.kit:station`). |
+| `put_ware` | never | Authored data. |
+| `put_hull` | never | Authored data. |
+| `put_rock_type` | never | Authored data. |
+| `put_field` | `space.write` | `ctx.space:put_field`, `set_regrow`. |
+| `put_rock` | `space.write` | `ctx.space:put_field`. |
+| `put_ship` | `space.write` | `ctx.space:put_craft`. |
+| `put_faction` | never | Authored data. |
+| `put_npc` | `npcs.write` | `ctx.npcs:put`, `move`, `ctx.kit:station`'s dockmaster, and `npcs.toml` in the pack's `data`. |
+| `put_rumor` | `rumors.write` | `ctx.rumors:put`, `set_truth`, `spread`. |
+| `set_rumor_heard` | never | Craft carrying rumors. |
+| `emit` | by payload | By event: `deliver`, `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` need `beats.write`; `talk_requested` needs `talk.pick`; `standing_changed` and `regard_changed` need `standing.write` or `factions.write`. Packs never emit any other event. |
+| `record_fact` | by payload | Kinds with the pack's prefix need `history.write` (`<prefix>.canon_opened` also `canon.write`, `<prefix>.mechanic_taught` also `mechanics.write`); `market_base_changed` needs `market.levers`. Packs never record any other kind. |
+| `set_script_value` | nothing (the pack's own state) | `ctx.store:set` on the script's declared stores. |
+| `set_trigger_fired` | nothing (the pack's own state) | The host marking a `G.after` trigger fired. |
+| `set_script_health` | never | The host's quarantine. |
+| `set_revision_retired` | never | Rollbacks. |
+| `set_pack_off` | never | Rollbacks and the game master applying a revision. |
+| `put_beat` | `beats.write` | Beat transitions (`G.beat`). |
+| `set_fitting` | `beats.write` | A beat's `rewards.fit`. |
+| `expect_fitting` | nothing (a check) | A check. |
+| `set_hull_record` | never | Hull ranks and prestige. |
+| `expect_hull_record` | nothing (a check) | A check. |
+| `set_tunable` | `pacing.write` | `ctx.pacing:set`. |
+| `bind_slot` | `mechanics.write` | `ctx.mechanics:bind`, `unbind`, `teach`. |
+| `say` | by payload | By channel: dock talk needs `talk.write`, a map note `map.write`, the chronicle `chronicle.write`. |
+| `put_talk` | never | `say`'s inverse: rollbacks only. |
 
 ## Events
 
