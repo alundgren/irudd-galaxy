@@ -92,6 +92,8 @@ struct App {
     bridge: Option<galaxy_gm::Bridge>,
     /// Sound cues from committed events ([`crate::sound`]); N mutes.
     audio: galaxy_audio::Audio,
+    /// Which cues each tick asks for.
+    cues: crate::sound::Cues,
 }
 
 /// Opens the game-master bridge on the loaded session: loads applied packs, applies
@@ -163,6 +165,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let mut save = save;
     let bridge = open_bridge(choice.path(), &mut session, &mut save);
     session.begin();
+    let cues = crate::sound::Cues::new(session.world());
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -182,6 +185,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         quit_after_frames: args.quit_after_frames,
         bridge,
         audio,
+        cues,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -408,7 +412,7 @@ impl App {
             let input = self.keys.tick_input(docked, click);
             let out = self.session.tick(input);
             let world = self.session.world();
-            for (cue, seed) in crate::sound::cues(world, self.session.last_events(), &out) {
+            for (cue, seed) in self.cues.tick(world, self.session.last_events(), &out) {
                 self.audio.play(cue, seed);
             }
             if out.docked.is_some() {
