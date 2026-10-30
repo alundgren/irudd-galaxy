@@ -46,7 +46,7 @@ summary = "Tenders run your saved loops while you do anything else."
 id = "cap.click_fly"
 name = "Click to fly"
 tier = 1
-summary = "Left-click a point within {click_fly_range} u of the ship: it flies there and stops. Any WASD input cancels."
+summary = "Left-click a point within {click_fly_range} u of the ship: it flies there and stops. Any W, A, S or D press cancels."
 
 [[capability]]
 id = "cap.click_mine"

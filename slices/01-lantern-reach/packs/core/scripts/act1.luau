@@ -40,7 +40,7 @@ return G.script({
 			id = ids.B01,
 			act = 1,
 			giver = ids.ILSE,
-			goal = "Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W A S D and look for the pale rocks.",
+			goal = "Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W, turn with A and D, and look for the pale rocks.",
 			-- A new save: docked at the Wharf in the Wren.
 			requires = { G.docked_at(ids.WHARF), G.hull(ids.WREN) },
 			done = G.fact({ kind = "undock", ship = ids.PLAYER, station = ids.WHARF }, { since = "start" }),

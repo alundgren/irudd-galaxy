@@ -307,7 +307,7 @@ fn play_act_one(p: &mut Pilot) {
     assert_eq!(
         p.goal().as_deref(),
         Some(
-            "Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W A S D and look for the pale rocks."
+            "Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W, turn with A and D, and look for the pale rocks."
         )
     );
     assert_eq!(hooks::goal_place(p.s.world()), Some(KETTLE));

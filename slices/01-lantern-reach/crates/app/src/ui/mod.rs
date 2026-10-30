@@ -1546,7 +1546,7 @@ pub fn dock_panel(
     o.texts.push(
         Text::new(DOCK_FOOT, G2::new(col_ware, foot_y + 12.0), 15.0)
             .weight(500)
-            .color(palette::INK.with_alpha(0.65)),
+            .color(BLACK),
     );
     buttons
 }
@@ -1595,7 +1595,7 @@ pub fn holder(world: &WorldState, st: &Station) -> String {
 
 /// The dock screen's foot: how to leave. There's no undock button or key: flying off
 /// undocks.
-pub const DOCK_FOOT: &str = "Fly off with W A S D to undock";
+pub const DOCK_FOOT: &str = "W or S · fly off and undock";
 
 /// The map's own furniture: a title (the goal banner sits beside it, [`map_goal`]) and
 /// how to close it.
