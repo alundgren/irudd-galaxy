@@ -514,6 +514,162 @@ fn the_goal_line_moves_on_with_act_one() {
     );
 }
 
+fn inside(r: &render::Rect, viewport: render::glam::Vec2) -> bool {
+    let eps = 0.01;
+    r.x >= -eps && r.y >= -eps && r.x + r.w <= viewport.x + eps && r.y + r.h <= viewport.y + eps
+}
+
+fn overlaps(a: &render::Rect, b: &render::Rect) -> bool {
+    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+}
+
+/// The frame's panels and buttons at `viewport`, built exactly as play builds them.
+fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> FrameParts {
+    let view = galaxy_app::view::View::new();
+    let rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::ZERO);
+    let (scene, buttons) = galaxy_app::frame::compose(&view, s, &rig, ui_state, 1.0, 0.0, viewport);
+    FrameParts {
+        panels: scene.overlay.panels.iter().map(|p| p.rect).collect(),
+        buttons,
+    }
+}
+
+struct FrameParts {
+    panels: Vec<render::Rect>,
+    buttons: Vec<ui::Button>,
+}
+
+/// A docked session with a busy screen: a refusal notice and a hold with several wares.
+fn busy_dock_session() -> Session {
+    let mut state = settled_session().state().clone();
+    let id = state.world.player.ship.clone().unwrap();
+    let wares: Vec<WareId> = state.world.wares.keys().take(4).cloned().collect();
+    let ship = state.world.ships.get_mut(&id).unwrap();
+    for w in wares {
+        ship.hold.cargo.insert(w, 1);
+    }
+    let mut s = Session::new(state);
+    s.request_trade(TradeRequest {
+        quantity: 999,
+        ..buy_rations(&s)
+    });
+    assert!(s.trades.notice.is_some());
+    s
+}
+
+const SIZES: [(f32, f32); 7] = [
+    (640.0, 360.0),
+    (800.0, 450.0),
+    (960.0, 540.0),
+    (1280.0, 720.0),
+    (1024.0, 768.0),
+    (1920.0, 1080.0),
+    (2560.0, 1080.0),
+];
+
+#[test]
+fn the_dock_screen_fits_small_and_large_windows() {
+    let s = busy_dock_session();
+    for (w, h) in SIZES {
+        let viewport = render::glam::Vec2::new(w, h);
+        let f = frame_at(&s, &UiState::default(), viewport);
+        for b in &f.buttons {
+            assert!(inside(&b.rect, viewport), "{w}x{h}: {b:?} is clipped");
+        }
+        for p in &f.panels {
+            assert!(inside(p, viewport), "{w}x{h}: panel {p:?} is clipped");
+        }
+        let undock = f
+            .buttons
+            .iter()
+            .filter(|b| b.action == ui::UiAction::Undock);
+        assert_eq!(undock.count(), 1, "{w}x{h}");
+        let trades = f
+            .buttons
+            .iter()
+            .filter(|b| matches!(b.action, ui::UiAction::Trade { .. }))
+            .count();
+        let lines = ui::dock_lines(s.world(), &WHARF).len();
+        assert_eq!(trades, 2 * lines, "{w}x{h}: every market action shows");
+    }
+}
+
+#[test]
+fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
+    let s = busy_dock_session();
+    for (w, h) in SIZES {
+        let canvas = ui::canvas(render::glam::Vec2::new(w, h));
+        let mut o = render::Overlay::default();
+        ui::goal(&mut o, s.world(), canvas);
+        ui::hold(&mut o, s.world(), canvas);
+        let top: Vec<_> = o.panels.iter().map(|p| p.rect).collect();
+        assert!(!top.is_empty());
+        if top.len() == 2 {
+            assert!(!overlaps(&top[0], &top[1]), "{w}x{h}: goal under the hold");
+        }
+        let mut d = render::Overlay::default();
+        ui::dock_panel(
+            &mut d,
+            s.world(),
+            &WHARF,
+            &UiState::default(),
+            s.trades.notice.as_deref(),
+            canvas,
+        );
+        let dock = d.panels[0].rect;
+        for t in &top {
+            assert!(!overlaps(&dock, t), "{w}x{h}: dock {dock:?} under {t:?}");
+        }
+    }
+}
+
+#[test]
+fn a_long_market_scrolls_and_keeps_the_selection_in_view() {
+    const EXTRA: [WareId; 10] = [
+        WareId::from_static("ware.test_a"),
+        WareId::from_static("ware.test_b"),
+        WareId::from_static("ware.test_c"),
+        WareId::from_static("ware.test_d"),
+        WareId::from_static("ware.test_e"),
+        WareId::from_static("ware.test_f"),
+        WareId::from_static("ware.test_g"),
+        WareId::from_static("ware.test_h"),
+        WareId::from_static("ware.test_i"),
+        WareId::from_static("ware.test_j"),
+    ];
+    let mut state = busy_dock_session().state().clone();
+    let market = state.world.markets.get_mut(&WHARF).unwrap();
+    let line = market.lines[&RATIONS].clone();
+    for w in EXTRA {
+        market.lines.insert(w, line.clone());
+    }
+    let s = Session::new(state);
+    let n = ui::dock_lines(s.world(), &WHARF).len();
+    assert!(n > 10);
+    let viewport = render::glam::Vec2::new(960.0, 540.0);
+    for selected in [0, n / 2, n - 1] {
+        let ui_state = UiState {
+            selected,
+            ..UiState::default()
+        };
+        let f = frame_at(&s, &ui_state, viewport);
+        for b in &f.buttons {
+            assert!(inside(&b.rect, viewport), "{b:?} is clipped");
+        }
+        let rows: Vec<usize> = f
+            .buttons
+            .iter()
+            .filter_map(|b| match b.action {
+                ui::UiAction::Select(i) => Some(i),
+                _ => None,
+            })
+            .collect();
+        assert!(rows.len() < n, "it scrolls rather than overflowing");
+        assert!(rows.contains(&selected), "row {selected} in view: {rows:?}");
+        assert!(f.buttons.iter().any(|b| b.action == ui::UiAction::Undock));
+    }
+}
+
 #[test]
 #[ignore = "needs a GPU adapter"]
 fn galaxy_shot_renders_a_new_save() {

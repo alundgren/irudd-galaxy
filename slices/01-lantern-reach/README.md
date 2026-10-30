@@ -37,7 +37,11 @@ Docked, the dock screen lists the station's market: the price of the next unit, 
 stock and what's in your hold. **W/S** (or the arrows) pick a line, **E** trades one,
 **Shift+E** sells all of it or buys as many as fit and you can afford; the buttons do
 the same. Each price moves a little with every unit, so selling all at once earns less
-per unit than spreading it out. **Space** or the Undock button leaves.
+per unit than spreading it out. **Space** or the Undock button leaves. A trade you ask
+for goes ahead of the flagship's own queued orders, which wait their turn.
+
+The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
+rather than clipping, and a market longer than the screen scrolls with the selection.
 
 Saves are written at calm moments (when you dock, when you pause, when you quit) to a
 per-user folder: `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,

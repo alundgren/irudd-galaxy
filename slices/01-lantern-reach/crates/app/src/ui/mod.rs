@@ -2,9 +2,15 @@
 //! for what Space does when something is in reach, the dock screen, the talk panel and
 //! the PAUSED card. No timers, no progress bars; text is important or absent.
 //!
-//! Layout is fixed logical pixels from the viewport, so it needs no renderer and can
-//! be tested headless. Each function adds to an [`Overlay`] and returns the buttons it
+//! Layout is logical pixels from the viewport, so it needs no renderer and can be
+//! tested headless. Each function adds to an [`Overlay`] and returns the buttons it
 //! drew, for the window's mouse hit test.
+//!
+//! The panels are laid out on a canvas at least [`DESIGN`] big ([`canvas`]) and scaled
+//! down to the window ([`ui_scale`], [`scale_overlay`]), so a small window shows all of
+//! them smaller rather than clipping any. Inside the canvas they keep clear of each
+//! other, and a market with more lines than fit scrolls with the selection. The window
+//! won't shrink below [`MIN_WINDOW`], where the text is still readable.
 
 pub mod dock;
 
@@ -17,8 +23,57 @@ use crate::trades::credits;
 use crate::view::g;
 pub use dock::{Amount, DockLine, dock_lines, trade_request};
 
-/// The dock screen's width in logical pixels (at most; it shrinks on narrow windows).
+/// The dock screen's width on the canvas.
 pub const DOCK_PANEL_WIDTH: f32 = 600.0;
+
+/// The hold panel's width on the canvas.
+pub const HOLD_PANEL_WIDTH: f32 = 200.0;
+
+/// The smallest canvas the panels are laid out on, in logical pixels. Smaller windows
+/// scale it down; bigger ones get a bigger canvas at 1:1.
+pub const DESIGN: G2 = G2::new(1280.0, 720.0);
+
+/// The smallest window `galaxy play` allows, in logical pixels (the panels at 3/4 size).
+pub const MIN_WINDOW: G2 = G2::new(960.0, 540.0);
+
+/// How much the panels are scaled for `viewport`: 1 at [`DESIGN`] and above, less on
+/// smaller windows so the whole canvas fits.
+pub fn ui_scale(viewport: G2) -> f32 {
+    (viewport.x / DESIGN.x)
+        .min(viewport.y / DESIGN.y)
+        .clamp(0.05, 1.0)
+}
+
+/// The canvas the panels are laid out on for `viewport`: at least [`DESIGN`] in the
+/// tighter direction, the window's shape.
+pub fn canvas(viewport: G2) -> G2 {
+    viewport / ui_scale(viewport)
+}
+
+/// Scales panels laid out on the canvas onto the window.
+pub fn scale_overlay(o: &mut Overlay, scale: f32) {
+    for p in &mut o.panels {
+        p.rect = scale_rect(p.rect, scale);
+        p.radius *= scale;
+        p.border_px *= scale;
+    }
+    for t in &mut o.texts {
+        t.pos *= scale;
+        t.size *= scale;
+        t.max_width = t.max_width.map(|w| w * scale);
+    }
+}
+
+/// Scales buttons laid out on the canvas onto the window, for the hit test.
+pub fn scale_buttons(buttons: &mut [Button], scale: f32) {
+    for b in buttons {
+        b.rect = scale_rect(b.rect, scale);
+    }
+}
+
+fn scale_rect(r: Rect, s: f32) -> Rect {
+    Rect::new(r.x * s, r.y * s, r.w * s, r.h * s)
+}
 
 /// What the screen is showing besides the world.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -108,25 +163,32 @@ pub fn goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
     let Some(line) = hooks::goal_line(world) else {
         return;
     };
-    let size = 24.0;
-    let w = text_width(&line, size) + 56.0;
-    let rect = Rect::new((viewport.x - w) * 0.5, 18.0, w, 54.0);
+    // Centred between the hold on the right and the same margin on the left; a long
+    // line gets a smaller font, then wraps.
+    let room = (viewport.x - 2.0 * (HOLD_PANEL_WIDTH + 36.0)).max(240.0);
+    let pad = 56.0;
+    let natural = text_width(&line, 24.0);
+    let size = (24.0 * (room - pad) / natural).clamp(17.0, 24.0);
+    let rows = (text_width(&line, size) / (room - pad)).ceil().max(1.0);
+    let w = (text_width(&line, size) + pad).min(room);
+    let h = 54.0 + (rows - 1.0) * size * 1.25;
+    let rect = Rect::new((viewport.x - w) * 0.5, 18.0, w, h);
     o.panels.push(Panel::new(rect));
     o.texts.push(
-        Text::new(line, G2::new(viewport.x * 0.5, 31.0), size)
-            .weight(600)
-            .align(Align::Center),
+        Text::new(
+            line,
+            G2::new(viewport.x * 0.5, 31.0 + (24.0 - size) * 0.5),
+            size,
+        )
+        .weight(600)
+        .align(Align::Center)
+        .wrap(w - pad + 8.0),
     );
 }
 
-/// Credits and the hold, top right.
-pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
-    let Some(ship) = world.player.ship.as_ref().and_then(|s| world.ships.get(s)) else {
-        return;
-    };
-    let cap = world.hulls.get(&ship.hull).map_or(0, |h| h.hold_capacity);
-    let wares: Vec<String> = ship
-        .hold
+/// The hold panel's lines: one per ware aboard.
+fn hold_wares(world: &WorldState, ship: &Ship) -> Vec<String> {
+    ship.hold
         .cargo
         .iter()
         .filter(|(_, n)| **n > 0)
@@ -134,10 +196,35 @@ pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
             let name = world.wares.get(w).map_or(w.as_str(), |w| w.name.as_str());
             format!("{name} {n}")
         })
-        .collect();
-    let w = 200.0;
-    let h = 78.0 + wares.len() as f32 * 20.0;
-    let rect = Rect::new(viewport.x - w - 18.0, 18.0, w, h);
+        .collect()
+}
+
+/// Where the hold panel goes, top right; other panels keep clear of it.
+pub fn hold_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
+    let ship = world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|s| world.ships.get(s))?;
+    let h = 78.0 + hold_wares(world, ship).len() as f32 * 20.0;
+    Some(Rect::new(
+        viewport.x - HOLD_PANEL_WIDTH - 18.0,
+        18.0,
+        HOLD_PANEL_WIDTH,
+        h,
+    ))
+}
+
+/// Credits and the hold, top right.
+pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
+    let Some(ship) = world.player.ship.as_ref().and_then(|s| world.ships.get(s)) else {
+        return;
+    };
+    let Some(rect) = hold_rect(world, viewport) else {
+        return;
+    };
+    let cap = world.hulls.get(&ship.hull).map_or(0, |h| h.hold_capacity);
+    let wares = hold_wares(world, ship);
     o.panels.push(Panel {
         fill: palette::INK.with_alpha(0.88),
         border: palette::MUSTARD,
@@ -366,9 +453,22 @@ pub fn talk(o: &mut Overlay, world: &WorldState, viewport: G2) {
     }
 }
 
+/// The market rows the dock screen shows: `(first, count)` out of `lines`, keeping the
+/// selected one in view when they don't all fit in `room`.
+fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
+    if lines <= fits {
+        return (0, lines);
+    }
+    let count = fits.max(1);
+    let selected = selected.min(lines - 1);
+    let first = (selected + 1).saturating_sub(count).min(lines - count);
+    (first, count)
+}
+
 /// The dock screen: the station's name, its market lines (price per unit, stock, your
 /// hold, buy or sell), any refusal in one calm line, the station's other services, and
-/// Undock.
+/// Undock. It sits under the hold and fits the canvas height: market rows that don't
+/// fit scroll with the selection.
 pub fn dock_panel(
     o: &mut Overlay,
     world: &WorldState,
@@ -383,21 +483,33 @@ pub fn dock_panel(
     };
     let lines = dock_lines(world, station);
     let services = hooks::station_services(world, station);
-    let w = DOCK_PANEL_WIDTH.min(viewport.x - 40.0);
+    let w = DOCK_PANEL_WIDTH.min(viewport.x - 36.0);
     let row = 44.0;
+    let notice_h = if notice.is_some() { 34.0 } else { 0.0 };
+    let services_h = if services.is_empty() { 0.0 } else { 58.0 };
+    // Title, notice, services and the foot with Undock.
+    let fixed = 74.0 + notice_h + services_h + 70.0;
+    // Under the goal line and the hold, which share the top right.
+    let top = hold_rect(world, viewport)
+        .map_or(90.0, |r| r.y + r.h + 12.0)
+        .max(90.0);
+    let room = viewport.y - top - 18.0;
+    let (scroll_h, head_h) = (24.0, 26.0);
+    let fits = if fixed + head_h + lines.len() as f32 * row <= room {
+        lines.len()
+    } else {
+        ((room - fixed - head_h - scroll_h) / row).floor().max(1.0) as usize
+    };
+    let (first, shown) = visible_rows(lines.len(), ui.selected, fits);
+    let scrolled = shown < lines.len();
     let table_h = if lines.is_empty() {
         30.0
     } else {
-        26.0 + lines.len() as f32 * row
+        head_h + shown as f32 * row + if scrolled { scroll_h } else { 0.0 }
     };
-    let notice_h = if notice.is_some() { 34.0 } else { 0.0 };
-    let services_h = if services.is_empty() { 0.0 } else { 58.0 };
-    let h = 74.0 + table_h + notice_h + services_h + 70.0;
+    let h = fixed + table_h;
     let x0 = viewport.x - w - 18.0;
-    let y0 = (viewport.y - h)
-        .clamp(110.0, 140.0)
-        .min(viewport.y - h - 10.0)
-        .max(90.0);
+    let y0 = top.max((viewport.y - h - 18.0).min(140.0));
     o.panels.push(Panel {
         radius: 16.0,
         border_px: 3.5,
@@ -453,7 +565,7 @@ pub fn dock_panel(
         head(o, "STOCK", col_stock + 30.0, Align::Right);
         head(o, "HOLD", col_hold + 30.0, Align::Right);
         y += 24.0;
-        for (i, line) in lines.iter().enumerate() {
+        for (i, line) in lines.iter().enumerate().skip(first).take(shown) {
             let selected = i == ui.selected.min(lines.len() - 1);
             let row_rect = Rect::new(x0 + 12.0, y - 2.0, w - 24.0, row - 4.0);
             if selected {
@@ -528,6 +640,23 @@ pub fn dock_panel(
                 },
             ));
             y += row;
+        }
+        if scrolled {
+            o.texts.push(
+                Text::new(
+                    format!(
+                        "{}–{} of {}  ·  W/S for more",
+                        first + 1,
+                        first + shown,
+                        lines.len()
+                    ),
+                    G2::new(col_ware, y + 2.0),
+                    13.0,
+                )
+                .weight(500)
+                .color(palette::INK.with_alpha(0.6)),
+            );
+            y += scroll_h;
         }
     }
     if let Some(n) = notice {
@@ -640,5 +769,27 @@ mod tests {
         assert_eq!(hit(&b, G2::new(15.0, 15.0)), Some(&UiAction::Undock));
         assert_eq!(hit(&b, G2::new(50.0, 50.0)), Some(&UiAction::Select(0)));
         assert_eq!(hit(&b, G2::new(150.0, 50.0)), None);
+    }
+
+    #[test]
+    fn market_rows_scroll_with_the_selection() {
+        assert_eq!(visible_rows(4, 3, 6), (0, 4), "all fit");
+        assert_eq!(visible_rows(9, 0, 4), (0, 4));
+        assert_eq!(visible_rows(9, 3, 4), (0, 4));
+        assert_eq!(visible_rows(9, 5, 4), (2, 4), "the selection stays in view");
+        assert_eq!(visible_rows(9, 8, 4), (5, 4));
+        assert_eq!(visible_rows(9, 20, 4), (5, 4));
+        assert_eq!(visible_rows(9, 2, 0), (2, 1), "at least one row");
+    }
+
+    #[test]
+    fn small_windows_scale_the_canvas_down() {
+        assert_eq!(ui_scale(G2::new(1920.0, 1080.0)), 1.0);
+        assert_eq!(canvas(G2::new(1920.0, 1080.0)), G2::new(1920.0, 1080.0));
+        assert_eq!(ui_scale(G2::new(640.0, 360.0)), 0.5);
+        assert_eq!(canvas(G2::new(640.0, 360.0)), DESIGN);
+        // A wide, short window keeps its shape.
+        let c = canvas(G2::new(1200.0, 450.0));
+        assert!((c.y - 720.0).abs() < 1e-3 && c.x > 1900.0, "{c:?}");
     }
 }

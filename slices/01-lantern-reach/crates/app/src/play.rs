@@ -340,7 +340,8 @@ impl ApplicationHandler for App {
         }
         let attrs = Window::default_attributes()
             .with_title("The Lantern Reach")
-            .with_inner_size(LogicalSize::new(1280.0, 760.0));
+            .with_inner_size(LogicalSize::new(1280.0, 760.0))
+            .with_min_inner_size(LogicalSize::new(ui::MIN_WINDOW.x, ui::MIN_WINDOW.y));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
