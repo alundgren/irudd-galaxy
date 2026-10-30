@@ -42,6 +42,12 @@ fn luau_asset() -> Option<(&'static str, &'static str)> {
 
 fn main() -> ExitCode {
     let task = std::env::args().nth(1).unwrap_or_default();
+    if matches!(task.as_str(), "check" | "cargo") && unshared() {
+        eprintln!(
+            "note: GALAXY_TARGET_ROOT is unset, so this worktree builds into its own target/ \
+             and other worktrees on this branch start cold. See \"Builds\" in the root AGENTS.md."
+        );
+    }
     match task.as_str() {
         "check" => {
             // Without the analyzer the typecheck tests skip; that's a warning, not a failure.
@@ -189,6 +195,13 @@ fn cargo() -> Command {
         cmd.env("CARGO_TARGET_DIR", dir);
     }
     cmd
+}
+
+/// Neither `CARGO_TARGET_DIR` nor `GALAXY_TARGET_ROOT` picks the folder, so cargo uses the
+/// worktree's own `target/`.
+fn unshared() -> bool {
+    let set = |name: &str| std::env::var_os(name).is_some_and(|v| !v.is_empty());
+    !set("CARGO_TARGET_DIR") && !set("GALAXY_TARGET_ROOT")
 }
 
 /// `$GALAXY_TARGET_ROOT/<branch>` when that variable is set and `CARGO_TARGET_DIR` isn't,

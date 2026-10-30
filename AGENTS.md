@@ -112,7 +112,11 @@ worktree on a branch (builder, reviewer, fixer) shares one warm build. Notes:
 - `cargo xtask target-dir` prints the folder.
 - Two agents on the same branch at once wait on cargo's lock, so run them in turn.
 - Folders under the root can be deleted any time; they rebuild.
-- If `GALAXY_TARGET_ROOT` is unset, the normal `target/` is used.
+- If `GALAXY_TARGET_ROOT` is unset, the normal `target/` is used, and `cargo xtask` prints
+  a note saying so. Before a multi-agent run, check that it's set: an unset root is the
+  cold-build cost this section exists to avoid.
+- Each branch gets its own folder, so fanning out onto N branches costs N cold builds.
+  Fan out to a few workers, not many.
 
 ## Platforms
 
