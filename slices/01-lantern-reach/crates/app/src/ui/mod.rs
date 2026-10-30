@@ -1,6 +1,7 @@
-//! The screen's panels, minimal and warm: one goal line, the hold and credits, a hint
-//! for what Space does when something is in reach, the dock screen, the talk panel and
-//! the PAUSED card. No timers, no progress bars; text is important or absent.
+//! The screen's panels, minimal and warm: the active goals with who gave them, the hold
+//! and credits, a hint for what Space does when something is in reach (until it has
+//! taught it, [`hints`]), the dock screen, the talk panel and the PAUSED card. No
+//! timers, no progress bars; text is important or absent.
 //!
 //! Layout is logical pixels from the viewport, so it needs no renderer and can be
 //! tested headless. Each function adds to an [`Overlay`] and returns the buttons it
@@ -8,11 +9,15 @@
 //!
 //! The panels are laid out on a canvas at least [`DESIGN`] big ([`canvas`]) and scaled
 //! down to the window ([`ui_scale`], [`scale_overlay`]), so a small window shows all of
-//! them smaller rather than clipping any. Inside the canvas they keep clear of each
-//! other, and a market with more lines than fit scrolls with the selection. The window
+//! them smaller rather than clipping any. Inside the canvas they're laid out against
+//! each other so none covers another: the goal banner between the edge and the hold
+//! (beside the title on the map), the talk panel in the bottom-left column under the
+//! banner, the dock screen clear of that column, and the hint pill clear of the talk
+//! panel. A market with more lines than fit scrolls with the selection. The window
 //! won't shrink below [`MIN_WINDOW`], where the text is still readable.
 
 pub mod dock;
+pub mod hints;
 
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
@@ -24,12 +29,30 @@ use crate::hooks;
 use crate::trades::credits;
 use crate::view::g;
 pub use dock::{Amount, DockLine, dock_lines, trade_request};
+pub use hints::{HintBook, HintKind, HintRules};
 
 /// The dock screen's width on the canvas.
 pub const DOCK_PANEL_WIDTH: f32 = 600.0;
 
 /// The hold panel's width on the canvas.
 pub const HOLD_PANEL_WIDTH: f32 = 200.0;
+
+/// The talk panel's width on the canvas. It owns the bottom-left column: the dock
+/// screen and the hint pill keep clear of it.
+pub const TALK_WIDTH: f32 = 460.0;
+
+/// The space between a panel and the canvas edge, and between two panels.
+const MARGIN: f32 = 18.0;
+const GAP: f32 = 12.0;
+
+/// Pure white and pure black: the only text colours, on dark and on light panels.
+const WHITE: Color = Color::WHITE;
+const BLACK: Color = Color::BLACK;
+
+/// Whether two rects share any area.
+pub fn overlaps(a: &Rect, b: &Rect) -> bool {
+    a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+}
 
 /// The smallest canvas the panels are laid out on, in logical pixels. Smaller windows
 /// scale it down; bigger ones get a bigger canvas at 1:1.
@@ -244,36 +267,124 @@ fn button(
     Button { rect, action }
 }
 
-/// The goal line's largest and smallest font size: a small, calm line, not a banner.
-const GOAL_SIZE: f32 = 17.0;
-const GOAL_MIN_SIZE: f32 = 14.0;
+/// The goal banner's text sizes, side padding and the space between goals.
+const GOAL_SIZE: f32 = 16.0;
+const GOAL_HEAD: f32 = 13.0;
+const GOAL_PAD: f32 = 16.0;
+const GOAL_GAP: f32 = 8.0;
+/// One wrapped row of a goal.
+const GOAL_ROW: f32 = 20.0;
+/// The goal's source line above it.
+const GOAL_HEAD_H: f32 = 17.0;
 
-/// The goal line, centred at the top: one small, calm line on a soft panel. Nothing
-/// when there's no goal.
-pub fn goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
-    let Some(line) = hooks::goal_line(world) else {
-        return;
-    };
-    let (rect, size, pad) = goal_layout(&line, viewport);
-    let w = rect.w;
+/// The goal banner laid out: the panel, the top of each goal's source line and text,
+/// and the width the text wraps at.
+struct GoalLayout {
+    rect: Rect,
+    rows: Vec<(f32, f32)>,
+    wrap: f32,
+}
+
+/// Lays out `goals` at the top of the canvas, centred between `left` and `right`, each
+/// goal under its source and wrapped to fit.
+fn goal_layout(goals: &[hooks::Goal], left: f32, right: f32) -> Option<GoalLayout> {
+    if goals.is_empty() {
+        return None;
+    }
+    let room = (right - left).max(240.0);
+    let natural = goals
+        .iter()
+        .map(|g| text_width(&g.goal, GOAL_SIZE).max(text_width(&g.source, GOAL_HEAD)))
+        .fold(0.0, f32::max);
+    let wrap = natural.min(room - 2.0 * GOAL_PAD);
+    let top = MARGIN;
+    let mut y = top + 10.0;
+    let mut rows = Vec::new();
+    for g in goals {
+        rows.push((y, y + GOAL_HEAD_H));
+        let lines = (text_width(&g.goal, GOAL_SIZE) / wrap).ceil().max(1.0);
+        y += GOAL_HEAD_H + lines * GOAL_ROW + GOAL_GAP;
+    }
+    let h = y - GOAL_GAP + 10.0 - top;
+    let w = wrap + 2.0 * GOAL_PAD;
+    Some(GoalLayout {
+        rect: Rect::new(left + (room - w) * 0.5, top, w, h),
+        rows,
+        wrap,
+    })
+}
+
+/// Where the goal banner may go on the world screen: centred, between the hold on the
+/// right and as much room on the left.
+fn goal_span(viewport: G2) -> (f32, f32) {
+    let side = HOLD_PANEL_WIDTH + 2.0 * MARGIN;
+    (side, viewport.x - side)
+}
+
+/// The map's title, top left.
+const MAP_TITLE: &str = "The Lantern Reach";
+const MAP_TITLE_SIZE: f32 = 30.0;
+
+/// Where the map's title goes.
+pub fn map_title_rect() -> Rect {
+    Rect::new(
+        28.0,
+        22.0,
+        text_width(MAP_TITLE, MAP_TITLE_SIZE),
+        MAP_TITLE_SIZE * 1.25,
+    )
+}
+
+/// Where the goal banner may go on the map: right of the title, left of the hold.
+fn map_goal_span(viewport: G2) -> (f32, f32) {
+    let title = map_title_rect();
+    (
+        title.x + title.w + 2.0 * GAP,
+        viewport.x - HOLD_PANEL_WIDTH - 2.0 * MARGIN,
+    )
+}
+
+fn draw_goals(o: &mut Overlay, goals: &[hooks::Goal], layout: &GoalLayout) {
     o.panels.push(Panel {
-        fill: palette::PARCHMENT.with_alpha(0.82),
+        fill: palette::PARCHMENT.with_alpha(0.92),
         border_px: 1.5,
         radius: 10.0,
         shadow: false,
-        ..Panel::new(rect)
+        ..Panel::new(layout.rect)
     });
-    o.texts.push(
-        Text::new(
-            line,
-            G2::new(viewport.x * 0.5, rect.y + 9.0 + (GOAL_SIZE - size) * 0.5),
-            size,
-        )
-        .weight(500)
-        .color(palette::INK.with_alpha(0.85))
-        .align(Align::Center)
-        .wrap(w - pad + 8.0),
-    );
+    let x = layout.rect.x + GOAL_PAD;
+    for (g, (head_y, text_y)) in goals.iter().zip(&layout.rows) {
+        o.texts.push(
+            Text::new(g.source.clone(), G2::new(x, *head_y), GOAL_HEAD)
+                .weight(700)
+                .color(BLACK),
+        );
+        o.texts.push(
+            Text::new(g.goal.clone(), G2::new(x, *text_y), GOAL_SIZE)
+                .weight(500)
+                .color(BLACK)
+                .wrap(layout.wrap),
+        );
+    }
+}
+
+/// The goal banner, centred at the top: every active goal, newest first, each under
+/// who gave it and where. Nothing when there's no goal.
+pub fn goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
+    let goals = hooks::goals(world);
+    let (left, right) = goal_span(viewport);
+    if let Some(layout) = goal_layout(&goals, left, right) {
+        draw_goals(o, &goals, &layout);
+    }
+}
+
+/// The goal banner on the map, beside the title so both stay readable.
+pub fn map_goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
+    let goals = hooks::goals(world);
+    let (left, right) = map_goal_span(viewport);
+    if let Some(layout) = goal_layout(&goals, left, right) {
+        draw_goals(o, &goals, &layout);
+    }
 }
 
 /// The hold panel's lines: one per ware aboard.
@@ -289,23 +400,16 @@ fn hold_wares(world: &WorldState, ship: &Ship) -> Vec<String> {
         .collect()
 }
 
-/// The goal line's panel, its font size and side padding: centred between the hold on
-/// the right and the same margin on the left; a long line gets a smaller font, then
-/// wraps.
-fn goal_layout(line: &str, viewport: G2) -> (Rect, f32, f32) {
-    let room = (viewport.x - 2.0 * (HOLD_PANEL_WIDTH + 36.0)).max(240.0);
-    let pad = 36.0;
-    let natural = text_width(line, GOAL_SIZE);
-    let size = (GOAL_SIZE * (room - pad) / natural).clamp(GOAL_MIN_SIZE, GOAL_SIZE);
-    let rows = (text_width(line, size) / (room - pad)).ceil().max(1.0);
-    let w = (text_width(line, size) + pad).min(room);
-    let h = 38.0 + (rows - 1.0) * size * 1.25;
-    (Rect::new((viewport.x - w) * 0.5, 18.0, w, h), size, pad)
+/// Where the goal banner goes on the world screen, if there is a goal.
+pub fn goal_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
+    let (left, right) = goal_span(viewport);
+    goal_layout(&hooks::goals(world), left, right).map(|l| l.rect)
 }
 
-/// Where the goal line's panel goes, if there is a goal.
-pub fn goal_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
-    hooks::goal_line(world).map(|line| goal_layout(&line, viewport).0)
+/// Where the goal banner goes on the map, if there is a goal.
+pub fn map_goal_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
+    let (left, right) = map_goal_span(viewport);
+    goal_layout(&hooks::goals(world), left, right).map(|l| l.rect)
 }
 
 /// Where the hold panel goes, top right; other panels keep clear of it.
@@ -428,14 +532,90 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
     Some(format!("Hold Space  ·  mine {ware}"))
 }
 
-/// The Space hint, low in the middle of the screen.
-pub fn hint(o: &mut Overlay, world: &WorldState, viewport: G2) {
+/// Which hint [`context_hint`] shows now, so it can retire once it has taught
+/// ([`hints`]). Checks the same things in the same order.
+pub fn hint_kind(world: &WorldState) -> Option<HintKind> {
+    let ship = world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|s| world.ships.get(s))?;
+    if ship.docked_at.is_some() || ship.activity.transit.is_some() {
+        return None;
+    }
+    if galaxy_ship::space::ring_for(world, ship, ship.position).is_some() {
+        return Some(HintKind::Dock);
+    }
+    if galaxy_ship::space::mouth_for(world, ship, ship.position).is_some() {
+        return Some(HintKind::Ride);
+    }
+    if ship.activity.mining.is_some() {
+        return Some(HintKind::MiningRate);
+    }
+    galaxy_ship::space::rock_in_reach(world, &ship.region, ship.position)?;
+    if ship.hold.total() >= galaxy_contract::modifiers::hold_capacity(world, ship) {
+        return Some(HintKind::HoldFull);
+    }
+    Some(HintKind::Mine)
+}
+
+/// While the flagship mines, how fast the ore comes aboard, as the readout shows it
+/// ("1.5").
+pub fn mining_rate_text(world: &WorldState) -> Option<String> {
+    let ship = world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|s| world.ships.get(s))?;
+    let rock = world.rocks.get(&ship.activity.mining.as_ref()?.rock)?;
+    let rate = format!("{:.2}", mining_rate(world, ship, rock));
+    Some(rate.trim_end_matches('0').trim_end_matches('.').to_owned())
+}
+
+/// The hint pill's text size and height.
+const HINT_SIZE: f32 = 19.0;
+const HINT_H: f32 = 44.0;
+
+/// Where the hint pill goes: low and centred, unless that would cover `avoid` (the
+/// talk panel in the bottom-left column); then centred in the room right of it, or
+/// above it if that room is too narrow.
+pub fn hint_rect(text: &str, viewport: G2, avoid: Option<Rect>) -> Rect {
+    let w = text_width(text, HINT_SIZE) + 40.0;
+    let centred = Rect::new((viewport.x - w) * 0.5, viewport.y - 84.0, w, HINT_H);
+    let Some(a) = avoid.filter(|a| overlaps(&centred, &grow(a, GAP))) else {
+        return centred;
+    };
+    let (left, right) = (a.x + a.w + GAP, viewport.x - MARGIN);
+    if right - left >= w {
+        let x = ((left + right - w) * 0.5).max(centred.x);
+        return Rect { x, ..centred };
+    }
+    Rect {
+        y: (a.y - GAP - HINT_H).max(MARGIN),
+        ..centred
+    }
+}
+
+fn grow(r: &Rect, by: f32) -> Rect {
+    Rect::new(r.x - by, r.y - by, r.w + 2.0 * by, r.h + 2.0 * by)
+}
+
+/// The Space hint, low in the middle of the screen and clear of the talk panel
+/// (`avoid`). A hint that has taught enough ([`HintBook`]) stays away.
+pub fn hint(
+    o: &mut Overlay,
+    world: &WorldState,
+    book: &HintBook,
+    avoid: Option<Rect>,
+    viewport: G2,
+) {
     let Some(text) = context_hint(world) else {
         return;
     };
-    let size = 19.0;
-    let w = text_width(&text, size) + 40.0;
-    let rect = Rect::new((viewport.x - w) * 0.5, viewport.y - 84.0, w, 44.0);
+    if hint_kind(world).is_some_and(|k| book.retired(k, world)) {
+        return;
+    }
+    let rect = hint_rect(&text, viewport, avoid);
     o.panels.push(Panel {
         fill: palette::INK.with_alpha(0.85),
         border: palette::LANTERN,
@@ -443,9 +623,9 @@ pub fn hint(o: &mut Overlay, world: &WorldState, viewport: G2) {
         ..Panel::new(rect)
     });
     o.texts.push(
-        Text::new(text, G2::new(viewport.x * 0.5, rect.y + 10.0), size)
+        Text::new(text, G2::new(rect.center().x, rect.y + 10.0), HINT_SIZE)
             .weight(600)
-            .color(palette::CREAM)
+            .color(WHITE)
             .align(Align::Center),
     );
 }
@@ -579,12 +759,13 @@ fn talk_row(o: &mut Overlay, world: &WorldState, line: &TalkLine, x: f32, y: f32
     o.texts.push(
         Text::new(head, G2::new(x, y), 14.0)
             .weight(700)
-            .color(palette::TERRACOTTA),
+            .color(BLACK),
     );
     let rows = (text_width(&line.text, 16.0) / w).ceil().max(1.0);
     o.texts.push(
         Text::new(line.text.clone(), G2::new(x, y + 17.0), 16.0)
             .weight(500)
+            .color(BLACK)
             .wrap(w),
     );
     24.0 + rows * 20.0
@@ -593,23 +774,27 @@ fn talk_row(o: &mut Overlay, world: &WorldState, line: &TalkLine, x: f32, y: f32
 /// The height of one answer button in the talk panel.
 const CHOICE_H: f32 = 34.0;
 
-/// The talk panel, bottom left: what was said since the flagship last docked (dock
-/// talk and the chronicle), each naming its speaker and place. While docked after
-/// asking "What changed?", the dockmaster's answer instead. Below the lines, a button
-/// for each answer someone here is waiting for (`choices`, keys 1 to 9). Nothing when
-/// nobody has spoken. Returns the answer buttons.
-pub fn talk(
-    o: &mut Overlay,
+/// The talk panel measured: its rect, title and the lines that fit.
+struct TalkLayout {
+    rect: Rect,
+    title: Option<String>,
+    lines: Vec<TalkLine>,
+    title_h: f32,
+    empty_h: f32,
+}
+
+/// Measures the talk panel: bottom left, as tall as its lines and choices, but never
+/// up into the goal banner. When it would be, the oldest lines give way.
+fn talk_layout(
     world: &WorldState,
     history: &History,
     answer: Option<&hooks::Answer>,
     choices: &[hooks::OpenChoice],
-    ui: &UiState,
     viewport: G2,
-) -> Vec<Button> {
-    let w = 460.0;
+) -> Option<TalkLayout> {
+    let w = TALK_WIDTH;
     let inner = w - 32.0;
-    let (title, lines): (Option<String>, Vec<TalkLine>) = match answer {
+    let (title, mut lines): (Option<String>, Vec<TalkLine>) = match answer {
         Some(a) => (
             Some(match a.speaker.as_ref().and_then(|n| world.npcs.get(n)) {
                 Some(n) => format!("What changed?  ·  {}", n.name),
@@ -626,26 +811,79 @@ pub fn talk(
         ),
     };
     if lines.is_empty() && title.is_none() && choices.is_empty() {
-        return Vec::new();
+        return None;
     }
-    // Measure first, then draw bottom up from the screen's edge.
     let title_h = if title.is_some() { 30.0 } else { 0.0 };
-    let heights: Vec<f32> = lines
-        .iter()
-        .map(|l| 24.0 + (text_width(&l.text, 16.0) / inner).ceil().max(1.0) * 20.0)
-        .collect();
-    let empty_h = if lines.is_empty() && title.is_some() {
-        26.0
-    } else {
-        0.0
-    };
+    let line_h = |l: &TalkLine| 24.0 + (text_width(&l.text, 16.0) / inner).ceil().max(1.0) * 20.0;
     let choices_h = if choices.is_empty() {
         0.0
     } else {
         24.0 + choices.len() as f32 * (CHOICE_H + 6.0)
     };
-    let h = 20.0 + title_h + empty_h + heights.iter().sum::<f32>() + choices_h;
-    let rect = Rect::new(18.0, viewport.y - h - 18.0, w, h);
+    // The banner sits over the column's top when it reaches that far left.
+    let column = Rect::new(MARGIN, 0.0, w, viewport.y);
+    let ceiling = goal_rect(world, viewport)
+        .filter(|g| overlaps(g, &column))
+        .map_or(MARGIN, |g| g.y + g.h + GAP);
+    let room = viewport.y - MARGIN - ceiling;
+    let height = |lines: &[TalkLine]| {
+        let empty_h = if lines.is_empty() && title.is_some() {
+            26.0
+        } else {
+            0.0
+        };
+        let h = 20.0 + title_h + empty_h + lines.iter().map(line_h).sum::<f32>() + choices_h;
+        (h, empty_h)
+    };
+    while lines.len() > 1 && height(&lines).0 > room {
+        lines.remove(0);
+    }
+    let (h, empty_h) = height(&lines);
+    Some(TalkLayout {
+        rect: Rect::new(MARGIN, viewport.y - h - MARGIN, w, h),
+        title,
+        lines,
+        title_h,
+        empty_h,
+    })
+}
+
+/// Where the talk panel goes, if anything is said (the hint pill keeps clear of it).
+pub fn talk_rect(
+    world: &WorldState,
+    history: &History,
+    answer: Option<&hooks::Answer>,
+    choices: &[hooks::OpenChoice],
+    viewport: G2,
+) -> Option<Rect> {
+    talk_layout(world, history, answer, choices, viewport).map(|l| l.rect)
+}
+
+/// The talk panel, bottom left: what was said since the flagship last docked (dock
+/// talk and the chronicle), each naming its speaker and place. While docked after
+/// asking "What changed?", the dockmaster's answer instead. Below the lines, a button
+/// for each answer someone here is waiting for (`choices`, keys 1 to 9). Nothing when
+/// nobody has spoken. Returns the answer buttons.
+pub fn talk(
+    o: &mut Overlay,
+    world: &WorldState,
+    history: &History,
+    answer: Option<&hooks::Answer>,
+    choices: &[hooks::OpenChoice],
+    ui: &UiState,
+    viewport: G2,
+) -> Vec<Button> {
+    let Some(TalkLayout {
+        rect,
+        title,
+        lines,
+        title_h,
+        empty_h,
+    }) = talk_layout(world, history, answer, choices, viewport)
+    else {
+        return Vec::new();
+    };
+    let inner = rect.w - 32.0;
     o.panels.push(Panel {
         fill: palette::PARCHMENT.with_alpha(0.95),
         ..Panel::new(rect)
@@ -653,14 +891,15 @@ pub fn talk(
     let x = rect.x + 16.0;
     let mut y = rect.y + 12.0;
     if let Some(t) = title {
-        o.texts.push(Text::new(t, G2::new(x, y), 17.0).weight(700));
+        o.texts
+            .push(Text::new(t, G2::new(x, y), 17.0).weight(700).color(BLACK));
         y += title_h;
     }
     if lines.is_empty() && empty_h > 0.0 {
         o.texts.push(
             Text::new("Nothing new since you were last here.", G2::new(x, y), 16.0)
                 .weight(500)
-                .color(palette::INK.with_alpha(0.7)),
+                .color(BLACK),
         );
         y += empty_h;
     }
@@ -683,7 +922,7 @@ pub fn talk(
         o.texts.push(
             Text::new(head, G2::new(x, y + 2.0), 14.0)
                 .weight(700)
-                .color(palette::TERRACOTTA),
+                .color(BLACK),
         );
         y += 24.0;
         for (i, c) in choices.iter().enumerate() {
@@ -923,15 +1162,18 @@ pub fn dock_panel(
     // Title, the notices and the foot (how to leave): always shown.
     let fixed = 74.0 + notice_h + service_notice_h + 70.0;
     let natural = fixed + market_full + services_full;
-    // Under the goal line and the hold, which share the top right; if it doesn't fit
-    // there (a full hold makes the hold panel tall), beside the hold, under the goal.
+    // Under the goal banner and the hold, which share the top right; if it doesn't fit
+    // there (a full hold makes the hold panel tall), beside the hold, under the goal,
+    // as long as that keeps clear of the talk panel's column.
     let goal_bottom = goal_rect(world, viewport).map_or(0.0, |r| r.y + r.h + 12.0);
     let hold = hold_rect(world, viewport);
     let under = hold
         .map_or(90.0, |r| r.y + r.h + 12.0)
         .max(goal_bottom)
         .max(90.0);
-    let beside = hold.map(|r| r.x - 12.0 - w).filter(|x| *x >= 18.0);
+    let beside = hold
+        .map(|r| r.x - GAP - w)
+        .filter(|x| *x >= MARGIN + TALK_WIDTH + GAP);
     let (top, x0) = match beside {
         Some(x) if natural > viewport.y - under - 18.0 => (goal_bottom.max(90.0), x),
         _ => (under, viewport.x - w - 18.0),
@@ -990,14 +1232,12 @@ pub fn dock_panel(
     });
     o.texts
         .push(Text::new(st.name.clone(), G2::new(x0 + 24.0, y0 + 16.0), 30.0).weight(700));
-    if let Some(f) = st.owner.as_ref().and_then(|f| world.factions.get(f)) {
-        o.texts.push(
-            Text::new(f.name.clone(), G2::new(x0 + w - 24.0, y0 + 28.0), 15.0)
-                .weight(600)
-                .color(palette::TERRACOTTA)
-                .align(Align::Right),
-        );
-    }
+    o.texts.push(
+        Text::new(holder(world, st), G2::new(x0 + w - 24.0, y0 + 28.0), 15.0)
+            .weight(600)
+            .color(BLACK)
+            .align(Align::Right),
+    );
 
     let col_ware = x0 + 24.0;
     let col_price = x0 + 190.0;
@@ -1164,13 +1404,15 @@ pub fn dock_panel(
             ServiceRow::Head(s) => head(o, &services[s], y),
             ServiceRow::Offer(s, i) => {
                 let offer = &services[s].offers[i];
+                let title = if offer.owned {
+                    offer.name.clone()
+                } else {
+                    format!("{}  ·  {}", offer.name, offer.price)
+                };
                 o.texts.push(
-                    Text::new(
-                        format!("{}  ·  {}", offer.name, offer.price),
-                        G2::new(col_ware, y + 2.0),
-                        17.0,
-                    )
-                    .weight(600),
+                    Text::new(title, G2::new(col_ware, y + 2.0), 17.0)
+                        .weight(600)
+                        .color(BLACK),
                 );
                 // What it does always shows, even before you can buy it.
                 o.texts.push(
@@ -1187,6 +1429,13 @@ pub fn dock_panel(
                             .wrap(w - 48.0 - 140.0),
                     );
                 }
+                let state_rect = Rect::new(x0 + w - 24.0 - 120.0, y + 4.0, 120.0, 34.0);
+                if offer.owned {
+                    // Already yours: an outline and a word where the button was.
+                    owned_mark(o, state_rect, &offer.request);
+                    y += r.height();
+                    continue;
+                }
                 let (label, action) = match &offer.request {
                     ServiceRequest::Prestige { to } => ("Trade up", UiAction::Prestige(to.clone())),
                     ServiceRequest::Build { .. } => {
@@ -1200,7 +1449,7 @@ pub fn dock_panel(
                 buttons.push(button(
                     o,
                     ui,
-                    Rect::new(x0 + w - 24.0 - 120.0, y + 4.0, 120.0, 34.0),
+                    state_rect,
                     label,
                     offer.blocked.is_none(),
                     action,
@@ -1273,16 +1522,60 @@ pub fn dock_panel(
     buttons
 }
 
+/// "Fitted" (an upgrade) or "Yours" (a tender) in an outline, for something the player
+/// already has: a state, not a button.
+fn owned_mark(o: &mut Overlay, rect: Rect, request: &ServiceRequest) {
+    let word = match request {
+        ServiceRequest::Build { .. } => "Yours",
+        _ => "Fitted",
+    };
+    o.panels.push(Panel {
+        fill: palette::PARCHMENT.with_alpha(0.0),
+        border: BLACK,
+        border_px: 2.0,
+        radius: 8.0,
+        shadow: false,
+        ..Panel::new(rect)
+    });
+    o.texts.push(
+        Text::new(
+            word,
+            G2::new(rect.center().x, rect.y + rect.h * 0.5 - 9.0),
+            15.0,
+        )
+        .weight(700)
+        .color(BLACK)
+        .align(Align::Center),
+    );
+}
+
+/// Who holds a station, for its card: the owning faction, or, for a station nobody
+/// owns (Cinder Hook at the start), its region's state as the map shows it.
+pub fn holder(world: &WorldState, st: &Station) -> String {
+    match &st.owner {
+        Some(f) => world
+            .factions
+            .get(f)
+            .map_or_else(|| f.to_string(), |f| f.name.clone()),
+        None => match galaxy_economy::map::control_of(world, &st.region) {
+            galaxy_economy::map::Control::Contested { .. } => "Contested".into(),
+            _ => "Unclaimed".into(),
+        },
+    }
+}
+
 /// The dock screen's foot: how to leave. There's no undock button or key: flying off
 /// undocks.
 pub const DOCK_FOOT: &str = "Fly off with W A S D to undock";
 
-/// The map's own furniture: a title and how to close it.
+/// The map's own furniture: a title (the goal banner sits beside it, [`map_goal`]) and
+/// how to close it.
 pub fn map_furniture(o: &mut Overlay, ui: &UiState, viewport: G2) -> Vec<Button> {
+    let title = map_title_rect();
     o.texts.push(
-        Text::new("The Lantern Reach", G2::new(28.0, 22.0), 30.0)
+        Text::new(MAP_TITLE, G2::new(title.x, title.y), MAP_TITLE_SIZE)
             .weight(700)
-            .color(palette::CREAM),
+            .color(WHITE),
     );
     vec![button(
         o,

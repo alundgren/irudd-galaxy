@@ -18,6 +18,9 @@
 //!   what's left, says them, and keeps the answer up until the ship leaves.
 //! - **Poses** from before and after the last tick, so drawing can interpolate between
 //!   fixed ticks.
+//! - **Hints** ([`HintBook`]): after every tick the session counts the hint actions the
+//!   flagship did, so a hint retires once it has taught. The counts belong to the
+//!   save file, not the world (the window writes them with each save).
 //!
 //! It runs the whole game ([`Game`]): native systems, the script host with the packs,
 //! progress, and the mind pumped after every tick.
@@ -31,6 +34,7 @@ use galaxy_core::{Sim, SimState};
 use crate::game::{Game, GameOptions};
 use crate::hooks::{self, Answer};
 use crate::trades::{DockTrades, ServiceDesk, Settled};
+use crate::ui::hints::{Acts, HintBook, HintRules};
 
 /// The app's cause name for what it submits itself.
 pub const APP: &str = "app";
@@ -93,6 +97,8 @@ pub struct Session {
     session: u64,
     pub trades: DockTrades,
     pub services: ServiceDesk,
+    /// How far each context hint has taught, in this save.
+    pub hints: HintBook,
     /// The dockmaster's answer to "What changed?", while docked where it was asked.
     pub answer: Option<Answer>,
     /// The question, asked and not answered yet.
@@ -107,14 +113,19 @@ pub struct Session {
 
 impl Session {
     /// The whole game over `state`, headless: the packs folder found from the working
-    /// directory, gm-examples as the save says, the seeded fake mind. For `galaxy shot`
-    /// and tests; panics if the core pack can't load.
+    /// directory, gm-examples as the save says, the seeded fake mind, the core pack's
+    /// hint rules with nothing taught yet. For tests; panics if the core pack can't
+    /// load.
     pub fn new(state: SimState) -> Self {
         let packs = crate::game::packs_dir(None).expect("the packs folder (packs/core)");
+        let rules =
+            HintRules::load(&crate::game::core_data(&packs)).unwrap_or_else(|e| panic!("{e}"));
         let seed = state.world.meta.seed;
         let game = Game::open(state, &GameOptions::headless(packs, seed))
             .unwrap_or_else(|e| panic!("{e}"));
-        Self::with_game(game)
+        let mut s = Self::with_game(game);
+        s.hints = HintBook::new(rules, Default::default());
+        s
     }
 
     /// A session over a composed game.
@@ -127,6 +138,7 @@ impl Session {
             session: 0,
             trades: DockTrades::default(),
             services: ServiceDesk::default(),
+            hints: HintBook::default(),
             answer: None,
             asking: None,
             replies: Vec::new(),
@@ -239,10 +251,12 @@ impl Session {
         }
         input.replies.append(&mut self.replies);
         let before = poses(self.world());
+        let acts = Acts::of(self.world());
         if self.game.step(&input).is_none() {
             return TickOutcome::default();
         }
         self.before = before;
+        self.hints.observe(acts, self.game.sim().world());
         let sub = self.sub.clone();
         self.last_events = self.sim_mut().drain_events(&sub);
         let flagship = self.world().player.ship.clone();

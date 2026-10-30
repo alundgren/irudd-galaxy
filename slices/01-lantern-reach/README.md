@@ -37,7 +37,7 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | Key | Does |
 |---|---|
 | **W A S D** | Fly. The ship stops when you let go. |
-| **Space** | The one thing in reach: dock in a ring, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which; while you mine it shows how fast the ore comes aboard. |
+| **Space** | The one thing in reach: dock in a ring, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which; while you mine it shows how fast the ore comes aboard. Each hint retires once you've done what it says a few times (a notice, once you've seen it a few times); see "Hints" below. |
 | **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
 | **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
 | **N** | Mute or unmute the sound (remembered between games). |
@@ -54,13 +54,24 @@ with **W A S D**: there's no undock button or key, and keys still held from the 
 don't count until you press them again. A trade you ask for goes ahead of the
 flagship's own queued orders, which wait their turn.
 
+The card's title names the station and who holds it: the owning faction, or
+"Contested" or "Unclaimed" (as the map shows its region) for a station nobody owns,
+such as Cinder Hook at the start.
+
 Below the market are the station's people. The hullwright (Orrin, at the Wharf) lists
 what he can fit now, with the price, what it does in plain words, and what stands in
 the way ("Mining lens costs 600 cr. You have 160 cr."); **Fit** buys it, and a green
-line says what changed ("Orrin fitted your mining lens. You mine half again as fast."). Tamsin at Kettle Dock builds the
-tender once you've earned it, and Orrin's prestige offer opens a card that says what
+line says what changed ("Orrin fitted your mining lens. You mine half again as fast.").
+What you already have from a station stays on its list, outlined as **Fitted** (or
+**Yours** for a tender), so a service never vanishes once you've bought it out. Every
+amount of credits on screen uses one format: whole, or one decimal. Tamsin at Kettle
+Dock builds the tender once you've earned it, and Orrin's prestige offer opens a card that says what
 stays and what resets before you trade up. At a dockmaster, **Ask what changed** gets
 up to three things that happened since you were last there, each about a real event.
+
+The goal banner at the top lists every active goal, newest first, each under who gave
+it and where they are ("Rook Adeyemi · Cinder Hook"). A goal nobody gave doesn't show.
+On the map the banner sits beside the map's title, so both stay readable.
 
 The talk panel at the bottom left shows what people said since you last docked, with
 who and where. It's empty, and hidden, until someone has something to say. When
@@ -88,8 +99,22 @@ region that are off screen show as small markers at the edge. `--goal-marker` (o
 default) is an accessibility aid that also marks the current goal's station, in gold,
 wherever it is.
 
-The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
-rather than clipping, and a market longer than the screen scrolls with the selection.
+The window opens at 1280x720, the size the panels are laid out for, and won't shrink
+below 960x540. Below 1280x720 the panels scale down to fit rather than clipping, and a
+market longer than the screen scrolls with the selection. The panels are laid out
+against each other so none covers another: the hint pill moves right of the talk
+panel when they'd meet, and the talk panel drops its oldest lines rather than run up
+under the goal banner.
+
+### Hints
+
+Hints say the key and what it does, and each is taught a few times, then retires: the
+Space hints for docking, riding a lantern current and mining after you've done each a
+few times, and the "Your hold is full" notice and the mining-speed readout after
+you've seen them a few times (the readout counts each mining rate on its own, so a
+fitted lens shows its new rate again). How many times is data:
+`packs/core/data/hints.toml`. The counts belong to the save: they're kept in the save
+file's own `app_hints` table, beside the world, and never reach the sim or a replay.
 
 Saves are written at calm moments (when you dock, when you pause, when you quit) to a
 per-user folder: `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
@@ -136,7 +161,8 @@ Space, and sell.
    `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
    `~/.local/share/lanternreach/saves` on Linux, and the game's folder under
    `~/Library/Application Support` on macOS. Set `GALAXY_SAVES` to use another folder.
-   Each save keeps its game-master state in a `<save>.gm/` folder beside it.
+   Each save keeps its game-master state in a folder named after it, beside it
+   (`lantern-1.gm/` for `lantern-1.sqlite`), and `gm-inbox/` sits in the saves folder.
 
 ## Named trader traffic
 
@@ -313,9 +339,10 @@ or `--analyzer`, or `$GALAXY_LUAU_ANALYZE`); without it, it rejects unless you p
 `--live` talks to the running `galaxy play` over a local socket (a named pipe on Windows,
 a Unix socket elsewhere): the newest game, or the one playing `--live SAVE`. Only the local
 user can connect. A game master's guide, with the JSON shapes, is
-[GM-AGENTS.md](GM-AGENTS.md). Each save keeps its game-master state in `<save>.gm/` next
-to it, and a running game picks up pack folders dropped into `gm-inbox/` there once
-they hold a `READY` file (write it last).
+[GM-AGENTS.md](GM-AGENTS.md). Each save keeps its game-master state in `<stem>.gm/` next
+to it (`saves/lantern-1.gm/` for `saves/lantern-1.sqlite`), and a running game picks up
+pack folders dropped into `gm-inbox/` beside the saves (`saves/gm-inbox/`) once they
+hold a `READY` file (write it last).
 
 The CLI finds `packs/` through `--packs`, then `$GALAXY_PACKS`, then the nearest
 `packs/core` above the working directory or the executable. Saves go wherever you

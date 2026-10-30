@@ -206,6 +206,14 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     }
     let packs_loaded: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
     let mut session = Session::with_game(game);
+    // How far each hint has taught in this save; a record that can't be read starts
+    // over rather than stopping the game.
+    let rules = ui::HintRules::load(&crate::game::core_data(&opts.packs)).map_err(|e| (4, e))?;
+    let taught = saves::read_hints(choice.path()).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        Default::default()
+    });
+    session.hints = ui::HintBook::new(rules, taught);
     // Staged packs apply now (loading is a calm moment), and the live socket opens.
     let mut save = save;
     let bridge = start_bridge(bridge, &mut session, &mut save);
@@ -259,6 +267,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     // Closes the socket and removes the discovery files.
     drop(bridge);
     let path = saver.path().to_path_buf();
+    saver.save_hints(session.hints.counts().clone());
     let saved = saver.finish(Some(session.state().clone()));
     run.map_err(|e| (1, e.to_string()))?;
     if let Some(e) = error {
@@ -343,8 +352,11 @@ impl App {
         self.session.flagship().and_then(|f| f.docked_at.clone())
     }
 
-    fn autosave(&self) {
+    fn autosave(&mut self) {
         self.saver.save(self.session.state().clone());
+        if self.session.hints.take_changed() {
+            self.saver.save_hints(self.session.hints.counts().clone());
+        }
     }
 
     fn viewport(&self) -> G2 {
@@ -535,7 +547,7 @@ impl ApplicationHandler for App {
         }
         let attrs = Window::default_attributes()
             .with_title("The Lantern Reach")
-            .with_inner_size(LogicalSize::new(1280.0, 760.0))
+            .with_inner_size(LogicalSize::new(ui::DESIGN.x, ui::DESIGN.y))
             .with_min_inner_size(LogicalSize::new(ui::MIN_WINDOW.x, ui::MIN_WINDOW.y));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
