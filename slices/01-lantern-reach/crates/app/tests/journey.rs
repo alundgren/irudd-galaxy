@@ -739,14 +739,15 @@ fn station_services_list_offers_and_refuse_calmly() {
     assert!(s.world().player.fittings.contains(&LENS));
     assert_eq!(s.services.notice, None);
     assert_eq!(s.world().player.credits, 500 * CENTS_PER_CREDIT);
-    // Once fitted it leaves the list.
+    // Once fitted it stays on the list as the player's, with nothing left to buy (#44).
     let services = hooks::station_services(s.world(), s.sim().history(), &WHARF);
-    assert!(
-        services
-            .iter()
-            .flat_map(|e| &e.offers)
-            .all(|o| o.request != ServiceRequest::Fit { upgrade: LENS })
-    );
+    let lens: Vec<_> = services
+        .iter()
+        .flat_map(|e| &e.offers)
+        .filter(|o| o.request == ServiceRequest::Fit { upgrade: LENS })
+        .collect();
+    assert_eq!(lens.len(), 1);
+    assert!(lens[0].owned, "{:?}", lens[0]);
 }
 
 #[test]
@@ -939,6 +940,7 @@ fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
         hooks::station_services(s.world(), s.sim().history(), &WHARF)
             .into_iter()
             .flat_map(|e| e.offers)
+            .filter(|o| !o.owned)
             .map(|o| o.request)
             .collect();
     for u in [
