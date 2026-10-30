@@ -275,9 +275,10 @@ G.beat {
   that cites the beat's fact, handle `on.beat_started` / `on.quest_step` /
   `on.beat_completed` instead: their `ev.fact` exists.
 - A transition and its callback's writes are one batch, checked like a handler's
-  against the world the kernel will apply it to. If it would be rejected (say the
-  player undocked earlier in the tick), none of it applies, the call counts as aborted
-  and later beats don't see it: a successor unlocks only on a completion that commits.
+  against the world the kernel will apply it to. If it would be rejected, none of it
+  applies and later beats don't see it: a successor unlocks only on a completion that
+  commits. A transition that loses to contention (say the player undocked earlier in
+  the tick) doesn't count as an abort; the beat is checked again next tick.
 - `ctx.beats:goal()` is the HUD's one goal line (the newest active beat's).
 
 ## Events
@@ -324,7 +325,19 @@ predicate runs the script and its modules afresh in a fresh Luau state, so
 module-level locals start over every call. What a script must remember goes in
 its declared `stores` (saved with the world).
 - **One cause per call.** A second `ctx:cause` is an error. The call's writes are
-one batch: if any would be rejected, none apply and the call counts as aborted.
+one batch: if any would be rejected, none apply.
+- **Faults and contention.** Only script faults count as aborts toward
+`limits.quarantine_after`: an error, running over the step, memory or write
+quota, an invalid argument, an undeclared hook, or a write that would be
+rejected on the world the call read. A write that is valid there but loses to
+a change made earlier in the tick (the ship undocked, cargo moved, a
+compare-and-set or `Expect*` check failed) is contention and never counts. A
+beat transition or `after.` trigger simply tries again next tick. An `on.`
+handler runs again for the same event next tick, up to
+`limits.contention_retries` times (default 3); if it still loses it is dropped
+with a `script_contention_dropped` fact. The retry reads the world as it is
+then, so check what you rely on (`ctx.beats:pilot().docked_at`) rather than
+letting a hook raise.
 - **Deterministic.** `tostring` and `string.format` print tables, functions and
 buffers as their type name, never an address. `pairs` and `next` refuse tables
 keyed by tables, functions or buffers (their order isn't stable). A generic

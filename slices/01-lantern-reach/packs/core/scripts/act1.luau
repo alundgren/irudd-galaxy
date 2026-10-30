@@ -91,8 +91,14 @@ return G.script({
 			if ev.ship ~= PLAYER or ev.station ~= KETTLE or not ctx.beats:is_active(B03) then
 				return
 			end
+			-- A handover that lost to an undock runs again next tick: it hands over only
+			-- if the player is still at Kettle.
+			local pilot = ctx.beats:pilot()
+			if pilot.docked_at ~= KETTLE then
+				return
+			end
 			local still = tunable(ctx, "b03.ice") - delivered(ctx)
-			local carried = ctx.beats:pilot().cargo[ICE] or 0
+			local carried = pilot.cargo[ICE] or 0
 			local qty = math.min(still, carried)
 			if qty < 1 then
 				return

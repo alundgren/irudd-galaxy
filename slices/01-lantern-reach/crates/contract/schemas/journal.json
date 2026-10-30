@@ -2613,6 +2613,31 @@
         }
       ]
     },
+    "EventEnvelope": {
+      "description": "An emitted event as subscribers see it.",
+      "type": "object",
+      "properties": {
+        "cause": {
+          "$ref": "#/$defs/CauseId"
+        },
+        "event": {
+          "$ref": "#/$defs/Event"
+        },
+        "fact": {
+          "description": "The history fact recorded for this event; cite it.",
+          "$ref": "#/$defs/FactId"
+        },
+        "tick": {
+          "$ref": "#/$defs/Tick"
+        }
+      },
+      "required": [
+        "tick",
+        "fact",
+        "cause",
+        "event"
+      ]
+    },
     "FactDraft": {
       "description": "A fact to record, before the engine assigns its ID, tick and cause.",
       "type": "object",
@@ -2801,6 +2826,25 @@
             "region"
           ]
         }
+      ]
+    },
+    "HandlerRetry": {
+      "description": "An event handler call to run again because its writes lost to contention: a valid\nwrite the projection rejected only because the world changed earlier in the tick.",
+      "type": "object",
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/EventEnvelope"
+        },
+        "lost": {
+          "description": "Times the call has lost so far (the first run included).",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "event",
+        "lost"
       ]
     },
     "Hold": {
@@ -3997,6 +4041,13 @@
             "type": "string"
           },
           "uniqueItems": true
+        },
+        "retries": {
+          "description": "Event handler calls that lost to contention and run again next tick, oldest\nfirst. Kept across a new revision: the event still happened.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HandlerRetry"
+          }
         },
         "revision": {
           "description": "The revision these counts are for; a new revision starts clean.",

@@ -300,7 +300,8 @@ fn a_rejected_completion_never_unlocks_its_successor() {
     host.take_events();
 
     // c01 completes this tick, but the player undocks first: the kernel would reject
-    // the handover, so the host drops it and c02 doesn't see c01 done.
+    // the handover, so the host drops it and c02 doesn't see c01 done. It lost to
+    // contention, so it tries again next tick and nothing counts against the script.
     sim.submit(CommandBatch {
         cause: Cause::system("test_player", "undock"),
         commands: vec![Command::SetShipDocked {
@@ -310,7 +311,16 @@ fn a_rejected_completion_never_unlocks_its_successor() {
     });
     let r = sim.step(&PlayerInput::default()).unwrap();
     assert!(r.rejected.is_empty(), "{:#?}", r.rejected);
-    assert_eq!(aborted(&host), vec!["rejected_write".to_owned()]);
+    let contended: Vec<String> = host
+        .take_events()
+        .into_iter()
+        .filter_map(|e| match e {
+            HostEvent::Aborted { diagnostic, .. } => Some(diagnostic.code),
+            HostEvent::Contended { handler, .. } => Some(handler),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(contended, vec![format!("beat {HAUL}")]);
     assert_eq!(status(&sim, HAUL), Some(BeatStatus::Active));
     assert_eq!(status(&sim, AFTER), None, "the successor stays locked");
     assert!(facts(&sim, "gm.recheck.after").is_empty());

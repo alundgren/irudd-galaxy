@@ -213,18 +213,20 @@ fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
         }],
     });
     // The host checks the call against the queued undock and drops it whole (before
-    // the kernel would reject it at the end of the tick).
+    // the kernel would reject it at the end of the tick). It lost to contention, so it
+    // doesn't count against the script.
     let r = sim.step(&PlayerInput::default()).unwrap();
     assert!(r.rejected.is_empty(), "{:#?}", r.rejected);
-    let aborted: Vec<String> = host
+    let outcomes: Vec<String> = host
         .take_events()
         .into_iter()
         .filter_map(|e| match e {
             HostEvent::Aborted { diagnostic, .. } => Some(diagnostic.code),
+            HostEvent::Contended { handler, .. } => Some(format!("contended {handler}")),
             _ => None,
         })
         .collect();
-    assert_eq!(aborted, vec!["rejected_write".to_owned()]);
+    assert_eq!(outcomes, vec!["contended on.dock".to_owned()]);
     let ship = sim.world().ships.get(&PLAYER).unwrap();
     assert_eq!(ship.hold.count(&ICE), 5, "the cargo stays aboard");
     assert!(facts(&sim, "deliver").is_empty());
@@ -234,4 +236,11 @@ fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
     step(&mut sim, 1);
     assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 0);
     assert_eq!(facts(&sim, "deliver").len(), 1);
+    // The retry ran undocked and handed nothing over; nothing aborted.
+    assert!(
+        !host
+            .take_events()
+            .iter()
+            .any(|e| matches!(e, HostEvent::Aborted { .. }))
+    );
 }

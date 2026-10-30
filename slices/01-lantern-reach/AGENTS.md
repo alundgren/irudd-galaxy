@@ -225,8 +225,20 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   checked against the kernel's invariants before it's submitted, and an error, a write
   that would be rejected, or running over the step, memory or write quota discards all
   of it. The check (`TickCtx::preview`) runs on the world the kernel will apply the
-  batch to: the batches queued ahead of it this tick, and every invariant of the sim. Repeated aborts quarantine the script revision for good (`script_quarantined`
-  fact; reloading the same revision doesn't clear it).
+  batch to: the batches queued ahead of it this tick, and every invariant of the sim.
+- Only **script faults** abort: a Luau error, running over the step, memory or write
+  quota, an invalid argument, an undeclared hook, or a write the check rejects on the
+  world the call read as well. Repeated aborts (`limits.quarantine_after`) quarantine
+  the script revision for good (`script_quarantined` fact; reloading the same revision
+  doesn't clear it). A write that is valid on the world the call read but loses to a
+  change made earlier in the tick (an undock, moved cargo, a compare-and-set or
+  `Expect*` check, a record gone) is **contention**: the host tells them apart by
+  checking the rejected batch again on that world (`host::check`). Contention never
+  counts. A beat transition or trigger tries again next tick; an `on.` handler runs
+  again for the same event next tick, up to `limits.contention_retries` times (default
+  3), then is dropped with a `script_contention_dropped` fact. Pending retries live in
+  `ScriptHealth::retries`, so save and load replay exactly. A retry reads the world as
+  it is then: check what the handler relies on instead of letting a hook raise.
 - Scripts hold no state in Luau: each call runs the script and its modules afresh, so
   locals and upvalues start over. Remember things in a declared store
   (`ctx.store:set(store, key, value, why)`) or read them back from history.
@@ -291,7 +303,8 @@ error.
   examples: `packs/core/scripts/act1.luau` (b01-b03). A transition (with its
   callback's writes) is checked like a handler batch, against the world the kernel
   will apply it to; only one that will commit is visible to later beats that tick, so
-  a successor never unlocks on a completion the kernel would reject. A live `G.test`
+  a successor never unlocks on a completion the kernel would reject. One that loses to
+  contention is checked again next tick and never counts toward quarantine. A live `G.test`
   costs about 0.3 ms a tick (a fresh state per call): list data requirements
   ahead of it, since a list stops at the first that fails.
 - **Data** (all `packs/core/data/`): `upgrades.toml` (upgrades and tenders, costs,

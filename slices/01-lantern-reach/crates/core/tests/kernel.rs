@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use galaxy_contract::pack::{ScriptHealth, ScriptValue};
+use galaxy_contract::pack::{HandlerRetry, ScriptHealth, ScriptValue};
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::{Save, Sim, SimState, System, TickCtx, default_systems, new_game};
@@ -466,6 +466,18 @@ fn undo_records_invert_commands() {
                 aborts: 1,
                 quarantined: false,
                 quarantined_before: ["r0".to_owned()].into(),
+                retries: vec![HandlerRetry {
+                    event: EventEnvelope {
+                        tick: Tick(3),
+                        fact: FactId(7),
+                        cause: CauseId(2),
+                        event: Event::Dock {
+                            ship: ShipId::new("ship.player").unwrap(),
+                            station: StationId::new("station.kettle_dock").unwrap(),
+                        },
+                    },
+                    lost: 1,
+                }],
             },
         },
         Command::SetRevisionRetired {

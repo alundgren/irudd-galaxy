@@ -972,9 +972,14 @@ fn preview_sees_queued_batches_and_added_invariants() {
             stage: 5,
         }),
     );
-    // `step` asserts the kernel rejects nothing: the host caught it first.
+    // `step` asserts the kernel rejects nothing: the host caught it first. Valid on
+    // the world the handler read, it lost to the queued batch: contention, retried.
     step(&mut sim, 1);
     assert_eq!(stage(&sim), 5);
+    assert!(aborts(&host).is_empty());
+    // Run again on the world with Kettle grown, the write breaks the invariant there
+    // too: a fault.
+    step(&mut sim, 1);
     let a = aborts(&host);
     assert_eq!(a.len(), 1, "{a:?}");
     assert_eq!(a[0].0, "rejected_write");
