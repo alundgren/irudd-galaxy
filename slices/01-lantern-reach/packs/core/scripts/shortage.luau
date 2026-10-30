@@ -142,6 +142,8 @@ return G.script({
 				-- A calm moment: the player docked. (Nothing else in core changes the
 				-- Shallows in a big way, so no other change can overlap it.)
 				G.docked(),
+				-- All the ice the player has mined: Shallows ice can't be more.
+				G.sum({ kind = "mine", ship = ids.PLAYER, ware = ids.ICE }, G.tunable(T .. "mined")),
 				G.test(function(ctx: G.Ctx): boolean
 					local rime = ctx.beats:field(ids.RIMEWATER)
 					return rime ~= nil
@@ -193,7 +195,7 @@ return G.script({
 				return
 			end
 			-- Rimewater's rest lasts until it's back to `rest_until` of full.
-			if get(ctx, "rest") == 1 and get(ctx, "way_b") ~= 1 then
+			if get(ctx, "rest") == 1 then
 				local rime = ctx.beats:field(ids.RIMEWATER)
 				if rime ~= nil and rime.left >= util.num(ctx, T .. "rest_until") then
 					end_rest(ctx, ctx:cause({ summary = "Rimewater has rested", cites = { ev.fact } }))

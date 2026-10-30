@@ -139,10 +139,12 @@ return G.script({
 			},
 			done = G.any({
 				G.fact({ kind = "core.rumor_resolved", other = ids.RUMOR }),
-				G.test(function(ctx: G.Ctx): boolean
-					local d = ctx.beats:distance(site(ctx))
-					return d ~= nil and d <= util.num(ctx, "rumor.ember_shoals.follow_radius")
-				end),
+				-- Followed: the player flew within reach of the Shoals.
+				G.near({
+					x = G.tunable("rumor.ember_shoals.x"),
+					y = G.tunable("rumor.ember_shoals.y"),
+					region = ids.CINDER,
+				}, G.tunable("rumor.ember_shoals.follow_radius")),
 			}),
 			on_start = function(ctx: G.Ctx, beat: G.BeatInfo)
 				local t = telling(ctx)

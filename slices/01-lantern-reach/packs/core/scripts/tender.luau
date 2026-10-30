@@ -95,7 +95,13 @@ return G.script({
 				{
 					id = "assign",
 					goal = "Give Thimble one of your loops and a floor price.",
-					done = G.test(thimble_lapped),
+					-- Data first: the predicate runs only once Thimble has sold patiently
+					-- and lapped.
+					done = {
+						G.fact({ kind = "patient_sold", ship = ids.THIMBLE }, { since = "step" }),
+						G.fact({ kind = "loop_lap", ship = ids.THIMBLE }, { since = "step" }),
+						G.test(thimble_lapped),
+					},
 				},
 			},
 			-- Building Thimble already set `cap.automation` (upgrades.toml), so step 3

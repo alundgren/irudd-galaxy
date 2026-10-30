@@ -256,3 +256,343 @@ fn sell_order(ware: &WareId) -> Order {
         floor: None,
     }
 }
+
+const ACT_1: [&str; 5] = [
+    "beat.b01_undock",
+    "beat.b02_mine_by_hand",
+    "beat.b03_first_delivery",
+    "beat.b04_first_sale",
+    "beat.b05_pause",
+];
+const ACT_2: [&str; 5] = [
+    "beat.b06_nav_chip",
+    "beat.b07_cinder_drift",
+    "beat.b08_chasing_a_gap",
+    "beat.b09_hook_dispute",
+    "beat.b10_rumor",
+];
+
+/// Acts 1 and 2 done, with what they earned: the fittings, the control tiers and a
+/// working purse. Where Act 3 starts.
+fn after_act_two(s: &mut Setup<'_>) {
+    s.done(&ACT_1);
+    s.done(&ACT_2);
+    s.fitted(&[
+        LENS,
+        "upgrade.nav_chip",
+        "upgrade.lane_chart",
+        "upgrade.rock_cradle",
+        "upgrade.docking_clamp",
+    ]);
+    s.flags(&["cap.click_fly", "cap.click_mine", "cap.click_dock", "cap.map_travel"]);
+    s.counter(CounterKind::Dockings, 26);
+    s.credits(9000);
+}
+
+fn dock_order(station: &StationId) -> Order {
+    Order::Dock {
+        station: station.clone(),
+    }
+}
+
+fn buy_order(ware: &WareId) -> Order {
+    Order::Buy {
+        ware: ware.clone(),
+        quantity: ALL,
+    }
+}
+
+/// The Wharf plate run: plate from the Wharf, sold at Kettle Dock. Every lap moves
+/// cargo and credits, so it never stalls.
+fn plate_run() -> Vec<Order> {
+    vec![
+        dock_order(&WHARF),
+        buy_order(&PLATE),
+        dock_order(&KETTLE),
+        sell_order(&PLATE),
+    ]
+}
+
+/// Queues `orders` and saves them as the loop `name`.
+fn save_loop(p: &mut Pilot, name: &str, orders: Vec<Order>) {
+    p.orders(orders);
+    let batch = galaxy_ship::controls::save_loop(p.world(), name).expect("the loop saves");
+    p.sim.submit(batch);
+    p.idle(1);
+    p.orders(Vec::new());
+    assert!(p.world().player.loops.contains_key(name));
+}
+
+/// Shuttles between the Wharf and Kettle Dock (counted dockings make pulses at
+/// Kettle) until `done` holds.
+fn shuttle_until(p: &mut Pilot, what: &str, done: impl Fn(&Pilot) -> bool) {
+    for _ in 0..60 {
+        if done(p) {
+            return;
+        }
+        p.go(&WHARF);
+        p.go(&KETTLE);
+    }
+    assert!(done(p), "shuttled too long waiting for {what}");
+}
+
+/// Builds Thimble at Kettle Dock and gives it the plate run with a floor of 40 cr.
+fn thimble_runs_the_plate_run(p: &mut Pilot) {
+    p.go(&KETTLE);
+    p.service(ServiceRequest::Build {
+        craft: "craft.thimble".parse().unwrap(),
+    });
+    assert!(p.world().ships.contains("craft.thimble"));
+    p.idle(3);
+    assert_eq!(p.step_of("beat.b13_first_tender"), Some(2));
+    if !p.world().player.loops.contains_key("wharf plate run") {
+        save_loop(p, "wharf plate run", plate_run());
+    }
+    let batch = galaxy_ship::controls::assign_loop(
+        p.world(),
+        &galaxy_ship::EconomyDesk,
+        &"craft.thimble".parse().unwrap(),
+        "wharf plate run",
+        Some(4000),
+    )
+    .expect("a floor of 40 cr is under Kettle's ceiling");
+    p.sim.submit(batch);
+    p.idle(2);
+    // Thimble's patient sell waits for Kettle's plate price; the player's dockings
+    // and Thimble's own make the pulses that bring it back.
+    shuttle_until(p, "Thimble's lap with a patient sell", |p| {
+        p.is_done("beat.b13_first_tender")
+    });
+}
+
+#[test]
+fn act_three_queues_loops_the_tender_lesson_and_a_new_habit() {
+    let mut p = Pilot::with(31, |s| {
+        after_act_two(s);
+        // Ringwise at 30 dockings, so a habit shows within this act.
+        s.world()
+            .progress
+            .rules
+            .traits
+            .get_mut("trait.ringwise")
+            .unwrap()
+            .times = 30;
+    });
+    p.idle(3);
+
+    // b11: the order slate, four queues for the loop log, then a loop run twice.
+    assert_eq!(p.step_of("beat.b11_orders"), Some(0));
+    p.fit("upgrade.order_slate");
+    p.idle(3);
+    assert_eq!(p.step_of("beat.b11_orders"), Some(1));
+    for _ in 0..4 {
+        let rock = rock_of(&p, &TINROOT);
+        p.run(vec![Order::Mine { rock }, dock_order(&WHARF), sell_order(&ORE)]);
+    }
+    assert_eq!(p.facts("queue_done").len(), 4);
+    p.fit("upgrade.loop_log");
+    p.idle(3);
+    assert_eq!(p.step_of("beat.b11_orders"), Some(2));
+    save_loop(&mut p, "wharf plate run", plate_run());
+    let run = galaxy_ship::controls::run_loop(p.world(), &PLAYER, "wharf plate run").unwrap();
+    p.sim.submit(run);
+    p.wait("four laps of the player's loop", |p| p.facts("loop_lap").len() >= 4);
+    p.orders(Vec::new());
+    p.idle(3);
+    assert!(p.is_done("beat.b11_orders"));
+
+    // b13 step 1: Little Pail's patient sell at Kettle Dock.
+    assert_eq!(p.step_of("beat.b13_first_tender"), Some(0));
+    assert!(p.world().ships.contains("craft.little_pail"));
+    p.go(&WHARF);
+    p.go(&KETTLE);
+    assert!(
+        p.has_fact("core.demo_started"),
+        "Kettle's ice is unsaturated: the demo starts"
+    );
+    shuttle_until(&mut p, "Tamsin's lesson", |p| p.has_fact("core.mechanic_taught"));
+    assert!(p.has_fact("patient_wait"), "Little Pail waited for her floor");
+    assert!(p.heard("npc.tamsin_oddway", "ships came and went, and she sold at"));
+    p.idle(3);
+
+    // Steps 2 and 3: Thimble, and its first lap with a patient sell.
+    thimble_runs_the_plate_run(&mut p);
+    assert!(p.world().player.flags.contains("cap.automation"));
+    assert!(p.facts("patient_sold").iter().any(|f| {
+        f.subjects
+            .ship
+            .as_ref()
+            .is_some_and(|s| s.as_str() == "craft.thimble")
+    }));
+
+    // b14: Orrin names the habit (Ringwise), asked at the Wharf.
+    assert!(p.world().player.traits.contains("trait.ringwise"));
+    p.go(&WHARF);
+    p.idle(3);
+    assert_eq!(p.status("beat.b14_pilot_changes"), Some(BeatStatus::Active));
+    p.reply("npc.orrin_vale", "choice.ask_orrin");
+    p.idle(3);
+    assert!(p.is_done("beat.b14_pilot_changes"));
+    assert!(p.heard("npc.orrin_vale", "You don't dock any more, you arrive."));
+
+    for b in [
+        "beat.b11_orders",
+        "beat.b13_first_tender",
+        "beat.b14_pilot_changes",
+    ] {
+        assert!(p.completed(b), "{b} completed");
+    }
+    p.assert_healthy();
+}
+
+/// Act 2 done and b11 too: where the shortage can start. Rimewater (provisional data)
+/// holds more than the spec's 240 units, so its trigger share is set where 120 mined
+/// crosses it.
+fn before_the_shortage(s: &mut Setup<'_>) {
+    after_act_two(s);
+    s.done(&["beat.b11_orders"]);
+    s.tunable("shortage.rimewater_ice.trigger_left", 0.9);
+}
+
+/// Mines Shallows ice and sells it at the Wharf until the shortage starts.
+fn run_rimewater_dry(p: &mut Pilot) {
+    for _ in 0..12 {
+        if p.status("beat.b12_ice_shortage").is_some() {
+            return;
+        }
+        p.mine_field(&RIMEWATER);
+        p.go(&WHARF);
+        p.sell_all(&ICE);
+        p.idle(3);
+    }
+    assert_eq!(
+        p.status("beat.b12_ice_shortage"),
+        Some(BeatStatus::Active),
+        "the shortage starts once Rimewater is thin"
+    );
+}
+
+fn ice_line(p: &Pilot, station: &StationId) -> MarketLine {
+    p.world().markets.get(station).unwrap().lines[&ICE].clone()
+}
+
+#[test]
+fn the_ice_shortage_starts_from_the_players_mining_and_way_a_ends_it() {
+    let mut p = Pilot::with(41, before_the_shortage);
+    let kettle_base = ice_line(&p, &KETTLE).base_price;
+    run_rimewater_dry(&mut p);
+    let started = p.facts("core.shortage_started");
+    assert_eq!(started.len(), 1);
+    assert_eq!(started[0].amount, Some(40), "way A's quota");
+    // The shock: ice costs more and is drunk faster; Kettle's lamps dim.
+    assert_eq!(ice_line(&p, &KETTLE).base_price, kettle_base * 14 / 10);
+    assert_eq!(ice_line(&p, &KETTLE).consumption_scale, 2.0);
+    assert_eq!(ice_line(&p, &WHARF).base_price, 1400);
+    let kettle = p.world().stations.get(&KETTLE).unwrap();
+    assert!(kettle.build.parts.contains("part.light.dim_green"));
+
+    // Odo offers his two ideas.
+    p.go(&KETTLE);
+    assert!(p.heard("npc.odo_fenn", "I've two ideas"));
+
+    // Way A: ice from Brassmouth, sold at the shortage's stations.
+    while !p.is_done("beat.b12_ice_shortage") {
+        assert!(p.facts("core.relief").len() < 6, "40 units should do it");
+        p.go(&BRASS);
+        p.buy(&ICE, 20);
+        p.go(&KETTLE);
+        p.sell_all(&ICE);
+        p.idle(3);
+    }
+    let resolved = p.facts("core.shortage_resolved");
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].amount, Some(1), "way A");
+    assert!(p.has_fact("core.shortage_helped"));
+    assert_eq!(
+        ice_line(&p, &KETTLE).base_price,
+        kettle_base,
+        "the base is back"
+    );
+    assert_eq!(ice_line(&p, &KETTLE).consumption_scale, 1.0);
+    let kettle = p.world().stations.get(&KETTLE).unwrap();
+    assert!(kettle.build.parts.contains("part.light.warm_green"));
+    assert!(!kettle.build.parts.contains("part.light.dim_green"));
+    assert!(p.facts("standing_changed").iter().any(|f| {
+        f.subjects
+            .other
+            .as_ref()
+            .is_some_and(|o| o.as_str() == "deed.shortage.ice_road")
+    }));
+    // Odo names it at the next Kettle docking.
+    p.go(&WHARF);
+    p.go(&KETTLE);
+    assert!(p.heard("npc.odo_fenn", "Ice from outside the Shallows."));
+    p.assert_healthy();
+}
+
+#[test]
+fn letting_rimewater_rest_and_a_condenser_is_way_b() {
+    let mut p = Pilot::with(42, before_the_shortage);
+    run_rimewater_dry(&mut p);
+    let regrow = p.world().fields.get(&RIMEWATER).unwrap().regrow;
+    p.go(&KETTLE);
+    p.reply("npc.odo_fenn", "choice.rimewater_rest");
+    assert!(p.has_fact("core.shortage_rest"));
+    assert_eq!(
+        p.world().fields.get(&RIMEWATER).unwrap().regrow,
+        regrow * 4.0
+    );
+
+    // 20 plate for the condenser, sold at Kettle's plate price.
+    let drink = ice_line(&p, &KETTLE).consumption;
+    p.go(&WHARF);
+    p.buy(&PLATE, 20);
+    p.go(&KETTLE);
+    p.sell_all(&PLATE);
+    p.idle(3);
+    assert!(p.is_done("beat.b12_ice_shortage"));
+    assert_eq!(
+        p.facts("core.shortage_resolved")[0].amount,
+        Some(2),
+        "way B"
+    );
+    let kettle = p.world().stations.get(&KETTLE).unwrap();
+    assert!(kettle.build.parts.contains("part.kettle.condenser"));
+    assert_eq!(
+        ice_line(&p, &KETTLE).consumption,
+        drink - 2,
+        "the condenser's drink"
+    );
+
+    // Rimewater was already past 80% full: the rest ends at the next docking.
+    p.go(&WHARF);
+    assert_eq!(p.world().fields.get(&RIMEWATER).unwrap().regrow, regrow);
+    p.assert_healthy();
+}
+
+#[test]
+fn an_ignored_shortage_ends_when_the_compact_brings_ice() {
+    let mut p = Pilot::with(43, |s| {
+        before_the_shortage(s);
+        // A few Kettle pulses stand in for the forty (pacing is data).
+        s.tunable("shortage.rimewater_ice.ignored_pulses", 3.0);
+    });
+    run_rimewater_dry(&mut p);
+    let stock = ice_line(&p, &KETTLE).stock;
+    shuttle_until(&mut p, "the Compact's ice", |p| {
+        p.is_done("beat.b12_ice_shortage")
+    });
+    let resolved = p.facts("core.shortage_resolved");
+    assert_eq!(resolved[0].amount, Some(0), "ignored");
+    assert_eq!(
+        resolved[0].subjects.faction.as_ref().map(|f| f.as_str()),
+        Some("faction.tollway_compact")
+    );
+    assert!(
+        ice_line(&p, &KETTLE).stock > stock,
+        "the Compact's barge brought ice"
+    );
+    p.go(&WHARF);
+    assert!(p.heard("npc.ilse_marrow", "The Compact brought ice in."));
+    p.assert_healthy();
+}

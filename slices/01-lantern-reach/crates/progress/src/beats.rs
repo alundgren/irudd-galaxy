@@ -307,6 +307,11 @@ pub fn references(
         | R::Credits { at_least }
         | R::Cargo { at_least, .. }
         | R::HoldFree { at_least } => num(at_least),
+        R::Near { x, y, within, .. } => {
+            num(x);
+            num(y);
+            num(within);
+        }
         R::TunableIs { tunable, .. } => {
             tunables.insert(tunable.clone());
         }

@@ -476,6 +476,8 @@ export type Galaxy = {
 	docked_at: (station: StationId) -> Requirement,
 	docked: () -> Requirement,
 	in_region: (region: RegionId) -> Requirement,
+	-- The player is in the spot's region, within `within` u of it.
+	near: (spot: { x: Num, y: Num, region: RegionId }, within: Num) -> Requirement,
 	-- Regard at least this tier (`stranger`, `known`, `trusted`, `kin`).
 	regard: (faction: FactionId, tier: string) -> Requirement,
 	tunable_is: (id: TunableId, value: TunableValue) -> Requirement,

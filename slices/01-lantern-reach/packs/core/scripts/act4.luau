@@ -123,6 +123,8 @@ return G.script({
 			goal = "Ilse wants to hear how the new hull flies. Ask her what changed while you were out.",
 			requires = {
 				G.done(ids.B16),
+				-- Dockings only change at a docking: check while docked.
+				G.docked(),
 				G.test(function(ctx: G.Ctx): boolean
 					local n, outside = away(ctx)
 					return n >= util.num(ctx, "b17.dockings_elsewhere") and outside

@@ -148,6 +148,18 @@ impl<'a> Eval<'a> {
             R::DockedAt(st) => ship.is_some_and(|s| s.docked_at.as_ref() == Some(st)),
             R::Docked => ship.is_some_and(|s| s.docked_at.is_some()),
             R::InRegion(r) => ship.is_some_and(|s| &s.region == r),
+            R::Near {
+                region,
+                x,
+                y,
+                within,
+            } => match ship.filter(|s| &s.region == region) {
+                Some(s) => {
+                    let at = Vec2::new(self.num(x)? as f32, self.num(y)? as f32);
+                    f64::from(s.position.distance(at)) <= self.num(within)?
+                }
+                None => false,
+            },
             R::Regard { faction, at_least } => {
                 match (
                     crate::standing::tier_index(w, faction),

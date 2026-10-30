@@ -1515,6 +1515,8 @@ const BEAT_BUILDERS: &str = "\
 \tdocked_at: (station: StationId) -> Requirement,\n\
 \tdocked: () -> Requirement,\n\
 \tin_region: (region: RegionId) -> Requirement,\n\
+\t-- The player is in the spot's region, within `within` u of it.\n\
+\tnear: (spot: { x: Num, y: Num, region: RegionId }, within: Num) -> Requirement,\n\
 \t-- Regard at least this tier (`stranger`, `known`, `trusted`, `kin`).\n\
 \tregard: (faction: FactionId, tier: string) -> Requirement,\n\
 \ttunable_is: (id: TunableId, value: TunableValue) -> Requirement,\n\
@@ -1678,7 +1680,7 @@ G.beat {
 - Requirements never name a time. Build them with `G.all`, `G.any`, `G.never`,
   `G.done`, `G.started`, `G.active`, `G.at_step`, `G.counter`, `G.fact`, `G.sum`,
   `G.flag`, `G.trait`, `G.fitted`, `G.hull`, `G.owns`, `G.credits`, `G.cargo`,
-  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.regard`,
+  `G.hold_free`, `G.docked_at`, `G.docked`, `G.in_region`, `G.near`, `G.regard`,
   `G.tunable_is`, and `G.test(function(ctx) return ... end)` for anything else (read
   only). A list of requirements means all of them. `G.fact`/`G.sum` take
   `{ since = \"start\" }` or `\"step\"` to count only facts after the beat or step began.

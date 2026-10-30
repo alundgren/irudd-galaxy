@@ -199,6 +199,14 @@ pub enum Requirement {
     Docked,
     /// The player ship is in this region.
     InRegion(RegionId),
+    /// The player ship is in `region`, within `within` u of (`x`, `y`): it went
+    /// somewhere (a rumored vein, a buoy). Any of the numbers can be a tunable.
+    Near {
+        region: RegionId,
+        x: Num,
+        y: Num,
+        within: Num,
+    },
     /// The player's regard with a faction is at least this tier (by tier ID).
     Regard {
         faction: FactionId,
