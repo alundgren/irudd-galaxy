@@ -90,15 +90,29 @@ enum Cmd {
         #[command(subcommand)]
         command: PackCmd,
     },
-    /// Game-master bridge (not implemented yet).
+    /// The game-master bridge: digest, propose, status, rollback.
     Gm {
         #[command(subcommand)]
         command: GmCmd,
     },
-    /// Render a save headless to a PNG, with the same scene and panels as play.
+    /// Stream the running game's events as JSON lines (live only).
+    Watch {
+        #[command(flatten)]
+        live: LiveArg,
+        /// Replay facts after this one first (`fact.N`).
+        #[arg(long)]
+        since: Option<String>,
+        /// Stop after this many items.
+        #[arg(long)]
+        count: Option<u64>,
+    },
+    /// Render a save headless to a PNG, with the same scene and panels as play; or, with
+    /// `--live`, what the running game shows right now.
     Shot {
         #[arg(long)]
-        save: PathBuf,
+        save: Option<PathBuf>,
+        #[command(flatten)]
+        live: LiveArg,
         #[arg(long)]
         out: PathBuf,
         /// Show the map instead of the world.
@@ -146,18 +160,46 @@ enum SimCmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// One sandbox run (the child process `gm propose` starts): fly the activity bot on
+    /// a fork with these packs and print what happened. Never writes the save.
+    Sandbox {
+        #[arg(long)]
+        save: PathBuf,
+        /// A pack folder to run (repeat).
+        #[arg(long = "pack")]
+        packs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 6)]
+        dockings: u32,
+        #[arg(long, default_value_t = 3000)]
+        ticks_per_docking: u64,
+    },
 }
 
 #[derive(Subcommand)]
 enum StateCmd {
     /// Print the world state, or part of it.
     Get {
-        #[arg(long)]
-        save: PathBuf,
-        /// Slash-separated path into the world, e.g. `stations` or
-        /// `stations/station.kettle_dock/build`.
+        #[command(flatten)]
+        target: TargetArgs,
+        /// A path into the world: dotted (`stations.station.kettle_dock.build`; IDs
+        /// keep their dots) or slash-separated (`stations/station.kettle_dock/build`).
         #[arg(long)]
         path: Option<String>,
+    },
+    /// Records of one store matching filters.
+    Query {
+        /// The store: `stations`, `ships`, `npcs`, `markets`, `rocks`, `rumors` ...
+        store: String,
+        #[command(flatten)]
+        target: TargetArgs,
+        /// `field=value` (or `field~text`, a substring); repeat for more.
+        #[arg(long = "where")]
+        filters: Vec<String>,
+        /// Only these fields, comma-separated.
+        #[arg(long, value_delimiter = ',')]
+        fields: Vec<String>,
+        #[arg(long)]
+        limit: Option<usize>,
     },
 }
 
@@ -165,11 +207,28 @@ enum StateCmd {
 enum HistoryCmd {
     /// Facts matching filters, oldest first.
     Query {
-        #[arg(long)]
-        save: PathBuf,
+        #[command(flatten)]
+        target: TargetArgs,
         #[command(flatten)]
         filter: HistoryFilter,
     },
+}
+
+/// `--save PATH` or `--live [SAVE]`.
+#[derive(Args)]
+struct TargetArgs {
+    /// Read or change this save file.
+    #[arg(long)]
+    save: Option<PathBuf>,
+    #[command(flatten)]
+    live: LiveArg,
+}
+
+#[derive(Args)]
+struct LiveArg {
+    /// Talk to the running game: the newest one, or the one playing SAVE.
+    #[arg(long, num_args = 0..=1, value_name = "SAVE")]
+    live: Option<Option<PathBuf>>,
 }
 
 #[derive(Args)]
@@ -185,9 +244,9 @@ struct HistoryFilter {
     ware: Option<String>,
     #[arg(long)]
     region: Option<String>,
-    /// Facts at or after this tick.
+    /// `fact.N`: facts after that fact. A bare number: facts at or after that tick.
     #[arg(long)]
-    since: Option<u64>,
+    since: Option<String>,
     /// Facts at or before this tick.
     #[arg(long)]
     until: Option<u64>,
@@ -240,8 +299,47 @@ enum PackCmd {
 
 #[derive(Subcommand)]
 enum GmCmd {
-    Propose(Rest),
-    Rollback(Rest),
+    /// What changed since a fact, by place and person, citing fact IDs.
+    Digest {
+        #[command(flatten)]
+        target: TargetArgs,
+        /// `fact.N` (the last digest's `until`); everything without.
+        #[arg(long)]
+        since: Option<String>,
+    },
+    /// Validate a pack in full (fast checks, sandbox run, legibility) and stage it for
+    /// the next calm moment (live) or the next load (save). Exit 5 if rejected.
+    Propose {
+        /// The pack folder.
+        dir: PathBuf,
+        #[command(flatten)]
+        target: TargetArgs,
+        /// Live: wait until it applies and report the change ID.
+        #[arg(long)]
+        wait: bool,
+        /// Seconds `--wait` waits.
+        #[arg(long, default_value_t = 600)]
+        timeout: u64,
+        /// Dockings each sandbox run flies.
+        #[arg(long, default_value_t = 6)]
+        dockings: u32,
+        #[arg(long)]
+        analyzer: Option<PathBuf>,
+        /// Skip the strict typecheck with a warning when `luau-analyze` is missing.
+        #[arg(long)]
+        no_typecheck: bool,
+    },
+    /// Applied, staged and quarantined packs.
+    Status {
+        #[command(flatten)]
+        target: TargetArgs,
+    },
+    /// In-world rollback of a change (`cause.N` or `stage.N`).
+    Rollback {
+        change: String,
+        #[command(flatten)]
+        target: TargetArgs,
+    },
 }
 
 /// Accepts anything, so stubs can be filled in without breaking callers.
@@ -281,6 +379,41 @@ impl Fail {
     }
 }
 
+impl Fail {
+    fn usage(message: impl Into<String>) -> Self {
+        Fail {
+            code: 2,
+            kind: "usage",
+            message: message.into(),
+            command: None,
+            body: None,
+        }
+    }
+}
+
+impl From<gm::CliError> for Fail {
+    fn from(e: gm::CliError) -> Self {
+        let kind = match e.code {
+            1 => "runtime",
+            2 => "usage",
+            4 => "bad_input",
+            5 => "rejected",
+            _ => "error",
+        };
+        Fail {
+            code: e.code,
+            kind,
+            message: if e.kind.is_empty() || e.kind == kind {
+                e.message
+            } else {
+                format!("{} ({})", e.message, e.kind)
+            },
+            command: None,
+            body: e.body,
+        }
+    }
+}
+
 impl From<SaveError> for Fail {
     fn from(e: SaveError) -> Self {
         let input = matches!(
@@ -314,12 +447,41 @@ fn main() -> ExitCode {
                     dry_run,
                 },
         } => sim_run(&save, ticks, dry_run),
+        Cmd::Sim {
+            command:
+                SimCmd::Sandbox {
+                    save,
+                    packs,
+                    dockings,
+                    ticks_per_docking,
+                },
+        } => sim_sandbox(save, packs, dockings, ticks_per_docking),
         Cmd::State {
-            command: StateCmd::Get { save, path },
-        } => state_get(&save, path.as_deref()),
+            command: StateCmd::Get { target, path },
+        } => with_target(target, |t| gm::state_get(t, path.as_deref())),
+        Cmd::State {
+            command:
+                StateCmd::Query {
+                    store,
+                    target,
+                    filters,
+                    fields,
+                    limit,
+                },
+        } => with_target(target, |t| {
+            gm::state_query(
+                t,
+                &galaxy_gm::reads::StateQuery {
+                    store,
+                    filters,
+                    fields,
+                    limit,
+                },
+            )
+        }),
         Cmd::History {
-            command: HistoryCmd::Query { save, filter },
-        } => history_query(&save, filter),
+            command: HistoryCmd::Query { target, filter },
+        } => history_query(target, filter),
         Cmd::Api {
             command: ApiCmd::Dump { name },
         } => api_dump(name.as_deref()),
@@ -356,20 +518,65 @@ fn main() -> ExitCode {
             command: PackCmd::Test { dir },
         } => pack_test(&dir),
         Cmd::Gm {
-            command: GmCmd::Propose(_),
-        } => not_implemented("gm propose"),
+            command: GmCmd::Digest { target, since },
+        } => parse_fact(since).and_then(|since| with_target(target, |t| gm::digest(t, since))),
         Cmd::Gm {
-            command: GmCmd::Rollback(_),
-        } => not_implemented("gm rollback"),
+            command:
+                GmCmd::Propose {
+                    dir,
+                    target,
+                    wait,
+                    timeout,
+                    dockings,
+                    analyzer,
+                    no_typecheck,
+                },
+        } => {
+            let opts = galaxy_gm::ProposeOptions {
+                exe: std::env::current_exe().unwrap_or_else(|_| "galaxy".into()),
+                analyzer: galaxy_script::analyzer::find(analyzer.as_deref()),
+                require_typecheck: !no_typecheck,
+                rules: galaxy_gm::SandboxRules {
+                    dockings,
+                    ..galaxy_gm::SandboxRules::default()
+                },
+            };
+            let wait = wait.then(|| std::time::Duration::from_secs(timeout));
+            with_target(target, |t| gm::propose(t, &dir, &opts, wait))
+        }
+        Cmd::Gm {
+            command: GmCmd::Status { target },
+        } => with_target(target, gm::status),
+        Cmd::Gm {
+            command: GmCmd::Rollback { change, target },
+        } => with_target(target, |t| gm::rollback(t, &change, game)),
+        Cmd::Watch { live, since, count } => watch(live, since, count),
+        Cmd::Shot {
+            live: LiveArg { live: Some(live) },
+            out,
+            ..
+        } => gm::connect(
+            live.as_deref(),
+            registry().as_deref(),
+            Some(gm::CALL_TIMEOUT),
+        )
+        .and_then(|mut c| gm::shot_live(&mut c, &out))
+        .map_err(Fail::from),
         Cmd::Shot {
             save,
+            live: LiveArg { live: None },
             out,
             map,
             size,
             zoom,
             keys,
             write,
-        } => shot(save, out, map, &size, zoom, keys, write),
+        } => match save {
+            Some(save) => shot(save, out, map, &size, zoom, keys, write),
+            None => Err(Fail::usage(
+                "pass --save PATH, or --live for the running game",
+            )),
+        },
         Cmd::Mind {
             command: MindCmd::Try { packs },
         } => mind_try(packs.packs),
@@ -540,6 +747,15 @@ use galaxy_app::game::game;
 fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
     let mut save = Save::open(path)?;
     let mut sim = game(save.load()?);
+    // The packs the game master applied run here too, and staged ones apply on this
+    // load (a calm moment), unless it's a dry run.
+    let mut bridge = galaxy_gm::Bridge::open(path, &mut sim, galaxy_gm::BridgeOptions::default())
+        .map_err(Fail::input)?;
+    let gm_applied = if dry_run {
+        Vec::new()
+    } else {
+        bridge.apply_staged(&mut sim, &mut save)
+    };
     let start = sim.tick();
     let input = PlayerInput::default();
     let (mut applied, mut events) = (0usize, 0usize);
@@ -553,7 +769,10 @@ fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
         rejected.extend(report.rejected);
     }
     if !dry_run {
+        // The save first: state.json never runs ahead of it (and if it did, the next
+        // load would reconcile it).
         save.write(sim.state())?;
+        bridge.after_tick(&sim);
     }
     Ok(json!({
         "from_tick": start,
@@ -565,25 +784,24 @@ fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
         "rejected_count": rejected.len(),
         "rejected": rejected.iter().take(20).collect::<Vec<_>>(),
         "saved": !dry_run,
+        "gm_applied": gm_applied,
+        "gm_notes": bridge.notes,
     }))
 }
 
-fn state_get(path: &Path, sub: Option<&str>) -> Out {
-    let world = Save::open(path)?.world_json()?;
-    let Some(sub) = sub.filter(|s| !s.is_empty() && *s != "/") else {
-        return Ok(world);
-    };
-    let pointer: String = if sub.starts_with('/') {
-        sub.to_owned()
-    } else {
-        sub.split('/')
-            .map(|seg| format!("/{}", seg.replace('~', "~0")))
-            .collect()
-    };
-    world
-        .pointer(&pointer)
-        .cloned()
-        .ok_or_else(|| Fail::input(format!("no `{sub}` in the world state")))
+use galaxy_gm::cli as gm;
+
+/// The per-user registry of running games.
+fn registry() -> Option<PathBuf> {
+    galaxy_app::saves::live_registry()
+}
+
+fn with_target(
+    t: TargetArgs,
+    f: impl FnOnce(&mut gm::Target) -> Result<Value, gm::CliError>,
+) -> Out {
+    let mut target = gm::target(t.save, t.live.live, registry().as_deref())?;
+    Ok(f(&mut target)?)
 }
 
 fn parse<T: std::str::FromStr>(v: Option<String>) -> Result<Option<T>, Fail>
@@ -594,20 +812,63 @@ where
         .transpose()
 }
 
-fn history_query(path: &Path, f: HistoryFilter) -> Out {
+fn parse_fact(v: Option<String>) -> Result<Option<FactId>, Fail> {
+    parse(v)
+}
+
+fn history_query(target: TargetArgs, f: HistoryFilter) -> Out {
+    // `--since fact.N` pages by fact; a bare number is a tick.
+    let (after, since) = match f.since {
+        Some(s) if s.starts_with("fact.") => (parse_fact(Some(s))?, None),
+        Some(s) => {
+            let tick = s
+                .parse::<u64>()
+                .map_err(|_| Fail::input(format!("--since `{s}` should be fact.N or a tick")))?;
+            (None, Some(Tick(tick)))
+        }
+        None => (None, None),
+    };
     let q = HistoryQuery {
         kind: parse(f.kind)?,
         ship: parse(f.ship)?,
         station: parse(f.station)?,
         ware: parse(f.ware)?,
         region: parse(f.region)?,
-        since: f.since.map(Tick),
+        since,
+        after,
         until: f.until.map(Tick),
         limit: f.limit,
         ..HistoryQuery::default()
     };
-    let facts = Save::open(path)?.query_history(&q)?;
-    Ok(json!({ "count": facts.len(), "facts": facts }))
+    with_target(target, |t| gm::history_query(t, &q))
+}
+
+/// Prints each stream item as a JSON line (the one command whose output is a stream).
+fn watch(live: LiveArg, since: Option<String>, count: Option<u64>) -> Out {
+    let Some(live) = live.live else {
+        return Err(Fail::usage("watch streams the running game: pass --live"));
+    };
+    let since = parse_fact(since)?;
+    let mut client = gm::connect(live.as_deref(), registry().as_deref(), None)?;
+    gm::watch(&mut client, since, count, |item| println!("{item}"))?;
+    std::process::exit(0);
+}
+
+fn sim_sandbox(save: PathBuf, packs: Vec<PathBuf>, dockings: u32, ticks_per_docking: u64) -> Out {
+    let args = galaxy_gm::sandbox::ChildArgs {
+        save,
+        packs,
+        dockings,
+        ticks_per_docking,
+    };
+    let run = galaxy_gm::sandbox::run_child(&args, game).map_err(|e| Fail {
+        code: 1,
+        kind: "sandbox",
+        message: e,
+        command: None,
+        body: None,
+    })?;
+    Ok(serde_json::to_value(run).expect("runs serialize"))
 }
 
 fn api_dump(name: Option<&str>) -> Out {

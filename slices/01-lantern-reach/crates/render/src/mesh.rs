@@ -18,6 +18,11 @@ pub struct Vertex {
     /// Paint colour (linear RGB). Alpha is the glow amount: 0 is lit by the scene's lights,
     /// 1 is fully self-lit (windows, engines, greenhouse lamps).
     pub color: [f32; 4],
+    /// World-space size of the facet that owns this vertex, in mesh units.
+    /// `x` is the minor span (a sliver's thickness, or the shorter side of a plate).
+    /// `y` is the major span. The renderer fades inner ink and thins the silhouette
+    /// when these cover only a few pixels, and skips the facet below about one pixel.
+    pub span: [f32; 2],
 }
 
 /// Triangle mesh data. Front faces wind counter-clockwise.
@@ -64,6 +69,10 @@ impl MeshData {
                     && unit(v.normal)
                     && unit(v.outline_normal)
                     && v.color.iter().all(|c| c.is_finite())
+                    && v.span[0].is_finite()
+                    && v.span[1].is_finite()
+                    && v.span[0] >= 0.0
+                    && v.span[1] >= v.span[0]
             })
     }
 }
@@ -129,6 +138,7 @@ impl MeshBuilder {
         let snap = |p: Vec3| (p * 1e4).round() / 1e4;
         (a, b, c) = (snap(a), snap(b), snap(c));
         let color = [self.color.r, self.color.g, self.color.b, self.glow];
+        let span = facet_span(a, b, c);
         let base = self.mesh.vertices.len() as u32;
         for p in [a, b, c] {
             self.mesh.vertices.push(Vertex {
@@ -136,6 +146,7 @@ impl MeshBuilder {
                 normal: n.into(),
                 outline_normal: n.into(),
                 color,
+                span,
             });
         }
         self.mesh.indices.extend([base, base + 1, base + 2]);
@@ -306,6 +317,10 @@ impl MeshBuilder {
         let m = self.transform;
         let nm = Mat3::from_mat4(m).inverse().transpose();
         let flip = m.determinant() < 0.0;
+        let axis = |v: glam::Vec4| Vec3::new(v.x, v.y, v.z).length();
+        let (sx, sy, sz) = (axis(m.x_axis), axis(m.y_axis), axis(m.z_axis));
+        let smin = sx.min(sy).min(sz);
+        let smax = sx.max(sy).max(sz);
         for v in &other.vertices {
             let tf = |n: [f32; 3]| (nm * Vec3::from(n)).normalize_or(Vec3::Z).into();
             self.mesh.vertices.push(Vertex {
@@ -313,6 +328,7 @@ impl MeshBuilder {
                 normal: tf(v.normal),
                 outline_normal: tf(v.outline_normal),
                 color: v.color,
+                span: [v.span[0] * smin, v.span[1] * smax],
             });
         }
         for &[a, b, c] in other.indices.as_chunks::<3>().0 {
@@ -331,6 +347,26 @@ impl MeshBuilder {
         compute_outline_normals(&mut mesh);
         mesh
     }
+}
+
+/// Minor and major world-space spans of a triangle.
+///
+/// A near-zero axis is the face plane, not the part's thickness: a plate keeps the
+/// shorter of its two large sides, and a rib keeps its thickness.
+fn facet_span(a: Vec3, b: Vec3, c: Vec3) -> [f32; 2] {
+    let lo = a.min(b.min(c));
+    let hi = a.max(b.max(c));
+    let ext = hi - lo;
+    let mut axes = [ext.x.abs(), ext.y.abs(), ext.z.abs()];
+    axes.sort_by(|l, r| l.total_cmp(r));
+    let longest = axes[2].max(1e-4);
+    let minor = if axes[0] < longest * 0.2 {
+        axes[1]
+    } else {
+        axes[0]
+    };
+    let minor = minor.max(1e-4);
+    [minor, longest.max(minor)]
 }
 
 /// Recomputes [`Vertex::outline_normal`] as the average of the distinct face normals that
@@ -394,6 +430,30 @@ mod tests {
                 / 3.0;
             assert!(centroid.dot(Vec3::from(v.normal)) > 0.0);
         }
+    }
+
+    #[test]
+    fn span_keeps_a_rib_thin_and_a_plate_broad() {
+        let mut rib = MeshBuilder::new();
+        rib.cuboid(Vec3::new(8.0, 0.2, 0.2));
+        let rib = rib.build();
+        let minor = rib
+            .vertices
+            .iter()
+            .map(|v| v.span[0])
+            .fold(f32::MAX, f32::min);
+        let major = rib.vertices.iter().map(|v| v.span[1]).fold(0.0, f32::max);
+        assert!(minor < 0.35, "rib thickness {minor}");
+        assert!(major > 7.0, "rib length {major}");
+
+        let mut plate = MeshBuilder::new();
+        plate.cuboid(Vec3::new(10.0, 8.0, 0.3));
+        let plate = plate.build();
+        let plate_minor = plate.vertices.iter().map(|v| v.span[0]).fold(0.0, f32::max);
+        assert!(
+            plate_minor > 6.0,
+            "a flat plate is not a sliver, minor {plate_minor}"
+        );
     }
 
     #[test]

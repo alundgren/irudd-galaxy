@@ -398,12 +398,12 @@ impl Sim {
                     UndoRecord::Compensate { .. } => {}
                 }
             }
-            if !batch.commands.is_empty() {
-                if fresh.contains(&entry.cause) {
-                    plan.batches += 1;
-                }
-                batches.push(batch);
+            if !batch.commands.is_empty() && fresh.contains(&entry.cause) {
+                plan.batches += 1;
             }
+            // Queued even with nothing to invert (only compensations): committing it
+            // is what marks the cause rolled back.
+            batches.push(batch);
         }
         let pending = std::mem::take(&mut self.state.kernel.pending);
         let at = pending

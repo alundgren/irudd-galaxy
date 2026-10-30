@@ -1,0 +1,26 @@
+[package]
+name = "galaxy-gm"
+description = "The game-master bridge: the live socket, digest, propose with a sandbox run, calm-moment staging, rollback."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+galaxy-contract.workspace = true
+galaxy-core.workspace = true
+galaxy-economy.workspace = true
+galaxy-script.workspace = true
+galaxy-ship.workspace = true
+blake3.workspace = true
+getrandom.workspace = true
+interprocess.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+
+[lints]
+workspace = true
