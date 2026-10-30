@@ -701,10 +701,7 @@ fn station_services_list_offers_and_refuse_calmly() {
         .find(|o| o.request == ServiceRequest::Fit { upgrade: LENS })
         .expect("the lens is on Orrin's list after b03");
     assert_eq!(lens.price, "600 cr");
-    assert_eq!(
-        lens.effect,
-        "You mine half again as fast: a hold fills in two thirds the time"
-    );
+    assert_eq!(lens.effect, "You mine half again as fast");
     assert_eq!(
         lens.blocked.as_deref(),
         Some("Mining lens costs 600 cr. You have 100 cr.")

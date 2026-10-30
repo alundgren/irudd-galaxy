@@ -778,7 +778,8 @@ pub struct Notices<'a> {
     pub fitted: Option<&'a str>,
 }
 
-const OFFER_ROW: f32 = 50.0;
+/// An offer: its name and price, what it does, and what stands in the way, if anything.
+const OFFER_ROW: f32 = 68.0;
 const SERVICE_HEAD: f32 = 26.0;
 const ASK_ROW: f32 = 42.0;
 /// The services pager: "Services 2–4 of 6" with Up and Down.
@@ -1157,17 +1158,21 @@ pub fn dock_panel(
                     )
                     .weight(600),
                 );
-                let detail = offer.blocked.as_deref().unwrap_or(&offer.effect);
+                // What it does always shows, even before you can buy it.
                 o.texts.push(
-                    Text::new(detail, G2::new(col_ware, y + 24.0), 14.0)
+                    Text::new(offer.effect.as_str(), G2::new(col_ware, y + 23.0), 14.0)
                         .weight(500)
-                        .color(if offer.blocked.is_some() {
-                            palette::TERRACOTTA
-                        } else {
-                            palette::INK.with_alpha(0.7)
-                        })
+                        .color(palette::INK.with_alpha(0.75))
                         .wrap(w - 48.0 - 140.0),
                 );
+                if let Some(blocked) = offer.blocked.as_deref() {
+                    o.texts.push(
+                        Text::new(blocked, G2::new(col_ware, y + 43.0), 13.0)
+                            .weight(600)
+                            .color(palette::TERRACOTTA)
+                            .wrap(w - 48.0 - 140.0),
+                    );
+                }
                 let (label, action) = match &offer.request {
                     ServiceRequest::Prestige { to } => ("Trade up", UiAction::Prestige(to.clone())),
                     ServiceRequest::Build { .. } => {

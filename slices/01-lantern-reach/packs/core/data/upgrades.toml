@@ -9,7 +9,7 @@
 [[upgrade]]
 id = "upgrade.mining_lens"
 name = "Mining lens"
-effect = "You mine half again as fast: a hold fills in two thirds the time"
+effect = "You mine half again as fast"
 cost = 600
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -19,7 +19,7 @@ modifiers = [{ modifier = "mining_rate", factor = 1.5 }]
 [[upgrade]]
 id = "upgrade.nav_chip"
 name = "Nav chip"
-effect = "Click a point near your ship and it flies there; any W A S D takes it back"
+effect = "Click a point near your ship and it flies there"
 cost = 225
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -33,7 +33,7 @@ all = [
 [[upgrade]]
 id = "upgrade.rock_cradle"
 name = "Rock cradle"
-effect = "Click a rock and your ship flies over and mines it until the hold is full or the rock is spent"
+effect = "Click a rock and your ship flies over and mines it"
 cost = 700
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -47,7 +47,7 @@ all = [
 [[upgrade]]
 id = "upgrade.docking_clamp"
 name = "Docking clamp"
-effect = "Click a station and your ship flies into its ring and docks"
+effect = "Click a station and your ship flies in and docks"
 cost = 700
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -62,7 +62,7 @@ all = [
 [[upgrade]]
 id = "upgrade.lane_chart"
 name = "Lane chart"
-effect = "Click a place on the map and your ship travels there, through the lanes"
+effect = "Click a place on the map and your ship goes there"
 cost = 0
 seller = "npc.rook_adeyemi"
 station = "station.cinder_hook"
@@ -73,7 +73,7 @@ unlock = { beat_done = "beat.b07_cinder_drift" }
 [[upgrade]]
 id = "upgrade.hold_extender"
 name = "Hold extender"
-effect = "Your hold carries 10 more units, in any hull"
+effect = "Your hold carries 10 more, in any hull"
 cost = 1500
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -84,7 +84,7 @@ modifiers = [{ modifier = "hold", units = 10 }]
 [[upgrade]]
 id = "upgrade.price_glass"
 name = "Price glass"
-effect = "Shows live prices at every station within 1200 u, on the map"
+effect = "Live prices at stations within 1200 u, on the map"
 cost = 1800
 seller = "npc.hesper_lune"
 station = "station.glass_drift_observatory"
@@ -103,7 +103,7 @@ all = [
 [[upgrade]]
 id = "upgrade.order_slate"
 name = "Order slate"
-effect = "Shift-click to line up orders; your ship works through them in turn"
+effect = "Shift-click to line up orders; they run in turn"
 cost = 2000
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -119,7 +119,7 @@ all = [
 [[upgrade]]
 id = "upgrade.loop_log"
 name = "Loop log"
-effect = "Save a line of orders as a loop that repeats until you stop it"
+effect = "Save a line of orders as a loop that repeats"
 cost = 0
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
@@ -133,7 +133,7 @@ unlock = { facts = { query = { kind = "queue_done", ship = "ship.player" }, at_l
 [[craft]]
 id = "craft.thimble"
 name = "Thimble"
-effect = "A tender: a little craft with no crew that runs one of your loops and waits at the dock to sell at your price"
+effect = "A crewless tender: runs your loop, sells at your price"
 hull = "hull.tender"
 cost = 2400
 seller = "npc.tamsin_oddway"
@@ -144,7 +144,7 @@ unlock = { beat_step = { beat = "beat.b13_first_tender", at_least = 1 } }
 [[craft]]
 id = "craft.button"
 name = "Button"
-effect = "A second tender, for the Tandem's second berth: two loops run while you fly"
+effect = "A second tender: two loops run while you fly"
 hull = "hull.tender"
 cost = 2400
 seller = "npc.tamsin_oddway"
