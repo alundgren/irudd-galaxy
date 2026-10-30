@@ -1,7 +1,7 @@
 //! `galaxy`: the game and its JSON CLI.
 //!
 //! Every command prints one JSON value on stdout. Exit codes:
-//! 0 ok, 1 runtime failure (I/O, SQLite), 2 usage error, 3 not implemented yet,
+//! 0 ok, 1 runtime failure (I/O, SQLite), 2 usage error, 3 reserved,
 //! 4 bad input (missing or existing save, invalid data, unknown path or ID),
 //! 5 rejected (`pack check` rejected the pack, or `pack test` had failures; the report
 //! is on stdout).
@@ -74,7 +74,7 @@ enum Cmd {
         /// New-game seed.
         #[arg(long, default_value_t = 1)]
         seed: u64,
-        /// Jump to a journey beat (not implemented yet).
+        /// Start a new save at this journey beat, earned by the headless bot.
         #[arg(long)]
         beat: Option<u32>,
         /// Close after this many frames: a smoke test of the window.
@@ -89,7 +89,7 @@ enum Cmd {
         #[arg(long)]
         hot_reload: bool,
     },
-    /// Jump to a journey beat (not implemented yet).
+    /// Earn a journey checkpoint through real player actions.
     Beat {
         #[command(subcommand)]
         command: BeatCmd,
@@ -174,12 +174,27 @@ enum MindCmd {
 
 #[derive(Subcommand)]
 enum SimCmd {
+    /// Verify a recorded player input stream against its checkpoint hashes.
+    Replay {
+        #[arg(long)]
+        golden: PathBuf,
+        #[command(flatten)]
+        packs: PacksArg,
+    },
     /// Fast-forward a save headless with hands-off input, then write it back.
     Run {
         #[arg(long)]
         save: PathBuf,
-        #[arg(long)]
-        ticks: u64,
+        #[arg(long, required_unless_present = "bot")]
+        ticks: Option<u64>,
+        #[arg(long, value_parser = ["journey"])]
+        bot: Option<String>,
+        /// Stop when this beat completes (beat:1 through beat:17).
+        #[arg(long, requires = "bot")]
+        until: Option<String>,
+        /// Write the bot's recorded inputs and checkpoint hashes.
+        #[arg(long, requires = "bot")]
+        record: Option<PathBuf>,
         /// Don't write the result back to the save.
         #[arg(long)]
         dry_run: bool,
@@ -296,7 +311,17 @@ enum ApiCmd {
 
 #[derive(Subcommand)]
 enum BeatCmd {
-    Jump(Rest),
+    Jump {
+        beat: u32,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        no_gm: bool,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[command(flatten)]
+        packs: PacksArg,
+    },
 }
 
 #[derive(Subcommand)]
@@ -378,13 +403,6 @@ enum GmCmd {
         #[command(flatten)]
         packs: PacksArg,
     },
-}
-
-/// Accepts anything, so stubs can be filled in without breaking callers.
-#[derive(Args)]
-struct Rest {
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    args: Vec<String>,
 }
 
 #[derive(Args)]
@@ -487,11 +505,31 @@ fn main() -> ExitCode {
                 SimCmd::Run {
                     save,
                     ticks,
+                    bot,
+                    until,
+                    record,
                     dry_run,
                     packs,
                     no_gm,
                 },
-        } => sim_run(&save, ticks, dry_run, packs.packs, no_gm),
+        } => {
+            if bot.is_some() {
+                journey_run(&save, ticks, until, record, dry_run, packs.packs, no_gm)
+            } else {
+                sim_run(&save, ticks.unwrap_or(0), dry_run, packs.packs, no_gm)
+            }
+        }
+        Cmd::Sim {
+            command: SimCmd::Replay { golden, packs },
+        } => (|| {
+            let recording = serde_json::from_slice(
+                &std::fs::read(&golden).map_err(|e| Fail::input(e.to_string()))?,
+            )
+            .map_err(|e| Fail::input(e.to_string()))?;
+            let game = galaxy_app::harness::replay::replay(&packs_dir(packs.packs)?, &recording)
+                .map_err(Fail::input)?;
+            Ok(json!({"ok":true,"tick":game.sim().tick(),"hash":game.sim().hash()}))
+        })(),
         Cmd::Sim {
             command:
                 SimCmd::Sandbox {
@@ -531,17 +569,17 @@ fn main() -> ExitCode {
         Cmd::Api {
             command: ApiCmd::Dump { name },
         } => api_dump(name.as_deref()),
-        Cmd::Play { beat: Some(_), .. } => not_implemented("play --beat"),
         Cmd::Play {
             save,
             new,
             seed,
             packs,
-            beat: None,
+            beat,
             quit_after_frames,
             no_gm,
             hot_reload,
         } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
+            beat,
             save,
             new,
             seed,
@@ -552,8 +590,15 @@ fn main() -> ExitCode {
         })
         .map_err(fail),
         Cmd::Beat {
-            command: BeatCmd::Jump(_),
-        } => not_implemented("beat jump"),
+            command:
+                BeatCmd::Jump {
+                    beat,
+                    out,
+                    no_gm,
+                    seed,
+                    packs,
+                },
+        } => beat_jump(beat, &out, no_gm, seed, packs.packs),
         Cmd::Pack {
             command:
                 PackCmd::Check {
@@ -719,16 +764,6 @@ fn shot(
     .map_err(fail)
 }
 
-fn not_implemented(command: &str) -> Out {
-    Err(Fail {
-        code: 3,
-        kind: "not_implemented",
-        message: "not implemented yet".into(),
-        command: Some(command.to_owned()),
-        body: None,
-    })
-}
-
 /// Exit 5 with `body` on stdout.
 fn rejected(body: Value) -> Fail {
     Fail {
@@ -818,6 +853,77 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>, no_gm: bool) -> Out {
 
 /// Fast-forwards the whole game (the same composition as play, with the seeded fake
 /// mind instead of the network).
+fn journey_run(
+    path: &Path,
+    ticks: Option<u64>,
+    until: Option<String>,
+    record: Option<PathBuf>,
+    dry_run: bool,
+    packs: Option<PathBuf>,
+    no_gm: bool,
+) -> Out {
+    use galaxy_app::{
+        game::{Game, GameOptions},
+        harness::{self, RunOptions},
+    };
+    let until = match until {
+        None => 17,
+        Some(s) => s
+            .strip_prefix("beat:")
+            .and_then(|s| s.parse::<u32>().ok())
+            .filter(|n| (1..=17).contains(n))
+            .ok_or_else(|| Fail::usage("--until expects beat:N, N in 1..=17"))?,
+    };
+    let mut save = Save::open(path)?;
+    let state = save.load()?;
+    let mut opts = GameOptions::headless(packs_dir(packs)?, state.world.meta.seed);
+    opts.gm &= !no_gm;
+    let game = Game::open(state, &opts).map_err(Fail::input)?;
+    let run = harness::run(
+        game,
+        RunOptions {
+            until,
+            max_ticks: ticks.unwrap_or(2_000_000),
+            record: record.is_some(),
+            ..RunOptions::default()
+        },
+    )
+    .map_err(Fail::input)?;
+    if !dry_run {
+        save.write(run.game.sim().state())?;
+    }
+    if let Some(path) = record {
+        std::fs::write(
+            path,
+            serde_json::to_vec_pretty(&run.recording).expect("recording serializes"),
+        )
+        .map_err(|e| Fail::input(e.to_string()))?;
+    }
+    if run.report["ok"] == false {
+        Err(rejected(run.report))
+    } else {
+        Ok(run.report)
+    }
+}
+
+fn beat_jump(beat: u32, out: &Path, no_gm: bool, seed: u64, packs: Option<PathBuf>) -> Out {
+    if out.exists() {
+        return Err(Fail::input("output save already exists"));
+    }
+    let run = galaxy_app::harness::jump(
+        &packs_dir(packs)?,
+        seed,
+        !no_gm && galaxy_app::game::gm_allowed(),
+        beat,
+    )
+    .map_err(Fail::input)?;
+    if run.report["ok"] == false {
+        return Err(rejected(run.report));
+    }
+    Save::create(out, run.game.sim().state())?;
+    Ok(json!({"save":out,"report":run.report}))
+}
+
 fn sim_run(path: &Path, ticks: u64, dry_run: bool, packs: Option<PathBuf>, no_gm: bool) -> Out {
     use galaxy_app::game::{Game, GameOptions};
     let mut save = Save::open(path)?;

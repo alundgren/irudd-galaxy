@@ -1,4 +1,4 @@
-﻿# The Lantern Reach (slice 01)
+# The Lantern Reach (slice 01)
 
 The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining and
 trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
@@ -35,6 +35,7 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
 | **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
 | **N** | Mute or unmute the sound (remembered between games). |
+| **F3** | Small developer overlay: active beats and steps, activity counters, recent facts, mind spend and script health. |
 | **Mouse wheel**, **-** / **=** | Zoom. |
 | **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
 
@@ -140,12 +141,40 @@ Or build once and call `target/debug/galaxy` directly.
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
 | `audio render --out DIR` | Render every take of every sound cue to a WAV in DIR and print its measurements (peak, RMS, spectral centroid, length). Exit 5 if one is outside the design limits. |
-| `play --beat N`, `beat jump` | Not implemented yet (exit 3). |
+| `sim run --save PATH --bot journey [--no-gm] [--until beat:N] [--ticks BUDGET] [--record G.json]` | Play the journey headless through `Game`, with the seeded fake mind. Stops after beat N completes (default 17); writes the save unless `--dry-run`. Prints completion ticks/dockings, credits by activity, stalls, script faults, rejected batches and the final hash. A bounded failure prints its report and exits 5. |
+| `beat jump N --out PATH [--seed N] [--no-gm] [--packs DIR]` | Run the journey up to the first tick where beat N is active, then create a save with real completion facts and citations. Refuses to overwrite a save. |
+| `play --beat N [--save NEW_PATH] [--seed N] [--no-gm]` | Earn the checkpoint, then open it in a new save. Without `--save`, choose a new path in the usual save folder. |
+| `sim replay --golden G.json [--packs DIR]` | Replay recorded inputs offline and verify checkpoint hashes. A mismatch names the first diverging checkpoint tick and stores. Never writes a save. |
 
-Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
+Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` reserved,
 `4` bad input (missing or existing save, invalid data, unknown path or ID, no running game
 for `--live`), `5` rejected (`pack check` or `gm propose` rejected the pack, `pack test`
 had failures, or `audio render` found a cue outside its limits; the report is on stdout).
+
+The harness lives in `crates/app/src/harness`. It selects replies by stable choice
+IDs and services by availability, not dock-line text. Before click controls unlock,
+it steers with player thrust and Space; afterwards it uses clicks and the same
+queue/loop verbs as the control layer. Manual flight detours around nearby craft.
+It never seeds completion flags, inventory, money, counters or history. Beat jumps
+run the authored profile each time; there is no stale checkpoint cache.
+
+`cargo test -p galaxy-app --test harness` runs both complete journeys with a fresh-game
+fast data profile (quicker flight/mining, lower fitting costs and selected activity
+gates), plus golden replay, save provenance and overlay checks. Reports go in ignored
+`target/harness/run-a.json` and `run-b.json`. Run the authored profile explicitly with
+`cargo test -p galaxy-app --test harness full_slice_journey -- --ignored --nocapture`;
+`heron_journey` covers the alternative prestige hull. The script crate's
+`journey_core` tests retain the shortage-during-demonstration variants and early-pause
+regression. The Act 1 fixture is `crates/app/tests/golden/act1.json`; regenerate only
+deliberately with `record_act_one_golden -- --ignored`, then review its diff. Regular
+replay never updates an expected hash.
+
+Current content gaps: `gm-examples` only installs `kettle_growth`. Run A checks that
+pack's stage-2 facts, and reports missing GM change types; the spec's other GM packs
+must land before the plant, border, tuning, rock-tagging, second-fragment, sixth-station
+and chronicle assertions can pass. The order contract currently mines a rock rather
+than a field, so the bot refreshes the glass loop's target between laps. `Order::Buy`
+has no maximum-price field, so the glass loop cannot encode the spec's 25-credit cap.
 
 ```sh
 cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth

@@ -1,0 +1,2269 @@
+{
+  "version": 1,
+  "seed": 7,
+  "gm": false,
+  "profile": "fast",
+  "inputs": [
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 5,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962016,
+            "y": 0.08707794
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.99620146,
+            "y": 0.08707793
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707792
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962016,
+            "y": 0.08707792
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.99620146,
+            "y": 0.08707791
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.0870779
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707789
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.087077886
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707787
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707786
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707784
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.99620146,
+            "y": 0.08707782
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.99620146,
+            "y": 0.0870778
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.087077774
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962016,
+            "y": 0.08707775
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707778
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.087077744
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707778
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.08707775
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.99620146,
+            "y": 0.0870778
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962015,
+            "y": 0.087077744
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962016,
+            "y": 0.087077826
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.9962016,
+            "y": 0.08707775
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.7836651,
+            "y": 0.068500094
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.5224436,
+            "y": 0.045666803
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34829584,
+            "y": 0.030444466
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.23219723,
+            "y": 0.02029631
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.15479828,
+            "y": 0.013530942
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.103199005,
+            "y": 0.0090207
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.06879934,
+            "y": 0.0060138702
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.04586622,
+            "y": 0.0040092464
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 15,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281298,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.412813,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281304,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281304,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281307,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281307,
+            "y": -0.9108157
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128131,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128131,
+            "y": -0.9108157
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281316,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281313,
+            "y": -0.91081566
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281316,
+            "y": -0.91081566
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281325,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128132,
+            "y": -0.9108157
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281316,
+            "y": -0.9108157
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281313,
+            "y": -0.9108157
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128131,
+            "y": -0.9108158
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.412813,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281298,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281295,
+            "y": -0.9108159
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281286,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281277,
+            "y": -0.91081583
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128127,
+            "y": -0.91081595
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.4128126,
+            "y": -0.91081595
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281247,
+            "y": -0.910816
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281265,
+            "y": -0.91081595
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281247,
+            "y": -0.910816
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.41281274,
+            "y": -0.9108159
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.39404804,
+            "y": -0.86941487
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.2626987,
+            "y": -0.5796098
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.17513275,
+            "y": -0.38640636
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 10,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120353
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120353
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120354
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120353
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120353
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120351
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120352
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120353
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120351
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.111203514
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203454
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120344
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120344
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120343
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120343
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.111203425
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120341
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.1112034
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.99379766,
+            "y": -0.11120338
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937976,
+            "y": -0.11120335
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120332
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.111203276
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.9937977,
+            "y": -0.11120319
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.8524903,
+            "y": -0.09539117
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.5683267,
+            "y": -0.06359439
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.37888467,
+            "y": -0.04239655
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.25258976,
+            "y": -0.028264366
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.16839303,
+            "y": -0.01884291
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.11226188,
+            "y": -0.012562223
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.07484139,
+            "y": -0.008374532
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": -0.04989412,
+            "y": -0.0055830213
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 25,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487934,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879342,
+            "y": 0.93719965
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879342,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879345,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879348,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487935,
+            "y": 0.93719965
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879354,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879357,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487936,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879366,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487937,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879363,
+            "y": 0.9371995
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487937,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879366,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487937,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879363,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.3487937,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879366,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879372,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879366,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879363,
+            "y": 0.9371996
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879366,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879375,
+            "y": 0.9371995
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 2,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879377,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879383,
+            "y": 0.93719953
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.34879383,
+            "y": 0.9371995
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.30254173,
+            "y": 0.8129211
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.20169449,
+            "y": 0.54194736
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": true
+        }
+      }
+    },
+    {
+      "count": 6,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "trade",
+        "value": {
+          "ship": "ship.player",
+          "station": "station.lantern_wharf",
+          "ware": "ware.iron_ore",
+          "side": "sell",
+          "quantity": 20
+        }
+      }
+    },
+    {
+      "count": 3,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false,
+          "services": [
+            {
+              "service": "fit",
+              "upgrade": "upgrade.mining_lens"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "count": 4,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "pause"
+      }
+    },
+    {
+      "count": 1,
+      "input": {
+        "action": "input",
+        "value": {
+          "thrust": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "action": false
+        }
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "tick": 5,
+      "hash": "4403810306eb9b23777b4328ab40b7da60447117f212b3f7064f2629941bb3ad",
+      "stores": {
+        "history": "e64c3c6b570150e7f80085251aca80f72d212334e3b6ed877856cfd01945abce",
+        "journal": "ef0ae01cfc3ce0f89cdbf3da19b4bc26967e43483408deda739aeb96a64884b7",
+        "kernel": "3b551abfcf4e878b3fcd58bec8c020ddd8291a847a8de12129f2c3a8338fbd34",
+        "world.counters": "1b0fd7ab04756be198ec03062959cd0eb596aaf346fcb10b8f915f67995673c3",
+        "world.economy": "831b3b0368c11847848e31fd3cacd2a6840179e1aa5882e9ff5a6fd35c855aa3",
+        "world.factions": "1a716b3229185dd526b1c0de4387b50c6a9e4a65f2ae9e2a292a3024c8e322fa",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "e5371288494fa9322828a5c04aec0bf59628ba3e1dadca1e4c03e46c44e90527",
+        "world.meta": "5712dafd9d817098c5a324dae4dc5ae43e50826e0e1dffcc9cfc3ef1efd1207b",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
+        "world.progress": "4f3af6ef2163f20158ebcc557e6a35470ee68b3d29d2a782402444d7502f3c4e",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "4ccbf72d9fec183dc3bed8ae0539a2376622b9007477e5d7dd7d9487805e5484",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "327ce42da6e744ffd0995d06833eb0cbc69752bea142bb1137068f6ea901d098",
+        "world.stations": "050ad9de963f430ffeffaaeeed2e47118e146b28f7ff0df2f0b22f5a4fb13193",
+        "world.talk": "8a4264ac607d8ebdcc04b223fb5cc9c75385a875b85368f6addceabf89cd3e94",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    },
+    {
+      "tick": 59,
+      "hash": "c4dfdf760c8dd6f223418a451609f7026154f2b1be0d927e12b86be1d369d603",
+      "stores": {
+        "history": "6b6c1e0e6a07455cab3e863928b22a282edf3e395c3ba3b0e2d9bc729824fece",
+        "journal": "5c6caa7624f56592c142c55b9f8d5669f3925c8f82c8595df4b94692e285415e",
+        "kernel": "b654099ae165c73cd613b00e38195f91991d373fa5e1d7f0f37d9b1f699e5fd9",
+        "world.counters": "819e5d7a6eb25d6bd794d3480301ea85d8dc568321228a9d600c75a879da8787",
+        "world.economy": "831b3b0368c11847848e31fd3cacd2a6840179e1aa5882e9ff5a6fd35c855aa3",
+        "world.factions": "1a716b3229185dd526b1c0de4387b50c6a9e4a65f2ae9e2a292a3024c8e322fa",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "e5371288494fa9322828a5c04aec0bf59628ba3e1dadca1e4c03e46c44e90527",
+        "world.meta": "c5fe0a3e1d85b6195f38296fb0beaa6304d664cfc49a6f0e9ab629fd23a00be2",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
+        "world.progress": "89c002922779b9f3ed528d985cc38af09e18ab1ce094a122df54d36be0082a05",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "fa97d00f9da4b9743c95a96e831f2fcd771650fc107c399008b524c9d2a8b288",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "5cf37b5c3aa8e47c336953c1c6cf0202a93c4f67158e6b21ebffb7a8c1567502",
+        "world.stations": "050ad9de963f430ffeffaaeeed2e47118e146b28f7ff0df2f0b22f5a4fb13193",
+        "world.talk": "8a4264ac607d8ebdcc04b223fb5cc9c75385a875b85368f6addceabf89cd3e94",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    },
+    {
+      "tick": 97,
+      "hash": "339bcef8dd79215120dac67a12d5dede18d1f0c8f0981023e1b4bb2ace8b0a1b",
+      "stores": {
+        "history": "ffe0cc25b4df3914ea3fb103683b0a08e0cdda283da70f71c2e0e99c13f13f3c",
+        "journal": "6807727756d66ccafd7aa301d90c2e83c1b49ebd8377eb06a1793ccbc6f7c3f5",
+        "kernel": "50da897a85ee62443c6dc0916254c2f4acb63005ee52ac50b75b89a2e7d72512",
+        "world.counters": "ace910038356e6b9003a302752ad3974210e0cfcf4c70e3ee11e2dfeb4a0cdfd",
+        "world.economy": "75675c2c6824e9518037117c9cd68ebd250804f827461bc20f4c2ad2ff851f90",
+        "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "15708eca9723b8de97f8818b9b63bd78d31f799176699a595b85b1f1d3b563e9",
+        "world.meta": "4e97912493b618f1f0007b388ef860969627f8ab0413845d3d16b98f5509a69f",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "32d0f7c6c3510b4f26a8de36d9ae19b50e970f4d0e9df2adb2886a6b4531ff90",
+        "world.progress": "bdaabf05f3e24f557d079c00e5117282df4537e22f5c05556dd95b73dee9b2bd",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "6387e03ad8fd476311d30fcc4d2195f182b81bb46db5b8d19788d129f84095a4",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "b9be06f939db6365042d3cf08de59bb898f7196717da0b660fda65a966360b55",
+        "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
+        "world.talk": "4f01a3840720637318c290290bc41284ea84ec2c7180e215984014e112f28a99",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    },
+    {
+      "tick": 240,
+      "hash": "3163aceddeb192c1f76fc1489afc7fe158f7502c21e0ca09542842861d70f01f",
+      "stores": {
+        "history": "5a1941c6b0c6a2f97a0ff33bac2832e5b7af1e977729df6396b26ddff34ecf91",
+        "journal": "231c3e643f3a6d7e168629d4d01c78039d454421a2b9b473823b0e618aadbb47",
+        "kernel": "4ea85b4753ca7371bca242ba107864407f8b3348168924d6a4e981a465f3c8c4",
+        "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
+        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
+        "world.meta": "4475e88bf7f58dca83d298a245c101bbae09dae9f3279e4eb04a3abd3c7bb070",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
+        "world.progress": "0a35c23db7079f99ca29dcdd083e7074820c22e52f6d1679f4dfaa3b4ffdb23a",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
+        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    },
+    {
+      "tick": 245,
+      "hash": "a8b56550d42de28325457f60ab407b282d3ef96af4c10a1ced3133613872cf01",
+      "stores": {
+        "history": "43d393685633109b1174f10daf9b905f389d224ef7274dc9251f7db21b9ba308",
+        "journal": "e1d5bdba43c07567b01c59e7810fcc25a644bfb36b76c7e64f375e4a67382968",
+        "kernel": "48bf16fb35db6660e5057b8261f87f3229d1b86b021f47eb72f13f1247ba2bdd",
+        "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
+        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
+        "world.meta": "7619156ccf7a77265d06e83dcf75d58ca263a139dbf000fe420c9a335e1786d4",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
+        "world.progress": "9838fbbfb19e9e5ea006a5d3e24504e654efeb5a0f9cb585b11186342ad86d54",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
+        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    },
+    {
+      "tick": 245,
+      "hash": "a8b56550d42de28325457f60ab407b282d3ef96af4c10a1ced3133613872cf01",
+      "stores": {
+        "history": "43d393685633109b1174f10daf9b905f389d224ef7274dc9251f7db21b9ba308",
+        "journal": "e1d5bdba43c07567b01c59e7810fcc25a644bfb36b76c7e64f375e4a67382968",
+        "kernel": "48bf16fb35db6660e5057b8261f87f3229d1b86b021f47eb72f13f1247ba2bdd",
+        "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
+        "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
+        "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
+        "world.fields": "0c1d0580e966b7d09d565113fec3e65c9bf2ba130a8db13f3fa3355f898ec68a",
+        "world.hulls": "ccebb761c1aa1b7a54d90db313b700aa12681d4f26d73e26924e30dce910416f",
+        "world.lanes": "25a45da6f804aaf0e768286cf8bc992440feea3f6123d5d854438a3441bce944",
+        "world.markets": "4116ea3736e7b7fdb18cde44a2bf6f5e8eb6a2d6706628fcb21db74a10e8f393",
+        "world.meta": "7619156ccf7a77265d06e83dcf75d58ca263a139dbf000fe420c9a335e1786d4",
+        "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
+        "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
+        "world.progress": "9838fbbfb19e9e5ea006a5d3e24504e654efeb5a0f9cb585b11186342ad86d54",
+        "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
+        "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
+        "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
+        "world.rumors": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
+        "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
+        "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
+        "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
+        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
+      }
+    }
+  ]
+}
