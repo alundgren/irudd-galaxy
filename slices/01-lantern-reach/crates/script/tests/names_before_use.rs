@@ -178,10 +178,7 @@ fn dock_lines() -> Vec<DockLine> {
             continue;
         };
         let npc = field("npc").unwrap();
-        let speaker = match npc.strip_prefix("ids.") {
-            Some(key) => Some(ids[key].to_string()),
-            None => None,
-        };
+        let speaker = npc.strip_prefix("ids.").map(|key| ids[key].to_string());
         let body = &block[block.find("text = function").unwrap()..];
         let mut text = String::new();
         let mut quote = None;
