@@ -33,7 +33,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.ilse_marrow.04` | `territory_changed{cinder_hook, to = tollway_compact}` | The Compact has the Hook depot now. We'll buy our ore like anyone else. |
 | `line.ilse_marrow.05` | `shortage_started` | Rimewater's thin. A lot of your ice is in our tanks, and not much is left out there. |
 | `line.ilse_marrow.06` | `shortage_resolved{by = tollway_compact}` | The Compact brought ice in. Kind of them. They'll want thanking. |
-| `line.ilse_marrow.07` | `market_flooded{station = brassmouth_exchange}` | Saffron says you sold Brassmouth so much glassite they're using it as doorstops. |
+| `line.ilse_marrow.07` | `market_flooded{station = brassmouth_exchange}` | Saffron Vey at Brassmouth says you sold them so much glassite they're using it as doorstops. |
 | `line.ilse_marrow.08` | `prestige{to = tandem}` | A Tandem. Wide in the hips. She'll carry what you can't. |
 | `line.ilse_marrow.09` | `prestige{to = heron}` | A Heron. You'll see the prices before I do, then. |
 | `line.ilse_marrow.10` **(gm)** | `station_founded` | There's a new light on the map. {station}. Folk say it's there because of you. |
@@ -44,6 +44,8 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.ilse_marrow.15` | `rumor_resolved` | The Shoals turned out {truth_word}. Somebody always comes back with a story. This time it was you. |
 | `line.ilse_marrow.16` | `canon_opened{node = fragments_sing}` | The Lamplighters are humming at their lamps. Something about your rock singing. |
 | `line.ilse_marrow.17` | `prestige` | Welcome home, {pilot}. New hull, same ring. Mind the paint. |
+| `line.ilse_marrow.18` (beat, b01 starts) | `beat_started{beat = b01}` | Welcome to Lantern Wharf. I'm Ilse; I keep the dock. The Wren's yours now: small, round-nosed and honest. Odo at Kettle Dock needs ice for his greenhouse, and the pale rocks east of here are Rimewater ice. |
+| `line.ilse_marrow.19` (beat, b07 starts) | `beat_started{beat = b07}` | Rook Adeyemi keeps the ore depot at Cinder Hook, over in Cinder Drift, and he's waiting on plate from us. The lantern current east of the Wharf carries you there. |
 
 ### Orrin Vale
 
@@ -89,6 +91,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.odo_fenn.06` | `shortage_helped{way = import}` | Ice from outside the Shallows. Tastes different. The tomatoes don't mind. |
 | `line.odo_fenn.07` | `patient_sold{station = kettle_dock, craft = player tender}` | {tender} sat with us a while and sold when it should. Polite little thing. |
 | `line.odo_fenn.08` | `shortage_started` | Rimewater's thin and our tanks are thinner. I've two ideas, if you've a minute. |
+| `line.odo_fenn.10` (beat, b04 starts) | `beat_started{beat = b04}` | Orrin Vale, the hullwright back at the Wharf, has a mining lens that cuts rock quicker. The Wharf buys ore from the dark rocks west of it, and we'll always take ice. |
 | `line.odo_fenn.09` **(gm)** | `shortage_started{tuned = true}` | Plenty of our ice went to {station} too, and a good deal of it was yours. No blame. Bring {quota} from outside if you can. |
 
 ### Tamsin Oddway
@@ -103,14 +106,14 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 
 | Line | Cites | Text |
 | --- | --- | --- |
-| `line.tamsin_oddway.01` | `patient_wait{craft = little_pail}` | See Little Pail sitting there? She's not stuck. She's listening. |
+| `line.tamsin_oddway.01` | `patient_wait{craft = little_pail}` | See Little Pail, my tender, sitting there? She's not stuck. She's listening. |
 | `line.tamsin_oddway.02` | `patient_sold{craft = little_pail}` | {pulses} ships came and went, and she sold at {avg}. No clock in her at all. |
 | `line.tamsin_oddway.03` | `loop_lap{ship = player, n >= 4}` | You've run that loop {n} times. Ready for something to run it for you? |
-| `line.tamsin_oddway.04` | `market_flooded{ship = player}` | You emptied a whole hold into {station}. A tender would've waited. |
+| `line.tamsin_oddway.04` | `market_flooded{ship = player}` | You emptied a whole hold into {station} at once. My Little Pail would've waited for the price. She's a tender: a little craft with no crew, and all the patience in the world. |
 | `line.tamsin_oddway.05` | `tender_assigned` | A floor of {floor} for {ware}? Sensible. {tender} agrees. |
 | `line.tamsin_oddway.06` | `patient_sold{craft = player tender}` | {tender} waited {pulses} dockings at {station} and got {avg} a unit. Told you. |
 | `line.tamsin_oddway.07` | `loop_stalled{craft = player tender}` | {tender}'s sitting at {station} with nothing to do. Its loop's run dry. |
-| `line.tamsin_oddway.08` | `sell{ware = ice, station = kettle_dock}` (the newest one) | Kettle's had its fill of ice just now. Little Pail will show you when it's thirsty again. |
+| `line.tamsin_oddway.08` | `sell{ware = ice, station = kettle_dock}` (the newest one) | Kettle's had its fill of ice just now. My tender, Little Pail, will show you when it's thirsty again. |
 | `line.tamsin_oddway.09` | `patient_blocked{craft = player tender}` | {tender} won't sell {ware} below {floor}, and {station} can't pay more than {ceiling} now. Your call: a new floor, a new loop, or home. |
 | `line.tamsin_oddway.10` | `patient_unblocked{craft = player tender}` | {station}'s paying enough again. {tender} has gone back to selling. |
 | `line.tamsin_oddway.11` | `demo_floor_revised{craft = little_pail}` (cites the market change: `shortage_started`, `shortage_resolved` or the lever's fact) | The market moved under Little Pail. I've set her a new mark; watch her again. |
@@ -133,7 +136,8 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.rook_adeyemi.03` | `side_chosen{side = tollway_compact}` | Compact name on your plate. Saffron will like that. I like the plate. |
 | `line.rook_adeyemi.04` | `territory_changed{cinder_hook}` | New banner. Same ore. Same me. |
 | `line.rook_adeyemi.05` | `rumor_resolved{truth = false}` | Empty Shoals? Old maps. Somebody's always selling old maps. |
-| `line.rook_adeyemi.07` | `dispute_started` | Two banners want my depot. I want plate. Sell me plate in whose name you like, or nobody's. |
+| `line.rook_adeyemi.07` | `dispute_started` | Two banners want my depot: the Wharf Cooperative's and the Tollway Compact's. I want plate. Sell me plate in whose name you like, or nobody's. |
+| `line.rook_adeyemi.09` (beat, b08 starts) | `beat_started{beat = b08}` | Glassite's the bright rock in the belt east of here. Brassmouth Exchange, up the north lane, pays well for it. Go and see how well. |
 | `line.rook_adeyemi.08` **(gm)** | `rumor_exposed{planted_by = tollway_compact}` | A Compact buoy in empty rocks. Someone wanted you out of my belt. Here, for the trouble. |
 | `line.rook_adeyemi.06` | `rock_depleted{field = cinder_belt, n >= 10}` | You're eating my belt one rock at a time. Leave some for the Hook. |
 
@@ -241,6 +245,10 @@ Spoken by whichever dockmaster the player meets (with free phrasing on, the fast
 | Line | Cites | Text |
 | --- | --- | --- |
 | `line.any_dockmaster.01` | `patient_blocked{craft = player tender, station}` | Your {tender} is sitting at {station} on {ware} at a floor of {floor}. They can't pay that now. Tell it what you'd like. |
+
+## Names before use
+
+The first playtest asked that every name and concept be introduced before a goal or line uses it, with a light in-world line, never a tutorial popup. The core pack's `intro` script says one line as a beat starts, from whoever is at the player's dock (nobody speaks if the player isn't docked there; the goal line still carries the name): Ilse's `.18` at b01 (herself, the Wren, Odo, Kettle Dock, Rimewater), Odo's `.10` at b04 (Orrin, where ore and ice sell), Ilse's `.19` at b07 (Rook, Cinder Hook, the lane), Rook's `.09` at b08 (glassite, Brassmouth). Goal lines name a person's role or a place's full name the first time (b04 "Orrin, the Wharf's hullwright", b09 "the Wharf Cooperative and the Tollway Compact", b13 "Tamsin Oddway at Kettle Dock keeps tenders, little craft with no crew"). Lines that could come early introduce what they name (Tamsin's `.04` and `.08` say what a tender is; Ilse's `.07` names Saffron and Brassmouth).
 
 ## Beat conversations
 

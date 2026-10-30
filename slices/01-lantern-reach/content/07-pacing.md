@@ -59,6 +59,23 @@ Rates behind the estimates, from the cycle models used for this spec:
 
 The journey bot takes roughly half these minutes because it never hesitates. Its run is counted in simulated steps, not minutes.
 
+### The journey bot on the authored data
+
+New saves with seed 1, `galaxy sim run --bot journey`, release build, at 30 ticks a second of game time. Before is the integration pass (Wren at 60 u/s, Glass Drift regrowing 0.15 a pulse); after is this tuning (Wren at 72 u/s, Glass Drift at 1.5).
+
+| | Run A before | Run A after | Run B before | Run B after |
+| --- | --- | --- | --- | --- |
+| Beats | 17 of 17 | 17 of 17 | 17 of 17 | 17 of 17 |
+| Final tick (game time) | 857,483 (7.9 h) | 222,255 (2.06 h) | 699,400 (6.5 h) | 238,441 (2.21 h) |
+| Player dockings | 1,296 | 141 | 1,191 | 144 |
+| Act 1 done (b05) | 5,287 | 4,806 (3 min) | 5,287 | 4,806 (3 min) |
+| Act 3 opens (b11) | 97,672 | 91,022 (51 min) | 92,309 | 81,156 (45 min) |
+| First tender (b13) | 688,053 | 147,761 (1.37 h) | 154,744 | 131,860 (1.22 h) |
+| Prestige (b16) | 851,099 | 215,871 (2.0 h) | 693,016 | 232,057 (2.15 h) |
+| Tender `loop_stalled` facts | 119 | 1 | 168 | 1 |
+
+The bot is faster than a human, so a human's two hours should land a little above these. Nothing in the run waits on the belt: dockings come at a steady 1,500 to 1,700 ticks each from start to finish, where the old runs docked about 500k ticks' worth of back-and-forth with no trades.
+
 ## Number checks
 
 All figures come from the price model in `02-economy.md`, starting from the opening stocks in the market tables unless noted. They were computed unit by unit, including how each unit bought or sold moves stock.
@@ -125,7 +142,8 @@ Under the previous rule (a spent rock reformed at 25% after 16 pulses, on top of
 ### Fields never dead-end
 
 - Tinroot and Rimewater regrow, and a spent rock reforms once regrowth has brought it to 25% (about 34 Shallows pulses for a Tinroot rock and 50 for a Rimewater rock, if it gets all the regrowth: roughly 8 to 20 minutes). Tinroot regrows 0.75 to 1.2 units a minute and never empties fully in practice. The Wharf always buys ore and Kettle always buys ice, so a player with no credits can always mine their way back.
-- The Glass Drift (300 units, regrowing about 0.45 a minute) falls to roughly a third by Act 4 if the player leans on it. That pushes them toward the Shoals (if the rumor was true), buying Cinder Hook glassite, or other wares. Spent rocks reform from regrowth (about 42 Cinder Drift pulses for one rock), so it never goes fully dark.
+- The Glass Drift regrows **1.5 units per Cinder Drift pulse** (about 4 to 6 a minute at 2.5 to 4 pulses a minute; it was 0.15). It still falls when the player leans on it: a full hold takes 20 to 30 units, and the journey bot's circuit mines about 25 while making 4 to 6 Cinder pulses, so a belt worked every circuit thins out over Act 2 and 3 and pushes the player toward the Shoals (if the rumor was true), buying Cinder Hook glassite, or other wares. A spent rock stays dust until regrowth brings it back to 25% (`reform_share`): about 11 pulses for a lone spent rock in the authored data (8 rocks of 40 to 90 units), about 90 for a whole mined-out belt, since regrowth goes to the lowest rock first and so spreads over every spent rock. So a mined-out rock is visibly gone for a few circuits, and the belt never goes dark for long.
+- Why 1.5: at 0.15 a mined-out belt needed about 870 Cinder Drift dockings or jumps before its first rock reformed. Act 2 to 4 income and b15's fragment (a glassite rock spent after b13) both wait on the belt, so the journey bot shuttled between two stations for 450,000 to 580,000 ticks (4 to 5 hours of game time) with nothing to do. Measured on the journey bot (seed 1, both runs): at 1.0 or 0.8 per pulse the bot finishes in 2.1 to 2.5 hours but starts shuttling again (about 200 dockings instead of 135); at 1.5 it docks about 135 to 145 times and never waits on the belt.
 - The Cinder Belt (960 units) is deliberately slow to regrow (0.15 per pulse; a spent 60-unit rock needs 100 pulses to reform). It's the "rich, depleting" belt Rook complains about.
 
 ### The dispute resolves whether or not the player acts
