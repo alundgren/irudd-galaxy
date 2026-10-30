@@ -105,6 +105,11 @@ struct StationArt {
 struct RockArt {
     mesh: MeshHandle,
     step: i32,
+    /// The `remaining` fraction the mesh was built for. Between re-meshes the instance
+    /// scales the rock on to its current size, so it shrinks smoothly.
+    frac: f32,
+    /// The mesh as uploaded, for placing the mining beam on its surface.
+    data: render::MeshData,
 }
 
 /// Uploaded meshes and backdrops for the world.
@@ -127,8 +132,41 @@ fn rock_full_radius(world: &WorldState, rock: &Rock) -> f32 {
     m.radius_base + m.radius_per_sqrt_unit * (rock.initial as f32).sqrt()
 }
 
+fn rock_frac(rock: &Rock) -> f32 {
+    (rock.remaining as f32 / rock.initial.max(1) as f32).clamp(0.0, 1.0)
+}
+
+/// Where a rock is drawn: turning slowly about its seed's spin, and scaled from the size
+/// it was meshed at to its size now.
+fn rock_transform(rock: &Rock, art: &RockArt, time: f32) -> Mat4 {
+    let seed = seed_of(rock.id.as_str());
+    let spin = (seed % 628) as f32 / 100.0 + time * (0.02 + (seed % 7) as f32 * 0.006);
+    let frac = rock_frac(rock);
+    let scale = if frac > 0.0 && art.frac > 0.0 {
+        kit::rock_scale(frac) / kit::rock_scale(art.frac)
+    } else {
+        1.0
+    };
+    Mat4::from_scale_rotation_translation(
+        Vec3::splat(scale),
+        Quat::from_rotation_z(spin),
+        g(rock.position).extend(0.0),
+    )
+}
+
+/// Where a beam from `from` towards the rock's centre meets its drawn surface.
+fn rock_hit(rock: &Rock, art: &RockArt, time: f32, from: Vec3) -> Option<Vec3> {
+    let to_local = rock_transform(rock, art, time).inverse();
+    let dir = g(rock.position).extend(0.0) - from;
+    let t = art.data.raycast(
+        to_local.transform_point3(from),
+        to_local.transform_vector3(dir),
+    )?;
+    Some(from + dir * t)
+}
+
 fn rock_params(world: &WorldState, rock: &Rock) -> RockParams {
-    let frac = rock.remaining as f32 / rock.initial.max(1) as f32;
+    let frac = rock_frac(rock);
     RockParams::new(
         recipes::rock_kind(world, &rock.rock_type),
         rock_full_radius(world, rock),
@@ -220,17 +258,22 @@ impl View {
                 Some(a) if a.step == step => {}
                 Some(a) => {
                     a.step = step;
-                    r.update_mesh(
-                        a.mesh,
-                        &kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str())),
-                    );
+                    a.frac = rock_frac(rock);
+                    a.data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    r.update_mesh(a.mesh, &a.data);
                 }
                 None => {
-                    let mesh = r.upload_mesh(&kit::rock(
-                        &rock_params(world, rock),
-                        seed_of(rock.id.as_str()),
-                    ));
-                    self.rocks.insert(rock.id.clone(), RockArt { mesh, step });
+                    let data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    let mesh = r.upload_mesh(&data);
+                    self.rocks.insert(
+                        rock.id.clone(),
+                        RockArt {
+                            mesh,
+                            step,
+                            frac: rock_frac(rock),
+                            data,
+                        },
+                    );
                 }
             }
         }
@@ -429,18 +472,12 @@ impl View {
             let Some(art) = self.rocks.get(&rock.id) else {
                 continue;
             };
-            let pos = g(rock.position);
-            if !near(pos, 60.0) {
+            if !near(g(rock.position), 60.0) {
                 continue;
             }
-            let seed = seed_of(rock.id.as_str());
-            let spin = (seed % 628) as f32 / 100.0 + time * (0.02 + (seed % 7) as f32 * 0.006);
             scene.meshes.push(
-                MeshInstance::new(
-                    art.mesh,
-                    Mat4::from_rotation_translation(Quat::from_rotation_z(spin), pos.extend(0.0)),
-                )
-                .with_material(ArtBible::bundled().material(InkRole::Rock)),
+                MeshInstance::new(art.mesh, rock_transform(rock, art, time))
+                    .with_material(ArtBible::bundled().material(InkRole::Rock)),
             );
         }
 
@@ -498,24 +535,35 @@ impl View {
                 && !docked
                 && let Some(rock) = world.rocks.get(&run.rock)
             {
-                let r = g(rock.position);
-                let from = pos + fwd * 2.2 * scale;
-                let radius = galaxy_ship::space::rock_radius(world, rock);
-                let to = r + (from - r).normalize_or_zero() * radius * 0.45;
+                // From the nose tip to where the beam meets the rock's drawn surface.
+                // The renderer lifts beams and glows towards the camera, so neither the
+                // hull nor the rock cuts them.
+                let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
+                let from = (pos + fwd * nose).extend(hover);
+                let to = self
+                    .rocks
+                    .get(&rock.id)
+                    .and_then(|art| rock_hit(rock, art, time, from))
+                    .unwrap_or_else(|| {
+                        let r = g(rock.position);
+                        let radius = galaxy_ship::space::rock_radius(world, rock);
+                        (r + (from.truncate() - r).normalize_or_zero() * radius * 0.6)
+                            .extend(radius * 0.4)
+                    });
                 let shimmer = 0.85 + 0.15 * (time * 9.0).sin();
                 scene.lines.push(Line::beam(
-                    from.extend(hover),
-                    to.extend(radius * 0.4),
+                    from,
+                    to,
                     9.0,
                     Color::hex(0x7ff0d8).with_alpha(shimmer),
                 ));
                 scene.glows.push(Glow {
-                    position: to.extend(radius * 0.5),
+                    position: to,
                     radius: 22.0,
                     color: Color::hex(0xbaffef).with_alpha(0.9),
                 });
                 scene.glows.push(Glow {
-                    position: from.extend(hover + 1.0),
+                    position: from,
                     radius: 9.0,
                     color: Color::hex(0xbaffef).with_alpha(0.8),
                 });

@@ -6,8 +6,9 @@
 // large relative to the view depth. A continuous slope is not an edge. Lines
 // fade out when the smaller feature is only a few pixels across. Silhouette
 // pixels (a neighbour with no surface) are left to the inverted-hull outline.
-// Rgba8 targets and textureLoad, no optional features, so the pass is the same
-// on DX12, Vulkan and Metal.
+// Core-WebGPU targets (Rgba16Float normals and depth, Rgba8Unorm paint) and
+// textureLoad, no optional features, so the pass is the same on DX12, Vulkan and
+// Metal.
 
 struct Ink {
     // x: crease cosine (ink when the normal dot is below this).

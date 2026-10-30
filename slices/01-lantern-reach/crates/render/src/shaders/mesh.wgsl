@@ -20,8 +20,10 @@ struct VIn {
     @location(1) normal: vec3<f32>,
     @location(2) outline_normal: vec3<f32>,
     @location(3) color: vec4<f32>,
-    // x: minor facet span, y: major facet span, both in mesh units.
+    // x: minor part span, y: major part span, both in mesh units.
     @location(4) span: vec2<f32>,
+    // Minor span of the vertex's own facet, in mesh units.
+    @location(5) facet: f32,
     @builtin(instance_index) ii: u32,
 };
 
@@ -32,6 +34,10 @@ struct VOut {
     @location(2) color: vec4<f32>,
     @location(3) @interpolate(flat) ii: u32,
     @location(4) @interpolate(flat) span: vec2<f32>,
+    // The instance origin in physical pixels: hatching is drawn relative to it, so
+    // it travels with the object instead of swimming as the camera pans.
+    @location(5) @interpolate(flat) anchor: vec2<f32>,
+    @location(6) @interpolate(flat) facet: f32,
 };
 
 // Min and max column lengths of the instance matrix (uniform scale collapses them).
@@ -57,6 +63,20 @@ fn feature_px(world: vec3<f32>, span: f32) -> f32 {
     return span * unit;
 }
 
+// Screen-space width of `x` across a pixel, capped so a crease between two flat
+// facets (where the 2x2 quad straddles them) never smears a band edge.
+fn aa_width(x: f32) -> f32 {
+    return min(fwidth(x), 0.05);
+}
+
+// A hard step at `edge`, anti-aliased over `w`.
+fn band(edge: f32, x: f32, w: f32) -> f32 {
+    if w <= 1e-5 {
+        return step(edge, x);
+    }
+    return smoothstep(edge - w * 0.5, edge + w * 0.5, x);
+}
+
 fn too_small(world: vec3<f32>, span: vec2<f32>, model: mat4x4<f32>) -> bool {
     if span.y <= 0.0 {
         return false;
@@ -75,6 +95,10 @@ fn vs_main(v: VIn) -> VOut {
     o.color = v.color;
     o.ii = v.ii;
     o.span = v.span;
+    o.facet = v.facet;
+    let origin = g.view_proj * inst.model[3];
+    let ndc = origin.xy / max(abs(origin.w), 1e-4);
+    o.anchor = vec2<f32>(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * g.viewport.xy;
     // Facets under about a pixel are dropped: decals and greebles, not the hull.
     if too_small(world.xyz, v.span, inst.model) {
         o.clip = vec4<f32>(0.0, 0.0, 2.0, 1.0);
@@ -90,20 +114,19 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
     let n = normalize(in.normal);
     let albedo = in.color.rgb * inst.tint.rgb;
 
-    // Half-Lambert from the key light, quantised into tone bands.
+    // Half-Lambert from the key light, quantised into tone bands. Each band edge is
+    // a hard step, smoothed over one pixel so a curved terminator doesn't crawl.
     let light = dot(n, normalize(g.sun_dir.xyz)) * 0.5 + 0.5;
+    let light_w = aa_width(light);
     var tone = vec3<f32>(1.0);
     var shadowed = 0.0;
     if inst.shadow.w > 2.5 {
-        if light > 0.86 {
-            tone = inst.highlight.rgb;
-        } else if light < 0.52 {
-            tone = inst.shadow.rgb;
-            shadowed = 1.0;
-        }
-    } else if light < 0.55 {
-        tone = inst.shadow.rgb;
-        shadowed = 1.0;
+        let hi = band(0.86, light, light_w);
+        shadowed = 1.0 - band(0.52, light, light_w);
+        tone = mix(mix(vec3<f32>(1.0), inst.highlight.rgb, hi), inst.shadow.rgb, shadowed);
+    } else {
+        shadowed = 1.0 - band(0.55, light, light_w);
+        tone = mix(vec3<f32>(1.0), inst.shadow.rgb, shadowed);
     }
 
     // Point lights add a stepped warm pool.
@@ -115,7 +138,8 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
         let dist = max(length(d), 1e-4);
         let att = clamp(1.0 - dist / p.pos_radius.w, 0.0, 1.0);
         let k = max(dot(n, d / dist), 0.0) * att * att;
-        lamp += p.color.rgb * (step(0.08, k) * 0.35 + step(0.35, k) * 0.35);
+        let kw = aa_width(k);
+        lamp += p.color.rgb * (band(0.08, k, kw) * 0.35 + band(0.35, k, kw) * 0.35);
     }
 
     var col = albedo * (tone * g.sun_color.rgb + g.ambient.rgb + lamp);
@@ -126,12 +150,20 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
         to_eye = normalize(g.camera_pos.xyz - in.world);
     }
     let rim = 1.0 - max(dot(n, to_eye), 0.0);
-    col += g.rim.rgb * g.rim.a * step(0.72, rim) * step(0.4, light) * (albedo + 0.15);
+    let rim_on = band(0.72, rim, aa_width(rim)) * band(0.4, light, light_w);
+    col += g.rim.rgb * g.rim.a * rim_on * (albedo + 0.15);
 
-    // Sketched hatching in the shadow band, in screen space.
+    // Sketched hatching in the shadow band: diagonal strokes a fixed number of
+    // pixels apart, anchored to the object, with anti-aliased sides.
     let spacing = 7.0 * g.viewport.z;
-    let s = fract((in.clip.x + in.clip.y) / spacing);
-    let hatch = step(s, 0.28) * shadowed * inst.highlight.w;
+    let rel = in.clip.xy - in.anchor;
+    let u = fract((rel.x + rel.y) / spacing);
+    // A stroke covers the first 28% of each period. Measure from its start, wrapped
+    // to the middle of the gap, and soften both sides over about a pixel.
+    let a = u - select(0.0, 1.0, u > 0.64);
+    let px = 0.5 / spacing;
+    let stroke = smoothstep(-px, px, a) * (1.0 - smoothstep(0.28 - px, 0.28 + px, a));
+    let hatch = stroke * shadowed * inst.highlight.w;
     col = mix(col, col * 0.5 + INK * 0.5, hatch * 0.55);
 
     // Self-lit paint (windows, engines) ignores the light.
@@ -184,9 +216,10 @@ fn fs_outline(in: OOut) -> @location(0) vec4<f32> {
     return in.color;
 }
 
-// Geometry buffer for the inner-ink pass: octahedral normal, 16-bit view depth
-// packed into two unorm bytes, and the unlit paint. Flat per face, so a crease
-// is a step between neighbouring pixels rather than a gradient.
+// Geometry buffer for the inner-ink pass: octahedral normal and a 16-bit view
+// depth split into two bytes (stored exactly in a half-float target), and the
+// unlit paint. A flat-shaded crease is a step between neighbouring pixels; a
+// smooth-shaded skin bends gently and only its real creases ink.
 
 struct GeomOut {
     @location(0) geom: vec4<f32>,
@@ -221,7 +254,7 @@ fn fs_geom(in: VOut) -> GeomOut {
     // fade lines out on features only a few pixels across.
     var minor_px = 48.0;
     if in.span.y > 0.0 {
-        minor_px = feature_px(in.world, in.span.x * instance_extent(inst.model).x);
+        minor_px = feature_px(in.world, in.facet * instance_extent(inst.model).x);
     }
     var o: GeomOut;
     o.geom = vec4<f32>(oct, f32(q >> 8u) / 255.0, f32(q & 255u) / 255.0);
