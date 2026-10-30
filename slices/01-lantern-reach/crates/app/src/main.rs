@@ -145,6 +145,21 @@ enum Cmd {
         #[command(subcommand)]
         command: MindCmd,
     },
+    /// The sound cues.
+    Audio {
+        #[command(subcommand)]
+        command: AudioCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum AudioCmd {
+    /// Render every take of every cue to WAV files in DIR and measure them against the
+    /// design limits. Exit 5 if one is outside them.
+    Render {
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -629,6 +644,15 @@ fn main() -> ExitCode {
         Cmd::Mind {
             command: MindCmd::Try { packs },
         } => mind_try(packs.packs),
+        Cmd::Audio {
+            command: AudioCmd::Render { out },
+        } => galaxy_app::sound::render(&out).map_err(|(code, body)| Fail {
+            code,
+            kind: if code == 5 { "rejected" } else { "runtime" },
+            message: String::new(),
+            command: None,
+            body: Some(body),
+        }),
     };
     match result {
         Ok(value) => {

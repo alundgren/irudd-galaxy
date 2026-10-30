@@ -29,6 +29,8 @@ bytemuck = { version = "1.25", features = ["derive"] }
 clap = { version = "4.6.7", features = ["derive"] }
 directories = "6.0"
 # OS randomness for the live socket's token.
+# Offline synthesis of the sound cues (rendered once at startup, never on the audio thread).
+fundsp = { version = "0.23", default-features = false, features = ["std"] }
 getrandom = "0.3.4"
 glam = { version = "0.34", features = ["serde", "bytemuck"] }
 glyphon = "0.12"
@@ -37,7 +39,7 @@ interprocess = "2.4.7"
 # Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 notify = "8.2.1"
-# Audio: only the cpal backend for now; the slice ships silent, decoders come with sounds.
+# Audio: only the cpal backend; the cues are synthesised in code, so no decoders yet.
 kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
 png = "0.18"
 pollster = "1.0"

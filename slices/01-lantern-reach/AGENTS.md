@@ -65,6 +65,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/progress` | `galaxy-progress` | W4 | Beat runtime, standing and regard, pilot traits, hull ranks, prestige, station services, modifiers. See "Progress". |
 | `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
 | `crates/gm` | `galaxy-gm` | W5 | Game-master bridge: live socket, `--live` reads, digest, `gm propose` (sandbox run in child processes), calm-moment staging, inbox, rollback. Agents acting as game master read [GM-AGENTS.md](GM-AGENTS.md). |
+| `crates/audio` | `galaxy-audio` | W6 | Sound cues synthesised offline (fundsp) and played through kira; the anti-fatigue rules. See `crates/audio/README.md`. |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
 | `xtask` | `xtask` | W1 | `cargo xtask check`, `cargo xtask contract`, `cargo xtask fetch-luau`. |
 | `packs/core` | | W4 (+W3 data) | The authored backbone: `manifest.toml`, `data/*.toml`, later scripts. |
