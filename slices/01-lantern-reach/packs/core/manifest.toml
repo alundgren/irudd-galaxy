@@ -23,6 +23,7 @@ uses = ["canon.read", "canon.write",
     "events.reply",
     "events.rock_depleted",
     "events.sell",
+    "events.talk_picked",
     "events.undock",
     "history.read",
     "history.write",
@@ -42,6 +43,7 @@ uses = ["canon.read", "canon.write",
     "stations.read",
     "stations.write",
     "talk.write",
+    "talk.pick",
     "traits.read",
 ]
 # Made live by the beats: the Ember Shoals rumor and, once someone finds out what's
@@ -149,4 +151,4 @@ handlers = ["on.beat_started", "on.dock", "on.reply"]
 [[script]]
 id = "talk"
 file = "scripts/talk.luau"
-handlers = ["on.dock", "on.reply"]
+handlers = ["on.dock", "on.reply", "on.talk_picked"]

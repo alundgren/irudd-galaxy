@@ -72,7 +72,7 @@ All upgrades are fitted by the named seller at their station. Costs are fixed. U
 | ID | Name | Effect | Cost | Unlock condition | Seller |
 | --- | --- | --- | --- | --- | --- |
 | `upgrade.mining_lens` | Mining lens | Mining rate x1.5 | 600 | b03 complete | Orrin (Wharf) |
-| `upgrade.nav_chip` | Nav chip | `cap.click_fly` | 900 | b05 complete and `player.dockings` >= 6 | Orrin |
+| `upgrade.nav_chip` | Nav chip | `cap.click_fly` | 225 | b05 complete and `player.dockings` >= 6 | Orrin |
 | `upgrade.rock_cradle` | Rock cradle | `cap.click_mine` | 700 | nav chip fitted and `player.rocks_spent` >= 4 | Orrin |
 | `upgrade.docking_clamp` | Docking clamp | `cap.click_dock` | 700 | nav chip fitted and `player.dockings` >= 14 | Orrin |
 | `upgrade.lane_chart` | Lane chart | `cap.map_travel` | gift | b07 complete | Rook hands it over at Cinder Hook |

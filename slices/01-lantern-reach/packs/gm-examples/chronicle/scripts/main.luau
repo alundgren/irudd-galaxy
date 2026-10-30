@@ -47,7 +47,7 @@ return G.script({id="main",on={dock=function(_ev:G.DockEvent,ctx:G.Ctx) collect(
   if ev.npc~="npc.ilse_marrow" or ev.choice~="choice.what_changed" or U.calm(ctx)~="station.lantern_wharf" then return end
   local text=ctx.store:get("progress","last")
   local cite=ctx.store:get("progress","cite")
-  if type(text)=="string" and type(cite)=="string" and ctx.store:get("progress","recalled")~=cite then
+  if type(text)=="string" and type(cite)=="string" and ctx.store:get("progress","recalled")~=cite and not ctx.talk:cited(cite) then
    local why=ctx:cause({summary="Ilse recalls the chronicle",cites={cite}})
    ctx.beats:expect_docked("station.lantern_wharf",why)
    ctx.store:set("progress","recalled",cite,why)

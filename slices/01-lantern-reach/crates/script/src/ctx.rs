@@ -36,6 +36,7 @@ use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number
 mod live;
 mod progress;
 mod space;
+mod talk;
 
 /// Most commands one handler call can write.
 pub const MAX_CALL_WRITES: usize = 256;
@@ -1405,6 +1406,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         )
     };
     let talk = lua.create_table()?;
+    talk::add(lua, scope, env, &talk)?;
     method(
         &talk,
         "talk",

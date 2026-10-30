@@ -14,6 +14,8 @@ export type BuildState = { parts: { PartId }?, stage: number }
 export type CauseId = string
 export type Condition = { kind: "hold_full" } | { kind: "hold_empty" } | { kind: "price_at_least", price: number, station: StationId, ware: WareId } | { kind: "price_at_most", price: number, station: StationId, ware: WareId } | { kind: "stock_at_least", station: StationId, stock: number, ware: WareId } | { counter: CounterKind, kind: "counter_at_least", scope: CounterScope, value: number } | { flag: FlagId, kind: "flag_set" } | { kind: "all", of: { Condition } } | { kind: "any", of: { Condition } } | { cond: Condition, kind: "not" }
 export type CounterScope = { scope: "player" } | { scope: "station", station: StationId } | { region: RegionId, scope: "region" }
+export type DockTalkCandidate = { cite: FactId, line: AnyId, npc: NpcId, specificity: number, text: string }
+export type DockTalkRequest = { candidates: { DockTalkCandidate }, docking: FactId, pack: PackId, revision: string, ship: ShipId, station: StationId }
 export type FactId = string
 export type FactKind = string
 export type FactPayload = { event: Event } | { note: string }
@@ -57,7 +59,7 @@ export type MarketLine = { base_price: number, consumption: number?, consumption
 export type Fact = { amount: number?, cause: CauseId, id: FactId, kind: FactKind, payload: FactPayload, subjects: Subjects, tick: Tick }
 export type FactDraft = { amount: number?, kind: FactKind, note: string, subjects: Subjects? }
 export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId?, kind: FactKind?, limit: number?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, since: Tick?, station: StationId?, ["until"]: Tick?, ware: WareId? }
-export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" } | { session: number, type: "paused" } | { choice: AnyId, npc: NpcId, ship: ShipId, station: StationId, type: "reply" }
+export type Event = { request: DockTalkRequest, type: "talk_requested" } | { line: AnyId, request: FactId, type: "talk_picked" } | { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { ledger: LedgerId?, quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { deed_count: number?, trait_id: TraitId, type: "trait_earned" } | { fee: number?, from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { act: number, beat: BeatId, type: "beat_started" } | { beat: BeatId, type: "beat_completed" } | { hull: HullId, type: "upgrade_fitted", upgrade: UpgradeId } | { cap: FlagId, type: "cap_unlocked" } | { hull: HullId, rank: number, type: "hull_rank" } | { deed: AnyId, delta: number, faction: FactionId, type: "standing_changed" } | { faction: FactionId, from: string, to: string, type: "regard_changed" } | { craft: ShipId, hull: HullId, station: StationId, type: "tender_acquired" } | { session: number, type: "paused" } | { choice: AnyId, npc: NpcId, ship: ShipId, station: StationId, type: "reply" }
 export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries" | "ledger_deliveries"
 export type BeatState = { act: number, done_since: FactId?, giver: NpcId?, goal: string, kind: BeatKind?, pack: PackId, since: FactId?, started: Tick, status: BeatStatus, step: number, step_id: string?, step_since: FactId? }
 export type Order = { to: FlyTarget, verb: "fly" } | { rock: RockId, verb: "mine" } | { rock: RockId, verb: "tag" } | { field: FieldId, prefer_tagged: boolean?, verb: "mine_field" } | { station: StationId, verb: "dock" } | { verb: "undock" } | { quantity: Quantity, verb: "buy", ware: WareId } | { floor: number?, quantity: Quantity, verb: "sell", ware: WareId } | { ["until"]: Condition, verb: "wait" } | { orders: { Order }, ["until"]: Condition?, verb: "loop" } | { quantity: Quantity, to: ShipId, verb: "transfer", ware: WareId }
@@ -69,6 +71,8 @@ export type IdTypes = { beat: BeatId, flag: FlagId, hull: HullId, ledger: Ledger
 
 -- Event handler arguments: the event plus the fact it was recorded as.
 
+export type TalkRequestedEvent = { cause: CauseId, fact: FactId, request: DockTalkRequest, tick: Tick, type: "talk_requested" }
+export type TalkPickedEvent = { cause: CauseId, fact: FactId, line: AnyId, request: FactId, tick: Tick, type: "talk_picked" }
 export type DockEvent = { cause: CauseId, fact: FactId, ship: ShipId, station: StationId, tick: Tick, type: "dock" }
 export type UndockEvent = { cause: CauseId, fact: FactId, ship: ShipId, station: StationId, tick: Tick, type: "undock" }
 export type MineEvent = { amount: number, cause: CauseId, fact: FactId, rock: RockId, ship: ShipId, tick: Tick, type: "mine", ware: WareId }
@@ -392,6 +396,12 @@ export type PacingApi = {
 export type TalkApi = {
 	-- Offers a line of dock talk. Needs a `speaker` or `place` and `cites`.
 	offer: (self: TalkApi, line: LineSpec, why: Cause) -> (),
+	-- Saves ordered authored candidates for the mind to pick. Slots are filled by the script from each cited fact. Candidate one is the complete fallback. At most 32 candidates; returns an on.talk_picked event, never generated text.
+	request: (self: TalkApi, docking: FactId, candidates: { DockTalkCandidate }, why: Cause) -> (),
+	-- Reads an offered candidate only if this pack revision, docking and speaker still match and its fact has not been said. Otherwise nil. Recheck docking when saying it.
+	selected: (self: TalkApi, request: FactId, line: string) -> DockTalkCandidate?,
+	-- Whether any dock-talk line already cites this fact, including this call's buffered lines.
+	cited: (self: TalkApi, fact: FactId) -> boolean,
 }
 export type MapApi = {
 	-- Pins a note to a place on the map. Needs `place` and `cites`.
@@ -434,6 +444,8 @@ export type Ctx = {
 -- What a script returns
 
 export type Handlers = {
+	talk_requested: ((ev: TalkRequestedEvent, ctx: Ctx) -> ())?,
+	talk_picked: ((ev: TalkPickedEvent, ctx: Ctx) -> ())?,
 	dock: ((ev: DockEvent, ctx: Ctx) -> ())?,
 	undock: ((ev: UndockEvent, ctx: Ctx) -> ())?,
 	mine: ((ev: MineEvent, ctx: Ctx) -> ())?,

@@ -406,7 +406,8 @@ fn act_one_crosses_into_act_two_at_the_keys() {
     // b06: more ice to Kettle until the chip is affordable, then Orrin fits it.
     let chip = UpgradeId::from_static("upgrade.nav_chip");
     let mut trips = 0;
-    while p.s.world().player.credits < 900 * CENTS_PER_CREDIT {
+    let chip_cost = p.s.world().progress.rules.upgrades.get(&chip).unwrap().cost;
+    while p.s.world().player.credits < chip_cost {
         p.undock();
         p.mine_ice_until_full();
         p.dock_at(&KETTLE);
@@ -414,7 +415,10 @@ fn act_one_crosses_into_act_two_at_the_keys() {
         trips += 1;
         // Kettle's ice price sits low once the player has sold it plenty: about 50 cr
         // a hold with the lens.
-        assert!(trips < 24, "selling ice should pay for the nav chip");
+        assert!(
+            trips <= 5,
+            "the nav chip should take at most five extra ice runs"
+        );
     }
     p.undock();
     p.dock_at(&WHARF);
@@ -796,57 +800,69 @@ fn citations(s: &Session) -> std::collections::BTreeMap<FactId, usize> {
 
 #[test]
 fn asking_right_after_docking_never_repeats_the_ambient_line() {
-    let mut p = Pilot::new(session(new_state(false)));
-    p.ticks(3);
-    p.undock();
-    // Something Ilse has a line about: Kettle's first pane.
-    p.s.submit(
-        CommandBatch::new(Cause::system("test", "a stage")).with(Command::RecordFact {
-            fact: Box::new(galaxy_contract::history::FactDraft {
-                kind: FactKind::from_static("core.stage_built"),
-                subjects: Subjects {
-                    station: Some(KETTLE),
-                    ..Subjects::default()
-                },
-                amount: Some(1),
-                note: "Kettle Dock stage 1".into(),
+    for pending in [true, false] {
+        let mut p = Pilot::new(session(new_state(false)));
+        p.ticks(3);
+        p.undock();
+        // Something Ilse has a line about: Kettle's first pane.
+        p.s.submit(
+            CommandBatch::new(Cause::system("test", "a stage")).with(Command::RecordFact {
+                fact: Box::new(galaxy_contract::history::FactDraft {
+                    kind: FactKind::from_static("core.stage_built"),
+                    subjects: Subjects {
+                        station: Some(KETTLE),
+                        ..Subjects::default()
+                    },
+                    amount: Some(1),
+                    note: "Kettle Dock stage 1".into(),
+                }),
             }),
-        }),
-    );
-    p.ticks(1);
-    let stage = p.s.sim().history().last_fact_id().unwrap();
-    // Dock, and stop on the tick the docking commits: Ilse's ambient line about it is
-    // said on the next tick.
-    let wharf = p.s.world().stations.get(&WHARF).unwrap().clone();
-    p.fly_to(wharf.position, wharf.dock_radius * 0.5);
-    p.keys.press_action();
-    for _ in 0..10 {
-        p.tick();
-        if p.docked().is_some() {
-            break;
+        );
+        p.ticks(1);
+        let stage = p.s.sim().history().last_fact_id().unwrap();
+        // Dock, and stop on the tick the docking commits: Ilse's ambient line about it is
+        // offered on the next tick; the selected line returns asynchronously.
+        let wharf = p.s.world().stations.get(&WHARF).unwrap().clone();
+        p.fly_to(wharf.position, wharf.dock_radius * 0.5);
+        p.keys.press_action();
+        for _ in 0..10 {
+            p.tick();
+            if p.docked().is_some() {
+                break;
+            }
         }
+        assert_eq!(p.docked(), Some(WHARF));
+        if !pending {
+            p.ticks(3);
+        }
+        // If the player asks while the pick is pending, the authored answer wins and
+        // retires the fact before the pick returns. After the ambient line has landed,
+        // the answer omits it. Either ordering must say the fact exactly once.
+        let answer = p.ask();
+        assert_eq!(
+            answer
+                .lines
+                .iter()
+                .filter(|l| l.cites.contains(&stage))
+                .count(),
+            usize::from(pending),
+            "{answer:?}"
+        );
+        assert!(
+            said(&p.s, &ILSE)
+                .iter()
+                .any(|t| t.starts_with("Odo's got a pane up at Kettle")),
+            "{:?}",
+            said(&p.s, &ILSE)
+        );
+        p.ticks(3);
+        assert_eq!(citations(&p.s).get(&stage), Some(&1));
+        assert!(
+            citations(&p.s).values().all(|n| *n == 1),
+            "{:?}",
+            citations(&p.s)
+        );
     }
-    assert_eq!(p.docked(), Some(WHARF));
-    // The player asks before that tick: the answer leaves the fact to Ilse's line.
-    let answer = p.ask();
-    assert!(
-        answer.lines.iter().all(|l| !l.cites.contains(&stage)),
-        "{answer:?}"
-    );
-    assert!(
-        said(&p.s, &ILSE)
-            .iter()
-            .any(|t| t.starts_with("Odo's got a pane up at Kettle")),
-        "{:?}",
-        said(&p.s, &ILSE)
-    );
-    p.ticks(3);
-    assert_eq!(citations(&p.s).get(&stage), Some(&1));
-    assert!(
-        citations(&p.s).values().all(|n| *n == 1),
-        "{:?}",
-        citations(&p.s)
-    );
 }
 
 /// The Wharf at its most crowded: Orrin offers the docking clamp, the hold extender and
@@ -1386,6 +1402,84 @@ fn the_mind_without_a_key_says_authored_lines() {
         "{notes:?}"
     );
     assert!(game.take_notes().is_empty(), "said once");
+    check_authored_default(&mut game);
+}
+
+#[test]
+fn switching_the_mind_off_keeps_the_scripts_complete_default() {
+    let opts = GameOptions {
+        packs: packs(),
+        gm: false,
+        mind: MindMode::Off,
+        hot_reload: false,
+    };
+    let mut game = Game::open(new_state(false), &opts).unwrap();
+    check_authored_default(&mut game);
+}
+
+fn check_authored_default(game: &mut Game) {
+    for _ in 0..3 {
+        game.step(&PlayerInput::default()).unwrap();
+    }
+    for (kind, amount) in [
+        ("core.stage_built", Some(1)),
+        ("core.shortage_started", None),
+    ] {
+        game.sim_mut().submit(
+            CommandBatch::new(Cause::system("test", "Kettle news")).with(Command::RecordFact {
+                fact: Box::new(FactDraft {
+                    kind: FactKind::new(kind).unwrap(),
+                    subjects: Subjects {
+                        station: Some(KETTLE),
+                        ..Subjects::default()
+                    },
+                    amount,
+                    note: "news".into(),
+                }),
+            }),
+        );
+    }
+    game.step(&PlayerInput::default()).unwrap();
+    game.sim_mut()
+        .submit(
+            CommandBatch::new(Cause::system("test", "arrival")).with(Command::Emit {
+                event: Event::Dock {
+                    ship: ShipId::from_static("ship.player"),
+                    station: WHARF,
+                },
+            }),
+        );
+    for _ in 0..5 {
+        game.step(&PlayerInput::default()).unwrap();
+    }
+    let candidates = game
+        .sim()
+        .history()
+        .facts()
+        .iter()
+        .find_map(|f| match &f.payload {
+            FactPayload::Event(Event::TalkRequested { request }) => Some(&request.candidates),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(candidates.len(), 2);
+    let said: Vec<_> = game
+        .sim()
+        .world()
+        .talk
+        .on(Channel::DockTalk)
+        .filter(|s| candidates.iter().any(|c| s.line.cites.contains(&c.cite)))
+        .collect();
+    assert_eq!(said.len(), 1);
+    assert_eq!(said[0].line.text, candidates[0].text);
+    assert!(
+        !game
+            .sim()
+            .history()
+            .facts()
+            .iter()
+            .any(|f| f.kind.as_str() == "mind.spend")
+    );
 }
 
 fn facts_of<'a>(s: &'a Session, kind: &str) -> Vec<&'a Fact> {

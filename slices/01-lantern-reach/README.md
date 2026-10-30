@@ -64,9 +64,13 @@ number keys **1** to **9** pick them too.
 
 The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
 examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
-save without them. Dock talk is the core pack's: people say their most specific
-authored line. The fast-model layer (`OPENROUTER_API_KEY`) is attached but doesn't
-pick dock lines yet; without a key the log says so once.
+save without them. The core pack offers fitting authored dock lines, with slots
+filled from their cited facts. With `OPENROUTER_API_KEY`, TypeSafe Jev picks one;
+without a key, budget or a timely valid answer, the pack's most specific line wins.
+The script checks the docking and citation again before speaking. These script
+menus never use free phrasing (even if `talk.free_phrasing` is enabled for other
+providers); every displayed word is authored or a fact value. Without a key the log
+says so once.
 `--hot-reload` reloads packs as you edit them (development).
 
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
