@@ -1,0 +1,19 @@
+# A test pack for the PR #21 review fixes: the predicate read views, standing deeds
+# repeated in one call, and goal deliveries checked when they apply.
+id = "review"
+name = "Review probe"
+version = "0.1.0"
+description = "Exercises ctx.beats read views, repeated ctx.standing:deed and ctx.beats:deliver in tests."
+uses = [
+    "beats.read",
+    "beats.write",
+    "events.dock",
+    "history.write",
+    "standing.read",
+    "standing.write",
+]
+
+[[script]]
+id = "review"
+file = "scripts/review.luau"
+handlers = ["on.dock"]

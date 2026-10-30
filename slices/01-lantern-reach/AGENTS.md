@@ -105,6 +105,12 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   A rejected rollback can be queued again.
 - Commands are `Reversible` (exact inverse) or `CompensateOnly` (`Emit`, `RecordFact`:
   history can't be unsaid, so a rollback must compensate in-world).
+- Batches are worked out from the tick's starting world, so a batch checks what it
+  relies on when it applies: `Expect*` commands (`ExpectDocked`, `ExpectShip`,
+  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`) change nothing and fail if the
+  committed world no longer matches; `UpdateOrders` and `UpdateMarketLine` are
+  compare-and-set. Never write a whole record from the planning snapshot (prestige
+  changes only the hull, `SetShipHull`). Rollback batches leave expectations out.
 
 ## How a tick works
 
@@ -280,7 +286,16 @@ error.
   list; read a ship's totals with `galaxy_progress::modifiers::for_ship`.
 - **Standing** is hidden; show `standing::tier` (regard). Change it only through
   `standing::Deeds` (or `ctx.standing:deed`), which clamps, applies trait bonuses and
-  writes `standing_changed` / `regard_changed`.
+  writes `standing_changed` / `regard_changed`. Each deed carries an `ExpectStanding`
+  band (the standings it has the same effect from), and `Deeds::after` counts standing
+  already written in the batch (a script call's earlier deeds, beat rewards) or queued
+  this tick (the native deeds).
+- **Purchases** assert what they buy is still unowned, so a request repeated in one tick
+  fails without charging. Prestige carries a stripe due that tick into the frozen
+  record. Berthed hulls (`Player::is_berthed`) can't be ordered, given loops or flown.
+- **Predicates** (`G.test`) read position and depletion through `ctx.beats:pilot()`
+  (`position`), `ctx.beats:distance`, `ctx.beats:field` and `ctx.beats:rock`; keep
+  their thresholds in `pacing.toml`.
 
 ## IDs
 

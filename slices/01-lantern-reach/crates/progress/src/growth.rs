@@ -32,48 +32,53 @@ pub fn earned_traits(world: &WorldState, history: &History) -> Vec<Command> {
     out
 }
 
-/// The next rank of the hull the player flies, if its deed is done: the new record
-/// (behind an `ExpectHullRecord` on the one it was worked out from) and a `hull_rank`
-/// fact. One rank per check.
-pub fn earned_rank(world: &WorldState, history: &History) -> Vec<Command> {
-    let Some(ship) = player_ship(world) else {
-        return Vec::new();
-    };
-    let stored = world.player.hull_records.get(&ship.hull).cloned();
-    let record = stored.clone().unwrap_or_default();
+/// The next rank of the hull the player flies, if its deed is done (and the hull isn't
+/// frozen): the rank it reaches.
+pub fn due_rank(world: &WorldState, history: &History) -> Option<u32> {
+    let ship = player_ship(world)?;
+    let record = world
+        .player
+        .hull_records
+        .get(&ship.hull)
+        .cloned()
+        .unwrap_or_default();
     if record.until.is_some() {
-        return Vec::new();
+        return None;
     }
-    let Some(next) = world
+    let next = world
         .progress
         .rules
         .ranks
         .iter()
-        .find(|r| r.hull == ship.hull && r.rank == record.rank + 1)
-    else {
+        .find(|r| r.hull == ship.hull && r.rank == record.rank + 1)?;
+    (measure(world, history, &next.deed, record.since, None) >= next.at_least).then_some(next.rank)
+}
+
+/// The next rank of the hull the player flies, if its deed is done: the new record
+/// (behind an `ExpectHullRecord` on the one it was worked out from) and a `hull_rank`
+/// fact. One rank per check. A prestige on the same tick carries the rank itself and
+/// freezes the record, so this batch then fails and the berth record stays.
+pub fn earned_rank(world: &WorldState, history: &History) -> Vec<Command> {
+    let (Some(ship), Some(rank)) = (player_ship(world), due_rank(world, history)) else {
         return Vec::new();
     };
-    if measure(world, history, &next.deed, record.since, None) < next.at_least {
-        return Vec::new();
-    }
-    // Only the rank changes, and only if the record is still the one read here: a
-    // prestige committed earlier in the tick froze it, and must keep its berth.
+    let stored = world.player.hull_records.get(&ship.hull).cloned();
     vec![
         Command::ExpectHullRecord {
             hull: ship.hull.clone(),
-            record: stored,
+            record: stored.clone(),
         },
         Command::SetHullRecord {
             hull: ship.hull.clone(),
             record: Some(HullRecord {
-                rank: next.rank,
-                ..record
+                rank,
+                ..stored.unwrap_or_default()
             }),
         },
         Command::Emit {
             event: Event::HullRank {
                 hull: ship.hull.clone(),
-                rank: next.rank,
+                rank,
             },
         },
     ]

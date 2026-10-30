@@ -155,19 +155,34 @@ pub fn batch(world: &WorldState, history: &History, to: &HullId) -> Result<Comma
             to: Box::default(),
         });
     }
+    // A stripe that comes due this tick is painted before the hull is frozen (the
+    // rank system's own batch for it then fails on the changed record).
     let old = world.player.hull_records.get(&o.from).cloned();
+    let due = crate::growth::due_rank(world, history);
+    let mut frozen = old.clone().unwrap_or_default();
+    if let Some(rank) = due {
+        frozen.rank = rank;
+    }
     b.push(Command::ExpectHullRecord {
         hull: o.from.clone(),
-        record: old.clone(),
+        record: old,
     });
     b.push(Command::SetHullRecord {
         hull: o.from.clone(),
         record: Some(HullRecord {
             until: head,
             berthed_as: Some(o.berth_as.clone()),
-            ..old.unwrap_or_default()
+            ..frozen
         }),
     });
+    if let Some(rank) = due {
+        b.push(Command::Emit {
+            event: Event::HullRank {
+                hull: o.from.clone(),
+                rank,
+            },
+        });
+    }
     b.push(Command::ExpectHullRecord {
         hull: to.clone(),
         record: world.player.hull_records.get(to).cloned(),

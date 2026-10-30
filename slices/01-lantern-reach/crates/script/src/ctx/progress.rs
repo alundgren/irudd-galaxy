@@ -289,9 +289,10 @@ impl CallEnv<'_> {
         match to {
             Value::String(s) => {
                 let id = self.station(lua, &s)?;
-                let st = self.world.stations.get(&id).ok_or_else(|| {
-                    self.fail(lua, "unknown_id", format!("no station `{id}`"))
-                })?;
+                let st =
+                    self.world.stations.get(&id).ok_or_else(|| {
+                        self.fail(lua, "unknown_id", format!("no station `{id}`"))
+                    })?;
                 Ok((Some(st.region.clone()), st.position))
             }
             Value::Table(t) => {
@@ -631,10 +632,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
             t.raw_set("position", point(lua, r.position)?)?;
             t.raw_set("remaining", r.remaining)?;
             t.raw_set("initial", r.initial)?;
-            t.raw_set(
-                "left",
-                share(u64::from(r.remaining), u64::from(r.initial)),
-            )?;
+            t.raw_set("left", share(u64::from(r.remaining), u64::from(r.initial)))?;
             Ok(Some(t))
         })?,
     )?;

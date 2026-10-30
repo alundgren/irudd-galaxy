@@ -40,8 +40,10 @@ impl System for ProgressSystem {
             .cloned()
             .collect();
         let requests = ctx.input.services.clone();
+        let mut prestige = false;
         for req in &requests {
             if let Ok(batch) = services::batch(world, history, req) {
+                prestige |= matches!(req, ServiceRequest::Prestige { .. });
                 ctx.submit(batch);
             }
         }
@@ -64,9 +66,13 @@ impl System for ProgressSystem {
             "the pilot picked up a habit",
             growth::earned_traits(world, history),
         );
-        submit(
-            "the hull earned a stripe",
-            growth::earned_rank(world, history),
-        );
+        // A prestige carries the stripe due this tick itself. If it fails, the next
+        // check after anything happens finds the stripe still due.
+        if !prestige {
+            submit(
+                "the hull earned a stripe",
+                growth::earned_rank(world, history),
+            );
+        }
     }
 }

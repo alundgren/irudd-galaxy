@@ -847,6 +847,7 @@ version = "0.1.0"
 dependencies = [
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-ship",
  "serde",
  "serde_json",
  "tempfile",
