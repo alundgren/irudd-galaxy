@@ -1,0 +1,47 @@
+# Flight, mining, docking, lane and control-tier tunables. PROVISIONAL numbers from the
+# content spec where it gives one; the rest are feel defaults to tune by playing.
+# Every key is optional; missing keys take the engine's defaults (the same values).
+# Schema: crates/contract/schemas/data-ship-rules.json
+
+# Arcade flight: quick to speed, quicker to stop, no coasting.
+[flight]
+accel_time = 0.1      # seconds from rest to top speed (hulls may set their own accel)
+brake = 1.5           # braking is this much stronger than accelerating
+turn_rate = 270.0     # degrees per second, for hulls without their own
+turn_slowdown = 0.5   # share of top speed lost moving directly away from the heading
+arrive_distance = 2.0 # a fly order is done this close to its point
+
+[mining]
+reach = 40.0               # mine within this distance of a rock's edge
+radius_base = 6.0          # rock radius = radius_base + radius_per_sqrt_unit * sqrt(remaining)
+radius_per_sqrt_unit = 3.0
+
+[docking]
+approach = 0.6 # dock orders dock this far into the ring (share of its radius)
+
+# Lanes are currents: every hull rides at the same speed and can't steer.
+[lanes]
+speed = 500.0
+mouth_radius = 70.0
+
+# Region pulses: activity counters in a field's region, weighted. Never time.
+[regrowth]
+reform_share = 0.25
+pulses = [
+    { counter = "dockings", weight = 1 },
+    { counter = "jumps", weight = 1 },
+]
+
+# Control tiers: the per-save flag that unlocks each input mode, and its limits.
+[controls]
+click_fly = "cap.click_fly"
+click_mine = "cap.click_mine"
+click_dock = "cap.click_dock"
+map_travel = "cap.map_travel"
+queues = "cap.queues"
+loops = "cap.loops"
+automation = "cap.automation"
+click_fly_range = 450.0
+queue_limit = 6
+loop_limit = 8
+saved_loop_limit = 3

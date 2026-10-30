@@ -46,6 +46,7 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<NpcsFile>("data-npcs"),
         one::<EconomyRules>("data-economy"),
         one::<StartFile>("data-start"),
+        one::<crate::ship::ShipRules>("data-ship-rules"),
     ]
 }
 

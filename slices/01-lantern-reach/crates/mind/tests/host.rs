@@ -55,6 +55,7 @@ fn npc_ship(id: ShipId, name: &str) -> Command {
         docked_at: Some(HOOK),
         hold: Hold::default(),
         orders: OrderQueue::default(),
+        activity: Default::default(),
     };
     Command::PutShip {
         id,

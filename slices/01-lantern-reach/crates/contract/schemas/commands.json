@@ -324,6 +324,90 @@
         }
       ]
     },
+    "Click": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "description": "Shift held: append to the queue instead of replacing it.",
+          "type": "boolean",
+          "default": false
+        },
+        "target": {
+          "$ref": "#/$defs/ClickTarget"
+        }
+      },
+      "required": [
+        "target"
+      ]
+    },
+    "ClickTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
     "Command": {
       "description": "One world change. Add a variant here, its apply/undo arm in `galaxy_core::apply`,\nand regenerate the schemas (`cargo xtask contract`).",
       "oneOf": [
@@ -470,6 +554,52 @@
           ]
         },
         {
+          "description": "Replaces a ship's orders only if they still equal `from`, so orders run from the\nsame tick's state can't overwrite orders given since (a loop assigned, a click):\na stale one fails and its batch is rejected. The ship system uses this.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/OrderQueue"
+            },
+            "op": {
+              "type": "string",
+              "const": "update_orders"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "to": {
+              "$ref": "#/$defs/OrderQueue"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "from",
+            "to"
+          ]
+        },
+        {
+          "description": "Replaces a ship's lane transit, mining run and input edge state.",
+          "type": "object",
+          "properties": {
+            "activity": {
+              "$ref": "#/$defs/ShipActivity"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_ship_activity"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "activity"
+          ]
+        },
+        {
           "description": "Adds to the player's credits, in centicredits. Fails below zero.",
           "type": "object",
           "properties": {
@@ -554,6 +684,32 @@
           ]
         },
         {
+          "description": "Saves (or with `orders: null` deletes) one of the player's named loops.",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_loop"
+            },
+            "orders": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "$ref": "#/$defs/Order"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "name"
+          ]
+        },
+        {
           "description": "Changes a rock's remaining units. Fails below zero.",
           "type": "object",
           "properties": {
@@ -573,6 +729,27 @@
             "op",
             "rock",
             "delta"
+          ]
+        },
+        {
+          "description": "Replaces a rock's regrowth bookkeeping.",
+          "type": "object",
+          "properties": {
+            "growth": {
+              "$ref": "#/$defs/RockGrowth"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_rock_growth"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "op",
+            "rock",
+            "growth"
           ]
         },
         {
@@ -1228,6 +1405,7 @@
           ]
         },
         {
+          "description": "The line's current price, in centicredits, is at least `price`.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1254,6 +1432,7 @@
           ]
         },
         {
+          "description": "The line's current price, in centicredits, is at most `price`.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2030,6 +2209,14 @@
       "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
       "type": "object",
       "properties": {
+        "accel": {
+          "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",
@@ -2060,10 +2247,23 @@
             "region": false
           }
         },
+        "standing_berth": {
+          "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
+          "type": "boolean",
+          "default": false
+        },
         "tier": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0
+        },
+        "turn_rate": {
+          "description": "Degrees per second. Missing: `flight.turn_rate`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
         }
       },
       "additionalProperties": false,
@@ -2299,6 +2499,30 @@
         }
       ]
     },
+    "MiningRun": {
+      "type": "object",
+      "properties": {
+        "mined": {
+          "description": "Units moved into the hold so far in this run.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "progress": {
+          "description": "Fractional units cut but not yet in the hold.",
+          "type": "number",
+          "format": "float"
+        },
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        }
+      },
+      "required": [
+        "rock",
+        "progress",
+        "mined"
+      ]
+    },
     "Npc": {
       "type": "object",
       "properties": {
@@ -2437,6 +2661,15 @@
         {
           "type": "object",
           "properties": {
+            "floor": {
+              "description": "Sell only while the unit price, in centicredits, is at or above this. A crewed\nship then keeps the rest; a hull with a standing berth waits docked for the\nprice (patient sell).",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0
+            },
             "quantity": {
               "$ref": "#/$defs/Quantity"
             },
@@ -2503,8 +2736,65 @@
         }
       ]
     },
+    "OrderProgress": {
+      "description": "Where a ship is inside its current order, beyond `OrderQueue::current`.",
+      "type": "object",
+      "properties": {
+        "blocked": {
+          "description": "A patient sell's floor is above what the station can pay now (its ceiling): it\nwaits docked, keeps its cargo and its floor, until the ceiling is back.",
+          "type": "boolean",
+          "default": false
+        },
+        "credits": {
+          "description": "Centicredits the current buy or sell has moved so far.",
+          "type": "integer",
+          "format": "int64",
+          "default": 0
+        },
+        "lap_end": {
+          "description": "A lap has just ended: the loop's `until` is checked against the world as the\nlap left it, before the next lap starts.",
+          "type": "boolean",
+          "default": false
+        },
+        "lap_moved": {
+          "description": "This lap moved cargo or credits. A lap that moves nothing stalls the loop.",
+          "type": "boolean",
+          "default": false
+        },
+        "laps": {
+          "description": "Laps of the current loop completed.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "step": {
+          "description": "The order being run inside a `loop` order.",
+          "type": "integer",
+          "format": "uint",
+          "default": 0,
+          "minimum": 0
+        },
+        "traded": {
+          "description": "Units the current buy or sell has moved so far.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "waiting": {
+          "description": "A patient sell is waiting in a standing berth for its floor, since its region\nhad this many pulses.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        }
+      }
+    },
     "OrderQueue": {
-      "description": "A ship's orders and where it is in them. W2 may add progress fields.",
+      "description": "A ship's orders and where it is in them.",
       "type": "object",
       "properties": {
         "current": {
@@ -2518,6 +2808,19 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/Order"
+          }
+        },
+        "progress": {
+          "description": "Progress inside the current order (loop step, laps, patient sell).",
+          "$ref": "#/$defs/OrderProgress",
+          "default": {
+            "blocked": false,
+            "credits": 0,
+            "lap_end": false,
+            "lap_moved": false,
+            "laps": 0,
+            "step": 0,
+            "traded": 0
           }
         }
       },
@@ -2741,6 +3044,14 @@
         "field": {
           "$ref": "#/$defs/FieldId"
         },
+        "growth": {
+          "description": "Regrowth bookkeeping (activity-driven).",
+          "$ref": "#/$defs/RockGrowth",
+          "default": {
+            "mark": 0,
+            "milli": 0
+          }
+        },
         "id": {
           "$ref": "#/$defs/RockId"
         },
@@ -2808,6 +3119,12 @@
         "region": {
           "$ref": "#/$defs/RegionId"
         },
+        "regrow": {
+          "description": "Units the whole field regrows per region pulse, each pulse's units going to the\nrock with the lowest remaining share (spent rocks included). Region pulses are\nactivity (`ship_rules.regrowth.pulses`), never time. Kept in thousandths.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
         "rock_prefix": {
           "description": "Prefix for generated rock IDs, e.g. `rock.shallows.ice`.",
           "type": "string"
@@ -2830,6 +3147,26 @@
         "amount_max"
       ]
     },
+    "RockGrowth": {
+      "description": "A rock's regrowth bookkeeping, in region activity (pulses), never time.",
+      "type": "object",
+      "properties": {
+        "mark": {
+          "description": "The region activity its field's regrowth has accounted for.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "milli": {
+          "description": "Regrown thousandths of a unit not yet in `remaining`. A spent rock keeps all of\nits regrowth here until it reaches the reform share, then reforms with it.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        }
+      }
+    },
     "RockId": {
       "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
       "type": "string",
@@ -2843,7 +3180,7 @@
       "type": "object",
       "properties": {
         "hardness": {
-          "description": "Multiplier on a hull's mining rate (1.0 = normal, higher = slower).",
+          "description": "Multiplier on a hull's mining rate (1.0 = soft ice, lower = slower to cut).",
           "type": "number",
           "format": "float"
         },
@@ -2959,6 +3296,13 @@
     "Ship": {
       "type": "object",
       "properties": {
+        "activity": {
+          "description": "Lane transit, mining run and input edge state.",
+          "$ref": "#/$defs/ShipActivity",
+          "default": {
+            "action_held": false
+          }
+        },
         "docked_at": {
           "anyOf": [
             {
@@ -2991,7 +3335,16 @@
           "$ref": "#/$defs/OrderQueue",
           "default": {
             "current": 0,
-            "orders": []
+            "orders": [],
+            "progress": {
+              "blocked": false,
+              "credits": 0,
+              "lap_end": false,
+              "lap_moved": false,
+              "laps": 0,
+              "step": 0,
+              "traded": 0
+            }
           }
         },
         "owner": {
@@ -3018,6 +3371,50 @@
         "heading",
         "hold"
       ]
+    },
+    "ShipActivity": {
+      "description": "What a ship is in the middle of, beyond its motion and orders.",
+      "type": "object",
+      "properties": {
+        "action_held": {
+          "description": "The context action was held last tick. A press docks, undocks or enters a lane\nonce; holding keeps mining.",
+          "type": "boolean",
+          "default": false
+        },
+        "held_clicks": {
+          "description": "The player's clicks from ticks whose batch hasn't committed yet, oldest first.\nThey're written ahead of the tick's batch, cleared by it, and replayed next tick\nif it was rejected, so a click is never lost to a mine or trade that lost.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Click"
+          }
+        },
+        "held_press": {
+          "description": "Likewise for a press of the context action.",
+          "type": "boolean"
+        },
+        "mining": {
+          "description": "The mining run under way: one `mine` event when it ends.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MiningRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transit": {
+          "description": "Riding a lane current.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Transit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
     "ShipId": {
       "description": "Stable ship id, e.g. `ship.player`.",
@@ -3188,6 +3585,40 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Transit": {
+      "description": "A lane transit: straight from `start` to `end` at the lane speed.",
+      "type": "object",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "from": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "lane": {
+          "$ref": "#/$defs/LaneId"
+        },
+        "start": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "to": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "travelled": {
+          "description": "World units travelled so far.",
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "lane",
+        "from",
+        "to",
+        "start",
+        "end",
+        "travelled"
+      ]
     },
     "Vec2": {
       "description": "A point or vector on the sim plane.",
