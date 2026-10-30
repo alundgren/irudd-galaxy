@@ -11,6 +11,7 @@ publish = false
 # Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
 [workspace.dependencies]
 # Our crates
+galaxy-kit = { path = "crates/kit" }
 galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
 galaxy-ship = { path = "crates/ship" }

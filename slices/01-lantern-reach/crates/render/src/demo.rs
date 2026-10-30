@@ -4,6 +4,7 @@
 //! re-mesh a rock when its `remaining` changes enough to see, and rebuild the scene
 //! description every frame. It is sample code, not part of the game.
 
+use crate::art_bible::ArtMaterial;
 use crate::art_bible::{ArtBible, InkRole};
 use crate::camera::Camera;
 use crate::color::Color;
