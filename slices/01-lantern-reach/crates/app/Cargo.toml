@@ -21,6 +21,7 @@ galaxy-core.workspace = true
 galaxy-economy.workspace = true
 galaxy-script.workspace = true
 galaxy-ship.workspace = true
+galaxy-progress.workspace = true
 render.workspace = true
 galaxy-mind.workspace = true
 galaxy-gm.workspace = true

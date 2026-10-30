@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::economy::TradeRequest;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::progress::ServiceRequest;
 
 /// What the player is doing this tick. `Default` is "hands off".
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -25,6 +26,11 @@ pub struct PlayerInput {
     /// `galaxy_economy::check_trade` or `quote`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trades: Vec<TradeRequest>,
+    /// Purchases asked for at the dock this tick: upgrades, tenders, prestige. The
+    /// progress system runs each as one atomic batch; check them first with
+    /// `galaxy_progress::services::check`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub services: Vec<ServiceRequest>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

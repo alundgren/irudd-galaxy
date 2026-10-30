@@ -9,7 +9,7 @@
 //! `credits = 40.5`). The world keeps them as centicredits ([`crate::money`]); the
 //! loader converts them and rejects anything finer than a centicredit.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,10 +17,18 @@ use serde::{Deserialize, Serialize};
 use crate::economy::MarketRole;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::progress::{
+    CapabilityDef, DeedRule, Modifier, PrestigeBranch, RankDef, RegardTier, Requirement, SlotDef,
+    TierDef, TraitDef, TunableValue,
+};
 use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service};
 
+/// Core-pack data files that another crate loads itself (galaxy-mind's `mind.toml`).
+/// The world loader and the script host leave them alone.
+pub const CONFIG_FILES: [&str; 1] = ["mind.toml"];
+
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 11] = [
+pub const DATA_FILES: [&str; 15] = [
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -31,6 +39,10 @@ pub const DATA_FILES: [&str; 11] = [
     "npcs.toml",
     "ship_rules.toml",
     "economy.toml",
+    "controls.toml",
+    "upgrades.toml",
+    "traits.toml",
+    "pacing.toml",
     "start.toml",
 ];
 
@@ -63,6 +75,9 @@ fn yes() -> bool {
 pub struct HullsFile {
     #[serde(default)]
     pub hull: Vec<Hull>,
+    /// Hull ranks: deeds done in a hull (W4). Prestige resets them.
+    #[serde(default)]
+    pub rank: Vec<RankDef>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -70,6 +85,121 @@ pub struct HullsFile {
 pub struct FactionsFile {
     #[serde(default)]
     pub faction: Vec<Faction>,
+    /// The hidden standing's range (W4). Default -100..=100.
+    #[serde(default)]
+    pub standing: Option<StandingRange>,
+    /// Regard tiers: how people treat you, by standing (W4).
+    #[serde(default)]
+    pub regard: Vec<RegardTier>,
+    /// Memory rules: deeds that move standing (W4).
+    #[serde(default)]
+    pub deed: Vec<DeedRule>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StandingRange {
+    pub min: i32,
+    pub max: i32,
+}
+
+/// `controls.toml`: control capabilities, the tiers that group them, and the reserved
+/// input and UI slots taught mechanics may bind (W4).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ControlsFile {
+    #[serde(default)]
+    pub capability: Vec<CapabilityDef>,
+    #[serde(default)]
+    pub tier: Vec<TierDef>,
+    #[serde(default)]
+    pub slot: Vec<SlotDef>,
+}
+
+/// `upgrades.toml`: what hullwrights and dockmasters fit and build (W4).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpgradesFile {
+    #[serde(default)]
+    pub upgrade: Vec<UpgradeData>,
+    #[serde(default)]
+    pub craft: Vec<CraftData>,
+}
+
+/// An upgrade as authored; `cost` in credits.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpgradeData {
+    pub id: UpgradeId,
+    pub name: String,
+    pub effect: String,
+    /// In credits; 0 for a gift.
+    pub cost: f64,
+    #[serde(default)]
+    pub seller: Option<NpcId>,
+    #[serde(default)]
+    pub station: Option<StationId>,
+    #[serde(default)]
+    pub unlock: Requirement,
+    #[serde(default)]
+    pub grants: Vec<FlagId>,
+    #[serde(default)]
+    pub modifiers: Vec<Modifier>,
+}
+
+/// A craft (tender) as authored; `cost` in credits.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CraftData {
+    pub id: ShipId,
+    pub name: String,
+    pub effect: String,
+    pub hull: HullId,
+    /// In credits.
+    pub cost: f64,
+    #[serde(default)]
+    pub seller: Option<NpcId>,
+    pub station: StationId,
+    #[serde(default)]
+    pub unlock: Requirement,
+    #[serde(default)]
+    pub grants: Vec<FlagId>,
+}
+
+/// `traits.toml`: pilot traits (W4).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TraitsFile {
+    #[serde(default, rename = "trait")]
+    pub traits: Vec<TraitDef>,
+}
+
+/// `pacing.toml`: the pacing profile's tunables and the hullwright's prestige terms
+/// (W4). Every threshold a beat reads is a tunable here.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PacingFile {
+    /// The profile these numbers are for (`slice`).
+    #[serde(default)]
+    pub profile: String,
+    #[serde(default)]
+    pub tunables: BTreeMap<TunableId, TunableValue>,
+    #[serde(default)]
+    pub prestige: Option<PrestigeData>,
+}
+
+/// Prestige as authored; `fee` in credits.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PrestigeData {
+    pub station: StationId,
+    #[serde(default)]
+    pub seller: Option<NpcId>,
+    /// In credits.
+    pub fee: f64,
+    pub branch: Vec<PrestigeBranch>,
+    #[serde(default)]
+    pub requires: Requirement,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

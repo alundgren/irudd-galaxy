@@ -42,6 +42,7 @@
     "limits": {
       "$ref": "#/$defs/Limits",
       "default": {
+        "contention_retries": 3,
         "memory_bytes": 16777216,
         "quarantine_after": 3,
         "steps_per_call": 100000
@@ -116,6 +117,13 @@
       "description": "Per-pack runtime limits. The engine clamps them to its own maxima.",
       "type": "object",
       "properties": {
+        "contention_retries": {
+          "description": "Times an event handler whose writes lost to contention is run again for the\nsame event, one tick apart, before it is dropped (`script_contention_dropped`).",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        },
         "memory_bytes": {
           "description": "Memory limit for the pack's Luau state.",
           "type": "integer",
@@ -124,7 +132,7 @@
           "minimum": 0
         },
         "quarantine_after": {
-          "description": "Aborted handler calls (per script and revision) before the script is\nquarantined.",
+          "description": "Aborted calls (per script and revision) before the script is quarantined.\nOnly script faults abort; a write that loses to contention never counts.",
           "type": "integer",
           "format": "uint32",
           "default": 3,

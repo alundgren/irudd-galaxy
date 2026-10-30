@@ -53,15 +53,33 @@ impl History {
         self.facts.last().map(|f| f.id)
     }
 
+    /// The facts a query's `after`, `since` and `until` bounds leave, found by binary
+    /// search (facts are in ID and tick order), so windowed queries stay cheap as the
+    /// log grows.
+    fn window(&self, q: &HistoryQuery) -> &[Fact] {
+        let mut start = 0;
+        let mut end = self.facts.len();
+        if let Some(a) = q.after {
+            start = start.max(self.facts.partition_point(|f| f.id <= a));
+        }
+        if let Some(t) = q.since {
+            start = start.max(self.facts.partition_point(|f| f.tick < t));
+        }
+        if let Some(t) = q.until {
+            end = end.min(self.facts.partition_point(|f| f.tick <= t));
+        }
+        &self.facts[start..end.max(start)]
+    }
+
     /// How many facts match.
     pub fn count(&self, q: &HistoryQuery) -> usize {
-        self.facts.iter().filter(|f| q.matches(f)).count()
+        self.window(q).iter().filter(|f| q.matches(f)).count()
     }
 
     /// Sum of `amount` over matching facts, or `None` if it doesn't fit in an `i64`
     /// (amounts come from scripts too, so they can be anything).
     pub fn sum(&self, q: &HistoryQuery) -> Option<i64> {
-        self.facts
+        self.window(q)
             .iter()
             .filter(|f| q.matches(f))
             .filter_map(|f| f.amount)
@@ -71,7 +89,7 @@ impl History {
     /// Matching facts, oldest first, at most `q.limit`.
     pub fn find(&self, q: &HistoryQuery) -> Vec<&Fact> {
         let limit = q.limit.map_or(usize::MAX, |n| n as usize);
-        self.facts
+        self.window(q)
             .iter()
             .filter(|f| q.matches(f))
             .take(limit)
@@ -80,7 +98,7 @@ impl History {
 
     /// The most recent matching fact.
     pub fn last(&self, q: &HistoryQuery) -> Option<&Fact> {
-        self.facts.iter().rev().find(|f| q.matches(f))
+        self.window(q).iter().rev().find(|f| q.matches(f))
     }
 
     pub(crate) fn record_cause(&mut self, cause: RecordedCause) {

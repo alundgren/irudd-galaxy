@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use galaxy_contract::pack::{ScriptHealth, ScriptValue};
+use galaxy_contract::pack::{HandlerRetry, ScriptHealth, ScriptValue};
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::{Save, Sim, SimState, System, TickCtx, default_systems, new_game};
@@ -224,6 +224,7 @@ fn undo_records_invert_commands() {
     kettle.id = StationId::new("gm.sixth_station").unwrap();
     kettle.name = "The sixth station".into();
     let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
+    let coop = world.factions.get(&COOP).unwrap().standing;
     let commands = vec![
         Command::AdjustCargo {
             ship: PLAYER,
@@ -253,9 +254,78 @@ fn undo_records_invert_commands() {
             faction: COOP,
             delta: 3,
         },
+        Command::ExpectStanding {
+            faction: COOP,
+            min: coop + 3,
+            max: coop + 3,
+        },
         Command::SetFlag {
             flag: FlagId::new("flag.nav_chip").unwrap(),
             on: true,
+        },
+        Command::PutBeat {
+            id: BeatId::new("beat.b01_undock").unwrap(),
+            value: Some(Box::new(BeatState {
+                pack: PackId::new("core").unwrap(),
+                act: 1,
+                kind: BeatKind::Directed,
+                status: BeatStatus::Active,
+                step: 0,
+                step_id: None,
+                goal: "Undock.".into(),
+                giver: None,
+                since: None,
+                step_since: None,
+                done_since: None,
+                started: Tick(0),
+            })),
+        },
+        Command::SetFitting {
+            upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
+            fitted: true,
+        },
+        Command::ExpectFitting {
+            upgrade: UpgradeId::new("upgrade.mining_lens").unwrap(),
+            fitted: true,
+        },
+        Command::SetHullRecord {
+            hull: HullId::new("hull.wren").unwrap(),
+            record: Some(HullRecord {
+                rank: 2,
+                ..HullRecord::default()
+            }),
+        },
+        Command::ExpectHullRecord {
+            hull: HullId::new("hull.wren").unwrap(),
+            record: Some(HullRecord {
+                rank: 2,
+                ..HullRecord::default()
+            }),
+        },
+        Command::ExpectShip {
+            ship: PLAYER,
+            hull: Some(HullId::new("hull.wren").unwrap()),
+        },
+        Command::ExpectShip {
+            ship: ShipId::new("ship.berth.wren").unwrap(),
+            hull: None,
+        },
+        Command::SetShipHull {
+            ship: PLAYER,
+            hull: HullId::new("hull.tandem").unwrap(),
+            name: "Tandem".into(),
+        },
+        Command::SetTunable {
+            id: TunableId::new("b02.ice").unwrap(),
+            value: Some(Box::new(Tunable {
+                value: TunableValue::Number(30.0),
+                authored: TunableValue::Number(20.0),
+                set_by: Some(PackId::new("gm").unwrap()),
+            })),
+        },
+        Command::BindSlot {
+            slot: SlotId::new("slot.key_t").unwrap(),
+            mechanic: Some(FlagId::new("mech.rock_tagging").unwrap()),
         },
         Command::ExpectDocked {
             ship: PLAYER,
@@ -396,6 +466,18 @@ fn undo_records_invert_commands() {
                 aborts: 1,
                 quarantined: false,
                 quarantined_before: ["r0".to_owned()].into(),
+                retries: vec![HandlerRetry {
+                    event: EventEnvelope {
+                        tick: Tick(3),
+                        fact: FactId(7),
+                        cause: CauseId(2),
+                        event: Event::Dock {
+                            ship: ShipId::new("ship.player").unwrap(),
+                            station: StationId::new("station.kettle_dock").unwrap(),
+                        },
+                    },
+                    lost: 1,
+                }],
             },
         },
         Command::SetRevisionRetired {
@@ -406,7 +488,7 @@ fn undo_records_invert_commands() {
         Command::Say {
             line: Box::new(TalkLine {
                 channel: Channel::DockTalk,
-                speaker: Some(NpcId::new("npc.ilse").unwrap()),
+                speaker: Some(NpcId::new("npc.ilse_marrow").unwrap()),
                 place: Some(WHARF),
                 text: "Kettle lit another ring.".into(),
                 cites: vec![FactId(1)],

@@ -438,6 +438,7 @@ fn a_changed_grounding_packet_is_a_new_situation() {
                 station: GLASS,
                 ware: ICE,
                 quantity: 5,
+                ledger: None,
             },
         }),
     );
@@ -654,6 +655,7 @@ fn deliver_and_dock(sim: &mut Sim) -> FactId {
                     station: KETTLE,
                     ware: ICE,
                     quantity: 12,
+                    ledger: None,
                 },
             })
             .with(Command::Emit {

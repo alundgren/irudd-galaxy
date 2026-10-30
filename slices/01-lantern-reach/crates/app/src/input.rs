@@ -145,6 +145,7 @@ pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerIn
         action: keys.held(Key::Space),
         click,
         trades: Vec::new(),
+        services: Vec::new(),
     }
 }
 

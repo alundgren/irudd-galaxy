@@ -62,7 +62,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/render` | | W6 | Renderer (wgpu, 3D-ready camera). Knows nothing about the sim's internals. |
 | `crates/ship` | `galaxy-ship` | W2 | Flight, control tiers, verbs and orders, mining, docking, automated craft. |
 | `crates/economy` | `galaxy-economy` | W3 | The living market: pricing and saturation, activity pulses, trades, scouting, map and territory, market levers, telemetry, NPC trade choice. Register `galaxy_economy::EconomySystem` after the ship systems. |
-| `crates/progress` | | W4 | Beat runtime, standing, traits, prestige. |
+| `crates/progress` | `galaxy-progress` | W4 | Beat runtime, standing and regard, pilot traits, hull ranks, prestige, station services, modifiers. See "Progress". |
 | `crates/script` | `galaxy-script` | W5 | Luau host, sandbox, packs, ctx hooks, validator, hot reload, rollback. See "Packs and scripts". |
 | `crates/gm` | `galaxy-gm` | W5 | Game-master bridge: live socket, `--live` reads, digest, `gm propose` (sandbox run in child processes), calm-moment staging, inbox, rollback. Agents acting as game master read [GM-AGENTS.md](GM-AGENTS.md). |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
@@ -105,6 +105,12 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   A rejected rollback can be queued again.
 - Commands are `Reversible` (exact inverse) or `CompensateOnly` (`Emit`, `RecordFact`:
   history can't be unsaid, so a rollback must compensate in-world).
+- Batches are worked out from the tick's starting world, so a batch checks what it
+  relies on when it applies: `Expect*` commands (`ExpectDocked`, `ExpectShip`,
+  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`) change nothing and fail if the
+  committed world no longer matches; `UpdateOrders` and `UpdateMarketLine` are
+  compare-and-set. Never write a whole record from the planning snapshot (prestige
+  changes only the hull, `SetShipHull`). Rollback batches leave expectations out.
 
 ## How a tick works
 
@@ -219,8 +225,20 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   checked against the kernel's invariants before it's submitted, and an error, a write
   that would be rejected, or running over the step, memory or write quota discards all
   of it. The check (`TickCtx::preview`) runs on the world the kernel will apply the
-  batch to: the batches queued ahead of it this tick, and every invariant of the sim. Repeated aborts quarantine the script revision for good (`script_quarantined`
-  fact; reloading the same revision doesn't clear it).
+  batch to: the batches queued ahead of it this tick, and every invariant of the sim.
+- Only **script faults** abort: a Luau error, running over the step, memory or write
+  quota, an invalid argument, an undeclared hook, or a write the check rejects on the
+  world the call read as well. Repeated aborts (`limits.quarantine_after`) quarantine
+  the script revision for good (`script_quarantined` fact; reloading the same revision
+  doesn't clear it). A write that is valid on the world the call read but loses to a
+  change made earlier in the tick (an undock, moved cargo, a compare-and-set or
+  `Expect*` check, a record gone) is **contention**: the host tells them apart by
+  checking the rejected batch again on that world (`host::check`). Contention never
+  counts. A beat transition or trigger tries again next tick; an `on.` handler runs
+  again for the same event next tick, up to `limits.contention_retries` times (default
+  3), then is dropped with a `script_contention_dropped` fact. Pending retries live in
+  `ScriptHealth::retries`, so save and load replay exactly. A retry reads the world as
+  it is then: check what the handler relies on instead of letting a hook raise.
 - Scripts hold no state in Luau: each call runs the script and its modules afresh, so
   locals and upvalues start over. Remember things in a declared store
   (`ctx.store:set(store, key, value, why)`) or read them back from history.
@@ -230,9 +248,10 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `next, t`, between `in` and `do` (checked on a tokenizer that follows Luau's lexer;
   `for k, v in t` and `pairs(a) and t` are check errors). Scripts are always strict:
   the first line is `--!strict`, and `!nocheck`/`!nonstrict` anywhere is a check error.
-- Bounded: each handler call runs in a fresh Luau state (so memory outcomes don't
-  depend on earlier calls), native helpers that do O(n) work charge the step budget
-  (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
+- Bounded: each handler call, beat callback and `G.test` predicate runs in a fresh
+  Luau state (so memory outcomes don't depend on earlier calls; the pack's bytecode is
+  compiled once and shared), native helpers that do O(n) work, world views such as
+  `ctx.beats:field` included, charge the step budget (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
   1 KiB with a marker. Known gap: comparing two long strings (`a < b`) is one VM
   opcode and isn't metered; it is bounded only by the memory limit, which caps string
   length.
@@ -273,10 +292,55 @@ time. Its thresholds are `SandboxRules`.
 
 **Adding a hook function**: add a `FnDef` to `contract::api::FUNCTIONS` (and a
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
-`cargo xtask contract`. Reserved capabilities (`market.levers`, `orders.write`,
-`kit.write`, `beats.write`, `canon.*`, `mechanics.write`, `mind.write`,
-`telemetry.read`) are the extension points for the other workstreams: flip
-`available`, add the functions, and declaring them stops being an error.
+`cargo xtask contract`. W4's hooks (`beats.*`, `orders.*`, `mechanics.*`,
+`market.levers`, `standing.*`, `traits.read`, `pacing.*`) live in
+`crates/script/src/ctx/progress.rs`. The reserved capabilities left (`kit.write`,
+`canon.*`, `mind.write`, `telemetry.read`) are the extension points for the other
+workstreams: flip `available`, add the functions, and declaring them stops being an
+error.
+
+## Progress (W4)
+
+`galaxy-progress` is native Rust; the journey itself is Luau in `packs/core`.
+
+- **Register** `galaxy_progress::ProgressSystem` after the ship and economy systems,
+  and load `packs/core` into the `ScriptHost` (it runs the beats). The system turns
+  `PlayerInput::services` (fit an upgrade, build a tender, prestige) into one atomic
+  batch each, and after anything happens pays faction deeds, earns traits and the
+  current hull's next rank. Check a purchase first with `services::check` / `offers`.
+- **Beats**: `G.beat { id, act, goal, requires, steps, done, rewards, on_* }` in
+  `G.script { beats = { ... } }` (needs `beats.write`). Requirements are data built
+  with `G.*` helpers (`G.done`, `G.counter`, `G.fact`, `G.cargo`, `G.test(fn)` ...),
+  never time; numbers can be `G.tunable(id)` from `pacing.toml`. State lives in
+  `world.progress.beats` by stable ID, so beats survive save, load and hot reload.
+  Facts: `beat_started`, `quest_step` (the next step; `quest` is the beat ID),
+  `beat_completed`. The HUD's line is `galaxy_progress::beats::hud_goal`. Worked
+  examples: `packs/core/scripts/act1.luau` (b01-b03). A transition (with its
+  callback's writes) is checked like a handler batch, against the world the kernel
+  will apply it to; only one that will commit is visible to later beats that tick, so
+  a successor never unlocks on a completion the kernel would reject. One that loses to
+  contention is checked again next tick and never counts toward quarantine. A live `G.test`
+  costs about 0.3 ms a tick (a fresh state per call): list data requirements
+  ahead of it, since a list stops at the first that fails.
+- **Data** (all `packs/core/data/`): `upgrades.toml` (upgrades and tenders, costs,
+  sellers, unlock requirements, granted `cap.*` flags, modifiers), `controls.toml`
+  (capabilities, tiers, reserved slots), `traits.toml`, `[[rank]]` in `hulls.toml`,
+  `[[regard]]` / `[[deed]]` / `[standing]` in `factions.toml`, and `pacing.toml`
+  (tunables and `[prestige]`). The core loader checks every reference.
+- **Effects**: traits, fittings and ranks only ever add up to the fixed `Modifier`
+  list; read a ship's totals with `galaxy_progress::modifiers::for_ship`.
+- **Standing** is hidden; show `standing::tier` (regard). Change it only through
+  `standing::Deeds` (or `ctx.standing:deed`), which clamps, applies trait bonuses and
+  writes `standing_changed` / `regard_changed`. Each deed carries an `ExpectStanding`
+  band (the standings it has the same effect from), and `Deeds::after` counts standing
+  already written in the batch (a script call's earlier deeds, beat rewards) or queued
+  this tick (the native deeds).
+- **Purchases** assert what they buy is still unowned, so a request repeated in one tick
+  fails without charging. Prestige carries a stripe due that tick into the frozen
+  record. Berthed hulls (`Player::is_berthed`) can't be ordered, given loops or flown.
+- **Predicates** (`G.test`) read position and depletion through `ctx.beats:pilot()`
+  (`position`), `ctx.beats:distance`, `ctx.beats:field` and `ctx.beats:rock`; keep
+  their thresholds in `pacing.toml`.
 
 ## IDs
 

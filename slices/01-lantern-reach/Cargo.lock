@@ -923,6 +923,7 @@ dependencies = [
  "galaxy-economy",
  "galaxy-gm",
  "galaxy-mind",
+ "galaxy-progress",
  "galaxy-script",
  "galaxy-ship",
  "render",
@@ -1010,12 +1011,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "galaxy-progress"
+version = "0.1.0"
+dependencies = [
+ "galaxy-contract",
+ "galaxy-core",
+ "galaxy-ship",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "galaxy-script"
 version = "0.1.0"
 dependencies = [
  "blake3",
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-economy",
+ "galaxy-progress",
+ "galaxy-ship",
  "mlua",
  "notify",
  "serde",

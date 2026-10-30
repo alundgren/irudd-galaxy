@@ -3,21 +3,188 @@
   "title": "FactionsFile",
   "type": "object",
   "properties": {
+    "deed": {
+      "description": "Memory rules: deeds that move standing (W4).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeedRule"
+      }
+    },
     "faction": {
       "type": "array",
       "default": [],
       "items": {
         "$ref": "#/$defs/Faction"
       }
+    },
+    "regard": {
+      "description": "Regard tiers: how people treat you, by standing (W4).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RegardTier"
+      }
+    },
+    "standing": {
+      "description": "The hidden standing's range (W4). Default -100..=100.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StandingRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "AnyId": {
+      "description": "Stable entity id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "DeedFilter": {
+      "description": "Which facts a deed counts. Each field narrows; a list matches any of its values.",
+      "type": "object",
+      "properties": {
+        "any_ship": {
+          "description": "Count any ship's facts, not just the player's.",
+          "type": "boolean",
+          "default": false
+        },
+        "kinds": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FactKind"
+          }
+        },
+        "others": {
+          "description": "Matches the fact's `other` subject (a ledger, a beat ...).",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AnyId"
+          }
+        },
+        "stations": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StationId"
+          }
+        },
+        "wares": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WareId"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "DeedRule": {
+      "description": "A faction's memory rule: a deed the player does moves standing.",
+      "type": "object",
+      "properties": {
+        "cap_per_docking": {
+          "description": "Most steps per docking (counted from the player's latest docking).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "delta": {
+          "description": "Standing per step.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "faction": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "id": {
+          "description": "Stable, e.g. `deed.coop.kettle_supply`. Written on `standing_changed`.",
+          "$ref": "#/$defs/AnyId"
+        },
+        "on": {
+          "description": "The facts that count. `ship` defaults to the player's ship.",
+          "$ref": "#/$defs/DeedFilter"
+        },
+        "once": {
+          "description": "Pays once, ever.",
+          "type": "boolean",
+          "default": false
+        },
+        "per": {
+          "description": "Units (summed `amount`) per step; without it every matching fact is a step.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "tags": {
+          "description": "Tags traits can scale (`delivery`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "faction",
+        "on",
+        "delta"
+      ]
+    },
+    "FactKind": {
+      "description": "Stable fact kind id, e.g. `dock`.",
+      "type": "string",
+      "examples": [
+        "dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
     "Faction": {
       "type": "object",
       "properties": {
+        "claims": {
+          "description": "Stations it claims but may not hold.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          }
+        },
+        "colour": {
+          "description": "Map and banner colour, e.g. `lantern_green`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "id": {
           "$ref": "#/$defs/FactionId"
+        },
+        "mark": {
+          "description": "Its mark, in a few words.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "name": {
           "type": "string"
@@ -48,6 +215,61 @@
       "type": "string",
       "examples": [
         "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegardTier": {
+      "description": "A regard tier: how people treat you at a standing. The number stays hidden.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "`cold`, `stranger`, `known`, `trusted`, `kin`.",
+          "type": "string"
+        },
+        "min_standing": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "shows": {
+          "description": "How it shows, in one line.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "min_standing",
+        "shows"
+      ]
+    },
+    "StandingRange": {
+      "type": "object",
+      "properties": {
+        "max": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "min": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ]
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"

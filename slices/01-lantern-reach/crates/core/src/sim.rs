@@ -389,6 +389,8 @@ impl Sim {
             });
             for u in entry.undo.iter().rev() {
                 match u {
+                    // A check has nothing to undo, and the world it held in is gone.
+                    UndoRecord::Invert { command } if command.is_expectation() => {}
                     UndoRecord::Invert { command } => batch.push(command.clone()),
                     UndoRecord::Compensate { note } if fresh.contains(&entry.cause) => {
                         plan.compensate.push(format!("{}: {note}", entry.cause))

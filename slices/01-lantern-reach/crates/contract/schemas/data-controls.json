@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ControlsFile",
+  "description": "`controls.toml`: control capabilities, the tiers that group them, and the reserved\ninput and UI slots taught mechanics may bind (W4).",
+  "type": "object",
+  "properties": {
+    "capability": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CapabilityDef"
+      }
+    },
+    "slot": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SlotDef"
+      }
+    },
+    "tier": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TierDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "CapabilityDef": {
+      "description": "A control capability (`cap.click_fly`). The ship crate reads the same flag names\nfrom `ship_rules.toml`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/FlagId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tier": {
+          "description": "The presentation tier it belongs to.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "tier",
+        "summary"
+      ]
+    },
+    "FlagId": {
+      "description": "Stable flag id, e.g. `flag.nav_chip`.",
+      "type": "string",
+      "examples": [
+        "flag.nav_chip"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "SlotDef": {
+      "description": "A reserved input or UI slot, free until a taught mechanic binds it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SlotId"
+        },
+        "kind": {
+          "$ref": "#/$defs/SlotKind"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name"
+      ]
+    },
+    "SlotId": {
+      "description": "Stable slot id, e.g. `slot.key_t`.",
+      "type": "string",
+      "examples": [
+        "slot.key_t"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "SlotKind": {
+      "type": "string",
+      "enum": [
+        "input",
+        "ui"
+      ]
+    },
+    "TierDef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "name",
+        "summary"
+      ]
+    }
+  }
+}

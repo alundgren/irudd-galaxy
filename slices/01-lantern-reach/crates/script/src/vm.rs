@@ -11,16 +11,17 @@
 //! - A VM interrupt counts steps (loop back-edges and calls) per handler call, and
 //!   native helpers charge steps for the work they do ([`crate::meter`]); over the
 //!   budget, every further step fails, so even `pcall` can't keep a loop alive.
-//! - **Each handler call runs in a fresh Luau state**, with the collector stopped, and
-//!   may allocate `limits.memory_bytes` (garbage included). Luau's allocator hands out
-//!   whole pages, so in a reused state how close a call gets to the limit depends on
-//!   which pages earlier calls left half full; a fresh state makes the same allocations
-//!   every time. So whether a call runs out of memory, and what weak tables hold,
-//!   depends only on the call itself.
+//! - **Each handler call, beat callback and `G.test` predicate runs in a fresh Luau
+//!   state**, with the collector stopped, and may allocate `limits.memory_bytes`
+//!   (garbage included). Luau's allocator hands out whole pages, so in a reused state
+//!   how close a call gets to the limit depends on which pages earlier calls left half
+//!   full; a fresh state makes the same allocations every time. So whether a call runs out of memory, and what weak tables hold,
+//!   depends only on the call itself. The pack's bytecode is compiled once and shared
+//!   by its fresh states, so a fresh state costs little more than its libraries.
 //! - Text a script makes that leaves the VM (abort messages, `print` lines) is cut to
 //!   [`TEXT_CAP`] bytes with a marker, so it can't bloat the log, history or saves.
-//! - **No memory between calls.** Every handler call runs the script and the modules
-//!   it requires afresh in its fresh state, so locals and upvalues can't carry anything
+//! - **No memory between calls.** Every call runs the script and the modules it
+//!   requires afresh in its fresh state, so locals and upvalues can't carry anything
 //!   from one call to the next: the script's declared stores are its only memory, and
 //!   a restored save replays exactly.
 //! - **No addresses.** `tostring`, `string.format` (and so string interpolation) and
@@ -34,12 +35,14 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 
 use galaxy_contract::events::{CounterKind, CounterScope, EventEnvelope, EventKind};
-use galaxy_contract::ids::{RegionId, StationId};
+use galaxy_contract::ids::{BeatId, FactionId, FlagId, NpcId, RegionId, StationId, UpgradeId};
 use galaxy_contract::pack::{Diagnostic, Location, ScriptDecl};
 use galaxy_contract::prelude::CommandBatch;
+use galaxy_contract::progress::{BeatDef, BeatKind, Requirement, Rewards, StepDef};
 use galaxy_contract::world::WorldState;
 use galaxy_core::History;
 use galaxy_core::rng::{RngBank, SimRng};
+use mlua::LuaSerdeExt;
 use mlua::{
     Function, Lua, LuaOptions, LuaString, MultiValue, RegistryKey, StdLib, Table, Value, Variadic,
     VmState,
@@ -123,7 +126,36 @@ pub struct VmScript {
     pub events: BTreeSet<EventKind>,
     /// Sorted by name.
     pub triggers: Vec<TriggerDef>,
+    /// Beats it registers (`G.beat`), in the order it lists them.
+    pub beats: Vec<LoadedBeat>,
+    /// Where each `G.test` predicate sits in the script's definition, by the index
+    /// `Requirement::Test` holds. Called on a fresh instance, like every handler.
+    tests: Vec<Vec<PathKey>>,
 }
+
+/// One step from a script's definition table down to a function.
+#[derive(Clone, Debug, PartialEq)]
+enum PathKey {
+    Key(String),
+    Index(i64),
+}
+
+/// A beat a script registers. Its callbacks are found by name on a fresh instance.
+pub struct LoadedBeat {
+    pub def: BeatDef,
+    /// Its position in the script's `beats` list (from 1).
+    index: i64,
+    hooks: BTreeSet<&'static str>,
+}
+
+impl LoadedBeat {
+    pub fn has_hook(&self, name: &str) -> bool {
+        self.hooks.contains(name)
+    }
+}
+
+/// The callbacks a beat may define, by transition.
+pub const BEAT_HOOKS: [&str; 3] = ["on_start", "on_step", "on_complete"];
 
 /// One Luau unit test: its name, and how it went.
 pub type TestOutcome = (String, Result<(), Abort>);
@@ -149,6 +181,34 @@ pub struct PackVm {
     budget: Rc<Budget>,
     /// `print` output, newest last (dev only; capped).
     pub log: Rc<RefCell<Vec<String>>>,
+    code: Code,
+}
+
+/// Bytecode for the pack's sources, compiled once and shared by every fresh state of
+/// the pack: compiling is most of what a fresh state costs. Keyed by the source text,
+/// so a file always runs the code it was checked as.
+#[derive(Clone, Default)]
+struct Code(Rc<RefCell<BTreeMap<String, Rc<[u8]>>>>);
+
+impl Code {
+    /// The bytecode for `src`, or `None` if it doesn't compile (loading the text then
+    /// reports the error, exactly as before).
+    fn of(&self, src: &str) -> Option<Rc<[u8]>> {
+        if let Some(b) = self.0.borrow().get(src) {
+            return Some(b.clone());
+        }
+        let b: Rc<[u8]> = mlua::chunk::Compiler::new().compile(src).ok()?.into();
+        self.0.borrow_mut().insert(src.to_owned(), b.clone());
+        Some(b)
+    }
+}
+
+thread_local! {
+    /// The prelude's bytecode, compiled once per thread.
+    static PRELUDE_CODE: Rc<[u8]> = mlua::chunk::Compiler::new()
+        .compile(PRELUDE)
+        .expect("the prelude compiles")
+        .into();
 }
 
 const PRELUDE: &str = r#"
@@ -163,6 +223,53 @@ function G.after(spec, run)
 	if type(run) ~= "function" then error("G.after: the second argument must be a function", 2) end
 	return { after = spec, run = run }
 end
+function G.beat(def)
+	if type(def) ~= "table" then error("G.beat expects a table", 2) end
+	if type(def.id) ~= "string" then error("G.beat: `id` must be a beat ID", 2) end
+	return def
+end
+G.always = "always"
+function G.all(list) return { all = list } end
+function G.any(list) return { any = list } end
+function G.never(r) return { ["not"] = r } end
+function G.done(beat) return { beat_done = beat } end
+function G.started(beat) return { beat_started = beat } end
+function G.active(beat) return { beat_active = beat } end
+function G.at_step(beat, step) return { beat_step = { beat = beat, at_least = step } } end
+function G.counter(kind, at_least, scope)
+	local c = { kind = kind, at_least = at_least }
+	if scope then c.station = scope.station; c.region = scope.region end
+	return { counter = c }
+end
+function G.fact(q, opts)
+	opts = opts or {}
+	return { facts = { query = q, at_least = opts.at_least or 1, since = opts.since or "ever" } }
+end
+function G.sum(q, at_least, opts)
+	opts = opts or {}
+	return { sum = { query = q, at_least = at_least, since = opts.since or "ever" } }
+end
+function G.flag(id) return { flag = id } end
+function G.trait(id) return { ["trait"] = id } end
+function G.fitted(id) return { fitted = id } end
+function G.hull(id) return { hull = id } end
+function G.owns(id) return { owns = id } end
+function G.credits(n)
+	if type(n) ~= "number" then error("G.credits expects a number of credits", 2) end
+	return { credits = { at_least = math.round(n * 100) } }
+end
+function G.cargo(ware, at_least) return { cargo = { ware = ware, at_least = at_least } } end
+function G.hold_free(at_least) return { hold_free = { at_least = at_least } } end
+function G.docked_at(station) return { docked_at = station } end
+function G.docked() return "docked" end
+function G.in_region(region) return { in_region = region } end
+function G.regard(faction, tier) return { regard = { faction = faction, at_least = tier } } end
+function G.tunable_is(id, value) return { tunable_is = { tunable = id, value = value } } end
+function G.test(f)
+	if type(f) ~= "function" then error("G.test expects a function(ctx) returning a boolean", 2) end
+	return { test = f }
+end
+function G.tunable(id) return { tunable = id } end
 return table.freeze(G)
 "#;
 
@@ -340,11 +447,15 @@ impl PackVm {
 
     /// A state with the sandbox, `G` and `require`, but no scripts loaded.
     pub fn bare(pack: Rc<Pack>) -> mlua::Result<PackVm> {
-        Self::bare_with_log(pack, Rc::new(RefCell::new(Vec::new())))
+        Self::bare_with_log(pack, Rc::new(RefCell::new(Vec::new())), Code::default())
     }
 
     /// [`PackVm::bare`], printing to `log`.
-    fn bare_with_log(pack: Rc<Pack>, log: Rc<RefCell<Vec<String>>>) -> mlua::Result<PackVm> {
+    fn bare_with_log(
+        pack: Rc<Pack>,
+        log: Rc<RefCell<Vec<String>>>,
+        code: Code,
+    ) -> mlua::Result<PackVm> {
         let libs = StdLib::TABLE
             | StdLib::STRING
             | StdLib::UTF8
@@ -404,7 +515,9 @@ impl PackVm {
         })?;
         globals.raw_set("print", print)?;
 
-        let g: Table = lua.load(PRELUDE).set_name("=galaxy").eval()?;
+        lua.set_app_data(code.clone());
+        let prelude = PRELUDE_CODE.with(Rc::clone);
+        let g: Table = lua.load(&prelude[..]).set_name("=galaxy").call(())?;
         lua.set_named_registry_value("galaxy.G", g)?;
         lua.set_named_registry_value("galaxy.modules", lua.create_table()?)?;
         lua.set_named_registry_value("galaxy.loading", lua.create_table()?)?;
@@ -466,6 +579,7 @@ impl PackVm {
             scripts: Vec::new(),
             budget,
             log,
+            code,
         })
     }
 
@@ -599,6 +713,36 @@ impl PackVm {
                 }
             }
         }
+        let mut tests = Vec::new();
+        let mut beats = Vec::new();
+        match def.get::<Value>("beats") {
+            Ok(Value::Nil) => {}
+            Ok(Value::Table(list)) => {
+                for (n, item) in list.sequence_values::<Value>().enumerate() {
+                    let index = n as i64 + 1;
+                    let parsed = item.map_err(|e| e.to_string()).and_then(|v| match v {
+                        Value::Table(t) => self.parse_beat(&t, index, &mut tests),
+                        _ => Err("each entry must be `G.beat { ... }`".to_owned()),
+                    });
+                    match parsed {
+                        Ok(b) => beats.push(b),
+                        Err(msg) => diags.push(error(
+                            "bad_beat",
+                            format!("`beats[{index}]`: {msg}"),
+                            Some(file),
+                            None,
+                        )),
+                    }
+                }
+            }
+            Ok(_) => diags.push(error(
+                "bad_beat",
+                "`beats` must be a list of `G.beat { ... }`",
+                Some(file),
+                None,
+            )),
+            Err(e) => diags.push(error("bad_beat", e.to_string(), Some(file), None)),
+        }
         let mut triggers = Vec::new();
         // Handlers that exist but didn't parse: reported once, not also as missing.
         let mut broken = BTreeSet::new();
@@ -676,7 +820,231 @@ impl PackVm {
             def: key,
             events,
             triggers,
+            beats,
+            tests,
         })
+    }
+
+    /// Reads one `G.beat { ... }` table: which callbacks it has, where its `G.test`
+    /// predicates are, and the rest as a [`BeatDef`].
+    fn parse_beat(
+        &self,
+        t: &Table,
+        index: i64,
+        tests: &mut Vec<Vec<PathKey>>,
+    ) -> Result<LoadedBeat, String> {
+        let lua = &self.lua;
+        let mut hooks = BTreeSet::new();
+        for name in BEAT_HOOKS {
+            match t.get::<Value>(name).map_err(|e| e.to_string())? {
+                Value::Nil => {}
+                Value::Function(_) => {
+                    hooks.insert(name);
+                }
+                _ => return Err(format!("`{name}` must be a function(ctx, beat)")),
+            }
+        }
+        let base = vec![PathKey::Key("beats".into()), PathKey::Index(index)];
+        let plain = lua.create_table().map_err(|e| e.to_string())?;
+        let mut keys: Vec<(Value, Value)> = t
+            .pairs::<Value, Value>()
+            .collect::<mlua::Result<_>>()
+            .map_err(|e| e.to_string())?;
+        // Walk in a fixed order so predicates are numbered the same on every load.
+        keys.sort_by_key(|(k, _)| k.as_string().map(|s| s.to_string_lossy()));
+        for (k, v) in keys {
+            let key = k
+                .as_string()
+                .map(|s| s.to_string_lossy())
+                .unwrap_or_default();
+            if BEAT_HOOKS.contains(&key.as_str()) {
+                continue;
+            }
+            let mut path = base.clone();
+            path.push(PathKey::Key(key.clone()));
+            let v = strip_tests(lua, v, &path, tests)?;
+            let v = match key.as_str() {
+                "requires" | "done" => requirement_list(lua, v)?,
+                "steps" => steps(lua, v)?,
+                _ => v,
+            };
+            plain.raw_set(k, v).map_err(|e| e.to_string())?;
+        }
+        let spec: BeatSpec = lua
+            .from_value(Value::Table(plain))
+            .map_err(|e| format!("{e}"))?;
+        let def = spec.into_def()?;
+        if let Some(p) = galaxy_progress::beats::validate(&def).first() {
+            return Err(format!("{}: {p}", def.id));
+        }
+        Ok(LoadedBeat { def, index, hooks })
+    }
+
+    /// The function at `path` in a fresh instance of a script.
+    fn function_at(&self, instance: &Table, path: &[PathKey]) -> mlua::Result<Function> {
+        let mut v = Value::Table(instance.clone());
+        for k in path {
+            let Value::Table(t) = v else {
+                return Err(mlua::Error::runtime(
+                    "the script's definition changed shape between instances",
+                ));
+            };
+            v = match k {
+                PathKey::Key(s) => t.raw_get(s.as_str())?,
+                PathKey::Index(i) => t.raw_get(*i)?,
+            };
+        }
+        match v {
+            Value::Function(f) => Ok(f),
+            _ => Err(mlua::Error::runtime(
+                "the script's definition changed shape between instances",
+            )),
+        }
+    }
+
+    /// Runs a `G.test` predicate on a fresh instance of its script, in a fresh Luau
+    /// state, like a handler call. It may read but not write; it must return a boolean.
+    pub fn predicate(
+        &self,
+        script: usize,
+        index: u32,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+    ) -> Result<bool, Abort> {
+        let s = &self.scripts[script];
+        let path = s.tests.get(index as usize).cloned().ok_or_else(|| Abort {
+            code: "bad_beat".into(),
+            message: format!("no G.test predicate {index}"),
+            location: None,
+        })?;
+        let fresh = self.fresh()?;
+        let (result, buffer) = fresh.with_ctx(&s.decl, view, rng, None, |_, ctx| {
+            let f = fresh.function_at(&fresh.instantiate(&s.decl.file)?, &path)?;
+            f.call::<Value>(ctx)
+        });
+        let v = result?;
+        if !buffer.is_empty() {
+            return Err(Abort {
+                code: "predicate_wrote".into(),
+                message: "a G.test predicate only reads; its writes were discarded".into(),
+                location: None,
+            });
+        }
+        match v {
+            Value::Boolean(b) => Ok(b),
+            other => Err(Abort {
+                code: "bad_predicate".into(),
+                message: format!(
+                    "a G.test predicate must return true or false, not {}",
+                    other.type_name()
+                ),
+                location: None,
+            }),
+        }
+    }
+
+    /// Runs a beat callback on a fresh instance of its script, in a fresh Luau state,
+    /// its buffer seeded with the transition's batch: `beat.why` is that batch's cause,
+    /// so the callback's writes and the transition apply together or not at all.
+    #[allow(clippy::too_many_arguments)]
+    pub fn beat_hook(
+        &self,
+        script: usize,
+        beat: usize,
+        hook: &str,
+        info: &BeatCall<'_>,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+        seed: CommandBatch,
+    ) -> Result<Option<CommandBatch>, Abort> {
+        let s = &self.scripts[script];
+        let Some(b) = s.beats.get(beat).filter(|b| b.has_hook(hook)) else {
+            return Ok(Some(seed));
+        };
+        let path = vec![
+            PathKey::Key("beats".into()),
+            PathKey::Index(b.index),
+            PathKey::Key(hook.to_owned()),
+        ];
+        let fresh = self.fresh()?;
+        let (result, buffer) = fresh.with_ctx(&s.decl, view, rng, Some(seed), |lua, ctx| {
+            let f = fresh.function_at(&fresh.instantiate(&s.decl.file)?, &path)?;
+            let t = lua.create_table()?;
+            t.raw_set("id", info.beat.as_str())?;
+            t.raw_set("transition", info.transition)?;
+            t.raw_set("step", info.step)?;
+            t.raw_set("step_id", info.step_id)?;
+            let why = lua.create_table()?;
+            why.raw_set("summary", info.summary)?;
+            why.raw_set("cites", lua.create_table()?)?;
+            why.raw_set("handle", 1)?;
+            why.set_readonly(true);
+            t.raw_set("why", why)?;
+            t.set_readonly(true);
+            f.call::<()>((ctx, t))
+        });
+        result?;
+        Ok(buffer.into_batch())
+    }
+
+    /// A fresh state for this pack, with no scripts loaded, printing to the same log.
+    fn fresh(&self) -> Result<PackVm, Abort> {
+        Self::bare_with_log(self.pack.clone(), self.log.clone(), self.code.clone())
+            .map_err(|e| abort_from(&e, Some("vm")))
+    }
+
+    /// Calls `f` with a fresh `ctx` for the script `decl` inside the step budget, and
+    /// returns its result (with quota and ctx error codes applied) and its write buffer.
+    fn with_ctx<R>(
+        &self,
+        decl: &ScriptDecl,
+        view: View<'_>,
+        rng: &mut dyn RngSource,
+        seed: Option<CommandBatch>,
+        f: impl FnOnce(&Lua, Table) -> mlua::Result<R>,
+    ) -> (Result<R, Abort>, Buffer) {
+        let buffer = RefCell::new(seed.map(Buffer::seeded).unwrap_or_default());
+        let rng = RefCell::new(&mut *rng as &mut dyn RngSource);
+        let rng_key = format!("script/{}/{}", self.pack.manifest.id, decl.id);
+        let env = CallEnv {
+            world: view.world,
+            history: view.history,
+            pack: &self.pack.manifest.id,
+            revision: &self.pack.revision,
+            uses: &self.pack.manifest.uses,
+            script: decl,
+            buffer: &buffer,
+            rng: &rng,
+            rng_key: &rng_key,
+            budget: &self.budget,
+        };
+        let lua = &self.lua;
+        let result = self.budgeted(|| {
+            lua.scope(|scope| {
+                let ctx = ctx::build(lua, scope, &env)?;
+                f(lua, ctx)
+            })
+        });
+        let buffer = buffer.into_inner();
+        let result = match result {
+            Ok(r) => match buffer.over_quota.clone() {
+                Some(message) => Err(Abort {
+                    code: "over_quota".into(),
+                    message,
+                    location: None,
+                }),
+                None => Ok(r),
+            },
+            Err(mut a) => {
+                if a.code == "runtime_error"
+                    && let Some(code) = buffer.failed.clone()
+                {
+                    a.code = code;
+                }
+                Err(a)
+            }
+        };
+        (result, buffer)
     }
 
     /// The line a Luau function is defined on.
@@ -721,9 +1089,8 @@ impl PackVm {
         view: View<'_>,
         rng: &mut dyn RngSource,
     ) -> Result<Option<CommandBatch>, Abort> {
-        let fresh = Self::bare_with_log(self.pack.clone(), self.log.clone())
-            .map_err(|e| abort_from(&e, Some("vm")))?;
-        fresh.call_here(&self.scripts[script].decl, target, view, rng)
+        self.fresh()?
+            .call_here(&self.scripts[script].decl, target, view, rng)
     }
 
     /// Runs one handler of the script `decl` in this state.
@@ -807,7 +1174,7 @@ impl PackVm {
     }
 }
 
-/// Compiles a pack file as a chunk with its own read-only environment.
+/// Loads a pack file (its cached bytecode) as a chunk with its own read-only environment.
 fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
     let env = lua.create_table()?;
     let mt = lua.create_table()?;
@@ -818,10 +1185,170 @@ fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
     mt.raw_set("__metatable", false)?;
     env.set_metatable(Some(mt))?;
     env.set_readonly(true);
-    lua.load(src)
+    let code = lua.app_data_ref::<Code>().and_then(|c| c.of(src));
+    let chunk = match &code {
+        Some(b) => lua.load(&b[..]),
+        None => lua.load(src),
+    };
+    chunk
         .set_name(format!("@{path}"))
         .set_environment(env)
         .into_function()
+}
+
+/// What a beat callback is told about its beat.
+pub struct BeatCall<'a> {
+    pub beat: &'a BeatId,
+    /// `start`, `step` or `complete`.
+    pub transition: &'static str,
+    pub step: u32,
+    pub step_id: Option<&'a str>,
+    pub summary: &'a str,
+}
+
+/// A `G.beat` table as Luau writes it (credits as credits).
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BeatSpec {
+    id: BeatId,
+    act: u32,
+    #[serde(default)]
+    kind: BeatKind,
+    #[serde(default)]
+    giver: Option<NpcId>,
+    goal: String,
+    #[serde(default)]
+    requires: Requirement,
+    #[serde(default)]
+    steps: Vec<StepDef>,
+    #[serde(default)]
+    done: Requirement,
+    #[serde(default)]
+    rewards: RewardSpec,
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct RewardSpec {
+    credits: f64,
+    standing: BTreeMap<FactionId, i32>,
+    flags: Vec<FlagId>,
+    fit: Vec<UpgradeId>,
+}
+
+impl BeatSpec {
+    fn into_def(self) -> Result<BeatDef, String> {
+        let credits =
+            galaxy_contract::money::cents_from_credits(self.rewards.credits).ok_or_else(|| {
+                format!(
+                    "{}: rewards.credits {} isn't a whole number of centicredits",
+                    self.id, self.rewards.credits
+                )
+            })?;
+        Ok(BeatDef {
+            id: self.id,
+            act: self.act,
+            kind: self.kind,
+            giver: self.giver,
+            goal: self.goal,
+            requires: self.requires,
+            steps: self.steps,
+            done: self.done,
+            rewards: Rewards {
+                credits,
+                standing: self.rewards.standing,
+                flags: self.rewards.flags,
+                fit: self.rewards.fit,
+            },
+        })
+    }
+}
+
+/// A deep copy of `v` with each `{ test = function }` replaced by `{ test = index }`,
+/// recording the function's path in `tests`. Any other function is an error. Keys are
+/// walked in sorted order, so the numbering is the same on every load.
+fn strip_tests(
+    lua: &Lua,
+    v: Value,
+    path: &[PathKey],
+    tests: &mut Vec<Vec<PathKey>>,
+) -> Result<Value, String> {
+    match v {
+        Value::Table(t) => {
+            if let Ok(Value::Function(_)) = t.raw_get::<Value>("test") {
+                let mut p = path.to_vec();
+                p.push(PathKey::Key("test".into()));
+                tests.push(p);
+                let out = lua.create_table().map_err(|e| e.to_string())?;
+                out.raw_set("test", tests.len() - 1)
+                    .map_err(|e| e.to_string())?;
+                return Ok(Value::Table(out));
+            }
+            let out = lua.create_table().map_err(|e| e.to_string())?;
+            let mut pairs: Vec<(Value, Value)> = t
+                .pairs::<Value, Value>()
+                .collect::<mlua::Result<_>>()
+                .map_err(|e| e.to_string())?;
+            pairs.sort_by_key(|(k, _)| match k {
+                Value::Integer(i) => (0, *i, String::new()),
+                Value::Number(n) => (0, *n as i64, String::new()),
+                other => (
+                    1,
+                    0,
+                    other
+                        .as_string()
+                        .map(|s| s.to_string_lossy())
+                        .unwrap_or_default(),
+                ),
+            });
+            for (k, v) in pairs {
+                let key = match &k {
+                    Value::Integer(i) => PathKey::Index(*i),
+                    Value::Number(n) => PathKey::Index(*n as i64),
+                    other => PathKey::Key(
+                        other
+                            .as_string()
+                            .map(|s| s.to_string_lossy())
+                            .unwrap_or_default(),
+                    ),
+                };
+                let mut p = path.to_vec();
+                p.push(key);
+                out.raw_set(k, strip_tests(lua, v, &p, tests)?)
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(Value::Table(out))
+        }
+        Value::Function(_) => Err(
+            "functions go only in `on_start`, `on_step`, `on_complete` and `G.test(...)`".into(),
+        ),
+        other => Ok(other),
+    }
+}
+
+/// A requirement written as a list means all of them.
+fn requirement_list(lua: &Lua, v: Value) -> Result<Value, String> {
+    match &v {
+        Value::Table(t) if t.raw_len() > 0 || t.pairs::<Value, Value>().next().is_none() => {
+            let all = lua.create_table().map_err(|e| e.to_string())?;
+            all.raw_set("all", t.clone()).map_err(|e| e.to_string())?;
+            Ok(Value::Table(all))
+        }
+        _ => Ok(v),
+    }
+}
+
+/// Each step's `done` may be a list too.
+fn steps(lua: &Lua, v: Value) -> Result<Value, String> {
+    if let Value::Table(list) = &v {
+        for step in list.sequence_values::<Table>() {
+            let step = step.map_err(|e| e.to_string())?;
+            let done: Value = step.raw_get("done").map_err(|e| e.to_string())?;
+            step.raw_set("done", requirement_list(lua, done)?)
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(v)
 }
 
 fn handler_of(def: &Table, target: Target<'_>) -> mlua::Result<Function> {
