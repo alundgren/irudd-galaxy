@@ -17,8 +17,9 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::process::{Command as Process, Stdio};
+use std::process::{Command as Process, ExitStatus, Stdio};
 use std::rc::Rc;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use galaxy_contract::pack::{Diagnostic, Severity, StepOutcome, StepReport, ValidationStep};
@@ -395,6 +396,7 @@ pub fn sandbox(
         .collect();
     with_packs.push(candidate.1);
 
+    let timeout = Duration::from_secs(rules.child_timeout_secs);
     let spawn = |save: &Path, packs: &[&Path]| {
         let mut cmd = Process::new(exe);
         cmd.args(["sim", "sandbox", "--save"])
@@ -404,77 +406,136 @@ pub fn sandbox(
         for p in packs {
             cmd.arg("--pack").arg(p);
         }
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+        Child::start(cmd, timeout)
             .map_err(|e| format!("can't start the sandbox ({}): {e}", exe.display()))
     };
-    let a = spawn(&with_save, &with_packs)?;
-    let b = spawn(&without_save, &without_packs)?;
-    let timeout = Duration::from_secs(rules.child_timeout_secs);
-    let with = wait_child(a, timeout)?;
-    let without = wait_child(b, timeout)?;
+    // Declared after `tmp`, so on every early return both children are killed and
+    // reaped before their folder is removed.
+    let mut with = spawn(&with_save, &with_packs)?;
+    let mut without = spawn(&without_save, &without_packs)?;
+    while !(with.poll()? & without.poll()?) {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     Ok(SandboxPair {
-        with,
-        without,
+        with: with.finish()?,
+        without: without.finish()?,
         parent_pid: std::process::id(),
     })
 }
 
-fn wait_child(mut child: std::process::Child, timeout: Duration) -> Result<SandboxRun, String> {
-    // Read stdout on a thread so a chatty child never blocks on a full pipe.
-    let mut stdout = child.stdout.take().expect("piped");
-    let mut stderr = child.stderr.take().expect("piped");
-    let out = std::thread::spawn(move || {
+/// A sandbox child process. Its output is drained from the moment it starts (so a
+/// chatty child never blocks on a full pipe), its deadline counts from its own spawn,
+/// and dropping it before it has exited kills and reaps it.
+struct Child {
+    child: std::process::Child,
+    timeout: Duration,
+    deadline: Instant,
+    stdout: Option<JoinHandle<String>>,
+    stderr: Option<JoinHandle<String>>,
+    status: Option<ExitStatus>,
+}
+
+fn drain(mut from: impl std::io::Read + Send + 'static) -> JoinHandle<String> {
+    std::thread::spawn(move || {
         let mut s = String::new();
-        let _ = std::io::Read::read_to_string(&mut stdout, &mut s);
+        let _ = from.read_to_string(&mut s);
         s
-    });
-    let err = std::thread::spawn(move || {
-        let mut s = String::new();
-        let _ = std::io::Read::read_to_string(&mut stderr, &mut s);
-        s
-    });
-    let started = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(s)) => break s,
-            Ok(None) if started.elapsed() > timeout => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!(
-                    "the sandbox run took longer than {}s and was stopped",
-                    timeout.as_secs()
-                ));
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-            Err(e) => return Err(e.to_string()),
-        }
-    };
-    let stdout = out.join().unwrap_or_default();
-    let stderr = err.join().unwrap_or_default();
-    if !status.success() {
-        let tail: String = stderr
-            .chars()
-            .rev()
-            .take(2000)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-        return Err(format!(
-            "the sandbox run failed ({status}): {}{}",
-            stdout.trim(),
-            if tail.trim().is_empty() {
-                String::new()
-            } else {
-                format!(" / {}", tail.trim())
-            }
-        ));
+    })
+}
+
+impl Child {
+    fn start(mut cmd: Process, timeout: Duration) -> std::io::Result<Child> {
+        let mut child = cmd
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let deadline = Instant::now() + timeout;
+        let stdout = child.stdout.take().map(drain);
+        let stderr = child.stderr.take().map(drain);
+        Ok(Child {
+            child,
+            timeout,
+            deadline,
+            stdout,
+            stderr,
+            status: None,
+        })
     }
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("the sandbox printed something unexpected: {e}"))
+
+    /// Has it exited? An error once it has run past its deadline (dropping it then
+    /// stops it).
+    fn poll(&mut self) -> Result<bool, String> {
+        if self.status.is_some() {
+            return Ok(true);
+        }
+        match self.child.try_wait() {
+            Ok(Some(s)) => {
+                self.status = Some(s);
+                Ok(true)
+            }
+            Ok(None) if Instant::now() > self.deadline => Err(format!(
+                "the sandbox run took longer than {}s and was stopped",
+                self.timeout.as_secs()
+            )),
+            Ok(None) => Ok(false),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// The run it printed. Call once [`Child::poll`] says it has exited.
+    fn finish(mut self) -> Result<SandboxRun, String> {
+        let status = self.status.expect("polled to the end");
+        let stdout = self
+            .stdout
+            .take()
+            .map(|h| h.join().unwrap_or_default())
+            .unwrap_or_default();
+        let stderr = self
+            .stderr
+            .take()
+            .map(|h| h.join().unwrap_or_default())
+            .unwrap_or_default();
+        if !status.success() {
+            let tail: String = stderr
+                .chars()
+                .rev()
+                .take(2000)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+            return Err(format!(
+                "the sandbox run failed ({status}): {}{}",
+                stdout.trim(),
+                if tail.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!(" / {}", tail.trim())
+                }
+            ));
+        }
+        serde_json::from_str(&stdout)
+            .map_err(|e| format!("the sandbox printed something unexpected: {e}"))
+    }
+}
+
+impl Drop for Child {
+    fn drop(&mut self) {
+        if self.status.is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+}
+
+/// The report code for a handler trouble code.
+fn trouble_code(code: &str) -> &'static str {
+    match code {
+        "quarantined" => "quarantined",
+        "over_budget" => "over_budget",
+        _ => "handler_aborted",
+    }
 }
 
 fn diag(severity: Severity, code: &str, message: impl Into<String>) -> Diagnostic {
@@ -543,17 +604,12 @@ pub fn compare(
         )),
         _ => {}
     }
+    // The candidate's own trouble always counts. Another running pack's counts where it
+    // is worse with the candidate than without: the candidate broke it.
     for t in with.trouble.iter().filter(|t| &t.pack == candidate) {
-        let code = if t.code == "quarantined" {
-            "quarantined"
-        } else if t.code == "over_budget" {
-            "over_budget"
-        } else {
-            "handler_aborted"
-        };
         d.push(diag(
             Error,
-            code,
+            trouble_code(&t.code),
             format!(
                 "{}{} at {}: {} ({})",
                 t.script,
@@ -567,6 +623,31 @@ pub fn compare(
             ),
         ));
     }
+    let others = |run: &SandboxRun| {
+        let mut n: BTreeMap<(PackId, String, String), (u32, String)> = BTreeMap::new();
+        for t in run.trouble.iter().filter(|t| &t.pack != candidate) {
+            let e = n
+                .entry((t.pack.clone(), t.script.clone(), t.code.clone()))
+                .or_insert((0, t.message.clone()));
+            e.0 += 1;
+        }
+        n
+    };
+    let baseline = others(without);
+    for ((pack, script, code), (n, message)) in others(with) {
+        let before = baseline
+            .get(&(pack.clone(), script.clone(), code.clone()))
+            .map_or(0, |b| b.0);
+        if n > before {
+            d.push(diag(
+                Error,
+                trouble_code(&code),
+                format!(
+                    "the pack breaks {pack}, which already runs: {script} had {n} `{code}` with the pack and {before} without (first: {message})"
+                ),
+            ));
+        }
+    }
     let tally = with.tallies.get(candidate).cloned().unwrap_or_default();
     if tally.rejected > 0 {
         d.push(diag(
@@ -577,6 +658,19 @@ pub fn compare(
                 tally.rejected
             ),
         ));
+    }
+    for (pack, t) in with.tallies.iter().filter(|(p, _)| *p != candidate) {
+        let before = without.tallies.get(pack).map_or(0, |b| b.rejected);
+        if t.rejected > before {
+            d.push(diag(
+                Error,
+                "invariant_hit",
+                format!(
+                    "the pack breaks {pack}, which already runs: the kernel rejected {} of its batches with the pack and {before} without",
+                    t.rejected
+                ),
+            ));
+        }
     }
     let base: BTreeMap<(&StationId, &WareId), &LinePeak> = without
         .peaks
@@ -668,4 +762,122 @@ pub fn compare(
         ));
     }
     (sandbox, step(ValidationStep::Legibility, l))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CANDIDATE: PackId = PackId::from_static("gm.candidate");
+    const DOCK: PackId = PackId::from_static("gm.dock");
+
+    fn run(trouble: Vec<HandlerTrouble>, rejected: u32) -> SandboxRun {
+        let telemetry = EconomyTelemetry {
+            tick: Tick(0),
+            regions: Vec::new(),
+        };
+        SandboxRun {
+            save: PathBuf::new(),
+            pid: 0,
+            packs: vec![DOCK, CANDIDATE],
+            dockings: 6,
+            ticks: 600,
+            stuck: None,
+            load_failures: Vec::new(),
+            tallies: [
+                (
+                    DOCK,
+                    PackTally {
+                        rejected,
+                        ..PackTally::default()
+                    },
+                ),
+                (CANDIDATE, PackTally::default()),
+            ]
+            .into_iter()
+            .collect(),
+            trouble,
+            peaks: Vec::new(),
+            start: telemetry.clone(),
+            end: telemetry,
+            hash: String::new(),
+        }
+    }
+
+    fn spins(n: usize) -> Vec<HandlerTrouble> {
+        (0..n)
+            .map(|i| HandlerTrouble {
+                pack: DOCK,
+                script: "dock".into(),
+                handler: Some("on.dock".into()),
+                code: "over_budget".into(),
+                message: "ran over its step budget".into(),
+                tick: Tick(i as u64),
+            })
+            .collect()
+    }
+
+    fn errors(pair: &SandboxPair) -> Vec<String> {
+        let (s, _) = compare(pair, &CANDIDATE, &SandboxRules::default());
+        s.diagnostics
+            .iter()
+            .filter(|d| d.severity == Severity::Error)
+            .map(|d| format!("{}: {}", d.code, d.message))
+            .collect()
+    }
+
+    #[test]
+    fn failures_the_candidate_causes_in_other_packs_reject_it() {
+        let pair = |with, without| SandboxPair {
+            with,
+            without,
+            parent_pid: 0,
+        };
+        // Healthy without the candidate; the existing dock pack spins with it.
+        let broke = errors(&pair(run(spins(3), 0), run(Vec::new(), 0)));
+        assert_eq!(broke.len(), 1, "{broke:?}");
+        assert!(broke[0].starts_with("over_budget: the pack breaks gm.dock"));
+        // Rejected batches of another pack, likewise.
+        let rejected = errors(&pair(run(Vec::new(), 2), run(Vec::new(), 0)));
+        assert_eq!(rejected.len(), 1, "{rejected:?}");
+        assert!(rejected[0].starts_with("invariant_hit: the pack breaks gm.dock"));
+        // Trouble the baseline has too isn't the candidate's doing.
+        assert!(errors(&pair(run(spins(2), 1), run(spins(2), 1))).is_empty());
+        // Worse than the baseline is.
+        assert_eq!(errors(&pair(run(spins(3), 1), run(spins(2), 1))).len(), 1);
+    }
+
+    fn long_running() -> Process {
+        if cfg!(windows) {
+            let mut c = Process::new("ping");
+            c.args(["-n", "60", "127.0.0.1"]);
+            c
+        } else {
+            let mut c = Process::new("sleep");
+            c.arg("60");
+            c
+        }
+    }
+
+    #[test]
+    fn a_child_is_killed_when_dropped_or_late() {
+        // Dropped while running (a sibling failed to start, say): killed and reaped, so
+        // its output pipe closes at once instead of in a minute.
+        let mut child = Child::start(long_running(), Duration::from_secs(60)).unwrap();
+        assert!(!child.poll().unwrap());
+        let out = child.stdout.take().unwrap();
+        let started = Instant::now();
+        drop(child);
+        out.join().unwrap();
+        assert!(started.elapsed() < Duration::from_secs(20));
+
+        // Past its deadline: an error, and dropping it stops it.
+        let mut late = Child::start(long_running(), Duration::ZERO).unwrap();
+        std::thread::sleep(Duration::from_millis(20));
+        let err = late.poll().unwrap_err();
+        assert!(err.contains("took longer"), "{err}");
+        let out = late.stdout.take().unwrap();
+        drop(late);
+        out.join().unwrap();
+    }
 }
