@@ -85,7 +85,8 @@ ask Andreas to start one (`play.cmd`), or work on a save file. Otherwise you get
 ```
 
 How `--live` finds it: the game writes `live.json` into the save's game-master folder
-(`<save>.gm/`) and a copy into `.live/` in the per-user save folder
+(`<stem>.gm/` beside the save: `lantern-1.gm/` for `lantern-1.sqlite`) and a copy into
+`.live/` in the per-user save folder
 (`%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows, the game's folder under
 `~/Library/Application Support` on macOS, the XDG data folder on Linux, or
 `$GALAXY_SAVES`). You never need to read those files: the CLI does.
@@ -202,7 +203,7 @@ The full pipeline, as one report:
    the loop can't go on with the pack (`dead_end`). The live game never waits for this.
 4. `legibility`: from the same runs, your writes came with lines (`silent_change` is an
    error; `nothing_fired` is a warning when the pack did nothing in that much activity).
-5. `stage`: the copy is stored by revision in `<save>.gm/packs/` and staged. It applies at
+5. `stage`: the copy is stored by revision in `<stem>.gm/packs/` and staged. It applies at
    the next calm moment: a snapshot first, then one batch caused by your pack revision.
    It applies only once the snapshot is written and the world is still the one the
    snapshot holds; if the snapshot fails, the pack stays staged and is tried again at
@@ -315,7 +316,7 @@ at that load, which is a calm moment).
    never taken. Folders whose name starts with `.` are never looked at, so you can also
    copy into `gm-inbox/.my_pack/`, add `READY`, and rename it to `my_pack/`.
 
-At its next calm moment the running game claims it (moves it into `<save>.gm/inbox/` and
+At its next calm moment the running game claims it (moves it into `<stem>.gm/inbox/` and
 removes `READY`, which isn't part of the pack), validates it in full like `propose`,
 writes `gm-inbox/<folder>.result.json` (`{ "entry", "claimed", "stage"?, "report" }`)
 and, if accepted, stages it for the calm moment after. One entry at a time, in name
@@ -337,7 +338,7 @@ with remote clients rejected; a 0600 socket), and every request carries the toke
 Ops: `hello`, `state.get {path?}`, `state.query {store, where[], fields[], limit?}`,
 `history.query {kind?, station?, ship?, ware?, region?, npc?, since?, until?, after?, limit?}`,
 `gm.digest {since?}`, `gm.status`, `gm.fork {to}` (writes the current state to a new save
-file), `gm.stage {dir, report}` (a copy already in `<save>.gm/packs/`, with its accepted
+file), `gm.stage {dir, report}` (a copy already in `<stem>.gm/packs/`, with its accepted
 report), `gm.rollback {change}`, `shot {out}`, `watch {since?}`. `watch` answers `ok`, then
 sends `{"stream": <id>, "item": {...}}` lines. The game answers between frames and never
 waits for a slow client.

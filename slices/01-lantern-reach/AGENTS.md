@@ -369,7 +369,7 @@ revision runs nothing in the tick its change is undone; the lines are checked ag
 the world the rollback leaves and dropped (never the retirement) if they can't be said.
 
 **The game-master bridge** (`galaxy-gm`): `Bridge::open` loads the packs a save's
-game-master folder (`<save>.gm/state.json`) says run into the game's one `ScriptHost`, before
+game-master folder (`<stem>.gm/state.json`) says run into the game's one `ScriptHost`, before
 the game attaches it (`Game::open_gm`; `Game::open_with` takes the same hook, and the
 sandbox child loads its packs there too). A revision of a pack the game already runs replaces
 it, so gm packs run in the same tick order as `core` and `gm-examples`. The app (`galaxy
