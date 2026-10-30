@@ -784,7 +784,8 @@
             "buy",
             "sell",
             "wait",
-            "loop"
+            "loop",
+            "tag"
           ]
         },
         {

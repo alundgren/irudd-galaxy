@@ -93,7 +93,7 @@ fn propose_on_a_save_then_roll_back() {
     for name in ["smoke", "sandbox", "legibility", "stage"] {
         assert_eq!(step(&report, name)["outcome"], "passed", "{name}: {report}");
     }
-    assert_eq!(step(&report, "canon")["outcome"], "skipped");
+    assert_eq!(step(&report, "canon")["outcome"], "passed");
     assert!(codes(step(&report, "legibility")).contains(&"lines_fired".to_owned()));
     let (_, status) = galaxy(&["gm", "status", "--save", s]);
     assert_eq!(status["staged"][0]["stage"], "stage.1");

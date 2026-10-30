@@ -25,6 +25,7 @@ pub mod market;
 pub mod space;
 pub mod trade;
 
+mod live;
 mod regrowth;
 mod step;
 mod system;
@@ -40,5 +41,9 @@ use galaxy_core::System;
 /// The ship systems in tick order, with `desk` handling buy and sell orders. The game
 /// passes [`EconomyDesk`] and registers `galaxy_economy::EconomySystem` after these.
 pub fn systems(desk: Box<dyn TradeDesk>) -> Vec<Box<dyn System>> {
-    vec![Box::new(ShipSystem::new(desk)), Box::new(RegrowthSystem)]
+    vec![
+        Box::new(ShipSystem::new(desk)),
+        Box::new(RegrowthSystem),
+        Box::new(live::LiveInteractions),
+    ]
 }

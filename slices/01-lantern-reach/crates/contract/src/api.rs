@@ -260,13 +260,13 @@ pub const USES: &[UseDef] = &[
         Hook::Counters,
         "Vary a pacing tunable with a cause; a rollback restores it.",
     ),
-    reserved(
+    cap(
         "kit.write",
         Hook::Kit,
         "Assemble stations from kit recipes, register sprites (W6).",
     ),
-    reserved("canon.read", Hook::Canon, "Read the canon graph."),
-    reserved("canon.write", Hook::Canon, "Open canon nodes."),
+    cap("canon.read", Hook::Canon, "Read the canon graph."),
+    cap("canon.write", Hook::Canon, "Open canon nodes."),
     reserved(
         "mind.write",
         Hook::Mind,
@@ -359,6 +359,41 @@ const fn f(
 
 /// Every hook function, grouped by namespace.
 pub const FUNCTIONS: &[FnDef] = &[
+    f(
+        "canon",
+        "status",
+        "canon.read",
+        "(id: string) -> string?",
+        "Read a canon node's current status.",
+    ),
+    f(
+        "canon",
+        "open",
+        "canon.write",
+        "(id: string, why: Cause) -> ()",
+        "Open a manifest-declared node when its authored prerequisites hold. Reversible.",
+    ),
+    f(
+        "kit",
+        "station",
+        "kit.write",
+        "(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()",
+        "Found a namespaced station from a JSON recipe validated against the shared art bible.",
+    ),
+    f(
+        "kit",
+        "buoy",
+        "kit.write",
+        "(id: string, buoy: SurveyBuoy, why: Cause) -> ()",
+        "Place a survey buoy. Space in reach reads its log and records survey_buoy_read.",
+    ),
+    f(
+        "kit",
+        "overlay",
+        "kit.write",
+        "(id: string, overlay: MapOverlay?, why: Cause) -> ()",
+        "Put or remove a namespaced map border or bearing.",
+    ),
     f(
         "",
         "cause",
@@ -1021,6 +1056,8 @@ pub const FUNCTIONS: &[FnDef] = &[
 
 /// Namespaces on `ctx`, in the order they appear in the `Ctx` type.
 pub const NAMESPACES: &[(&str, &str)] = &[
+    ("canon", "CanonApi"),
+    ("kit", "KitApi"),
     ("rng", "RngApi"),
     ("store", "StoreApi"),
     ("counters", "CountersApi"),
@@ -1366,6 +1403,8 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
         "export type TriggerFire = { name: string, fired: number, fact: FactId? }\n\
          export type Trigger = { after: AfterSpec, run: (ctx: Ctx, fire: TriggerFire) -> () }\n",
     );
+    out.push_str("export type SurveyBuoy = { region: RegionId, position: Vec2, radius: number, planted_by: FactionId, read: boolean?, reward: { person: NpcId, choice: AnyId, credits: number, standing: { [FactionId]: number }, claimed: boolean? }? }\n");
+    out.push_str("export type MapOverlay = { region: RegionId, center: Vec2, radius: number, owner: FactionId?, contested: boolean?, direction: Vec2? }\n");
     out.push_str(BEAT_TYPES);
 
     out.push_str("\n-- The ctx namespaces\n\n");
@@ -1466,7 +1505,6 @@ export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, 
 export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
 export type Spot = { x: number, y: number, region: RegionId? }\n\
-export type FieldId = string\n\
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's\n\
 -- `regrow` is units per region pulse.\n\
 export type FieldView = { id: FieldId, region: RegionId, rocks: number, remaining: number, full: number, left: number, regrow: number }\n\

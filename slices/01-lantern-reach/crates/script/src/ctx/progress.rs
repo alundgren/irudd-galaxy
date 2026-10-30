@@ -70,7 +70,12 @@ impl CallEnv<'_> {
             Order::Dock { station } if !w.stations.contains(station) => {
                 Err(missing("station", station))
             }
-            Order::Mine { rock } if !w.rocks.contains(rock) => Err(missing("rock", rock)),
+            Order::Mine { rock } | Order::Tag { rock } if !w.rocks.contains(rock) => {
+                Err(missing("rock", rock))
+            }
+            Order::MineField { field, .. } if !w.fields.contains(field) => {
+                Err(missing("field", field))
+            }
             Order::Buy { ware, .. } | Order::Sell { ware, .. } | Order::Transfer { ware, .. }
                 if !w.wares.contains(ware) =>
             {

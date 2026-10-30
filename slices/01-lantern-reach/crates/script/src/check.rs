@@ -308,12 +308,28 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         }
     }
 
+    if let Some(world) = opts.world {
+        steps.push(crate::canon::check(&pack, world, false));
+    }
+
     // 5. Invariants
     let mut inv: Vec<Diagnostic> = scans
         .iter()
         .flat_map(|(_, s)| s.diagnostics.clone())
         .collect();
     inv.extend(pack::unpaired_shocks(&pack.manifest));
+    if pack.manifest.id.as_str().starts_with("gm.")
+        && vm
+            .as_ref()
+            .is_some_and(|v| v.scripts.iter().any(|s| !s.beats.is_empty()))
+    {
+        inv.push(error(
+            "gm_backbone",
+            "Game-master layers may not register journey beats",
+            None,
+            None,
+        ));
+    }
     steps.push(step(ValidationStep::Invariants, inv));
 
     // 6. Smoke, on a VM of its own: the one returned never ran a handler.
@@ -361,7 +377,12 @@ fn exists(world: &WorldState, id: &str) -> bool {
 
 fn references(pack: &Pack, scans: &[(String, scan::Scan)], world: &WorldState) -> Vec<Diagnostic> {
     let created = pack.created_ids();
-    let known = |id: &str| exists(world, id) || created.contains(id);
+    let known = |id: &str| {
+        exists(world, id)
+            || created.contains(id)
+            || (!pack.manifest.depends.is_empty()
+                && pack.manifest.observes.iter().any(|v| v.as_str() == id))
+    };
     let mut out = Vec::new();
     for (file, s) in scans {
         for (id, line) in &s.ids {

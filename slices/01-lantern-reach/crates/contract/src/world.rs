@@ -30,6 +30,11 @@ pub const WORLD_FORMAT_VERSION: u32 = 2;
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct WorldState {
+    pub rock_tags: BTreeSet<RockId>,
+    pub survey_buoys: BTreeMap<String, crate::live::SurveyBuoy>,
+    pub canon: crate::canon::CanonState,
+    pub station_recipes: BTreeMap<StationId, galaxy_kit::StationRecipe>,
+    pub map_overlays: BTreeMap<String, crate::live::MapOverlay>,
     pub meta: WorldMeta,
     pub player: Player,
     pub regions: Store<RegionId, Region>,

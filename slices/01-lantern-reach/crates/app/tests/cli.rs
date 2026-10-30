@@ -127,6 +127,7 @@ fn pack_check_and_pack_test() {
             "types",
             "hooks",
             "references",
+            "canon",
             "invariants",
             "smoke"
         ]
@@ -136,7 +137,12 @@ fn pack_check_and_pack_test() {
     let (code, report) = galaxy(&["pack", "check", bad.to_str().unwrap(), "--no-typecheck"]);
     assert_eq!(code, 5, "{report}");
     assert_eq!(report["status"]["status"], "rejected");
-    let invariants = &report["steps"][4];
+    let invariants = report["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["step"] == "invariants")
+        .unwrap();
     assert_eq!(invariants["outcome"], "failed");
     assert_eq!(invariants["diagnostics"][0]["code"], "clock_api");
     assert_eq!(

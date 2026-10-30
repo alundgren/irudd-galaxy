@@ -62,6 +62,7 @@ pub fn key_of(code: KeyCode) -> Option<Key> {
         KeyCode::KeyE => Key::E,
         KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
         KeyCode::KeyM => Key::M,
+        KeyCode::KeyT => Key::T,
         KeyCode::KeyP => Key::P,
         KeyCode::Escape => Key::Escape,
         KeyCode::Minus | KeyCode::NumpadSubtract => Key::ZoomOut,
@@ -620,6 +621,33 @@ impl ApplicationHandler for App {
                 button: MouseButton::Left,
                 ..
             } => self.clicked(),
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Right,
+                ..
+            } => {
+                if !self.ui.map_open
+                    && !self.session.is_paused()
+                    && self.docked().is_none()
+                    && let Some(cursor) = self.ui.cursor
+                {
+                    self.click = input::click_at(
+                        self.session.world(),
+                        &self.rig.camera(),
+                        cursor,
+                        self.viewport(),
+                        self.keys.held(Key::Shift),
+                    )
+                    .and_then(|mut c| {
+                        if let ClickTarget::Rock { rock } = c.target {
+                            c.target = ClickTarget::Tag { rock };
+                            Some(c)
+                        } else {
+                            None
+                        }
+                    });
+                }
+            }
             WindowEvent::MouseWheel { delta, .. } => {
                 if self.ui.map_open || self.session.is_paused() {
                     return;

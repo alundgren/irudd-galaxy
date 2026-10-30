@@ -179,7 +179,7 @@ The full pipeline, as one report:
 
 1. `manifest`, `types`, `hooks`, `references`, `invariants`, `smoke`: the fast checks,
    against the running world.
-2. `canon`: skipped (no canon graph in the slice yet).
+2. `canon`: validates manifest `opens` and `asserts` against `core/data/canon.toml`, including opener rights, revealed prerequisites and beat gates. This is structured validation; free prose still needs editorial review.
 3. `sandbox`: the game writes a fork of its current state; two `galaxy sim sandbox`
    child processes fly an activity bot round the stations of the player's region for 6
    dockings (`--dockings N`), one with your pack and one without. Compared: prices inside

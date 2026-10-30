@@ -11,6 +11,7 @@
 
 pub mod api;
 pub mod assets;
+pub mod canon;
 pub mod command;
 pub mod data;
 pub mod economy;
@@ -19,6 +20,7 @@ pub mod geom;
 pub mod history;
 pub mod ids;
 pub mod input;
+pub mod live;
 pub mod modifiers;
 pub mod money;
 pub mod pack;

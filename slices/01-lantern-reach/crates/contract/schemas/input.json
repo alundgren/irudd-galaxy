@@ -34,6 +34,11 @@
         "$ref": "#/$defs/ServiceRequest"
       }
     },
+    "tag": {
+      "description": "Tag the nearest rock (reserved T input).",
+      "type": "boolean",
+      "default": false
+    },
     "thrust": {
       "description": "Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.",
       "$ref": "#/$defs/Vec2",
@@ -116,6 +121,22 @@
             "kind": {
               "type": "string",
               "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "tag"
             },
             "rock": {
               "$ref": "#/$defs/RockId"

@@ -29,6 +29,7 @@ pub enum VerbKind {
     Loop,
     /// Hand cargo to one of the player's tenders (the Tandem's Coupling).
     Transfer,
+    Tag,
 }
 
 /// One order.
@@ -41,6 +42,14 @@ pub enum Order {
     /// Mine until the hold is full or the rock is depleted.
     Mine {
         rock: RockId,
+    },
+    Tag {
+        rock: RockId,
+    },
+    MineField {
+        field: FieldId,
+        #[serde(default)]
+        prefer_tagged: bool,
     },
     Dock {
         station: StationId,
@@ -82,6 +91,8 @@ pub enum Order {
 impl Order {
     pub fn verb(&self) -> VerbKind {
         match self {
+            Order::Tag { .. } => VerbKind::Tag,
+            Order::MineField { .. } => VerbKind::Mine,
             Order::Fly { .. } => VerbKind::Fly,
             Order::Mine { .. } => VerbKind::Mine,
             Order::Dock { .. } => VerbKind::Dock,

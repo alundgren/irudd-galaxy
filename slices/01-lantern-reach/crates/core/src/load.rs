@@ -110,10 +110,23 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let traits: TraitsFile = read(dir, "traits.toml")?;
     let pacing: PacingFile = read(dir, "pacing.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
+    let canon: galaxy_contract::canon::CanonFile = read(dir, "canon.toml")?;
     let ranks = hulls.rank;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
     let mut errors = Vec::new();
+    let mut canon_ids = std::collections::BTreeSet::new();
+    for n in &canon.node {
+        if !canon_ids.insert(n.id.clone()) {
+            errors.push(format!("duplicate canon node {}", n.id));
+        }
+    }
+    for e in &canon.edge {
+        if !canon_ids.contains(&e.from) || !canon_ids.contains(&e.to) {
+            errors.push("canon edge refers to a missing node".into());
+        }
+    }
+
     let mut world = WorldState {
         meta: WorldMeta {
             format: WORLD_FORMAT_VERSION,
@@ -135,6 +148,10 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         rock_types: collect(rocks.rock_type, "rocks.toml", &mut errors),
         fields: collect(rocks.field, "rocks.toml", &mut errors),
         npcs: collect(npcs.npc, "npcs.toml", &mut errors),
+        canon: galaxy_contract::canon::CanonState {
+            edges: canon.edge,
+            nodes: canon.node.into_iter().map(|n| (n.id.clone(), n)).collect(),
+        },
         ship_rules,
         economy: EconomyState {
             rules: economy,

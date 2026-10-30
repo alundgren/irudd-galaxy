@@ -325,6 +325,39 @@ pub enum Command {
     },
 
     // --- Whole records: create, replace, or remove with `value: null` ---
+    FoundStation {
+        station: Box<Station>,
+        recipe: Box<galaxy_kit::StationRecipe>,
+        /// Captured only when restoring a failed closure; new stations start empty.
+        #[serde(default)]
+        market: Option<Box<Market>>,
+    },
+    CloseFoundedStation {
+        id: StationId,
+    },
+    ExpectBuoyReward {
+        id: String,
+    },
+    SetRockTag {
+        rock: RockId,
+        on: bool,
+    },
+    PutSurveyBuoy {
+        id: String,
+        value: Option<Box<crate::live::SurveyBuoy>>,
+    },
+    SetCanonStatus {
+        id: String,
+        status: crate::canon::CanonStatus,
+    },
+    PutStationRecipe {
+        id: StationId,
+        value: Option<Box<galaxy_kit::StationRecipe>>,
+    },
+    PutMapOverlay {
+        id: String,
+        value: Option<Box<crate::live::MapOverlay>>,
+    },
     PutRegion {
         id: RegionId,
         value: Option<Box<Region>>,
@@ -508,7 +541,8 @@ impl Command {
     pub fn is_expectation(&self) -> bool {
         matches!(
             self,
-            Command::ExpectDocked { .. }
+            Command::ExpectBuoyReward { .. }
+                | Command::ExpectDocked { .. }
                 | Command::ExpectShip { .. }
                 | Command::ExpectStanding { .. }
                 | Command::ExpectFitting { .. }

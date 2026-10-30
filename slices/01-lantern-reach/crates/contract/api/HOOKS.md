@@ -88,13 +88,24 @@ and `ctx.store` (the script's declared stores).
 | `traits.read` | Stores | available | Read pilot traits. |
 | `pacing.read` | Counters | available | Read pacing tunables (`pacing.toml`). |
 | `pacing.write` | Counters | available | Vary a pacing tunable with a cause; a rollback restores it. |
-| `kit.write` | Kit | reserved | Assemble stations from kit recipes, register sprites (W6). |
-| `canon.read` | Canon | reserved | Read the canon graph. |
-| `canon.write` | Canon | reserved | Open canon nodes. |
+| `kit.write` | Kit | available | Assemble stations from kit recipes, register sprites (W6). |
+| `canon.read` | Canon | available | Read the canon graph. |
+| `canon.write` | Canon | available | Open canon nodes. |
 | `mind.write` | Mind | reserved | Fast-model menus, briefs and budgets (W5, next wave). |
 | `telemetry.read` | Telemetry | reserved | Economy and activity metrics. |
 
 ## Functions
+
+### `ctx.canon`
+
+- `ctx.canon:status(id: string) -> string?` (`canon.read`): Read a canon node's current status.
+- `ctx.canon:open(id: string, why: Cause) -> ()` (`canon.write`): Open a manifest-declared node when its authored prerequisites hold. Reversible.
+
+### `ctx.kit`
+
+- `ctx.kit:station(station: Station, recipe: string, dockmaster: Npc, market: { [WareId]: MarketLine }, why: Cause) -> ()` (`kit.write`): Found a namespaced station from a JSON recipe validated against the shared art bible.
+- `ctx.kit:buoy(id: string, buoy: SurveyBuoy, why: Cause) -> ()` (`kit.write`): Place a survey buoy. Space in reach reads its log and records survey_buoy_read.
+- `ctx.kit:overlay(id: string, overlay: MapOverlay?, why: Cause) -> ()` (`kit.write`): Put or remove a namespaced map border or bearing.
 
 ### `ctx`
 

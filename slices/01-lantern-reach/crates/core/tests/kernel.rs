@@ -226,6 +226,40 @@ fn undo_records_invert_commands() {
     let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
     let coop = world.factions.get(&COOP).unwrap().standing;
     let commands = vec![
+        Command::SetCanonStatus {
+            id: "canon.second_fragment".into(),
+            status: galaxy_contract::canon::CanonStatus::Open,
+        },
+        Command::PutMapOverlay {
+            id: "gm.test.border".into(),
+            value: Some(Box::new(galaxy_contract::live::MapOverlay {
+                region: "region.lantern_shallows".parse().unwrap(),
+                center: Vec2::ZERO,
+                radius: 100.0,
+                owner: None,
+                contested: true,
+                direction: None,
+            })),
+        },
+        Command::PutSurveyBuoy {
+            id: "gm.test.buoy".into(),
+            value: Some(Box::new(galaxy_contract::live::SurveyBuoy {
+                region: "region.lantern_shallows".parse().unwrap(),
+                position: Vec2::ZERO,
+                radius: 40.0,
+                planted_by: COOP,
+                reward: None,
+                read: false,
+            })),
+        },
+        Command::SetRockTag {
+            rock: world.rocks.keys().next().unwrap().clone(),
+            on: true,
+        },
+        Command::PutStationRecipe {
+            id: KETTLE,
+            value: Some(Box::new(galaxy_kit::StationRecipe::kettle_dock(1))),
+        },
         Command::AdjustCargo {
             ship: PLAYER,
             ware: ICE,
@@ -764,4 +798,56 @@ fn bad_data_is_rejected_with_reasons() {
     .unwrap();
     let err = new_game(dir.path(), 1).unwrap_err().to_string();
     assert!(err.contains("wares.toml"), "{err}");
+}
+
+#[test]
+fn a_rejected_station_foundation_or_closure_restores_the_exact_records() {
+    let mut sim = Sim::new(new_game(&data_dir(), 7).unwrap());
+    let source =
+        std::fs::read_to_string(data_dir().join("../../gm-examples/sixth_station/lib/recipe.luau"))
+            .unwrap();
+    let json = source
+        .split("[=[")
+        .nth(1)
+        .unwrap()
+        .split("]=]")
+        .next()
+        .unwrap();
+    let recipe: galaxy_kit::StationRecipe = serde_json::from_str(json).unwrap();
+    let mut station = sim.world().stations.get(&WHARF).unwrap().clone();
+    station.id = "gm.test_station".parse().unwrap();
+    let id = station.id.clone();
+    let mut market = sim.world().markets.get(&WHARF).unwrap().clone();
+    market.station = id.clone();
+    let found = Command::FoundStation {
+        station: Box::new(station),
+        recipe: Box::new(recipe),
+        market: Some(Box::new(market)),
+    };
+    let fail = Command::AdjustCredits { delta: i64::MIN };
+    let mut before = sim.world().clone();
+    sim.submit(
+        CommandBatch::new(Cause::system("test", "reject the foundation"))
+            .with(found.clone())
+            .with(fail.clone()),
+    );
+    assert_eq!(sim.step(&PlayerInput::default()).unwrap().rejected.len(), 1);
+    before.meta.tick = sim.world().meta.tick;
+    assert_eq!(sim.world(), &before);
+    sim.submit(CommandBatch::new(Cause::system("test", "found the station")).with(found));
+    assert!(
+        sim.step(&PlayerInput::default())
+            .unwrap()
+            .rejected
+            .is_empty()
+    );
+    let mut before = sim.world().clone();
+    sim.submit(
+        CommandBatch::new(Cause::system("test", "reject the closure"))
+            .with(Command::CloseFoundedStation { id })
+            .with(fail),
+    );
+    assert_eq!(sim.step(&PlayerInput::default()).unwrap().rejected.len(), 1);
+    before.meta.tick = sim.world().meta.tick;
+    assert_eq!(sim.world(), &before);
 }

@@ -1,0 +1,16 @@
+id = "gm.sixth_station"
+name = "The sixth station"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "stations.read", "kit.write", "npcs.write", "market.lines", "talk.write", "map.write", "counters.read"]
+creates = ["gm.sixth_station.halt", "gm.sixth_station.wynn"]
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.dock", "on.session_start"]
+stores = { progress = { founded = "boolean", stocked = "boolean" } }
+[rollback]
+speaker = "npc.ilse_marrow"
+place = "station.lantern_wharf"
+text = "Meltwater Halt has shut its ring while they fix the frame. They'll be back; your cargo stays yours."

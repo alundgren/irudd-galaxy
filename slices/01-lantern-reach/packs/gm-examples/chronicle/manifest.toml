@@ -1,0 +1,16 @@
+id = "gm.chronicle"
+name = "Chronicle"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "chronicle.write", "events.reply", "stations.read"]
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.dock", "on.session_start", "on.reply"]
+stores = { progress = { cursor = "string", last = "string", cite = "string", recalled = "string" } }
+[rollback]
+speaker = "npc.ilse_marrow"
+place = "station.lantern_wharf"
+text = "Ilse closes this volume for corrections. What happened is still remembered."

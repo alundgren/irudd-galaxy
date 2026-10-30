@@ -43,9 +43,18 @@ pub struct PackManifest {
     pub lib: bool,
     #[serde(default)]
     pub depends: Vec<PackId>,
+    /// Canon revelations this pack is permitted to perform.
+    #[serde(default)]
+    pub opens: Vec<String>,
+    /// Explicit canon assertions checked against locked/open nodes.
+    #[serde(default)]
+    pub asserts: Vec<String>,
     /// IDs the scripts create at runtime (so the reference check knows them).
     #[serde(default)]
     pub creates: Vec<AnyId>,
+    /// Optional records created later by dependencies; reads must tolerate absence.
+    #[serde(default)]
+    pub observes: Vec<AnyId>,
     /// Changes that make something worse for the player. Each names its paired
     /// opportunity.
     #[serde(default, rename = "shock")]

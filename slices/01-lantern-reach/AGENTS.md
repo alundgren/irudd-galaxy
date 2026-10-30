@@ -322,8 +322,8 @@ time. Its thresholds are `SandboxRules`.
 capability to `USES` if new), add its `method(...)` in `crates/script/src/ctx.rs`, run
 `cargo xtask contract`. W4's hooks (`beats.*`, `orders.*`, `mechanics.*`,
 `market.levers`, `standing.*`, `traits.read`, `pacing.*`) live in
-`crates/script/src/ctx/progress.rs`. The reserved capabilities left (`kit.write`,
-`canon.*`, `mind.write`, `telemetry.read`) are the extension points for the other
+`crates/script/src/ctx/progress.rs`. Runtime recipe and canon hooks live in `ctx/live.rs`. The reserved capabilities left (
+`mind.write`, `telemetry.read`) are the extension points for the other
 workstreams: flip `available`, add the functions, and declaring them stops being an
 error.
 
@@ -346,7 +346,7 @@ error.
   journey is `packs/core/scripts/` (one script per act or situation: `act1` to `act4`,
   `dispute`, `rumor`, `shortage`, `tender`, `fragment`, plus `talk` for ambient dock
   talk); `lib/ids.luau` maps the spec's IDs onto the data's, `lib/lines.luau` holds every
-  core NPC line, `lib/canon.luau` the canon graph. Worked examples:
+  core NPC line; `data/canon.toml` holds the canon graph and `lib/canon.luau` delegates openings to `ctx.canon`. Worked examples:
   `packs/core/scripts/act1.luau` (b01-b05). A transition (with its
   callback's writes) is checked like a handler batch, against the world the kernel
   will apply it to; only one that will commit is visible to later beats that tick, so

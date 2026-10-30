@@ -271,7 +271,20 @@ fn play_act_one(p: &mut Pilot) {
             .iter()
             .map(|r| r.pack.to_string())
             .collect();
-    assert_eq!(packs, ["core", "gm.kettle_growth"]);
+    assert_eq!(
+        packs,
+        [
+            "core",
+            "gm.ancients_bearing",
+            "gm.chronicle",
+            "gm.compact_plant",
+            "gm.kettle_growth",
+            "gm.rock_tagging",
+            "gm.shortage_tuning",
+            "gm.sixth_station",
+            "gm.territory_map"
+        ]
+    );
     p.tick();
     assert_eq!(
         p.goal().as_deref(),

@@ -117,6 +117,18 @@ pub fn rollback(sim: &mut Sim, causes: &[CauseId], line: Option<&RollbackLine>) 
     // 2. The inverses.
     let plan = sim.queue_rollback(causes, &summary);
 
+    if retired.iter().any(|(p, _)| p.as_str() == "gm.rock_tagging") {
+        let mut clear =
+            CommandBatch::new(Cause::system(SYSTEM_NAME, "Juno brings in the rock lamps"));
+        for rock in &sim.world().rock_tags {
+            clear.push(Command::SetRockTag {
+                rock: rock.clone(),
+                on: false,
+            });
+        }
+        sim.submit(clear);
+    }
+
     // 3. The lines, against the world everything queued so far leaves behind.
     let mut after = sim.world().clone();
     for b in &sim.state().kernel.pending {

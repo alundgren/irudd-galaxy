@@ -2,7 +2,7 @@
 //!
 //! A [`StationRecipe`] is plain serde data, so authored stations, the Kettle Dock
 //! greenhouse stages and stations the game master invents later are all the same thing.
-//! Validate a recipe with [`StationRecipe::validate`], then build it with [`station`].
+//! Validate a recipe with [`StationRecipe::validate`], then let the render crate build its meshes.
 //!
 //! Local axes: the station centre is the origin, the play plane is `z = 0`, +Z is up.
 //! Each part sits at a polar [`Placement`]; in a part's own frame +X points away from the
@@ -500,7 +500,7 @@ impl StationRecipe {
     /// belongs in the Lantern Reach: faction pairs, no grey or chrome paint, and the
     /// bible's budgets. The game master calls it before accepting a station.
     pub fn validate_art(&self, bible: &ArtBible) -> Result<(), Vec<RecipeError>> {
-        let mut errs = Vec::new();
+        let mut errs = self.validate().err().unwrap_or_default();
         let mut err =
             |part: Option<usize>, message: String| errs.push(RecipeError { part, message });
 

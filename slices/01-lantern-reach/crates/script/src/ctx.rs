@@ -33,6 +33,7 @@ use serde::Serialize;
 use crate::meter::{Budget, FACTS_PER_STEP, table_slots};
 use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number};
 
+mod live;
 mod progress;
 mod space;
 
@@ -118,6 +119,7 @@ pub(crate) struct CallEnv<'a> {
     pub history: &'a History,
     pub pack: &'a PackId,
     pub revision: &'a str,
+    pub opens: &'a [String],
     pub uses: &'a [String],
     pub script: &'a ScriptDecl,
     pub buffer: &'a RefCell<Buffer>,
@@ -1452,6 +1454,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
     ];
     tables.extend(progress::namespaces(lua, scope, env)?);
     tables.push(("space", space::namespace(lua, scope, env)?));
+    tables.extend(live::namespaces(lua, scope, env)?);
     for (name, t) in tables {
         if present.contains(name) {
             t.set_readonly(true);

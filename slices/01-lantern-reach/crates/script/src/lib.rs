@@ -33,3 +33,5 @@ pub use host::{HostEvent, ScriptHost};
 pub use pack::{Pack, read_pack};
 pub use rollback::{RollbackOutcome, rollback};
 pub use testrun::run_pack_tests;
+
+pub mod canon;
