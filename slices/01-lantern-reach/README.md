@@ -54,6 +54,8 @@ up to three things that happened since you were last there, each about a real ev
 The talk panel at the bottom left shows what people said since you last docked, with
 who and where. It's empty, and hidden, until someone has something to say.
 
+![Orrin's list on the Wharf's dock screen](docs/screenshots/dock-services.png)
+
 The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
 examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
 save without them. With `OPENROUTER_API_KEY` set, a fast model picks which authored line

@@ -271,7 +271,8 @@ const ANSWER_CHRONICLE: usize = 2;
 
 /// The dockmaster's answer at `station`: their authored lines for facts since the
 /// player's previous docking there (most specific first, one per place), then digest
-/// lines for the rest of what happened, then the chronicle entries written since.
+/// lines for the rest of what happened, then the chronicle entries written since. Like
+/// all ambient talk, it never tells a fact some said line already cites.
 pub fn what_changed(
     world: &WorldState,
     history: &History,
@@ -297,7 +298,15 @@ pub fn what_changed(
             });
         }
     }
-    let cited: BTreeSet<FactId> = out.iter().flat_map(|l| l.cites.iter().copied()).collect();
+    // Facts any said line already cites (ambient talk tells each once), and the ones
+    // the dockmaster's own lines just took.
+    let cited: BTreeSet<FactId> = world
+        .talk
+        .lines
+        .values()
+        .flat_map(|l| l.line.cites.iter().copied())
+        .chain(out.iter().flat_map(|l| l.cites.iter().copied()))
+        .collect();
     let mut places: BTreeSet<Option<StationId>> = out.iter().map(|l| l.place.clone()).collect();
     for f in history.facts().iter().rev().take_while(|f| f.id > since) {
         if out.len() >= ANSWER_LINES {
@@ -377,7 +386,11 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
     match event {
         Event::UpgradeFitted { upgrade, .. } => {
             let u = rules.upgrades.get(upgrade)?;
-            let who = u.seller.as_ref().map(|n| npc_name(world, n));
+            // By first name, as people at the dock say it.
+            let who = u.seller.as_ref().map(|n| {
+                let name = npc_name(world, n);
+                name.split_whitespace().next().unwrap_or(&name).to_owned()
+            });
             Some(match who {
                 Some(who) => format!("{who} fitted your {}.", u.name.to_lowercase()),
                 None => format!("Your {} is fitted.", u.name.to_lowercase()),

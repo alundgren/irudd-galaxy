@@ -391,7 +391,11 @@ pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewpo
         // keeps clear of the goal line and the hold at the top.
         let mid = viewport * 0.5;
         let d = p - mid;
-        let (lo, hi) = (G2::new(inset, 130.0), viewport - G2::splat(inset));
+        // ... and above the Space hint at the bottom.
+        let (lo, hi) = (
+            G2::new(inset, 130.0),
+            G2::new(viewport.x - inset, viewport.y - 104.0),
+        );
         let kx = if d.x > 0.0 {
             (hi.x - mid.x) / d.x
         } else {

@@ -102,6 +102,15 @@ pub fn compose(
     }
     ui::scale_overlay(&mut panels, scale);
     ui::scale_buttons(&mut buttons, scale);
+    // Labels and markers pinned to the world never show through a panel.
+    let under = |p: G2| {
+        panels.panels.iter().any(|q| {
+            let r = q.rect;
+            p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
+        })
+    };
+    scene.overlay.texts.retain(|t| !under(t.pos));
+    scene.overlay.panels.retain(|q| !under(q.rect.center()));
     scene.overlay.panels.extend(panels.panels);
     scene.overlay.texts.extend(panels.texts);
     if session.is_paused() {
