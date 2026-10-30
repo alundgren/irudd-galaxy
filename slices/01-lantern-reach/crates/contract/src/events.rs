@@ -23,6 +23,15 @@ use crate::verbs::VerbKind;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Event {
+    /// A script offers ordered authored lines for one docking.
+    TalkRequested {
+        request: Box<crate::talk::DockTalkRequest>,
+    },
+    /// The mind returns only an offered ID. The script rechecks and says it.
+    TalkPicked {
+        request: FactId,
+        line: AnyId,
+    },
     Dock {
         ship: ShipId,
         station: StationId,
@@ -165,6 +174,8 @@ pub enum Event {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
+    TalkRequested,
+    TalkPicked,
     Dock,
     Undock,
     Mine,
@@ -192,7 +203,9 @@ pub enum EventKind {
 }
 
 impl EventKind {
-    pub const ALL: [EventKind; 24] = [
+    pub const ALL: [EventKind; 26] = [
+        EventKind::TalkRequested,
+        EventKind::TalkPicked,
         EventKind::Dock,
         EventKind::Undock,
         EventKind::Mine,
@@ -221,6 +234,8 @@ impl EventKind {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            EventKind::TalkRequested => "talk_requested",
+            EventKind::TalkPicked => "talk_picked",
             EventKind::Dock => "dock",
             EventKind::Undock => "undock",
             EventKind::Mine => "mine",
@@ -257,6 +272,8 @@ impl EventKind {
 impl Event {
     pub fn kind(&self) -> EventKind {
         match self {
+            Event::TalkRequested { .. } => EventKind::TalkRequested,
+            Event::TalkPicked { .. } => EventKind::TalkPicked,
             Event::Dock { .. } => EventKind::Dock,
             Event::Undock { .. } => EventKind::Undock,
             Event::Mine { .. } => EventKind::Mine,
@@ -287,6 +304,8 @@ impl Event {
     /// The ship involved, if any (decides whether player counters move).
     pub fn ship(&self) -> Option<&ShipId> {
         match self {
+            Event::TalkRequested { request } => Some(&request.ship),
+            Event::TalkPicked { .. } => None,
             Event::Dock { ship, .. }
             | Event::Undock { ship, .. }
             | Event::Mine { ship, .. }
@@ -340,6 +359,8 @@ impl Event {
             ..Subjects::default()
         };
         match self {
+            Event::TalkRequested { request } => s.station = Some(request.station.clone()),
+            Event::TalkPicked { line, .. } => s.other = Some(line.clone()),
             Event::Dock { station, .. }
             | Event::Undock { station, .. }
             | Event::Scout { station, .. } => s.station = Some(station.clone()),
@@ -415,6 +436,7 @@ impl Event {
     pub fn counter_bumps(&self) -> Vec<(CounterKind, u64)> {
         use CounterKind as C;
         match self {
+            Event::TalkRequested { .. } | Event::TalkPicked { .. } => vec![],
             Event::Dock { .. } => vec![(C::Dockings, 1)],
             Event::Undock { .. } => vec![],
             Event::Mine { amount, .. } => vec![(C::UnitsMined, u64::from(*amount))],

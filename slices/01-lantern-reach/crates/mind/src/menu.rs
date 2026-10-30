@@ -95,6 +95,10 @@ impl Precondition {
 /// Opens menus from history facts and turns a chosen option into commands.
 pub trait MenuProvider {
     fn name(&self) -> &'static str;
+    /// Recover saved requests that have no committed outcome when a host reopens.
+    fn resume(&self, _cx: &MenuCtx<'_>, _facts: &[Fact]) -> Vec<Menu> {
+        Vec::new()
+    }
     /// Menus this fact opens (usually none).
     fn menus(&self, cx: &MenuCtx<'_>, fact: &Fact) -> Vec<Menu>;
     /// The commands for `option` against the world as it is now. The default uses the

@@ -11,6 +11,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::*;
 
+/// A script's fitting authored line, with slots already filled from `cite`.
+/// The mind may select its ID; it never supplies text for these requests.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DockTalkCandidate {
+    pub line: AnyId,
+    pub npc: NpcId,
+    pub text: String,
+    pub cite: FactId,
+    pub specificity: u32,
+}
+
+/// Saved with the request event, so an unanswered docking survives save/load.
+/// Candidate zero is the script's complete default; order is preserved.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct DockTalkRequest {
+    pub pack: PackId,
+    pub revision: String,
+    pub docking: FactId,
+    pub ship: ShipId,
+    pub station: StationId,
+    pub candidates: Vec<DockTalkCandidate>,
+}
+
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]

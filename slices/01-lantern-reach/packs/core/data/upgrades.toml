@@ -20,7 +20,7 @@ modifiers = [{ modifier = "mining_rate", factor = 1.5 }]
 id = "upgrade.nav_chip"
 name = "Nav chip"
 effect = "Click where you want the ship to go"
-cost = 900
+cost = 225
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
 grants = ["cap.click_fly"]

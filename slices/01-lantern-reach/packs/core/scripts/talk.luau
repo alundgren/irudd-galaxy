@@ -2,8 +2,8 @@
 -- Ambient dock talk and "What changed?" (content/05-people.md, "How people speak").
 --
 -- On each of the player's dockings, at most one line from the people at that station:
--- the most specific eligible line whose fact is newer than the player's previous
--- docking there, ties to the newest fact. Any dockmaster can be asked "What changed?":
+-- the mind picks among eligible authored lines, defaulting to the most specific,
+-- then the newest fact. Any dockmaster can be asked "What changed?":
 -- they give up to three eligible lines citing facts since the player's last docking
 -- there, at most one per place, most specific first. If no line qualifies, nobody
 -- speaks.
@@ -30,8 +30,26 @@ return G.script({
 			if pick == nil then
 				return
 			end
-			local why = ctx:cause({ summary = `{pick.npc} has a word at the dock`, cites = { pick.fact.id } })
-			lines.say(ctx, why, pick, ev.station)
+			local candidates: { G.DockTalkCandidate } = {}
+			local cites = { ev.fact }
+			for _, p in ipairs(picks) do
+				if #candidates >= 32 then break end
+				table.insert(cites, p.fact.id)
+				table.insert(candidates, {
+					line = p.line.id, npc = p.npc, text = p.line.text(p.fact, ctx),
+					cite = p.fact.id, specificity = p.line.specific,
+				})
+			end
+			local why = ctx:cause({ summary = "Authored lines offered at the dock", cites = cites })
+			ctx.talk:request(ev.fact, candidates, why)
+		end,
+		talk_picked = function(ev: G.TalkPickedEvent, ctx: G.Ctx)
+			local pick = ctx.talk:selected(ev.request, ev.line)
+			local place = ctx.beats:pilot().docked_at
+			if pick == nil or place == nil or util.said(ctx, pick.line, pick.cite) then return end
+			local why = ctx:cause({ summary = `{pick.npc} has a word at the dock`, cites = { ev.fact, pick.cite } })
+			ctx.beats:expect_docked(place, why)
+			util.say(ctx, why, pick.line, pick.npc, place, pick.text, pick.cite)
 		end,
 		reply = function(ev: G.ReplyEvent, ctx: G.Ctx)
 			if ev.choice ~= ids.WHAT_CHANGED then
