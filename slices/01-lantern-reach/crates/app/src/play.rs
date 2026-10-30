@@ -614,6 +614,12 @@ impl ApplicationHandler for App {
                     }
                     return;
                 }
+                if code == KeyCode::F2 {
+                    if down && !repeat {
+                        crate::ui::fps::toggle();
+                    }
+                    return;
+                }
                 // N mutes and unmutes, paused or not. Not a game key: it never reaches
                 // the sim.
                 if code == KeyCode::KeyN {

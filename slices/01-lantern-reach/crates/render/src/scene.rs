@@ -98,6 +98,13 @@ pub struct MeshInstance {
     pub mesh: MeshHandle,
     pub transform: Mat4,
     pub material: Material,
+    /// How far towards its morph target the mesh is drawn, `0..=1`
+    /// ([`crate::MeshData::morph_to`]).
+    pub morph: f32,
+    /// The uniform scale the hatching is spaced for, or 0 for the instance's own. A
+    /// mesh that shrinks (a rock being mined) keeps its full-size spacing, so the
+    /// strokes stay on its surface instead of sliding across it.
+    pub hatch_scale: f32,
 }
 
 impl MeshInstance {
@@ -106,6 +113,8 @@ impl MeshInstance {
             mesh,
             transform,
             material: Material::default(),
+            morph: 0.0,
+            hatch_scale: 0.0,
         }
     }
 
@@ -123,6 +132,26 @@ impl MeshInstance {
 
     pub fn with_material(mut self, material: Material) -> Self {
         self.material = material;
+        self
+    }
+
+    /// Draws the mesh `w` of the way to its morph target.
+    pub fn with_morph(mut self, w: f32) -> Self {
+        self.morph = if w.is_finite() {
+            w.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self
+    }
+
+    /// Spaces the hatching as if the instance were drawn at uniform `scale`.
+    pub fn with_hatch_scale(mut self, scale: f32) -> Self {
+        self.hatch_scale = if scale.is_finite() {
+            scale.max(0.0)
+        } else {
+            0.0
+        };
         self
     }
 }

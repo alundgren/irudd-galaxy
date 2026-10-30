@@ -105,3 +105,7 @@ name = "Verb button on the HUD"
 id = "slot.hold_column"
 kind = "ui"
 name = "Column on the hold screen"
+
+# Developer keys, not game controls (never taught, never bound to a slot): F2 shows
+# frames and sim ticks a second (`galaxy play --fps` starts with it on), F3 the debug
+# overlay, N mutes the sound.

@@ -64,6 +64,46 @@ pub fn rock_scale(remaining: f32) -> f32 {
 /// Builds a rock. The same `seed` gives the same rock at every `remaining`, so a rock
 /// keeps its identity while it is mined down; cracks and chips only ever accumulate.
 pub fn rock(params: &RockParams, seed: u64) -> MeshData {
+    build(params, seed, None, true)
+}
+
+/// A rock between two stages of mining, as one mesh that morphs: the mesh is the rock
+/// at `params.remaining` and its morph target the rock at `to` (lower), so drawing it
+/// at a morph weight between 0 and 1 changes its shape, shading and paint continuously.
+/// Unlike [`rock`] it is built at full size whatever is left: draw it scaled by
+/// [`rock_scale`] of the remaining fraction, so it also shrinks continuously.
+///
+/// A crystal that breaks off between the two stages stays as a stub at the target. A
+/// mined-out rock (`remaining` 0) is rubble with no morph.
+pub fn rock_morph(params: &RockParams, to: f32, seed: u64) -> MeshData {
+    let mut mesh = build(params, seed, None, false);
+    let from = if params.remaining.is_finite() {
+        params.remaining.clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    if from <= 0.0 {
+        return mesh;
+    }
+    let to = if to.is_finite() { to } else { from };
+    let lower = RockParams {
+        remaining: to.clamp(1e-3, from),
+        ..*params
+    };
+    let target = build(&lower, seed, Some(crystals_kept(from)), false);
+    mesh.morph_to(&target);
+    mesh
+}
+
+/// How many of a glassite rock's crystals are still on at `remaining`.
+fn crystals_kept(remaining: f32) -> usize {
+    ((remaining * CRYSTALS as f32).ceil() as usize).clamp(1, CRYSTALS)
+}
+
+const CRYSTALS: usize = 5;
+
+/// [`rock`], keeping `keep` crystals if given, shrunk by [`rock_scale`] if `shrink`.
+fn build(params: &RockParams, seed: u64, keep: Option<usize>, shrink: bool) -> MeshData {
     let radius = if params.radius.is_finite() {
         params.radius.clamp(0.2, 200.0)
     } else {
@@ -205,7 +245,11 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
         }
     }
 
-    let scale = radius * rock_scale(remaining);
+    let scale = if shrink {
+        radius * rock_scale(remaining)
+    } else {
+        radius
+    };
     let mut paint = rng.fork(4);
     b.part(|b| {
         for ((t, &(g, f)), &c) in tris.iter().zip(&group).zip(&crack) {
@@ -228,6 +272,9 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
                 skin
             };
             b.paint(color.lerp(style.crack, c), 0.0);
+            if g > 0 {
+                b.bite(f * (1.0 - c));
+            }
             let normals = t.map(|i| {
                 let skin = smooth[i][0].try_normalize().unwrap_or(normal);
                 let cut = smooth[i][g].try_normalize().unwrap_or(normal);
@@ -240,8 +287,8 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
     // Glassite grows glowing crystals; they break off as the rock is mined.
     if params.kind == RockKind::Glassite {
         let mut cr = rng.fork(5);
-        let total = 5;
-        let keep = ((remaining * total as f32).ceil() as usize).clamp(1, total);
+        let total = CRYSTALS;
+        let keep = keep.unwrap_or_else(|| crystals_kept(remaining));
         for i in 0..total {
             let dir = (random_dir(&mut cr) + Vec3::Z * 0.8).normalize();
             // A crystal wears down to a stub before it breaks off.
@@ -538,6 +585,46 @@ mod tests {
         // and on average shading normals turn by only a few degrees.
         assert!(worst.0 < 0.1, "a vertex moved {}", worst.0);
         assert!(worst.1 < 0.01, "normals turned {}", worst.1);
+    }
+
+    #[test]
+    fn every_step_morphs_into_the_next() {
+        // The app draws a rock between two of its 20 meshed steps by morphing; that
+        // needs both stages to share their topology, crystals and all.
+        for kind in KINDS {
+            for seed in 0..24 {
+                for k in 1..=20 {
+                    let (hi, lo) = (k as f32 / 20.0, (k - 1) as f32 / 20.0);
+                    let m = rock_morph(&RockParams::new(kind, 4.0, hi), lo, seed);
+                    assert!(m.is_well_formed(), "{kind:?} {seed} {k}");
+                    let moved = m
+                        .vertices
+                        .iter()
+                        .any(|v| v.morph_position != v.position || v.morph_color != v.color);
+                    assert!(moved, "{kind:?} {seed} {k}: no morph target");
+                    // Fully morphed, it is the next step (crystals that break off
+                    // stay as stubs until the next step's mesh replaces them).
+                    let next = build(
+                        &RockParams::new(kind, 4.0, lo.max(1e-3)),
+                        seed,
+                        Some(crystals_kept(hi)),
+                        false,
+                    );
+                    let end = m.morphed(1.0);
+                    for (a, b) in end.vertices.iter().zip(&next.vertices) {
+                        assert!(Vec3::from(a.position).distance(b.position.into()) < 1e-4);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cuts_are_marked_as_bitten() {
+        let m = rock(&RockParams::new(RockKind::Glassite, 4.0, 0.2), 3);
+        assert!(m.vertices.iter().any(|v| v.bite[0] > 0.5));
+        let full = rock(&RockParams::new(RockKind::Glassite, 4.0, 1.0), 3);
+        assert!(full.vertices.iter().all(|v| v.bite[0] == 0.0));
     }
 
     #[test]

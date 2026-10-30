@@ -2,6 +2,10 @@
 //!
 //! Bundled from `assets/art-bible.toml`. Station recipes are checked with
 //! [`crate::station::StationRecipe::validate_art`]. The game master uses the same file.
+//!
+//! `validate_art` decides whether a sim command is accepted, so everything it computes
+//! (here, in `color` and in `station`) uses `libm`, never std's `powf`, `cbrt`, `hypot`,
+//! `atan2` or `cos`: those call the platform's C library and can round differently per OS.
 
 use crate::color::Color;
 use serde::Deserialize;
@@ -170,7 +174,7 @@ impl ArtBible {
     /// so a line is about `inner_px` wide.
     pub fn ink_uniforms(&self) -> [f32; 4] {
         [
-            self.ink.crease_degrees.to_radians().cos(),
+            libm::cosf(self.ink.crease_degrees.to_radians()),
             self.ink.color_edge,
             self.ink.depth_step,
             (mid(self.ink.inner_px) * 0.5).round().clamp(1.0, 3.0),
@@ -256,7 +260,7 @@ impl ArtBible {
         let a = oklab(a);
         let b = oklab(b);
         let d = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-        d[0].hypot(d[1]).hypot(d[2])
+        libm::hypotf(libm::hypotf(d[0], d[1]), d[2])
     }
 }
 
@@ -273,9 +277,9 @@ pub fn oklab(color: Color) -> [f32; 3] {
     let l = 0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b;
     let m = 0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b;
     let s = 0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b;
-    let l_ = l.cbrt();
-    let m_ = m.cbrt();
-    let s_ = s.cbrt();
+    let l_ = libm::cbrt(l);
+    let m_ = libm::cbrt(m);
+    let s_ = libm::cbrt(s);
     [
         (0.210_454_255_3 * l_ + 0.793_617_785_0 * m_ - 0.004_072_046_8 * s_) as f32,
         (1.977_998_495_1 * l_ - 2.428_592_205_0 * m_ + 0.450_593_709_9 * s_) as f32,
@@ -288,7 +292,7 @@ pub fn oklab_l(color: Color) -> f32 {
 }
 
 pub fn chroma(lab: [f32; 3]) -> f32 {
-    lab[1].hypot(lab[2])
+    libm::hypotf(lab[1], lab[2])
 }
 
 fn describe(color: Color) -> String {
@@ -302,7 +306,7 @@ fn cold_chrome(lab: [f32; 3], c: f32) -> bool {
         return false;
     }
     // OKLab +b is yellow and -b is blue. Chrome sits near hue -90 degrees with little red.
-    let hue = lab[2].atan2(lab[1]);
+    let hue = libm::atan2f(lab[2], lab[1]);
     (-2.2..=-0.7).contains(&hue)
 }
 

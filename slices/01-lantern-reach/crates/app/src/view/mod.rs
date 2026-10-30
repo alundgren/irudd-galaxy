@@ -6,8 +6,10 @@
 //! on the sim's ring, and a ship is a few times its kit size.
 //!
 //! [`View`] keeps the uploaded meshes and re-meshes what changes: a rock when its
-//! `remaining` crosses one of [`ROCK_STEPS`] visible steps, a station when its build
-//! stage moves (Kettle Dock's greenhouse), a hull the first time it's seen.
+//! `remaining` crosses one of [`ROCK_STEPS`] steps, a station when its build stage
+//! moves (Kettle Dock's greenhouse), a hull the first time it's seen. A rock's mesh
+//! morphs from one step to the next as it is mined, and its instance shrinks with what
+//! is left, so its shape and shading change continuously.
 
 mod live;
 pub mod map;
@@ -26,7 +28,8 @@ use render::{
 
 use crate::session::Pose;
 
-/// Rocks are re-meshed when `remaining / initial` crosses one of this many steps.
+/// Rocks are re-meshed when `remaining / initial` crosses one of this many steps, and
+/// morph between them.
 pub const ROCK_STEPS: f32 = 20.0;
 /// Ships are drawn this many times their kit size (a Wren is about 30 units long).
 pub const SHIP_SCALE: f32 = 5.0;
@@ -116,15 +119,15 @@ struct StationArt {
     /// Station space to world.
     transform: Mat4,
     lights: Vec<StationLight>,
+    /// How far the art reaches from the station-space origin, in world units.
+    reach: f32,
 }
 
 struct RockArt {
     mesh: MeshHandle,
     step: i32,
-    /// The `remaining` fraction the mesh was built for. Between re-meshes the instance
-    /// scales the rock on to its current size, so it shrinks smoothly.
-    frac: f32,
-    /// The mesh as uploaded, for placing the mining beam on its surface.
+    /// The mesh as uploaded (full size, morphing from this step to the next), for
+    /// placing the mining beam on its surface.
     data: render::MeshData,
 }
 
@@ -152,14 +155,19 @@ fn rock_frac(rock: &Rock) -> f32 {
     (rock.remaining as f32 / rock.initial.max(1) as f32).clamp(0.0, 1.0)
 }
 
-/// Where a rock is drawn: turning slowly about its seed's spin, and scaled from the size
-/// it was meshed at to its size now.
+/// How far a rock's mesh is drawn towards its next step: 0 at the step it was meshed
+/// for, 1 at the next one down.
+fn rock_morph(rock: &Rock, step: i32) -> f32 {
+    (step as f32 - rock_frac(rock) * ROCK_STEPS).clamp(0.0, 1.0)
+}
+
+/// Where a rock is drawn: turning slowly about its seed's spin, and scaled from its
+/// full-size mesh to what is left. Rubble is meshed at its own size.
 fn rock_transform(rock: &Rock, art: &RockArt, time: f32) -> Mat4 {
     let seed = seed_of(rock.id.as_str());
     let spin = (seed % 628) as f32 / 100.0 + time * (0.02 + (seed % 7) as f32 * 0.006);
-    let frac = rock_frac(rock);
-    let scale = if frac > 0.0 && art.frac > 0.0 {
-        kit::rock_scale(frac) / kit::rock_scale(art.frac)
+    let scale = if art.step > 0 {
+        kit::rock_scale(rock_frac(rock))
     } else {
         1.0
     };
@@ -174,19 +182,24 @@ fn rock_transform(rock: &Rock, art: &RockArt, time: f32) -> Mat4 {
 fn rock_hit(rock: &Rock, art: &RockArt, time: f32, from: Vec3) -> Option<Vec3> {
     let to_local = rock_transform(rock, art, time).inverse();
     let dir = g(rock.position).extend(0.0) - from;
-    let t = art.data.raycast(
+    let t = art.data.morphed(rock_morph(rock, art.step)).raycast(
         to_local.transform_point3(from),
         to_local.transform_vector3(dir),
     )?;
     Some(from + dir * t)
 }
 
-fn rock_params(world: &WorldState, rock: &Rock) -> RockParams {
-    let frac = rock_frac(rock);
-    RockParams::new(
+/// A rock's mesh for `step`: the rock at that step, morphing into the next one down.
+fn rock_mesh(world: &WorldState, rock: &Rock, step: i32) -> render::MeshData {
+    let params = RockParams::new(
         recipes::rock_kind(world, &rock.rock_type),
         rock_full_radius(world, rock),
-        frac,
+        step as f32 / ROCK_STEPS,
+    );
+    kit::rock_morph(
+        &params,
+        (step - 1) as f32 / ROCK_STEPS,
+        seed_of(rock.id.as_str()),
     )
 }
 
@@ -265,6 +278,7 @@ impl View {
                     stage: s.build.stage,
                     transform: station_transform(s, &recipe),
                     lights: kit::station_lights(&recipe),
+                    reach: recipe.footprint() * station_transform(s, &recipe).x_axis.length(),
                 },
             );
         }
@@ -274,22 +288,14 @@ impl View {
                 Some(a) if a.step == step => {}
                 Some(a) => {
                     a.step = step;
-                    a.frac = rock_frac(rock);
-                    a.data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    a.data = rock_mesh(world, rock, step);
                     r.update_mesh(a.mesh, &a.data);
                 }
                 None => {
-                    let data = kit::rock(&rock_params(world, rock), seed_of(rock.id.as_str()));
+                    let data = rock_mesh(world, rock, step);
                     let mesh = r.upload_mesh(&data);
-                    self.rocks.insert(
-                        rock.id.clone(),
-                        RockArt {
-                            mesh,
-                            step,
-                            frac: rock_frac(rock),
-                            data,
-                        },
-                    );
+                    self.rocks
+                        .insert(rock.id.clone(), RockArt { mesh, step, data });
                 }
             }
         }
@@ -430,6 +436,9 @@ impl View {
 
         // Stations, their docking rings and lanterns.
         let mut lights: Vec<(f32, PointLight)> = Vec::new();
+        // Where station art covers the screen (centre, radius in pixels): ship names
+        // keep off it.
+        let mut station_art: Vec<(G2, f32)> = Vec::new();
         for s in world.stations.values() {
             let Some(art) = self.stations.get(&s.id) else {
                 continue;
@@ -442,6 +451,15 @@ impl View {
                 MeshInstance::new(art.mesh, art.transform)
                     .with_material(ArtBible::bundled().material(InkRole::Station)),
             );
+            let centre = art.transform.w_axis.truncate();
+            if let Some(c) = camera.world_to_screen(centre, viewport) {
+                let r = [Vec3::X, Vec3::Y]
+                    .into_iter()
+                    .filter_map(|d| camera.world_to_screen(centre + d * art.reach, viewport))
+                    .map(|p| p.distance(c))
+                    .fold(0.0, f32::max);
+                station_art.push((c, r));
+            }
             for l in &art.lights {
                 let p = art.transform.transform_point3(l.position);
                 let scale = art.transform.x_axis.length();
@@ -501,7 +519,9 @@ impl View {
             }
             scene.meshes.push(
                 MeshInstance::new(art.mesh, rock_transform(rock, art, time))
-                    .with_material(ArtBible::bundled().material(InkRole::Rock)),
+                    .with_material(ArtBible::bundled().material(InkRole::Rock))
+                    .with_morph(rock_morph(rock, art.step))
+                    .with_hatch_scale(1.0),
             );
         }
 
@@ -537,13 +557,30 @@ impl View {
                 .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * hover) * inst.transform;
             scene.meshes.push(inst);
+            // A trader's name, off the station art and on screen. A docked ship sits
+            // inside its station's art, so it goes unnamed until it flies off.
             if world.traders.contains_key(&ship.id)
+                && !docked
                 && let Some(at) = camera.world_to_screen(pos.extend(hover), viewport)
+                && (0.0..=viewport.x).contains(&at.x)
+                && (0.0..=viewport.y).contains(&at.y)
             {
+                let size = G2::new(
+                    crate::ui::text_width(&ship.name, LABEL_SIZE),
+                    LABEL_SIZE * 1.3,
+                );
+                let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
+                let own = camera
+                    .world_to_screen(pos.extend(hover) + Vec3::X * nose, viewport)
+                    .map_or(0.0, |p| p.distance(at));
                 scene.overlay.texts.push(
-                    render::Text::new(ship.name.clone(), at + G2::new(0.0, 18.0), 13.0)
-                        .align(render::Align::Center)
-                        .color(palette::CREAM),
+                    render::Text::new(
+                        ship.name.clone(),
+                        place_label(at, own, size, &station_art, viewport),
+                        LABEL_SIZE,
+                    )
+                    .align(render::Align::Center)
+                    .color(Color::WHITE),
                 );
             }
             let fwd = G2::from_angle(pose.heading);
@@ -559,9 +596,9 @@ impl View {
                 && !docked
                 && let Some(rock) = world.rocks.get(&run.rock)
             {
-                // From the nose tip to where the beam meets the rock's drawn surface.
-                // The renderer lifts beams and glows towards the camera, so neither the
-                // hull nor the rock cuts them.
+                // From the nose tip to where the beam meets the rock's drawn surface
+                // (as morphed and scaled this frame). The renderer draws beams over
+                // what they cross, so the end must sit on the surface, not inside it.
                 let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
                 let from = (pos + fwd * nose).extend(hover);
                 let to = self
@@ -569,10 +606,10 @@ impl View {
                     .get(&rock.id)
                     .and_then(|art| rock_hit(rock, art, time, from))
                     .unwrap_or_else(|| {
+                        // No surface in the way: the rock's edge facing the ship.
                         let r = g(rock.position);
                         let radius = galaxy_ship::space::rock_radius(world, rock);
-                        (r + (from.truncate() - r).normalize_or_zero() * radius * 0.6)
-                            .extend(radius * 0.4)
+                        (r + (from.truncate() - r).normalize_or_zero() * radius).extend(0.0)
                     });
                 // A fitted boost (the mining lens) shows: a wider, quicker beam.
                 let boost = (galaxy_contract::modifiers::for_ship(world, &ship.id).mining_rate
@@ -648,6 +685,62 @@ fn edge_current(scene: &mut Scene, region: &Region, pose: Option<&Pose>, ship: &
     }
 }
 
+/// Font size of a ship's name.
+const LABEL_SIZE: f32 = 13.0;
+
+/// Where a ship's name goes (the top centre of the text) for a ship drawn at `at` on
+/// screen, `own` pixels in radius: under it, or over it, whichever keeps clear of the
+/// station art in `avoid` (screen circles) without leaving the screen; failing both,
+/// just outside the nearest station's art and the ship, on the ship's side. Always
+/// inside the viewport.
+fn place_label(at: G2, own: f32, size: G2, avoid: &[(G2, f32)], viewport: G2) -> G2 {
+    const GAP: f32 = 18.0;
+    const MARGIN: f32 = 6.0;
+    let half = size.x * 0.5;
+    let clamp = |p: G2| {
+        G2::new(
+            p.x.clamp(
+                MARGIN + half,
+                (viewport.x - MARGIN - half).max(MARGIN + half),
+            ),
+            p.y.clamp(MARGIN, (viewport.y - MARGIN - size.y).max(MARGIN)),
+        )
+    };
+    let clear = |p: G2| {
+        avoid.iter().all(|&(c, r)| {
+            let min = G2::new(p.x - half, p.y);
+            c.clamp(min, min + size).distance(c) >= r
+        })
+    };
+    let below = G2::new(at.x, at.y + GAP);
+    let above = G2::new(at.x, at.y - GAP - size.y);
+    // A side that only fits by sliding over the ship (at the top or bottom edge)
+    // doesn't count: the other side flips in.
+    for p in [below, above] {
+        let q = clamp(p);
+        if (q.y - p.y).abs() < 0.5 && clear(q) {
+            return q;
+        }
+    }
+    if let Some(&(c, r)) = avoid
+        .iter()
+        .min_by(|a, b| (a.0.distance(at) - a.1).total_cmp(&(b.0.distance(at) - b.1)))
+    {
+        let reach = r.max(at.distance(c) + own);
+        let out = c + (at - c).normalize_or(G2::Y) * (reach + size.length() * 0.5 + 4.0);
+        let q = clamp(G2::new(out.x, out.y - size.y * 0.5));
+        if clear(q) {
+            return q;
+        }
+    }
+    let q = clamp(below);
+    if (q.y - below.y).abs() < 0.5 {
+        q
+    } else {
+        clamp(above)
+    }
+}
+
 /// Where a docked ship is drawn: parked on the station's ring, nose along it, at a
 /// spot that depends on the ship so several don't stack.
 fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
@@ -718,5 +811,73 @@ mod tests {
         assert_eq!(rock_step(&rock), 19);
         rock.remaining = 0;
         assert_eq!(rock_step(&rock), 0);
+    }
+
+    #[test]
+    fn ship_names_keep_off_station_art_and_on_screen() {
+        let view = G2::new(1280.0, 720.0);
+        let size = G2::new(80.0, 17.0);
+        let overlaps = |p: G2, (c, r): (G2, f32)| {
+            let min = G2::new(p.x - size.x * 0.5, p.y);
+            c.clamp(min, min + size).distance(c) < r
+        };
+        let on_screen = |p: G2| {
+            p.x - size.x * 0.5 >= 0.0
+                && p.x + size.x * 0.5 <= view.x
+                && p.y >= 0.0
+                && p.y + size.y <= view.y
+        };
+        // In open space: under the ship, as before.
+        let p = place_label(G2::new(600.0, 300.0), 20.0, size, &[], view);
+        assert_eq!(p, G2::new(600.0, 318.0));
+        // A station just under the ship: the name goes over it.
+        let wharf = (G2::new(600.0, 420.0), 90.0);
+        let p = place_label(G2::new(600.0, 300.0), 20.0, size, &[wharf], view);
+        assert!(p.y < 300.0 && !overlaps(p, wharf), "{p}");
+        // Flying across the art: outside it and the ship, on the ship's side.
+        let ship = (G2::new(670.0, 420.0), 20.0);
+        let p = place_label(ship.0, ship.1, size, &[wharf], view);
+        assert!(
+            !overlaps(p, wharf) && !overlaps(p, ship) && p.x > 600.0,
+            "{p}"
+        );
+        // At the edges: clamped in, and flipped over the ship at the bottom.
+        for at in [
+            G2::new(4.0, 300.0),
+            G2::new(1276.0, 300.0),
+            G2::new(600.0, 716.0),
+            G2::new(600.0, 2.0),
+        ] {
+            let p = place_label(at, 20.0, size, &[], view);
+            assert!(on_screen(p), "{at} -> {p}");
+        }
+        let p = place_label(G2::new(600.0, 716.0), 20.0, size, &[], view);
+        assert!(p.y + size.y < 716.0, "{p}");
+    }
+
+    #[test]
+    fn rocks_morph_continuously_between_steps() {
+        let mut rock = Rock {
+            id: RockId::from_static("rock.a.01"),
+            field: FieldId::from_static("field.a"),
+            rock_type: RockTypeId::from_static("rock_type.ice"),
+            position: Vec2::ZERO,
+            remaining: 1000,
+            initial: 1000,
+            growth: RockGrowth::default(),
+        };
+        // Mined a unit at a time, the drawn stage (step minus morph) only ever falls,
+        // and by a sliver each unit, across re-meshes too.
+        let mut last = ROCK_STEPS;
+        for remaining in (1..1000).rev() {
+            rock.remaining = remaining;
+            let step = rock_step(&rock);
+            let shown = step as f32 - rock_morph(&rock, step);
+            assert!(
+                shown <= last + 1e-4 && last - shown < 0.03,
+                "{remaining}: {last} -> {shown}"
+            );
+            last = shown;
+        }
     }
 }

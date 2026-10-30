@@ -17,6 +17,7 @@
 //! won't shrink below [`MIN_WINDOW`], where the text is still readable.
 
 pub mod dock;
+pub mod fps;
 pub mod hints;
 
 use galaxy_contract::prelude::*;
@@ -441,6 +442,7 @@ pub fn hold_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
 
 /// Credits and the hold, top right.
 pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
+    fps::draw(o, world, viewport);
     let Some(ship) = world.player.ship.as_ref().and_then(|s| world.ships.get(s)) else {
         return;
     };

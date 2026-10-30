@@ -28,6 +28,16 @@ pub struct Vertex {
     /// Minor span of this vertex's own facet, in mesh units. Inner ink fades on facets
     /// only a few pixels across, so a small rock doesn't fill in with crease lines.
     pub facet: f32,
+    /// Where the vertex goes as the instance's morph weight runs from 0 to 1
+    /// ([`MeshData::morph_to`]): a rock mined between two meshed steps changes shape
+    /// continuously instead of jumping. The same as `position`, `normal` and `color`
+    /// for a mesh that doesn't morph.
+    pub morph_position: [f32; 3],
+    pub morph_normal: [f32; 3],
+    pub morph_color: [f32; 4],
+    /// How much of the paint is a fresh cut ([`MeshBuilder::bite`]), here and at the
+    /// morph target. The shader keeps a cut out of the shadow tint and hatching.
+    pub bite: [f32; 2],
 }
 
 /// Triangle mesh data. Front faces wind counter-clockwise.
@@ -38,6 +48,49 @@ pub struct MeshData {
 }
 
 impl MeshData {
+    /// Sets every vertex's morph target to the matching vertex of `target`, a mesh of
+    /// the same topology (the same builder calls with different numbers). Returns false,
+    /// and changes nothing, if the topologies differ.
+    pub fn morph_to(&mut self, target: &MeshData) -> bool {
+        if self.vertices.len() != target.vertices.len() || self.indices != target.indices {
+            return false;
+        }
+        for (v, t) in self.vertices.iter_mut().zip(&target.vertices) {
+            v.morph_position = t.position;
+            v.morph_normal = t.normal;
+            v.morph_color = t.color;
+            v.bite[1] = t.bite[0];
+        }
+        true
+    }
+
+    /// The mesh as drawn at morph weight `w` (positions, normals and paint).
+    pub fn morphed(&self, w: f32) -> MeshData {
+        let w = if w.is_finite() {
+            w.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let mix3 = |a: [f32; 3], b: [f32; 3]| Vec3::from(a).lerp(Vec3::from(b), w).into();
+        let mut out = self.clone();
+        for v in &mut out.vertices {
+            v.position = mix3(v.position, v.morph_position);
+            v.normal = Vec3::from(v.normal)
+                .lerp(Vec3::from(v.morph_normal), w)
+                .normalize_or(Vec3::Z)
+                .into();
+            v.color = glam::Vec4::from(v.color)
+                .lerp(glam::Vec4::from(v.morph_color), w)
+                .into();
+            v.bite[0] += (v.bite[1] - v.bite[0]) * w;
+            v.morph_position = v.position;
+            v.morph_normal = v.normal;
+            v.morph_color = v.color;
+            v.bite[1] = v.bite[0];
+        }
+        out
+    }
+
     pub fn is_empty(&self) -> bool {
         self.indices.is_empty()
     }
@@ -112,6 +165,10 @@ impl MeshData {
                     && v.span[1] >= v.span[0]
                     && v.facet.is_finite()
                     && v.facet >= 0.0
+                    && Vec3::from(v.morph_position).is_finite()
+                    && unit(v.morph_normal)
+                    && v.morph_color.iter().all(|c| c.is_finite())
+                    && v.bite.iter().all(|b| (0.0..=1.0).contains(b))
             })
     }
 }
@@ -124,6 +181,8 @@ pub struct MeshBuilder {
     pub transform: Mat4,
     pub color: Color,
     pub glow: f32,
+    /// How much of the current paint is a fresh cut, `0..=1` ([`Self::bite`]).
+    pub cut: f32,
 }
 
 impl Default for MeshBuilder {
@@ -139,13 +198,26 @@ impl MeshBuilder {
             transform: Mat4::IDENTITY,
             color: Color::WHITE,
             glow: 0.0,
+            cut: 0.0,
         }
     }
 
-    /// Sets the paint colour and glow for the following geometry.
+    /// Sets the paint colour and glow for the following geometry. Clears [`Self::bite`].
     pub fn paint(&mut self, color: Color, glow: f32) -> &mut Self {
         self.color = color;
         self.glow = glow;
+        self.cut = 0.0;
+        self
+    }
+
+    /// Marks the current paint as this much a fresh cut (a mined face), until the next
+    /// [`Self::paint`]. The shader keeps a cut out of the shadow tint and hatching.
+    pub fn bite(&mut self, amount: f32) -> &mut Self {
+        self.cut = if amount.is_finite() {
+            amount.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         self
     }
 
@@ -187,6 +259,10 @@ impl MeshBuilder {
                 color,
                 span,
                 facet: span[0],
+                morph_position: p.into(),
+                morph_normal: n.into(),
+                morph_color: color,
+                bite: [self.cut; 2],
             });
         }
         self.mesh.indices.extend([base, base + 1, base + 2]);
@@ -214,6 +290,7 @@ impl MeshBuilder {
         for (v, n) in self.mesh.vertices[start..].iter_mut().zip(ns) {
             if n != Vec3::ZERO {
                 v.normal = n.into();
+                v.morph_normal = n.into();
             }
         }
         true
@@ -462,6 +539,10 @@ impl MeshBuilder {
                 color: v.color,
                 span: [v.span[0] * smin, v.span[1] * smax],
                 facet: v.facet * smin,
+                morph_position: m.transform_point3(v.morph_position.into()).into(),
+                morph_normal: tf(v.morph_normal),
+                morph_color: v.morph_color,
+                bite: v.bite,
             });
         }
         for &[a, b, c] in other.indices.as_chunks::<3>().0 {
