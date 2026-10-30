@@ -7,7 +7,9 @@ local U = require("../lib/util")
 type Lots = {items: {{n:number, rime:boolean}}, first:number}
 local function tune(ctx: G.Ctx)
  local dock = U.calm(ctx)
- if dock == nil or ctx.beats:state("beat.b12_ice_shortage") ~= nil then return end
+ -- Tune in Act 3 (b11 on), while the shortage is still dormant: earlier, Odo's
+ -- relief quota would announce a shortage nobody has met.
+ if dock == nil or ctx.beats:state("beat.b11_orders") == nil or ctx.beats:state("beat.b12_ice_shortage") ~= nil then return end
  local inventory: {[string]:Lots} = {}
  local function cargo(ship:string):Lots
   if inventory[ship]==nil then inventory[ship]={items={},first=1} end
