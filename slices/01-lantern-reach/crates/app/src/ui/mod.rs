@@ -80,6 +80,7 @@ fn scale_rect(r: Rect, s: f32) -> Rect {
 /// What the screen is showing besides the world.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UiState {
+    pub debug_open: bool,
     pub map_open: bool,
     /// The selected dock line.
     pub selected: usize,
@@ -89,6 +90,63 @@ pub struct UiState {
     pub confirm: Option<HullId>,
     /// The first services row the dock screen shows when they don't all fit.
     pub services_first: usize,
+}
+
+/// Compact developer diagnostics; no sim state changes and no model calls.
+pub fn debug_overlay(o: &mut Overlay, session: &crate::session::Session) {
+    let w = session.world();
+    let beat = w
+        .progress
+        .beats
+        .iter()
+        .filter(|(_, b)| b.status == BeatStatus::Active)
+        .map(|(id, b)| {
+            format!(
+                "{} step {}",
+                id.as_str().split('_').next().unwrap_or(id.as_str()),
+                b.step + 1
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" / ");
+    let count = |k| w.counters.get(k, &CounterScope::Player);
+    let mut lines = vec![
+        format!("F3  tick {}  {}", w.meta.tick.0, beat),
+        format!(
+            "Dock {}  Mine {}  Sales {}  Orders {}",
+            count(CounterKind::Dockings),
+            count(CounterKind::UnitsMined),
+            count(CounterKind::Sales),
+            count(CounterKind::OrdersDone)
+        ),
+        session.game().mind_debug(),
+    ];
+    let health: Vec<_> = w.packs.values().flat_map(|p| p.health.values()).collect();
+    lines.push(format!(
+        "Scripts {}  aborts {}  quarantined {}",
+        health.len(),
+        health.iter().map(|h| h.aborts as u64).sum::<u64>(),
+        health.iter().filter(|h| h.quarantined).count()
+    ));
+    for fact in session.sim().history().facts().iter().rev().take(4) {
+        lines.push(format!("{}  {}", fact.id, fact.kind));
+    }
+    let rect = Rect::new(12.0, 95.0, 500.0, 24.0 + lines.len() as f32 * 19.0);
+    o.panels.push(Panel {
+        fill: palette::INK.with_alpha(0.94),
+        shadow: false,
+        ..Panel::new(rect)
+    });
+    for (i, line) in lines.into_iter().enumerate() {
+        o.texts.push(
+            Text::new(
+                line,
+                G2::new(rect.x + 10.0, rect.y + 10.0 + i as f32 * 19.0),
+                14.0,
+            )
+            .color(palette::PARCHMENT),
+        );
+    }
 }
 
 /// What a button does.

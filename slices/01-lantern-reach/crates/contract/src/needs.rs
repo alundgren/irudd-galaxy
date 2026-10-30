@@ -227,6 +227,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "`ctx.rumors:put`, `set_truth`, `spread`.",
     ),
     row("set_rumor_heard", Needs::Never, "Craft carrying rumors."),
+    row(
+        "put_trader",
+        Needs::Never,
+        "Authored trader routes (`craft.toml`).",
+    ),
     // --- History and events ---
     row(
         "emit",

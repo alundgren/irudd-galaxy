@@ -1703,6 +1703,33 @@
           ]
         },
         {
+          "description": "Creates, replaces or removes (`value: null`) a named trader's route policy. Its\nship must exist (put it first in the same batch).",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_trader"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TraderDef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
           "description": "Adds `station` to a rumor's `heard_at` (or removes it), and fails if it's already\nthere (or isn't). Spreads compose: two craft carrying one rumor to different\nstations in one tick both land, and a second spread to the same station is\nrejected instead of overwriting the set. Its inverse flips `heard`.",
           "type": "object",
           "properties": {
@@ -5375,6 +5402,28 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "RoutePreference": {
+      "type": "object",
+      "properties": {
+        "bonus": {
+          "type": "number",
+          "format": "double"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "when_flag": {
+          "description": "Also admits this station to the route when the flag is set.",
+          "$ref": "#/$defs/FlagId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "station",
+        "when_flag",
+        "bonus"
+      ]
+    },
     "Rumor": {
       "description": "A rumor with a truth value. It may be true, or planted.",
       "type": "object",
@@ -6077,6 +6126,80 @@
       "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
       "type": "integer",
       "minimum": 0
+    },
+    "TraderDef": {
+      "type": "object",
+      "properties": {
+        "cost_per_distance": {
+          "type": "number",
+          "format": "double"
+        },
+        "faction": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "home": {
+          "$ref": "#/$defs/StationId"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "id": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "max_units_per_ware": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "max_wares_per_docking": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "preferences": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RoutePreference"
+          }
+        },
+        "return_home_bonus": {
+          "description": "Utility bonus for returning empty to the supply dock (centicredits).",
+          "type": "number",
+          "format": "double"
+        },
+        "stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          },
+          "uniqueItems": true
+        },
+        "wares": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "faction",
+        "hull",
+        "home",
+        "stations",
+        "wares",
+        "max_units_per_ware",
+        "max_wares_per_docking",
+        "cost_per_distance",
+        "return_home_bonus"
+      ]
     },
     "TraitId": {
       "description": "Stable trait id, e.g. `trait.rich_face`.",

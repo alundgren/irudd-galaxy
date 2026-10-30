@@ -139,6 +139,10 @@ return G.script({
 			},
 			done = G.any({
 				G.fact({ kind = "core.rumor_resolved", other = ids.RUMOR }),
+				G.test(function(ctx: G.Ctx): boolean
+					local r = ctx.rumors:get(ids.RUMOR)
+					return r ~= nil and #r.heard_at >= #ctx.stations:list()
+				end),
 				-- Followed: the player flew within reach of the Shoals.
 				G.near({
 					x = G.tunable("rumor.ember_shoals.x"),
@@ -173,8 +177,9 @@ return G.script({
 				end
 				local r = ctx.rumors:get(ids.RUMOR)
 				local truth = r ~= nil and r.is_true
-				lay_out(ctx, beat.why, truth, nil)
-				resolve(ctx, beat.why, true)
+				local followed = r == nil or #r.heard_at < #ctx.stations:list()
+				lay_out(ctx, beat.why, truth, if truth and not followed then math.floor(util.num(ctx, "rumor.ember_shoals.rich_rocks") / 2) else nil)
+				resolve(ctx, beat.why, followed)
 			end,
 		}),
 	},
@@ -214,32 +219,7 @@ return G.script({
 				cites = { f.id },
 			}, why)
 		end,
-		-- NPC craft carry the story from station to station. Once every station has it,
-		-- the rumor resolves on its own; a true vein is then half worked by Juno's skiff.
-		dock = function(ev: G.DockEvent, ctx: G.Ctx)
-			if ev.ship == ids.PLAYER or not ctx.beats:is_active(ids.B10) or util.players(ctx, ev.ship) then
-				return
-			end
-			local r = ctx.rumors:get(ids.RUMOR)
-			if r == nil or util.has(r.heard_at, ev.station) then
-				return
-			end
-			local why = ctx:cause({ summary = "a trader carries the Ember Shoals story", cites = { ev.fact } })
-			ctx.rumors:spread(ids.RUMOR, ev.station, why)
-			util.record(
-				ctx,
-				why,
-				"rumor_spread",
-				{ station = ev.station, ship = ev.ship, other = ids.RUMOR },
-				nil,
-				"The Ember Shoals story reached another dock"
-			)
-			if #r.heard_at + 1 >= #ctx.stations:list() then
-				if r.is_true then
-					lay_out(ctx, why, true, math.floor(util.num(ctx, "rumor.ember_shoals.rich_rocks") / 2))
-				end
-				resolve(ctx, why, false)
-			end
-		end,
+		-- MindHost carries rumors only from a craft's previous dock, preserving truth.
+		-- The beat above resolves once those committed spreads reach every station.
 	},
 })

@@ -137,3 +137,30 @@ deed = { facts = { kind = "jump", ship = "ship.player" } }
 at_least = 20
 effect = "Speed +5%"
 modifiers = [{ modifier = "speed", factor = 1.05 }]
+
+[[hull]]
+id = "hull.coop_skiff"
+name = "Cooperative skiff"
+tier = 0
+hold_capacity = 30
+max_speed = 40.0
+turn_rate = 180.0
+mining_rate = 0.0
+
+[[hull]]
+id = "hull.compact_barge"
+name = "Compact barge"
+tier = 0
+hold_capacity = 60
+max_speed = 35.0
+turn_rate = 180.0
+mining_rate = 0.0
+
+[[hull]]
+id = "hull.lamp_launch"
+name = "Lamplighter launch"
+tier = 0
+hold_capacity = 20
+max_speed = 55.0
+turn_rate = 180.0
+mining_rate = 0.0

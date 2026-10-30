@@ -169,6 +169,27 @@ impl Invariant for ReferencesResolve {
             maybe(&w.factions, &n.faction, id)?;
             maybe(&w.stations, &n.location, id)?;
         }
+        for (id, t) in &w.traders {
+            if id != &t.id
+                || !w.ships.contains(id)
+                || !w.hulls.contains(&t.hull)
+                || !w.factions.contains(&t.faction)
+                || !t.stations.contains(&t.home)
+                || t.stations.len() < 2
+                || t.max_units_per_ware == 0
+                || t.max_wares_per_docking == 0
+                || t.cost_per_distance < 0.0
+                || !t.cost_per_distance.is_finite()
+                || !t.return_home_bonus.is_finite()
+                || t.stations.iter().any(|s| !w.stations.contains(s))
+                || t.wares.iter().any(|s| !w.wares.contains(s))
+                || t.preferences
+                    .iter()
+                    .any(|p| !w.stations.contains(&p.station) || !p.bonus.is_finite())
+            {
+                return Err(format!("invalid trader policy for {id}"));
+            }
+        }
         maybe(&w.ships, &w.player.ship, &"player")
     }
 }

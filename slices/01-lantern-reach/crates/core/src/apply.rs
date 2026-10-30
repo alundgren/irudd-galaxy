@@ -963,6 +963,24 @@ fn apply_with(
                 value: old,
             })
         }
+        C::PutTrader { id, value } => {
+            let old = match value {
+                Some(v) => {
+                    if &v.id != id {
+                        return Err(CommandError::Invalid(format!(
+                            "trader record id `{}` doesn't match `{id}`",
+                            v.id
+                        )));
+                    }
+                    world.traders.insert(id.clone(), (**v).clone())
+                }
+                None => world.traders.remove(id),
+            };
+            invert(C::PutTrader {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
         C::SetRumorHeard {
             rumor,
             station,

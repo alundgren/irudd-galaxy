@@ -977,7 +977,7 @@ local lines: { Line } = {
 	{
 		id = "line.hesper_lune.02",
 		npc = ids.HESPER,
-		kind = "core.rumor_spread",
+		kind = "mind.rumor_spread",
 		specific = 2,
 		when = function(f, _)
 			return f.subjects.station == ids.GDO

@@ -44,6 +44,7 @@ pub mod packet;
 pub mod probe;
 mod script_talk;
 pub mod situation;
+pub mod traders;
 pub mod validate;
 
 pub use config::{Brief, Budget, MindConfig};

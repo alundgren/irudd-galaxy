@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CraftFile",
+  "description": "Named traders and their modest, authored route menus. Saved with the world.",
+  "type": "object",
+  "properties": {
+    "craft": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TraderDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlagId": {
+      "description": "Stable flag id, e.g. `flag.nav_chip`.",
+      "type": "string",
+      "examples": [
+        "flag.nav_chip"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RoutePreference": {
+      "type": "object",
+      "properties": {
+        "bonus": {
+          "type": "number",
+          "format": "double"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "when_flag": {
+          "description": "Also admits this station to the route when the flag is set.",
+          "$ref": "#/$defs/FlagId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "station",
+        "when_flag",
+        "bonus"
+      ]
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TraderDef": {
+      "type": "object",
+      "properties": {
+        "cost_per_distance": {
+          "type": "number",
+          "format": "double"
+        },
+        "faction": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "home": {
+          "$ref": "#/$defs/StationId"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "id": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "max_units_per_ware": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "max_wares_per_docking": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "preferences": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RoutePreference"
+          }
+        },
+        "return_home_bonus": {
+          "description": "Utility bonus for returning empty to the supply dock (centicredits).",
+          "type": "number",
+          "format": "double"
+        },
+        "stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          },
+          "uniqueItems": true
+        },
+        "wares": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "faction",
+        "hull",
+        "home",
+        "stations",
+        "wares",
+        "max_units_per_ware",
+        "max_wares_per_docking",
+        "cost_per_distance",
+        "return_home_bonus"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

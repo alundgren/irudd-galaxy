@@ -381,6 +381,7 @@ a rollback writes it.
 | `put_npc` | `npcs.write` | `ctx.npcs:put`, `move`, `ctx.kit:station`'s dockmaster, and `npcs.toml` in the pack's `data`. |
 | `put_rumor` | `rumors.write` | `ctx.rumors:put`, `set_truth`, `spread`. |
 | `set_rumor_heard` | never | Craft carrying rumors. |
+| `put_trader` | never | Authored trader routes (`craft.toml`). |
 | `emit` | by payload | By event: `deliver`, `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` need `beats.write`; `talk_requested` needs `talk.pick`; `standing_changed` and `regard_changed` need `standing.write` or `factions.write`. Packs never emit any other event. |
 | `record_fact` | by payload | Kinds with the pack's prefix need `history.write` (`<prefix>.canon_opened` also `canon.write`, `<prefix>.mechanic_taught` also `mechanics.write`); `market_base_changed` needs `market.levers`. Packs never record any other kind. |
 | `set_script_value` | nothing (the pack's own state) | `ctx.store:set` on the script's declared stores. |

@@ -33,7 +33,9 @@ pub use galaxy_contract as contract;
 pub use galaxy_contract::world::WorldState as World;
 pub use hash::state_hash;
 pub use history::History;
-pub use load::{DataError, load_world};
+pub use load::{
+    CRAFT_BACKFILL, DataError, PACING_BACKFILL, craft_backfill, load_world, pacing_backfill,
+};
 pub use save::{Save, SaveError, fork};
 pub use sim::{KernelState, RollbackPlan, Sim, SimState, TickReport};
 pub use system::{System, TickCtx};
@@ -50,6 +52,49 @@ pub fn default_systems() -> Vec<Box<dyn System>> {
 /// A new game's state from authored data.
 pub fn new_game(data_dir: &Path, seed: u64) -> Result<SimState, DataError> {
     Ok(SimState::new(load_world(data_dir, seed)?))
+}
+
+/// Queues what a save made before newer authored data lacks, as the game does on open:
+/// [`pacing_backfill`]'s batch first, then [`craft_backfill`]'s. Each skips itself if an
+/// earlier open already queued it and the save was written before it applied. Returns
+/// how many batches it queued (none on new games and up-to-date saves).
+pub fn queue_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
+    Ok(queue_pacing_backfill(sim, data_dir)? + queue_craft_backfill(sim, data_dir)?)
+}
+
+/// Queues [`pacing_backfill`]'s batch for `sim`'s world, unless an earlier open already
+/// queued it. Returns how many it queued (0 or 1).
+pub fn queue_pacing_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
+    if queued(sim, PACING_BACKFILL) {
+        return Ok(0);
+    }
+    let Some(batch) = pacing_backfill(data_dir, sim.world())? else {
+        return Ok(0);
+    };
+    sim.submit(batch);
+    Ok(1)
+}
+
+fn queued(sim: &Sim, system: &str) -> bool {
+    sim.state().kernel.pending.iter().any(|b| {
+        matches!(&b.cause.kind, contract::prelude::CauseKind::System { name } if name == system)
+    })
+}
+
+/// Queues [`craft_backfill`]'s batches for `sim`'s world, unless an earlier open
+/// already queued them and the save was written before they applied. Returns how many
+/// it queued (none on new games and on saves that have the craft). The game calls it
+/// on open, so they apply with the first step.
+pub fn queue_craft_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
+    if queued(sim, CRAFT_BACKFILL) {
+        return Ok(0);
+    }
+    let batches = craft_backfill(data_dir, sim.world())?;
+    let n = batches.len();
+    for batch in batches {
+        sim.submit(batch);
+    }
+    Ok(n)
 }
 
 /// A sim over `state` with the kernel's systems only (see [`default_systems`]).

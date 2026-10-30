@@ -172,9 +172,9 @@ struct Out {
 }
 
 impl MindHost {
-    /// A host that reacts to new facts and resumes unanswered script talk requests.
-    /// Rumor spread and script dock menus are built in; add other providers with
-    /// [`MindHost::add_provider`].
+    /// A host that reacts to new facts and resumes unanswered requests (script talk
+    /// and trader routes). Rumor spread, script dock menus and authored trader menus are
+    /// built in; add other providers with [`MindHost::add_provider`].
     pub fn new(config: MindConfig, exec: impl Executor + 'static, history: &History) -> Self {
         let mut host = Self {
             config,
@@ -182,6 +182,9 @@ impl MindHost {
             providers: vec![
                 Box::new(RumorSpread),
                 Box::new(crate::script_talk::ScriptDockTalk),
+                Box::new(crate::menu::TraderMenus {
+                    plans: crate::traders::EconomyPlans,
+                }),
             ],
             ledger: Ledger::default(),
             posted: Vec::new(),
@@ -263,10 +266,11 @@ impl MindHost {
                         p.resume(&cx, &facts[..from])
                             .into_iter()
                             .filter(|m| {
-                                !sim.state().kernel.pending.iter().any(|b| {
-                                    matches!(b.cause.kind, CauseKind::Mind { .. })
-                                        && b.cause.cites.contains(&m.trigger)
-                                })
+                                !sim.state()
+                                    .kernel
+                                    .pending
+                                    .iter()
+                                    .any(|b| m.answered_by(&b.cause))
                             })
                             .map(|m| (i, m)),
                     );

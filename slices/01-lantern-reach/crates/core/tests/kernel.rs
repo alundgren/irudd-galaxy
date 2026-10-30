@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use galaxy_contract::pack::{HandlerRetry, ScriptHealth, ScriptValue};
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
-use galaxy_core::{Save, Sim, SimState, System, TickCtx, default_systems, new_game};
+use galaxy_core::{Save, Sim, SimState, System, TickCtx, World, default_systems, new_game};
 
 fn data_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data")
@@ -225,6 +225,9 @@ fn undo_records_invert_commands() {
     kettle.name = "The sixth station".into();
     let kettle_ice = world.markets.get(&KETTLE).unwrap().lines[&ICE].clone();
     let coop = world.factions.get(&COOP).unwrap().standing;
+    let mercy = ShipId::new("craft.little_mercy").unwrap();
+    let mut mercy_route = world.traders[&mercy].clone();
+    mercy_route.max_units_per_ware = 4;
     let commands = vec![
         Command::SetCanonStatus {
             id: "canon.second_fragment".into(),
@@ -528,6 +531,14 @@ fn undo_records_invert_commands() {
                 source: None,
             })),
         },
+        Command::PutTrader {
+            id: mercy.clone(),
+            value: Some(Box::new(mercy_route)),
+        },
+        Command::PutTrader {
+            id: mercy.clone(),
+            value: None,
+        },
         Command::SetScriptValue {
             pack: PackId::new("gm.kettle_growth").unwrap(),
             script: "kettle_growth".into(),
@@ -613,6 +624,105 @@ fn undo_records_invert_commands() {
         galaxy_core::apply::apply(&mut world, &emit, &mut staged).unwrap(),
         UndoRecord::Compensate { .. }
     ));
+}
+
+/// A save made before `craft.toml`: no named traders, their ships or their hulls.
+fn without_craft(world: &mut World) {
+    for (id, def) in std::mem::take(&mut world.traders) {
+        world.ships.remove(&id);
+        world.hulls.remove(&def.hull);
+    }
+}
+
+#[test]
+fn craft_backfill_adds_named_traders_to_an_older_save_once() {
+    let fresh = new_game(&data_dir(), 3).unwrap();
+    assert!(
+        galaxy_core::craft_backfill(&data_dir(), &fresh.world)
+            .unwrap()
+            .is_empty(),
+        "a new game already has its craft"
+    );
+    let mut old = fresh.clone();
+    without_craft(&mut old.world);
+    assert!(old.world.traders.is_empty());
+    let run = |state: SimState| {
+        let mut sim = Sim::new(state).with_systems(default_systems());
+        assert_eq!(
+            galaxy_core::queue_craft_backfill(&mut sim, &data_dir()).unwrap(),
+            fresh.world.traders.len()
+        );
+        // Opened again before the first step: nothing is queued twice.
+        assert_eq!(
+            galaxy_core::queue_craft_backfill(&mut sim, &data_dir()).unwrap(),
+            0
+        );
+        let report = sim.step(&PlayerInput::default()).unwrap();
+        assert!(report.rejected.is_empty(), "{:?}", report.rejected);
+        sim
+    };
+    let (a, b) = (run(old.clone()), run(old));
+    assert_eq!(a.hash(), b.hash(), "the backfill repeats exactly");
+    let w = a.world();
+    assert_eq!(w.traders, fresh.world.traders);
+    for (id, def) in &w.traders {
+        assert_eq!(w.ships.get(id), fresh.world.ships.get(id));
+        assert_eq!(w.hulls.get(&def.hull), fresh.world.hulls.get(&def.hull));
+    }
+    assert!(
+        galaxy_core::craft_backfill(&data_dir(), w)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn pacing_backfill_adds_missing_tunables_and_keeps_saved_ones() {
+    let fresh = new_game(&data_dir(), 3).unwrap();
+    assert!(
+        galaxy_core::pacing_backfill(&data_dir(), &fresh.world)
+            .unwrap()
+            .is_none(),
+        "a new game already has its tunables"
+    );
+    let mut old = fresh.clone();
+    let tunables = &mut old.world.progress.tunables;
+    let missing: Vec<TunableId> = tunables.keys().take(2).cloned().collect();
+    for id in &missing {
+        tunables.remove(id);
+    }
+    // A tunable the save holds keeps its saved value, tuned or not.
+    let (kept, saved) = tunables.iter_mut().next().unwrap();
+    let kept = kept.clone();
+    saved.value = TunableValue::Number(12345.0);
+    let saved = saved.clone();
+    let run = |state: SimState| {
+        let mut sim = Sim::new(state).with_systems(default_systems());
+        assert_eq!(
+            galaxy_core::queue_backfill(&mut sim, &data_dir()).unwrap(),
+            1
+        );
+        // Opened again before the first step: nothing is queued twice.
+        assert_eq!(
+            galaxy_core::queue_backfill(&mut sim, &data_dir()).unwrap(),
+            0
+        );
+        let report = sim.step(&PlayerInput::default()).unwrap();
+        assert!(report.rejected.is_empty(), "{:?}", report.rejected);
+        sim
+    };
+    let (a, b) = (run(old.clone()), run(old));
+    assert_eq!(a.hash(), b.hash(), "the backfill repeats exactly");
+    let w = &a.world().progress.tunables;
+    for id in &missing {
+        assert_eq!(w.get(id), fresh.world.progress.tunables.get(id), "{id}");
+    }
+    assert_eq!(w.get(&kept), Some(&saved));
+    assert!(
+        galaxy_core::pacing_backfill(&data_dir(), a.world())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

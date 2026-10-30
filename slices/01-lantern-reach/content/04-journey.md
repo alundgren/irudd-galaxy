@@ -99,7 +99,7 @@ With `gm-examples`, `gm.shortage_tuning` rewrites `stations` and `way_a_quota` f
 
 If the player mines Rimewater after agreeing to way B, the rest lapses (Odo mentions it once, with no penalty) and way A is still open.
 
-**If ignored.** After 40 station pulses at Kettle Dock with neither way complete, Kettle becomes the top entry of the Compact's Even Keel's route menu. Its next counted docking at Kettle Dock brings ice: Kettle's ice stock +120, and the shortage ends (`shortage_resolved{by = faction.tollway_compact}`). Lasting result: Even Keel keeps favouring Kettle Dock. Saffron mentions the Compact's kindness. Nobody punishes the player.
+**If ignored.** After 40 station pulses at Kettle Dock with neither way complete, Kettle becomes the top entry of the Compact's Even Keel's route menu. Its next counted docking at Kettle Dock brings ice: Kettle's ice stock +120, and the shortage ends (`shortage_resolved{by = faction.tollway_compact}`). Lasting result: Even Keel keeps favouring Kettle Dock. Saffron mentions the Compact's kindness. Nobody punishes the player. If Even Keel can't come (it isn't in the save, or Kettle sees `relief_fallback_pulses` more pulses, 40 as authored, before it docks there), the Compact sends the ice anyway and the shortage ends the same way, so a stalled craft never leaves an ignored shortage open.
 
 **End.** Ice bases and consumption return to normal, the lamps relight, and `shortage_resolved` is written. Rimewater's rest (way B) continues until it is 80% full. The base change at the end revalidates every tender floor at the shortage's stations: a floor set during the shortage above the normal ceiling becomes blocked, and it is never lowered for the player (`03-ships-and-controls.md`, "The patient sell").
 
