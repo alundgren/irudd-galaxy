@@ -242,20 +242,20 @@ section.group { margin-top: 8px; }
             </dl>
           </section>
           <section id="cases">
-            <h2 class="hb a-blue">What other games and projects learned</h2>
-            <p>Each entry says what the project is, what worked, what went wrong and what it means for this game. Steam figures are English-language review shares from the store pages.</p>
+            <h2 class="hb a-blue">What earlier projects learned</h2>
+            <p>Each entry describes a kind of project, what worked, what went wrong and what it means for this game. Entries are described by pattern rather than by name. Review shares are English-language user reviews from store pages.</p>
             <section class="group">
               <h3 class="hb a-purple">LLM characters in games · 13</h3>
               <div class="case">
-                <h4 class="hb a-purple">PUBG Ally (Krafton with NVIDIA ACE)</h4>
+                <h4 class="hb a-purple">A voice-chat AI teammate in an online shooter</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>An AI teammate you talk to by voice. Beta ran 17 June to 1 July 2026 on a 2B on-device small language model plus speech recognition and speech synthesis.</dd>
+                    <dd>An AI teammate you talk to by voice, built with NVIDIA ACE. The beta ran 17 June to 1 July 2026 on a 2B on-device small language model plus speech recognition and speech synthesis.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>A two-speed design: the language model makes high-level choices and a faster control layer carries them out in the match. Krafton reports data from about 39,000 sessions, with positive answers ahead of negative by 25.1 points on whether players would recommend Ally.</dd>
+                    <dd>A two-speed design: the language model makes high-level choices and a faster control layer carries them out in the match. The publisher reports data from about 39,000 sessions, with positive answers ahead of negative by 25.1 points on whether players would recommend the teammate.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -267,20 +267,20 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://developer.nvidia.com/blog/how-krafton-built-pubg-ally-a-co-playable-character-powered-by-nvidia-ace/">NVIDIA developer blog</a> · <a href="https://www.krafton.com/en/news/press/krafton-introduces-pubg-ally-beta-test/">Krafton press release</a> · <a href="https://arxiv.org/abs/2609.29837">arXiv 2609.29837</a></span></dd>
+                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2609.29837">arXiv 2609.29837</a></span></dd>
                   </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">inZOI Smart Zoi (Krafton with NVIDIA ACE)</h4>
+                <h4 class="hb a-purple">On-device NPC thoughts in a life sim</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>A life sim where NPC thoughts and topic choices come from a 0.5B Mistral-NeMo-Minitron model running on the player's RTX GPU, applied only to characters in visible range.</dd>
+                    <dd>A life sim (built with NVIDIA ACE) where NPC thoughts and topic choices come from a 0.5B Mistral-NeMo-Minitron model running on the player's RTX GPU, applied only to characters in visible range.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Fully on-device and cheap: about 1 GB of VRAM. Scoping the model to nearby characters is a sensible budget rule. The game overall sits at Mostly Positive, 79% of 14,603 English Steam reviews, in Early Access since 27 March 2025.</dd>
+                    <dd>Fully on-device and cheap: about 1 GB of VRAM. Scoping the model to nearby characters is a sensible budget rule. The game overall sits at Mostly Positive, about 79% of user reviews, in Early Access since March 2025.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -290,14 +290,10 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>If model output does not change prices, routes, offers or relationships, players stop noticing it. Visible consequences matter more than clever text.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/news/nvidia-ace-naraka-bladepoint-inzoi-launch-this-month/">NVIDIA news</a> · <a href="https://www.pcgamer.com/hardware/graphics-cards/with-nvidia-ace-taking-up-1-gb-of-vram-in-inzoi-team-green-will-need-to-up-its-memory-game-if-ai-npcs-take-off-in-pc-gaming/">PC Gamer on VRAM</a> · <a href="https://steamcommunity.com/app/2456740/discussions/0/836123794066162014/">Steam discussion</a> · <a href="https://store.steampowered.com/app/2456740/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Covert Protocol (Inworld with NVIDIA ACE)</h4>
+                <h4 class="hb a-purple">A voice-driven detective tech demo (Inworld with NVIDIA ACE)</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
@@ -317,16 +313,16 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/news/nvidia-ace-gdc-gtc-2024-ai-character-game-and-app-demo-videos/">NVIDIA GDC 2024 demos</a> · <a href="https://www.theverge.com/2024/3/19/24105681/nvidia-ai-ace-video-game-character-npc-covert-protocol">The Verge</a> · <a href="https://inworld.ai/blog/new-ai-infrastructure-scaling-games-media-characters">Inworld infrastructure post</a></span></dd>
+                    <dd><span class="inline-links"><a href="https://www.nvidia.com/en-us/geforce/news/nvidia-ace-gdc-gtc-2024-ai-character-game-and-app-demo-videos/">NVIDIA GDC 2024 demos</a> · <a href="https://inworld.ai/blog/new-ai-infrastructure-scaling-games-media-characters">Inworld infrastructure post</a></span></dd>
                   </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Ubisoft NEO NPC</h4>
+                <h4 class="hb a-purple">A publisher prototype of improvising NPCs</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>A GDC 2024 prototype: characters such as Bloom improvise dialogue with an Inworld LLM, with Audio2Face animation.</dd>
+                    <dd>A GDC 2024 prototype from a large publisher: characters improvise dialogue with an Inworld LLM, with Audio2Face animation.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -340,14 +336,10 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>The same split this page proposes: a strong author (here the game master) writes the brief and limits, and the fast model performs within them.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://news.ubisoft.com/en-us/article/5qXdxhshJBXoanFZApdG3L/how-ubisofts-new-generative-ai-prototype-changes-the-narrative-for-npcs">Ubisoft News</a> · <a href="https://www.gamedeveloper.com/design/how-do-ubisoft-s-ai-driven-npcs-handle-dynamic-player-interactions-">Game Developer</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Mantella (Skyrim and Fallout 4 mod)</h4>
+                <h4 class="hb a-purple">A voice-chat NPC mod for open-world RPGs</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
@@ -365,18 +357,14 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>Latency budgets for live talk are tight. Decisions that are not conversation can run ahead of time where seconds do not matter.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://art-from-the-machine.github.io/Mantella/pages/real_time_npcs.html">Mantella real-time NPCs docs</a> · <a href="https://www.nexusmods.com/skyrimspecialedition/mods/98631">Nexus Mods page</a> · <a href="https://www.reddit.com/r/LocalLLaMA/comments/168za8a/mantella_talk_to_aipowered_npcs_in_skyrim/">r/LocalLLaMA thread</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Herika (Skyrim mod)</h4>
+                <h4 class="hb a-purple">A chatbot companion mod for an open-world RPG</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>A ChatGPT-driven companion for Skyrim.</dd>
+                    <dd>A ChatGPT-driven companion for an open-world fantasy RPG.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -390,14 +378,10 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>A second, weaker path tends to become the game many players get. Build one path and do it well.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.nexusmods.com/skyrimspecialedition/mods/89931">Nexus Mods page</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Suck Up! (Proxima)</h4>
+                <h4 class="hb a-purple">A talk-your-way-in comedy game</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
@@ -409,20 +393,16 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What went wrong</dt>
-                    <dd>Mixed reception, 62% of 224 Steam reviews, and it needs an internet connection because it uses OpenAI's ChatGPT.</dd>
+                    <dd>Mixed reception, about 62% positive user reviews, and it needs an internet connection because it uses OpenAI's ChatGPT.</dd>
                   </div>
                   <div>
                     <dt>For this game</dt>
                     <dd>A game built on talking to a model inherits its running cost; keep calls small, typed and budgeted.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/2726370/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Vaudeville (Bumblebee)</h4>
+                <h4 class="hb a-purple">An AI-voiced murder mystery</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
@@ -434,24 +414,20 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What went wrong</dt>
-                    <dd>Mixed, 47% of 287 Steam reviews.</dd>
+                    <dd>Mixed, about 47% positive user reviews.</dd>
                   </div>
                   <div>
                     <dt>For this game</dt>
                     <dd>Open conversation alone does not carry a game; it needs a firm world model underneath.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/2240920/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Retail Mage (Jam &amp; Tea)</h4>
+                <h4 class="hb a-purple">A shop-assistant wizard game with model-resolved actions</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>A shop-assistant wizard game, released 12 November 2024, where generative AI resolves what your free-form actions do.</dd>
+                    <dd>A small shop-assistant wizard game, released November 2024, where generative AI resolves what your free-form actions do.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -465,22 +441,18 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>Human-authored goals plus model-resolved moments is a sound split; here the game master writes the goals.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/3224380/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">Whispers from the Star (Anuttacon)</h4>
+                <h4 class="hb a-purple">A voice conversation game with one stranded character</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>A voice conversation game with a stranded character, released 14 August 2025.</dd>
+                    <dd>A voice conversation game with a single stranded character, released August 2025.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Very Positive, 80% of 1,664 Steam reviews: a single, deeply directed character can work.</dd>
+                    <dd>Very Positive, about 80% of user reviews: a single, deeply directed character can work.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -490,18 +462,14 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>Focus pays: one well-directed character beats a crowd of generic talkers.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://store.steampowered.com/app/3730100/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">1001 Nights</h4>
+                <h4 class="hb a-purple">A storytelling game where words become items</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
-                    <dd>An AI-native game where the stories you tell the king turn words into weapons and items. Demo released 23 October 2024; the Steam listing names Qwen.</dd>
+                    <dd>An AI-native research game where the stories you tell a king turn words into weapons and items. Demo released October 2024; the store listing names Qwen.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -514,10 +482,6 @@ section.group { margin-top: 8px; }
                   <div>
                     <dt>For this game</dt>
                     <dd>Turn generated text into a small set of typed game effects, and let only those effects touch the world.</dd>
-                  </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.1001nights.ai/">Official site</a> · <a href="https://store.steampowered.com/app/2782660/1001_Nights_Demo/">Steam demo</a> · <a href="https://researchonline.rca.ac.uk/5290/1/1001_Nights_ICIDS_final.pdf">ICIDS paper (RCA)</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -547,7 +511,7 @@ section.group { margin-top: 8px; }
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-purple">AI Dungeon (Latitude)</h4>
+                <h4 class="hb a-purple">A generated free-form text adventure</h4>
                 <dl class="facts card a-purple">
                   <div>
                     <dt>What it is</dt>
@@ -555,7 +519,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Its Story Cards feature puts world facts into the context only when their trigger words appear: a simple retrieval layer.</dd>
+                    <dd>A "story cards" feature puts world facts into the context only when their trigger words appear: a simple retrieval layer.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -564,10 +528,6 @@ section.group { margin-top: 8px; }
                   <div>
                     <dt>For this game</dt>
                     <dd>Grounding is a retrieval problem: give the fast model only the facts that matter for this moment, by id.</dd>
-                  </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://help.aidungeon.com/faq/story-cards">AI Dungeon help: Story Cards</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -604,7 +564,7 @@ section.group { margin-top: 8px; }
                 <dl class="facts card a-cyan">
                   <div>
                     <dt>What it is</dt>
-                    <dd>10 to over 1,000 agents in Minecraft using the PIANO architecture: concurrent modules plus a cognitive controller.</dd>
+                    <dd>10 to over 1,000 agents in a block-building sandbox using the PIANO architecture: concurrent modules plus a cognitive controller.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -625,11 +585,11 @@ section.group { margin-top: 8px; }
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-cyan">CivAgent (NetEase Fuxi)</h4>
+                <h4 class="hb a-cyan">An LLM player for an open-source strategy game (NetEase Fuxi)</h4>
                 <dl class="facts card a-cyan">
                   <div>
                     <dt>What it is</dt>
-                    <dd>An LLM-based digital player for the open-source strategy game Unciv.</dd>
+                    <dd>An LLM-based digital player for an open-source turn-based strategy game.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
@@ -645,7 +605,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2502.20807">arXiv 2502.20807</a> · <a href="https://github.com/fuxiAIlab/CivAgent">GitHub</a></span></dd>
+                    <dd><span class="inline-links"><a href="https://arxiv.org/abs/2502.20807">arXiv 2502.20807</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -653,15 +613,15 @@ section.group { margin-top: 8px; }
             <section class="group">
               <h3 class="hb a-green">Non-LLM baseline · 8</h3>
               <div class="case">
-                <h4 class="hb a-green">RimWorld storytellers</h4>
+                <h4 class="hb a-green">Rule-based storyteller directors in a colony sim</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
-                    <dd>Cassandra, Phoebe and Randy pace events; no language model at all.</dd>
+                    <dd>A few selectable storyteller personalities pace events; no language model at all.</dd>
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Pacing and memorable emergent stories from simple rules. Overwhelmingly loved: 97% of 120,296 Steam reviews.</dd>
+                    <dd>Pacing and memorable emergent stories from simple rules. Overwhelmingly loved by players.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -671,14 +631,10 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>A director with rules can carry a world. Avoid wealth or level scaling; let threats come from the world's own history.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://rimworldwiki.com/wiki/AI_Storytellers">RimWorld wiki: AI Storytellers</a> · <a href="https://store.steampowered.com/app/294100/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-green">Dwarf Fortress</h4>
+                <h4 class="hb a-green">Deep world-history simulation</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
@@ -686,7 +642,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>History that the world remembers gives stories without any generated text. 94% of 24,201 Steam reviews.</dd>
+                    <dd>History that the world remembers gives stories without any generated text. Very well reviewed.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -695,10 +651,6 @@ section.group { margin-top: 8px; }
                   <div>
                     <dt>For this game</dt>
                     <dd>Writing outcomes to a history log is what makes an evolving world feel real; the fast layer should feed that log.</dd>
-                  </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.bay12games.com/dwarves/">Bay 12 Games</a> · <a href="https://store.steampowered.com/app/975370/">Steam store</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -728,7 +680,7 @@ section.group { margin-top: 8px; }
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-green">GOAP in F.E.A.R. (Jeff Orkin)</h4>
+                <h4 class="hb a-green">Goal-oriented action planning (Jeff Orkin)</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
@@ -736,7 +688,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Squad behavior that looked smart from a small state machine and an action list.</dd>
+                    <dd>Shooter squad behavior that looked smart from a small state machine and an action list.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -748,7 +700,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.gamedevs.org/uploads/three-states-plan-ai-of-fear.pdf">Three States and a Plan (PDF)</a> · <a href="https://web.archive.org/web/2020/http://alumni.media.mit.edu/~jorkin/goap.html">Orkin GOAP page (archived)</a></span></dd>
+                    <dd><span class="inline-links"><a href="https://web.archive.org/web/2020/http://alumni.media.mit.edu/~jorkin/goap.html">Orkin GOAP page (archived)</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -778,7 +730,7 @@ section.group { margin-top: 8px; }
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-green">The Sims needs-based AI</h4>
+                <h4 class="hb a-green">Needs-based AI with advertising objects</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
@@ -803,7 +755,7 @@ section.group { margin-top: 8px; }
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-green">X4: Foundations economy (Egosoft)</h4>
+                <h4 class="hb a-green">A fully simulated space-sim economy</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
@@ -811,7 +763,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>A world that runs whether or not you are watching. 78% of 14,055 Steam reviews.</dd>
+                    <dd>A world that runs whether or not you are watching. Mostly positive reviews.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -821,14 +773,10 @@ section.group { margin-top: 8px; }
                     <dt>For this game</dt>
                     <dd>The fast layer's best job may be narrating and personalizing an economy that rules already run.</dd>
                   </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://www.egosoft.com/games/x4/info_en.php">Egosoft X4 info</a> · <a href="https://store.steampowered.com/app/392160/">Steam store</a></span></dd>
-                  </div>
                 </dl>
               </div>
               <div class="case">
-                <h4 class="hb a-green">Elite Dangerous background simulation</h4>
+                <h4 class="hb a-green">A shared-galaxy background simulation</h4>
                 <dl class="facts card a-green">
                   <div>
                     <dt>What it is</dt>
@@ -836,7 +784,7 @@ section.group { margin-top: 8px; }
                   </div>
                   <div>
                     <dt>What worked</dt>
-                    <dd>Player actions change the galaxy for everyone. 76% of 53,874 Steam reviews.</dd>
+                    <dd>Player actions change the galaxy for everyone. Mostly positive reviews.</dd>
                   </div>
                   <div>
                     <dt>What went wrong</dt>
@@ -845,10 +793,6 @@ section.group { margin-top: 8px; }
                   <div>
                     <dt>For this game</dt>
                     <dd>Make cause and effect visible: dock chatter and rumors can explain why a station changed.</dd>
-                  </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd><span class="inline-links"><a href="https://edfieldmanual.com/wiki/Background_Simulation">ED Field Manual: Background Simulation</a> · <a href="https://store.steampowered.com/app/359320/">Steam store</a></span></dd>
                   </div>
                 </dl>
               </div>
@@ -872,12 +816,12 @@ section.group { margin-top: 8px; }
                     </tr>
                     <tr>
                       <td>Latency</td>
-                      <td>Mantella, Project AVA</td>
+                      <td>Voice-chat NPC mods, a hardware AI companion</td>
                       <td>Decide ahead of time where possible; nothing waits on the model; a late call skips that moment.</td>
                     </tr>
                     <tr>
                       <td>Made-up facts</td>
-                      <td>AI Dungeon drift</td>
+                      <td>Free-form text adventure drift</td>
                       <td>Grounding packet of facts by id; output may only reference those ids.</td>
                     </tr>
                     <tr>
@@ -887,17 +831,17 @@ section.group { margin-top: 8px; }
                     </tr>
                     <tr>
                       <td>Players ignore it</td>
-                      <td>inZOI thought bubbles</td>
+                      <td>Life-sim thought bubbles</td>
                       <td>Every decision changes something you can see: a price, a route, an offer, a relationship.</td>
                     </tr>
                     <tr>
                       <td>A weaker second path</td>
-                      <td>Herika offline mode</td>
+                      <td>A companion mod's offline mode</td>
                       <td>One path only: OpenRouter, always online; no separate local mode to maintain.</td>
                     </tr>
                     <tr>
                       <td>GPU contention</td>
-                      <td>inZOI frame dips, PUBG Ally 8 GB minimum</td>
+                      <td>Life-sim frame dips, an 8 GB minimum for an AI teammate</td>
                       <td>No model on the player's GPU: the fast layer runs on OpenRouter, with calls batched at quiet moments such as docking.</td>
                     </tr>
                   </tbody>
@@ -973,7 +917,7 @@ section.group { margin-top: 8px; }
               <ol class="flow">
                 <li class="node a-amber">
                   <strong>Gather the grounding packet</strong>
-                  <p>The NPC's brief, the current state with ids, and the few history entries that involve this NPC, this station or the player. Retrieved by id and tags, like AI Dungeon's trigger-based facts.</p>
+                  <p>The NPC's brief, the current state with ids, and the few history entries that involve this NPC, this station or the player. Retrieved by id and tags, like trigger-word story cards in generated text adventures.</p>
                 </li>
                 <li class="edge">↓</li>
                 <li class="node a-green">
@@ -1109,7 +1053,7 @@ section.group { margin-top: 8px; }
                 </li>
                 <li class="card a-green">
                   <strong>Spend near the player</strong> <span class="pill a-green">Budget</span>
-                  <p>Like inZOI's visible-range rule: model decisions for the station you are docked at and ships you can see; rules elsewhere.</p>
+                  <p>Like the life sim's visible-range rule: model decisions for the station you are docked at and ships you can see; rules elsewhere.</p>
                 </li>
                 <li class="card a-amber">
                   <strong>Batch at quiet moments</strong> <span class="pill a-amber">Batching</span>
@@ -1289,7 +1233,7 @@ section.group { margin-top: 8px; }
               <p class="lead"><strong>Decided: OpenRouter only, no local model</strong></p>
               <p>The game is a native desktop app that always assumes internet, so there is no reason to carry a model on the player's PC. A local model would mean bundling a runtime and model files, sharing the GPU with the game, and gating the feature on hardware, which is much harder than calling OpenRouter.</p>
             </div>
-            <p>Context from games that did run models on the player's hardware (see the entries above): PUBG Ally needs at least an 8 GB card and shares the GPU with the game, inZOI's 0.5B model takes about 1 GB of graphics memory, and Project AVA and Mantella users saw multi-second delays even on strong GPUs.</p>
+            <p>Context from games that did run models on the player's hardware (see the entries above): the shooter's AI teammate needs at least an 8 GB card and shares the GPU with the game, the life sim's 0.5B model takes about 1 GB of graphics memory, and users of a hardware AI companion and a voice-chat NPC mod saw multi-second delays even on strong GPUs.</p>
           </section>
           <section id="menu">
             <h2 class="hb a-blue">Menu: what the fast layer could do</h2>
@@ -1437,7 +1381,7 @@ section.group { margin-top: 8px; }
               </li>
               <li class="card a-cyan">
                 <strong>Players not noticing</strong> <span class="pill a-cyan">Risk</span>
-                <p>If decisions do not change visible things, the work is wasted, as inZOI shows. Every menu item should move a price, route, offer or relationship.</p>
+                <p>If decisions do not change visible things, the work is wasted, as the life-sim thought bubbles show. Every menu item should move a price, route, offer or relationship.</p>
               </li>
               <li class="card a-blue">
                 <strong>Determinism and saves</strong> <span class="pill a-blue">Question</span>
