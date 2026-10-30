@@ -947,8 +947,11 @@ impl Renderer {
             .write_buffer(&self.globals, 0, bytemuck::bytes_of(&globals));
         let mut ink = crate::ArtBible::bundled().ink_uniforms();
         ink[3] = (ink[3] * self.scale).round().clamp(1.0, 3.0);
-        self.queue
-            .write_buffer(&self.ink_uniform, 0, bytemuck::bytes_of(&InkGpu { params: ink }));
+        self.queue.write_buffer(
+            &self.ink_uniform,
+            0,
+            bytemuck::bytes_of(&InkGpu { params: ink }),
+        );
 
         // Mesh instances, grouped by mesh.
         let mut order: Vec<usize> = (0..scene.meshes.len())

@@ -147,14 +147,8 @@ fn inner_ink_marks_a_roof_ridge_and_spares_a_flat_slab() {
     };
     let ridge = interior_ink(roof);
     let flat = interior_ink(slab);
-    assert!(
-        ridge > 12,
-        "roof ridge should carry inner ink, got {ridge}"
-    );
-    assert!(
-        flat < 6,
-        "a flat slab has no interior crease, got {flat}"
-    );
+    assert!(ridge > 12, "roof ridge should carry inner ink, got {ridge}");
+    assert!(flat < 6, "a flat slab has no interior crease, got {flat}");
 }
 
 #[test]

@@ -158,6 +158,49 @@ pub enum PartKind {
     /// A big glass lens in a brass rim on a mount, tilted outwards: an observatory's
     /// telescope.
     Lens { radius: f32 },
+    /// A rounded cargo capsule with a hatch on top.
+    CargoPod { radius: f32, length: f32 },
+    /// A mast, a jib and a hanging hook.
+    Crane { height: f32, reach: f32 },
+    /// A fan of flat solar petals around a hub.
+    SolarPetal {
+        length: f32,
+        #[serde(default = "default_three")]
+        count: u32,
+    },
+    /// A tall harbour light: post, cage and a warm lamp.
+    LampMast { height: f32 },
+    /// A glass dome on a rim.
+    Dome { radius: f32 },
+    /// A ring of little cabins.
+    HabitatRing { radius: f32, tube: f32 },
+    /// A navigation beacon with a glowing head.
+    Beacon { height: f32 },
+    /// A board that lies almost flat so it reads from above. `number` 0 draws no digits.
+    Signage {
+        width: f32,
+        height: f32,
+        #[serde(default)]
+        number: u32,
+    },
+    /// Several leaning dishes on one base.
+    AntennaCluster {
+        height: f32,
+        #[serde(default = "default_three")]
+        count: u32,
+    },
+    /// A heavy arm ending in an open claw.
+    DockingArm { length: f32 },
+    /// An awning, tilted just enough to catch the light from above.
+    Banner { width: f32, height: f32 },
+    /// A gate. The faction motif decides round, square or pointed.
+    Arch { width: f32, height: f32 },
+    /// A tall tower, the observatory's landmark.
+    Spire { height: f32, radius: f32 },
+    /// A chunky building with a roof, a door and windows.
+    Block { width: f32, depth: f32, height: f32 },
+    /// An open frame of posts and braces.
+    Scaffold { radius: f32, height: f32 },
 }
 
 fn default_tiers() -> u32 {
@@ -177,6 +220,12 @@ fn default_true() -> bool {
 }
 fn default_one() -> u32 {
     1
+}
+fn default_three() -> u32 {
+    3
+}
+fn default_bands() -> u32 {
+    3
 }
 
 /// One part of a recipe.
@@ -206,6 +255,54 @@ impl Part {
     }
 }
 
+/// A mark painted on a station: stripes, a chevron, the faction sigil or a number.
+///
+/// Decals are geometry, slightly raised, so the inner-ink pass can outline them.
+/// They lie in the play plane and read from above.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Decal {
+    #[serde(flatten)]
+    pub kind: DecalKind,
+    #[serde(default)]
+    pub at: Placement,
+    /// Overrides the decal's main colour. The backing stays hull-coloured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Color>,
+}
+
+impl Decal {
+    pub fn new(kind: DecalKind, at: Placement) -> Self {
+        Self {
+            kind,
+            at,
+            color: None,
+        }
+    }
+}
+
+/// One decal. In JSON the variant is the `"decal"` field.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "decal", rename_all = "snake_case")]
+pub enum DecalKind {
+    /// Alternating bands along +X.
+    Stripe {
+        length: f32,
+        width: f32,
+        #[serde(default = "default_bands")]
+        bands: u32,
+    },
+    /// Repeated V marks along +X.
+    Chevron { length: f32, width: f32 },
+    /// The station's faction mark. Stations with no faction get the co-op's lantern.
+    Sigil { size: f32 },
+    /// One or two digits, seven-segment, laid flat.
+    Number {
+        #[serde(default)]
+        value: u32,
+        size: f32,
+    },
+}
+
 /// A station: a name, a seed for small variations, a palette and parts.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StationRecipe {
@@ -221,6 +318,9 @@ pub struct StationRecipe {
     /// Region id. When set, the hull must stay lighter than that region's sky.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub region: Option<String>,
+    /// Stripes, sigils and numbers. Not structural, so they have their own budget.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decals: Vec<Decal>,
 }
 
 /// Limits a recipe must stay within.
@@ -335,6 +435,64 @@ impl StationRecipe {
                 }
                 PartKind::Lantern { height } => check("height", height, 0.3, 20.0),
                 PartKind::Lens { radius } => check("radius", radius, 1.0, 30.0),
+                PartKind::CargoPod { radius, length } => {
+                    check("radius", radius, 0.6, 8.0);
+                    check("length", length, 1.0, 20.0);
+                }
+                PartKind::Crane { height, reach } => {
+                    check("height", height, 2.0, 30.0);
+                    check("reach", reach, 2.0, 24.0);
+                }
+                PartKind::SolarPetal { length, count } => {
+                    check("length", length, 2.0, 30.0);
+                    check("count", count as f32, 2.0, 8.0);
+                }
+                PartKind::LampMast { height } => check("height", height, 2.0, 24.0),
+                PartKind::Dome { radius } => check("radius", radius, 1.5, 20.0),
+                PartKind::HabitatRing { radius, tube } => {
+                    check("radius", radius, 4.0, 40.0);
+                    check("tube", tube, 0.4, 4.0);
+                }
+                PartKind::Beacon { height } => check("height", height, 1.5, 20.0),
+                PartKind::Signage {
+                    width,
+                    height,
+                    number,
+                } => {
+                    check("width", width, 2.0, 16.0);
+                    check("height", height, 1.2, 10.0);
+                    check("number", number as f32, 0.0, 99.0);
+                }
+                PartKind::AntennaCluster { height, count } => {
+                    check("height", height, 2.0, 24.0);
+                    check("count", count as f32, 2.0, 6.0);
+                }
+                PartKind::DockingArm { length } => check("length", length, 3.0, 30.0),
+                PartKind::Banner { width, height } => {
+                    check("width", width, 2.0, 14.0);
+                    check("height", height, 1.5, 10.0);
+                }
+                PartKind::Arch { width, height } => {
+                    check("width", width, 3.0, 24.0);
+                    check("height", height, 2.0, 16.0);
+                }
+                PartKind::Spire { height, radius } => {
+                    check("height", height, 4.0, 36.0);
+                    check("radius", radius, 0.6, 8.0);
+                }
+                PartKind::Block {
+                    width,
+                    depth,
+                    height,
+                } => {
+                    check("width", width, 2.0, 20.0);
+                    check("depth", depth, 2.0, 20.0);
+                    check("height", height, 1.5, 16.0);
+                }
+                PartKind::Scaffold { radius, height } => {
+                    check("radius", radius, 2.0, 24.0);
+                    check("height", height, 1.5, 16.0);
+                }
             }
             let reach = at.distance + part_reach(&part.kind) * at.scale;
             if reach.is_finite() && reach > MAX_STATION_RADIUS {
@@ -381,6 +539,29 @@ impl StationRecipe {
                 && let Some(issue) = bible.check_paint(color)
             {
                 err(Some(i), format!("paint {}", issue.message));
+            }
+        }
+        if self.decals.len() > bible.budget.max_decals {
+            err(
+                None,
+                format!(
+                    "{} decals; at most {}",
+                    self.decals.len(),
+                    bible.budget.max_decals
+                ),
+            );
+        }
+        for (i, decal) in self.decals.iter().enumerate() {
+            let (kind, params) = decal_params(&decal.kind);
+            for (name, value) in params {
+                if let Some(message) = bible.proportion_issue(kind, name, value) {
+                    err(None, format!("decal {i}: {message}"));
+                }
+            }
+            if let Some(color) = decal.color
+                && let Some(issue) = bible.check_paint(color)
+            {
+                err(None, format!("decal {i} paint {}", issue.message));
             }
         }
         for (kind, n) in &counts {
@@ -456,14 +637,19 @@ impl StationRecipe {
 
     /// The radius of a circle around the centre that contains every part.
     pub fn footprint(&self) -> f32 {
-        self.parts
+        let parts = self
+            .parts
             .iter()
-            .map(|p| p.at.distance + part_reach(&p.kind) * p.at.scale)
-            .fold(0.0, f32::max)
+            .map(|p| p.at.distance + part_reach(&p.kind) * p.at.scale);
+        let decals = self
+            .decals
+            .iter()
+            .map(|d| d.at.distance + decal_reach(&d.kind) * d.at.scale);
+        parts.chain(decals).fold(0.0, f32::max)
     }
 
-    /// Lantern Wharf: the home station. A big friendly hub inside its docking ring, three
-    /// arms with lanterns, the hullwright's sail and a pair of tanks.
+    /// Lantern Wharf: a homely cooperative harbour. The basin sits to the east; the
+    /// houses, the garden and the lantern masts crowd the western quay.
     pub fn lantern_wharf() -> Self {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
@@ -476,78 +662,108 @@ impl StationRecipe {
             parts: vec![
                 p(
                     Hub {
-                        radius: 8.0,
-                        height: 6.0,
-                        tiers: 3,
+                        radius: 6.5,
+                        height: 5.0,
+                        tiers: 2,
                         sides: 10,
                     },
                     Placement::default(),
                 ),
                 p(
                     DockingRing {
-                        radius: 17.0,
-                        tube: 2.0,
-                        spokes: 4,
-                        inner: 7.0,
+                        radius: 13.0,
+                        tube: 1.7,
+                        spokes: 3,
+                        inner: 5.0,
+                    },
+                    Placement::polar(0.0, 14.0),
+                ),
+                p(
+                    Block {
+                        width: 7.0,
+                        depth: 5.5,
+                        height: 4.2,
+                    },
+                    Placement::polar(195.0, 10.0),
+                ),
+                p(
+                    Greenhouse {
+                        radius: 4.2,
+                        stage: 2,
+                    },
+                    Placement::polar(140.0, 11.0),
+                ),
+                p(
+                    CargoPod {
+                        radius: 1.6,
+                        length: 5.0,
                     },
                     Placement {
-                        turn: 45.0,
+                        turn: 25.0,
+                        ..Placement::polar(230.0, 12.0)
+                    },
+                ),
+                p(
+                    CargoPod {
+                        radius: 1.3,
+                        length: 3.8,
+                    },
+                    Placement::polar(255.0, 8.5),
+                ),
+                p(LampMast { height: 9.0 }, Placement::polar(110.0, 16.0)),
+                p(LampMast { height: 6.5 }, Placement::polar(250.0, 15.0)),
+                p(
+                    Banner {
+                        width: 6.0,
+                        height: 3.4,
+                    },
+                    Placement {
+                        z: 3.2,
+                        turn: 15.0,
+                        ..Placement::polar(195.0, 10.0)
+                    },
+                ),
+                p(
+                    Signage {
+                        width: 6.0,
+                        height: 3.0,
+                        number: 1,
+                    },
+                    Placement {
+                        z: 5.0,
+                        ..Placement::polar(170.0, 6.0)
+                    },
+                ),
+                p(DockingArm { length: 9.0 }, Placement::polar(18.0, 22.0)),
+                p(DockingArm { length: 8.0 }, Placement::polar(340.0, 20.0)),
+                p(Lantern { height: 3.0 }, Placement::polar(80.0, 8.0)),
+            ],
+            decals: vec![
+                Decal::new(
+                    DecalKind::Sigil { size: 3.4 },
+                    Placement {
+                        z: 5.6,
                         ..Placement::default()
                     },
                 ),
-                p(
-                    Arm {
-                        length: 14.0,
-                        width: 2.2,
-                    },
-                    Placement::polar(90.0, 17.5),
-                ),
-                p(Lantern { height: 3.0 }, Placement::polar(90.0, 31.0)),
-                p(
-                    Arm {
-                        length: 12.0,
-                        width: 2.2,
-                    },
-                    Placement::polar(210.0, 17.5),
-                ),
-                p(Lantern { height: 3.0 }, Placement::polar(210.0, 29.0)),
-                p(
-                    Arm {
-                        length: 10.0,
-                        width: 2.2,
-                    },
-                    Placement::polar(330.0, 17.5),
-                ),
-                p(
-                    Tank {
-                        radius: 1.8,
-                        length: 7.0,
-                        count: 2,
-                    },
-                    Placement::polar(330.0, 25.0),
-                ),
-                p(
-                    Sail {
-                        length: 12.0,
-                        width: 5.0,
-                    },
-                    Placement::polar(150.0, 19.0),
-                ),
-                p(
-                    Antenna {
-                        height: 7.0,
-                        dish: true,
+                Decal::new(
+                    DecalKind::Stripe {
+                        length: 5.5,
+                        width: 1.4,
+                        bands: 4,
                     },
                     Placement {
-                        z: 3.0,
-                        ..Placement::polar(20.0, 4.5)
+                        z: 2.4,
+                        turn: 25.0,
+                        ..Placement::polar(230.0, 12.0)
                     },
                 ),
             ],
         }
     }
 
-    /// Kettle Dock: the greenhouse co-op. `stage` (0..=3) is the greenhouse's growth.
+    /// Kettle Dock: a greenhouse co-op. One house grows with `stage`; its sibling is
+    /// already in bloom, and a glass dome sits on the hub like a kettle lid.
     pub fn kettle_dock(stage: u8) -> Self {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
@@ -560,140 +776,233 @@ impl StationRecipe {
             parts: vec![
                 p(
                     Hub {
-                        radius: 6.0,
-                        height: 5.0,
+                        radius: 5.2,
+                        height: 4.2,
                         tiers: 2,
                         sides: 8,
                     },
                     Placement::default(),
                 ),
                 p(
-                    Arm {
-                        length: 9.0,
-                        width: 2.0,
+                    Greenhouse {
+                        radius: 8.0,
+                        stage: stage.min(3),
                     },
-                    Placement::polar(0.0, 5.5),
-                ),
-                p(
-                    DockingRing {
-                        radius: 9.0,
-                        tube: 1.5,
-                        spokes: 0,
-                        inner: 0.0,
-                    },
-                    Placement::polar(0.0, 23.0),
-                ),
-                p(
-                    Arm {
-                        length: 6.0,
-                        width: 2.0,
-                    },
-                    Placement::polar(160.0, 5.5),
+                    Placement::polar(20.0, 16.0),
                 ),
                 p(
                     Greenhouse {
-                        radius: 7.5,
-                        stage: stage.min(3),
+                        radius: 5.0,
+                        stage: 3,
                     },
-                    Placement::polar(160.0, 18.0),
+                    Placement::polar(175.0, 14.0),
+                ),
+                p(
+                    Dome { radius: 4.2 },
+                    Placement {
+                        z: 2.2,
+                        ..Placement::polar(200.0, 2.0)
+                    },
                 ),
                 p(
                     Tank {
-                        radius: 1.6,
+                        radius: 1.5,
                         length: 5.0,
-                        count: 3,
+                        count: 2,
                     },
-                    Placement::polar(250.0, 10.0),
+                    Placement::polar(95.0, 9.0),
                 ),
-                p(Lantern { height: 2.5 }, Placement::polar(85.0, 7.5)),
                 p(
-                    Antenna {
-                        height: 5.0,
-                        dish: false,
+                    DockingRing {
+                        radius: 7.5,
+                        tube: 1.4,
+                        spokes: 0,
+                        inner: 0.0,
+                    },
+                    Placement::polar(285.0, 20.0),
+                ),
+                p(LampMast { height: 7.0 }, Placement::polar(55.0, 8.0)),
+                p(
+                    Banner {
+                        width: 5.0,
+                        height: 3.0,
                     },
                     Placement {
-                        z: 2.5,
-                        ..Placement::polar(300.0, 3.0)
+                        z: 3.4,
+                        ..Placement::polar(150.0, 8.0)
+                    },
+                ),
+                p(
+                    CargoPod {
+                        radius: 1.4,
+                        length: 4.2,
+                    },
+                    Placement::polar(120.0, 11.0),
+                ),
+                p(
+                    Signage {
+                        width: 5.0,
+                        height: 2.6,
+                        number: 3,
+                    },
+                    Placement {
+                        z: 4.6,
+                        ..Placement::polar(240.0, 7.0)
                     },
                 ),
             ],
+            decals: vec![Decal::new(
+                DecalKind::Sigil { size: 2.8 },
+                Placement {
+                    z: 6.4,
+                    ..Placement::polar(200.0, 2.0)
+                },
+            )],
         }
     }
 
-    /// Brassmouth: the Tollway Compact's trade hub. Big, brassy and busy with lanterns.
+    /// Brassmouth Exchange: a square counting-house around a small courtyard ring.
+    /// Arches are the gates. The old wagon-wheel plan is gone.
     pub fn brassmouth() -> Self {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
         let mut parts = vec![
             p(
                 Hub {
-                    radius: 10.0,
-                    height: 7.0,
-                    tiers: 3,
-                    sides: 12,
+                    radius: 6.5,
+                    height: 5.5,
+                    tiers: 2,
+                    sides: 8,
                 },
                 Placement::default(),
             ),
             p(
                 DockingRing {
-                    radius: 22.0,
-                    tube: 2.4,
-                    spokes: 6,
-                    inner: 9.0,
+                    radius: 8.5,
+                    tube: 1.5,
+                    spokes: 4,
+                    inner: 5.5,
                 },
                 Placement::default(),
             ),
         ];
-        for i in 0..4 {
-            let a = 45.0 + i as f32 * 90.0;
+        for a in [45.0, 135.0, 225.0, 315.0] {
             parts.push(p(
-                Arm {
-                    length: 8.0,
-                    width: 2.6,
+                Block {
+                    width: 6.5,
+                    depth: 6.5,
+                    height: 5.0,
                 },
-                Placement::polar(a, 23.0),
+                Placement::polar(a, 16.0),
             ));
-            parts.push(p(
-                Tank {
-                    radius: 1.6,
-                    length: 5.0,
-                    count: 2,
-                },
-                Placement {
-                    turn: 90.0,
-                    ..Placement::polar(a, 33.0)
-                },
-            ));
-            parts.push(p(Lantern { height: 2.5 }, Placement::polar(a + 45.0, 22.0)));
         }
+        for a in [0.0, 90.0, 180.0, 270.0] {
+            parts.push(p(
+                Arch {
+                    width: 7.0,
+                    height: 5.5,
+                },
+                Placement::polar(a, 16.0),
+            ));
+        }
+        parts.push(p(DockingArm { length: 8.0 }, Placement::polar(15.0, 24.0)));
+        parts.push(p(DockingArm { length: 8.0 }, Placement::polar(195.0, 24.0)));
+        parts.push(p(
+            Banner {
+                width: 6.0,
+                height: 3.2,
+            },
+            Placement {
+                z: 4.2,
+                turn: 90.0,
+                ..Placement::polar(0.0, 16.0)
+            },
+        ));
+        parts.push(p(
+            Banner {
+                width: 6.0,
+                height: 3.2,
+            },
+            Placement {
+                z: 4.2,
+                turn: 90.0,
+                ..Placement::polar(180.0, 16.0)
+            },
+        ));
+        parts.push(p(
+            Signage {
+                width: 7.0,
+                height: 3.4,
+                number: 12,
+            },
+            Placement {
+                z: 5.2,
+                ..Placement::polar(90.0, 9.0)
+            },
+        ));
+        parts.push(p(
+            CargoPod {
+                radius: 1.5,
+                length: 5.0,
+            },
+            Placement::polar(55.0, 23.0),
+        ));
+        parts.push(p(
+            CargoPod {
+                radius: 1.4,
+                length: 4.2,
+            },
+            Placement::polar(125.0, 23.0),
+        ));
+        parts.push(p(Beacon { height: 5.5 }, Placement::polar(270.0, 9.5)));
         parts.push(p(
             Antenna {
-                height: 9.0,
+                height: 8.0,
                 dish: true,
             },
             Placement {
-                z: 3.5,
-                ..Placement::polar(200.0, 5.0)
+                z: 4.0,
+                ..Placement::polar(40.0, 3.0)
             },
         ));
         Self {
-            name: "Brassmouth".into(),
+            name: "Brassmouth Exchange".into(),
             seed: 3,
             palette: StationPalette::from_faction(faction("faction.tollway_compact")),
             faction: Some("faction.tollway_compact".into()),
             region: Some("region.brassmouth_narrows".into()),
             parts,
+            decals: vec![
+                Decal::new(
+                    DecalKind::Sigil { size: 3.0 },
+                    Placement {
+                        z: 6.4,
+                        ..Placement::default()
+                    },
+                ),
+                Decal::new(
+                    DecalKind::Number {
+                        value: 12,
+                        size: 2.2,
+                    },
+                    Placement {
+                        z: 1.6,
+                        ..Placement::polar(270.0, 9.5)
+                    },
+                ),
+            ],
         }
     }
 }
 
 impl StationRecipe {
-    /// Cinder Hook: a rough mining camp in the Cinder Drift. A squat hexagonal hub,
-    /// mismatched arms ending in ore hoppers, a crane mast and patched plating.
+    /// Cinder Hook: a rough mining camp. A scaffold and a crane lean over patched
+    /// shacks. The basin is off to one side, not a ring around a tidy hub.
     pub fn cinder_hook() -> Self {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
         let patch = Color::hex(0xb98a5e);
+        let rust = Color::hex(0x8a5a44);
         let mut palette = StationPalette::from_faction(coop());
         // The camp is still the co-op's, but the hull is sun-baked sand.
         palette.hull = Color::hex(0xe2c09a);
@@ -706,158 +1015,200 @@ impl StationRecipe {
             parts: vec![
                 p(
                     Hub {
-                        radius: 6.5,
-                        height: 5.0,
+                        radius: 5.5,
+                        height: 4.0,
                         tiers: 2,
                         sides: 6,
                     },
                     Placement::default(),
                 ),
                 p(
-                    DockingRing {
-                        radius: 13.0,
-                        tube: 1.8,
-                        spokes: 3,
-                        inner: 6.5,
+                    Scaffold {
+                        radius: 7.0,
+                        height: 5.5,
                     },
-                    Placement {
-                        turn: 20.0,
-                        ..Placement::default()
-                    },
+                    Placement::polar(35.0, 14.0),
                 ),
                 p(
-                    Arm {
-                        length: 15.0,
-                        width: 2.6,
+                    Crane {
+                        height: 10.0,
+                        reach: 11.0,
                     },
-                    Placement::polar(25.0, 13.5),
+                    Placement {
+                        turn: 190.0,
+                        ..Placement::polar(35.0, 16.0)
+                    },
                 ),
                 p(
                     Tank {
-                        radius: 2.0,
+                        radius: 1.8,
                         length: 5.0,
                         count: 3,
                     },
                     Placement {
-                        turn: 90.0,
-                        ..Placement::polar(25.0, 30.0)
+                        turn: 70.0,
+                        ..Placement::polar(200.0, 11.0)
                     },
                 )
-                .colored(Color::hex(0x8a5a44)),
+                .colored(rust),
                 p(
-                    Arm {
-                        length: 9.0,
-                        width: 2.0,
-                    },
-                    Placement::polar(140.0, 13.5),
-                )
-                .colored(patch),
-                p(
-                    Antenna {
-                        height: 9.0,
-                        dish: false,
-                    },
-                    Placement {
-                        z: 1.0,
-                        ..Placement::polar(140.0, 22.0)
-                    },
-                ),
-                p(
-                    Arm {
-                        length: 7.0,
-                        width: 2.2,
-                    },
-                    Placement::polar(245.0, 13.5),
-                ),
-                p(
-                    Tank {
+                    CargoPod {
                         radius: 1.7,
-                        length: 6.0,
-                        count: 2,
+                        length: 4.5,
                     },
-                    Placement {
-                        turn: 90.0,
-                        ..Placement::polar(245.0, 23.0)
-                    },
-                ),
-                p(
-                    Sail {
-                        length: 8.0,
-                        width: 3.5,
-                    },
-                    Placement::polar(320.0, 14.0),
+                    Placement::polar(155.0, 12.0),
                 )
                 .colored(patch),
-                p(Lantern { height: 2.5 }, Placement::polar(85.0, 15.0)),
-                p(Lantern { height: 2.5 }, Placement::polar(200.0, 15.0)),
+                p(
+                    Block {
+                        width: 5.0,
+                        depth: 4.2,
+                        height: 3.2,
+                    },
+                    Placement::polar(250.0, 9.0),
+                )
+                .colored(patch),
+                p(Beacon { height: 6.0 }, Placement::polar(300.0, 8.0)),
+                p(
+                    AntennaCluster {
+                        height: 7.0,
+                        count: 4,
+                    },
+                    Placement {
+                        z: 2.2,
+                        ..Placement::polar(115.0, 4.5)
+                    },
+                ),
+                p(DockingArm { length: 10.0 }, Placement::polar(330.0, 14.0)),
+                p(
+                    DockingRing {
+                        radius: 8.0,
+                        tube: 1.4,
+                        spokes: 2,
+                        inner: 3.5,
+                    },
+                    Placement {
+                        turn: 15.0,
+                        ..Placement::polar(8.0, 18.0)
+                    },
+                ),
+                p(Lantern { height: 2.4 }, Placement::polar(80.0, 7.5)),
+                p(Lantern { height: 2.4 }, Placement::polar(190.0, 6.5)),
+                p(
+                    Signage {
+                        width: 4.5,
+                        height: 2.4,
+                        number: 4,
+                    },
+                    Placement {
+                        z: 3.6,
+                        ..Placement::polar(250.0, 9.0)
+                    },
+                ),
             ],
+            decals: vec![Decal::new(
+                DecalKind::Chevron {
+                    length: 6.0,
+                    width: 1.6,
+                },
+                Placement {
+                    z: 4.4,
+                    ..Placement::polar(35.0, 14.0)
+                },
+            )],
         }
     }
 
-    /// The Glass Drift Observatory: the Lamplighter Society's scholars. A tall, tidy
-    /// hub, a great lens on an arm, a smaller lens and listening dishes.
+    /// The Glass Drift Observatory: a spire, a great lens and a scholar's walk.
+    /// The docking ring is off to the side so the lens, not a wheel, owns the silhouette.
     pub fn glass_drift_observatory() -> Self {
         use PartKind::*;
         let p = |kind, at| Part::new(kind, at);
-        let mut parts = vec![
-            p(
-                Hub {
-                    radius: 7.0,
-                    height: 8.0,
-                    tiers: 3,
-                    sides: 12,
-                },
-                Placement::default(),
-            ),
-            p(
-                DockingRing {
-                    radius: 14.0,
-                    tube: 1.6,
-                    spokes: 6,
-                    inner: 7.5,
-                },
-                Placement::default(),
-            ),
-            p(
-                Arm {
-                    length: 9.0,
-                    width: 2.0,
-                },
-                Placement::polar(35.0, 14.5),
-            ),
-            p(Lens { radius: 8.0 }, Placement::polar(35.0, 26.0)),
-            p(Lens { radius: 4.0 }, Placement::polar(215.0, 19.0)),
-            p(
-                Antenna {
-                    height: 7.0,
-                    dish: true,
-                },
-                Placement {
-                    z: 4.0,
-                    ..Placement::polar(130.0, 4.0)
-                },
-            ),
-            p(
-                Antenna {
-                    height: 5.0,
-                    dish: true,
-                },
-                Placement {
-                    z: 4.0,
-                    ..Placement::polar(300.0, 4.0)
-                },
-            ),
-        ];
-        for a in [100.0, 160.0, 280.0, 330.0] {
-            parts.push(p(Lantern { height: 2.2 }, Placement::polar(a, 16.5)));
-        }
         Self {
             name: "Glass Drift Observatory".into(),
             seed: 5,
             palette: StationPalette::from_faction(faction("faction.lamplighter_society")),
             faction: Some("faction.lamplighter_society".into()),
             region: Some("region.cinder_drift".into()),
-            parts,
+            parts: vec![
+                p(
+                    Hub {
+                        radius: 5.0,
+                        height: 4.0,
+                        tiers: 2,
+                        sides: 10,
+                    },
+                    Placement::default(),
+                ),
+                p(
+                    Spire {
+                        height: 16.0,
+                        radius: 1.8,
+                    },
+                    Placement {
+                        z: 2.4,
+                        ..Placement::default()
+                    },
+                ),
+                p(Lens { radius: 8.0 }, Placement::polar(28.0, 18.0)),
+                p(Dome { radius: 5.2 }, Placement::polar(200.0, 12.0)),
+                p(
+                    HabitatRing {
+                        radius: 8.5,
+                        tube: 1.15,
+                    },
+                    Placement::default(),
+                ),
+                p(
+                    AntennaCluster {
+                        height: 6.0,
+                        count: 3,
+                    },
+                    Placement {
+                        z: 3.0,
+                        ..Placement::polar(140.0, 5.0)
+                    },
+                ),
+                p(LampMast { height: 8.0 }, Placement::polar(110.0, 12.0)),
+                p(LampMast { height: 6.0 }, Placement::polar(300.0, 11.0)),
+                p(
+                    DockingRing {
+                        radius: 7.5,
+                        tube: 1.3,
+                        spokes: 4,
+                        inner: 3.5,
+                    },
+                    Placement::polar(250.0, 22.0),
+                ),
+                p(
+                    Banner {
+                        width: 4.5,
+                        height: 2.8,
+                    },
+                    Placement {
+                        z: 4.5,
+                        ..Placement::polar(175.0, 8.0)
+                    },
+                ),
+                p(
+                    Signage {
+                        width: 5.2,
+                        height: 2.8,
+                        number: 8,
+                    },
+                    Placement {
+                        z: 3.6,
+                        ..Placement::polar(70.0, 7.0)
+                    },
+                ),
+            ],
+            decals: vec![Decal::new(
+                DecalKind::Sigil { size: 2.6 },
+                Placement {
+                    z: 5.8,
+                    ..Placement::polar(200.0, 12.0)
+                },
+            )],
         }
     }
 }
@@ -914,6 +1265,79 @@ fn part_params(kind: &PartKind) -> (&'static str, Vec<(&'static str, f32)>) {
         PartKind::Sail { length, width } => ("sail", vec![("length", length), ("width", width)]),
         PartKind::Lantern { height } => ("lantern", vec![("height", height)]),
         PartKind::Lens { radius } => ("lens", vec![("radius", radius)]),
+        PartKind::CargoPod { radius, length } => {
+            ("cargo_pod", vec![("radius", radius), ("length", length)])
+        }
+        PartKind::Crane { height, reach } => ("crane", vec![("height", height), ("reach", reach)]),
+        PartKind::SolarPetal { length, count } => (
+            "solar_petal",
+            vec![("length", length), ("count", count as f32)],
+        ),
+        PartKind::LampMast { height } => ("lamp_mast", vec![("height", height)]),
+        PartKind::Dome { radius } => ("dome", vec![("radius", radius)]),
+        PartKind::HabitatRing { radius, tube } => {
+            ("habitat_ring", vec![("radius", radius), ("tube", tube)])
+        }
+        PartKind::Beacon { height } => ("beacon", vec![("height", height)]),
+        PartKind::Signage {
+            width,
+            height,
+            number,
+        } => (
+            "signage",
+            vec![
+                ("width", width),
+                ("height", height),
+                ("number", number as f32),
+            ],
+        ),
+        PartKind::AntennaCluster { height, count } => (
+            "antenna_cluster",
+            vec![("height", height), ("count", count as f32)],
+        ),
+        PartKind::DockingArm { length } => ("docking_arm", vec![("length", length)]),
+        PartKind::Banner { width, height } => {
+            ("banner", vec![("width", width), ("height", height)])
+        }
+        PartKind::Arch { width, height } => ("arch", vec![("width", width), ("height", height)]),
+        PartKind::Spire { height, radius } => {
+            ("spire", vec![("height", height), ("radius", radius)])
+        }
+        PartKind::Block {
+            width,
+            depth,
+            height,
+        } => (
+            "block",
+            vec![("width", width), ("depth", depth), ("height", height)],
+        ),
+        PartKind::Scaffold { radius, height } => {
+            ("scaffold", vec![("radius", radius), ("height", height)])
+        }
+    }
+}
+
+fn decal_params(kind: &DecalKind) -> (&'static str, Vec<(&'static str, f32)>) {
+    match *kind {
+        DecalKind::Stripe {
+            length,
+            width,
+            bands,
+        } => (
+            "stripe",
+            vec![
+                ("length", length),
+                ("width", width),
+                ("bands", bands as f32),
+            ],
+        ),
+        DecalKind::Chevron { length, width } => {
+            ("chevron", vec![("length", length), ("width", width)])
+        }
+        DecalKind::Sigil { size } => ("sigil", vec![("size", size)]),
+        DecalKind::Number { value, size } => {
+            ("number", vec![("value", value as f32), ("size", size)])
+        }
     }
 }
 
@@ -943,6 +1367,30 @@ fn part_reach(kind: &PartKind) -> f32 {
         PartKind::Sail { length, width } => length + width,
         PartKind::Lantern { height } => height * 0.5,
         PartKind::Lens { radius } => radius * 1.2,
+        PartKind::CargoPod { radius, length } => length * 0.5 + radius,
+        PartKind::Crane { height, reach } => height.max(reach),
+        PartKind::SolarPetal { length, .. } => length,
+        PartKind::LampMast { height } | PartKind::Beacon { height } => height * 0.35,
+        PartKind::Dome { radius } => radius,
+        PartKind::HabitatRing { radius, tube } => radius + tube,
+        PartKind::Signage { width, height, .. } | PartKind::Banner { width, height } => {
+            width.max(height) * 0.5
+        }
+        PartKind::AntennaCluster { height, .. } => height * 0.45,
+        PartKind::DockingArm { length } => length,
+        PartKind::Arch { width, height } => width.max(height) * 0.5,
+        PartKind::Spire { radius, .. } => radius * 1.4,
+        PartKind::Block { width, depth, .. } => width.max(depth) * 0.55,
+        PartKind::Scaffold { radius, .. } => radius,
+    }
+}
+
+fn decal_reach(kind: &DecalKind) -> f32 {
+    match *kind {
+        DecalKind::Stripe { length, width, .. } | DecalKind::Chevron { length, width } => {
+            length.max(width) * 0.5
+        }
+        DecalKind::Sigil { size } | DecalKind::Number { size, .. } => size,
     }
 }
 
@@ -952,14 +1400,41 @@ pub fn station(recipe: &StationRecipe) -> MeshData {
     let mut b = MeshBuilder::new();
     let pal = recipe.palette;
     let rng = Rng::new(recipe.seed);
+    let motif = motif_of(recipe);
+    let mark = mark_of(recipe);
     for (i, part) in recipe.parts.iter().take(MAX_PARTS).enumerate() {
         let mut r = rng.fork(i as u64 + 1);
         let at = sanitize_placement(&part.at);
         b.with(at.matrix(), |b| {
-            build_part(b, &part.kind, part.color, &pal, &mut r)
+            build_part(b, &part.kind, part.color, &pal, motif, &mut r)
+        });
+    }
+    let cap = ArtBible::bundled().budget.max_decals;
+    for decal in recipe.decals.iter().take(cap) {
+        let at = sanitize_placement(&decal.at);
+        b.with(at.matrix(), |b| {
+            build_decal(b, &decal.kind, decal.color, &pal, mark)
         });
     }
     b.build()
+}
+
+fn motif_of(recipe: &StationRecipe) -> &'static str {
+    recipe
+        .faction
+        .as_deref()
+        .and_then(|id| ArtBible::bundled().faction(id))
+        .map(|f| f.motif.as_str())
+        .unwrap_or("round")
+}
+
+fn mark_of(recipe: &StationRecipe) -> &'static str {
+    recipe
+        .faction
+        .as_deref()
+        .and_then(|id| ArtBible::bundled().faction(id))
+        .map(|f| f.mark.as_str())
+        .unwrap_or("lantern_kettle")
 }
 
 /// Self-lit points of a station (lanterns, beacons, greenhouse lamps), in station space.
@@ -993,6 +1468,13 @@ pub fn station_lights(recipe: &StationRecipe) -> Vec<StationLight> {
                         3.0,
                     );
                 }
+            }
+            PartKind::LampMast { height } => {
+                push(Vec3::Z * clampf(height, 2.0, 24.0), pal.glow, 6.5)
+            }
+            PartKind::Beacon { height } => push(Vec3::Z * clampf(height, 1.5, 20.0), pal.glow, 5.0),
+            PartKind::Spire { height, .. } => {
+                push(Vec3::Z * clampf(height, 4.0, 36.0), pal.glow, 4.5)
             }
             _ => {}
         }
@@ -1034,6 +1516,7 @@ fn build_part(
     kind: &PartKind,
     color: Option<Color>,
     pal: &StationPalette,
+    motif: &str,
     rng: &mut Rng,
 ) {
     match *kind {
@@ -1050,6 +1533,7 @@ fn build_part(
             sides.clamp(5, 24),
             color.unwrap_or(pal.hull),
             pal,
+            motif,
         ),
         PartKind::DockingRing {
             radius,
@@ -1205,6 +1689,108 @@ fn build_part(
             });
         }
         PartKind::Lens { radius } => lens(b, clampf(radius, 1.0, 30.0), color, pal),
+        PartKind::CargoPod { radius, length } => cargo_pod(
+            b,
+            clampf(radius, 0.6, 8.0),
+            clampf(length, 1.0, 20.0),
+            color,
+            pal,
+        ),
+        PartKind::Crane { height, reach } => crane(
+            b,
+            clampf(height, 2.0, 30.0),
+            clampf(reach, 2.0, 24.0),
+            color,
+            pal,
+        ),
+        PartKind::SolarPetal { length, count } => {
+            solar_petal(b, clampf(length, 2.0, 30.0), count.clamp(2, 8), color, pal)
+        }
+        PartKind::LampMast { height } => lamp_mast(b, clampf(height, 2.0, 24.0), color, pal, motif),
+        PartKind::Dome { radius } => dome(b, clampf(radius, 1.5, 20.0), color, pal),
+        PartKind::HabitatRing { radius, tube } => habitat_ring(
+            b,
+            clampf(radius, 4.0, 40.0),
+            clampf(tube, 0.4, 4.0),
+            color,
+            pal,
+        ),
+        PartKind::Beacon { height } => beacon(b, clampf(height, 1.5, 20.0), color, pal, motif),
+        PartKind::Signage {
+            width,
+            height,
+            number,
+        } => signage(
+            b,
+            clampf(width, 2.0, 16.0),
+            clampf(height, 1.2, 10.0),
+            number.min(99),
+            color,
+            pal,
+        ),
+        PartKind::AntennaCluster { height, count } => antenna_cluster(
+            b,
+            clampf(height, 2.0, 24.0),
+            count.clamp(2, 6),
+            color,
+            pal,
+            rng,
+        ),
+        PartKind::DockingArm { length } => docking_arm(b, clampf(length, 3.0, 30.0), color, pal),
+        PartKind::Banner { width, height } => banner(
+            b,
+            clampf(width, 2.0, 14.0),
+            clampf(height, 1.5, 10.0),
+            color,
+            pal,
+            mark_from_motif(motif),
+        ),
+        PartKind::Arch { width, height } => arch(
+            b,
+            clampf(width, 3.0, 24.0),
+            clampf(height, 2.0, 16.0),
+            color,
+            pal,
+            motif,
+        ),
+        PartKind::Spire { height, radius } => spire(
+            b,
+            clampf(height, 4.0, 36.0),
+            clampf(radius, 0.6, 8.0),
+            color,
+            pal,
+            motif,
+        ),
+        PartKind::Block {
+            width,
+            depth,
+            height,
+        } => block(
+            b,
+            clampf(width, 2.0, 20.0),
+            clampf(depth, 2.0, 20.0),
+            clampf(height, 1.5, 16.0),
+            color,
+            pal,
+            motif,
+        ),
+        PartKind::Scaffold { radius, height } => scaffold(
+            b,
+            clampf(radius, 2.0, 24.0),
+            clampf(height, 1.5, 16.0),
+            color,
+            pal,
+        ),
+    }
+}
+
+/// Banners carry a small mark. The motif names a shape, not a sigil, so map the
+/// three motifs back to the three marks the bible ships with.
+fn mark_from_motif(motif: &str) -> &'static str {
+    match motif {
+        "square" => "toll_key",
+        "pointed" => "open_lamp",
+        _ => "lantern_kettle",
     }
 }
 
@@ -1240,6 +1826,7 @@ fn lens(b: &mut MeshBuilder, r: f32, color: Option<Color>, pal: &StationPalette)
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn hub(
     b: &mut MeshBuilder,
     radius: f32,
@@ -1248,6 +1835,7 @@ fn hub(
     sides: u32,
     hull: Color,
     pal: &StationPalette,
+    motif: &str,
 ) {
     let phase = std::f32::consts::PI / sides as f32;
     let tier_h = height / tiers as f32;
@@ -1290,28 +1878,29 @@ fn hub(
             });
         }
     }
-    // Cap: a shallow faceted dome in the accent colour with a lamp on top.
+    // Cap: round, square or pointed, so a faction reads even on a shared hub.
     let top = z0 + height;
     let rc = radius * (1.0 - (tiers - 1) as f32 * 0.22) * 0.9;
     b.paint(pal.accent, 0.0);
-    b.lathe(
-        &[
-            (rc, top),
-            (rc * 0.8, top + rc * 0.22),
-            (rc * 0.4, top + rc * 0.36),
-            (0.0, top + rc * 0.4),
-        ],
-        sides,
-        phase,
-    );
-    b.paint(pal.glow, 1.0);
-    b.with(Mat4::from_translation(Vec3::Z * (top + rc * 0.38)), |b| {
-        b.lathe(
-            &[(rc * 0.14, 0.0), (rc * 0.1, rc * 0.12), (0.0, rc * 0.16)],
-            6,
-            0.0,
-        )
+    let cap_h = match motif {
+        "square" => rc * 0.45,
+        "pointed" => rc * 1.15,
+        _ => rc * 0.4,
+    };
+    b.with(Mat4::from_translation(Vec3::Z * top), |b| {
+        raised_cap(b, rc * 0.85, cap_h, motif, sides)
     });
+    b.paint(pal.glow, 1.0);
+    b.with(
+        Mat4::from_translation(Vec3::Z * (top + cap_h * 0.92)),
+        |b| {
+            b.lathe(
+                &[(rc * 0.14, 0.0), (rc * 0.1, rc * 0.12), (0.0, rc * 0.16)],
+                6,
+                0.0,
+            )
+        },
+    );
 }
 
 fn greenhouse(
@@ -1447,8 +2036,730 @@ fn greenhouse(
     }
 }
 
+/// A cap whose shape follows the faction motif: round, square or pointed.
+fn raised_cap(b: &mut MeshBuilder, radius: f32, height: f32, motif: &str, sides: u32) {
+    match motif {
+        "square" => b.extrude(
+            &[
+                Vec2::new(-radius, -radius),
+                Vec2::new(radius, -radius),
+                Vec2::new(radius, radius),
+                Vec2::new(-radius, radius),
+            ],
+            height,
+            0.2,
+        ),
+        "pointed" => b.frustum(radius, 0.0, height, sides.clamp(5, 8)),
+        _ => b.lathe(
+            &[
+                (radius, 0.0),
+                (radius * 0.72, height * 0.45),
+                (radius * 0.28, height * 0.82),
+                (0.0, height),
+            ],
+            sides.clamp(6, 12),
+            0.0,
+        ),
+    };
+}
+
+fn cargo_pod(
+    b: &mut MeshBuilder,
+    radius: f32,
+    length: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+) {
+    let half = length * 0.5;
+    b.with(Mat4::from_rotation_y(FRAC_PI_2), |b| {
+        b.paint(color.unwrap_or(pal.hull), 0.0);
+        b.lathe(
+            &[
+                (0.0, -half - radius * 0.45),
+                (radius * 0.72, -half),
+                (radius, -half + radius * 0.35),
+                (radius, half - radius * 0.35),
+                (radius * 0.72, half),
+                (0.0, half + radius * 0.45),
+            ],
+            8,
+            0.0,
+        );
+    });
+    b.paint(pal.trim, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * radius * 0.92), |b| {
+        b.cuboid(Vec3::new(length * 0.36, radius * 0.75, radius * 0.28))
+    });
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * radius * 1.08), |b| {
+        b.cuboid(Vec3::new(length * 0.14, radius * 0.3, radius * 0.16))
+    });
+}
+
+fn crane(b: &mut MeshBuilder, height: f32, reach: f32, color: Option<Color>, pal: &StationPalette) {
+    let mast = (height * 0.16).max(1.1);
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * 0.4), |b| {
+        b.cuboid(Vec3::new(mast * 2.4, mast * 2.4, 0.8))
+    });
+    b.frustum(mast * 0.5, mast * 0.28, height, 6);
+    let tip = Vec3::Z * height;
+    let end = Vec3::new(reach, 0.0, height * 0.86);
+    strut(b, tip, end, mast * 0.55);
+    strut(b, Vec3::Z * height * 0.55, end, mast * 0.32);
+    let hook = Vec3::new(reach, 0.0, height * 0.28);
+    strut(b, end, hook, (mast * 0.22).max(0.45));
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(hook), |b| {
+        b.cuboid(Vec3::splat(mast * 0.75))
+    });
+    b.paint(pal.glow, 1.0);
+    b.with(Mat4::from_translation(hook + Vec3::Z * mast * 0.15), |b| {
+        b.cuboid(Vec3::splat(mast * 0.28))
+    });
+}
+
+fn solar_petal(
+    b: &mut MeshBuilder,
+    length: f32,
+    count: u32,
+    color: Option<Color>,
+    pal: &StationPalette,
+) {
+    b.paint(pal.trim, 0.0);
+    b.frustum(length * 0.1, length * 0.07, 0.7, 6);
+    let paint = color.unwrap_or(pal.accent);
+    for k in 0..count {
+        let a = k as f32 / count as f32 * TAU;
+        b.with(Mat4::from_rotation_z(a), |b| {
+            b.paint(
+                if k % 2 == 0 {
+                    paint
+                } else {
+                    paint.lerp(pal.hull, 0.45)
+                },
+                0.08,
+            );
+            b.with(
+                Mat4::from_translation(Vec3::new(length * 0.55, 0.0, 0.4)),
+                |b| b.cuboid(Vec3::new(length * 0.82, length * 0.22, 0.22)),
+            );
+            b.paint(pal.hull, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(length * 0.55, 0.0, 0.55)),
+                |b| b.cuboid(Vec3::new(length * 0.62, length * 0.05, 0.1)),
+            );
+        });
+    }
+}
+
+fn lamp_mast(
+    b: &mut MeshBuilder,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    motif: &str,
+) {
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    b.frustum(0.55, 0.32, height * 0.7, 6);
+    let z = height * 0.7;
+    let cage = (height * 0.14).max(0.8);
+    for k in 0..4 {
+        let a = k as f32 / 4.0 * TAU + TAU / 8.0;
+        let p = Vec3::new(a.cos(), a.sin(), 0.0) * cage;
+        strut(
+            b,
+            p + Vec3::Z * z,
+            p + Vec3::Z * (z + cage * 1.7),
+            cage * 0.28,
+        );
+    }
+    b.paint(pal.glow, 1.0);
+    b.with(Mat4::from_translation(Vec3::Z * (z + cage * 0.65)), |b| {
+        b.lathe(
+            &[
+                (cage * 0.42, 0.0),
+                (cage * 0.55, cage * 0.45),
+                (cage * 0.3, cage * 0.9),
+            ],
+            6,
+            0.0,
+        )
+    });
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * (z + cage * 1.75)), |b| {
+        raised_cap(b, cage * 0.9, cage, motif, 6)
+    });
+}
+
+fn dome(b: &mut MeshBuilder, radius: f32, color: Option<Color>, pal: &StationPalette) {
+    let base = radius * 0.18;
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    b.lathe(
+        &[
+            (radius * 0.9, 0.0),
+            (radius * 1.04, base * 0.6),
+            (radius * 0.92, base),
+        ],
+        12,
+        0.0,
+    );
+    b.paint(pal.glass, 0.3);
+    b.lathe(
+        &[
+            (radius * 0.94, base),
+            (radius * 0.82, base + radius * 0.38),
+            (radius * 0.48, base + radius * 0.72),
+            (0.0, base + radius * 0.98),
+        ],
+        10,
+        0.0,
+    );
+    b.paint(color.unwrap_or(pal.accent), 0.0);
+    let rib = (radius * 0.07).max(0.35);
+    for k in 0..6 {
+        let a = k as f32 / 6.0 * TAU;
+        let p = |t: f32| {
+            let e = t * FRAC_PI_2;
+            Vec3::new(
+                a.cos() * e.cos() * radius * 0.98,
+                a.sin() * e.cos() * radius * 0.98,
+                base + e.sin() * radius * 0.95,
+            )
+        };
+        for s in 0..4 {
+            strut(b, p(s as f32 / 4.0), p((s + 1) as f32 / 4.0), rib);
+        }
+    }
+}
+
+fn habitat_ring(
+    b: &mut MeshBuilder,
+    radius: f32,
+    tube: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+) {
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    let segs = ((radius * 0.7) as u32).clamp(12, 28);
+    b.torus(radius, tube * 1.35, tube, segs, 6);
+    for k in 0..6 {
+        let a = k as f32 / 6.0 * TAU;
+        let p = Vec3::new(a.cos(), a.sin(), 0.0) * radius + Vec3::Z * tube * 0.15;
+        b.with(Mat4::from_translation(p) * Mat4::from_rotation_z(a), |b| {
+            b.paint(
+                if k % 2 == 0 {
+                    pal.hull
+                } else {
+                    pal.hull.lerp(pal.accent, 0.35)
+                },
+                0.0,
+            );
+            b.cuboid(Vec3::new(tube * 2.2, tube * 1.7, tube * 1.45));
+            b.paint(pal.glow, 1.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(tube * 1.05, 0.0, tube * 0.1)),
+                |b| b.cuboid(Vec3::new(0.22, tube * 0.7, tube * 0.4)),
+            );
+        });
+    }
+}
+
+fn beacon(
+    b: &mut MeshBuilder,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    motif: &str,
+) {
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    b.frustum(0.55, 0.32, height * 0.72, 5);
+    b.paint(pal.glow, 1.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.76), |b| {
+        b.lathe(
+            &[
+                (0.0, -height * 0.1),
+                (height * 0.14, 0.0),
+                (0.0, height * 0.1),
+            ],
+            4,
+            0.3,
+        )
+    });
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.9), |b| {
+        raised_cap(b, 0.45, height * 0.18, motif, 6)
+    });
+}
+
+fn signage(
+    b: &mut MeshBuilder,
+    width: f32,
+    height: f32,
+    number: u32,
+    color: Option<Color>,
+    pal: &StationPalette,
+) {
+    b.with(Mat4::from_rotation_y(-0.4), |b| {
+        b.paint(color.unwrap_or(pal.hull), 0.0);
+        b.cuboid(Vec3::new(height, width, 0.32));
+        b.paint(pal.trim, 0.0);
+        let t = (width.min(height) * 0.12).max(0.4);
+        let z = 0.22;
+        for x in [height * 0.5 - t * 0.5, -height * 0.5 + t * 0.5] {
+            b.with(Mat4::from_translation(Vec3::new(x, 0.0, z)), |b| {
+                b.cuboid(Vec3::new(t, width * 1.02, 0.16))
+            });
+        }
+        for y in [width * 0.5 - t * 0.5, -width * 0.5 + t * 0.5] {
+            b.with(Mat4::from_translation(Vec3::new(0.0, y, z)), |b| {
+                b.cuboid(Vec3::new(height, t, 0.16))
+            });
+        }
+        if number > 0 {
+            b.paint(pal.accent, 0.0);
+            digits(b, number, height * 0.55, 0.36);
+        }
+    });
+}
+
+fn antenna_cluster(
+    b: &mut MeshBuilder,
+    height: f32,
+    count: u32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    rng: &mut Rng,
+) {
+    b.paint(pal.hull, 0.0);
+    b.lathe(
+        &[
+            (height * 0.16, 0.0),
+            (height * 0.22, 0.3),
+            (height * 0.12, 0.5),
+        ],
+        8,
+        0.0,
+    );
+    for k in 0..count {
+        let a = k as f32 / count as f32 * TAU + 0.5;
+        let h = height * (0.55 + 0.4 * k as f32 / count as f32);
+        let lean = 0.22 + rng.range(0.0, 0.18);
+        b.with(
+            Mat4::from_translation(Vec3::new(a.cos(), a.sin(), 0.0) * height * 0.1 + Vec3::Z * 0.4)
+                * Mat4::from_rotation_z(a)
+                * Mat4::from_rotation_y(lean),
+            |b| {
+                b.paint(color.unwrap_or(pal.trim), 0.0);
+                b.frustum(0.18, 0.08, h, 5);
+                if k % 2 == 0 {
+                    b.paint(pal.hull, 0.0);
+                    b.with(
+                        Mat4::from_translation(Vec3::Z * h * 0.62) * Mat4::from_rotation_y(0.9),
+                        |b| {
+                            b.lathe(
+                                &[(0.0, 0.0), (h * 0.14, h * 0.04), (h * 0.26, h * 0.14)],
+                                7,
+                                0.0,
+                            )
+                        },
+                    );
+                }
+                b.paint(pal.glow, 1.0);
+                b.with(Mat4::from_translation(Vec3::Z * h), |b| {
+                    b.cuboid(Vec3::splat(0.28))
+                });
+            },
+        );
+    }
+}
+
+fn docking_arm(b: &mut MeshBuilder, length: f32, color: Option<Color>, pal: &StationPalette) {
+    let w = (length * 0.14).max(1.3);
+    b.paint(color.unwrap_or(pal.hull), 0.0);
+    b.with(
+        Mat4::from_translation(Vec3::new(length * 0.4, 0.0, w * 0.28)),
+        |b| b.cuboid(Vec3::new(length * 0.8, w, w * 0.5)),
+    );
+    b.paint(pal.trim, 0.0);
+    let end = length * 0.86;
+    for y in [-1.0, 1.0] {
+        strut(
+            b,
+            Vec3::new(end, y * w * 0.32, w * 0.28),
+            Vec3::new(length + w * 0.15, y * w * 0.8, w * 0.12),
+            w * 0.36,
+        );
+    }
+    b.paint(pal.glow, 1.0);
+    b.with(Mat4::from_translation(Vec3::new(end, 0.0, w * 0.7)), |b| {
+        b.cuboid(Vec3::splat(w * 0.4))
+    });
+}
+
+fn banner(
+    b: &mut MeshBuilder,
+    width: f32,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    mark: &str,
+) {
+    b.paint(pal.trim, 0.0);
+    b.cuboid(Vec3::new(0.6, width, 0.6));
+    b.with(
+        Mat4::from_translation(Vec3::new(height * 0.42, 0.0, height * 0.12))
+            * Mat4::from_rotation_y(-0.55),
+        |b| {
+            b.paint(color.unwrap_or(pal.accent), 0.0);
+            b.cuboid(Vec3::new(height, width * 0.9, 0.16));
+            b.paint(pal.hull, 0.0);
+            b.with(Mat4::from_translation(Vec3::Z * 0.12), |b| {
+                b.cuboid(Vec3::new(height * 0.2, width * 0.9, 0.1))
+            });
+            b.with(
+                Mat4::from_translation(Vec3::new(-height * 0.12, 0.0, 0.18)),
+                |b| sigil(b, mark, (height * 0.42).min(width * 0.45), pal),
+            );
+        },
+    );
+}
+
+fn arch(
+    b: &mut MeshBuilder,
+    width: f32,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    motif: &str,
+) {
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    let hw = width * 0.5;
+    let thick = (width * 0.11).max(0.9);
+    let post = match motif {
+        "square" => height * 0.82,
+        "pointed" => height * 0.55,
+        _ => height * 0.48,
+    };
+    strut(
+        b,
+        Vec3::new(0.0, -hw, 0.0),
+        Vec3::new(0.0, -hw, post),
+        thick,
+    );
+    strut(b, Vec3::new(0.0, hw, 0.0), Vec3::new(0.0, hw, post), thick);
+    match motif {
+        "square" => {
+            strut(
+                b,
+                Vec3::new(0.0, -hw, post),
+                Vec3::new(0.0, hw, post),
+                thick * 1.15,
+            );
+        }
+        "pointed" => {
+            let peak = Vec3::Z * height;
+            strut(b, Vec3::new(0.0, -hw, post), peak, thick);
+            strut(b, Vec3::new(0.0, hw, post), peak, thick);
+        }
+        _ => {
+            let steps = 4;
+            let rise = (height - post).max(0.5);
+            for s in 0..steps {
+                let a0 = TAU * 0.5 * s as f32 / steps as f32;
+                let a1 = TAU * 0.5 * (s + 1) as f32 / steps as f32;
+                let p = |a: f32| Vec3::new(0.0, -hw * a.cos(), post + rise * a.sin());
+                strut(b, p(a0), p(a1), thick);
+            }
+        }
+    }
+    b.paint(pal.glow, 1.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.9), |b| {
+        b.cuboid(Vec3::splat(thick * 0.4))
+    });
+}
+
+fn spire(
+    b: &mut MeshBuilder,
+    height: f32,
+    radius: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    motif: &str,
+) {
+    b.paint(color.unwrap_or(pal.hull), 0.0);
+    b.lathe(
+        &[
+            (radius * 1.05, 0.0),
+            (radius, height * 0.12),
+            (radius * 0.72, height * 0.4),
+            (radius * 0.4, height * 0.68),
+            (radius * 0.18, height * 0.84),
+        ],
+        8,
+        0.15,
+    );
+    b.paint(pal.glow, 1.0);
+    let r = radius * 0.62;
+    for k in 0..6 {
+        let a = k as f32 / 6.0 * TAU;
+        b.with(
+            Mat4::from_translation(Vec3::new(a.cos() * r, a.sin() * r, height * 0.46))
+                * Mat4::from_rotation_z(a),
+            |b| b.cuboid(Vec3::new(0.22, radius * 0.28, height * 0.05)),
+        );
+    }
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.84), |b| {
+        raised_cap(b, radius * 0.34, height * 0.18, motif, 6)
+    });
+}
+
+fn block(
+    b: &mut MeshBuilder,
+    width: f32,
+    depth: f32,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+    motif: &str,
+) {
+    b.paint(color.unwrap_or(pal.hull), 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.42), |b| {
+        b.cuboid(Vec3::new(depth, width, height * 0.84))
+    });
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.86), |b| {
+        raised_cap(b, depth.min(width) * 0.42, height * 0.26, motif, 4)
+    });
+    b.paint(pal.trim, 0.0);
+    b.with(
+        Mat4::from_translation(Vec3::new(depth * 0.5, 0.0, height * 0.26)),
+        |b| b.cuboid(Vec3::new(0.28, width * 0.22, height * 0.4)),
+    );
+    b.paint(pal.glow, 1.0);
+    for y in [-0.28_f32, 0.28] {
+        b.with(
+            Mat4::from_translation(Vec3::new(depth * 0.5, y * width, height * 0.58)),
+            |b| b.cuboid(Vec3::new(0.22, width * 0.14, height * 0.14)),
+        );
+    }
+}
+
+fn scaffold(
+    b: &mut MeshBuilder,
+    radius: f32,
+    height: f32,
+    color: Option<Color>,
+    pal: &StationPalette,
+) {
+    b.paint(color.unwrap_or(pal.trim), 0.0);
+    let posts = 5;
+    let thick = (radius * 0.1).max(0.7);
+    for k in 0..posts {
+        let a = k as f32 / posts as f32 * TAU;
+        let p = Vec3::new(a.cos(), a.sin(), 0.0) * radius * 0.82;
+        strut(b, p, p + Vec3::Z * height, thick);
+    }
+    for level in [0.38, 0.78] {
+        let z = height * level;
+        for k in 0..posts {
+            let a0 = k as f32 / posts as f32 * TAU;
+            let a1 = (k + 1) as f32 / posts as f32 * TAU;
+            let p = |a: f32| Vec3::new(a.cos(), a.sin(), 0.0) * radius * 0.82 + Vec3::Z * z;
+            strut(b, p(a0), p(a1), thick * 0.75);
+        }
+    }
+    b.paint(pal.hull, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height * 0.7), |b| {
+        b.cuboid(Vec3::new(radius * 1.15, radius * 0.5, 0.3))
+    });
+    b.paint(pal.accent, 0.0);
+    b.with(Mat4::from_translation(Vec3::Z * height), |b| {
+        b.frustum(radius * 0.12, 0.0, radius * 0.4, 4)
+    });
+}
+
+fn build_decal(
+    b: &mut MeshBuilder,
+    kind: &DecalKind,
+    color: Option<Color>,
+    pal: &StationPalette,
+    mark: &str,
+) {
+    match *kind {
+        DecalKind::Stripe {
+            length,
+            width,
+            bands,
+        } => {
+            let bands = bands.clamp(2, 8).max(1);
+            let band = length / bands as f32;
+            let paint = color.unwrap_or(pal.accent);
+            for k in 0..bands {
+                b.paint(if k % 2 == 0 { paint } else { pal.hull }, 0.0);
+                let x = -length * 0.5 + band * (k as f32 + 0.5);
+                b.with(Mat4::from_translation(Vec3::new(x, 0.0, 0.12)), |b| {
+                    b.cuboid(Vec3::new(band * 0.9, width, 0.16))
+                });
+            }
+        }
+        DecalKind::Chevron { length, width } => {
+            let n = ((length / width.max(0.4)).round() as u32).clamp(2, 6);
+            b.paint(color.unwrap_or(pal.accent), 0.0);
+            for k in 0..n {
+                let x = -length * 0.5 + length * (k as f32 + 0.5) / n as f32;
+                for s in [-1.0_f32, 1.0] {
+                    b.with(
+                        Mat4::from_translation(Vec3::new(x, s * width * 0.22, 0.12))
+                            * Mat4::from_rotation_z(s * 0.55),
+                        |b| b.cuboid(Vec3::new(width * 0.7, width * 0.2, 0.16)),
+                    );
+                }
+            }
+        }
+        DecalKind::Sigil { size } => {
+            b.paint(pal.hull, 0.0);
+            b.with(Mat4::from_translation(Vec3::Z * 0.08), |b| {
+                b.cuboid(Vec3::new(size * 1.2, size * 1.2, 0.14))
+            });
+            b.with(Mat4::from_translation(Vec3::Z * 0.22), |b| {
+                sigil(b, mark, size * 0.7, pal)
+            });
+        }
+        DecalKind::Number { value, size } => {
+            b.paint(pal.hull, 0.0);
+            let wide = if value >= 10 { size * 2.3 } else { size * 1.4 };
+            b.with(Mat4::from_translation(Vec3::Z * 0.08), |b| {
+                b.cuboid(Vec3::new(size * 1.35, wide, 0.14))
+            });
+            b.paint(color.unwrap_or(pal.trim), 0.0);
+            digits(b, value.min(99), size, 0.22);
+        }
+    }
+}
+
+fn sigil(b: &mut MeshBuilder, mark: &str, size: f32, pal: &StationPalette) {
+    let s = size.max(0.4);
+    match mark {
+        "toll_key" => {
+            b.paint(pal.trim, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(-s * 0.28, 0.0, 0.0)),
+                |b| b.torus(s * 0.2, s * 0.1, s * 0.1, 8, 4),
+            );
+            b.with(Mat4::from_translation(Vec3::new(s * 0.12, 0.0, 0.0)), |b| {
+                b.cuboid(Vec3::new(s * 0.62, s * 0.14, s * 0.12))
+            });
+            for x in [0.28_f32, 0.42] {
+                b.with(
+                    Mat4::from_translation(Vec3::new(s * x, -s * 0.16, 0.0)),
+                    |b| b.cuboid(Vec3::new(s * 0.1, s * 0.16, s * 0.12)),
+                );
+            }
+        }
+        "open_lamp" => {
+            b.paint(pal.accent, 0.0);
+            strut(
+                b,
+                Vec3::new(-s * 0.26, -s * 0.2, 0.0),
+                Vec3::new(0.0, s * 0.28, 0.0),
+                s * 0.12,
+            );
+            strut(
+                b,
+                Vec3::new(s * 0.26, -s * 0.2, 0.0),
+                Vec3::new(0.0, s * 0.28, 0.0),
+                s * 0.12,
+            );
+            b.with(Mat4::from_translation(Vec3::new(0.0, -s * 0.2, 0.0)), |b| {
+                b.cuboid(Vec3::new(s * 0.64, s * 0.12, s * 0.1))
+            });
+            b.paint(pal.glow, 1.0);
+            b.with(Mat4::from_translation(Vec3::Z * 0.06), |b| {
+                b.lathe(&[(0.0, -s * 0.08), (s * 0.1, 0.0), (0.0, s * 0.08)], 4, 0.4)
+            });
+        }
+        _ => {
+            b.paint(pal.trim, 0.0);
+            b.lathe(
+                &[
+                    (s * 0.1, 0.0),
+                    (s * 0.3, s * 0.06),
+                    (s * 0.28, s * 0.2),
+                    (s * 0.14, s * 0.28),
+                ],
+                8,
+                0.0,
+            );
+            b.paint(pal.glow, 1.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(s * 0.2, s * 0.18, s * 0.12)),
+                |b| {
+                    b.lathe(
+                        &[(s * 0.1, 0.0), (s * 0.15, s * 0.1), (s * 0.06, s * 0.2)],
+                        6,
+                        0.0,
+                    )
+                },
+            );
+            b.paint(pal.accent, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(s * 0.2, s * 0.18, s * 0.34)),
+                |b| b.frustum(s * 0.08, 0.0, s * 0.14, 5),
+            );
+        }
+    }
+}
+
+fn digits(b: &mut MeshBuilder, value: u32, size: f32, z: f32) {
+    let value = value.min(99);
+    let gap = size * 0.85;
+    if value >= 10 {
+        digit(b, value / 10, size, Vec3::new(-gap * 0.5, 0.0, z));
+        digit(b, value % 10, size, Vec3::new(gap * 0.5, 0.0, z));
+    } else {
+        digit(b, value, size, Vec3::new(0.0, 0.0, z));
+    }
+}
+
+fn digit(b: &mut MeshBuilder, n: u32, size: f32, at: Vec3) {
+    // 0 top, 1 upper left, 2 upper right, 3 middle, 4 lower left, 5 lower right, 6 bottom.
+    let segs: [bool; 7] = match n % 10 {
+        0 => [true, true, true, false, true, true, true],
+        1 => [false, false, true, false, false, true, false],
+        2 => [true, false, true, true, true, false, true],
+        3 => [true, false, true, true, false, true, true],
+        4 => [false, true, true, true, false, true, false],
+        5 => [true, true, false, true, false, true, true],
+        6 => [true, true, false, true, true, true, true],
+        7 => [true, false, true, false, false, true, false],
+        8 => [true, true, true, true, true, true, true],
+        _ => [true, true, true, true, false, true, true],
+    };
+    let w = size * 0.42;
+    let h = size * 0.4;
+    let t = (size * 0.16).max(0.22);
+    let bars = [
+        (0, Vec3::new(0.0, h, 0.0), Vec3::new(w * 2.0, t, t)),
+        (3, Vec3::ZERO, Vec3::new(w * 2.0, t, t)),
+        (6, Vec3::new(0.0, -h, 0.0), Vec3::new(w * 2.0, t, t)),
+        (1, Vec3::new(-w, h * 0.5, 0.0), Vec3::new(t, h, t)),
+        (2, Vec3::new(w, h * 0.5, 0.0), Vec3::new(t, h, t)),
+        (4, Vec3::new(-w, -h * 0.5, 0.0), Vec3::new(t, h, t)),
+        (5, Vec3::new(w, -h * 0.5, 0.0), Vec3::new(t, h, t)),
+    ];
+    b.with(Mat4::from_translation(at), |b| {
+        for (i, pos, dims) in bars {
+            if segs[i] {
+                b.with(Mat4::from_translation(pos), |b| b.cuboid(dims));
+            }
+        }
+    });
+}
+
 /// The part kinds a recipe can use, for tools and validation messages.
-pub const PART_KINDS: [&str; 9] = [
+pub const PART_KINDS: [&str; 24] = [
     "hub",
     "docking_ring",
     "arm",
@@ -1458,6 +2769,21 @@ pub const PART_KINDS: [&str; 9] = [
     "sail",
     "lantern",
     "lens",
+    "cargo_pod",
+    "crane",
+    "solar_petal",
+    "lamp_mast",
+    "dome",
+    "habitat_ring",
+    "beacon",
+    "signage",
+    "antenna_cluster",
+    "docking_arm",
+    "banner",
+    "arch",
+    "spire",
+    "block",
+    "scaffold",
 ];
 
 /// Where a docking ring of the recipe is centred, in station space (for the app to align
@@ -1532,6 +2858,7 @@ mod tests {
             palette: StationPalette::default(),
             faction: None,
             region: None,
+            decals: vec![],
             parts: vec![
                 Part::new(
                     PartKind::Hub {
@@ -1631,6 +2958,7 @@ mod tests {
             palette: StationPalette::default(),
             faction: None,
             region: None,
+            decals: vec![],
             parts: vec![],
         };
         assert_eq!(empty.validate().unwrap_err().len(), 2);
@@ -1639,8 +2967,8 @@ mod tests {
     #[test]
     fn lights_follow_lanterns() {
         let lights = station_lights(&StationRecipe::lantern_wharf());
-        // 2 lanterns + 4 ring beacons.
-        assert_eq!(lights.len(), 6);
+        // 1 lantern, 2 lamp masts, the greenhouse lamp and 4 ring beacons.
+        assert_eq!(lights.len(), 8);
         assert!(lights.iter().all(|l| l.position.is_finite()));
     }
 

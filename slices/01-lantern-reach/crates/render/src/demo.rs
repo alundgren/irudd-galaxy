@@ -291,7 +291,7 @@ impl DemoWorld {
 /// rock kind as it is mined down, and the three preset stations. For reviewing the art.
 pub fn gallery(renderer: &mut Renderer) -> Scene {
     let viewport = renderer.logical_size();
-    let camera = Camera::top_down(Vec2::new(0.0, 0.0), 150.0).with_tilt(22.0);
+    let camera = Camera::top_down(Vec2::new(0.0, 8.0), 250.0).with_tilt(18.0);
     let mut scene = Scene::new(camera);
     scene.backdrop =
         Some(renderer.upload_backdrop(&kit::backdrop(&kit::BackdropParams::default(), 3)));
@@ -305,15 +305,20 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
             );
         }
     };
-    // Row 1: stations.
+    // Row 1: the five stations, spaced so their silhouettes don't share a wheel.
     let stations = [
-        (StationRecipe::lantern_wharf(), Vec2::new(-90.0, 40.0)),
-        (StationRecipe::kettle_dock(3), Vec2::new(-10.0, 40.0)),
-        (StationRecipe::brassmouth(), Vec2::new(80.0, 40.0)),
+        (StationRecipe::lantern_wharf(), Vec2::new(-170.0, 62.0)),
+        (StationRecipe::kettle_dock(3), Vec2::new(-85.0, 62.0)),
+        (StationRecipe::cinder_hook(), Vec2::new(0.0, 62.0)),
+        (
+            StationRecipe::glass_drift_observatory(),
+            Vec2::new(85.0, 62.0),
+        ),
+        (StationRecipe::brassmouth(), Vec2::new(170.0, 62.0)),
     ];
     for (recipe, pos) in stations {
         let mesh = renderer.upload_mesh(&kit::station(&recipe));
-        scene.meshes.push(MeshInstance::at(mesh, pos, 0.0, 0.85));
+        scene.meshes.push(MeshInstance::at(mesh, pos, 0.0, 0.72));
         label(
             &mut scene,
             &recipe.name,
@@ -328,6 +333,7 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
             palette: StationRecipe::kettle_dock(0).palette,
             faction: None,
             region: None,
+            decals: vec![],
             parts: vec![kit::Part::new(
                 kit::PartKind::Greenhouse { radius: 7.5, stage },
                 kit::Placement::default(),
