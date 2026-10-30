@@ -12,16 +12,31 @@ fn bad(message: impl Into<String>) -> (u8, String) {
     (4, message.into())
 }
 
+/// The longest path a read takes, in bytes (paths, filters and fields alike).
+pub const MAX_PATH: usize = 1024;
+
 /// Splits a path the way `--path` takes it: slash-separated (`stations/station.kettle_dock`),
 /// a JSON pointer (`/stations/...`), or dotted (`stations.station.kettle_dock`). IDs
 /// contain dots, so a dotted path is resolved against the JSON: at each level the
-/// longest run of segments that names an existing key wins.
+/// longest existing key that the rest of the path starts with (up to a dot) wins.
+/// Resolving looks at each object's keys once and never builds candidate strings, so it
+/// costs the keys on the way down, not the square of the path's length.
 pub fn resolve<'v>(root: &'v Value, path: &str) -> Result<&'v Value, String> {
     let path = path.trim();
     if path.is_empty() || path == "/" || path == "." {
         return Ok(root);
     }
-    let missing = || format!("no `{path}` in the world state");
+    let missing = || {
+        let shown: String = path.chars().take(120).collect();
+        let more = if shown.len() < path.len() { "..." } else { "" };
+        format!("no `{shown}{more}` in the world state")
+    };
+    if path.len() > MAX_PATH {
+        return Err(format!(
+            "the path is {} bytes; the longest a read takes is {MAX_PATH}",
+            path.len()
+        ));
+    }
     if path.contains('/') {
         let pointer: String = if path.starts_with('/') {
             path.to_owned()
@@ -32,23 +47,35 @@ pub fn resolve<'v>(root: &'v Value, path: &str) -> Result<&'v Value, String> {
         };
         return root.pointer(&pointer).ok_or_else(missing);
     }
-    let segs: Vec<&str> = path.split('.').collect();
     let mut at = root;
-    let mut i = 0;
-    while i < segs.len() {
+    // What is left to resolve; `None` once all of it is.
+    let mut rest = Some(path);
+    while let Some(r) = rest {
         match at {
             Value::Object(map) => {
-                let found = (i + 1..=segs.len())
-                    .rev()
-                    .find_map(|j| map.get(&segs[i..j].join(".")).map(|v| (v, j)));
-                let (v, j) = found.ok_or_else(missing)?;
+                if let Some(v) = map.get(r) {
+                    at = v;
+                    rest = None;
+                    continue;
+                }
+                let (k, v) = map
+                    .iter()
+                    .filter(|(k, _)| {
+                        r.as_bytes().get(k.len()) == Some(&b'.') && r.starts_with(k.as_str())
+                    })
+                    .max_by_key(|(k, _)| k.len())
+                    .ok_or_else(missing)?;
                 at = v;
-                i = j;
+                rest = Some(&r[k.len() + 1..]);
             }
             Value::Array(items) => {
-                let n: usize = segs[i].parse().map_err(|_| missing())?;
+                let (seg, tail) = match r.split_once('.') {
+                    Some((seg, tail)) => (seg, Some(tail)),
+                    None => (r, None),
+                };
+                let n: usize = seg.parse().map_err(|_| missing())?;
                 at = items.get(n).ok_or_else(missing)?;
-                i += 1;
+                rest = tail;
             }
             _ => return Err(missing()),
         }
@@ -186,7 +213,28 @@ mod tests {
         );
         assert_eq!(resolve(&w, "list.0.a").unwrap(), &json!(1));
         assert!(resolve(&w, "stations.station.nope").is_err());
+        assert!(resolve(&w, "list.0.a.").is_err());
         assert_eq!(resolve(&w, "").unwrap(), &w);
+        // The longest key wins over a shorter one it starts with.
+        let ids = json!({ "a": { "b": 1 }, "a.b": 2 });
+        assert_eq!(resolve(&ids, "a.b").unwrap(), &json!(2));
+    }
+
+    #[test]
+    fn long_missing_paths_are_cheap_and_capped() {
+        let w = json!({ "x": { "x": { "y": 1 } } });
+        // Near the cap, a missing dotted path resolves in a blink.
+        let near = "x.".repeat(MAX_PATH / 2 - 1) + "z";
+        let started = std::time::Instant::now();
+        assert!(resolve(&w, &near).unwrap_err().starts_with("no `x.x.x"));
+        assert!(started.elapsed() < std::time::Duration::from_millis(50));
+        // Over it, refused before any work.
+        let over = "x.".repeat(20_000);
+        assert!(
+            resolve(&w, &over)
+                .unwrap_err()
+                .contains("longest a read takes")
+        );
     }
 
     #[test]
