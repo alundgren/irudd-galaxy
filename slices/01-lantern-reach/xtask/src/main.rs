@@ -5,6 +5,8 @@
 //! - `contract`: regenerate the JSON Schemas in `crates/contract/schemas/` and the hook
 //!   API (`galaxy.d.luau`, `HOOKS.md`) in `crates/contract/api/`.
 //! - `fetch-luau`: download the pinned `luau-analyze` into `tools/luau/` (git-ignored).
+//! - `cargo <args>`: run cargo with the target folder `check` uses (see [`target_dir`]).
+//! - `target-dir`: print that folder.
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
@@ -60,6 +62,25 @@ fn main() -> ExitCode {
             ])
         }
         "contract" => contract(),
+        "cargo" => {
+            let ok = cargo()
+                .args(std::env::args().skip(2))
+                .status()
+                .is_ok_and(|s| s.success());
+            if ok {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        "target-dir" => {
+            let dir = std::env::var_os("CARGO_TARGET_DIR")
+                .map(PathBuf::from)
+                .or_else(target_dir)
+                .unwrap_or_else(|| workspace_root().join("target"));
+            println!("{}", dir.display());
+            ExitCode::SUCCESS
+        }
         "fetch-luau" => match fetch_luau() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
@@ -68,7 +89,7 @@ fn main() -> ExitCode {
             }
         },
         _ => {
-            eprintln!("usage: cargo xtask <check|contract|fetch-luau>");
+            eprintln!("usage: cargo xtask <check|contract|fetch-luau|cargo <args>|target-dir>");
             ExitCode::FAILURE
         }
     }
@@ -148,18 +169,96 @@ fn fetch_luau() -> Result<(), String> {
 }
 
 fn run_all(steps: &[&[&str]]) -> ExitCode {
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    if let Some(dir) = target_dir() {
+        eprintln!("==> target folder {}", dir.display());
+    }
     for args in steps {
         eprintln!("==> cargo {}", args.join(" "));
-        let ok = Command::new(&cargo)
-            .args(*args)
-            .status()
-            .is_ok_and(|s| s.success());
+        let ok = cargo().args(*args).status().is_ok_and(|s| s.success());
         if !ok {
             return ExitCode::FAILURE;
         }
     }
     ExitCode::SUCCESS
+}
+
+/// Cargo, building into [`target_dir`] when there is one.
+fn cargo() -> Command {
+    let mut cmd = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
+    if let Some(dir) = target_dir() {
+        cmd.env("CARGO_TARGET_DIR", dir);
+    }
+    cmd
+}
+
+/// `$GALAXY_TARGET_ROOT/<branch>` when that variable is set and `CARGO_TARGET_DIR` isn't,
+/// so every worktree on a branch shares one warm build. `GALAXY_TARGET_KEY` overrides the
+/// branch name. Otherwise `None`, and cargo uses its usual folder.
+fn target_dir() -> Option<PathBuf> {
+    if std::env::var_os("CARGO_TARGET_DIR").is_some() {
+        return None;
+    }
+    let root = std::env::var_os("GALAXY_TARGET_ROOT").filter(|r| !r.is_empty())?;
+    let key = std::env::var("GALAXY_TARGET_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .or_else(branch)
+        .unwrap_or_else(|| "detached".into());
+    Some(PathBuf::from(root).join(folder_name(&key)))
+}
+
+/// The checked-out branch. On a detached HEAD (a read-only review of `origin/<branch>`),
+/// the one remote branch at this commit, if there is exactly one.
+fn branch() -> Option<String> {
+    let git = |args: &[&str]| -> Option<String> {
+        let out = Command::new("git")
+            .args(args)
+            .current_dir(workspace_root())
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    };
+    if let Some(name) = git(&["symbolic-ref", "--quiet", "--short", "HEAD"]) {
+        return Some(name);
+    }
+    let remotes = git(&[
+        "for-each-ref",
+        "--points-at",
+        "HEAD",
+        "--format=%(refname:lstrip=3)",
+        "refs/remotes",
+    ])?;
+    let names: std::collections::BTreeSet<&str> = remotes
+        .lines()
+        .filter(|n| !n.is_empty() && *n != "HEAD")
+        .collect();
+    let mut names = names.into_iter();
+    match (names.next(), names.next()) {
+        (Some(name), None) => Some(name.to_string()),
+        _ => None,
+    }
+}
+
+/// A branch name as one folder name: `slice/01/x` becomes `slice-01-x`.
+fn folder_name(key: &str) -> String {
+    let name: String = key
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let name = name.trim_start_matches('.');
+    if name.is_empty() {
+        "detached".into()
+    } else {
+        name.into()
+    }
 }
 
 fn workspace_root() -> PathBuf {
@@ -206,4 +305,21 @@ fn write_schemas(dir: &Path) -> std::io::Result<()> {
     }
     eprintln!("wrote {} schemas to crates/contract/schemas/", files.len());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::folder_name;
+
+    #[test]
+    fn branch_names_become_one_folder() {
+        assert_eq!(
+            folder_name("slice/01/playtest-fixes"),
+            "slice-01-playtest-fixes"
+        );
+        assert_eq!(folder_name("main"), "main");
+        assert_eq!(folder_name(r"a\b:c"), "a-b-c");
+        assert_eq!(folder_name(".."), "detached");
+        assert_eq!(folder_name("../up"), "-up");
+    }
 }
