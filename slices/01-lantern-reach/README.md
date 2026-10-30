@@ -5,9 +5,12 @@ trading game in Rust. Brief: issue #10, with the decisions in the kickoff commen
 PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
 
 Status: the foundation is in (shared contract, headless sim kernel, saves, JSON CLI),
-plus the Luau script host (sandboxed packs, the hook API, `galaxy pack check`, hot
-reload, rollback by cause). There is no window or flight yet; `galaxy play` says "not
-implemented yet".
+plus headless ships: arcade flight, the context action, mining and regrowth, docking,
+lanes, control tiers, the order runner and the automated tender (`crates/ship`), the
+Luau script host (sandboxed packs, the hook API, `galaxy pack check`, hot reload,
+rollback by cause), and progress: the beat runtime with b01 to b03 in the core pack,
+standing, traits, hull ranks, prestige and station services (`crates/progress`). There
+is no window yet; `galaxy play` says "not implemented yet".
 
 ## Build and check
 
@@ -74,6 +77,7 @@ crates/contract   shared interfaces (IDs, world schema, events, verbs, commands,
 crates/contract/schemas   generated JSON Schemas (commit them)
 crates/contract/api       generated galaxy.d.luau and HOOKS.md: the Luau hook API (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
+crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
 crates/progress   beats, standing and regard, traits, hull ranks, prestige, station services

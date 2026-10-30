@@ -794,7 +794,10 @@ dependencies = [
  "clap",
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-economy",
+ "galaxy-progress",
  "galaxy-script",
+ "galaxy-ship",
  "serde",
  "serde_json",
  "tempfile",
@@ -859,6 +862,7 @@ dependencies = [
  "galaxy-core",
  "galaxy-economy",
  "galaxy-progress",
+ "galaxy-ship",
  "mlua",
  "notify",
  "serde",
@@ -866,6 +870,17 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "toml",
+]
+
+[[package]]
+name = "galaxy-ship"
+version = "0.1.0"
+dependencies = [
+ "galaxy-contract",
+ "galaxy-core",
+ "galaxy-economy",
+ "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

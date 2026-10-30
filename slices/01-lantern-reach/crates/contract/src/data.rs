@@ -24,7 +24,7 @@ use crate::progress::{
 use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service};
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 14] = [
+pub const DATA_FILES: [&str; 15] = [
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -33,6 +33,7 @@ pub const DATA_FILES: [&str; 14] = [
     "stations.toml",
     "rocks.toml",
     "npcs.toml",
+    "ship_rules.toml",
     "economy.toml",
     "controls.toml",
     "upgrades.toml",

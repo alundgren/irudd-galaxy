@@ -439,9 +439,22 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
     }))
 }
 
+/// The game's systems, in tick order: the kernel's, the ship's (buy and sell orders go
+/// through the economy's desk), then the economy's (pulses, scouting, re-pricing and
+/// the player's dock-screen trades), which reads the dockings the ships made, then
+/// progress (station services, faction deeds, pilot traits and hull ranks).
+fn game(state: galaxy_core::SimState) -> galaxy_core::Sim {
+    galaxy_core::game(state)
+        .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)))
+        .with_systems([
+            Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>,
+            Box::new(galaxy_progress::ProgressSystem),
+        ])
+}
+
 fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
     let mut save = Save::open(path)?;
-    let mut sim = galaxy_core::game(save.load()?);
+    let mut sim = game(save.load()?);
     let start = sim.tick();
     let input = PlayerInput::default();
     let (mut applied, mut events) = (0usize, 0usize);

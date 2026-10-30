@@ -53,6 +53,7 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<TraitsFile>("data-traits"),
         one::<PacingFile>("data-pacing"),
         one::<StartFile>("data-start"),
+        one::<crate::ship::ShipRules>("data-ship-rules"),
     ]
 }
 

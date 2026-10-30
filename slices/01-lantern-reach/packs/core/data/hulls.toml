@@ -1,46 +1,53 @@
-# Hulls. PROVISIONAL numbers: the content spec replaces them.
-# Speeds are world units per second and mining rates units per second, both at the
-# nominal 30 ticks per second.
+# Hulls. PROVISIONAL numbers from the content spec (content/03-ships-and-controls.md).
+# Speeds are world units per second, turn rates degrees per second and mining rates
+# units per second at hardness 1.0, all at the nominal 30 ticks per second.
+# accel (u/s^2) is optional: without it a hull reaches top speed in
+# ship_rules.toml's flight.accel_time.
 # Schema: crates/contract/schemas/data-hulls.json
 
+# A good little ship: the player's first.
 [[hull]]
 id = "hull.wren"
 name = "Wren"
 tier = 0
 hold_capacity = 20
-max_speed = 140.0
-mining_rate = 4.0
+max_speed = 60.0
+turn_rate = 270.0
+mining_rate = 1.0
 
 # Hearthbound branch: hauler that pairs with automation.
 [[hull]]
 id = "hull.tandem"
 name = "Tandem"
 tier = 1
-hold_capacity = 60
-max_speed = 110.0
-mining_rate = 4.0
+hold_capacity = 40
+max_speed = 50.0
+turn_rate = 160.0
+mining_rate = 1.0
 
 # Hearthbound branch: scout with longer price reach.
 [[hull]]
 id = "hull.heron"
 name = "Heron"
 tier = 1
-hold_capacity = 24
-max_speed = 190.0
-mining_rate = 3.0
+hold_capacity = 16
+max_speed = 78.0
+turn_rate = 330.0
+mining_rate = 0.8
 # Long glass: live prices for the whole region; a lane arrival refreshes the
 # snapshots of every station in the new region.
 price_reach = { region = true, lane_scout = true }
 
-# The tender: an automated craft that runs the player's saved loops. Docking rings give
-# it a standing berth, so it can wait docked for a price (the patient sell).
+# The first automated craft. Its standing berth lets it wait docked for a price.
 [[hull]]
 id = "hull.tender"
 name = "Tender"
 tier = 0
 hold_capacity = 24
 max_speed = 45.0
+turn_rate = 180.0
 mining_rate = 0.5
+standing_berth = true
 
 # Hull ranks (W4, content/03-ships-and-controls.md "Hull ranks"): deeds done in the hull,
 # counted from facts since the player started flying it. Shown as painted lantern

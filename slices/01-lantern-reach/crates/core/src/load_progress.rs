@@ -145,6 +145,26 @@ fn check(world: &WorldState, rules: &ProgressRules, errors: &mut Vec<String>) {
         }
     };
 
+    // The ship crate unlocks input modes by the flags ship_rules.toml names; each must
+    // be a capability here, so upgrades and beats set the flags the ship reads.
+    if !rules.capabilities.is_empty() {
+        let c = &world.ship_rules.controls;
+        for flag in [
+            &c.click_fly,
+            &c.click_mine,
+            &c.click_dock,
+            &c.map_travel,
+            &c.queues,
+            &c.loops,
+            &c.automation,
+        ] {
+            if !rules.capabilities.contains_key(flag) {
+                errors.push(format!(
+                    "ship_rules.toml: control flag `{flag}` isn't a capability in controls.toml"
+                ));
+            }
+        }
+    }
     let tiers: BTreeSet<u32> = rules.tiers.iter().map(|t| t.tier).collect();
     for c in rules.capabilities.values() {
         if !tiers.contains(&c.tier) {

@@ -22,8 +22,9 @@ use crate::history::FactDraft;
 use crate::ids::*;
 use crate::pack::{ScriptHealth, ScriptValue};
 use crate::progress::{BeatState, HullRecord, Tunable};
+use crate::ship::{RockGrowth, ShipActivity};
 use crate::talk::{Channel, SaidLine, TalkLine};
-use crate::verbs::{OrderQueue, VerbKind};
+use crate::verbs::{Order, OrderQueue, VerbKind};
 use crate::world::*;
 
 /// Why a change happened. Recorded with every batch that leaves a trace.
@@ -183,6 +184,19 @@ pub enum Command {
         ship: ShipId,
         orders: OrderQueue,
     },
+    /// Replaces a ship's orders only if they still equal `from`, so orders run from the
+    /// same tick's state can't overwrite orders given since (a loop assigned, a click):
+    /// a stale one fails and its batch is rejected. The ship system uses this.
+    UpdateOrders {
+        ship: ShipId,
+        from: Box<OrderQueue>,
+        to: Box<OrderQueue>,
+    },
+    /// Replaces a ship's lane transit, mining run and input edge state.
+    SetShipActivity {
+        ship: ShipId,
+        activity: Box<ShipActivity>,
+    },
 
     // --- Player ---
     /// Adds to the player's credits, in centicredits. Fails below zero.
@@ -201,12 +215,22 @@ pub enum Command {
         station: StationId,
         snapshot: Option<PriceSnapshot>,
     },
+    /// Saves (or with `orders: null` deletes) one of the player's named loops.
+    SetLoop {
+        name: String,
+        orders: Option<Vec<Order>>,
+    },
 
     // --- Rocks ---
     /// Changes a rock's remaining units. Fails below zero.
     AdjustRock {
         rock: RockId,
         delta: i64,
+    },
+    /// Replaces a rock's regrowth bookkeeping.
+    SetRockGrowth {
+        rock: RockId,
+        growth: RockGrowth,
     },
 
     // --- Stations and factions ---
