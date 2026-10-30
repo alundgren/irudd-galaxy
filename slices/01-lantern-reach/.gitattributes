@@ -2,3 +2,6 @@
 crates/contract/schemas/*.json text eol=lf
 *.ttf binary
 *.png binary
+# Launch scripts keep their platform line endings.
+*.sh text eol=lf
+*.cmd text eol=crlf
