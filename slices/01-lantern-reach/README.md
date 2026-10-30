@@ -119,7 +119,8 @@ AMD and Intel (and `llvmpipe`, a slow software fallback). Then install Rust with
 from a terminal in your desktop session:
 
 ```sh
-git clone https://github.com/alundgren/irudd-galaxy.git
+# The slice lives on the slice branch, not on main.
+git clone --branch slice/01-lantern-reach https://github.com/alundgren/irudd-galaxy.git
 cd irudd-galaxy/slices/01-lantern-reach
 ./play.sh              # the first release build takes several minutes
 ./play.sh --new        # start over (the old save stays)
@@ -127,6 +128,8 @@ cd irudd-galaxy/slices/01-lantern-reach
 
 Saves and `sound.toml` go to `~/.local/share/lanternreach/saves/` (or `$GALAXY_SAVES`).
 `cargo xtask check` works as on Windows; its `luau-analyze` needs glibc 2.34 or later.
+`play.sh` finds a fresh rustup install by itself, but for running `cargo` directly in
+the same shell right after installing rustup, first run `source "$HOME/.cargo/env"`.
 
 If it doesn't start:
 
