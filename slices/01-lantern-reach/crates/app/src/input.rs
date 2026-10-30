@@ -49,10 +49,14 @@ pub struct Keys {
     tag_press: bool,
     /// The action the last tick was given.
     action_sent: bool,
-    /// Flight keys were held into the docking and haven't all been let go since: they
-    /// don't fly off. Keys still held from the approach never fly straight back out.
-    held_into_dock: bool,
+    /// Flight keys pressed since the last tick, even if already let go.
+    flight_presses: BTreeSet<Key>,
+    /// Flight keys held into the docking and not let go since: they don't fly off, so
+    /// keys still held from the approach never fly straight back out.
+    held_into_dock: BTreeSet<Key>,
 }
+
+const FLIGHT_KEYS: [Key; 4] = [Key::W, Key::A, Key::S, Key::D];
 
 impl Keys {
     /// A key event from the window. Returns true for a fresh press: one that isn't
@@ -63,9 +67,14 @@ impl Keys {
         }
         if !down {
             self.down.remove(&key);
+            self.held_into_dock.remove(&key);
             return false;
         }
         let fresh = self.down.insert(key);
+        if fresh && FLIGHT_KEYS.contains(&key) {
+            self.held_into_dock.remove(&key);
+            self.flight_presses.insert(key);
+        }
         if fresh && key == Key::Space {
             self.action_press = true;
         }
@@ -94,11 +103,14 @@ impl Keys {
 
     /// Lets go of everything and forgets any press not yet delivered: the window lost
     /// focus, or the PAUSED card opened or closed. Keys still physically down then need
-    /// a real release and press to count again.
+    /// a real release and press to count again, and that press is a fresh one: docked, it
+    /// flies off.
     pub fn clear(&mut self) {
         self.down.clear();
         self.action_press = false;
         self.tag_press = false;
+        self.flight_presses.clear();
+        self.held_into_dock.clear();
     }
 
     /// The context action for the next tick. A press since the last tick reaches it
@@ -117,19 +129,29 @@ impl Keys {
     }
 
     /// The next tick's input, taking any latched press ([`Keys::take_action`]). Docked,
-    /// thrust flies off and undocks, but only once every flight key has been let go
-    /// since the docking.
+    /// a fresh press of a flight key flies off and undocks, even one let go again before
+    /// this tick or one opposite a key still held. Keys held into the docking don't count
+    /// until they're let go and pressed again.
     pub fn tick_input(&mut self, docked: bool, click: Option<Click>) -> PlayerInput {
         let action = self.take_action();
+        let presses = std::mem::take(&mut self.flight_presses);
         let mut input = PlayerInput {
             action,
             tag: std::mem::take(&mut self.tag_press),
             ..player_input(self, click)
         };
-        if !docked || input.thrust == Vec2::ZERO {
-            self.held_into_dock = input.thrust != Vec2::ZERO;
-        } else if self.held_into_dock {
-            input.thrust = Vec2::ZERO;
+        if docked {
+            let live = |key: Key| {
+                (self.held(key) && !self.held_into_dock.contains(&key)) || presses.contains(&key)
+            };
+            let axis = |minus: Key, plus: Key| {
+                f32::from(u8::from(live(plus))) - f32::from(u8::from(live(minus)))
+            };
+            input.thrust =
+                Vec2::new(axis(Key::A, Key::D), axis(Key::S, Key::W)).normalize_or_zero();
+        } else {
+            // Whatever is held now is held into the docking if this tick docks.
+            self.held_into_dock = FLIGHT_KEYS.into_iter().filter(|&k| self.held(k)).collect();
         }
         input
     }
@@ -327,6 +349,57 @@ mod tests {
         assert_eq!(k.tick_input(true, None).thrust, Vec2::new(-1.0, 0.0));
         // Undocked, the next docking starts over.
         assert_eq!(k.tick_input(false, None).thrust, Vec2::new(-1.0, 0.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+    }
+
+    /// Docks with D held: one undocked tick with D down, then docked.
+    fn docked_holding_d() -> Keys {
+        let mut k = Keys::default();
+        k.press(Key::D);
+        assert_eq!(k.tick_input(false, None).thrust, Vec2::new(1.0, 0.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        k
+    }
+
+    #[test]
+    fn a_held_key_let_go_and_pressed_again_between_ticks_flies_off() {
+        let mut k = docked_holding_d();
+        k.release(Key::D);
+        k.press(Key::D);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(1.0, 0.0));
+        // A tap that's down and up again before the tick still flies off, once.
+        let mut k = docked_holding_d();
+        k.release(Key::D);
+        k.press(Key::W);
+        k.release(Key::W);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(0.0, 1.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+    }
+
+    #[test]
+    fn a_press_after_a_pause_flies_off() {
+        let mut k = docked_holding_d();
+        // Paused and unpaused with D still physically down: it no longer counts...
+        k.clear();
+        assert!(!k.event(Key::D, true, true));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        // ...and W pressed before the first resumed tick is a fresh press.
+        let mut k = docked_holding_d();
+        k.clear();
+        k.press(Key::W);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn a_press_opposite_a_held_key_flies_off_but_the_held_key_never_does() {
+        let mut k = docked_holding_d();
+        // A against D, which was held into the docking: A flies off on its own.
+        k.press(Key::A);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(-1.0, 0.0));
+        // Still docked (say the undock didn't happen) and A let go: D, never let go,
+        // still doesn't fly off.
+        k.release(Key::A);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
         assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
     }
 
