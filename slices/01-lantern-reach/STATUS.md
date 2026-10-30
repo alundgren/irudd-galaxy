@@ -2,14 +2,15 @@
 
 A release candidate for the first vertical slice (issue #10, decisions on PR #11). The
 whole arc is in and playable, from undocking the Wren to the Hearthbound choice and home
-again. The main gap is pacing: on authored data the arc runs about four times longer than
-the design's two hours to prestige. Read "What doesn't" before you play.
+again. After the first playtest's fixes (below), the journey bot reaches prestige in about
+two hours of game time on authored data, as the design intends. Read "What doesn't"
+before you play.
 
 ## Checks at this release candidate
 
 | Where | What ran | Result |
 |---|---|---|
-| Windows 11 | `cargo xtask check` (fetch-luau, fmt, clippy `-D warnings`, tests) | Pass: 509 tests, 0 failed, 19 ignored (507 before this PR's two new tests) |
+| Windows 11 | `cargo xtask check` (fetch-luau, fmt, clippy `-D warnings`, tests) | Pass: 512 tests, 0 failed, 19 ignored (after the playtest fixes; 509 at the release candidate) |
 | Windows 11 | `cargo test -p render -- --ignored` (GPU) | Pass: 9 of 9 |
 | Windows 11 | `galaxy play` for 40,000 frames, plus the live game-master steps | 0 render errors |
 | Linux (WSL 2, Ubuntu 26.04) | `cargo xtask check`, then `cargo build --release` (thin LTO) | Pass: 509 tests, 0 failed, 19 ignored; release builds |
@@ -19,6 +20,13 @@ the design's two hours to prestige. Read "What doesn't" before you play.
 Linux had no real GPU, no desktop session and no audio device. macOS is untested.
 
 ### The journey bot on the authored pacing
+
+After the playtest fixes (Wren at 72 u/s, the Glass Drift regrowing 1.5 a pulse instead
+of 0.15): Run A 17 of 17 beats at tick 222,255 (2.06 h), 141 dockings, prestige at
+215,871 (2.0 h), 8 of 8 game-master change types `checked`; Run B 17 of 17 at tick
+238,441 (2.21 h), 144 dockings, prestige at 232,057 (2.15 h). One tender stall per run,
+no script faults. Full table in `content/07-pacing.md`. The table below is the
+integration pass, before the fixes.
 
 New saves with seed 1, `galaxy sim run --bot journey`, release build:
 
@@ -84,11 +92,11 @@ build makes possible, not whether it passes.
 
 | # | Question | Honest note |
 |---|---|---|
-| 1 | Does a hands-on first ship stay satisfying while it works toward clear goals? | Every beat has a one-line goal and Act 1 runs in minutes. The first playtest found the Space confirm to undock, a low start speed and a mining lens with no perceptible effect. None is fixed yet. |
+| 1 | Does a hands-on first ship stay satisfying while it works toward clear goals? | Every beat has a one-line goal and Act 1 runs in minutes. The first playtest found the Space confirm to undock, a low start speed and a mining lens with no perceptible effect. All three are fixed: flying off undocks, the Wren is 20% faster, and the lens says what it does and shows its rate while you mine. |
 | 2 | Do control unlocks feel like progression, from WASD and Space to queues and loops? | Every control tier unlocks in order through beats (nav chip b06, map travel b07, order slate and loop log b11), and the bot uses each. The flight model is on hold pending a separate design exploration. |
-| 3 | Does first automation feel like a new game opening? | The tender runs your own loop with the same verbs and does a patient sell no other craft does. It stalls often on authored data (119 to 168 stalled laps per run), and the player can't tell it apart in flight because it has no label. |
+| 3 | Does first automation feel like a new game opening? | The tender runs your own loop with the same verbs and does a patient sell no other craft does. It stalled often on authored data (119 to 168 stalled laps per run) while the glassite belt was dead; after the regrowth fix the bot's tender stalls once per run. The player still can't tell it apart in flight because it has no label. |
 | 4 | Do scouted living prices with saturation create real choices? | The mechanics are there: dated snapshots, "?" for unvisited stations, per-unit price drops, flood facts and split sales. Whether they create choices is untested with a human. |
-| 5 | Does the Hearthbound choice read as a calling, not paying to lose work? | The card lists what stays and what resets (it was unreadable until this PR), and both hulls are reachable. On authored pacing the 8,000 cr fee comes hours late. |
+| 5 | Does the Hearthbound choice read as a calling, not paying to lose work? | The card lists what stays and what resets (it was unreadable until this PR), and both hulls are reachable. The 8,000 cr fee now comes at about two hours of the bot's game time. |
 | 6 | Can the game master change systems, places and people live? | Yes: eight change types ship as scripts, including a sixth station built at runtime, a taught verb, moved borders and retuned shortages. All eight were `checked` in Run A, and a live propose applied. Two packs spoke too early in Act 1; fixed here. |
 | 7 | Where is the line between the base engine and the live scripting layer? | Every game-master change ships as a script. What needed a base change is listed below. |
 | 8 | Do slow pilot growth and factions add depth or clutter? | Traits (such as Rimesight), standing and regard reach the player through people's lines, not a stat screen. Untested with a human. |
@@ -97,21 +105,16 @@ build makes possible, not whether it passes.
 
 ## What doesn't, and known issues
 
-1. **Pacing on authored data is about four times the target.** Prestige takes 6.4 to
-   7.9 hours of game time against the design's two. Most of it is the far glassite belt:
-   it regrows 0.15 units per region pulse, spread over all eight rocks, and a spent rock
-   comes back only at 25% of its yield. That works out to roughly 870 Cinder Drift
-   dockings or jumps before one rock reforms. The bot waits about 580,000 ticks for it
-   in Run A (before b12) and about 523,000 in Run B (before b16), docking back and forth
-   with no trades. A human can trade instead, but the b15 fragment needs a glassite rock
-   mined out after b13. Tuning lives in `packs/core/data/rocks.toml` (`regrow`) and
-   `ship_rules.toml` (`reform_share`). It's a design call, so it's left as is. Use
-   `--beat N` to skip ahead.
-2. **The PR #11 playtest list is open:** undocking by flying off, +20% start speed, the
-   nav-chip hint and banner, naming the Wren, Orrin, the tender and Kettle Dock before
-   they're used (Tamsin mentions "a tender" in Act 1), the mining lens's perceptible
-   effect, and rock shading in blocks plus beam clipping. Only the two game-master lines
-   below were fixed.
+1. **Pacing is measured on the bot only.** The bot now reaches prestige in 2.0 to 2.15
+   hours of game time (it was 6.4 to 7.9: the Glass Drift took about 870 Cinder Drift
+   pulses to reform a rock, and the bot shuttled for hours). The Glass Drift regrows 1.5
+   a pulse now; a human's two hours are unmeasured. Tuning: `packs/core/data/rocks.toml`
+   (`regrow`) and `ship_rules.toml` (`reform_share`).
+2. **The PR #11 playtest list:** undocking by flying off, +20% start speed, the nav-chip
+   hint and a smaller goal line, names before use (the Wren, Orrin, Kettle Dock, Rook,
+   the tender, Rimewater), and upgrades that say what they do are fixed. Rock shading in
+   blocks and beam clipping are a separate renderer pass. The flight model, station UI
+   redesign, audio, music and the map are on hold for design.
 3. **The chronicle lowercases names:** "At Cinder Hook, hesper redrew the border."
 4. **No end card at b17.** After coming home the goal line goes blank, and the world
    keeps running.

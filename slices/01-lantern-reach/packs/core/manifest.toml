@@ -81,6 +81,13 @@ id = "act1"
 file = "scripts/act1.luau"
 handlers = ["on.dock", "on.deliver"]
 
+# Names before they're used: as a beat starts, whoever is at the dock introduces the
+# people and places its goal names.
+[[script]]
+id = "intro"
+file = "scripts/intro.luau"
+handlers = ["on.beat_started"]
+
 # Act 2's directed beats, b06 to b08.
 [[script]]
 id = "act2"

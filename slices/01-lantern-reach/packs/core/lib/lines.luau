@@ -98,8 +98,41 @@ local function n_of(ctx: G.Ctx, q: G.HistoryQuery): number
 	return ctx.history:count(q)
 end
 
+-- Whether `f` started beat `beat`.
+local function started(f: G.Fact, beat: string): boolean
+	return f.subjects.other == beat
+end
+
 local lines: { Line } = {
 	-- Ilse Marrow, dockmaster at Lantern Wharf
+	-- .18 and .19 introduce people and places before the goals name them (the intro
+	-- script says them as their beats start).
+	{
+		id = "line.ilse_marrow.18",
+		npc = ids.ILSE,
+		kind = "beat_started",
+		specific = 2,
+		beat = true,
+		when = function(f, _)
+			return started(f, ids.B01)
+		end,
+		text = function(_, _)
+			return "Welcome to Lantern Wharf. I'm Ilse; I keep the dock. The Wren's yours now: small, round-nosed and honest. Odo at Kettle Dock needs ice for his greenhouse, and the pale rocks east of here are Rimewater ice."
+		end,
+	},
+	{
+		id = "line.ilse_marrow.19",
+		npc = ids.ILSE,
+		kind = "beat_started",
+		specific = 2,
+		beat = true,
+		when = function(f, _)
+			return started(f, ids.B07)
+		end,
+		text = function(_, _)
+			return "Rook Adeyemi keeps the ore depot at Cinder Hook, over in Cinder Drift, and he's waiting on plate from us. The lantern current east of the Wharf carries you there."
+		end,
+	},
 	{
 		id = "line.ilse_marrow.01",
 		npc = ids.ILSE,
@@ -154,7 +187,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.COMPACT
 		end,
 		text = function(_, _)
-			return "The Compact brought ice in. Kind of them. They'll want thanking."
+			return "The Tollway Compact brought ice in. Kind of them. They'll want thanking."
 		end,
 	},
 	{
@@ -166,7 +199,7 @@ local lines: { Line } = {
 			return f.subjects.station == ids.BRASS and f.subjects.ship == ids.PLAYER
 		end,
 		text = function(_, _)
-			return "Saffron says you sold Brassmouth so much glassite they're using it as doorstops."
+			return "Saffron Vey at Brassmouth says you sold them so much glassite they're using it as doorstops."
 		end,
 	},
 	{
@@ -254,7 +287,7 @@ local lines: { Line } = {
 			return f.subjects.other == "canon.fragments_sing"
 		end,
 		text = function(_, _)
-			return "The Lamplighters are humming at their lamps. Something about your rock singing."
+			return "The Lamplighter Society out at the Observatory are humming at their lamps. Something about your rock singing."
 		end,
 	},
 	{
@@ -396,6 +429,19 @@ local lines: { Line } = {
 
 	-- Odo Fenn, head grower and dockmaster at Kettle Dock
 	{
+		id = "line.odo_fenn.10",
+		npc = ids.ODO,
+		kind = "beat_started",
+		specific = 2,
+		beat = true,
+		when = function(f, _)
+			return started(f, ids.B04)
+		end,
+		text = function(_, _)
+			return "Orrin Vale, the hullwright back at the Wharf, has a mining lens that cuts rock quicker. The Wharf buys ore from the dark rocks west of it, and we'll always take ice."
+		end,
+	},
+	{
 		id = "line.odo_fenn.01",
 		npc = ids.ODO,
 		kind = "deliver",
@@ -476,7 +522,7 @@ local lines: { Line } = {
 			return f.subjects.ship == ids.LITTLE_PAIL
 		end,
 		text = function(_, _)
-			return "See Little Pail sitting there? She's not stuck. She's listening."
+			return "See Little Pail, my tender, sitting there? She's not stuck. She's listening."
 		end,
 	},
 	{
@@ -513,7 +559,7 @@ local lines: { Line } = {
 			return f.subjects.ship == ids.PLAYER
 		end,
 		text = function(f, ctx)
-			return `You emptied a whole hold into {station_name(ctx, f.subjects.station)}. A tender would've waited.`
+			return `You emptied a whole hold into {station_name(ctx, f.subjects.station)} at once. My Little Pail would've waited for the price. She's a tender: a little craft with no crew, and all the patience in the world.`
 		end,
 	},
 	{
@@ -550,7 +596,7 @@ local lines: { Line } = {
 			return f.subjects.ware == ids.ICE and f.subjects.station == ids.KETTLE
 		end,
 		text = function(_, _)
-			return "Kettle's had its fill of ice just now. Little Pail will show you when it's thirsty again."
+			return "Kettle's had its fill of ice just now. My tender, Little Pail, will show you when it's thirsty again."
 		end,
 	},
 	{
@@ -603,6 +649,19 @@ local lines: { Line } = {
 
 	-- Rook Adeyemi, depot master at Cinder Hook
 	{
+		id = "line.rook_adeyemi.09",
+		npc = ids.ROOK,
+		kind = "beat_started",
+		specific = 2,
+		beat = true,
+		when = function(f, _)
+			return started(f, ids.B08)
+		end,
+		text = function(_, _)
+			return "Glassite's the bright rock in the belt east of here. Brassmouth Exchange, up the north lane, pays well for it. Go and see how well."
+		end,
+	},
+	{
 		id = "line.rook_adeyemi.01",
 		npc = ids.ROOK,
 		kind = "deliver",
@@ -635,7 +694,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.COMPACT
 		end,
 		text = function(_, _)
-			return "Compact name on your plate. Saffron will like that. I like the plate."
+			return "Compact name on your plate. Saffron Vey, their factor at Brassmouth, will like that. I like the plate."
 		end,
 	},
 	{
@@ -666,7 +725,7 @@ local lines: { Line } = {
 		specific = 1,
 		beat = true,
 		text = function(_, _)
-			return "Two banners want my depot. I want plate. Sell me plate in whose name you like, or nobody's."
+			return "Two banners want my depot: the Wharf Cooperative's and the Tollway Compact's. I want plate. Sell me plate in whose name you like, or nobody's."
 		end,
 	},
 	{
@@ -859,7 +918,7 @@ local lines: { Line } = {
 				and n_of(ctx, { kind = "sell", ship = ids.PLAYER, station = ids.BRASS }) >= 5
 		end,
 		text = function(_, _)
-			return "Saffron says you're good for the books. From her that's practically a hug."
+			return "Saffron Vey keeps the Tollway Compact's books here, and she says you're good for them. From her that's practically a hug."
 		end,
 	},
 
@@ -995,7 +1054,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.LAMP and util.event(f).to == "trusted"
 		end,
 		text = function(_, _)
-			return "The Society asked me to say it: you are welcome at any lamp."
+			return "The Lamplighter Society asked me to say it: you are welcome at any lamp."
 		end,
 	},
 	{

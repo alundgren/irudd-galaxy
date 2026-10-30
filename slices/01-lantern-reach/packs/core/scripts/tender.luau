@@ -82,7 +82,7 @@ return G.script({
 			id = ids.B13,
 			act = 3,
 			giver = ids.TAMSIN,
-			goal = "Tamsin Oddway at Kettle Dock wants to show you her tender.",
+			goal = "Tamsin Oddway at Kettle Dock keeps tenders, little craft with no crew. She wants to show you hers.",
 			requires = {
 				G.done(ids.B11),
 				G.fact({ kind = "loop_lap", ship = ids.PLAYER }, { at_least = G.tunable("b13.loop_laps") }),
@@ -90,7 +90,7 @@ return G.script({
 			steps = {
 				{
 					id = "show",
-					goal = "Tamsin Oddway at Kettle Dock wants to show you her tender.",
+					goal = "Tamsin Oddway at Kettle Dock keeps tenders, little craft with no crew. She wants to show you hers.",
 					done = G.fact({ kind = "core.mechanic_taught", npc = ids.TAMSIN }, { since = "start" }),
 				},
 				{
@@ -100,7 +100,7 @@ return G.script({
 				},
 				{
 					id = "assign",
-					goal = "Give Thimble one of your loops and a floor price.",
+					goal = "Give Thimble, your tender, one of your loops and a floor price.",
 					-- Data first: the predicate runs only once Thimble has sold patiently
 					-- and lapped.
 					done = {

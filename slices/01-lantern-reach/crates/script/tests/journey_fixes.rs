@@ -65,12 +65,14 @@ fn a_glass_drift_mined_out_before_b13_regrows_and_still_gives_the_fragment() {
         for (_, r) in w.rocks.iter_mut().filter(|(_, r)| r.field == GLASS_DRIFT) {
             r.remaining = 0;
         }
-        // Since then, Cinder Drift has been busy: dockings and lane arrivals are its
-        // region pulses (ship_rules.toml), and regrowth spends them.
+        // Since then, Cinder Drift has been a little busy: dockings and lane arrivals
+        // are its region pulses (ship_rules.toml), and regrowth spends them. At 1.5 a
+        // pulse a whole mined-out belt reforms a rock within about 90 (at 0.15 it took
+        // about 870, and the journey bot shuttled for hours).
         let cinder = CounterScope::Region { region: CINDER };
-        w.counters.bump(CounterKind::Dockings, &cinder, 1200);
+        w.counters.bump(CounterKind::Dockings, &cinder, 120);
     });
-    assert_eq!(p.world().fields.get(&GLASS_DRIFT).unwrap().regrow, 0.15);
+    assert_eq!(p.world().fields.get(&GLASS_DRIFT).unwrap().regrow, 1.5);
     p.idle(3);
     assert!(
         p.facts("rock_reformed").iter().any(|f| f

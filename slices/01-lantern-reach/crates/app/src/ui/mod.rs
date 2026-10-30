@@ -90,6 +90,9 @@ pub struct UiState {
     pub confirm: Option<HullId>,
     /// The first services row the dock screen shows when they don't all fit.
     pub services_first: usize,
+    /// Mark the goal's station at the screen edge, in gold, wherever it is: an
+    /// accessibility aid, off by default (`play --goal-marker`). Discovery comes first.
+    pub goal_marker: bool,
 }
 
 /// Compact developer diagnostics; no sim state changes and no model calls.
@@ -157,7 +160,6 @@ pub enum UiAction {
         amount: Amount,
     },
     Select(usize),
-    Undock,
     CloseMap,
     /// Buy a station service (an upgrade or a tender) now.
     Service(ServiceRequest),
@@ -242,21 +244,33 @@ fn button(
     Button { rect, action }
 }
 
-/// The goal line, centred at the top. Nothing when there's no goal.
+/// The goal line's largest and smallest font size: a small, calm line, not a banner.
+const GOAL_SIZE: f32 = 17.0;
+const GOAL_MIN_SIZE: f32 = 14.0;
+
+/// The goal line, centred at the top: one small, calm line on a soft panel. Nothing
+/// when there's no goal.
 pub fn goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
     let Some(line) = hooks::goal_line(world) else {
         return;
     };
     let (rect, size, pad) = goal_layout(&line, viewport);
     let w = rect.w;
-    o.panels.push(Panel::new(rect));
+    o.panels.push(Panel {
+        fill: palette::PARCHMENT.with_alpha(0.82),
+        border_px: 1.5,
+        radius: 10.0,
+        shadow: false,
+        ..Panel::new(rect)
+    });
     o.texts.push(
         Text::new(
             line,
-            G2::new(viewport.x * 0.5, 31.0 + (24.0 - size) * 0.5),
+            G2::new(viewport.x * 0.5, rect.y + 9.0 + (GOAL_SIZE - size) * 0.5),
             size,
         )
-        .weight(600)
+        .weight(500)
+        .color(palette::INK.with_alpha(0.85))
         .align(Align::Center)
         .wrap(w - pad + 8.0),
     );
@@ -280,12 +294,12 @@ fn hold_wares(world: &WorldState, ship: &Ship) -> Vec<String> {
 /// wraps.
 fn goal_layout(line: &str, viewport: G2) -> (Rect, f32, f32) {
     let room = (viewport.x - 2.0 * (HOLD_PANEL_WIDTH + 36.0)).max(240.0);
-    let pad = 56.0;
-    let natural = text_width(line, 24.0);
-    let size = (24.0 * (room - pad) / natural).clamp(17.0, 24.0);
+    let pad = 36.0;
+    let natural = text_width(line, GOAL_SIZE);
+    let size = (GOAL_SIZE * (room - pad) / natural).clamp(GOAL_MIN_SIZE, GOAL_SIZE);
     let rows = (text_width(line, size) / (room - pad)).ceil().max(1.0);
     let w = (text_width(line, size) + pad).min(room);
-    let h = 54.0 + (rows - 1.0) * size * 1.25;
+    let h = 38.0 + (rows - 1.0) * size * 1.25;
     (Rect::new((viewport.x - w) * 0.5, 18.0, w, h), size, pad)
 }
 
@@ -357,7 +371,20 @@ pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
     }
 }
 
-/// What Space would do right now, if anything.
+/// How fast `ship` cuts `rock` now, in units a second: the hull's rate, the fitted
+/// boosts (the mining lens) and the rock's hardness, as the sim mines it.
+pub fn mining_rate(world: &WorldState, ship: &Ship, rock: &Rock) -> f32 {
+    let hull = world.hulls.get(&ship.hull).map_or(0.0, |h| h.mining_rate);
+    let boost = galaxy_contract::modifiers::for_ship(world, &ship.id).mining_rate as f32;
+    let hardness = world
+        .rock_types
+        .get(&rock.rock_type)
+        .map_or(1.0, |t| t.hardness);
+    hull.max(0.0) * boost.max(0.0) * hardness.max(0.0)
+}
+
+/// What Space would do right now, if anything; while mining, how fast the ore comes
+/// aboard (so a fitted lens shows).
 pub fn context_hint(world: &WorldState) -> Option<String> {
     let ship = world
         .player
@@ -377,8 +404,16 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
             .map_or_else(|| way.to.to_string(), |r| r.name.clone());
         return Some(format!("Space  ·  ride the lantern current to {to}"));
     }
-    if ship.activity.mining.is_some() {
-        return None;
+    if let Some(run) = &ship.activity.mining {
+        let rock = world.rocks.get(&run.rock)?;
+        let ware = world
+            .rock_types
+            .get(&rock.rock_type)
+            .and_then(|t| world.wares.get(&t.ware))
+            .map_or_else(|| "ore".to_owned(), |w| w.name.to_lowercase());
+        let rate = format!("{:.2}", mining_rate(world, ship, rock));
+        let rate = rate.trim_end_matches('0').trim_end_matches('.');
+        return Some(format!("Mining {ware}  ·  {rate} a second"));
     }
     let rock = galaxy_ship::space::rock_in_reach(world, &ship.region, ship.position)?;
     let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
@@ -443,13 +478,24 @@ pub fn station_labels(o: &mut Overlay, world: &WorldState, camera: &Camera, view
     }
 }
 
-/// Small markers at the screen edge for stations out of view in the region you're in,
-/// and for the goal's station wherever it is.
-pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewport: G2) {
+/// Small markers at the screen edge for stations out of view in the region you're in.
+/// With `goal_marker` (off by default) the goal's station is marked too, in gold,
+/// wherever it is.
+pub fn edge_markers(
+    o: &mut Overlay,
+    world: &WorldState,
+    camera: &Camera,
+    viewport: G2,
+    goal_marker: bool,
+) {
     let Some(ship) = world.player.ship.as_ref().and_then(|s| world.ships.get(s)) else {
         return;
     };
-    let goal = hooks::goal_place(world);
+    let goal = if goal_marker {
+        hooks::goal_place(world)
+    } else {
+        None
+    };
     let inset = 34.0;
     for s in world.stations.values() {
         let is_goal = goal.as_ref() == Some(&s.id);
@@ -737,14 +783,17 @@ fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
 }
 
 /// What the dock screen says besides the market: the latest refusals, one calm line
-/// each.
+/// each, and what the latest purchase changed.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Notices<'a> {
     pub trade: Option<&'a str>,
     pub service: Option<&'a str>,
+    /// The purchase that just went through, in plain words.
+    pub fitted: Option<&'a str>,
 }
 
-const OFFER_ROW: f32 = 50.0;
+/// An offer: its name and price, what it does, and what stands in the way, if anything.
+const OFFER_ROW: f32 = 68.0;
 const SERVICE_HEAD: f32 = 26.0;
 const ASK_ROW: f32 = 42.0;
 /// The services pager: "Services 2–4 of 6" with Up and Down.
@@ -832,9 +881,9 @@ fn service_window(rows: &[ServiceRow], wanted: usize, room: f32) -> (usize, usiz
 /// The dock screen: the station's name, its market lines (price per unit, stock, your
 /// hold, buy or sell), any refusal in one calm line, the station's services (what the
 /// hullwright and tender keeper sell, with the price and what stands in the way in
-/// plain words; the dockmaster's "What changed?"), and Undock. It sits under the hold,
+/// plain words; the dockmaster's "What changed?"), and how to leave. It sits under the hold,
 /// or beside it when a full hold leaves too little room below, and always fits the
-/// canvas height with Undock on screen: market rows that don't fit scroll with the
+/// canvas height with its foot on screen: market rows that don't fit page with the
 /// selection, and services that don't fit page with Up and Down.
 pub fn dock_panel(
     o: &mut Overlay,
@@ -855,7 +904,14 @@ pub fn dock_panel(
     let w = DOCK_PANEL_WIDTH.min(viewport.x - 36.0);
     let row = 44.0;
     let notice_h = if notice.is_some() { 34.0 } else { 0.0 };
-    let service_notice_h = if notices.service.is_some() { 30.0 } else { 0.0 };
+    // A refusal, or else what the purchase that just went through changes (it can
+    // take two rows).
+    let service_line = notices.service.or(notices.fitted);
+    let service_notice_h = match service_line {
+        Some(n) if text_width(n, 16.0) > w - 48.0 => 50.0,
+        Some(_) => 30.0,
+        None => 0.0,
+    };
     let (scroll_h, head_h) = (24.0, 26.0);
     let rows = service_rows(&services);
     let services_full = window_height(&rows, 0, rows.len());
@@ -864,7 +920,7 @@ pub fn dock_panel(
     } else {
         head_h + lines.len() as f32 * row
     };
-    // Title, the notices and the foot with Undock: always shown.
+    // Title, the notices and the foot (how to leave): always shown.
     let fixed = 74.0 + notice_h + service_notice_h + 70.0;
     let natural = fixed + market_full + services_full;
     // Under the goal line and the hold, which share the top right; if it doesn't fit
@@ -911,7 +967,7 @@ pub fn dock_panel(
     };
     let h = fixed + table_h + services_h;
     // Never below the canvas: on a screen too small for even the minimum, the panel
-    // rides up over the goal line rather than lose Undock.
+    // rides up over the goal line rather than lose its foot.
     let y0 = top
         .max((viewport.y - h - 18.0).min(140.0))
         .min((viewport.y - h - 18.0).max(18.0));
@@ -1047,20 +1103,33 @@ pub fn dock_panel(
             y += row;
         }
         if scrolled {
+            // The rest of the market pages with the mouse, like the services.
+            let last = first + shown;
             o.texts.push(
                 Text::new(
-                    format!(
-                        "{}–{} of {}  ·  W/S for more",
-                        first + 1,
-                        first + shown,
-                        lines.len()
-                    ),
+                    format!("{}–{} of {}", first + 1, last, lines.len()),
                     G2::new(col_ware, y + 2.0),
                     13.0,
                 )
                 .weight(500)
                 .color(palette::INK.with_alpha(0.6)),
             );
+            buttons.push(button(
+                o,
+                ui,
+                Rect::new(x0 + w - 24.0 - 128.0, y - 2.0, 60.0, 24.0),
+                "Up",
+                first > 0,
+                UiAction::Select(first.saturating_sub(1)),
+            ));
+            buttons.push(button(
+                o,
+                ui,
+                Rect::new(x0 + w - 24.0 - 60.0, y - 2.0, 60.0, 24.0),
+                "Down",
+                last < lines.len(),
+                UiAction::Select((last + shown - 1).min(lines.len() - 1)),
+            ));
             y += scroll_h;
         }
     }
@@ -1103,17 +1172,21 @@ pub fn dock_panel(
                     )
                     .weight(600),
                 );
-                let detail = offer.blocked.as_deref().unwrap_or(&offer.effect);
+                // What it does always shows, even before you can buy it.
                 o.texts.push(
-                    Text::new(detail, G2::new(col_ware, y + 24.0), 14.0)
+                    Text::new(offer.effect.as_str(), G2::new(col_ware, y + 23.0), 14.0)
                         .weight(500)
-                        .color(if offer.blocked.is_some() {
-                            palette::TERRACOTTA
-                        } else {
-                            palette::INK.with_alpha(0.7)
-                        })
+                        .color(palette::INK.with_alpha(0.75))
                         .wrap(w - 48.0 - 140.0),
                 );
+                if let Some(blocked) = offer.blocked.as_deref() {
+                    o.texts.push(
+                        Text::new(blocked, G2::new(col_ware, y + 43.0), 13.0)
+                            .weight(600)
+                            .color(palette::TERRACOTTA)
+                            .wrap(w - 48.0 - 140.0),
+                    );
+                }
                 let (label, action) = match &offer.request {
                     ServiceRequest::Prestige { to } => ("Trade up", UiAction::Prestige(to.clone())),
                     ServiceRequest::Build { .. } => {
@@ -1176,11 +1249,16 @@ pub fn dock_panel(
         ));
         y += PAGER_ROW;
     }
-    if let Some(n) = notices.service {
+    if let Some(n) = service_line {
+        let color = if notices.service.is_some() {
+            palette::TERRACOTTA
+        } else {
+            Color::hex(0x2f7a4a)
+        };
         o.texts.push(
             Text::new(n, G2::new(col_ware, y + 4.0), 16.0)
                 .weight(600)
-                .color(palette::TERRACOTTA)
+                .color(color)
                 .wrap(w - 48.0),
         );
         y += service_notice_h;
@@ -1188,24 +1266,16 @@ pub fn dock_panel(
     let foot_y = y0 + h - 52.0;
     let _ = y;
     o.texts.push(
-        Text::new(
-            "W/S choose  ·  E trade one  ·  Shift+E trade all",
-            G2::new(col_ware, foot_y + 12.0),
-            14.0,
-        )
-        .weight(500)
-        .color(palette::INK.with_alpha(0.6)),
+        Text::new(DOCK_FOOT, G2::new(col_ware, foot_y + 12.0), 15.0)
+            .weight(500)
+            .color(palette::INK.with_alpha(0.65)),
     );
-    buttons.push(button(
-        o,
-        ui,
-        Rect::new(x0 + w - 24.0 - 150.0, foot_y, 150.0, 36.0),
-        "Undock  ·  Space",
-        true,
-        UiAction::Undock,
-    ));
     buttons
 }
+
+/// The dock screen's foot: how to leave. There's no undock button or key: flying off
+/// undocks.
+pub const DOCK_FOOT: &str = "Fly off with W A S D to undock";
 
 /// The map's own furniture: a title and how to close it.
 pub fn map_furniture(o: &mut Overlay, ui: &UiState, viewport: G2) -> Vec<Button> {
@@ -1245,10 +1315,10 @@ mod tests {
             },
             Button {
                 rect: Rect::new(10.0, 10.0, 20.0, 20.0),
-                action: UiAction::Undock,
+                action: UiAction::CloseMap,
             },
         ];
-        assert_eq!(hit(&b, G2::new(15.0, 15.0)), Some(&UiAction::Undock));
+        assert_eq!(hit(&b, G2::new(15.0, 15.0)), Some(&UiAction::CloseMap));
         assert_eq!(hit(&b, G2::new(50.0, 50.0)), Some(&UiAction::Select(0)));
         assert_eq!(hit(&b, G2::new(150.0, 50.0)), None);
     }
@@ -1262,6 +1332,41 @@ mod tests {
         assert_eq!(visible_rows(9, 8, 4), (5, 4));
         assert_eq!(visible_rows(9, 20, 4), (5, 4));
         assert_eq!(visible_rows(9, 2, 0), (2, 1), "at least one row");
+    }
+
+    #[test]
+    fn the_mining_hint_shows_the_rate_and_the_lens() {
+        let dir =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data");
+        let mut state = galaxy_core::new_game(&dir, 1).unwrap();
+        let w = &mut state.world;
+        let ship_id = w.player.ship.clone().unwrap();
+        let rock = w
+            .rocks
+            .values()
+            .find(|r| r.rock_type.as_str() == "rock_type.ice")
+            .unwrap()
+            .clone();
+        let ship = w.ships.get_mut(&ship_id).unwrap();
+        ship.docked_at = None;
+        ship.position = rock.position + Vec2::new(10.0, 0.0);
+        ship.activity.mining = Some(galaxy_contract::ship::MiningRun {
+            rock: rock.id.clone(),
+            progress: 0.0,
+            mined: 0,
+        });
+        assert_eq!(
+            context_hint(w).as_deref(),
+            Some("Mining ice  ·  1 a second")
+        );
+        w.player
+            .fittings
+            .insert(UpgradeId::from_static("upgrade.mining_lens"));
+        assert_eq!(
+            context_hint(w).as_deref(),
+            Some("Mining ice  ·  1.5 a second"),
+            "the lens shows"
+        );
     }
 
     #[test]

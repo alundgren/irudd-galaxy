@@ -3,7 +3,7 @@
 //! activity (dockings), never in time.
 //!
 //! The loop: docked, it sells what the station buys and buys a little of what the next
-//! station buys; it undocks; if the hold is empty and a rock of a ware the next station
+//! station buys; it flies off (undocks); if the hold is empty and a rock of a ware the next station
 //! buys is in the region, it mines it until the hold is full; then it flies into the
 //! next station's ring and docks. Stations are visited in ID order. Everything it
 //! decides comes from the world, so with and without a pack the runs differ only by
@@ -133,7 +133,9 @@ impl ActivityBot {
                         self.action_was = false;
                         return input;
                     }
-                    input.action = self.press();
+                    // Flies off to undock.
+                    input.thrust = Vec2::new(0.0, 1.0);
+                    self.action_was = false;
                 }
                 // Docked without having seen the docking (a fork taken docked): trade first.
                 _ => {

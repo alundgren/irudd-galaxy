@@ -5,13 +5,13 @@
 # ship_rules.toml's flight.accel_time.
 # Schema: crates/contract/schemas/data-hulls.json
 
-# A good little ship: the player's first.
+# A good little ship: the player's first. 72 u/s: the first playtest found 60 slow.
 [[hull]]
 id = "hull.wren"
 name = "Wren"
 tier = 0
 hold_capacity = 20
-max_speed = 60.0
+max_speed = 72.0
 turn_rate = 270.0
 mining_rate = 1.0
 

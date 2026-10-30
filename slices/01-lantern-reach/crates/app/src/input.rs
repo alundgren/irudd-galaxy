@@ -2,8 +2,8 @@
 //!
 //! The window maps winit's key codes onto [`Key`] so this stays plain and testable.
 //! WASD thrusts screen-relative (the camera looks straight down the world's Z with +Y
-//! up the screen, so W is +Y) and the sim stops the ship when they're released; Space
-//! is the context action, held while mining. Clicks become click targets on the play
+//! up the screen, so W is +Y) and the sim stops the ship when they're released; docked,
+//! flying off undocks. Space is the context action, held while mining. Clicks become click targets on the play
 //! plane; the sim ignores them until the control flags unlock click controls.
 
 use std::collections::BTreeSet;
@@ -19,16 +19,9 @@ pub enum Key {
     A,
     S,
     D,
-    Up,
-    Down,
-    Left,
-    Right,
     Space,
     T,
     Shift,
-    /// Trade the selected dock line.
-    E,
-    Enter,
     /// The map.
     M,
     /// Pause.
@@ -51,12 +44,19 @@ pub enum Key {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Keys {
     down: BTreeSet<Key>,
-    /// A fresh Space press (or the Undock button) no tick has seen yet.
+    /// A fresh Space press no tick has seen yet.
     action_press: bool,
     tag_press: bool,
     /// The action the last tick was given.
     action_sent: bool,
+    /// Flight keys pressed since the last tick, even if already let go.
+    flight_presses: BTreeSet<Key>,
+    /// Flight keys held into the docking and not let go since: they don't fly off, so
+    /// keys still held from the approach never fly straight back out.
+    held_into_dock: BTreeSet<Key>,
 }
+
+const FLIGHT_KEYS: [Key; 4] = [Key::W, Key::A, Key::S, Key::D];
 
 impl Keys {
     /// A key event from the window. Returns true for a fresh press: one that isn't
@@ -67,9 +67,14 @@ impl Keys {
         }
         if !down {
             self.down.remove(&key);
+            self.held_into_dock.remove(&key);
             return false;
         }
         let fresh = self.down.insert(key);
+        if fresh && FLIGHT_KEYS.contains(&key) {
+            self.held_into_dock.remove(&key);
+            self.flight_presses.insert(key);
+        }
         if fresh && key == Key::Space {
             self.action_press = true;
         }
@@ -91,18 +96,21 @@ impl Keys {
         self.set(key, false);
     }
 
-    /// A press of the context action that isn't a key (the Undock button).
+    /// A press of the context action that isn't a key (scripts and tests).
     pub fn press_action(&mut self) {
         self.action_press = true;
     }
 
     /// Lets go of everything and forgets any press not yet delivered: the window lost
     /// focus, or the PAUSED card opened or closed. Keys still physically down then need
-    /// a real release and press to count again.
+    /// a real release and press to count again, and that press is a fresh one: docked, it
+    /// flies off.
     pub fn clear(&mut self) {
         self.down.clear();
         self.action_press = false;
         self.tag_press = false;
+        self.flight_presses.clear();
+        self.held_into_dock.clear();
     }
 
     /// The context action for the next tick. A press since the last tick reaches it
@@ -120,14 +128,32 @@ impl Keys {
         action
     }
 
-    /// The next tick's input, taking any latched press ([`Keys::take_action`]).
+    /// The next tick's input, taking any latched press ([`Keys::take_action`]). Docked,
+    /// a fresh press of a flight key flies off and undocks, even one let go again before
+    /// this tick or one opposite a key still held. Keys held into the docking don't count
+    /// until they're let go and pressed again.
     pub fn tick_input(&mut self, docked: bool, click: Option<Click>) -> PlayerInput {
         let action = self.take_action();
-        PlayerInput {
+        let presses = std::mem::take(&mut self.flight_presses);
+        let mut input = PlayerInput {
             action,
             tag: std::mem::take(&mut self.tag_press),
-            ..player_input(self, docked, click)
+            ..player_input(self, click)
+        };
+        if docked {
+            let live = |key: Key| {
+                (self.held(key) && !self.held_into_dock.contains(&key)) || presses.contains(&key)
+            };
+            let axis = |minus: Key, plus: Key| {
+                f32::from(u8::from(live(plus))) - f32::from(u8::from(live(minus)))
+            };
+            input.thrust =
+                Vec2::new(axis(Key::A, Key::D), axis(Key::S, Key::W)).normalize_or_zero();
+        } else {
+            // Whatever is held now is held into the docking if this tick docks.
+            self.held_into_dock = FLIGHT_KEYS.into_iter().filter(|&k| self.held(k)).collect();
         }
+        input
     }
 
     pub fn held(&self, key: Key) -> bool {
@@ -145,12 +171,13 @@ pub fn thrust(keys: &Keys) -> Vec2 {
     v.normalize_or_zero()
 }
 
-/// The input the held keys make. While docked the keys drive the dock screen, so there
-/// is no thrust (Space still undocks). `click` is consumed by the first tick it goes
-/// into. The window and scripts use [`Keys::tick_input`], which adds latched presses.
-pub fn player_input(keys: &Keys, docked: bool, click: Option<Click>) -> PlayerInput {
+/// The input the held keys make. Docked, thrust flies off and undocks (Space does
+/// nothing there). `click` is consumed by the first tick it goes into. The window and
+/// scripts use [`Keys::tick_input`], which adds latched presses and keeps keys held
+/// from the approach from undocking.
+pub fn player_input(keys: &Keys, click: Option<Click>) -> PlayerInput {
     PlayerInput {
-        thrust: if docked { Vec2::ZERO } else { thrust(keys) },
+        thrust: thrust(keys),
         action: keys.held(Key::Space),
         tag: false,
         click,
@@ -233,7 +260,7 @@ mod tests {
         k.press(Key::A);
         assert_eq!(thrust(&k), Vec2::new(-1.0, 0.0));
         k.release(Key::A);
-        let input = player_input(&k, false, None);
+        let input = player_input(&k, None);
         assert_eq!(input, PlayerInput::default(), "released keys are hands off");
     }
 
@@ -241,10 +268,9 @@ mod tests {
     fn space_is_the_held_context_action() {
         let mut k = Keys::default();
         k.press(Key::Space);
-        assert!(player_input(&k, false, None).action);
-        assert!(player_input(&k, true, None).action, "Space undocks");
+        assert!(player_input(&k, None).action);
         k.release(Key::Space);
-        assert!(!player_input(&k, false, None).action);
+        assert!(!player_input(&k, None).action);
     }
 
     #[test]
@@ -295,16 +321,86 @@ mod tests {
         k.clear();
         assert!(!k.take_action());
         k.press_action();
-        assert!(k.take_action(), "the Undock button presses");
+        assert!(k.take_action(), "a scripted press");
         assert!(!k.take_action());
     }
 
     #[test]
-    fn docked_keys_drive_the_dock_screen_not_the_ship() {
+    fn docked_a_fresh_thrust_flies_off() {
         let mut k = Keys::default();
+        // Docked with no keys down: W flies off.
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
         k.press(Key::W);
-        assert_eq!(player_input(&k, true, None).thrust, Vec2::ZERO);
-        assert_eq!(player_input(&k, false, None).thrust, Vec2::new(0.0, 1.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn keys_held_from_the_approach_dont_fly_straight_back_out() {
+        let mut k = Keys::default();
+        k.press(Key::D);
+        assert_eq!(k.tick_input(false, None).thrust, Vec2::new(1.0, 0.0));
+        // Space in the ring docks with D still down: docked, D does nothing...
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        // ...until it's let go and pressed again.
+        k.release(Key::D);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        k.press(Key::A);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(-1.0, 0.0));
+        // Undocked, the next docking starts over.
+        assert_eq!(k.tick_input(false, None).thrust, Vec2::new(-1.0, 0.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+    }
+
+    /// Docks with D held: one undocked tick with D down, then docked.
+    fn docked_holding_d() -> Keys {
+        let mut k = Keys::default();
+        k.press(Key::D);
+        assert_eq!(k.tick_input(false, None).thrust, Vec2::new(1.0, 0.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        k
+    }
+
+    #[test]
+    fn a_held_key_let_go_and_pressed_again_between_ticks_flies_off() {
+        let mut k = docked_holding_d();
+        k.release(Key::D);
+        k.press(Key::D);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(1.0, 0.0));
+        // A tap that's down and up again before the tick still flies off, once.
+        let mut k = docked_holding_d();
+        k.release(Key::D);
+        k.press(Key::W);
+        k.release(Key::W);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(0.0, 1.0));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+    }
+
+    #[test]
+    fn a_press_after_a_pause_flies_off() {
+        let mut k = docked_holding_d();
+        // Paused and unpaused with D still physically down: it no longer counts...
+        k.clear();
+        assert!(!k.event(Key::D, true, true));
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        // ...and W pressed before the first resumed tick is a fresh press.
+        let mut k = docked_holding_d();
+        k.clear();
+        k.press(Key::W);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(0.0, 1.0));
+    }
+
+    #[test]
+    fn a_press_opposite_a_held_key_flies_off_but_the_held_key_never_does() {
+        let mut k = docked_holding_d();
+        // A against D, which was held into the docking: A flies off on its own.
+        k.press(Key::A);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::new(-1.0, 0.0));
+        // Still docked (say the undock didn't happen) and A let go: D, never let go,
+        // still doesn't fly off.
+        k.release(Key::A);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
+        assert_eq!(k.tick_input(true, None).thrust, Vec2::ZERO);
     }
 
     #[test]

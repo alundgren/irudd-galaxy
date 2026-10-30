@@ -37,7 +37,7 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | Key | Does |
 |---|---|
 | **W A S D** | Fly. The ship stops when you let go. |
-| **Space** | The one thing in reach: dock in a ring, undock, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which. |
+| **Space** | The one thing in reach: dock in a ring, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which; while you mine it shows how fast the ore comes aboard. |
 | **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
 | **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
 | **N** | Mute or unmute the sound (remembered between games). |
@@ -46,15 +46,18 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
 
 Docked, the dock screen lists the station's market: the price of the next unit, the
-stock and what's in your hold. **W/S** (or the arrows) pick a line, **E** trades one,
-**Shift+E** sells all of it or buys as many as fit and you can afford; the buttons do
-the same. Each price moves a little with every unit, so selling all at once earns less
-per unit than spreading it out. **Space** or the Undock button leaves. A trade you ask
-for goes ahead of the flagship's own queued orders, which wait their turn.
+stock and what's in your hold. It's mouse-first: **Sell 1** / **Buy 1** trade one,
+**Sell all** sells all of it and **Buy max** buys as many as fit and you can afford; a
+long market pages with Up and Down. Each price moves a little with every unit, so
+selling all at once earns less per unit than spreading it out. To leave, just fly off
+with **W A S D**: there's no undock button or key, and keys still held from the approach
+don't count until you press them again. A trade you ask for goes ahead of the
+flagship's own queued orders, which wait their turn.
 
 Below the market are the station's people. The hullwright (Orrin, at the Wharf) lists
-what he can fit now, with the price and what it does, or what stands in the way ("Mining
-lens costs 600 cr. You have 160 cr."); **Fit** buys it. Tamsin at Kettle Dock builds the
+what he can fit now, with the price, what it does in plain words, and what stands in
+the way ("Mining lens costs 600 cr. You have 160 cr."); **Fit** buys it, and a green
+line says what changed ("Orrin fitted your mining lens. You mine half again as fast."). Tamsin at Kettle Dock builds the
 tender once you've earned it, and Orrin's prestige offer opens a card that says what
 stays and what resets before you trade up. At a dockmaster, **Ask what changed** gets
 up to three things that happened since you were last there, each about a real event.
@@ -80,6 +83,11 @@ providers); every displayed word is authored or a fact value. Without a key the 
 says so once.
 `--hot-reload` reloads packs as you edit them (development).
 
+Finding the way is part of the game: there are no waypoint arrows. Stations in your
+region that are off screen show as small markers at the edge. `--goal-marker` (off by
+default) is an accessibility aid that also marks the current goal's station, in gold,
+wherever it is.
+
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
 rather than clipping, and a market longer than the screen scrolls with the selection.
 
@@ -96,9 +104,9 @@ to 1.0) and the mute live in `sound.toml` in the save folder, which is written t
 time you play. Without an audio device the game just runs silent. The rules the
 sounds follow are in [crates/audio/README.md](crates/audio/README.md).
 
-A first loop: undock with Space, fly right into the ice field, hold Space beside a rock
-until your hold fills, fly down and right to Kettle Dock (the marker at the screen edge
-points the way), drift into its ring, press Space, and sell.
+A first loop: fly off the dock with W A S D, fly right into the ice field, hold Space beside a rock
+until your hold fills, fly down and right to Kettle Dock, drift into its ring, press
+Space, and sell.
 
 ![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
 
@@ -107,11 +115,11 @@ points the way), drift into its ring, press Space, and sell.
 1. **Install and play.** On Windows run `play.cmd` from this folder; on macOS or Linux,
    `./play.sh` (Linux packages: "Playing on Linux"). The first release build takes several
    minutes. `play.cmd --new` starts a fresh game; your old save stays.
-2. **Controls.** W A S D fly, Space does the one thing in reach (undock, mine, dock, ride
-   a lane), P or Esc pauses, M opens the map, N mutes, F3 shows the developer overlay, and
+2. **Controls.** W A S D fly (and fly off a dock to undock), Space does the one thing in
+   reach (mine, dock, ride a lane), P or Esc pauses, M opens the map, N mutes, F3 shows the developer overlay, and
    the mouse wheel zooms. Clicks fly, mine and dock once the nav chip unlocks them in
-   Act 2; Shift-click queues orders in Act 3. Docked: W/S pick a market line, E trades
-   one, Shift+E trades all, 1 to 9 answer people, or click the buttons. See "Play" for
+   Act 2; Shift-click queues orders in Act 3. Docked, the dock screen is mouse-first:
+   click its buttons; 1 to 9 answer people. See "Play" for
    the details.
 3. **Skip ahead.** `play.cmd --beat N` (or `./play.sh --beat N`) lets the journey bot
    earn every beat before N with real play, then opens that checkpoint in a new save.
@@ -253,9 +261,9 @@ Or build once and call `target/debug/galaxy` directly.
 | `gm status (--save PATH \| --live)` | Applied, staged and quarantined packs, with change IDs. |
 | `gm rollback CHANGE (--save PATH \| --live) [--packs DIR]` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, switches its pack off in the save (no revision of it runs again, gm-examples' copy included, until a new one is applied), and its speaker says why. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
-| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
+| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload] [--goal-marker]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
 | `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
-| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `d,wait*3,d*200,space*240` (fly off the dock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |

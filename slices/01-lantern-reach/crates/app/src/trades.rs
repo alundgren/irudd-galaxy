@@ -193,13 +193,17 @@ pub fn credits(cents: i64) -> String {
 /// A station-service purchase (an upgrade, a tender, prestige) asked for on the dock
 /// screen. It goes out with the next tick's `PlayerInput::services`, after
 /// `services::check` said it can happen, and is settled by its own committed event:
-/// `upgrade_fitted`, `tender_acquired` or `prestige`. A refusal is one calm line.
+/// `upgrade_fitted`, `tender_acquired` or `prestige`. A refusal is one calm line, and
+/// so is a purchase that went through: who fitted it and what it changes.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ServiceDesk {
     pending: Option<ServiceRequest>,
     sent: Option<ServiceRequest>,
     /// The latest refusal. Cleared by the next purchase that goes through.
     pub notice: Option<String>,
+    /// The latest purchase that went through, in plain words ("Orrin fitted your
+    /// mining lens. You mine half again as fast ..."). Cleared by the next request.
+    pub fitted: Option<String>,
 }
 
 impl ServiceDesk {
@@ -209,8 +213,12 @@ impl ServiceDesk {
             Ok(()) => {
                 self.pending = Some(req);
                 self.notice = None;
+                self.fitted = None;
             }
-            Err(r) => self.notice = Some(service_refusal(world, &req, &r)),
+            Err(r) => {
+                self.notice = Some(service_refusal(world, &req, &r));
+                self.fitted = None;
+            }
         }
     }
 
@@ -235,6 +243,7 @@ impl ServiceDesk {
             (ServiceRequest::Prestige { to }, Event::Prestige { to_hull, .. }) => to_hull == to,
             _ => false,
         });
+        self.fitted = bought.then(|| service_done(world, &req));
         self.notice = if bought {
             None
         } else {
@@ -268,6 +277,56 @@ pub fn service_name(world: &WorldState, req: &ServiceRequest) -> String {
             .hulls
             .get(to)
             .map_or_else(|| to.to_string(), |h| format!("A {}", h.name)),
+    }
+}
+
+/// One calm line for a purchase that went through: who did it and, in plain words,
+/// what changes ("Orrin fitted your mining lens. You mine half again as fast ...").
+pub fn service_done(world: &WorldState, req: &ServiceRequest) -> String {
+    let rules = &world.progress.rules;
+    // By first name, as people at the dock say it.
+    let first = |npc: Option<&NpcId>| {
+        npc.and_then(|n| world.npcs.get(n)).map(|n| {
+            n.name
+                .split_whitespace()
+                .next()
+                .unwrap_or(&n.name)
+                .to_owned()
+        })
+    };
+    let sentence = |effect: &str| {
+        let e = effect.trim_end_matches('.');
+        if e.is_empty() {
+            String::new()
+        } else {
+            format!(" {e}.")
+        }
+    };
+    match req {
+        ServiceRequest::Fit { upgrade } => {
+            let Some(u) = rules.upgrades.get(upgrade) else {
+                return "Fitted.".into();
+            };
+            let who = first(u.seller.as_ref()).map_or_else(
+                || format!("Your {} is fitted.", u.name.to_lowercase()),
+                |w| format!("{w} fitted your {}.", u.name.to_lowercase()),
+            );
+            format!("{who}{}", sentence(&u.effect))
+        }
+        ServiceRequest::Build { craft } => {
+            let Some(c) = rules.crafts.get(craft) else {
+                return "Built.".into();
+            };
+            let who = first(c.seller.as_ref()).map_or_else(
+                || format!("{} is yours.", c.name),
+                |w| format!("{w} built you {}.", c.name),
+            );
+            format!("{who}{}", sentence(&c.effect))
+        }
+        ServiceRequest::Prestige { to } => format!(
+            "You fly the {} now. Everything you fitted came across.",
+            world.hulls.get(to).map_or(to.as_str(), |h| h.name.as_str())
+        ),
     }
 }
 

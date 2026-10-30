@@ -355,22 +355,59 @@ fn the_dock_trade_wins_over_a_craft_on_the_same_line() {
 }
 
 #[test]
-fn a_space_tap_between_ticks_still_undocks() {
+fn flying_off_undocks_and_space_doesnt() {
     let mut s = Session::new(new_state());
     let mut keys = Keys::default();
-    // Down and up between two fixed ticks.
+    // Docked, Space does nothing: there's no undock confirm.
     keys.event(Key::Space, true, false);
     keys.event(Key::Space, false, false);
     s.tick(keys.tick_input(true, None));
-    assert!(flagship(&s).docked_at.is_none(), "the tap reached the sim");
+    s.tick(keys.tick_input(true, None));
+    assert!(flagship(&s).docked_at.is_some(), "Space doesn't undock");
+    // A tap of W flies off.
+    keys.event(Key::W, true, false);
+    s.tick(keys.tick_input(true, None));
+    keys.event(Key::W, false, false);
+    assert!(flagship(&s).docked_at.is_none(), "flying off undocks");
+    s.tick(keys.tick_input(false, None));
+    assert!(flagship(&s).docked_at.is_none());
+}
+
+#[test]
+fn flight_keys_held_into_a_docking_dont_undock_until_pressed_again() {
+    let mut s = Session::new(new_state());
+    let mut ui = UiState::default();
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
+    assert!(flagship(&s).docked_at.is_none());
+    // Space in the ring with D held: it docks, and stays docked while D is down.
+    let mut keys = Keys::default();
+    keys.press(Key::D);
+    keys.press(Key::Space);
+    s.tick(keys.tick_input(false, None));
+    assert!(flagship(&s).docked_at.is_some(), "docked");
+    keys.release(Key::Space);
+    for _ in 0..10 {
+        s.tick(keys.tick_input(true, None));
+    }
+    assert!(flagship(&s).docked_at.is_some(), "D held from the approach");
+    keys.release(Key::D);
+    s.tick(keys.tick_input(true, None));
+    keys.press(Key::D);
+    s.tick(keys.tick_input(true, None));
+    assert!(flagship(&s).docked_at.is_none(), "a fresh press flies off");
 }
 
 #[test]
 fn space_held_across_the_pause_card_doesnt_toggle_again() {
     let mut s = Session::new(new_state());
+    let mut ui = UiState::default();
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
     let mut keys = Keys::default();
     keys.event(Key::Space, true, false);
-    s.tick(keys.tick_input(true, None));
+    s.tick(keys.tick_input(false, None));
+    assert!(flagship(&s).docked_at.is_some(), "Space docks in the ring");
+    // Fly off with Space still down.
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
     assert!(flagship(&s).docked_at.is_none());
     // P with Space still down, then P again (the window clears the keys both ways).
     s.pause();
@@ -394,11 +431,11 @@ fn space_held_across_the_pause_card_doesnt_toggle_again() {
 }
 
 #[test]
-fn space_undocks_wasd_flies_and_holding_space_mines() {
+fn flying_off_undocks_wasd_flies_and_holding_space_mines() {
     let mut s = Session::new(new_state());
     let mut ui = UiState::default();
     assert!(flagship(&s).docked_at.is_some());
-    galaxy_app::script::run(&mut s, &mut ui, "space,wait*3,d*200").unwrap();
+    galaxy_app::script::run(&mut s, &mut ui, "d,wait*3,d*200").unwrap();
     let ship = flagship(&s);
     assert!(ship.docked_at.is_none());
     assert!(ship.position.x > 150.0, "{:?}", ship.position);
@@ -418,13 +455,12 @@ fn space_undocks_wasd_flies_and_holding_space_mines() {
 }
 
 #[test]
-fn docked_keys_select_and_dont_fly() {
+fn docked_keys_fly_off_the_dock_screen_is_mouse_first() {
     let s = Session::new(new_state());
     let mut keys = Keys::default();
     keys.press(Key::W);
-    let docked = flagship(&s).docked_at.is_some();
-    assert!(docked);
-    assert_eq!(player_input(&keys, docked, None).thrust, Vec2::ZERO);
+    assert!(flagship(&s).docked_at.is_some());
+    assert_eq!(player_input(&keys, None).thrust, Vec2::new(0.0, 1.0));
 }
 
 #[test]
@@ -459,7 +495,7 @@ fn clicks_target_rings_rocks_and_points() {
 fn tier_zero_ignores_clicks() {
     let mut s = settled_session();
     let mut ui = UiState::default();
-    galaxy_app::script::run(&mut s, &mut ui, "space,wait*3").unwrap();
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
     let at = flagship(&s).position;
     let click = Click {
         target: ClickTarget::Point {
@@ -467,7 +503,7 @@ fn tier_zero_ignores_clicks() {
         },
         queue: false,
     };
-    s.tick(player_input(&Keys::default(), false, Some(click)));
+    s.tick(player_input(&Keys::default(), Some(click)));
     for _ in 0..30 {
         s.tick(PlayerInput::default());
     }
@@ -506,6 +542,12 @@ fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> Fr
     let (scene, buttons) = galaxy_app::frame::compose(&view, s, &rig, ui_state, 1.0, 0.0, viewport);
     FrameParts {
         panels: scene.overlay.panels.iter().map(|p| p.rect).collect(),
+        foot: scene
+            .overlay
+            .texts
+            .iter()
+            .find(|t| t.text == ui::DOCK_FOOT)
+            .map(|t| render::Rect::new(t.pos.x, t.pos.y, ui::text_width(&t.text, t.size), t.size)),
         buttons,
     }
 }
@@ -513,6 +555,8 @@ fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> Fr
 struct FrameParts {
     panels: Vec<render::Rect>,
     buttons: Vec<ui::Button>,
+    /// Where the dock screen's "fly off to undock" foot is, if it shows.
+    foot: Option<render::Rect>,
 }
 
 /// A docked session with a busy screen: a refusal notice and a hold with several wares.
@@ -555,11 +599,8 @@ fn the_dock_screen_fits_small_and_large_windows() {
         for p in &f.panels {
             assert!(inside(p, viewport), "{w}x{h}: panel {p:?} is clipped");
         }
-        let undock = f
-            .buttons
-            .iter()
-            .filter(|b| b.action == ui::UiAction::Undock);
-        assert_eq!(undock.count(), 1, "{w}x{h}");
+        let foot = f.foot.expect("how to undock shows");
+        assert!(inside(&foot, viewport), "{w}x{h}: {foot:?} is clipped");
         let trades = f
             .buttons
             .iter()
@@ -593,6 +634,7 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
             ui::Notices {
                 trade: s.trades.notice.as_deref(),
                 service: None,
+                fitted: None,
             },
             canvas,
         );
@@ -601,6 +643,41 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
             assert!(!overlaps(&dock, t), "{w}x{h}: dock {dock:?} under {t:?}");
         }
     }
+}
+
+/// The station names marked in gold at the screen edge (the goal marker).
+fn goal_markers(s: &Session, ui_state: &UiState) -> Vec<String> {
+    let view = galaxy_app::view::View::new();
+    let at = flagship(s).position;
+    let rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::new(at.x, at.y));
+    let viewport = render::glam::Vec2::new(1280.0, 720.0);
+    let (scene, _) = galaxy_app::frame::compose(&view, s, &rig, ui_state, 1.0, 0.0, viewport);
+    let stations: Vec<&str> = s
+        .world()
+        .stations
+        .values()
+        .map(|st| st.name.as_str())
+        .collect();
+    scene
+        .overlay
+        .texts
+        .iter()
+        .filter(|t| t.color == render::palette::MUSTARD && stations.contains(&t.text.as_str()))
+        .map(|t| t.text.clone())
+        .collect()
+}
+
+/// Discovery over hand-holding: no waypoint to the goal's station unless the player
+/// asks for it (`play --goal-marker`).
+#[test]
+fn the_goal_marker_is_off_unless_asked_for() {
+    let s = settled_session();
+    assert!(goal_markers(&s, &UiState::default()).is_empty());
+    let asked = UiState {
+        goal_marker: true,
+        ..UiState::default()
+    };
+    assert_eq!(goal_markers(&s, &asked), vec!["Kettle Dock".to_string()]);
 }
 
 #[test]
@@ -646,7 +723,7 @@ fn a_long_market_scrolls_and_keeps_the_selection_in_view() {
             .collect();
         assert!(rows.len() < n, "it scrolls rather than overflowing");
         assert!(rows.contains(&selected), "row {selected} in view: {rows:?}");
-        assert!(f.buttons.iter().any(|b| b.action == ui::UiAction::Undock));
+        assert!(f.foot.is_some_and(|r| inside(&r, viewport)));
     }
 }
 
@@ -665,7 +742,7 @@ fn galaxy_shot_renders_a_new_save() {
             width: 640,
             height: 360,
             zoom: None,
-            keys: Some("space,wait*3,d*60".into()),
+            keys: Some("d,wait*3,d*60".into()),
             write: false,
         })
         .unwrap();

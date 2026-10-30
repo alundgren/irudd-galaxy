@@ -1,6 +1,7 @@
 # Rock types and fields. PROVISIONAL numbers: the content spec replaces them.
 # hardness multiplies a hull's mining rate (ice 1.0, iron 0.6, glassite 0.3).
-# A field regrows `regrow` units per region pulse, given to the rock with the lowest
+# A field regrows `regrow` units per region pulse (0 when unset: the Cinder Belt and the
+# Narrows drift don't regrow), given to the rock with the lowest
 # remaining share (spent rocks included); a spent rock reforms once regrowth brings it
 # back to ship_rules.regrowth.reform_share of its yield. Pulses are activity
 # (ship_rules.toml), never time.
@@ -32,7 +33,7 @@ regrowth = 0
 
 [[field]]
 id = "field.shallows.ice"
-name = "Shallows ice field"
+name = "Rimewater"
 region = "region.lantern_shallows"
 rock_type = "rock_type.ice"
 rock_prefix = "rock.shallows.ice"
@@ -45,7 +46,7 @@ regrow = 0.15
 
 [[field]]
 id = "field.shallows.iron"
-name = "Shallows iron field"
+name = "Tinroot"
 region = "region.lantern_shallows"
 rock_type = "rock_type.iron"
 rock_prefix = "rock.shallows.iron"
@@ -58,7 +59,7 @@ regrow = 0.3
 
 [[field]]
 id = "field.cinder.iron"
-name = "Cinder iron belt"
+name = "Cinder Belt"
 region = "region.cinder_drift"
 rock_type = "rock_type.iron"
 rock_prefix = "rock.cinder.iron"
@@ -70,7 +71,7 @@ amount_max = 200
 
 [[field]]
 id = "field.cinder.glassite"
-name = "Far glassite belt"
+name = "Glass Drift"
 region = "region.cinder_drift"
 rock_type = "rock_type.glassite"
 rock_prefix = "rock.cinder.glassite"
@@ -79,9 +80,13 @@ radius = 300.0
 count = 8
 amount_min = 40
 amount_max = 90
-# Glass Drift's regrowth (content/01-galaxy.md): b15's fragment waits on a glassite
-# rock spent after b13, so a field mined out earlier must come back with activity.
-regrow = 0.15
+# Glass Drift's regrowth (content/07-pacing.md): b15's fragment waits on a glassite
+# rock spent after b13, and Act 2 to 4 income leans on this belt, so a field mined out
+# earlier must come back with activity. At 0.15 a mined-out belt needed about 870
+# Cinder Drift pulses before its first rock reformed (the journey bot shuttled for
+# hours). At 1.5 a lone spent rock (about 65 units, reforming at 25%) is dust for about
+# 11 pulses, and a whole mined-out belt comes back in about 90.
+regrow = 1.5
 
 [[field]]
 id = "field.narrows.ice"

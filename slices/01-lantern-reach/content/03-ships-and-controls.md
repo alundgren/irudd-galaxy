@@ -7,7 +7,7 @@ Back to [SPEC.md](SPEC.md). Data files: `hulls.toml`, `upgrades.toml`, `controls
 | Stat | Wren (`hull.wren`) | Tandem (`hull.tandem`) | Heron (`hull.heron`) | Tender (`hull.tender`) |
 | --- | --- | --- | --- | --- |
 | Who flies it | The player, from the start | The player, after prestige | The player, after prestige | Nobody: automated |
-| Speed (u/s) | 60 | 50 | 78 | 45 |
+| Speed (u/s) | 72 | 50 | 78 | 45 |
 | Turn (deg/s) | 270 | 160 | 330 | 180 |
 | Hold (units) | 20 | 40 | 16 | 24 |
 | Mining rate (units/s at hardness 1.0) | 1.0 | 1.0 | 0.8 | 0.5 |
@@ -55,7 +55,7 @@ Controls are progression. Each capability is a flag (`cap.*`) set by an upgrade 
 
 | Tier | Capabilities | What the player can do | Comes from |
 | --- | --- | --- | --- |
-| 0: hands on | (base) | **WASD** flies screen-relative, stopping on release. **Space** does the one thing in reach (see below). **P** or **Esc** opens the PAUSED card and stops the whole galaxy. **M** opens the map (view only). **Tab** shows the hold. | New save |
+| 0: hands on | (base) | **WASD** flies screen-relative, stopping on release; docked, it flies off and undocks. **Space** does the one thing in reach (see below). **P** or **Esc** opens the PAUSED card and stops the whole galaxy. **M** opens the map (view only). **Tab** shows the hold. | New save |
 | 1: click to fly | `cap.click_fly` | Left-click a point within 450 u of the ship: it flies there and stops. Any WASD input cancels. | `upgrade.nav_chip` |
 | 2: click to work | `cap.click_mine`, `cap.click_dock` | Click a rock: the ship flies into mining reach and mines until the hold is full or the rock is spent. Click a station: it flies into the ring and docks. | `upgrade.rock_cradle`, `upgrade.docking_clamp` |
 | 3: map travel | `cap.map_travel` | Click a station, field or lane mouth on the map: the ship routes there, entering lanes on its own. No distance limit. | `upgrade.lane_chart` (beat b07 reward) |
@@ -63,7 +63,7 @@ Controls are progression. Each capability is a flag (`cap.*`) set by an upgrade 
 | 5: loops | `cap.loops` | Save the current queue as a named loop (so a loop has up to 8 orders, the same limit as a queue; up to 3 saved loops). A loop repeats until the player stops it or it stalls. There is no separate loop editor: to change a loop, load it into the queue, edit, and save it again. | `upgrade.loop_log` |
 | First automation | `cap.automation` | Tenders run saved loops while the player does anything else. | Beat b13: building Thimble (step 2) |
 
-**Space priority at Tier 0:** inside a docking ring, dock; else inside a lane mouth, enter the lane; else within 40 u of a loose fragment, pick it up; else within mining reach of a rock, mine while held. Docked, Space undocks.
+**Space priority at Tier 0:** inside a docking ring, dock; else inside a lane mouth, enter the lane; else within 40 u of a loose fragment, pick it up; else within mining reach of a rock, mine while held. Docked, Space does nothing: flying off (any WASD thrust) undocks. Flight keys still held from the approach don't count until they're let go and pressed again, so a docking never bounces straight back out. The dock screen is mouse-first, so WASD always belongs to the ship.
 
 ## Upgrades
 

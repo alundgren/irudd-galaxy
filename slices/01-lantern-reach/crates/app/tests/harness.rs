@@ -196,17 +196,17 @@ fn act_one_golden_and_first_diverging_store() {
         BeatStatus::Completed
     );
     let tick = recording.checkpoints[0].tick;
-    // Lose the player's first Space press. Replay must identify the first affected
-    // checkpoint and the ship store, without changing any expected hashes.
+    // Lose the player's first flight input, the undock. Replay must identify the first
+    // affected checkpoint and the ship store, without changing any expected hashes.
     let press = recording
         .inputs
         .iter_mut()
         .find_map(|run| match &mut run.input {
-            harness::replay::Action::Input(input) if input.action => Some(input),
+            harness::replay::Action::Input(input) if input.thrust != Vec2::ZERO => Some(input),
             _ => None,
         })
-        .expect("undock press");
-    press.action = false;
+        .expect("undock thrust");
+    press.thrust = Vec2::ZERO;
     let error = harness::replay::replay(&packs(), &recording)
         .err()
         .expect("mismatch");

@@ -112,7 +112,17 @@ impl Fleet {
 
     fn step(&mut self) {
         let report = self.sim.step(&PlayerInput::default()).unwrap();
-        assert!(report.rejected.is_empty(), "{:?}", report.rejected);
+        // A market pulse that loses its compare-and-set to a trade in the same tick is
+        // ordinary contention (it pulses again later); anything else is a bug.
+        let rejected: Vec<_> = report
+            .rejected
+            .iter()
+            .filter(|r| {
+                !(matches!(&r.cause.kind, CauseKind::System { name } if name == "economy")
+                    && r.cause.summary == "market pulse")
+            })
+            .collect();
+        assert!(rejected.is_empty(), "{rejected:?}");
         self.mind.pump(&mut self.sim);
         for event in self.scripts.take_events() {
             assert!(

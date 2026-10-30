@@ -78,7 +78,7 @@ Three rock kinds, each with a **hardness** that multiplies the ship's mining rat
 | `field.rimewater` | Shallows | Ice | (320, 380) | 200 | 8 | 30 | 240 | 0.15 | 50 |
 | `field.tinroot` | Shallows | Iron | (-480, -320) | 220 | 12 | 40 | 480 | 0.3 | 34 |
 | `field.cinder_belt` | Cinder Drift | Iron (rich, depleting) | (5300, 1250) | 280 | 16 | 60 | 960 | 0.15 | 100 |
-| `field.glass_drift` | Cinder Drift | Glassite | (5550, 2150) | 240 | 12 | 25 | 300 | 0.15 | 42 |
+| `field.glass_drift` | Cinder Drift | Glassite | (5550, 2150) | 240 | 12 | 25 | 300 | 1.5 (was 0.15: see `07-pacing.md`) | 5 (about 11 for the authored data's larger rocks, about 90 for a whole mined-out belt) |
 | `field.hookside` | Cinder Drift | Ice | (4650, 2150) | 140 | 5 | 30 | 150 | 0.2 | 38 |
 | `field.ember_shoals` | Cinder Drift | Set by the rumor (hidden until `rumor_heard`) | (5950, 1500) | 160 | 6 or 3 | 40 or 20 | 240 or 60 | 0 | never |
 

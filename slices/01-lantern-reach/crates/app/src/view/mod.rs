@@ -550,16 +550,20 @@ impl View {
                         (r + (from.truncate() - r).normalize_or_zero() * radius * 0.6)
                             .extend(radius * 0.4)
                     });
-                let shimmer = 0.85 + 0.15 * (time * 9.0).sin();
+                // A fitted boost (the mining lens) shows: a wider, quicker beam.
+                let boost = (galaxy_contract::modifiers::for_ship(world, &ship.id).mining_rate
+                    as f32)
+                    .clamp(1.0, 3.0);
+                let shimmer = 0.85 + 0.15 * (time * 9.0 * boost).sin();
                 scene.lines.push(Line::beam(
                     from,
                     to,
-                    9.0,
+                    9.0 * boost.sqrt(),
                     Color::hex(0x7ff0d8).with_alpha(shimmer),
                 ));
                 scene.glows.push(Glow {
                     position: to,
-                    radius: 22.0,
+                    radius: 22.0 * boost.sqrt(),
                     color: Color::hex(0xbaffef).with_alpha(0.9),
                 });
                 scene.glows.push(Glow {
