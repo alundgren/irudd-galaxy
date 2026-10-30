@@ -57,12 +57,12 @@ fn space(sim: &mut Sim) {
     );
 }
 
-/// One tick of thrust: docked, that flies off and undocks.
+/// One tick of W: docked, that flies off and undocks.
 fn fly_off(sim: &mut Sim) {
     step(
         sim,
         &PlayerInput {
-            thrust: Vec2::new(1.0, 0.0),
+            thrust: Vec2::new(0.0, 1.0),
             ..PlayerInput::default()
         },
     );
@@ -77,25 +77,27 @@ fn kind_count(sim: &Sim, kind: &str) -> usize {
         .count(&HistoryQuery::kind(FactKind::new(kind).unwrap()))
 }
 
-/// Flies the player by WASD until `arrived`, easing off the stick near `to`, then lets
+/// Flies the player by the tank keys until `arrived`, easing off near `to`, then lets
 /// go until it stops.
 fn fly(sim: &mut Sim, to: Vec2, arrived: impl Fn(&Sim) -> bool) {
     for _ in 0..3000 {
         if arrived(sim) {
             break;
         }
-        let off = to - player(sim).position;
-        let stick = off.normalize_or_zero() * (off.length() / 60.0).min(1.0);
+        let ship = player(sim);
+        let feel = galaxy_ship::flight::Feel::of_ship(sim.world(), ship).unwrap();
+        let motion = galaxy_ship::flight::Motion::of(ship);
+        let keys = galaxy_ship::flight::steer_to(&feel, motion, to, 4.0);
         step(
             sim,
             &PlayerInput {
-                thrust: stick,
+                thrust: keys,
                 ..PlayerInput::default()
             },
         );
     }
     assert!(arrived(sim), "didn't get there: {:?}", player(sim).position);
-    for _ in 0..30 {
+    for _ in 0..60 {
         if player(sim).velocity == Vec2::ZERO {
             return;
         }

@@ -12,12 +12,20 @@ use crate::progress::ServiceRequest;
 /// What the player is doing this tick. `Default` is "hands off".
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PlayerInput {
-    /// Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.
+    /// The flight keys as two axes, each in -1..=1. Tank controls: `y` is W/S, thrust
+    /// forward or backward along the heading; `x` is A/D, turning (+1 = D, clockwise).
+    /// Letting go coasts, then the auto-brake stops the ship. Docked, thrust (`y`) flies
+    /// off.
     #[serde(default)]
     pub thrust: Vec2,
-    /// The context action (Space) is held: mine, dock, whatever is in reach.
+    /// Space is held. A press docks or rides a lane current when one is in reach; a
+    /// press beside a rock starts mining and holding keeps it going; otherwise held
+    /// Space brakes.
     #[serde(default)]
     pub action: bool,
+    /// Shift is held: boost (the flight rules' `boost` times top speed and thrust).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub boost: bool,
     /// Tag the nearest rock (reserved T input).
     #[serde(default)]
     pub tag: bool,

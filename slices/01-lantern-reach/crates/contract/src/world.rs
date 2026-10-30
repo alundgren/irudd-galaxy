@@ -297,6 +297,10 @@ pub struct Hull {
     /// Degrees per second. Missing: `flight.turn_rate`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turn_rate: Option<f32>,
+    /// World units per second squared when braking. Missing: `accel` times
+    /// `flight.brake`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brake: Option<f32>,
     /// Docking rings give this hull a standing berth, so it may wait docked for a
     /// price (the tender's patient sell). Crewed hulls trade and clear the ring.
     #[serde(default)]

@@ -17,9 +17,9 @@ use galaxy_contract::prelude::*;
 
 use crate::conditions;
 use crate::controls::{self, Controls};
-use crate::flight::{self, Feel, Motion, Steer};
+use crate::flight::{self, Feel, Hands, Motion, Steer};
 use crate::regrowth::region_pulses;
-use crate::space::{self, LaneWay};
+use crate::space::{self, LaneWay, Press};
 use crate::system::Claims;
 use crate::trade::{Side, TradeDesk, TradeError, TradeRequest};
 
@@ -186,13 +186,12 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             for click in clicks {
                 self.click(click);
             }
-            let thrust = input.thrust.clamp_length(1.0);
-            if thrust != Vec2::ZERO && !self.queue.orders.is_empty() {
+            if input.thrust != Vec2::ZERO && !self.queue.orders.is_empty() {
                 // Any WASD input takes the ship back by hand.
                 self.queue = OrderQueue::default();
             }
             if self.idle() {
-                self.by_hand(thrust, pressed, input.action);
+                self.by_hand(input, pressed);
                 return;
             }
         }
@@ -243,8 +242,27 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         }
         if self.docked.is_some() {
             self.motion.velocity = Vec2::ZERO;
+            self.activity.stopping = 0;
         } else if let Some(steer) = self.steer {
-            self.motion = flight::step(&self.feel, self.motion, steer, TICK_SECONDS);
+            if let Steer::Hands(hands) = steer {
+                let (motion, stopping) = flight::fly(
+                    &self.feel,
+                    self.motion,
+                    self.activity.stopping,
+                    hands,
+                    TICK_SECONDS,
+                );
+                self.motion = motion;
+                self.activity.stopping = stopping;
+            } else {
+                self.motion = flight::step(&self.feel, self.motion, steer, TICK_SECONDS);
+                self.activity.stopping = 0;
+            }
+            // Past the edge of its region, a current carries the ship back in.
+            self.motion.position =
+                space::edge_drift(self.w, &self.region, self.motion.position, TICK_SECONDS);
+        } else {
+            self.activity.stopping = 0;
         }
         let id = &self.ship.id;
         let mut commands = Vec::with_capacity(self.commands.len() + 3);
@@ -298,27 +316,30 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         }
     }
 
-    /// WASD flies; the context action does the one thing in reach. Docked, flying off
-    /// (any thrust) undocks; Space does nothing there.
-    fn by_hand(&mut self, thrust: Vec2, pressed: bool, held: bool) {
+    /// Tank controls fly the ship. A press of Space does the one thing in reach (dock,
+    /// ride a lane current, start mining; [`space::press_at`]); held, it keeps mining
+    /// and brakes. Docked, thrust (W or S) flies off and undocks; turning and Space do
+    /// nothing there.
+    fn by_hand(&mut self, input: &PlayerInput, pressed: bool) {
+        let hands = Hands::of(input);
+        let held = input.action;
         if self.docked.is_some() {
-            if thrust != Vec2::ZERO {
+            if hands.thrust != 0.0 {
                 self.undock();
             }
             return;
         }
         if pressed {
-            let at = self.motion.position;
-            if let Some(station) =
-                space::ring_within(self.w, &self.region, at, self.mods.dock_reach)
-            {
-                self.dock(station.id.clone());
-                return;
-            }
-            if let Some(way) = space::mouth_within(self.w, &self.region, at, self.mods.mouth_radius)
-            {
-                self.enter_lane(way);
-                return;
+            match space::press_at(self.w, self.ship, self.motion.position) {
+                Some(Press::Dock(station)) => {
+                    self.dock(station.id.clone());
+                    return;
+                }
+                Some(Press::Ride(way)) => {
+                    self.enter_lane(way);
+                    return;
+                }
+                Some(Press::Mine(_)) | None => {}
             }
         }
         // A press starts a run on the nearest rock; holding keeps it going. When the
@@ -339,7 +360,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         if let Some(rock) = rock {
             self.mine(&rock.id);
         }
-        self.steer = Some(Steer::Thrust(thrust));
+        self.steer = Some(Steer::Hands(hands));
     }
 
     // --- Verbs ---
@@ -866,7 +887,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 }
             }
             FlyTarget::Rock { rock } => {
-                // Park on the near side, well inside mining reach of the edge.
+                // Park on the near side, just off the rock's drawn edge.
                 let r = self.w.rocks.get(rock)?;
                 let out = (self.motion.position - r.position).normalize_or_zero();
                 let out = if out == Vec2::ZERO {
@@ -874,7 +895,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
                 } else {
                     out
                 };
-                let gap = space::rock_radius(self.w, r) + self.w.ship_rules.mining.reach * 0.5;
+                let gap = self.park_gap(r);
                 Dest {
                     region: space::rock_region(self.w, r)?.clone(),
                     point: Some(r.position + out * gap),
@@ -937,9 +958,20 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             return Some(Outcome::Done);
         }
         let region = space::rock_region(self.w, rock)?;
+        // Mining starts once the ship is parked beside the rock, so it never slides
+        // on from wherever it first came into reach; a run under way carries on.
+        let mining = self
+            .activity
+            .mining
+            .as_ref()
+            .is_some_and(|m| &m.rock == rock_id);
+        let parked = self.motion.position.distance(rock.position)
+            <= self.park_gap(rock) + self.w.ship_rules.flight.arrive_distance.max(1.0)
+            && self.motion.velocity.length() <= self.feel.brake * TICK_SECONDS;
         let ready = self.docked.is_none()
             && &self.region == region
-            && space::in_reach(self.w, rock, self.motion.position);
+            && space::in_reach(self.w, rock, self.motion.position)
+            && (mining || parked);
         if !ready {
             let dest = self.dest(&FlyTarget::Rock {
                 rock: rock_id.clone(),
@@ -955,6 +987,13 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             return None;
         }
         self.mine(rock_id).then_some(Outcome::Done)
+    }
+
+    /// How far from a rock's centre a mine order parks: its drawn edge plus the
+    /// standoff, and never past mining reach.
+    fn park_gap(&self, rock: &Rock) -> f32 {
+        let m = &self.w.ship_rules.mining;
+        space::rock_radius(self.w, rock) + m.standoff.clamp(0.0, m.reach.max(0.0))
     }
 
     /// Asks the desk for a trade at the station the ship is docked at, and adds it to

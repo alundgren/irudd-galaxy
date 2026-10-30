@@ -1,18 +1,29 @@
 # Hulls. PROVISIONAL numbers from the content spec (content/03-ships-and-controls.md).
 # Speeds are world units per second, turn rates degrees per second and mining rates
 # units per second at hardness 1.0, all at the nominal 30 ticks per second.
-# accel (u/s^2) is optional: without it a hull reaches top speed in
-# ship_rules.toml's flight.accel_time.
+# accel and brake (u/s^2) are optional: without accel a hull reaches top speed in
+# ship_rules.toml's flight.accel_time, and without brake it brakes at accel times
+# flight.brake.
+#
+# The hulls the player flies by hand use the locked flight preset (issue #47), tuned
+# in prototypes/flight-lab and carried over at 1 lab px = 0.55 u, which keeps the
+# lab's on-screen feel at the game's zoom 0.80: the Wren tops out at 165 u/s
+# (300 px/s), thrusts at 247.5 u/s^2 (450 px/s^2), brakes at 192.5 u/s^2
+# (350 px/s^2) and turns at 180 deg/s. The Tandem and the Heron keep their old
+# character relative to the Wren on the same scale (speed x2.29, turn x0.67, accel
+# 1.5 x speed, brake 1.17 x speed). Craft that fly only by orders keep their speeds.
 # Schema: crates/contract/schemas/data-hulls.json
 
-# A good little ship: the player's first. 72 u/s: the first playtest found 60 slow.
+# A good little ship: the player's first.
 [[hull]]
 id = "hull.wren"
 name = "Wren"
 tier = 0
 hold_capacity = 20
-max_speed = 72.0
-turn_rate = 270.0
+max_speed = 165.0
+accel = 247.5
+brake = 192.5
+turn_rate = 180.0
 mining_rate = 1.0
 
 # Hearthbound branch: hauler that pairs with automation.
@@ -21,8 +32,10 @@ id = "hull.tandem"
 name = "Tandem"
 tier = 1
 hold_capacity = 40
-max_speed = 50.0
-turn_rate = 160.0
+max_speed = 115.0
+accel = 172.5
+brake = 134.0
+turn_rate = 107.0
 mining_rate = 1.0
 # The Coupling: hands cargo to the player's tenders (the `transfer` verb).
 coupling = true
@@ -33,8 +46,10 @@ id = "hull.heron"
 name = "Heron"
 tier = 1
 hold_capacity = 16
-max_speed = 78.0
-turn_rate = 330.0
+max_speed = 179.0
+accel = 268.5
+brake = 209.0
+turn_rate = 220.0
 mining_rate = 0.8
 # Long glass: live prices for the whole region; a lane arrival refreshes the
 # snapshots of every station in the new region.

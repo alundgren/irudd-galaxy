@@ -139,10 +139,15 @@ pub fn rock_region<'w>(world: &'w WorldState, rock: &Rock) -> Option<&'w RegionI
     world.fields.get(&rock.field).map(|f| &f.region)
 }
 
-/// A rock's radius: it shrinks visibly as it is mined.
+/// A rock's radius as the game draws it: it shrinks visibly as it is mined, from its
+/// full size to `spent_scale` of it. Clicks, mining reach and mine orders all measure
+/// from it.
 pub fn rock_radius(world: &WorldState, rock: &Rock) -> f32 {
     let m = &world.ship_rules.mining;
-    m.radius_base + m.radius_per_sqrt_unit * (rock.remaining as f32).sqrt()
+    let full = m.radius_base + m.radius_per_sqrt_unit * (rock.initial as f32).sqrt();
+    let share = (rock.remaining as f32 / rock.initial.max(1) as f32).clamp(0.0, 1.0);
+    let spent = m.spent_scale.clamp(0.0, 1.0);
+    full * (spent + (1.0 - spent) * share.sqrt())
 }
 
 /// Whether a ship at `pos` can mine `rock`.
@@ -158,6 +163,54 @@ pub fn rock_in_reach<'w>(world: &'w WorldState, region: &RegionId, pos: Vec2) ->
         }),
         |r| r.position.distance(pos),
     )
+}
+
+/// What a press of Space does for `ship` at `pos`, besides braking.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Press<'w> {
+    /// Dock: the ship is in a station's docking ring.
+    Dock(&'w Station),
+    /// Ride the lane current: the ship is in a lane mouth.
+    Ride(LaneWay),
+    /// Start mining: an unspent rock is in reach (holding Space keeps it going).
+    Mine(&'w Rock),
+}
+
+/// What a press of Space does for `ship` at `pos`, in that order: dock, ride a lane,
+/// start mining. `None`: held Space only brakes. The sim and the hint both read this,
+/// so the hint always says what Space really does.
+pub fn press_at<'w>(world: &'w WorldState, ship: &Ship, pos: Vec2) -> Option<Press<'w>> {
+    let m = galaxy_contract::modifiers::for_ship(world, &ship.id);
+    if let Some(station) = ring_within(world, &ship.region, pos, m.dock_reach) {
+        return Some(Press::Dock(station));
+    }
+    if let Some(way) = mouth_within(world, &ship.region, pos, m.mouth_radius) {
+        return Some(Press::Ride(way));
+    }
+    rock_in_reach(world, &ship.region, pos).map(Press::Mine)
+}
+
+/// How far `pos` is past the edge of `region` (the drawn region circle), if it is.
+pub fn past_edge(world: &WorldState, region: &RegionId, pos: Vec2) -> Option<f32> {
+    let r = world.regions.get(region)?;
+    let depth = r.center.distance(pos) - r.radius;
+    (depth > 0.0).then_some(depth)
+}
+
+/// Where the edge current carries a ship at `pos` in `dt` seconds: straight back
+/// toward its region's centre, faster the further out it is, never past the edge.
+/// Inside the edge it does nothing.
+pub fn edge_drift(world: &WorldState, region: &RegionId, pos: Vec2, dt: f32) -> Vec2 {
+    let Some(r) = world.regions.get(region) else {
+        return pos;
+    };
+    let Some(depth) = past_edge(world, region, pos) else {
+        return pos;
+    };
+    let rules = &world.ship_rules.edge;
+    let speed = (rules.pull.max(0.0) * depth).max(rules.min_speed.max(0.0));
+    let step = (speed * dt).min(depth);
+    pos - (pos - r.center).normalize_or_zero() * step
 }
 
 fn nearest<T>(items: impl Iterator<Item = T>, dist: impl Fn(&T) -> f32) -> Option<T> {

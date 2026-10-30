@@ -3,18 +3,34 @@
 # Every key is optional; missing keys take the engine's defaults (the same values).
 # Schema: crates/contract/schemas/data-ship-rules.json
 
-# Arcade flight: quick to speed, quicker to stop, no coasting.
+# Flight. By hand: tank controls with inertia (A/D turn, W/S thrust along the
+# heading, Space brakes, Shift boosts); letting go coasts, then the auto-brake stops
+# the ship. Orders steer straight to their point. Top speed, thrust, brake and turn
+# rate are per hull (hulls.toml); the locked preset (issue #47) is the Wren's.
 [flight]
 accel_time = 0.1      # seconds from rest to top speed (hulls may set their own accel)
-brake = 1.5           # braking is this much stronger than accelerating
+brake = 1.5           # braking is this much stronger than thrust (hulls may set their own)
 turn_rate = 270.0     # degrees per second, for hulls without their own
-turn_slowdown = 0.5   # share of top speed lost moving directly away from the heading
+turn_slowdown = 0.5   # share of top speed an order loses moving directly away from the heading
 arrive_distance = 2.0 # a fly order is done this close to its point
+inertia = 0.4         # 0 stops the moment thrust ends, 1 coasts for ever
+boost = 2.0           # Shift multiplies top speed and thrust
+auto_brake = true     # letting go of thrust stops the ship...
+stop_time = 1.0       # ...in this many seconds, from any speed
+zoom = 0.8            # camera: 1.0 shows 440 u top to bottom, 0.8 shows 550 (ship modifiers multiply it)
+
+# The edge of the play space: past a region's edge (its drawn circle) a current
+# carries the ship back in, faster the further out it is. Never an invisible wall.
+[edge]
+pull = 0.5      # current speed (u/s) per unit past the edge
+min_speed = 20.0
 
 [mining]
 reach = 40.0               # mine within this distance of a rock's edge
-radius_base = 6.0          # rock radius = radius_base + radius_per_sqrt_unit * sqrt(remaining)
+radius_base = 6.0          # full rock radius = radius_base + radius_per_sqrt_unit * sqrt(initial)
 radius_per_sqrt_unit = 3.0
+spent_scale = 0.42         # a mined-out rock shrinks to this share of it (the drawn size)
+standoff = 14.0            # a mine order parks this far off the rock's edge
 
 [docking]
 approach = 0.6 # dock orders dock this far into the ring (share of its radius)

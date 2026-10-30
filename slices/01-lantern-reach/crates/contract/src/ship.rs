@@ -19,6 +19,7 @@ use crate::input::Click;
 #[serde(default, deny_unknown_fields)]
 pub struct ShipRules {
     pub flight: FlightRules,
+    pub edge: EdgeRules,
     pub mining: MiningRules,
     pub docking: DockingRules,
     pub lanes: LaneRules,
@@ -26,21 +27,37 @@ pub struct ShipRules {
     pub controls: ControlRules,
 }
 
-/// Arcade flight feel. Ships stop when nothing pushes them: there is no coasting.
+/// Flight feel. By hand the ship flies with tank controls and inertia: A/D turn, W/S
+/// thrust along the heading, Space brakes, Shift boosts, and letting go coasts until
+/// the auto-brake stops it. Orders (click to fly, automation) steer straight to their
+/// point with the same top speed, acceleration and brake.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct FlightRules {
     /// Seconds from rest to top speed, for hulls without their own `accel`.
     pub accel_time: f32,
-    /// Braking is this many times stronger than accelerating, so release stops fast.
+    /// Braking is this many times stronger than accelerating, for hulls without their
+    /// own `brake`.
     pub brake: f32,
     /// Degrees per second, for hulls without their own `turn_rate`.
     pub turn_rate: f32,
-    /// Share of top speed lost while moving directly away from the heading (0..=1).
-    /// The ship swings round to face where it goes, and turn rate shapes the feel.
+    /// Share of top speed lost while an order flies directly away from the heading
+    /// (0..=1). The ship swings round to face where it goes.
     pub turn_slowdown: f32,
     /// A fly order is done within this many world units of its point.
     pub arrive_distance: f32,
+    /// By hand: 0 stops the moment thrust ends, 1 coasts for ever. In between,
+    /// sideways speed swings round into the new heading and coasting bleeds off.
+    pub inertia: f32,
+    /// Shift multiplies top speed and acceleration by this.
+    pub boost: f32,
+    /// By hand, letting go of thrust stops the ship in `stop_time` seconds from any
+    /// speed. Off: it coasts by inertia only.
+    pub auto_brake: bool,
+    pub stop_time: f32,
+    /// The camera's zoom: 1.0 shows 440 world units top to bottom, 0.8 shows 550.
+    /// Ship modifiers (`zoom`) multiply it.
+    pub zoom: f32,
 }
 
 impl Default for FlightRules {
@@ -51,6 +68,32 @@ impl Default for FlightRules {
             turn_rate: 270.0,
             turn_slowdown: 0.5,
             arrive_distance: 2.0,
+            inertia: 0.4,
+            boost: 2.0,
+            auto_brake: true,
+            stop_time: 1.0,
+            zoom: 0.8,
+        }
+    }
+}
+
+/// The edge of the play space. Past its region's edge (the drawn region circle) a
+/// current carries a ship back in: never an invisible wall.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct EdgeRules {
+    /// World units per second the current gains for each unit past the edge.
+    pub pull: f32,
+    /// The current is at least this fast past the edge, so it brings a ship all the
+    /// way back.
+    pub min_speed: f32,
+}
+
+impl Default for EdgeRules {
+    fn default() -> Self {
+        Self {
+            pull: 0.5,
+            min_speed: 20.0,
         }
     }
 }
@@ -60,9 +103,15 @@ impl Default for FlightRules {
 pub struct MiningRules {
     /// A ship mines while within this distance of a rock's edge.
     pub reach: f32,
-    /// A rock's radius is `radius_base + radius_per_sqrt_unit * sqrt(remaining)`.
+    /// A full rock's radius is `radius_base + radius_per_sqrt_unit * sqrt(initial)`.
     pub radius_base: f32,
     pub radius_per_sqrt_unit: f32,
+    /// A mined-out rock shrinks to this share of its full radius; in between it scales
+    /// with the square root of its remaining share. This is the size the game draws:
+    /// clicks, mining reach and mine orders all measure from it.
+    pub spent_scale: f32,
+    /// A mine order parks this far outside the rock's edge.
+    pub standoff: f32,
 }
 
 impl Default for MiningRules {
@@ -71,6 +120,8 @@ impl Default for MiningRules {
             reach: 40.0,
             radius_base: 6.0,
             radius_per_sqrt_unit: 3.0,
+            spent_scale: 0.42,
+            standoff: 14.0,
         }
     }
 }
@@ -218,6 +269,14 @@ pub struct ShipActivity {
     /// Likewise for a press of the context action.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub held_press: bool,
+    /// Ticks left in the auto-brake's stop after thrust was let go. Speed falls in a
+    /// straight line to zero over the stop, from whatever it was at the release.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub stopping: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// A lane transit: straight from `start` to `end` at the lane speed.

@@ -539,6 +539,8 @@ pub enum Modifier {
     TurnRate { factor: f64 },
     /// Multiplies top speed.
     Speed { factor: f64 },
+    /// Multiplies the camera's zoom (below 1 shows more around the ship).
+    Zoom { factor: f64 },
     /// Multiplies docking ring reach (Ringwise: 1.25).
     DockReach { factor: f64 },
     /// Lane mouths catch the ship from this radius (Lanerunner: 105).

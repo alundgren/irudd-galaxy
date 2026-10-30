@@ -1104,6 +1104,7 @@ dependencies = [
  "galaxy-contract",
  "galaxy-core",
  "galaxy-economy",
+ "libm",
  "tempfile",
  "thiserror 2.0.21",
 ]
