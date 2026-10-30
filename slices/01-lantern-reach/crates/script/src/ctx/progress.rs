@@ -7,7 +7,7 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::progress::TunableValue;
 use galaxy_economy::{Lever, lever_batch, lever_commands};
 use galaxy_progress::{beats, standing};
-use mlua::{Lua, LuaSerdeExt, Scope, Table, Value};
+use mlua::{Lua, LuaSerdeExt, LuaString, Scope, Table, Value};
 
 use super::{CallEnv, m, method, only_keys, to_lua};
 
@@ -25,7 +25,7 @@ fn goal_table(lua: &Lua, g: &beats::GoalLine) -> mlua::Result<Table> {
 impl CallEnv<'_> {
     /// A ship scripts may order: it exists, isn't the player's ship, and isn't a hull
     /// berthed at prestige.
-    fn orderable(&self, lua: &Lua, s: &str) -> mlua::Result<ShipId> {
+    fn orderable(&self, lua: &Lua, s: &LuaString) -> mlua::Result<ShipId> {
         let id: ShipId = self.id(lua, s)?;
         if !self.world.ships.contains(&id) {
             return Err(self.fail(lua, "unknown_id", format!("no ship `{id}`")));
@@ -48,9 +48,14 @@ impl CallEnv<'_> {
     }
 
     fn order(&self, lua: &Lua, v: Value) -> mlua::Result<Order> {
-        let order: Order = lua
-            .from_value(v)
-            .map_err(|e| self.fail(lua, "bad_order", e))?;
+        let Value::Table(t) = v else {
+            return Err(self.fail(
+                lua,
+                "bad_order",
+                "an order is a table, e.g. `{ verb = \"undock\" }`",
+            ));
+        };
+        let order: Order = self.decode(lua, t, "an order")?;
         self.check_order(lua, &order)?;
         Ok(order)
     }
@@ -73,7 +78,7 @@ impl CallEnv<'_> {
         }
     }
 
-    fn mech_flag(&self, lua: &Lua, s: &str) -> mlua::Result<FlagId> {
+    fn mech_flag(&self, lua: &Lua, s: &LuaString) -> mlua::Result<FlagId> {
         let id: FlagId = self.id(lua, s)?;
         if !id.as_str().starts_with("mech.") {
             return Err(self.fail(
@@ -87,7 +92,7 @@ impl CallEnv<'_> {
         Ok(id)
     }
 
-    fn slot(&self, lua: &Lua, s: &str) -> mlua::Result<SlotId> {
+    fn slot(&self, lua: &Lua, s: &LuaString) -> mlua::Result<SlotId> {
         let id: SlotId = self.id(lua, s)?;
         if !self.world.progress.rules.slots.contains_key(&id) {
             return Err(self.fail(
@@ -126,11 +131,14 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
     env: &'env CallEnv<'env>,
     market: &Table,
 ) -> mlua::Result<()> {
-    type Rate = (String, String, f64, Table);
-    let ids =
-        |lua: &Lua, env: &CallEnv<'_>, s: &str, w: &str| -> mlua::Result<(StationId, WareId)> {
-            Ok((env.station(lua, s)?, env.id(lua, w)?))
-        };
+    type Rate = (LuaString, LuaString, Value, Table);
+    let ids = |lua: &Lua,
+               env: &CallEnv<'_>,
+               s: &LuaString,
+               w: &LuaString|
+     -> mlua::Result<(StationId, WareId)> {
+        Ok((env.station(lua, s)?, env.id(lua, w)?))
+    };
     method(
         env,
         market,
@@ -144,7 +152,7 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
                 Lever::ScaleProducers {
                     station,
                     ware,
-                    factor,
+                    factor: number(env, lua, &factor, "factor")?,
                 },
             )
         })?,
@@ -162,7 +170,7 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
                 Lever::ScaleConsumers {
                     station,
                     ware,
-                    factor,
+                    factor: number(env, lua, &factor, "factor")?,
                 },
             )
         })?,
@@ -180,7 +188,7 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
                 Lever::AddProducers {
                     station,
                     ware,
-                    per_pulse: whole(env, lua, n)?,
+                    per_pulse: env.int(lua, &n, "per_pulse")?,
                 },
             )
         })?,
@@ -198,7 +206,7 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
                 Lever::AddConsumers {
                     station,
                     ware,
-                    per_pulse: whole(env, lua, n)?,
+                    per_pulse: env.int(lua, &n, "per_pulse")?,
                 },
             )
         })?,
@@ -210,8 +218,7 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
         "set_stock",
         m(scope, env, move |lua, env, (s, w, n, why): Rate| {
             let (station, ware) = ids(lua, env, &s, &w)?;
-            let stock = u32::try_from(whole(env, lua, n)?)
-                .map_err(|_| env.fail(lua, "bad_argument", "stock must be 0 or more"))?;
+            let stock: u32 = env.int(lua, &n, "stock")?;
             env.lever(
                 lua,
                 &why,
@@ -228,10 +235,8 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
         market,
         "market",
         "levers",
-        m(scope, env, |lua, env, (list, why): (Value, Table)| {
-            let levers: Vec<Lever> = lua
-                .from_value(list)
-                .map_err(|e| env.fail(lua, "bad_lever", e))?;
+        m(scope, env, |lua, env, (list, why): (Table, Table)| {
+            let levers: Vec<Lever> = env.decode(lua, list, "levers")?;
             env.levers(lua, &why, &levers)
         })?,
     )?;
@@ -239,11 +244,25 @@ pub(super) fn add_levers<'scope, 'env: 'scope>(
 }
 
 /// A whole, positive number of units.
-fn units(env: &CallEnv<'_>, lua: &Lua, n: f64) -> mlua::Result<u32> {
-    u32::try_from(whole(env, lua, n)?)
-        .ok()
-        .filter(|&q| q > 0)
-        .ok_or_else(|| env.fail(lua, "bad_argument", "quantity must be 1 or more"))
+fn units(env: &CallEnv<'_>, lua: &Lua, n: &Value) -> mlua::Result<u32> {
+    let q: u32 = env.int(lua, n, "quantity")?;
+    if q == 0 {
+        return Err(env.fail(lua, "bad_argument", "quantity must be 1 or more"));
+    }
+    Ok(q)
+}
+
+/// A finite number.
+fn number(env: &CallEnv<'_>, lua: &Lua, v: &Value, what: &str) -> mlua::Result<f64> {
+    match v {
+        Value::Integer(i) => Ok(*i as f64),
+        Value::Number(n) if n.is_finite() => Ok(*n),
+        _ => Err(env.fail(
+            lua,
+            "bad_number",
+            format!("`{what}` must be a finite number"),
+        )),
+    }
 }
 
 /// The player's ship, docked at `station`.
@@ -260,14 +279,6 @@ fn docked_player<'w>(env: &CallEnv<'w>, lua: &Lua, station: &StationId) -> mlua:
     Ok(ship)
 }
 
-fn whole(env: &CallEnv<'_>, lua: &Lua, n: f64) -> mlua::Result<i64> {
-    if n.is_finite() && n.fract() == 0.0 && n.abs() < 9.0e15 {
-        Ok(n as i64)
-    } else {
-        Err(env.fail(lua, "bad_argument", format!("{n} isn't a whole number")))
-    }
-}
-
 /// `ctx.orders`, `ctx.beats`, `ctx.mechanics`, `ctx.standing`, `ctx.traits`,
 /// `ctx.pacing`.
 pub(super) fn namespaces<'scope, 'env: 'scope>(
@@ -282,7 +293,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &orders,
         "orders",
         "get",
-        m(scope, env, |lua, env, ship: String| {
+        m(scope, env, |lua, env, ship: LuaString| {
+            let ship = env.arg(lua, &ship)?;
             to_lua(lua, &env.world.ships.get(ship.as_str()).map(|s| &s.orders))
         })?,
     )?;
@@ -291,7 +303,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &orders,
         "orders",
         "can_order",
-        m(scope, env, |_, env, ship: String| {
+        m(scope, env, |lua, env, ship: LuaString| {
+            let ship = env.arg(lua, &ship)?;
             let w = env.world;
             Ok(w.ships.contains(ship.as_str())
                 && w.player.ship.as_ref().is_none_or(|p| p.as_str() != ship)
@@ -307,11 +320,12 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (ship, list, why): (String, Vec<Value>, Table)| {
+            |lua, env, (ship, list, why): (LuaString, Table, Table)| {
                 let ship = env.orderable(lua, &ship)?;
+                env.measured(lua, &list, "orders")?;
                 let orders = list
-                    .into_iter()
-                    .map(|v| env.order(lua, v))
+                    .sequence_values::<Value>()
+                    .map(|v| v.and_then(|v| env.order(lua, v)))
                     .collect::<mlua::Result<Vec<_>>>()?;
                 env.push(
                     lua,
@@ -335,23 +349,21 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (ship, order, why): (String, Value, Table)| {
+            |lua, env, (ship, order, why): (LuaString, Value, Table)| {
                 let ship = env.orderable(lua, &ship)?;
                 let order = env.order(lua, order)?;
                 // Builds on orders given earlier in this call, not just the world's.
                 let earlier = env
                     .buffer
                     .borrow()
-                    .causes
+                    .commands
                     .iter()
                     .rev()
-                    .find_map(|(_, cmds)| {
-                        cmds.iter().rev().find_map(|c| match c {
-                            Command::SetOrders { ship: s, orders } if *s == ship => {
-                                Some(orders.clone())
-                            }
-                            _ => None,
-                        })
+                    .find_map(|c| match c {
+                        Command::SetOrders { ship: s, orders } if *s == ship => {
+                            Some(orders.clone())
+                        }
+                        _ => None,
                     });
                 let mut queue = earlier
                     .or_else(|| env.world.ships.get(&ship).map(|s| s.orders.clone()))
@@ -373,7 +385,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &orders,
         "orders",
         "clear",
-        m(scope, env, |lua, env, (ship, why): (String, Table)| {
+        m(scope, env, |lua, env, (ship, why): (LuaString, Table)| {
             let ship = env.orderable(lua, &ship)?;
             env.push(
                 lua,
@@ -393,7 +405,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &beat_ns,
         "beats",
         "state",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.progress.beats.get(id.as_str()))
         })?,
     )?;
@@ -402,7 +415,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &beat_ns,
         "beats",
         "is_done",
-        m(scope, env, |_, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             Ok(env
                 .world
                 .progress
@@ -416,7 +430,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &beat_ns,
         "beats",
         "is_active",
-        m(scope, env, |_, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             Ok(env
                 .world
                 .progress
@@ -508,11 +523,11 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 "ctx.beats:deliver",
                 &["station", "ware", "quantity", "ledger"],
             )?;
-            let station = env.station(lua, &spec.get::<String>("station")?)?;
-            let ware: WareId = env.id(lua, &spec.get::<String>("ware")?)?;
-            let quantity = units(env, lua, spec.get("quantity")?)?;
+            let station = env.station(lua, &spec.get::<LuaString>("station")?)?;
+            let ware: WareId = env.id(lua, &spec.get::<LuaString>("ware")?)?;
+            let quantity = units(env, lua, &spec.get::<Value>("quantity")?)?;
             let ledger = spec
-                .get::<Option<String>>("ledger")?
+                .get::<Option<LuaString>>("ledger")?
                 .map(|l| env.id::<LedgerId>(lua, &l))
                 .transpose()?;
             let ship = docked_player(env, lua, &station)?;
@@ -557,11 +572,11 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         "load",
         m(scope, env, |lua, env, (spec, why): (Table, Table)| {
             only_keys(env, lua, &spec, "ctx.beats:load", &["ware", "quantity"])?;
-            let ware: WareId = env.id(lua, &spec.get::<String>("ware")?)?;
+            let ware: WareId = env.id(lua, &spec.get::<LuaString>("ware")?)?;
             if !env.world.wares.contains(&ware) {
                 return Err(env.fail(lua, "unknown_id", format!("no ware `{ware}`")));
             }
-            let quantity = units(env, lua, spec.get("quantity")?)?;
+            let quantity = units(env, lua, &spec.get::<Value>("quantity")?)?;
             let ship = galaxy_progress::eval::player_ship(env.world)
                 .ok_or_else(|| env.fail(lua, "no_ship", "the player has no ship"))?;
             if ship.docked_at.is_none() {
@@ -594,7 +609,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &mech,
         "mechanics",
         "is_on",
-        m(scope, env, |_, env, flag: String| {
+        m(scope, env, |lua, env, flag: LuaString| {
+            let flag = env.arg(lua, &flag)?;
             Ok(env.world.player.flags.contains(flag.as_str()))
         })?,
     )?;
@@ -630,7 +646,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (flag, on, why): (String, bool, Table)| {
+            |lua, env, (flag, on, why): (LuaString, bool, Table)| {
                 let flag = env.mech_flag(lua, &flag)?;
                 env.push(lua, &why, Command::SetFlag { flag, on })
             },
@@ -644,7 +660,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (slot, mechanic, why): (String, String, Table)| {
+            |lua, env, (slot, mechanic, why): (LuaString, LuaString, Table)| {
                 let slot = env.slot(lua, &slot)?;
                 let mechanic = env.mech_flag(lua, &mechanic)?;
                 if let Some(other) = env
@@ -676,7 +692,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &mech,
         "mechanics",
         "unbind",
-        m(scope, env, |lua, env, (slot, why): (String, Table)| {
+        m(scope, env, |lua, env, (slot, why): (LuaString, Table)| {
             let slot = env.slot(lua, &slot)?;
             env.push(
                 lua,
@@ -701,8 +717,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 "ctx.mechanics:teach",
                 &["mechanic", "teacher", "slots"],
             )?;
-            let mechanic = env.mech_flag(lua, &spec.get::<String>("mechanic")?)?;
-            let teacher: NpcId = env.id(lua, &spec.get::<String>("teacher")?)?;
+            let mechanic = env.mech_flag(lua, &spec.get::<LuaString>("mechanic")?)?;
+            let teacher: NpcId = env.id(lua, &spec.get::<LuaString>("teacher")?)?;
             if !env.world.npcs.contains(&teacher) {
                 return Err(env.fail(lua, "unknown_id", format!("no npc `{teacher}`")));
             }
@@ -715,7 +731,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 },
             )?;
             for s in spec
-                .get::<Option<Vec<String>>>("slots")?
+                .get::<Option<Vec<LuaString>>>("slots")?
                 .unwrap_or_default()
             {
                 let slot = env.slot(lua, &s)?;
@@ -766,7 +782,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &stand,
         "standing",
         "tier",
-        m(scope, env, |lua, env, faction: String| {
+        m(scope, env, |lua, env, faction: LuaString| {
             let faction = env.faction(lua, &faction)?;
             to_lua(lua, &standing::tier(env.world, &faction))
         })?,
@@ -776,7 +792,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &stand,
         "standing",
         "station_tier",
-        m(scope, env, |lua, env, station: String| {
+        m(scope, env, |lua, env, station: LuaString| {
             let station = env.station(lua, &station)?;
             to_lua(lua, &standing::station_tier(env.world, &station))
         })?,
@@ -803,10 +819,15 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 "ctx.standing:deed",
                 &["faction", "deed", "delta", "tags"],
             )?;
-            let faction = env.faction(lua, &spec.get::<String>("faction")?)?;
-            let deed: AnyId = env.id(lua, &spec.get::<String>("deed")?)?;
-            let delta: i32 = spec.get("delta")?;
-            let tags: Vec<String> = spec.get::<Option<Vec<String>>>("tags")?.unwrap_or_default();
+            let faction = env.faction(lua, &spec.get::<LuaString>("faction")?)?;
+            let deed: AnyId = env.id(lua, &spec.get::<LuaString>("deed")?)?;
+            let delta: i32 = env.int(lua, &spec.get::<Value>("delta")?, "delta")?;
+            let tags: Vec<String> = spec
+                .get::<Option<Vec<LuaString>>>("tags")?
+                .unwrap_or_default()
+                .iter()
+                .map(|t| env.arg(lua, t))
+                .collect::<mlua::Result<_>>()?;
             let mut deeds = standing::Deeds::new(env.world);
             deeds.deed(&faction, &deed, delta, &tags);
             for c in deeds.commands {
@@ -823,7 +844,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &traits,
         "traits",
         "has",
-        m(scope, env, |_, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             Ok(env.world.player.traits.contains(id.as_str()))
         })?,
     )?;
@@ -847,7 +869,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &traits,
         "traits",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.progress.rules.traits.get(id.as_str()))
         })?,
     )?;
@@ -859,7 +882,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &pacing,
         "pacing",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(
                 lua,
                 &env.world
@@ -875,7 +899,8 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         &pacing,
         "pacing",
         "tuned",
-        m(scope, env, |_, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             Ok(env
                 .world
                 .progress
@@ -892,8 +917,11 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (id, value, why): (String, Value, Table)| {
+            |lua, env, (id, value, why): (LuaString, Value, Table)| {
                 let id: TunableId = env.id(lua, &id)?;
+                if let Value::Table(t) = &value {
+                    env.measured(lua, t, "a tunable")?;
+                }
                 let value: TunableValue = lua
                     .from_value(value)
                     .map_err(|e| env.fail(lua, "bad_argument", e))?;

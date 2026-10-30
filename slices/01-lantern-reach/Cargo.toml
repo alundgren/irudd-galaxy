@@ -13,8 +13,8 @@ publish = false
 # Our crates
 galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
-galaxy-script = { path = "crates/script" }
 galaxy-economy = { path = "crates/economy" }
+galaxy-script = { path = "crates/script" }
 galaxy-progress = { path = "crates/progress" }
 
 # Third party (all MIT or MIT/Apache-2.0)
@@ -22,11 +22,11 @@ anyhow = "1.0.104"
 blake3 = "1.8.7"
 bytemuck = { version = "1.25", features = ["derive"] }
 clap = { version = "4.6.7", features = ["derive"] }
+glam = { version = "0.34", features = ["serde", "bytemuck"] }
+glyphon = "0.12"
 # Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 notify = "8.2.1"
-glam = { version = "0.34", features = ["serde", "bytemuck"] }
-glyphon = "0.12"
 png = "0.18"
 pollster = "1.0"
 rand_core = "0.10.1"

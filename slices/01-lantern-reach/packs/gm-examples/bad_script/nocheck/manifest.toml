@@ -1,0 +1,12 @@
+# BAD on purpose: the script turns the strict typecheck off with `--!nocheck` (the
+# directive would override the analyzer's strict mode). `galaxy pack check` rejects it
+# at the types step, with or without the analyzer.
+id = "gm.bad_nocheck"
+name = "Bad: typecheck turned off"
+version = "0.1.0"
+uses = ["events.dock"]
+
+[[script]]
+id = "unchecked"
+file = "scripts/unchecked.luau"
+handlers = ["on.dock"]

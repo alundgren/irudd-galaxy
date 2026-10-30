@@ -54,6 +54,37 @@ pub fn find(explicit: Option<&Path>) -> Option<PathBuf> {
     None
 }
 
+/// Directives that would lower a file's typecheck below strict (`--!nocheck`,
+/// `--!nonstrict`). A source directive overrides the analyzer's `--mode=strict`, so
+/// they are errors in every checked file, wherever they appear.
+pub fn mode_directives(pack: &Pack) -> Vec<Diagnostic> {
+    let mut out = Vec::new();
+    for (file, src) in pack.script_files() {
+        for (n, line) in src.lines().enumerate() {
+            let Some(rest) = line.trim_start().strip_prefix("--!") else {
+                continue;
+            };
+            let mode = rest.split_whitespace().next().unwrap_or("");
+            if matches!(mode, "nocheck" | "nonstrict") {
+                out.push(Diagnostic {
+                    severity: Severity::Error,
+                    code: "typecheck_off".into(),
+                    message: format!(
+                        "`--!{mode}` would turn off the strict typecheck; pack scripts are always \
+                         checked `--!strict`"
+                    ),
+                    location: Some(Location {
+                        file: file.to_owned(),
+                        line: u32::try_from(n + 1).ok(),
+                        column: None,
+                    }),
+                });
+            }
+        }
+    }
+    out
+}
+
 /// Typechecks the pack's scripts and modules in strict mode.
 pub fn typecheck(pack: &Pack, analyzer: &Path) -> Result<Vec<Diagnostic>, String> {
     let dir = tempfile::Builder::new()

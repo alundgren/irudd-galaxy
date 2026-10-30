@@ -1,0 +1,12 @@
+# BAD on purpose: a bare `for k, v in t` loop. Its order follows heap addresses when
+# keys are tables or functions, so a replay could differ. `galaxy pack check` rejects
+# it at the invariants step: iterate with `pairs(t)` or `ipairs(t)`.
+id = "gm.bad_bare_iteration"
+name = "Bad: unordered iteration"
+version = "0.1.0"
+uses = ["events.dock"]
+
+[[script]]
+id = "tally"
+file = "scripts/tally.luau"
+handlers = ["on.dock"]

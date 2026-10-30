@@ -400,6 +400,7 @@ fn undo_records_invert_commands() {
                 revision: "r1".into(),
                 aborts: 1,
                 quarantined: false,
+                quarantined_before: ["r0".to_owned()].into(),
             },
         },
         Command::SetRevisionRetired {

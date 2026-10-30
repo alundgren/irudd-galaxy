@@ -2,9 +2,16 @@
 //! `uses`, so undeclared namespaces and functions are simply absent.
 //!
 //! Reads see the world as it was when the call started. Writes become commands in the
-//! call's [`Buffer`], grouped by the cause they were made with (`ctx:cause { ... }`).
-//! Nothing applies unless the whole call succeeds. Inputs are checked here so a bad
-//! write fails at the script's own line instead of as a rejected batch later.
+//! call's [`Buffer`] under its one cause (`ctx:cause { ... }`; a second one is an
+//! error), so a call's writes are one batch that applies whole or not at all. Inputs
+//! are checked here so a bad write fails at the script's own line instead of as a
+//! rejected batch later.
+//!
+//! Nothing crosses into Rust unchecked: string arguments are length-checked and table
+//! arguments measured before anything is copied out of them, numbers must be whole and
+//! in range where a whole number is expected (no `as` truncation or wrapping), and a
+//! call's writes are capped at [`MAX_CALL_WRITES`] commands holding [`MAX_CALL_BYTES`].
+//! Going over the quota aborts the whole call, even if the script catches the error.
 //!
 //! **Adding a hook function**: add its `FnDef` in `contract::api`, then a
 //! `method(...)` line in [`build`] under its namespace.
@@ -20,42 +27,87 @@ use galaxy_contract::pack::{ScriptDecl, ScriptValue, ValueType};
 use galaxy_contract::prelude::*;
 use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::History;
-use mlua::{FromLuaMulti, IntoLuaMulti, Lua, LuaSerdeExt, Scope, Table, Value};
+use mlua::{FromLuaMulti, IntoLuaMulti, Lua, LuaSerdeExt, LuaString, Scope, Table, Value};
 use serde::Serialize;
 
-use crate::vm::{RngSource, caller_location};
+use crate::vm::{RngSource, by_reference, caller_location, whole_number};
 
 mod progress;
 
-/// Commands written by one handler call, by cause.
+/// Most commands one handler call can write.
+pub const MAX_CALL_WRITES: usize = 256;
+/// Most bytes one handler call's commands can hold (their JSON size).
+pub const MAX_CALL_BYTES: usize = 256 * 1024;
+/// Longest ID, name or kind argument, in bytes.
+const MAX_ARG: usize = 256;
+/// Table arguments: at most this many entries, levels and bytes of string keys and
+/// values, checked before anything is copied out of them.
+const MAX_TABLE_ENTRIES: usize = 256;
+const MAX_TABLE_DEPTH: usize = 4;
+const MAX_TABLE_BYTES: usize = 16 * 1024;
+/// Largest whole number a store keeps (2^53: exact in a Luau number).
+const MAX_STORE_INT: i64 = 1 << 53;
+
+/// The commands one handler call wrote, under its one cause.
 #[derive(Default)]
 pub(crate) struct Buffer {
-    causes: Vec<(Cause, Vec<Command>)>,
+    cause: Option<Cause>,
+    commands: Vec<Command>,
+    /// JSON size of `commands`.
+    bytes: usize,
     /// The code of the last ctx error, to classify the abort.
     pub failed: Option<String>,
+    /// Set when the call went over its write quota: the call aborts even if the script
+    /// caught the error.
+    pub over_quota: Option<String>,
 }
 
 impl Buffer {
-    /// A buffer whose cause handle 1 is `seed` (a beat transition's batch).
+    /// A buffer whose cause is already `seed`'s, holding its commands: a beat
+    /// transition, so a beat callback's writes (with `beat.why`) join its batch.
     pub fn seeded(seed: CommandBatch) -> Self {
         Self {
-            causes: vec![(seed.cause, seed.commands)],
-            failed: None,
+            cause: Some(seed.cause),
+            commands: seed.commands,
+            ..Self::default()
         }
     }
 
-    /// Whether any write was made.
+    /// Whether the call wrote anything.
     pub fn is_empty(&self) -> bool {
-        self.causes.iter().all(|(_, c)| c.is_empty())
+        self.commands.is_empty()
     }
 
-    pub fn into_batches(self) -> Vec<CommandBatch> {
-        self.causes
-            .into_iter()
-            .filter(|(_, c)| !c.is_empty())
-            .map(|(cause, commands)| CommandBatch { cause, commands })
-            .collect()
+    /// The call's batch, if it wrote anything.
+    pub fn into_batch(self) -> Option<CommandBatch> {
+        match self.cause {
+            Some(cause) if !self.commands.is_empty() => Some(CommandBatch {
+                cause,
+                commands: self.commands,
+            }),
+            _ => None,
+        }
     }
+}
+
+/// Counts bytes written, to size a command without keeping its JSON.
+struct Count(usize);
+
+impl std::io::Write for Count {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 = self.0.saturating_add(buf.len());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn json_size(cmd: &Command) -> usize {
+    let mut n = Count(0);
+    let _ = serde_json::to_writer(&mut n, cmd);
+    n.0
 }
 
 /// What one call can see and write.
@@ -88,31 +140,140 @@ impl CallEnv<'_> {
         mlua::Error::runtime(format!("{at}{msg}"))
     }
 
-    fn id<T: FromStr<Err = IdError>>(&self, lua: &Lua, s: &str) -> mlua::Result<T> {
+    /// A short string argument (an ID, a name, a kind), refused before it's copied if
+    /// it's longer than [`MAX_ARG`].
+    fn arg(&self, lua: &Lua, s: &LuaString) -> mlua::Result<String> {
+        if s.as_bytes().len() > MAX_ARG {
+            return Err(self.fail(
+                lua,
+                "too_long",
+                format!("an ID or name argument is at most {MAX_ARG} bytes"),
+            ));
+        }
+        Ok(s.to_string_lossy())
+    }
+
+    fn opt_arg(&self, lua: &Lua, s: Option<LuaString>) -> mlua::Result<Option<String>> {
+        s.map(|s| self.arg(lua, &s)).transpose()
+    }
+
+    /// A whole number in `T`'s range. Fractions, out-of-range values and non-numbers
+    /// are errors, never truncated or wrapped.
+    fn int<T: TryFrom<i64>>(&self, lua: &Lua, v: &Value, what: &str) -> mlua::Result<T> {
+        whole_number(v)
+            .and_then(|n| T::try_from(n).ok())
+            .ok_or_else(|| {
+                self.fail(
+                    lua,
+                    "bad_number",
+                    format!(
+                        "`{what}` must be a whole number in range, got {}",
+                        describe(v)
+                    ),
+                )
+            })
+    }
+
+    /// Checks a table argument's shape and size before anything is copied out of it:
+    /// string or number keys, at most [`MAX_TABLE_ENTRIES`] entries in all,
+    /// [`MAX_TABLE_DEPTH`] levels and [`MAX_TABLE_BYTES`] of strings. Every violation
+    /// gives the same message, so it doesn't depend on the order the table is walked.
+    fn measured(&self, lua: &Lua, t: &Table, what: &str) -> mlua::Result<()> {
+        fn walk(t: &Table, depth: usize, entries: &mut usize, bytes: &mut usize) -> bool {
+            if depth > MAX_TABLE_DEPTH {
+                return false;
+            }
+            for pair in t.pairs::<Value, Value>() {
+                let Ok((k, v)) = pair else { return false };
+                *entries += 1;
+                match &k {
+                    Value::String(s) => *bytes += s.as_bytes().len(),
+                    Value::Integer(_) | Value::Number(_) => {}
+                    _ => return false,
+                }
+                let ok = match &v {
+                    Value::String(s) => {
+                        *bytes += s.as_bytes().len();
+                        true
+                    }
+                    Value::Table(inner) => walk(inner, depth + 1, entries, bytes),
+                    other => !by_reference(other),
+                };
+                if !ok || *entries > MAX_TABLE_ENTRIES || *bytes > MAX_TABLE_BYTES {
+                    return false;
+                }
+            }
+            true
+        }
+        let (mut entries, mut bytes) = (0, 0);
+        if walk(t, 1, &mut entries, &mut bytes) {
+            Ok(())
+        } else {
+            Err(self.fail(
+                lua,
+                "too_large",
+                format!(
+                    "{what}: a table argument holds plain values keyed by strings or numbers, \
+                     at most {MAX_TABLE_ENTRIES} entries, {MAX_TABLE_DEPTH} levels deep and \
+                     {} KiB of text",
+                    MAX_TABLE_BYTES / 1024
+                ),
+            ))
+        }
+    }
+
+    /// Deserializes a measured table argument.
+    fn decode<T: serde::de::DeserializeOwned>(
+        &self,
+        lua: &Lua,
+        t: Table,
+        what: &str,
+    ) -> mlua::Result<T> {
+        self.measured(lua, &t, what)?;
+        lua.from_value(Value::Table(t))
+            .map_err(|e| self.fail(lua, "bad_argument", format!("{what}: {e}")))
+    }
+
+    fn id<T: FromStr<Err = IdError>>(&self, lua: &Lua, s: &LuaString) -> mlua::Result<T> {
+        let s = self.arg(lua, s)?;
         s.parse().map_err(|e: IdError| self.fail(lua, "bad_id", e))
     }
 
-    /// Adds a command under the cause handle `why`.
+    /// Adds a command under the call's cause `why`. Over the call's write quota, the
+    /// whole call is aborted.
     fn push(&self, lua: &Lua, why: &Table, cmd: Command) -> mlua::Result<()> {
-        let handle: i64 = why.raw_get("handle").unwrap_or(0);
-        let mut b = self.buffer.borrow_mut();
-        let slot = usize::try_from(handle - 1)
+        let handle = why
+            .raw_get::<Value>("handle")
             .ok()
-            .filter(|&i| i < b.causes.len());
-        match slot {
-            Some(i) => {
-                b.causes[i].1.push(cmd);
-                Ok(())
-            }
-            None => {
-                drop(b);
-                Err(self.fail(
-                    lua,
-                    "bad_cause",
-                    "every write needs a cause from `ctx:cause { summary = ..., cites = { ... } }`",
-                ))
-            }
+            .as_ref()
+            .and_then(whole_number);
+        let mut b = self.buffer.borrow_mut();
+        if b.cause.is_none() || handle != Some(1) {
+            drop(b);
+            return Err(self.fail(
+                lua,
+                "bad_cause",
+                "every write needs the cause from `ctx:cause { summary = ..., cites = { ... } }`",
+            ));
         }
+        if let Some(msg) = b.over_quota.clone() {
+            drop(b);
+            return Err(self.fail(lua, "over_quota", msg));
+        }
+        let bytes = b.bytes.saturating_add(json_size(&cmd));
+        if b.commands.len() >= MAX_CALL_WRITES || bytes > MAX_CALL_BYTES {
+            let msg = format!(
+                "a handler call writes at most {MAX_CALL_WRITES} commands holding {} KiB; \
+                 its writes were discarded",
+                MAX_CALL_BYTES / 1024
+            );
+            b.over_quota = Some(msg.clone());
+            drop(b);
+            return Err(self.fail(lua, "over_quota", msg));
+        }
+        b.bytes = bytes;
+        b.commands.push(cmd);
+        Ok(())
     }
 
     fn cites(&self, lua: &Lua, ids: Vec<String>) -> mlua::Result<Vec<FactId>> {
@@ -140,7 +301,7 @@ impl CallEnv<'_> {
             .collect()
     }
 
-    fn station(&self, lua: &Lua, s: &str) -> mlua::Result<StationId> {
+    fn station(&self, lua: &Lua, s: &LuaString) -> mlua::Result<StationId> {
         let id: StationId = self.id(lua, s)?;
         if !self.world.stations.contains(&id) {
             return Err(self.fail(lua, "unknown_id", format!("no station `{id}`")));
@@ -148,7 +309,7 @@ impl CallEnv<'_> {
         Ok(id)
     }
 
-    fn faction(&self, lua: &Lua, s: &str) -> mlua::Result<FactionId> {
+    fn faction(&self, lua: &Lua, s: &LuaString) -> mlua::Result<FactionId> {
         let id: FactionId = self.id(lua, s)?;
         if !self.world.factions.contains(&id) {
             return Err(self.fail(lua, "unknown_id", format!("no faction `{id}`")));
@@ -175,6 +336,15 @@ impl CallEnv<'_> {
     }
 }
 
+/// A value for an error message, without addresses.
+fn describe(v: &Value) -> String {
+    match v {
+        Value::Integer(i) => i.to_string(),
+        Value::Number(n) => n.to_string(),
+        other => format!("a {}", other.type_name()),
+    }
+}
+
 fn ser_options() -> mlua::serde::SerializeOptions {
     let mut o = mlua::serde::SerializeOptions::new();
     o.set_array_metatable = false;
@@ -187,7 +357,8 @@ pub(crate) fn to_lua<T: Serialize + ?Sized>(lua: &Lua, v: &T) -> mlua::Result<Va
     lua.to_value_with(v, ser_options())
 }
 
-/// Checks a table only has the given keys (Luau tables don't reject typos).
+/// Checks a table only has the given keys (Luau tables don't reject typos). The error
+/// lists every unexpected key, sorted, so it reads the same on every run.
 fn only_keys(
     env: &CallEnv<'_>,
     lua: &Lua,
@@ -195,22 +366,31 @@ fn only_keys(
     what: &str,
     allowed: &[&str],
 ) -> mlua::Result<()> {
+    env.measured(lua, t, what)?;
+    let mut unexpected = BTreeSet::new();
     for pair in t.pairs::<Value, Value>() {
         let (k, _) = pair?;
         let name = k.as_string().map(|s| s.to_string_lossy());
         if !name.as_deref().is_some_and(|n| allowed.contains(&n)) {
-            return Err(env.fail(
-                lua,
-                "bad_argument",
-                format!(
-                    "{what}: unexpected key `{}` (expected {})",
-                    name.unwrap_or_else(|| format!("{k:?}")),
-                    allowed.join(", ")
-                ),
-            ));
+            unexpected.insert(name.unwrap_or_else(|| describe(&k)));
         }
     }
-    Ok(())
+    if unexpected.is_empty() {
+        return Ok(());
+    }
+    Err(env.fail(
+        lua,
+        "bad_argument",
+        format!(
+            "{what}: unexpected key {} (expected {})",
+            unexpected
+                .iter()
+                .map(|k| format!("`{k}`"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            allowed.join(", ")
+        ),
+    ))
 }
 
 /// The event table a handler gets: the event's fields plus `fact`, `tick`, `cause`.
@@ -277,11 +457,19 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         }
         Ok(())
     };
-    // ctx:cause
+    // ctx:cause (once per call)
     ctx.raw_set(
         "cause",
         m(scope, env, |lua, env, spec: Table| {
             only_keys(env, lua, &spec, "ctx:cause", &["summary", "cites"])?;
+            if env.buffer.borrow().cause.is_some() {
+                return Err(env.fail(
+                    lua,
+                    "second_cause",
+                    "a handler call makes one cause: everything it writes applies together \
+                     or not at all, so pass the same `why` to every write",
+                ));
+            }
             let summary: String = spec
                 .get("summary")
                 .map_err(|_| env.fail(lua, "bad_cause", "ctx:cause needs a `summary` string"))?;
@@ -299,17 +487,14 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             )?;
             let cause = Cause::script(env.pack.clone(), env.revision, summary.clone())
                 .citing(cites.clone());
-            let mut b = env.buffer.borrow_mut();
-            b.causes.push((cause, Vec::new()));
-            let handle = b.causes.len();
-            drop(b);
+            env.buffer.borrow_mut().cause = Some(cause);
             let t = lua.create_table()?;
             t.raw_set("summary", summary)?;
             t.raw_set(
                 "cites",
                 cites.iter().map(ToString::to_string).collect::<Vec<_>>(),
             )?;
-            t.raw_set("handle", handle)?;
+            t.raw_set("handle", 1)?;
             t.set_readonly(true);
             Ok(t)
         })?,
@@ -321,13 +506,17 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &rng,
         "rng",
         "int",
-        m(scope, env, |lua, env, (lo, hi): (i64, i64)| {
+        m(scope, env, |lua, env, (lo, hi): (Value, Value)| {
+            let lo: i64 = env.int(lua, &lo, "lo")?;
+            let hi: i64 = env.int(lua, &hi, "hi")?;
             if lo > hi {
                 return Err(env.fail(lua, "bad_argument", "ctx.rng:int(lo, hi) needs lo <= hi"));
             }
-            let span = (hi - lo) as u64 + 1;
-            let n = env.rng.borrow_mut().stream(env.rng_key).next_u64() % span;
-            Ok(lo + n as i64)
+            // In i128 so no pair of i64 bounds overflows: span is 1..=2^64.
+            let span = u128::try_from(i128::from(hi) - i128::from(lo) + 1).unwrap_or(u128::MAX);
+            let draw = u128::from(env.rng.borrow_mut().stream(env.rng_key).next_u64()) % span;
+            let n = i128::from(lo) + i128::try_from(draw).unwrap_or(0);
+            Ok(i64::try_from(n).unwrap_or(hi))
         })?,
     )?;
     method(
@@ -369,23 +558,29 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             &store,
             "store",
             "get",
-            m(scope, env, |lua, env, (store, key): (String, String)| {
-                declared(env, lua, &store, &key)?;
-                let v = env
-                    .world
-                    .packs
-                    .get(env.pack)
-                    .and_then(|p| p.stores.get(&env.script.id))
-                    .and_then(|s| s.get(&store))
-                    .and_then(|s| s.get(&key));
-                match v {
-                    None => Ok(Value::Nil),
-                    Some(ScriptValue::Boolean(b)) => Ok(Value::Boolean(*b)),
-                    Some(ScriptValue::Integer(i)) => Ok(Value::Number(*i as f64)),
-                    Some(ScriptValue::Number(n)) => Ok(Value::Number(*n)),
-                    Some(ScriptValue::String(s)) => to_lua(lua, s),
-                }
-            })?,
+            m(
+                scope,
+                env,
+                |lua, env, (store, key): (LuaString, LuaString)| {
+                    let (store, key) = (env.arg(lua, &store)?, env.arg(lua, &key)?);
+                    declared(env, lua, &store, &key)?;
+                    let v = env
+                        .world
+                        .packs
+                        .get(env.pack)
+                        .and_then(|p| p.stores.get(&env.script.id))
+                        .and_then(|s| s.get(&store))
+                        .and_then(|s| s.get(&key));
+                    match v {
+                        None => Ok(Value::Nil),
+                        Some(ScriptValue::Boolean(b)) => Ok(Value::Boolean(*b)),
+                        // Stores keep integers within 2^53, so this is exact.
+                        Some(ScriptValue::Integer(i)) => Ok(Value::Number(*i as f64)),
+                        Some(ScriptValue::Number(n)) => Ok(Value::Number(*n)),
+                        Some(ScriptValue::String(s)) => to_lua(lua, s),
+                    }
+                },
+            )?,
         )?;
         method(
             &store,
@@ -394,7 +589,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             m(
                 scope,
                 env,
-                |lua, env, (store, key, value, why): (String, String, Value, Table)| {
+                |lua, env, (store, key, value, why): (LuaString, LuaString, Value, Table)| {
+                    let (store, key) = (env.arg(lua, &store)?, env.arg(lua, &key)?);
                     let ty = declared(env, lua, &store, &key)?;
                     let wrong = |what: &str| {
                         env.fail(
@@ -406,26 +602,34 @@ pub(crate) fn build<'scope, 'env: 'scope>(
                     let v = match (ty, &value) {
                         (_, Value::Nil) => None,
                         (ValueType::Boolean, Value::Boolean(b)) => Some(ScriptValue::Boolean(*b)),
-                        (ValueType::Integer, Value::Integer(i)) => Some(ScriptValue::Integer(*i)),
-                        (ValueType::Integer, Value::Number(n))
-                            if n.fract() == 0.0 && n.abs() < 9.0e15 =>
-                        {
-                            Some(ScriptValue::Integer(*n as i64))
+                        (ValueType::Integer, Value::Integer(_) | Value::Number(_)) => {
+                            match whole_number(&value) {
+                                Some(i) if i.abs() <= MAX_STORE_INT => {
+                                    Some(ScriptValue::Integer(i))
+                                }
+                                _ => {
+                                    return Err(wrong(&format!(
+                                        "{} (whole numbers up to 2^53 only)",
+                                        describe(&value)
+                                    )));
+                                }
+                            }
                         }
                         (ValueType::Number, Value::Number(n)) if n.is_finite() => {
                             Some(ScriptValue::Number(*n))
                         }
-                        (ValueType::Number, Value::Integer(i)) => {
+                        (ValueType::Number, Value::Integer(i)) if i.abs() <= MAX_STORE_INT => {
+                            // Within 2^53, so exact.
                             Some(ScriptValue::Number(*i as f64))
                         }
                         (ValueType::String, Value::String(s)) => {
-                            let s = s.to_string_lossy();
-                            if s.len() > MAX_STORE_STRING {
+                            // Measured before it's copied.
+                            if s.as_bytes().len() > MAX_STORE_STRING {
                                 return Err(wrong("a string over 1000 bytes"));
                             }
-                            Some(ScriptValue::String(s))
+                            Some(ScriptValue::String(s.to_string_lossy()))
                         }
-                        (_, other) => return Err(wrong(other.type_name())),
+                        (_, other) => return Err(wrong(&describe(other))),
                     };
                     env.push(
                         lua,
@@ -454,7 +658,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (kind, scope_arg): (String, Option<Table>)| {
+            |lua, env, (kind, scope_arg): (LuaString, Option<Table>)| {
+                let kind = env.arg(lua, &kind)?;
                 let kind: CounterKind = serde_json::from_value(serde_json::Value::String(
                     kind.clone(),
                 ))
@@ -476,8 +681,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
                             &["station", "region"],
                         )?;
                         match (
-                            t.get::<Option<String>>("station")?,
-                            t.get::<Option<String>>("region")?,
+                            t.get::<Option<LuaString>>("station")?,
+                            t.get::<Option<LuaString>>("region")?,
                         ) {
                             (Some(s), None) => CounterScope::Station {
                                 station: env.id(lua, &s)?,
@@ -550,8 +755,9 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &history,
         "history",
         "fact",
-        m(scope, env, |lua, env, id: String| {
-            let id: FactId = id
+        m(scope, env, |lua, env, id: LuaString| {
+            let id: FactId = env
+                .arg(lua, &id)?
                 .parse()
                 .map_err(|e: IdError| env.fail(lua, "bad_id", e))?;
             to_lua(lua, &env.history.fact(id))
@@ -562,9 +768,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         "history",
         "record",
         m(scope, env, |lua, env, (fact, why): (Table, Table)| {
-            let draft: FactDraft = lua
-                .from_value(Value::Table(fact))
-                .map_err(|e| env.fail(lua, "bad_argument", e))?;
+            let draft: FactDraft = env.decode(lua, fact, "ctx.history:record")?;
             // Recorded kinds carry the pack's prefix (`gm.stage_built`); bare names
             // are the engine's event kinds.
             let ns = env.pack.as_str().split('.').next().unwrap_or("");
@@ -594,7 +798,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &stations,
         "stations",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.stations.get(id.as_str()))
         })?,
     )?;
@@ -615,7 +820,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &stations,
         "stations",
         "stage",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
             let id = env.station(lua, &id)?;
             Ok(env.world.stations.get(&id).map_or(0, |s| s.build.stage))
         })?,
@@ -624,7 +829,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &stations,
         "stations",
         "parts",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
             let id = env.station(lua, &id)?;
             Ok(env
                 .world
@@ -647,8 +852,9 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (id, stage, why): (String, u32, Table)| {
+            |lua, env, (id, stage, why): (LuaString, Value, Table)| {
                 let station = env.station(lua, &id)?;
+                let stage: u32 = env.int(lua, &stage, "stage")?;
                 env.push(lua, &why, Command::SetStationStage { station, stage })
             },
         )?,
@@ -661,7 +867,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             m(
                 scope,
                 env,
-                move |lua, env, (id, part, why): (String, String, Table)| {
+                move |lua, env, (id, part, why): (LuaString, LuaString, Table)| {
                     let station = env.station(lua, &id)?;
                     let part: PartId = env.id(lua, &part)?;
                     env.push(
@@ -684,7 +890,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (id, owner, why): (String, Option<String>, Table)| {
+            |lua, env, (id, owner, why): (LuaString, Option<LuaString>, Table)| {
                 let station = env.station(lua, &id)?;
                 let owner = owner.map(|o| env.faction(lua, &o)).transpose()?;
                 env.push(lua, &why, Command::SetStationOwner { station, owner })
@@ -698,7 +904,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &factions,
         "factions",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.factions.get(id.as_str()))
         })?,
     )?;
@@ -719,7 +926,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &factions,
         "factions",
         "standing",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
             let id = env.faction(lua, &id)?;
             Ok(env.world.factions.get(&id).map_or(0, |f| f.standing))
         })?,
@@ -731,8 +938,9 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (id, delta, why): (String, i32, Table)| {
+            |lua, env, (id, delta, why): (LuaString, Value, Table)| {
                 let faction = env.faction(lua, &id)?;
+                let delta: i32 = env.int(lua, &delta, "delta")?;
                 env.push(lua, &why, Command::AdjustStanding { faction, delta })
             },
         )?,
@@ -744,7 +952,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &npcs,
         "npcs",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.npcs.get(id.as_str()))
         })?,
     )?;
@@ -765,7 +974,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &npcs,
         "npcs",
         "at",
-        m(scope, env, |lua, env, station: String| {
+        m(scope, env, |lua, env, station: LuaString| {
             let station = env.station(lua, &station)?;
             let here: Vec<&Npc> = env
                 .world
@@ -781,9 +990,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         "npcs",
         "put",
         m(scope, env, |lua, env, (npc, why): (Table, Table)| {
-            let npc: Npc = lua
-                .from_value(Value::Table(npc))
-                .map_err(|e| env.fail(lua, "bad_argument", e))?;
+            let npc: Npc = env.decode(lua, npc, "ctx.npcs:put")?;
             env.check_new_id(lua, npc.id.as_str(), env.world.npcs.contains(&npc.id))?;
             env.push(
                 lua,
@@ -802,7 +1009,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (id, station, why): (String, Option<String>, Table)| {
+            |lua, env, (id, station, why): (LuaString, Option<LuaString>, Table)| {
                 let id: NpcId = env.id(lua, &id)?;
                 let mut npc = env
                     .world
@@ -829,7 +1036,8 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &rumors,
         "rumors",
         "get",
-        m(scope, env, |lua, env, id: String| {
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
             to_lua(lua, &env.world.rumors.get(id.as_str()))
         })?,
     )?;
@@ -851,9 +1059,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         "rumors",
         "put",
         m(scope, env, |lua, env, (rumor, why): (Table, Table)| {
-            let rumor: Rumor = lua
-                .from_value(Value::Table(rumor))
-                .map_err(|e| env.fail(lua, "bad_argument", e))?;
+            let rumor: Rumor = env.decode(lua, rumor, "ctx.rumors:put")?;
             env.check_new_id(lua, rumor.id.as_str(), env.world.rumors.contains(&rumor.id))?;
             env.push(
                 lua,
@@ -865,7 +1071,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
             )
         })?,
     )?;
-    let rumor_edit = |env: &CallEnv<'_>, lua: &Lua, id: &str| -> mlua::Result<Rumor> {
+    let rumor_edit = |env: &CallEnv<'_>, lua: &Lua, id: &LuaString| -> mlua::Result<Rumor> {
         let id: RumorId = env.id(lua, id)?;
         env.world
             .rumors
@@ -880,7 +1086,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            move |lua, env, (id, is_true, why): (String, bool, Table)| {
+            move |lua, env, (id, is_true, why): (LuaString, bool, Table)| {
                 let mut r = rumor_edit(env, lua, &id)?;
                 r.is_true = is_true;
                 env.push(
@@ -901,7 +1107,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            move |lua, env, (id, station, why): (String, String, Table)| {
+            move |lua, env, (id, station, why): (LuaString, LuaString, Table)| {
                 let mut r = rumor_edit(env, lua, &id)?;
                 r.heard_at.insert(env.station(lua, &station)?);
                 env.push(
@@ -922,7 +1128,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &territory,
         "territory",
         "owner",
-        m(scope, env, |lua, env, region: String| {
+        m(scope, env, |lua, env, region: LuaString| {
             let id: RegionId = env.id(lua, &region)?;
             let r = env
                 .world
@@ -936,7 +1142,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &territory,
         "territory",
         "station_owner",
-        m(scope, env, |lua, env, station: String| {
+        m(scope, env, |lua, env, station: LuaString| {
             let id = env.station(lua, &station)?;
             Ok(env
                 .world
@@ -953,7 +1159,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (region, owner, why): (String, Option<String>, Table)| {
+            |lua, env, (region, owner, why): (LuaString, Option<LuaString>, Table)| {
                 let id: RegionId = env.id(lua, &region)?;
                 let mut r = env
                     .world
@@ -980,7 +1186,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (station, owner, why): (String, Option<String>, Table)| {
+            |lua, env, (station, owner, why): (LuaString, Option<LuaString>, Table)| {
                 let station = env.station(lua, &station)?;
                 let owner = owner.map(|o| env.faction(lua, &o)).transpose()?;
                 env.push(lua, &why, Command::SetStationOwner { station, owner })
@@ -994,20 +1200,25 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         &market,
         "market",
         "line",
-        m(scope, env, |lua, env, (station, ware): (String, String)| {
-            let line = env
-                .world
-                .markets
-                .get(station.as_str())
-                .and_then(|m| m.lines.get(ware.as_str()));
-            to_lua(lua, &line)
-        })?,
+        m(
+            scope,
+            env,
+            |lua, env, (station, ware): (LuaString, LuaString)| {
+                let (station, ware) = (env.arg(lua, &station)?, env.arg(lua, &ware)?);
+                let line = env
+                    .world
+                    .markets
+                    .get(station.as_str())
+                    .and_then(|m| m.lines.get(ware.as_str()));
+                to_lua(lua, &line)
+            },
+        )?,
     )?;
     method(
         &market,
         "market",
         "lines",
-        m(scope, env, |lua, env, station: String| {
+        m(scope, env, |lua, env, station: LuaString| {
             let station = env.station(lua, &station)?;
             match env.world.markets.get(&station) {
                 Some(m) => to_lua(lua, &m.lines),
@@ -1022,7 +1233,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (station, ware, line, why): (String, String, Table, Table)| {
+            |lua, env, (station, ware, line, why): (LuaString, LuaString, Table, Table)| {
                 let station = env.station(lua, &station)?;
                 let ware: WareId = env.id(lua, &ware)?;
                 if !env.world.wares.contains(&ware) {
@@ -1034,9 +1245,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
                 if m.lines.contains_key(&ware) {
                     return Err(env.fail(lua, "line_exists", format!("`{station}` already trades `{ware}`; changing it is a market lever (W3)")));
                 }
-                let line: MarketLine = lua
-                    .from_value(Value::Table(line))
-                    .map_err(|e| env.fail(lua, "bad_argument", e))?;
+                let line: MarketLine = env.decode(lua, line, "ctx.market:add_line")?;
                 if !(line.min_price <= line.price && line.price <= line.max_price) {
                     return Err(env.fail(
                         lua,
@@ -1063,7 +1272,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
         m(
             scope,
             env,
-            |lua, env, (station, ware, why): (String, String, Table)| {
+            |lua, env, (station, ware, why): (LuaString, LuaString, Table)| {
                 let station = env.station(lua, &station)?;
                 let ware: WareId = env.id(lua, &ware)?;
                 if !env
@@ -1113,17 +1322,17 @@ pub(crate) fn build<'scope, 'env: 'scope>(
                 "every line must cite at least one history fact ID (`cites = { ev.fact }`)",
             ));
         };
-        let speaker: Option<String> = spec.get("speaker")?;
-        let speaker = speaker
+        let speaker = env
+            .opt_arg(lua, spec.get("speaker")?)?
             .map(|s| -> mlua::Result<NpcId> {
-                let id: NpcId = env.id(lua, &s)?;
+                let id: NpcId = s.parse().map_err(|e: IdError| env.fail(lua, "bad_id", e))?;
                 if !env.world.npcs.contains(&id) {
                     return Err(env.fail(lua, "unknown_id", format!("no npc `{id}`")));
                 }
                 Ok(id)
             })
             .transpose()?;
-        let place: Option<String> = spec.get("place")?;
+        let place: Option<LuaString> = spec.get("place")?;
         let place = place.map(|p| env.station(lua, &p)).transpose()?;
         let line = TalkLine {
             channel,

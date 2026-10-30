@@ -352,7 +352,8 @@ pub const FUNCTIONS: &[FnDef] = &[
         "cause",
         "",
         "(spec: CauseSpec) -> Cause",
-        "A cause for this handler's writes. `cites` are history fact IDs; they must exist.",
+        "The cause for this handler's writes. `cites` are history fact IDs; they must exist. \
+         One per call: everything a handler writes applies together or not at all.",
     ),
     f(
         "rng",
@@ -1507,7 +1508,26 @@ pub fn hooks_md() -> String {
          No clock, timer or wall time (`os`, `wait`, `delay`, `tick`); no `math.random`\n\
          (use `ctx.rng`); no `loadstring`, `getfenv`, `setfenv`; `require` only sees\n\
          `@galaxy` and the pack's own modules (`./name`). Sandbox and snapshots are CLI\n\
-         only (`galaxy gm`, `galaxy sim`).\n",
+         only (`galaxy gm`, `galaxy sim`).\n\n\
+         ## Sandbox rules\n\n\
+         - **No memory between calls.** Each handler call runs the script and its modules\n\
+           afresh, so module-level locals start over every call. What a script must\n\
+           remember goes in its declared `stores` (saved with the world).\n\
+         - **One cause per call.** A second `ctx:cause` is an error. The call's writes are\n\
+           one batch: if any would be rejected, none apply and the call counts as aborted.\n\
+         - **Deterministic.** `tostring` and `string.format` print tables, functions and\n\
+           buffers as their type name, never an address. `pairs` and `next` refuse tables\n\
+           keyed by tables, functions or buffers (their order isn't stable), and loops must\n\
+           iterate with `pairs(t)`, `ipairs(t)`, `next`, `string.gmatch` or `utf8.codes`:\n\
+           a bare `for k, v in t do` is a check error. The garbage collector doesn't run\n\
+           during a call, so weak tables don't change under a handler.\n\
+         - **Limits.** Per call: `limits.steps_per_call` steps, `limits.memory_bytes` of\n\
+           Luau memory (everything the call allocates, garbage included), and at most\n\
+           256 writes holding 256 KiB. Arguments to `ctx` are size-checked before they are\n\
+           copied. Numbers passed to `ctx` must be whole where a whole number is expected\n\
+           and in range; nothing is truncated or wrapped.\n\
+         - **Strict types.** Every checked file is typechecked in strict mode;\n\
+           `--!nocheck` and `--!nonstrict` are check errors.\n",
     );
     out
 }

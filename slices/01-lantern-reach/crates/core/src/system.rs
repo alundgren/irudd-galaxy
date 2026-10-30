@@ -41,6 +41,13 @@ impl TickCtx<'_> {
         }
     }
 
+    /// Batches queued so far this tick, in the order they will apply: those submitted
+    /// between ticks, then earlier systems'. Lets a system see a pending change (a
+    /// rollback, a retirement) before it acts on the old world.
+    pub fn queued(&self) -> &[CommandBatch] {
+        self.out
+    }
+
     /// This system's own random stream.
     pub fn rng(&mut self) -> &mut SimRng {
         self.rng.stream(self.system)

@@ -5,6 +5,8 @@
 //! 1. `manifest`: `manifest.toml` and data files against their schemas; files exist;
 //!    `uses` are known and implemented.
 //! 2. `types`: strict Luau typecheck against `galaxy.d.luau` (needs `luau-analyze`).
+//!    A `--!nocheck` or `--!nonstrict` directive is an error even without the
+//!    analyzer: source can't turn the strict check off.
 //! 3. `hooks`: every `ctx` hook a script calls is declared in `uses`; each script
 //!    loads and defines exactly the handlers its manifest lists.
 //! 4. `references`: every ID a script or the manifest names exists in the world or is
@@ -12,7 +14,8 @@
 //! 5. `invariants`: no clock or timer APIs, no unseeded randomness, every line cites a
 //!    fact, shocks are paired with opportunities.
 //! 6. `smoke`: each handler runs once on a sample event against the world, within
-//!    budget; its writes are applied to a copy and thrown away.
+//!    budget, on a VM of its own (the VM the check returns has run no handler); its
+//!    writes are checked like the kernel checks them, on a copy, and thrown away.
 //!
 //! The game-master path appends `canon`, `sandbox` (fork the save, fast-forward,
 //! compare), `legibility` and `stage` to the same report later.
@@ -140,23 +143,28 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
     let mut steps = vec![step(ValidationStep::Manifest, pack.warnings.clone())];
 
     // 2. Types
+    let mut modes = crate::analyzer::mode_directives(&pack);
     steps.push(match opts.analyzer {
         Some(a) => match crate::analyzer::typecheck(&pack, a) {
-            Ok(d) => step(ValidationStep::Types, d),
-            Err(e) => step(
-                ValidationStep::Types,
-                vec![error("analyzer", e, None, None)],
-            ),
+            Ok(mut d) => {
+                modes.append(&mut d);
+                step(ValidationStep::Types, modes)
+            }
+            Err(e) => {
+                modes.push(error("analyzer", e, None, None));
+                step(ValidationStep::Types, modes)
+            }
         },
-        None if opts.require_typecheck => step(
-            ValidationStep::Types,
-            vec![error(
+        None if opts.require_typecheck => {
+            modes.push(error(
                 "no_analyzer",
                 "luau-analyze not found: run `cargo xtask fetch-luau`",
                 None,
                 None,
-            )],
-        ),
+            ));
+            step(ValidationStep::Types, modes)
+        }
+        None if !modes.is_empty() => step(ValidationStep::Types, modes),
         None => StepReport {
             step: ValidationStep::Types,
             outcome: StepOutcome::Skipped,
@@ -304,12 +312,15 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
     inv.extend(pack::unpaired_shocks(&pack.manifest));
     steps.push(step(ValidationStep::Invariants, inv));
 
-    // 6. Smoke
+    // 6. Smoke, on a VM of its own: the one returned never ran a handler.
     steps.push(match (&vm, opts.world) {
-        (Some(vm), Some(world)) => step(
-            ValidationStep::Smoke,
-            smoke(vm, &scans, world, opts.history),
-        ),
+        (Some(_), Some(world)) => match PackVm::new(pack.clone()) {
+            Ok(trial) => step(
+                ValidationStep::Smoke,
+                smoke(&trial, &scans, world, opts.history),
+            ),
+            Err(d) => step(ValidationStep::Smoke, d),
+        },
         (None, _) => skipped(ValidationStep::Smoke, "the scripts didn't load"),
         (_, None) => skipped(ValidationStep::Smoke, "no world to run against"),
     });
@@ -571,7 +582,9 @@ fn smoke(
 ) -> Vec<Diagnostic> {
     let mut world = world.clone();
     for batch in crate::host::install_batches(&vm.pack, &world) {
-        let _ = crate::host::apply_atomic(&mut world, &batch);
+        if let Ok(next) = crate::host::preview(&world, &batch) {
+            world = next;
+        }
     }
     let mut out = Vec::new();
     let mut rng = RngBank::new(world.meta.seed);
@@ -586,11 +599,12 @@ fn smoke(
             };
             let mut abort = None;
             let mut tests = |idx: u32| {
-                vm.predicate(i, idx, view, &mut rng).map_err(|a| {
-                    let m = a.message.clone();
-                    abort = Some(a);
-                    galaxy_progress::EvalError::Predicate(m)
-                })
+                vm.predicate(i, idx, view, &mut rng, &mut None)
+                    .map_err(|a| {
+                        let m = a.message.clone();
+                        abort = Some(a);
+                        galaxy_progress::EvalError::Predicate(m)
+                    })
             };
             let eval = galaxy_progress::Eval::new(&world, &hist);
             if let Err(e) = galaxy_progress::beats::next(&b.def, eval, &mut tests) {
@@ -660,18 +674,15 @@ fn smoke(
                 history: &hist,
             };
             match vm.call(i, target, view, &mut rng) {
-                Ok(batches) => {
-                    let mut copy = world.clone();
-                    for b in &batches {
-                        if let Err(reason) = crate::host::apply_atomic(&mut copy, b) {
-                            out.push(diag(
-                                Severity::Warning,
-                                "apply_failed",
-                                format!("`{handler}` on a sample event wrote a batch the engine would reject: {reason}"),
-                                Some(&s.decl.file),
-                                vm.handler_line(i, target),
-                            ));
-                        }
+                Ok(batch) => {
+                    if let Some(Err(reason)) = batch.map(|b| crate::host::preview(&world, &b)) {
+                        out.push(diag(
+                            Severity::Warning,
+                            "apply_failed",
+                            format!("`{handler}` on a sample event wrote a batch the engine would reject: {reason}"),
+                            Some(&s.decl.file),
+                            vm.handler_line(i, target),
+                        ));
                     }
                 }
                 Err(abort) => {

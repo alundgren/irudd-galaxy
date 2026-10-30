@@ -3689,6 +3689,14 @@
         "quarantined": {
           "type": "boolean"
         },
+        "quarantined_before": {
+          "description": "Earlier revisions of this script that were quarantined. Loading one of them\nagain doesn't give it a clean start: it stays quarantined.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
         "revision": {
           "description": "The revision these counts are for; a new revision starts clean.",
           "type": "string"

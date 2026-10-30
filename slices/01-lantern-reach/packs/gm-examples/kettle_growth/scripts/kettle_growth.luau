@@ -25,7 +25,7 @@ end
 -- The latest delivery or sale of a ware at Kettle, to cite.
 local function last_of(ctx: G.Ctx, ware: string): string?
 	local best: G.Fact? = nil
-	for _, kind in { "deliver", "sell" } do
+	for _, kind in ipairs({ "deliver", "sell" }) do
 		local f = ctx.history:last({ kind = kind, station = KETTLE, ware = ware })
 		if f and (best == nil or f.tick > best.tick) then
 			best = f
@@ -51,7 +51,7 @@ local function grow(station: string, fact: string, ctx: G.Ctx)
 
 	-- Cite the delivery that completed the stage and the latest of each ware.
 	local cites = { fact }
-	for _, ware in { ledger.ICE, ledger.PLATE } do
+	for _, ware in ipairs({ ledger.ICE, ledger.PLATE }) do
 		local id = last_of(ctx, ware)
 		if id and id ~= fact then
 			table.insert(cites, id)
@@ -61,7 +61,7 @@ local function grow(station: string, fact: string, ctx: G.Ctx)
 
 	ctx.stations:set_stage(KETTLE, to, why)
 	for s = math.max(from + 1, 2), to do
-		for _, part in ledger.STAGES[s].parts do
+		for _, part in ipairs(ledger.STAGES[s].parts) do
 			ctx.stations:attach(KETTLE, part, why)
 		end
 	end

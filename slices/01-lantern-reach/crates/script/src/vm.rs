@@ -9,10 +9,21 @@
 //!   from the in-memory copy of the pack that was hashed and checked.
 //! - A VM interrupt counts steps (loop back-edges and calls) per handler call; over
 //!   the budget, every further step fails, so even `pcall` can't keep a loop alive.
-//!   The state has a memory limit.
+//! - Each call starts from a collected heap with the collector stopped, and may
+//!   allocate `limits.memory_bytes` (garbage included). So whether a call runs out of
+//!   memory, and what weak tables hold, depends only on the call itself.
+//! - **No memory between calls.** Every handler call runs the script and the modules
+//!   it requires afresh, so locals and upvalues can't carry anything from one call to
+//!   the next: the script's declared stores are its only memory, and a restored save
+//!   replays exactly.
+//! - **No addresses.** `tostring`, `string.format` (and so string interpolation) and
+//!   `print` show tables, functions and buffers as their type name; `pairs` and `next`
+//!   refuse tables keyed by them (their order follows heap addresses). `table.foreach`
+//!   is removed. Bare `for k, v in t` loops are rejected by the static scan.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 
 use galaxy_contract::events::{CounterKind, CounterScope, EventEnvelope, EventKind};
@@ -24,7 +35,10 @@ use galaxy_contract::world::WorldState;
 use galaxy_core::History;
 use galaxy_core::rng::{RngBank, SimRng};
 use mlua::LuaSerdeExt;
-use mlua::{Function, Lua, LuaOptions, RegistryKey, StdLib, Table, Value, VmState};
+use mlua::{
+    Function, Lua, LuaOptions, LuaString, MultiValue, RegistryKey, StdLib, Table, Value, Variadic,
+    VmState,
+};
 
 use crate::ctx::{self, Buffer, CallEnv};
 use crate::pack::{Pack, error};
@@ -105,19 +119,29 @@ pub struct VmScript {
     pub triggers: Vec<TriggerDef>,
     /// Beats it registers (`G.beat`), in the order it lists them.
     pub beats: Vec<LoadedBeat>,
-    /// `G.test` predicates, by the index `Requirement::Test` holds.
-    tests: Vec<RegistryKey>,
+    /// Where each `G.test` predicate sits in the script's definition, by the index
+    /// `Requirement::Test` holds. Called on a fresh instance, like every handler.
+    tests: Vec<Vec<PathKey>>,
 }
 
-/// A beat a script registers, with its optional callbacks.
+/// One step from a script's definition table down to a function.
+#[derive(Clone, Debug, PartialEq)]
+enum PathKey {
+    Key(String),
+    Index(i64),
+}
+
+/// A beat a script registers. Its callbacks are found by name on a fresh instance.
 pub struct LoadedBeat {
     pub def: BeatDef,
-    hooks: BTreeMap<&'static str, RegistryKey>,
+    /// Its position in the script's `beats` list (from 1).
+    index: i64,
+    hooks: BTreeSet<&'static str>,
 }
 
 impl LoadedBeat {
     pub fn has_hook(&self, name: &str) -> bool {
-        self.hooks.contains_key(name)
+        self.hooks.contains(name)
     }
 }
 
@@ -229,6 +253,120 @@ return table.freeze(G)
 "#;
 
 const LOG_CAP: usize = 200;
+/// Longest `print` line kept, in bytes (longer ones are cut before they're copied).
+const LOG_LINE_CAP: usize = 1024;
+
+/// Values that are only their identity: printing or hashing one exposes an address.
+pub(crate) fn by_reference(v: &Value) -> bool {
+    !matches!(
+        v,
+        Value::Nil
+            | Value::Boolean(_)
+            | Value::Integer(_)
+            | Value::Number(_)
+            | Value::Vector(_)
+            | Value::String(_)
+    )
+}
+
+/// A Luau number that is a whole number Rust can hold exactly (|n| <= 2^53 for
+/// floats). Anything else is `None`: callers reject it instead of truncating.
+pub(crate) fn whole_number(v: &Value) -> Option<i64> {
+    const EXACT: f64 = 9_007_199_254_740_992.0; // 2^53
+    match v {
+        Value::Integer(i) => Some(*i),
+        // Whole and within 2^53, so the cast is exact.
+        Value::Number(n) if n.fract() == 0.0 && n.abs() <= EXACT => Some(*n as i64),
+        _ => None,
+    }
+}
+
+/// `tostring` without addresses: a table with a `__tostring` metamethod uses it; other
+/// tables, functions, buffers and userdata print as their type name.
+fn stable_tostring(lua: &Lua, raw: &Function, v: Value) -> mlua::Result<LuaString> {
+    let own = match &v {
+        Value::Table(t) => t
+            .metatable()
+            .is_some_and(|mt| matches!(mt.raw_get::<Value>("__tostring"), Ok(Value::Function(_)))),
+        other => !by_reference(other),
+    };
+    if own {
+        raw.call(v)
+    } else {
+        lua.create_string(v.type_name())
+    }
+}
+
+/// Fails if a table has a key whose position depends on its address.
+fn stable_keys(t: &Table, what: &str) -> mlua::Result<()> {
+    for pair in t.pairs::<Value, Value>() {
+        let (k, _) = pair?;
+        if by_reference(&k) {
+            return Err(unstable_order(what, &k));
+        }
+    }
+    Ok(())
+}
+
+fn unstable_order(what: &str, k: &Value) -> mlua::Error {
+    mlua::Error::runtime(format!(
+        "{what}: this table has a {} as a key, and the order of such keys changes from \
+         run to run; key it by strings or numbers",
+        k.type_name()
+    ))
+}
+
+/// Replaces the standard functions that can expose heap addresses or address order.
+/// Runs before the sandbox freezes the libraries.
+fn install_stable_library(lua: &Lua, globals: &Table) -> mlua::Result<()> {
+    let raw_tostring: Function = globals.get("tostring")?;
+    let raw = raw_tostring.clone();
+    let tostring = lua.create_function(move |lua, v: Value| stable_tostring(lua, &raw, v))?;
+    globals.raw_set("tostring", tostring)?;
+
+    let string: Table = globals.get("string")?;
+    let raw_format: Function = string.get("format")?;
+    let raw = raw_tostring.clone();
+    let format = lua.create_function(move |lua, args: Variadic<Value>| {
+        let args = args
+            .into_iter()
+            .map(|v| {
+                if by_reference(&v) {
+                    stable_tostring(lua, &raw, v).map(Value::String)
+                } else {
+                    Ok(v)
+                }
+            })
+            .collect::<mlua::Result<Variadic<Value>>>()?;
+        raw_format.call::<MultiValue>(args)
+    })?;
+    string.raw_set("format", format)?;
+
+    let raw_next: Function = globals.get("next")?;
+    let next = lua.create_function(move |_, (t, k): (Table, Value)| {
+        if k.is_nil() {
+            stable_keys(&t, "next")?;
+        }
+        let out: MultiValue = raw_next.call((t, k))?;
+        if let Some(k) = out.front().filter(|k| by_reference(k)) {
+            return Err(unstable_order("next", k));
+        }
+        Ok(out)
+    })?;
+    let next_fn = next.clone();
+    let pairs = lua.create_function(move |_, t: Table| {
+        stable_keys(&t, "pairs")?;
+        Ok((next_fn.clone(), t, Value::Nil))
+    })?;
+    globals.raw_set("next", next)?;
+    globals.raw_set("pairs", pairs)?;
+
+    let table: Table = globals.get("table")?;
+    table.raw_set("foreach", Value::Nil)?;
+
+    lua.set_named_registry_value("galaxy.tostring", raw_tostring)?;
+    Ok(())
+}
 
 /// A `(file, line)` from Luau's `file:line:` error prefix.
 pub(crate) fn split_location(msg: &str) -> (Option<Location>, String) {
@@ -345,19 +483,26 @@ impl PackVm {
 
         let log = Rc::new(RefCell::new(Vec::new()));
         let sink = log.clone();
-        let print = lua.create_function(move |lua, args: mlua::Variadic<Value>| {
-            let mut parts = Vec::new();
-            for a in args {
-                parts.push(
-                    lua.coerce_string(a.clone())?
-                        .map_or_else(|| format!("{a:?}"), |s| s.to_string_lossy()),
-                );
+        let print = lua.create_function(move |lua, args: Variadic<Value>| {
+            let raw: Function = lua.named_registry_value("galaxy.tostring")?;
+            let mut line: Vec<u8> = Vec::new();
+            for (i, a) in args.into_iter().enumerate() {
+                if i > 0 {
+                    line.push(b'\t');
+                }
+                let s = stable_tostring(lua, &raw, a)?;
+                let bytes = s.as_bytes();
+                let room = LOG_LINE_CAP.saturating_sub(line.len());
+                line.extend_from_slice(&bytes[..bytes.len().min(room)]);
+                if line.len() >= LOG_LINE_CAP {
+                    break;
+                }
             }
             let mut l = sink.borrow_mut();
             if l.len() >= LOG_CAP {
                 l.remove(0);
             }
-            l.push(parts.join("\t"));
+            l.push(String::from_utf8_lossy(&line).into_owned());
             Ok(())
         })?;
         globals.raw_set("print", print)?;
@@ -403,6 +548,7 @@ impl PackVm {
             Ok(v)
         })?;
         globals.raw_set("require", require)?;
+        install_stable_library(&lua, &globals)?;
         // Chunks read these (frozen by sandbox mode), never the writable per-thread
         // proxy sandbox mode installs, so no script can stash state in a global.
         lua.set_named_registry_value("galaxy.globals", globals)?;
@@ -421,10 +567,45 @@ impl PackVm {
         &self.lua
     }
 
-    /// Runs `f` with a fresh step budget. Returns an abort if it ran over.
+    /// Runs `f` with a fresh step budget and memory allowance. Returns an abort if it
+    /// ran over either, or if the host panicked.
+    ///
+    /// The heap is collected first and the collector stays off while `f` runs, so the
+    /// call may allocate exactly `limits.memory_bytes`, garbage included: running out
+    /// doesn't depend on what earlier calls left behind, and weak tables don't change
+    /// under the call.
     pub(crate) fn budgeted<R>(&self, f: impl FnOnce() -> mlua::Result<R>) -> Result<R, Abort> {
-        self.budget.reset(self.pack.limits().steps_per_call);
-        let result = f();
+        let limits = self.pack.limits();
+        self.budget.reset(limits.steps_per_call);
+        let lua = &self.lua;
+        let memory = usize::try_from(limits.memory_bytes).unwrap_or(usize::MAX);
+        let prepared = lua
+            .set_memory_limit(0)
+            .and_then(|_| lua.gc_collect())
+            .and_then(|()| lua.set_memory_limit(lua.used_memory().saturating_add(memory)));
+        if let Err(e) = prepared {
+            return Err(abort_from(&e, Some("vm")));
+        }
+        lua.gc_stop();
+        let result = catch_unwind(AssertUnwindSafe(f));
+        lua.gc_restart();
+        let result = match result {
+            Ok(r) => r,
+            Err(panic) => {
+                let what = panic
+                    .downcast_ref::<&str>()
+                    .map(|s| (*s).to_owned())
+                    .or_else(|| panic.downcast_ref::<String>().cloned())
+                    .unwrap_or_default();
+                return Err(Abort {
+                    code: "host_error".into(),
+                    message: format!(
+                        "the host failed on this call ({what}); its writes were discarded"
+                    ),
+                    location: self.budget.at.borrow().clone(),
+                });
+            }
+        };
         if self.budget.exhausted.get() {
             return Err(Abort {
                 code: "over_budget".into(),
@@ -518,15 +699,16 @@ impl PackVm {
             Ok(Value::Nil) => {}
             Ok(Value::Table(list)) => {
                 for (n, item) in list.sequence_values::<Value>().enumerate() {
+                    let index = n as i64 + 1;
                     let parsed = item.map_err(|e| e.to_string()).and_then(|v| match v {
-                        Value::Table(t) => self.parse_beat(&t, &mut tests),
+                        Value::Table(t) => self.parse_beat(&t, index, &mut tests),
                         _ => Err("each entry must be `G.beat { ... }`".to_owned()),
                     });
                     match parsed {
                         Ok(b) => beats.push(b),
                         Err(msg) => diags.push(error(
                             "bad_beat",
-                            format!("`beats[{}]`: {msg}", n + 1),
+                            format!("`beats[{index}]`: {msg}"),
                             Some(file),
                             None,
                         )),
@@ -623,24 +805,34 @@ impl PackVm {
         })
     }
 
-    /// Reads one `G.beat { ... }` table: its callbacks into the registry, its `G.test`
-    /// predicates into `tests`, and the rest as a [`BeatDef`].
-    fn parse_beat(&self, t: &Table, tests: &mut Vec<RegistryKey>) -> Result<LoadedBeat, String> {
+    /// Reads one `G.beat { ... }` table: which callbacks it has, where its `G.test`
+    /// predicates are, and the rest as a [`BeatDef`].
+    fn parse_beat(
+        &self,
+        t: &Table,
+        index: i64,
+        tests: &mut Vec<Vec<PathKey>>,
+    ) -> Result<LoadedBeat, String> {
         let lua = &self.lua;
-        let mut hooks = BTreeMap::new();
+        let mut hooks = BTreeSet::new();
         for name in BEAT_HOOKS {
             match t.get::<Value>(name).map_err(|e| e.to_string())? {
                 Value::Nil => {}
-                Value::Function(f) => {
-                    let key = lua.create_registry_value(f).map_err(|e| e.to_string())?;
-                    hooks.insert(name, key);
+                Value::Function(_) => {
+                    hooks.insert(name);
                 }
                 _ => return Err(format!("`{name}` must be a function(ctx, beat)")),
             }
         }
+        let base = vec![PathKey::Key("beats".into()), PathKey::Index(index)];
         let plain = lua.create_table().map_err(|e| e.to_string())?;
-        for pair in t.pairs::<Value, Value>() {
-            let (k, v) = pair.map_err(|e| e.to_string())?;
+        let mut keys: Vec<(Value, Value)> = t
+            .pairs::<Value, Value>()
+            .collect::<mlua::Result<_>>()
+            .map_err(|e| e.to_string())?;
+        // Walk in a fixed order so predicates are numbered the same on every load.
+        keys.sort_by_key(|(k, _)| k.as_string().map(|s| s.to_string_lossy()));
+        for (k, v) in keys {
             let key = k
                 .as_string()
                 .map(|s| s.to_string_lossy())
@@ -648,10 +840,13 @@ impl PackVm {
             if BEAT_HOOKS.contains(&key.as_str()) {
                 continue;
             }
+            let mut path = base.clone();
+            path.push(PathKey::Key(key.clone()));
+            let v = strip_tests(lua, v, &path, tests)?;
             let v = match key.as_str() {
-                "requires" | "done" => requirement_list(lua, strip_tests(lua, v, tests)?)?,
-                "steps" => steps(lua, strip_tests(lua, v, tests)?)?,
-                _ => strip_tests(lua, v, tests)?,
+                "requires" | "done" => requirement_list(lua, v)?,
+                "steps" => steps(lua, v)?,
+                _ => v,
             };
             plain.raw_set(k, v).map_err(|e| e.to_string())?;
         }
@@ -659,41 +854,69 @@ impl PackVm {
             .from_value(Value::Table(plain))
             .map_err(|e| format!("{e}"))?;
         let def = spec.into_def()?;
-        let problems = galaxy_progress::beats::validate(&def);
-        if let Some(p) = problems.first() {
+        if let Some(p) = galaxy_progress::beats::validate(&def).first() {
             return Err(format!("{}: {p}", def.id));
         }
-        Ok(LoadedBeat { def, hooks })
+        Ok(LoadedBeat { def, index, hooks })
+    }
+
+    /// The function at `path` in a fresh (or this tick's) instance of `script`.
+    fn function_at(&self, instance: &Table, path: &[PathKey]) -> mlua::Result<Function> {
+        let mut v = Value::Table(instance.clone());
+        for k in path {
+            let Value::Table(t) = v else {
+                return Err(mlua::Error::runtime(
+                    "the script's definition changed shape between instances",
+                ));
+            };
+            v = match k {
+                PathKey::Key(s) => t.raw_get(s.as_str())?,
+                PathKey::Index(i) => t.raw_get(*i)?,
+            };
+        }
+        match v {
+            Value::Function(f) => Ok(f),
+            _ => Err(mlua::Error::runtime(
+                "the script's definition changed shape between instances",
+            )),
+        }
     }
 
     /// Runs a `G.test` predicate. It may read but not write; it must return a boolean.
+    /// `instance` caches one fresh instance of the script for every predicate of a tick.
     pub fn predicate(
         &self,
         script: usize,
         index: u32,
         view: View<'_>,
         rng: &mut dyn RngSource,
+        instance: &mut Option<Table>,
     ) -> Result<bool, Abort> {
         let s = &self.scripts[script];
-        let key = s.tests.get(index as usize).ok_or_else(|| Abort {
+        let path = s.tests.get(index as usize).cloned().ok_or_else(|| Abort {
             code: "bad_beat".into(),
             message: format!("no G.test predicate {index}"),
             location: None,
         })?;
-        let func: Function = self
-            .lua
-            .registry_value(key)
-            .map_err(|e| abort_from(&e, None))?;
         let (result, buffer) = self.with_ctx(script, view, rng, None, |lua, ctx| {
+            let def = match instance {
+                Some(t) => t.clone(),
+                None => {
+                    let t = self.instantiate(script)?;
+                    *instance = Some(t.clone());
+                    t
+                }
+            };
+            let f = self.function_at(&def, &path)?;
             let _ = lua;
-            func.call::<Value>(ctx)
+            f.call::<Value>(ctx)
         });
         let v = result?;
         if !buffer.is_empty() {
             return Err(Abort {
                 code: "predicate_wrote".into(),
                 message: "a G.test predicate only reads; its writes were discarded".into(),
-                location: fn_location(&func),
+                location: None,
             });
         }
         match v {
@@ -704,13 +927,14 @@ impl PackVm {
                     "a G.test predicate must return true or false, not {}",
                     other.type_name()
                 ),
-                location: fn_location(&func),
+                location: None,
             }),
         }
     }
 
-    /// Runs a beat callback with `seed` (the transition's batch) as cause handle 1,
-    /// passed as `beat.why`. On success returns the batches, seed first.
+    /// Runs a beat callback on a fresh instance of its script, its buffer seeded with
+    /// the transition's batch: `beat.why` is that batch's cause, so the callback's
+    /// writes and the transition apply together or not at all.
     #[allow(clippy::too_many_arguments)]
     pub fn beat_hook(
         &self,
@@ -721,16 +945,18 @@ impl PackVm {
         view: View<'_>,
         rng: &mut dyn RngSource,
         seed: CommandBatch,
-    ) -> Result<Vec<CommandBatch>, Abort> {
+    ) -> Result<Option<CommandBatch>, Abort> {
         let s = &self.scripts[script];
-        let Some(key) = s.beats.get(beat).and_then(|b| b.hooks.get(hook)) else {
-            return Ok(vec![seed]);
+        let Some(b) = s.beats.get(beat).filter(|b| b.has_hook(hook)) else {
+            return Ok(Some(seed));
         };
-        let func: Function = self
-            .lua
-            .registry_value(key)
-            .map_err(|e| abort_from(&e, None))?;
+        let path = vec![
+            PathKey::Key("beats".into()),
+            PathKey::Index(b.index),
+            PathKey::Key(hook.to_owned()),
+        ];
         let (result, buffer) = self.with_ctx(script, view, rng, Some(seed), |lua, ctx| {
+            let f = self.function_at(&self.instantiate(script)?, &path)?;
             let t = lua.create_table()?;
             t.raw_set("id", info.beat.as_str())?;
             t.raw_set("transition", info.transition)?;
@@ -743,14 +969,14 @@ impl PackVm {
             why.set_readonly(true);
             t.raw_set("why", why)?;
             t.set_readonly(true);
-            func.call::<()>((ctx, t))
+            f.call::<()>((ctx, t))
         });
         result?;
-        Ok(buffer.into_batches())
+        Ok(buffer.into_batch())
     }
 
-    /// Calls `f` with a fresh `ctx` for `script` inside the step budget. Returns the
-    /// call's result and its write buffer.
+    /// Calls `f` with a fresh `ctx` for `script` inside the step budget, and returns
+    /// its result (with quota and ctx error codes applied) and its write buffer.
     fn with_ctx<R>(
         &self,
         script: usize,
@@ -781,16 +1007,26 @@ impl PackVm {
                 f(lua, ctx)
             })
         });
-        let failed = buffer.borrow().failed.clone();
-        let result = result.map_err(|mut a| {
-            if a.code == "runtime_error"
-                && let Some(code) = failed
-            {
-                a.code = code;
+        let buffer = buffer.into_inner();
+        let result = match result {
+            Ok(r) => match buffer.over_quota.clone() {
+                Some(message) => Err(Abort {
+                    code: "over_quota".into(),
+                    message,
+                    location: None,
+                }),
+                None => Ok(r),
+            },
+            Err(mut a) => {
+                if a.code == "runtime_error"
+                    && let Some(code) = buffer.failed.clone()
+                {
+                    a.code = code;
+                }
+                Err(a)
             }
-            a
-        });
-        (result, buffer.into_inner())
+        };
+        (result, buffer)
     }
 
     /// The line a Luau function is defined on.
@@ -802,27 +1038,35 @@ impl PackVm {
 
     fn handler(&self, script: usize, target: Target<'_>) -> mlua::Result<Function> {
         let def: Table = self.lua.registry_value(&self.scripts[script].def)?;
-        match target {
-            Target::Event(e) => def.get::<Table>("on")?.get(e.event.kind().as_str()),
-            Target::Trigger { name, .. } => {
-                def.get::<Table>("after")?.get::<Table>(name)?.get("run")
-            }
-        }
+        handler_of(&def, target)
     }
 
-    /// Calls one handler. On success returns its batches (one per cause, in the order
-    /// the causes were made); on error or over budget, nothing.
+    /// Runs a script's file afresh, with an empty module cache, and returns its
+    /// definition. Nothing a previous call left in a local or upvalue is reachable.
+    fn instantiate(&self, script: usize) -> mlua::Result<Table> {
+        let lua = &self.lua;
+        lua.set_named_registry_value("galaxy.modules", lua.create_table()?)?;
+        lua.set_named_registry_value("galaxy.loading", lua.create_table()?)?;
+        let file = self.scripts[script].decl.file.as_str();
+        let src = self
+            .pack
+            .files
+            .get(file)
+            .ok_or_else(|| mlua::Error::runtime(format!("`{file}` doesn't exist")))?;
+        load_chunk(lua, file, src)?.call::<Table>(())
+    }
+
+    /// Calls one handler on a fresh instance of its script. On success returns its
+    /// batch (its one cause and every write, if it wrote anything); on error, over
+    /// budget or over quota, nothing.
     pub fn call(
         &self,
         script: usize,
         target: Target<'_>,
         view: View<'_>,
         rng: &mut dyn RngSource,
-    ) -> Result<Vec<CommandBatch>, Abort> {
+    ) -> Result<Option<CommandBatch>, Abort> {
         let s = &self.scripts[script];
-        let func = self
-            .handler(script, target)
-            .map_err(|e| abort_from(&e, None))?;
         let buffer = RefCell::new(Buffer::default());
         let rng = RefCell::new(&mut *rng as &mut dyn RngSource);
         let rng_key = format!("script/{}/{}", self.pack.manifest.id, s.decl.id);
@@ -839,6 +1083,7 @@ impl PackVm {
         };
         let lua = &self.lua;
         let result = self.budgeted(|| {
+            let func = handler_of(&self.instantiate(script)?, target)?;
             lua.scope(|scope| {
                 let ctx = ctx::build(lua, scope, &env)?;
                 match target {
@@ -852,11 +1097,20 @@ impl PackVm {
                 }
             })
         });
+        let buffer = buffer.into_inner();
         match result {
-            Ok(()) => Ok(buffer.into_inner().into_batches()),
+            // A quota error is final even if the script caught it.
+            Ok(()) => match buffer.over_quota {
+                Some(message) => Err(Abort {
+                    code: "over_quota".into(),
+                    message,
+                    location: None,
+                }),
+                None => Ok(buffer.into_batch()),
+            },
             Err(mut a) => {
                 if a.code == "runtime_error"
-                    && let Some(code) = buffer.borrow().failed.clone()
+                    && let Some(code) = buffer.failed.clone()
                 {
                     a.code = code;
                 }
@@ -970,23 +1224,57 @@ impl BeatSpec {
     }
 }
 
-/// A deep copy of `v` with each `{ test = function }` replaced by `{ test = index }`
-/// (the function goes into `tests`). Any other function is an error.
-fn strip_tests(lua: &Lua, v: Value, tests: &mut Vec<RegistryKey>) -> Result<Value, String> {
+/// A deep copy of `v` with each `{ test = function }` replaced by `{ test = index }`,
+/// recording the function's path in `tests`. Any other function is an error. Keys are
+/// walked in sorted order, so the numbering is the same on every load.
+fn strip_tests(
+    lua: &Lua,
+    v: Value,
+    path: &[PathKey],
+    tests: &mut Vec<Vec<PathKey>>,
+) -> Result<Value, String> {
     match v {
         Value::Table(t) => {
-            if let Ok(Value::Function(f)) = t.raw_get::<Value>("test") {
-                let key = lua.create_registry_value(f).map_err(|e| e.to_string())?;
-                tests.push(key);
+            if let Ok(Value::Function(_)) = t.raw_get::<Value>("test") {
+                let mut p = path.to_vec();
+                p.push(PathKey::Key("test".into()));
+                tests.push(p);
                 let out = lua.create_table().map_err(|e| e.to_string())?;
                 out.raw_set("test", tests.len() - 1)
                     .map_err(|e| e.to_string())?;
                 return Ok(Value::Table(out));
             }
             let out = lua.create_table().map_err(|e| e.to_string())?;
-            for pair in t.pairs::<Value, Value>() {
-                let (k, v) = pair.map_err(|e| e.to_string())?;
-                out.raw_set(k, strip_tests(lua, v, tests)?)
+            let mut pairs: Vec<(Value, Value)> = t
+                .pairs::<Value, Value>()
+                .collect::<mlua::Result<_>>()
+                .map_err(|e| e.to_string())?;
+            pairs.sort_by_key(|(k, _)| match k {
+                Value::Integer(i) => (0, *i, String::new()),
+                Value::Number(n) => (0, *n as i64, String::new()),
+                other => (
+                    1,
+                    0,
+                    other
+                        .as_string()
+                        .map(|s| s.to_string_lossy())
+                        .unwrap_or_default(),
+                ),
+            });
+            for (k, v) in pairs {
+                let key = match &k {
+                    Value::Integer(i) => PathKey::Index(*i),
+                    Value::Number(n) => PathKey::Index(*n as i64),
+                    other => PathKey::Key(
+                        other
+                            .as_string()
+                            .map(|s| s.to_string_lossy())
+                            .unwrap_or_default(),
+                    ),
+                };
+                let mut p = path.to_vec();
+                p.push(key);
+                out.raw_set(k, strip_tests(lua, v, &p, tests)?)
                     .map_err(|e| e.to_string())?;
             }
             Ok(Value::Table(out))
@@ -1023,13 +1311,36 @@ fn steps(lua: &Lua, v: Value) -> Result<Value, String> {
     Ok(v)
 }
 
-fn fn_location(f: &Function) -> Option<Location> {
-    let info = f.info();
-    Some(Location {
-        file: info.source?.strip_prefix('@')?.to_owned(),
-        line: info.line_defined.and_then(|l| u32::try_from(l).ok()),
-        column: None,
-    })
+fn handler_of(def: &Table, target: Target<'_>) -> mlua::Result<Function> {
+    match target {
+        Target::Event(e) => def.get::<Table>("on")?.get(e.event.kind().as_str()),
+        Target::Trigger { name, .. } => def.get::<Table>("after")?.get::<Table>(name)?.get("run"),
+    }
+}
+
+/// Replaces `0x` followed by eight or more hex digits (a heap address in a Luau
+/// message) so abort messages, which reach history, are the same on every run.
+fn without_addresses(msg: &str) -> String {
+    let b = msg.as_bytes();
+    let mut out = String::with_capacity(msg.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i..].starts_with(b"0x") {
+            let digits = b[i + 2..]
+                .iter()
+                .take_while(|c| c.is_ascii_hexdigit())
+                .count();
+            if digits >= 8 {
+                out.push_str("0x?");
+                i += 2 + digits;
+                continue;
+            }
+        }
+        let ch = msg[i..].chars().next().unwrap_or('?');
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
 }
 
 fn fn_line(v: &Value) -> Option<u32> {
@@ -1041,6 +1352,7 @@ fn fn_line(v: &Value) -> Option<u32> {
 
 pub(crate) fn abort_from(e: &mlua::Error, code: Option<&str>) -> Abort {
     let (memory, msg) = root_message(e);
+    let msg = without_addresses(&msg);
     // Drop Luau's stack traceback: the location prefix says where.
     let msg = msg
         .split(
@@ -1106,14 +1418,11 @@ fn parse_after(t: &Table) -> Result<AfterSpec, String> {
                                 .join(", ")
                         )
                     })?;
-                let n = v
-                    .as_number()
-                    .or_else(|| v.as_integer().map(|i| i as f64))
-                    .ok_or_else(|| format!("`{name}` must be a number"))?;
-                if n < 1.0 || n.fract() != 0.0 {
-                    return Err(format!("`{name}` must be a whole number of at least 1"));
-                }
-                counters.insert(*kind, n as u64);
+                let n = whole_number(&v)
+                    .and_then(|n| u64::try_from(n).ok())
+                    .filter(|n| *n >= 1)
+                    .ok_or_else(|| format!("`{name}` must be a whole number of at least 1"))?;
+                counters.insert(*kind, n);
             }
         }
     }
@@ -1148,6 +1457,23 @@ mod tests {
             Some("scripts/ledger.luau")
         );
         assert_eq!(resolve("scripts/a.luau", "../../x"), None);
+    }
+
+    #[test]
+    fn strips_addresses() {
+        assert_eq!(
+            without_addresses("bad table: 0x000001d2c3b4a590 here, 0x1f stays"),
+            "bad table: 0x? here, 0x1f stays"
+        );
+    }
+
+    #[test]
+    fn whole_numbers_are_exact_or_rejected() {
+        assert_eq!(whole_number(&Value::Number(3.0)), Some(3));
+        assert_eq!(whole_number(&Value::Number(2.5)), None);
+        assert_eq!(whole_number(&Value::Number(1e300)), None);
+        assert_eq!(whole_number(&Value::Number(f64::NAN)), None);
+        assert_eq!(whole_number(&Value::Integer(i64::MIN)), Some(i64::MIN));
     }
 
     #[test]

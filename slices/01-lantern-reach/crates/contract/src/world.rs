@@ -47,13 +47,14 @@ pub struct WorldState {
     pub rumors: Store<RumorId, Rumor>,
     /// Activity counters that pace beats and unlocks (never clock time).
     pub counters: ActivityCounters,
+    /// Market rules and activity tallies (W3).
+    pub economy: EconomyState,
+
     // --- Scripts and legibility (W5) ---
     /// Per installed pack: script stores, trigger counts, script health.
     pub packs: BTreeMap<PackId, PackState>,
     /// Dock talk, map notes and chronicle entries.
     pub talk: TalkLog,
-    /// Market rules and activity tallies (W3).
-    pub economy: EconomyState,
     /// Beats, progression rules, tunables and mechanic slots (W4).
     pub progress: ProgressState,
 }
