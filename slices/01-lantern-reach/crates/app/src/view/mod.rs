@@ -425,7 +425,7 @@ impl View {
             if let Some(m) = modules::draw_transform(world, part, lift) {
                 scene
                     .meshes
-                    .push(MeshInstance::new(*mesh, m).with_material(material.clone()));
+                    .push(MeshInstance::new(*mesh, m).with_material(material));
             }
             if lift {
                 modules::outline(scene, world, part);

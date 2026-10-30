@@ -45,29 +45,38 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | **Mouse wheel**, **-** / **=** | Zoom. |
 | **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
 
-Docked, the dock screen lists the station's market: the price of the next unit, the
-stock and what's in your hold. It's mouse-first: **Sell 1** / **Buy 1** trade one,
+Docking brings the camera in close on the station. Each of its parts is a module with
+a hanging sign: hover one and it lifts, outlined in orange, and its sign says who keeps
+it and what it offers; click it and the camera glides there and its room opens beside
+it, leaving the station in view. **Back**, **Esc** or a right-click returns to the whole
+station, and a click during a camera move finishes it. The station key along the bottom,
+beside the log icon, opens any part in one click. A part that changed lately carries a
+ribbon (**New**, **Changed**, **Closed**) for a few dockings; hover its icon for one line
+of news. The plate top left names the station and who holds it: the owning faction, or
+"Contested" or "Unclaimed" (as the map shows its region) for a station nobody owns, such
+as Cinder Hook at the start.
+
+The market room lists the station's wares, each drawn as goods with its price on a tag,
+the stock and what's in your hold. It's mouse-first: **Sell 1** / **Buy 1** trade one,
 **Sell all** sells all of it and **Buy max** buys as many as fit and you can afford; a
-long market pages with Up and Down. Each price moves a little with every unit, so
-selling all at once earns less per unit than spreading it out. To leave, just fly off
-with **W A S D**: there's no undock button or key, and keys still held from the approach
-don't count until you press them again. A trade you ask for goes ahead of the
-flagship's own queued orders, which wait their turn.
+button you can't use is a dashed outline, and a long market pages with Up and Down. Each
+price moves a little with every unit, so selling all at once earns less per unit than
+spreading it out. To leave, just fly off with **W** or **S**: there's no undock button or
+key, and keys still held from the approach don't count until you press them again. A
+trade you ask for goes ahead of the flagship's own queued orders, which wait their turn.
 
-The card's title names the station and who holds it: the owning faction, or
-"Contested" or "Unclaimed" (as the map shows its region) for a station nobody owns,
-such as Cinder Hook at the start.
-
-Below the market are the station's people. The hullwright (Orrin, at the Wharf) lists
-what he can fit now, with the price, what it does in plain words, and what stands in
-the way ("Mining lens costs 600 cr. You have 160 cr."); **Fit** buys it, and a green
-line says what changed ("Orrin fitted your mining lens. You mine half again as fast.").
-What you already have from a station stays on its list, outlined as **Fitted** (or
-**Yours** for a tender), so a service never vanishes once you've bought it out. Every
-amount of credits on screen uses one format: whole, or one decimal. Tamsin at Kettle
-Dock builds the tender once you've earned it, and Orrin's prestige offer opens a card that says what
-stays and what resets before you trade up. At a dockmaster, **Ask what changed** gets
-up to three things that happened since you were last there, each about a real event.
+The wharf (Orrin's cradle at the Wharf) lists what he can fit now, with the price, what
+it does in plain words, and what stands in the way ("Mining lens costs 600 cr. You have
+160 cr."); **Fit** buys it, and a line says what changed ("Orrin fitted your mining lens.
+You mine half again as fast."). What you already have from a station stays on its list,
+outlined as **Fitted** (or **Yours** for a tender), so a service never vanishes once
+you've bought it out. Every amount of credits on screen uses one format: whole, or one
+decimal. Tamsin's berths at Kettle Dock build the tender once you've earned it, and
+Orrin's prestige offer opens a card that says what stays and what resets before you trade
+up. In the dockmaster's office, **Ask what changed** gets up to three things that
+happened since you were last there, each about a real event. Station parts are data
+(`packs/core/data/station_parts.toml`), and a game-master pack can open, close or take
+one away at a calm moment (`ctx.parts`).
 
 The goal banner at the top lists every active goal, newest first, each under who gave
 it and where they are ("Rook Adeyemi · Cinder Hook"). A goal nobody gave doesn't show.
@@ -176,8 +185,8 @@ Space, and sell.
 2. **Controls.** W A S D fly (and fly off a dock to undock), Space does the one thing in
    reach (mine, dock, ride a lane), P or Esc pauses, M opens the map, N mutes, F3 shows the developer overlay, and
    the mouse wheel zooms. Clicks fly, mine and dock once the nav chip unlocks them in
-   Act 2; Shift-click queues orders in Act 3. Docked, the dock screen is mouse-first:
-   click its buttons; 1 to 9 answer people. See "Play" for
+   Act 2; Shift-click queues orders in Act 3. Docked, the station is mouse-first:
+   click a module or the station key to open a room; 1 to 9 answer people. See "Play" for
    the details.
 3. **Skip ahead.** `play.cmd --beat N` (or `./play.sh --beat N`) lets the journey bot
    earn every beat before N with real play, then opens that checkpoint in a new save.

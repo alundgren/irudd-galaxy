@@ -770,7 +770,8 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                if self.ui.map_open || self.session.is_paused() {
+                // Docked, the camera frames the station; the wheel is for flying.
+                if self.ui.map_open || self.session.is_paused() || self.docked().is_some() {
                     return;
                 }
                 let steps = match delta {

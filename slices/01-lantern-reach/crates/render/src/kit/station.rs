@@ -1380,6 +1380,47 @@ fn digit(b: &mut MeshBuilder, n: u32, size: f32, at: Vec3) {
         }
     });
 }
+/// A station part's module (issue #47, 3.1): one kit part at the origin in the
+/// station's paint, a strut of `strut` reaching back towards the station's centre (-X),
+/// and while the part is closed or being built, a scaffold around it. Drawn at the
+/// part's anchor, so it can lift on its own when hovered.
+pub fn module(
+    kind: &PartKind,
+    palette: StationPalette,
+    faction: Option<String>,
+    strut: f32,
+    scaffold: bool,
+) -> MeshData {
+    let mut parts = vec![Part::new(kind.clone(), Placement::default())];
+    if strut > 0.5 {
+        parts.push(Part::new(
+            PartKind::Arm {
+                length: strut,
+                width: 1.1,
+            },
+            Placement::polar(180.0, 0.0),
+        ));
+    }
+    if scaffold {
+        parts.push(Part::new(
+            PartKind::Scaffold {
+                radius: 4.4,
+                height: 5.0,
+            },
+            Placement::default(),
+        ));
+    }
+    station(&StationRecipe {
+        name: "module".into(),
+        seed: 3,
+        palette,
+        parts,
+        faction,
+        region: None,
+        decals: Vec::new(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1668,45 +1709,4 @@ mod tests {
             assert!(PART_KINDS.contains(&p["part"].as_str().unwrap()));
         }
     }
-}
-
-/// A station part's module (issue #47, 3.1): one kit part at the origin in the
-/// station's paint, a strut of `strut` reaching back towards the station's centre (-X),
-/// and while the part is closed or being built, a scaffold around it. Drawn at the
-/// part's anchor, so it can lift on its own when hovered.
-pub fn module(
-    kind: &PartKind,
-    palette: StationPalette,
-    faction: Option<String>,
-    strut: f32,
-    scaffold: bool,
-) -> MeshData {
-    let mut parts = vec![Part::new(kind.clone(), Placement::default())];
-    if strut > 0.5 {
-        parts.push(Part::new(
-            PartKind::Arm {
-                length: strut,
-                width: 1.1,
-            },
-            Placement::polar(180.0, 0.0),
-        ));
-    }
-    if scaffold {
-        parts.push(Part::new(
-            PartKind::Scaffold {
-                radius: 4.4,
-                height: 5.0,
-            },
-            Placement::default(),
-        ));
-    }
-    station(&StationRecipe {
-        name: "module".into(),
-        seed: 3,
-        palette,
-        parts,
-        faction,
-        region: None,
-        decals: Vec::new(),
-    })
 }
