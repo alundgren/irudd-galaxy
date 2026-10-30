@@ -1398,8 +1398,12 @@ fn decal_reach(kind: &DecalKind) -> f32 {
     let half_diagonal = |x: f32, y: f32| 0.5 * x.hypot(y);
     MARGIN
         * match *kind {
-            DecalKind::Stripe { length, width, .. } | DecalKind::Chevron { length, width } => {
-                half_diagonal(length, width)
+            DecalKind::Stripe { length, width, .. } => half_diagonal(length, width),
+            // Each chevron bar is a `0.7w x 0.2w` box centred at `(x, ±0.22w)` with
+            // `|x| <= length/2`, rotated about its own centre, so its farthest corner is
+            // at most the centre's distance plus the bar's half-diagonal.
+            DecalKind::Chevron { length, width } => {
+                (0.5 * length).hypot(0.22 * width) + half_diagonal(0.7 * width, 0.2 * width)
             }
             // The backing plate is `1.2 * size` square; the mark sits inside it.
             DecalKind::Sigil { size } => half_diagonal(1.2 * size, 1.2 * size),
@@ -3062,6 +3066,25 @@ mod tests {
             },
         )];
         for errs in both(&plate) {
+            let text: Vec<_> = errs.iter().map(|e| e.to_string()).collect();
+            assert!(text.iter().any(|t| t.contains("reaches")), "{text:?}");
+        }
+
+        // Re-check 2 of #23: a short, wide chevron whose rotated bar corner reaches
+        // about 120.08 at this placement.
+        let mut chevron = StationRecipe::lantern_wharf();
+        chevron.decals = vec![Decal::new(
+            DecalKind::Chevron {
+                length: 2.0,
+                width: 8.0,
+            },
+            Placement {
+                distance: 115.46,
+                turn: -57.700665,
+                ..Placement::default()
+            },
+        )];
+        for errs in both(&chevron) {
             let text: Vec<_> = errs.iter().map(|e| e.to_string()).collect();
             assert!(text.iter().any(|t| t.contains("reaches")), "{text:?}");
         }
