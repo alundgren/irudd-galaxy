@@ -960,9 +960,11 @@ dependencies = [
  "galaxy-script",
  "galaxy-ship",
  "render",
+ "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
+ "toml",
  "winit",
 ]
 

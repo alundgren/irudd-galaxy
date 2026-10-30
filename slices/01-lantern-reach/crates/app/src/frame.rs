@@ -75,7 +75,6 @@ pub fn compose(
             viewport,
             ui_state.goal_marker,
         );
-        ui::hint(&mut panels, world, canvas);
         let docked = session.flagship().and_then(|f| f.docked_at.clone());
         let answer = session
             .answer
@@ -85,6 +84,10 @@ pub fn compose(
             .as_ref()
             .map(|st| crate::hooks::open_choices(world, history, st))
             .unwrap_or_default();
+        // The hint pill keeps clear of the talk panel in the bottom-left column.
+        let talk = ui::talk_rect(world, history, answer, &choices, canvas)
+            .filter(|_| ui_state.confirm.is_none());
+        ui::hint(&mut panels, world, &session.hints, talk, canvas);
         // The prestige card is modal. Every text draws after every panel, so whatever
         // sat under the card would print over it: leave the talk and dock screen out.
         if ui_state.confirm.is_none() {
@@ -115,7 +118,11 @@ pub fn compose(
         }
         s
     };
-    ui::goal(&mut panels, world, canvas);
+    if ui_state.map_open {
+        ui::map_goal(&mut panels, world, canvas);
+    } else {
+        ui::goal(&mut panels, world, canvas);
+    }
     ui::hold(&mut panels, world, canvas);
     if let Some(to) = &ui_state.confirm
         && session.flagship().is_some_and(|f| f.docked_at.is_some())

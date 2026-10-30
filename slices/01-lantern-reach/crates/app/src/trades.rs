@@ -190,6 +190,31 @@ pub fn credits(cents: i64) -> String {
     }
 }
 
+/// The progress crate words its refusals with `show_credits` (to the centicredit);
+/// the screen shows every amount through [`credits`], so the HUD's balance and a
+/// refusal's "You have" always agree. Anything that isn't a plain amount stays as is.
+fn reshow_credits(amount: &str) -> String {
+    parse_credits(amount).map_or_else(|| format!("{amount} cr"), credits)
+}
+
+/// Centicredits from `show_credits` text ("369.65", "40", "-0.5").
+fn parse_credits(text: &str) -> Option<i64> {
+    let (neg, digits) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text),
+    };
+    let (whole, frac) = digits.split_once('.').unwrap_or((digits, ""));
+    if whole.is_empty()
+        || frac.len() > 2
+        || !(whole.chars().chain(frac.chars())).all(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    let cents =
+        whole.parse::<i64>().ok()?.checked_mul(100)? + format!("{frac:0<2}").parse::<i64>().ok()?;
+    Some(if neg { -cents } else { cents })
+}
+
 /// A station-service purchase (an upgrade, a tender, prestige) asked for on the dock
 /// screen. It goes out with the next tick's `PlayerInput::services`, after
 /// `services::check` said it can happen, and is settled by its own committed event:
@@ -339,7 +364,11 @@ pub fn service_refusal(
     use galaxy_progress::services::Refusal as R;
     let name = service_name(world, req);
     match r {
-        R::Credits { need, have } => format!("{name} costs {need} cr. You have {have} cr."),
+        R::Credits { need, have } => format!(
+            "{name} costs {}. You have {}.",
+            reshow_credits(need),
+            reshow_credits(have)
+        ),
         R::Locked => format!("{name} isn't on offer yet."),
         R::AlreadyFitted => format!("Your ship already has the {}.", name.to_lowercase()),
         R::AlreadyOwned => format!("{name} is already yours."),
@@ -405,5 +434,32 @@ mod tests {
         assert_eq!(credits(1436), "14.4 cr");
         assert_eq!(credits(-50), "-0.5 cr");
         assert_eq!(credits(0), "0 cr");
+    }
+
+    #[test]
+    fn a_refusal_shows_credits_like_the_hud() {
+        // #41: the HUD said 369.7 while the hullwright's row said 369.65.
+        let world = galaxy_core::new_game(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data"),
+            1,
+        )
+        .unwrap()
+        .world;
+        let req = ServiceRequest::Fit {
+            upgrade: UpgradeId::from_static("upgrade.mining_lens"),
+        };
+        let r = galaxy_progress::services::Refusal::Credits {
+            need: show_credits(60000),
+            have: show_credits(36965),
+        };
+        assert_eq!(
+            service_refusal(&world, &req, &r),
+            "Mining lens costs 600 cr. You have 369.7 cr."
+        );
+        assert_eq!(credits(36965), "369.7 cr", "the HUD's own formatter");
+        assert_eq!(parse_credits("-0.5"), Some(-50));
+        assert_eq!(parse_credits("12.05"), Some(1205));
+        assert_eq!(parse_credits("a lot"), None);
+        assert_eq!(reshow_credits("a lot"), "a lot cr");
     }
 }

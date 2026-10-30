@@ -55,6 +55,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         4,
         "can't find the packs folder; set GALAXY_PACKS".to_owned(),
     ))?;
+    let rules = crate::ui::HintRules::load(&crate::game::core_data(&packs)).map_err(|e| (4, e))?;
     let seed = state.world.meta.seed;
     // The same composition as play: the game master's applied packs run in the game's
     // script host too (staged ones wait for a real load).
@@ -66,6 +67,8 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     )
     .map_err(|e| (4, e))?;
     let mut session = Session::with_game(game);
+    let taught = crate::saves::read_hints(&args.save).map_err(|e| (4, e))?;
+    session.hints = crate::ui::HintBook::new(rules, taught);
     let mut ui_state = UiState {
         map_open: args.map,
         ..UiState::default()
@@ -77,6 +80,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
             session.finish();
             save.write(session.state())
                 .map_err(|e| (1, e.to_string()))?;
+            crate::saves::write_hints(&args.save, session.hints.counts()).map_err(|e| (1, e))?;
         }
     }
     let mut renderer =
