@@ -323,7 +323,7 @@ impl View {
         // The player, a little Wren that's easy to find.
         if let Some(me) = &map.player
             && let Some(ship) = world.ships.get(&me.ship)
-            && let Some(&mesh) = self.hulls.get(&(ship.hull.clone(), None))
+            && let Some(&mesh) = self.hulls.get(&super::paint_key(world, ship))
         {
             let pos = g(me.position);
             scene.glows.push(Glow {

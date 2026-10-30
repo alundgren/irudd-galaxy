@@ -7,10 +7,12 @@
 //!
 //! [`View`] keeps the uploaded meshes and re-meshes what changes: a rock when its
 //! `remaining` crosses one of [`ROCK_STEPS`] steps, a station when its build stage
-//! moves (Kettle Dock's greenhouse), a hull the first time it's seen. A rock's mesh
-//! morphs from one step to the next as it is mined, and its instance shrinks with what
-//! is left, so its shape and shading change continuously.
+//! moves (Kettle Dock's greenhouse), a hull the first time it's seen in a paint and a
+//! fit ([`fit_look`]: fitted parts change the ship's look). A rock's mesh morphs from
+//! one step to the next as it is mined, and its instance shrinks with what is left, so
+//! its shape and shading change continuously.
 
+pub mod fit_look;
 mod live;
 pub mod map;
 pub mod recipes;
@@ -20,7 +22,9 @@ use std::collections::BTreeMap;
 
 use galaxy_contract::prelude::*;
 use render::glam::{Mat4, Quat, Vec2 as G2, Vec3};
-use render::kit::{self, RockParams, StationLight, StationRecipe};
+use render::kit::{
+    self, CradlePose, LookId, RockParams, ShipFitLook, SocketRing, StationLight, StationRecipe,
+};
 use render::{
     ArtBible, BackdropHandle, Camera, Color, Glow, InkRole, Line, MAX_POINT_LIGHTS, MeshHandle,
     MeshInstance, PointLight, Renderer, Scene, palette,
@@ -131,10 +135,18 @@ struct RockArt {
     data: render::MeshData,
 }
 
+/// Which hull mesh draws a ship: its hull, its paint (`None` for the player's own) and
+/// what it wears.
+type HullKey = (HullId, Option<FactionId>, ShipFitLook);
+
 /// Uploaded meshes and backdrops for the world.
 #[derive(Default)]
 pub struct View {
-    hulls: BTreeMap<(HullId, Option<FactionId>), MeshHandle>,
+    /// One mesh per hull, paint and fit: built when a combination is first seen, never
+    /// per frame.
+    hulls: BTreeMap<HullKey, MeshHandle>,
+    /// Single parts for the cradle's ghost previews.
+    parts: BTreeMap<(HullId, LookId), MeshHandle>,
     stations: BTreeMap<StationId, StationArt>,
     rocks: BTreeMap<RockId, RockArt>,
     backdrops: BTreeMap<Option<RegionId>, BackdropHandle>,
@@ -212,14 +224,22 @@ fn ship_faction(world: &WorldState, ship: &Ship) -> Option<FactionId> {
     }
 }
 
-fn paint_key(world: &WorldState, ship: &Ship) -> (HullId, Option<FactionId>) {
+fn paint_key(world: &WorldState, ship: &Ship) -> HullKey {
     let faction = match ship.owner {
         Owner::Player => None,
         _ => Some(
             ship_faction(world, ship).unwrap_or_else(|| FactionId::from_static("faction.none")),
         ),
     };
-    (ship.hull.clone(), faction)
+    (ship.hull.clone(), faction, fit_look::ship_look(world, ship))
+}
+
+/// The mesh parameters for a hull in its paint.
+fn painted_params(hull: &HullId, faction: Option<&FactionId>) -> render::kit::HullParams {
+    match faction {
+        None => recipes::hull_params(hull),
+        Some(f) => recipes::npc_hull_params(hull, Some(f)),
+    }
 }
 
 /// The radius of the recipe's first docking ring, in station space.
@@ -300,14 +320,8 @@ impl View {
             }
         }
         for ship in world.ships.values() {
-            let key = paint_key(world, ship);
-            self.hulls.entry(key).or_insert_with_key(|(hull, faction)| {
-                let params = match faction {
-                    None => recipes::hull_params(hull),
-                    Some(f) => recipes::npc_hull_params(hull, Some(f)),
-                };
-                r.upload_mesh(&kit::hull(&params, seed_of(hull.as_str())))
-            });
+            let (hull, faction, look) = paint_key(world, ship);
+            self.hull_mesh(r, &hull, faction.as_ref(), look);
         }
         let mut regions: Vec<Option<RegionId>> = vec![None];
         regions.extend(world.regions.keys().cloned().map(Some));
@@ -316,6 +330,65 @@ impl View {
                 let seed = region.as_ref().map_or(7, |r| seed_of(r.as_str()));
                 r.upload_backdrop(&kit::backdrop(&recipes::backdrop(region.as_ref()), seed))
             });
+        }
+    }
+
+    /// The mesh for `hull` in its paint (`None`: the player's) wearing `look`, uploaded
+    /// the first time it's asked for. The cradle uses it for a fit that isn't made yet.
+    pub fn hull_mesh(
+        &mut self,
+        r: &mut Renderer,
+        hull: &HullId,
+        faction: Option<&FactionId>,
+        look: ShipFitLook,
+    ) -> MeshHandle {
+        let key = (hull.clone(), faction.cloned(), look);
+        *self.hulls.entry(key).or_insert_with(|| {
+            let params = painted_params(hull, faction);
+            r.upload_mesh(&kit::fitted_hull(&params, seed_of(hull.as_str()), &look))
+        })
+    }
+
+    /// One part alone on `hull`, painted as a ghost for a preview in the cradle.
+    pub fn part_mesh(&mut self, r: &mut Renderer, hull: &HullId, look: LookId) -> MeshHandle {
+        *self
+            .parts
+            .entry((hull.clone(), look))
+            .or_insert_with(|| r.upload_mesh(&kit::part_ghost(look, &recipes::hull_params(hull))))
+    }
+
+    /// The player's `hull` in the hullwright's cradle, wearing `look`, as large as `span`
+    /// world units around `center`. With a `ghost` part, that part is drawn where it would
+    /// go and its socket rings sky blue; fitted sockets ring gold. Draw it with
+    /// [`kit::Cradle::draw`] after the room, and hit-test with [`kit::Cradle::sockets`];
+    /// change its `rings` for other drop targets.
+    pub fn cradle(
+        &mut self,
+        r: &mut Renderer,
+        hull: &HullId,
+        look: ShipFitLook,
+        ghost: Option<LookId>,
+        center: G2,
+        span: f32,
+    ) -> kit::Cradle {
+        let params = recipes::hull_params(hull);
+        let rings = kit::Socket::ALL.map(|s| {
+            if ghost.is_some_and(|g| g.socket() == s) {
+                SocketRing::DropTarget
+            } else if look.get(s).is_some() {
+                SocketRing::Fitted
+            } else {
+                SocketRing::Empty
+            }
+        });
+        kit::Cradle {
+            ship: self.hull_mesh(r, hull, None, look),
+            ghost: ghost.map(|g| self.part_mesh(r, hull, g)),
+            pose: CradlePose::fit(center, span, &params),
+            hull: params,
+            look,
+            rings,
+            shadow: kit::CRADLE_SHADOW,
         }
     }
 
@@ -535,9 +608,11 @@ impl View {
             if !near(pos, 40.0) {
                 continue;
             }
-            let Some(&mesh) = self.hulls.get(&paint_key(world, ship)) else {
+            let key = paint_key(world, ship);
+            let Some(&mesh) = self.hulls.get(&key) else {
                 continue;
             };
+            let look = key.2;
             let docked = ship.docked_at.is_some();
             let (pos, heading) = match ship.docked_at.as_ref().and_then(|s| world.stations.get(s)) {
                 Some(st) => berth(st, &ship.id),
@@ -556,6 +631,16 @@ impl View {
             let mut inst = MeshInstance::at(mesh, pos, pose.heading, scale)
                 .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * hover) * inst.transform;
+            if look.utility == Some(LookId::SeamLamp) {
+                let params = recipes::hull_params(&ship.hull);
+                scene.glows.push(Glow {
+                    position: inst
+                        .transform
+                        .transform_point3(kit::seam_lamp_light(&params)),
+                    radius: params.width * scale * 0.4,
+                    color: kit::SEAM_LIGHT.with_alpha(0.75),
+                });
+            }
             scene.meshes.push(inst);
             // A trader's name, off the station art and on screen. A docked ship sits
             // inside its station's art, so it goes unnamed until it flies off.
@@ -596,10 +681,11 @@ impl View {
                 && !docked
                 && let Some(rock) = world.rocks.get(&run.rock)
             {
-                // From the nose tip to where the beam meets the rock's drawn surface
-                // (as morphed and scaled this frame). The renderer draws beams over
-                // what they cross, so the end must sit on the surface, not inside it.
-                let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
+                // From the nose tip (a long drill's tip) to where the beam meets the
+                // rock's drawn surface (as morphed and scaled this frame). The renderer
+                // draws beams over what they cross, so the end must sit on the surface,
+                // not inside it.
+                let nose = recipes::hull_params(&ship.hull).nose_reach(&look) * scale;
                 let from = (pos + fwd * nose).extend(hover);
                 let to = self
                     .rocks

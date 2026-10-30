@@ -445,3 +445,159 @@ fn a_mining_beam_reaches_the_rock_and_its_glow_is_whole() {
         gain(outside)
     );
 }
+
+/// Where a GPU test may save what it drew, for a person to look at: the folder in
+/// `GALAXY_GPU_SHOTS`, if set.
+fn keep_shot(img: &RgbaImage, name: &str) {
+    if let Some(dir) = std::env::var_os("GALAXY_GPU_SHOTS") {
+        img.save_png(std::path::Path::new(&dir).join(name)).unwrap();
+    }
+}
+
+#[test]
+#[ignore = "needs a GPU"]
+fn every_fitted_part_reads_at_the_flight_zoom() {
+    use kit::{HullParams, LookId, ShipFitLook};
+    // As in flight: 550 u visible, tilted, a ship five times its kit size, hovering.
+    let mut r = renderer(1280, 720);
+    let camera = Camera::top_down(Vec2::ZERO, 550.0).with_tilt(14.0);
+    let ship = |r: &mut Renderer, hull: &HullParams, look: ShipFitLook, at: Vec2| {
+        let mesh = r.upload_mesh(&kit::fitted_hull(hull, 1, &look));
+        let mut inst = MeshInstance::at(mesh, at, 0.6, 5.0);
+        inst.transform = render::glam::Mat4::from_translation(Vec3::Z * 22.0) * inst.transform;
+        inst
+    };
+    let mut scene = Scene::new(camera);
+    scene.clear_color = Color::hex(0x2a1f48);
+    let mut thin = Vec::new();
+    for hull in [
+        HullParams::wren(),
+        HullParams::tandem(),
+        HullParams::heron(),
+    ] {
+        let bare = {
+            let mut s = scene.clone();
+            s.meshes
+                .push(ship(&mut r, &hull, ShipFitLook::default(), Vec2::ZERO));
+            r.render_to_rgba(&s).unwrap()
+        };
+        for look in LookId::ALL {
+            let fit = ShipFitLook::default().with(look.socket(), look);
+            let mut s = scene.clone();
+            s.meshes.push(ship(&mut r, &hull, fit, Vec2::ZERO));
+            let worn = r.render_to_rgba(&s).unwrap();
+            // Pixels the part visibly changes. A part a player can spot at a glance
+            // changes a patch of at least 6 by 6 pixels.
+            let changed = bare
+                .pixels
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(worn.pixels.as_chunks::<4>().0)
+                .filter(|(a, b)| (0..3).map(|i| a[i].abs_diff(b[i]) as u32).sum::<u32>() > 90)
+                .count();
+            eprintln!("{look:?} on {:?}: {changed} pixels", hull.class);
+            if changed < 36 {
+                thin.push(format!("{look:?} on {:?}: {changed} pixels", hull.class));
+            }
+        }
+    }
+    // A row of Wrens for the eye: bare, each part, then everything.
+    let wren = HullParams::wren();
+    let mut looks = vec![ShipFitLook::default()];
+    looks.extend(
+        LookId::ALL
+            .iter()
+            .map(|&l| ShipFitLook::default().with(l.socket(), l)),
+    );
+    looks.push(ShipFitLook::from_pairs([
+        (kit::Socket::Nose, LookId::Lens),
+        (kit::Socket::Utility, LookId::SeamLamp),
+        (kit::Socket::Belly, LookId::Pods),
+        (kit::Socket::Tail, LookId::Fins),
+    ]));
+    let mut row = scene.clone();
+    for (i, look) in looks.into_iter().enumerate() {
+        let at = Vec2::new(-390.0 + i as f32 * 130.0, 0.0);
+        row.meshes.push(ship(&mut r, &wren, look, at));
+    }
+    keep_shot(&r.render_to_rgba(&row).unwrap(), "parts-at-flight-zoom.png");
+    assert!(thin.is_empty(), "too small to spot: {thin:?}");
+}
+
+#[test]
+#[ignore = "needs a GPU"]
+fn the_cradle_draws_the_ship_large_with_socket_rings() {
+    use kit::{Cradle, CradlePose, HullParams, LookId, ShipFitLook, Socket, SocketRing};
+    let mut r = renderer(1280, 720);
+    let view = r.logical_size();
+    let hull = HullParams::wren();
+    let look = ShipFitLook::default().with(Socket::Nose, LookId::Lens);
+    let ship = r.upload_mesh(&kit::fitted_hull(&hull, 1, &look));
+    let ghost = r.upload_mesh(&kit::part_ghost(LookId::Pods, &hull));
+    let cradle = Cradle {
+        ship,
+        hull: hull.clone(),
+        look,
+        pose: CradlePose::fit(Vec2::ZERO, 80.0, &hull),
+        rings: [
+            SocketRing::Fitted,
+            SocketRing::Empty,
+            SocketRing::DropTarget,
+            SocketRing::Empty,
+        ],
+        ghost: Some(ghost),
+        shadow: kit::CRADLE_SHADOW,
+    };
+    let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 170.0).with_tilt(14.0));
+    // A plank floor's brown, so the shadow has something to fall on.
+    scene.clear_color = Color::hex(0x8a6440);
+    let sockets = cradle.draw(&mut scene, view);
+    let img = r.render_to_rgba(&scene).unwrap();
+    keep_shot(&img, "cradle.png");
+
+    // Count pixels of a colour around a socket's ring.
+    let around = |s: &kit::CradleSocket, want: &dyn Fn([u8; 4]) -> bool| {
+        let c = s.screen.unwrap();
+        (0..72)
+            .filter(|i| {
+                let a = *i as f32 / 72.0 * std::f32::consts::TAU;
+                let p = c + Vec2::new(a.cos(), a.sin()) * s.radius_px;
+                want(img.pixel(p.x.round() as u32, p.y.round() as u32))
+            })
+            .count()
+    };
+    let sky = |p: [u8; 4]| p[2] > 170 && p[2] as i32 > p[0] as i32 + 60;
+    let gold = |p: [u8; 4]| p[0] > 190 && p[1] > 130 && p[1] < 210 && p[2] < 130;
+    let drop = &sockets[2];
+    assert_eq!(drop.socket, Socket::Belly);
+    assert!(
+        around(drop, &sky) >= 20,
+        "a dashed sky-blue ring on the hold"
+    );
+    assert!(
+        around(&sockets[0], &gold) >= 30,
+        "a gold ring on the drill mount"
+    );
+    assert!(around(&sockets[3], &sky) == 0, "no drop ring on the engine");
+
+    // The shadow: without it, a patch to the bottom right of the ship is lighter.
+    let mut lit = scene.clone();
+    lit.meshes.remove(0);
+    let bare = r.render_to_rgba(&lit).unwrap();
+    let darker = img
+        .pixels
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(bare.pixels.as_chunks::<4>().0)
+        .filter(|(a, b)| {
+            (a[0] as i32 + a[1] as i32 + a[2] as i32) + 120
+                < b[0] as i32 + b[1] as i32 + b[2] as i32
+        })
+        .count();
+    assert!(
+        darker > 3000,
+        "the lifted ship casts a shadow: {darker} pixels"
+    );
+}
