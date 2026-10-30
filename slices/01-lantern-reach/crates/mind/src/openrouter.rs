@@ -435,11 +435,44 @@ pub fn parse_line(v: &Value) -> Result<LineDraft, MindError> {
     })
 }
 
+/// The model the response names, if it looks like a model ID (`typesafe/jev-1.14-20261014`),
+/// else the one we asked for. Upstream text is untrusted: a field that could echo the
+/// key, in any encoding, never reaches a spend note, `Debug` or a probe.
 fn model_of(v: &Value, fallback: &str) -> String {
     v.get("model")
         .and_then(Value::as_str)
+        .filter(|m| is_model_id(m))
         .unwrap_or(fallback)
         .to_owned()
+}
+
+fn is_model_id(m: &str) -> bool {
+    (1..=96).contains(&m.len())
+        && !m.contains("sk-")
+        && m.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"._:/~-".contains(&b))
+}
+
+#[cfg(test)]
+mod model_id_tests {
+    use super::*;
+
+    #[test]
+    fn only_model_like_ids_are_kept() {
+        let fallback = "typesafe/jev-1.14";
+        let named = |m: &str| model_of(&json!({ "model": m }), fallback);
+        assert_eq!(
+            named("typesafe/jev-1.14-20261014"),
+            "typesafe/jev-1.14-20261014"
+        );
+        assert_eq!(named("openai/gpt-oss-20b"), "openai/gpt-oss-20b");
+        // A key, plain or with any character a model ID can't hold, falls back.
+        assert_eq!(named("sk-or-v1-0123456789abcdef"), fallback);
+        assert_eq!(named("Bearer sk-or-v1-0123"), fallback);
+        assert_eq!(named("echo-sk-or-v1-0123"), fallback);
+        assert_eq!(named("sk-or-v1-0123"), fallback);
+        assert_eq!(named(&"a".repeat(200)), fallback);
+    }
 }
 
 impl<T: Transport> Mind for OpenRouterMind<T> {
