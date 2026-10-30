@@ -42,7 +42,7 @@ LIMITS = {k: (lo, hi) for k, _, lo, hi, _, _ in KNOBS}
 SCHEMES = {
     1: "WASD screen (analog)",
     2: "Mouse-aim",
-    3: "Tank / Asteroids",
+    3: "Tank / rotate-and-thrust",
     4: "Click to fly",
     5: "Hybrid: aim + strafe",
 }
