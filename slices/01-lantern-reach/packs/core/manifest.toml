@@ -36,7 +36,7 @@ data = [
     "data/lines.toml",
 ]
 
-# Act 1: b01 to b03, the worked examples of the beat API.
+# Act 1: b01 to b05, the worked examples of the beat API.
 [[script]]
 id = "act1"
 file = "scripts/act1.luau"
