@@ -12,6 +12,17 @@
       },
       "default": {}
     },
+    "layer": {
+      "description": "The layer the pack runs as, recorded the first time it loads or is applied\n(`SetPackLayer`). Saved, so every later load of the pack (a reload, `play`,\n`sim run`, the bridge, the sandbox) keeps a game-master layer's restrictions,\nwhichever path loads it and whatever its ID.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PackLayer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "off": {
       "description": "Set by a rollback of any change the pack made: no revision of the pack runs,\nfrom any source (`gm-examples`, an applied revision, the inbox), until the game\nmaster applies a new revision, whose apply batch clears it. Saved, so a reload\ndoesn't bring back an older revision of the pack.",
       "type": "boolean"
@@ -885,6 +896,21 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "PackLayer": {
+      "description": "Which layer a pack runs as.",
+      "oneOf": [
+        {
+          "description": "The authored backbone (`core`), trusted to drive its own journey beats.",
+          "type": "string",
+          "const": "core"
+        },
+        {
+          "description": "A game-master layer (`gm-examples`, applied, staged and sandboxed packs): it\nmay never register or drive journey beats, nor pay their rewards.",
+          "type": "string",
+          "const": "game_master"
+        }
+      ]
     },
     "QuestId": {
       "description": "Stable quest id, e.g. `quest.ice_for_kettle`.",

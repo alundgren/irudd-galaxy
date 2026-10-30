@@ -582,6 +582,10 @@ fn undo_records_invert_commands() {
             pack: PackId::new("gm.kettle_growth").unwrap(),
             off: true,
         },
+        Command::SetPackLayer {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            layer: Some(galaxy_contract::pack::PackLayer::GameMaster),
+        },
         Command::Say {
             line: Box::new(TalkLine {
                 channel: Channel::DockTalk,

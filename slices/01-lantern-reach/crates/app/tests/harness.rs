@@ -98,7 +98,8 @@ fn exercise(gm: bool, profile: Profile, hull: &str) {
             history
                 .facts()
                 .iter()
-                .any(|f| f.kind.as_str() == "gm.stage_built" && f.amount.is_some_and(|n| n >= 2))
+                .any(|f| f.kind.as_str() == "gm.kettle_growth.stage_built"
+                    && f.amount.is_some_and(|n| n >= 2))
         );
     } else {
         assert_eq!(run.report["gm_facts"], 0);

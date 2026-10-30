@@ -501,6 +501,12 @@ pub enum Command {
         pack: PackId,
         off: bool,
     },
+    /// Records the layer a pack runs as (`PackState::layer`). A recorded layer never
+    /// changes: setting another one fails (only undo restores the unrecorded state).
+    SetPackLayer {
+        pack: PackId,
+        layer: Option<crate::pack::PackLayer>,
+    },
     // --- Progress (W4) ---
     /// Starts, moves or completes (or with `null` resets to dormant) a beat.
     PutBeat {
@@ -630,6 +636,7 @@ impl Command {
             Command::SetScriptHealth { .. } => "set_script_health",
             Command::SetRevisionRetired { .. } => "set_revision_retired",
             Command::SetPackOff { .. } => "set_pack_off",
+            Command::SetPackLayer { .. } => "set_pack_layer",
             Command::PutBeat { .. } => "put_beat",
             Command::SetFitting { .. } => "set_fitting",
             Command::ExpectFitting { .. } => "expect_fitting",

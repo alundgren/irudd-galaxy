@@ -105,12 +105,9 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 &why,
                 Command::RecordFact {
                     fact: Box::new(FactDraft {
-                        kind: format!(
-                            "{}.canon_opened",
-                            env.pack.as_str().split('.').next().unwrap_or("gm")
-                        )
-                        .parse()
-                        .unwrap(),
+                        kind: format!("{}.canon_opened", env.pack)
+                            .parse()
+                            .map_err(|e| env.fail(lua, "bad_id", e))?,
                         subjects: Subjects {
                             other: Some(id.parse().map_err(|e| env.fail(lua, "bad_id", e))?),
                             ..Subjects::default()

@@ -88,17 +88,17 @@ fn native_copies_are_measured_first_and_capped_per_call() {
 			-- The reviewer's 128 KiB note: refused before it is copied.
 			local note = string.rep("x", 128 * 1024)
 			print("big", (pcall(function()
-				ctx.history:record({ kind = "gm.bulk", subjects = {}, note = note }, why)
+				ctx.history:record({ kind = "gm.probe.bulk", subjects = {}, note = note }, why)
 			end)))
 			-- A note over 1 KiB: history keeps it for good, so it's refused.
 			print("note", (pcall(function()
-				ctx.history:record({ kind = "gm.bulk", subjects = {}, note = string.rep("n", 1025) }, why)
+				ctx.history:record({ kind = "gm.probe.bulk", subjects = {}, note = string.rep("n", 1025) }, why)
 			end)))
 			-- Notes under the cap, three hundred times: over the call's quota.
 			local chunk = string.rep("y", 1000)
 			for _ = 1, 300 do
 				pcall(function()
-					ctx.history:record({ kind = "gm.bulk", subjects = {}, note = chunk }, why)
+					ctx.history:record({ kind = "gm.probe.bulk", subjects = {}, note = chunk }, why)
 				end)
 			end
 			-- Catching the quota error doesn't save the call.
@@ -116,7 +116,7 @@ fn native_copies_are_measured_first_and_capped_per_call() {
     assert_eq!(a.len(), 1, "{a:?}");
     assert_eq!(a[0].0, "over_quota", "{a:?}");
     assert_eq!(stage(&sim), 0, "nothing the call wrote applied");
-    let bulk = HistoryQuery::kind("gm.bulk".parse().unwrap());
+    let bulk = HistoryQuery::kind("gm.probe.bulk".parse().unwrap());
     assert_eq!(sim.history().count(&bulk), 0);
 }
 
@@ -267,7 +267,9 @@ fn a_rolled_back_revision_cant_regrow_kettle_in_the_rollback_tick() {
     grow_to_stage_2(&mut sim);
     let change = sim
         .history()
-        .last(&HistoryQuery::kind("gm.stage_built".parse().unwrap()))
+        .last(&HistoryQuery::kind(
+            "gm.kettle_growth.stage_built".parse().unwrap(),
+        ))
         .unwrap()
         .cause;
     // Enough for stage 3, committed: the handlers would run on them next tick.
@@ -369,7 +371,7 @@ fn a_long_rollback_chronicle_is_cut_to_fit() {
         &on_dock(
             r#"
 			local why = ctx:cause({ summary = string.rep("s", 180), cites = { ev.fact } })
-			ctx.history:record({ kind = "gm.probe_mark", subjects = { station = ev.station }, note = "mark" }, why)
+			ctx.history:record({ kind = "gm.probe.mark", subjects = { station = ev.station }, note = "mark" }, why)
 		"#,
         ),
         "\n[rollback]\nplace = \"station.kettle_dock\"\ntext = \"We took that back.\"",
@@ -999,11 +1001,11 @@ fn a_history_sum_that_overflows_is_an_error() {
 			if ctx.stations:stage(ev.station) == 0 then
 				local why = ctx:cause({ summary = "big amounts", cites = { ev.fact } })
 				for _ = 1, 3 do
-					ctx.history:record({ kind = "gm.big", subjects = {}, amount = 4611686018427387904, note = "" }, why)
+					ctx.history:record({ kind = "gm.probe.big", subjects = {}, amount = 4611686018427387904, note = "" }, why)
 				end
 				ctx.stations:set_stage(ev.station, 1, why)
 			else
-				print("sum", (pcall(function() return ctx.history:sum({ kind = "gm.big" }) end)))
+				print("sum", (pcall(function() return ctx.history:sum({ kind = "gm.probe.big" }) end)))
 			end
 		"#,
         ),
@@ -1014,6 +1016,6 @@ fn a_history_sum_that_overflows_is_an_error() {
     assert_eq!(stage(&sim), 1);
     dock_once(&mut sim);
     assert_eq!(log(&host), vec!["sum\tfalse"]);
-    let q = HistoryQuery::kind("gm.big".parse().unwrap());
+    let q = HistoryQuery::kind("gm.probe.big".parse().unwrap());
     assert_eq!(sim.history().sum(&q), None);
 }

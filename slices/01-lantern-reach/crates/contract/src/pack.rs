@@ -323,6 +323,25 @@ pub struct PackState {
     /// doesn't bring back an older revision of the pack.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub off: bool,
+    /// The layer the pack runs as, recorded the first time it loads or is applied
+    /// (`SetPackLayer`). Saved, so every later load of the pack (a reload, `play`,
+    /// `sim run`, the bridge, the sandbox) keeps a game-master layer's restrictions,
+    /// whichever path loads it and whatever its ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<PackLayer>,
+}
+
+/// Which layer a pack runs as.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PackLayer {
+    /// The authored backbone (`core`), trusted to drive its own journey beats.
+    Core,
+    /// A game-master layer (`gm-examples`, applied, staged and sandboxed packs): it
+    /// may never register or drive journey beats, nor pay their rewards.
+    GameMaster,
 }
 
 /// How a script's current revision has behaved.

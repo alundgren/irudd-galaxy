@@ -27,7 +27,7 @@ Every contract change goes through W1, as `AGENTS.md` says: change `crates/contr
 
 - **ID families and their newtypes.** Region, lane, station, ware, rock, field, ship (`ship.player`, `craft.*`), hull, NPC, faction, rumor, part (`part.*`), trait, beat and asset IDs use the existing newtypes. `cap.*` and `mech.*` are `FlagId` values. Rock kinds are `RockTypeId`s: `rock_type.ice`, `rock_type.iron`, `rock_type.glassite`, `rock_type.rich_glassite`. **New newtypes:** `UpgradeId` (`upgrade.*`), `LedgerId` (`ledger.*`), `CanonId` (`canon.*`), `LineId` (`line.*`), `ZoneId` (`zone.*`), `PropId` (`prop.*`), `TunableId` (dotted names like `shortage.rimewater_ice.way_a_quota`), `SituationId` (`shortage.*`, `dispute.*`) and `LoopName` (a player's loop name, free text up to 24 characters).
 - **Lane mouths** are lane ends, not entities: `mouth.<from>_to_<to>` names `Lane.a_gate` or `Lane.b_gate`. Orders and clicks address a mouth as `{lane, end}`.
-- **Fact kinds.** A kind written by an engine system is a contract **event**, and its name is its `EventKind` name. This spec uses those names (`dock`, `undock`, `mine`, `rock_depleted`, `sell`, `buy`, `deliver`, `jump`, `scout`, `order_done`, `trait_earned`, `prestige`), not the names an earlier draft used (`docked`, `mined`, `sold`, `rock_spent` ...). A kind written by a pack script is a **recorded fact** (`Command::RecordFact`) and carries its pack's prefix in data and scripts: `core.shortage_started`, `gm.border_moved`. The spec drops the prefix in prose. Section 4 lists every kind.
+- **Fact kinds.** A kind written by an engine system is a contract **event**, and its name is its `EventKind` name. This spec uses those names (`dock`, `undock`, `mine`, `rock_depleted`, `sell`, `buy`, `deliver`, `jump`, `scout`, `order_done`, `trait_earned`, `prestige`), not the names an earlier draft used (`docked`, `mined`, `sold`, `rock_spent` ...). A kind written by a pack script is a **recorded fact** (`Command::RecordFact`) and carries its pack's whole ID as its namespace in data and scripts: `core.shortage_started`, `gm.territory_map.border_moved`. A pack can't record another pack's kinds. The spec drops the prefix in prose. Section 4 lists every kind.
 - **Script names in causes.** `CauseKind::Script` gains `script: String` (for example `gm.shortage_tuning`), so causes, rollbacks and the chronicle can name the script, not only the pack revision. **Extend**, W1.
 - **The `gm-examples` pack's manifest ID is `gm`.** `PackId` allows no hyphen, and `gm` keeps the `gm.` namespace that `AGENTS.md` already uses for live-created things (`gm.sixth_station`). The folder is `packs/gm-examples`; its manifest has `depends = ["core"]`.
 
@@ -134,19 +134,19 @@ Written with `Command::RecordFact`. `FactDraft` today has `kind`, `subjects`, `a
 
 | Kind | Pack | Subjects used (`Subjects` field) |
 | --- | --- | --- |
-| `core.stage_built` | core (stage 1); `gm.stage_built` for stages 2 and 3 | station |
+| `core.stage_built` | core (stage 1); `gm.kettle_growth.stage_built` for stages 2 and 3 | station |
 | `core.shortage_started`, `core.shortage_helped`, `core.shortage_resolved` | core | station (Kettle), region, other = the situation |
 | `core.dispute_started`, `core.side_chosen`, `core.territory_changed` | core | station (Cinder Hook), faction |
 | `core.rumor_heard`, `core.rumor_spread`, `core.rumor_followed`, `core.rumor_resolved` | core | station, npc, other = the rumor |
 | `core.fragment_found`, `core.shown` | core | ship, rock / npc, station |
-| `core.canon_opened` | core (b15); `gm.canon_opened` for `second_fragment` | other = the canon node |
-| `core.mechanic_taught` | core (tender); `gm.mechanic_taught` (rock tagging) | npc, other = the mechanic |
-| `gm.rumor_exposed` | gm | faction, other = the rumor |
-| `gm.border_moved` | gm | faction, station, other = the zone |
-| `gm.station_founded` | gm | station, faction, region |
+| `core.canon_opened` | core (b15); `gm.ancients_bearing.canon_opened` for `second_fragment`; only `ctx.canon:open` records it | other = the canon node |
+| `core.mechanic_taught` | core (tender); `gm.rock_tagging.mechanic_taught`; only `ctx.mechanics:teach` records it | npc, other = the mechanic |
+| `gm.compact_plant.rumor_exposed` | gm | faction, other = the rumor |
+| `gm.territory_map.border_moved` | gm | faction, station, other = the zone |
+| `gm.sixth_station.station_founded` | gm | station, faction, region |
 | `gm.chronicle` | gm | the place and person it names |
 
-A line or beat that cites "`stage_built`" matches both `core.stage_built` and `gm.stage_built`: the matcher treats `<pack>.<kind>` and `<kind>` as the same kind for citing. `core` data only ever names `core.*` and native kinds.
+A line or beat that cites "`stage_built`" matches both `core.stage_built` and `gm.kettle_growth.stage_built`: the matcher treats `<namespace>.<kind>` and `<kind>` as the same kind for citing. `core` data only ever names `core.*` and native kinds.
 
 ## 5. Counters
 

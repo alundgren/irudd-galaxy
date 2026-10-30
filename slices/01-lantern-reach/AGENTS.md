@@ -193,7 +193,8 @@ incompatible changes.
 
 **A fact kind**: no code needed. Record one with
 `Command::RecordFact { fact: Box::new(FactDraft { kind, subjects, amount, note }) }`.
-Pack kinds are namespaced by pack (`gm.kettle.stage_up`). To index a new kind of
+A pack records kinds only in its own namespace, its whole ID
+(`gm.kettle_growth.stage_built`; see "Capabilities, one table"). To index a new kind of
 subject, add a field to `history::Subjects` and a column plus index in the save's
 `history` table (`crates/core/src/save.rs`).
 
@@ -308,8 +309,33 @@ exactly that. `galaxy pack check` applies the same table to what the pack's data
 install (`npcs.toml` needs `npcs.write`) and its beats' rewards would write (standing
 needs `standing.write`). **A new command needs a row** (`every_command_has_a_row`
 fails without one), and a new route a pack writes through must call
-`host::declared` before it submits. Game-master layers (`ScriptHost::load_layer`,
-`CheckOptions::game_master`) may not register journey beats, whatever their ID.
+`host::declared` with its `Route` before it submits.
+
+- **Routes.** A batch is checked by where it came from (`needs::Route`): `Hooks` (a
+  handler, trigger or beat callback), `Beat` (the beat runtime's own transition: the
+  beat's state, `beat_started` / `quest_step` / `beat_completed`, its rewards) or
+  `Data`. A beat transition is checked in two parts, so a callback can't borrow the
+  runtime's right to write journey events. `put_beat`, `set_fitting`, non-`mech.`
+  flags and the beat events are beat-runtime only.
+- **Provenance.** A pack records facts only in its own namespace, `<pack-id>.*` (the
+  whole ID: `core.probe` can't write `core.*`, `gm.a` can't write `gm.b.*`). Engine
+  events (docking, trades, mining ...) never come from a pack. A fact or event that
+  reports a checked change must come right after it in the same batch:
+  `<pack-id>.canon_opened` after the `set_canon_status` that opens its node
+  (`ctx.canon:open`, gated by `opens`), `<pack-id>.mechanic_taught` after its `mech.*`
+  flag (`ctx.mechanics:teach`), `market_base_changed` after its `set_market_base`,
+  `deliver` after its `adjust_cargo`, `standing_changed` after its deed's change.
+  `ctx.history:record` refuses the protected names (`needs::PROTECTED_FACTS`). So no
+  beat precondition can be met by a forged fact (`crates/script/tests/provenance.rs`).
+- **Layers.** Game-master layers (`gm-examples`, applied, staged and sandboxed packs:
+  `ScriptHost::load_layer`, `CheckOptions::game_master`) may not register or drive
+  journey beats or pay their rewards, whatever their ID, and may not take `core`'s
+  namespace or a core-layer pack's ID (`gm_core_id`). Each pack's layer is recorded
+  in the world (`PackState::layer`, by `ScriptHost::record_layers` from `install` and
+  the bridge's apply, as a system batch no rollback undoes) and never changes. Every
+  later load reads it: the check (`check_pack`) and the host's run (the beat route is
+  refused for a layer the world or the host knows), whichever path loads the pack
+  (`reload`, the dev watcher, `play`, `sim run`, the bridge, the sandbox).
 
 **Checks**: `galaxy pack check DIR` runs manifest, strict typecheck (`luau-analyze`
 against a per-pack `galaxy.d.luau`), hooks, references, invariants and a smoke run, and

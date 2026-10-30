@@ -2106,6 +2106,33 @@
           ]
         },
         {
+          "description": "Records the layer a pack runs as (`PackState::layer`). A recorded layer never\nchanges: setting another one fails (only undo restores the unrecorded state).",
+          "type": "object",
+          "properties": {
+            "layer": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PackLayer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "type": "string",
+              "const": "set_pack_layer"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            }
+          },
+          "required": [
+            "op",
+            "pack"
+          ]
+        },
+        {
           "description": "Starts, moves or completes (or with `null` resets to dormant) a beat.",
           "type": "object",
           "properties": {
@@ -4619,6 +4646,21 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "PackLayer": {
+      "description": "Which layer a pack runs as.",
+      "oneOf": [
+        {
+          "description": "The authored backbone (`core`), trusted to drive its own journey beats.",
+          "type": "string",
+          "const": "core"
+        },
+        {
+          "description": "A game-master layer (`gm-examples`, applied, staged and sandboxed packs): it\nmay never register or drive journey beats, nor pay their rewards.",
+          "type": "string",
+          "const": "game_master"
+        }
+      ]
     },
     "Part": {
       "description": "One part of a recipe.",

@@ -996,7 +996,7 @@ fn pilot_with(seed: u64, setup: impl FnOnce(&mut Setup<'_>)) -> Pilot {
         "sixth_station",
         "chronicle",
     ] {
-        let report = p.host.load(
+        let report = p.host.load_layer(
             &common::examples().join(name),
             p.sim.world(),
             p.sim.history(),

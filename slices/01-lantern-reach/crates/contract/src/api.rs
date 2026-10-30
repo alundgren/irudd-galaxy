@@ -1605,6 +1605,20 @@ fn with_self(sig: &str, ty: &str) -> String {
     }
 }
 
+/// `uses` clauses as Markdown: `a` or `b`, and `c`.
+fn clauses_md(clauses: &[&[&str]]) -> String {
+    clauses
+        .iter()
+        .map(|c| {
+            c.iter()
+                .map(|u| format!("`{u}`"))
+                .collect::<Vec<_>>()
+                .join(" or ")
+        })
+        .collect::<Vec<_>>()
+        .join(" and ")
+}
+
 /// `HOOKS.md`: the human-readable hook reference.
 pub fn hooks_md() -> String {
     let mut out = String::from(
@@ -1680,7 +1694,15 @@ pub fn hooks_md() -> String {
          same table against what the pack's data would install and its beats' rewards\n\
          would write (`npcs.toml` needs `npcs.write`). `a` or `b` means either will do;\n\
          \"never\" means only the engine, native systems, the player's verbs, the host or\n\
-         a rollback writes it.\n\n\
+         a rollback writes it; \"beat runtime only\" means only a core-layer pack's\n\
+         `G.beat` transition writes it, never a hook, a callback or data, and never a\n\
+         game-master layer (recorded in the world's pack state, so a reload keeps it).\n\n\
+         Provenance: a pack records facts only in its own namespace, `<pack-id>.*` (the\n\
+         whole ID). Engine events (docking, trades, mining ...) never come from a pack,\n\
+         and the journey's beat events only from the beat runtime. A fact or event that\n\
+         reports a checked change comes right after that change in the same batch\n\
+         (`<pack-id>.canon_opened` after `ctx.canon:open`'s `set_canon_status`), so no\n\
+         beat precondition can be met by a forged fact.\n\n\
          | Command | Needs | From |\n|---|---|---|\n",
     );
     for r in crate::needs::COMMAND_NEEDS {
@@ -1689,16 +1711,10 @@ pub fn hooks_md() -> String {
             crate::needs::Needs::Own => "nothing (the pack's own state)".to_owned(),
             crate::needs::Needs::Never => "never".to_owned(),
             crate::needs::Needs::Payload => "by payload".to_owned(),
-            crate::needs::Needs::Uses(clauses) => clauses
-                .iter()
-                .map(|c| {
-                    c.iter()
-                        .map(|u| format!("`{u}`"))
-                        .collect::<Vec<_>>()
-                        .join(" or ")
-                })
-                .collect::<Vec<_>>()
-                .join(" and "),
+            crate::needs::Needs::Uses(clauses) => clauses_md(clauses),
+            crate::needs::Needs::Beat(clauses) => {
+                format!("beat runtime only, {}", clauses_md(clauses))
+            }
         };
         let _ = writeln!(out, "| `{}` | {needs} | {} |", r.op, r.note);
     }

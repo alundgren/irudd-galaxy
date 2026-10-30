@@ -1110,6 +1110,21 @@ fn apply_with(
                 off: was,
             })
         }
+        C::SetPackLayer { pack, layer } => {
+            let was = world.packs.get(pack).and_then(|p| p.layer);
+            // Unrecording (an inverse) is allowed; switching layers never is.
+            if refs.check && was.is_some() && layer.is_some() && was != *layer {
+                return Err(CommandError::Invalid(format!(
+                    "{pack} already runs as {was:?}; a pack's layer never changes"
+                )));
+            }
+            world.packs.entry(pack.clone()).or_default().layer = *layer;
+            prune_pack(world, pack);
+            invert(C::SetPackLayer {
+                pack: pack.clone(),
+                layer: was,
+            })
+        }
         C::PutBeat { id, value } => {
             let beats = &mut world.progress.beats;
             let old = match value {

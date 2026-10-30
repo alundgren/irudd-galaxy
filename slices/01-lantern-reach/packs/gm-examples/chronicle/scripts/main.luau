@@ -5,6 +5,14 @@ local U = require("../lib/util")
 local kinds: {[string]:string} = {
  stage_built="A greenhouse ring lit up",shortage_started="The ice shortage began",shortage_tuned="Odo traced the ice buyers",shortage_resolved="The ice shortage ended",territory_changed="The depot changed hands",border_moved="Hesper redrew the border",rumor_resolved="The Shoals story was settled",rumor_exposed="The planted claim was exposed",canon_opened="Nell recorded a fragment revelation",station_founded="A new station opened",mechanic_taught="A teacher shared a new verb",trait_earned="The pilot earned a trait",prestige="The pilot brought home a new hull",tender_acquired="A tender joined the pilot",regard_changed="The pilot's welcome changed",gm_change_applied="A game-master change arrived",
 }
+-- Who writes each: the engine (bare kinds), core, or an example pack, each only in its
+-- own namespace (the pack's whole ID).
+local sources: {string} = {
+ "trait_earned","prestige","tender_acquired","regard_changed","gm_change_applied",
+ "core.stage_built","core.shortage_started","core.shortage_resolved","core.territory_changed","core.rumor_resolved","core.canon_opened","core.mechanic_taught",
+ "gm.kettle_growth.stage_built","gm.shortage_tuning.shortage_tuned","gm.territory_map.border_moved","gm.compact_plant.rumor_exposed",
+ "gm.ancients_bearing.canon_opened","gm.sixth_station.station_founded","gm.rock_tagging.mechanic_taught",
+}
 local function collect(ctx:G.Ctx)
  local dock=U.calm(ctx)
  if dock==nil then return end
@@ -13,11 +21,9 @@ local function collect(ctx:G.Ctx)
  -- Filter at the history index, so thousands of mining ticks cannot hide news.
  -- Keep a bounded chronological page; later calm moments drain any backlog.
  local facts:{G.Fact}={}
- for kind,_ in pairs(kinds) do
-  for _,prefix in ipairs({"","core.","gm."}) do
-   for _,f in ipairs(ctx.history:find({kind=prefix..kind,after=cursor,limit=50})) do
-    table.insert(facts,f)
-   end
+ for _,kind in ipairs(sources) do
+  for _,f in ipairs(ctx.history:find({kind=kind,after=cursor,limit=50})) do
+   table.insert(facts,f)
   end
  end
  table.sort(facts,function(a:G.Fact,b:G.Fact):boolean

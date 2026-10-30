@@ -323,7 +323,16 @@ as a fault, naming the command and what it lacks. `galaxy pack check` checks the
 same table against what the pack's data would install and its beats' rewards
 would write (`npcs.toml` needs `npcs.write`). `a` or `b` means either will do;
 "never" means only the engine, native systems, the player's verbs, the host or
-a rollback writes it.
+a rollback writes it; "beat runtime only" means only a core-layer pack's
+`G.beat` transition writes it, never a hook, a callback or data, and never a
+game-master layer (recorded in the world's pack state, so a reload keeps it).
+
+Provenance: a pack records facts only in its own namespace, `<pack-id>.*` (the
+whole ID). Engine events (docking, trades, mining ...) never come from a pack,
+and the journey's beat events only from the beat runtime. A fact or event that
+reports a checked change comes right after that change in the same batch
+(`<pack-id>.canon_opened` after `ctx.canon:open`'s `set_canon_status`), so no
+beat precondition can be met by a forged fact.
 
 | Command | Needs | From |
 |---|---|---|
@@ -338,7 +347,7 @@ a rollback writes it.
 | `update_orders` | never | The ship system. |
 | `set_ship_activity` | never | The ship system. |
 | `adjust_credits` | `beats.write` | `ctx.beats:pay` and a beat's `rewards.credits`. |
-| `set_flag` | by payload | A `mech.*` flag needs `mechanics.write` (`ctx.mechanics:set`, `teach`) or `beats.write` (a beat's `rewards.flags`); any other flag needs `beats.write`. |
+| `set_flag` | by payload | A `mech.*` flag needs `mechanics.write` (`ctx.mechanics:set`, `teach`) or `beats.write` (a beat's `rewards.flags`); any other flag comes only from a beat's rewards (the beat runtime, `beats.write`). |
 | `set_trait` | never | Traits are earned natively. |
 | `set_price_snapshot` | never | Scouting. |
 | `set_loop` | never | The player's loops. |
@@ -382,15 +391,16 @@ a rollback writes it.
 | `put_rumor` | `rumors.write` | `ctx.rumors:put`, `set_truth`, `spread`. |
 | `set_rumor_heard` | never | Craft carrying rumors. |
 | `put_trader` | never | Authored trader routes (`craft.toml`). |
-| `emit` | by payload | By event: `deliver`, `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` need `beats.write`; `talk_requested` needs `talk.pick`; `standing_changed` and `regard_changed` need `standing.write` or `factions.write`. Packs never emit any other event. |
-| `record_fact` | by payload | Kinds with the pack's prefix need `history.write` (`<prefix>.canon_opened` also `canon.write`, `<prefix>.mechanic_taught` also `mechanics.write`); `market_base_changed` needs `market.levers`. Packs never record any other kind. |
+| `emit` | by payload | By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that hands its cargo over; `standing_changed` (`standing.write` or `factions.write`) right after the `adjust_standing` (or, for no change, the `expect_standing`) of its faction, and `regard_changed` right after that `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other event: docking, trades, mining and the rest come from the engine. |
+| `record_fact` | by payload | Only in the pack's own namespace, `<pack-id>.*` (`history.write`), except `<pack-id>.canon_opened` (`canon.write`, right after the `set_canon_status` that opens the node it names: `ctx.canon:open`) and `<pack-id>.mechanic_taught` (`mechanics.write`, right after its `mech.*` flag and slots: `ctx.mechanics:teach`); and `market_base_changed` (`market.levers`, right after the `set_market_base` it reports). Packs never record any other kind. |
 | `set_script_value` | nothing (the pack's own state) | `ctx.store:set` on the script's declared stores. |
 | `set_trigger_fired` | nothing (the pack's own state) | The host marking a `G.after` trigger fired. |
 | `set_script_health` | never | The host's quarantine. |
 | `set_revision_retired` | never | Rollbacks. |
 | `set_pack_off` | never | Rollbacks and the game master applying a revision. |
-| `put_beat` | `beats.write` | Beat transitions (`G.beat`). |
-| `set_fitting` | `beats.write` | A beat's `rewards.fit`. |
+| `set_pack_layer` | never | The host and the bridge, when a pack loads or is applied. |
+| `put_beat` | beat runtime only, `beats.write` | Beat transitions (`G.beat`), core layer only. |
+| `set_fitting` | beat runtime only, `beats.write` | A beat's `rewards.fit`, core layer only. |
 | `expect_fitting` | nothing (a check) | A check. |
 | `set_hull_record` | never | Hull ranks and prestige. |
 | `expect_hull_record` | nothing (a check) | A check. |

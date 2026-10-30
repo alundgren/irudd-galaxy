@@ -22,7 +22,13 @@ Code agents changing the engine read [AGENTS.md](AGENTS.md) instead. Pack author
   any route: hooks, beat rewards, buoy rewards, `data/npcs.toml` (`npcs.write`). The
   host rejects a batch with a command your `uses` doesn't allow, and `pack check`
   reports it as `undeclared_capability`. The table is in HOOKS.md, "What each write
-  needs". A game-master layer never registers journey beats, whatever its ID.
+  needs". A game-master layer never registers journey beats, whatever its ID, and
+  the save remembers that a pack is a game-master layer, so a reload never lifts it.
+- **Facts in your own namespace.** Record kinds under your pack's whole ID
+  (`gm.my_pack.noticed`), never `core.*` or another pack's. Open canon with
+  `ctx.canon:open` and teach with `ctx.mechanics:teach`; they record
+  `<pack-id>.canon_opened` / `<pack-id>.mechanic_taught`, which `ctx.history:record`
+  refuses.
 - **Changes land at calm moments**, when the player is docked or paused. Don't try to make
   them land mid-flight.
 - **Ask before a big change.** Show Andreas the digest and a screenshot, say what you'd

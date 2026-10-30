@@ -19,7 +19,7 @@ local function found(ctx:G.Ctx,cite:string)
   ctx.beats:expect_docked(dock,why)
   ctx.kit:station({id="gm.sixth_station.halt",name="Meltwater Halt",region="region.lantern_shallows",position={x=300,y=850},dock_radius=70,owner="faction.wharf_cooperative",services={"market","dockmaster"},build={stage=1,parts={}}},recipe,{id="gm.sixth_station.wynn",name="Wynn Halloran",role="dockmaster",location="gm.sixth_station.halt",faction="faction.wharf_cooperative"},{["ware.ice"]={base_price=900,price=900,min_price=540,max_price=1260,stock=60,target=100,production=2,role="sells"},["ware.refined_plate"]={base_price=4000,price=4000,min_price=2400,max_price=5600,stock=40,target=40,role="buys"},["ware.rations"]={base_price=2000,price=2000,min_price=1200,max_price=2800,stock=40,target=40,role="buys"}},why)
   ctx.store:set("progress","founded",true,why)
-  U.fact(ctx,why,"gm.station_founded","station.lantern_wharf","npc.ilse_marrow","Wynn built Meltwater Halt near the pilot's Rimewater workings")
+  U.fact(ctx,why,"gm.sixth_station.station_founded","station.lantern_wharf","npc.ilse_marrow","Wynn built Meltwater Halt near the pilot's Rimewater workings")
   U.say(ctx,why,"Ilse: Wynn has opened Meltwater Halt by your ice workings. Its tanks and lamp frame came from the station kit.","npc.ilse_marrow","station.lantern_wharf",{anchor.id,cite})
  elseif dock=="gm.sixth_station.halt" and ctx.store:get("progress","stocked")~=true then
   local why=ctx:cause({summary="Wynn opens the Halt's ice tanks and trading hatch",cites={anchor.id,cite}})

@@ -349,7 +349,7 @@ fn chronicle_finds_news_beyond_a_page_of_unrelated_history_and_keeps_it() {
     }
     batch.push(Command::RecordFact {
         fact: Box::new(FactDraft {
-            kind: "gm.station_founded".parse().unwrap(),
+            kind: "gm.sixth_station.station_founded".parse().unwrap(),
             subjects: Subjects {
                 station: Some(pilot::WHARF),
                 npc: Some("npc.ilse_marrow".parse().unwrap()),
@@ -524,7 +524,7 @@ fn rooks_proof_reward_waits_at_cinder_hook_until_it_is_claimed() {
     // The review's path: dock at the Observatory first, then at Cinder Hook.
     let since = dock_at(&mut p, pilot::GDO);
     assert!(
-        p.has_fact("gm.rumor_exposed"),
+        p.has_fact("gm.compact_plant.rumor_exposed"),
         "the plant is exposed anywhere"
     );
     assert!(!proof_offered(&p, since), "Rook offers it at the Hook");

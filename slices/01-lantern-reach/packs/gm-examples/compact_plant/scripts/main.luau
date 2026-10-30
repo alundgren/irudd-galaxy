@@ -30,7 +30,7 @@ local function change(ctx:G.Ctx,cite:string,docking:boolean)
    ctx.beats:expect_docked(dock,why)
    if not exposed then
     ctx.store:set("progress","exposed",true,why)
-    U.fact(ctx,why,"gm.rumor_exposed","station.cinder_hook","npc.rook_adeyemi","The Compact planted the stale Shoals claim")
+    U.fact(ctx,why,"gm.compact_plant.rumor_exposed","station.cinder_hook","npc.rook_adeyemi","The Compact planted the stale Shoals claim")
     U.say(ctx,why,"Rook reads the buoy log: the Compact planted that stale claim. The three iron rocks are still yours to work.","npc.rook_adeyemi","station.cinder_hook",{proof.id})
    end
    if offer then

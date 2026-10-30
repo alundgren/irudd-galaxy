@@ -207,19 +207,23 @@ pub fn change_seen(change: &str, world: &WorldState, history: &galaxy_core::Hist
     };
     let other = |f: &Fact, id: &str| f.subjects.other.as_ref().is_some_and(|o| o.as_str() == id);
     match change {
-        "stage_built" => any("gm.stage_built", &|f| {
+        "stage_built" => any("gm.kettle_growth.stage_built", &|f| {
             f.subjects.station.as_ref() == Some(&pilot::KETTLE) && f.amount.is_some_and(|n| n >= 2)
         }),
         // Core marks a start it took from tuned pacing; the tuning pack's fact precedes it.
         "shortage_started" => any("core.shortage_started", &|s| {
             matches!(&s.payload, FactPayload::Note(n) if n.ends_with("(tuned)"))
-                && any("gm.shortage_tuned", &|t| t.tick <= s.tick)
+                && any("gm.shortage_tuning.shortage_tuned", &|t| t.tick <= s.tick)
         }),
-        "border_moved" => any("gm.border_moved", &|_| true),
-        "rumor_exposed" => any("gm.rumor_exposed", &|_| true),
-        "mechanic_taught" => any("gm.mechanic_taught", &|f| other(f, "mech.rock_tagging")),
-        "canon_opened" => any("gm.canon_opened", &|f| other(f, "canon.second_fragment")),
-        "station_founded" => any("gm.station_founded", &|_| true),
+        "border_moved" => any("gm.territory_map.border_moved", &|_| true),
+        "rumor_exposed" => any("gm.compact_plant.rumor_exposed", &|_| true),
+        "mechanic_taught" => any("gm.rock_tagging.mechanic_taught", &|f| {
+            other(f, "mech.rock_tagging")
+        }),
+        "canon_opened" => any("gm.ancients_bearing.canon_opened", &|f| {
+            other(f, "canon.second_fragment")
+        }),
+        "station_founded" => any("gm.sixth_station.station_founded", &|_| true),
         // The chronicle hook writes talk lines on its channel, not a fact kind.
         "chronicle" => world.talk.on(Channel::Chronicle).next().is_some(),
         _ => false,

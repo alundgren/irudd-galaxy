@@ -52,7 +52,15 @@ the one-new-station cap counts only open rings.
   claims are compare-and-set (`UpdateSurveyBuoy`), and lamps carry `ExpectFlag`, so
   a removal or retirement queued in the same tick wins.
 - Reject game-master packs that register journey beats, judged by how the pack is
-  loaded (`ScriptHost::load_layer`, `CheckOptions::game_master`), not by its ID.
+  loaded (`ScriptHost::load_layer`, `CheckOptions::game_master`), not by its ID. The
+  bundled examples load as layers too, and each pack's layer is saved in the world
+  (`PackState::layer`), so every later load (a reload, `play`, `sim run`, the bridge,
+  the sandbox) keeps the restriction.
+- Facts in each pack's own namespace, its whole ID: `gm.kettle_growth.stage_built`,
+  `gm.shortage_tuning.shortage_tuned`, `gm.territory_map.border_moved`,
+  `gm.compact_plant.rumor_exposed`, `gm.rock_tagging.mechanic_taught`,
+  `gm.ancients_bearing.canon_opened`, `gm.sixth_station.station_founded`. The
+  chronicle reads each by its full kind.
 - One capability table for every route a pack writes through
   (`galaxy_contract::needs::COMMAND_NEEDS`): the host checks every batch a pack causes,
   beat rewards and data installs included, and `pack check` checks what a pack's data

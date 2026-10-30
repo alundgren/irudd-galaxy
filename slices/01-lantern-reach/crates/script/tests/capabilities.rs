@@ -306,6 +306,11 @@ fn the_table_tells_line_levers_from_stock_levers() {
     let sim = new_sim(1);
     let pack = pack_id("gm.lever_probe");
     let levers = vec!["market.levers".to_owned()];
+    let caller = needs::Caller {
+        pack: &pack,
+        uses: &levers,
+        layer: galaxy_contract::pack::PackLayer::GameMaster,
+    };
     let batch = |l: Lever| {
         lever_batch(sim.world(), Cause::system("test", "levers"), &[l])
             .unwrap()
@@ -315,7 +320,7 @@ fn the_table_tells_line_levers_from_stock_levers() {
         station: KETTLE,
         ware: ICE,
     });
-    let why = needs::check(&remove, &pack, &levers).unwrap_err();
+    let why = needs::check(&remove, &caller, needs::Route::Hooks).unwrap_err();
     assert!(
         why.contains("`set_market_line`") && why.contains("`market.lines`"),
         "{why}"
@@ -326,5 +331,5 @@ fn the_table_tells_line_levers_from_stock_levers() {
         stock: 3,
     });
     assert!(matches!(stock[..], [Command::SetMarketStock { .. }]));
-    needs::check(&stock, &pack, &levers).unwrap();
+    needs::check(&stock, &caller, needs::Route::Hooks).unwrap();
 }

@@ -986,8 +986,7 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                     },
                 )?;
             }
-            let ns = env.pack.as_str().split('.').next().unwrap_or("core");
-            let kind = FactKind::new(format!("{ns}.mechanic_taught"))
+            let kind = FactKind::new(format!("{}.mechanic_taught", env.pack))
                 .map_err(|e| env.fail(lua, "bad_id", e))?;
             env.push(
                 lua,

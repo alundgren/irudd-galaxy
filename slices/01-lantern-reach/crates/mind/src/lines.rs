@@ -105,8 +105,8 @@ impl LineDef {
 
 fn same_kind(want: &str, have: &str) -> bool {
     want == have
-        || have.split_once('.').is_some_and(|(_, k)| k == want)
-        || want.split_once('.').is_some_and(|(_, k)| k == have)
+        || have.rsplit_once('.').is_some_and(|(_, k)| k == want)
+        || want.rsplit_once('.').is_some_and(|(_, k)| k == have)
 }
 
 #[derive(Debug, thiserror::Error)]

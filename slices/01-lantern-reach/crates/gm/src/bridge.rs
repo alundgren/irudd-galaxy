@@ -481,6 +481,9 @@ impl Bridge {
             },
             None => Vec::new(),
         };
+        // Its layer goes into the world's pack state (a system batch, so no rollback
+        // forgets it): every later load of the pack keeps the game-master rules.
+        self.host.record_layers(sim);
         self.state.staged.retain(|x| x.stage != stage);
         self.dirty = true;
         let mut batch = CommandBatch::new(Cause::script(

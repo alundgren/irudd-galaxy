@@ -68,7 +68,7 @@ local function tune(ctx: G.Ctx)
  ctx.pacing:set("shortage.rimewater_ice.way_a_quota",quota,why)
  ctx.store:set("progress","signature",signature,why)
  U.say(ctx,why,`Odo counted your Rimewater ice: Kettle and its two busiest buyers need {quota} relief ice. Brassmouth still sells it cheaply.`,"npc.odo_fenn","station.kettle_dock",cites)
- U.fact(ctx,why,"gm.shortage_tuned","station.kettle_dock","npc.odo_fenn","Odo traced Rimewater ice to its buyers")
+ U.fact(ctx,why,"gm.shortage_tuning.shortage_tuned","station.kettle_dock","npc.odo_fenn","Odo traced Rimewater ice to its buyers")
 end
 return G.script({id="main",on={sell=function(ev:G.SellEvent,ctx:G.Ctx) tune(ctx) end,dock=function(_ev:G.DockEvent,ctx:G.Ctx) tune(ctx) end,session_start=function(_ev:G.SessionStartEvent,ctx:G.Ctx) tune(ctx) end}})
 

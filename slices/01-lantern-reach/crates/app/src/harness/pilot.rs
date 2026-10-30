@@ -174,22 +174,12 @@ impl Pilot {
         })
     }
     /// An unread survey buoy as the map draws it: region, position and reading radius.
-    /// Read through the saved world, which holds the buoy store only where a pack
-    /// that places buoys is part of this build.
     pub fn unread_buoy(&self) -> Option<(RegionId, Vec2, f32)> {
-        let world = serde_json::to_value(self.world()).ok()?;
-        world
-            .get("survey_buoys")?
-            .as_object()?
+        self.world()
+            .survey_buoys
             .values()
-            .filter(|b| b["read"] != true)
-            .find_map(|b| {
-                Some((
-                    serde_json::from_value(b["region"].clone()).ok()?,
-                    serde_json::from_value(b["position"].clone()).ok()?,
-                    b["radius"].as_f64()? as f32,
-                ))
-            })
+            .find(|b| !b.read)
+            .map(|b| (b.region.clone(), b.position, b.radius))
     }
 
     pub fn act(&mut self, action: Action) -> Result {

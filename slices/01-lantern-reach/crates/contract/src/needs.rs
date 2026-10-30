@@ -8,12 +8,29 @@
 //! `galaxy pack check` checks what a pack's data and beat rewards would write. A command
 //! whose capability the manifest doesn't list rejects the whole batch as a fault.
 //!
+//! Rules hold whichever [`Route`] a batch takes and whichever [`PackLayer`] its pack
+//! runs as. **Provenance**: the facts and events the journey reads can't be forged.
+//!
+//! - A pack records facts only in its own namespace, `<pack-id>.*` (the whole ID, so
+//!   `core.probe` can't write `core.*` and `gm.a` can't write `gm.b.*`).
+//! - Engine and journey events (docking, trades, mining, `beat_started`, `quest_step`,
+//!   `beat_completed` ...) never come from a pack's hooks. The beat runtime writes the
+//!   beat events ([`Route::Beat`], for a core-layer pack only); the few events a hook
+//!   may emit must directly follow the change they report (`deliver` its cargo,
+//!   `standing_changed` its standing).
+//! - A fact that reports a checked change follows that change in the same batch:
+//!   `<pack-id>.canon_opened` its `set_canon_status` (`ctx.canon:open`, gated by the
+//!   manifest's `opens`), `<pack-id>.mechanic_taught` its `mech.*` flag
+//!   (`ctx.mechanics:teach`), `market_base_changed` its `set_market_base`. So
+//!   `history.write` never stands in for opening canon or teaching.
+//!
 //! **Adding a command**: give it a row here. `every_command_has_a_row` fails until it
 //! has one, so a new command can't reach the world from a pack unchecked.
 
 use crate::command::Command;
 use crate::events::Event;
 use crate::ids::PackId;
+use crate::pack::PackLayer;
 use crate::talk::Channel;
 
 /// What causing a command takes.
@@ -26,6 +43,9 @@ pub enum Needs {
     Own,
     /// Every clause, each satisfied by any one of its capabilities.
     Uses(&'static [&'static [&'static str]]),
+    /// Only the beat runtime's transition ([`Route::Beat`]) of a core-layer pack,
+    /// with every clause, as [`Needs::Uses`].
+    Beat(&'static [&'static [&'static str]]),
     /// Depends on what the command carries; the row's note says how ([`needs`]).
     Payload,
     /// A pack may never cause it: only the engine, native systems, the player's verbs,
@@ -45,6 +65,28 @@ pub struct CommandNeeds {
 
 const fn row(op: &'static str, needs: Needs, note: &'static str) -> CommandNeeds {
     CommandNeeds { op, needs, note }
+}
+
+/// Where a batch a pack causes comes from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Route {
+    /// The `ctx` hooks: a handler, an `after.` trigger, or a beat's callback.
+    Hooks,
+    /// The beat runtime's own transition for a beat the pack registers (`G.beat`): the
+    /// beat's state, its `beat_started` / `quest_step` / `beat_completed` and its
+    /// rewards. Built by the host, never by a script; a game-master layer has none.
+    Beat,
+    /// The pack's data files, installed when it loads or is applied.
+    Data,
+}
+
+/// Who causes a batch: the pack, what its manifest declares, and the layer it runs as
+/// (`PackState::layer` as recorded in the world, or as the host loaded it).
+#[derive(Clone, Copy, Debug)]
+pub struct Caller<'a> {
+    pub pack: &'a PackId,
+    pub uses: &'a [String],
+    pub layer: PackLayer,
 }
 
 /// Every command a pack might put in a batch, and what it takes. Keyed by `op`.
@@ -78,7 +120,8 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "set_flag",
         Needs::Payload,
         "A `mech.*` flag needs `mechanics.write` (`ctx.mechanics:set`, `teach`) or \
-         `beats.write` (a beat's `rewards.flags`); any other flag needs `beats.write`.",
+         `beats.write` (a beat's `rewards.flags`); any other flag comes only from a \
+         beat's rewards (the beat runtime, `beats.write`).",
     ),
     row("set_trait", Needs::Never, "Traits are earned natively."),
     row("set_price_snapshot", Needs::Never, "Scouting."),
@@ -236,17 +279,25 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
     row(
         "emit",
         Needs::Payload,
-        "By event: `deliver`, `beat_started`, `quest_step`, `beat_completed`, \
-         `upgrade_fitted` and `cap_unlocked` need `beats.write`; `talk_requested` needs \
-         `talk.pick`; `standing_changed` and `regard_changed` need `standing.write` or \
-         `factions.write`. Packs never emit any other event.",
+        "By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` \
+         and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). \
+         From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that \
+         hands its cargo over; `standing_changed` (`standing.write` or \
+         `factions.write`) right after the `adjust_standing` (or, for no change, the \
+         `expect_standing`) of its faction, and `regard_changed` right after that \
+         `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other \
+         event: docking, trades, mining and the rest come from the engine.",
     ),
     row(
         "record_fact",
         Needs::Payload,
-        "Kinds with the pack's prefix need `history.write` (`<prefix>.canon_opened` \
-         also `canon.write`, `<prefix>.mechanic_taught` also `mechanics.write`); \
-         `market_base_changed` needs `market.levers`. Packs never record any other kind.",
+        "Only in the pack's own namespace, `<pack-id>.*` (`history.write`), except \
+         `<pack-id>.canon_opened` (`canon.write`, right after the `set_canon_status` \
+         that opens the node it names: `ctx.canon:open`) and \
+         `<pack-id>.mechanic_taught` (`mechanics.write`, right after its `mech.*` flag \
+         and slots: `ctx.mechanics:teach`); and `market_base_changed` \
+         (`market.levers`, right after the `set_market_base` it reports). Packs never \
+         record any other kind.",
     ),
     // --- Scripts ---
     row(
@@ -266,16 +317,21 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         Needs::Never,
         "Rollbacks and the game master applying a revision.",
     ),
+    row(
+        "set_pack_layer",
+        Needs::Never,
+        "The host and the bridge, when a pack loads or is applied.",
+    ),
     // --- Progress ---
     row(
         "put_beat",
-        Needs::Uses(&[&["beats.write"]]),
-        "Beat transitions (`G.beat`).",
+        Needs::Beat(&[&["beats.write"]]),
+        "Beat transitions (`G.beat`), core layer only.",
     ),
     row(
         "set_fitting",
-        Needs::Uses(&[&["beats.write"]]),
-        "A beat's `rewards.fit`.",
+        Needs::Beat(&[&["beats.write"]]),
+        "A beat's `rewards.fit`, core layer only.",
     ),
     row("expect_fitting", Needs::Nothing, "A check."),
     row("set_hull_record", Needs::Never, "Hull ranks and prestige."),
@@ -305,44 +361,85 @@ pub fn row_for(op: &str) -> Option<&'static CommandNeeds> {
     COMMAND_NEEDS.iter().find(|r| r.op == op)
 }
 
-/// What `cmd`, caused by `pack`, needs: `Ok` with the clauses (each satisfied by any
-/// one of its capabilities; empty for nothing), or `Err` saying why a pack may never
-/// cause it.
-pub fn needs(cmd: &Command, pack: &PackId) -> Result<Vec<&'static [&'static str]>, String> {
+/// What `cmd`, caused by `caller` along `route`, needs: `Ok` with the clauses (each
+/// satisfied by any one of its capabilities; empty for nothing), or `Err` saying why
+/// the pack may never cause it there. `before` is what the batch carries ahead of it
+/// on the same route (the provenance rules read the commands just before).
+pub fn needs(
+    cmd: &Command,
+    before: &[Command],
+    caller: &Caller<'_>,
+    route: Route,
+) -> Result<Vec<&'static [&'static str]>, String> {
     let op = cmd.op();
     let Some(r) = row_for(op) else {
         return Err(format!("`{op}` has no row in the capability table"));
     };
+    if route == Route::Beat && caller.layer == PackLayer::GameMaster {
+        return Err(
+            "a game-master layer never drives journey beats or pays their rewards".to_owned(),
+        );
+    }
     match r.needs {
         Needs::Nothing => Ok(Vec::new()),
         Needs::Uses(clauses) => Ok(clauses.to_vec()),
+        Needs::Beat(clauses) => {
+            beat_only(route, op)?;
+            Ok(clauses.to_vec())
+        }
         Needs::Never => Err(format!(
             "a pack never causes `{op}` ({})",
             r.note.trim_end_matches('.')
         )),
         Needs::Own => match cmd {
             Command::SetScriptValue { pack: p, .. } | Command::SetTriggerFired { pack: p, .. }
-                if p == pack =>
+                if p == caller.pack =>
             {
                 Ok(Vec::new())
             }
             _ => Err(format!("`{op}` writes another pack's state")),
         },
-        Needs::Payload => payload(cmd, pack),
+        Needs::Payload => payload(cmd, before, caller, route),
     }
 }
 
-fn payload(cmd: &Command, pack: &PackId) -> Result<Vec<&'static [&'static str]>, String> {
+/// Only the beat runtime writes `what`.
+fn beat_only(route: Route, what: &str) -> Result<(), String> {
+    if route == Route::Beat {
+        Ok(())
+    } else {
+        Err(format!(
+            "only the beat runtime writes `{what}` (a core-layer pack's `G.beat`), never a \
+             hook or data"
+        ))
+    }
+}
+
+/// Names in a pack's own namespace that report a checked change: only the hook that
+/// makes the change records them (`ctx.canon:open`, `ctx.mechanics:teach`), never
+/// `ctx.history:record`.
+pub const PROTECTED_FACTS: [&str; 2] = ["canon_opened", "mechanic_taught"];
+
+fn payload(
+    cmd: &Command,
+    before: &[Command],
+    caller: &Caller<'_>,
+    route: Route,
+) -> Result<Vec<&'static [&'static str]>, String> {
     const KIT: &[&str] = &["kit.write"];
     const LINES: &[&str] = &["market.lines"];
     const BEATS: &[&str] = &["beats.write"];
     const STANDING: &[&str] = &["standing.write", "factions.write"];
     let op = cmd.op();
+    let last = before.last();
     Ok(match cmd {
         Command::SetFlag { flag, .. } if flag.as_str().starts_with("mech.") => {
             vec![&["mechanics.write", "beats.write"]]
         }
-        Command::SetFlag { .. } => vec![BEATS],
+        Command::SetFlag { flag, .. } => {
+            beat_only(route, &format!("set_flag {flag}"))?;
+            vec![BEATS]
+        }
         Command::FoundStation { market, .. } | Command::SetFoundedStation { market, .. } => {
             if market.is_some() {
                 vec![KIT, LINES]
@@ -371,36 +468,67 @@ fn payload(cmd: &Command, pack: &PackId) -> Result<Vec<&'static [&'static str]>,
             out
         }
         Command::Emit { event } => match event {
-            Event::Deliver { .. }
-            | Event::BeatStarted { .. }
+            Event::BeatStarted { .. }
             | Event::QuestStep { .. }
             | Event::BeatCompleted { .. }
             | Event::UpgradeFitted { .. }
-            | Event::CapUnlocked { .. } => vec![BEATS],
+            | Event::CapUnlocked { .. } => {
+                beat_only(route, event.kind().as_str())?;
+                vec![BEATS]
+            }
+            Event::Deliver {
+                ship,
+                ware,
+                quantity,
+                ..
+            } => {
+                let handed = matches!(last, Some(Command::AdjustCargo { ship: s, ware: w, delta })
+                    if s == ship && w == ware && *delta == -i64::from(*quantity));
+                if !handed {
+                    return Err(
+                        "a `deliver` event follows the `adjust_cargo` that hands its \
+                                cargo over (`ctx.beats:deliver`)"
+                            .to_owned(),
+                    );
+                }
+                vec![BEATS]
+            }
             Event::TalkRequested { .. } => vec![&["talk.pick"]],
-            Event::StandingChanged { .. } | Event::RegardChanged { .. } => vec![STANDING],
+            Event::StandingChanged { faction, delta, .. } => {
+                let moved = match last {
+                    Some(Command::AdjustStanding {
+                        faction: f,
+                        delta: d,
+                    }) => f == faction && d == delta,
+                    Some(Command::ExpectStanding { faction: f, .. }) => f == faction && *delta == 0,
+                    _ => false,
+                };
+                if !moved {
+                    return Err(format!(
+                        "a `standing_changed` event follows the change to {faction}'s standing \
+                         it reports (a deed)"
+                    ));
+                }
+                vec![STANDING]
+            }
+            Event::RegardChanged { faction, .. } => {
+                let after = matches!(last, Some(Command::Emit { event: Event::StandingChanged { faction: f, .. } })
+                    if f == faction);
+                if !after {
+                    return Err(format!(
+                        "a `regard_changed` event follows the `standing_changed` of {faction}"
+                    ));
+                }
+                vec![STANDING]
+            }
             other => {
                 return Err(format!(
-                    "a pack never emits `{}` events",
+                    "a pack never emits `{}` events (only the engine does)",
                     other.kind().as_str()
                 ));
             }
         },
-        Command::RecordFact { fact } => {
-            let kind = fact.kind.as_str();
-            let prefix = pack.as_str().split('.').next().unwrap_or("");
-            match kind.strip_prefix(prefix).and_then(|k| k.strip_prefix('.')) {
-                Some("canon_opened") => vec![&["history.write", "canon.write"]],
-                Some("mechanic_taught") => vec![&["history.write", "mechanics.write"]],
-                Some(_) => vec![&["history.write"]],
-                None if kind == "market_base_changed" => vec![&["market.levers"]],
-                None => {
-                    return Err(format!(
-                        "a pack records only kinds with its prefix (`{prefix}.`), not `{kind}`"
-                    ));
-                }
-            }
-        }
+        Command::RecordFact { fact } => record(fact, before, caller)?,
         Command::Say { line } => match line.channel {
             Channel::DockTalk => vec![&["talk.write"]],
             Channel::MapNote => vec![&["map.write"]],
@@ -410,14 +538,95 @@ fn payload(cmd: &Command, pack: &PackId) -> Result<Vec<&'static [&'static str]>,
     })
 }
 
-/// The first command in `commands` that `pack` may not cause with `uses`, as a
-/// diagnostic naming the command (by index and `op`) and what it lacks.
-pub fn check(commands: &[Command], pack: &PackId, uses: &[String]) -> Result<(), String> {
+/// The rule for `record_fact`: the pack's own namespace, and the protected names only
+/// right after the change they report.
+fn record(
+    fact: &crate::history::FactDraft,
+    before: &[Command],
+    caller: &Caller<'_>,
+) -> Result<Vec<&'static [&'static str]>, String> {
+    let kind = fact.kind.as_str();
+    let other = fact.subjects.other.as_ref().map(|o| o.as_str());
+    let own = kind
+        .strip_prefix(caller.pack.as_str())
+        .and_then(|k| k.strip_prefix('.'));
+    Ok(match own {
+        Some("canon_opened") => {
+            let opened = matches!(before.last(), Some(Command::SetCanonStatus { id, status })
+                if Some(id.as_str()) == other && *status == crate::canon::CanonStatus::Open);
+            if !opened {
+                return Err(format!(
+                    "`{kind}` is recorded only by `ctx.canon:open`, right after the \
+                     `set_canon_status` that opens the node it names"
+                ));
+            }
+            vec![&["canon.write"]]
+        }
+        Some("mechanic_taught") => {
+            let flag = before
+                .iter()
+                .rev()
+                .find(|c| !matches!(c, Command::BindSlot { .. }));
+            let taught = matches!(flag, Some(Command::SetFlag { flag, on: true })
+                if Some(flag.as_str()) == other && flag.as_str().starts_with("mech."));
+            if !taught {
+                return Err(format!(
+                    "`{kind}` is recorded only by `ctx.mechanics:teach`, right after the \
+                     `mech.*` flag it teaches"
+                ));
+            }
+            vec![&["mechanics.write"]]
+        }
+        // Kinds match by their last segment when lines cite them, so a protected name
+        // can't hide deeper in the namespace either (`gm.a.b.canon_opened`).
+        Some(name)
+            if name
+                .rsplit('.')
+                .next()
+                .is_some_and(|last| PROTECTED_FACTS.contains(&last)) =>
+        {
+            return Err(format!(
+                "`{kind}`: a protected name is recorded only as `{}.<name>`, by its hook",
+                caller.pack
+            ));
+        }
+        Some(_) => vec![&["history.write"]],
+        None if kind == "market_base_changed" => {
+            let moved = matches!(before.last(), Some(Command::SetMarketBase { station, ware, base })
+                if fact.subjects.station.as_ref() == Some(station)
+                    && fact.subjects.ware.as_ref() == Some(ware)
+                    && fact.amount == Some(i64::from(base.base_price)));
+            if !moved {
+                return Err(
+                    "`market_base_changed` is recorded only right after the `set_market_base` \
+                     it reports"
+                        .to_owned(),
+                );
+            }
+            vec![&["market.levers"]]
+        }
+        None => {
+            return Err(format!(
+                "a pack records facts only in its own namespace (`{}.`), not `{kind}`",
+                caller.pack
+            ));
+        }
+    })
+}
+
+/// The first command in `commands` (one route's share of a batch) that `caller` may
+/// not cause along `route`, as a diagnostic naming the command (by index and `op`)
+/// and what it lacks.
+pub fn check(commands: &[Command], caller: &Caller<'_>, route: Route) -> Result<(), String> {
     for (i, c) in commands.iter().enumerate() {
         let op = c.op();
-        let clauses = needs(c, pack).map_err(|why| format!("command {i} (`{op}`): {why}"))?;
+        let clauses = needs(c, &commands[..i], caller, route)
+            .map_err(|why| format!("command {i} (`{op}`): {why}"))?;
         for clause in clauses {
-            if !clause.iter().any(|cap| uses.iter().any(|u| u == cap)) {
+            if !clause
+                .iter()
+                .any(|cap| caller.uses.iter().any(|u| u == cap))
+            {
                 let want = clause
                     .iter()
                     .map(|c| format!("`{c}`"))
@@ -474,7 +683,7 @@ mod tests {
     fn every_capability_named_is_available() {
         let all = crate::api::uses();
         for r in COMMAND_NEEDS {
-            let Needs::Uses(clauses) = r.needs else {
+            let (Needs::Uses(clauses) | Needs::Beat(clauses)) = r.needs else {
                 continue;
             };
             for cap in clauses.iter().flat_map(|c| c.iter()) {
