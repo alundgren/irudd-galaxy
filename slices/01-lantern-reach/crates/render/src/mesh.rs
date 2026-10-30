@@ -10,7 +10,9 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct Vertex {
     pub position: [f32; 3],
-    /// Face normal (flat shading drives the cel bands).
+    /// Shading normal. The face normal for flat-shaded geometry; a smooth surface
+    /// ([`MeshBuilder::tri_shaded`]) stores the normal of the surface it approximates,
+    /// so cel bands move across it instead of whole facets flipping band.
     pub normal: [f32; 3],
     /// Normal averaged over every face sharing this position. The ink outline pushes the
     /// hull out along it, so hard edges don't crack open.
@@ -18,11 +20,14 @@ pub struct Vertex {
     /// Paint colour (linear RGB). Alpha is the glow amount: 0 is lit by the scene's lights,
     /// 1 is fully self-lit (windows, engines, greenhouse lamps).
     pub color: [f32; 4],
-    /// World-space size of the facet that owns this vertex, in mesh units.
-    /// `x` is the minor span (a sliver's thickness, or the shorter side of a plate).
-    /// `y` is the major span. The renderer fades inner ink and thins the silhouette
-    /// when these cover only a few pixels, and skips the facet below about one pixel.
+    /// Size of the part that owns this vertex, in mesh units ([`MeshBuilder::part`];
+    /// a loose triangle is its own part). `x` is the minor span (a rib's thickness, or
+    /// the shorter side of a plate), `y` the major span. The renderer thins the
+    /// silhouette when the part covers only a few pixels, and skips it below about one.
     pub span: [f32; 2],
+    /// Minor span of this vertex's own facet, in mesh units. Inner ink fades on facets
+    /// only a few pixels across, so a small rock doesn't fill in with crease lines.
+    pub facet: f32,
 }
 
 /// Triangle mesh data. Front faces wind counter-clockwise.
@@ -56,6 +61,38 @@ impl MeshData {
             .fold(0.0, f32::max)
     }
 
+    /// Where the ray `origin + dir * t` first enters the mesh: the smallest `t >= 0`
+    /// at a front face, or `None` if it misses. `dir` needn't be unit length, so `t` is
+    /// the same in any affinely transformed space (mesh space or world space).
+    pub fn raycast(&self, origin: Vec3, dir: Vec3) -> Option<f32> {
+        let mut best: Option<f32> = None;
+        for t in self.indices.as_chunks::<3>().0 {
+            let [a, b, c] = t.map(|i| Vec3::from(self.vertices[i as usize].position));
+            let (e1, e2) = (b - a, c - a);
+            let p = dir.cross(e2);
+            let det = e1.dot(p);
+            // Front faces only: the ray must come from outside.
+            if det <= 1e-12 {
+                continue;
+            }
+            let s = origin - a;
+            let u = s.dot(p) / det;
+            if !(0.0..=1.0).contains(&u) {
+                continue;
+            }
+            let q = s.cross(e1);
+            let v = dir.dot(q) / det;
+            if v < 0.0 || u + v > 1.0 {
+                continue;
+            }
+            let hit = e2.dot(q) / det;
+            if hit >= 0.0 && best.is_none_or(|b| hit < b) {
+                best = Some(hit);
+            }
+        }
+        best
+    }
+
     /// True when every position and normal is finite and every normal is unit length.
     pub fn is_well_formed(&self) -> bool {
         let unit = |n: [f32; 3]| (Vec3::from(n).length() - 1.0).abs() < 1e-3;
@@ -73,6 +110,8 @@ impl MeshData {
                     && v.span[1].is_finite()
                     && v.span[0] >= 0.0
                     && v.span[1] >= v.span[0]
+                    && v.facet.is_finite()
+                    && v.facet >= 0.0
             })
     }
 }
@@ -147,9 +186,37 @@ impl MeshBuilder {
                 outline_normal: n.into(),
                 color,
                 span,
+                facet: span[0],
             });
         }
         self.mesh.indices.extend([base, base + 1, base + 2]);
+    }
+
+    /// Adds a triangle shaded with its own per-corner normals (`na nb nc`, before the
+    /// current transform) instead of the face normal: one facet of a smooth surface.
+    /// Returns false, and adds nothing, for a degenerate triangle.
+    pub fn tri_shaded(&mut self, a: Vec3, b: Vec3, c: Vec3, normals: [Vec3; 3]) -> bool {
+        let start = self.mesh.vertices.len();
+        self.tri(a, b, c);
+        if self.mesh.vertices.len() == start {
+            return false;
+        }
+        let m = Mat3::from_mat4(self.transform);
+        let to_world = if m.determinant().abs() > 1e-12 {
+            m.inverse().transpose()
+        } else {
+            Mat3::IDENTITY
+        };
+        let mut ns = normals.map(|n| (to_world * n).normalize_or_zero());
+        if self.transform.determinant() < 0.0 {
+            ns.swap(1, 2);
+        }
+        for (v, n) in self.mesh.vertices[start..].iter_mut().zip(ns) {
+            if n != Vec3::ZERO {
+                v.normal = n.into();
+            }
+        }
+        true
     }
 
     /// Adds a flat quad `a b c d` (counter-clockwise).
@@ -164,13 +231,45 @@ impl MeshBuilder {
             return;
         }
         let c = pts.iter().copied().sum::<Vec3>() / pts.len() as f32;
-        for i in 0..pts.len() {
-            self.tri(c, pts[i], pts[(i + 1) % pts.len()]);
+        self.part(|b| {
+            for i in 0..pts.len() {
+                b.tri(c, pts[i], pts[(i + 1) % pts.len()]);
+            }
+        });
+    }
+
+    /// Runs `f` as one part: every facet it adds takes the part's spans (its extent in
+    /// the current frame) instead of its own. The renderer sizes ink by span, so a
+    /// hull built from many thin lathe strips keeps its full silhouette weight, while
+    /// a thin antenna stays a hairline. Each primitive below is a part.
+    pub fn part(&mut self, f: impl FnOnce(&mut Self)) -> &mut Self {
+        let start = self.mesh.vertices.len();
+        f(self);
+        let m = self.transform;
+        if self.mesh.vertices.len() == start || m.determinant().abs() < 1e-12 {
+            return self;
         }
+        let to_local = m.inverse();
+        let (mut lo, mut hi) = (Vec3::splat(f32::MAX), Vec3::splat(f32::MIN));
+        for v in &self.mesh.vertices[start..] {
+            let p = to_local.transform_point3(v.position.into());
+            (lo, hi) = (lo.min(p), hi.max(p));
+        }
+        let axis = |v: glam::Vec4| Vec3::new(v.x, v.y, v.z).length();
+        let ext = (hi - lo) * Vec3::new(axis(m.x_axis), axis(m.y_axis), axis(m.z_axis));
+        let span = extent_span(ext);
+        for v in &mut self.mesh.vertices[start..] {
+            v.span = span;
+        }
+        self
     }
 
     /// A box centred on the origin.
     pub fn cuboid(&mut self, size: Vec3) {
+        self.part(|b| b.cuboid_faces(size));
+    }
+
+    fn cuboid_faces(&mut self, size: Vec3) {
         let h = size * 0.5;
         let p = |x: f32, y: f32, z: f32| Vec3::new(x * h.x, y * h.y, z * h.z);
         let faces = [
@@ -219,6 +318,10 @@ impl MeshBuilder {
     /// A surface of revolution around +Z. `profile` lists `(radius, z)` from bottom to top;
     /// a radius of 0 closes that end to a point. Ends with a radius are capped flat.
     pub fn lathe(&mut self, profile: &[(f32, f32)], segments: u32, phase: f32) {
+        self.part(|b| b.lathe_faces(profile, segments, phase));
+    }
+
+    fn lathe_faces(&mut self, profile: &[(f32, f32)], segments: u32, phase: f32) {
         let segments = segments.max(3);
         let ring = |r: f32, z: f32, i: u32| {
             let a = phase + i as f32 / segments as f32 * std::f32::consts::TAU;
@@ -273,6 +376,31 @@ impl MeshBuilder {
         segments: u32,
         sides: u32,
     ) {
+        let start = self.mesh.vertices.len();
+        self.torus_faces(radius, tube_width, tube_height, segments, sides);
+        // A ring is as thick as its tube, however wide it is: a thin docking ring
+        // seen from afar keeps a hairline, not an ink-filled disc.
+        let m = self.transform;
+        let axis = |v: glam::Vec4| Vec3::new(v.x, v.y, v.z).length();
+        let s = (axis(m.x_axis) + axis(m.y_axis)) * 0.5;
+        let span = extent_span(Vec3::new(
+            tube_width * s,
+            tube_width * s,
+            (2.0 * radius + tube_width) * s,
+        ));
+        for v in &mut self.mesh.vertices[start..] {
+            v.span = span;
+        }
+    }
+
+    fn torus_faces(
+        &mut self,
+        radius: f32,
+        tube_width: f32,
+        tube_height: f32,
+        segments: u32,
+        sides: u32,
+    ) {
         let segments = segments.max(3);
         let sides = sides.max(3);
         let tau = std::f32::consts::TAU;
@@ -292,6 +420,10 @@ impl MeshBuilder {
     /// Extrudes a 2D outline (counter-clockwise, star-shaped) from `z = 0` to `z = height`,
     /// with the top face scaled by `top_scale` around its centroid for a bevelled look.
     pub fn extrude(&mut self, outline: &[Vec2], height: f32, top_scale: f32) {
+        self.part(|b| b.extrude_faces(outline, height, top_scale));
+    }
+
+    fn extrude_faces(&mut self, outline: &[Vec2], height: f32, top_scale: f32) {
         if outline.len() < 3 {
             return;
         }
@@ -329,6 +461,7 @@ impl MeshBuilder {
                 outline_normal: tf(v.outline_normal),
                 color: v.color,
                 span: [v.span[0] * smin, v.span[1] * smax],
+                facet: v.facet * smin,
             });
         }
         for &[a, b, c] in other.indices.as_chunks::<3>().0 {
@@ -350,13 +483,15 @@ impl MeshBuilder {
 }
 
 /// Minor and major world-space spans of a triangle.
-///
-/// A near-zero axis is the face plane, not the part's thickness: a plate keeps the
-/// shorter of its two large sides, and a rib keeps its thickness.
 fn facet_span(a: Vec3, b: Vec3, c: Vec3) -> [f32; 2] {
-    let lo = a.min(b.min(c));
-    let hi = a.max(b.max(c));
-    let ext = hi - lo;
+    extent_span(a.max(b.max(c)) - a.min(b.min(c)))
+}
+
+/// Minor and major spans of a box with these side lengths.
+///
+/// A near-zero axis is a face plane, not the part's thickness: a plate keeps the
+/// shorter of its two large sides, and a rib keeps its thickness.
+fn extent_span(ext: Vec3) -> [f32; 2] {
     let mut axes = [ext.x.abs(), ext.y.abs(), ext.z.abs()];
     axes.sort_by(|l, r| l.total_cmp(r));
     let longest = axes[2].max(1e-4);
@@ -483,6 +618,60 @@ mod tests {
             };
             assert!((centroid - centre).dot(Vec3::from(v.normal)) > 0.0);
         }
+    }
+
+    #[test]
+    fn a_part_shares_its_spans() {
+        // A lathe body's strips are thin, but the body isn't: every facet takes the
+        // body's thickness, so its silhouette ink is drawn at full weight.
+        let mut b = MeshBuilder::new();
+        b.with(Mat4::from_rotation_y(0.7), |b| {
+            b.lathe(&[(0.0, -3.0), (1.2, -1.0), (1.0, 2.0), (0.0, 3.0)], 12, 0.0)
+        });
+        let body = b.build();
+        let first = body.vertices[0].span;
+        assert!(body.vertices.iter().any(|v| v.facet < first[0] * 0.5));
+        assert!(body.vertices.iter().all(|v| v.span == first));
+        assert!(
+            (first[0] - 2.4).abs() < 0.1 && (first[1] - 6.0).abs() < 0.1,
+            "{first:?}"
+        );
+
+        // A diagonal rib stays a rib: spans are measured in the part's own frame.
+        let mut b = MeshBuilder::new();
+        b.with(Mat4::from_rotation_z(0.8), |b| {
+            b.cuboid(Vec3::new(8.0, 0.2, 0.2))
+        });
+        let rib = b.build();
+        assert!(rib.vertices[0].span[0] < 0.25, "{:?}", rib.vertices[0].span);
+    }
+
+    #[test]
+    fn shaded_triangles_keep_their_normals() {
+        let mut b = MeshBuilder::new();
+        let up = Vec3::new(0.0, 0.3, 1.0).normalize();
+        assert!(b.tri_shaded(Vec3::ZERO, Vec3::X, Vec3::Y, [Vec3::Z, up, Vec3::Z]));
+        assert!(!b.tri_shaded(Vec3::ZERO, Vec3::X, Vec3::X * 2.0, [Vec3::Z; 3]));
+        let mesh = b.build();
+        assert!(mesh.is_well_formed());
+        assert_eq!(mesh.vertices.len(), 3);
+        assert!((Vec3::from(mesh.vertices[1].normal) - up).length() < 1e-6);
+    }
+
+    #[test]
+    fn raycast_finds_the_near_surface() {
+        let mut b = MeshBuilder::new();
+        b.cuboid(Vec3::splat(2.0));
+        let mesh = b.build();
+        let t = mesh.raycast(Vec3::new(-5.0, 0.2, 0.1), Vec3::X).unwrap();
+        assert!((t - 4.0).abs() < 1e-4, "{t}");
+        // An unnormalised direction scales t.
+        let t = mesh
+            .raycast(Vec3::new(0.0, 0.0, 9.0), Vec3::NEG_Z * 2.0)
+            .unwrap();
+        assert!((t - 4.0).abs() < 1e-4, "{t}");
+        assert!(mesh.raycast(Vec3::new(-5.0, 3.0, 0.0), Vec3::X).is_none());
+        assert!(mesh.raycast(Vec3::new(5.0, 0.0, 0.0), Vec3::X).is_none());
     }
 
     #[test]

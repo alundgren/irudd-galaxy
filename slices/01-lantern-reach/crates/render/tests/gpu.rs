@@ -311,3 +311,127 @@ fn stale_mesh_handle_never_touches_a_reused_slot() {
         "live mesh still drawn"
     );
 }
+
+/// Changed pixels at the centre of a changed 5x5 block: a patch changing tone by more
+/// than a cel band's worth, not an edge or a thick outline moving by a pixel or two.
+fn solid_change(a: &RgbaImage, b: &RgbaImage) -> usize {
+    let (w, h) = (a.width as i32, a.height as i32);
+    let changed = |x: i32, y: i32| {
+        let (p, q) = (a.pixel(x as u32, y as u32), b.pixel(x as u32, y as u32));
+        (0..3).any(|c| (p[c] as i32 - q[c] as i32).abs() > 48)
+    };
+    let mut n = 0;
+    for y in 2..h - 2 {
+        for x in 2..w - 2 {
+            if (-2..=2).all(|dy| (-2..=2).all(|dx| changed(x + dx, y + dy))) {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+#[test]
+#[ignore = "needs a GPU"]
+fn a_slowly_mined_rock_never_pops_a_block() {
+    // Mapped as the game does: re-meshed at every 1/20 of `remaining`, turning, and
+    // scaled between re-meshes. A flat-shaded facet flipping cel band, or a crack or
+    // chip appearing at once, changes a solid patch between two frames.
+    let mut r = renderer(320, 320);
+    let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 52.0).with_tilt(14.0));
+    let mut worst = (0, 0);
+    for kind in [RockKind::Ice, RockKind::Iron, RockKind::Glassite] {
+        let mesh_at = |remaining: f32| kit::rock(&RockParams::new(kind, 10.0, remaining), 42);
+        let handle = r.upload_mesh(&mesh_at(1.0));
+        let (mut meshed, mut step) = (1.0f32, 20);
+        let mut last: Option<RgbaImage> = None;
+        for frame in 0..90 {
+            let remaining = 1.0 - frame as f32 * 0.01;
+            let s = (remaining * 20.0).ceil() as i32;
+            if s != step {
+                step = s;
+                meshed = remaining;
+                r.update_mesh(handle, &mesh_at(remaining));
+            }
+            let mut inst = MeshInstance::at(handle, Vec2::ZERO, frame as f32 * 0.012, 1.0);
+            let k = kit::rock_scale(remaining) / kit::rock_scale(meshed);
+            inst.transform *= render::glam::Mat4::from_scale(Vec3::splat(k));
+            scene.meshes = vec![inst];
+            let img = r.render_to_rgba(&scene).unwrap();
+            if let Some(prev) = &last {
+                let n = solid_change(prev, &img);
+                if n > worst.0 {
+                    worst = (n, frame);
+                }
+            }
+            last = Some(img);
+        }
+        r.remove_mesh(handle);
+    }
+    // The rock is about 110 pixels across. The flat-shaded rocks this replaced popped
+    // over 2 000 pixels in a frame; edges moving and glassite wearing stay near 20.
+    assert!(
+        worst.0 < 120,
+        "{} pixels changed as a solid patch at frame {}",
+        worst.0,
+        worst.1
+    );
+}
+
+#[test]
+#[ignore = "needs a GPU"]
+fn a_mining_beam_reaches_the_rock_and_its_glow_is_whole() {
+    let mut r = renderer(300, 300);
+    let data = kit::rock(&RockParams::new(RockKind::Iron, 10.0, 0.6), 3);
+    let rock = r.upload_mesh(&data);
+    let camera = Camera::top_down(Vec2::ZERO, 50.0).with_tilt(14.0);
+    let mut scene = Scene::new(camera);
+    scene.clear_color = Color::hex(0x202040);
+    scene
+        .meshes
+        .push(MeshInstance::at(rock, Vec2::ZERO, 0.0, 1.0));
+    let from = Vec3::new(-22.0, 4.0, 12.0);
+    let t = data.raycast(from, -from).expect("the beam meets the rock");
+    let hit = from - from * t;
+    let before = r.render_to_rgba(&scene).unwrap();
+    scene
+        .lines
+        .push(Line::beam(from, hit, 2.0, Color::hex(0x7ff0d8)));
+    let lit = r.render_to_rgba(&scene).unwrap();
+    scene.lines.clear();
+    scene.glows.push(Glow {
+        position: hit,
+        radius: 4.0,
+        color: Color::hex(0xbaffef),
+    });
+    let glow = r.render_to_rgba(&scene).unwrap();
+
+    let view = r.logical_size();
+    let px = |p: Vec3| {
+        let s = camera.world_to_screen(p, view).unwrap();
+        (s.x.round() as u32, s.y.round() as u32)
+    };
+    let luma = |img: &RgbaImage, (x, y): (u32, u32)| {
+        let p = img.pixel(x, y);
+        p[0] as i32 + p[1] as i32 + p[2] as i32
+    };
+    // The beam is drawn right up to where it lands, not chopped off by the rock.
+    let dir = (hit - from).normalize();
+    let near = px(hit - dir * 2.0);
+    assert!(
+        luma(&lit, near) > luma(&before, near) + 60,
+        "beam at its landing point: {} -> {}",
+        luma(&before, near),
+        luma(&lit, near)
+    );
+    // The landing glow is a whole disc: as bright on the rock's side as on the ship's.
+    let (inside, outside) = (px(hit + dir * 2.0), px(hit - dir * 2.0));
+    let gain = |p| luma(&glow, p) - luma(&before, p);
+    assert!(gain(inside) > 60, "glow over the rock: {}", gain(inside));
+    assert!(
+        gain(inside) * 2 > gain(outside),
+        "glow cut by the rock: {} vs {}",
+        gain(inside),
+        gain(outside)
+    );
+}

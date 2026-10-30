@@ -43,6 +43,13 @@ impl RockParams {
 /// How many cracks and chips a fully mined-out rock shows.
 const MAX_CRACKS: usize = 4;
 const MAX_CHIPS: usize = 5;
+/// The share of a rock's life over which one chip grows from a graze to full depth.
+const CHIP_WINDOW: f32 = 0.5;
+/// How far (unit rock radius) a cut's plane passes a face before the face shows fully
+/// as cut.
+const CHIP_FADE: f32 = 0.35;
+/// The share of a rock's life over which one crack opens.
+const CRACK_WINDOW: f32 = 0.45;
 
 /// The visual size of a rock relative to full, for a `remaining` fraction.
 pub fn rock_scale(remaining: f32) -> f32 {
@@ -95,68 +102,140 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
         *p = dir * r * style.squash;
     }
 
-    // Chips: flat planar cuts that eat into the rock as it's mined.
+    // Chips: flat planar cuts that eat into the rock as it's mined. Each one grows in
+    // over its own stretch of `remaining`, from a graze to its full depth, so a re-mesh
+    // at the next visible step only moves the surface a little.
     let mut chip_rng = rng.fork(2);
     let chips: Vec<(Vec3, f32)> = (0..MAX_CHIPS)
         .map(|_| (random_dir(&mut chip_rng), chip_rng.range(0.55, 0.78)))
         .collect();
-    let chip_count = ((1.0 - remaining) * (MAX_CHIPS as f32 + 0.99)) as usize;
-    for &(d, depth) in chips.iter().take(chip_count.min(MAX_CHIPS)) {
+    // Chip i grows over its own window of the rock's life, half of it long; the
+    // windows overlap so each step bites a little off several chips.
+    let mined = 1.0 - remaining;
+    let chip_start = |i: usize| i as f32 * (1.0 - CHIP_WINDOW) / (MAX_CHIPS - 1) as f32;
+    // Crystals seat on the vertex nearest their direction on the uncut rock, so a
+    // chip never makes one jump to another vertex.
+    let lumpy = pos.clone();
+    let mut cuts: Vec<(Vec3, f32)> = Vec::new();
+    // How far each face sits into each chip's cut: 0 as the plane first flattens it,
+    // 1 once the plane is CHIP_FADE below where the face's lowest corner was. A face
+    // takes on the cut's flat shading and bitten paint by this much, not all at once.
+    let mut into = vec![[0.0f32; MAX_CHIPS]; tris.len()];
+    for (i, &(d, depth)) in chips.iter().enumerate() {
+        let grow = ((mined - chip_start(i)) / CHIP_WINDOW).clamp(0.0, 1.0);
+        if grow <= 0.0 {
+            break;
+        }
+        let top = pos.iter().map(|p| p.dot(d)).fold(f32::MIN, f32::max);
+        let plane = top + (depth.min(top) - top) * grow;
+        for (t, f) in tris.iter().zip(into.iter_mut()) {
+            let low = t.iter().map(|&k| pos[k].dot(d)).fold(f32::MAX, f32::min);
+            f[i] = ((low - plane) / CHIP_FADE).clamp(0.0, 1.0);
+        }
         for p in pos.iter_mut() {
             let k = p.dot(d);
-            if k > depth {
-                *p -= d * (k - depth);
+            if k > plane {
+                *p -= d * (k - plane);
             }
         }
+        cuts.push((d, plane));
     }
 
-    // Cracks: bands of faces near a plane through the rock, sunk in and inked dark.
+    // Each face's smoothing group: 0 for the rock's skin, 1 + i for the flat face of
+    // chip i. Normals are smoothed within a group, so the skin shades as one lumpy
+    // surface and a chip stays a crisp cut.
+    let on_plane = |p: Vec3, (d, plane): (Vec3, f32)| (p.dot(d) - plane).abs() < 1e-4;
+    // Each face's group and how far it has turned into it (`into`).
+    let group: Vec<(usize, f32)> = tris
+        .iter()
+        .zip(&into)
+        .map(|(t, f)| {
+            cuts.iter()
+                .rposition(|&cut| t.iter().all(|&i| on_plane(pos[i], cut)))
+                .map_or((0, 0.0), |c| (c + 1, f[c]))
+        })
+        .collect();
+
+    // Cracks: bands of faces near a plane through the rock, inked dark and sunk in as
+    // they open.
     let mut crack_rng = rng.fork(3);
     let cracks: Vec<(Vec3, f32)> = (0..MAX_CRACKS)
         .map(|_| (random_dir(&mut crack_rng), crack_rng.range(-0.3, 0.3)))
         .collect();
-    let crack_count = ((1.0 - remaining) * (MAX_CRACKS as f32 + 0.5)).round() as usize;
-    let active = &cracks[..crack_count.min(MAX_CRACKS)];
+    // Crack i opens over its own window of the rock's life; the windows overlap.
+    let crack_start = |i: usize| 0.08 + i as f32 * (0.92 - CRACK_WINDOW) / (MAX_CRACKS - 1) as f32;
+    let open = |c: Vec3| {
+        cracks
+            .iter()
+            .enumerate()
+            .filter(|&(_, &(n, off))| (c.dot(n) - off).abs() < 0.09)
+            .map(|(i, _)| ((mined - crack_start(i)) / CRACK_WINDOW).clamp(0.0, 1.0))
+            .fold(0.0, f32::max)
+    };
+    // Which faces a crack runs through is fixed on the uncut rock, so a chip never
+    // moves a face into or out of one.
+    let crack: Vec<f32> = tris
+        .iter()
+        .map(|t| open((lumpy[t[0]] + lumpy[t[1]] + lumpy[t[2]]) / 3.0))
+        .collect();
+    let mut sink = vec![0.0f32; pos.len()];
+    for (t, &c) in tris.iter().zip(&crack) {
+        for &i in t {
+            sink[i] = sink[i].max(c);
+        }
+    }
+    for (p, s) in pos.iter_mut().zip(&sink) {
+        *p *= 1.0 - 0.1 * s;
+    }
 
-    let scale = radius * rock_scale(remaining);
-    let mut paint = rng.fork(4);
-    let in_crack = |c: Vec3| active.iter().any(|&(n, off)| (c.dot(n) - off).abs() < 0.09);
-    let mut sunk = vec![false; pos.len()];
-    for t in &tris {
-        let c = (pos[t[0]] + pos[t[1]] + pos[t[2]]) / 3.0;
-        if in_crack(c) {
-            for &i in t {
-                sunk[i] = true;
+    // Angle-weighted vertex normals per smoothing group. A face part-way into a cut
+    // counts towards both the skin and the cut.
+    let mut smooth = vec![[Vec3::ZERO; MAX_CHIPS + 1]; pos.len()];
+    for (t, &(g, f)) in tris.iter().zip(&group) {
+        let n = (pos[t[1]] - pos[t[0]])
+            .cross(pos[t[2]] - pos[t[0]])
+            .normalize_or_zero();
+        for k in 0..3 {
+            let (a, b, c) = (pos[t[k]], pos[t[(k + 1) % 3]], pos[t[(k + 2) % 3]]);
+            let angle = (b - a).angle_between(c - a);
+            if angle.is_finite() {
+                smooth[t[k]][0] += n * angle * (1.0 - f);
+                smooth[t[k]][g] += n * angle * f;
             }
         }
     }
-    for (p, s) in pos.iter_mut().zip(&sunk) {
-        if *s {
-            *p *= 0.9;
-        }
-    }
 
-    for t in &tris {
-        let [a, bb, c] = [pos[t[0]], pos[t[1]], pos[t[2]]];
-        let centroid = (a + bb + c) / 3.0;
-        let normal = (bb - a).cross(c - a).normalize_or_zero();
-        let speckle = paint.f32() < style.speckle_rate;
-        // A mined face shows a warm interior, like a cut fruit. Cracks stay the dark ink.
-        let bitten = chip_count > 0
-            && chips
-                .iter()
-                .take(chip_count)
-                .any(|&(d, depth)| normal.dot(d) > 0.82 && centroid.dot(d) > depth - 0.08);
-        let color = match style.cap {
-            _ if in_crack(centroid) => style.crack,
-            _ if bitten => style.bite,
-            Some(cap) if normal.z > 0.82 => cap,
-            _ if speckle => style.speckle,
-            _ => style.base,
-        };
-        b.paint(color, 0.0);
-        b.tri(a * scale, bb * scale, c * scale);
-    }
+    let scale = radius * rock_scale(remaining);
+    let mut paint = rng.fork(4);
+    b.part(|b| {
+        for ((t, &(g, f)), &c) in tris.iter().zip(&group).zip(&crack) {
+            let [a, bb, cc] = [pos[t[0]], pos[t[1]], pos[t[2]]];
+            let normal = (bb - a).cross(cc - a).normalize_or_zero();
+            // Caps are chosen on the uncut rock, so a chip never flips one.
+            let [la, lb, lc] = [lumpy[t[0]], lumpy[t[1]], lumpy[t[2]]];
+            let upright = (lb - la).cross(lc - la).normalize_or_zero().z > 0.82;
+            let speckle = paint.f32() < style.speckle_rate;
+            // A mined face shows a warm interior, like a cut fruit, coming through as the
+            // cut reaches it. A crack darkens to its ink colour as it opens.
+            let skin = match style.cap {
+                Some(cap) if upright => cap,
+                _ if speckle => style.speckle,
+                _ => style.base,
+            };
+            let color = if g > 0 {
+                skin.lerp(style.bite, f)
+            } else {
+                skin
+            };
+            b.paint(color.lerp(style.crack, c), 0.0);
+            let normals = t.map(|i| {
+                let skin = smooth[i][0].try_normalize().unwrap_or(normal);
+                let cut = smooth[i][g].try_normalize().unwrap_or(normal);
+                skin.lerp(cut, f).try_normalize().unwrap_or(normal)
+            });
+            b.tri_shaded(a * scale, bb * scale, cc * scale, normals);
+        }
+    });
 
     // Glassite grows glowing crystals; they break off as the rock is mined.
     if params.kind == RockKind::Glassite {
@@ -165,12 +244,14 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
         let keep = ((remaining * total as f32).ceil() as usize).clamp(1, total);
         for i in 0..total {
             let dir = (random_dir(&mut cr) + Vec3::Z * 0.8).normalize();
-            let len = cr.range(0.45, 0.85);
-            let thick = cr.range(0.14, 0.22);
+            // A crystal wears down to a stub before it breaks off.
+            let wear = 0.25 + 0.75 * (remaining * total as f32 - i as f32).clamp(0.0, 1.0);
+            let len = cr.range(0.45, 0.85) * wear;
+            let thick = cr.range(0.14, 0.22) * wear;
             if i >= keep {
                 continue;
             }
-            let root = surface_point(&pos, dir) * scale * 0.85;
+            let root = pos[surface_vertex(&lumpy, dir)] * scale * 0.85;
             let color = if i % 2 == 0 {
                 palette::NEBULA_VIOLET.lerp(palette::BLOSSOM, 0.35)
             } else {
@@ -281,18 +362,16 @@ fn random_dir(rng: &mut Rng) -> Vec3 {
     }
 }
 
-/// The deformed surface point closest to direction `dir` (a vertex, good enough to seat a
-/// crystal on).
-fn surface_point(pos: &[Vec3], dir: Vec3) -> Vec3 {
-    pos.iter()
-        .copied()
-        .max_by(|a, b| {
-            a.normalize()
+/// The vertex closest to direction `dir` (good enough to seat a crystal on).
+fn surface_vertex(pos: &[Vec3], dir: Vec3) -> usize {
+    (0..pos.len())
+        .max_by(|&a, &b| {
+            pos[a]
+                .normalize()
                 .dot(dir)
-                .partial_cmp(&b.normalize().dot(dir))
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .total_cmp(&pos[b].normalize().dot(dir))
         })
-        .unwrap_or(Vec3::Z)
+        .unwrap_or(0)
 }
 
 /// A unit icosphere: welded positions and counter-clockwise triangles.
@@ -404,11 +483,88 @@ mod tests {
             rock(&RockParams::new(RockKind::Iron, 4.0, r), 5)
                 .vertices
                 .iter()
-                .filter(|v| v.color[..3] == [crack.r, crack.g, crack.b])
+                .filter(|v| {
+                    let d = Vec3::from_slice(&v.color[..3]) - Vec3::new(crack.r, crack.g, crack.b);
+                    d.length() < 1e-4
+                })
                 .count()
         };
         assert_eq!(count(1.0), 0);
         assert!(count(0.3) > 0);
+    }
+
+    /// Body vertices of a rock with its overall size taken out (the app scales the
+    /// instance between re-meshes), and its shading normals.
+    fn body(kind: RockKind, remaining: f32, seed: u64) -> Vec<(Vec3, Vec3)> {
+        let m = rock(&RockParams::new(kind, 4.0, remaining), seed);
+        let s = 4.0 * rock_scale(remaining);
+        m.vertices
+            .iter()
+            .take(80 * 3)
+            .map(|v| (Vec3::from(v.position) / s, Vec3::from(v.normal)))
+            .collect()
+    }
+
+    #[test]
+    fn remeshing_one_step_moves_the_surface_only_a_little() {
+        // The app re-meshes at every 1/20 of `remaining`. No step may jump the surface
+        // or flip the shading of a large part of it (the "blocks" a player saw).
+        let mut worst = (0.0f32, 0.0f32);
+        for kind in KINDS {
+            for seed in 0..24 {
+                for i in 0..20 {
+                    let (hi, lo) = ((20 - i) as f32 / 20.0, (19 - i) as f32 / 20.0);
+                    if lo <= 0.0 {
+                        continue;
+                    }
+                    let (a, b) = (body(kind, hi, seed), body(kind, lo, seed));
+                    assert_eq!(a.len(), b.len(), "{kind:?} {seed} {i}");
+                    let moved = a
+                        .iter()
+                        .zip(&b)
+                        .map(|(p, q)| p.0.distance(q.0))
+                        .fold(0.0, f32::max);
+                    let turned = a
+                        .iter()
+                        .zip(&b)
+                        .map(|(p, q)| 1.0 - p.1.dot(q.1))
+                        .sum::<f32>()
+                        / a.len() as f32;
+                    worst = (worst.0.max(moved), worst.1.max(turned));
+                }
+            }
+        }
+        // Unit-radius rock: no vertex moves more than a tenth of the radius in a step,
+        // and on average shading normals turn by only a few degrees.
+        assert!(worst.0 < 0.1, "a vertex moved {}", worst.0);
+        assert!(worst.1 < 0.01, "normals turned {}", worst.1);
+    }
+
+    #[test]
+    fn remeshing_is_deterministic() {
+        for kind in KINDS {
+            for i in 0..=20 {
+                let p = RockParams::new(kind, 3.0, i as f32 / 20.0);
+                assert_eq!(rock(&p, 7), rock(&p, 7));
+            }
+        }
+    }
+
+    #[test]
+    fn the_skin_is_smooth_shaded() {
+        // Neighbouring skin faces share their corner normals, so the cel bands follow
+        // the lumps instead of flipping a facet at a time.
+        let m = rock(&RockParams::new(RockKind::Iron, 4.0, 1.0), 3);
+        let mut by_pos: HashMap<[i32; 3], Vec<Vec3>> = HashMap::new();
+        for v in &m.vertices {
+            let k = v.position.map(|c| (c * 1e3).round() as i32);
+            by_pos.entry(k).or_default().push(Vec3::from(v.normal));
+        }
+        assert!(
+            by_pos
+                .values()
+                .all(|ns| ns.iter().all(|n| n.distance(ns[0]) < 1e-4))
+        );
     }
 
     #[test]

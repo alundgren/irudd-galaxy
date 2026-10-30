@@ -12,7 +12,8 @@ pub(crate) struct FxVertex {
     /// x: distance along the line (world units), y: across, -1..1.
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam), y: dash, z: gap.
+    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam). Dashed: y dash, z gap. Beam: y
+    /// width, z length.
     pub params: [f32; 4],
 }
 
@@ -26,6 +27,21 @@ fn view_dir(camera: &Camera, p: Vec3) -> Vec3 {
     match camera.projection {
         Projection::Orthographic { .. } => (camera.target - camera.eye).normalize_or(Vec3::NEG_Z),
         Projection::Perspective { .. } => (p - camera.eye).normalize_or(Vec3::NEG_Z),
+    }
+}
+
+/// Moves `p` towards the camera by `by` along the line of sight, which keeps it on the
+/// same pixel. Glows and beams sit this far in front of the surface they touch, so the
+/// depth test can't cut a glow into a half disc or chop a beam where it lands.
+fn lift(camera: &Camera, p: Vec3, by: f32) -> Vec3 {
+    let d = view_dir(camera, p);
+    match camera.projection {
+        Projection::Perspective { near, .. } => {
+            // Never past the near plane.
+            let room = (p - camera.eye).dot(d) - near * 2.0;
+            p - d * by.min(room.max(0.0))
+        }
+        Projection::Orthographic { .. } => p - d * by,
     }
 }
 
@@ -48,9 +64,10 @@ pub(crate) fn tessellate(
             continue;
         }
         let base = verts.len() as u32;
+        let centre = lift(camera, glow.position, glow.radius);
         for (u, v) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
             verts.push(FxVertex {
-                pos: (glow.position + (right * u + up * v) * glow.radius).into(),
+                pos: (centre + (right * u + up * v) * glow.radius).into(),
                 uv: [u, v],
                 color: glow.color.to_array(),
                 params: [KIND_GLOW, 0.0, 0.0, 0.0],
@@ -120,10 +137,18 @@ fn line_strip(
     if pts.len() < 2 {
         return;
     }
+    let total: f32 = pts.windows(2).map(|w| (w[1] - w[0]).length()).sum();
     let (kind, dash, gap) = match line.style {
         LineStyle::Solid => (KIND_RIBBON, 0.0, 0.0),
         LineStyle::Dashed { dash, gap } => (KIND_DASHED, dash.max(0.01), gap.max(0.0)),
-        LineStyle::Beam => (KIND_BEAM, 0.0, 0.0),
+        LineStyle::Beam => (KIND_BEAM, line.width, total),
+    };
+    let pts: Vec<Vec3> = match line.style {
+        LineStyle::Beam => pts
+            .iter()
+            .map(|&p| lift(camera, p, line.width * 0.5))
+            .collect(),
+        _ => pts,
     };
     let half = line.width * 0.5;
     let n = pts.len();

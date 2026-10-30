@@ -9,6 +9,7 @@ use crate::art_bible::{ArtBible, InkRole};
 use crate::camera::Camera;
 use crate::color::Color;
 use crate::kit::{self, HullParams, RockKind, RockParams, StationRecipe};
+use crate::mesh::MeshData;
 use crate::palette;
 use crate::renderer::Renderer;
 use crate::scene::*;
@@ -28,6 +29,37 @@ pub struct DemoRock {
     pub spin: f32,
     mesh: MeshHandle,
     meshed_step: i32,
+    /// The `remaining` the mesh was built for, and the mesh itself.
+    meshed: f32,
+    data: MeshData,
+}
+
+impl DemoRock {
+    /// Turning slowly, and scaled from the size it was meshed at to its size now, so it
+    /// shrinks smoothly between re-meshes.
+    pub fn transform(&self, time: f32) -> Mat4 {
+        let scale = if self.remaining > 0.0 && self.meshed > 0.0 {
+            kit::rock_scale(self.remaining) / kit::rock_scale(self.meshed)
+        } else {
+            1.0
+        };
+        Mat4::from_scale_rotation_translation(
+            Vec3::splat(scale),
+            Quat::from_rotation_z(self.spin + time * 0.05),
+            self.pos.extend(0.0),
+        )
+    }
+
+    /// Where a beam from `from` towards the rock's centre meets its drawn surface.
+    pub fn hit(&self, time: f32, from: Vec3) -> Option<Vec3> {
+        let to_local = self.transform(time).inverse();
+        let dir = self.pos.extend(0.0) - from;
+        let t = self.data.raycast(
+            to_local.transform_point3(from),
+            to_local.transform_vector3(dir),
+        )?;
+        Some(from + dir * t)
+    }
 }
 
 pub struct DemoStation {
@@ -97,6 +129,7 @@ impl DemoWorld {
             .enumerate()
             .map(|(i, &(kind, pos, radius, remaining))| {
                 let seed = 100 + i as u64;
+                let data = kit::rock(&RockParams::new(kind, radius, remaining), seed);
                 DemoRock {
                     kind,
                     pos,
@@ -104,9 +137,10 @@ impl DemoWorld {
                     remaining,
                     seed,
                     spin: i as f32 * 1.7,
-                    mesh: renderer
-                        .upload_mesh(&kit::rock(&RockParams::new(kind, radius, remaining), seed)),
+                    mesh: renderer.upload_mesh(&data),
                     meshed_step: step_of(remaining),
+                    meshed: remaining,
+                    data,
                 }
             })
             .collect();
@@ -134,8 +168,9 @@ impl DemoWorld {
             let step = step_of(r.remaining);
             if step != r.meshed_step {
                 r.meshed_step = step;
-                let p = RockParams::new(r.kind, r.radius, r.remaining);
-                renderer.update_mesh(r.mesh, &kit::rock(&p, r.seed));
+                r.meshed = r.remaining;
+                r.data = kit::rock(&RockParams::new(r.kind, r.radius, r.remaining), r.seed);
+                renderer.update_mesh(r.mesh, &r.data);
             }
         }
     }
@@ -210,11 +245,9 @@ impl DemoWorld {
 
         // Rocks, gently turning.
         for r in &self.rocks {
-            let spin = r.spin + self.time * 0.05;
-            scene.meshes.push(MeshInstance::new(
-                r.mesh,
-                Mat4::from_rotation_translation(Quat::from_rotation_z(spin), r.pos.extend(0.0)),
-            ));
+            scene
+                .meshes
+                .push(MeshInstance::new(r.mesh, r.transform(self.time)));
         }
 
         // The Wren, its engine glow and the mining beam.
@@ -231,18 +264,27 @@ impl DemoWorld {
             });
         }
         if let Some(r) = self.mining.and_then(|i| self.rocks.get(i)) {
-            let from = self.ship_pos + Vec2::from_angle(self.ship_heading) * 3.0;
-            let to = r.pos + (from - r.pos).normalize_or_zero() * r.radius * 0.5;
-            scene.lines.push(Line::beam(
-                from.extend(SHIP_HOVER),
-                to.extend(2.0),
-                1.6,
-                Color::hex(0x7ff0d8),
-            ));
+            // From the nose tip to where the beam meets the rock's drawn surface. The
+            // renderer lifts beams and glows towards the camera, so neither the hull nor
+            // the rock cuts them.
+            let nose = HullParams::wren().length * 0.5;
+            let from =
+                (self.ship_pos + Vec2::from_angle(self.ship_heading) * nose).extend(SHIP_HOVER);
+            let to = r.hit(self.time, from).unwrap_or_else(|| {
+                (r.pos + (from.truncate() - r.pos).normalize_or_zero() * r.radius * 0.6).extend(2.0)
+            });
+            scene
+                .lines
+                .push(Line::beam(from, to, 1.6, Color::hex(0x7ff0d8)));
             scene.glows.push(Glow {
-                position: to.extend(3.0),
+                position: to,
                 radius: 4.0,
                 color: Color::hex(0xbaffef).with_alpha(0.9),
+            });
+            scene.glows.push(Glow {
+                position: from,
+                radius: 1.6,
+                color: Color::hex(0xbaffef).with_alpha(0.8),
             });
         }
 

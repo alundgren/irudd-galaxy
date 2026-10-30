@@ -10,6 +10,14 @@ hands it to a `Renderer`, so the simulation never knows how anything is drawn.
 
 ![Every kit piece: stations, greenhouse stages, hulls, rocks as they are mined](docs/kit-gallery.png)
 
+Shading stays steady while a rock is mined and turns (top), the mining beam runs from
+the nose to the rock's surface (left), and silhouette ink follows the part, not the
+facet (right):
+
+![Two frames of a mined rock and their difference, before and after](docs/render-fix-shading.png)
+
+![The mining beam, before and after](docs/render-fix-beam.png) ![Hull ink, before and after](docs/render-fix-ink.png)
+
 ## Run it
 
 From `slices/01-lantern-reach/`:
@@ -19,6 +27,7 @@ cargo run -p render --example showcase                    # window: WASD, Space 
 cargo run -p render --example shot -- out.png             # headless PNG of the demo world
 cargo run -p render --example shot -- out.png --paused    # ...with the PAUSED card
 cargo run -p render --example shot -- out.png --gallery   # every kit piece, labelled
+cargo run -p render --example frames -- out_dir           # consecutive frames of a rock being mined
 cargo test -p render                                      # CPU tests (no window, GPU or network)
 cargo test -p render -- --ignored                         # GPU tests (needs an adapter)
 ```
@@ -81,7 +90,7 @@ let png = r.render_to_rgba(&scene)?.encode_png()?;       // any renderer: read b
 | `Material` | `tint`, `shadow`, `highlight`, `bands` (2 or 3), `outline`, `outline_px`, `emissive`, `hatch` (serde) |
 | `Line` | `path`, `circle`, `beam`, `.dashed(dash, gap)`, `.wobbly(amplitude)`, width in world units |
 | `Overlay` | `panels: Vec<Panel>`, `texts: Vec<Text>`, `paused: Option<PausedCard>` |
-| `MeshBuilder`, `MeshData` | build your own flat-shaded meshes (`cuboid`, `lathe`, `frustum`, `torus`, `extrude`, `quad`, `tri`) |
+| `MeshBuilder`, `MeshData` | build your own meshes (`cuboid`, `lathe`, `frustum`, `torus`, `extrude`, `quad`, `tri`, `tri_shaded`, `part`); `MeshData::raycast` |
 | `palette` | the warm swatches (`INK`, `PARCHMENT`, `CORAL`, `MUSTARD`, `TEAL`, `LANTERN`, ...) |
 | `demo` | sample code: a `DemoWorld` mapped to a `Scene`, and `gallery()` |
 
@@ -97,9 +106,12 @@ All generators are CPU-side, deterministic for a seed and unit tested.
   empty; the Wren preset carries the kettle.
 - `kit::rock(&RockParams { kind, radius, remaining }, seed)`: ice, iron or glassite. As
   `remaining` drops the rock shrinks (`kit::rock_scale`), gets planar chips with a warm
-  bitten face and inked cracks, and glassite loses crystals; at 0 it is a few pebbles with
-  warm caps. The same seed keeps the same rock. Re-mesh with `update_mesh` when `remaining`
-  crosses a visible step (the demo uses 1/20).
+  bitten face and inked cracks, and glassite crystals wear down and break off; at 0 it is
+  a few pebbles with warm caps. The same seed keeps the same rock, and chips, cracks and
+  crystals grow in gradually, so one step changes it only a little. Re-mesh with
+  `update_mesh` when `remaining` crosses a visible step (the demo and the game use 1/20),
+  and in between scale the instance by `rock_scale(now) / rock_scale(meshed)` so it
+  shrinks smoothly.
 - `kit::station(&StationRecipe)`: a station is a serde recipe of parts, a palette and
   decals (`stripe`, `chevron`, `sigil`, `number`). `StationRecipe::validate()` reports
   every problem with its part index; `validate_art` checks the recipe against
@@ -140,24 +152,35 @@ One MSAA (4x) world pass with a depth buffer, an inner-ink pass, then an overlay
 1. Backdrop: a vertical gradient with a soft vignette, then instanced soft nebula puffs and
    stars on repeating tiles.
 2. Meshes: cel shading with 2–3 hard tone bands from a half-Lambert key light, warm violet
-   shadows (never gray), a hard rim light, stepped point-light pools, screen-space hatching
-   in the shadow band, and self-lit paint (vertex alpha) for windows, lanterns and engines.
+   shadows (never gray), a hard rim light, stepped point-light pools, hatching in the shadow
+   band, and self-lit paint (vertex alpha) for windows, lanterns and engines. Band edges
+   are hard steps smoothed over one pixel; hatching is a fixed pixel spacing anchored to
+   the object, so it moves with it rather than swimming as the camera pans. Most kit parts
+   are flat shaded; a rock's skin carries smooth normals (`MeshBuilder::tri_shaded`), so
+   its bands follow the lumps as it turns instead of whole facets flipping band.
 3. Ink outlines: an inverted hull. Back faces are pushed out along normals averaged across
-   hard edges, so outlines don't crack at corners. A large facet keeps the art-bible weight
-   at any zoom; a small one thins to a hairline, and a facet under about a pixel is not
-   drawn. Works the same with a perspective camera. This is the silhouette only.
-4. Inner ink: a second, non-multisampled pass writes an octahedral normal, a 16-bit view
-   depth and the unlit paint into two `Rgba8Unorm` targets. Paint alpha stores how many
-   pixels the facet's minor axis covers. A fullscreen pass then draws a line where
+   hard edges, so outlines don't crack at corners. Weight follows the size of the part a
+   facet belongs to (`MeshBuilder::part`; every primitive is one): a part a dozen pixels
+   thick keeps the art-bible weight, however finely it is faceted; a thinner one thins to
+   a hairline, and a part under about a pixel is not drawn. Works the same with a
+   perspective camera. This is the silhouette only.
+4. Inner ink: a second, non-multisampled pass writes an octahedral normal and a 16-bit
+   view depth into an `Rgba16Float` target (8-bit normals wobbled enough to flicker a crease
+   near the art bible's angle as a ship turned) and the unlit paint into an `Rgba8Unorm`
+   one. Paint alpha stores how many pixels the facet's own minor axis covers. A fullscreen pass then draws a line where
    neighbouring surface pixels crease harder than the art bible's angle, where the paint
    changes, or where depth breaks the local plane by a step that is large for that view
    depth. A continuous slope is not an edge, and features only a few pixels across get no
    inner line. Pixels with no surface neighbour are left to the hull outline.
-   `textureLoad` and plain unorm targets keep the pass the same on DX12, Vulkan and Metal.
+   `textureLoad` and core-WebGPU formats keep the pass the same on DX12, Vulkan and Metal.
    Widths come from `assets/art-bible.toml`.
 5. Lines, beams and glows: drawn after inner ink, depth-tested against the mesh, so a beam
    or glow in front of a crease stays visible. Camera-facing ribbons with soft ink-edged
-   sides, dashes and hand-drawn wobble; additive beams and glows.
+   sides, dashes and hand-drawn wobble; additive beams and glows. A glow sits its radius,
+   and a beam half its width, towards the camera along the line of sight (same pixels), so
+   the surface it lands on can't cut it. Beams have soft ends and a shimmer measured in
+   beam widths, which reads the same at every zoom. To land a beam on a mesh, end it at
+   `MeshData::raycast` (the demo and the game aim at the rock's centre).
 6. Overlay: rounded SDF panels with an ink border and soft shadow, glyphon text, and the
    PAUSED card (dimmed world, big centred card) drawn above everything.
 
