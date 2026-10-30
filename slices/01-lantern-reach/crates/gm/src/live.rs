@@ -27,11 +27,13 @@
 //!   most [`MAX_REQUEST`] bytes and must arrive whole within `read_stall`, the first
 //!   one (with the token) within `read_stall` of connecting; a connection with nothing
 //!   in flight that stays quiet for `idle` is closed; replies buffered for a client
-//!   are capped at `max_out` bytes, and one that reads nothing for `write_stall` is
-//!   dropped. Dropping the server closes every connection. Request arguments are
+//!   are capped at `max_out` bytes (every reply, errors included, waits for room, and
+//!   a connection over it reads no further requests), and one that reads nothing for
+//!   `write_stall` is dropped. Dropping the server closes every connection. Request arguments are
 //!   checked ([`Op::check`]) before they reach the game, and a reply is at most
 //!   [`MAX_REPLY`] bytes.
 
+use std::collections::VecDeque;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -359,6 +361,7 @@ pub struct Incoming {
     pub id: u64,
     pub op: Op,
     out: SyncSender<String>,
+    gone: Arc<AtomicBool>,
 }
 
 impl Incoming {
@@ -372,6 +375,7 @@ impl Incoming {
         StreamSink {
             id: self.id,
             out: self.out,
+            gone: self.gone,
             dropped: 0,
         }
     }
@@ -382,10 +386,18 @@ impl Incoming {
 pub struct StreamSink {
     id: u64,
     out: SyncSender<String>,
+    /// Set by the I/O thread once the connection has closed.
+    gone: Arc<AtomicBool>,
     dropped: u64,
 }
 
 impl StreamSink {
+    /// Is the client still connected? The I/O thread notices a hang-up on its own,
+    /// whether or not anything is being sent, so a sink can be dropped without one.
+    pub fn is_open(&self) -> bool {
+        !self.gone.load(Ordering::SeqCst)
+    }
+
     /// Queues an item. Returns false once the client has gone (drop the sink). A full
     /// buffer drops the item and reports the count with the next one that fits.
     pub fn send(&mut self, item: &Value) -> bool {
@@ -429,7 +441,8 @@ pub struct Limits {
     /// stream ends with it).
     pub write_stall: Duration,
     /// Reply bytes buffered per connection; beyond it the game's stream items wait in
-    /// their bounded channel, and drop once that is full.
+    /// their bounded channel (and drop once that is full) and no further request is
+    /// read, so error replies wait too. One reply may overshoot it.
     pub max_out: usize,
 }
 
@@ -666,15 +679,22 @@ struct InFlight {
     id: u64,
     rx: Receiver<String>,
     answered: bool,
+    /// Shared with the game's side; set when this ends (see [`StreamSink::is_open`]).
+    gone: Arc<AtomicBool>,
+}
+
+impl Drop for InFlight {
+    fn drop(&mut self) {
+        self.gone.store(true, Ordering::SeqCst);
+    }
 }
 
 /// One client connection, driven by [`Conn::pump`].
 struct Conn {
     stream: Option<Stream>,
     input: Vec<u8>,
-    out: Vec<u8>,
-    /// Bytes of `out` already written.
-    sent: usize,
+    /// Bytes not yet written; written ones leave the front.
+    out: VecDeque<u8>,
     authorized: bool,
     opened: Instant,
     /// Last time a request line arrived or a request finished.
@@ -695,8 +715,7 @@ impl Conn {
         Conn {
             stream: Some(stream),
             input: Vec::new(),
-            out: Vec::new(),
-            sent: 0,
+            out: VecDeque::new(),
             authorized: false,
             opened: now,
             active: now,
@@ -709,12 +728,17 @@ impl Conn {
         }
     }
 
+    /// Is there room for another reply? Every reply waits for it; see [`Limits::max_out`].
+    fn has_room(&self, limits: &Limits) -> bool {
+        self.out.len() < limits.max_out
+    }
+
     fn queue(&mut self, line: &str, now: Instant) {
-        if self.out.len() == self.sent {
+        if self.out.is_empty() {
             self.wrote = now;
         }
-        self.out.extend_from_slice(line.as_bytes());
-        self.out.push(b'\n');
+        self.out.extend(line.as_bytes());
+        self.out.push_back(b'\n');
     }
 
     fn close_after(&mut self, line: &str, now: Instant) {
@@ -756,8 +780,8 @@ impl Conn {
                 }
             }
         }
-        // Requests, one at a time.
-        while self.inflight.is_none() && self.closing.is_none() {
+        // Requests, one at a time, while their replies have room.
+        while self.inflight.is_none() && self.closing.is_none() && self.has_room(limits) {
             let end = self.input.iter().position(|b| *b == b'\n');
             if end.unwrap_or(self.input.len()) as u64 > MAX_REQUEST {
                 let msg = Response::line(0, Err(WireError::input("request line too long")));
@@ -783,10 +807,9 @@ impl Conn {
             self.partial.or(Some(now))
         };
         // Replies, while the output buffer has room.
-        while let Some(f) = &mut self.inflight {
-            if self.out.len() - self.sent >= limits.max_out {
-                break;
-            }
+        while self.has_room(limits)
+            && let Some(f) = &mut self.inflight
+        {
             match f.rx.try_recv() {
                 Ok(msg) => {
                     f.answered = true;
@@ -810,15 +833,15 @@ impl Conn {
             }
         }
         // Write what the pipe takes.
-        while self.sent < self.out.len() {
+        while !self.out.is_empty() {
             let Some(stream) = self.stream.as_mut() else {
                 break;
             };
-            match stream.write(&self.out[self.sent..]) {
+            match stream.write(self.out.as_slices().0) {
                 // A full no-wait pipe takes nothing and says so with zero bytes.
                 Ok(0) => break,
                 Ok(n) => {
-                    self.sent += n;
+                    self.out.drain(..n);
                     self.wrote = now;
                     moved = true;
                 }
@@ -830,9 +853,9 @@ impl Conn {
                 }
             }
         }
-        if self.sent == self.out.len() {
-            self.out.clear();
-            self.sent = 0;
+        // A big reply's buffer isn't kept once it's out.
+        if self.out.is_empty() && self.out.capacity() > limits.max_out {
+            self.out = VecDeque::new();
         }
         // Deadlines.
         let flushed = self.out.is_empty();
@@ -882,11 +905,13 @@ impl Conn {
             }
         };
         let (out, rx) = mpsc::sync_channel(STREAM_BUFFER);
+        let gone = Arc::new(AtomicBool::new(false));
         if tx
             .send(Incoming {
                 id: req.id,
                 op,
                 out,
+                gone: gone.clone(),
             })
             .is_err()
         {
@@ -897,6 +922,7 @@ impl Conn {
             id: req.id,
             rx,
             answered: false,
+            gone,
         });
     }
 }
@@ -1133,4 +1159,139 @@ pub fn answers(d: &Discovery, wait: Duration) -> bool {
             let _ = tx.send(ok);
         });
     probe.is_ok() && rx.recv_timeout(wait).unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    const LIMITS: Limits = Limits {
+        max_connections: 4,
+        read_stall: Duration::from_secs(60),
+        idle: Duration::from_secs(60),
+        write_stall: Duration::from_secs(60),
+        max_out: 64 * 1024,
+    };
+
+    /// A server-side connection and the client's end of it.
+    fn pair(dir: &Path) -> (Conn, Stream) {
+        let endpoint = if cfg!(windows) {
+            Endpoint {
+                kind: EndpointKind::NamedPipe,
+                name: format!("galaxy-unit-{}-{}", save_key(dir), std::process::id()),
+            }
+        } else {
+            Endpoint {
+                kind: EndpointKind::UnixSocket,
+                name: dir.join("u.sock").to_string_lossy().into_owned(),
+            }
+        };
+        let listener = ListenerOptions::new()
+            .name(endpoint.to_name().unwrap())
+            .nonblocking(ListenerNonblockingMode::Both)
+            .create_sync()
+            .unwrap();
+        let client = endpoint.connect().unwrap();
+        let started = Instant::now();
+        let stream = loop {
+            match listener.accept() {
+                Ok(s) => break s,
+                Err(_) => {
+                    assert!(started.elapsed() < Duration::from_secs(10), "no accept");
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+        };
+        stream.set_nonblocking(true).unwrap();
+        (Conn::new(stream, Instant::now()), client)
+    }
+
+    #[test]
+    fn a_slow_reader_doesnt_grow_the_buffer() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, mut client) = pair(dir.path());
+        let (tx, rx) = mpsc::channel();
+        client
+            .write_all(b"{\"id\": 1, \"token\": \"t\", \"op\": \"watch\", \"args\": {}}\n")
+            .unwrap();
+        let started = Instant::now();
+        let req = loop {
+            conn.pump(&tx, "t", &LIMITS, Instant::now());
+            if let Ok(r) = rx.try_recv() {
+                break r;
+            }
+            assert!(started.elapsed() < Duration::from_secs(10), "no request");
+        };
+        let mut sink = req.into_stream(json!({}));
+        // The client reads steadily, a little at a time, slower than the game sends.
+        let read = Arc::new(AtomicUsize::new(0));
+        let reader = {
+            let read = read.clone();
+            std::thread::spawn(move || {
+                let mut buf = [0u8; 2048];
+                while let Ok(n @ 1..) = client.read(&mut buf) {
+                    read.fetch_add(n, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_micros(200));
+                }
+            })
+        };
+        let item = json!({ "pad": "x".repeat(4096) });
+        let line = 4096 + 64;
+        let (mut most, mut capacity) = (0, 0);
+        let started = Instant::now();
+        while read.load(Ordering::SeqCst) < 32 * LIMITS.max_out {
+            assert!(
+                started.elapsed() < Duration::from_secs(60),
+                "the reader stalled"
+            );
+            sink.send(&item);
+            conn.pump(&tx, "t", &LIMITS, Instant::now());
+            assert!(!conn.dead);
+            most = most.max(conn.out.len());
+            capacity = capacity.max(conn.out.capacity());
+        }
+        assert!(most <= LIMITS.max_out + line, "{most} bytes buffered");
+        assert!(capacity <= 4 * LIMITS.max_out, "{capacity} bytes allocated");
+        close(conn.stream.take().unwrap());
+        reader.join().unwrap();
+    }
+
+    #[test]
+    fn error_replies_wait_for_room_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut conn, mut client) = pair(dir.path());
+        let (tx, _rx) = mpsc::channel();
+        // Authorized requests the I/O thread refuses itself, from a client that never
+        // reads the replies.
+        let writer = std::thread::spawn(move || {
+            let line = b"{\"id\": 1, \"token\": \"t\", \"op\": \"nope\", \"args\": {}}\n";
+            let chunk: Vec<u8> = line.iter().copied().cycle().take(16 * 1024).collect();
+            for _ in 0..256 {
+                if client.write_all(&chunk).is_err() {
+                    break;
+                }
+            }
+        });
+        let (mut most, mut input) = (0, 0);
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(2) {
+            conn.pump(&tx, "t", &LIMITS, Instant::now());
+            assert!(!conn.dead);
+            most = most.max(conn.out.len());
+            input = input.max(conn.input.len());
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            most >= LIMITS.max_out / 2,
+            "the replies never backed up: {most}"
+        );
+        assert!(most <= LIMITS.max_out + 256, "{most} bytes buffered");
+        assert!(
+            input as u64 <= MAX_REQUEST + 16 * 1024,
+            "{input} bytes read ahead"
+        );
+        close(conn.stream.take().unwrap());
+        writer.join().unwrap();
+    }
 }
