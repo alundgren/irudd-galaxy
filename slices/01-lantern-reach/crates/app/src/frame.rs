@@ -47,6 +47,7 @@ pub fn compose(
     viewport: G2,
 ) -> (Scene, Vec<Button>) {
     let world = session.world();
+    let history = session.sim().history();
     let scale = ui::ui_scale(viewport);
     let canvas = ui::canvas(viewport);
     let on_canvas = UiState {
@@ -69,14 +70,23 @@ pub fn compose(
         ui::station_labels(&mut s.overlay, world, &camera, viewport);
         ui::edge_markers(&mut s.overlay, world, &camera, viewport);
         ui::hint(&mut panels, world, canvas);
-        ui::talk(&mut panels, world, canvas);
-        if let Some(station) = session.flagship().and_then(|f| f.docked_at.clone()) {
+        let docked = session.flagship().and_then(|f| f.docked_at.clone());
+        let answer = session
+            .answer
+            .as_ref()
+            .filter(|a| docked.as_ref() == Some(&a.station));
+        ui::talk(&mut panels, world, history, answer, canvas);
+        if let Some(station) = docked {
             buttons.extend(ui::dock_panel(
                 &mut panels,
                 world,
+                history,
                 &station,
                 &on_canvas,
-                session.trades.notice.as_deref(),
+                ui::Notices {
+                    trade: session.trades.notice.as_deref(),
+                    service: session.services.notice.as_deref(),
+                },
                 canvas,
             ));
         }
@@ -84,8 +94,23 @@ pub fn compose(
     };
     ui::goal(&mut panels, world, canvas);
     ui::hold(&mut panels, world, canvas);
+    if let Some(to) = &ui_state.confirm
+        && session.flagship().is_some_and(|f| f.docked_at.is_some())
+    {
+        // The card is on top: only its own buttons work while it's open.
+        buttons = ui::prestige_card(&mut panels, world, history, to, &on_canvas, canvas);
+    }
     ui::scale_overlay(&mut panels, scale);
     ui::scale_buttons(&mut buttons, scale);
+    // Labels and markers pinned to the world never show through a panel.
+    let under = |p: G2| {
+        panels.panels.iter().any(|q| {
+            let r = q.rect;
+            p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
+        })
+    };
+    scene.overlay.texts.retain(|t| !under(t.pos));
+    scene.overlay.panels.retain(|q| !under(q.rect.center()));
     scene.overlay.panels.extend(panels.panels);
     scene.overlay.texts.extend(panels.texts);
     if session.is_paused() {

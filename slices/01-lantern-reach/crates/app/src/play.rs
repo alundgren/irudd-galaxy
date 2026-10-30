@@ -7,7 +7,7 @@
 //! Autosaves happen at calm moments (docking, opening the PAUSED card, quitting) on a
 //! background thread ([`Saver`]).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -24,6 +24,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
+use crate::game::{Game, GameOptions, MindMode};
 use crate::input::{self, Key, Keys};
 use crate::saves::{self, SaveChoice, SaveFolder, Saver};
 use crate::session::Session;
@@ -37,6 +38,10 @@ pub struct PlayArgs {
     pub new: bool,
     pub seed: u64,
     pub packs: Option<PathBuf>,
+    /// Run the core pack only: no `gm-examples` (also `GALAXY_NO_GM=1`).
+    pub no_gm: bool,
+    /// Reload packs when their files change (development only).
+    pub hot_reload: bool,
     /// Close after this many frames (a smoke test of the window without a player).
     pub quit_after_frames: Option<u32>,
 }
@@ -90,18 +95,21 @@ struct App {
     quit_after_frames: Option<u32>,
     /// The game-master bridge, serviced between frames ([`App::serve_bridge`]).
     bridge: Option<galaxy_gm::Bridge>,
+    /// Sound cues from committed events ([`crate::sound`]); N mutes.
+    audio: galaxy_audio::Audio,
+    /// Which cues each tick asks for.
+    cues: crate::sound::Cues,
 }
 
-/// Opens the game-master bridge on the loaded session: loads applied packs, applies
-/// staged ones with a snapshot first, and opens the live socket. A problem here is
-/// printed and the game goes on without the bridge (or without the socket).
-fn open_bridge(path: &Path, session: &mut Session, save: &mut Save) -> Option<galaxy_gm::Bridge> {
-    let opts = galaxy_gm::BridgeOptions {
-        exe: std::env::current_exe().ok(),
-        analyzer: galaxy_script::analyzer::find(None),
-        ..galaxy_gm::BridgeOptions::default()
-    };
-    let mut bridge = match galaxy_gm::Bridge::open(path, session.sim_mut(), opts) {
+/// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
+/// applies staged packs with a snapshot first and opens the live socket. A problem
+/// here is printed and the game goes on without the bridge (or without the socket).
+fn start_bridge(
+    bridge: Result<galaxy_gm::Bridge, String>,
+    session: &mut Session,
+    save: &mut Save,
+) -> Option<galaxy_gm::Bridge> {
+    let mut bridge = match bridge {
         Ok(b) => b,
         Err(e) => {
             eprintln!("game master: {e}");
@@ -130,6 +138,11 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         std::fs::create_dir_all(dir).map_err(|e| (1, format!("{}: {e}", dir.display())))?;
     }
     let created = matches!(choice, SaveChoice::Create(_));
+    let packs = crate::game::packs_dir(args.packs.clone()).ok_or((
+        4,
+        "can't find the packs folder; pass --packs or set GALAXY_PACKS".to_owned(),
+    ))?;
+    let gm = !args.no_gm && crate::game::gm_allowed();
     let (save, state) = match &choice {
         SaveChoice::Open(path) => {
             let save = Save::open(path).map_err(|e| (4, e.to_string()))?;
@@ -137,23 +150,47 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
             (save, state)
         }
         SaveChoice::Create(path) => {
-            let packs = crate::game::packs_dir(args.packs.clone()).ok_or((
-                4,
-                "can't find the packs folder; pass --packs or set GALAXY_PACKS".to_owned(),
-            ))?;
-            let state = galaxy_core::new_game(&crate::game::core_data(&packs), args.seed)
-                .map_err(|e| (4, e.to_string()))?;
+            let state = crate::game::new_state(&packs, args.seed, gm).map_err(|e| (4, e))?;
             let save = Save::create(path, &state).map_err(|e| (1, e.to_string()))?;
             (save, state)
         }
     };
-    let audio = galaxy_audio::Audio::open();
-    let mut session = Session::new(state);
-    // The game-master bridge: applied packs run, staged ones apply now (loading is a
-    // calm moment), and the live socket opens.
+    let audio = galaxy_audio::Audio::open(
+        folder
+            .as_ref()
+            .map(|f| f.dir().join(galaxy_audio::settings::FILE)),
+    );
+    if let Some(note) = audio.settings_note() {
+        eprintln!("sound: {note}");
+    }
+    let opts = GameOptions {
+        packs,
+        gm,
+        mind: MindMode::Live,
+        hot_reload: args.hot_reload,
+    };
+    // One composition: the game-master bridge loads the packs the game master applied
+    // into the game's script host, beside core and gm-examples.
+    let bridge_opts = galaxy_gm::BridgeOptions {
+        exe: std::env::current_exe().ok(),
+        analyzer: galaxy_script::analyzer::find(None),
+        // Absolute: `gm propose --live` runs its sandbox children with it, from
+        // wherever it was started.
+        packs: std::path::absolute(&opts.packs).ok(),
+        ..galaxy_gm::BridgeOptions::default()
+    };
+    let (mut game, bridge) =
+        Game::open_gm(state, &opts, choice.path(), bridge_opts).map_err(|e| (4, e))?;
+    for note in game.take_notes() {
+        eprintln!("{note}");
+    }
+    let packs_loaded: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
+    let mut session = Session::with_game(game);
+    // Staged packs apply now (loading is a calm moment), and the live socket opens.
     let mut save = save;
-    let bridge = open_bridge(choice.path(), &mut session, &mut save);
+    let bridge = start_bridge(bridge, &mut session, &mut save);
     session.begin();
+    let cues = crate::sound::Cues::new(session.world());
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -172,18 +209,23 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         frames: 0,
         quit_after_frames: args.quit_after_frames,
         bridge,
+        audio,
+        cues,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
     let App {
-        session,
+        mut session,
         saver,
         error,
         frames,
         render_errors,
         bridge,
+        audio,
         ..
     } = app;
+    // The mind books every call still out and its last batches apply, then the save.
+    session.finish();
     let gm = bridge.as_ref().map(|b| {
         json!({
             "applied": b.state().applied.len(),
@@ -205,12 +247,11 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         "new": created,
         "tick": session.world().meta.tick,
         "session": session.session(),
+        "packs": packs_loaded,
         "frames": frames,
         "render_errors": render_errors,
         "gm": gm,
-        "audio": if audio.has_device() { "silent (device open)".to_owned() } else {
-            format!("no device: {}", audio.problem().unwrap_or("none"))
-        },
+        "audio": audio.status(),
     }))
 }
 
@@ -295,6 +336,7 @@ impl App {
         self.last = Instant::now();
         // Both ways: nothing held or pressed across the card counts afterwards.
         self.keys.clear();
+        self.audio.set_paused(now_paused);
         if now_paused {
             self.autosave();
         }
@@ -322,6 +364,18 @@ impl App {
             UiAction::Select(i) => self.ui.selected = i,
             UiAction::Undock => self.keys.press_action(),
             UiAction::CloseMap => self.ui.map_open = false,
+            UiAction::Service(req) => self.session.request_service(req),
+            UiAction::Prestige(to) => self.ui.confirm = Some(to),
+            UiAction::ConfirmPrestige(to) => {
+                self.ui.confirm = None;
+                self.session
+                    .request_service(ServiceRequest::Prestige { to });
+            }
+            UiAction::CancelPrestige => self.ui.confirm = None,
+            UiAction::ServicesFrom(first) => self.ui.services_first = first,
+            UiAction::AskWhatChanged => {
+                self.session.ask_what_changed();
+            }
         }
     }
 
@@ -397,10 +451,21 @@ impl App {
             let click = if i == 0 { self.click.take() } else { None };
             let input = self.keys.tick_input(docked, click);
             let out = self.session.tick(input);
+            let world = self.session.world();
+            for (cue, seed) in self.cues.tick(world, self.session.last_events(), &out) {
+                self.audio.play(cue, seed);
+            }
             if out.docked.is_some() {
                 self.ui.selected = 0;
+                self.ui.services_first = 0;
                 self.autosave();
             }
+            if out.undocked {
+                self.ui.confirm = None;
+            }
+        }
+        for note in self.session.game_mut().take_notes() {
+            eprintln!("{note}");
         }
         let alpha = self.step.alpha();
         let time = (now - self.started).as_secs_f32();
@@ -512,8 +577,16 @@ impl ApplicationHandler for App {
                     },
                 ..
             } => {
-                let Some(key) = key_of(code) else { return };
                 let down = state == ElementState::Pressed;
+                // N mutes and unmutes, paused or not. Not a game key: it never reaches
+                // the sim.
+                if code == KeyCode::KeyN {
+                    if down && !repeat {
+                        self.audio.toggle_mute();
+                    }
+                    return;
+                }
+                let Some(key) = key_of(code) else { return };
                 if self.keys.event(key, down, repeat) {
                     self.key_pressed(key);
                 }

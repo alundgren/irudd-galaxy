@@ -251,6 +251,11 @@
           ],
           "format": "float"
         },
+        "coupling": {
+          "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
+          "type": "boolean",
+          "default": false
+        },
         "hold_capacity": {
           "type": "integer",
           "format": "uint32",

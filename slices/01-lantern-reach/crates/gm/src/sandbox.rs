@@ -31,9 +31,12 @@ use galaxy_script::{HostEvent, ScriptHost};
 use serde::{Deserialize, Serialize};
 
 use crate::bot::ActivityBot;
+use crate::{Composed, Hook};
 
 /// The observer's system name.
 pub const OBSERVER: &str = "gm_sandbox_observer";
+/// The system the child's own batches are caused by.
+pub const SYSTEM_NAME: &str = "gm_sandbox";
 
 /// How much activity a sandbox run covers, and the limits it judges by.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -177,6 +180,7 @@ fn tally_batch(batch: &CommandBatch) -> Option<(PackId, PackTally)> {
             | Command::SetTriggerFired { .. }
             | Command::SetScriptHealth { .. }
             | Command::SetRevisionRetired { .. }
+            | Command::SetPackOff { .. }
             | Command::ExpectDocked { .. }
             | Command::PutTalk { .. } => {}
             _ => t.writes += 1,
@@ -231,39 +235,60 @@ fn sample(peaks: &mut BTreeMap<(StationId, WareId), LinePeak>, world: &WorldStat
     }
 }
 
-/// The child: runs one fork with `packs` loaded. `build` composes the game's systems
-/// (the app's `game()`).
-pub fn run_child(
+/// The child: runs one fork with `packs` loaded. `open` builds the game (the app's
+/// composition, `core` and `gm-examples` included); `packs` load into its script host
+/// after its own, replacing a pack of the same ID, before the host is attached.
+pub fn run_child<G: Composed>(
     args: &ChildArgs,
-    build: impl FnOnce(SimState) -> Sim,
+    open: impl FnOnce(SimState, Hook<'_>) -> Result<G, String>,
 ) -> Result<SandboxRun, String> {
     let state = Save::open(&args.save)
         .and_then(|s| s.load())
         .map_err(|e| e.to_string())?;
-    let mut sim = build(state);
-    let host = ScriptHost::new(None);
     let mut load_failures = Vec::new();
     let mut packs = Vec::new();
-    for dir in &args.packs {
-        let report = host.load(dir, sim.world(), sim.history());
-        if report.accepted() {
-            packs.push(report.pack.clone());
-        } else {
-            load_failures.extend(report.errors().cloned());
+    let mut game = open(state, &mut |host: &ScriptHost, sim: &Sim| {
+        for dir in &args.packs {
+            let report = host.load(dir, sim.world(), sim.history());
+            if report.accepted() {
+                packs.push(report.pack.clone());
+            } else {
+                load_failures.extend(report.errors().cloned());
+            }
+        }
+    })?;
+    let host = game.scripts().clone();
+    // The parent passes only packs that run (or the candidate), so each one is on here
+    // as it would be once applied: a candidate for a pack a rollback switched off is
+    // the new revision that switches it back on.
+    let mut on = CommandBatch::new(Cause::system(SYSTEM_NAME, "the sandbox's packs run"));
+    for pack in &packs {
+        if galaxy_script::host::pack_off(
+            game.sim().world(),
+            &game.sim().state().kernel.pending,
+            pack,
+        ) {
+            on.push(Command::SetPackOff {
+                pack: pack.clone(),
+                off: false,
+            });
         }
     }
-    let before = sim.state().kernel.pending.len();
-    host.attach(&mut sim);
+    if !on.commands.is_empty() {
+        game.sim_mut().submit(on);
+    }
+    // The packs' install batches are queued now; they aren't the packs' activity.
     let seen = Rc::new(RefCell::new(Seen {
         pending: Vec::new(),
-        skip: sim.state().kernel.pending.len().max(before),
+        skip: game.sim().state().kernel.pending.len(),
     }));
+    let sim = game.sim_mut();
     sim.add_system(Box::new(Observer { seen: seen.clone() }));
     let sub = sim.subscribe("gm-sandbox");
 
-    let start = EconomyTelemetry::build(sim.world());
+    let start = EconomyTelemetry::build(game.sim().world());
     let mut peaks = BTreeMap::new();
-    sample(&mut peaks, sim.world());
+    sample(&mut peaks, game.sim().world());
     let mut tallies: BTreeMap<PackId, PackTally> = packs
         .iter()
         .map(|p| (p.clone(), PackTally::default()))
@@ -271,13 +296,13 @@ pub fn run_child(
     let mut trouble = Vec::new();
     let mut stuck = None;
     let mut dockings = 0;
-    let from = sim.tick();
-    match ActivityBot::new(sim.world()) {
+    let from = game.sim().tick();
+    match ActivityBot::new(game.sim().world()) {
         None => stuck = Some("no flagship, or no station in its region".to_owned()),
         Some(mut bot) => {
-            let mut leg_start = sim.tick();
+            let mut leg_start = game.sim().tick();
             while bot.dockings < args.dockings {
-                if sim.tick().0 - leg_start.0 > args.ticks_per_docking {
+                if game.sim().tick().0 - leg_start.0 > args.ticks_per_docking {
                     stuck = Some(format!(
                         "no docking at {} within {} ticks (after {} of {} dockings)",
                         bot.target(),
@@ -287,18 +312,18 @@ pub fn run_child(
                     ));
                     break;
                 }
-                let input = bot.input(sim.world());
-                let Some(report) = sim.step(&input) else {
-                    sim.set_paused(false);
+                let input = bot.input(game.sim().world());
+                let Some(report) = game.step(&input) else {
+                    game.sim_mut().set_paused(false);
                     continue;
                 };
-                let events = sim.drain_events(&sub);
+                let events = game.sim_mut().drain_events(&sub);
                 let docked = bot.dockings;
-                bot.observe(sim.world(), &events);
+                bot.observe(game.sim().world(), &events);
                 dockings = bot.dockings;
                 if bot.dockings != docked {
-                    leg_start = sim.tick();
-                    sample(&mut peaks, sim.world());
+                    leg_start = game.sim().tick();
+                    sample(&mut peaks, game.sim().world());
                 }
                 let pending = std::mem::take(&mut seen.borrow_mut().pending);
                 for (cause, pack, t) in pending {
@@ -317,7 +342,7 @@ pub fn run_child(
             }
         }
     }
-    sample(&mut peaks, sim.world());
+    sample(&mut peaks, game.sim().world());
     for e in host.take_events() {
         match e {
             HostEvent::Aborted {
@@ -350,15 +375,15 @@ pub fn run_child(
         pid: std::process::id(),
         packs,
         dockings,
-        ticks: sim.tick().0 - from.0,
+        ticks: game.sim().tick().0 - from.0,
         stuck,
         load_failures,
         tallies,
         trouble,
         peaks: peaks.into_values().collect(),
         start,
-        end: EconomyTelemetry::build(sim.world()),
-        hash: sim.hash(),
+        end: EconomyTelemetry::build(game.sim().world()),
+        hash: game.sim().hash(),
     })
 }
 
@@ -372,13 +397,15 @@ pub struct SandboxPair {
 
 /// Runs `galaxy sim sandbox` on two forks of `base`: one with `running` plus the
 /// candidate (replacing a running revision of the same pack), one with `running`
-/// only. Both children run at once.
+/// only. Both children run at once, over the packs folder `packs_root` (`--packs`; without
+/// one each child looks for it the way every command does).
 pub fn sandbox(
     exe: &Path,
     base: &Path,
     running: &[(PackId, PathBuf)],
     candidate: (&PackId, &Path),
     rules: &SandboxRules,
+    packs_root: Option<&Path>,
 ) -> Result<SandboxPair, String> {
     let tmp = tempfile::Builder::new()
         .prefix("galaxy-sandbox-")
@@ -403,6 +430,9 @@ pub fn sandbox(
             .arg(save)
             .args(["--dockings", &rules.dockings.to_string()])
             .args(["--ticks-per-docking", &rules.ticks_per_docking.to_string()]);
+        if let Some(root) = packs_root {
+            cmd.arg("--packs").arg(root);
+        }
         for p in packs {
             cmd.arg("--pack").arg(p);
         }

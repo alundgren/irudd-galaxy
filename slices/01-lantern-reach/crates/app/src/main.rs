@@ -13,7 +13,7 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use galaxy_contract::prelude::*;
-use galaxy_core::{Save, SaveError};
+use galaxy_core::{Save, SaveError, SimState};
 use serde_json::{Value, json};
 
 #[derive(Parser)]
@@ -38,6 +38,9 @@ enum Cmd {
         seed: u64,
         #[command(flatten)]
         packs: PacksArg,
+        /// Don't install `gm-examples`: the save runs the core pack only.
+        #[arg(long)]
+        no_gm: bool,
     },
     /// Headless simulation.
     Sim {
@@ -79,6 +82,12 @@ enum Cmd {
         quit_after_frames: Option<u32>,
         #[command(flatten)]
         packs: PacksArg,
+        /// Run the core pack only, without `gm-examples` (also `GALAXY_NO_GM=1`).
+        #[arg(long)]
+        no_gm: bool,
+        /// Reload packs when their files change (development).
+        #[arg(long)]
+        hot_reload: bool,
     },
     /// Jump to a journey beat (not implemented yet).
     Beat {
@@ -136,6 +145,21 @@ enum Cmd {
         #[command(subcommand)]
         command: MindCmd,
     },
+    /// The sound cues.
+    Audio {
+        #[command(subcommand)]
+        command: AudioCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum AudioCmd {
+    /// Render every take of every cue to WAV files in DIR and measure them against the
+    /// design limits. Exit 5 if one is outside them.
+    Render {
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -159,6 +183,11 @@ enum SimCmd {
         /// Don't write the result back to the save.
         #[arg(long)]
         dry_run: bool,
+        #[command(flatten)]
+        packs: PacksArg,
+        /// Run the core pack only, without `gm-examples`.
+        #[arg(long)]
+        no_gm: bool,
     },
     /// One sandbox run (the child process `gm propose` starts): fly the activity bot on
     /// a fork with these packs and print what happened. Never writes the save.
@@ -166,12 +195,14 @@ enum SimCmd {
         #[arg(long)]
         save: PathBuf,
         /// A pack folder to run (repeat).
-        #[arg(long = "pack")]
-        packs: Vec<PathBuf>,
+        #[arg(long)]
+        pack: Vec<PathBuf>,
         #[arg(long, default_value_t = 6)]
         dockings: u32,
         #[arg(long, default_value_t = 3000)]
         ticks_per_docking: u64,
+        #[command(flatten)]
+        packs_dir: PacksArg,
     },
 }
 
@@ -328,6 +359,10 @@ enum GmCmd {
         /// Skip the strict typecheck with a warning when `luau-analyze` is missing.
         #[arg(long)]
         no_typecheck: bool,
+        /// The packs folder the sandbox runs use. Live, the default is the running
+        /// game's own.
+        #[command(flatten)]
+        packs: PacksArg,
     },
     /// Applied, staged and quarantined packs.
     Status {
@@ -339,6 +374,9 @@ enum GmCmd {
         change: String,
         #[command(flatten)]
         target: TargetArgs,
+        /// The packs folder the save is opened with (save only).
+        #[command(flatten)]
+        packs: PacksArg,
     },
 }
 
@@ -438,24 +476,32 @@ type Out = Result<Value, Fail>;
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Cmd::New { save, seed, packs } => new(&save, seed, packs.packs),
+        Cmd::New {
+            save,
+            seed,
+            packs,
+            no_gm,
+        } => new(&save, seed, packs.packs, no_gm),
         Cmd::Sim {
             command:
                 SimCmd::Run {
                     save,
                     ticks,
                     dry_run,
+                    packs,
+                    no_gm,
                 },
-        } => sim_run(&save, ticks, dry_run),
+        } => sim_run(&save, ticks, dry_run, packs.packs, no_gm),
         Cmd::Sim {
             command:
                 SimCmd::Sandbox {
                     save,
-                    packs,
+                    pack,
                     dockings,
                     ticks_per_docking,
+                    packs_dir,
                 },
-        } => sim_sandbox(save, packs, dockings, ticks_per_docking),
+        } => sim_sandbox(save, pack, dockings, ticks_per_docking, packs_dir.packs),
         Cmd::State {
             command: StateCmd::Get { target, path },
         } => with_target(target, |t| gm::state_get(t, path.as_deref())),
@@ -493,11 +539,15 @@ fn main() -> ExitCode {
             packs,
             beat: None,
             quit_after_frames,
+            no_gm,
+            hot_reload,
         } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
             save,
             new,
             seed,
             packs: packs.packs,
+            no_gm,
+            hot_reload,
             quit_after_frames,
         })
         .map_err(fail),
@@ -530,12 +580,21 @@ fn main() -> ExitCode {
                     dockings,
                     analyzer,
                     no_typecheck,
+                    packs,
                 },
         } => {
+            // Live, the sandbox runs with the running game's packs folder unless one
+            // is given; on a save, with the one this command would load.
+            let packs = match (&packs.packs, target.live.live.is_some()) {
+                (None, true) => None,
+                _ => galaxy_app::game::packs_dir(packs.packs)
+                    .and_then(|p| std::path::absolute(p).ok()),
+            };
             let opts = galaxy_gm::ProposeOptions {
                 exe: std::env::current_exe().unwrap_or_else(|_| "galaxy".into()),
                 analyzer: galaxy_script::analyzer::find(analyzer.as_deref()),
                 require_typecheck: !no_typecheck,
+                packs,
                 rules: galaxy_gm::SandboxRules {
                     dockings,
                     ..galaxy_gm::SandboxRules::default()
@@ -548,8 +607,13 @@ fn main() -> ExitCode {
             command: GmCmd::Status { target },
         } => with_target(target, gm::status),
         Cmd::Gm {
-            command: GmCmd::Rollback { change, target },
-        } => with_target(target, |t| gm::rollback(t, &change, game)),
+            command:
+                GmCmd::Rollback {
+                    change,
+                    target,
+                    packs,
+                },
+        } => with_target(target, |t| gm::rollback(t, &change, headless(packs.packs))),
         Cmd::Watch { live, since, count } => watch(live, since, count),
         Cmd::Shot {
             live: LiveArg { live: Some(live) },
@@ -580,6 +644,15 @@ fn main() -> ExitCode {
         Cmd::Mind {
             command: MindCmd::Try { packs },
         } => mind_try(packs.packs),
+        Cmd::Audio {
+            command: AudioCmd::Render { out },
+        } => galaxy_app::sound::render(&out).map_err(|(code, body)| Fail {
+            code,
+            kind: if code == 5 { "rejected" } else { "runtime" },
+            message: String::new(),
+            command: None,
+            body: Some(body),
+        }),
     };
     match result {
         Ok(value) => {
@@ -724,12 +797,12 @@ fn packs_dir(flag: Option<PathBuf>) -> Result<PathBuf, Fail> {
         .ok_or_else(|| Fail::input("can't find the packs folder; pass --packs or set GALAXY_PACKS"))
 }
 
-fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
+fn new(save: &Path, seed: u64, packs: Option<PathBuf>, no_gm: bool) -> Out {
     if save.exists() {
         return Err(SaveError::Exists(save.to_path_buf()).into());
     }
-    let data = galaxy_app::game::core_data(&packs_dir(packs)?);
-    let state = galaxy_core::new_game(&data, seed).map_err(|e| Fail::input(e.to_string()))?;
+    let gm = !no_gm && galaxy_app::game::gm_allowed();
+    let state = galaxy_app::game::new_state(&packs_dir(packs)?, seed, gm).map_err(Fail::input)?;
     let hash = galaxy_core::state_hash(&state);
     Save::create(save, &state)?;
     Ok(json!({
@@ -739,42 +812,57 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
         "hash": hash,
         "stations": state.world.stations.len(),
         "rocks": state.world.rocks.len(),
+        "gm_examples": gm,
     }))
 }
 
-use galaxy_app::game::game;
-
-fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
+/// Fast-forwards the whole game (the same composition as play, with the seeded fake
+/// mind instead of the network).
+fn sim_run(path: &Path, ticks: u64, dry_run: bool, packs: Option<PathBuf>, no_gm: bool) -> Out {
+    use galaxy_app::game::{Game, GameOptions};
     let mut save = Save::open(path)?;
-    let mut sim = game(save.load()?);
-    // The packs the game master applied run here too, and staged ones apply on this
-    // load (a calm moment), unless it's a dry run.
-    let mut bridge = galaxy_gm::Bridge::open(path, &mut sim, galaxy_gm::BridgeOptions::default())
-        .map_err(Fail::input)?;
+    let state = save.load()?;
+    let seed = state.world.meta.seed;
+    let mut opts = GameOptions::headless(packs_dir(packs)?, seed);
+    opts.gm &= !no_gm;
+    // The packs the game master applied run in the game's script host, and staged
+    // ones apply on this load (a calm moment), unless it's a dry run.
+    let bridge_opts = galaxy_gm::BridgeOptions {
+        packs: std::path::absolute(&opts.packs).ok(),
+        ..galaxy_gm::BridgeOptions::default()
+    };
+    let (mut game, bridge) = Game::open_gm(state, &opts, path, bridge_opts).map_err(Fail::input)?;
+    let mut bridge = bridge.map_err(Fail::input)?;
     let gm_applied = if dry_run {
         Vec::new()
     } else {
-        bridge.apply_staged(&mut sim, &mut save)
+        bridge.apply_staged(game.sim_mut(), &mut save)
     };
-    let start = sim.tick();
+    let start = game.sim().tick();
     let input = PlayerInput::default();
     let (mut applied, mut events) = (0usize, 0usize);
     let mut rejected = Vec::new();
     for _ in 0..ticks {
-        let Some(report) = sim.step(&input) else {
+        let Some(report) = game.step(&input) else {
             break;
         };
         applied += report.applied;
         events += report.events;
         rejected.extend(report.rejected);
     }
+    game.finish();
+    let notes = game.take_notes();
+    let packs: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
+    let sim = game.sim();
     if !dry_run {
         // The save first: state.json never runs ahead of it (and if it did, the next
         // load would reconcile it).
         save.write(sim.state())?;
-        bridge.after_tick(&sim);
+        bridge.after_tick(sim);
     }
     Ok(json!({
+        "packs": packs,
+        "notes": notes,
         "from_tick": start,
         "tick": sim.tick(),
         "ticks_run": sim.tick().0 - start.0,
@@ -854,14 +942,35 @@ fn watch(live: LiveArg, since: Option<String>, count: Option<u64>) -> Out {
     std::process::exit(0);
 }
 
-fn sim_sandbox(save: PathBuf, packs: Vec<PathBuf>, dockings: u32, ticks_per_docking: u64) -> Out {
+/// The game's one composition, headless (gm-examples as the save says, the seeded
+/// fake mind), opened with a hook on its script host: for the save-file rollback and
+/// the sandbox child.
+fn headless(
+    packs: Option<PathBuf>,
+) -> impl FnOnce(SimState, galaxy_gm::Hook<'_>) -> Result<galaxy_app::game::Game, String> {
+    use galaxy_app::game::{Game, GameOptions};
+    move |state: SimState, hook: galaxy_gm::Hook<'_>| {
+        let packs = galaxy_app::game::packs_dir(packs)
+            .ok_or("can't find the packs folder; pass --packs or set GALAXY_PACKS")?;
+        let opts = GameOptions::headless(packs, state.world.meta.seed);
+        Game::open_with(state, &opts, hook)
+    }
+}
+
+fn sim_sandbox(
+    save: PathBuf,
+    packs: Vec<PathBuf>,
+    dockings: u32,
+    ticks_per_docking: u64,
+    packs_dir: Option<PathBuf>,
+) -> Out {
     let args = galaxy_gm::sandbox::ChildArgs {
         save,
         packs,
         dockings,
         ticks_per_docking,
     };
-    let run = galaxy_gm::sandbox::run_child(&args, game).map_err(|e| Fail {
+    let run = galaxy_gm::sandbox::run_child(&args, headless(packs_dir)).map_err(|e| Fail {
         code: 1,
         kind: "sandbox",
         message: e,

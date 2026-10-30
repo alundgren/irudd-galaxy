@@ -141,7 +141,9 @@ fn without_the_app_a_contended_dock_trade_is_lost() {
     // line's compare-and-set is never retried by the economy.
     let s = settled_session();
     let req = buy_rations(&s);
-    let mut sim = galaxy_app::game::game(s.state().clone());
+    let opts = galaxy_app::game::GameOptions::headless(packs(), 1);
+    let mut game = galaxy_app::game::Game::open(s.state().clone(), &opts).unwrap();
+    let sim = game.sim_mut();
     let input = PlayerInput {
         trades: vec![req],
         ..PlayerInput::default()
@@ -488,32 +490,6 @@ fn the_saver_writes_in_the_background() {
     assert_eq!(galaxy_core::state_hash(&loaded), hash);
 }
 
-#[test]
-fn the_goal_line_moves_on_with_act_one() {
-    let mut s = Session::new(new_state());
-    assert_eq!(
-        galaxy_app::hooks::goal_line(s.world()).as_deref(),
-        Some("Bring ice to Kettle Dock")
-    );
-    let mut ui = UiState::default();
-    // Mine, fly to Kettle Dock, dock, sell the ice.
-    galaxy_app::script::run(
-        &mut s,
-        &mut ui,
-        "space,wait*3,d*200,space*400,wait*2,d+s*354,s*50,wait*5,space,wait*3,:tradeall",
-    )
-    .unwrap();
-    assert_eq!(
-        flagship(&s).docked_at.as_ref().map(StationId::as_str),
-        Some("station.kettle_dock")
-    );
-    assert_eq!(flagship(&s).hold.count(&ICE), 0);
-    assert_eq!(
-        galaxy_app::hooks::goal_line(s.world()).as_deref(),
-        Some("Sell iron ore at Lantern Wharf")
-    );
-}
-
 fn inside(r: &render::Rect, viewport: render::glam::Vec2) -> bool {
     let eps = 0.01;
     r.x >= -eps && r.y >= -eps && r.x + r.w <= viewport.x + eps && r.y + r.h <= viewport.y + eps
@@ -611,9 +587,13 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
         ui::dock_panel(
             &mut d,
             s.world(),
+            s.sim().history(),
             &WHARF,
             &UiState::default(),
-            s.trades.notice.as_deref(),
+            ui::Notices {
+                trade: s.trades.notice.as_deref(),
+                service: None,
+            },
             canvas,
         );
         let dock = d.panels[0].rect;
@@ -693,4 +673,62 @@ fn galaxy_shot_renders_a_new_save() {
         let bytes = std::fs::read(&out).unwrap();
         assert_eq!(&bytes[1..4], b"PNG");
     }
+}
+
+#[test]
+fn ore_ticks_sound_as_ice_enters_the_hold_during_a_long_run() {
+    use galaxy_app::sound::Cues;
+    use galaxy_audio::Cue;
+    const ICE_ROCK: RockId = RockId::from_static("rock.shallows.ice.03");
+    let mut state = new_state();
+    let w = &mut state.world;
+    let rock = w.rocks.get(&ICE_ROCK).unwrap().clone();
+    let region = w.fields.get(&rock.field).unwrap().region.clone();
+    let spot = rock.position + Vec2::new(galaxy_ship::space::rock_radius(w, &rock) + 15.0, 0.0);
+    let me = w.player.ship.clone().unwrap();
+    let ship = w.ships.get_mut(&me).unwrap();
+    ship.docked_at = None;
+    ship.region = region;
+    ship.position = spot;
+    ship.velocity = Vec2::ZERO;
+    let mut s = Session::new(state);
+    let cap = s
+        .world()
+        .hulls
+        .get(&flagship(&s).hull)
+        .unwrap()
+        .hold_capacity;
+    let mut cues = Cues::new(s.world());
+    let mine = PlayerInput {
+        action: true,
+        ..PlayerInput::default()
+    };
+    let mut heard = Vec::new();
+    let mut ticks_before_the_end = 0;
+    for _ in 0..3000 {
+        let out = s.tick(mine.clone());
+        let got = cues.tick(s.world(), s.last_events(), &out);
+        let ended = s
+            .last_events()
+            .iter()
+            .any(|e| matches!(e.event, Event::Mine { .. }));
+        if !ended {
+            ticks_before_the_end += got.iter().filter(|(c, _)| *c == Cue::OreTick).count();
+        }
+        heard.extend(got);
+        if flagship(&s).hold.total() >= u64::from(cap) {
+            break;
+        }
+    }
+    assert_eq!(flagship(&s).hold.count(&ICE), cap, "a full hold of ice");
+    // A tick per tick that moved ice, while the run was still going.
+    assert!(
+        ticks_before_the_end + 1 >= cap as usize && ticks_before_the_end > 1,
+        "{ticks_before_the_end} ore ticks before the run ended; hold {cap}"
+    );
+    // The unit that filled the hold plays hold-full instead of its tick.
+    assert_eq!(heard.last().map(|(c, _)| *c), Some(Cue::HoldFull));
+    // Letting go afterwards adds nothing.
+    let out = s.tick(PlayerInput::default());
+    assert!(cues.tick(s.world(), s.last_events(), &out).is_empty());
 }

@@ -9,9 +9,18 @@
 //! - `:pause`, `:map`: toggle the PAUSED card or the map;
 //! - `:next`, `:prev`: move the dock screen's selection;
 //! - `:trade`, `:tradeall`: trade one, or all, of the selected dock line (then the
-//!   ticks run so the trade settles).
+//!   ticks run so the trade settles);
+//! - `:buy:ID`: buy a station service, as its dock-screen button does: an upgrade
+//!   (`upgrade.mining_lens`), a tender (`craft.thimble`) or a prestige hull
+//!   (`hull.tandem`);
+//! - `:ask`: ask the dockmaster what changed;
+//! - `:click:X:Y`, `:qclick:X:Y`: click the play plane at world point X,Y (resolved to a
+//!   station, rock or point as the window does), or shift-click to queue it;
+//! - `:mapclick:REGION`: click a region on the map (map travel).
 //!
 //! Example: `d*120,space*150` flies right for four seconds, then mines for five.
+
+use galaxy_contract::prelude::*;
 
 use crate::input::{Key, Keys};
 use crate::session::Session;
@@ -24,6 +33,22 @@ enum Step {
     Map,
     Select(i32),
     Trade(Amount),
+    Buy(String),
+    Ask,
+    Click { at: (f32, f32), queue: bool },
+    MapClick(String),
+}
+
+fn point(raw: &str, rest: &str) -> Result<(f32, f32), String> {
+    let (x, y) = rest
+        .split_once(':')
+        .ok_or_else(|| format!("`{raw}` needs X:Y"))?;
+    let n = |s: &str| {
+        s.trim()
+            .parse::<f32>()
+            .map_err(|_| format!("bad number in `{raw}`"))
+    };
+    Ok((n(x)?, n(y)?))
 }
 
 fn key(name: &str) -> Result<Key, String> {
@@ -57,6 +82,17 @@ fn parse(script: &str) -> Result<Vec<Step>, String> {
             ":prev" => Step::Select(-1),
             ":trade" => Step::Trade(Amount::One),
             ":tradeall" => Step::Trade(Amount::Most),
+            ":ask" => Step::Ask,
+            t if t.starts_with(":buy:") => Step::Buy(t[5..].to_owned()),
+            t if t.starts_with(":click:") => Step::Click {
+                at: point(raw, &t[7..])?,
+                queue: false,
+            },
+            t if t.starts_with(":qclick:") => Step::Click {
+                at: point(raw, &t[8..])?,
+                queue: true,
+            },
+            t if t.starts_with(":mapclick:") => Step::MapClick(t[10..].to_owned()),
             "wait" => Step::Hold(Vec::new(), n),
             keys => Step::Hold(
                 keys.split('+')
@@ -115,9 +151,61 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                     ticks += 1;
                 }
             }
+            Step::Buy(id) => {
+                session.request_service(service(&id)?);
+                for _ in 0..3 {
+                    tick(session, &mut keys);
+                    ticks += 1;
+                }
+            }
+            Step::Ask => {
+                session.ask_what_changed();
+                tick(session, &mut keys);
+                ticks += 1;
+            }
+            Step::Click { at, queue } => {
+                let world = session.world();
+                let Some(region) = session.flagship().map(|f| f.region.clone()) else {
+                    continue;
+                };
+                let target = crate::input::click_target(world, &region, Vec2::new(at.0, at.1));
+                click(session, &mut keys, Click { target, queue });
+                ticks += 1;
+            }
+            Step::MapClick(region) => {
+                let region: RegionId = region.parse().map_err(|e| format!("{e}"))?;
+                let queue = keys.held(Key::Shift);
+                click(
+                    session,
+                    &mut keys,
+                    Click {
+                        target: ClickTarget::Region { region },
+                        queue,
+                    },
+                );
+                ticks += 1;
+            }
         }
     }
     Ok(ticks)
+}
+
+/// The service request a dock-screen button would make for `id`.
+fn service(id: &str) -> Result<ServiceRequest, String> {
+    let bad = |e: galaxy_contract::ids::IdError| format!("`{id}`: {e}");
+    Ok(if id.starts_with("upgrade.") {
+        ServiceRequest::Fit {
+            upgrade: id.parse().map_err(bad)?,
+        }
+    } else if id.starts_with("hull.") {
+        ServiceRequest::Prestige {
+            to: id.parse().map_err(bad)?,
+        }
+    } else {
+        ServiceRequest::Build {
+            craft: id.parse().map_err(bad)?,
+        }
+    })
 }
 
 /// One tick with the keys, as the window runs it: none while paused.
@@ -127,6 +215,15 @@ fn tick(session: &mut Session, keys: &mut Keys) {
     }
     let docked = session.flagship().is_some_and(|f| f.docked_at.is_some());
     session.tick(keys.tick_input(docked, None));
+}
+
+/// One tick carrying a click, as the window sends it with the next tick.
+fn click(session: &mut Session, keys: &mut Keys, click: Click) {
+    if session.is_paused() {
+        return;
+    }
+    let docked = session.flagship().is_some_and(|f| f.docked_at.is_some());
+    session.tick(keys.tick_input(docked, Some(click)));
 }
 
 fn docked_lines(session: &Session) -> Vec<ui::DockLine> {

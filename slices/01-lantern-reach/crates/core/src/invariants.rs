@@ -153,7 +153,7 @@ impl Invariant for ReferencesResolve {
     }
 }
 
-/// No hold carries more than its hull allows.
+/// No hold carries more than its hull allows, plus its hold modifiers.
 pub struct HoldWithinCapacity;
 
 impl Invariant for HoldWithinCapacity {
@@ -162,14 +162,12 @@ impl Invariant for HoldWithinCapacity {
     }
     fn check(&self, w: &WorldState) -> Result<(), String> {
         for (id, s) in &w.ships {
-            if let Some(h) = w.hulls.get(&s.hull)
-                && s.hold.total() > u64::from(h.hold_capacity)
-            {
-                return Err(format!(
-                    "{id} holds {} of {}",
-                    s.hold.total(),
-                    h.hold_capacity
-                ));
+            if !w.hulls.contains(&s.hull) {
+                continue;
+            }
+            let capacity = galaxy_contract::modifiers::hold_capacity(w, s);
+            if s.hold.total() > capacity {
+                return Err(format!("{id} holds {} of {capacity}", s.hold.total()));
             }
         }
         Ok(())

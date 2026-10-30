@@ -40,6 +40,15 @@ fn game(state: SimState) -> Sim {
         .with_systems([Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>])
 }
 
+/// Opens the bridge the way the game does: into a script host that is attached after
+/// it has loaded the save's applied packs.
+fn open_bridge(path: &Path, sim: &mut Sim) -> Bridge {
+    let host = galaxy_script::ScriptHost::new(None);
+    let bridge = Bridge::open(path, sim, &host, BridgeOptions::default()).unwrap();
+    host.attach(sim);
+    bridge
+}
+
 /// A fresh endpoint per test, so tests can run at once.
 fn temp_endpoint(dir: &Path) -> Endpoint {
     let key = galaxy_gm::live::save_key(dir);
@@ -245,7 +254,7 @@ fn staging_waits_for_a_calm_moment() {
     }
     let mut save = Save::create(&path, &state).unwrap();
     let mut sim = game(state);
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let mut bridge = open_bridge(&path, &mut sim);
     assert!(!galaxy_gm::bridge::is_calm(&sim), "flying is not calm");
 
     // Stage an accepted copy of kettle_growth, as `gm propose` would.
@@ -505,7 +514,7 @@ fn a_pack_applies_only_after_its_snapshot() {
     Save::create(&path, &state).unwrap();
     // A new game starts docked at the Wharf: calm.
     let mut sim = game(state);
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let mut bridge = open_bridge(&path, &mut sim);
     assert!(galaxy_gm::bridge::is_calm(&sim));
     stage_kettle(&mut bridge, &sim, true);
 
@@ -585,7 +594,7 @@ fn a_crash_between_apply_and_save_is_recovered() {
     // before the save is written.
     {
         let mut sim = game(state.clone());
-        let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+        let mut bridge = open_bridge(&path, &mut sim);
         stage_kettle(&mut bridge, &sim, true);
         bridge.apply_staged(&mut sim, &mut save);
         sim.step(&PlayerInput::default());
@@ -595,7 +604,7 @@ fn a_crash_between_apply_and_save_is_recovered() {
     // Reopened on the save as written: the apply isn't in it, so the pack doesn't run
     // and goes back to staged under its stage ID ...
     let mut sim = game(save.load().unwrap());
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let mut bridge = open_bridge(&path, &mut sim);
     assert!(bridge.state().applied.is_empty());
     assert_eq!(bridge.state().staged[0].stage, "stage.1");
     assert!(bridge.notes.iter().any(|n| n.contains("applies again")));
@@ -637,7 +646,7 @@ fn a_crash_between_apply_and_save_is_recovered() {
     // Reopened: the save holds the queued batch, so it counts as applied (not applied
     // twice); its change ID arrives when the batch commits.
     let mut sim = game(save.load().unwrap());
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let mut bridge = open_bridge(&path, &mut sim);
     assert!(bridge.state().staged.is_empty());
     assert_eq!(bridge.state().applied.len(), 1);
     assert_eq!(bridge.state().applied[0].change, None);
@@ -652,7 +661,7 @@ fn a_crash_between_apply_and_save_is_recovered() {
     save.write(sim.state()).unwrap();
     drop(bridge);
     let mut sim = game(save.load().unwrap());
-    let bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let bridge = open_bridge(&path, &mut sim);
     assert_eq!(bridge.state().applied[0].change, Some(change));
     assert!(
         bridge
@@ -692,7 +701,7 @@ fn watchers_that_hang_up_free_their_places_while_paused() {
     let state = new_state();
     Save::create(&path, &state).unwrap();
     let mut sim = game(state);
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let mut bridge = open_bridge(&path, &mut sim);
     bridge.start_live(None).unwrap();
     let d = bridge.server().unwrap().discovery().clone();
     // Paused, so nothing is broadcast that would notice a watcher has gone.

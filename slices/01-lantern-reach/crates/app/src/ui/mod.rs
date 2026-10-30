@@ -15,6 +15,8 @@
 pub mod dock;
 
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::{Channel, TalkLine};
+use galaxy_core::History;
 use render::glam::Vec2 as G2;
 use render::{Align, Camera, Color, Overlay, Panel, PausedCard, Rect, Text, palette};
 
@@ -83,15 +85,34 @@ pub struct UiState {
     pub selected: usize,
     /// The mouse, in logical pixels.
     pub cursor: Option<G2>,
+    /// The prestige confirm card, open for this hull.
+    pub confirm: Option<HullId>,
+    /// The first services row the dock screen shows when they don't all fit.
+    pub services_first: usize,
 }
 
 /// What a button does.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UiAction {
-    Trade { line: usize, amount: Amount },
+    Trade {
+        line: usize,
+        amount: Amount,
+    },
     Select(usize),
     Undock,
     CloseMap,
+    /// Buy a station service (an upgrade or a tender) now.
+    Service(ServiceRequest),
+    /// Open the prestige confirm card for this hull.
+    Prestige(HullId),
+    /// Confirm the prestige on the card.
+    ConfirmPrestige(HullId),
+    /// Close the card without trading up.
+    CancelPrestige,
+    /// Ask the dockmaster what changed.
+    AskWhatChanged,
+    /// Show the dock screen's services from this row (the Up and Down buttons).
+    ServicesFrom(usize),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -163,16 +184,8 @@ pub fn goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
     let Some(line) = hooks::goal_line(world) else {
         return;
     };
-    // Centred between the hold on the right and the same margin on the left; a long
-    // line gets a smaller font, then wraps.
-    let room = (viewport.x - 2.0 * (HOLD_PANEL_WIDTH + 36.0)).max(240.0);
-    let pad = 56.0;
-    let natural = text_width(&line, 24.0);
-    let size = (24.0 * (room - pad) / natural).clamp(17.0, 24.0);
-    let rows = (text_width(&line, size) / (room - pad)).ceil().max(1.0);
-    let w = (text_width(&line, size) + pad).min(room);
-    let h = 54.0 + (rows - 1.0) * size * 1.25;
-    let rect = Rect::new((viewport.x - w) * 0.5, 18.0, w, h);
+    let (rect, size, pad) = goal_layout(&line, viewport);
+    let w = rect.w;
     o.panels.push(Panel::new(rect));
     o.texts.push(
         Text::new(
@@ -199,6 +212,25 @@ fn hold_wares(world: &WorldState, ship: &Ship) -> Vec<String> {
         .collect()
 }
 
+/// The goal line's panel, its font size and side padding: centred between the hold on
+/// the right and the same margin on the left; a long line gets a smaller font, then
+/// wraps.
+fn goal_layout(line: &str, viewport: G2) -> (Rect, f32, f32) {
+    let room = (viewport.x - 2.0 * (HOLD_PANEL_WIDTH + 36.0)).max(240.0);
+    let pad = 56.0;
+    let natural = text_width(line, 24.0);
+    let size = (24.0 * (room - pad) / natural).clamp(17.0, 24.0);
+    let rows = (text_width(line, size) / (room - pad)).ceil().max(1.0);
+    let w = (text_width(line, size) + pad).min(room);
+    let h = 54.0 + (rows - 1.0) * size * 1.25;
+    (Rect::new((viewport.x - w) * 0.5, 18.0, w, h), size, pad)
+}
+
+/// Where the goal line's panel goes, if there is a goal.
+pub fn goal_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
+    hooks::goal_line(world).map(|line| goal_layout(&line, viewport).0)
+}
+
 /// Where the hold panel goes, top right; other panels keep clear of it.
 pub fn hold_rect(world: &WorldState, viewport: G2) -> Option<Rect> {
     let ship = world
@@ -223,7 +255,7 @@ pub fn hold(o: &mut Overlay, world: &WorldState, viewport: G2) {
     let Some(rect) = hold_rect(world, viewport) else {
         return;
     };
-    let cap = world.hulls.get(&ship.hull).map_or(0, |h| h.hold_capacity);
+    let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
     let wares = hold_wares(world, ship);
     o.panels.push(Panel {
         fill: palette::INK.with_alpha(0.88),
@@ -272,10 +304,10 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
     if ship.docked_at.is_some() || ship.activity.transit.is_some() {
         return None;
     }
-    if let Some(station) = galaxy_ship::space::ring_at(world, &ship.region, ship.position) {
+    if let Some(station) = galaxy_ship::space::ring_for(world, ship, ship.position) {
         return Some(format!("Space  ·  dock at {}", station.name));
     }
-    if let Some(way) = galaxy_ship::space::mouth_at(world, &ship.region, ship.position) {
+    if let Some(way) = galaxy_ship::space::mouth_for(world, ship, ship.position) {
         let to = world
             .regions
             .get(&way.to)
@@ -286,10 +318,7 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
         return None;
     }
     let rock = galaxy_ship::space::rock_in_reach(world, &ship.region, ship.position)?;
-    let cap = world
-        .hulls
-        .get(&ship.hull)
-        .map_or(0, |h| u64::from(h.hold_capacity));
+    let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
     if ship.hold.total() >= cap {
         return Some("Your hold is full".into());
     }
@@ -377,7 +406,11 @@ pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewpo
         // keeps clear of the goal line and the hold at the top.
         let mid = viewport * 0.5;
         let d = p - mid;
-        let (lo, hi) = (G2::new(inset, 130.0), viewport - G2::splat(inset));
+        // ... and above the Space hint at the bottom.
+        let (lo, hi) = (
+            G2::new(inset, 130.0),
+            G2::new(viewport.x - inset, viewport.y - 104.0),
+        );
         let kx = if d.x > 0.0 {
             (hi.x - mid.x) / d.x
         } else {
@@ -419,38 +452,161 @@ pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewpo
     }
 }
 
-/// The latest talk lines, bottom left, each naming its speaker. Nothing when nobody
-/// has spoken.
-pub fn talk(o: &mut Overlay, world: &WorldState, viewport: G2) {
-    let lines: Vec<_> = hooks::talk_lines(world, 3)
-        .into_iter()
-        .filter(|l| hooks::is_talk(l) && l.validate().is_ok())
-        .collect();
-    if lines.is_empty() {
+/// One line in the talk panel: who (and where), then what was said.
+fn talk_row(o: &mut Overlay, world: &WorldState, line: &TalkLine, x: f32, y: f32, w: f32) -> f32 {
+    let who = hooks::speaker(world, line);
+    let place = hooks::place(world, line);
+    let head = match (who, place) {
+        (Some(w), Some(p)) => format!("{w}  ·  {p}"),
+        (Some(w), None) => w,
+        (None, Some(p)) => p,
+        (None, None) => String::new(),
+    };
+    let head = if line.channel == Channel::Chronicle {
+        format!("Chronicle  ·  {head}")
+    } else {
+        head
+    };
+    o.texts.push(
+        Text::new(head, G2::new(x, y), 14.0)
+            .weight(700)
+            .color(palette::TERRACOTTA),
+    );
+    let rows = (text_width(&line.text, 16.0) / w).ceil().max(1.0);
+    o.texts.push(
+        Text::new(line.text.clone(), G2::new(x, y + 17.0), 16.0)
+            .weight(500)
+            .wrap(w),
+    );
+    24.0 + rows * 20.0
+}
+
+/// The talk panel, bottom left: what was said since the flagship last docked (dock
+/// talk and the chronicle), each naming its speaker and place. While docked after
+/// asking "What changed?", the dockmaster's answer instead. Nothing when nobody has
+/// spoken.
+pub fn talk(
+    o: &mut Overlay,
+    world: &WorldState,
+    history: &History,
+    answer: Option<&hooks::Answer>,
+    viewport: G2,
+) {
+    let w = 460.0;
+    let inner = w - 32.0;
+    let (title, lines): (Option<String>, Vec<TalkLine>) = match answer {
+        Some(a) => (
+            Some(match a.speaker.as_ref().and_then(|n| world.npcs.get(n)) {
+                Some(n) => format!("What changed?  ·  {}", n.name),
+                None => "What changed?".to_owned(),
+            }),
+            a.lines.clone(),
+        ),
+        None => (
+            None,
+            hooks::talk_lines(world, history, 3)
+                .into_iter()
+                .filter(|l| hooks::is_talk(l) && l.validate().is_ok())
+                .collect(),
+        ),
+    };
+    if lines.is_empty() && title.is_none() {
         return;
     }
-    let w = 440.0;
-    let row = 46.0;
-    let h = 20.0 + lines.len() as f32 * row;
+    // Measure first, then draw bottom up from the screen's edge.
+    let title_h = if title.is_some() { 30.0 } else { 0.0 };
+    let heights: Vec<f32> = lines
+        .iter()
+        .map(|l| 24.0 + (text_width(&l.text, 16.0) / inner).ceil().max(1.0) * 20.0)
+        .collect();
+    let empty_h = if lines.is_empty() { 26.0 } else { 0.0 };
+    let h = 20.0 + title_h + empty_h + heights.iter().sum::<f32>();
     let rect = Rect::new(18.0, viewport.y - h - 18.0, w, h);
     o.panels.push(Panel {
         fill: palette::PARCHMENT.with_alpha(0.95),
         ..Panel::new(rect)
     });
-    for (i, line) in lines.iter().enumerate() {
-        let y = rect.y + 12.0 + i as f32 * row;
-        let who = hooks::speaker(world, line).unwrap_or_else(|| "Someone".into());
+    let x = rect.x + 16.0;
+    let mut y = rect.y + 12.0;
+    if let Some(t) = title {
+        o.texts.push(Text::new(t, G2::new(x, y), 17.0).weight(700));
+        y += title_h;
+    }
+    if lines.is_empty() {
         o.texts.push(
-            Text::new(who, G2::new(rect.x + 16.0, y), 14.0)
-                .weight(700)
-                .color(palette::TERRACOTTA),
-        );
-        o.texts.push(
-            Text::new(line.text.clone(), G2::new(rect.x + 16.0, y + 17.0), 16.0)
+            Text::new("Nothing new since you were last here.", G2::new(x, y), 16.0)
                 .weight(500)
-                .wrap(w - 32.0),
+                .color(palette::INK.with_alpha(0.7)),
         );
     }
+    for line in &lines {
+        y += talk_row(o, world, line, x, y, inner);
+    }
+}
+
+/// The prestige confirm card: what stays, what resets, and the fee.
+pub fn prestige_card(
+    o: &mut Overlay,
+    world: &WorldState,
+    history: &History,
+    to: &HullId,
+    ui: &UiState,
+    viewport: G2,
+) -> Vec<Button> {
+    let Some((stays, resets)) = hooks::prestige_summary(world, history) else {
+        return Vec::new();
+    };
+    let name = world.hulls.get(to).map_or(to.as_str(), |h| h.name.as_str());
+    let w = 620.0;
+    let row = 22.0;
+    let h = 150.0 + (stays.len() + resets.len()) as f32 * row + 60.0;
+    let rect = Rect::new((viewport.x - w) * 0.5, (viewport.y - h) * 0.5, w, h);
+    o.panels.push(Panel {
+        radius: 16.0,
+        border_px: 3.5,
+        ..Panel::new(rect)
+    });
+    let x = rect.x + 28.0;
+    let mut y = rect.y + 20.0;
+    o.texts
+        .push(Text::new(format!("Trade up into a {name}?"), G2::new(x, y), 26.0).weight(700));
+    y += 44.0;
+    for (head, list) in [("STAYS", &stays), ("RESETS", &resets)] {
+        o.texts.push(
+            Text::new(head, G2::new(x, y), 13.0)
+                .weight(600)
+                .color(palette::TERRACOTTA),
+        );
+        y += 20.0;
+        for l in list {
+            o.texts.push(
+                Text::new(l.clone(), G2::new(x + 8.0, y), 15.0)
+                    .weight(500)
+                    .wrap(w - 64.0),
+            );
+            y += row;
+        }
+        y += 8.0;
+    }
+    let by = rect.y + h - 56.0;
+    vec![
+        button(
+            o,
+            ui,
+            Rect::new(rect.x + w - 28.0 - 150.0, by, 150.0, 38.0),
+            "Trade up",
+            true,
+            UiAction::ConfirmPrestige(to.clone()),
+        ),
+        button(
+            o,
+            ui,
+            Rect::new(rect.x + w - 28.0 - 150.0 - 12.0 - 120.0, by, 120.0, 38.0),
+            "Not yet",
+            true,
+            UiAction::CancelPrestige,
+        ),
+    ]
 }
 
 /// The market rows the dock screen shows: `(first, count)` out of `lines`, keeping the
@@ -465,40 +621,171 @@ fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
     (first, count)
 }
 
+/// What the dock screen says besides the market: the latest refusals, one calm line
+/// each.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Notices<'a> {
+    pub trade: Option<&'a str>,
+    pub service: Option<&'a str>,
+}
+
+const OFFER_ROW: f32 = 50.0;
+const SERVICE_HEAD: f32 = 26.0;
+const ASK_ROW: f32 = 42.0;
+/// The services pager: "Services 2–4 of 6" with Up and Down.
+const PAGER_ROW: f32 = 40.0;
+
+/// One row of the services block.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ServiceRow {
+    /// A service's heading (its keeper's name).
+    Head(usize),
+    /// An offer: service, offer.
+    Offer(usize, usize),
+    /// The dockmaster's "Ask what changed".
+    Ask(usize),
+}
+
+impl ServiceRow {
+    fn service(self) -> usize {
+        match self {
+            ServiceRow::Head(s) | ServiceRow::Offer(s, _) | ServiceRow::Ask(s) => s,
+        }
+    }
+
+    fn height(self) -> f32 {
+        match self {
+            ServiceRow::Head(_) => SERVICE_HEAD,
+            ServiceRow::Offer(..) => OFFER_ROW,
+            ServiceRow::Ask(_) => ASK_ROW,
+        }
+    }
+}
+
+/// The services block, row by row: a heading per service with something to offer (or
+/// a dockmaster to ask), a row per offer, the ask button.
+fn service_rows(services: &[hooks::ServiceEntry]) -> Vec<ServiceRow> {
+    let mut rows = Vec::new();
+    for (i, s) in services.iter().enumerate() {
+        if s.offers.is_empty() && !s.can_ask {
+            continue;
+        }
+        rows.push(ServiceRow::Head(i));
+        rows.extend((0..s.offers.len()).map(|o| ServiceRow::Offer(i, o)));
+        if s.can_ask {
+            rows.push(ServiceRow::Ask(i));
+        }
+    }
+    rows
+}
+
+/// The height of `rows[first..first + n]`, with its service's heading repeated on top
+/// when the window starts inside a service.
+fn window_height(rows: &[ServiceRow], first: usize, n: usize) -> f32 {
+    let head = match rows.get(first) {
+        Some(ServiceRow::Head(_)) | None => 0.0,
+        Some(_) => SERVICE_HEAD,
+    };
+    head + rows[first..first + n]
+        .iter()
+        .map(|r| r.height())
+        .sum::<f32>()
+}
+
+/// How many rows from `first` fit in `room` (at least one).
+fn rows_fitting(rows: &[ServiceRow], first: usize, room: f32) -> usize {
+    let mut n = 1;
+    while first + n < rows.len() && window_height(rows, first, n + 1) <= room {
+        n += 1;
+    }
+    n.min(rows.len() - first)
+}
+
+/// The services rows shown: `(first, count)`, starting near `wanted` and filling
+/// `room` (the last page is a full one).
+fn service_window(rows: &[ServiceRow], wanted: usize, room: f32) -> (usize, usize) {
+    if rows.is_empty() {
+        return (0, 0);
+    }
+    let last_page = (0..rows.len())
+        .find(|&f| window_height(rows, f, rows.len() - f) <= room)
+        .unwrap_or(rows.len() - 1);
+    let first = wanted.min(last_page);
+    (first, rows_fitting(rows, first, room))
+}
+
 /// The dock screen: the station's name, its market lines (price per unit, stock, your
-/// hold, buy or sell), any refusal in one calm line, the station's other services, and
-/// Undock. It sits under the hold and fits the canvas height: market rows that don't
-/// fit scroll with the selection.
+/// hold, buy or sell), any refusal in one calm line, the station's services (what the
+/// hullwright and tender keeper sell, with the price and what stands in the way in
+/// plain words; the dockmaster's "What changed?"), and Undock. It sits under the hold,
+/// or beside it when a full hold leaves too little room below, and always fits the
+/// canvas height with Undock on screen: market rows that don't fit scroll with the
+/// selection, and services that don't fit page with Up and Down.
 pub fn dock_panel(
     o: &mut Overlay,
     world: &WorldState,
+    history: &History,
     station: &StationId,
     ui: &UiState,
-    notice: Option<&str>,
+    notices: Notices<'_>,
     viewport: G2,
 ) -> Vec<Button> {
     let mut buttons = Vec::new();
     let Some(st) = world.stations.get(station) else {
         return buttons;
     };
+    let notice = notices.trade;
     let lines = dock_lines(world, station);
-    let services = hooks::station_services(world, station);
+    let services = hooks::station_services(world, history, station);
     let w = DOCK_PANEL_WIDTH.min(viewport.x - 36.0);
     let row = 44.0;
     let notice_h = if notice.is_some() { 34.0 } else { 0.0 };
-    let services_h = if services.is_empty() { 0.0 } else { 58.0 };
-    // Title, notice, services and the foot with Undock.
-    let fixed = 74.0 + notice_h + services_h + 70.0;
-    // Under the goal line and the hold, which share the top right.
-    let top = hold_rect(world, viewport)
-        .map_or(90.0, |r| r.y + r.h + 12.0)
-        .max(90.0);
-    let room = viewport.y - top - 18.0;
+    let service_notice_h = if notices.service.is_some() { 30.0 } else { 0.0 };
     let (scroll_h, head_h) = (24.0, 26.0);
-    let fits = if fixed + head_h + lines.len() as f32 * row <= room {
+    let rows = service_rows(&services);
+    let services_full = window_height(&rows, 0, rows.len());
+    let market_full = if lines.is_empty() {
+        30.0
+    } else {
+        head_h + lines.len() as f32 * row
+    };
+    // Title, the notices and the foot with Undock: always shown.
+    let fixed = 74.0 + notice_h + service_notice_h + 70.0;
+    let natural = fixed + market_full + services_full;
+    // Under the goal line and the hold, which share the top right; if it doesn't fit
+    // there (a full hold makes the hold panel tall), beside the hold, under the goal.
+    let goal_bottom = goal_rect(world, viewport).map_or(0.0, |r| r.y + r.h + 12.0);
+    let hold = hold_rect(world, viewport);
+    let under = hold
+        .map_or(90.0, |r| r.y + r.h + 12.0)
+        .max(goal_bottom)
+        .max(90.0);
+    let beside = hold.map(|r| r.x - 12.0 - w).filter(|x| *x >= 18.0);
+    let (top, x0) = match beside {
+        Some(x) if natural > viewport.y - under - 18.0 => (goal_bottom.max(90.0), x),
+        _ => (under, viewport.x - w - 18.0),
+    };
+    // The body between the title and the foot shares what's left: everything if it
+    // fits; otherwise the services get what they need (at least one row and the pager)
+    // and page, and the market scrolls with the selection in the rest.
+    let body = viewport.y - top - 18.0 - fixed;
+    let market_min = if lines.len() > 1 {
+        head_h + row + scroll_h
+    } else {
+        market_full
+    };
+    let (services_first, services_shown, services_h) = if services_full <= body - market_min {
+        (0, rows.len(), services_full)
+    } else {
+        let room = (body - market_min).max(SERVICE_HEAD + OFFER_ROW + PAGER_ROW) - PAGER_ROW;
+        let (first, n) = service_window(&rows, ui.services_first, room);
+        (first, n, window_height(&rows, first, n) + PAGER_ROW)
+    };
+    let market_room = body - services_h;
+    let fits = if market_full <= market_room {
         lines.len()
     } else {
-        ((room - fixed - head_h - scroll_h) / row).floor().max(1.0) as usize
+        ((market_room - head_h - scroll_h) / row).floor().max(1.0) as usize
     };
     let (first, shown) = visible_rows(lines.len(), ui.selected, fits);
     let scrolled = shown < lines.len();
@@ -507,9 +794,12 @@ pub fn dock_panel(
     } else {
         head_h + shown as f32 * row + if scrolled { scroll_h } else { 0.0 }
     };
-    let h = fixed + table_h;
-    let x0 = viewport.x - w - 18.0;
-    let y0 = top.max((viewport.y - h - 18.0).min(140.0));
+    let h = fixed + table_h + services_h;
+    // Never below the canvas: on a screen too small for even the minimum, the panel
+    // rides up over the goal line rather than lose Undock.
+    let y0 = top
+        .max((viewport.y - h - 18.0).min(140.0))
+        .min((viewport.y - h - 18.0).max(18.0));
     o.panels.push(Panel {
         radius: 16.0,
         border_px: 3.5,
@@ -668,40 +958,117 @@ pub fn dock_panel(
         );
         y += notice_h;
     }
-    if !services.is_empty() {
-        y += 6.0;
+    let head = |o: &mut Overlay, s: &hooks::ServiceEntry, y: f32| {
+        let head = match &s.keeper_name {
+            Some(k) => format!("{}  ·  {k}", s.name.to_uppercase()),
+            None => s.name.to_uppercase(),
+        };
         o.texts.push(
-            Text::new("SERVICES", G2::new(col_ware, y), 13.0)
+            Text::new(head, G2::new(col_ware, y + 6.0), 13.0)
                 .weight(600)
                 .color(palette::TERRACOTTA),
         );
-        let mut x = col_ware;
-        for s in &services {
-            let label = match &s.keeper {
-                Some(k) => format!("{} · {k}", s.name),
-                None => s.name.clone(),
-            };
-            let bw = text_width(&label, 15.0) + 26.0;
-            o.panels.push(Panel {
-                fill: if s.open {
-                    palette::SAGE
-                } else {
-                    palette::PARCHMENT.lerp(palette::INK, 0.08)
-                },
-                border: palette::INK.with_alpha(0.5),
-                border_px: 1.5,
-                radius: 8.0,
-                shadow: false,
-                ..Panel::new(Rect::new(x, y + 20.0, bw, 28.0))
-            });
-            o.texts.push(
-                Text::new(label, G2::new(x + 13.0, y + 25.0), 15.0)
-                    .weight(500)
-                    .color(palette::INK.with_alpha(if s.open { 1.0 } else { 0.6 })),
-            );
-            x += bw + 10.0;
+    };
+    let window = &rows[services_first..services_first + services_shown];
+    if let Some(r) = window.first().filter(|r| !matches!(r, ServiceRow::Head(_))) {
+        // The window starts inside a service: say whose it is.
+        head(o, &services[r.service()], y);
+        y += SERVICE_HEAD;
+    }
+    for r in window {
+        match *r {
+            ServiceRow::Head(s) => head(o, &services[s], y),
+            ServiceRow::Offer(s, i) => {
+                let offer = &services[s].offers[i];
+                o.texts.push(
+                    Text::new(
+                        format!("{}  ·  {}", offer.name, offer.price),
+                        G2::new(col_ware, y + 2.0),
+                        17.0,
+                    )
+                    .weight(600),
+                );
+                let detail = offer.blocked.as_deref().unwrap_or(&offer.effect);
+                o.texts.push(
+                    Text::new(detail, G2::new(col_ware, y + 24.0), 14.0)
+                        .weight(500)
+                        .color(if offer.blocked.is_some() {
+                            palette::TERRACOTTA
+                        } else {
+                            palette::INK.with_alpha(0.7)
+                        })
+                        .wrap(w - 48.0 - 140.0),
+                );
+                let (label, action) = match &offer.request {
+                    ServiceRequest::Prestige { to } => ("Trade up", UiAction::Prestige(to.clone())),
+                    ServiceRequest::Build { .. } => {
+                        ("Build", UiAction::Service(offer.request.clone()))
+                    }
+                    ServiceRequest::Fit { .. } if offer.price == "a gift" => {
+                        ("Take it", UiAction::Service(offer.request.clone()))
+                    }
+                    ServiceRequest::Fit { .. } => ("Fit", UiAction::Service(offer.request.clone())),
+                };
+                buttons.push(button(
+                    o,
+                    ui,
+                    Rect::new(x0 + w - 24.0 - 120.0, y + 4.0, 120.0, 34.0),
+                    label,
+                    offer.blocked.is_none(),
+                    action,
+                ));
+            }
+            ServiceRow::Ask(_) => {
+                buttons.push(button(
+                    o,
+                    ui,
+                    Rect::new(col_ware, y + 2.0, 200.0, 32.0),
+                    "Ask what changed",
+                    true,
+                    UiAction::AskWhatChanged,
+                ));
+            }
         }
-        y += services_h;
+        y += r.height();
+    }
+    if services_shown < rows.len() {
+        // The services page: what's shown of how many, and Up / Down.
+        let last = services_first + services_shown;
+        o.texts.push(
+            Text::new(
+                format!("Services {}–{} of {}", services_first + 1, last, rows.len()),
+                G2::new(col_ware, y + 12.0),
+                13.0,
+            )
+            .weight(500)
+            .color(palette::INK.with_alpha(0.6)),
+        );
+        buttons.push(button(
+            o,
+            ui,
+            Rect::new(x0 + w - 24.0 - 168.0, y + 4.0, 80.0, 30.0),
+            "Up",
+            services_first > 0,
+            UiAction::ServicesFrom(services_first.saturating_sub(services_shown)),
+        ));
+        buttons.push(button(
+            o,
+            ui,
+            Rect::new(x0 + w - 24.0 - 80.0, y + 4.0, 80.0, 30.0),
+            "Down",
+            last < rows.len(),
+            UiAction::ServicesFrom(last),
+        ));
+        y += PAGER_ROW;
+    }
+    if let Some(n) = notices.service {
+        o.texts.push(
+            Text::new(n, G2::new(col_ware, y + 4.0), 16.0)
+                .weight(600)
+                .color(palette::TERRACOTTA)
+                .wrap(w - 48.0),
+        );
+        y += service_notice_h;
     }
     let foot_y = y0 + h - 52.0;
     let _ = y;

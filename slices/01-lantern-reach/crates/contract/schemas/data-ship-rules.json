@@ -23,7 +23,8 @@
     "docking": {
       "$ref": "#/$defs/DockingRules",
       "default": {
-        "approach": 0.6000000238418579
+        "approach": 0.6000000238418579,
+        "transfer_reach": 120.0
       }
     },
     "flight": {
@@ -176,6 +177,12 @@
           "type": "number",
           "format": "float",
           "default": 0.6000000238418579
+        },
+        "transfer_reach": {
+          "description": "A coupled hull hands cargo to a tender within this distance in space (both\ndocked at the same station always works).",
+          "type": "number",
+          "format": "float",
+          "default": 120.0
         }
       },
       "additionalProperties": false

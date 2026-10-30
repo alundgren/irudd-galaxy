@@ -317,6 +317,12 @@ pub enum Command {
         ship: ShipId,
         track: Option<DockTrack>,
     },
+    /// Sets or clears (`None`) the station where the player sold part of a ware's
+    /// stack and kept the rest, for `split_sale` facts.
+    SetSplitStack {
+        ware: WareId,
+        station: Option<StationId>,
+    },
 
     // --- Whole records: create, replace, or remove with `value: null` ---
     PutRegion {
@@ -417,6 +423,12 @@ pub enum Command {
         pack: PackId,
         revision: String,
         retired: bool,
+    },
+    /// Switches a whole pack off (`off`, after a rollback) or back on (the game
+    /// master applied a new revision). See `PackState::off`.
+    SetPackOff {
+        pack: PackId,
+        off: bool,
     },
     // --- Progress (W4) ---
     /// Starts, moves or completes (or with `null` resets to dormant) a beat.

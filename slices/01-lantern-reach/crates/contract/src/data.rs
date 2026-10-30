@@ -23,9 +23,10 @@ use crate::progress::{
 };
 use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Service};
 
-/// Core-pack data files that another crate loads itself (galaxy-mind's `mind.toml`).
+/// Core-pack data files that another crate loads itself (galaxy-mind's `mind.toml` and
+/// `lines.toml`).
 /// The world loader and the script host leave them alone.
-pub const CONFIG_FILES: [&str; 1] = ["mind.toml"];
+pub const CONFIG_FILES: [&str; 2] = ["mind.toml", "lines.toml"];
 
 /// Every data file, in load order. All are optional except `start.toml`.
 pub const DATA_FILES: [&str; 15] = [

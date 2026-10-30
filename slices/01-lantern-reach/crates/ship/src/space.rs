@@ -8,13 +8,37 @@ use galaxy_contract::prelude::*;
 
 /// The station whose docking ring contains `pos`, nearest first.
 pub fn ring_at<'w>(world: &'w WorldState, region: &RegionId, pos: Vec2) -> Option<&'w Station> {
+    ring_within(world, region, pos, 1.0)
+}
+
+/// [`ring_at`] with every ring's reach multiplied by `reach` (the `dock_reach`
+/// modifier: Ringwise catches from 25% further out).
+pub fn ring_within<'w>(
+    world: &'w WorldState,
+    region: &RegionId,
+    pos: Vec2,
+    reach: f64,
+) -> Option<&'w Station> {
+    let reach = (reach as f32).max(0.0);
     nearest(
         world
             .stations
             .values()
-            .filter(|s| &s.region == region && s.position.distance(pos) <= s.dock_radius),
+            .filter(|s| &s.region == region && s.position.distance(pos) <= s.dock_radius * reach),
         |s| s.position.distance(pos),
     )
+}
+
+/// The ring and lane mouth in reach of `ship` at `pos`, with its modifiers.
+pub fn ring_for<'w>(world: &'w WorldState, ship: &Ship, pos: Vec2) -> Option<&'w Station> {
+    let m = galaxy_contract::modifiers::for_ship(world, &ship.id);
+    ring_within(world, &ship.region, pos, m.dock_reach)
+}
+
+/// The lane mouth `ship` at `pos` would ride, with its modifiers.
+pub fn mouth_for(world: &WorldState, ship: &Ship, pos: Vec2) -> Option<LaneWay> {
+    let m = galaxy_contract::modifiers::for_ship(world, &ship.id);
+    mouth_within(world, &ship.region, pos, m.mouth_radius)
 }
 
 /// One way through a lane: in at `start` (this side's mouth), out at `end`.
@@ -47,7 +71,19 @@ pub fn lane_way(lane: &Lane, region: &RegionId) -> Option<LaneWay> {
 
 /// The lane mouth `pos` is inside, nearest first.
 pub fn mouth_at(world: &WorldState, region: &RegionId, pos: Vec2) -> Option<LaneWay> {
-    let radius = world.ship_rules.lanes.mouth_radius;
+    mouth_within(world, region, pos, None)
+}
+
+/// [`mouth_at`] with the catch radius widened to `radius` if that's larger (the
+/// `mouth_radius` modifier: Lanerunner).
+pub fn mouth_within(
+    world: &WorldState,
+    region: &RegionId,
+    pos: Vec2,
+    radius: Option<f32>,
+) -> Option<LaneWay> {
+    let base = world.ship_rules.lanes.mouth_radius;
+    let radius = radius.map_or(base, |r| r.max(base));
     nearest(
         world
             .lanes

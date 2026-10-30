@@ -51,7 +51,21 @@ pub fn parse_size(s: &str) -> Result<(u32, u32), String> {
 pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     let mut save = Save::open(&args.save).map_err(|e| (4, e.to_string()))?;
     let state = save.load().map_err(|e| (4, e.to_string()))?;
-    let mut session = Session::new(state);
+    let packs = crate::game::packs_dir(None).ok_or((
+        4,
+        "can't find the packs folder; set GALAXY_PACKS".to_owned(),
+    ))?;
+    let seed = state.world.meta.seed;
+    // The same composition as play: the game master's applied packs run in the game's
+    // script host too (staged ones wait for a real load).
+    let (game, _bridge) = crate::game::Game::open_gm(
+        state,
+        &crate::game::GameOptions::headless(packs, seed),
+        &args.save,
+        galaxy_gm::BridgeOptions::default(),
+    )
+    .map_err(|e| (4, e))?;
+    let mut session = Session::with_game(game);
     let mut ui_state = UiState {
         map_open: args.map,
         ..UiState::default()
@@ -60,6 +74,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     if let Some(script) = &args.keys {
         ticks = crate::script::run(&mut session, &mut ui_state, script).map_err(|e| (4, e))?;
         if args.write {
+            session.finish();
             save.write(session.state())
                 .map_err(|e| (1, e.to_string()))?;
         }
@@ -105,6 +120,15 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "credits": crate::trades::credits(world.player.credits),
         "goal": crate::hooks::goal_line(world),
         "notice": session.trades.notice,
+        "service_notice": session.services.notice,
+        "talk": crate::hooks::talk_lines(world, session.sim().history(), 3)
+            .iter()
+            .map(|l| json!({
+                "speaker": crate::hooks::speaker(world, l),
+                "place": crate::hooks::place(world, l),
+                "text": l.text,
+            }))
+            .collect::<Vec<_>>(),
         "written": args.write && args.keys.is_some(),
     }))
 }

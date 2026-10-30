@@ -88,7 +88,10 @@ return G.script({
 			requires = G.done(ids.B04),
 			done = G.test(function(ctx: G.Ctx): boolean
 				local b04 = ctx.beats:state(ids.B04)
-				return b04 ~= nil and ctx.history:count({ kind = "paused", after = b04.since }) > 0
+				if b04 == nil or b04.since == nil then
+					return false
+				end
+				return ctx.history:count({ kind = "paused", after = b04.since }) > 0
 			end),
 		}),
 	},

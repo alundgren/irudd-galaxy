@@ -253,16 +253,25 @@
     },
     "VerbKind": {
       "description": "Verb names, used in causes and `order_done` events.",
-      "type": "string",
-      "enum": [
-        "fly",
-        "mine",
-        "dock",
-        "undock",
-        "buy",
-        "sell",
-        "wait",
-        "loop"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fly",
+            "mine",
+            "dock",
+            "undock",
+            "buy",
+            "sell",
+            "wait",
+            "loop"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders (the Tandem's Coupling).",
+          "type": "string",
+          "const": "transfer"
+        }
       ]
     }
   }

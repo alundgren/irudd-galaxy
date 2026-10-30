@@ -48,6 +48,19 @@ impl Feel {
             slowdown: rules.turn_slowdown.clamp(0.0, 1.0),
         }
     }
+
+    /// The feel with the ship's speed and turn modifiers applied.
+    pub fn modified(self, m: &galaxy_contract::modifiers::Modifiers) -> Feel {
+        let speed = (m.speed as f32).max(0.0);
+        let turn = (m.turn_rate as f32).max(0.0);
+        Feel {
+            speed: self.speed * speed,
+            accel: self.accel * speed,
+            brake: self.brake * speed,
+            turn: self.turn * turn,
+            slowdown: self.slowdown,
+        }
+    }
 }
 
 /// Where a ship is and how it moves.

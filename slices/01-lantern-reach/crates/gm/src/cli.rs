@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use galaxy_contract::history::HistoryQuery;
 use galaxy_contract::pack::{ReportStatus, ValidationReport};
 use galaxy_contract::prelude::*;
-use galaxy_core::{Save, Sim, SimState};
+use galaxy_core::{Save, SimState};
 use serde_json::{Value, json};
 
 use crate::bridge::{self, Bridge, BridgeOptions};
@@ -16,6 +16,7 @@ use crate::live::{self, CallError, Client, WireError};
 use crate::propose::{self, ProposeOptions};
 use crate::reads::{self, StateQuery};
 use crate::store::GmStore;
+use crate::{Composed, Hook};
 
 /// A failed command: exit code (1 runtime, 2 usage, 4 bad input, 5 rejected), kind,
 /// message, and for a rejected pack the report to print instead.
@@ -253,8 +254,8 @@ pub fn propose(t: &mut Target, dir: &Path, opts: &ProposeOptions, wait: Option<D
             not_running(save)?;
             let store = GmStore::for_save(save);
             let mut gm = store.load().map_err(|e| CliError::new(4, "bad_input", e))?;
-            let world = load(save)?.world;
-            let running = bridge::running(&gm, &store, &world);
+            let sim_state = load(save)?;
+            let running = bridge::running(&gm, &store, &sim_state);
             let mut report = propose::validate(dir, save, &running, opts);
             if !report.accepted() {
                 propose::skip_stage(&mut report);
@@ -289,7 +290,13 @@ pub fn propose(t: &mut Target, dir: &Path, opts: &ProposeOptions, wait: Option<D
                     Some((pack, PathBuf::from(r["dir"].as_str()?)))
                 })
                 .collect();
-            let mut report = propose::validate(dir, &base, &running, opts);
+            // The sandbox children run with the game's own packs folder unless one was
+            // given.
+            let mut opts = opts.clone();
+            if opts.packs.is_none() {
+                opts.packs = fork["packs"].as_str().map(PathBuf::from);
+            }
+            let mut report = propose::validate(dir, &base, &running, &opts);
             if !report.accepted() {
                 propose::skip_stage(&mut report);
                 return Err(CliError::rejected(report_json(&report)));
@@ -388,20 +395,31 @@ fn wait_applied(c: &mut Client, stage: &str, wait: Duration) -> Result<CauseId, 
     }
 }
 
-/// `gm rollback CHANGE`. On a save it queues the rollback, runs one hands-off tick so it
-/// commits, and writes the save.
-pub fn rollback(t: &mut Target, change: &str, build: impl FnOnce(SimState) -> Sim) -> Out {
+/// `gm rollback CHANGE`. On a save it builds the game (`open`, the app's composition,
+/// with the bridge loading into its script host), queues the rollback, runs one
+/// hands-off tick so it commits, and writes the save.
+pub fn rollback<G: Composed>(
+    t: &mut Target,
+    change: &str,
+    open: impl FnOnce(SimState, Hook<'_>) -> Result<G, String>,
+) -> Out {
     match t {
         Target::Save(save) => {
             not_running(save)?;
             let mut file = Save::open(save.as_path())?;
-            let mut sim = build(file.load()?);
-            let mut b = Bridge::open(save, &mut sim, BridgeOptions::default())
+            let mut opened = None;
+            let mut game = open(file.load()?, &mut |host, sim| {
+                opened = Some(Bridge::open(save, sim, host, BridgeOptions::default()));
+            })
+            .map_err(|e| CliError::new(4, "bad_input", e))?;
+            let mut b = opened
+                .unwrap_or_else(|| Err("the game didn't open the game-master bridge".into()))
                 .map_err(|e| CliError::new(4, "bad_input", e))?;
-            let mut out = bridge::rollback_change(&mut sim, b.store(), b.state(), change)?;
-            let report = sim.step(&PlayerInput::default());
+            let mut out = bridge::rollback_change(game.sim_mut(), b.store(), b.state(), change)?;
+            let report = game.step(&PlayerInput::default());
+            let sim = game.sim();
             file.write(sim.state())?;
-            b.after_tick(&sim);
+            b.after_tick(sim);
             out["applies"] = json!("applied: one hands-off tick ran and the save was written");
             out["tick"] = json!(sim.tick());
             out["rejected"] = json!(report.map(|r| r.rejected).unwrap_or_default());

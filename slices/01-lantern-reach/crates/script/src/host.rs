@@ -1,8 +1,9 @@
 //! The script host: loaded packs, the per-tick [`System`], dev hot reload.
 //!
 //! Each tick, for every loaded pack (in pack ID order) whose revision isn't retired
-//! (or being retired by a rollback queued for this tick), and every script (in manifest
-//! order) that isn't quarantined:
+//! (or being retired by a rollback queued for this tick), in a pack a rollback hasn't
+//! switched off ([`pack_off`]), and every script (in manifest order) that isn't
+//! quarantined:
 //!
 //! 1. each event committed last tick with an `on.<event>` handler runs it;
 //! 2. each `G.after` trigger whose activity counters are due runs once;
@@ -62,6 +63,22 @@ pub const QUARANTINED: FactKind = FactKind::from_static("script_quarantined");
 /// Fact kind recorded when an event handler that kept losing to contention is dropped.
 pub const CONTENTION_DROPPED: FactKind = FactKind::from_static("script_contention_dropped");
 const EVENT_CAP: usize = 500;
+
+/// Whether `pack` is switched off (`PackState::off`) on `world` once the `queued`
+/// batches apply (`SimState::kernel.pending`, or `TickCtx::queued`): a rollback of one
+/// of its changes switches it off, and only the game master applying a new revision
+/// switches it back on. Every place that loads or runs a pack checks this first.
+pub fn pack_off(world: &WorldState, queued: &[CommandBatch], pack: &PackId) -> bool {
+    let mut off = world.packs.get(pack).is_some_and(|p| p.off);
+    for c in queued.iter().flat_map(|b| &b.commands) {
+        if let Command::SetPackOff { pack: p, off: o } = c
+            && p == pack
+        {
+            off = *o;
+        }
+    }
+    off
+}
 
 /// Something the host did that a developer (or the overlay) wants to see.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -269,6 +286,12 @@ impl ScriptHost {
             .packs
             .get(pack)
             .map(|l| l.vm.pack.revision.clone())
+    }
+
+    /// Takes a pack out of the host (its installed data stays in the world). Returns
+    /// whether it was loaded.
+    pub fn unload(&self, pack: &PackId) -> bool {
+        self.inner.borrow_mut().packs.remove(pack).is_some()
     }
 
     /// The loaded pack, as read from disk.
@@ -550,11 +573,14 @@ impl System for ScriptSystem {
             let revision = &vm.pack.revision;
             let limits = vm.pack.limits();
             let (limit, retry_limit) = (limits.quarantine_after, limits.contention_retries);
+            // A pack a rollback switched off runs no revision at all, whichever source
+            // loaded it, from the tick its switch-off is queued.
             if retiring.contains(&(pack_id.clone(), revision.clone()))
                 || world
                     .packs
                     .get(pack_id)
                     .is_some_and(|p| p.retired.contains(revision))
+                || pack_off(world, ctx.queued(), pack_id)
             {
                 continue;
             }

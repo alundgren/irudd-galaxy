@@ -19,6 +19,7 @@ pub mod geom;
 pub mod history;
 pub mod ids;
 pub mod input;
+pub mod modifiers;
 pub mod money;
 pub mod pack;
 pub mod progress;

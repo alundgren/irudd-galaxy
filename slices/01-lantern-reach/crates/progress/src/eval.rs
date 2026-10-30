@@ -214,12 +214,7 @@ pub fn player_ship(world: &WorldState) -> Option<&Ship> {
 /// Free hold units on a ship, counting hold modifiers.
 pub fn hold_free(world: &WorldState, ship: Option<&Ship>) -> u64 {
     let Some(ship) = ship else { return 0 };
-    let cap = world
-        .hulls
-        .get(&ship.hull)
-        .map_or(0, |h| u64::from(h.hold_capacity))
-        + u64::from(crate::modifiers::for_ship(world, &ship.id).hold);
-    cap.saturating_sub(ship.hold.total())
+    crate::modifiers::hold_capacity(world, ship).saturating_sub(ship.hold.total())
 }
 
 /// How many times a deed was done. `after` narrows history measures to facts after

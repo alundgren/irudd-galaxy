@@ -82,13 +82,13 @@ pub fn check(world: &WorldState, history: &History, to: &HullId) -> Result<(), R
     if world.ships.contains(&o.berth_as) {
         return Err(Refusal::AlreadyOwned);
     }
-    // The cargo moves across with the pilot: the new hull must hold it.
-    if let Some(h) = world.hulls.get(to)
-        && ship.hold.total() > u64::from(h.hold_capacity)
-    {
+    // The cargo moves across with the pilot: the new hull must hold it, with the
+    // fittings and traits that carry across (its own ranks start over).
+    let room = galaxy_contract::modifiers::hold_capacity_after_prestige(world, to);
+    if world.hulls.contains(to) && ship.hold.total() > room {
         return Err(Refusal::HoldTooFull {
             holds: ship.hold.total(),
-            room: h.hold_capacity,
+            room: u32::try_from(room).unwrap_or(u32::MAX),
         });
     }
     if world.player.credits < o.fee {

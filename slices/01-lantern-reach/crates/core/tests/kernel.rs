@@ -440,6 +440,10 @@ fn undo_records_invert_commands() {
                 away: true,
             }),
         },
+        Command::SetSplitStack {
+            ware: ICE,
+            station: Some(KETTLE),
+        },
         Command::PutStation {
             id: kettle.id.clone(),
             value: Some(Box::new(kettle)),
@@ -494,6 +498,10 @@ fn undo_records_invert_commands() {
             pack: PackId::new("gm.kettle_growth").unwrap(),
             revision: "r1".into(),
             retired: true,
+        },
+        Command::SetPackOff {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            off: true,
         },
         Command::Say {
             line: Box::new(TalkLine {
