@@ -388,14 +388,15 @@ fn name_list(toks: &[Token], mut j: usize) -> (Vec<usize>, usize) {
     (names, j)
 }
 
-/// The token indices of every name a file binds: `local` names, `local function`
-/// names, parameters (with their types skipped) and `for` variables. It errs on the
+/// The token indices of every name a file binds: `local` and `const` names, `local
+/// function` and `const function` names, parameters (with their types skipped) and
+/// `for` variables. It errs on the
 /// side of finding too many, never too few.
 fn bindings(toks: &[Token]) -> Vec<usize> {
     let mut out = Vec::new();
     for (i, t) in toks.iter().enumerate() {
         match t.name() {
-            Some("local") => {
+            Some("local") | Some("const") => {
                 let j = i + 1;
                 if toks.get(j).is_some_and(|t| t.is_name("function")) {
                     if toks.get(j + 1).and_then(Token::name).is_some() {
@@ -756,7 +757,7 @@ pub fn scan(file: &str, src: &str) -> Scan {
             continue;
         }
         if declared.contains(name)
-            || prev.is_some_and(|p| p.name() == Some("local") || p.name() == Some("function"))
+            || prev.is_some_and(|p| matches!(p.name(), Some("local" | "const" | "function")))
         {
             continue;
         }
@@ -1047,6 +1048,15 @@ mod tests {
         let src = "local function f(cb: (string) -> (), s: string)\n\
                    for w in string.gmatch(s, \"%a+\") do end end\n";
         assert!(unordered(src).is_empty());
+    }
+
+    #[test]
+    fn const_shadows_an_iterator_too() {
+        // Luau's `const` binds a local just like `local` does.
+        let src = "const function pairs<K, V>(x) return x end\nfor _, v in pairs(t) do end\n";
+        assert_eq!(unordered(src), vec![2]);
+        let src = "const string = { gmatch = next }\nfor w in string.gmatch(s, p) do end\n";
+        assert_eq!(unordered(src), vec![2]);
     }
 
     #[test]

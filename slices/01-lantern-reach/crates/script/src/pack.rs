@@ -74,16 +74,7 @@ impl Pack {
         let root_ok = segs
             .next()
             .is_some_and(|r| self.script_roots().contains(&r));
-        let Some(stem) = path.strip_suffix(".luau") else {
-            return false;
-        };
-        let names_ok = stem.split('/').all(|seg| {
-            !seg.is_empty()
-                && seg
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
-        });
-        root_ok && names_ok && path.contains('/') && self.files.contains_key(path)
+        root_ok && loadable_name(path) && path.contains('/') && self.files.contains_key(path)
     }
 
     /// The Luau files scripts can load (see [`Pack::loadable`]), sorted.
@@ -274,7 +265,9 @@ fn check_manifest(m: &PackManifest, files: &BTreeMap<String, String>) -> Vec<Dia
                 None,
             ));
         }
-        if !(s.file.starts_with("scripts/") && s.file.ends_with(".luau")) {
+        // The same name rule `require` and the checks use, so a declared script can
+        // never be one the checks skip.
+        if !(s.file.starts_with("scripts/") && loadable_name(&s.file)) {
             d.push(error(
                 "bad_script_file",
                 format!(
@@ -430,4 +423,35 @@ pub fn revision(files: &BTreeMap<String, String>) -> String {
         h.update(&[0]);
     }
     h.finalize().to_hex()[..16].to_owned()
+}
+
+/// A path every check covers and `require` can load: `.luau`, and each segment made
+/// only of `[A-Za-z0-9_-]` (no dots, spaces or accents).
+pub(crate) fn loadable_name(path: &str) -> bool {
+    let Some(stem) = path.strip_suffix(".luau") else {
+        return false;
+    };
+    stem.split('/').all(|seg| {
+        !seg.is_empty()
+            && seg
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    })
+}
+
+#[cfg(test)]
+mod loadable_name_tests {
+    use super::loadable_name;
+
+    #[test]
+    fn script_names_follow_the_require_rule() {
+        assert!(loadable_name("scripts/kettle_growth.luau"));
+        assert!(loadable_name("lib/a-b/c_d.luau"));
+        // Dots, spaces and accents would be skipped by the checks, so they're refused.
+        assert!(!loadable_name("scripts/probe.v2.luau"));
+        assert!(!loadable_name("scripts/my script.luau"));
+        assert!(!loadable_name("scripts/k\u{e4}ttle.luau"));
+        assert!(!loadable_name("scripts/.luau"));
+        assert!(!loadable_name("scripts/a.lua"));
+    }
 }
