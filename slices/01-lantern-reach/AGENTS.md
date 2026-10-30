@@ -239,7 +239,9 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
 - Bounded: each handler call runs in a fresh Luau state (so memory outcomes don't
   depend on earlier calls), native helpers that do O(n) work charge the step budget
   (`crate::meter`), and script text leaving the VM (abort messages, `print`) is cut to
-  1 KiB with a marker.
+  1 KiB with a marker. Known gap: comparing two long strings (`a < b`) is one VM
+  opcode and isn't metered; it is bounded only by the memory limit, which caps string
+  length.
 - Pace by activity only: `G.after { dockings = 3, station = ... }`, `ctx.counters`. There
   is no `os`, timer, `math.random` (use `ctx.rng`) or `loadstring`.
 - `ctx.talk:offer`, `ctx.map:note`, `ctx.chronicle:write` need a person or a place and

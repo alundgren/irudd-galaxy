@@ -7,12 +7,12 @@ PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository roo
 Status: Act 1 is playable in a window. Under it: the shared contract, the headless sim
 kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, control
 tiers, orders, the tender), the living market and map (`crates/economy`) and the
-cel-shaded renderer (`crates/render`), the Luau script host (sandboxed packs, the hook
-API, `galaxy pack check`, hot reload, rollback by cause), and progress: the beat runtime
-with b01 to b03 in the core pack, standing, traits, hull ranks, prestige and station
-services (`crates/progress`). Beats, scripts and dock talk aren't wired into the window
-yet: its goal line is a placeholder that follows Act 1 (ice to Kettle Dock, then iron ore
-at the Wharf).
+cel-shaded renderer (`crates/render`), the Luau script host (`crates/script`: sandboxed
+packs, the hook API, `galaxy pack check`, hot reload, rollback by cause), the fast-model
+layer (`crates/mind`) and progress (`crates/progress`): the beat runtime with b01 to b03
+in the core pack, standing, traits, hull ranks, prestige and station services. Beats,
+scripts and dock talk aren't wired into play yet: the goal line is a placeholder that
+follows Act 1 (ice to Kettle Dock, then iron ore at the Wharf).
 
 ![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
 
@@ -93,11 +93,11 @@ Or build once and call `target/debug/galaxy` directly.
 | `state get --save PATH [--path a/b/c]` | The world state, or a slash-separated part of it. |
 | `history query --save PATH [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since T] [--until T] [--limit N]` | History facts, oldest first. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
-| `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
-| `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR]` | The game in a window (see Play). Prints the save and tick when it closes. |
 | `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade` and `:tradeall` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
+| `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
+| `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
 | `play --beat N`, `beat jump`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,

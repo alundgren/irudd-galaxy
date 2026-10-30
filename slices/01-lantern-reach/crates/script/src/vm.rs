@@ -1032,6 +1032,12 @@ impl PackVm {
         let lua = &self.lua;
         lua.set_named_registry_value("galaxy.modules", lua.create_table()?)?;
         lua.set_named_registry_value("galaxy.loading", lua.create_table()?)?;
+        // Never run a file the checks didn't cover.
+        if !self.pack.loadable(file) {
+            return Err(mlua::Error::runtime(format!(
+                "`{file}` isn't a loadable script"
+            )));
+        }
         let src = self
             .pack
             .files
