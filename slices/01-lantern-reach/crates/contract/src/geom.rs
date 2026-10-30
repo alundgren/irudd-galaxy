@@ -7,6 +7,19 @@ use std::ops::{Add, AddAssign, Mul, Neg, Sub};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Trig for the sim. `f32::sin` and friends call the platform's C maths library, which
+/// gives slightly different results on macOS than on Windows or Linux, so a replay
+/// recorded on one drifts on another. These are the same on every platform.
+pub fn sin(a: f32) -> f32 {
+    libm::sinf(a)
+}
+pub fn cos(a: f32) -> f32 {
+    libm::cosf(a)
+}
+pub fn atan2(y: f32, x: f32) -> f32 {
+    libm::atan2f(y, x)
+}
+
 /// A point or vector on the sim plane.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Vec2 {
@@ -22,7 +35,7 @@ impl Vec2 {
     }
 
     pub fn length(self) -> f32 {
-        self.x.hypot(self.y)
+        libm::hypotf(self.x, self.y)
     }
 
     pub fn distance(self, other: Vec2) -> f32 {

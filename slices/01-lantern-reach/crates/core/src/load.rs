@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use galaxy_contract::data::*;
+use galaxy_contract::geom;
 use galaxy_contract::money::cents_from_credits;
 use galaxy_contract::prelude::*;
 use galaxy_contract::world::WORLD_FORMAT_VERSION;
@@ -411,7 +412,7 @@ fn generate_rocks(world: &mut WorldState, errors: &mut Vec<String>) {
                 id,
                 field: field.id.clone(),
                 rock_type: field.rock_type.clone(),
-                position: field.center + Vec2::new(r * a.cos(), r * a.sin()),
+                position: field.center + Vec2::new(r * geom::cos(a), r * geom::sin(a)),
                 remaining: amount,
                 initial: amount,
                 growth: RockGrowth::default(),
