@@ -336,6 +336,9 @@ seq_id!(
 seq_id!(
     /// A recorded cause, assigned in order by the engine.
     CauseId, prefix = "cause");
+seq_id!(
+    /// A line said on a legibility channel (dock talk, map note, chronicle).
+    TalkId, prefix = "talk");
 
 /// A simulation tick. The sim counts ticks; it never reads a clock.
 #[derive(

@@ -15,6 +15,7 @@ galaxy-contract = { path = "crates/contract" }
 galaxy-core = { path = "crates/core" }
 galaxy-ship = { path = "crates/ship" }
 galaxy-economy = { path = "crates/economy" }
+galaxy-script = { path = "crates/script" }
 galaxy-audio = { path = "crates/audio" }
 render = { path = "crates/render" }
 galaxy-mind = { path = "crates/mind" }
@@ -27,6 +28,9 @@ clap = { version = "4.6.7", features = ["derive"] }
 directories = "6.0"
 glam = { version = "0.34", features = ["serde", "bytemuck"] }
 glyphon = "0.12"
+# Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
+mlua = { version = "0.12.2", features = ["luau", "serialize"] }
+notify = "8.2.1"
 # Audio: only the cpal backend for now; the slice ships silent, decoders come with sounds.
 kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
 png = "0.18"
@@ -37,9 +41,11 @@ rusqlite = { version = "0.41.1", features = ["bundled"] }
 schemars = "1.2.3"
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 toml = "1.1.8"
+zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 # HTTP for the fast-model layer: rustls (no OpenSSL), no gzip.
 ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
 wgpu = "30.0"

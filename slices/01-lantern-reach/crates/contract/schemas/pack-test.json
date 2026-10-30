@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TestReport",
+  "description": "The result of `galaxy pack test`: the pack's `tests/*.luau` unit tests.",
+  "type": "object",
+  "properties": {
+    "pack": {
+      "$ref": "#/$defs/PackId"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TestResult"
+      }
+    }
+  },
+  "required": [
+    "pack",
+    "revision",
+    "passed",
+    "tests"
+  ],
+  "$defs": {
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "TestResult": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "file",
+        "name",
+        "passed"
+      ]
+    }
+  }
+}

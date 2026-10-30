@@ -266,7 +266,7 @@ fn mining_shrinks_the_rock_and_fills_the_hold_then_stops_at_capacity() {
     // One `mine` fact for the whole run, with the units in it.
     let q = HistoryQuery::kind(EventKind::Mine.fact_kind());
     assert_eq!(sim.history().count(&q), 1);
-    assert_eq!(sim.history().sum(&q), i64::from(cap));
+    assert_eq!(sim.history().sum(&q), Some(i64::from(cap)));
     assert_eq!(
         sim.world()
             .counters

@@ -7,7 +7,9 @@ PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository roo
 Status: Act 1 is playable in a window. Under it: the shared contract, the headless sim
 kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, control
 tiers, orders, the tender), the living market and map (`crates/economy`) and the
-cel-shaded renderer (`crates/render`). Beats, scripts and dock talk aren't wired in yet:
+cel-shaded renderer (`crates/render`), the Luau script host (`crates/script`: sandboxed
+packs, the hook API, `galaxy pack check`, hot reload, rollback by cause) and the
+fast-model layer (`crates/mind`). Beats, scripts and dock talk aren't wired into play yet:
 the goal line is a placeholder that follows Act 1 (ice to Kettle Dock, then iron ore at
 the Wharf).
 
@@ -62,8 +64,9 @@ use). On Windows, the MSVC Build Tools. Run everything from this folder.
 ```sh
 cargo build                 # everything
 cargo test                  # headless tests (no window, GPU or network)
-cargo xtask check           # fmt + clippy -D warnings + tests: run before every PR
-cargo xtask contract        # regenerate crates/contract/schemas/ after a contract change
+cargo xtask check           # fetch-luau + fmt + clippy -D warnings + tests: run before every PR
+cargo xtask contract        # regenerate crates/contract/schemas/ and api/ after a contract change
+cargo xtask fetch-luau      # pinned luau-analyze (strict typecheck) into tools/luau/
 ```
 
 There is no CI. Checks run locally.
@@ -92,10 +95,23 @@ Or build once and call `target/debug/galaxy` directly.
 | `play [--save PATH] [--new] [--seed N] [--packs DIR]` | The game in a window (see Play). Prints the save and tick when it closes. |
 | `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade` and `:tradeall` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
-| `play --beat N`, `beat jump`, `pack check`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
+| `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
+| `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
+| `play --beat N`, `beat jump`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
-`4` bad input (missing or existing save, invalid data, unknown path or ID).
+`4` bad input (missing or existing save, invalid data, unknown path or ID), `5` rejected
+(`pack check` rejected the pack or `pack test` had failures; the report is on stdout).
+
+```sh
+cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth
+cargo run -p galaxy-app -- pack check packs/gm-examples/bad_script/os_time   # exit 5
+cargo run -p galaxy-app -- pack test packs/gm-examples/kettle_growth
+```
+
+`pack check` needs `luau-analyze` for the strict typecheck (`cargo xtask fetch-luau`,
+or `--analyzer`, or `$GALAXY_LUAU_ANALYZE`); without it, it rejects unless you pass
+`--no-typecheck`.
 
 The CLI finds `packs/` through `--packs`, then `$GALAXY_PACKS`, then the nearest
 `packs/core` above the working directory or the executable. Saves go wherever you
@@ -104,18 +120,22 @@ point `--save`; `saves/` here is git-ignored.
 ## Layout
 
 ```
-crates/contract   shared interfaces (IDs, world schema, events, verbs, commands, history)
+crates/contract   shared interfaces (IDs, world schema, events, verbs, commands, history, hook API)
 crates/contract/schemas   generated JSON Schemas (commit them)
+crates/contract/api       generated galaxy.d.luau and HOOKS.md: the Luau hook API (commit them)
 crates/core       headless sim kernel, data loading, saves, determinism hash
 crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
+crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
 crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
 crates/audio      a silent kira wrapper; a missing audio device never stops the game
 crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
 crates/app        the galaxy binary: play, shot and the JSON CLI
                   session (pause, dock trades), input, view (world to scene), ui, saves
 packs/core        the authored backbone: manifest.toml and data/*.toml
-xtask             cargo xtask check | contract
+packs/gm-examples game-master example packs: kettle_growth, and bad_script/ (must be rejected)
+tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
+xtask             cargo xtask check | contract | fetch-luau
 ```
 
 Live fast-model tests are ignored by default:

@@ -20,7 +20,9 @@ use crate::events::Event;
 use crate::geom::Vec2;
 use crate::history::FactDraft;
 use crate::ids::*;
+use crate::pack::{ScriptHealth, ScriptValue};
 use crate::ship::{RockGrowth, ShipActivity};
+use crate::talk::{Channel, SaidLine, TalkLine};
 use crate::verbs::{Order, OrderQueue, VerbKind};
 use crate::world::*;
 
@@ -355,6 +357,45 @@ pub enum Command {
     RecordFact {
         fact: Box<FactDraft>,
     },
+
+    // --- Scripts and legibility (W5) ---
+    /// Sets (or clears, with `None`) one key in a script's declared store.
+    SetScriptValue {
+        pack: PackId,
+        script: String,
+        store: String,
+        key: String,
+        value: Option<ScriptValue>,
+    },
+    /// Sets how many times an activity trigger (`<script>.<trigger>`) has fired.
+    SetTriggerFired {
+        pack: PackId,
+        trigger: String,
+        fired: u64,
+    },
+    /// Sets a script's abort count and quarantine.
+    SetScriptHealth {
+        pack: PackId,
+        script: String,
+        health: ScriptHealth,
+    },
+    /// Switches a pack revision's handlers off (`retired`) or back on.
+    SetRevisionRetired {
+        pack: PackId,
+        revision: String,
+        retired: bool,
+    },
+    /// Says a line on a legibility channel; it gets the next `talk.N` ID. The line
+    /// must name a person or place and cite a fact. Chronicle lines are history and
+    /// compensate-only.
+    Say {
+        line: Box<TalkLine>,
+    },
+    /// Restores or withdraws (`value: null`) a said line. `Say`'s inverse.
+    PutTalk {
+        id: TalkId,
+        value: Option<Box<SaidLine>>,
+    },
 }
 
 /// Whether a command's undo is exact.
@@ -369,6 +410,9 @@ impl Command {
     pub fn reversibility(&self) -> Reversibility {
         match self {
             Command::Emit { .. } | Command::RecordFact { .. } => Reversibility::CompensateOnly,
+            Command::Say { line } if line.channel == Channel::Chronicle => {
+                Reversibility::CompensateOnly
+            }
             _ => Reversibility::Reversible,
         }
     }

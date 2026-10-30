@@ -144,6 +144,25 @@
       ],
       "pattern": "^cause\\.[0-9]+$"
     },
+    "Channel": {
+      "oneOf": [
+        {
+          "description": "A line a person offers when the player docks where they are.",
+          "type": "string",
+          "const": "dock_talk"
+        },
+        {
+          "description": "A note pinned to a place on the map.",
+          "type": "string",
+          "const": "map_note"
+        },
+        {
+          "description": "An entry in the chronicle of the save. History: a rollback can't remove it.",
+          "type": "string",
+          "const": "chronicle"
+        }
+      ]
+    },
     "Click": {
       "type": "object",
       "properties": {
@@ -1193,6 +1212,166 @@
           "required": [
             "op",
             "fact"
+          ]
+        },
+        {
+          "description": "Sets (or clears, with `None`) one key in a script's declared store.",
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_script_value"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            },
+            "script": {
+              "type": "string"
+            },
+            "store": {
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ScriptValue"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "pack",
+            "script",
+            "store",
+            "key"
+          ]
+        },
+        {
+          "description": "Sets how many times an activity trigger (`<script>.<trigger>`) has fired.",
+          "type": "object",
+          "properties": {
+            "fired": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "op": {
+              "type": "string",
+              "const": "set_trigger_fired"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            },
+            "trigger": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "pack",
+            "trigger",
+            "fired"
+          ]
+        },
+        {
+          "description": "Sets a script's abort count and quarantine.",
+          "type": "object",
+          "properties": {
+            "health": {
+              "$ref": "#/$defs/ScriptHealth"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_script_health"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            },
+            "script": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "pack",
+            "script",
+            "health"
+          ]
+        },
+        {
+          "description": "Switches a pack revision's handlers off (`retired`) or back on.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_revision_retired"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            },
+            "retired": {
+              "type": "boolean"
+            },
+            "revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "pack",
+            "revision",
+            "retired"
+          ]
+        },
+        {
+          "description": "Says a line on a legibility channel; it gets the next `talk.N` ID. The line\nmust name a person or place and cite a fact. Chronicle lines are history and\ncompensate-only.",
+          "type": "object",
+          "properties": {
+            "line": {
+              "$ref": "#/$defs/TalkLine"
+            },
+            "op": {
+              "type": "string",
+              "const": "say"
+            }
+          },
+          "required": [
+            "op",
+            "line"
+          ]
+        },
+        {
+          "description": "Restores or withdraws (`value: null`) a said line. `Say`'s inverse.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/TalkId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_talk"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/SaidLine"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
           ]
         }
       ]
@@ -2716,6 +2895,15 @@
         }
       ]
     },
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
     "PartId": {
       "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
       "type": "string",
@@ -3113,6 +3301,77 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "SaidLine": {
+      "description": "A line as the world keeps it.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/TalkId"
+        },
+        "line": {
+          "$ref": "#/$defs/TalkLine"
+        },
+        "tick": {
+          "description": "When it was said.",
+          "$ref": "#/$defs/Tick"
+        }
+      },
+      "required": [
+        "id",
+        "tick",
+        "line"
+      ]
+    },
+    "ScriptHealth": {
+      "description": "How a script's current revision has behaved.",
+      "type": "object",
+      "properties": {
+        "aborts": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "quarantined_before": {
+          "description": "Earlier revisions of this script that were quarantined. Loading one of them\nagain doesn't give it a clean start: it stays quarantined.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "revision": {
+          "description": "The revision these counts are for; a new revision starts clean.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "aborts",
+        "quarantined"
+      ]
+    },
+    "ScriptValue": {
+      "description": "A value in a script store.",
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
     "Service": {
       "description": "What a station offers when docked.",
       "type": "string",
@@ -3401,6 +3660,67 @@
           ]
         }
       }
+    },
+    "TalkId": {
+      "type": "string",
+      "examples": [
+        "talk.42"
+      ],
+      "pattern": "^talk\\.[0-9]+$"
+    },
+    "TalkLine": {
+      "description": "One line of text in the world.",
+      "type": "object",
+      "properties": {
+        "about": {
+          "description": "Changes this line is about, e.g. the causes a rollback undid.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseId"
+          }
+        },
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "cites": {
+          "description": "The facts this line is about. Never empty.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          },
+          "minItems": 1
+        },
+        "place": {
+          "description": "Where it is said, or what place it is about.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speaker": {
+          "description": "Who says it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "text",
+        "cites"
+      ]
     },
     "Tick": {
       "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",

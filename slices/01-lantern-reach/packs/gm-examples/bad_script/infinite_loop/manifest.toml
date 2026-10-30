@@ -1,0 +1,11 @@
+# BAD on purpose: the handler writes, then never returns. The step budget cuts it
+# off; its write is discarded. `galaxy pack check` rejects it at the smoke step.
+id = "gm.bad_infinite_loop"
+name = "Bad: infinite loop"
+version = "0.1.0"
+uses = ["events.dock", "stations.write"]
+
+[[script]]
+id = "spin"
+file = "scripts/spin.luau"
+handlers = ["on.dock"]
