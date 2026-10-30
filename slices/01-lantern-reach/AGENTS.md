@@ -271,7 +271,9 @@ prints a `ValidationReport` with codes and file:line locations. Dev hot reload
 last good revision if they fail. `galaxy pack test DIR` runs `tests/*.luau`.
 
 **Rollback**: `galaxy_script::rollback(sim, causes, line)` inverts the causes' writes,
-retires their pack revisions and has the pack's `[rollback]` speaker say so, citing
+retires their pack revisions, switches their packs off (`PackState::off`: no revision
+of the pack runs again in the save, from any source, until the game master applies a new
+one, whose apply batch switches it back on) and has the pack's `[rollback]` speaker say so, citing
 the change's facts, in dock talk and the chronicle. The retirement is its own batch and
 the host stops a revision as soon as it's queued (`TickCtx::queued`), so a rolled-back
 revision runs nothing in the tick its change is undone; the lines are checked against

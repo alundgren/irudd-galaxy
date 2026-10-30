@@ -32,6 +32,10 @@ pub struct ProposeOptions {
     pub analyzer: Option<PathBuf>,
     /// Reject when the analyzer is missing (otherwise skip the typecheck with a warning).
     pub require_typecheck: bool,
+    /// The packs folder (`core/`, `gm-examples/`) the sandbox children run with, passed
+    /// as `--packs`. Without one they look for it themselves, which fails for a packs
+    /// folder outside the default places.
+    pub packs: Option<PathBuf>,
     pub rules: SandboxRules,
 }
 
@@ -120,7 +124,14 @@ pub fn validate(
         settle(&mut report);
         return report;
     }
-    match sandbox::sandbox(&opts.exe, base, running, (&report.pack, dir), &opts.rules) {
+    match sandbox::sandbox(
+        &opts.exe,
+        base,
+        running,
+        (&report.pack, dir),
+        &opts.rules,
+        opts.packs.as_deref(),
+    ) {
         Ok(pair) => {
             let (s, l) = sandbox::compare(&pair, &report.pack, &opts.rules);
             report.steps.push(s);

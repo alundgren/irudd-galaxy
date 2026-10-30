@@ -17,7 +17,9 @@
 //!   `gm-examples` (every folder under `packs/gm-examples` but `bad_*`) is installed on
 //!   new games ([`new_state`] sets [`GM_FLAG`]) and loads on saves that have it, unless
 //!   [`GameOptions::gm`] is off (`--no-gm`, or `GALAXY_NO_GM=1`). A gm pack that fails
-//!   its checks is logged and skipped; the journey never needs it.
+//!   its checks is logged and skipped; the journey never needs it. So is one a rollback
+//!   switched off in this save (`PackState::off`): it stays off until the game master
+//!   applies a new revision of it.
 //! - **The mind.** [`MindMode::Live`] (play) runs `OpenRouterMind` on a [`Worker`]
 //!   thread when `OPENROUTER_API_KEY` is set, and otherwise no model: people say their
 //!   most specific authored line, and the log says so once. [`MindMode::Fake`] (`sim
@@ -210,6 +212,21 @@ impl Game {
         reports.push(report);
         if opts.gm && sim.world().player.flags.contains(&GM_FLAG) {
             for dir in gm_packs(&opts.packs) {
+                // A pack a rollback switched off stays off in this save, the bundled
+                // copy included, until the game master applies a new revision.
+                if let Ok(pack) = galaxy_script::read_pack(&dir)
+                    && galaxy_script::host::pack_off(
+                        sim.world(),
+                        &sim.state().kernel.pending,
+                        &pack.manifest.id,
+                    )
+                {
+                    notes.push(format!(
+                        "{} was rolled back in this save and stays off",
+                        pack.manifest.id
+                    ));
+                    continue;
+                }
                 let report = scripts.load(&dir, sim.world(), sim.history());
                 if !report.accepted() {
                     let why = report

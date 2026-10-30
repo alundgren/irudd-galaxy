@@ -205,6 +205,23 @@ fn propose_on_a_save_then_roll_back() {
             .iter()
             .any(|c| c["cause"] == change.as_str() && c["rolled_back"] == true)
     );
+
+    // The pack is off now, but a new revision proposed for it runs in the sandbox, as
+    // it will once applied.
+    let next = kettle_revision(dir.path(), "after_rollback");
+    let (code, report) = galaxy(&[
+        "gm",
+        "propose",
+        next.to_str().unwrap(),
+        "--save",
+        s,
+        "--no-typecheck",
+    ]);
+    assert_eq!(code, 0, "{report}");
+    assert!(
+        codes(step(&report, "legibility")).contains(&"lines_fired".to_owned()),
+        "{report}"
+    );
 }
 
 #[test]
@@ -215,7 +232,9 @@ fn the_sandbox_runs_in_child_processes_on_copies() {
     let spin = example("bad_sandbox/late_spin");
     let id = PackId::new("gm.bad_late_spin").unwrap();
     let rules = galaxy_gm::SandboxRules::default();
-    let pair = galaxy_gm::sandbox::sandbox(&exe(), &base, &[], (&id, &spin), &rules).unwrap();
+    let pair =
+        galaxy_gm::sandbox::sandbox(&exe(), &base, &[], (&id, &spin), &rules, Some(&packs()))
+            .unwrap();
     let me = std::process::id();
     assert_eq!(pair.parent_pid, me);
     assert_ne!(pair.with.pid, me, "the runaway ran in another process");
@@ -363,6 +382,176 @@ fn gm_packs_run_in_the_games_one_script_host() {
     let bridge = bridge.unwrap();
     assert_eq!(game.scripts().revision(&kettle), Some(new.revision.clone()));
     assert_eq!(bridge.host().revision(&kettle), Some(new.revision));
+}
+
+const KETTLE: StationId = StationId::from_static("station.kettle_dock");
+
+/// A game-master revision of `kettle_growth`: the example with `tag` added to its
+/// manifest, so only the revision differs.
+fn kettle_revision(dir: &Path, tag: &str) -> PathBuf {
+    let src = dir.join(format!("kettle_{tag}"));
+    let pack = galaxy_script::read_pack(&example("kettle_growth")).unwrap();
+    for (f, text) in &pack.files {
+        let p = src.join(f);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        let text = if f == "manifest.toml" {
+            format!("{text}\n# the game master's revision {tag}\n")
+        } else {
+            text.clone()
+        };
+        std::fs::write(p, text).unwrap();
+    }
+    src
+}
+
+/// Stages and applies the pack in `src` at this calm moment; returns its revision.
+fn apply_pack(src: &Path, game: &mut Game, bridge: &mut Bridge, save: &mut Save) -> String {
+    let pack = galaxy_script::read_pack(src).unwrap();
+    let rel = bridge.store().import(&pack).unwrap();
+    let report =
+        galaxy_script::ScriptHost::new(None).load(src, game.sim().world(), game.sim().history());
+    assert!(report.accepted(), "{report:?}");
+    bridge.stage(&rel, report, "test", true).unwrap();
+    let applied = bridge.apply_staged(game.sim_mut(), save);
+    assert_eq!(applied[0]["what"], "applied", "{applied:?}");
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    bridge.after_tick(game.sim());
+    pack.revision
+}
+
+/// Committed player sales at Kettle Dock, then ticks for the scripts to react.
+fn sell_at_kettle(game: &mut Game, sales: &[(&str, u32)]) {
+    for (ware, quantity) in sales {
+        game.sim_mut().submit(
+            CommandBatch::new(Cause::verb(Actor::Player, VerbKind::Sell, "sale")).with(
+                galaxy_contract::command::Command::Emit {
+                    event: Event::Sell {
+                        ship: ShipId::from_static("ship.player"),
+                        station: KETTLE,
+                        ware: WareId::new(ware).unwrap(),
+                        quantity: *quantity,
+                        unit_price: 10,
+                    },
+                },
+            ),
+        );
+    }
+    for _ in 0..3 {
+        game.step(&PlayerInput::default());
+    }
+}
+
+fn kettle_stage(game: &Game) -> u32 {
+    game.sim()
+        .world()
+        .stations
+        .get(&KETTLE)
+        .unwrap()
+        .build
+        .stage
+}
+
+/// Re-check of PR #25: rolling back a game-master revision of a pack switches the
+/// pack off in the save, so reloading doesn't bring back gm-examples' copy (or any
+/// other revision) to rebuild what was undone. Only a new revision, applied, switches
+/// it back on.
+fn a_rolled_back_pack_stays_off_across_reloads(gm_examples: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("off.sqlite");
+    let mut args = vec!["new", "--save", path.to_str().unwrap()];
+    if !gm_examples {
+        args.push("--no-gm");
+    }
+    let (code, out) = galaxy(&args);
+    assert_eq!(code, 0, "{out}");
+    let kettle = PackId::from_static("gm.kettle_growth");
+
+    let mut save = Save::open(&path).unwrap();
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
+    assert_eq!(
+        game.scripts().revision(&kettle).is_some(),
+        gm_examples,
+        "gm-examples runs it only when installed"
+    );
+    let before = kettle_stage(&game);
+    let first = apply_pack(
+        &kettle_revision(dir.path(), "1"),
+        &mut game,
+        &mut bridge,
+        &mut save,
+    );
+    assert!(bridge.state().applied[0].change.is_some());
+    // 60 ice and 20 plate: the game master's revision builds stage 2.
+    sell_at_kettle(&mut game, &[("ware.ice", 60), ("ware.refined_plate", 20)]);
+    assert_eq!(kettle_stage(&game), 2);
+
+    // Roll it back: Kettle is back where it was and the pack is off.
+    galaxy_gm::bridge::rollback_change(game.sim_mut(), bridge.store(), bridge.state(), "stage.1")
+        .unwrap();
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    assert_eq!(kettle_stage(&game), before);
+    assert!(game.sim().world().packs.get(&kettle).unwrap().off);
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(
+        kettle_stage(&game),
+        before,
+        "nothing rebuilds it in this session"
+    );
+    save.write(game.sim().state()).unwrap();
+    drop((game, bridge));
+
+    // Reload: no revision of the pack runs, gm-examples' copy included, and another
+    // sale doesn't rebuild the stage from the retained history.
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let bridge = bridge.unwrap();
+    assert_eq!(game.scripts().revision(&kettle), None);
+    assert_eq!(
+        bridge.status(game.sim())["applied"][0]["state"],
+        "rolled_back"
+    );
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(
+        kettle_stage(&game),
+        before,
+        "the rolled-back change isn't rebuilt"
+    );
+    assert!(game.sim().world().packs.get(&kettle).unwrap().off);
+    save.write(game.sim().state()).unwrap();
+    drop((game, bridge));
+    // And again: the switch is saved, not remembered by the bridge.
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
+    assert_eq!(game.scripts().revision(&kettle), None);
+    sell_at_kettle(&mut game, &[("ware.ice", 5)]);
+    assert_eq!(kettle_stage(&game), before);
+
+    // A new revision, proposed and applied, switches the pack back on.
+    let second = apply_pack(
+        &kettle_revision(dir.path(), "2"),
+        &mut game,
+        &mut bridge,
+        &mut save,
+    );
+    assert_ne!(first, second);
+    assert!(game.sim().world().packs.get(&kettle).is_none_or(|p| !p.off));
+    assert_eq!(game.scripts().revision(&kettle), Some(second));
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(kettle_stage(&game), 2, "the new revision runs");
+}
+
+#[test]
+fn a_rolled_back_pack_stays_off_with_gm_examples() {
+    a_rolled_back_pack_stays_off_across_reloads(true);
+}
+
+#[test]
+fn a_rolled_back_pack_stays_off_without_gm_examples() {
+    a_rolled_back_pack_stays_off_across_reloads(false);
 }
 
 #[test]

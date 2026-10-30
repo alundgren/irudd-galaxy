@@ -35,6 +35,8 @@ use crate::{Composed, Hook};
 
 /// The observer's system name.
 pub const OBSERVER: &str = "gm_sandbox_observer";
+/// The system the child's own batches are caused by.
+pub const SYSTEM_NAME: &str = "gm_sandbox";
 
 /// How much activity a sandbox run covers, and the limits it judges by.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -178,6 +180,7 @@ fn tally_batch(batch: &CommandBatch) -> Option<(PackId, PackTally)> {
             | Command::SetTriggerFired { .. }
             | Command::SetScriptHealth { .. }
             | Command::SetRevisionRetired { .. }
+            | Command::SetPackOff { .. }
             | Command::ExpectDocked { .. }
             | Command::PutTalk { .. } => {}
             _ => t.writes += 1,
@@ -255,6 +258,25 @@ pub fn run_child<G: Composed>(
         }
     })?;
     let host = game.scripts().clone();
+    // The parent passes only packs that run (or the candidate), so each one is on here
+    // as it would be once applied: a candidate for a pack a rollback switched off is
+    // the new revision that switches it back on.
+    let mut on = CommandBatch::new(Cause::system(SYSTEM_NAME, "the sandbox's packs run"));
+    for pack in &packs {
+        if galaxy_script::host::pack_off(
+            game.sim().world(),
+            &game.sim().state().kernel.pending,
+            pack,
+        ) {
+            on.push(Command::SetPackOff {
+                pack: pack.clone(),
+                off: false,
+            });
+        }
+    }
+    if !on.commands.is_empty() {
+        game.sim_mut().submit(on);
+    }
     // The packs' install batches are queued now; they aren't the packs' activity.
     let seen = Rc::new(RefCell::new(Seen {
         pending: Vec::new(),
@@ -375,13 +397,15 @@ pub struct SandboxPair {
 
 /// Runs `galaxy sim sandbox` on two forks of `base`: one with `running` plus the
 /// candidate (replacing a running revision of the same pack), one with `running`
-/// only. Both children run at once.
+/// only. Both children run at once, over the packs folder `packs_root` (`--packs`; without
+/// one each child looks for it the way every command does).
 pub fn sandbox(
     exe: &Path,
     base: &Path,
     running: &[(PackId, PathBuf)],
     candidate: (&PackId, &Path),
     rules: &SandboxRules,
+    packs_root: Option<&Path>,
 ) -> Result<SandboxPair, String> {
     let tmp = tempfile::Builder::new()
         .prefix("galaxy-sandbox-")
@@ -406,6 +430,9 @@ pub fn sandbox(
             .arg(save)
             .args(["--dockings", &rules.dockings.to_string()])
             .args(["--ticks-per-docking", &rules.ticks_per_docking.to_string()]);
+        if let Some(root) = packs_root {
+            cmd.arg("--packs").arg(root);
+        }
         for p in packs {
             cmd.arg("--pack").arg(p);
         }

@@ -115,9 +115,9 @@ Or build once and call `target/debug/galaxy` directly.
 | `history query (--save PATH \| --live) [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since fact.N\|T] [--until T] [--limit N]` | History facts, oldest first. `--since fact.N`: after that fact; a number: from that tick. |
 | `watch --live [SAVE] [--since fact.N] [--count N]` | Streams the running game's facts, talk lines, game-master and calm-moment events, one JSON object per line. |
 | `gm digest (--save PATH \| --live) [--since fact.N]` | What changed since a fact, grouped by place and person, citing fact IDs. |
-| `gm propose DIR (--save PATH \| --live) [--wait] [--dockings N] [--no-typecheck]` | Full validation (fast checks, a sandbox run with and without the pack in child processes, legibility), then stage: live, it applies at the next calm moment (docked or paused); on a save, at the next load. Prints the report; exit 5 if rejected. |
+| `gm propose DIR (--save PATH \| --live) [--wait] [--dockings N] [--no-typecheck] [--packs DIR]` | Full validation (fast checks, a sandbox run with and without the pack in child processes, legibility), then stage: live, it applies at the next calm moment (docked or paused); on a save, at the next load. The sandbox children get the packs folder: `--packs`, else the running game's own (live), else the default lookup. Prints the report; exit 5 if rejected. |
 | `gm status (--save PATH \| --live)` | Applied, staged and quarantined packs, with change IDs. |
-| `gm rollback CHANGE (--save PATH \| --live)` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, and its speaker says why. |
+| `gm rollback CHANGE (--save PATH \| --live) [--packs DIR]` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, switches its pack off in the save (no revision of it runs again, gm-examples' copy included, until a new one is applied), and its speaker says why. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
 | `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |

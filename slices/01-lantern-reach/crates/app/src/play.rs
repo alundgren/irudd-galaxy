@@ -163,6 +163,9 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let bridge_opts = galaxy_gm::BridgeOptions {
         exe: std::env::current_exe().ok(),
         analyzer: galaxy_script::analyzer::find(None),
+        // Absolute: `gm propose --live` runs its sandbox children with it, from
+        // wherever it was started.
+        packs: std::path::absolute(&opts.packs).ok(),
         ..galaxy_gm::BridgeOptions::default()
     };
     let (mut game, bridge) =

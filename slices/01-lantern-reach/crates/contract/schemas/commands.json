@@ -1735,6 +1735,27 @@
           ]
         },
         {
+          "description": "Switches a whole pack off (`off`, after a rollback) or back on (the game\nmaster applied a new revision). See `PackState::off`.",
+          "type": "object",
+          "properties": {
+            "off": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_pack_off"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            }
+          },
+          "required": [
+            "op",
+            "pack",
+            "off"
+          ]
+        },
+        {
           "description": "Starts, moves or completes (or with `null` resets to dormant) a beat.",
           "type": "object",
           "properties": {

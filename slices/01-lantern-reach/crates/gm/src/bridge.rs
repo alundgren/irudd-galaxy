@@ -96,6 +96,9 @@ pub struct BridgeOptions {
     /// off.
     pub exe: Option<PathBuf>,
     pub analyzer: Option<PathBuf>,
+    /// The packs folder the game loaded. Inbox sandbox children run with it, and
+    /// `gm.fork` reports it so `gm propose --live` runs its children with it too.
+    pub packs: Option<PathBuf>,
     pub rules: SandboxRules,
 }
 
@@ -201,6 +204,11 @@ fn retired(world: &WorldState, pack: &PackId, revision: &str) -> bool {
         .is_some_and(|p| p.retired.contains(revision))
 }
 
+/// Whether a rollback switched `pack` off on `state` (queued batches included).
+fn off(state: &SimState, pack: &PackId) -> bool {
+    galaxy_script::host::pack_off(&state.world, &state.kernel.pending, pack)
+}
+
 impl Bridge {
     /// Opens the bridge for `save` over `sim`: loads the packs that run on it into
     /// `host`, the game's script host. Call it before the game attaches the host to the
@@ -218,7 +226,11 @@ impl Bridge {
         let (dirty, mut notes) = reconcile(&mut state, sim);
         let host = host.clone();
         for a in state.current() {
-            if retired(sim.world(), &a.pack, &a.revision) {
+            // Rolled back: no revision of the pack runs, so the game's own copy (from
+            // gm-examples) goes too. A save from before `PackState::off` has only the
+            // retired revision to say so.
+            if off(sim.state(), &a.pack) || retired(sim.world(), &a.pack, &a.revision) {
+                host.unload(&a.pack);
                 continue;
             }
             let report = host.load(&store.abs(&a.dir), sim.world(), sim.history());
@@ -468,6 +480,15 @@ impl Bridge {
                 batch.commands.extend(b.commands);
             }
         }
+        // A pack a rollback switched off runs again only from this: the game master
+        // applying a new revision of it. Rolling this revision back switches it off
+        // again.
+        if off(sim.state(), &s.pack) {
+            batch.push(Command::SetPackOff {
+                pack: s.pack.clone(),
+                off: false,
+            });
+        }
         batch.push(Command::RecordFact {
             fact: Box::new(FactDraft {
                 kind: APPLIED,
@@ -636,8 +657,9 @@ impl Bridge {
                     Err(WireError::input(format!("{} already exists", to.display())))
                 } else {
                     let state = sim.state().clone();
-                    let running = self.running_dirs(sim.world());
+                    let running = self.running_dirs(sim.state());
                     let to = to.clone();
+                    let packs = self.opts.packs.clone();
                     let _ = std::thread::Builder::new()
                         .name("gm-fork".into())
                         .spawn(move || {
@@ -648,6 +670,7 @@ impl Bridge {
                                         "tick": state.world.meta.tick,
                                         "hash": galaxy_core::state_hash(&state),
                                         "running": running.iter().map(|(p, d)| json!({ "pack": p, "dir": d })).collect::<Vec<_>>(),
+                                        "packs": packs,
                                     })
                                 })
                                 .map_err(|e| WireError::runtime(e.to_string()));
@@ -731,8 +754,8 @@ impl Bridge {
     }
 
     /// The packs that run now: `(pack, absolute copy folder)`.
-    pub fn running_dirs(&self, world: &WorldState) -> Vec<(PackId, PathBuf)> {
-        running(&self.state, &self.store, world)
+    pub fn running_dirs(&self, sim: &SimState) -> Vec<(PackId, PathBuf)> {
+        running(&self.state, &self.store, sim)
     }
 
     /// `gm status`.
@@ -788,11 +811,12 @@ impl Bridge {
                 .push(format!("{}: {e}", claimed.join(READY).display()));
         }
         let state = sim.state().clone();
-        let running = self.running_dirs(sim.world());
+        let running = self.running_dirs(sim.state());
         let opts = ProposeOptions {
             exe,
             analyzer: self.opts.analyzer.clone(),
             require_typecheck: self.opts.analyzer.is_some(),
+            packs: self.opts.packs.clone(),
             rules: self.opts.rules.clone(),
         };
         let (tx, rx) = mpsc::channel();
@@ -1093,12 +1117,12 @@ fn short(revision: &str) -> &str {
 }
 
 /// The packs that run on a world: the newest applied revision of each pack, unless it
-/// was rolled back.
-pub fn running(state: &GmState, store: &GmStore, world: &WorldState) -> Vec<(PackId, PathBuf)> {
+/// was rolled back (or the pack is switched off).
+pub fn running(state: &GmState, store: &GmStore, sim: &SimState) -> Vec<(PackId, PathBuf)> {
     state
         .current()
         .into_iter()
-        .filter(|a| !retired(world, &a.pack, &a.revision))
+        .filter(|a| !retired(&sim.world, &a.pack, &a.revision) && !off(sim, &a.pack))
         .map(|a| (a.pack.clone(), store.abs(&a.dir)))
         .collect()
 }
@@ -1132,6 +1156,8 @@ pub fn status_value(
                 "superseded"
             } else if a.change.is_none() {
                 "applying"
+            } else if world.packs.get(&a.pack).is_some_and(|p| p.off) {
+                "off"
             } else if host.is_some_and(|h| h.revision(&a.pack).as_deref() != Some(&a.revision)) {
                 "not_loaded"
             } else {

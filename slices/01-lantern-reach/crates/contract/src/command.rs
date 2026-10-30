@@ -417,6 +417,12 @@ pub enum Command {
         revision: String,
         retired: bool,
     },
+    /// Switches a whole pack off (`off`, after a rollback) or back on (the game
+    /// master applied a new revision). See `PackState::off`.
+    SetPackOff {
+        pack: PackId,
+        off: bool,
+    },
     // --- Progress (W4) ---
     /// Starts, moves or completes (or with `null` resets to dormant) a beat.
     PutBeat {

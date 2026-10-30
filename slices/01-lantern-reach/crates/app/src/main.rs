@@ -344,6 +344,10 @@ enum GmCmd {
         /// Skip the strict typecheck with a warning when `luau-analyze` is missing.
         #[arg(long)]
         no_typecheck: bool,
+        /// The packs folder the sandbox runs use. Live, the default is the running
+        /// game's own.
+        #[command(flatten)]
+        packs: PacksArg,
     },
     /// Applied, staged and quarantined packs.
     Status {
@@ -355,6 +359,9 @@ enum GmCmd {
         change: String,
         #[command(flatten)]
         target: TargetArgs,
+        /// The packs folder the save is opened with (save only).
+        #[command(flatten)]
+        packs: PacksArg,
     },
 }
 
@@ -558,12 +565,21 @@ fn main() -> ExitCode {
                     dockings,
                     analyzer,
                     no_typecheck,
+                    packs,
                 },
         } => {
+            // Live, the sandbox runs with the running game's packs folder unless one
+            // is given; on a save, with the one this command would load.
+            let packs = match (&packs.packs, target.live.live.is_some()) {
+                (None, true) => None,
+                _ => galaxy_app::game::packs_dir(packs.packs)
+                    .and_then(|p| std::path::absolute(p).ok()),
+            };
             let opts = galaxy_gm::ProposeOptions {
                 exe: std::env::current_exe().unwrap_or_else(|_| "galaxy".into()),
                 analyzer: galaxy_script::analyzer::find(analyzer.as_deref()),
                 require_typecheck: !no_typecheck,
+                packs,
                 rules: galaxy_gm::SandboxRules {
                     dockings,
                     ..galaxy_gm::SandboxRules::default()
@@ -576,8 +592,13 @@ fn main() -> ExitCode {
             command: GmCmd::Status { target },
         } => with_target(target, gm::status),
         Cmd::Gm {
-            command: GmCmd::Rollback { change, target },
-        } => with_target(target, |t| gm::rollback(t, &change, headless(None))),
+            command:
+                GmCmd::Rollback {
+                    change,
+                    target,
+                    packs,
+                },
+        } => with_target(target, |t| gm::rollback(t, &change, headless(packs.packs))),
         Cmd::Watch { live, since, count } => watch(live, since, count),
         Cmd::Shot {
             live: LiveArg { live: Some(live) },
@@ -782,8 +803,11 @@ fn sim_run(path: &Path, ticks: u64, dry_run: bool, packs: Option<PathBuf>, no_gm
     opts.gm &= !no_gm;
     // The packs the game master applied run in the game's script host, and staged
     // ones apply on this load (a calm moment), unless it's a dry run.
-    let (mut game, bridge) = Game::open_gm(state, &opts, path, galaxy_gm::BridgeOptions::default())
-        .map_err(Fail::input)?;
+    let bridge_opts = galaxy_gm::BridgeOptions {
+        packs: std::path::absolute(&opts.packs).ok(),
+        ..galaxy_gm::BridgeOptions::default()
+    };
+    let (mut game, bridge) = Game::open_gm(state, &opts, path, bridge_opts).map_err(Fail::input)?;
     let mut bridge = bridge.map_err(Fail::input)?;
     let gm_applied = if dry_run {
         Vec::new()

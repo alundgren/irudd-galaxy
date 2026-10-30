@@ -308,6 +308,12 @@ pub struct PackState {
     pub health: BTreeMap<String, ScriptHealth>,
     /// Revisions switched off by a rollback. Their handlers don't run.
     pub retired: BTreeSet<String>,
+    /// Set by a rollback of any change the pack made: no revision of the pack runs,
+    /// from any source (`gm-examples`, an applied revision, the inbox), until the game
+    /// master applies a new revision, whose apply batch clears it. Saved, so a reload
+    /// doesn't bring back an older revision of the pack.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub off: bool,
 }
 
 /// How a script's current revision has behaved.

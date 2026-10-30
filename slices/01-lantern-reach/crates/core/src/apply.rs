@@ -775,6 +775,15 @@ fn apply_with(
                 retired: was,
             })
         }
+        C::SetPackOff { pack, off } => {
+            let p = world.packs.entry(pack.clone()).or_default();
+            let was = std::mem::replace(&mut p.off, *off);
+            prune_pack(world, pack);
+            invert(C::SetPackOff {
+                pack: pack.clone(),
+                off: was,
+            })
+        }
         C::PutBeat { id, value } => {
             let beats = &mut world.progress.beats;
             let old = match value {

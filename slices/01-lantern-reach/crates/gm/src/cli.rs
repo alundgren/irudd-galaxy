@@ -254,8 +254,8 @@ pub fn propose(t: &mut Target, dir: &Path, opts: &ProposeOptions, wait: Option<D
             not_running(save)?;
             let store = GmStore::for_save(save);
             let mut gm = store.load().map_err(|e| CliError::new(4, "bad_input", e))?;
-            let world = load(save)?.world;
-            let running = bridge::running(&gm, &store, &world);
+            let sim_state = load(save)?;
+            let running = bridge::running(&gm, &store, &sim_state);
             let mut report = propose::validate(dir, save, &running, opts);
             if !report.accepted() {
                 propose::skip_stage(&mut report);
@@ -290,7 +290,13 @@ pub fn propose(t: &mut Target, dir: &Path, opts: &ProposeOptions, wait: Option<D
                     Some((pack, PathBuf::from(r["dir"].as_str()?)))
                 })
                 .collect();
-            let mut report = propose::validate(dir, &base, &running, opts);
+            // The sandbox children run with the game's own packs folder unless one was
+            // given.
+            let mut opts = opts.clone();
+            if opts.packs.is_none() {
+                opts.packs = fork["packs"].as_str().map(PathBuf::from);
+            }
+            let mut report = propose::validate(dir, &base, &running, &opts);
             if !report.accepted() {
                 propose::skip_stage(&mut report);
                 return Err(CliError::rejected(report_json(&report)));

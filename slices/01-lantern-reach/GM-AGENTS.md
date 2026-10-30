@@ -237,7 +237,8 @@ galaxy gm status --live
 ```
 
 `state` is `applying` (its batch is queued but not committed yet, e.g. still paused), `running`,
-`superseded` (a newer revision runs), `rolled_back` or `not_loaded`. A script that keeps
+`superseded` (a newer revision runs), `rolled_back`, `off` (another change of the same pack
+was rolled back) or `not_loaded`. A script that keeps
 aborting is quarantined (listed under `quarantined` and `script_trouble`); roll its change
 back and fix it. Then read the digest again and take a screenshot when the player is
 where the change shows.
@@ -259,7 +260,9 @@ galaxy gm rollback cause.8 --live      # or stage.1
 ```
 
 Every write the revision made is inverted, the revision is retired (it never runs again,
-and proposing the same revision again is quarantined: change it first), and the pack's
+and proposing the same revision again is quarantined: change it first), the whole pack is
+switched off in this save (no revision of it runs, not even the bundled `gm-examples`
+copy, after a reload too, until you propose and apply a new revision), and the pack's
 `[rollback]` speaker says the line in dock talk and the chronicle. What the player earned
 stays earned. Facts and chronicle lines can't be unsaid. A hard restore to the snapshot
 is a developer tool (`Save::load_snapshot`), not your normal path.

@@ -489,6 +489,10 @@ fn undo_records_invert_commands() {
             revision: "r1".into(),
             retired: true,
         },
+        Command::SetPackOff {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            off: true,
+        },
         Command::Say {
             line: Box::new(TalkLine {
                 channel: Channel::DockTalk,
