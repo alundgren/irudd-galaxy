@@ -258,6 +258,12 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `next, t`, between `in` and `do` (checked on a tokenizer that follows Luau's lexer;
   `for k, v in t` and `pairs(a) and t` are check errors). Scripts are always strict:
   the first line is `--!strict`, and `!nocheck`/`!nonstrict` anywhere is a check error.
+- Maths gives the same bits on every OS: `math.sin`, `pow`, `log` and the other
+  transcendental functions, `math.lerp`/`map` and the `vector` helpers run on `libm`
+  and plain Rust, never the platform's C library (`vm::install_portable_math`). The `^`
+  operator calls the platform's `pow` inside the VM, so it is a check error
+  (`platform_math`): write `math.pow(x, y)`. `math.noise` is removed. `%` is exact on
+  whole numbers; for fractions use `math.fmod`.
 - Bounded: each handler call, beat callback and `G.test` predicate runs in a fresh
   Luau state (so memory outcomes don't depend on earlier calls; the pack's bytecode is
   compiled once and shared), native helpers that do O(n) work, world views such as

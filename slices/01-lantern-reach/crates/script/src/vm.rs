@@ -28,6 +28,13 @@
 //!   `print` show tables, functions and buffers as their type name; `pairs` and `next`
 //!   refuse tables keyed by them (their order follows heap addresses). `table.foreach`
 //!   is removed. Bare `for k, v in t` loops are rejected by the static scan.
+//! - **Same bits on every OS.** `math` and `vector` functions that call the platform's
+//!   C library (`sin`, `pow`, `log` ...) or whose C++ arithmetic a compiler may fuse
+//!   (`math.lerp`, `vector.dot` ...) are replaced with `libm` and plain-Rust versions,
+//!   and the compiler is told they aren't builtins ([`PORTABLE_BUILTINS`]), so neither a
+//!   fast call nor `--!optimize 2` constant folding reaches the C versions.
+//!   `math.noise` is removed, and the static scan rejects the `^` operator (the VM calls
+//!   the platform's `pow` for it): scripts use `math.pow`.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -197,7 +204,7 @@ impl Code {
         if let Some(b) = self.0.borrow().get(src) {
             return Some(b.clone());
         }
-        let b: Rc<[u8]> = mlua::chunk::Compiler::new().compile(src).ok()?.into();
+        let b: Rc<[u8]> = compiler().compile(src).ok()?.into();
         self.0.borrow_mut().insert(src.to_owned(), b.clone());
         Some(b)
     }
@@ -205,7 +212,7 @@ impl Code {
 
 thread_local! {
     /// The prelude's bytecode, compiled once per thread.
-    static PRELUDE_CODE: Rc<[u8]> = mlua::chunk::Compiler::new()
+    static PRELUDE_CODE: Rc<[u8]> = compiler()
         .compile(PRELUDE)
         .expect("the prelude compiles")
         .into();
@@ -350,6 +357,169 @@ fn stable_tostring(lua: &Lua, raw: &Function, v: Value) -> mlua::Result<LuaStrin
 
 /// Replaces the standard functions that can expose heap addresses or address order.
 /// Runs before the sandbox freezes the libraries.
+/// The `math` and `vector` functions [`install_portable_math`] replaces or removes. The
+/// compiler must not treat them as builtins: a builtin runs Luau's own C++ version
+/// through a fast call whatever the table holds, and `--!optimize 2` folds constant
+/// calls with the host's C library at compile time.
+pub const PORTABLE_BUILTINS: &[&str] = &[
+    "math.sin",
+    "math.cos",
+    "math.tan",
+    "math.asin",
+    "math.acos",
+    "math.atan",
+    "math.atan2",
+    "math.sinh",
+    "math.cosh",
+    "math.tanh",
+    "math.exp",
+    "math.log",
+    "math.log10",
+    "math.pow",
+    "math.map",
+    "math.lerp",
+    "math.noise",
+    "vector.magnitude",
+    "vector.normalize",
+    "vector.cross",
+    "vector.dot",
+    "vector.angle",
+    "vector.lerp",
+];
+
+/// The Luau compiler every pack chunk goes through (see [`PORTABLE_BUILTINS`]).
+fn compiler() -> mlua::chunk::Compiler {
+    mlua::chunk::Compiler::new().set_disabled_builtins(PORTABLE_BUILTINS.iter().copied())
+}
+
+/// Backs `math` and `vector` with maths that gives the same bits on every OS.
+///
+/// Luau's transcendental functions call the platform's C library, which rounds
+/// differently on macOS, Linux and Windows; `math.lerp`, `math.map` and the vector
+/// helpers are C++ arithmetic a compiler may fuse into multiply-adds on one target and
+/// not another. The replacements use `libm` and plain Rust (which never fuses), with
+/// Luau's operation order. Exact operations stay native: `sqrt`, `floor`, `ceil`,
+/// `round`, `abs`, `fmod`, `modf`, `frexp`, `ldexp`, `min`, `max`, `clamp`, `sign`,
+/// `deg`, `rad`. `math.noise` (fusable C++ with a table of its own) is removed.
+fn install_portable_math(lua: &Lua, globals: &Table) -> mlua::Result<()> {
+    let math: Table = globals.get("math")?;
+    let unary: [(&str, fn(f64) -> f64); 11] = [
+        ("sin", libm::sin),
+        ("cos", libm::cos),
+        ("tan", libm::tan),
+        ("asin", libm::asin),
+        ("acos", libm::acos),
+        ("atan", libm::atan),
+        ("sinh", libm::sinh),
+        ("cosh", libm::cosh),
+        ("tanh", libm::tanh),
+        ("exp", libm::exp),
+        ("log10", libm::log10),
+    ];
+    for (name, f) in unary {
+        math.raw_set(name, lua.create_function(move |_, x: f64| Ok(f(x)))?)?;
+    }
+    math.raw_set(
+        "atan2",
+        lua.create_function(|_, (y, x): (f64, f64)| Ok(libm::atan2(y, x)))?,
+    )?;
+    math.raw_set(
+        "pow",
+        lua.create_function(|_, (x, y): (f64, f64)| Ok(libm::pow(x, y)))?,
+    )?;
+    math.raw_set(
+        "log",
+        lua.create_function(|_, (x, base): (f64, Option<f64>)| {
+            Ok(match base {
+                None => libm::log(x),
+                Some(2.0) => libm::log2(x),
+                Some(10.0) => libm::log10(x),
+                Some(b) => libm::log(x) / libm::log(b),
+            })
+        })?,
+    )?;
+    math.raw_set(
+        "map",
+        lua.create_function(
+            |_, (x, in_min, in_max, out_min, out_max): (f64, f64, f64, f64, f64)| {
+                Ok(out_min + (x - in_min) * (out_max - out_min) / (in_max - in_min))
+            },
+        )?,
+    )?;
+    math.raw_set(
+        "lerp",
+        lua.create_function(|_, (a, b, t): (f64, f64, f64)| Ok(lerp(a, b, t)))?,
+    )?;
+    math.raw_set("noise", Value::Nil)?;
+
+    use mlua::Vector;
+    let v3 = |v: Vector| [v.x(), v.y(), v.z()];
+    let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let cross = |a: [f32; 3], b: [f32; 3]| {
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+    };
+    let vector: Table = globals.get("vector")?;
+    vector.raw_set(
+        "magnitude",
+        lua.create_function(move |_, v: Vector| {
+            let v = v3(v);
+            Ok(f64::from(dot(v, v).sqrt()))
+        })?,
+    )?;
+    vector.raw_set(
+        "normalize",
+        lua.create_function(move |_, v: Vector| {
+            let v = v3(v);
+            let inv = 1.0 / dot(v, v).sqrt();
+            Ok(Vector::new(v[0] * inv, v[1] * inv, v[2] * inv))
+        })?,
+    )?;
+    vector.raw_set(
+        "cross",
+        lua.create_function(move |_, (a, b): (Vector, Vector)| {
+            let c = cross(v3(a), v3(b));
+            Ok(Vector::new(c[0], c[1], c[2]))
+        })?,
+    )?;
+    vector.raw_set(
+        "dot",
+        lua.create_function(move |_, (a, b): (Vector, Vector)| {
+            Ok(f64::from(dot(v3(a), v3(b))))
+        })?,
+    )?;
+    vector.raw_set(
+        "angle",
+        lua.create_function(move |_, (a, b, axis): (Vector, Vector, Option<Vector>)| {
+            let (a, b) = (v3(a), v3(b));
+            let c = cross(a, b);
+            let sin_a = f64::from(dot(c, c)).sqrt();
+            let cos_a = f64::from(dot(a, b));
+            let angle = libm::atan2(sin_a, cos_a);
+            Ok(match axis {
+                Some(axis) if dot(c, v3(axis)) < 0.0 => -angle,
+                _ => angle,
+            })
+        })?,
+    )?;
+    vector.raw_set(
+        "lerp",
+        lua.create_function(move |_, (a, b, t): (Vector, Vector, f64)| {
+            let (a, b, t) = (v3(a), v3(b), t as f32);
+            let l = |a: f32, b: f32| if t == 1.0 { b } else { a + (b - a) * t };
+            Ok(Vector::new(l(a[0], b[0]), l(a[1], b[1]), l(a[2], b[2])))
+        })?,
+    )?;
+    Ok(())
+}
+
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    if t == 1.0 { b } else { a + (b - a) * t }
+}
+
 fn install_stable_library(lua: &Lua, globals: &Table) -> mlua::Result<()> {
     let raw_tostring: Function = globals.get("tostring")?;
     let raw = raw_tostring.clone();
@@ -470,6 +640,7 @@ impl PackVm {
             | StdLib::BUFFER
             | StdLib::VECTOR;
         let lua = Lua::new_with(libs, LuaOptions::default())?;
+        lua.set_compiler(compiler());
         let limits = pack.limits();
         lua.set_memory_limit(usize::try_from(limits.memory_bytes).unwrap_or(usize::MAX))?;
 
@@ -494,6 +665,7 @@ impl PackVm {
         let math: Table = globals.get("math")?;
         math.raw_set("random", Value::Nil)?;
         math.raw_set("randomseed", Value::Nil)?;
+        install_portable_math(&lua, &globals)?;
 
         let sink = log.clone();
         let print = lua.create_function(move |lua, args: Variadic<Value>| {

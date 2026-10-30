@@ -101,8 +101,8 @@ impl Placement {
     pub fn matrix(&self) -> Mat4 {
         let a = self.angle.to_radians();
         Mat4::from_translation(Vec3::new(
-            a.cos() * self.distance,
-            a.sin() * self.distance,
+            libm::cosf(a) * self.distance,
+            libm::sinf(a) * self.distance,
             self.z,
         )) * Mat4::from_rotation_z(a + self.turn.to_radians())
             * Mat4::from_scale(Vec3::splat(self.scale))
@@ -1383,7 +1383,7 @@ fn part_reach(kind: &PartKind) -> f32 {
 /// whatever the decal's turn.
 fn decal_reach(kind: &DecalKind) -> f32 {
     const MARGIN: f32 = 1.1;
-    let half_diagonal = |x: f32, y: f32| 0.5 * x.hypot(y);
+    let half_diagonal = |x: f32, y: f32| 0.5 * libm::hypotf(x, y);
     MARGIN
         * match *kind {
             DecalKind::Stripe { length, width, .. } => half_diagonal(length, width),
@@ -1391,7 +1391,7 @@ fn decal_reach(kind: &DecalKind) -> f32 {
             // `|x| <= length/2`, rotated about its own centre, so its farthest corner is
             // at most the centre's distance plus the bar's half-diagonal.
             DecalKind::Chevron { length, width } => {
-                (0.5 * length).hypot(0.22 * width) + half_diagonal(0.7 * width, 0.2 * width)
+                libm::hypotf(0.5 * length, 0.22 * width) + half_diagonal(0.7 * width, 0.2 * width)
             }
             // The backing plate is `1.2 * size` square; the mark sits inside it.
             DecalKind::Sigil { size } => half_diagonal(1.2 * size, 1.2 * size),
@@ -1474,7 +1474,7 @@ pub fn docking_ring_center(recipe: &StationRecipe) -> Option<Vec2> {
         PartKind::DockingRing { .. } => {
             let at = p.at;
             let a = at.angle.to_radians();
-            Some(Vec2::new(a.cos(), a.sin()) * at.distance)
+            Some(Vec2::new(libm::cosf(a), libm::sinf(a)) * at.distance)
         }
         _ => None,
     })

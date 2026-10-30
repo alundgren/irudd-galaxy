@@ -715,6 +715,15 @@ pub fn scan(file: &str, src: &str) -> Scan {
             }
             continue;
         }
+        if t.is("^") || t.is("^=") {
+            out.diagnostics.push(error(
+                "platform_math",
+                "`^` calls the platform's `pow`, which rounds differently per OS; use `math.pow`",
+                at,
+                Some(t.line),
+            ));
+            continue;
+        }
         let Some(name) = t.name() else { continue };
         if after_dot {
             continue;
@@ -780,6 +789,16 @@ pub fn scan(file: &str, src: &str) -> Scan {
             out.diagnostics.push(error(
                 "unseeded_random",
                 format!("`math.{f}` isn't available; use the seeded `ctx.rng`"),
+                at,
+                Some(t.line),
+            ));
+        } else if name == "math"
+            && next.is_some_and(|n| n.is("."))
+            && toks.get(i + 2).and_then(Token::name) == Some("noise")
+        {
+            out.diagnostics.push(error(
+                "platform_math",
+                "`math.noise` isn't available: it rounds differently per OS",
                 at,
                 Some(t.line),
             ));
@@ -955,6 +974,30 @@ mod tests {
                 ("clock_api", Some(1)),
                 ("unseeded_random", Some(2)),
                 ("clock_api", Some(3))
+            ]
+        );
+    }
+
+    #[test]
+    fn platform_maths_is_flagged() {
+        let src = "local a = 2 ^ 0.5
+local b = math.pow(2, 0.5)
+b ^= 2
+local c = math.noise(1)
+local s = \"^\"
+";
+        let s = scan("f.luau", src);
+        let codes: Vec<_> = s
+            .diagnostics
+            .iter()
+            .map(|d| (d.code.as_str(), d.location.as_ref().unwrap().line))
+            .collect();
+        assert_eq!(
+            codes,
+            vec![
+                ("platform_math", Some(1)),
+                ("platform_math", Some(3)),
+                ("platform_math", Some(4))
             ]
         );
     }
