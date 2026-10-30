@@ -42,6 +42,7 @@ pub mod mind;
 pub mod openrouter;
 pub mod packet;
 pub mod probe;
+mod script_talk;
 pub mod situation;
 pub mod traders;
 pub mod validate;

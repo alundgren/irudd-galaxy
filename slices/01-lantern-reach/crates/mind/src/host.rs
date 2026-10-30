@@ -148,6 +148,7 @@ pub struct MindHost {
     /// Spend submitted but not yet seen in history, so a burst can't overspend.
     posted: Vec<(SpendNote, i64)>,
     seen: Option<FactId>,
+    resume: bool,
     pending: BTreeMap<u64, Pending>,
     /// Requests whose moment passed while they were still out. They keep their budget
     /// reservation until the answer arrives, and its cost is then recorded.
@@ -171,14 +172,16 @@ struct Out {
 }
 
 impl MindHost {
-    /// A host that reacts to facts committed after `history`'s last one. Rumor spread
-    /// and authored trader menus are built in; custom menus use [`MindHost::add_provider`].
+    /// A host that reacts to new facts and resumes unanswered requests (script talk
+    /// and trader routes). Rumor spread, script dock menus and authored trader menus are
+    /// built in; add other providers with [`MindHost::add_provider`].
     pub fn new(config: MindConfig, exec: impl Executor + 'static, history: &History) -> Self {
         let mut host = Self {
             config,
             exec: Box::new(exec),
             providers: vec![
                 Box::new(RumorSpread),
+                Box::new(crate::script_talk::ScriptDockTalk),
                 Box::new(crate::menu::TraderMenus {
                     plans: crate::traders::EconomyPlans,
                 }),
@@ -186,6 +189,7 @@ impl MindHost {
             ledger: Ledger::default(),
             posted: Vec::new(),
             seen: history.last_fact_id(),
+            resume: true,
             pending: BTreeMap::new(),
             expired: BTreeMap::new(),
             held: Vec::new(),
@@ -255,6 +259,22 @@ impl MindHost {
                 config: &self.config,
             };
             let mut opened = Vec::new();
+            if self.resume {
+                self.resume = false;
+                for (i, p) in self.providers.iter().enumerate() {
+                    opened.extend(
+                        p.resume(&cx, &facts[..from])
+                            .into_iter()
+                            .filter(|m| {
+                                !sim.state().kernel.pending.iter().any(|b| {
+                                    matches!(b.cause.kind, CauseKind::Mind { .. })
+                                        && b.cause.cites.contains(&m.trigger)
+                                })
+                            })
+                            .map(|m| (i, m)),
+                    );
+                }
+            }
             for f in &facts[from..] {
                 if f.kind.as_str().starts_with("mind.") {
                     continue;

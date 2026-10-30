@@ -1102,7 +1102,7 @@ function M.candidates(ctx: G.Ctx, station: string, after: string?, include_beat:
 			for i = #facts, 1, -1 do
 				local f = facts[i]
 				if M.fits(line, f, ctx) then
-					if not util.said(ctx, line.id, f.id) then
+					if not util.said(ctx, line.id, f.id) and not ctx.talk:cited(f.id) then
 						table.insert(out, { line = line, fact = f, npc = npc })
 					end
 					break
@@ -1114,7 +1114,10 @@ function M.candidates(ctx: G.Ctx, station: string, after: string?, include_beat:
 		if a.line.specific ~= b.line.specific then
 			return a.line.specific > b.line.specific
 		end
-		return util.seq(a.fact.id) > util.seq(b.fact.id)
+		if a.fact.id ~= b.fact.id then
+			return util.seq(a.fact.id) > util.seq(b.fact.id)
+		end
+		return a.line.id < b.line.id
 	end)
 	return out
 end

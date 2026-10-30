@@ -27,7 +27,7 @@ Rates behind the estimates, from the cycle models used for this spec:
 | b05, pause | 1 PAUSED card opened after b04 started | 8 to 12 |
 | Act 1 ends | b05 complete | **10 to 15** |
 | **Act 2** | | |
-| Nav chip (b06) | `player.dockings` >= 6, 900 cr | 14 to 18 |
+| Nav chip (b06) | `player.dockings` >= 6, 225 cr | 14 to 18 |
 | b07, Cinder Hook and the lane chart | b06 complete | 17 to 21 |
 | Rock cradle | `player.rocks_spent` >= 4, 700 cr | 18 to 28 |
 | b09 starts | `player.dockings_at.cinder_hook` >= 3 | 24 to 30 |
@@ -78,7 +78,18 @@ Net result of one full Wren hold (20 units), sold into a fresh market:
 | Cinder Hook ore to Brassmouth | 140 | 282 | 142 | about 2 min |
 | Wharf rations to Cinder Hook | 332 | 531 | 199 | about 2 min |
 
-The Act 2 circuit (mined glassite to Brassmouth, Brassmouth plate to Cinder Hook, back to the Glass Drift) earns about 1000 cr on a fresh first lap and about 650 cr a lap once its buyers are partly saturated, every 3.5 to 4 minutes. That is roughly 2.5x Act 1's best loop. Upgrade costs in loads: the lens is about 3 Act 1 holds; the nav chip about 4; the order slate about 3 circuits; the tender about 4 circuits; the prestige fee about 12 circuits. The whole spend before prestige is 8800 cr of fittings plus the 8000 cr fee, 16,800 in all. The cycle model reaches about 16,500 earned by minute 118, which keeps prestige near 2 hours.
+The Act 2 circuit (mined glassite to Brassmouth, Brassmouth plate to Cinder Hook, back to the Glass Drift) earns about 1000 cr on a fresh first lap and about 650 cr a lap once its buyers are partly saturated, every 3.5 to 4 minutes. That is roughly 2.5x Act 1's best loop. Upgrade costs in loads: the lens is about 3 Act 1 holds; the nav chip about one fresh hold or four to five saturated ice holds; the order slate about 3 circuits; the tender about 4 circuits; the prestige fee about 12 circuits. The whole spend before prestige is 8125 cr of fittings and the first tender plus the 8000 cr fee, 16,125 in all (the optional price glass is extra). The nav chip reduction saves 675 cr, about one partly saturated Act 2 circuit. The 60-docking prestige gate and later costs stay unchanged, keeping the target near 2 hours; the old cycle model is an estimate, not a measured end-to-end play time.
+
+### Act 1 into the nav chip
+
+Act 1 still ends at b05, targeting 10 to 15 minutes; b06 targets 14 to 18.
+The six-docking gate is normally met while earning the lens. The slice nav chip
+cost is **225 cr** in `data/upgrades.toml`: at roughly 50 cr per saturated ice hold,
+it takes at most five extra holds, instead of about eighteen at 900 cr. The app's
+key-driven journey test reads that price from the loaded data and bounds the extra
+ice runs at five. Alternating ore and ice as the route below prescribes can be
+quicker. No early-market recovery or consumption values change: b08's saturation
+lesson and Little Pail's later patient-selling demonstration keep their economics.
 
 ### Saturation punishes blind full loads
 
@@ -107,7 +118,7 @@ The tender earns about 40 to 80 cr a minute on top of the player's own play. Tha
 
 ### The shortage can actually happen
 
-Rimewater holds 240 units. It regrows 0.15 units per Shallows region pulse, about 2.5 to 4 pulses a minute, so about 0.4 to 0.6 units a minute. Spent rocks reform only from that regrowth (`01-galaxy.md`), so they add nothing on top of it. By minute 65 that is 162 to 260 region pulses, or 24 to 39 units back. Rimewater is at 70% (168 units) once the player has mined 96 to 111 units there. A player who has mined 120 there (the b02 load and about six Act 1 ice runs to Kettle; with `gm-examples`, Kettle's stage 2 ice too) is at 60 to 66%, whichever rocks they mined and in whatever order (a run-by-run model of 6 to 8 holds, finishing each rock or always taking the richest, gave the same result). That crosses the 70% trigger, and the 120-unit gate holds too. A player who never touches the ice never causes the shortage, and the beat simply never fires. Way B's rest (regrowth x4) refills from 65% to 80% in about 15 to 24 minutes of play.
+Rimewater holds 240 units. It regrows 0.15 units per Shallows region pulse, about 2.5 to 4 pulses a minute, so about 0.4 to 0.6 units a minute. Spent rocks reform only from that regrowth (`01-galaxy.md`), so they add nothing on top of it. By minute 65 that is 162 to 260 region pulses, or 24 to 39 units back. Rimewater is at 70% (168 units) once the player has mined 96 to 111 units there. A player who has mined 120 there (the b02 load plus later Kettle sales and, with `gm-examples`, stage 2 deliveries) is at 60 to 66%, whichever rocks they mined and in whatever order (a run-by-run model of 6 to 8 holds, finishing each rock or always taking the richest, gave the same result). That crosses the 70% trigger, and the 120-unit gate holds too. The cheaper nav chip does not force that much ice mining in Act 1; the bot deliberately returns to Rimewater in step 8 until both shortage gates hold. A player who never touches the ice never causes the shortage, and the beat simply never fires. Way B's rest (regrowth x4) refills from 65% to 80% in about 15 to 24 minutes of play.
 
 Under the previous rule (a spent rock reformed at 25% after 16 pulses, on top of regrowth), a player who finished each rock before moving on got 7.5 units back per spent rock and stayed near 80% after 120 units mined. The shortage would never have fired for them. That is why reforming now comes only from regrowth.
 
@@ -133,7 +144,7 @@ The dev harness's bot (`galaxy sim run --bot journey`) must complete all 17 beat
 
 1. **b01 to b03.** Undock. Mine Rimewater ice by hand until the hold holds 20. Dock at Kettle Dock and hand the ice to Odo.
 2. **b04, b05.** Mine Tinroot ore and sell it at the Wharf until the bot has 600 cr; buy the mining lens. Then open the PAUSED card and close it. That writes a `paused` fact after b04 started, so b05 completes.
-3. **b06.** Alternate Tinroot ore (sold at the Wharf) and Rimewater ice (sold at Kettle) until `player.dockings` >= 6 and the bot has 900 cr; buy the nav chip.
+3. **b06.** Alternate Tinroot ore (sold at the Wharf) and Rimewater ice (sold at Kettle) until `player.dockings` >= 6 and the bot has 225 cr; buy the nav chip.
 4. **b07.** With 20 hold free, take Ilse's plate. Fly to `mouth.shallows_to_cinder`, enter the lane, and dock at Cinder Hook; hand the plate to Rook. The lane chart arrives.
 5. **Act 2 circuit (b08, b09).** Repeat: mine the Glass Drift; sell at most 12 glassite per visit at Brassmouth and the rest at the Observatory; at Brassmouth buy plate and sell it at Cinder Hook. When b09 starts, choose "Supply in the Cooperative's name" and keep it. On Wharf trips, buy the rock cradle, docking clamp and hold extender as soon as each condition holds. Run A: also carry Wharf plate and Rimewater ice to Kettle on Shallows trips (stage 2). b08 completes on the second Brassmouth sale; b09 completes when the Cooperative tally wins.
 6. **b10.** When Pip tells the rumor, fly within 500 u of the Ember Shoals; that resolves it. Run A: the bot backed the Cooperative, so `gm.compact_plant` made it a plant; the bot reads the buoy and, at its next Cinder Hook docking, tells Rook. Run B: the truth comes from the craft that brought the story; the bot mines whatever is there into the next hold either way.
