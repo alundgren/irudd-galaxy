@@ -248,6 +248,58 @@ fn jump_retains_real_completion_facts_and_stops_before_next_input() {
     assert_eq!(loaded, *run.game.sim().state());
 }
 
+/// The prestige card is modal and every text draws after every panel, so the dock
+/// screen and talk must not leave their words on top of the card's.
+#[test]
+fn nothing_shows_through_the_prestige_card() {
+    let run = harness::run(
+        harness::fresh(&packs(), 7, false, Profile::Fast).unwrap(),
+        RunOptions {
+            until: 16,
+            at_start: true,
+            ..RunOptions::default()
+        },
+    )
+    .unwrap();
+    let session = galaxy_app::session::Session::with_game(run.game);
+    assert!(session.flagship().unwrap().docked_at.is_some());
+    let ui_state = galaxy_app::ui::UiState {
+        confirm: Some(HullId::from_static("hull.tandem")),
+        ..galaxy_app::ui::UiState::default()
+    };
+    for (w, h) in [(960.0, 540.0), (1280.0, 720.0), (1920.0, 1080.0)] {
+        let viewport = render::glam::Vec2::new(w, h);
+        let canvas = galaxy_app::ui::canvas(viewport);
+        let mut card = render::Overlay::default();
+        let buttons = galaxy_app::ui::prestige_card(
+            &mut card,
+            session.world(),
+            session.sim().history(),
+            &HullId::from_static("hull.tandem"),
+            &ui_state,
+            canvas,
+        );
+        assert_eq!(buttons.len(), 2, "the offer stands");
+        galaxy_app::ui::scale_overlay(&mut card, galaxy_app::ui::ui_scale(viewport));
+        let r = card.panels[0].rect;
+        let own: Vec<_> = card.texts.iter().map(|t| t.text.clone()).collect();
+        let view = galaxy_app::view::View::new();
+        let rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::ZERO);
+        let (scene, buttons) =
+            galaxy_app::frame::compose(&view, &session, &rig, &ui_state, 1.0, 0.0, viewport);
+        assert_eq!(buttons.len(), 2, "{w}x{h}: only the card's buttons work");
+        for t in &scene.overlay.texts {
+            let inside =
+                t.pos.x >= r.x && t.pos.x <= r.x + r.w && t.pos.y >= r.y && t.pos.y <= r.y + r.h;
+            assert!(
+                !inside || own.contains(&t.text),
+                "{w}x{h}: `{}` shows through the card",
+                t.text
+            );
+        }
+    }
+}
+
 #[test]
 fn f3_panel_is_small_and_contains_diagnostics() {
     let game = harness::fresh(&packs(), 7, false, Profile::Fast).unwrap();
