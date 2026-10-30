@@ -628,7 +628,7 @@ pre code { font-size: 15px; overflow-wrap: normal; white-space: pre; }
                     <tr><th scope="row">Pixabay sound and music</th><td>Free, no attribution; no standalone redistribution of unchanged files; no warranty about third-party rights.</td><td>Mixed quality.</td><td>No, for the same reason.</td></tr>
                     <tr><th scope="row">OpenGameArt</th><td>Mixed: CC0, CC BY, CC BY-SA, GPL.</td><td>Mixed; some good game audio.</td><td>CC0 only, to keep things simple.</td></tr>
                     <tr><th scope="row">Procedural synthesis, done well (fundsp, MIT or Apache-2.0)</th><td>Ours.</td><td>Very good for UI, chimes, ticks, soft pads and motifs; weaker for realistic textures and rich music. Deterministic from parameters, so the game master can drive it.</td><td>Yes: patches are code.</td></tr>
-                    <tr><th scope="row">ElevenLabs Sound Effects</th><td>Royalty free for commercial use; the free plan requires crediting elevenlabs.io, paid plans don't; no use of output to build competing products.</td><td>Good for textures and one-off effects from a text prompt.</td><td>Possible on a paid plan; keep provenance per file.</td></tr>
+                    <tr><th scope="row">ElevenLabs Sound Effects</th><td>Free plan: non-commercial use only. Commercial rights need an eligible paid plan. Even then, the terms forbid making the output available as isolated audio files or samples without separate written permission; no use of output to build competing products.</td><td>Good for textures and one-off effects from a text prompt.</td><td>No raw files in the public repo (same as Sonniss and Pixabay) unless ElevenLabs gives written permission. Usable only baked into builds on a paid plan; keep provenance per file.</td></tr>
                     <tr><th scope="row">Stable Audio Open</th><td>Stability AI Community License: free under US $1M annual revenue.</td><td>Short samples and textures; can run locally.</td><td>Possible; keep provenance.</td></tr>
                     <tr><th scope="row">Suno (music)</th><td>Free plan: personal, non-commercial only. Paid plans: commercial rights for songs made while subscribed, not retroactive.</td><td>Full songs; hard to make sparse, stem-based, adaptive music.</td><td>Paid plan only, with caution.</td></tr>
                     <tr><th scope="row">MusicGen (Meta AudioCraft)</th><td>Code MIT; model weights CC BY-NC 4.0.</td><td>Decent short music.</td><td>No: non-commercial weights.</td></tr>
@@ -937,7 +937,9 @@ pub fn check_station_asset(recipe: &amp;StationRecipe, cx: &amp;AssetCheck) -&gt
               <li><a href="https://sonniss.com/gdc-bundle-license/">GDC bundle licence</a> — Sonniss</li>
               <li><a href="https://pixabay.com/service/license-summary/">Content licence summary</a> — Pixabay</li>
               <li><a href="https://opengameart.org/content/faq">FAQ</a> — OpenGameArt</li>
-              <li><a href="https://elevenlabs.io/sound-effects/commercial">Commercial sound effects</a> — ElevenLabs</li>
+              <li><a href="https://elevenlabs.io/creative-terms">ElevenCreative terms (Exhibit 4: Sound Effects)</a> — ElevenLabs</li>
+              <li><a href="https://elevenlabs.io/sound-effects">Sound Effects: pricing and FAQ</a> — ElevenLabs</li>
+              <li><a href="https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform">Can I publish the content I generate on the platform?</a> — ElevenLabs help</li>
               <li><a href="https://huggingface.co/stabilityai/stable-audio-open-1.0">Stable Audio Open 1.0</a> — Stability AI, Hugging Face</li>
               <li><a href="https://help.suno.com/en/categories/550145-rights-ownership">Rights and ownership</a> — Suno help</li>
               <li><a href="https://github.com/facebookresearch/audiocraft">AudioCraft</a> — Meta, GitHub</li>
