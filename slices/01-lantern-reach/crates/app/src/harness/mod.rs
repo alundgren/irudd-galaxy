@@ -35,13 +35,15 @@ pub const BEATS: [&str; 17] = [
 pub enum Profile {
     #[default]
     Slice,
+    /// Authored prices and activity gates, with faster flight and mining only.
+    Travel,
     Fast,
 }
 
 /// A test data profile: quicker travel/mining, smaller economic gates. No cargo,
 /// credits, capabilities, counters, beat states, facts or ship positions are seeded.
 pub fn profile(state: &mut SimState, profile: Profile) {
-    if profile != Profile::Fast {
+    if profile == Profile::Slice {
         return;
     }
     let w = &mut state.world;
@@ -52,6 +54,9 @@ pub fn profile(state: &mut SimState, profile: Profile) {
         h.mining_rate *= 40.0;
     }
     w.ship_rules.lanes.speed *= 20.0;
+    if profile == Profile::Travel {
+        return;
+    }
     for u in w.progress.rules.upgrades.values_mut() {
         u.cost /= 10;
     }

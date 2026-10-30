@@ -163,7 +163,8 @@ fast data profile (quicker flight/mining, lower fitting costs and selected activ
 gates), plus golden replay, save provenance and overlay checks. Reports go in ignored
 `target/harness/run-a.json` and `run-b.json`. Run the authored profile explicitly with
 `cargo test -p galaxy-app --test harness full_slice_journey -- --ignored --nocapture`;
-`heron_journey` covers the alternative prestige hull. The script crate's
+`authored_economy_journey` keeps the authored prices and activity gates with faster
+travel/mining, and `heron_journey` covers the alternative prestige hull. The script crate's
 `journey_core` tests retain the shortage-during-demonstration variants and early-pause
 regression. The Act 1 fixture is `crates/app/tests/golden/act1.json`; regenerate only
 deliberately with `record_act_one_golden -- --ignored`, then review its diff. Regular

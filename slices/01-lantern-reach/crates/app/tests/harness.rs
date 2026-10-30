@@ -21,6 +21,7 @@ fn exercise(gm: bool, profile: Profile, hull: &str) {
         report_dir.join(match (gm, profile, hull) {
             (true, _, _) => "run-a.json",
             (false, Profile::Slice, _) => "full-run-b.json",
+            (false, Profile::Travel, _) => "economy-run-b.json",
             (false, _, "hull.heron") => "heron-run-b.json",
             _ => "run-b.json",
         }),
@@ -102,6 +103,11 @@ fn journey_b_core_only() {
 #[ignore = "full authored pacing; run explicitly before changing the journey route"]
 fn full_slice_journey() {
     exercise(false, Profile::Slice, "hull.tandem");
+}
+#[test]
+#[ignore = "authored economy and activity gates with faster travel"]
+fn authored_economy_journey() {
+    exercise(false, Profile::Travel, "hull.tandem");
 }
 #[test]
 #[ignore = "alternative prestige branch"]

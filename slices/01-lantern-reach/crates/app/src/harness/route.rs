@@ -67,7 +67,32 @@ impl Pilot {
         self.go(&GDO)?;
         self.sell_all(&GLASS)?;
         self.go(&BRASS)?;
-        self.buy(&PLATE)?;
+        // Activity and other traders can saturate the Hook before we arrive.
+        // Size this leg to the profitable part of today's quotes; a blind full
+        // hold can consume the mining income needed for the next service.
+        let ask = galaxy_economy::quote(
+            self.world(),
+            &BRASS,
+            &PLATE,
+            TradeSide::Buy,
+            self.free() as u32,
+        )
+        .map_err(|e| e.to_string())?;
+        let bid = galaxy_economy::quote(self.world(), &HOOK, &PLATE, TradeSide::Sell, ask.units())
+            .map_err(|e| e.to_string())?;
+        let quantity = ask
+            .unit_prices
+            .iter()
+            .zip(&bid.unit_prices)
+            .take_while(|(ask, bid)| bid > ask)
+            .count() as u32;
+        // Supply the chosen side while the dispute is open, even when that
+        // contribution costs money. Afterwards the circuit is for earning.
+        if self.done(9) {
+            self.trade(&PLATE, TradeSide::Buy, quantity)?;
+        } else {
+            self.buy(&PLATE)?;
+        }
         self.go(&HOOK)?;
         self.side()?;
         self.sell_all(&PLATE)?;
