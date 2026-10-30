@@ -45,6 +45,8 @@ pub struct PlayArgs {
     pub hot_reload: bool,
     /// Close after this many frames (a smoke test of the window without a player).
     pub quit_after_frames: Option<u32>,
+    /// Mark the goal's station at the screen edge (an accessibility aid, off by default).
+    pub goal_marker: bool,
 }
 
 /// The winit key for each game key.
@@ -215,7 +217,10 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         saver: Saver::start(save),
         running: None,
         keys: Keys::default(),
-        ui: UiState::default(),
+        ui: UiState {
+            goal_marker: args.goal_marker,
+            ..UiState::default()
+        },
         rig: CameraRig::new(center),
         step: FixedStep::default(),
         last: Instant::now(),

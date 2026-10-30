@@ -88,6 +88,10 @@ enum Cmd {
         /// Reload packs when their files change (development).
         #[arg(long)]
         hot_reload: bool,
+        /// Accessibility: mark the current goal's station at the screen edge, in gold
+        /// (off by default; the game leaves finding the way to you).
+        #[arg(long)]
+        goal_marker: bool,
     },
     /// Earn a journey checkpoint through real player actions.
     Beat {
@@ -578,6 +582,7 @@ fn main() -> ExitCode {
             quit_after_frames,
             no_gm,
             hot_reload,
+            goal_marker,
         } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
             beat,
             save,
@@ -587,6 +592,7 @@ fn main() -> ExitCode {
             no_gm,
             hot_reload,
             quit_after_frames,
+            goal_marker,
         })
         .map_err(fail),
         Cmd::Beat {

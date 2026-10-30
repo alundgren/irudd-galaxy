@@ -90,6 +90,9 @@ pub struct UiState {
     pub confirm: Option<HullId>,
     /// The first services row the dock screen shows when they don't all fit.
     pub services_first: usize,
+    /// Mark the goal's station at the screen edge, in gold, wherever it is: an
+    /// accessibility aid, off by default (`play --goal-marker`). Discovery comes first.
+    pub goal_marker: bool,
 }
 
 /// Compact developer diagnostics; no sim state changes and no model calls.
@@ -475,13 +478,24 @@ pub fn station_labels(o: &mut Overlay, world: &WorldState, camera: &Camera, view
     }
 }
 
-/// Small markers at the screen edge for stations out of view in the region you're in,
-/// and for the goal's station wherever it is.
-pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewport: G2) {
+/// Small markers at the screen edge for stations out of view in the region you're in.
+/// With `goal_marker` (off by default) the goal's station is marked too, in gold,
+/// wherever it is.
+pub fn edge_markers(
+    o: &mut Overlay,
+    world: &WorldState,
+    camera: &Camera,
+    viewport: G2,
+    goal_marker: bool,
+) {
     let Some(ship) = world.player.ship.as_ref().and_then(|s| world.ships.get(s)) else {
         return;
     };
-    let goal = hooks::goal_place(world);
+    let goal = if goal_marker {
+        hooks::goal_place(world)
+    } else {
+        None
+    };
     let inset = 34.0;
     for s in world.stations.values() {
         let is_goal = goal.as_ref() == Some(&s.id);

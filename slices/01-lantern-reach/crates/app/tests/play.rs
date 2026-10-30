@@ -645,6 +645,41 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
     }
 }
 
+/// The station names marked in gold at the screen edge (the goal marker).
+fn goal_markers(s: &Session, ui_state: &UiState) -> Vec<String> {
+    let view = galaxy_app::view::View::new();
+    let at = flagship(s).position;
+    let rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::new(at.x, at.y));
+    let viewport = render::glam::Vec2::new(1280.0, 720.0);
+    let (scene, _) = galaxy_app::frame::compose(&view, s, &rig, ui_state, 1.0, 0.0, viewport);
+    let stations: Vec<&str> = s
+        .world()
+        .stations
+        .values()
+        .map(|st| st.name.as_str())
+        .collect();
+    scene
+        .overlay
+        .texts
+        .iter()
+        .filter(|t| t.color == render::palette::MUSTARD && stations.contains(&t.text.as_str()))
+        .map(|t| t.text.clone())
+        .collect()
+}
+
+/// Discovery over hand-holding: no waypoint to the goal's station unless the player
+/// asks for it (`play --goal-marker`).
+#[test]
+fn the_goal_marker_is_off_unless_asked_for() {
+    let s = settled_session();
+    assert!(goal_markers(&s, &UiState::default()).is_empty());
+    let asked = UiState {
+        goal_marker: true,
+        ..UiState::default()
+    };
+    assert_eq!(goal_markers(&s, &asked), vec!["Kettle Dock".to_string()]);
+}
+
 #[test]
 fn a_long_market_scrolls_and_keeps_the_selection_in_view() {
     const EXTRA: [WareId; 10] = [

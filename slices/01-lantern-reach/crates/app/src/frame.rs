@@ -68,7 +68,13 @@ pub fn compose(
         let mut s = view.world_scene(world, &poses, rig, time, viewport);
         let camera = rig.camera();
         ui::station_labels(&mut s.overlay, world, &camera, viewport);
-        ui::edge_markers(&mut s.overlay, world, &camera, viewport);
+        ui::edge_markers(
+            &mut s.overlay,
+            world,
+            &camera,
+            viewport,
+            ui_state.goal_marker,
+        );
         ui::hint(&mut panels, world, canvas);
         let docked = session.flagship().and_then(|f| f.docked_at.clone());
         let answer = session

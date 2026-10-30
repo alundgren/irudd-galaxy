@@ -83,6 +83,11 @@ providers); every displayed word is authored or a fact value. Without a key the 
 says so once.
 `--hot-reload` reloads packs as you edit them (development).
 
+Finding the way is part of the game: there are no waypoint arrows. Stations in your
+region that are off screen show as small markers at the edge. `--goal-marker` (off by
+default) is an accessibility aid that also marks the current goal's station, in gold,
+wherever it is.
+
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
 rather than clipping, and a market longer than the screen scrolls with the selection.
 
@@ -100,8 +105,8 @@ time you play. Without an audio device the game just runs silent. The rules the
 sounds follow are in [crates/audio/README.md](crates/audio/README.md).
 
 A first loop: fly off the dock with W A S D, fly right into the ice field, hold Space beside a rock
-until your hold fills, fly down and right to Kettle Dock (the marker at the screen edge
-points the way), drift into its ring, press Space, and sell.
+until your hold fills, fly down and right to Kettle Dock, drift into its ring, press
+Space, and sell.
 
 ![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
 
@@ -256,7 +261,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `gm status (--save PATH \| --live)` | Applied, staged and quarantined packs, with change IDs. |
 | `gm rollback CHANGE (--save PATH \| --live) [--packs DIR]` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, switches its pack off in the save (no revision of it runs again, gm-examples' copy included, until a new one is applied), and its speaker says why. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
-| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
+| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload] [--goal-marker]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
 | `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
 | `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `d,wait*3,d*200,space*240` (fly off the dock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
