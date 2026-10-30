@@ -483,6 +483,11 @@ fn undo_records_invert_commands() {
                 about: Vec::new(),
             }),
         },
+        Command::SetRumorHeard {
+            rumor: RumorId::new("rumor.far_belt_glassite").unwrap(),
+            station: StationId::new("station.lantern_wharf").unwrap(),
+            heard: true,
+        },
     ];
     let mut staged = galaxy_core::apply::Staged::default();
     let mut undo = Vec::new();
@@ -507,6 +512,43 @@ fn undo_records_invert_commands() {
         galaxy_core::apply::apply(&mut world, &emit, &mut staged).unwrap(),
         UndoRecord::Compensate { .. }
     ));
+}
+
+#[test]
+fn rumor_spreads_compose_and_never_repeat() {
+    let mut world = new_game(&data_dir(), 1).unwrap().world;
+    let rumor = RumorId::new("rumor.far_belt_glassite").unwrap();
+    let mut staged = galaxy_core::apply::Staged::default();
+    let put = Command::PutRumor {
+        id: rumor.clone(),
+        value: Some(Box::new(Rumor {
+            id: rumor.clone(),
+            claim: "a rich glassite vein in the far belt".into(),
+            is_true: false,
+            planted_by: None,
+            heard_at: [KETTLE].into(),
+            heard_by_player: false,
+            source: None,
+        })),
+    };
+    galaxy_core::apply::apply(&mut world, &put, &mut staged).unwrap();
+    let spread = |station: &str| Command::SetRumorHeard {
+        rumor: rumor.clone(),
+        station: StationId::new(station).unwrap(),
+        heard: true,
+    };
+    // Two spreads built against the same world both land.
+    for s in ["station.lantern_wharf", "station.cinder_hook"] {
+        galaxy_core::apply::apply(&mut world, &spread(s), &mut staged).unwrap();
+    }
+    assert_eq!(world.rumors.get(&rumor).unwrap().heard_at.len(), 3);
+    // A second spread to the same station is refused, not merged.
+    assert!(
+        galaxy_core::apply::apply(&mut world, &spread("station.cinder_hook"), &mut staged).is_err()
+    );
+    assert!(
+        galaxy_core::apply::apply(&mut world, &spread("station.nowhere"), &mut staged).is_err()
+    );
 }
 
 #[test]

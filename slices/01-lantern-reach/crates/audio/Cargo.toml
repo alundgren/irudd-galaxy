@@ -1,0 +1,13 @@
+[package]
+name = "galaxy-audio"
+description = "A tiny wrapper around kira. The slice ships silent: it opens a device and plays nothing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+kira.workspace = true
+
+[lints]
+workspace = true

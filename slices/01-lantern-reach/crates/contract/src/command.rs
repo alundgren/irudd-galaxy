@@ -364,6 +364,15 @@ pub enum Command {
         id: RumorId,
         value: Option<Box<Rumor>>,
     },
+    /// Adds `station` to a rumor's `heard_at` (or removes it), and fails if it's already
+    /// there (or isn't). Spreads compose: two craft carrying one rumor to different
+    /// stations in one tick both land, and a second spread to the same station is
+    /// rejected instead of overwriting the set. Its inverse flips `heard`.
+    SetRumorHeard {
+        rumor: RumorId,
+        station: StationId,
+        heard: bool,
+    },
 
     // --- History and events (compensate-only) ---
     /// Emits an event on commit; the engine records its fact and bumps counters.

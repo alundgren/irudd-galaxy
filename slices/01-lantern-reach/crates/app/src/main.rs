@@ -59,8 +59,27 @@ enum Cmd {
         #[command(subcommand)]
         command: ApiCmd,
     },
-    /// Play in a window (not implemented yet).
-    Play(Rest),
+    /// Play in a window. Continues the latest save in the per-user save folder unless
+    /// `--new` or `--save` says otherwise.
+    Play {
+        /// The save to play (default: the latest in the per-user save folder).
+        #[arg(long)]
+        save: Option<PathBuf>,
+        /// Start a new game.
+        #[arg(long)]
+        new: bool,
+        /// New-game seed.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Jump to a journey beat (not implemented yet).
+        #[arg(long)]
+        beat: Option<u32>,
+        /// Close after this many frames: a smoke test of the window.
+        #[arg(long, hide = true)]
+        quit_after_frames: Option<u32>,
+        #[command(flatten)]
+        packs: PacksArg,
+    },
     /// Jump to a journey beat (not implemented yet).
     Beat {
         #[command(subcommand)]
@@ -76,8 +95,43 @@ enum Cmd {
         #[command(subcommand)]
         command: GmCmd,
     },
-    /// Render a screenshot headless (not implemented yet).
-    Shot(Rest),
+    /// Render a save headless to a PNG, with the same scene and panels as play.
+    Shot {
+        #[arg(long)]
+        save: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        /// Show the map instead of the world.
+        #[arg(long)]
+        map: bool,
+        /// Image size, `WxH`.
+        #[arg(long, default_value = "1280x720")]
+        size: String,
+        /// Visible world height (the mouse-wheel zoom).
+        #[arg(long)]
+        zoom: Option<f32>,
+        /// Scripted input to run first, e.g. `d*120,space*150` (see `script.rs`).
+        #[arg(long)]
+        keys: Option<String>,
+        /// Write the scripted run back to the save.
+        #[arg(long)]
+        write: bool,
+    },
+    /// The fast-model layer on OpenRouter.
+    Mind {
+        #[command(subcommand)]
+        command: MindCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum MindCmd {
+    /// One live Jev choice and one live gpt-oss line, with latency and cost. Needs
+    /// `OPENROUTER_API_KEY`.
+    Try {
+        #[command(flatten)]
+        packs: PacksArg,
+    },
 }
 
 #[derive(Subcommand)]
@@ -269,7 +323,22 @@ fn main() -> ExitCode {
         Cmd::Api {
             command: ApiCmd::Dump { name },
         } => api_dump(name.as_deref()),
-        Cmd::Play(_) => not_implemented("play"),
+        Cmd::Play { beat: Some(_), .. } => not_implemented("play --beat"),
+        Cmd::Play {
+            save,
+            new,
+            seed,
+            packs,
+            beat: None,
+            quit_after_frames,
+        } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
+            save,
+            new,
+            seed,
+            packs: packs.packs,
+            quit_after_frames,
+        })
+        .map_err(fail),
         Cmd::Beat {
             command: BeatCmd::Jump(_),
         } => not_implemented("beat jump"),
@@ -292,7 +361,18 @@ fn main() -> ExitCode {
         Cmd::Gm {
             command: GmCmd::Rollback(_),
         } => not_implemented("gm rollback"),
-        Cmd::Shot(_) => not_implemented("shot"),
+        Cmd::Shot {
+            save,
+            out,
+            map,
+            size,
+            zoom,
+            keys,
+            write,
+        } => shot(save, out, map, &size, zoom, keys, write),
+        Cmd::Mind {
+            command: MindCmd::Try { packs },
+        } => mind_try(packs.packs),
     };
     match result {
         Ok(value) => {
@@ -323,6 +403,40 @@ fn print_json(value: &Value) {
         "{}",
         serde_json::to_string_pretty(value).expect("JSON values serialize")
     );
+}
+
+/// A library error as a CLI failure: 4 is bad input, anything else a runtime failure.
+fn fail((code, message): (u8, String)) -> Fail {
+    Fail {
+        code,
+        kind: if code == 4 { "bad_input" } else { "runtime" },
+        message,
+        command: None,
+        body: None,
+    }
+}
+
+fn shot(
+    save: PathBuf,
+    out: PathBuf,
+    map: bool,
+    size: &str,
+    zoom: Option<f32>,
+    keys: Option<String>,
+    write: bool,
+) -> Out {
+    let (width, height) = galaxy_app::shot::parse_size(size).map_err(Fail::input)?;
+    galaxy_app::shot::shot(&galaxy_app::shot::ShotArgs {
+        save,
+        out,
+        map,
+        width,
+        height,
+        zoom,
+        keys,
+        write,
+    })
+    .map_err(fail)
 }
 
 fn not_implemented(command: &str) -> Out {
@@ -399,33 +513,15 @@ fn pack_test(dir: &Path) -> Out {
 /// Finds the packs folder: flag, `GALAXY_PACKS`, or the nearest `packs/core` above
 /// the working directory or the executable.
 fn packs_dir(flag: Option<PathBuf>) -> Result<PathBuf, Fail> {
-    if let Some(p) = flag.or_else(|| std::env::var_os("GALAXY_PACKS").map(PathBuf::from)) {
-        return Ok(p);
-    }
-    let starts = [
-        std::env::current_dir().ok(),
-        std::env::current_exe()
-            .ok()
-            .and_then(|e| e.parent().map(Path::to_path_buf)),
-    ];
-    for start in starts.into_iter().flatten() {
-        for dir in start.ancestors() {
-            let packs = dir.join("packs");
-            if packs.join("core").is_dir() {
-                return Ok(packs);
-            }
-        }
-    }
-    Err(Fail::input(
-        "can't find the packs folder; pass --packs or set GALAXY_PACKS",
-    ))
+    galaxy_app::game::packs_dir(flag)
+        .ok_or_else(|| Fail::input("can't find the packs folder; pass --packs or set GALAXY_PACKS"))
 }
 
 fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
     if save.exists() {
         return Err(SaveError::Exists(save.to_path_buf()).into());
     }
-    let data = packs_dir(packs)?.join("core").join("data");
+    let data = galaxy_app::game::core_data(&packs_dir(packs)?);
     let state = galaxy_core::new_game(&data, seed).map_err(|e| Fail::input(e.to_string()))?;
     let hash = galaxy_core::state_hash(&state);
     Save::create(save, &state)?;
@@ -439,18 +535,7 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
     }))
 }
 
-/// The game's systems, in tick order: the kernel's, the ship's (buy and sell orders go
-/// through the economy's desk), then the economy's (pulses, scouting, re-pricing and
-/// the player's dock-screen trades), which reads the dockings the ships made, then
-/// progress (station services, faction deeds, pilot traits and hull ranks).
-fn game(state: galaxy_core::SimState) -> galaxy_core::Sim {
-    galaxy_core::game(state)
-        .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)))
-        .with_systems([
-            Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>,
-            Box::new(galaxy_progress::ProgressSystem),
-        ])
-}
+use galaxy_app::game::game;
 
 fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
     let mut save = Save::open(path)?;
@@ -539,4 +624,20 @@ fn api_dump(name: Option<&str>) -> Out {
             .map(|(_, s)| s.to_value())
             .ok_or_else(|| Fail::input(format!("no schema named `{name}`"))),
     }
+}
+
+fn mind_try(packs: Option<PathBuf>) -> Out {
+    use galaxy_mind::{MindConfig, MindError};
+    let data = packs_dir(packs)?.join("core").join("data");
+    let config = MindConfig::load_dir(&data).map_err(|e| Fail::input(e.to_string()))?;
+    galaxy_mind::probe::live(&config).map_err(|e| match e {
+        MindError::NoKey => Fail::input(e.to_string()),
+        e => Fail {
+            code: 1,
+            kind: "mind",
+            message: e.to_string(),
+            command: None,
+            body: None,
+        },
+    })
 }

@@ -309,6 +309,7 @@ pub const fn event_use(kind: EventKind) -> &'static str {
         EventKind::StandingChanged => "events.standing_changed",
         EventKind::RegardChanged => "events.regard_changed",
         EventKind::TenderAcquired => "events.tender_acquired",
+        EventKind::Paused => "events.paused",
     }
 }
 

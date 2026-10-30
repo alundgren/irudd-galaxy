@@ -569,6 +569,7 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
             hull,
             station,
         },
+        EventKind::Paused => Event::Paused { session: 1 },
     })
 }
 

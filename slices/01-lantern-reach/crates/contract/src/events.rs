@@ -141,6 +141,12 @@ pub enum Event {
         hull: HullId,
         station: StationId,
     },
+    /// The PAUSED card opened. The app submits it every time the card opens; the sim
+    /// doesn't tick while paused, so it commits on the first tick after the card
+    /// closes. `session` is the `sessions` counter of the play session it happened in.
+    Paused {
+        session: u64,
+    },
 }
 
 /// Event names, for subscriptions and filters.
@@ -171,10 +177,11 @@ pub enum EventKind {
     StandingChanged,
     RegardChanged,
     TenderAcquired,
+    Paused,
 }
 
 impl EventKind {
-    pub const ALL: [EventKind; 22] = [
+    pub const ALL: [EventKind; 23] = [
         EventKind::Dock,
         EventKind::Undock,
         EventKind::Mine,
@@ -197,6 +204,7 @@ impl EventKind {
         EventKind::StandingChanged,
         EventKind::RegardChanged,
         EventKind::TenderAcquired,
+        EventKind::Paused,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -223,6 +231,7 @@ impl EventKind {
             EventKind::StandingChanged => "standing_changed",
             EventKind::RegardChanged => "regard_changed",
             EventKind::TenderAcquired => "tender_acquired",
+            EventKind::Paused => "paused",
         }
     }
 
@@ -257,6 +266,7 @@ impl Event {
             Event::StandingChanged { .. } => EventKind::StandingChanged,
             Event::RegardChanged { .. } => EventKind::RegardChanged,
             Event::TenderAcquired { .. } => EventKind::TenderAcquired,
+            Event::Paused { .. } => EventKind::Paused,
         }
     }
 
@@ -284,7 +294,8 @@ impl Event {
             | Event::CapUnlocked { .. }
             | Event::HullRank { .. }
             | Event::StandingChanged { .. }
-            | Event::RegardChanged { .. } => None,
+            | Event::RegardChanged { .. }
+            | Event::Paused { .. } => None,
         }
     }
 
@@ -303,6 +314,7 @@ impl Event {
                 | Event::HullRank { .. }
                 | Event::StandingChanged { .. }
                 | Event::RegardChanged { .. }
+                | Event::Paused { .. }
         )
     }
 
@@ -354,7 +366,7 @@ impl Event {
             }
             Event::RegardChanged { faction, .. } => s.faction = Some(faction.clone()),
             Event::TenderAcquired { station, .. } => s.station = Some(station.clone()),
-            Event::OrderDone { .. } | Event::SessionStart {} => {}
+            Event::OrderDone { .. } | Event::SessionStart {} | Event::Paused { .. } => {}
         }
         s
     }
@@ -402,7 +414,8 @@ impl Event {
             | Event::HullRank { .. }
             | Event::StandingChanged { .. }
             | Event::RegardChanged { .. }
-            | Event::TenderAcquired { .. } => vec![],
+            | Event::TenderAcquired { .. }
+            | Event::Paused { .. } => vec![],
         }
     }
 }

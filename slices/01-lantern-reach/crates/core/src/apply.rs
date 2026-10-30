@@ -640,6 +640,31 @@ fn apply_with(
                 value: old,
             })
         }
+        C::SetRumorHeard {
+            rumor,
+            station,
+            heard,
+        } => {
+            refs.require(&world.stations, station, "station")?;
+            let r = find(&mut world.rumors, rumor, "rumor")?;
+            let changed = if *heard {
+                r.heard_at.insert(station.clone())
+            } else {
+                r.heard_at.remove(station)
+            };
+            if !changed {
+                return Err(CommandError::Invalid(if *heard {
+                    format!("{rumor} has already reached {station}")
+                } else {
+                    format!("{rumor} hasn't reached {station}")
+                }));
+            }
+            invert(C::SetRumorHeard {
+                rumor: rumor.clone(),
+                station: station.clone(),
+                heard: !heard,
+            })
+        }
         C::Emit { event } => {
             staged.events.push(event.clone());
             Ok(UndoRecord::Compensate {

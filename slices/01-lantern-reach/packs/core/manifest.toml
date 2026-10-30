@@ -32,6 +32,7 @@ data = [
     "data/traits.toml",
     "data/pacing.toml",
     "data/start.toml",
+    "data/mind.toml",
 ]
 
 # Act 1: b01 to b03, the worked examples of the beat API.

@@ -4,13 +4,58 @@ The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining an
 trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
 PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
 
-Status: the foundation is in (shared contract, headless sim kernel, saves, JSON CLI),
-plus headless ships: arcade flight, the context action, mining and regrowth, docking,
-lanes, control tiers, the order runner and the automated tender (`crates/ship`), the
-Luau script host (sandboxed packs, the hook API, `galaxy pack check`, hot reload,
-rollback by cause), and progress: the beat runtime with b01 to b03 in the core pack,
-standing, traits, hull ranks, prestige and station services (`crates/progress`). There
-is no window yet; `galaxy play` says "not implemented yet".
+Status: Act 1 is playable in a window. Under it: the shared contract, the headless sim
+kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, control
+tiers, orders, the tender), the living market and map (`crates/economy`) and the
+cel-shaded renderer (`crates/render`), the Luau script host (sandboxed packs, the hook
+API, `galaxy pack check`, hot reload, rollback by cause), and progress: the beat runtime
+with b01 to b03 in the core pack, standing, traits, hull ranks, prestige and station
+services (`crates/progress`). Beats, scripts and dock talk aren't wired into the window
+yet: its goal line is a placeholder that follows Act 1 (ice to Kettle Dock, then iron ore
+at the Wharf).
+
+![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
+
+## Play
+
+```sh
+./play.sh            # macOS and Linux
+play.cmd             # Windows
+```
+
+Both build in release (thin LTO) and run `galaxy play`, which continues your latest save
+or starts a new game. Arguments pass through: `play.cmd --new` starts over (the old save
+stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular file.
+
+| Key | Does |
+|---|---|
+| **W A S D** | Fly. The ship stops when you let go. |
+| **Space** | The one thing in reach: dock in a ring, undock, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which. |
+| **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
+| **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
+| **Mouse wheel**, **-** / **=** | Zoom. |
+| **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
+
+Docked, the dock screen lists the station's market: the price of the next unit, the
+stock and what's in your hold. **W/S** (or the arrows) pick a line, **E** trades one,
+**Shift+E** sells all of it or buys as many as fit and you can afford; the buttons do
+the same. Each price moves a little with every unit, so selling all at once earns less
+per unit than spreading it out. **Space** or the Undock button leaves. A trade you ask
+for goes ahead of the flagship's own queued orders, which wait their turn.
+
+The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
+rather than clipping, and a market longer than the screen scrolls with the selection.
+
+Saves are written at calm moments (when you dock, when you pause, when you quit) to a
+per-user folder: `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
+a `saves` folder for the game under `~/Library/Application Support` on macOS, the XDG
+data folder on Linux. Set `GALAXY_SAVES` to use another folder. The game is silent for now.
+
+A first loop: undock with Space, fly right into the ice field, hold Space beside a rock
+until your hold fills, fly down and right to Kettle Dock (the marker at the screen edge
+points the way), drift into its ring, press Space, and sell.
+
+![The dock screen at Kettle Dock](docs/screenshots/dock.png)
 
 ## Build and check
 
@@ -50,7 +95,10 @@ Or build once and call `target/debug/galaxy` directly.
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
-| `play`, `beat jump`, `gm propose`, `gm rollback`, `shot` | Not implemented yet (exit 3). |
+| `play [--save PATH] [--new] [--seed N] [--packs DIR]` | The game in a window (see Play). Prints the save and tick when it closes. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade` and `:tradeall` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
+| `play --beat N`, `beat jump`, `gm propose`, `gm rollback` | Not implemented yet (exit 3). |
 
 Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` not implemented yet,
 `4` bad input (missing or existing save, invalid data, unknown path or ID), `5` rejected
@@ -81,11 +129,18 @@ crates/ship       flight, control tiers, orders and loops, mining, docking, lane
 crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
 crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
 crates/progress   beats, standing and regard, traits, hull ranks, prestige, station services
-crates/app        the galaxy binary
+crates/render     the cel-shaded wgpu renderer and the parametric mesh kit (knows no sim)
+crates/audio      a silent kira wrapper; a missing audio device never stops the game
+crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
+crates/app        the galaxy binary: play, shot and the JSON CLI
+                  session (pause, dock trades), input, view (world to scene), ui, saves
 packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/ (the journey's beats)
 packs/gm-examples game-master example packs: kettle_growth, and bad_script/ (must be rejected)
 tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
 xtask             cargo xtask check | contract | fetch-luau
 ```
+
+Live fast-model tests are ignored by default:
+`cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
 
 Coding agents: read [AGENTS.md](AGENTS.md).

@@ -54,6 +54,7 @@ and `ctx.store` (the script's declared stores).
 | `events.standing_changed` | Events | available | Subscribe with `on.<event>`. |
 | `events.regard_changed` | Events | available | Subscribe with `on.<event>`. |
 | `events.tender_acquired` | Events | available | Subscribe with `on.<event>`. |
+| `events.paused` | Events | available | Subscribe with `on.<event>`. |
 | `counters.read` | Counters | available | Read activity counters per player, station and region. |
 | `history.read` | History | available | Count, sum, find and read history facts. Results are capped. |
 | `history.write` | History | available | Record facts of the pack's own kinds. |
@@ -302,6 +303,7 @@ recorded as: cite it), `tick` and `cause`. They need `events.<event>` in `uses`.
 - `on.standing_changed`: `StandingChangedEvent`
 - `on.regard_changed`: `RegardChangedEvent`
 - `on.tender_acquired`: `TenderAcquiredEvent`
+- `on.paused`: `PausedEvent`
 
 ## Not available to scripts
 
