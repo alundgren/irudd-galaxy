@@ -172,12 +172,17 @@ struct Out {
 
 impl MindHost {
     /// A host that reacts to facts committed after `history`'s last one. Rumor spread
-    /// is built in; add trader menus and dock talk with [`MindHost::add_provider`].
+    /// and authored trader menus are built in; custom menus use [`MindHost::add_provider`].
     pub fn new(config: MindConfig, exec: impl Executor + 'static, history: &History) -> Self {
         let mut host = Self {
             config,
             exec: Box::new(exec),
-            providers: vec![Box::new(RumorSpread)],
+            providers: vec![
+                Box::new(RumorSpread),
+                Box::new(crate::menu::TraderMenus {
+                    plans: crate::traders::EconomyPlans,
+                }),
+            ],
             ledger: Ledger::default(),
             posted: Vec::new(),
             seen: history.last_fact_id(),

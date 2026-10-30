@@ -283,6 +283,17 @@
         "lines": {}
       }
     },
+    "traders": {
+      "description": "Authored NPC trader policies. Empty in older saves.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+          "$ref": "#/$defs/TraderDef"
+        }
+      }
+    },
     "wares": {
       "type": "object",
       "additionalProperties": false,
@@ -4856,6 +4867,28 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "RoutePreference": {
+      "type": "object",
+      "properties": {
+        "bonus": {
+          "type": "number",
+          "format": "double"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "when_flag": {
+          "description": "Also admits this station to the route when the flag is set.",
+          "$ref": "#/$defs/FlagId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "station",
+        "when_flag",
+        "bonus"
+      ]
+    },
     "Rumor": {
       "description": "A rumor with a truth value. It may be true, or planted.",
       "type": "object",
@@ -5477,6 +5510,80 @@
         "tier",
         "name",
         "summary"
+      ]
+    },
+    "TraderDef": {
+      "type": "object",
+      "properties": {
+        "cost_per_distance": {
+          "type": "number",
+          "format": "double"
+        },
+        "faction": {
+          "$ref": "#/$defs/FactionId"
+        },
+        "home": {
+          "$ref": "#/$defs/StationId"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "id": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "max_units_per_ware": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "max_wares_per_docking": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string"
+        },
+        "preferences": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RoutePreference"
+          }
+        },
+        "return_home_bonus": {
+          "description": "Utility bonus for returning empty to the supply dock (centicredits).",
+          "type": "number",
+          "format": "double"
+        },
+        "stations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StationId"
+          },
+          "uniqueItems": true
+        },
+        "wares": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "faction",
+        "hull",
+        "home",
+        "stations",
+        "wares",
+        "max_units_per_ware",
+        "max_wares_per_docking",
+        "cost_per_distance",
+        "return_home_bonus"
       ]
     },
     "TraitDef": {

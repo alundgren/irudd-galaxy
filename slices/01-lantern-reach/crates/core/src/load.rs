@@ -110,6 +110,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let traits: TraitsFile = read(dir, "traits.toml")?;
     let pacing: PacingFile = read(dir, "pacing.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
+    let craft: CraftFile = read(dir, "craft.toml")?;
     let ranks = hulls.rank;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
@@ -148,6 +149,43 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     }
     generate_rocks(&mut world, &mut errors);
     place_player(&mut world, start.player, &mut errors);
+    for def in craft.craft {
+        let Some(home) = world.stations.get(&def.home) else {
+            errors.push(format!(
+                "craft.toml: {} has unknown home {}",
+                def.id, def.home
+            ));
+            continue;
+        };
+        let ship = Ship {
+            id: def.id.clone(),
+            name: def.name.clone(),
+            hull: def.hull.clone(),
+            owner: Owner::Faction {
+                faction: def.faction.clone(),
+            },
+            region: home.region.clone(),
+            position: home.position,
+            velocity: Vec2::ZERO,
+            heading: 0.0,
+            // The runner performs the first docking, opening the first menu.
+            docked_at: None,
+            hold: Hold::default(),
+            orders: OrderQueue {
+                orders: vec![Order::Dock {
+                    station: def.home.clone(),
+                }],
+                ..OrderQueue::default()
+            },
+            activity: ShipActivity::default(),
+        };
+        if world.ships.contains(&def.id) || world.traders.contains_key(&def.id) {
+            errors.push(format!("craft.toml: duplicate ship {}", def.id));
+            continue;
+        }
+        world.ships.put(ship);
+        world.traders.insert(def.id.clone(), def);
+    }
     crate::load_progress::build(
         &mut world,
         crate::load_progress::Files {

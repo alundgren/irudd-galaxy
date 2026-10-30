@@ -43,6 +43,7 @@ pub mod openrouter;
 pub mod packet;
 pub mod probe;
 pub mod situation;
+pub mod traders;
 pub mod validate;
 
 pub use config::{Brief, Budget, MindConfig};

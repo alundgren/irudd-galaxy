@@ -469,6 +469,15 @@ impl View {
                 .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * hover) * inst.transform;
             scene.meshes.push(inst);
+            if world.traders.contains_key(&ship.id)
+                && let Some(at) = camera.world_to_screen(pos.extend(hover), viewport)
+            {
+                scene.overlay.texts.push(
+                    render::Text::new(ship.name.clone(), at + G2::new(0.0, 18.0), 13.0)
+                        .align(render::Align::Center)
+                        .color(palette::CREAM),
+                );
+            }
             let fwd = G2::from_angle(pose.heading);
             let moving = ship.velocity.length() > 2.0 || ship.activity.transit.is_some();
             if moving && !docked {

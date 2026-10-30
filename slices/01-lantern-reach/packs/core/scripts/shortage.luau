@@ -71,6 +71,9 @@ local function resolve(ctx: G.Ctx, why: G.Cause, how: number)
 			table.insert(levers, util.scale("scale_consumers", station, ids.ICE, 1 / drink))
 		end
 	end
+	if how == 1 then
+		ctx.mechanics:set("mech.ice_road", true, why)
+	end
 	if how == 0 then
 		-- The Compact's barge brings ice to Kettle.
 		local line = ctx.market:line(ids.KETTLE, ids.ICE)
@@ -187,8 +190,16 @@ return G.script({
 	},
 	on = {
 		dock = function(ev: G.DockEvent, ctx: G.Ctx)
-			if ev.ship == ids.EVEN_KEEL and ev.station == ids.KETTLE and on(ctx) and get(ctx, "ignored") == 1 then
-				resolve(ctx, ctx:cause({ summary = "the Compact brings ice to Kettle", cites = { ev.fact } }), 0)
+			-- Every docking is an activity event. No player visit or timer is needed.
+			local ignored = on(ctx) and (get(ctx, "ignored") == 1
+				or ctx.market:pulses(ids.KETTLE) - get(ctx, "pulses") >= util.num(ctx, T .. "ignored_pulses"))
+			if ignored then
+				local why = ctx:cause({ summary = "the Compact sees Kettle Dock short of ice", cites = { ev.fact } })
+				ctx.mechanics:set("mech.even_keel_relief", true, why)
+				set(ctx, why, "ignored", 1)
+				if ev.ship == ids.EVEN_KEEL and ev.station == ids.KETTLE then
+					resolve(ctx, why, 0)
+				end
 				return
 			end
 			if ev.ship ~= ids.PLAYER then
@@ -203,20 +214,6 @@ return G.script({
 				end
 			end
 			if not on(ctx) then
-				return
-			end
-			-- Ignored: after enough activity at Kettle, the Compact's Even Keel makes
-			-- Kettle the top of its route menu, and its next docking there brings ice.
-			-- Until NPC craft fly (the fast-model layer's wiring), the barge arrives at
-			-- the player's next docking instead.
-			local pulses = ctx.market:pulses(ids.KETTLE) - get(ctx, "pulses")
-			if pulses >= util.num(ctx, T .. "ignored_pulses") then
-				local why = ctx:cause({ summary = "the Compact sees Kettle Dock short of ice", cites = { ev.fact } })
-				if ctx.space:craft(ids.EVEN_KEEL) == nil then
-					resolve(ctx, why, 0)
-				elseif get(ctx, "ignored") == 0 then
-					set(ctx, why, "ignored", 1)
-				end
 				return
 			end
 			-- Odo offers his two ideas at Kettle (line.odo_fenn.08, citing the start).

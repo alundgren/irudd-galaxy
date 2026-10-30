@@ -32,6 +32,7 @@ uses = [
     "orders.read",
     "orders.write",
     "pacing.read",
+    "mechanics.write",
     "rumors.read",
     "rumors.write",
     "space.read",
@@ -48,6 +49,7 @@ uses = [
 creates = ["rumor.ember_shoals_vein", "field.ember_shoals"]
 data = [
     "data/wares.toml",
+    "data/craft.toml",
     "data/hulls.toml",
     "data/factions.toml",
     "data/regions.toml",
@@ -95,7 +97,7 @@ stores = { dispute = { side = "string" } }
 [[script]]
 id = "rumor"
 file = "scripts/rumor.luau"
-handlers = ["on.beat_started", "on.beat_completed", "on.dock"]
+handlers = ["on.beat_started", "on.beat_completed"]
 
 # Act 3's directed beats, b11 and b14.
 [[script]]
