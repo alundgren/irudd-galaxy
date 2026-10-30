@@ -61,6 +61,10 @@ pub struct CheckOptions<'a> {
     /// beats. A pack the world records as a game-master layer (`PackState::layer`) is
     /// checked as one even without this, so a reload by any path keeps it.
     pub game_master: bool,
+    /// The IDs a core-layer pack holds in the host loading this one. A game-master
+    /// layer may not take one (`gm_core_id`), so it never replaces a core pack's VM,
+    /// even before the world records that pack's layer.
+    pub core_ids: &'a [PackId],
 }
 
 /// A checked pack: the report, and the pack and its loaded VM when they got that far.
@@ -378,11 +382,13 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
         ));
     }
     // A game-master layer never takes the place of a core-layer pack: not `core`'s
-    // namespace, and not a pack the world already runs as core.
+    // namespace, not a pack the world records as core, and not one the loading host
+    // runs as core.
     if game_master
         && (id.as_str() == "core"
             || id.as_str().starts_with("core.")
-            || recorded == Some(PackLayer::Core))
+            || recorded == Some(PackLayer::Core)
+            || opts.core_ids.contains(id))
     {
         inv.push(error(
             "gm_core_id",

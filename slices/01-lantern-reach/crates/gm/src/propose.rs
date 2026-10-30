@@ -105,7 +105,9 @@ pub fn validate(
             history: Some(&state.history),
             analyzer: opts.analyzer.as_deref(),
             require_typecheck: opts.require_typecheck,
+            // Always a game-master layer; the world's records name the core packs.
             game_master: true,
+            ..Default::default()
         },
     );
     let mut report = checked.report;

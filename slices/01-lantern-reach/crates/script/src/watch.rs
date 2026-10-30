@@ -36,6 +36,16 @@ impl PackWatcher {
         })
     }
 
+    /// Reports changes under `from`'s folders as `to`'s from now on: a reload found the
+    /// folder's manifest naming a new ID.
+    pub fn rename(&mut self, from: &PackId, to: &PackId) {
+        for (id, _) in &mut self.roots {
+            if id == from {
+                *id = to.clone();
+            }
+        }
+    }
+
     /// Packs with a created, changed or removed file since the last call.
     pub fn changed(&self) -> BTreeSet<PackId> {
         let mut out = BTreeSet::new();

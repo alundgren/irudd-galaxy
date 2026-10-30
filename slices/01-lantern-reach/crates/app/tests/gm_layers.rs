@@ -237,3 +237,219 @@ fn an_applied_layer_keeps_its_restrictions_through_every_reload() {
     );
     assert!(!run.packs.contains(&PROBE));
 }
+
+// Re-check 3 of PR #31: the layer comes from the load path, never from the pack's ID
+// or from a pack being new. A game-master folder whose manifest changes its ID on a
+// reload stays a game-master layer, and no game-master path takes the core's place.
+
+const RENAMED: PackId = PackId::from_static("review_renamed");
+const CORE: PackId = PackId::from_static("core");
+
+/// Rewrites the pack in `dir` to call itself `id`.
+fn rename(dir: &Path, id: &str) {
+    let path = dir.join("manifest.toml");
+    let manifest = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(
+        &path,
+        manifest.replace("id = \"probe\"", &format!("id = \"{id}\"")),
+    )
+    .unwrap();
+}
+
+fn codes(report: &galaxy_contract::pack::ValidationReport) -> Vec<String> {
+    report.errors().map(|d| d.code.clone()).collect()
+}
+
+fn dock_and_run(game: &mut Game, ticks: usize) {
+    game.sim_mut()
+        .submit(
+            CommandBatch::new(Cause::system("test", "dock")).with(Command::SetShipDocked {
+                ship: ShipId::from_static("ship.player"),
+                station: Some(StationId::from_static("station.kettle_dock")),
+            }),
+        );
+    for _ in 0..ticks {
+        game.step(&PlayerInput::default());
+    }
+}
+
+/// The game as `play` opens a save without the game master's packs, with `probe`
+/// loaded from `src` as a game-master layer and its layer committed.
+fn game_with_probe(path: &Path, src: &Path) -> Game {
+    let state = Save::open(path).unwrap().load().unwrap();
+    let seed = state.world.meta.seed;
+    let mut game = Game::open(state, &GameOptions::headless(packs(), seed)).unwrap();
+    benign(src);
+    let report = game
+        .scripts()
+        .load_layer(src, game.sim().world(), game.sim().history());
+    assert!(report.accepted(), "{report:#?}");
+    game.scripts().clone().install(game.sim_mut());
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    let world = game.sim().world();
+    assert_eq!(
+        world.packs.get(&PROBE).and_then(|p| p.layer),
+        Some(PackLayer::GameMaster)
+    );
+    assert_eq!(
+        world.packs.get(&CORE).and_then(|p| p.layer),
+        Some(PackLayer::Core)
+    );
+    game
+}
+
+#[test]
+fn a_reload_that_renames_a_layer_never_promotes_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = new_save(dir.path());
+    let src = dir.path().join("probe");
+    let mut game = game_with_probe(&path, &src);
+    let host = game.scripts().clone();
+    let core = host.revision(&CORE).unwrap();
+    let recorded =
+        |game: &Game, id: &PackId| game.sim().world().packs.get(id).and_then(|p| p.layer);
+
+    // The re-check's probe: the same folder now calls itself `review_renamed` and
+    // registers a dock-completed beat paying 123 cr. The reload checks it as the
+    // game-master layer the folder was loaded as, and refuses it.
+    forbidden(&src);
+    rename(&src, RENAMED.as_str());
+    let report = host
+        .reload(&PROBE, game.sim_mut())
+        .expect("the probe is loaded");
+    assert!(
+        codes(&report).contains(&"gm_backbone".to_owned()),
+        "{report:#?}"
+    );
+    assert_eq!(host.layer(&RENAMED), None);
+    assert_eq!(host.layer(&PROBE), Some(PackLayer::GameMaster));
+    let before = credits(&game);
+    dock_and_run(&mut game, 4);
+    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    no_probe_beat(&game);
+    assert_eq!(recorded(&game, &RENAMED), None, "never recorded as core");
+
+    // Calling itself `core`: refused, and the backbone's VM is untouched.
+    for revision in [forbidden as fn(&Path), benign] {
+        revision(&src);
+        rename(&src, "core");
+        let report = host
+            .reload(&PROBE, game.sim_mut())
+            .expect("the probe is loaded");
+        let codes = codes(&report);
+        assert!(codes.contains(&"gm_core_id".to_owned()), "{codes:?}");
+        assert!(codes.contains(&"reload_id_taken".to_owned()), "{codes:?}");
+        assert_eq!(host.revision(&CORE), Some(core.clone()));
+        assert_eq!(host.layer(&CORE), Some(PackLayer::Core));
+        assert_eq!(host.layer(&PROBE), Some(PackLayer::GameMaster));
+    }
+
+    // A benign revision under a new ID is a new game-master layer: it replaces the old
+    // entry, and the world records it as a layer.
+    benign(&src);
+    rename(&src, RENAMED.as_str());
+    let report = host
+        .reload(&PROBE, game.sim_mut())
+        .expect("the probe is loaded");
+    assert!(report.accepted(), "{report:#?}");
+    assert_eq!(host.layer(&RENAMED), Some(PackLayer::GameMaster));
+    assert_eq!(host.layer(&PROBE), None);
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    assert_eq!(recorded(&game, &RENAMED), Some(PackLayer::GameMaster));
+
+    // Its forbidden revision is refused on the next reload, and past every check the
+    // host still runs it as a layer: the beat never starts and nothing is paid.
+    forbidden(&src);
+    rename(&src, RENAMED.as_str());
+    rejected_as_backbone(&host.reload(&RENAMED, game.sim_mut()).unwrap());
+    host.load_unchecked(&src).unwrap();
+    assert_eq!(host.layer(&RENAMED), Some(PackLayer::GameMaster));
+    let before = credits(&game);
+    dock_and_run(&mut game, 4);
+    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    no_probe_beat(&game);
+    assert_eq!(host.revision(&CORE), Some(core));
+}
+
+#[test]
+fn a_layer_named_core_never_touches_the_backbone() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = new_save(dir.path());
+    let fake = dir.path().join("fake_core");
+    forbidden(&fake);
+    rename(&fake, "core");
+
+    // `gm-examples` and the bridge opening a save (`play`, `sim run`) load through
+    // `load_layer`.
+    let (mut game, mut bridge) = open_game(&path);
+    let core = game.scripts().revision(&CORE).unwrap();
+    let report = game
+        .scripts()
+        .load_layer(&fake, game.sim().world(), game.sim().history());
+    assert!(
+        codes(&report).contains(&"gm_core_id".to_owned()),
+        "{report:#?}"
+    );
+    assert_eq!(game.scripts().revision(&CORE), Some(core.clone()));
+    assert_eq!(game.scripts().layer(&CORE), Some(PackLayer::Core));
+
+    // The bridge applying a staged revision called `core`: quarantined, core untouched.
+    let mut save = Save::open(&path).unwrap();
+    let pack = galaxy_script::read_pack(&fake).unwrap();
+    let rel = bridge.store().import(&pack).unwrap();
+    let report =
+        galaxy_script::ScriptHost::new(None).load(&fake, game.sim().world(), game.sim().history());
+    bridge.stage(&rel, report, "test", true).unwrap();
+    let out = bridge.apply_staged(game.sim_mut(), &mut save);
+    assert_eq!(out[0]["what"], "quarantined", "{out:?}");
+    assert_eq!(game.scripts().revision(&CORE), Some(core.clone()));
+    assert_eq!(game.scripts().layer(&CORE), Some(PackLayer::Core));
+    let before = credits(&game);
+    dock_and_run(&mut game, 4);
+    assert_eq!(credits(&game), before, "no {REWARD} reward");
+    no_probe_beat(&game);
+    drop((game, bridge));
+
+    // The sandbox child (`gm propose`, the inbox) refuses it on the fork, too.
+    let fork = dir.path().join("fork.sqlite");
+    galaxy_core::fork(&path, &fork).unwrap();
+    let args = galaxy_gm::sandbox::ChildArgs {
+        save: fork,
+        packs: vec![fake.clone()],
+        dockings: 1,
+        ticks_per_docking: 200,
+    };
+    let run = galaxy_gm::sandbox::run_child(&args, |state, hook| {
+        let seed = state.world.meta.seed;
+        Game::open_with(state, &GameOptions::headless(packs(), seed), hook)
+    })
+    .unwrap();
+    assert!(
+        run.load_failures.iter().any(|d| d.code == "gm_core_id"),
+        "{:?}",
+        run.load_failures
+    );
+    assert!(!run.packs.contains(&CORE));
+
+    // `gm propose`'s fast checks refuse it before any sandbox runs.
+    let out = Process::new(env!("CARGO_BIN_EXE_galaxy"))
+        .args([
+            "gm",
+            "propose",
+            fake.to_str().unwrap(),
+            "--save",
+            path.to_str().unwrap(),
+        ])
+        .env("GALAXY_PACKS", packs())
+        .output()
+        .expect("galaxy runs");
+    assert!(!out.status.success(), "{out:?}");
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("gm_core_id"),
+        "{out:?}"
+    );
+}
