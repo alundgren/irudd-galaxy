@@ -331,7 +331,7 @@ fn same_kind(want: &str, have: &str) -> bool {
 
 impl LinePool {
     /// The line filled from its fact, and the slots it used.
-    fn fill(
+    pub(crate) fn fill(
         world: &WorldState,
         text: &str,
         fact: &Fact,

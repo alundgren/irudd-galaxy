@@ -159,6 +159,31 @@
         "verb",
         "orders"
       ]
+    },
+    {
+      "description": "Hand cargo to one of the player's tenders, both docked at the same station or\nwithin `docking.transfer_reach` in space. Only a hull with `coupling` (the\nTandem) can. Writes a `transfer` fact.",
+      "type": "object",
+      "properties": {
+        "quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "to": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "transfer"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "verb",
+        "ware",
+        "quantity",
+        "to"
+      ]
     }
   ],
   "$defs": {
@@ -572,6 +597,15 @@
       "type": "string",
       "examples": [
         "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"

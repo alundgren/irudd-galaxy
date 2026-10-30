@@ -294,6 +294,9 @@ pub struct Hull {
     /// price (the tender's patient sell). Crewed hulls trade and clear the ring.
     #[serde(default)]
     pub standing_berth: bool,
+    /// The Coupling: the hull can hand cargo to the player's tenders (`transfer`).
+    #[serde(default)]
+    pub coupling: bool,
     /// How far the hull sees live market prices. Default: docked only.
     #[serde(default)]
     pub price_reach: PriceReach,

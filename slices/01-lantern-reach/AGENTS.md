@@ -136,8 +136,9 @@ the game-master bridge) reads events with `Sim::subscribe` / `Sim::drain_events`
 (`name()` + `step(&self, ctx)`), read `ctx.world`, submit batches. Register it with
 `Sim::add_system`. Workstream crates depend on `galaxy-core`, so they can't be listed in
 `galaxy_core::default_systems()` (the kernel's own, none so far): export a
-`systems(..)` function from your crate and add it to `game()` in `crates/app/src/main.rs`
-so the app and `sim run` use it. The name keys its RNG stream; don't rename casually.
+`systems(..)` function from your crate and add it to `Game::open` in
+`crates/app/src/game.rs`, the one composition `play`, `sim run`, `shot` and the tests
+use. The name keys its RNG stream; don't rename casually.
 `placeholder::PlaceholderFlight` only drives the kernel's own tests.
 
 **Ships** (`galaxy-ship`): `ShipSystem` runs every ship each tick (the flagship from
@@ -156,9 +157,10 @@ it fits the runner's "up to" requests to `galaxy_economy::plan_trade` (a buy is 
 to the stock, the free hold and what the credits afford), maps the economy's errors one
 for one onto `TradeError`, passes the economy's commands through unchanged (they open
 with `ExpectDocked` and change the line with a compare-and-set `UpdateMarketLine`), and
-takes its ceiling from the top of the line's price band. The app's `game()` registers
-the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`, then
-`galaxy_economy::EconomySystem`. `FlatDesk` (fixed prices) and closures are for tests.
+takes its ceiling from the top of the line's price band. The app's `Game::open`
+registers the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`,
+`galaxy_economy::EconomySystem`, the script host (core, then gm-examples, then the game master's applied packs), then
+`galaxy_progress::ProgressSystem`, and pumps `galaxy_mind::MindHost` after each step. `FlatDesk` (fixed prices) and closures are for tests.
 Control tiers are per-save flags named in `ship_rules.toml`: read them with
 `Controls::of(world)`, set them with `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
 the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every
@@ -270,15 +272,20 @@ prints a `ValidationReport` with codes and file:line locations. Dev hot reload
 last good revision if they fail. `galaxy pack test DIR` runs `tests/*.luau`.
 
 **Rollback**: `galaxy_script::rollback(sim, causes, line)` inverts the causes' writes,
-retires their pack revisions and has the pack's `[rollback]` speaker say so, citing
+retires their pack revisions, switches their packs off (`PackState::off`: no revision
+of the pack runs again in the save, from any source, until the game master applies a new
+one, whose apply batch switches it back on) and has the pack's `[rollback]` speaker say so, citing
 the change's facts, in dock talk and the chronicle. The retirement is its own batch and
 the host stops a revision as soon as it's queued (`TickCtx::queued`), so a rolled-back
 revision runs nothing in the tick its change is undone; the lines are checked against
 the world the rollback leaves and dropped (never the retirement) if they can't be said.
 
 **The game-master bridge** (`galaxy-gm`): `Bridge::open` loads the packs a save's
-game-master folder (`<save>.gm/state.json`) says run, and attaches a `ScriptHost`; the app
-(`galaxy play`, `galaxy sim run`) calls `Bridge::serve` / `apply_staged` / `after_tick`
+game-master folder (`<save>.gm/state.json`) says run into the game's one `ScriptHost`, before
+the game attaches it (`Game::open_gm`; `Game::open_with` takes the same hook, and the
+sandbox child loads its packs there too). A revision of a pack the game already runs replaces
+it, so gm packs run in the same tick order as `core` and `gm-examples`. The app (`galaxy
+play`, `galaxy sim run`) calls `Bridge::serve` / `apply_staged` / `after_tick`
 between ticks, never inside one. A staged pack applies at a calm moment (docked or
 paused, or on load): snapshot, and only once that is written (and the world hasn't moved
 since) the fast checks again, then one batch caused by the pack revision that installs
@@ -329,7 +336,10 @@ error.
   `[[regard]]` / `[[deed]]` / `[standing]` in `factions.toml`, and `pacing.toml`
   (tunables and `[prestige]`). The core loader checks every reference.
 - **Effects**: traits, fittings and ranks only ever add up to the fixed `Modifier`
-  list; read a ship's totals with `galaxy_progress::modifiers::for_ship`.
+  list; read a ship's totals with `galaxy_progress::modifiers::for_ship` (the fold
+  lives in `galaxy_contract::modifiers`, so the kernel's hold invariant, the ship and
+  the economy read it without depending on progress). Free hold is always
+  `modifiers::hold_capacity(world, ship)`, never the hull's `hold_capacity` alone.
 - **Standing** is hidden; show `standing::tier` (regard). Change it only through
   `standing::Deeds` (or `ctx.standing:deed`), which clamps, applies trait bonuses and
   writes `standing_changed` / `regard_changed`. Each deed carries an `ExpectStanding`

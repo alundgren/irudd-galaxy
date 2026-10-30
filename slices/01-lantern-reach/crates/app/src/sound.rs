@@ -67,6 +67,10 @@ impl Cues {
                 Event::Mine {
                     ship, rock, amount, ..
                 } if ship == flagship && *amount > seen(rock) => ore = Some(e.fact.seq()),
+                // A station service went through: the same soft confirm as a trade.
+                Event::UpgradeFitted { .. } | Event::TenderAcquired { .. } => {
+                    cues.push((Cue::Confirm, e.fact.seq()));
+                }
                 _ => {}
             }
         }

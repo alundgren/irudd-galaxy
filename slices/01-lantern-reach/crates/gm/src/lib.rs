@@ -31,7 +31,30 @@ pub mod reads;
 pub mod sandbox;
 pub mod store;
 
+use galaxy_contract::input::PlayerInput;
+use galaxy_core::{Sim, TickReport};
+use galaxy_script::ScriptHost;
+
 pub use bridge::{Bridge, BridgeOptions, NoSnapshots, SnapshotTicket, Snapshots};
+
+/// The game as the app composes it (`galaxy_app::game::Game`): every system in tick
+/// order, with one script host running `core`, `gm-examples` and the game master's
+/// packs, and whatever runs between ticks (the mind). The save-file rollback and the
+/// sandbox child build through it, so packs run in the same tick order as in play.
+pub trait Composed {
+    fn sim(&self) -> &Sim;
+    fn sim_mut(&mut self) -> &mut Sim;
+    /// The game's one script host.
+    fn scripts(&self) -> &ScriptHost;
+    /// One tick, and what the game does after it. `None` while paused.
+    fn step(&mut self, input: &PlayerInput) -> Option<TickReport>;
+}
+
+/// Builds the game over a state. The hook runs once on the game's script host, after
+/// the game's own packs are loaded and before the host is attached to the sim: packs
+/// it loads run at the host's place in the tick order and install their data with the
+/// rest. [`Bridge::open`] is such a hook.
+pub type Hook<'a> = &'a mut dyn FnMut(&ScriptHost, &Sim);
 pub use digest::{Digest, digest};
 pub use live::{Client, Discovery, Server, ServerOptions};
 pub use propose::{ProposeOptions, validate};

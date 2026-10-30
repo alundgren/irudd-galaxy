@@ -33,6 +33,7 @@ use serde_json::json;
 
 use crate::config::{Brief, MindConfig};
 use crate::executor::{Done, Executor, Job, JobResult};
+use crate::lines::TalkLines;
 use crate::menu::{DOCK_TALK, LineCandidate, Menu, MenuCtx, MenuProvider, RumorSpread};
 use crate::mind::{DecisionRequest, LineRequest, MAX_ATTEMPTS, MindError, Question};
 use crate::packet::{self, Names};
@@ -164,6 +165,9 @@ pub struct MindHost {
 struct Out {
     batches: Vec<CommandBatch>,
     lines: Vec<SpokenLine>,
+    /// Facts the talk log cites, or will once the queued batches and the lines said
+    /// so far apply: a line citing one is withheld (once per fact).
+    cited: BTreeSet<FactId>,
 }
 
 impl MindHost {
@@ -226,7 +230,10 @@ impl MindHost {
     /// One pass: new facts to menus, answers to batches. Never blocks.
     pub fn pump(&mut self, sim: &mut Sim) -> PumpReport {
         let tick = sim.tick();
-        let mut out = Out::default();
+        let mut out = Out {
+            cited: TalkLines::cited_facts(sim.world(), &sim.state().kernel.pending),
+            ..Out::default()
+        };
         let menus;
         {
             let world = sim.world();
@@ -314,7 +321,10 @@ impl MindHost {
     pub fn shutdown(&mut self, sim: &mut Sim, wait: Duration) -> PumpReport {
         self.closing = true;
         let tick = sim.tick();
-        let mut out = Out::default();
+        let mut out = Out {
+            cited: TalkLines::cited_facts(sim.world(), &sim.state().kernel.pending),
+            ..Out::default()
+        };
         let finished = self.exec.close(wait);
         {
             let world = sim.world();
@@ -754,7 +764,7 @@ impl MindHost {
                     Source::Default
                 };
                 let (text, cites) = said.unwrap_or((line.text.clone(), vec![line.cites]));
-                self.speak(&menu, acc, chosen, &key, source, text, cites, out);
+                self.speak(world, &menu, acc, chosen, &key, source, text, cites, out);
             }
             (stage, _) => {
                 acc.why.push("mismatched answer".into());
@@ -797,6 +807,7 @@ impl MindHost {
                 let line = menu.options[chosen].line.clone().expect("phrase stage");
                 let cites = vec![line.cites];
                 self.speak(
+                    world,
                     &menu,
                     acc,
                     chosen,
@@ -922,7 +933,17 @@ impl MindHost {
             .expect("checked by caller");
         if !self.config.talk.free_phrasing {
             let (text, cites) = (line.text.clone(), vec![line.cites]);
-            return self.speak(&menu, acc, chosen, "", Source::Default, text, cites, out);
+            return self.speak(
+                world,
+                &menu,
+                acc,
+                chosen,
+                "",
+                Source::Default,
+                text,
+                cites,
+                out,
+            );
         }
         let brief = self.line_brief(&line).cloned();
         let voiced = Menu {
@@ -946,6 +967,7 @@ impl MindHost {
             acc.why.push(why.to_owned());
             let cites = vec![line.cites];
             host.speak(
+                world,
                 &menu,
                 acc,
                 chosen,
@@ -960,7 +982,17 @@ impl MindHost {
             return authored(self, acc, "no_voice", out);
         };
         if let Some(Cached::Line { text, cites }) = self.ledger.cached(&key).cloned() {
-            return self.speak(&menu, acc, chosen, &key, Source::Cache, text, cites, out);
+            return self.speak(
+                world,
+                &menu,
+                acc,
+                chosen,
+                &key,
+                Source::Cache,
+                text,
+                cites,
+                out,
+            );
         }
         // The pick stage's calls are already booked, so they count here.
         let allowed = match self.allowance(acc.region.as_ref(), acc.window) {
@@ -1019,8 +1051,9 @@ impl MindHost {
     #[allow(clippy::too_many_arguments)]
     fn speak(
         &mut self,
+        world: &WorldState,
         menu: &Menu,
-        acc: Acc,
+        mut acc: Acc,
         chosen: usize,
         line_key: &str,
         source: Source,
@@ -1028,6 +1061,18 @@ impl MindHost {
         cites: Vec<FactId>,
         out: &mut Out,
     ) {
+        // Once per fact, checked again now: since the line was picked, its fact may have
+        // been cited, by an answer to "What changed?" or another line. Then nobody says
+        // it, and the moment is booked as skipped (its calls still count).
+        if cites.iter().any(|f| out.cited.contains(f)) {
+            acc.why.push("already_cited".to_owned());
+            acc.source = Source::Default;
+            self.stats.skipped += 1;
+            let batch = self.decision_batch(world, menu, &acc, None, Vec::new());
+            out.batches.push(batch);
+            return;
+        }
+        out.cited.extend(cites.iter().copied());
         let line = menu.options[chosen].line.clone().expect("a line option");
         let pick = acc.source;
         let note = OutcomeNote {

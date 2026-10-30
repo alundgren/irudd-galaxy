@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use galaxy_app::game::{Game, GameOptions};
 use galaxy_contract::prelude::*;
-use galaxy_core::{Save, Sim};
+use galaxy_core::Save;
 use galaxy_gm::{Bridge, BridgeOptions};
 use serde_json::{Value, json};
 
@@ -48,7 +49,7 @@ fn galaxy(args: &[&str]) -> (i32, Value) {
 
 fn new_save(dir: &Path, name: &str) -> PathBuf {
     let save = dir.join(name);
-    let (code, out) = galaxy(&["new", "--save", save.to_str().unwrap()]);
+    let (code, out) = galaxy(&["new", "--save", save.to_str().unwrap(), "--no-gm"]);
     assert_eq!(code, 0, "{out}");
     save
 }
@@ -204,6 +205,23 @@ fn propose_on_a_save_then_roll_back() {
             .iter()
             .any(|c| c["cause"] == change.as_str() && c["rolled_back"] == true)
     );
+
+    // The pack is off now, but a new revision proposed for it runs in the sandbox, as
+    // it will once applied.
+    let next = kettle_revision(dir.path(), "after_rollback");
+    let (code, report) = galaxy(&[
+        "gm",
+        "propose",
+        next.to_str().unwrap(),
+        "--save",
+        s,
+        "--no-typecheck",
+    ]);
+    assert_eq!(code, 0, "{report}");
+    assert!(
+        codes(step(&report, "legibility")).contains(&"lines_fired".to_owned()),
+        "{report}"
+    );
 }
 
 #[test]
@@ -214,7 +232,9 @@ fn the_sandbox_runs_in_child_processes_on_copies() {
     let spin = example("bad_sandbox/late_spin");
     let id = PackId::new("gm.bad_late_spin").unwrap();
     let rules = galaxy_gm::SandboxRules::default();
-    let pair = galaxy_gm::sandbox::sandbox(&exe(), &base, &[], (&id, &spin), &rules).unwrap();
+    let pair =
+        galaxy_gm::sandbox::sandbox(&exe(), &base, &[], (&id, &spin), &rules, Some(&packs()))
+            .unwrap();
     let me = std::process::id();
     assert_eq!(pair.parent_pid, me);
     assert_ne!(pair.with.pid, me, "the runaway ran in another process");
@@ -243,11 +263,11 @@ fn the_sandbox_runs_in_child_processes_on_copies() {
     assert_eq!(other["hash"], pair.without.hash.as_str());
 }
 
-/// Serves `bridge` (ticking `sim`) until `child` exits; returns its exit code and JSON.
+/// Serves `bridge` (ticking `game`) until `child` exits; returns its exit code and JSON.
 fn serve_until_done(
     mut child: std::process::Child,
     bridge: &mut Bridge,
-    sim: &mut Sim,
+    game: &mut Game,
     save: &mut Save,
 ) -> (i32, String) {
     let mut stdout = child.stdout.take().unwrap();
@@ -262,11 +282,11 @@ fn serve_until_done(
             break status;
         }
         assert!(started.elapsed() < Duration::from_secs(180), "the CLI hung");
-        bridge.serve(sim, save);
-        sim.step(&PlayerInput::default());
+        bridge.serve(game.sim_mut(), save);
+        game.step(&PlayerInput::default());
         std::thread::sleep(Duration::from_millis(2));
     };
-    bridge.serve(sim, save);
+    bridge.serve(game.sim_mut(), save);
     (status.code().unwrap_or(-1), reader.join().unwrap())
 }
 
@@ -280,10 +300,258 @@ fn spawn_cli(args: &[&str]) -> std::process::Child {
         .unwrap()
 }
 
-fn live_cli(args: &[&str], bridge: &mut Bridge, sim: &mut Sim, save: &mut Save) -> (i32, Value) {
-    let (code, out) = serve_until_done(spawn_cli(args), bridge, sim, save);
+fn live_cli(args: &[&str], bridge: &mut Bridge, game: &mut Game, save: &mut Save) -> (i32, Value) {
+    let (code, out) = serve_until_done(spawn_cli(args), bridge, game, save);
     let json = serde_json::from_str(&out).unwrap_or_else(|e| panic!("not JSON ({e}): {out}"));
     (code, json)
+}
+
+/// Opens the save the way `play` and `sim run` do: the game's one composition, with
+/// the bridge loading into its script host.
+fn open_game(path: &Path, opts: BridgeOptions) -> (Game, Result<Bridge, String>) {
+    let state = Save::open(path).unwrap().load().unwrap();
+    let seed = state.world.meta.seed;
+    Game::open_gm(state, &GameOptions::headless(packs(), seed), path, opts).unwrap()
+}
+
+#[test]
+fn gm_packs_run_in_the_games_one_script_host() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("one.sqlite");
+    // gm-examples installed: the game itself runs `gm.kettle_growth`.
+    let (code, out) = galaxy(&["new", "--save", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+    let kettle = PackId::from_static("gm.kettle_growth");
+    // The game master proposes a new revision of it.
+    let src = dir.path().join("kettle_growth");
+    let pack = galaxy_script::read_pack(&example("kettle_growth")).unwrap();
+    for (f, text) in &pack.files {
+        let p = src.join(f);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        let text = if f == "manifest.toml" {
+            format!("{text}\n# the game master's revision\n")
+        } else {
+            text.clone()
+        };
+        std::fs::write(p, text).unwrap();
+    }
+    let new = galaxy_script::read_pack(&src).unwrap();
+
+    let mut save = Save::open(&path).unwrap();
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
+    let old = game
+        .scripts()
+        .revision(&kettle)
+        .expect("gm-examples runs it");
+    assert_ne!(old, new.revision);
+    // One script system, between the economy and progress.
+    let names = game.sim().system_names();
+    let at = |name: &str| names.iter().position(|n| *n == name).unwrap();
+    assert_eq!(
+        names
+            .iter()
+            .filter(|n| **n == galaxy_script::host::SYSTEM_NAME)
+            .count(),
+        1,
+        "{names:?}"
+    );
+    assert!(at(galaxy_script::host::SYSTEM_NAME) < at(galaxy_progress::SYSTEM_NAME));
+
+    let rel = bridge.store().import(&new).unwrap();
+    let report =
+        galaxy_script::ScriptHost::new(None).load(&src, game.sim().world(), game.sim().history());
+    assert!(report.accepted(), "{report:?}");
+    bridge.stage(&rel, report, "test", true).unwrap();
+    let applied = bridge.apply_staged(game.sim_mut(), &mut save);
+    assert_eq!(applied[0]["what"], "applied", "{applied:?}");
+    // The game's host runs the new revision in place of the old one: the bridge holds
+    // the same host, not a second one.
+    assert_eq!(game.scripts().revision(&kettle), Some(new.revision.clone()));
+    assert_eq!(bridge.host().revision(&kettle), Some(new.revision.clone()));
+    for _ in 0..3 {
+        game.step(&PlayerInput::default());
+    }
+    bridge.after_tick(game.sim());
+    assert!(bridge.state().applied[0].change.is_some());
+    save.write(game.sim().state()).unwrap();
+    drop((game, bridge));
+
+    // On the next load the applied revision replaces gm-examples' again, in the one host.
+    let (game, bridge) = open_game(&path, BridgeOptions::default());
+    let bridge = bridge.unwrap();
+    assert_eq!(game.scripts().revision(&kettle), Some(new.revision.clone()));
+    assert_eq!(bridge.host().revision(&kettle), Some(new.revision));
+}
+
+const KETTLE: StationId = StationId::from_static("station.kettle_dock");
+
+/// A game-master revision of `kettle_growth`: the example with `tag` added to its
+/// manifest, so only the revision differs.
+fn kettle_revision(dir: &Path, tag: &str) -> PathBuf {
+    let src = dir.join(format!("kettle_{tag}"));
+    let pack = galaxy_script::read_pack(&example("kettle_growth")).unwrap();
+    for (f, text) in &pack.files {
+        let p = src.join(f);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        let text = if f == "manifest.toml" {
+            format!("{text}\n# the game master's revision {tag}\n")
+        } else {
+            text.clone()
+        };
+        std::fs::write(p, text).unwrap();
+    }
+    src
+}
+
+/// Stages and applies the pack in `src` at this calm moment; returns its revision.
+fn apply_pack(src: &Path, game: &mut Game, bridge: &mut Bridge, save: &mut Save) -> String {
+    let pack = galaxy_script::read_pack(src).unwrap();
+    let rel = bridge.store().import(&pack).unwrap();
+    let report =
+        galaxy_script::ScriptHost::new(None).load(src, game.sim().world(), game.sim().history());
+    assert!(report.accepted(), "{report:?}");
+    bridge.stage(&rel, report, "test", true).unwrap();
+    let applied = bridge.apply_staged(game.sim_mut(), save);
+    assert_eq!(applied[0]["what"], "applied", "{applied:?}");
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    bridge.after_tick(game.sim());
+    pack.revision
+}
+
+/// Committed player sales at Kettle Dock, then ticks for the scripts to react.
+fn sell_at_kettle(game: &mut Game, sales: &[(&str, u32)]) {
+    for (ware, quantity) in sales {
+        game.sim_mut().submit(
+            CommandBatch::new(Cause::verb(Actor::Player, VerbKind::Sell, "sale")).with(
+                galaxy_contract::command::Command::Emit {
+                    event: Event::Sell {
+                        ship: ShipId::from_static("ship.player"),
+                        station: KETTLE,
+                        ware: WareId::new(ware).unwrap(),
+                        quantity: *quantity,
+                        unit_price: 10,
+                    },
+                },
+            ),
+        );
+    }
+    for _ in 0..3 {
+        game.step(&PlayerInput::default());
+    }
+}
+
+fn kettle_stage(game: &Game) -> u32 {
+    game.sim()
+        .world()
+        .stations
+        .get(&KETTLE)
+        .unwrap()
+        .build
+        .stage
+}
+
+/// Re-check of PR #25: rolling back a game-master revision of a pack switches the
+/// pack off in the save, so reloading doesn't bring back gm-examples' copy (or any
+/// other revision) to rebuild what was undone. Only a new revision, applied, switches
+/// it back on.
+fn a_rolled_back_pack_stays_off_across_reloads(gm_examples: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("off.sqlite");
+    let mut args = vec!["new", "--save", path.to_str().unwrap()];
+    if !gm_examples {
+        args.push("--no-gm");
+    }
+    let (code, out) = galaxy(&args);
+    assert_eq!(code, 0, "{out}");
+    let kettle = PackId::from_static("gm.kettle_growth");
+
+    let mut save = Save::open(&path).unwrap();
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
+    assert_eq!(
+        game.scripts().revision(&kettle).is_some(),
+        gm_examples,
+        "gm-examples runs it only when installed"
+    );
+    let before = kettle_stage(&game);
+    let first = apply_pack(
+        &kettle_revision(dir.path(), "1"),
+        &mut game,
+        &mut bridge,
+        &mut save,
+    );
+    assert!(bridge.state().applied[0].change.is_some());
+    // 60 ice and 20 plate: the game master's revision builds stage 2.
+    sell_at_kettle(&mut game, &[("ware.ice", 60), ("ware.refined_plate", 20)]);
+    assert_eq!(kettle_stage(&game), 2);
+
+    // Roll it back: Kettle is back where it was and the pack is off.
+    galaxy_gm::bridge::rollback_change(game.sim_mut(), bridge.store(), bridge.state(), "stage.1")
+        .unwrap();
+    for _ in 0..2 {
+        game.step(&PlayerInput::default());
+    }
+    assert_eq!(kettle_stage(&game), before);
+    assert!(game.sim().world().packs.get(&kettle).unwrap().off);
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(
+        kettle_stage(&game),
+        before,
+        "nothing rebuilds it in this session"
+    );
+    save.write(game.sim().state()).unwrap();
+    drop((game, bridge));
+
+    // Reload: no revision of the pack runs, gm-examples' copy included, and another
+    // sale doesn't rebuild the stage from the retained history.
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let bridge = bridge.unwrap();
+    assert_eq!(game.scripts().revision(&kettle), None);
+    assert_eq!(
+        bridge.status(game.sim())["applied"][0]["state"],
+        "rolled_back"
+    );
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(
+        kettle_stage(&game),
+        before,
+        "the rolled-back change isn't rebuilt"
+    );
+    assert!(game.sim().world().packs.get(&kettle).unwrap().off);
+    save.write(game.sim().state()).unwrap();
+    drop((game, bridge));
+    // And again: the switch is saved, not remembered by the bridge.
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
+    assert_eq!(game.scripts().revision(&kettle), None);
+    sell_at_kettle(&mut game, &[("ware.ice", 5)]);
+    assert_eq!(kettle_stage(&game), before);
+
+    // A new revision, proposed and applied, switches the pack back on.
+    let second = apply_pack(
+        &kettle_revision(dir.path(), "2"),
+        &mut game,
+        &mut bridge,
+        &mut save,
+    );
+    assert_ne!(first, second);
+    assert!(game.sim().world().packs.get(&kettle).is_none_or(|p| !p.off));
+    assert_eq!(game.scripts().revision(&kettle), Some(second));
+    sell_at_kettle(&mut game, &[("ware.refined_plate", 5)]);
+    assert_eq!(kettle_stage(&game), 2, "the new revision runs");
+}
+
+#[test]
+fn a_rolled_back_pack_stays_off_with_gm_examples() {
+    a_rolled_back_pack_stays_off_across_reloads(true);
+}
+
+#[test]
+fn a_rolled_back_pack_stays_off_without_gm_examples() {
+    a_rolled_back_pack_stays_off_across_reloads(false);
 }
 
 #[test]
@@ -291,21 +559,21 @@ fn the_live_cli_against_a_running_game() {
     let dir = tempfile::tempdir().unwrap();
     let path = new_save(dir.path(), "live.sqlite");
     let mut save = Save::open(&path).unwrap();
-    let mut sim = galaxy_app::game::game(save.load().unwrap());
-    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    let (mut game, bridge) = open_game(&path, BridgeOptions::default());
+    let mut bridge = bridge.unwrap();
     bridge.start_live(None).unwrap();
     let p = path.to_str().unwrap();
     // A new game starts docked at the Wharf: a calm moment.
-    assert!(galaxy_gm::bridge::is_calm(&sim));
+    assert!(galaxy_gm::bridge::is_calm(game.sim()));
 
     let (code, credits) = live_cli(
         &["state", "get", "--live", p, "--path", "player.credits"],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0, "{credits}");
-    assert_eq!(credits, sim.world().player.credits);
+    assert_eq!(credits, game.sim().world().player.credits);
     let (code, q) = live_cli(
         &[
             "state",
@@ -319,7 +587,7 @@ fn the_live_cli_against_a_running_game() {
             "name",
         ],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0, "{q}");
@@ -339,7 +607,7 @@ fn the_live_cli_against_a_running_game() {
             "--no-typecheck",
         ],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0, "{report}");
@@ -348,7 +616,7 @@ fn the_live_cli_against_a_running_game() {
         .expect("applied with a change ID")
         .to_owned();
     assert_eq!(report["status"]["status"], "applied");
-    assert!(sim.world().npcs.contains(&ODO));
+    assert!(game.sim().world().npcs.contains(&ODO));
     assert_eq!(
         bridge.state().applied[0].change.unwrap().to_string(),
         change
@@ -359,7 +627,7 @@ fn the_live_cli_against_a_running_game() {
     let (code, status) = live_cli(
         &["gm", "status", "--live", p],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0);
@@ -375,7 +643,7 @@ fn the_live_cli_against_a_running_game() {
             "gm_change_applied",
         ],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0);
@@ -383,7 +651,7 @@ fn the_live_cli_against_a_running_game() {
     let (code, digest) = live_cli(
         &["gm", "digest", "--live", p, "--since", "fact.1"],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0, "{digest}");
@@ -399,7 +667,7 @@ fn the_live_cli_against_a_running_game() {
     let (code, lines) = serve_until_done(
         spawn_cli(&["watch", "--live", p, "--since", "fact.0", "--count", "2"]),
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0);
@@ -414,23 +682,26 @@ fn the_live_cli_against_a_running_game() {
     let (code, out) = live_cli(
         &["gm", "rollback", &change, "--live", p],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 0, "{out}");
     for _ in 0..3 {
-        sim.step(&PlayerInput::default());
+        game.step(&PlayerInput::default());
     }
-    assert!(sim.world().npcs.contains(&ODO), "Odo is the core pack's");
     assert!(
-        !sim.world().packs[&PackId::from_static("gm.kettle_growth")]
+        game.sim().world().npcs.contains(&ODO),
+        "Odo is the core pack's"
+    );
+    assert!(
+        !game.sim().world().packs[&PackId::from_static("gm.kettle_growth")]
             .retired
             .is_empty()
     );
     let (_, status) = live_cli(
         &["gm", "status", "--live", p],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(status["applied"][0]["state"], "rolled_back");
@@ -446,7 +717,7 @@ fn the_live_cli_against_a_running_game() {
             "--no-typecheck",
         ],
         &mut bridge,
-        &mut sim,
+        &mut game,
         &mut save,
     );
     assert_eq!(code, 4, "{refused}");
@@ -461,16 +732,14 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
     let dir = tempfile::tempdir().unwrap();
     let path = new_save(dir.path(), "inbox.sqlite");
     let mut save = Save::open(&path).unwrap();
-    let mut sim = galaxy_app::game::game(save.load().unwrap());
-    let mut bridge = Bridge::open(
+    let (mut game, bridge) = open_game(
         &path,
-        &mut sim,
         BridgeOptions {
             exe: Some(exe()),
             ..BridgeOptions::default()
         },
-    )
-    .unwrap();
+    );
+    let mut bridge = bridge.unwrap();
     let inbox = bridge.store().inbox();
     // Copy the files, then write the READY marker last, as GM-AGENTS.md says.
     let copy = |from: &Path, to: &Path, ready: bool| {
@@ -496,14 +765,14 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
 
     // Paused: calm. The game claims entries one at a time and validates them on a
     // thread; the frames go on meanwhile.
-    sim.set_paused(true);
+    game.sim_mut().set_paused(true);
     let started = Instant::now();
     while !inbox.join("b_silent.result.json").exists() {
         assert!(
             started.elapsed() < Duration::from_secs(180),
             "the inbox hung"
         );
-        bridge.serve(&mut sim, &mut save);
+        bridge.serve(game.sim_mut(), &mut save);
         std::thread::sleep(Duration::from_millis(5));
     }
     assert!(
@@ -515,7 +784,7 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
         "not claimed"
     );
     assert_eq!(
-        bridge.status(&sim)["inbox"]["incomplete"],
+        bridge.status(game.sim())["inbox"]["incomplete"],
         json!(["c_copying"])
     );
     let good: Value =
@@ -529,14 +798,14 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
     assert_eq!(bad["report"]["status"]["status"], "rejected");
     // The good one was staged and, still calm, applied; the change ID follows the
     // first tick after the pause.
-    bridge.serve(&mut sim, &mut save);
+    bridge.serve(game.sim_mut(), &mut save);
     assert_eq!(bridge.state().applied.len(), 1);
     assert_eq!(bridge.state().applied[0].source, "inbox:a_kettle");
-    sim.set_paused(false);
-    sim.step(&PlayerInput::default());
-    bridge.after_tick(&sim);
+    game.sim_mut().set_paused(false);
+    game.step(&PlayerInput::default());
+    bridge.after_tick(game.sim());
     assert!(bridge.state().applied[0].change.is_some());
-    assert!(sim.world().npcs.contains(&ODO));
+    assert!(game.sim().world().npcs.contains(&ODO));
 }
 
 /// Needs a GPU and a window: `cargo test -p galaxy-app --test gm -- --ignored`.

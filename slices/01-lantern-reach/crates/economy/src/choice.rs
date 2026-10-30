@@ -148,10 +148,7 @@ pub fn rank_trades(
             ship: profile.ship.clone(),
         })?;
     let here = ship.docked_at.clone();
-    let capacity = world
-        .hulls
-        .get(&ship.hull)
-        .map_or(0, |h| u64::from(h.hold_capacity));
+    let capacity = galaxy_contract::modifiers::hold_capacity(world, ship);
     let tradeable =
         |w: &WareId| profile.wares.contains(w) && world.wares.get(w).is_some_and(|w| w.tradeable);
     let wallet = (ship.owner == Owner::Player).then_some(world.player.credits);

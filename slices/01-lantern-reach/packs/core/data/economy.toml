@@ -51,6 +51,11 @@ spread = 1.10
 min_standing = 60
 spread = 1.06
 
+# Docking where the snapshot is more than this many of the player's dockings old is a
+# far docking (`far_docking` fact; the Heron's "Far-sighted" rank counts them).
+[scouting]
+far_docking = 10
+
 [reach.flags]
 # The price glass upgrade: live prices of stations within 1200 u.
 "flag.price_glass" = 1200.0

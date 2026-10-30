@@ -1694,3 +1694,78 @@ fn an_escaped_key_in_a_drafted_line_is_redacted_after_decoding() {
     );
     assert!(!shown.contains("SECRET"), "{shown}");
 }
+
+/// A worker whose answers come back late: it holds every answer until `release`.
+struct Late {
+    inner: Inline,
+    held: Vec<Done>,
+    release: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl Executor for Late {
+    fn submit(&mut self, ticket: u64, job: Job) -> bool {
+        let taken = self.inner.submit(ticket, job);
+        self.held.extend(self.inner.poll());
+        taken
+    }
+    fn poll(&mut self) -> Vec<Done> {
+        if self.release.load(Ordering::SeqCst) {
+            std::mem::take(&mut self.held)
+        } else {
+            Vec::new()
+        }
+    }
+    fn in_flight(&self) -> usize {
+        self.held.len()
+    }
+}
+
+/// A line picked before the player asked "What changed?" is checked again when its
+/// answer lands: the answer already cited the fact, so nobody says the line, and the
+/// moment is booked as skipped.
+#[test]
+fn a_late_line_whose_fact_was_cited_meanwhile_is_withheld() {
+    let mut sim = sim(1);
+    let release = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let mut config = config();
+    config.limits.deadline_ticks = 100;
+    let exec = Late {
+        inner: Inline::new(FakeMind::new(1)),
+        held: Vec::new(),
+        release: release.clone(),
+    };
+    let mut host = MindHost::new(config, exec, sim.history());
+    host.add_provider(DockTalk { lines: odo_pool() });
+    let fact = deliver_and_dock(&mut sim);
+    assert_eq!(host.pump(&mut sim).in_flight, 1, "the pick is out");
+    // Meanwhile the player asks, and Odo's answer cites the delivery.
+    sim.submit(
+        CommandBatch::new(Cause::system("test", "the answer")).with(Command::Say {
+            line: Box::new(galaxy_contract::talk::TalkLine {
+                channel: galaxy_contract::talk::Channel::DockTalk,
+                speaker: Some(ODO),
+                place: Some(KETTLE),
+                text: "12 ice. The beans will hear about this.".into(),
+                cites: vec![fact],
+                about: Vec::new(),
+            }),
+        }),
+    );
+    sim.step(&input()).unwrap();
+    release.store(true, Ordering::SeqCst);
+    let report = host.pump(&mut sim);
+    assert!(report.lines.is_empty(), "{:?}", report.lines);
+    sim.step(&input()).unwrap();
+    let cited = sim
+        .world()
+        .talk
+        .lines
+        .values()
+        .filter(|l| l.line.cites.contains(&fact))
+        .count();
+    assert_eq!(cited, 1, "the delivery is told once");
+    let d = decisions(&sim);
+    assert_eq!(d.last().unwrap().choice, None);
+    assert!(d.last().unwrap().why.iter().any(|w| w == "already_cited"));
+    assert_eq!(host.stats().skipped, 1);
+}

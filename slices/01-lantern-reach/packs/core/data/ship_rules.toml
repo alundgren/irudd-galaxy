@@ -18,6 +18,7 @@ radius_per_sqrt_unit = 3.0
 
 [docking]
 approach = 0.6 # dock orders dock this far into the ring (share of its radius)
+transfer_reach = 120.0 # a coupled hull (Tandem) hands cargo to a tender this close in space
 
 # Lanes are currents: every hull rides at the same speed and can't steer.
 [lanes]

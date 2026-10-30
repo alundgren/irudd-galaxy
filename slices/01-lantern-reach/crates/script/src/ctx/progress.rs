@@ -71,9 +71,12 @@ impl CallEnv<'_> {
                 Err(missing("station", station))
             }
             Order::Mine { rock } if !w.rocks.contains(rock) => Err(missing("rock", rock)),
-            Order::Buy { ware, .. } | Order::Sell { ware, .. } if !w.wares.contains(ware) => {
+            Order::Buy { ware, .. } | Order::Sell { ware, .. } | Order::Transfer { ware, .. }
+                if !w.wares.contains(ware) =>
+            {
                 Err(missing("ware", ware))
             }
+            Order::Transfer { to, .. } if !w.ships.contains(to) => Err(missing("ship", to)),
             Order::Loop { orders, .. } => orders.iter().try_for_each(|o| self.check_order(lua, o)),
             _ => Ok(()),
         }

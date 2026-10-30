@@ -1,5 +1,5 @@
 --!strict
--- Act 1, beats b01 to b03 (content/04-journey.md): the worked examples of the beat API.
+-- Act 1, beats b01 to b05 (content/04-journey.md): the worked examples of the beat API.
 -- The rest of the journey is authored the same way, one script per act or situation.
 --
 -- A beat is data: preconditions, steps and an end state built from G.* requirements,
@@ -14,6 +14,7 @@ local KETTLE = "station.kettle_dock"
 local COOP = "faction.wharf_cooperative"
 local ILSE = "npc.ilse_marrow"
 local ODO = "npc.odo_fenn"
+local ORRIN = "npc.orrin_vale"
 local PLAYER = "ship.player"
 local ICE = "ware.ice"
 local GREENHOUSE = "ledger.kettle_greenhouse"
@@ -21,6 +22,9 @@ local GREENHOUSE = "ledger.kettle_greenhouse"
 local B01 = "beat.b01_undock"
 local B02 = "beat.b02_mine_by_hand"
 local B03 = "beat.b03_first_delivery"
+local B04 = "beat.b04_first_sale"
+local B05 = "beat.b05_pause"
+local LENS = "upgrade.mining_lens"
 
 -- A number from pacing.toml. Missing data is an error, never a silent default.
 local function tunable(ctx: G.Ctx, id: string): number
@@ -82,6 +86,31 @@ return G.script({
 					note = "Kettle Dock stage 1: a fogged glass dome",
 				}, beat.why)
 			end,
+		}),
+		G.beat({
+			id = B04,
+			act = 1,
+			giver = ORRIN,
+			goal = "Orrin can fit a mining lens for 600 credits. Sell what you mine to pay for it.",
+			requires = G.done(B03),
+			-- Orrin fits it at the Wharf's hullwright, through the dock screen.
+			done = G.fitted(LENS),
+		}),
+		G.beat({
+			id = B05,
+			act = 1,
+			giver = ILSE,
+			goal = "Press P or Esc whenever you like. The whole galaxy waits for you.",
+			requires = G.done(B04),
+			-- A `paused` fact newer than b04's start: a pause during b04 counts, and if
+			-- one exists already b05 completes at once.
+			done = G.test(function(ctx: G.Ctx): boolean
+				local b04 = ctx.beats:state(B04)
+				if b04 == nil or b04.since == nil then
+					return false
+				end
+				return ctx.history:count({ kind = "paused", after = b04.since }) > 0
+			end),
 		}),
 	},
 	on = {

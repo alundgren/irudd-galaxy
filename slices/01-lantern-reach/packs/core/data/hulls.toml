@@ -24,6 +24,8 @@ hold_capacity = 40
 max_speed = 50.0
 turn_rate = 160.0
 mining_rate = 1.0
+# The Coupling: hands cargo to the player's tenders (the `transfer` verb).
+coupling = true
 
 # Hearthbound branch: scout with longer price reach.
 [[hull]]

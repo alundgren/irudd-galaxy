@@ -10,10 +10,8 @@ pub fn holds(world: &WorldState, ship: Option<&Ship>, cond: &Condition) -> bool 
     };
     match cond {
         Condition::HoldFull => ship.is_some_and(|s| {
-            world
-                .hulls
-                .get(&s.hull)
-                .is_some_and(|h| s.hold.total() >= u64::from(h.hold_capacity))
+            world.hulls.contains(&s.hull)
+                && s.hold.total() >= galaxy_contract::modifiers::hold_capacity(world, s)
         }),
         Condition::HoldEmpty => ship.is_some_and(|s| s.hold.total() == 0),
         Condition::PriceAtLeast {

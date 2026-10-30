@@ -33,6 +33,12 @@
       "default": {
         "flags": {}
       }
+    },
+    "scouting": {
+      "$ref": "#/$defs/ScoutRules",
+      "default": {
+        "far_docking": 10
+      }
     }
   },
   "additionalProperties": false,
@@ -170,6 +176,20 @@
         "min_standing",
         "spread"
       ]
+    },
+    "ScoutRules": {
+      "description": "Scouting tunables.",
+      "type": "object",
+      "properties": {
+        "far_docking": {
+          "description": "The player docking at a station whose snapshot is more than this many player\ndockings old is a far docking (`far_docking` fact; the Heron's \"Far-sighted\").",
+          "type": "integer",
+          "format": "uint64",
+          "default": 10,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

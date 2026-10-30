@@ -62,6 +62,10 @@ pub struct EconomyState {
     pub regions: BTreeMap<RegionId, ActivityTally>,
     /// Per ship: where it last docked, for the counted-docking rule.
     pub docks: BTreeMap<ShipId, DockTrack>,
+    /// Per ware: the station where the player last sold part of the stack and kept
+    /// the rest. Selling that ware at another station is a split sale.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub split_stacks: BTreeMap<WareId, StationId>,
 }
 
 /// The market's tunables. Also the schema of a pack's `data/economy.toml`.
@@ -71,6 +75,22 @@ pub struct EconomyRules {
     pub pulses: PulseRules,
     pub pricing: PricingRules,
     pub reach: ReachRules,
+    pub scouting: ScoutRules,
+}
+
+/// Scouting tunables.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ScoutRules {
+    /// The player docking at a station whose snapshot is more than this many player
+    /// dockings old is a far docking (`far_docking` fact; the Heron's "Far-sighted").
+    pub far_docking: u64,
+}
+
+impl Default for ScoutRules {
+    fn default() -> Self {
+        Self { far_docking: 10 }
+    }
 }
 
 /// How much market activity each kind of event makes.

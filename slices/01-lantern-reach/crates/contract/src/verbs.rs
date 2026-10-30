@@ -27,6 +27,8 @@ pub enum VerbKind {
     Sell,
     Wait,
     Loop,
+    /// Hand cargo to one of the player's tenders (the Tandem's Coupling).
+    Transfer,
 }
 
 /// One order.
@@ -67,6 +69,14 @@ pub enum Order {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         until: Option<Condition>,
     },
+    /// Hand cargo to one of the player's tenders, both docked at the same station or
+    /// within `docking.transfer_reach` in space. Only a hull with `coupling` (the
+    /// Tandem) can. Writes a `transfer` fact.
+    Transfer {
+        ware: WareId,
+        quantity: Quantity,
+        to: ShipId,
+    },
 }
 
 impl Order {
@@ -80,6 +90,7 @@ impl Order {
             Order::Sell { .. } => VerbKind::Sell,
             Order::Wait { .. } => VerbKind::Wait,
             Order::Loop { .. } => VerbKind::Loop,
+            Order::Transfer { .. } => VerbKind::Transfer,
         }
     }
 }

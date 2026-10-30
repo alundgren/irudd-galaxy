@@ -8,9 +8,11 @@
 //!
 //! Three batches, each caused by the `script_rollback` system:
 //!
-//! 1. the retirement, queued before the inverses. The script host stops a revision as
-//!    soon as its retirement is queued (it reads `TickCtx::queued`), so the revision
-//!    runs no handler in the tick its change is undone;
+//! 1. the retirement, queued before the inverses: the revisions are retired and their
+//!    packs switched off (`PackState::off`), so no revision of them runs again in this
+//!    save until the game master applies a new one. The script host stops a pack as
+//!    soon as this is queued (it reads `TickCtx::queued`), so it runs no handler in the
+//!    tick its change is undone;
 //! 2. the kernel's inverse batches;
 //! 3. the compensating lines, checked against the world the inverses leave: a speaker
 //!    or place the rollback removes is left out, and the chronicle line is cut to fit.
@@ -98,6 +100,16 @@ pub fn rollback(sim: &mut Sim, causes: &[CauseId], line: Option<&RollbackLine>) 
             pack: pack.clone(),
             revision: revision.clone(),
             retired: true,
+        });
+    }
+    // The whole pack goes off, not just these revisions: an older revision of it (the
+    // bundled `gm-examples` copy, an earlier applied one) would otherwise run again on
+    // the next load and redo the change. Only applying a new revision switches it on.
+    let packs: BTreeSet<&PackId> = retired.iter().map(|(p, _)| p).collect();
+    for pack in packs {
+        retire.push(Command::SetPackOff {
+            pack: pack.clone(),
+            off: true,
         });
     }
     sim.submit(retire);

@@ -12,6 +12,10 @@
       },
       "default": {}
     },
+    "off": {
+      "description": "Set by a rollback of any change the pack made: no revision of the pack runs,\nfrom any source (`gm-examples`, an applied revision, the inbox), until the game\nmaster applies a new revision, whose apply batch clears it. Saved, so a reload\ndoesn't bring back an older revision of the pack.",
+      "type": "boolean"
+    },
     "retired": {
       "description": "Revisions switched off by a rollback. Their handlers don't run.",
       "type": "array",
@@ -858,16 +862,25 @@
     },
     "VerbKind": {
       "description": "Verb names, used in causes and `order_done` events.",
-      "type": "string",
-      "enum": [
-        "fly",
-        "mine",
-        "dock",
-        "undock",
-        "buy",
-        "sell",
-        "wait",
-        "loop"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fly",
+            "mine",
+            "dock",
+            "undock",
+            "buy",
+            "sell",
+            "wait",
+            "loop"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders (the Tandem's Coupling).",
+          "type": "string",
+          "const": "transfer"
+        }
       ]
     },
     "WareId": {
