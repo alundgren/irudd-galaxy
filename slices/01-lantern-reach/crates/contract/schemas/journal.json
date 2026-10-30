@@ -573,6 +573,37 @@
           ]
         },
         {
+          "description": "Puts (`Some`) or takes away (`None`) a consignment in a ship's hold, keyed by\nits delivery tally. Loading one fails if one is already aboard under the key.",
+          "type": "object",
+          "properties": {
+            "consignment": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Consignment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ledger": {
+              "$ref": "#/$defs/LedgerId"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_consignment"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "ledger"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "op": {
@@ -2380,6 +2411,40 @@
         }
       ]
     },
+    "Consignment": {
+      "description": "Goods carried for someone: whose they are and who they're for.",
+      "type": "object",
+      "properties": {
+        "owner": {
+          "description": "Whose goods they are (shown in the hold: \"Ilse's plate\").",
+          "$ref": "#/$defs/NpcId"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "station": {
+          "description": "Where that person is.",
+          "$ref": "#/$defs/StationId"
+        },
+        "to": {
+          "description": "Who they're for.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "quantity",
+        "owner",
+        "to",
+        "station"
+      ]
+    },
     "CounterKind": {
       "description": "Activity counters. Pacing reads these, never a clock.",
       "oneOf": [
@@ -3532,6 +3597,7 @@
       "type": "object",
       "properties": {
         "cargo": {
+          "description": "The pilot's own goods, by ware.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -3539,6 +3605,16 @@
               "type": "integer",
               "format": "uint32",
               "minimum": 0
+            }
+          }
+        },
+        "consigned": {
+          "description": "Someone else's goods the pilot agreed to carry, keyed by the delivery tally they\ncount toward. They take hold space, but they aren't the pilot's: no market buys\nthem, no loop or tender moves them, and only handing them to the person they're\nfor removes them. Missing in older saves.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/Consignment"
             }
           }
         }

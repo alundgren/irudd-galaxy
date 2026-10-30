@@ -256,6 +256,24 @@ pub fn check_pack(pack: Rc<Pack>, opts: CheckOptions<'_>) -> Checked {
                     ));
                 }
             }
+            // Credits and fittings change only in a transaction the player confirmed
+            // (`crate::confirm`), and a beat completes on its own: pay and fit in the
+            // reply handler that settles the hand-in, not as a reward.
+            for b in &s.beats {
+                if b.def.rewards.credits != 0 || !b.def.rewards.fit.is_empty() {
+                    hook_diags.push(error(
+                        "unconfirmed_change",
+                        format!(
+                            "beat `{}` pays credits or fits a part as a reward, which the \
+                             player never confirms: pay (`ctx.beats:pay`) in the reply \
+                             handler that settles the hand-in, and offer gifts on a list",
+                            b.def.id
+                        ),
+                        Some(&s.decl.file),
+                        None,
+                    ));
+                }
+            }
             // A beat's rewards are written by its completion, under the pack's cause:
             // they answer to the same table as its hooks.
             if let Some(world) = opts.world {

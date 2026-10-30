@@ -28,7 +28,7 @@ return G.script({
 			},
 			-- And one more docking anywhere once the last step is under way.
 			done = G.fact({ kind = "dock", ship = PLAYER }, { since = "step" }),
-			rewards = { credits = 1.5, flags = { "cap.click_fly" }, standing = { [COMPACT] = 2 } },
+			rewards = { flags = { "cap.click_fly" }, standing = { [COMPACT] = 2 } },
 			on_step = function(ctx: G.Ctx, beat: G.BeatInfo)
 				ctx.history:record({ kind = "probe.stepped", note = beat.step_id or "?" }, beat.why)
 			end,

@@ -24,6 +24,17 @@ return G.script({
 		}),
 	},
 	on = {
+		-- The player's answer at Kettle hands over five ice, if they're still there.
+		reply = function(ev: G.ReplyEvent, ctx: G.Ctx)
+			if
+				ev.station == KETTLE
+				and ctx.beats:pilot().docked_at == KETTLE
+				and (ctx.beats:pilot().cargo["ware.ice"] or 0) >= 5
+			then
+				local why = ctx:cause({ summary = "the review probe takes the ice", cites = { ev.fact } })
+				ctx.beats:deliver({ station = KETTLE, ware = "ware.ice", quantity = 5 }, why)
+			end
+		end,
 		dock = function(ev: G.DockEvent, ctx: G.Ctx)
 			if ev.ship ~= PLAYER then
 				return
@@ -33,12 +44,6 @@ return G.script({
 				-- Two deeds in one call: the second must see the first.
 				ctx.standing:deed({ faction = COMPACT, deed = "deed.review.one", delta = 8 }, why)
 				ctx.standing:deed({ faction = COMPACT, deed = "deed.review.two", delta = 8 }, why)
-			elseif
-				ev.station == KETTLE
-				and ctx.beats:pilot().docked_at == KETTLE
-				and (ctx.beats:pilot().cargo["ware.ice"] or 0) >= 5
-			then
-				ctx.beats:deliver({ station = KETTLE, ware = "ware.ice", quantity = 5 }, why)
 			elseif ev.station == WHARF then
 				local p = ctx.beats:pilot().position
 				local r = ctx.beats:rock("rock.shallows.ice.03")

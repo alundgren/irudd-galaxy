@@ -264,6 +264,48 @@ fn apply_with(
                 delta: inverse,
             })
         }
+        C::SetConsignment {
+            ship,
+            ledger,
+            consignment,
+        } => {
+            if let Some(c) = consignment {
+                refs.require(&world.wares, &c.ware, "ware")?;
+                refs.require(&world.npcs, &c.owner, "npc")?;
+                refs.require(&world.npcs, &c.to, "npc")?;
+                refs.require(&world.stations, &c.station, "station")?;
+                if c.quantity == 0 {
+                    return Err(CommandError::Invalid(format!(
+                        "consignment {ledger} carries nothing"
+                    )));
+                }
+            }
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old = match consignment {
+                Some(c) => {
+                    if refs.check && s.hold.consigned.contains_key(ledger) {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} already carries consignment {ledger}"
+                        )));
+                    }
+                    s.hold.consigned.insert(ledger.clone(), (**c).clone())
+                }
+                None => {
+                    let old = s.hold.consigned.remove(ledger);
+                    if refs.check && old.is_none() {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} carries no consignment {ledger}"
+                        )));
+                    }
+                    old
+                }
+            };
+            invert(C::SetConsignment {
+                ship: ship.clone(),
+                ledger: ledger.clone(),
+                consignment: old.map(Box::new),
+            })
+        }
         C::SetOrders { ship, orders } => {
             let s = find(&mut world.ships, ship, "ship")?;
             let old = std::mem::replace(&mut s.orders, orders.clone());

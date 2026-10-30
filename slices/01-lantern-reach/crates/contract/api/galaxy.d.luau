@@ -138,7 +138,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }
 -- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.
-export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, consigned: { [LedgerId]: Consigned }, hold_free: number, credits: number }
+-- An upgrade or tender on someone's list (`ctx.beats:service`); `cost` is in credits.
+export type ServiceView = { id: string, name: string, effect: string, cost: number, seller: NpcId?, station: StationId?, owned: boolean }
+-- Goods carried for someone else: whose they are, who they're for and where.
+export type Consigned = { ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }
+-- Someone else's goods to carry, for `ctx.beats:consign` (the same fields, plus the ledger).
+export type ConsignSpec = { ledger: LedgerId, ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.
 export type Spot = { x: number, y: number, region: RegionId? }
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's
@@ -334,8 +340,10 @@ export type BeatsApi = {
 	goals: (self: BeatsApi) -> { GoalLine },
 	-- The act the journey is in (the highest act of any started beat).
 	act: (self: BeatsApi) -> number,
-	-- The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
+	-- The player as a beat sees them: ship, hull, where they're docked, region, position, their own cargo, consignments carried for others (by ledger), hold room and credits (in credits).
 	pilot: (self: BeatsApi) -> PilotView,
+	-- An upgrade or tender a hullwright or dockmaster offers (`upgrades.toml`): its name, its literal effect text, its cost in credits, who sells it and where, and whether the player has it (`owned`: fitted, or the tender built). `nil` for an unknown ID. For the lines that offer a gift and say it's fitted.
+	service: (self: BeatsApi, id: UpgradeId | ShipId) -> ServiceView?,
 	-- How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
 	distance: (self: BeatsApi, to: StationId | Spot) -> number?,
 	-- A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
@@ -346,9 +354,13 @@ export type BeatsApi = {
 	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
 	-- Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.
 	expect_docked: (self: BeatsApi, station: StationId, why: Cause) -> (),
-	-- Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
+	-- Loads goal cargo into the player ship as the pilot's own: at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room. Someone else's goods go aboard with `consign`.
 	load: (self: BeatsApi, spec: LoadSpec, why: Cause) -> (),
-	-- Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
+	-- Loads someone else's goods into the docked player ship under a ledger: they fill hold space but stay the owner's (no market buys them) until `deliver_consignment` hands them to the person they're for. Fails without the hold room, or if that ledger's consignment is already aboard. Cite the player's `reply` accepting it.
+	consign: (self: BeatsApi, spec: ConsignSpec, why: Cause) -> (),
+	-- Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.
+	deliver_consignment: (self: BeatsApi, ledger: LedgerId, why: Cause) -> (),
+	-- Pays the player credits (credits, not centicredits; more than 0): a fee for a hand-in or an offer the player accepted. The call's cause must cite the player's `reply` agreeing to it, or none of its writes apply (`unconfirmed_change`). Never takes credits.
 	pay: (self: BeatsApi, credits: number, why: Cause) -> (),
 }
 export type MechanicsApi = {

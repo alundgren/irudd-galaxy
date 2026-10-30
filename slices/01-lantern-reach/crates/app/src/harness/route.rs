@@ -192,6 +192,9 @@ impl Pilot {
             self.fill(&RIME)?;
             self.go(&KETTLE)?;
             self.idle(4)?;
+            // Odo asks; nothing leaves the hold until the player picks Deliver.
+            self.reply("npc.odo_fenn", "choice.deliver_ice")?;
+            self.idle(4)?;
         }
         if !self.done(4) {
             self.afford_fit("upgrade.mining_lens")?;
@@ -218,8 +221,19 @@ impl Pilot {
             self.sell_all(&ORE)?;
             self.sell_all(&ICE)?;
             self.idle(5)?;
+            // Ilse's plate goes aboard only when accepted, and leaves only when
+            // delivered to Rook.
+            self.reply("npc.ilse_marrow", "choice.accept_consignment")?;
+            self.idle(4)?;
             self.go(&HOOK)?;
             self.idle(4)?;
+            self.reply("npc.rook_adeyemi", "choice.deliver_plate")?;
+            self.idle(5)?;
+        }
+        // Rook's lane chart is a gift on his list: fitted only when the player fits it.
+        if self.done(7) && !self.fitted("upgrade.lane_chart") {
+            self.go(&HOOK)?;
+            self.fit("upgrade.lane_chart")?;
         }
         if !self.done(9) || !self.done(8) {
             for _ in 0..100 {

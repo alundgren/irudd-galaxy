@@ -12,6 +12,6 @@ local function open(ctx:G.Ctx,cite:string)
  local s=ctx.stations:get("station.glass_drift_observatory")
  local destination=ctx.stations:get("station.brassmouth_exchange")
  if s~=nil and destination~=nil then ctx.kit:overlay("gm.ancients_bearing.song",{region=s.region,center=s.position,radius=900,direction={x=destination.position.x-s.position.x,y=destination.position.y-s.position.y}},why) end
- U.say(ctx,why,"Nell hears the song strongest toward Brassmouth Narrows. A direction, not a promise of what lies there.","npc.nell_quillon","station.glass_drift_observatory",cites)
+ U.say(ctx,why,"I hear the song strongest toward Brassmouth Narrows. A direction, not a promise of what lies there.","npc.nell_quillon","station.glass_drift_observatory",cites)
 end
 return G.script({id="main",on={dock=function(ev:G.DockEvent,ctx:G.Ctx) open(ctx,ev.fact) end,session_start=function(ev:G.SessionStartEvent,ctx:G.Ctx) open(ctx,ev.fact) end}})

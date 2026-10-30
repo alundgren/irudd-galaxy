@@ -594,10 +594,57 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
                 cargo.raw_set(ware.as_str(), *n)?;
             }
             t.raw_set("cargo", cargo)?;
+            let consigned = lua.create_table()?;
+            for (ledger, c) in ship.map(|s| &s.hold.consigned).into_iter().flatten() {
+                consigned.raw_set(ledger.as_str(), to_lua(lua, c)?)?;
+            }
+            t.raw_set("consigned", consigned)?;
             t.raw_set("hold_free", galaxy_progress::eval::hold_free(w, ship))?;
             t.raw_set("credits", w.player.credits as f64 / 100.0)?;
             t.raw_set("name", w.player.name.as_str())?;
             Ok(t)
+        })?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "service",
+        m(scope, env, |lua, env, id: LuaString| {
+            let id = env.arg(lua, &id)?;
+            let w = env.world;
+            let rules = &w.progress.rules;
+            let found = if let Some(u) = rules.upgrades.get(id.as_str()) {
+                (
+                    &u.name,
+                    &u.effect,
+                    u.cost,
+                    u.seller.as_ref(),
+                    u.station.as_ref(),
+                    w.player.fittings.contains(&u.id),
+                )
+            } else if let Some(c) = rules.crafts.get(id.as_str()) {
+                (
+                    &c.name,
+                    &c.effect,
+                    c.cost,
+                    c.seller.as_ref(),
+                    Some(&c.station),
+                    w.ships.contains(&c.id),
+                )
+            } else {
+                return Ok(None);
+            };
+            let (name, effect, cost, seller, station, owned) = found;
+            let t = lua.create_table()?;
+            t.raw_set("id", id.as_str())?;
+            t.raw_set("name", name.as_str())?;
+            t.raw_set("effect", effect.as_str())?;
+            t.raw_set("cost", cost as f64 / CENTS_PER_CREDIT as f64)?;
+            t.raw_set("seller", seller.map(|n| n.to_string()))?;
+            t.raw_set("station", station.map(|s| s.to_string()))?;
+            t.raw_set("owned", owned)?;
+            Ok(Some(t))
         })?,
     )?;
     method(
@@ -810,6 +857,137 @@ pub(super) fn namespaces<'scope, 'env: 'scope>(
         })?,
     )?;
 
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "consign",
+        m(scope, env, |lua, env, (spec, why): (Table, Table)| {
+            only_keys(
+                env,
+                lua,
+                &spec,
+                "ctx.beats:consign",
+                &["ledger", "ware", "quantity", "owner", "to", "station"],
+            )?;
+            let ledger: LedgerId = env.id(lua, &spec.get::<LuaString>("ledger")?)?;
+            let ware: WareId = env.id(lua, &spec.get::<LuaString>("ware")?)?;
+            if !env.world.wares.contains(&ware) {
+                return Err(env.fail(lua, "unknown_id", format!("no ware `{ware}`")));
+            }
+            let quantity = units(env, lua, &spec.get::<Value>("quantity")?)?;
+            let mut people = Vec::with_capacity(2);
+            for key in ["owner", "to"] {
+                let npc: NpcId = env.id(lua, &spec.get::<LuaString>(key)?)?;
+                if !env.world.npcs.contains(&npc) {
+                    return Err(env.fail(lua, "unknown_id", format!("no person `{npc}`")));
+                }
+                people.push(npc);
+            }
+            let to_station = env.station(lua, &spec.get::<LuaString>("station")?)?;
+            let ship = galaxy_progress::eval::player_ship(env.world)
+                .ok_or_else(|| env.fail(lua, "no_ship", "the player has no ship"))?;
+            let Some(here) = ship.docked_at.clone() else {
+                return Err(env.fail(lua, "not_docked", "a consignment loads at a dock"));
+            };
+            if ship.hold.consigned.contains_key(&ledger) {
+                return Err(env.fail(
+                    lua,
+                    "already_consigned",
+                    format!("the player already carries the consignment `{ledger}`"),
+                ));
+            }
+            let free = galaxy_progress::eval::hold_free(env.world, Some(ship));
+            if free < u64::from(quantity) {
+                return Err(env.fail(
+                    lua,
+                    "no_room",
+                    format!("the hold has room for {free}, not {quantity}"),
+                ));
+            }
+            let (owner, to) = (people.remove(0), people.remove(0));
+            env.push(
+                lua,
+                &why,
+                Command::ExpectDocked {
+                    ship: ship.id.clone(),
+                    station: here,
+                },
+            )?;
+            env.push(
+                lua,
+                &why,
+                Command::SetConsignment {
+                    ship: ship.id.clone(),
+                    ledger,
+                    consignment: Some(Box::new(Consignment {
+                        ware,
+                        quantity,
+                        owner,
+                        to,
+                        station: to_station,
+                    })),
+                },
+            )
+        })?,
+    )?;
+    method(
+        env,
+        &beat_ns,
+        "beats",
+        "deliver_consignment",
+        m(scope, env, |lua, env, (ledger, why): (LuaString, Table)| {
+            let ledger: LedgerId = env.id(lua, &ledger)?;
+            let ship = galaxy_progress::eval::player_ship(env.world)
+                .ok_or_else(|| env.fail(lua, "no_ship", "the player has no ship"))?;
+            let Some(c) = ship.hold.consigned.get(&ledger).cloned() else {
+                return Err(env.fail(
+                    lua,
+                    "no_consignment",
+                    format!("the player carries no consignment `{ledger}`"),
+                ));
+            };
+            let ship = docked_player(env, lua, &c.station)?;
+            if env
+                .world
+                .npcs
+                .get(&c.to)
+                .is_none_or(|n| n.location.as_ref() != Some(&c.station))
+            {
+                return Err(env.fail(lua, "not_here", format!("{} isn't at {}", c.to, c.station)));
+            }
+            env.push(
+                lua,
+                &why,
+                Command::ExpectDocked {
+                    ship: ship.id.clone(),
+                    station: c.station.clone(),
+                },
+            )?;
+            env.push(
+                lua,
+                &why,
+                Command::SetConsignment {
+                    ship: ship.id.clone(),
+                    ledger: ledger.clone(),
+                    consignment: None,
+                },
+            )?;
+            env.push(
+                lua,
+                &why,
+                Command::Emit {
+                    event: Event::Deliver {
+                        ship: ship.id.clone(),
+                        station: c.station,
+                        ware: c.ware,
+                        quantity: c.quantity,
+                        ledger: Some(ledger),
+                    },
+                },
+            )
+        })?,
+    )?;
     method(
         env,
         &beat_ns,

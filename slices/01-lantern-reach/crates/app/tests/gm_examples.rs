@@ -187,7 +187,11 @@ fn each_example_passes_strict_proposal_lands_and_rolls_back() {
                     .world
                     .talk
                     .on(galaxy_contract::talk::Channel::DockTalk)
-                    .any(|l| l.line.text.contains("Juno"))
+                    .any(|l| l
+                        .line
+                        .speaker
+                        .as_ref()
+                        .is_some_and(|s| s.as_str() == "npc.juno_brask"))
             ),
             _ => unreachable!(),
         }

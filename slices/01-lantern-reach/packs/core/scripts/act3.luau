@@ -23,7 +23,7 @@ local function offer_question(ctx: G.Ctx, cite: string)
 	ctx.talk:offer({
 		speaker = ids.ORRIN,
 		place = ids.WHARF,
-		text = "Orrin says you fly differently these days. Ask him what he means.",
+		text = "You fly differently these days. Ask me what I mean.",
 		cites = { cite },
 		choices = ASK,
 	}, why)
@@ -36,7 +36,7 @@ return G.script({
 			id = ids.B11,
 			act = 3,
 			giver = ids.ORRIN,
-			goal = "Orrin can fit an order slate. Shift-click to line up orders.",
+			goal = "Orrin can fit an order slate at the Wharf. Shift-click to line up orders.",
 			requires = {
 				G.done(ids.B08),
 				G.flag("cap.map_travel"),
@@ -45,7 +45,7 @@ return G.script({
 			steps = {
 				{
 					id = "slate",
-					goal = "Orrin can fit an order slate. Shift-click to line up orders.",
+					goal = "Orrin can fit an order slate at the Wharf. Shift-click to line up orders.",
 					done = G.fitted("upgrade.order_slate"),
 				},
 				-- Orrin fits the loop log free once its own unlock holds (four queues).
@@ -56,7 +56,7 @@ return G.script({
 				},
 				{
 					id = "loop",
-					goal = "Save a loop between two stations you trust, and let it run twice.",
+					goal = "Orrin says: save a loop between two stations you trust, and let it run twice.",
 					done = G.fact({ kind = "loop_lap", ship = ids.PLAYER }, { at_least = G.tunable("b11.laps") }),
 				},
 			},

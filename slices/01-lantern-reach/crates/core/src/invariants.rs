@@ -153,6 +153,12 @@ impl Invariant for ReferencesResolve {
             for ware in s.hold.cargo.keys() {
                 exists(&w.wares, ware, id)?;
             }
+            for c in s.hold.consigned.values() {
+                exists(&w.wares, &c.ware, id)?;
+                exists(&w.npcs, &c.owner, id)?;
+                exists(&w.npcs, &c.to, id)?;
+                exists(&w.stations, &c.station, id)?;
+            }
             if let Some(t) = &s.activity.transit {
                 exists(&w.lanes, &t.lane, id)?;
             }

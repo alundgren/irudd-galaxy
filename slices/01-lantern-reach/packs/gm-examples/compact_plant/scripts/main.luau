@@ -17,7 +17,7 @@ local function change(ctx:G.Ctx,cite:string,docking:boolean)
   ctx.beats:expect_docked(dock,why)
   ctx.pacing:set("rumor.ember_shoals.override",if lean then {"false","faction.tollway_compact","a Compact surveyor off the Ninefold"} else "",why)
   ctx.store:set("progress","tuned",lean,why)
-  U.say(ctx,why,"Pip's surveyor has a story about the Shoals. Check the claim buoy; its log records who sent it.","npc.pip_calloway","station.brassmouth_exchange",{f.id})
+  U.say(ctx,why,"My surveyor has a story about the Shoals. Check the claim buoy; its log records who sent it.","npc.pip_calloway","station.brassmouth_exchange",{f.id})
  elseif rumor.planted_by=="faction.tollway_compact" then
   local proof=ctx.history:last({kind="survey_buoy_read",other="gm.compact_plant.buoy"})
   if proof~=nil then
@@ -31,17 +31,17 @@ local function change(ctx:G.Ctx,cite:string,docking:boolean)
    if not exposed then
     ctx.store:set("progress","exposed",true,why)
     U.fact(ctx,why,"gm.compact_plant.rumor_exposed","station.cinder_hook","npc.rook_adeyemi","The Compact planted the stale Shoals claim")
-    U.say(ctx,why,"Rook reads the buoy log: the Compact planted that stale claim. The three iron rocks are still yours to work.","npc.rook_adeyemi","station.cinder_hook",{proof.id})
+    U.say(ctx,why,"I've read the buoy log: the Compact planted that stale claim. The three iron rocks are still yours to work.","npc.rook_adeyemi","station.cinder_hook",{proof.id})
    end
    if offer then
-    ctx.talk:offer({speaker="npc.rook_adeyemi",place="station.cinder_hook",text="Rook: That log is proof. The Cooperative owes you 300 credits for exposing it.",cites={proof.id},choices={{id="gm.compact_plant.claim",text="Someone planted the Shoals rumor"}}},why)
+    ctx.talk:offer({speaker="npc.rook_adeyemi",place="station.cinder_hook",text="That log is proof. The Cooperative owes you 300 credits for exposing it.",cites={proof.id},choices={{id="gm.compact_plant.claim",text="Someone planted the Shoals rumor"}}},why)
    end
   elseif ctx.store:get("progress","buoy")~=true then
    local why=ctx:cause({summary="Pip marks the survey buoy beside the Shoals claim",cites={cite}})
    ctx.beats:expect_docked(dock,why)
    ctx.kit:buoy("gm.compact_plant.buoy",{region="region.cinder_drift",position={x=6700,y=1900},radius=40,planted_by="faction.tollway_compact",reward={person="npc.rook_adeyemi",choice="gm.compact_plant.claim",credits=300,standing={["faction.wharf_cooperative"]=5,["faction.tollway_compact"]=-3}}},why)
    ctx.store:set("progress","buoy",true,why)
-   U.say(ctx,why,"Pip marks a Compact survey buoy at Ember Shoals. Press Space beside it to read the claim log.","npc.pip_calloway","station.brassmouth_exchange",{cite})
+   U.say(ctx,why,"I've marked a Compact survey buoy at the Ember Shoals on your map. Press Space beside it to read the claim log.","npc.pip_calloway","station.brassmouth_exchange",{cite})
   end
  end
 end

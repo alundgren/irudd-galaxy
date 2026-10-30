@@ -100,7 +100,7 @@ return G.script({
 				},
 				{
 					id = "assign",
-					goal = "Give Thimble, your tender, one of your loops and a floor price.",
+					goal = "Tamsin says: give Thimble, your tender, one of your loops and a floor price.",
 					-- Data first: the predicate runs only once Thimble has sold patiently
 					-- and lapped.
 					done = {

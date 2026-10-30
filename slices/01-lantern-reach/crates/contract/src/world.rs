@@ -394,17 +394,45 @@ pub enum Owner {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Hold {
+    /// The pilot's own goods, by ware.
     pub cargo: BTreeMap<WareId, u32>,
+    /// Someone else's goods the pilot agreed to carry, keyed by the delivery tally they
+    /// count toward. They take hold space, but they aren't the pilot's: no market buys
+    /// them, no loop or tender moves them, and only handing them to the person they're
+    /// for removes them. Missing in older saves.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub consigned: BTreeMap<LedgerId, Consignment>,
 }
 
 impl Hold {
+    /// Everything aboard, the pilot's and consigned: what fills the hold.
     pub fn total(&self) -> u64 {
-        self.cargo.values().map(|&n| u64::from(n)).sum()
+        self.cargo.values().map(|&n| u64::from(n)).sum::<u64>()
+            + self
+                .consigned
+                .values()
+                .map(|c| u64::from(c.quantity))
+                .sum::<u64>()
     }
 
+    /// The pilot's own units of `ware` (consignments aren't theirs to sell).
     pub fn count(&self, ware: &WareId) -> u32 {
         self.cargo.get(ware).copied().unwrap_or(0)
     }
+}
+
+/// Goods carried for someone: whose they are and who they're for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Consignment {
+    pub ware: WareId,
+    pub quantity: u32,
+    /// Whose goods they are (shown in the hold: "Ilse's plate").
+    pub owner: NpcId,
+    /// Who they're for.
+    pub to: NpcId,
+    /// Where that person is.
+    pub station: StationId,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

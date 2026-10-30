@@ -387,17 +387,28 @@ pub fn map_goal(o: &mut Overlay, world: &WorldState, viewport: G2) {
     }
 }
 
-/// The hold panel's lines: one per ware aboard.
+/// The hold panel's lines: one per ware aboard, then each consignment carried for
+/// someone, marked with whose it is ("Refined plate 20 · Ilse's").
 fn hold_wares(world: &WorldState, ship: &Ship) -> Vec<String> {
-    ship.hold
+    let ware = |w: &WareId| {
+        world
+            .wares
+            .get(w)
+            .map_or_else(|| w.to_string(), |w| w.name.clone())
+    };
+    let own = ship
+        .hold
         .cargo
         .iter()
         .filter(|(_, n)| **n > 0)
-        .map(|(w, n)| {
-            let name = world.wares.get(w).map_or(w.as_str(), |w| w.name.as_str());
-            format!("{name} {n}")
-        })
-        .collect()
+        .map(|(w, n)| format!("{} {n}", ware(w)));
+    let consigned = ship.hold.consigned.values().map(|c| {
+        let owner = world.npcs.get(&c.owner).map_or(c.owner.as_str(), |n| {
+            n.name.split_whitespace().next().unwrap_or(&n.name)
+        });
+        format!("{} {} · {owner}'s", ware(&c.ware), c.quantity)
+    });
+    own.chain(consigned).collect()
 }
 
 /// Where the goal banner goes on the world screen, if there is a goal.

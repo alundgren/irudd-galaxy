@@ -8,6 +8,7 @@ uses = [
     "beats.read",
     "beats.write",
     "events.dock",
+    "events.reply",
     "history.write",
     "standing.read",
     "standing.write",
@@ -16,4 +17,4 @@ uses = [
 [[script]]
 id = "review"
 file = "scripts/review.luau"
-handlers = ["on.dock"]
+handlers = ["on.dock", "on.reply"]

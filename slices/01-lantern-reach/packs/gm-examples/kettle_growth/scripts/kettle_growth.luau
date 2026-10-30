@@ -110,7 +110,7 @@ return G.script({
 			ctx.talk:offer({
 				speaker = ODO,
 				place = KETTLE,
-				text = `Odo's greenhouse needs {need.ice} more ice and {need.plate} more plate for its next ring.`,
+				text = `My greenhouse needs {need.ice} more ice and {need.plate} more plate for its next ring.`,
 				cites = { dock.id },
 			}, why)
 		end),

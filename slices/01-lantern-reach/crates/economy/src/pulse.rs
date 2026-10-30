@@ -90,10 +90,11 @@ pub fn stations_in<'a>(
         .map(|s| &s.id)
 }
 
-/// Would `ship` docking at `station` now count? It does unless the ship last docked
-/// there and hasn't since gone `recount_distance` away, mined, or docked elsewhere.
+/// Would `ship` docking at `station` now count? The one recount rule,
+/// [`DockTrack::counts`]: it does unless the ship last docked there and hasn't since
+/// gone `recount_distance` away, mined, or docked elsewhere.
 pub fn is_counted(track: Option<&DockTrack>, station: &StationId) -> bool {
-    track.is_none_or(|t| t.station != *station || t.away)
+    DockTrack::counts(track, station)
 }
 
 /// The stock of a line with its fractional carry.
