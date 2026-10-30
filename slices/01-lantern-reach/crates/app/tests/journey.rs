@@ -593,6 +593,128 @@ fn asking_right_after_docking_never_repeats_the_ambient_line() {
     );
 }
 
+/// The Wharf at its most crowded: Orrin offers the docking clamp, the hold extender and
+/// the rock cradle (and the lens), five wares in the hold make the hold panel tall.
+fn crowded_wharf() -> Session {
+    let mut state = new_state(false);
+    let w = &mut state.world;
+    w.player
+        .fittings
+        .insert(UpgradeId::from_static("upgrade.nav_chip"));
+    w.counters
+        .bump(CounterKind::Dockings, &CounterScope::Player, 20);
+    w.counters
+        .bump(CounterKind::RocksDepleted, &CounterScope::Player, 5);
+    let ship = w.player.ship.clone().unwrap();
+    let hold = &mut w.ships.get_mut(&ship).unwrap().hold.cargo;
+    for ware in [
+        "ware.ice",
+        "ware.iron_ore",
+        "ware.refined_plate",
+        "ware.glassite",
+        "ware.rations",
+    ] {
+        hold.insert(WareId::new(ware).unwrap(), 2);
+    }
+    let mut s = session(state);
+    // Enough sold for the hold extender.
+    s.submit(
+        CommandBatch::new(Cause::system("test", "past sales")).with(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: FactKind::from_static("sell"),
+                subjects: Subjects {
+                    ship: Some(ship),
+                    ..Subjects::default()
+                },
+                amount: Some(200),
+                note: "past sales".into(),
+            }),
+        }),
+    );
+    s.tick(PlayerInput::default());
+    s
+}
+
+#[test]
+fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
+    let s = crowded_wharf();
+    let offered: Vec<ServiceRequest> =
+        hooks::station_services(s.world(), s.sim().history(), &WHARF)
+            .into_iter()
+            .flat_map(|e| e.offers)
+            .map(|o| o.request)
+            .collect();
+    for u in [
+        "upgrade.docking_clamp",
+        "upgrade.hold_extender",
+        "upgrade.rock_cradle",
+    ] {
+        let fit = ServiceRequest::Fit {
+            upgrade: UpgradeId::new(u).unwrap(),
+        };
+        assert!(offered.contains(&fit), "{u} is on offer: {offered:?}");
+    }
+    let notices = ui::Notices {
+        trade: Some("Kettle Dock isn't buying iron ore right now."),
+        service: Some("Docking clamp costs 700 cr. You have 400 cr."),
+    };
+    for canvas in [
+        render::glam::Vec2::new(960.0, 540.0),
+        render::glam::Vec2::new(1280.0, 720.0),
+    ] {
+        // Page through the services with the panel's own Up / Down buttons.
+        let mut ui_state = UiState::default();
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..20 {
+            let mut o = render::Overlay::default();
+            let buttons = ui::dock_panel(
+                &mut o,
+                s.world(),
+                s.sim().history(),
+                &WHARF,
+                &ui_state,
+                notices,
+                canvas,
+            );
+            for b in &buttons {
+                assert!(
+                    b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y,
+                    "{canvas}: {b:?} is on screen"
+                );
+                assert!(b.rect.x >= 0.0 && b.rect.x + b.rect.w <= canvas.x);
+            }
+            for p in &o.panels {
+                assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
+            }
+            assert!(buttons.iter().any(|b| b.action == ui::UiAction::Undock));
+            for b in &buttons {
+                match &b.action {
+                    ui::UiAction::Service(r) => {
+                        seen.insert(format!("{r:?}"));
+                    }
+                    ui::UiAction::AskWhatChanged => {
+                        seen.insert("ask".to_owned());
+                    }
+                    _ => {}
+                }
+            }
+            let down = buttons.iter().find_map(|b| match b.action {
+                ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => Some(n),
+                _ => None,
+            });
+            let Some(next) = down else { break };
+            ui_state.services_first = next;
+        }
+        for r in &offered {
+            assert!(
+                seen.contains(&format!("{r:?}")),
+                "{canvas}: {r:?} reachable"
+            );
+        }
+        assert!(seen.contains("ask"), "{canvas}: Ask what changed reachable");
+    }
+}
+
 #[test]
 fn asking_what_changed_cites_facts_and_records_the_question() {
     let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);

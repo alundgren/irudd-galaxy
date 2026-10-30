@@ -355,6 +355,7 @@ impl App {
                     .request_service(ServiceRequest::Prestige { to });
             }
             UiAction::CancelPrestige => self.ui.confirm = None,
+            UiAction::ServicesFrom(first) => self.ui.services_first = first,
             UiAction::AskWhatChanged => {
                 self.session.ask_what_changed();
             }
@@ -435,6 +436,7 @@ impl App {
             let out = self.session.tick(input);
             if out.docked.is_some() {
                 self.ui.selected = 0;
+                self.ui.services_first = 0;
                 self.autosave();
             }
             if out.undocked {
