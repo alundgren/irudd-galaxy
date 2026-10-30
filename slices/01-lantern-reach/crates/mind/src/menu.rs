@@ -13,7 +13,7 @@
 //! - [`RumorSpread`]: an NPC craft docks and carries a rumor from its last station,
 //!   with the rumor's truth value unchanged.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use galaxy_contract::prelude::*;
 use galaxy_core::History;
@@ -161,6 +161,48 @@ pub struct TraderMenus<P: PlanSource> {
 impl<P: PlanSource> MenuProvider for TraderMenus<P> {
     fn name(&self) -> &'static str {
         TRADER_ROUTE
+    }
+
+    /// A craft whose route choice was still out when the save was written sits docked
+    /// with no orders, and only a new docking would ask again. On reopening, each such
+    /// craft is asked again for its last docking, unless a committed decision already
+    /// answered it (the host also skips one whose answer is queued in the save). The
+    /// outcome is the model's pick or the utility default, so it never stays parked.
+    fn resume(&self, cx: &MenuCtx<'_>, facts: &[Fact]) -> Vec<Menu> {
+        let settled: BTreeSet<FactId> = cx
+            .history
+            .facts()
+            .iter()
+            .filter(|f| f.kind.as_str() == crate::DECISION_FACT)
+            .filter_map(|f| cx.history.cause(f.cause))
+            .flat_map(|c| c.cause.cites.iter().copied())
+            .collect();
+        let mut out = Vec::new();
+        for (id, ship) in cx.world.ships.iter() {
+            if !cx.world.traders.contains_key(id)
+                || ship.docked_at.is_none()
+                || !ship.orders.orders.is_empty()
+            {
+                continue;
+            }
+            // The craft's latest docking or undocking, if it was saved: a newer one
+            // opens its menu the usual way.
+            let last = cx.history.facts().iter().rev().find(|f| {
+                f.subjects.ship.as_ref() == Some(id)
+                    && matches!(
+                        f.payload,
+                        FactPayload::Event(Event::Dock { .. } | Event::Undock { .. })
+                    )
+            });
+            if let Some(f) = last
+                && facts.last().is_some_and(|saved| f.id <= saved.id)
+                && docked(f).is_some_and(|(_, at)| ship.docked_at.as_ref() == Some(at))
+                && !settled.contains(&f.id)
+            {
+                out.extend(self.menus(cx, f));
+            }
+        }
+        out
     }
 
     fn menus(&self, cx: &MenuCtx<'_>, fact: &Fact) -> Vec<Menu> {

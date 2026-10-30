@@ -194,10 +194,29 @@ return G.script({
 			local ignored = on(ctx) and (get(ctx, "ignored") == 1
 				or ctx.market:pulses(ids.KETTLE) - get(ctx, "pulses") >= util.num(ctx, T .. "ignored_pulses"))
 			if ignored then
+				-- Even Keel puts Kettle at the top of its route menu, and its docking there
+				-- brings the ice. If it can't (a save made before named traders, a craft a
+				-- game-master pack removed, or held up for `relief_fallback_pulses` more
+				-- Kettle activity), the Compact sends the ice anyway: an ignored shortage
+				-- always ends.
+				local pulses = ctx.market:pulses(ids.KETTLE)
+				local flagged = ctx.store:get("shortage", "relief_pulses")
+				local keel = ev.ship == ids.EVEN_KEEL and ev.station == ids.KETTLE
+				local fallback = ctx.space:craft(ids.EVEN_KEEL) == nil
+					or (
+						type(flagged) == "number"
+						and pulses - flagged >= util.num(ctx, T .. "relief_fallback_pulses")
+					)
+				if flagged ~= nil and not keel and not fallback then
+					return
+				end
 				local why = ctx:cause({ summary = "the Compact sees Kettle Dock short of ice", cites = { ev.fact } })
-				ctx.mechanics:set("mech.even_keel_relief", true, why)
-				set(ctx, why, "ignored", 1)
-				if ev.ship == ids.EVEN_KEEL and ev.station == ids.KETTLE then
+				if flagged == nil then
+					ctx.mechanics:set("mech.even_keel_relief", true, why)
+					set(ctx, why, "ignored", 1)
+					set(ctx, why, "relief_pulses", pulses)
+				end
+				if keel or fallback then
 					resolve(ctx, why, 0)
 				end
 				return

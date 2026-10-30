@@ -110,9 +110,13 @@ Their faction-painted hulls appear in flight and on the map. Dockings count
 for the Hook dispute and carry rumors from the previous station without changing
 truth. After enough activity during an ignored shortage, Even Keel favours Kettle;
 its actual arrival delivers the Compact relief. The preference lasts afterwards.
+If Even Keel can't come (it isn't in the save, or Kettle sees
+`relief_fallback_pulses` more pulses first), the Compact sends the ice anyway.
 Little Mercy gains the ice road after player relief and the Observatory route
-after a Cooperative victory. Existing saves keep their authored world; start a
-new save to get the four traders.
+after a Cooperative victory. A save made before the traders gets them when it
+opens (one `craft_backfill` system batch per craft, at home with orders to dock).
+A route choice still out when an autosave was written is asked again on restore,
+so no trader stays parked.
 
 ## Build and check
 

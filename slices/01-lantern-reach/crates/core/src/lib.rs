@@ -33,7 +33,7 @@ pub use galaxy_contract as contract;
 pub use galaxy_contract::world::WorldState as World;
 pub use hash::state_hash;
 pub use history::History;
-pub use load::{DataError, load_world};
+pub use load::{CRAFT_BACKFILL, DataError, craft_backfill, load_world};
 pub use save::{Save, SaveError, fork};
 pub use sim::{KernelState, RollbackPlan, Sim, SimState, TickReport};
 pub use system::{System, TickCtx};
@@ -50,6 +50,25 @@ pub fn default_systems() -> Vec<Box<dyn System>> {
 /// A new game's state from authored data.
 pub fn new_game(data_dir: &Path, seed: u64) -> Result<SimState, DataError> {
     Ok(SimState::new(load_world(data_dir, seed)?))
+}
+
+/// Queues [`craft_backfill`]'s batches for `sim`'s world, unless an earlier open
+/// already queued them and the save was written before they applied. Returns how many
+/// it queued (none on new games and on saves that have the craft). The game calls it
+/// on open, so they apply with the first step.
+pub fn queue_craft_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
+    let queued = sim.state().kernel.pending.iter().any(|b| {
+        matches!(&b.cause.kind, contract::prelude::CauseKind::System { name } if name == CRAFT_BACKFILL)
+    });
+    if queued {
+        return Ok(0);
+    }
+    let batches = craft_backfill(data_dir, sim.world())?;
+    let n = batches.len();
+    for batch in batches {
+        sim.submit(batch);
+    }
+    Ok(n)
 }
 
 /// A sim over `state` with the kernel's systems only (see [`default_systems`]).

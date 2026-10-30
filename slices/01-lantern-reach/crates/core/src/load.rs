@@ -93,6 +93,59 @@ where
     store
 }
 
+/// The cause name of [`craft_backfill`]'s batches.
+pub const CRAFT_BACKFILL: &str = "craft_backfill";
+
+/// Batches that add the named traders `dir` defines to a world that has none of them
+/// yet (a save made before `craft.toml`): one per craft, each putting its hull (if the
+/// world lacks it), its ship at home with orders to dock there, and its route policy,
+/// caused by the system [`CRAFT_BACKFILL`]. A craft whose ship or policy the world
+/// already has is left alone, and so is one whose faction, stations or wares the world
+/// doesn't know. The result depends only on `dir` and the world, so it repeats exactly.
+pub fn craft_backfill(dir: &Path, world: &WorldState) -> Result<Vec<CommandBatch>, DataError> {
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batches = Vec::new();
+    for (id, def) in &fresh.traders {
+        if world.traders.contains_key(id) || world.ships.contains(id) {
+            continue;
+        }
+        let known = world.factions.contains(&def.faction)
+            && def
+                .stations
+                .iter()
+                .chain(def.preferences.iter().map(|p| &p.station))
+                .all(|s| world.stations.contains(s))
+            && def.wares.iter().all(|w| world.wares.contains(w));
+        let (Some(ship), Some(hull), true) =
+            (fresh.ships.get(id), fresh.hulls.get(&def.hull), known)
+        else {
+            continue;
+        };
+        let mut batch = CommandBatch::new(Cause::system(
+            CRAFT_BACKFILL,
+            format!("{} joins a save made before named traders", def.name),
+        ));
+        if !world.hulls.contains(&def.hull) {
+            batch = batch.with(Command::PutHull {
+                id: def.hull.clone(),
+                value: Some(Box::new(hull.clone())),
+            });
+        }
+        batches.push(
+            batch
+                .with(Command::PutShip {
+                    id: id.clone(),
+                    value: Some(Box::new(ship.clone())),
+                })
+                .with(Command::PutTrader {
+                    id: id.clone(),
+                    value: Some(Box::new(def.clone())),
+                }),
+        );
+    }
+    Ok(batches)
+}
+
 /// Reads `dir` and builds the starting world for `seed`.
 pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let wares: WaresFile = read(dir, "wares.toml")?;
