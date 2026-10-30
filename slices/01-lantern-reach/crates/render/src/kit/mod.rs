@@ -17,6 +17,7 @@ pub use rng::Rng;
 pub use rock::{RockKind, RockParams, rock, rock_scale};
 pub use ship::{HullClass, HullColors, HullParams, hull};
 pub use station::{
-    MAX_PARTS, MAX_STATION_RADIUS, PART_KINDS, Part, PartKind, Placement, RecipeError,
-    StationLight, StationPalette, StationRecipe, docking_ring_center, station, station_lights,
+    Decal, DecalKind, MAX_PARTS, MAX_STATION_RADIUS, PART_KINDS, Part, PartKind, Placement,
+    RecipeError, StationLight, StationPalette, StationRecipe, docking_ring_center, station,
+    station_lights,
 };

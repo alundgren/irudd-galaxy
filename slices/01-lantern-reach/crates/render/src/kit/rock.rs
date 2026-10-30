@@ -141,8 +141,15 @@ pub fn rock(params: &RockParams, seed: u64) -> MeshData {
         let centroid = (a + bb + c) / 3.0;
         let normal = (bb - a).cross(c - a).normalize_or_zero();
         let speckle = paint.f32() < style.speckle_rate;
+        // A mined face shows a warm interior, like a cut fruit. Cracks stay the dark ink.
+        let bitten = chip_count > 0
+            && chips
+                .iter()
+                .take(chip_count)
+                .any(|&(d, depth)| normal.dot(d) > 0.82 && centroid.dot(d) > depth - 0.08);
         let color = match style.cap {
             _ if in_crack(centroid) => style.crack,
+            _ if bitten => style.bite,
             Some(cap) if normal.z > 0.82 => cap,
             _ if speckle => style.speckle,
             _ => style.base,
@@ -187,6 +194,8 @@ struct Style {
     speckle: Color,
     speckle_rate: f32,
     cap: Option<Color>,
+    /// Warm colour of a fresh chip. Never the crack colour.
+    bite: Color,
     crack: Color,
     lumpiness: f32,
     squash: Vec3,
@@ -200,6 +209,7 @@ impl Style {
                 speckle: Color::hex(0x6fbfd6),
                 speckle_rate: 0.25,
                 cap: Some(Color::hex(0xd8f3f0)),
+                bite: Color::hex(0xf4e2c4),
                 crack: Color::hex(0x2e6f86),
                 lumpiness: 0.6,
                 squash: Vec3::new(1.15, 0.95, 0.75),
@@ -209,6 +219,7 @@ impl Style {
                 speckle: Color::hex(0xd99a4e),
                 speckle_rate: 0.18,
                 cap: None,
+                bite: Color::hex(0xe2a15a),
                 crack: Color::hex(0x3b1f22),
                 lumpiness: 1.2,
                 squash: Vec3::new(1.0, 1.05, 0.85),
@@ -218,6 +229,7 @@ impl Style {
                 speckle: Color::hex(0x7d5f9a),
                 speckle_rate: 0.3,
                 cap: None,
+                bite: Color::hex(0xc9b6f0),
                 crack: Color::hex(0xe7a6ff),
                 lumpiness: 0.9,
                 squash: Vec3::new(1.0, 1.0, 0.7),
@@ -229,14 +241,32 @@ impl Style {
 /// A few small pebbles: what's left once a rock is mined out.
 fn rubble(b: &mut MeshBuilder, kind: RockKind, radius: f32, mut rng: Rng) {
     let style = Style::of(kind);
-    for _ in 0..4 {
+    for i in 0..4 {
         let at = Vec3::new(rng.signed(), rng.signed(), 0.0) * radius * 0.45;
-        let s = radius * rng.range(0.1, 0.18);
+        let s = radius * rng.range(0.12, 0.2);
+        let tall = if i == 0 { 1.2 } else { 0.8 };
         b.paint(style.base, 0.0);
         b.with(
             Mat4::from_translation(at)
                 * Mat4::from_rotation_z(rng.range(0.0, std::f32::consts::TAU)),
-            |b| b.lathe(&[(0.0, -s * 0.6), (s, 0.0), (0.0, s * 0.7)], 5, 0.0),
+            |b| {
+                b.lathe(
+                    &[
+                        (0.0, -s * 0.55),
+                        (s, 0.0),
+                        (s * 0.55, s * 0.35 * tall),
+                        (0.0, s * 0.7 * tall),
+                    ],
+                    5,
+                    0.0,
+                );
+                // A warm cap, so a mined-out pile still has a face.
+                b.paint(style.bite, 0.0);
+                b.with(
+                    Mat4::from_translation(Vec3::new(s * 0.12, -s * 0.05, s * 0.15 * tall)),
+                    |b| b.lathe(&[(s * 0.32, 0.0), (0.0, s * 0.36)], 4, 0.5),
+                );
+            },
         );
     }
 }

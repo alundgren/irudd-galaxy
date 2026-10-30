@@ -91,16 +91,22 @@ All generators are CPU-side, deterministic for a seed and unit tested.
 
 - `kit::hull(&HullParams, seed)`: `HullParams::wren()`, `tandem()`, `heron()` or any
   params (length, width, height, nose, wing span and sweep, engines, cargo pods, fin, mast,
-  facets, colours). Out-of-range values are clamped.
+  facets, colours, and a `mark`). Out-of-range values are clamped. Every hull has a dorsal
+  stripe and a tail pennant. The Wren adds cheek pods, the Tandem a box cab, the Heron
+  canards and a wide mast dish. `mark` is `lantern_kettle`, `toll_key`, `open_lamp`, or
+  empty; the Wren preset carries the kettle.
 - `kit::rock(&RockParams { kind, radius, remaining }, seed)`: ice, iron or glassite. As
-  `remaining` drops the rock shrinks (`kit::rock_scale`), gets planar chips and inked cracks,
-  and glassite loses crystals; at 0 it is a few pebbles. The same seed keeps the same rock.
-  Re-mesh with `update_mesh` when `remaining` crosses a visible step (the demo uses 1/20).
-- `kit::station(&StationRecipe)`: a station is a serde recipe of parts plus a palette.
-  `StationRecipe::validate()` reports every problem with its part index;
-  `kit::station_lights` gives lantern and beacon positions for glows and point lights;
-  `kit::docking_ring_center` finds the ring. Presets: `lantern_wharf()`, `kettle_dock(stage)`
-  (greenhouse stages 0–3), `brassmouth()`.
+  `remaining` drops the rock shrinks (`kit::rock_scale`), gets planar chips with a warm
+  bitten face and inked cracks, and glassite loses crystals; at 0 it is a few pebbles with
+  warm caps. The same seed keeps the same rock. Re-mesh with `update_mesh` when `remaining`
+  crosses a visible step (the demo uses 1/20).
+- `kit::station(&StationRecipe)`: a station is a serde recipe of parts, a palette and
+  decals (`stripe`, `chevron`, `sigil`, `number`). `StationRecipe::validate()` reports
+  every problem with its part index; `validate_art` checks the recipe against
+  `assets/art-bible.toml`. `kit::station_lights` gives lantern and beacon positions for
+  glows and point lights; `kit::docking_ring_center` finds the ring. Presets:
+  `lantern_wharf()`, `kettle_dock(stage)` (greenhouse stages 0–3), `cinder_hook()`,
+  `glass_drift_observatory()`, `brassmouth()`.
 - `kit::backdrop(&BackdropParams, seed)`: a quiet gradient, a few nebula clusters and sparse
   stars on a repeating tile that scrolls with a small parallax.
 
@@ -120,25 +126,39 @@ A recipe a game master could write (missing fields use defaults):
 }
 ```
 
-Part kinds: `hub`, `docking_ring`, `arm`, `greenhouse`, `antenna`, `tank`, `sail`, `lantern`.
+Part kinds: `hub`, `docking_ring`, `arm`, `greenhouse`, `antenna`, `tank`, `sail`,
+`lantern`, `lens`, `cargo_pod`, `crane`, `solar_petal`, `lamp_mast`, `dome`, `habitat_ring`,
+`beacon`, `signage`, `antenna_cluster`, `docking_arm`, `banner`, `arch`, `spire`, `block`,
+`scaffold`.
 `at` is `{ angle (deg), distance, z, turn (deg), scale }`; in a part's frame +X points away
 from the station centre.
 
 ## How it draws
 
-One MSAA (4x) world pass with a depth buffer, then an overlay pass:
+One MSAA (4x) world pass with a depth buffer, an inner-ink pass, then an overlay pass:
 
 1. Backdrop: a vertical gradient with a soft vignette, then instanced soft nebula puffs and
    stars on repeating tiles.
 2. Meshes: cel shading with 2–3 hard tone bands from a half-Lambert key light, warm violet
    shadows (never gray), a hard rim light, stepped point-light pools, screen-space hatching
    in the shadow band, and self-lit paint (vertex alpha) for windows, lanterns and engines.
-3. Ink outlines: an inverted hull. Back faces are pushed out by a constant number of pixels
-   along normals averaged across hard edges, so outlines don't crack at corners and keep
-   their weight at any zoom. Works the same with a perspective camera.
-4. Lines, beams and glows: camera-facing ribbons with soft ink-edged sides, dashes and
-   hand-drawn wobble; additive beams and glows.
-5. Overlay: rounded SDF panels with an ink border and soft shadow, glyphon text, and the
+3. Ink outlines: an inverted hull. Back faces are pushed out along normals averaged across
+   hard edges, so outlines don't crack at corners. A large facet keeps the art-bible weight
+   at any zoom; a small one thins to a hairline, and a facet under about a pixel is not
+   drawn. Works the same with a perspective camera. This is the silhouette only.
+4. Inner ink: a second, non-multisampled pass writes an octahedral normal, a 16-bit view
+   depth and the unlit paint into two `Rgba8Unorm` targets. Paint alpha stores how many
+   pixels the facet's minor axis covers. A fullscreen pass then draws a line where
+   neighbouring surface pixels crease harder than the art bible's angle, where the paint
+   changes, or where depth breaks the local plane by a step that is large for that view
+   depth. A continuous slope is not an edge, and features only a few pixels across get no
+   inner line. Pixels with no surface neighbour are left to the hull outline.
+   `textureLoad` and plain unorm targets keep the pass the same on DX12, Vulkan and Metal.
+   Widths come from `assets/art-bible.toml`.
+5. Lines, beams and glows: drawn after inner ink, depth-tested against the mesh, so a beam
+   or glow in front of a crease stays visible. Camera-facing ribbons with soft ink-edged
+   sides, dashes and hand-drawn wobble; additive beams and glows.
+6. Overlay: rounded SDF panels with an ink border and soft shadow, glyphon text, and the
    PAUSED card (dimmed world, big centred card) drawn above everything.
 
 ## Assets and licences

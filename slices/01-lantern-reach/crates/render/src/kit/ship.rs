@@ -72,6 +72,14 @@ pub struct HullParams {
     /// Facets around the body; fewer reads as more hand-cut.
     pub facets: u32,
     pub colors: HullColors,
+    /// Faction sigil on the back. Empty draws none.
+    /// `lantern_kettle`, `toll_key` or `open_lamp`.
+    #[serde(default = "empty_mark", skip_serializing_if = "String::is_empty")]
+    pub mark: String,
+}
+
+fn empty_mark() -> String {
+    String::new()
 }
 
 impl Default for HullParams {
@@ -96,6 +104,7 @@ impl HullParams {
             mast: 0.0,
             facets: 8,
             colors: HullColors::default(),
+            mark: "lantern_kettle".into(),
         }
     }
 
@@ -119,6 +128,7 @@ impl HullParams {
                 trim: palette::TERRACOTTA,
                 ..HullColors::default()
             },
+            mark: String::new(),
         }
     }
 
@@ -142,6 +152,7 @@ impl HullParams {
                 trim: palette::TEAL,
                 ..HullColors::default()
             },
+            mark: String::new(),
         }
     }
 
@@ -170,6 +181,7 @@ impl HullParams {
             mast: f(self.mast, 0.0, 40.0),
             facets: self.facets.clamp(5, 16),
             colors: self.colors,
+            mark: self.mark.clone(),
         }
     }
 }
@@ -342,16 +354,225 @@ pub fn hull(params: &HullParams, seed: u64) -> MeshData {
             Mat4::from_translation(Vec3::new(l * 0.45, 0.0, 0.0))
                 * Mat4::from_rotation_y(std::f32::consts::FRAC_PI_2),
             |b| {
-                b.frustum(0.16, 0.08, p.mast, 5);
-                b.paint(palette::LANTERN, 1.0);
+                b.frustum(0.22, 0.14, p.mast, 6);
+                b.paint(c.canopy, 0.15);
                 b.with(Mat4::from_translation(Vec3::Z * p.mast), |b| {
-                    b.lathe(&[(0.0, -0.2), (0.25, 0.0), (0.0, 0.25)], 5, 0.0)
+                    // A wide dish, so the Heron reads as a scout even as a small shape.
+                    b.lathe(
+                        &[(0.0, -0.1), (0.85, 0.0), (0.62, 0.12), (0.0, 0.22)],
+                        7,
+                        0.0,
+                    );
+                    b.paint(palette::LANTERN, 1.0);
+                    b.with(Mat4::from_translation(Vec3::Z * 0.18), |b| {
+                        b.lathe(&[(0.16, 0.0), (0.0, 0.2)], 5, 0.2)
+                    });
                 });
             },
         );
     }
 
+    // A raised stripe along the back. The colour border inks it; no texture.
+    b.paint(c.trim, 0.0);
+    b.with(
+        Mat4::from_translation(Vec3::new(-l * 0.04, 0.1, h * 0.46)),
+        |b| {
+            b.cuboid(Vec3::new(
+                l * 0.5,
+                (w * 0.16).max(0.34),
+                (h * 0.18).max(0.22),
+            ))
+        },
+    );
+
+    match p.class {
+        HullClass::Wren => {
+            // Cheek pods: from above the Wren is a bean with two round ears.
+            let cheek = (w * 0.24).max(0.4);
+            for side in [1.0_f32, -1.0] {
+                b.paint(c.nose, 0.0);
+                b.with(
+                    Mat4::from_translation(Vec3::new(l * 0.02, side * w * 0.42, h * 0.02)),
+                    |b| {
+                        b.lathe(
+                            &[(0.0, -cheek * 0.65), (cheek, 0.0), (0.0, cheek * 0.8)],
+                            6,
+                            0.25,
+                        );
+                        b.paint(c.trim, 0.0);
+                        b.with(
+                            Mat4::from_translation(Vec3::new(
+                                cheek * 0.15,
+                                side * cheek * 0.35,
+                                cheek * 0.2,
+                            )),
+                            |b| b.cuboid(Vec3::splat(cheek * 0.28)),
+                        );
+                    },
+                );
+            }
+        }
+        HullClass::Tandem => {
+            // A box cab over the nose, so the hauler isn't only a longer Wren.
+            b.paint(c.nose, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(l * 0.16, 0.16, h * 0.5)),
+                |b| {
+                    b.cuboid(Vec3::new(l * 0.36, w * 0.72, h * 0.48));
+                    b.paint(c.canopy, 0.3);
+                    b.with(
+                        Mat4::from_translation(Vec3::new(l * 0.04, 0.0, h * 0.22)),
+                        |b| b.cuboid(Vec3::new(l * 0.18, w * 0.52, h * 0.16)),
+                    );
+                },
+            );
+        }
+        HullClass::Heron => {
+            // Canards ahead of the long wings: a second pair, so the scout has a neck.
+            let reach = w * 1.2;
+            let canard = [
+                Vec2::new(l * 0.2, w * 0.22),
+                Vec2::new(l * 0.06, reach),
+                Vec2::new(l * 0.18, reach),
+                Vec2::new(l * 0.32, w * 0.22),
+            ];
+            let mut canard = canard.to_vec();
+            if signed_area(&canard) < 0.0 {
+                canard.reverse();
+            }
+            let thick = (h * 0.2).max(0.18);
+            for side in [1.0_f32, -1.0] {
+                b.paint(c.body, 0.0);
+                b.with(
+                    Mat4::from_scale(Vec3::new(1.0, side, 1.0))
+                        * Mat4::from_translation(Vec3::Z * h * 0.05),
+                    |b| b.extrude(&canard, thick, 0.9),
+                );
+            }
+        }
+    }
+
+    // A tilted awning off the tail. Horizontal enough to read from above.
+    pennant(
+        &mut b,
+        (l * 0.32).max(0.9),
+        Vec3::new(-l * 0.4, w * 0.08, h * 0.34),
+        c.nose,
+        c.trim,
+    );
+    if !p.mark.is_empty() {
+        ship_mark(
+            &mut b,
+            &p.mark,
+            (w * 0.28).max(0.55),
+            Vec3::new(-l * 0.08, 0.12, h * 0.64),
+            c.trim,
+            c.nose,
+            c.engine,
+        );
+    }
+
     b.build()
+}
+
+/// A short banner in the XY plane, tilted up toward the tail.
+fn pennant(b: &mut MeshBuilder, length: f32, at: Vec3, cloth: Color, band: Color) {
+    let w = (length * 0.36).max(0.45);
+    let mut shape = vec![
+        Vec2::new(0.0, w * 0.42),
+        Vec2::new(-length * 0.7, w * 0.36),
+        Vec2::new(-length, 0.0),
+        Vec2::new(-length * 0.7, -w * 0.2),
+        Vec2::new(0.0, -w * 0.28),
+    ];
+    if signed_area(&shape) < 0.0 {
+        shape.reverse();
+    }
+    b.paint(cloth, 0.0);
+    b.with(
+        Mat4::from_translation(at) * Mat4::from_rotation_y(0.5),
+        |b| {
+            b.extrude(&shape, 0.18, 1.0);
+            b.paint(band, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(-length * 0.32, 0.04, 0.12)),
+                |b| b.cuboid(Vec3::new(length * 0.14, w * 0.62, 0.14)),
+            );
+        },
+    );
+}
+
+/// A raised faction sigil. Geometry, so the ink pass outlines it.
+fn ship_mark(
+    b: &mut MeshBuilder,
+    mark: &str,
+    size: f32,
+    at: Vec3,
+    trim: Color,
+    accent: Color,
+    glow: Color,
+) {
+    let s = size.max(0.4);
+    b.with(Mat4::from_translation(at), |b| match mark {
+        "toll_key" => {
+            b.paint(trim, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(-s * 0.28, 0.0, 0.0)),
+                |b| b.torus(s * 0.2, s * 0.1, s * 0.1, 8, 4),
+            );
+            b.with(Mat4::from_translation(Vec3::new(s * 0.12, 0.0, 0.0)), |b| {
+                b.cuboid(Vec3::new(s * 0.62, s * 0.16, s * 0.14))
+            });
+            for x in [0.28_f32, 0.42] {
+                b.with(
+                    Mat4::from_translation(Vec3::new(s * x, -s * 0.16, 0.0)),
+                    |b| b.cuboid(Vec3::new(s * 0.12, s * 0.18, s * 0.14)),
+                );
+            }
+        }
+        "open_lamp" => {
+            b.paint(accent, 0.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(-s * 0.16, 0.0, 0.0)),
+                |b| b.cuboid(Vec3::new(s * 0.14, s * 0.55, s * 0.12)),
+            );
+            b.with(Mat4::from_translation(Vec3::new(s * 0.16, 0.0, 0.0)), |b| {
+                b.cuboid(Vec3::new(s * 0.14, s * 0.55, s * 0.12))
+            });
+            b.with(
+                Mat4::from_translation(Vec3::new(0.0, -s * 0.22, 0.0)),
+                |b| b.cuboid(Vec3::new(s * 0.55, s * 0.14, s * 0.12)),
+            );
+            b.paint(glow, 1.0);
+            b.with(Mat4::from_translation(Vec3::Z * 0.08), |b| {
+                b.lathe(&[(0.0, -s * 0.1), (s * 0.12, 0.0), (0.0, s * 0.1)], 4, 0.4)
+            });
+        }
+        _ => {
+            b.paint(trim, 0.0);
+            b.lathe(
+                &[
+                    (s * 0.12, 0.0),
+                    (s * 0.32, s * 0.06),
+                    (s * 0.28, s * 0.2),
+                    (s * 0.14, s * 0.28),
+                ],
+                8,
+                0.0,
+            );
+            b.paint(glow, 1.0);
+            b.with(
+                Mat4::from_translation(Vec3::new(s * 0.18, s * 0.16, s * 0.14)),
+                |b| {
+                    b.lathe(
+                        &[(s * 0.1, 0.0), (s * 0.16, s * 0.1), (0.0, s * 0.18)],
+                        6,
+                        0.0,
+                    )
+                },
+            );
+        }
+    });
 }
 
 fn signed_area(pts: &[Vec2]) -> f32 {

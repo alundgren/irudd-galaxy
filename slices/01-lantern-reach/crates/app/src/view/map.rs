@@ -4,7 +4,9 @@
 use galaxy_contract::prelude::*;
 use galaxy_economy::{Control, MapView, PriceKnowledge};
 use render::glam::{Mat4, Vec2 as G2, Vec3};
-use render::{Align, Camera, Glow, Line, MeshInstance, Panel, Rect, Scene, Text, palette};
+use render::{
+    Align, ArtBible, Camera, Glow, InkRole, Line, MeshInstance, Panel, Rect, Scene, Text, palette,
+};
 
 use super::{View, g, recipes};
 use crate::trades::credits;
@@ -307,7 +309,8 @@ impl View {
                 color: palette::CORAL.with_alpha(0.6 + 0.2 * (time * 2.0).sin()),
             });
             let scale = 4.0 * wpp;
-            let mut inst = MeshInstance::at(mesh, pos, ship.heading, scale);
+            let mut inst = MeshInstance::at(mesh, pos, ship.heading, scale)
+                .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * 10.0 * wpp) * inst.transform;
             scene.meshes.push(inst);
         }

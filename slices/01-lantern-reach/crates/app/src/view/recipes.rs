@@ -3,7 +3,7 @@
 
 use galaxy_contract::prelude::*;
 use render::kit::{BackdropParams, HullColors, HullParams, RockKind, StationRecipe};
-use render::{Color, palette};
+use render::{ArtBible, Color, palette};
 
 /// The recipe for a station at its current build stage. Unknown stations (the game
 /// master's sixth) get a small generic recipe until they carry their own.
@@ -58,9 +58,16 @@ pub fn hull_params(hull: &HullId) -> HullParams {
 }
 
 /// NPC craft are painted by who owns them, so the player's coral Wren stands out.
+/// The faction mark rides on the hull as a sigil and the pennant stays.
 pub fn npc_hull_params(hull: &HullId, faction: Option<&FactionId>) -> HullParams {
     let mut p = hull_params(hull);
-    p.colors.body = faction.map_or(palette::SAGE, faction_color);
+    match faction.and_then(|id| ArtBible::bundled().faction(id.as_str())) {
+        Some(style) => {
+            p.colors.body = style.primary;
+            p.mark = style.mark.clone();
+        }
+        None => p.colors.body = palette::SAGE,
+    }
     p
 }
 
@@ -74,53 +81,29 @@ pub fn rock_kind(world: &WorldState, rock_type: &RockTypeId) -> RockKind {
     }
 }
 
-/// A faction's colour on the map and on its craft.
+/// A faction's colour on the map and on its craft, from the art bible.
 pub fn faction_color(faction: &FactionId) -> Color {
-    match faction.as_str() {
-        "faction.wharf_cooperative" => palette::TEAL,
-        "faction.tollway_compact" => palette::MUSTARD,
-        "faction.lamplighter_society" => Color::hex(0xb58ae0),
-        _ => palette::SAGE,
-    }
+    ArtBible::bundled()
+        .faction(faction.as_str())
+        .map(|style| style.primary)
+        .unwrap_or(palette::SAGE)
 }
 
-/// Each region's sky: the Shallows calm teal and violet, the Cinder Drift ember and
-/// rose, Brassmouth brassy violet.
+/// Each region's sky, from the art bible. Region tint stays on the backdrop.
 pub fn backdrop(region: Option<&RegionId>) -> BackdropParams {
     let base = BackdropParams::default();
-    match region.map(RegionId::as_str) {
-        Some("region.lantern_shallows") => BackdropParams {
-            top: Color::hex(0x3a3470),
-            bottom: Color::hex(0x1d1a3e),
-            cloud_colors: vec![
-                palette::NEBULA_TEAL,
-                palette::NEBULA_VIOLET,
-                Color::hex(0x4a7fb0),
-            ],
-            ..base
-        },
-        Some("region.cinder_drift") => BackdropParams {
-            top: Color::hex(0x55304a),
-            bottom: Color::hex(0x24162a),
-            cloud_colors: vec![
-                palette::NEBULA_AMBER,
-                palette::NEBULA_ROSE,
-                Color::hex(0x9a4a3a),
-            ],
-            cloud_alpha: 0.24,
-            ..base
-        },
-        Some("region.brassmouth_narrows") => BackdropParams {
-            top: Color::hex(0x4e3672),
-            bottom: Color::hex(0x2a1f48),
-            cloud_colors: vec![
-                palette::NEBULA_VIOLET,
-                Color::hex(0xc98f4a),
-                palette::NEBULA_ROSE,
-            ],
-            ..base
-        },
-        _ => base,
+    let Some(id) = region else {
+        return base;
+    };
+    let Some(style) = ArtBible::bundled().region(id.as_str()) else {
+        return base;
+    };
+    BackdropParams {
+        top: style.sky_top,
+        bottom: style.sky_bottom,
+        cloud_colors: style.clouds.clone(),
+        cloud_alpha: style.cloud_alpha,
+        ..base
     }
 }
 

@@ -137,6 +137,12 @@ struct InstanceGpu {
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
+struct InkGpu {
+    params: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 struct SkyGpu {
     top: [f32; 4],
     bottom: [f32; 4],
@@ -238,6 +244,8 @@ enum Target {
 struct Pipelines {
     mesh: wgpu::RenderPipeline,
     outline: wgpu::RenderPipeline,
+    geom: wgpu::RenderPipeline,
+    ink: wgpu::RenderPipeline,
     fx: wgpu::RenderPipeline,
     gradient: wgpu::RenderPipeline,
     blobs: wgpu::RenderPipeline,
@@ -249,6 +257,15 @@ struct Layouts {
     instances: wgpu::BindGroupLayout,
     sky: wgpu::BindGroupLayout,
     ui: wgpu::BindGroupLayout,
+    ink: wgpu::BindGroupLayout,
+}
+
+/// Normal and paint targets for the inner-ink pass. Sample count 1, even when the
+/// colour target is multisampled: the ink pass reads them with textureLoad.
+struct GeomTargets {
+    geom: wgpu::TextureView,
+    albedo: wgpu::TextureView,
+    depth: wgpu::TextureView,
 }
 
 /// The renderer. Create one per window (or one headless), upload meshes once, then call
@@ -265,6 +282,11 @@ pub struct Renderer {
     scale: f32,
     msaa: Option<wgpu::TextureView>,
     depth: wgpu::TextureView,
+    geom: wgpu::TextureView,
+    albedo: wgpu::TextureView,
+    geom_depth: wgpu::TextureView,
+    ink_uniform: wgpu::Buffer,
+    ink_bind: wgpu::BindGroup,
     offscreen: Option<(wgpu::Texture, wgpu::TextureView, (u32, u32))>,
     layouts: Layouts,
     pipelines: Pipelines,
@@ -291,6 +313,19 @@ fn uniform_entry(binding: u32, vis: wgpu::ShaderStages) -> wgpu::BindGroupLayout
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
             min_binding_size: None,
+        },
+        count: None,
+    }
+}
+
+fn texture_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
         },
         count: None,
     }
@@ -453,6 +488,11 @@ impl Renderer {
             instances: layout(&[storage_entry(0, vis)]),
             sky: layout(&[uniform_entry(0, vis), storage_entry(1, vis)]),
             ui: layout(&[uniform_entry(0, vis), storage_entry(1, vis)]),
+            ink: layout(&[
+                uniform_entry(0, wgpu::ShaderStages::FRAGMENT),
+                texture_entry(1),
+                texture_entry(2),
+            ]),
         };
         let pipelines = create_pipelines(&device, &layouts, format, samples);
 
@@ -489,6 +529,21 @@ impl Renderer {
         );
         let text = TextSystem::new(&device, &queue, format, 1);
         let (msaa, depth) = create_targets(&device, format, samples, size);
+        let geom_targets = create_geom_targets(&device, size);
+        let ink_uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("ink"),
+            contents: bytemuck::bytes_of(&InkGpu {
+                params: crate::ArtBible::bundled().ink_uniforms(),
+            }),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let ink_bind = ink_bind_group(
+            &device,
+            &layouts.ink,
+            &ink_uniform,
+            &geom_targets.geom,
+            &geom_targets.albedo,
+        );
         Ok(Self {
             instance,
             adapter,
@@ -508,6 +563,11 @@ impl Renderer {
             scale,
             msaa,
             depth,
+            geom: geom_targets.geom,
+            albedo: geom_targets.albedo,
+            geom_depth: geom_targets.depth,
+            ink_uniform,
+            ink_bind,
             offscreen: None,
             layouts,
             pipelines,
@@ -572,6 +632,17 @@ impl Renderer {
         let (msaa, depth) = create_targets(&self.device, self.format, self.samples, self.size);
         self.msaa = msaa;
         self.depth = depth;
+        let geom = create_geom_targets(&self.device, self.size);
+        self.ink_bind = ink_bind_group(
+            &self.device,
+            &self.layouts.ink,
+            &self.ink_uniform,
+            &geom.geom,
+            &geom.albedo,
+        );
+        self.geom = geom.geom;
+        self.albedo = geom.albedo;
+        self.geom_depth = geom.depth;
     }
 
     /// Uploads a mesh. Meshes stay on the GPU until [`Renderer::remove_mesh`].
@@ -632,6 +703,7 @@ impl Renderer {
             normal: [0.0, 0.0, 1.0],
             outline_normal: [0.0, 0.0, 1.0],
             color: [0.0; 4],
+            span: [0.0; 2],
         }];
         let (verts, idx): (&[Vertex], &[u32]) = if mesh.is_empty() {
             (&zero, &[0, 0, 0])
@@ -874,6 +946,13 @@ impl Renderer {
         };
         self.queue
             .write_buffer(&self.globals, 0, bytemuck::bytes_of(&globals));
+        let mut ink = crate::ArtBible::bundled().ink_uniforms();
+        ink[3] = (ink[3] * self.scale).round().clamp(1.0, 3.0);
+        self.queue.write_buffer(
+            &self.ink_uniform,
+            0,
+            bytemuck::bytes_of(&InkGpu { params: ink }),
+        );
 
         // Mesh instances, grouped by mesh.
         let mut order: Vec<usize> = (0..scene.meshes.len())
@@ -1084,12 +1163,115 @@ impl Renderer {
                     }
                 }
             }
-            if !fxi.is_empty() {
-                pass.set_pipeline(&self.pipelines.fx);
-                pass.set_vertex_buffer(0, self.fx_vertices.buf.slice(..));
-                pass.set_index_buffer(self.fx_indices.buf.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..fxi.len() as u32, 0, 0..1);
+        }
+        // Inner ink, then lines and glows. Ink is composited onto the resolved
+        // colour before effects, and effects depth-test against the geom depth,
+        // so a beam or glow in front of a crease stays visible.
+        if !runs.is_empty() || !fxi.is_empty() {
+            let clear_geom = wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 0.0,
+                }),
+                store: wgpu::StoreOp::Store,
+            };
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("geom"),
+                    color_attachments: &[
+                        Some(wgpu::RenderPassColorAttachment {
+                            view: &self.geom,
+                            depth_slice: None,
+                            resolve_target: None,
+                            ops: clear_geom,
+                        }),
+                        Some(wgpu::RenderPassColorAttachment {
+                            view: &self.albedo,
+                            depth_slice: None,
+                            resolve_target: None,
+                            ops: clear_geom,
+                        }),
+                    ],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &self.geom_depth,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    }),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                if !runs.is_empty() {
+                    pass.set_pipeline(&self.pipelines.geom);
+                    pass.set_bind_group(0, &self.globals_bind, &[]);
+                    pass.set_bind_group(1, &self.instances_bind, &[]);
+                }
+                for &(mesh, start, count) in &runs {
+                    let Some(m) = self.meshes.get(mesh as usize).and_then(|s| s.mesh.as_ref())
+                    else {
+                        continue;
+                    };
+                    pass.set_vertex_buffer(0, m.vertices.slice(..));
+                    pass.set_index_buffer(m.indices.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..m.index_count, 0, start..start + count);
+                }
             }
+            if !runs.is_empty() {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("ink"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: target,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                pass.set_pipeline(&self.pipelines.ink);
+                pass.set_bind_group(0, &self.ink_bind, &[]);
+                pass.draw(0..3, 0..1);
+            }
+        }
+        if !fxi.is_empty() {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("effects"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.geom_depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.pipelines.fx);
+            pass.set_bind_group(0, &self.globals_bind, &[]);
+            pass.set_vertex_buffer(0, self.fx_vertices.buf.slice(..));
+            pass.set_index_buffer(self.fx_indices.buf.slice(..), wgpu::IndexFormat::Uint32);
+            pass.draw_indexed(0..fxi.len() as u32, 0, 0..1);
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1248,6 +1430,72 @@ fn create_targets(
     (msaa, make(DEPTH_FORMAT, "depth"))
 }
 
+fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
+    let extent = wgpu::Extent3d {
+        width: size.0,
+        height: size.1,
+        depth_or_array_layers: 1,
+    };
+    let color = |label: &str| {
+        device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some(label),
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default())
+    };
+    GeomTargets {
+        geom: color("geom normals"),
+        albedo: color("geom paint"),
+        depth: device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("geom depth"),
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: DEPTH_FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default()),
+    }
+}
+
+fn ink_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    uniform: &wgpu::Buffer,
+    geom: &wgpu::TextureView,
+    albedo: &wgpu::TextureView,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("ink"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(geom),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(albedo),
+            },
+        ],
+    })
+}
+
 fn create_pipelines(
     device: &wgpu::Device,
     layouts: &Layouts,
@@ -1274,6 +1522,7 @@ fn create_pipelines(
         include_str!("../shaders/backdrop.wgsl").into(),
     );
     let ui_src = module("ui.wgsl", include_str!("../shaders/ui.wgsl").into());
+    let ink_src = module("ink.wgsl", include_str!("../shaders/ink.wgsl").into());
 
     let pl = |layouts: &[Option<&wgpu::BindGroupLayout>]| {
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -1286,12 +1535,13 @@ fn create_pipelines(
     let fx_layout = pl(&[Some(&layouts.globals)]);
     let sky_layout = pl(&[Some(&layouts.sky)]);
     let ui_layout = pl(&[Some(&layouts.ui)]);
+    let ink_layout = pl(&[Some(&layouts.ink)]);
 
     let vertex_layout = wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<Vertex>() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
-            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4
+            0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2
         ],
     };
     let fx_vertex_layout = wgpu::VertexBufferLayout {
@@ -1322,8 +1572,21 @@ fn create_pipelines(
         depth: Option<wgpu::DepthStencilState>,
         blend: Option<wgpu::BlendState>,
         samples: u32,
+        /// Colour formats. One for the usual passes; two unorm targets for the geom pass.
+        formats: &'a [wgpu::TextureFormat],
     }
     let make = |s: Spec| {
+        let targets: Vec<_> = s
+            .formats
+            .iter()
+            .map(|format| {
+                Some(wgpu::ColorTargetState {
+                    format: *format,
+                    blend: s.blend,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })
+            })
+            .collect();
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(s.label),
             layout: Some(s.layout),
@@ -1348,16 +1611,17 @@ fn create_pipelines(
                 module: s.module,
                 entry_point: Some(s.fs),
                 compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: s.blend,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
+                targets: &targets,
             }),
             multiview_mask: None,
             cache: None,
         })
     };
+    let surface = [format];
+    let geom_formats = [
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+    ];
     let less = wgpu::CompareFunction::Less;
     Pipelines {
         mesh: make(Spec {
@@ -1371,6 +1635,7 @@ fn create_pipelines(
             depth: depth(true, less),
             blend: None,
             samples,
+            formats: &surface,
         }),
         outline: make(Spec {
             label: "outline",
@@ -1378,11 +1643,38 @@ fn create_pipelines(
             module: &mesh_src,
             vs: "vs_outline",
             fs: "fs_outline",
-            buffers: &[Some(vertex_layout)],
+            buffers: &[Some(vertex_layout.clone())],
             cull: Some(wgpu::Face::Front),
             depth: depth(true, less),
             blend: None,
             samples,
+            formats: &surface,
+        }),
+        geom: make(Spec {
+            label: "geom",
+            layout: &mesh_layout,
+            module: &mesh_src,
+            vs: "vs_main",
+            fs: "fs_geom",
+            buffers: &[Some(vertex_layout)],
+            cull: Some(wgpu::Face::Back),
+            depth: depth(true, less),
+            blend: None,
+            samples: 1,
+            formats: &geom_formats,
+        }),
+        ink: make(Spec {
+            label: "ink",
+            layout: &ink_layout,
+            module: &ink_src,
+            vs: "vs_ink",
+            fs: "fs_ink",
+            buffers: &[],
+            cull: None,
+            depth: None,
+            blend: premul,
+            samples: 1,
+            formats: &surface,
         }),
         fx: make(Spec {
             label: "fx",
@@ -1392,9 +1684,12 @@ fn create_pipelines(
             fs: "fs_fx",
             buffers: &[Some(fx_vertex_layout)],
             cull: None,
+            // Single-sampled: effects are drawn after the MSAA resolve, on top of
+            // inner ink, depth-tested against the geom buffer.
             depth: depth(false, wgpu::CompareFunction::LessEqual),
             blend: premul,
-            samples,
+            samples: 1,
+            formats: &surface,
         }),
         gradient: make(Spec {
             label: "backdrop gradient",
@@ -1407,6 +1702,7 @@ fn create_pipelines(
             depth: depth(false, wgpu::CompareFunction::Always),
             blend: None,
             samples,
+            formats: &surface,
         }),
         blobs: make(Spec {
             label: "backdrop blobs",
@@ -1419,6 +1715,7 @@ fn create_pipelines(
             depth: depth(false, wgpu::CompareFunction::Always),
             blend: premul,
             samples,
+            formats: &surface,
         }),
         panels: make(Spec {
             label: "panels",
@@ -1431,6 +1728,7 @@ fn create_pipelines(
             depth: None,
             blend: premul,
             samples: 1,
+            formats: &surface,
         }),
     }
 }
