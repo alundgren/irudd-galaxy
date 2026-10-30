@@ -72,6 +72,9 @@ enum Cmd {
         /// Jump to a journey beat (not implemented yet).
         #[arg(long)]
         beat: Option<u32>,
+        /// Close after this many frames: a smoke test of the window.
+        #[arg(long, hide = true)]
+        quit_after_frames: Option<u32>,
         #[command(flatten)]
         packs: PacksArg,
     },
@@ -282,11 +285,13 @@ fn main() -> ExitCode {
             seed,
             packs,
             beat: None,
+            quit_after_frames,
         } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
             save,
             new,
             seed,
             packs: packs.packs,
+            quit_after_frames,
         })
         .map_err(fail),
         Cmd::Beat {

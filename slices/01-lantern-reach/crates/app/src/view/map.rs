@@ -80,6 +80,48 @@ pub fn price_rows(
     }
 }
 
+fn overlap(a: &Rect, b: &Rect) -> f32 {
+    let w = (a.x + a.w).min(b.x + b.w) - a.x.max(b.x);
+    let h = (a.y + a.h).min(b.y + b.h) - a.y.max(b.y);
+    w.max(0.0) * h.max(0.0)
+}
+
+/// A spot for a `size` panel next to the point `at`, clear of everything in `placed`
+/// and on screen if it can be: the preferred side first, then the others.
+pub fn place(placed: &[Rect], at: G2, size: G2, prefer_left: bool, viewport: G2) -> Rect {
+    let gap = 16.0;
+    let right = Rect::new(at.x + gap, at.y - size.y * 0.5, size.x, size.y);
+    let left = Rect::new(at.x - gap - size.x, at.y - size.y * 0.5, size.x, size.y);
+    let below = Rect::new(at.x - size.x * 0.5, at.y + gap, size.x, size.y);
+    let above = Rect::new(at.x - size.x * 0.5, at.y - gap - size.y, size.x, size.y);
+    let shifted = |r: Rect, dy: f32| Rect { y: r.y + dy, ..r };
+    let (first, second) = if prefer_left {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    let candidates = [
+        first,
+        second,
+        below,
+        above,
+        shifted(first, size.y * 0.5 - gap),
+        shifted(first, -size.y * 0.5 + gap),
+        shifted(second, size.y * 0.5 - gap),
+        shifted(second, -size.y * 0.5 + gap),
+    ];
+    let screen = Rect::new(0.0, 0.0, viewport.x, viewport.y);
+    let cost = |r: &Rect| {
+        let off = r.w * r.h - overlap(r, &screen);
+        placed.iter().map(|p| overlap(r, p)).sum::<f32>() + off * 2.0
+    };
+    candidates
+        .iter()
+        .copied()
+        .min_by(|a, b| cost(a).total_cmp(&cost(b)))
+        .unwrap_or(first)
+}
+
 impl View {
     /// The map scene. `player_heading` turns the player's marker.
     pub fn map_scene(&self, world: &WorldState, time: f32, viewport: G2) -> Scene {
@@ -90,6 +132,33 @@ impl View {
         scene.backdrop = self.backdrop_at(world, Vec2::new(-1.0e9, -1.0e9));
         let wpp = camera.world_per_pixel(viewport);
         let screen = |p: G2| camera.world_to_screen(p.extend(0.0), viewport);
+
+        // Screen space already taken: the goal line, the hold, the back button, then each
+        // label and panel as it's placed.
+        let mut placed = vec![
+            Rect::new(viewport.x * 0.5 - 260.0, 0.0, 520.0, 84.0),
+            Rect::new(viewport.x - 240.0, 0.0, 240.0, 140.0),
+            Rect::new(viewport.x - 190.0, viewport.y - 74.0, 190.0, 74.0),
+            Rect::new(0.0, 0.0, 330.0, 70.0),
+        ];
+        for s in &map.stations {
+            if let Some(p) = screen(g(s.position)) {
+                placed.push(Rect::new(p.x - 10.0, p.y - 10.0, 20.0, 20.0));
+            }
+        }
+        for lane in &map.lanes {
+            let (a, b) = (screen(g(lane.a_gate)), screen(g(lane.b_gate)));
+            if let (Some(a), Some(b)) = (a, b) {
+                let n = (a.distance(b) / 24.0).ceil().max(1.0) as usize;
+                for k in 0..=n {
+                    let p = a.lerp(b, k as f32 / n as f32);
+                    placed.push(Rect::new(p.x - 6.0, p.y - 6.0, 12.0, 12.0));
+                }
+            }
+        }
+        if let Some(p) = map.player.as_ref().and_then(|m| screen(g(m.position))) {
+            placed.push(Rect::new(p.x - 22.0, p.y - 22.0, 44.0, 44.0));
+        }
 
         // Regions: a soft wash of the holder's colour and an inked edge.
         for r in &map.regions {
@@ -107,7 +176,7 @@ impl View {
                 edge = edge.dashed(60.0, 40.0);
             }
             scene.lines.push(edge);
-            if let Some(p) = screen(c + G2::new(0.0, r.radius * 0.97)) {
+            if let Some(p) = screen(c - G2::new(0.0, r.radius * 0.8)) {
                 let holder = r
                     .control
                     .holder()
@@ -117,14 +186,16 @@ impl View {
                         Control::Contested { .. } => "contested".into(),
                         _ => "unclaimed".into(),
                     });
+                let w = crate::ui::text_width(&r.name, 22.0);
+                placed.push(Rect::new(p.x - w * 0.5, p.y - 4.0, w, 44.0));
                 scene.overlay.texts.push(
-                    Text::new(r.name.clone(), p + G2::new(0.0, -6.0), 22.0)
+                    Text::new(r.name.clone(), p + G2::new(0.0, -4.0), 22.0)
                         .weight(700)
                         .color(palette::CREAM)
                         .align(Align::Center),
                 );
                 scene.overlay.texts.push(
-                    Text::new(holder, p + G2::new(0.0, 20.0), 14.0)
+                    Text::new(holder, p + G2::new(0.0, 22.0), 14.0)
                         .weight(500)
                         .color(color)
                         .align(Align::Center),
@@ -188,10 +259,11 @@ impl View {
             let region_center = map.region(&s.region).map_or(pos, |r| g(r.center));
             let left = pos.x < region_center.x - 1.0;
             let (rows, foot) = price_rows(world, &s.prices, &s.id);
-            let w = 214.0;
-            let h = 34.0 + rows.len() as f32 * 18.0 + if foot.is_some() { 20.0 } else { 0.0 };
-            let x = if left { p.x - w - 18.0 } else { p.x + 18.0 };
-            let rect = Rect::new(x, p.y - h * 0.5, w, h);
+            let w = 200.0;
+            let h = 32.0 + rows.len() as f32 * 17.0 + if foot.is_some() { 20.0 } else { 0.0 };
+            let rect = place(&placed, p, G2::new(w, h), left, viewport);
+            placed.push(rect);
+            let x = rect.x;
             scene.overlay.panels.push(Panel {
                 fill: palette::PARCHMENT.with_alpha(0.94),
                 radius: 10.0,
@@ -203,7 +275,7 @@ impl View {
                 .texts
                 .push(Text::new(s.name.clone(), G2::new(x + 12.0, rect.y + 8.0), 16.0).weight(700));
             for (i, (ware, price)) in rows.iter().enumerate() {
-                let y = rect.y + 32.0 + i as f32 * 18.0;
+                let y = rect.y + 30.0 + i as f32 * 17.0;
                 scene
                     .overlay
                     .texts
@@ -234,7 +306,7 @@ impl View {
                 radius: 22.0 * wpp,
                 color: palette::CORAL.with_alpha(0.6 + 0.2 * (time * 2.0).sin()),
             });
-            let scale = 5.0 * wpp;
+            let scale = 4.0 * wpp;
             let mut inst = MeshInstance::at(mesh, pos, ship.heading, scale);
             inst.transform = Mat4::from_translation(Vec3::Z * 10.0 * wpp) * inst.transform;
             scene.meshes.push(inst);

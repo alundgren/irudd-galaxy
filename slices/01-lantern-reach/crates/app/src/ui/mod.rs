@@ -252,7 +252,7 @@ pub fn station_labels(o: &mut Overlay, world: &WorldState, camera: &Camera, view
         let Some(p) = camera.world_to_screen(below.extend(0.0), viewport) else {
             continue;
         };
-        if p.x < -100.0 || p.y < -20.0 || p.x > viewport.x + 100.0 || p.y > viewport.y + 20.0 {
+        if p.x < 0.0 || p.y < 0.0 || p.x > viewport.x || p.y > viewport.y + 10.0 {
             continue;
         }
         o.texts.push(
@@ -286,11 +286,22 @@ pub fn edge_markers(o: &mut Overlay, world: &WorldState, camera: &Camera, viewpo
         if on_screen {
             continue;
         }
+        // From the middle of the screen towards the station, stopping at a frame that
+        // keeps clear of the goal line and the hold at the top.
         let mid = viewport * 0.5;
         let d = p - mid;
-        let half = mid - G2::splat(inset);
-        let k = (half.x / d.x.abs().max(1e-3)).min(half.y / d.y.abs().max(1e-3));
-        let at = mid + d * k;
+        let (lo, hi) = (G2::new(inset, 130.0), viewport - G2::splat(inset));
+        let kx = if d.x > 0.0 {
+            (hi.x - mid.x) / d.x
+        } else {
+            (lo.x - mid.x) / d.x.min(-1e-3)
+        };
+        let ky = if d.y > 0.0 {
+            (hi.y - mid.y) / d.y
+        } else {
+            (lo.y - mid.y) / d.y.min(-1e-3)
+        };
+        let at = mid + d * kx.min(ky).max(0.0);
         let color = if is_goal {
             palette::MUSTARD
         } else {
@@ -606,7 +617,7 @@ pub fn map_furniture(o: &mut Overlay, ui: &UiState, viewport: G2) -> Vec<Button>
 pub fn paused_card() -> PausedCard {
     PausedCard {
         title: "PAUSED".into(),
-        hint: "Nothing moves until you're back. Press P or Esc to carry on.".into(),
+        hint: "Nothing moves until you're back. P or Esc to carry on.".into(),
     }
 }
 

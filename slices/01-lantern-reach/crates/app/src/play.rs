@@ -37,6 +37,8 @@ pub struct PlayArgs {
     pub new: bool,
     pub seed: u64,
     pub packs: Option<PathBuf>,
+    /// Close after this many frames (a smoke test of the window without a player).
+    pub quit_after_frames: Option<u32>,
 }
 
 /// The winit key for each game key.
@@ -86,6 +88,8 @@ struct App {
     buttons: Vec<Button>,
     error: Option<String>,
     render_errors: u32,
+    frames: u32,
+    quit_after_frames: Option<u32>,
 }
 
 /// Opens the window and plays until it's closed. Returns a JSON summary.
@@ -136,6 +140,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         buttons: Vec::new(),
         error: None,
         render_errors: 0,
+        frames: 0,
+        quit_after_frames: args.quit_after_frames,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -143,6 +149,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         session,
         saver,
         error,
+        frames,
+        render_errors,
         ..
     } = app;
     let path = saver.path().to_path_buf();
@@ -157,6 +165,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         "new": created,
         "tick": session.world().meta.tick,
         "session": session.session(),
+        "frames": frames,
+        "render_errors": render_errors,
         "audio": if audio.has_device() { "silent (device open)".to_owned() } else {
             format!("no device: {}", audio.problem().unwrap_or("none"))
         },
@@ -425,7 +435,13 @@ impl ApplicationHandler for App {
                 };
                 self.rig.zoom_by(steps);
             }
-            WindowEvent::RedrawRequested => self.frame(),
+            WindowEvent::RedrawRequested => {
+                self.frame();
+                self.frames += 1;
+                if self.quit_after_frames.is_some_and(|n| self.frames >= n) {
+                    event_loop.exit();
+                }
+            }
             _ => {}
         }
     }
