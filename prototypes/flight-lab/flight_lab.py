@@ -127,11 +127,12 @@ class App:
                 self.last_reached = None
                 self.flash("Undocked", 1.2)
             else:
-                ship.thrusting = False
+                ship.thrusting = ship.retro = False
         elif self.state == "docking":
             self.dock_t = min(1.0, self.dock_t + dt / 0.4)
             k = self.dock_t * self.dock_t * (3 - 2 * self.dock_t)
             ship.pos, ship.vel, ship.thrusting = self.dock_from.lerp(STATION, k), V(), False
+            ship.retro = False
             if self.dock_t >= 1:
                 self.state = "docked"
         if self.state == "free":
@@ -392,9 +393,14 @@ class App:
         if self.flame > 0.05:
             boosting = pygame.key.get_mods() & pygame.KMOD_SHIFT
             L = (8 + 16 * self.flame * (1.6 if boosting else 1.0) + 4 * abs(math.sin(self.time * 37))) * SS
-            back = -23 * SS
-            self.poly([(back, -5 * SS), (back - L, 0), (back, 5 * SS)], pos, ang, VERMILLION)
-            self.poly([(back, -2.5 * SS), (back - L * 0.55, 0), (back, 2.5 * SS)], pos, ang, YELLOW, w=0)
+            if ship.retro:
+                nose = 26 * SS
+                self.poly([(nose, -3.5 * SS), (nose + L * 0.55, 0), (nose, 3.5 * SS)], pos, ang, VERMILLION)
+                self.poly([(nose, -1.8 * SS), (nose + L * 0.3, 0), (nose, 1.8 * SS)], pos, ang, YELLOW, w=0)
+            else:
+                back = -23 * SS
+                self.poly([(back, -5 * SS), (back - L, 0), (back, 5 * SS)], pos, ang, VERMILLION)
+                self.poly([(back, -2.5 * SS), (back - L * 0.55, 0), (back, 2.5 * SS)], pos, ang, YELLOW, w=0)
         self.poly(POD_L, pos, ang, ORANGE)
         self.poly(POD_R, pos, ang, ORANGE)
         self.poly(NOZZLE, pos, ang, BLUE)
@@ -437,7 +443,8 @@ class App:
             f"Scheme {self.pilot.scheme}: {SCHEMES[self.pilot.scheme]}",
             f"Preset: {self.preset_name}{' (edited)' if self.preset_dirty else ''}",
             f"Max speed {s.max_speed:.0f}   accel {s.accel:.0f}   inertia {s.inertia:.2f}",
-            f"Turn {s.turn_rate:.0f}°/s   brake {s.brake:.0f}   auto-brake {'on' if s.auto_brake else 'off'}",
+            f"Turn {s.turn_rate:.0f}°/s   brake {s.brake:.0f}   auto-brake "
+            + (f"{s.auto_brake_strength:.0f}" if s.auto_brake else "off"),
             f"Boost x{s.boost:.2f}   zoom {s.zoom:.2f}   lead {s.lead:.2f} s",
             f"Course hold {'on' if s.course_hold else 'off'}",
             where,
@@ -511,6 +518,9 @@ def selftest(app):
     check(app.ship.angle < a0 - 1.0, "tank: A rotates")
     run(0.5, up=True)
     check(app.ship.vel.length() > 200 and app.ship.vel.normalize().dot(app.ship.fwd) > 0.95, "tank: W thrusts forward")
+    run(1.2, down=True)
+    check(app.ship.vel.length() > 200 and app.ship.vel.normalize().dot(app.ship.fwd) < -0.9,
+          "tank: holding S flies backward")
 
     app.set_scheme(5)
     far_up = app.ship.pos + V(0, -100000)
@@ -545,12 +555,29 @@ def selftest(app):
     v0 = app.ship.vel.length()
     run(1.0)
     check(v0 > 100 and abs(app.ship.vel.length() - v0) < 1, "inertia 1: coasts forever")
+    app.settings.auto_brake = True
+    app.settings.auto_brake_strength = 200
+    before = app.ship.vel.length()
+    run(1.0)
+    slowed = before - app.ship.vel.length()
+    check(150 < slowed < 250, f"auto-brake strength 200 drops about 200 px/s in one second ({slowed:.0f})")
+    app.settings.inertia = 0.4
+    app.settings.auto_brake = True
+    app.settings.auto_brake_strength = 0
+    run(0.4, up=True)
+    held = app.ship.vel.length()
+    run(1.0)
+    check(held > 80 and abs(app.ship.vel.length() - held) < 5,
+          f"auto-brake 0 coasts instead of the inertia stop ({held:.0f} -> {app.ship.vel.length():.0f})")
 
     with tempfile.TemporaryDirectory() as tmp:
         app.settings.turn_rate = 123
+        app.settings.inertia = 1.0
+        app.settings.auto_brake_strength = 250
         path = save_preset(tmp, "My Test Ship", app.settings)
         name, s2 = load_preset(path)
-        check(name == "My Test Ship" and s2.turn_rate == 123 and s2.inertia == 1.0, "preset save/load round trip")
+        check(name == "My Test Ship" and s2.turn_rate == 123 and s2.inertia == 1.0 and s2.auto_brake_strength == 250,
+              "preset save/load round trip")
         app.screen.fill(BLACK)
         app.draw()
         pygame.image.save(app.screen, os.path.join(tmp, "shot.png"))

@@ -14,8 +14,9 @@ class Settings:
     accel: float = 1320.0  # px/s^2
     inertia: float = 0.3  # 0 = stops instantly, 1 = fully Newtonian
     turn_rate: float = 300.0  # deg/s
-    brake: float = 1600.0  # px/s^2
+    brake: float = 1600.0  # px/s^2, Space (and S in the schemes that brake)
     auto_brake: bool = False
+    auto_brake_strength: float = 100.0  # px/s^2 of the whole release stop while auto-brake is on. 0 coasts.
     boost: float = 1.6  # multiplies max speed and acceleration while Shift is held
     zoom: float = 1.0
     lead: float = 0.25  # seconds of velocity the camera looks ahead
@@ -32,6 +33,7 @@ KNOBS = [
     ("inertia", "Inertia (0 stop, 1 Newton)", 0.0, 1.0, 0.01, "{:.2f}"),
     ("turn_rate", "Turn rate", 30, 900, 10, "{:.0f} °/s"),
     ("brake", "Brake strength", 0, 6000, 50, "{:.0f} px/s²"),
+    ("auto_brake_strength", "Auto-brake (0 coasts)", 0, 6000, 50, "{:.0f} px/s²"),
     ("boost", "Boost (Shift)", 1.0, 3.0, 0.05, "x{:.2f}"),
     ("zoom", "Camera zoom", 0.2, 2.0, 0.05, "{:.2f}"),
     ("lead", "Camera lead", 0.0, 1.0, 0.05, "{:.2f} s"),
@@ -50,7 +52,7 @@ SHORT = {1: "WASD", 2: "Aim", 3: "Tank", 4: "Click", 5: "Hybrid"}
 HINTS = {
     1: "WASD/arrows fly in screen directions, tap a side key to nudge the course, Shift boost, Space brake",
     2: "Ship faces the cursor, W or right mouse thrusts, S/Space brakes, Shift boost",
-    3: "A/D rotate, W thrusts, S/Space brakes, Shift boost",
+    3: "A/D rotate, W thrusts forward, S thrusts backward, Shift boost, Space brakes",
     4: "Click or hold left mouse to fly there, right click/Space stops, WASD takes over, Shift boost",
     5: "Ship faces the cursor, W/S forward/back, A/D strafe, right mouse thrusts, Space brakes",
 }
@@ -91,6 +93,7 @@ class Ship:
         self.vel = V()
         self.angle = -math.pi / 2
         self.thrusting = False
+        self.retro = False
 
     @property
     def fwd(self):
@@ -110,6 +113,8 @@ def fly(ship, s, thrust, target_speed, brake, boosting, dt):
     keep = keep_factor(dt, s.inertia)
     v = V(ship.vel)
     ship.thrusting = thrust is not None and target_speed > 0
+    ship.retro = bool(ship.thrusting and thrust.dot(ship.fwd) < 0)
+    rate = s.brake if brake else 0.0
     if ship.thrusting:
         along = v.dot(thrust)
         side = v - thrust * along
@@ -125,12 +130,16 @@ def fly(ship, s, thrust, target_speed, brake, boosting, dt):
             along = max(target, min(along - acc * dt, target + (along - target) * keep))
         v = thrust * along + side * keep
     else:
-        v *= keep
-        brake = brake or s.auto_brake
-    if brake and s.brake > 0:
+        # Auto-brake replaces the inertia coast. Otherwise a low slider still
+        # stops dead, because inertia 0.4 bleeds speed in a fraction of a second.
+        if s.auto_brake and not brake:
+            rate = s.auto_brake_strength
+        else:
+            v *= keep
+    if rate > 0:
         sp = v.length()
         if sp > 0:
-            v *= max(0.0, sp - s.brake * dt) / sp
+            v *= max(0.0, sp - rate * dt) / sp
     cap = s.max_speed * max(1.0, s.boost)
     if v.length() > cap:
         v.scale_to_length(cap)
@@ -177,7 +186,10 @@ class Pilot:
             return self._wasd(ship, c, turn, vmax, s.course_hold)
         if n == 3:
             ship.angle += (c.right - c.left) * turn
-            return (ship.fwd if c.up else None), vmax, c.down or c.brake
+            along = (1 if c.up else 0) - (1 if c.down else 0)
+            if along == 0:
+                return None, 0.0, c.brake
+            return (ship.fwd if along > 0 else -ship.fwd), vmax, c.brake
         if n == 4:
             return self._click(ship, s, c, turn, vmax)
         if c.mouse is not None and (c.mouse - ship.pos).length_squared() > 144:

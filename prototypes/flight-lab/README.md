@@ -27,7 +27,7 @@ Headless check: `uv run flight_lab.py --selftest` prints PASS/FAIL for each sche
 |---|---|---|
 | 1 | WASD screen | WASD/arrows fly in screen directions and turn in smooth arcs. Tap a side key to nudge the course; it holds until you release all keys. |
 | 2 | Mouse-aim | Ship faces the cursor. W or right mouse thrusts, S brakes. |
-| 3 | Tank | A/D rotate, W thrusts, S brakes. |
+| 3 | Tank | A/D rotate, W thrusts forward, S thrusts backward. |
 | 4 | Click to fly | Click or hold left mouse to fly there (Proto 1 v2 style). Right click stops, WASD takes over. |
 | 5 | Hybrid | Ship faces the cursor, W/S forward/back, A/D strafe. |
 
@@ -35,7 +35,7 @@ Everywhere: Shift boosts, Space brakes, mouse wheel zooms, R tows you home, F12 
 
 ## Knobs
 
-Drag a slider or scroll over it; changes apply at once. **Inertia** runs from 0 (stops the moment you let go) to 1 (fully Newtonian, coasts forever). In between, sideways speed swings round into your new heading instead of vanishing, and coasting bleeds off. Defaults are about 20% faster than the overnight build (max speed 400, acceleration 1320).
+Drag a slider or scroll over it; changes apply at once. **Inertia** runs from 0 (stops the moment you let go) to 1 (fully Newtonian, coasts forever). In between, sideways speed swings round into your new heading instead of vanishing, and coasting bleeds off. With **Auto-brake** on, **Auto-brake (0 coasts)** is the whole stop when you release the thrust. 0 keeps your speed. Higher values stop harder. Inertia does not add a second stop on top. With Auto-brake off, releasing the thrust coasts by inertia only. Brake strength is what Space uses. Defaults are about 20% faster than the overnight build (max speed 400, acceleration 1320).
 
 The box in the top-right corner always shows the scheme, preset and every value, so a screenshot records what you liked.
 
