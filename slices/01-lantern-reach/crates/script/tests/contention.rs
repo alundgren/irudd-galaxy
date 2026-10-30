@@ -19,17 +19,23 @@ use galaxy_script::{HostEvent, ScriptHost};
 const WHARF: StationId = StationId::from_static("station.lantern_wharf");
 const B03: &str = "beat.b03_first_delivery";
 
-/// A one-script pack `gm.contend` (script `contend`, `on.dock`), `tail` appended to
-/// the manifest.
+/// A one-script pack `gm.contend` (script `contend`, `on.dock`, plus `on.reply` if the
+/// script handles it), `tail` appended to the manifest.
 fn write_pack(dir: &Path, src: &str, tail: &str) {
     std::fs::create_dir_all(dir.join("scripts")).unwrap();
+    let handlers = if src.contains("reply = function") {
+        "\"on.dock\", \"on.reply\""
+    } else {
+        "\"on.dock\""
+    };
     std::fs::write(
         dir.join("manifest.toml"),
         format!(
             "id = \"gm.contend\"\nname = \"Contention probe\"\nversion = \"0.1.0\"\n\
-             uses = [\"events.dock\", \"beats.read\", \"beats.write\", \"history.read\", \
-             \"history.write\", \"npcs.write\"]\n\n\
-             [[script]]\nid = \"contend\"\nfile = \"scripts/contend.luau\"\nhandlers = [\"on.dock\"]\n\
+             uses = [\"events.dock\", \"events.reply\", \"beats.read\", \"beats.write\", \
+             \"history.read\", \"history.write\", \"npcs.write\"]\n\n\
+             [[script]]\nid = \"contend\"\nfile = \"scripts/contend.luau\"\n\
+             handlers = [{handlers}]\n\
              {tail}\n"
         ),
     )
@@ -184,6 +190,20 @@ fn to_b03(sim: &mut Sim) {
     assert_eq!(status(sim, B03), Some(BeatStatus::Active));
 }
 
+/// The player answers Odo at Kettle: Deliver (a `reply` event, through the progress
+/// system). Act 1's reply handler runs in the next tick.
+fn pick_deliver(sim: &mut Sim) {
+    let input = PlayerInput {
+        replies: vec![Reply {
+            npc: "npc.odo_fenn".parse().unwrap(),
+            choice: "choice.deliver_ice".parse().unwrap(),
+        }],
+        ..PlayerInput::default()
+    };
+    let r = sim.step(&input).expect("not paused");
+    assert!(r.rejected.is_empty(), "{:#?}", r.rejected);
+}
+
 #[test]
 fn b03_handover_races_never_quarantine_and_it_completes_once_docked() {
     let (mut sim, host) = core_sim(21);
@@ -191,12 +211,15 @@ fn b03_handover_races_never_quarantine_and_it_completes_once_docked() {
     host.take_events();
     for race in 1..=4 {
         dock_at(&mut sim, &KETTLE);
+        step(&mut sim, 1);
+        assert_eq!(ice(&sim), 20, "race {race}: docking hands nothing over");
+        pick_deliver(&mut sim);
         // The handover runs this tick, but the player undocks ahead of it.
         queue(&mut sim, undock());
         step(&mut sim, 1);
         let (aborted, contended, _) = outcomes(&host);
         assert!(aborted.is_empty(), "race {race}: {aborted:?}");
-        assert_eq!(contended, vec!["on.dock".to_owned()], "race {race}");
+        assert_eq!(contended, vec!["on.reply".to_owned()], "race {race}");
         let h = health(&sim, "core", "act1");
         assert_eq!((h.aborts, h.quarantined), (0, false), "race {race}");
         assert_eq!(h.retries.len(), 1, "race {race}: the handover waits");
@@ -210,6 +233,8 @@ fn b03_handover_races_never_quarantine_and_it_completes_once_docked() {
 
     // Docked for good, the handover goes through and b03 completes.
     dock_at(&mut sim, &KETTLE);
+    step(&mut sim, 1);
+    pick_deliver(&mut sim);
     step(&mut sim, 3);
     assert_eq!(ice(&sim), 0);
     assert_eq!(status(&sim, B03), Some(BeatStatus::Completed));
@@ -220,7 +245,7 @@ fn b03_handover_races_never_quarantine_and_it_completes_once_docked() {
 
 // A beat transition that loses to contention tries again next tick.
 
-/// c01 completes by handing five ice to Kettle (`ExpectDocked`); c02 needs c01 done.
+/// c01 completes at Kettle, noting the haul there (`ExpectDocked`); c02 needs c01 done.
 const CHAIN: &str = r#"--!strict
 local G = require("@galaxy")
 
@@ -236,7 +261,8 @@ return G.script({
 			requires = G.cargo("ware.ice", 5),
 			done = G.docked_at(KETTLE),
 			on_complete = function(ctx: G.Ctx, beat: G.BeatInfo)
-				ctx.beats:deliver({ station = KETTLE, ware = "ware.ice", quantity = 5 }, beat.why)
+				ctx.beats:expect_docked(KETTLE, beat.why)
+				ctx.history:record({ kind = "gm.contend.hauled", subjects = { station = KETTLE }, note = "hauled" }, beat.why)
 			end,
 		}),
 		G.beat({
@@ -287,7 +313,7 @@ fn a_contested_beat_completion_retries_and_never_quarantines() {
         let h = health(&sim, "gm.contend", "contend");
         assert_eq!((h.aborts, h.quarantined), (0, false), "race {race}");
     }
-    assert_eq!(ice(&sim), 5);
+    assert!(facts(&sim, "gm.contend.hauled").is_empty());
 
     // The world settles: c01 completes and c02 starts in the same tick.
     act(
@@ -300,13 +326,13 @@ fn a_contested_beat_completion_retries_and_never_quarantines() {
     step(&mut sim, 1);
     assert_eq!(status(&sim, "beat.c01_haul"), Some(BeatStatus::Completed));
     assert_eq!(status(&sim, "beat.c02_after"), Some(BeatStatus::Active));
-    assert_eq!(ice(&sim), 0);
+    assert_eq!(facts(&sim, "gm.contend.hauled").len(), 1);
     assert!(outcomes(&host).0.is_empty());
 }
 
 // An event handler that loses to contention runs again for the same event.
 
-/// Docking at Kettle hands over all the ice the player carries, as read.
+/// The player's answer at Kettle hands over all the ice they carry, as read.
 const HANDOVER: &str = r#"--!strict
 local G = require("@galaxy")
 
@@ -315,7 +341,8 @@ local KETTLE = "station.kettle_dock"
 return G.script({
 	id = "contend",
 	on = {
-		dock = function(ev: G.DockEvent, ctx: G.Ctx)
+		dock = function(ev: G.DockEvent, ctx: G.Ctx) end,
+		reply = function(ev: G.ReplyEvent, ctx: G.Ctx)
 			if ev.station ~= KETTLE then
 				return
 			end
@@ -332,6 +359,22 @@ return G.script({
 })
 "#;
 
+/// Docked at Kettle, the player answers: the handover runs in the next tick.
+fn answer_at_kettle(sim: &mut Sim) {
+    dock_at(sim, &KETTLE);
+    act(
+        sim,
+        vec![Command::Emit {
+            event: Event::Reply {
+                ship: PLAYER,
+                npc: "npc.odo_fenn".parse().unwrap(),
+                station: KETTLE,
+                choice: "choice.hand_over".parse().unwrap(),
+            },
+        }],
+    );
+}
+
 fn handover_sim(dir: &Path, tail: &str) -> (Sim, ScriptHost) {
     write_pack(dir, HANDOVER, tail);
     let mut sim = new_sim(5);
@@ -345,21 +388,21 @@ fn handover_sim(dir: &Path, tail: &str) -> (Sim, ScriptHost) {
 fn a_handler_that_loses_to_contention_runs_again_and_succeeds() {
     let tmp = tempfile::tempdir().unwrap();
     let (mut sim, host) = handover_sim(&tmp.path().join("pack"), "");
-    dock_at(&mut sim, &KETTLE);
+    answer_at_kettle(&mut sim);
     // The handler reads 12 ice, but 5 are sold ahead of it: it would hand over more
     // than is aboard.
     queue(&mut sim, take_ice(5));
     step(&mut sim, 1);
     let (aborted, contended, _) = outcomes(&host);
     assert!(aborted.is_empty(), "{aborted:?}");
-    assert_eq!(contended, vec!["on.dock".to_owned()]);
+    assert_eq!(contended, vec!["on.reply".to_owned()]);
     assert_eq!(ice(&sim), 7);
     assert!(facts(&sim, "deliver").is_empty());
     let h = health(&sim, "gm.contend", "contend");
     assert_eq!(h.aborts, 0);
     assert_eq!(h.retries.len(), 1);
     assert_eq!(h.retries[0].lost, 1);
-    assert_eq!(h.retries[0].event.event.kind(), EventKind::Dock);
+    assert_eq!(h.retries[0].event.event.kind(), EventKind::Reply);
 
     // Next tick, the same event again: it reads 7 and hands them over.
     step(&mut sim, 1);
@@ -378,7 +421,7 @@ fn a_handler_that_keeps_losing_is_dropped_after_the_bound_with_a_fact() {
     let tmp = tempfile::tempdir().unwrap();
     let (mut sim, host) =
         handover_sim(&tmp.path().join("pack"), "[limits]\ncontention_retries = 2");
-    dock_at(&mut sim, &KETTLE);
+    answer_at_kettle(&mut sim);
     // One ice sold ahead of every run: the first run and both retries lose.
     for run in 1..=3u32 {
         queue(&mut sim, take_ice(1));
@@ -388,12 +431,12 @@ fn a_handler_that_keeps_losing_is_dropped_after_the_bound_with_a_fact() {
         let h = health(&sim, "gm.contend", "contend");
         assert_eq!(h.aborts, 0);
         if run < 3 {
-            assert_eq!(contended, vec!["on.dock".to_owned()], "run {run}");
+            assert_eq!(contended, vec!["on.reply".to_owned()], "run {run}");
             assert_eq!(h.retries.len(), 1);
             assert_eq!(h.retries[0].lost, run);
         } else {
             assert!(contended.is_empty());
-            assert_eq!(dropped, vec!["on.dock".to_owned()]);
+            assert_eq!(dropped, vec!["on.reply".to_owned()]);
             assert!(h.retries.is_empty(), "dropped: {h:?}");
         }
     }
@@ -491,7 +534,7 @@ fn save_and_load_mid_retry_continue_like_an_uninterrupted_run() {
     let dir = tmp.path().join("pack");
     // Contested once, then it goes through.
     let lose_once = |sim: &mut Sim| {
-        dock_at(sim, &KETTLE);
+        answer_at_kettle(sim);
         queue(sim, take_ice(5));
         step(sim, 1);
     };

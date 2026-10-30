@@ -275,6 +275,24 @@ pub struct DockTrack {
     pub away: bool,
 }
 
+impl DockTrack {
+    /// The recount rule: does a docking at `station` count, after `track` (the ship's
+    /// last docking)? It does unless the ship last docked there and hasn't since gone
+    /// `recount_distance` away, mined, or docked elsewhere. Every docking count reads
+    /// this one rule: market pulses, the `dockings` activity counters (beats, unlocks,
+    /// ranks, price-snapshot ages) and the `dock` fact's amount ([`docking_counts`]).
+    pub fn counts(track: Option<&DockTrack>, station: &StationId) -> bool {
+        track.is_none_or(|t| t.station != *station || t.away)
+    }
+}
+
+/// Whether `ship` docking at `station` now counts, from the economy's docking tracks
+/// ([`DockTrack::counts`]). A re-dock that doesn't count is still a docking (talk,
+/// trades, a calm moment); it just isn't counted.
+pub fn docking_counts(economy: &EconomyState, ship: &ShipId, station: &StationId) -> bool {
+    DockTrack::counts(economy.docks.get(ship), station)
+}
+
 /// Buy from or sell to a station's market.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,

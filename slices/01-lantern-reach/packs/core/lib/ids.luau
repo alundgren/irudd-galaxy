@@ -91,6 +91,15 @@ local ids = {
 	FRAGMENT_LEAVE = "choice.fragment_leave",
 	FRAGMENT_KEEP = "choice.fragment_keep",
 	WHAT_CHANGED = "choice.what_changed",
+	-- Hand-ins and offers: nothing leaves or joins the hold without one of these.
+	DELIVER_ICE = "choice.deliver_ice",
+	SELL_ICE = "choice.sell_ice",
+	KEEP_ICE = "choice.keep_ice",
+	ACCEPT_CONSIGNMENT = "choice.accept_consignment",
+	DECLINE_CONSIGNMENT = "choice.decline_consignment",
+	DELIVER_PLATE = "choice.deliver_plate",
+	KEEP_PLATE = "choice.keep_plate",
+	TAKE_DISPUTE_PAY = "choice.take_dispute_pay",
 
 	-- Beats
 	B01 = "beat.b01_undock",

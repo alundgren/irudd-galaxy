@@ -48,6 +48,7 @@ fn act_one_plays_by_hand_from_undock_to_the_pause() {
     // b03: Odo takes the ice; Kettle Dock's first pane goes up.
     let credits = p.credits();
     p.dock_by_hand(&KETTLE);
+    p.reply("npc.odo_fenn", "choice.deliver_ice");
     p.idle(2);
     assert!(p.is_done("beat.b03_first_delivery"));
     assert_eq!(p.cargo(&ICE), 0);
@@ -112,6 +113,7 @@ fn game_master_layers_wait_for_their_beats_in_act_one() {
     p.undock();
     fill_by_hand(&mut p, &RIMEWATER);
     p.dock_by_hand(&KETTLE);
+    p.reply("npc.odo_fenn", "choice.deliver_ice");
     p.idle(2);
     assert!(p.is_done("beat.b03_first_delivery"));
     p.undock();
@@ -141,6 +143,7 @@ fn pausing_before_b04_does_not_complete_b05_but_a_later_pause_does() {
     p.pause();
     fill_by_hand(&mut p, &RIMEWATER);
     p.dock_by_hand(&KETTLE);
+    p.reply("npc.odo_fenn", "choice.deliver_ice");
     p.idle(2);
     assert!(p.is_done("beat.b03_first_delivery"));
 
@@ -191,9 +194,12 @@ fn act_two_runs_the_lanes_settles_the_hook_and_visits_the_rumored_shoals() {
     p.idle(3);
     assert!(p.is_done("beat.b06_nav_chip"));
 
-    // b07: Ilse loads the plate at the Wharf (the player is docked there).
+    // b07: Ilse asks at the Wharf (the player is docked there); Accept loads the plate
+    // as hers.
     p.idle(3);
-    assert_eq!(p.cargo(&PLATE), 20, "Ilse loaded the consignment");
+    p.reply("npc.ilse_marrow", "choice.accept_consignment");
+    assert_eq!(p.ship().hold.consigned.len(), 1, "Ilse's plate aboard");
+    assert_eq!(p.cargo(&PLATE), 0, "none of it the pilot's");
     assert!(p.has_fact("core.consigned"));
     // By hand through the lane (no lane chart yet), then click-to-dock at the Hook.
     let lane: LaneId = "lane.shallows_cinder".parse().unwrap();
@@ -201,7 +207,12 @@ fn act_two_runs_the_lanes_settles_the_hook_and_visits_the_rumored_shoals() {
     assert_eq!(p.ship().region, CINDER);
     p.go(&HOOK);
     p.idle(3);
+    p.reply("npc.rook_adeyemi", "choice.deliver_plate");
+    p.idle(2);
     assert!(p.is_done("beat.b07_cinder_drift"));
+    // Rook's lane chart is a gift on his list: the player fits it.
+    assert!(!p.world().player.fittings.contains("upgrade.lane_chart"));
+    p.fit("upgrade.lane_chart");
     assert!(p.world().player.fittings.contains("upgrade.lane_chart"));
     assert!(p.world().player.flags.contains("cap.map_travel"));
     assert!(p.heard("npc.rook_adeyemi", "Ilse's plate."));

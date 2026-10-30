@@ -331,7 +331,7 @@ pub fn what_changed(
             continue;
         };
         let place = f.subjects.station.clone();
-        if !places.insert(place.clone()) {
+        if !nearby(world, station, place.as_ref()) || !places.insert(place.clone()) {
             continue;
         }
         answer_cites.insert(f.id);
@@ -362,6 +362,12 @@ pub fn what_changed(
         .filter(|l| previous_question.is_none_or(|q| l.tick > q.tick))
         .filter(|l| {
             let line_places = cited_places(history, &l.line);
+            if line_places
+                .iter()
+                .any(|p| !nearby(world, station, p.as_ref()))
+            {
+                return false;
+            }
             if l.line.cites.iter().any(|f| answer_cites.contains(f))
                 || line_places.iter().any(|p| places.contains(p))
             {
@@ -382,6 +388,13 @@ pub fn what_changed(
         lines: out,
         digest,
     }
+}
+
+/// "What changed?" tells what changed here or nearby: at `place` if it's `here` or a
+/// station in the same region, or a change with no place (#38).
+fn nearby(world: &WorldState, here: &StationId, place: Option<&StationId>) -> bool {
+    let region = |s: &StationId| world.stations.get(s).map(|s| &s.region);
+    place.is_none_or(|p| p == here || (region(p).is_some() && region(p) == region(here)))
 }
 
 /// A line is about its cited facts' stations, not necessarily where it was spoken.

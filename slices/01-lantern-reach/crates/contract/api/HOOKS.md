@@ -209,13 +209,16 @@ and `ctx.store` (the script's declared stores).
 - `ctx.beats:goal() -> GoalLine?` (`beats.read`): The one goal line the HUD shows: the newest active beat's.
 - `ctx.beats:goals() -> { GoalLine }` (`beats.read`): Every active beat's goal line, newest first (the dockmaster's list).
 - `ctx.beats:act() -> number` (`beats.read`): The act the journey is in (the highest act of any started beat).
-- `ctx.beats:pilot() -> PilotView` (`beats.read`): The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
+- `ctx.beats:pilot() -> PilotView` (`beats.read`): The player as a beat sees them: ship, hull, where they're docked, region, position, their own cargo, consignments carried for others (by ledger), hold room and credits (in credits).
+- `ctx.beats:service(id: UpgradeId | ShipId) -> ServiceView?` (`beats.read`): An upgrade or tender a hullwright or dockmaster offers (`upgrades.toml`): its name, its literal effect text, its cost in credits, who sells it and where, and whether the player has it (`owned`: fitted, or the tender built). `nil` for an unknown ID. For the lines that offer a gift and say it's fitted.
 - `ctx.beats:distance(to: StationId | Spot) -> number?` (`beats.read`): How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
 - `ctx.beats:field(id: FieldId) -> FieldView?` (`beats.read`): A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
 - `ctx.beats:rock(id: RockId) -> RockView?` (`beats.read`): One rock: its field, position, units left and when generated, and `left` (0 to 1). `nil` for an unknown rock.
 - `ctx.beats:deliver(spec: DeliverSpec, why: Cause) -> ()` (`beats.write`): A goal handover: takes cargo from the docked player ship and writes `deliver` (to a ledger, if given). Fails unless docked there with the cargo.
 - `ctx.beats:expect_docked(station: StationId, why: Cause) -> ()` (`beats.write`): Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.
-- `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
+- `ctx.beats:load(spec: LoadSpec, why: Cause) -> ()` (`beats.write`): Loads goal cargo into the player ship as the pilot's own: at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room. Someone else's goods go aboard with `consign`.
+- `ctx.beats:consign(spec: ConsignSpec, why: Cause) -> ()` (`beats.write`): Loads someone else's goods into the docked player ship under a ledger: they fill hold space but stay the owner's (no market buys them) until `deliver_consignment` hands them to the person they're for. Fails without the hold room, or if that ledger's consignment is already aboard. Cite the player's `reply` accepting it.
+- `ctx.beats:deliver_consignment(ledger: LedgerId, why: Cause) -> ()` (`beats.write`): Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.
 - `ctx.beats:pay(credits: number, why: Cause) -> ()` (`beats.write`): Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
 
 ### `ctx.space`
@@ -343,6 +346,7 @@ beat precondition can be met by a forged fact.
 | `set_ship_hull` | never | Prestige. |
 | `set_ship_region` | never | Lane jumps. |
 | `adjust_cargo` | `beats.write` | `ctx.beats:deliver` and `ctx.beats:load`. |
+| `set_consignment` | `beats.write` | `ctx.beats:consign` and `ctx.beats:deliver` of a consignment. |
 | `set_orders` | `orders.write` | `ctx.orders:give`, `append`, `clear`. |
 | `update_orders` | never | The ship system. |
 | `set_ship_activity` | never | The ship system. |
@@ -391,7 +395,7 @@ beat precondition can be met by a forged fact.
 | `put_rumor` | `rumors.write` | `ctx.rumors:put`, `set_truth`, `spread`. |
 | `set_rumor_heard` | never | Craft carrying rumors. |
 | `put_trader` | never | Authored trader routes (`craft.toml`). |
-| `emit` | by payload | By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that hands its cargo over; `standing_changed` (`standing.write` or `factions.write`) right after the `adjust_standing` (or, for no change, the `expect_standing`) of its faction, and `regard_changed` right after that `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other event: docking, trades, mining and the rest come from the engine. |
+| `emit` | by payload | By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that hands its cargo over (or the `set_consignment` that hands over its ledger's consignment);`standing_changed` (`standing.write` or `factions.write`) right after the `adjust_standing` (or, for no change, the `expect_standing`) of its faction, and `regard_changed` right after that `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other event: docking, trades, mining and the rest come from the engine. |
 | `record_fact` | by payload | Only in the pack's own namespace, `<pack-id>.*` (`history.write`), except `<pack-id>.canon_opened` (`canon.write`, right after the `set_canon_status` that opens the node it names: `ctx.canon:open`) and `<pack-id>.mechanic_taught` (`mechanics.write`, right after its `mech.*` flag and slots: `ctx.mechanics:teach`); and `market_base_changed` (`market.levers`, right after the `set_market_base` it reports). Packs never record any other kind. |
 | `set_script_value` | nothing (the pack's own state) | `ctx.store:set` on the script's declared stores. |
 | `set_trigger_fired` | nothing (the pack's own state) | The host marking a `G.after` trigger fired. |

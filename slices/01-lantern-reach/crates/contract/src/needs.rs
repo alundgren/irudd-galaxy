@@ -104,6 +104,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "`ctx.beats:deliver` and `ctx.beats:load`.",
     ),
     row(
+        "set_consignment",
+        Needs::Uses(&[&["beats.write"]]),
+        "`ctx.beats:consign` and `ctx.beats:deliver` of a consignment.",
+    ),
+    row(
         "set_orders",
         Needs::Uses(&[&["orders.write"]]),
         "`ctx.orders:give`, `append`, `clear`.",
@@ -282,7 +287,8 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` \
          and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). \
          From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that \
-         hands its cargo over; `standing_changed` (`standing.write` or \
+         hands its cargo over (or the `set_consignment` that hands over its ledger's \
+         consignment);`standing_changed` (`standing.write` or \
          `factions.write`) right after the `adjust_standing` (or, for no change, the \
          `expect_standing`) of its faction, and `regard_changed` right after that \
          `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other \
@@ -480,14 +486,27 @@ fn payload(
                 ship,
                 ware,
                 quantity,
+                ledger,
                 ..
             } => {
-                let handed = matches!(last, Some(Command::AdjustCargo { ship: s, ware: w, delta })
-                    if s == ship && w == ware && *delta == -i64::from(*quantity));
+                let handed = match last {
+                    Some(Command::AdjustCargo {
+                        ship: s,
+                        ware: w,
+                        delta,
+                    }) => s == ship && w == ware && *delta == -i64::from(*quantity),
+                    Some(Command::SetConsignment {
+                        ship: s,
+                        ledger: l,
+                        consignment: None,
+                    }) => s == ship && ledger.as_ref() == Some(l),
+                    _ => false,
+                };
                 if !handed {
                     return Err(
                         "a `deliver` event follows the `adjust_cargo` that hands its \
-                                cargo over (`ctx.beats:deliver`)"
+                                cargo over, or the `set_consignment` that hands over its \
+                                ledger's consignment (`ctx.beats:deliver_consignment`)"
                             .to_owned(),
                     );
                 }

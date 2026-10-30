@@ -197,6 +197,13 @@ pub enum Command {
         ware: WareId,
         delta: i64,
     },
+    /// Puts (`Some`) or takes away (`None`) a consignment in a ship's hold, keyed by
+    /// its delivery tally. Loading one fails if one is already aboard under the key.
+    SetConsignment {
+        ship: ShipId,
+        ledger: LedgerId,
+        consignment: Option<Box<crate::world::Consignment>>,
+    },
     SetOrders {
         ship: ShipId,
         orders: OrderQueue,
@@ -581,6 +588,7 @@ impl Command {
             Command::SetShipHull { .. } => "set_ship_hull",
             Command::SetShipRegion { .. } => "set_ship_region",
             Command::AdjustCargo { .. } => "adjust_cargo",
+            Command::SetConsignment { .. } => "set_consignment",
             Command::SetOrders { .. } => "set_orders",
             Command::UpdateOrders { .. } => "update_orders",
             Command::SetShipActivity { .. } => "set_ship_activity",

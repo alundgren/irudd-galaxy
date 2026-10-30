@@ -599,6 +599,16 @@ fn undeclared(what: &str, reason: String, location: Option<Location>) -> Abort {
     }
 }
 
+/// The fault for a batch that changes the player's stuff without their say-so
+/// ([`crate::confirm`]).
+fn unconfirmed(reason: String, location: Option<Location>) -> Abort {
+    Abort {
+        code: "unconfirmed_change".into(),
+        message: format!("none of its writes apply: {reason}"),
+        location,
+    }
+}
+
 /// The world after `batch`, applied the way the kernel applies it (finite numbers,
 /// every command, then the built-in invariants), without history or events. `Err` is
 /// the reason the kernel would reject the batch. For read-your-writes copies of the
@@ -955,6 +965,9 @@ impl System for ScriptSystem {
                                     Failed::Fault(undeclared("its writes need", reason, location()))
                                 },
                             )?;
+                            crate::confirm::confirmed(view.world, history, &batch).map_err(
+                                |reason| Failed::Fault(unconfirmed(reason, location())),
+                            )?;
                             // The whole call's writes, checked as the kernel will check them.
                             let base = projected.get_or_insert_with(|| ctx.projected());
                             check(ctx, base, view.world, &batch)
@@ -1093,6 +1106,18 @@ impl System for ScriptSystem {
                                         }),
                                     ))
                                 })?;
+                            crate::confirm::confirmed(view.world, history, &batch).map_err(
+                                |reason| {
+                                    Failed::Fault(unconfirmed(
+                                        format!("{}'s transition: {reason}", beat.def.id),
+                                        Some(Location {
+                                            file: script.decl.file.clone(),
+                                            line: None,
+                                            column: None,
+                                        }),
+                                    ))
+                                },
+                            )?;
                             // Checked as the kernel will check it, like a handler's
                             // batch, so a transition the queued batches would reject
                             // never reaches the reads of later beats.

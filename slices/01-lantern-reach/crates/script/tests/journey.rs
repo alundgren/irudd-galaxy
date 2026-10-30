@@ -158,8 +158,25 @@ fn act_one_beats_complete_from_real_flight_and_the_lens_is_bought() {
     dock_at(&mut sim, &KETTLE);
     assert_eq!(
         status(&sim, "beat.b03_first_delivery"),
+        Some(BeatStatus::Active),
+        "docking alone hands nothing over"
+    );
+    // Odo asks; the player picks Deliver.
+    step(
+        &mut sim,
+        &PlayerInput {
+            replies: vec![Reply {
+                npc: "npc.odo_fenn".parse().unwrap(),
+                choice: "choice.deliver_ice".parse().unwrap(),
+            }],
+            ..PlayerInput::default()
+        },
+    );
+    hands_off(&mut sim, 3);
+    assert_eq!(
+        status(&sim, "beat.b03_first_delivery"),
         Some(BeatStatus::Completed),
-        "docking at Kettle hands Odo the ice"
+        "Deliver hands Odo the ice"
     );
     assert_eq!(player(&sim).hold.count(&ICE), 0);
     assert_eq!(sim.world().stations.get(&KETTLE).unwrap().build.stage, 1);

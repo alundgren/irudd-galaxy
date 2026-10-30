@@ -140,6 +140,7 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
                 docked_at: Some(station.id.clone()),
                 hold: Hold {
                     cargo: spec.cargo.into_iter().filter(|(_, n)| *n > 0).collect(),
+                    ..Hold::default()
                 },
                 orders: OrderQueue::default(),
                 activity: ShipActivity::default(),

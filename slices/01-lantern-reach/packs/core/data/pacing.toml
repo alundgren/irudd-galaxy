@@ -11,6 +11,8 @@ profile = "slice"
 "b02.ice" = 20
 # b03: the first delivery to Kettle Dock's greenhouse.
 "b03.ice" = 20
+# Paid (credits) by the Deliver that fills the greenhouse.
+"b03.pay" = 120
 # b06's precondition and the nav chip's unlock share it.
 "b06.dockings" = 6
 # b16 and the prestige offer.
@@ -19,6 +21,8 @@ profile = "slice"
 # --- Act 2 ---------------------------------------------------------------------------
 # b07: Ilse's consignment of plate for Rook.
 "b07.plate" = 20
+# Paid (credits) by Rook when the plate is delivered.
+"b07.pay" = 250
 # b08: glassite sold at Brassmouth, across this many separate dockings.
 "b08.glassite" = 30
 "b08.dockings" = 2
@@ -114,6 +118,8 @@ profile = "slice"
 # The fragment drops from the next glassite rock the player spends once b13 is done
 # and they've mined this much glassite in all.
 "fragment.glassite_mined" = 80
+# b15: the survey fee (credits), paid when the player tells Nell what they heard.
+"b15.pay" = 400
 # b17: counted dockings since prestige at stations other than the Wharf.
 "b17.dockings_elsewhere" = 3
 

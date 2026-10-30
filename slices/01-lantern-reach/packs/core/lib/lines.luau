@@ -438,7 +438,7 @@ local lines: { Line } = {
 			return started(f, ids.B04)
 		end,
 		text = function(_, _)
-			return "Orrin Vale, the hullwright back at the Wharf, has a mining lens that cuts rock quicker. The Wharf buys ore from the dark rocks west of it, and we'll always take ice."
+			return "Orrin Vale, the hullwright back at the Wharf, has a mining lens that cuts rock quicker. The Wharf buys ore from the dark rocks south of it, and we'll always take ice."
 		end,
 	},
 	{
@@ -658,7 +658,7 @@ local lines: { Line } = {
 			return started(f, ids.B08)
 		end,
 		text = function(_, _)
-			return "Glassite's the bright rock in the belt east of here. Brassmouth Exchange, up the north lane, pays well for it. Go and see how well."
+			return "Glassite's the bright rock out in Glass Drift, east of here. Brassmouth Exchange, up the north lane, pays well for it. Go and see how well."
 		end,
 	},
 	{

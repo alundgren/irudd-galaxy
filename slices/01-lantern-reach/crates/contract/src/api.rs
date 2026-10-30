@@ -837,7 +837,14 @@ pub const FUNCTIONS: &[FnDef] = &[
         "pilot",
         "beats.read",
         "() -> PilotView",
-        "The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).",
+        "The player as a beat sees them: ship, hull, where they're docked, region, position, their own cargo, consignments carried for others (by ledger), hold room and credits (in credits).",
+    ),
+    f(
+        "beats",
+        "service",
+        "beats.read",
+        "(id: UpgradeId | ShipId) -> ServiceView?",
+        "An upgrade or tender a hullwright or dockmaster offers (`upgrades.toml`): its name, its literal effect text, its cost in credits, who sells it and where, and whether the player has it (`owned`: fitted, or the tender built). `nil` for an unknown ID. For the lines that offer a gift and say it's fitted.",
     ),
     f(
         "beats",
@@ -879,7 +886,21 @@ pub const FUNCTIONS: &[FnDef] = &[
         "load",
         "beats.write",
         "(spec: LoadSpec, why: Cause) -> ()",
-        "Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.",
+        "Loads goal cargo into the player ship as the pilot's own: at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room. Someone else's goods go aboard with `consign`.",
+    ),
+    f(
+        "beats",
+        "consign",
+        "beats.write",
+        "(spec: ConsignSpec, why: Cause) -> ()",
+        "Loads someone else's goods into the docked player ship under a ledger: they fill hold space but stay the owner's (no market buys them) until `deliver_consignment` hands them to the person they're for. Fails without the hold room, or if that ledger's consignment is already aboard. Cite the player's `reply` accepting it.",
+    ),
+    f(
+        "beats",
+        "deliver_consignment",
+        "beats.write",
+        "(ledger: LedgerId, why: Cause) -> ()",
+        "Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.",
     ),
     f(
         "beats",
@@ -1530,7 +1551,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }\n\
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }\n\
 -- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.\n\
-export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, consigned: { [LedgerId]: Consigned }, hold_free: number, credits: number }\n\
+-- An upgrade or tender on someone's list (`ctx.beats:service`); `cost` is in credits.\n\
+export type ServiceView = { id: string, name: string, effect: string, cost: number, seller: NpcId?, station: StationId?, owned: boolean }\n\
+-- Goods carried for someone else: whose they are, who they're for and where.\n\
+export type Consigned = { ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }\n\
+-- Someone else's goods to carry, for `ctx.beats:consign` (the same fields, plus the ledger).\n\
+export type ConsignSpec = { ledger: LedgerId, ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }\n\
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
 export type Spot = { x: number, y: number, region: RegionId? }\n\
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's\n\

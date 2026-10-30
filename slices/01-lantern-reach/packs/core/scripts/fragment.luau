@@ -4,7 +4,8 @@
 --
 -- Found by activity: once b13 is done and the player has mined enough glassite, the
 -- next glassite rock their own ship spends drops the one fragment into the hold (a
--- tender never finds it). The first dockmaster the player then meets notices it
+-- tender never finds it). With the hold full it waits, glinting, until the player
+-- mines glassite again with room. The first dockmaster the player then meets notices it
 -- (`shown`): the Lamplighters remember being told first. Nell sees it (the shard node
 -- opens), the player carries it through a lane and it sings (the song node opens),
 -- and the player tells Nell and leaves it with the Observatory or keeps it.
@@ -53,11 +54,21 @@ local function glint(ctx: G.Ctx): string?
 	return if type(v) == "string" and v ~= "" then v else nil
 end
 
+-- A waiting glint is picked up the next time the player mines glassite with room in
+-- the hold: their own mining is what finds it (`cite`, the `mine` fact).
 local function try_glint(ctx: G.Ctx, cite: string)
 	local rock = glint(ctx)
 	if rock ~= nil and ctx.beats:pilot().hold_free >= 1 then
 		pick_up(ctx, ctx:cause({ summary = "the player picks up the glinting fragment", cites = { cite } }), rock)
 	end
+end
+
+-- The survey fee for telling Nell (`b15.pay`), paid with the player's answer, and a
+-- line saying what went and what came back.
+local function pay_fee(ctx: G.Ctx, why: G.Cause, what: string, cite: string)
+	local fee = util.num(ctx, "b15.pay")
+	ctx.beats:pay(fee, why)
+	util.confirm(ctx, why, ids.GDO, `{what} · +{fee} cr survey fee`, cite)
 end
 
 return G.script({
@@ -89,8 +100,9 @@ return G.script({
 					}),
 				},
 			},
-			-- The survey fee and the Society's thanks; +5 more if left, said when left.
-			rewards = { credits = 400, standing = { [ids.LAMP] = 15 } },
+			-- The Society's thanks; +5 more if left, said when left. The survey fee
+			-- (`b15.pay`) is paid with the player's answer.
+			rewards = { standing = { [ids.LAMP] = 15 } },
 		}),
 	},
 	on = {
@@ -114,13 +126,8 @@ return G.script({
 				ctx.store:set("fragment", "glint", ev.rock, why)
 			end
 		end,
-		sell = function(ev: G.SellEvent, ctx: G.Ctx)
-			if ev.ship == ids.PLAYER then
-				try_glint(ctx, ev.fact)
-			end
-		end,
-		undock = function(ev: G.UndockEvent, ctx: G.Ctx)
-			if ev.ship == ids.PLAYER then
+		mine = function(ev: G.MineEvent, ctx: G.Ctx)
+			if ev.ship == ids.PLAYER and glassite_rock(ev.rock) then
 				try_glint(ctx, ev.fact)
 			end
 		end,
@@ -130,7 +137,6 @@ return G.script({
 			end
 			local f = found(ctx)
 			if f == nil then
-				try_glint(ctx, ev.fact)
 				return
 			end
 			local step = util.step(ctx, ids.B15)
@@ -216,13 +222,19 @@ return G.script({
 		-- b15 step 3: leave it with the Observatory (it glows in the lens tower for
 		-- good) or keep it.
 		reply = function(ev: G.ReplyEvent, ctx: G.Ctx)
-			if ev.npc ~= ids.NELL or ev.choice ~= ids.FRAGMENT_LEAVE or util.step(ctx, ids.B15) ~= 2 then
+			if ev.npc ~= ids.NELL or util.step(ctx, ids.B15) ~= 2 or ctx.beats:pilot().docked_at ~= ids.GDO then
 				return
 			end
-			if not carrying(ctx) or ctx.beats:pilot().docked_at ~= ids.GDO then
+			if ev.choice == ids.FRAGMENT_KEEP then
+				local why = ctx:cause({ summary = "the player keeps the fragment", cites = { ev.fact } })
+				pay_fee(ctx, why, "Kept the fragment", ev.fact)
+				return
+			end
+			if ev.choice ~= ids.FRAGMENT_LEAVE or not carrying(ctx) then
 				return
 			end
 			local why = ctx:cause({ summary = "the fragment stays with the Observatory", cites = { ev.fact } })
+			pay_fee(ctx, why, "Left the fragment with Nell", ev.fact)
 			ctx.beats:deliver({ station = ids.GDO, ware = ids.FRAGMENT, quantity = 1, ledger = ids.LENS_TOWER }, why)
 			ctx.stations:attach(ids.GDO, "part.gdo.fragment_case", why)
 			ctx.standing:deed({ faction = ids.LAMP, deed = "deed.lamplighters.fragment_left", delta = 5 }, why)
