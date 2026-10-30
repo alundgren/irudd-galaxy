@@ -4,7 +4,8 @@ local U = require("../lib/util")
 
 local function draw(ctx:G.Ctx,cite:string)
  local dock=U.calm(ctx)
- if dock==nil then return end
+ -- No border talk before the Hook dispute introduces it.
+ if dock==nil or ctx.beats:state("beat.b09_hook_dispute")==nil then return end
  local owner=ctx.territory:station_owner("station.cinder_hook")
  local resolved=U.done(ctx,"beat.b09_hook_dispute")
  local key=if resolved then owner or "unclaimed" else "contested"

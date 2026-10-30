@@ -4,16 +4,22 @@ The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining an
 trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
 PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
 
-Status: Act 1 is playable in a window. Under it: the shared contract, the headless sim
-kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, control
-tiers, orders, the tender), the living market and map (`crates/economy`) and the
-cel-shaded renderer (`crates/render`), the Luau script host (`crates/script`: sandboxed
-packs, the hook API, `galaxy pack check`, hot reload, rollback by cause), the fast-model
-layer (`crates/mind`) and progress (`crates/progress`): the beat runtime with b01 to b05
-in the core pack, standing, traits, hull ranks, prestige and station services. All of
-it runs in `galaxy play` and `galaxy sim run` as one composition
-(`crates/app/src/game.rs`): the goal line is the active beat's, people speak authored
-lines that cite what happened, and the hullwright sells upgrades on the dock screen.
+## Status: release candidate
+
+The whole slice is in: all 17 beats across four acts, playable in a window from a new
+game to the Hearthbound choice and home again, with the three factions, the named NPC
+traders, the tender, the eight game-master change types as validated script packs, and
+the live game-master socket. The journey bot finishes both runs headless (core plus
+game-master packs, and core alone), and `cargo xtask check` passes on Windows and Linux.
+[STATUS.md](STATUS.md) is the end-of-run report: what works, what doesn't, and what
+needed a base change.
+
+What to expect: the authored pacing is far slower than the design's arc. Act 1 takes
+minutes, but the bot needs six to eight hours of game time to reach prestige (the target
+is two), mostly waiting for the far glassite belt to regrow. Use `--beat N` (see "Testing
+the slice end to end") to skip ahead. The playtest notes posted on PR #11 (undocking by flying off, start speed, the
+nav-chip hint, the mining lens, rock shading) aren't addressed yet. Sound is on; there's
+no music. Art is drawn in code.
 
 ![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
 
@@ -95,6 +101,34 @@ until your hold fills, fly down and right to Kettle Dock (the marker at the scre
 points the way), drift into its ring, press Space, and sell.
 
 ![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
+
+## Testing the slice end to end
+
+1. **Install and play.** On Windows run `play.cmd` from this folder; on macOS or Linux,
+   `./play.sh` (Linux packages: "Playing on Linux"). The first release build takes several
+   minutes. `play.cmd --new` starts a fresh game; your old save stays.
+2. **Controls.** W A S D fly, Space does the one thing in reach (undock, mine, dock, ride
+   a lane), P or Esc pauses, M opens the map, N mutes, F3 shows the developer overlay, and
+   the mouse wheel zooms. Clicks fly, mine and dock once the nav chip unlocks them in
+   Act 2; Shift-click queues orders in Act 3. Docked: W/S pick a market line, E trades
+   one, Shift+E trades all, 1 to 9 answer people, or click the buttons. See "Play" for
+   the details.
+3. **Skip ahead.** `play.cmd --beat N` (or `./play.sh --beat N`) lets the journey bot
+   earn every beat before N with real play, then opens that checkpoint in a new save.
+   Useful starting points: 6 (the nav chip, Act 2), 9 (the Cinder Hook dispute), 11
+   (orders and loops, Act 3), 13 (the tender), 16 (the Hearthbound choice), 17 (coming
+   home). A late beat takes several minutes to earn (b17 about ten), since the bot plays
+   the authored pacing. `galaxy beat jump N --out PATH` makes the same save without a
+   window.
+4. **Feedback.** Comment on PR #11 with what you did, what you expected and what
+   happened. A screenshot helps: `galaxy shot --live --out shot.png` captures the running
+   window, and `galaxy gm digest --live` lists what changed recently, citing fact IDs.
+   The F3 overlay shows the active beat and step for a "where am I stuck" report.
+5. **Saves.** They're written when you dock, pause or quit, to
+   `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
+   `~/.local/share/lanternreach/saves` on Linux, and the game's folder under
+   `~/Library/Application Support` on macOS. Set `GALAXY_SAVES` to use another folder.
+   Each save keeps its game-master state in a `<save>.gm/` folder beside it.
 
 ## Named trader traffic
 
@@ -255,12 +289,9 @@ regression. The Act 1 fixture is `crates/app/tests/golden/act1.json`; regenerate
 deliberately with `record_act_one_golden -- --ignored`, then review its diff. Regular
 replay never updates an expected hash.
 
-Current content gaps: `gm-examples` only installs `kettle_growth`. Run A checks that
-pack's stage-2 facts, and reports missing GM change types; the spec's other GM packs
-must land before the plant, border, tuning, rock-tagging, second-fragment, sixth-station
-and chronicle assertions can pass. The order contract currently mines a rock rather
-than a field, so the bot refreshes the glass loop's target between laps. `Order::Buy`
-has no maximum-price field, so the glass loop cannot encode the spec's 25-credit cap.
+Current content gaps: the order contract mines a rock rather than a field, so the bot
+refreshes the glass loop's target between laps. `Order::Buy` has no maximum-price field,
+so the glass loop cannot encode the spec's 25-credit cap.
 
 ```sh
 cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth

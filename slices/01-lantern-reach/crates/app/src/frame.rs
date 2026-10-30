@@ -79,28 +79,32 @@ pub fn compose(
             .as_ref()
             .map(|st| crate::hooks::open_choices(world, history, st))
             .unwrap_or_default();
-        buttons.extend(ui::talk(
-            &mut panels,
-            world,
-            history,
-            answer,
-            &choices,
-            &on_canvas,
-            canvas,
-        ));
-        if let Some(station) = docked {
-            buttons.extend(ui::dock_panel(
+        // The prestige card is modal. Every text draws after every panel, so whatever
+        // sat under the card would print over it: leave the talk and dock screen out.
+        if ui_state.confirm.is_none() {
+            buttons.extend(ui::talk(
                 &mut panels,
                 world,
                 history,
-                &station,
+                answer,
+                &choices,
                 &on_canvas,
-                ui::Notices {
-                    trade: session.trades.notice.as_deref(),
-                    service: session.services.notice.as_deref(),
-                },
                 canvas,
             ));
+            if let Some(station) = docked {
+                buttons.extend(ui::dock_panel(
+                    &mut panels,
+                    world,
+                    history,
+                    &station,
+                    &on_canvas,
+                    ui::Notices {
+                        trade: session.trades.notice.as_deref(),
+                        service: session.services.notice.as_deref(),
+                    },
+                    canvas,
+                ));
+            }
         }
         s
     };

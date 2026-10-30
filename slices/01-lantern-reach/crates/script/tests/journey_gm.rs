@@ -102,6 +102,35 @@ fn act_one_plays_by_hand_from_undock_to_the_pause() {
     p.assert_healthy();
 }
 
+/// Act 1 introduces only the Shallows. The border pack waits for the Hook dispute and the
+/// shortage pack for Act 3, so neither speaks of a place, person or shortage the pilot
+/// hasn't met, even after docking and selling Rimewater ice.
+#[test]
+fn game_master_layers_wait_for_their_beats_in_act_one() {
+    let mut p = pilot_new(11);
+    p.idle(2);
+    p.undock();
+    fill_by_hand(&mut p, &RIMEWATER);
+    p.dock_by_hand(&KETTLE);
+    p.idle(2);
+    assert!(p.is_done("beat.b03_first_delivery"));
+    p.undock();
+    fill_by_hand(&mut p, &RIMEWATER);
+    p.dock_by_hand(&KETTLE);
+    p.sell_all(&ICE);
+    p.idle(4);
+    assert!(p.has_fact("sell"));
+    for kind in [
+        "gm.territory_map.border_moved",
+        "gm.shortage_tuning.shortage_tuned",
+    ] {
+        assert!(!p.has_fact(kind), "{kind} in Act 1");
+    }
+    assert!(!p.heard("npc.hesper_lune", "Cinder Hook"));
+    assert!(!p.heard("npc.odo_fenn", "relief ice"));
+    p.assert_healthy();
+}
+
 /// `07-pacing.md`: open and close the PAUSED card before b04 starts, buy the lens, then
 /// open and close it again. b05 completes on the second; only it is newer than b04.
 #[test]
