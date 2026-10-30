@@ -20,7 +20,7 @@ lines that cite what happened, and the hullwright sells upgrades on the dock scr
 ## Play
 
 ```sh
-./play.sh            # macOS and Linux
+./play.sh            # macOS and Linux (Linux packages: see "Playing on Linux")
 play.cmd             # Windows
 ```
 
@@ -78,8 +78,9 @@ rather than clipping, and a market longer than the screen scrolls with the selec
 
 Saves are written at calm moments (when you dock, when you pause, when you quit) to a
 per-user folder: `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
-a `saves` folder for the game under `~/Library/Application Support` on macOS, the XDG
-data folder on Linux. Set `GALAXY_SAVES` to use another folder.
+a `saves` folder for the game under `~/Library/Application Support` on macOS,
+`$XDG_DATA_HOME/lanternreach/saves` (normally `~/.local/share/lanternreach/saves`) on
+Linux. Set `GALAXY_SAVES` to use another folder.
 
 Sound is on at a modest volume: a few soft cues for docking, undocking, ore coming
 aboard, a full hold and a trade going through. There's nothing while you fly and no
@@ -119,10 +120,65 @@ and any `pacing.toml` tunable it lacks at its authored value (`pacing_backfill`)
 A route choice still out when an autosave was written is asked again on restore,
 so no trader stays parked.
 
+## Playing on Linux
+
+Desktop Linux on x86_64 with a Vulkan driver, under X11 or Wayland. Install the build
+tools, ALSA's headers and the libraries the window opens at run time (the X11, Wayland
+and xkbcommon libraries are loaded when the game starts, so their `-dev` packages aren't
+needed):
+
+```sh
+# Debian 12+, Ubuntu 22.04+
+sudo apt-get install -y build-essential pkg-config libasound2-dev curl git \
+  mesa-vulkan-drivers libvulkan1 libxkbcommon0 libxkbcommon-x11-0 \
+  libx11-xcb1 libxcursor1 libxi6 libxrandr2 libwayland-client0 libwayland-cursor0
+# Fedora 36+
+sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel curl git \
+  mesa-vulkan-drivers vulkan-loader libxkbcommon libxkbcommon-x11 \
+  libX11-xcb libXcursor libXi libXrandr libwayland-client libwayland-cursor
+```
+
+NVIDIA's proprietary driver brings its own Vulkan driver; `mesa-vulkan-drivers` covers
+AMD and Intel (and `llvmpipe`, a slow software fallback). Then install Rust with
+[rustup](https://rustup.rs) (the pinned toolchain installs itself on the first build) and,
+from a terminal in your desktop session:
+
+```sh
+# The slice lives on the slice branch, not on main.
+git clone --branch slice/01-lantern-reach https://github.com/alundgren/irudd-galaxy.git
+cd irudd-galaxy/slices/01-lantern-reach
+./play.sh              # the first release build takes several minutes
+./play.sh --new        # start over (the old save stays)
+```
+
+Saves and `sound.toml` go to `~/.local/share/lanternreach/saves/` (or `$GALAXY_SAVES`).
+`cargo xtask check` works as on Windows; its `luau-analyze` needs glibc 2.34 or later.
+`play.sh` finds a fresh rustup install by itself, but for running `cargo` directly in
+the same shell right after installing rustup, first run `source "$HOME/.cargo/env"`.
+
+If it doesn't start:
+
+- **`no window system: ... Failed to open connection to X server`** or **`Could not find
+  wayland compositor`**: no display. Run it from a terminal inside the desktop session,
+  or set `DISPLAY` (X11, e.g. `:0`) or `WAYLAND_DISPLAY` (e.g. `wayland-0`).
+- **`Library libxkbcommon-x11.so could not be loaded`**: install `libxkbcommon-x11-0`
+  (Fedora: `libxkbcommon-x11`).
+- **No GPU adapter, or a blank or broken window**: check `vulkaninfo --summary`
+  (package `vulkan-tools`) lists your GPU. `WGPU_BACKEND=gl ./play.sh` uses OpenGL
+  instead of Vulkan; `WGPU_POWER_PREF=low` picks the integrated GPU on a laptop.
+- **Wayland or X11**: the game uses Wayland when `WAYLAND_DISPLAY` is set, X11
+  otherwise. `WAYLAND_DISPLAY= ./play.sh` forces X11 (XWayland) if the Wayland window
+  misbehaves.
+- **No sound**: the game runs silent without an audio device; lines starting `ALSA lib`
+  (`Unknown PCM default`) mean it found none. Sound goes through ALSA, so on PipeWire
+  install `pipewire-alsa`, on PulseAudio `libasound2-plugins` (Fedora:
+  `alsa-plugins-pulseaudio`).
+
 ## Build and check
 
 You need the pinned toolchain (`rust-toolchain.toml`, installed by rustup on first
-use). On Windows, the MSVC Build Tools. Run everything from this folder.
+use). On Windows, the MSVC Build Tools; on Linux, the packages in "Playing on Linux".
+Run everything from this folder.
 
 ```sh
 cargo build                 # everything
