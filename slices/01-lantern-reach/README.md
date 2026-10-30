@@ -4,7 +4,7 @@ The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining an
 trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
 PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
 
-## Status: release candidate
+## Status: complete, merged into main
 
 The whole slice is in: all 17 beats across four acts, playable in a window from a new
 game to the Hearthbound choice and home again, with the three factions, the named NPC
@@ -14,12 +14,12 @@ game-master packs, and core alone), and `cargo xtask check` passes on Windows an
 [STATUS.md](STATUS.md) is the end-of-run report: what works, what doesn't, and what
 needed a base change.
 
-What to expect: the authored pacing is far slower than the design's arc. Act 1 takes
-minutes, but the bot needs six to eight hours of game time to reach prestige (the target
-is two), mostly waiting for the far glassite belt to regrow. Use `--beat N` (see "Testing
-the slice end to end") to skip ahead. The playtest notes posted on PR #11 (undocking by flying off, start speed, the
-nav-chip hint, the mining lens, rock shading) aren't addressed yet. Sound is on; there's
-no music. Art is drawn in code.
+What to expect: Act 1 takes minutes, and the journey bot reaches prestige in about two
+hours of game time, as the design intends (a human's time is unmeasured). Use `--beat N`
+(see "Testing the slice end to end") to skip ahead. The first playtest's notes on PR #11
+are fixed: undocking by flying off, a faster start, the nav-chip hint, the mining lens and
+the rock shading. The flight model, a station UI redesign, music and the map are on hold
+for design. Sound is a few soft cues; there's no music. Art is drawn in code.
 
 ![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
 
@@ -187,8 +187,7 @@ AMD and Intel (and `llvmpipe`, a slow software fallback). Then install Rust with
 from a terminal in your desktop session:
 
 ```sh
-# The slice lives on the slice branch, not on main.
-git clone --branch slice/01-lantern-reach https://github.com/alundgren/irudd-galaxy.git
+git clone https://github.com/alundgren/irudd-galaxy.git
 cd irudd-galaxy/slices/01-lantern-reach
 ./play.sh              # the first release build takes several minutes
 ./play.sh --new        # start over (the old save stays)
