@@ -277,7 +277,7 @@ fn staging_waits_for_a_calm_moment() {
     }
     assert_eq!(bridge.state().staged.len(), 1);
     assert!(bridge.state().applied.is_empty());
-    assert!(!sim.world().npcs.contains(&ODO));
+    assert_eq!(applied_facts(&sim), 0);
 
     // Paused is calm: it applies (snapshot first), and the change ID arrives with the
     // first tick after the pause.
@@ -304,10 +304,8 @@ fn staging_waits_for_a_calm_moment() {
     assert!(
         matches!(&cause.cause.kind, CauseKind::Script { pack, .. } if pack.as_str() == "gm.kettle_growth")
     );
-    assert!(
-        sim.world().npcs.contains(&ODO),
-        "the pack's data installed with it"
-    );
+    assert_eq!(applied_facts(&sim), 1);
+    assert!(sim.world().npcs.contains(&ODO));
     assert_eq!(
         bridge.host().revision(&pack.manifest.id).as_deref(),
         Some(pack.revision.as_str())
@@ -326,7 +324,11 @@ fn staging_waits_for_a_calm_moment() {
     .unwrap();
     assert_eq!(out["pack"], "gm.kettle_growth");
     sim.step(&PlayerInput::default());
-    assert!(!sim.world().npcs.contains(&ODO));
+    assert!(
+        sim.world().packs[&pack.manifest.id]
+            .retired
+            .contains(&pack.revision)
+    );
     let rel2 = bridge.store().import(&pack).unwrap();
     bridge.stage(&rel2, checked.report, "test", true).unwrap();
     sim.set_paused(true);
@@ -525,7 +527,7 @@ fn a_pack_applies_only_after_its_snapshot() {
     for _ in 0..5 {
         sim.step(&PlayerInput::default());
     }
-    assert!(!sim.world().npcs.contains(&ODO));
+    assert_eq!(applied_facts(&sim), 0);
 
     // The next calm moment tries again. A snapshot still being written holds the pack.
     let flying = PlayerInput {
@@ -604,7 +606,7 @@ fn a_crash_between_apply_and_save_is_recovered() {
         None
     );
     sim.step(&PlayerInput::default());
-    assert!(!sim.world().npcs.contains(&ODO));
+    assert_eq!(applied_facts(&sim), 0);
     // ... and state.json says so too.
     assert!(bridge.store().load().unwrap().applied.is_empty());
     // It applies at the next calm moment, once.
@@ -681,4 +683,52 @@ fn the_inbox_takes_only_finished_copies() {
         .collect();
     assert_eq!(ready, ["done"]);
     assert_eq!(galaxy_gm::bridge::inbox_incomplete(&inbox), ["copying"]);
+}
+
+#[test]
+fn watchers_that_hang_up_free_their_places_while_paused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("watch.sqlite");
+    let state = new_state();
+    Save::create(&path, &state).unwrap();
+    let mut sim = game(state);
+    let mut bridge = Bridge::open(&path, &mut sim, BridgeOptions::default()).unwrap();
+    bridge.start_live(None).unwrap();
+    let d = bridge.server().unwrap().discovery().clone();
+    // Paused, so nothing is broadcast that would notice a watcher has gone.
+    sim.set_paused(true);
+    bridge.serve(&mut sim, &mut NoSnapshots);
+
+    // One more watcher than fit, each hanging up before the next connects.
+    for n in 0..=galaxy_gm::bridge::MAX_WATCHERS {
+        let watch_d = d.clone();
+        let client = std::thread::spawn(move || {
+            let mut c = Client::connect(&watch_d, None).unwrap();
+            c.stream("watch", json!({}))
+        });
+        let started = Instant::now();
+        while !client.is_finished() {
+            assert!(
+                started.elapsed() < Duration::from_secs(30),
+                "watch {n} hung"
+            );
+            bridge.serve(&mut sim, &mut NoSnapshots);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let ack = client.join().unwrap();
+        assert!(ack.is_ok(), "watcher {n}: {:?}", ack.err());
+        // The client has hung up; serve until the I/O thread has noticed.
+        let started = Instant::now();
+        loop {
+            bridge.serve(&mut sim, &mut NoSnapshots);
+            if bridge.watchers() == 0 {
+                break;
+            }
+            assert!(
+                started.elapsed() < Duration::from_secs(30),
+                "watcher {n} kept its place"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
 }

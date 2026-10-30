@@ -262,6 +262,11 @@ impl Bridge {
         self.server.as_ref()
     }
 
+    /// Watchers streaming now (one that hung up counts until the next serve).
+    pub fn watchers(&self) -> usize {
+        self.watchers.len()
+    }
+
     pub fn host(&self) -> &ScriptHost {
         &self.host
     }
@@ -568,6 +573,8 @@ impl Bridge {
     /// packs and works the inbox. Returns requests the app answers itself (`shot`).
     pub fn serve(&mut self, sim: &mut Sim, snaps: &mut dyn Snapshots) -> Vec<Incoming> {
         self.after_tick(sim);
+        // Watchers that hung up free their places even when nothing is broadcast.
+        self.watchers.retain(StreamSink::is_open);
         let mut left = Vec::new();
         for _ in 0..MAX_REQUESTS_PER_SERVE {
             let Some(req) = self.server.as_ref().and_then(Server::poll) else {
@@ -592,6 +599,10 @@ impl Bridge {
 
     fn handle(&mut self, req: Incoming, sim: &mut Sim) -> Option<Incoming> {
         let op = req.op.clone();
+        if matches!(op, Op::Watch { .. }) {
+            // The cap counts only watchers still connected.
+            self.watchers.retain(StreamSink::is_open);
+        }
         let result: Result<Value, WireError> = match &op {
             Op::Hello {} => Ok(json!({
                 "protocol": crate::live::PROTOCOL,
