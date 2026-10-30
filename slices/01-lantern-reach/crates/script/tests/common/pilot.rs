@@ -250,7 +250,7 @@ impl Pilot {
         panic!("waited too long for {what}: at {:?}", self.ship().position);
     }
 
-    /// Space for one tick (dock, undock, enter a lane, start mining).
+    /// Space for one tick (dock, enter a lane, start mining).
     pub fn press(&mut self) {
         self.tick(&PlayerInput {
             action: true,
@@ -287,10 +287,14 @@ impl Pilot {
         }
     }
 
-    /// Undocks with Space.
+    /// Undocks by flying off: one tick of thrust.
     pub fn undock(&mut self) {
         if self.docked().is_some() {
-            self.press();
+            self.tick(&PlayerInput {
+                thrust: Vec2::new(0.0, 1.0),
+                ..PlayerInput::default()
+            });
+            self.idle(1);
         }
         assert!(self.docked().is_none(), "still docked");
     }

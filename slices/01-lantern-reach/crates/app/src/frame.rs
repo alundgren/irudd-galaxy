@@ -101,6 +101,7 @@ pub fn compose(
                     ui::Notices {
                         trade: session.trades.notice.as_deref(),
                         service: session.services.notice.as_deref(),
+                        fitted: session.services.fitted.as_deref(),
                     },
                     canvas,
                 ));

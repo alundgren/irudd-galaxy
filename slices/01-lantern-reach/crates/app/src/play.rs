@@ -54,14 +54,8 @@ pub fn key_of(code: KeyCode) -> Option<Key> {
         KeyCode::KeyA => Key::A,
         KeyCode::KeyS => Key::S,
         KeyCode::KeyD => Key::D,
-        KeyCode::ArrowUp => Key::Up,
-        KeyCode::ArrowDown => Key::Down,
-        KeyCode::ArrowLeft => Key::Left,
-        KeyCode::ArrowRight => Key::Right,
         KeyCode::Space => Key::Space,
         KeyCode::ShiftLeft | KeyCode::ShiftRight => Key::Shift,
-        KeyCode::KeyE => Key::E,
-        KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
         KeyCode::KeyM => Key::M,
         KeyCode::KeyT => Key::T,
         KeyCode::KeyP => Key::P,
@@ -376,17 +370,10 @@ impl App {
         }
     }
 
-    fn select(&mut self, delta: i32) {
-        let Some(station) = self.docked() else { return };
-        let n = ui::dock_lines(self.session.world(), &station).len().max(1) as i32;
-        self.ui.selected = (self.ui.selected as i32 + delta).rem_euclid(n) as usize;
-    }
-
     fn act(&mut self, action: UiAction) {
         match action {
             UiAction::Trade { line, amount } => self.trade(line, amount),
             UiAction::Select(i) => self.ui.selected = i,
-            UiAction::Undock => self.keys.press_action(),
             UiAction::CloseMap => self.ui.map_open = false,
             UiAction::Service(req) => self.session.request_service(req),
             UiAction::Prestige(to) => self.ui.confirm = Some(to),
@@ -414,18 +401,12 @@ impl App {
         if self.session.is_paused() {
             return;
         }
-        let shift = self.keys.held(Key::Shift);
         match key {
             Key::M => self.ui.map_open = !self.ui.map_open,
             Key::ZoomIn => self.rig.zoom_by(1.0),
             Key::ZoomOut => self.rig.zoom_by(-1.0),
+            // The dock screen is mouse-first: WASD stays the ship's (flying off undocks).
             _ if self.docked().is_none() || self.ui.map_open => {}
-            Key::W | Key::Up => self.select(-1),
-            Key::S | Key::Down => self.select(1),
-            Key::E | Key::Enter => {
-                let amount = if shift { Amount::Most } else { Amount::One };
-                self.trade(self.ui.selected, amount);
-            }
             // The prestige card takes no answers under it.
             Key::Answer(i) if self.ui.confirm.is_none() => {
                 self.session.reply_to_open(usize::from(i));

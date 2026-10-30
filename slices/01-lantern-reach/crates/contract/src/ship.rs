@@ -200,8 +200,8 @@ impl Default for ControlRules {
 /// What a ship is in the middle of, beyond its motion and orders.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ShipActivity {
-    /// The context action was held last tick. A press docks, undocks or enters a lane
-    /// once; holding keeps mining.
+    /// The context action was held last tick. A press docks or enters a lane once;
+    /// holding keeps mining. (Docked, flying off undocks, not the action.)
     #[serde(default)]
     pub action_held: bool,
     /// Riding a lane current.

@@ -297,10 +297,11 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         }
     }
 
-    /// WASD flies; the context action does the one thing in reach.
+    /// WASD flies; the context action does the one thing in reach. Docked, flying off
+    /// (any thrust) undocks; Space does nothing there.
     fn by_hand(&mut self, thrust: Vec2, pressed: bool, held: bool) {
         if self.docked.is_some() {
-            if pressed || thrust != Vec2::ZERO {
+            if thrust != Vec2::ZERO {
                 self.undock();
             }
             return;

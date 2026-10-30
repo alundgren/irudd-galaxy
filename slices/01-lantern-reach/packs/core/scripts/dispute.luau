@@ -145,7 +145,7 @@ return G.script({
 			act = 2,
 			kind = "situation",
 			giver = ids.ROOK,
-			goal = "The Cooperative and the Compact both want the Hook's ore depot. Supply it in whose name you like, or not at all.",
+			goal = "The Wharf Cooperative and the Tollway Compact both want the Hook's ore depot. Supply it in whose name you like, or not at all.",
 			requires = {
 				G.done(ids.B07),
 				G.counter("dockings", G.tunable("b09.hook_dockings"), { station = ids.HOOK }),

@@ -315,9 +315,14 @@ impl Pilot {
         })?;
         self.idle(2)
     }
+    /// Flies off to undock: one tick of thrust.
     pub fn undock(&mut self) -> Result {
         if self.ship().docked_at.is_some() {
-            self.press()?;
+            self.input(PlayerInput {
+                thrust: Vec2::new(0.0, 1.0),
+                ..PlayerInput::default()
+            })?;
+            self.idle(2)?;
         }
         Ok(())
     }

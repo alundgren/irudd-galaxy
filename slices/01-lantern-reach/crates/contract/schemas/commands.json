@@ -5883,7 +5883,7 @@
       "type": "object",
       "properties": {
         "action_held": {
-          "description": "The context action was held last tick. A press docks, undocks or enters a lane\nonce; holding keeps mining.",
+          "description": "The context action was held last tick. A press docks or enters a lane once;\nholding keeps mining. (Docked, flying off undocks, not the action.)",
           "type": "boolean",
           "default": false
         },

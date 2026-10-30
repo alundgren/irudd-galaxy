@@ -35,7 +35,7 @@ fn act_one_plays_by_hand_from_undock_to_the_pause() {
     p.idle(2);
     assert_eq!(p.status("beat.b01_undock"), Some(BeatStatus::Active));
     let goal = galaxy_progress::beats::hud_goal(p.world()).unwrap();
-    assert!(goal.goal.contains("Undock"), "{goal:?}");
+    assert!(goal.goal.contains("Fly off"), "{goal:?}");
 
     // b01, b02: undock, fill the hold with ice by hand.
     p.undock();
@@ -193,7 +193,7 @@ fn act_two_runs_the_lanes_settles_the_hook_and_visits_the_rumored_shoals() {
     p.go(&HOOK);
     p.idle(3);
     assert_eq!(p.status("beat.b09_hook_dispute"), Some(BeatStatus::Active));
-    assert!(p.heard("npc.rook_adeyemi", "Two banners want my depot."));
+    assert!(p.heard("npc.rook_adeyemi", "Two banners want my depot"));
     p.reply("npc.rook_adeyemi", "choice.side_coop");
     assert!(p.has_fact("core.side_chosen"));
 

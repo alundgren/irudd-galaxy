@@ -82,7 +82,7 @@ return G.script({
 			id = ids.B06,
 			act = 2,
 			giver = ids.ORRIN,
-			goal = "Orrin has a nav chip: click where you want the Wren to go.",
+			goal = "Orrin can fit a nav chip: then click a point near the Wren and she flies there.",
 			requires = { G.done(ids.B05), G.counter("dockings", G.tunable("b06.dockings")) },
 			-- The rock cradle and the docking clamp follow on their own unlocks.
 			done = G.fitted("upgrade.nav_chip"),
@@ -91,7 +91,7 @@ return G.script({
 			id = ids.B07,
 			act = 2,
 			giver = ids.ILSE,
-			goal = "Ilse has 20 plate for Rook at Cinder Hook. The Cinder lane starts east of the Wharf.",
+			goal = "Ilse has 20 plate for Rook at Cinder Hook. The lane to Cinder Drift starts east of the Wharf.",
 			requires = G.done(ids.B06),
 			steps = {
 				{
@@ -101,7 +101,7 @@ return G.script({
 				},
 				{
 					id = "deliver",
-					goal = "Ilse has 20 plate for Rook at Cinder Hook. The Cinder lane starts east of the Wharf.",
+					goal = "Ilse has 20 plate for Rook at Cinder Hook. The lane to Cinder Drift starts east of the Wharf.",
 					done = G.sum({ kind = "deliver", other = ids.CONSIGNMENT }, G.tunable("b07.plate"), { since = "start" }),
 				},
 			},
@@ -113,7 +113,7 @@ return G.script({
 			id = ids.B08,
 			act = 2,
 			giver = ids.ROOK,
-			goal = "Rook says Brassmouth pays well for glassite. Go and see how well, twice.",
+			goal = "Rook says Brassmouth Exchange pays well for glassite. Go and see how well, twice.",
 			requires = G.done(ids.B07),
 			-- The Compact's +3 for the first glassite sale is a faction deed
 			-- (factions.toml), so it counts however the sale happens.

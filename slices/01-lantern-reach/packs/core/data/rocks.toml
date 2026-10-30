@@ -32,7 +32,7 @@ regrowth = 0
 
 [[field]]
 id = "field.shallows.ice"
-name = "Shallows ice field"
+name = "Rimewater"
 region = "region.lantern_shallows"
 rock_type = "rock_type.ice"
 rock_prefix = "rock.shallows.ice"
@@ -45,7 +45,7 @@ regrow = 0.15
 
 [[field]]
 id = "field.shallows.iron"
-name = "Shallows iron field"
+name = "Tinroot"
 region = "region.lantern_shallows"
 rock_type = "rock_type.iron"
 rock_prefix = "rock.shallows.iron"
@@ -58,7 +58,7 @@ regrow = 0.3
 
 [[field]]
 id = "field.cinder.iron"
-name = "Cinder iron belt"
+name = "Cinder Belt"
 region = "region.cinder_drift"
 rock_type = "rock_type.iron"
 rock_prefix = "rock.cinder.iron"
@@ -70,7 +70,7 @@ amount_max = 200
 
 [[field]]
 id = "field.cinder.glassite"
-name = "Far glassite belt"
+name = "Glass Drift"
 region = "region.cinder_drift"
 rock_type = "rock_type.glassite"
 rock_prefix = "rock.cinder.glassite"

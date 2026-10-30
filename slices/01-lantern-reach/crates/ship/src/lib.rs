@@ -6,7 +6,7 @@
 //!   click-to-fly, click-to-mine, click-to-dock, map travel, queues and loops; the
 //!   loop API saves, runs and assigns loops.
 //! - [`ShipSystem`]: one tick for every ship. Player input becomes motion or orders by
-//!   the unlocked tier; the context action docks, undocks, enters a lane or mines; the
+//!   the unlocked tier; flying off undocks; the context action docks, enters a lane or mines; the
 //!   order runner executes the same verbs for the player, tenders and NPC craft. A
 //!   ship's tick is one atomic batch, so a rejected mine or trade simply retries.
 //! - [`RegrowthSystem`]: rocks regrow and reform with region activity, never time:

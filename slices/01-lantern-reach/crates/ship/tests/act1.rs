@@ -57,6 +57,17 @@ fn space(sim: &mut Sim) {
     );
 }
 
+/// One tick of thrust: docked, that flies off and undocks.
+fn fly_off(sim: &mut Sim) {
+    step(
+        sim,
+        &PlayerInput {
+            thrust: Vec2::new(1.0, 0.0),
+            ..PlayerInput::default()
+        },
+    );
+}
+
 fn player(sim: &Sim) -> &Ship {
     sim.world().ships.get(&PLAYER).unwrap()
 }
@@ -164,9 +175,11 @@ fn act_one_mines_ice_and_sells_it_at_kettle_through_the_real_economy() {
     hands_off(&mut sim, 2); // the economy prices every line on its first tick
     assert_eq!(player(&sim).docked_at, Some(WHARF));
 
-    // Undock with Space, fly out, mine, fly to Kettle, dock.
+    // Fly off to undock, mine, fly to Kettle, dock.
     space(&mut sim);
-    assert_eq!(player(&sim).docked_at, None, "Space undocks");
+    assert_eq!(player(&sim).docked_at, Some(WHARF), "Space doesn't undock");
+    fly_off(&mut sim);
+    assert_eq!(player(&sim).docked_at, None, "flying off undocks");
     hands_off(&mut sim, 1);
     mine_ice(&mut sim);
     dock_at_kettle(&mut sim);
@@ -193,7 +206,7 @@ fn act_one_mines_ice_and_sells_it_at_kettle_through_the_real_economy() {
 fn a_tenders_patient_sell_waits_for_the_real_market_to_recover() {
     let mut sim = game(new_game(&data_dir(), 7).unwrap());
     hands_off(&mut sim, 2);
-    space(&mut sim);
+    fly_off(&mut sim);
     hands_off(&mut sim, 1);
     mine_ice(&mut sim);
     dock_at_kettle(&mut sim);
@@ -281,7 +294,7 @@ fn a_tenders_patient_sell_waits_for_the_real_market_to_recover() {
 
     // Activity: the player's next lap ends in a counted docking at Kettle, and its pulse
     // lifts the price to the floor.
-    space(&mut sim);
+    fly_off(&mut sim);
     assert_eq!(player(&sim).docked_at, None);
     hands_off(&mut sim, 1);
     mine_ice(&mut sim);

@@ -29,7 +29,7 @@ return G.script({
 			id = ids.B01,
 			act = 1,
 			giver = ids.ILSE,
-			goal = "Ilse needs ice for the Kettle Dock greenhouse. Undock and look for the pale rocks.",
+			goal = "Ilse needs ice for the greenhouse at Kettle Dock. Fly off with W A S D and look for the pale rocks.",
 			-- A new save: docked at the Wharf in the Wren.
 			requires = { G.docked_at(ids.WHARF), G.hull(ids.WREN) },
 			done = G.fact({ kind = "undock", ship = ids.PLAYER, station = ids.WHARF }, { since = "start" }),
@@ -73,7 +73,7 @@ return G.script({
 			id = ids.B04,
 			act = 1,
 			giver = ids.ORRIN,
-			goal = "Orrin can fit a mining lens for 600 credits. Sell what you mine to pay for it.",
+			goal = "Orrin, the Wharf's hullwright, can fit a mining lens for 600 credits. Sell what you mine to pay for it.",
 			requires = G.done(ids.B03),
 			done = G.fitted("upgrade.mining_lens"),
 		}),

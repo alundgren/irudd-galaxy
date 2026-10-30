@@ -129,10 +129,17 @@ fn act_one_beats_complete_from_real_flight_and_the_lens_is_bought() {
         beats::hud_goal(sim.world())
             .unwrap()
             .goal
-            .contains("Undock")
+            .contains("Fly off")
     );
 
-    space(&mut sim); // undock
+    // Fly off to undock.
+    step(
+        &mut sim,
+        &PlayerInput {
+            thrust: Vec2::new(1.0, 0.0),
+            ..PlayerInput::default()
+        },
+    );
     hands_off(&mut sim, 2);
     assert_eq!(status(&sim, "beat.b01_undock"), Some(BeatStatus::Completed));
     assert_eq!(

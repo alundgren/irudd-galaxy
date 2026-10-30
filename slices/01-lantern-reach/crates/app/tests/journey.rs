@@ -43,8 +43,8 @@ fn session(state: SimState) -> Session {
     s
 }
 
-/// A player at the keys: WASD toward where they want to go, Space for the one thing in
-/// reach, the dock screen's buttons.
+/// A player at the keys: WASD toward where they want to go (and to fly off a dock), Space
+/// for the one thing in reach, the dock screen's buttons.
 struct Pilot {
     s: Session,
     keys: Keys,
@@ -123,15 +123,18 @@ impl Pilot {
         panic!("never got to {to:?} (at {:?})", self.ship().position);
     }
 
-    /// A tap of Space (or the Undock button).
+    /// A tap of Space.
     fn tap(&mut self) {
         self.keys.press_action();
         self.ticks(2);
     }
 
+    /// Flies off: a tap of W.
     fn undock(&mut self) {
         assert!(self.docked().is_some());
-        self.tap();
+        self.keys.press(Key::W);
+        self.ticks(1);
+        self.keys.release(Key::W);
         self.ticks(3);
         assert!(self.docked().is_none(), "undocked");
     }
@@ -288,11 +291,23 @@ fn play_act_one(p: &mut Pilot) {
     p.tick();
     assert_eq!(
         p.goal().as_deref(),
-        Some("Ilse needs ice for the Kettle Dock greenhouse. Undock and look for the pale rocks.")
+        Some(
+            "Ilse needs ice for the greenhouse at Kettle Dock. Fly off with W A S D and look for the pale rocks."
+        )
     );
     assert_eq!(hooks::goal_place(p.s.world()), Some(KETTLE));
+    // Before anyone is named in a goal, Ilse names herself, the ship, Odo and Rimewater.
+    p.ticks(3);
+    let ilse = said(&p.s, &ILSE);
+    assert!(
+        ilse.iter().any(|t| t.contains("I'm Ilse")
+            && t.contains("The Wren's yours")
+            && t.contains("Odo at Kettle Dock")
+            && t.contains("Rimewater")),
+        "{ilse:?}"
+    );
 
-    // b01: undock.
+    // b01: fly off.
     p.undock();
     p.ticks(3);
     assert_eq!(status(&p.s, "beat.b01_undock"), Some(BeatStatus::Completed));
@@ -332,9 +347,19 @@ fn play_act_one(p: &mut Pilot) {
             .any(|l| l.speaker.as_ref() == Some(&ODO) && l.place.as_ref() == Some(&KETTLE))
     );
     assert_eq!(p.s.world().stations.get(&KETTLE).unwrap().build.stage, 1);
+    // Odo names Orrin, the hullwright, as the goal turns to him.
+    assert!(
+        said(&p.s, &ODO)
+            .iter()
+            .any(|t| t.starts_with("Orrin Vale, the hullwright back at the Wharf")),
+        "{:?}",
+        said(&p.s, &ODO)
+    );
     assert_eq!(
         p.goal().as_deref(),
-        Some("Orrin can fit a mining lens for 600 credits. Sell what you mine to pay for it.")
+        Some(
+            "Orrin, the Wharf's hullwright, can fit a mining lens for 600 credits. Sell what you mine to pay for it."
+        )
     );
     assert_eq!(
         hooks::goal_place(p.s.world()),
@@ -381,7 +406,7 @@ fn play_act_one(p: &mut Pilot) {
     // The trips that paid for the lens made the dockings b06 waits for: it opens at once.
     assert_eq!(
         p.goal().as_deref(),
-        Some("Orrin has a nav chip: click where you want the Wren to go.")
+        Some("Orrin can fit a nav chip: then click a point near the Wren and she flies there.")
     );
 
     let goals: Vec<String> = p.goals.iter().flatten().cloned().collect();
@@ -389,9 +414,9 @@ fn play_act_one(p: &mut Pilot) {
     assert!(goals[0].starts_with("Ilse needs ice"));
     assert!(goals[1].starts_with("Hold Space"));
     assert!(goals[2].starts_with("Fly into Kettle Dock"));
-    assert!(goals[3].starts_with("Orrin can fit a mining lens"));
+    assert!(goals[3].starts_with("Orrin, the Wharf's hullwright, can fit a mining lens"));
     assert!(goals[4].starts_with("Press P or Esc"));
-    assert!(goals[5].starts_with("Orrin has a nav chip"));
+    assert!(goals[5].starts_with("Orrin can fit a nav chip"));
 }
 
 /// The play path and the script path agree past Act 1: from b05's end, at the keys and
@@ -447,7 +472,7 @@ fn act_one_crosses_into_act_two_at_the_keys() {
     assert_eq!(
         p.goal().as_deref(),
         Some(
-            "Ilse has 20 plate for Rook at Cinder Hook. The Cinder lane starts east of the Wharf."
+            "Ilse has 20 plate for Rook at Cinder Hook. The lane to Cinder Drift starts east of the Wharf."
         )
     );
     // Into the Cinder lane's mouth by hand, Space, and ride it.
@@ -676,7 +701,10 @@ fn station_services_list_offers_and_refuse_calmly() {
         .find(|o| o.request == ServiceRequest::Fit { upgrade: LENS })
         .expect("the lens is on Orrin's list after b03");
     assert_eq!(lens.price, "600 cr");
-    assert_eq!(lens.effect, "Mining rate x1.5");
+    assert_eq!(
+        lens.effect,
+        "You mine half again as fast: a hold fills in two thirds the time"
+    );
     assert_eq!(
         lens.blocked.as_deref(),
         Some("Mining lens costs 600 cr. You have 100 cr.")
@@ -929,6 +957,7 @@ fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
     let notices = ui::Notices {
         trade: Some("Kettle Dock isn't buying iron ore right now."),
         service: Some("Docking clamp costs 700 cr. You have 400 cr."),
+        fitted: None,
     };
     for canvas in [
         render::glam::Vec2::new(960.0, 540.0),
@@ -958,7 +987,12 @@ fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
             for p in &o.panels {
                 assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
             }
-            assert!(buttons.iter().any(|b| b.action == ui::UiAction::Undock));
+            assert!(
+                o.texts
+                    .iter()
+                    .any(|t| t.text == ui::DOCK_FOOT && t.pos.y + t.size <= canvas.y),
+                "{canvas}: how to undock shows"
+            );
             for b in &buttons {
                 match &b.action {
                     ui::UiAction::Service(r) => {
@@ -1313,7 +1347,7 @@ fn click_controls_work_once_their_flags_are_on() {
     s.tick(PlayerInput::default());
     let mut ui = UiState::default();
     // Undock, then click a point near the ship: it flies there and stops.
-    galaxy_app::script::run(&mut s, &mut ui, "space,wait*5").unwrap();
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*5").unwrap();
     let at = s.flagship().unwrap().position;
     let target = at + Vec2::new(150.0, -150.0); // clear of the Wharf's ring
     galaxy_app::script::run(

@@ -21,7 +21,8 @@
 //!   station, rock or point as the window does), or shift-click to queue it;
 //! - `:mapclick:REGION`: click a region on the map (map travel).
 //!
-//! Example: `d*120,space*150` flies right for four seconds, then mines for five.
+//! Example: `d*120,space*150` flies right for four seconds (flying off the dock if
+//! docked), then mines for five.
 
 use galaxy_contract::prelude::*;
 

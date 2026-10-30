@@ -121,6 +121,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "goal": crate::hooks::goal_line(world),
         "notice": session.trades.notice,
         "service_notice": session.services.notice,
+        "fitted": session.services.fitted,
         "talk": crate::hooks::talk_lines(world, session.sim().history(), 3)
             .iter()
             .map(|l| json!({

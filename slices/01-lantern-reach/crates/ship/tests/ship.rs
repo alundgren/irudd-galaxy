@@ -235,7 +235,13 @@ fn docking_needs_the_ring() {
     assert_eq!(player(&sim).docked_at, Some(KETTLE));
     step(&mut sim, &hands_off());
     step(&mut sim, &hold_action());
-    assert_eq!(player(&sim).docked_at, None, "Space undocks");
+    assert_eq!(
+        player(&sim).docked_at,
+        Some(KETTLE),
+        "docked, Space does nothing"
+    );
+    step(&mut sim, &thrust(1.0, 0.0));
+    assert_eq!(player(&sim).docked_at, None, "flying off undocks");
     assert_eq!(kind_count(&sim, "undock"), 1);
     let w = sim.world();
     assert_eq!(
@@ -1311,7 +1317,10 @@ fn a_rejected_tick_keeps_the_players_click_for_the_next() {
 #[test]
 fn a_press_in_a_rejected_tick_is_replayed() {
     let mut sim = game(1);
-    assert_eq!(player(&sim).docked_at, Some(WHARF));
+    // Undocked, still in the Wharf's ring.
+    let wharf = sim.world().stations.get(&WHARF).unwrap().clone();
+    place(&mut sim, &PLAYER, &SHALLOWS, wharf.position);
+    assert_eq!(player(&sim).docked_at, None);
     submit(
         &mut sim,
         CommandBatch::new(test_cause()).with(Command::SetOrders {
@@ -1331,11 +1340,11 @@ fn a_press_in_a_rejected_tick_is_replayed() {
     let report = sim.step(&hold_action()).unwrap();
     assert_eq!(report.rejected.len(), 1, "{:?}", report.rejected);
     assert!(player(&sim).activity.held_press);
-    // Released by now; the held press still undocks, by hand.
+    // Released by now; the held press still docks, by hand.
     step(&mut sim, &hands_off());
-    assert_eq!(player(&sim).docked_at, None);
+    assert_eq!(player(&sim).docked_at, Some(WHARF));
     assert!(!player(&sim).activity.held_press);
-    assert_eq!(kind_count(&sim, "undock"), 1);
+    assert_eq!(kind_count(&sim, "dock"), 1);
 }
 
 // --- Loops, the patient sell and floors ---
