@@ -141,9 +141,9 @@ fn pausing_before_b04_does_not_complete_b05_but_a_later_pause_does() {
 
 /// Act 2 from b05's end: the nav chip, Ilse's plate to Cinder Hook by lane, glassite
 /// to Brassmouth twice, the Hook dispute won for the Cooperative, and the rumor
-/// followed to the Ember Shoals.
+/// visited at the Ember Shoals (traffic may resolve it while the player supplies the Hook).
 #[test]
-fn act_two_runs_the_lanes_settles_the_hook_and_follows_the_rumor() {
+fn act_two_runs_the_lanes_settles_the_hook_and_visits_the_rumored_shoals() {
     let mut p = Pilot::with(21, |s| {
         s.done(&[
             "beat.b01_undock",
@@ -234,7 +234,10 @@ fn act_two_runs_the_lanes_settles_the_hook_and_follows_the_rumor() {
     // b10: Pip tells the rumor at Brassmouth; the player flies out to the Shoals.
     p.go(&BRASS);
     p.idle(3);
-    assert_eq!(p.status("beat.b10_rumor"), Some(BeatStatus::Active));
+    assert!(matches!(
+        p.status("beat.b10_rumor"),
+        Some(BeatStatus::Active | BeatStatus::Completed)
+    ));
     assert!(p.has_fact("core.rumor_heard"));
     assert!(p.heard("npc.pip_calloway", "Ember Shoals"));
     let x = p.world().progress.tunables["rumor.ember_shoals.x"]
@@ -249,7 +252,19 @@ fn act_two_runs_the_lanes_settles_the_hook_and_follows_the_rumor() {
     p.go_to(Vec2::new(x as f32, y as f32));
     p.idle(3);
     assert!(p.is_done("beat.b10_rumor"));
-    assert!(p.has_fact("core.rumor_followed"));
+    let followed = p.has_fact("core.rumor_followed");
+    if !followed {
+        assert_eq!(
+            p.world()
+                .rumors
+                .get("rumor.ember_shoals_vein")
+                .unwrap()
+                .heard_at
+                .len(),
+            5,
+            "the craft carried the ignored story to every station"
+        );
+    }
     let resolved = p.facts("core.rumor_resolved");
     assert_eq!(resolved.len(), 1);
     // Traffic determines the story now: the vein follows the source's fixed truth.
@@ -266,7 +281,7 @@ fn act_two_runs_the_lanes_settles_the_hook_and_follows_the_rumor() {
         .values()
         .filter(|r| r.field.as_str() == "field.ember_shoals")
         .count();
-    assert_eq!(shoals, if truth { 6 } else { 3 });
+    assert_eq!(shoals, if truth && followed { 6 } else { 3 });
 
     for b in [
         "beat.b06_nav_chip",
@@ -430,7 +445,13 @@ fn act_three_queues_loops_the_tender_lesson_and_a_new_habit() {
             sell_order(&ORE),
         ]);
     }
-    assert_eq!(p.facts("queue_done").len(), 4);
+    assert_eq!(
+        p.facts("queue_done")
+            .iter()
+            .filter(|f| f.subjects.ship.as_ref() == Some(&PLAYER))
+            .count(),
+        4
+    );
     p.fit("upgrade.loop_log");
     p.idle(3);
     assert_eq!(p.step_of("beat.b11_orders"), Some(2));

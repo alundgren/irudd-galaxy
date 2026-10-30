@@ -25,7 +25,12 @@ fn data_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data")
 }
 
-fn with_desk(state: SimState, desk: Box<dyn TradeDesk>) -> Sim {
+fn with_desk(mut state: SimState, desk: Box<dyn TradeDesk>) -> Sim {
+    // Isolate the actors this runner test creates. The live fleet is exercised by
+    // galaxy-script's npc_traders integration tests with the real mind and market.
+    for (id, _) in std::mem::take(&mut state.world.traders) {
+        state.world.ships.remove(&id);
+    }
     Sim::new(state).with_systems(galaxy_ship::systems(desk))
 }
 
