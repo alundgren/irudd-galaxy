@@ -498,9 +498,11 @@ pub fn mining_rate(world: &WorldState, ship: &Ship, rock: &Rock) -> f32 {
     hull.max(0.0) * boost.max(0.0) * hardness.max(0.0)
 }
 
-/// What Space would do right now, if anything; while mining, how fast the ore comes
-/// aboard (so a fitted lens shows).
+/// What Space does right now, if anything, read from the rule the sim uses
+/// (`galaxy_ship::space::press_at`); while mining, how fast the ore comes aboard (so a
+/// fitted lens shows). Past the region's edge, what the current there does.
 pub fn context_hint(world: &WorldState) -> Option<String> {
+    use galaxy_ship::space::{self, Press};
     let ship = world
         .player
         .ship
@@ -509,15 +511,18 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
     if ship.docked_at.is_some() || ship.activity.transit.is_some() {
         return None;
     }
-    if let Some(station) = galaxy_ship::space::ring_for(world, ship, ship.position) {
-        return Some(format!("Space  ·  dock at {}", station.name));
-    }
-    if let Some(way) = galaxy_ship::space::mouth_for(world, ship, ship.position) {
-        let to = world
-            .regions
-            .get(&way.to)
-            .map_or_else(|| way.to.to_string(), |r| r.name.clone());
-        return Some(format!("Space  ·  ride the lantern current to {to}"));
+    match space::press_at(world, ship, ship.position) {
+        Some(Press::Dock(station)) => {
+            return Some(format!("Space  ·  dock at {}", station.name));
+        }
+        Some(Press::Ride(way)) => {
+            let to = world
+                .regions
+                .get(&way.to)
+                .map_or_else(|| way.to.to_string(), |r| r.name.clone());
+            return Some(format!("Space  ·  ride the lantern current to {to}"));
+        }
+        Some(Press::Mine(_)) | None => {}
     }
     if let Some(run) = &ship.activity.mining {
         let rock = world.rocks.get(&run.rock)?;
@@ -530,17 +535,28 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
         let rate = rate.trim_end_matches('0').trim_end_matches('.');
         return Some(format!("Mining {ware}  ·  {rate} a second"));
     }
-    let rock = galaxy_ship::space::rock_in_reach(world, &ship.region, ship.position)?;
-    let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
-    if ship.hold.total() >= cap {
-        return Some("Your hold is full".into());
+    if let Some(rock) = space::rock_in_reach(world, &ship.region, ship.position) {
+        let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
+        if ship.hold.total() >= cap {
+            return Some("Your hold is full".into());
+        }
+        let ware = world
+            .rock_types
+            .get(&rock.rock_type)
+            .and_then(|t| world.wares.get(&t.ware))
+            .map_or_else(|| "it".to_owned(), |w| w.name.to_lowercase());
+        return Some(format!("Hold Space  ·  mine {ware}"));
     }
-    let ware = world
-        .rock_types
-        .get(&rock.rock_type)
-        .and_then(|t| world.wares.get(&t.ware))
-        .map_or_else(|| "it".to_owned(), |w| w.name.to_lowercase());
-    Some(format!("Hold Space  ·  mine {ware}"))
+    if space::past_edge(world, &ship.region, ship.position).is_some() {
+        let name = world
+            .regions
+            .get(&ship.region)
+            .map_or_else(|| ship.region.to_string(), |r| r.name.clone());
+        return Some(format!("Edge of {name}  ·  a current carries you back in"));
+    }
+    // Flying by hand, held Space brakes.
+    let by_hand = ship.orders.current >= ship.orders.orders.len();
+    (by_hand && ship.velocity.length() > 1.0).then(|| "Space  ·  brake".to_owned())
 }
 
 /// Which hint [`context_hint`] shows now, so it can retire once it has taught
@@ -1670,6 +1686,41 @@ mod tests {
             context_hint(w).as_deref(),
             Some("Mining ice  ·  1.5 a second"),
             "the lens shows"
+        );
+    }
+
+    #[test]
+    fn the_space_hint_says_what_space_does_now() {
+        let dir =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data");
+        let mut state = galaxy_core::new_game(&dir, 1).unwrap();
+        let w = &mut state.world;
+        let id = w.player.ship.clone().unwrap();
+        let kettle = w.stations.get("station.kettle_dock").unwrap().clone();
+        let region = w.regions.get("region.lantern_shallows").unwrap().clone();
+        let put = |w: &mut WorldState, at: Vec2, v: Vec2| {
+            let ship = w.ships.get_mut(&id).unwrap();
+            ship.docked_at = None;
+            ship.position = at;
+            ship.velocity = v;
+        };
+        put(w, kettle.position, Vec2::ZERO);
+        assert_eq!(
+            context_hint(w).as_deref(),
+            Some("Space  ·  dock at Kettle Dock")
+        );
+        // Open space: nothing while still, the brake while moving.
+        let open = Vec2::new(-300.0, -1200.0);
+        put(w, open, Vec2::ZERO);
+        assert_eq!(context_hint(w), None);
+        put(w, open, Vec2::new(80.0, 0.0));
+        assert_eq!(context_hint(w).as_deref(), Some("Space  ·  brake"));
+        // Past the edge, the current.
+        let out = region.center + Vec2::new(-(region.radius + 100.0), 0.0);
+        put(w, out, Vec2::new(-80.0, 0.0));
+        assert_eq!(
+            context_hint(w).as_deref(),
+            Some("Edge of Lantern Shallows  ·  a current carries you back in")
         );
     }
 

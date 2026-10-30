@@ -338,7 +338,7 @@ fn staging_waits_for_a_calm_moment() {
         });
         for _ in 0..30 {
             sim.step(&PlayerInput {
-                thrust: Vec2::new(1.0, 0.0),
+                thrust: Vec2::new(0.0, 1.0),
                 ..PlayerInput::default()
             });
         }
@@ -638,7 +638,7 @@ fn a_pack_applies_only_after_its_snapshot() {
     sim.step(&flying);
     for _ in 0..30 {
         sim.step(&PlayerInput {
-            thrust: Vec2::new(1.0, 0.0),
+            thrust: Vec2::new(0.0, 1.0),
             ..PlayerInput::default()
         });
     }

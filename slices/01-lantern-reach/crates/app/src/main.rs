@@ -137,7 +137,7 @@ enum Cmd {
         /// Visible world height (the mouse-wheel zoom).
         #[arg(long)]
         zoom: Option<f32>,
-        /// Scripted input to run first, e.g. `d*120,space*150` (see `script.rs`).
+        /// Scripted input to run first, e.g. `w,wait*3,w*75,wait*30,space*150` (see `script.rs`).
         #[arg(long)]
         keys: Option<String>,
         /// Write the scripted run back to the save.

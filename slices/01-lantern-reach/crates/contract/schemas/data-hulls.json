@@ -251,6 +251,14 @@
           ],
           "format": "float"
         },
+        "brake": {
+          "description": "World units per second squared when braking. Missing: `accel` times\n`flight.brake`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
         "coupling": {
           "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
           "type": "boolean",
@@ -502,6 +510,24 @@
             "modifier": {
               "type": "string",
               "const": "speed"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies the camera's zoom (below 1 shows more around the ship).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "zoom"
             }
           },
           "required": [

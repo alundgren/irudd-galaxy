@@ -24,6 +24,8 @@ pub struct Modifiers {
     pub hold: u32,
     pub turn_rate: f64,
     pub speed: f64,
+    /// Camera zoom factor (`flight.zoom` times this).
+    pub zoom: f64,
     pub dock_reach: f64,
     /// Lane mouth catch radius, if a modifier sets one.
     pub mouth_radius: Option<f32>,
@@ -41,6 +43,7 @@ impl Default for Modifiers {
             hold: 0,
             turn_rate: 1.0,
             speed: 1.0,
+            zoom: 1.0,
             dock_reach: 1.0,
             mouth_radius: None,
             price_glass: None,
@@ -57,6 +60,7 @@ impl Modifiers {
             Modifier::Hold { units } => self.hold = self.hold.saturating_add(*units),
             Modifier::TurnRate { factor } => self.turn_rate *= factor,
             Modifier::Speed { factor } => self.speed *= factor,
+            Modifier::Zoom { factor } => self.zoom *= factor,
             Modifier::DockReach { factor } => self.dock_reach *= factor,
             Modifier::MouthRadius { radius } => {
                 self.mouth_radius = Some(self.mouth_radius.map_or(*radius, |r| r.max(*radius)));

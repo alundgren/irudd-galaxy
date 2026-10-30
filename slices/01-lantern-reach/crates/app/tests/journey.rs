@@ -43,8 +43,8 @@ fn session(state: SimState) -> Session {
     s
 }
 
-/// A player at the keys: WASD toward where they want to go (and to fly off a dock), Space
-/// for the one thing in reach, the dock screen's buttons.
+/// A player at the keys: A/D to face where they want to go and W to get there (and to
+/// fly off a dock), Space for the one thing in reach, the dock screen's buttons.
 struct Pilot {
     s: Session,
     keys: Keys,
@@ -95,22 +95,27 @@ impl Pilot {
         }
     }
 
-    /// Holds the WASD keys that point at `to` until within `within` of it.
+    /// Turns toward `to` with A/D and holds W while there's room to stop, then lets go
+    /// and lets the auto-brake park the ship within `within` of it.
     fn fly_to(&mut self, to: Vec2, within: f32) {
         for _ in 0..3000 {
-            let at = self.ship().position;
-            let d = to - at;
-            if d.length() <= within {
+            let ship = self.ship();
+            if ship.position.distance(to) <= within && ship.velocity == Vec2::ZERO {
                 self.let_go();
                 self.ticks(3);
                 return;
             }
-            let tol = within * 0.5;
+            // The keys `steer_to` would press, rounded to what a keyboard can do: turn
+            // while more than half a tick's turn is left, W while slower than wanted.
+            let feel = galaxy_ship::flight::Feel::of_ship(self.s.world(), ship).unwrap();
+            let motion = galaxy_ship::flight::Motion::of(ship);
+            let axes = galaxy_ship::flight::steer_to(&feel, motion, to, within);
+            let along = ship.velocity.x * motion.forward().x + ship.velocity.y * motion.forward().y;
             for (key, on) in [
-                (Key::D, d.x > tol),
-                (Key::A, d.x < -tol),
-                (Key::W, d.y > tol),
-                (Key::S, d.y < -tol),
+                (Key::D, axes.x > 0.5),
+                (Key::A, axes.x < -0.5),
+                (Key::W, axes.y > 0.0 && axes.y * feel.speed > along),
+                (Key::S, false),
             ] {
                 if on {
                     self.keys.press(key);
@@ -173,7 +178,8 @@ impl Pilot {
                 .clone();
             let reach =
                 galaxy_ship::space::rock_radius(world, &rock) + world.ship_rules.mining.reach * 0.5;
-            self.fly_to(rock.position, reach);
+            let spot = rock.position + (at - rock.position).normalize_or_zero() * reach;
+            self.fly_to(spot, 10.0);
             self.keys.press(Key::Space);
             for _ in 0..1200 {
                 self.tick();

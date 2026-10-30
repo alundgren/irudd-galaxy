@@ -383,12 +383,21 @@
           "approach": 0.6000000238418579,
           "transfer_reach": 120.0
         },
+        "edge": {
+          "min_speed": 20.0,
+          "pull": 0.5
+        },
         "flight": {
           "accel_time": 0.10000000149011612,
           "arrive_distance": 2.0,
+          "auto_brake": true,
+          "boost": 2.0,
           "brake": 1.5,
+          "inertia": 0.4000000059604645,
+          "stop_time": 1.0,
           "turn_rate": 270.0,
-          "turn_slowdown": 0.5
+          "turn_slowdown": 0.5,
+          "zoom": 0.800000011920929
         },
         "lanes": {
           "mouth_radius": 70.0,
@@ -397,7 +406,9 @@
         "mining": {
           "radius_base": 6.0,
           "radius_per_sqrt_unit": 3.0,
-          "reach": 40.0
+          "reach": 40.0,
+          "spent_scale": 0.41999998688697815,
+          "standoff": 14.0
         },
         "regrowth": {
           "pulses": [
@@ -1873,6 +1884,25 @@
         }
       }
     },
+    "EdgeRules": {
+      "description": "The edge of the play space. Past its region's edge (the drawn region circle) a\ncurrent carries a ship back in: never an invisible wall.",
+      "type": "object",
+      "properties": {
+        "min_speed": {
+          "description": "The current is at least this fast past the edge, so it brings a ship all the\nway back.",
+          "type": "number",
+          "format": "float",
+          "default": 20.0
+        },
+        "pull": {
+          "description": "World units per second the current gains for each unit past the edge.",
+          "type": "number",
+          "format": "float",
+          "default": 0.5
+        }
+      },
+      "additionalProperties": false
+    },
     "Event": {
       "description": "Something that happened, with stable IDs.",
       "oneOf": [
@@ -2623,7 +2653,7 @@
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "FlightRules": {
-      "description": "Arcade flight feel. Ships stop when nothing pushes them: there is no coasting.",
+      "description": "Flight feel. By hand the ship flies with tank controls and inertia: A/D turn, W/S\nthrust along the heading, Space brakes, Shift boosts, and letting go coasts until\nthe auto-brake stops it. Orders (click to fly, automation) steer straight to their\npoint with the same top speed, acceleration and brake.",
       "type": "object",
       "properties": {
         "accel_time": {
@@ -2638,11 +2668,33 @@
           "format": "float",
           "default": 2.0
         },
+        "auto_brake": {
+          "description": "By hand, letting go of thrust stops the ship in `stop_time` seconds from any\nspeed. Off: it coasts by inertia only.",
+          "type": "boolean",
+          "default": true
+        },
+        "boost": {
+          "description": "Shift multiplies top speed and acceleration by this.",
+          "type": "number",
+          "format": "float",
+          "default": 2.0
+        },
         "brake": {
-          "description": "Braking is this many times stronger than accelerating, so release stops fast.",
+          "description": "Braking is this many times stronger than accelerating, for hulls without their\nown `brake`.",
           "type": "number",
           "format": "float",
           "default": 1.5
+        },
+        "inertia": {
+          "description": "By hand: 0 stops the moment thrust ends, 1 coasts for ever. In between,\nsideways speed swings round into the new heading and coasting bleeds off.",
+          "type": "number",
+          "format": "float",
+          "default": 0.4000000059604645
+        },
+        "stop_time": {
+          "type": "number",
+          "format": "float",
+          "default": 1.0
         },
         "turn_rate": {
           "description": "Degrees per second, for hulls without their own `turn_rate`.",
@@ -2651,10 +2703,16 @@
           "default": 270.0
         },
         "turn_slowdown": {
-          "description": "Share of top speed lost while moving directly away from the heading (0..=1).\nThe ship swings round to face where it goes, and turn rate shapes the feel.",
+          "description": "Share of top speed lost while an order flies directly away from the heading\n(0..=1). The ship swings round to face where it goes.",
           "type": "number",
           "format": "float",
           "default": 0.5
+        },
+        "zoom": {
+          "description": "The camera's zoom: 1.0 shows 440 world units top to bottom, 0.8 shows 550.\nShip modifiers (`zoom`) multiply it.",
+          "type": "number",
+          "format": "float",
+          "default": 0.800000011920929
         }
       },
       "additionalProperties": false
@@ -2931,6 +2989,14 @@
       "properties": {
         "accel": {
           "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
+        "brake": {
+          "description": "World units per second squared when braking. Missing: `accel` times\n`flight.brake`.",
           "type": [
             "number",
             "null"
@@ -3392,7 +3458,7 @@
       "type": "object",
       "properties": {
         "radius_base": {
-          "description": "A rock's radius is `radius_base + radius_per_sqrt_unit * sqrt(remaining)`.",
+          "description": "A full rock's radius is `radius_base + radius_per_sqrt_unit * sqrt(initial)`.",
           "type": "number",
           "format": "float",
           "default": 6.0
@@ -3407,6 +3473,18 @@
           "type": "number",
           "format": "float",
           "default": 40.0
+        },
+        "spent_scale": {
+          "description": "A mined-out rock shrinks to this share of its full radius; in between it scales\nwith the square root of its remaining share. This is the size the game draws:\nclicks, mining reach and mine orders all measure from it.",
+          "type": "number",
+          "format": "float",
+          "default": 0.41999998688697815
+        },
+        "standoff": {
+          "description": "A mine order parks this far outside the rock's edge.",
+          "type": "number",
+          "format": "float",
+          "default": 14.0
         }
       },
       "additionalProperties": false
@@ -3541,6 +3619,24 @@
             "modifier": {
               "type": "string",
               "const": "speed"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies the camera's zoom (below 1 shows more around the ship).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "zoom"
             }
           },
           "required": [
@@ -6477,6 +6573,12 @@
             }
           ]
         },
+        "stopping": {
+          "description": "Ticks left in the auto-brake's stop after thrust was let go. Speed falls in a\nstraight line to zero over the stop, from whatever it was at the release.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
         "transit": {
           "description": "Riding a lane current.",
           "anyOf": [
@@ -6526,14 +6628,26 @@
             "transfer_reach": 120.0
           }
         },
+        "edge": {
+          "$ref": "#/$defs/EdgeRules",
+          "default": {
+            "min_speed": 20.0,
+            "pull": 0.5
+          }
+        },
         "flight": {
           "$ref": "#/$defs/FlightRules",
           "default": {
             "accel_time": 0.10000000149011612,
             "arrive_distance": 2.0,
+            "auto_brake": true,
+            "boost": 2.0,
             "brake": 1.5,
+            "inertia": 0.4000000059604645,
+            "stop_time": 1.0,
             "turn_rate": 270.0,
-            "turn_slowdown": 0.5
+            "turn_slowdown": 0.5,
+            "zoom": 0.800000011920929
           }
         },
         "lanes": {
@@ -6548,7 +6662,9 @@
           "default": {
             "radius_base": 6.0,
             "radius_per_sqrt_unit": 3.0,
-            "reach": 40.0
+            "reach": 40.0,
+            "spent_scale": 0.41999998688697815,
+            "standoff": 14.0
           }
         },
         "regrowth": {

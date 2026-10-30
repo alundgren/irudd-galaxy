@@ -2,12 +2,15 @@
 # input and UI slots a taught mechanic may bind (content/03-ships-and-controls.md).
 # Capabilities are per-save flags. The ship crate reads the same flag names from
 # ship_rules.toml; upgrades.toml and beats set them. Tiers aren't a strict ladder.
+# Summaries are literal: the key, then what it does. Limits are never written as
+# numbers here: {queue_limit}, {loop_limit}, {saved_loop_limit} and {click_fly_range}
+# are filled in from ship_rules.toml's [controls] (galaxy_ship::controls::describe).
 # Schema: crates/contract/schemas/data-controls.json
 
 [[tier]]
 tier = 0
 name = "Hands on"
-summary = "WASD flies and stops on release. Space does the one thing in reach. P pauses. M shows the map."
+summary = "A and D turn. W thrusts, S thrusts backward, Shift boosts. Let go and the ship coasts to a stop. Space docks in a ring, rides a lane current from its mouth, mines beside a rock (hold it), and brakes anywhere else. P pauses. M shows the map."
 
 [[tier]]
 tier = 1
@@ -27,7 +30,7 @@ summary = "Click anything on the map: the ship routes there through the lanes."
 [[tier]]
 tier = 4
 name = "Queues"
-summary = "Shift-click lines up to 8 orders."
+summary = "Shift-click lines up to {queue_limit} orders."
 
 [[tier]]
 tier = 5
@@ -43,7 +46,7 @@ summary = "Tenders run your saved loops while you do anything else."
 id = "cap.click_fly"
 name = "Click to fly"
 tier = 1
-summary = "Left-click a point within 450 u of the ship: it flies there and stops. Any WASD input cancels."
+summary = "Left-click a point within {click_fly_range} u of the ship: it flies there and stops. Any WASD input cancels."
 
 [[capability]]
 id = "cap.click_mine"
@@ -67,13 +70,13 @@ summary = "Click a station, field or lane mouth on the map: the ship routes ther
 id = "cap.queues"
 name = "Queues"
 tier = 4
-summary = "Shift-click appends orders, up to 8. Any order can be removed; a sell can take a floor."
+summary = "Shift-click appends orders, up to {queue_limit}. Any order can be removed; a sell can take a floor."
 
 [[capability]]
 id = "cap.loops"
 name = "Loops"
 tier = 5
-summary = "Save the current queue as a named loop (up to 3). It repeats until stopped or it stalls."
+summary = "Save the current queue as a named loop of up to {loop_limit} orders (up to {saved_loop_limit} loops). It repeats until stopped or it stalls."
 
 [[capability]]
 id = "cap.automation"

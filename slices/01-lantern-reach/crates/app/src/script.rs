@@ -4,7 +4,8 @@
 //! A script is comma-separated steps, each `STEP` or `STEP*N` (N ticks, default 1):
 //!
 //! - keys joined by `+`, held for N ticks then released: `w`, `a`, `s`, `d`, `space`,
-//!   `shift`, `w+d`, `space*90`;
+//!   `shift`, `w+d`, `shift+w`, `space*90` (tank controls: A/D turn, W/S thrust, Shift
+//!   boosts);
 //! - `wait*N`: hands off for N ticks;
 //! - `:pause`, `:map`: toggle the PAUSED card or the map;
 //! - `:next`, `:prev`: move the dock screen's selection;
@@ -21,8 +22,9 @@
 //!   station, rock or point as the window does), or shift-click to queue it;
 //! - `:mapclick:REGION`: click a region on the map (map travel).
 //!
-//! Example: `d*120,space*150` flies right for four seconds (flying off the dock if
-//! docked), then mines for five.
+//! Example: `w,wait*3,w*75,wait*30,space*150` flies off the dock, flies ahead (east
+//! from a new game's Wharf) for two and a half seconds, coasts to a stop, then mines
+//! for five.
 
 use galaxy_contract::prelude::*;
 

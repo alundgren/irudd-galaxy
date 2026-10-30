@@ -315,7 +315,7 @@ impl Pilot {
         })?;
         self.idle(2)
     }
-    /// Flies off to undock: one tick of thrust.
+    /// Flies off to undock: one tick of W.
     pub fn undock(&mut self) -> Result {
         if self.ship().docked_at.is_some() {
             self.input(PlayerInput {
@@ -327,14 +327,16 @@ impl Pilot {
         Ok(())
     }
 
-    /// Manual steering uses the same thrust axes as the keyboard. Approach slowly
-    /// and choose a deterministic lateral waypoint around a nearby moving craft.
+    /// Manual steering uses the keyboard's tank axes (A/D turn, W thrusts) through
+    /// `galaxy_ship::flight::steer_to`: face the point, thrust while there's room to
+    /// stop, then let go and let the auto-brake park the ship. It aims at a
+    /// deterministic lateral waypoint around a nearby moving craft.
     pub fn fly(&mut self, to: Vec2, close: f32) -> Result {
         self.undock()?;
         for _ in 0..30_000 {
             let ship = self.ship();
             let off = to - ship.position;
-            if off.length() <= close {
+            if off.length() <= close && ship.velocity == Vec2::ZERO {
                 return self.idle(3);
             }
             let mut direction = off.normalize_or_zero();
@@ -350,11 +352,16 @@ impl Pilot {
                     break;
                 }
             }
-            let speed = self.world().hulls.get(&ship.hull).expect("hull").max_speed
-                * galaxy_progress::modifiers::for_ship(self.world(), &ship.id).speed as f32;
-            let stick = direction * (off.length() / (speed / 30.0 * 3.0).max(60.0)).min(1.0);
+            let aim = ship.position + direction * off.length();
+            let feel = galaxy_ship::flight::Feel::of_ship(self.world(), ship).expect("hull");
+            let keys = galaxy_ship::flight::steer_to(
+                &feel,
+                galaxy_ship::flight::Motion::of(ship),
+                aim,
+                close,
+            );
             self.input(PlayerInput {
-                thrust: stick,
+                thrust: keys,
                 ..PlayerInput::default()
             })?;
         }
@@ -464,10 +471,11 @@ impl Pilot {
             .clone();
         self.region(&region)?;
         self.undock()?;
-        let radius = galaxy_ship::space::rock_radius(self.world(), &r);
-        let spot =
-            r.position + (self.ship().position - r.position).normalize_or_zero() * (radius + 10.0);
-        self.fly(spot, 3.0)?;
+        // Park just off the drawn rock, as a mine order does, then hold Space.
+        let gap = galaxy_ship::space::rock_radius(self.world(), &r)
+            + self.world().ship_rules.mining.standoff;
+        let spot = r.position + (self.ship().position - r.position).normalize_or_zero() * gap;
+        self.fly(spot, 6.0)?;
         for _ in 0..30_000 {
             if self.free() == 0 || self.world().rocks.get(&rock).expect("rock").remaining == 0 {
                 return self.idle(3);

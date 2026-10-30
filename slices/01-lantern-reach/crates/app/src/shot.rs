@@ -88,6 +88,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     let mut view = View::new();
     view.sync(&mut renderer, session.world());
     let mut rig = CameraRig::new(G2::ZERO);
+    rig.fit(session.world());
     if let Some(z) = args.zoom {
         rig.zoom = z.clamp(CameraRig::MIN_ZOOM, CameraRig::MAX_ZOOM * 4.0);
     }

@@ -62,22 +62,34 @@ fn status(sim: &Sim, beat: &str) -> Option<BeatStatus> {
 }
 
 fn fly(sim: &mut Sim, to: Vec2, arrived: impl Fn(&Sim) -> bool) {
+    if player(sim).docked_at.is_some() {
+        // Fly off first: turning alone doesn't undock.
+        step(
+            sim,
+            &PlayerInput {
+                thrust: Vec2::new(0.0, 1.0),
+                ..PlayerInput::default()
+            },
+        );
+    }
     for _ in 0..3000 {
         if arrived(sim) {
             break;
         }
-        let off = to - player(sim).position;
-        let stick = off.normalize_or_zero() * (off.length() / 60.0).min(1.0);
+        let ship = player(sim);
+        let feel = galaxy_ship::flight::Feel::of_ship(sim.world(), ship).unwrap();
+        let keys =
+            galaxy_ship::flight::steer_to(&feel, galaxy_ship::flight::Motion::of(ship), to, 4.0);
         step(
             sim,
             &PlayerInput {
-                thrust: stick,
+                thrust: keys,
                 ..PlayerInput::default()
             },
         );
     }
     assert!(arrived(sim), "didn't get there: {:?}", player(sim).position);
-    for _ in 0..30 {
+    for _ in 0..60 {
         if player(sim).velocity == Vec2::ZERO {
             return;
         }
@@ -136,7 +148,7 @@ fn act_one_beats_complete_from_real_flight_and_the_lens_is_bought() {
     step(
         &mut sim,
         &PlayerInput {
-            thrust: Vec2::new(1.0, 0.0),
+            thrust: Vec2::new(0.0, 1.0),
             ..PlayerInput::default()
         },
     );

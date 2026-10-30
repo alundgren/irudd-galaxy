@@ -51,24 +51,38 @@ pub fn seed_of(id: &str) -> u64 {
     })
 }
 
-/// The follow camera: where it looks and how much it sees.
+/// The follow camera: where it looks and how much it sees. Its zoom is data (the
+/// flight rules' `zoom` and the ship's zoom modifiers, [`CameraRig::fit`]); the mouse
+/// wheel zooms on top of that.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraRig {
     pub center: G2,
     /// Visible world height.
     pub zoom: f32,
+    /// The mouse wheel's share of the zoom, on top of the data's (1 = as the data says).
+    pub wheel: f32,
 }
 
 impl CameraRig {
     pub const MIN_ZOOM: f32 = 220.0;
     pub const MAX_ZOOM: f32 = 1800.0;
+    /// The visible height at zoom 1.0.
     pub const DEFAULT_ZOOM: f32 = 440.0;
 
     pub fn new(center: G2) -> Self {
         Self {
             center,
             zoom: Self::DEFAULT_ZOOM,
+            wheel: 1.0,
         }
+    }
+
+    /// Sets the visible height from the data: [`Self::DEFAULT_ZOOM`] at zoom 1.0, more
+    /// below it (0.8 shows 550 u), times the wheel's share.
+    pub fn fit(&mut self, world: &WorldState) {
+        let ship = world.player.ship.as_ref().and_then(|s| world.ships.get(s));
+        let zoom = galaxy_ship::flight::camera_zoom(world, ship);
+        self.zoom = (Self::DEFAULT_ZOOM / zoom * self.wheel).clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
     }
 
     pub fn camera(&self) -> Camera {
@@ -90,7 +104,9 @@ impl CameraRig {
 
     /// Mouse wheel: positive steps zoom in.
     pub fn zoom_by(&mut self, steps: f32) {
+        let base = self.zoom / self.wheel.max(f32::EPSILON);
         self.zoom = (self.zoom * 0.88f32.powf(steps)).clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
+        self.wheel = self.zoom / base.max(f32::EPSILON);
     }
 }
 
@@ -344,6 +360,14 @@ impl View {
             );
         }
 
+        // The edge current: near its region's edge, lantern arrows on the edge point the
+        // flagship back in; past it, more flow inward beside the ship.
+        if let Some(ship) = flagship.filter(|s| s.docked_at.is_none())
+            && let Some(region) = world.regions.get(&ship.region)
+        {
+            edge_current(&mut scene, region, poses.get(&ship.id), ship, time);
+        }
+
         // Lanes: a line of old lamps between the two mouths.
         let mouth = world.ship_rules.lanes.mouth_radius;
         for lane in world.lanes.values() {
@@ -577,6 +601,53 @@ impl View {
     }
 }
 
+/// Lantern chevrons pointing in from a region's edge, fading in as the ship comes
+/// within [`EDGE_NEAR`] of it; past the edge, rows of them drift inward beside the
+/// ship, the current that carries it back.
+fn edge_current(scene: &mut Scene, region: &Region, pose: Option<&Pose>, ship: &Ship, time: f32) {
+    const EDGE_NEAR: f32 = 260.0;
+    let c = g(region.center);
+    let p = pose.map_or(g(ship.position), |p| g(p.position));
+    let off = p - c;
+    let d = off.length();
+    if d <= region.radius - EDGE_NEAR || d <= 0.0 {
+        return;
+    }
+    let out = off / d;
+    let alpha = ((d - (region.radius - EDGE_NEAR)) / EDGE_NEAR).clamp(0.0, 1.0);
+    let color = palette::LANTERN.with_alpha(0.75 * alpha);
+    let chevron = |at: G2, dir: G2, size: f32| {
+        let side = G2::new(-dir.y, dir.x);
+        let tip = at - dir * size;
+        let a = at + side * size;
+        let b = at - side * size;
+        Line::path(
+            vec![a.extend(-6.0), tip.extend(-6.0), b.extend(-6.0)],
+            4.0,
+            color,
+        )
+    };
+    for k in -4..=4 {
+        let dir = G2::from_angle(k as f32 * 110.0 / region.radius).rotate(out);
+        scene
+            .lines
+            .push(chevron(c + dir * region.radius, dir, 16.0));
+    }
+    let depth = d - region.radius;
+    if depth > 0.0 {
+        let side = G2::new(-out.y, out.x);
+        let flow = (time * 60.0) % 90.0;
+        let mut r = depth + 180.0 - flow;
+        while r > 0.0 {
+            for lane in [-1.0, 1.0] {
+                let at = c + out * (region.radius + r) + side * (70.0 * lane);
+                scene.lines.push(chevron(at, out, 12.0));
+            }
+            r -= 90.0;
+        }
+    }
+}
+
 /// Where a docked ship is drawn: parked on the station's ring, nose along it, at a
 /// spot that depends on the ship so several don't stack.
 fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
@@ -591,6 +662,28 @@ fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_camera_zoom_is_data_and_the_wheel_zooms_on_top() {
+        let mut world = WorldState::default();
+        let mut rig = CameraRig::new(G2::ZERO);
+        rig.fit(&world);
+        assert!((rig.zoom - 550.0).abs() < 1e-3, "zoom 0.8 shows 550 u");
+        world.ship_rules.flight.zoom = 1.0;
+        rig.fit(&world);
+        assert_eq!(rig.zoom, CameraRig::DEFAULT_ZOOM);
+        rig.zoom_by(1.0);
+        let wheeled = rig.zoom;
+        assert!(wheeled < CameraRig::DEFAULT_ZOOM);
+        rig.fit(&world);
+        assert!((rig.zoom - wheeled).abs() < 1e-3, "the wheel's zoom stays");
+        world.ship_rules.flight.zoom = 0.5;
+        rig.fit(&world);
+        assert!(
+            (rig.zoom - wheeled * 2.0).abs() < 1e-2,
+            "and rides on the data's"
+        );
+    }
 
     #[test]
     fn the_camera_keeps_up_and_zoom_is_bounded() {

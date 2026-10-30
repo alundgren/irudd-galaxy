@@ -133,7 +133,7 @@ impl ActivityBot {
                         self.action_was = false;
                         return input;
                     }
-                    // Flies off to undock.
+                    // Flies off to undock (W).
                     input.thrust = Vec2::new(0.0, 1.0);
                     self.action_was = false;
                 }
@@ -181,7 +181,7 @@ impl ActivityBot {
             let radius = space::rock_radius(world, r);
             let spot =
                 r.position + (ship.position - r.position).normalize_or_zero() * (radius + 15.0);
-            input.thrust = stick(ship.position, spot);
+            input.thrust = stick(world, ship, spot);
             input.action = self.hold(false);
             return input;
         }
@@ -193,7 +193,7 @@ impl ActivityBot {
         if off.length() < st.dock_radius - 10.0 {
             input.action = self.press();
         } else {
-            input.thrust = stick(ship.position, st.position);
+            input.thrust = stick(world, ship, st.position);
             self.action_was = false;
         }
         input
@@ -204,10 +204,12 @@ fn flagship(world: &WorldState) -> Option<&Ship> {
     world.player.ship.as_ref().and_then(|s| world.ships.get(s))
 }
 
-/// The stick toward `to`, easing off near it.
-fn stick(from: Vec2, to: Vec2) -> Vec2 {
-    let off = to - from;
-    off.normalize_or_zero() * (off.length() / 60.0).min(1.0)
+/// The tank keys toward `to`, easing off near it.
+fn stick(world: &WorldState, ship: &Ship, to: Vec2) -> Vec2 {
+    let Some(feel) = galaxy_ship::flight::Feel::of_ship(world, ship) else {
+        return Vec2::ZERO;
+    };
+    galaxy_ship::flight::steer_to(&feel, galaxy_ship::flight::Motion::of(ship), to, 4.0)
 }
 
 /// What the bot trades docked at `at` before heading for `next`: sell everything the

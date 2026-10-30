@@ -463,6 +463,7 @@ fn undo_records_invert_commands() {
                     queue: true,
                 }],
                 held_press: true,
+                stopping: 12,
             }),
         },
         Command::SetLoop {
