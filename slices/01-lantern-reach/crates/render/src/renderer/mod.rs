@@ -364,19 +364,25 @@ fn bind(
     })
 }
 
+/// The discrete GPU unless `WGPU_POWER_PREF` (`low`, `high`, `none`) says otherwise. The
+/// instances read `WGPU_BACKEND` (for example `gl` where Vulkan is missing) the same way.
+fn power_preference() -> wgpu::PowerPreference {
+    wgpu::PowerPreference::from_env().unwrap_or(wgpu::PowerPreference::HighPerformance)
+}
+
 impl Renderer {
     /// A renderer drawing into a winit window. Call [`Renderer::resize`] on resize events.
     pub fn new_windowed(window: Arc<Window>) -> Result<Self, RenderError> {
         let size = window.inner_size();
         let scale = window.scale_factor() as f32;
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
-            Box::new(window.clone()),
-        ));
+        let instance = wgpu::Instance::new(
+            wgpu::InstanceDescriptor::new_with_display_handle_from_env(Box::new(window.clone())),
+        );
         let surface = instance
             .create_surface(window.clone())
             .map_err(|e| RenderError::Surface(e.to_string()))?;
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            power_preference: power_preference(),
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
             ..Default::default()
@@ -422,9 +428,10 @@ impl Renderer {
 
     /// An offscreen renderer of `width` x `height` pixels, for screenshots and tests.
     pub fn new_headless(width: u32, height: u32) -> Result<Self, RenderError> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+        let instance =
+            wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            power_preference: power_preference(),
             compatible_surface: None,
             force_fallback_adapter: false,
             ..Default::default()
