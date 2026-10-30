@@ -4,6 +4,7 @@
 //! re-mesh a rock when its `remaining` changes enough to see, and rebuild the scene
 //! description every frame. It is sample code, not part of the game.
 
+use crate::art_bible::{ArtBible, InkRole};
 use crate::camera::Camera;
 use crate::color::Color;
 use crate::kit::{self, HullParams, RockKind, RockParams, StationRecipe};
@@ -305,6 +306,10 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
             );
         }
     };
+    let bible = ArtBible::bundled();
+    let station_mat = bible.material(InkRole::Station);
+    let ship_mat = bible.material(InkRole::Ship);
+    let rock_mat = bible.material(InkRole::Rock);
     // Row 1: the five stations, spaced so their silhouettes don't share a wheel.
     let stations = [
         (StationRecipe::lantern_wharf(), Vec2::new(-170.0, 62.0)),
@@ -318,7 +323,9 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
     ];
     for (recipe, pos) in stations {
         let mesh = renderer.upload_mesh(&kit::station(&recipe));
-        scene.meshes.push(MeshInstance::at(mesh, pos, 0.0, 0.72));
+        scene
+            .meshes
+            .push(MeshInstance::at(mesh, pos, 0.0, 0.72).with_material(station_mat));
         label(
             &mut scene,
             &recipe.name,
@@ -341,7 +348,9 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
         };
         let mesh = renderer.upload_mesh(&kit::station(&recipe));
         let pos = Vec2::new(10.0 + stage as f32 * 24.0, -12.0);
-        scene.meshes.push(MeshInstance::at(mesh, pos, 0.0, 1.0));
+        scene
+            .meshes
+            .push(MeshInstance::at(mesh, pos, 0.0, 1.0).with_material(station_mat));
         label(
             &mut scene,
             &format!("greenhouse {stage}"),
@@ -359,12 +368,9 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
     {
         let mesh = renderer.upload_mesh(&kit::hull(p, 1));
         let pos = Vec2::new(-100.0 + i as f32 * 30.0, -14.0);
-        scene.meshes.push(MeshInstance::at(
-            mesh,
-            pos,
-            std::f32::consts::FRAC_PI_2,
-            1.4,
-        ));
+        scene.meshes.push(
+            MeshInstance::at(mesh, pos, std::f32::consts::FRAC_PI_2, 2.2).with_material(ship_mat),
+        );
         label(&mut scene, &format!("{:?}", p.class), pos - Vec2::Y * 12.0);
     }
     // Row 3: rocks at full, half and nearly gone.
@@ -376,7 +382,9 @@ pub fn gallery(renderer: &mut Renderer) -> Scene {
                 40 + k as u64,
             ));
             let pos = Vec2::new(-112.0 + j as f32 * 15.0 + k as f32 * 76.0, -50.0);
-            scene.meshes.push(MeshInstance::at(mesh, pos, 0.3, 1.0));
+            scene
+                .meshes
+                .push(MeshInstance::at(mesh, pos, 0.3, 1.0).with_material(rock_mat));
             if j == 0 {
                 let text = format!("{kind:?} 100 / 60 / 25 / 0%");
                 label(&mut scene, &text, pos + Vec2::new(22.0, -10.0));

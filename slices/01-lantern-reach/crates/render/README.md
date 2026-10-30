@@ -91,16 +91,22 @@ All generators are CPU-side, deterministic for a seed and unit tested.
 
 - `kit::hull(&HullParams, seed)`: `HullParams::wren()`, `tandem()`, `heron()` or any
   params (length, width, height, nose, wing span and sweep, engines, cargo pods, fin, mast,
-  facets, colours). Out-of-range values are clamped.
+  facets, colours, and a `mark`). Out-of-range values are clamped. Every hull has a dorsal
+  stripe and a tail pennant. The Wren adds cheek pods, the Tandem a box cab, the Heron
+  canards and a wide mast dish. `mark` is `lantern_kettle`, `toll_key`, `open_lamp`, or
+  empty; the Wren preset carries the kettle.
 - `kit::rock(&RockParams { kind, radius, remaining }, seed)`: ice, iron or glassite. As
-  `remaining` drops the rock shrinks (`kit::rock_scale`), gets planar chips and inked cracks,
-  and glassite loses crystals; at 0 it is a few pebbles. The same seed keeps the same rock.
-  Re-mesh with `update_mesh` when `remaining` crosses a visible step (the demo uses 1/20).
-- `kit::station(&StationRecipe)`: a station is a serde recipe of parts plus a palette.
-  `StationRecipe::validate()` reports every problem with its part index;
-  `kit::station_lights` gives lantern and beacon positions for glows and point lights;
-  `kit::docking_ring_center` finds the ring. Presets: `lantern_wharf()`, `kettle_dock(stage)`
-  (greenhouse stages 0–3), `brassmouth()`.
+  `remaining` drops the rock shrinks (`kit::rock_scale`), gets planar chips with a warm
+  bitten face and inked cracks, and glassite loses crystals; at 0 it is a few pebbles with
+  warm caps. The same seed keeps the same rock. Re-mesh with `update_mesh` when `remaining`
+  crosses a visible step (the demo uses 1/20).
+- `kit::station(&StationRecipe)`: a station is a serde recipe of parts, a palette and
+  decals (`stripe`, `chevron`, `sigil`, `number`). `StationRecipe::validate()` reports
+  every problem with its part index; `validate_art` checks the recipe against
+  `assets/art-bible.toml`. `kit::station_lights` gives lantern and beacon positions for
+  glows and point lights; `kit::docking_ring_center` finds the ring. Presets:
+  `lantern_wharf()`, `kettle_dock(stage)` (greenhouse stages 0–3), `cinder_hook()`,
+  `glass_drift_observatory()`, `brassmouth()`.
 - `kit::backdrop(&BackdropParams, seed)`: a quiet gradient, a few nebula clusters and sparse
   stars on a repeating tile that scrolls with a small parallax.
 
@@ -120,7 +126,10 @@ A recipe a game master could write (missing fields use defaults):
 }
 ```
 
-Part kinds: `hub`, `docking_ring`, `arm`, `greenhouse`, `antenna`, `tank`, `sail`, `lantern`.
+Part kinds: `hub`, `docking_ring`, `arm`, `greenhouse`, `antenna`, `tank`, `sail`,
+`lantern`, `lens`, `cargo_pod`, `crane`, `solar_petal`, `lamp_mast`, `dome`, `habitat_ring`,
+`beacon`, `signage`, `antenna_cluster`, `docking_arm`, `banner`, `arch`, `spire`, `block`,
+`scaffold`.
 `at` is `{ angle (deg), distance, z, turn (deg), scale }`; in a part's frame +X points away
 from the station centre.
 
