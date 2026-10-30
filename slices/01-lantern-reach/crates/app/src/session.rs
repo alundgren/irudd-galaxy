@@ -494,7 +494,11 @@ impl Session {
             .talk
             .queue(&station)
             .filter_map(|id| Some((id, world.talk.lines.get(&id)?)));
-        let (later, now): (Vec<_>, Vec<_>) = queued.partition(|(id, _)| self.later.contains(id));
+        let (mut later, now): (Vec<_>, Vec<_>) =
+            queued.partition(|(id, _)| self.later.contains(id));
+        // Set-aside lines come back in the order they were set aside, so each click
+        // moves on to the next one instead of returning to the lowest talk ID.
+        later.sort_by_key(|(id, _)| self.later.iter().position(|l| l == id));
         let lines: Vec<(Option<TalkId>, TalkLine)> = now
             .into_iter()
             .map(|(id, l)| (Some(id), l.line.clone()))

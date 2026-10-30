@@ -284,8 +284,8 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   most 4, needs a `speaker`). The player's pick (or a standing question such as
   `choice.what_changed`) comes in as `PlayerInput::replies`; the progress system turns
   each into a `reply` event (`on.reply`: `npc`, `station`, `choice`) only while the
-  player is docked where that person is. In play the talk panel shows the open
-  choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dock screen's
+  player is docked where that person is. In play the speaker's talk bubble shows the
+  open choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dock screen's
   "Ask what changed" sends `choice.what_changed` to the dockmaster: the core pack's
   `talk` script answers (Ilse's b17 homecoming in `act4`) and records
   `core.asked_what_changed`. Ambient talk declares `talk.pick` and calls `ctx.talk:request` with ordered,
