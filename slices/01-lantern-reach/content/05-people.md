@@ -32,7 +32,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.ilse_marrow.03` | `territory_changed{cinder_hook, to = wharf_coop}` | Cooperative banner over the Hook depot. Rook pretends not to care. He cares. |
 | `line.ilse_marrow.04` | `territory_changed{cinder_hook, to = tollway_compact}` | The Compact has the Hook depot now. We'll buy our ore like anyone else. |
 | `line.ilse_marrow.05` | `shortage_started` | Rimewater's thin. A lot of your ice is in our tanks, and not much is left out there. |
-| `line.ilse_marrow.06` | `shortage_resolved{by = tollway_compact}` | The Compact brought ice in. Kind of them. They'll want thanking. |
+| `line.ilse_marrow.06` | `shortage_resolved{by = tollway_compact}` | The Tollway Compact brought ice in. Kind of them. They'll want thanking. |
 | `line.ilse_marrow.07` | `market_flooded{station = brassmouth_exchange}` | Saffron Vey at Brassmouth says you sold them so much glassite they're using it as doorstops. |
 | `line.ilse_marrow.08` | `prestige{to = tandem}` | A Tandem. Wide in the hips. She'll carry what you can't. |
 | `line.ilse_marrow.09` | `prestige{to = heron}` | A Heron. You'll see the prices before I do, then. |
@@ -42,7 +42,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.ilse_marrow.13` | `trait_earned` | Orrin tells me you've a knack now: {trait_name}. He doesn't say that about many. |
 | `line.ilse_marrow.14` | `shortage_resolved{by = player}` | Rimewater came through, and so did you. Odo's lamps are bright again. |
 | `line.ilse_marrow.15` | `rumor_resolved` | The Shoals turned out {truth_word}. Somebody always comes back with a story. This time it was you. |
-| `line.ilse_marrow.16` | `canon_opened{node = fragments_sing}` | The Lamplighters are humming at their lamps. Something about your rock singing. |
+| `line.ilse_marrow.16` | `canon_opened{node = fragments_sing}` | The Lamplighter Society out at the Observatory are humming at their lamps. Something about your rock singing. |
 | `line.ilse_marrow.17` | `prestige` | Welcome home, {pilot}. New hull, same ring. Mind the paint. |
 | `line.ilse_marrow.18` (beat, b01 starts) | `beat_started{beat = b01}` | Welcome to Lantern Wharf. I'm Ilse; I keep the dock. The Wren's yours now: small, round-nosed and honest. Odo at Kettle Dock needs ice for his greenhouse, and the pale rocks east of here are Rimewater ice. |
 | `line.ilse_marrow.19` (beat, b07 starts) | `beat_started{beat = b07}` | Rook Adeyemi keeps the ore depot at Cinder Hook, over in Cinder Drift, and he's waiting on plate from us. The lantern current east of the Wharf carries you there. |
@@ -133,7 +133,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | --- | --- | --- |
 | `line.rook_adeyemi.01` | `deliver{ledger = hook_consignment}` | Ilse's plate. Tell her it's already holding up a wall. |
 | `line.rook_adeyemi.02` | `side_chosen{side = wharf_coop}` | Cooperative plate, is it. Noted. Everyone's noting. |
-| `line.rook_adeyemi.03` | `side_chosen{side = tollway_compact}` | Compact name on your plate. Saffron will like that. I like the plate. |
+| `line.rook_adeyemi.03` | `side_chosen{side = tollway_compact}` | Compact name on your plate. Saffron Vey, their factor at Brassmouth, will like that. I like the plate. |
 | `line.rook_adeyemi.04` | `territory_changed{cinder_hook}` | New banner. Same ore. Same me. |
 | `line.rook_adeyemi.05` | `rumor_resolved{truth = false}` | Empty Shoals? Old maps. Somebody's always selling old maps. |
 | `line.rook_adeyemi.07` | `dispute_started` | Two banners want my depot: the Wharf Cooperative's and the Tollway Compact's. I want plate. Sell me plate in whose name you like, or nobody's. |
@@ -195,7 +195,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | `line.pip_calloway.03` | `rumor_resolved{truth = false}` | Empty? Oh. I had it off {source}. Old news, then. I'm sorry. Truly. |
 | `line.pip_calloway.06` **(gm)** | `rumor_exposed{planted_by = tollway_compact}` | A plant? From our own surveyor? I'm... I'll be quieter about surveyors. |
 | `line.pip_calloway.04` | `jump{ship = player, n >= 20}` | You're through that lane more often than the barges are. |
-| `line.pip_calloway.05` | `sell{ship = player, station = brassmouth_exchange, n >= 5}` | Saffron says you're good for the books. From her that's practically a hug. |
+| `line.pip_calloway.05` | `sell{ship = player, station = brassmouth_exchange, n >= 5}` | Saffron Vey keeps the Tollway Compact's books here, and she says you're good for them. From her that's practically a hug. |
 
 ### Nell Quillon
 
@@ -232,7 +232,7 @@ Back to [SPEC.md](SPEC.md). Data files: `npcs.toml`, `lines.toml`, `factions.tom
 | --- | --- | --- |
 | `line.hesper_lune.01` | `jump{ship = player, n >= 10}` | The lane lamps know your hull now. They brighten a little when you pass. |
 | `line.hesper_lune.02` | `rumor_spread{station = glass_drift_observatory}` | Rumours come here to be weighed. Most of them are light. |
-| `line.hesper_lune.03` | `regard_changed{faction = lamplighters, to = trusted}` | The Society asked me to say it: you are welcome at any lamp. |
+| `line.hesper_lune.03` | `regard_changed{faction = lamplighters, to = trusted}` | The Lamplighter Society asked me to say it: you are welcome at any lamp. |
 | `line.hesper_lune.04` | `territory_changed{cinder_hook}` | The Hook changed banners. The lanes don't mind who owns the ore. |
 | `line.hesper_lune.05` **(gm)** | `station_founded` | Someone has lit a new lamp out there. {station}. We'll visit. |
 | `line.hesper_lune.06` | `rumor_resolved{truth = false, followed = false}` | The Shoals were empty, they say. Most rumours are. |

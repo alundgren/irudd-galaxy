@@ -187,7 +187,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.COMPACT
 		end,
 		text = function(_, _)
-			return "The Compact brought ice in. Kind of them. They'll want thanking."
+			return "The Tollway Compact brought ice in. Kind of them. They'll want thanking."
 		end,
 	},
 	{
@@ -287,7 +287,7 @@ local lines: { Line } = {
 			return f.subjects.other == "canon.fragments_sing"
 		end,
 		text = function(_, _)
-			return "The Lamplighters are humming at their lamps. Something about your rock singing."
+			return "The Lamplighter Society out at the Observatory are humming at their lamps. Something about your rock singing."
 		end,
 	},
 	{
@@ -694,7 +694,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.COMPACT
 		end,
 		text = function(_, _)
-			return "Compact name on your plate. Saffron will like that. I like the plate."
+			return "Compact name on your plate. Saffron Vey, their factor at Brassmouth, will like that. I like the plate."
 		end,
 	},
 	{
@@ -918,7 +918,7 @@ local lines: { Line } = {
 				and n_of(ctx, { kind = "sell", ship = ids.PLAYER, station = ids.BRASS }) >= 5
 		end,
 		text = function(_, _)
-			return "Saffron says you're good for the books. From her that's practically a hug."
+			return "Saffron Vey keeps the Tollway Compact's books here, and she says you're good for them. From her that's practically a hug."
 		end,
 	},
 
@@ -1054,7 +1054,7 @@ local lines: { Line } = {
 			return f.subjects.faction == ids.LAMP and util.event(f).to == "trusted"
 		end,
 		text = function(_, _)
-			return "The Society asked me to say it: you are welcome at any lamp."
+			return "The Lamplighter Society asked me to say it: you are welcome at any lamp."
 		end,
 	},
 	{

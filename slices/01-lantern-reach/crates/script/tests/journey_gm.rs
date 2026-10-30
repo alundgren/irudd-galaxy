@@ -698,7 +698,7 @@ fn an_ignored_shortage_ends_when_the_compact_brings_ice() {
         "the Compact's barge brought ice"
     );
     p.go(&WHARF);
-    assert!(p.heard("npc.ilse_marrow", "The Compact brought ice in."));
+    assert!(p.heard("npc.ilse_marrow", "The Tollway Compact brought ice in."));
     p.assert_healthy();
 }
 
