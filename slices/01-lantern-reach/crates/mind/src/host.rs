@@ -1090,6 +1090,7 @@ impl MindHost {
                 place: menu.station.clone(),
                 text,
                 cites,
+                about: Vec::new(),
             },
             source,
             pick,

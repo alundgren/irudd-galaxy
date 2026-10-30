@@ -1,0 +1,11 @@
+# BAD on purpose: paces by the wall clock. Scripts pace by activity counters only.
+# `galaxy pack check` rejects it at the invariants step.
+id = "gm.bad_os_time"
+name = "Bad: reads the clock"
+version = "0.1.0"
+uses = ["events.dock", "stations.write"]
+
+[[script]]
+id = "night_shift"
+file = "scripts/night_shift.luau"
+handlers = ["on.dock"]

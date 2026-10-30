@@ -198,6 +198,8 @@ impl Sim {
                 history: &s.history,
                 input,
                 events: &s.kernel.last_events,
+                invariants: &self.invariants,
+                rolled_back: &s.kernel.rolled_back,
                 rng: &mut s.kernel.rng,
                 out: &mut batches,
                 system: "",
@@ -255,46 +257,16 @@ impl Sim {
                 reason,
             }))
         };
-        if let CauseKind::Rollback { of } = &batch.cause.kind
-            && let Some(done) = of
-                .iter()
-                .find(|c| self.state.kernel.rolled_back.contains(c))
-        {
-            return reject(None, format!("{done} is already rolled back"));
-        }
-        if let Some((i, e)) = batch
-            .commands
-            .iter()
-            .enumerate()
-            .find_map(|(i, cmd)| crate::finite::check(cmd).err().map(|e| (i, e)))
-        {
-            return reject(Some(i), format!("numbers must be finite: {e}"));
-        }
-
-        let world = &mut self.state.world;
-        let mut undo = Vec::with_capacity(batch.commands.len());
-        let mut staged = Staged::default();
-        let mut failure = None;
-        for (i, cmd) in batch.commands.iter().enumerate() {
-            match apply(world, cmd, &mut staged) {
-                Ok(u) => undo.push(u),
-                Err(e) => {
-                    failure = Some((Some(i), e.to_string()));
-                    break;
-                }
-            }
-        }
-        if failure.is_none() {
-            failure = self
-                .invariants
-                .iter()
-                .find_map(|inv| inv.check(world).err().map(|e| (inv.name(), e)))
-                .map(|(name, e)| (None, format!("invariant `{name}`: {e}")));
-        }
-        if let Some((command, reason)) = failure {
-            revert(world, &undo);
-            return reject(command, reason);
-        }
+        let checked = check_and_apply(
+            &mut self.state.world,
+            &batch,
+            &self.state.kernel.rolled_back,
+            &self.invariants,
+        );
+        let (undo, staged) = match checked {
+            Ok(done) => done,
+            Err((command, reason)) => return reject(command, reason),
+        };
 
         let s = &mut self.state;
         if let CauseKind::Rollback { of } = &batch.cause.kind {
@@ -449,6 +421,73 @@ impl Sim {
 /// Undoes already-applied commands, newest first. Each inverse restores captured
 /// values exactly, without the forward checks: a batch can leave a temporarily dangling
 /// reference behind that only the invariants catch.
+/// The kernel's decision on one batch: applies it to `world` and checks it (rollback
+/// rules, finite numbers, every command, every invariant), or leaves `world` as it was
+/// and says why it is rejected (the failing command's index, if one failed).
+fn check_and_apply(
+    world: &mut WorldState,
+    batch: &CommandBatch,
+    rolled_back: &BTreeSet<CauseId>,
+    invariants: &[Box<dyn Invariant>],
+) -> Result<(Vec<UndoRecord>, Staged), (Option<usize>, String)> {
+    if let CauseKind::Rollback { of } = &batch.cause.kind
+        && let Some(done) = of.iter().find(|c| rolled_back.contains(c))
+    {
+        return Err((None, format!("{done} is already rolled back")));
+    }
+    if let Some((i, e)) = batch
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(i, cmd)| crate::finite::check(cmd).err().map(|e| (i, e)))
+    {
+        return Err((Some(i), format!("numbers must be finite: {e}")));
+    }
+    let mut undo = Vec::with_capacity(batch.commands.len());
+    let mut staged = Staged::default();
+    for (i, cmd) in batch.commands.iter().enumerate() {
+        match apply(world, cmd, &mut staged) {
+            Ok(u) => undo.push(u),
+            Err(e) => {
+                revert(world, &undo);
+                return Err((Some(i), e.to_string()));
+            }
+        }
+    }
+    if let Some((name, e)) = invariants
+        .iter()
+        .find_map(|inv| inv.check(world).err().map(|e| (inv.name(), e)))
+    {
+        revert(world, &undo);
+        return Err((None, format!("invariant `{name}`: {e}")));
+    }
+    Ok((undo, staged))
+}
+
+/// Applies `batch` to `world` if the kernel would commit it, counters included (no
+/// history). Returns why it would be rejected otherwise, leaving `world` as it was.
+pub(crate) fn project(
+    world: &mut WorldState,
+    batch: &CommandBatch,
+    rolled_back: &mut BTreeSet<CauseId>,
+    invariants: &[Box<dyn Invariant>],
+) -> Result<(), String> {
+    let (_, staged) =
+        check_and_apply(world, batch, rolled_back, invariants).map_err(|(command, reason)| {
+            match command {
+                Some(i) => format!("command {i}: {reason}"),
+                None => reason,
+            }
+        })?;
+    if let CauseKind::Rollback { of } = &batch.cause.kind {
+        rolled_back.extend(of.iter().copied());
+    }
+    for event in &staged.events {
+        bump_counters(world, event);
+    }
+    Ok(())
+}
+
 fn revert(world: &mut WorldState, undo: &[UndoRecord]) {
     for u in undo.iter().rev() {
         if let UndoRecord::Invert { command } = u {

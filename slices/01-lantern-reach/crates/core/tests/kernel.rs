@@ -3,7 +3,9 @@
 
 use std::path::{Path, PathBuf};
 
+use galaxy_contract::pack::{ScriptHealth, ScriptValue};
 use galaxy_contract::prelude::*;
+use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::{Save, Sim, SimState, System, TickCtx, default_systems, new_game};
 
 fn data_dir() -> PathBuf {
@@ -373,6 +375,43 @@ fn undo_records_invert_commands() {
                 heard_by_player: false,
                 source: None,
             })),
+        },
+        Command::SetScriptValue {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            script: "kettle_growth".into(),
+            store: "progress".into(),
+            key: "announced".into(),
+            value: Some(ScriptValue::Integer(2)),
+        },
+        Command::SetTriggerFired {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            trigger: "kettle_growth.regulars".into(),
+            fired: 1,
+        },
+        Command::SetScriptHealth {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            script: "kettle_growth".into(),
+            health: ScriptHealth {
+                revision: "r1".into(),
+                aborts: 1,
+                quarantined: false,
+                quarantined_before: ["r0".to_owned()].into(),
+            },
+        },
+        Command::SetRevisionRetired {
+            pack: PackId::new("gm.kettle_growth").unwrap(),
+            revision: "r1".into(),
+            retired: true,
+        },
+        Command::Say {
+            line: Box::new(TalkLine {
+                channel: Channel::DockTalk,
+                speaker: Some(NpcId::new("npc.ilse").unwrap()),
+                place: Some(WHARF),
+                text: "Kettle lit another ring.".into(),
+                cites: vec![FactId(1)],
+                about: Vec::new(),
+            }),
         },
         Command::SetRumorHeard {
             rumor: RumorId::new("rumor.far_belt_glassite").unwrap(),

@@ -1,0 +1,10 @@
+# BAD on purpose: a trigger on elapsed time. `G.after` only takes activity counters.
+id = "gm.bad_timer_trigger"
+name = "Bad: time-based trigger"
+version = "0.1.0"
+uses = ["history.read"]
+
+[[script]]
+id = "later"
+file = "scripts/later.luau"
+handlers = ["after.half_minute"]

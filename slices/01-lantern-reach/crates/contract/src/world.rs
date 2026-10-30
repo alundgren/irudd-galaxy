@@ -14,8 +14,10 @@ use crate::economy::{EconomyState, MarketRole, PriceReach};
 use crate::events::ActivityCounters;
 use crate::geom::Vec2;
 use crate::ids::*;
+use crate::pack::PackState;
 use crate::ship::{RockGrowth, ShipActivity, ShipRules};
 use crate::store::{Record, Store};
+use crate::talk::TalkLog;
 use crate::verbs::OrderQueue;
 
 /// Bump when the world-state JSON changes incompatibly. Saves record it.
@@ -49,6 +51,12 @@ pub struct WorldState {
     pub ship_rules: ShipRules,
     /// Market rules and activity tallies (W3).
     pub economy: EconomyState,
+
+    // --- Scripts and legibility (W5) ---
+    /// Per installed pack: script stores, trigger counts, script health.
+    pub packs: BTreeMap<PackId, PackState>,
+    /// Dock talk, map notes and chronicle entries.
+    pub talk: TalkLog,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

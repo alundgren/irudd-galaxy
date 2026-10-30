@@ -10,8 +10,8 @@ use crate::economy::EconomyRules;
 use crate::events::EventEnvelope;
 use crate::history::{Fact, HistoryQuery};
 use crate::input::PlayerInput;
-use crate::pack::{PackManifest, ValidationReport};
-use crate::talk::TalkLine;
+use crate::pack::{PackManifest, PackState, TestReport, ValidationReport};
+use crate::talk::{SaidLine, TalkLine};
 use crate::verbs::Order;
 use crate::world::WorldState;
 
@@ -36,6 +36,9 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<ValidationReport>("report"),
         one::<AssetManifest>("assets"),
         one::<TalkLine>("talk"),
+        one::<SaidLine>("talk-said"),
+        one::<TestReport>("pack-test"),
+        one::<PackState>("pack-state"),
         one::<WaresFile>("data-wares"),
         one::<HullsFile>("data-hulls"),
         one::<FactionsFile>("data-factions"),
