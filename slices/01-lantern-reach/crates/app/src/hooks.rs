@@ -211,7 +211,7 @@ pub fn station_services(
     let rows = offers
         .iter()
         .map(|o| (o.seller.clone(), offer_row(world, history, o)))
-        .chain(owned_rows(world, station));
+        .chain(owned_rows(world, history, station));
     for (seller, row) in rows {
         let slot = out
             .iter_mut()
@@ -239,8 +239,41 @@ pub fn station_services(
 
 /// What the player already has from `station`'s sellers: fitted upgrades and the
 /// tenders built here, with their sellers.
-fn owned_rows(world: &WorldState, station: &StationId) -> Vec<(Option<NpcId>, OfferRow)> {
+fn owned_rows(
+    world: &WorldState,
+    history: &History,
+    station: &StationId,
+) -> Vec<(Option<NpcId>, OfferRow)> {
     let rules = &world.progress.rules;
+    // A part in the hull's locker stays on its seller's list with a Refit button.
+    let ship = world.player.ship.clone();
+    let stored = rules
+        .upgrades
+        .values()
+        .filter(|u| {
+            u.station.as_ref() == Some(station)
+                && ship
+                    .as_ref()
+                    .is_some_and(|s| galaxy_contract::fit::locker(world, s).any(|p| p == &u.id))
+        })
+        .map(|u| {
+            let request = ServiceRequest::Refit {
+                upgrade: u.id.clone(),
+            };
+            let blocked = services::check(world, history, &request)
+                .err()
+                .map(|r| crate::trades::service_refusal(world, &request, &r));
+            let row = OfferRow {
+                request,
+                name: u.name.clone(),
+                effect: u.effect.clone(),
+                price: "in your locker".into(),
+                blocked,
+                prestige: false,
+                owned: false,
+            };
+            (u.seller.clone(), row)
+        });
     let fitted = rules
         .upgrades
         .values()
@@ -261,7 +294,7 @@ fn owned_rows(world: &WorldState, station: &StationId) -> Vec<(Option<NpcId>, Of
             };
             (c.seller.clone(), owned_row(request, &c.name, &c.effect))
         });
-    fitted.chain(built).collect()
+    fitted.chain(stored).chain(built).collect()
 }
 
 fn owned_row(request: ServiceRequest, name: &str, effect: &str) -> OfferRow {
