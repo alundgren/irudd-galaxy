@@ -592,10 +592,28 @@ fn the_ice_shortage_starts_from_the_players_mining_and_way_a_ends_it() {
             .as_ref()
             .is_some_and(|o| o.as_str() == "deed.shortage.ice_road")
     }));
-    // Odo names it at the next Kettle docking.
+    // Odo names it at the next Kettle docking: his line is the authored default the
+    // talk script offers there (the mind may pick another eligible line instead).
     p.go(&WHARF);
     p.go(&KETTLE);
-    assert!(p.heard("npc.odo_fenn", "Ice from outside the Shallows."));
+    let offered = p
+        .sim
+        .history()
+        .facts()
+        .iter()
+        .rev()
+        .find_map(|f| match &f.payload {
+            FactPayload::Event(Event::TalkRequested { request }) if request.station == KETTLE => {
+                request.candidates.first().map(|c| c.text.clone())
+            }
+            _ => None,
+        })
+        .unwrap_or_default();
+    assert!(
+        p.heard("npc.odo_fenn", "Ice from outside the Shallows.")
+            || offered.starts_with("Ice from outside the Shallows."),
+        "{offered}"
+    );
     p.assert_healthy();
 }
 
