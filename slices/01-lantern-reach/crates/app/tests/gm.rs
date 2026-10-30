@@ -527,7 +527,14 @@ fn shot_live_shows_the_running_game() {
     let saves = dir.path().join("saves");
     std::fs::create_dir_all(&saves).unwrap();
     let save = saves.join("shot.sqlite");
-    let mut game = Command::new(exe())
+    struct Game(std::process::Child);
+    impl Drop for Game {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    let game = Command::new(exe())
         .args([
             "play",
             "--save",
@@ -540,6 +547,7 @@ fn shot_live_shows_the_running_game() {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
+        .map(Game)
         .unwrap();
     let live = saves.join("shot.gm/live.json");
     let started = Instant::now();
@@ -556,7 +564,7 @@ fn shot_live_shows_the_running_game() {
         .env("GALAXY_SAVES", &saves)
         .output()
         .unwrap();
-    let _ = game.kill();
+    drop(game);
     let v: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert!(out.status.success(), "{v}");
     assert!(v["width"].as_u64().unwrap() > 0);
