@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Station concept: a station that can grow</title>
+<style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; overflow-x: hidden; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--blue); text-underline-offset: 3px; }
+h1 { font-size: 34px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 28px; line-height: 1.3; margin: 56px 0 14px; border-left: 6px solid var(--acc); padding-left: 14px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 30px 0 10px; border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; }
+pre { background: color-mix(in srgb, var(--acc) 10%, var(--bg)); border: 1px solid var(--acc); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 14px; }
+pre code { font-size: 15px; line-height: 1.5; }
+.lead { font-size: 20px; line-height: 1.5; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 5px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child { margin-bottom: 0; }
+.tag { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 0 10px; font-size: 15px; font-weight: 700; vertical-align: middle; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+table { border-collapse: collapse; width: 100%; margin: 0 0 16px; font-size: 16px; }
+th, td { border: 1px solid var(--acc); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: color-mix(in srgb, var(--acc) 18%, var(--bg)); }
+figure.mock { width: min(1280px, calc(100vw - 24px)); margin: 18px 0 22px 50%; transform: translateX(-50%); }
+figure.mock svg { display: block; width: 100%; height: auto; border-radius: 14px; border: 2px solid var(--acc); }
+figure.grow { margin: 14px 0 18px; }
+figure.grow svg { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--acc); }
+figcaption { font-size: 16px; margin-top: 8px; max-width: 980px; margin-left: auto; margin-right: auto; padding: 0 8px; }
+.toc a { font-weight: 600; }
+/* SVG mock text: pure black on paper, pure white on sky. */
+svg text { font-family: ui-rounded, "SF Pro Rounded", "Trebuchet MS", "Segoe UI", sans-serif; fill: #000; font-size: 17px; }
+svg text.w { fill: #fff; }
+svg text.b, svg .b text { font-weight: 700; }
+svg text.h1 { font-size: 32px; font-weight: 700; }
+svg text.h2 { font-size: 23px; font-weight: 700; }
+svg text.s { font-size: 15px; }
+svg text.xs { font-size: 13px; }
+svg text.cap { font-size: 13px; font-weight: 700; letter-spacing: .07em; }
+svg text.c { text-anchor: middle; }
+svg text.r { text-anchor: end; }
+#wren *, #wharf *, #quay *, .ns * { vector-effect: non-scaling-stroke; }
+</style>
+</head>
+<body>
+
+<!-- Shared drawing kit: filters, patterns, ships, parts, icons and the stations reused by every mock. -->
+<svg aria-hidden="true" width="0" height="0" style="position:absolute">
+<defs>
+  <filter id="sk" x="-4%" y="-4%" width="108%" height="108%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="3.5" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="6" dy="9" stdDeviation="5" flood-color="#120f26" flood-opacity=".55"/>
+  </filter>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3470"/><stop offset="1" stop-color="#1d1a3e"/></linearGradient>
+  <radialGradient id="glow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".95"/><stop offset=".45" stop-color="#ffcf6b" stop-opacity=".35"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient>
+  <radialGradient id="cloudT"><stop offset="0" stop-color="#2f8f8a" stop-opacity=".35"/><stop offset="1" stop-color="#2f8f8a" stop-opacity="0"/></radialGradient>
+  <radialGradient id="cloudP"><stop offset="0" stop-color="#6b4aa0" stop-opacity=".4"/><stop offset="1" stop-color="#6b4aa0" stop-opacity="0"/></radialGradient>
+  <pattern id="stars" width="210" height="190" patternUnits="userSpaceOnUse">
+    <circle cx="14" cy="22" r="1.5" fill="#fff"/><circle cx="88" cy="9" r="1" fill="#fff" opacity=".7"/>
+    <circle cx="160" cy="44" r="1.8" fill="#fff"/><circle cx="52" cy="96" r="1" fill="#fff" opacity=".6"/>
+    <circle cx="124" cy="120" r="1.4" fill="#fff" opacity=".85"/><circle cx="196" cy="150" r="1" fill="#fff" opacity=".6"/>
+    <circle cx="30" cy="170" r="1.6" fill="#fff" opacity=".9"/><circle cx="100" cy="176" r=".9" fill="#fff" opacity=".6"/>
+  </pattern>
+  <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><line x1="0" y1="0" x2="0" y2="7" stroke="#2a1a2e" stroke-width="1.4" opacity=".32"/></pattern>
+  <pattern id="planks" width="44" height="18" patternUnits="userSpaceOnUse"><rect width="44" height="18" fill="#dcae6c"/><path d="M0 17.4H44M22 0V18" stroke="#2a1a2e" stroke-width="1.3" opacity=".38"/><path d="M6 6h9M30 11h8" stroke="#2a1a2e" stroke-width="1" opacity=".22"/></pattern>
+  <pattern id="floor" width="120" height="34" patternUnits="userSpaceOnUse"><rect width="120" height="34" fill="#efd6a6"/><path d="M0 33.5H120M70 0V34" stroke="#2a1a2e" stroke-width="1.2" opacity=".18"/></pattern>
+  <pattern id="awnTeal" width="26" height="10" patternUnits="userSpaceOnUse"><rect width="13" height="10" fill="#2f9d86"/><rect x="13" width="13" height="10" fill="#f4e2c4"/></pattern>
+  <pattern id="awnGold" width="26" height="10" patternUnits="userSpaceOnUse"><rect width="13" height="10" fill="#e7b15a"/><rect x="13" width="13" height="10" fill="#f4e2c4"/></pattern>
+  <pattern id="awnRed" width="26" height="10" patternUnits="userSpaceOnUse"><rect width="13" height="10" fill="#8f3040"/><rect x="13" width="13" height="10" fill="#f3ddb0"/></pattern>
+  <pattern id="awnBrass" width="26" height="10" patternUnits="userSpaceOnUse"><rect width="13" height="10" fill="#c98f4a"/><rect x="13" width="13" height="10" fill="#f3ddb0"/></pattern>
+  <pattern id="cork" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#d6a467"/><circle cx="6" cy="8" r="1.6" fill="#9a6a34" opacity=".55"/><circle cx="24" cy="5" r="1.1" fill="#9a6a34" opacity=".5"/><circle cx="15" cy="22" r="1.8" fill="#9a6a34" opacity=".45"/><circle cx="31" cy="28" r="1.2" fill="#9a6a34" opacity=".5"/><circle cx="4" cy="31" r="1" fill="#9a6a34" opacity=".5"/></pattern>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#2f9d86" stroke-width="1" opacity=".3"/></pattern>
+
+  <!-- The Wren from above, nose up, centred on its hold. -->
+  <g id="wren">
+    <path d="M-36 14 L-56 40 L-48 52 L-32 40 Z M36 14 L56 40 L48 52 L32 40 Z" fill="#2f9d86" stroke="#2a1a2e" stroke-width="3.5" stroke-linejoin="round"/>
+    <rect x="-13" y="58" width="26" height="14" rx="4" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"/>
+    <path d="M0 -68 C26 -68 38 -30 38 8 C38 44 24 66 0 66 C-24 66 -38 44 -38 8 C-38 -30 -26 -68 0 -68 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="4"/>
+    <path d="M0 -68 C26 -68 38 -30 38 8 C38 44 24 66 0 66 C14 50 20 30 20 8 C20 -30 12 -60 0 -68 Z" fill="url(#hatch)"/>
+    <path d="M-37 0 C-20 -8 20 -8 37 0 L37 12 C20 4 -20 4 -37 12 Z" fill="#2f9d86" stroke="#2a1a2e" stroke-width="2"/>
+    <circle cx="0" cy="-36" r="22" fill="url(#glow)"/>
+    <ellipse cx="0" cy="-36" rx="14" ry="12" fill="#b7e6cf" stroke="#2a1a2e" stroke-width="3"/>
+    <circle cx="0" cy="-36" r="4" fill="#ffcf6b"/>
+  </g>
+  <!-- Part shapes without paint, so a mock can draw them fitted, ghosted or as a dashed drop preview. -->
+  <path id="pods-shape" d="M-64 -14 a11 11 0 0 1 22 0 v34 a11 11 0 0 1 -22 0 Z M42 -14 a11 11 0 0 1 22 0 v34 a11 11 0 0 1 -22 0 Z"/>
+  <path id="fins-shape" d="M-30 28 L-76 64 L-68 82 L-24 56 Z M30 28 L76 64 L68 82 L24 56 Z" stroke-linejoin="round"/>
+  <g id="p-pods">
+    <use href="#pods-shape" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3.5"/>
+    <path d="M-42 -4 H-37 M-42 16 H-37 M42 -4 H37 M42 16 H37" stroke="#2a1a2e" stroke-width="3"/>
+    <path d="M-53 -22 v52 M53 -22 v52" stroke="#2a1a2e" stroke-width="1.5" opacity=".5"/>
+  </g>
+  <g id="p-fins"><use href="#fins-shape" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3.5"/></g>
+  <g id="p-lens">
+    <path d="M-12 -64 L-9 -76 M12 -64 L9 -76" stroke="#2a1a2e" stroke-width="3"/>
+    <circle cx="0" cy="-84" r="13" fill="#b7e6cf" stroke="#2a1a2e" stroke-width="3"/>
+    <circle cx="0" cy="-84" r="8" fill="none" stroke="#e7b15a" stroke-width="2.5"/>
+    <circle cx="-4" cy="-88" r="2.5" fill="#fff"/>
+  </g>
+  <g id="p-chip"><rect x="-8" y="-6" width="16" height="12" rx="2" fill="#2f9d86" stroke="#2a1a2e" stroke-width="2.5"/><circle r="2.5" fill="#ffcf6b"/></g>
+
+  <!-- Wares -->
+  <g id="w-ice"><path d="M0 -17 L15 -8 L15 9 L0 17 L-15 9 L-15 -8Z" fill="#b7e6cf" stroke="#2a1a2e" stroke-width="2.5" stroke-linejoin="round"/><path d="M0 -17 V17 M-15 -8 L15 9" stroke="#2a1a2e" stroke-width="1.2" opacity=".5"/></g>
+  <g id="w-glass"><path d="M-6 -18 L12 -6 L6 18 L-12 6 Z" fill="#c9b6f0" stroke="#2a1a2e" stroke-width="2.5" stroke-linejoin="round"/><path d="M-6 -18 L6 18" stroke="#2a1a2e" stroke-width="1.2" opacity=".5"/></g>
+  <g id="w-iron"><path d="M-15 -4 C-14 -15 4 -18 12 -10 C19 -3 16 12 4 15 C-8 18 -17 8 -15 -4Z" fill="#c98f4a" stroke="#2a1a2e" stroke-width="2.5"/><path d="M-15 -4 C-14 -15 4 -18 12 -10 C19 -3 16 12 4 15 C-8 18 -17 8 -15 -4Z" fill="url(#hatch)"/></g>
+  <g id="w-rations"><rect x="-13" y="-16" width="26" height="32" rx="6" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><rect x="-13" y="-5" width="26" height="10" fill="#2f9d86" stroke="#2a1a2e" stroke-width="1.5"/></g>
+  <g id="w-plate"><rect x="-17" y="-12" width="34" height="24" rx="3" fill="#f3ddb0" stroke="#2a1a2e" stroke-width="2.5"/><g fill="#2a1a2e"><circle cx="-11" cy="-6" r="2"/><circle cx="11" cy="-6" r="2"/><circle cx="-11" cy="6" r="2"/><circle cx="11" cy="6" r="2"/></g></g>
+
+  <!-- Small icons -->
+  <g id="i-lamp"><path d="M-4 -14 Q0 -22 4 -14" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><path d="M-8 -14 H8 L12 8 H-12 Z" fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2.5" stroke-linejoin="round"/><path d="M-12 8 H12 V14 H-12Z" fill="#2f9d86" stroke="#2a1a2e" stroke-width="2.5"/></g>
+  <g id="i-crate"><rect x="-13" y="-13" width="26" height="26" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><path d="M-13 -13 L13 13 M13 -13 L-13 13" stroke="#2a1a2e" stroke-width="2"/></g>
+  <g id="i-hook"><circle cy="-15" r="3.5" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2"/><path d="M0 -11 V4 A7 7 0 1 1 -7 -3" fill="none" stroke="#2a1a2e" stroke-width="4" stroke-linecap="round"/></g>
+  <g id="i-note"><rect x="-11" y="-14" width="22" height="28" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2.5"/><circle cy="-14" r="3.5" fill="#D55E00" stroke="#2a1a2e" stroke-width="1.5"/><path d="M-6 -4 H6 M-6 2 H6 M-6 8 H3" stroke="#2a1a2e" stroke-width="2"/></g>
+  <g id="i-cup"><path d="M9 -4 Q16 -4 16 2 Q16 8 9 7" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><path d="M-11 -8 H9 V6 Q9 13 -1 13 Q-11 13 -11 6 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><path d="M-5 -12 q3 -4 0 -8 M2 -12 q3 -4 0 -8" fill="none" stroke="#2a1a2e" stroke-width="1.5"/></g>
+  <g id="i-log"><path d="M-15 -11 Q-7 -16 0 -11 Q7 -16 15 -11 V12 Q7 8 0 12 Q-7 8 -15 12Z" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2.5" stroke-linejoin="round"/><path d="M0 -11 V12" stroke="#2a1a2e" stroke-width="2"/></g>
+  <path id="cursor" d="M0 0 L0 28 L7 21 L12 33 L18 30 L13 19 L23 19 Z" fill="#fff" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Lantern Wharf from above: pier, six berths, office hub, market booth, notice mast, canteen scaffold, the cradle arm on the east end. -->
+  <g id="wharf">
+    <rect x="160" y="314" width="860" height="70" rx="12" fill="#120f26" opacity=".5"/>
+    <g fill="url(#planks)" stroke="#2a1a2e" stroke-width="4">
+      <rect x="318" y="358" width="24" height="114" rx="6"/><rect x="418" y="358" width="24" height="114" rx="6"/>
+      <rect x="518" y="358" width="24" height="114" rx="6"/><rect x="618" y="358" width="24" height="114" rx="6"/>
+      <rect x="718" y="358" width="24" height="114" rx="6"/><rect x="818" y="358" width="24" height="114" rx="6"/>
+    </g>
+    <g fill="url(#glow)"><circle cx="330" cy="480" r="20"/><circle cx="430" cy="480" r="20"/><circle cx="530" cy="480" r="20"/><circle cx="630" cy="480" r="20"/><circle cx="730" cy="480" r="20"/><circle cx="830" cy="480" r="20"/></g>
+    <g fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2.5"><circle cx="330" cy="478" r="6"/><circle cx="430" cy="478" r="6"/><circle cx="530" cy="478" r="6"/><circle cx="630" cy="478" r="6"/><circle cx="730" cy="478" r="6"/><circle cx="830" cy="478" r="6"/></g>
+    <rect x="150" y="300" width="860" height="70" rx="10" fill="url(#planks)" stroke="#2a1a2e" stroke-width="5"/>
+    <rect x="152" y="350" width="856" height="18" fill="url(#hatch)"/>
+    <rect x="150" y="294" width="860" height="9" rx="4" fill="#2f9d86" stroke="#2a1a2e" stroke-width="3"/>
+    <!-- office hub -->
+    <circle cx="200" cy="335" r="85" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="5"/>
+    <path d="M285 335 A85 85 0 0 1 115 335 Z" fill="url(#hatch)"/>
+    <circle cx="200" cy="335" r="56" fill="#2f9d86" stroke="#2a1a2e" stroke-width="4"/>
+    <path d="M200 281 V389 M146 335 H254" stroke="#f4e2c4" stroke-width="4"/>
+    <circle cx="200" cy="335" r="40" fill="url(#glow)"/>
+    <circle cx="200" cy="335" r="13" fill="#ffcf6b" stroke="#2a1a2e" stroke-width="3"/>
+    <!-- notice mast -->
+    <line x1="363" y1="276" x2="363" y2="300" stroke="#2a1a2e" stroke-width="5"/>
+    <rect x="335" y="236" width="56" height="42" rx="4" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3.5"/>
+    <path d="M343 246 H362 M343 254 H358 M370 246 H384 M370 254 H382 M343 266 H384" stroke="#2a1a2e" stroke-width="2" opacity=".6"/>
+    <circle cx="352" cy="240" r="3" fill="#D55E00"/><circle cx="377" cy="240" r="3" fill="#0072B2"/>
+    <!-- market booth -->
+    <rect x="460" y="205" width="120" height="92" rx="8" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="5"/>
+    <path d="M462 220 H578" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="462" y="252" width="116" height="44" fill="url(#hatch)"/>
+    <path d="M460 296 q15 13 30 0 q15 13 30 0 q15 13 30 0 q15 13 30 0" fill="#2f9d86" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="594" y="250" width="26" height="26" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"/><path d="M594 250 l26 26 M620 250 l-26 26" stroke="#2a1a2e" stroke-width="2"/>
+    <rect x="598" y="222" width="22" height="22" fill="#c98f4a" stroke="#2a1a2e" stroke-width="3"/>
+    <!-- canteen, still scaffold -->
+    <rect x="718" y="282" width="24" height="16" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <circle cx="730" cy="240" r="50" fill="#f4e2c4" fill-opacity=".35" stroke="#2a1a2e" stroke-width="4" stroke-dasharray="11 8"/>
+    <path d="M692 212 H768 M682 240 H778 M692 268 H768 M702 198 V282 M730 192 V288 M758 198 V282" stroke="#c98f4a" stroke-width="4" stroke-linecap="round"/>
+    <!-- cradle arm (the wharf) -->
+    <rect x="1000" y="240" width="40" height="232" rx="6" fill="url(#planks)" stroke="#2a1a2e" stroke-width="5"/>
+    <rect x="1000" y="240" width="200" height="34" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="5"/>
+    <rect x="1000" y="438" width="200" height="34" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="5"/>
+    <g fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"><rect x="1080" y="272" width="18" height="16"/><rect x="1150" y="272" width="18" height="16"/><rect x="1080" y="424" width="18" height="16"/><rect x="1150" y="424" width="18" height="16"/></g>
+    <circle cx="1200" cy="256" r="26" fill="url(#glow)"/><circle cx="1200" cy="456" r="26" fill="url(#glow)"/>
+    <path d="M1186 248 L1100 352" stroke="#2a1a2e" stroke-width="17" stroke-linecap="round"/>
+    <path d="M1186 248 L1100 352" stroke="#e7b15a" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="1186" cy="248" r="18" fill="#2f9d86" stroke="#2a1a2e" stroke-width="4"/>
+    <circle cx="1100" cy="356" r="8" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/>
+    <!-- lamp strings along the pier -->
+    <path d="M150 300 Q205 322 260 300 Q315 322 370 300 Q425 322 480 300 Q535 322 590 300 Q645 322 700 300 Q755 322 810 300 Q865 322 920 300 Q965 318 1010 300" fill="none" stroke="#2a1a2e" stroke-width="2"/>
+    <g fill="url(#glow)"><circle cx="260" cy="300" r="20"/><circle cx="370" cy="300" r="20"/><circle cx="480" cy="300" r="20"/><circle cx="590" cy="300" r="20"/><circle cx="700" cy="300" r="20"/><circle cx="810" cy="300" r="20"/><circle cx="920" cy="300" r="20"/></g>
+    <g fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2"><circle cx="260" cy="300" r="5"/><circle cx="370" cy="300" r="5"/><circle cx="480" cy="300" r="5"/><circle cx="590" cy="300" r="5"/><circle cx="700" cy="300" r="5"/><circle cx="810" cy="300" r="5"/><circle cx="920" cy="300" r="5"/></g>
+    <!-- moored craft -->
+    <use href="#wren" transform="translate(480 438) rotate(180) scale(.62)"/>
+    <rect x="655" y="388" width="50" height="84" rx="22" fill="#f3ddb0" stroke="#2a1a2e" stroke-width="4"/>
+    <rect x="655" y="420" width="50" height="14" fill="#c98f4a" stroke="#2a1a2e" stroke-width="2"/>
+    <circle cx="680" cy="458" r="6" fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2"/>
+    <ellipse cx="780" cy="420" rx="20" ry="30" fill="#f6ead4" stroke="#2a1a2e" stroke-width="4"/>
+    <ellipse cx="780" cy="428" rx="8" ry="8" fill="#c9b6f0" stroke="#2a1a2e" stroke-width="2"/>
+  </g>
+
+  <!-- Proposal B: the quay strip along the bottom of the screen. -->
+  <g id="quay">
+    <rect x="0" y="502" width="1280" height="218" fill="url(#sky)"/>
+    <rect x="0" y="502" width="1280" height="218" fill="url(#stars)"/>
+    <g filter="url(#sk)">
+      <rect x="-10" y="596" width="1300" height="48" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+      <rect x="-10" y="630" width="1300" height="14" fill="url(#hatch)"/>
+      <g fill="url(#glow)"><circle cx="210" cy="648" r="20"/><circle cx="420" cy="648" r="20"/><circle cx="840" cy="648" r="20"/><circle cx="1000" cy="648" r="20"/><circle cx="1180" cy="648" r="20"/></g>
+      <g fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2"><circle cx="210" cy="646" r="5"/><circle cx="420" cy="646" r="5"/><circle cx="840" cy="646" r="5"/><circle cx="1000" cy="646" r="5"/><circle cx="1180" cy="646" r="5"/></g>
+      <rect x="30" y="514" width="160" height="80" rx="10" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="4"/>
+      <rect x="210" y="514" width="200" height="80" rx="10" fill="url(#awnGold)" stroke="#2a1a2e" stroke-width="4"/>
+      <rect x="430" y="514" width="400" height="80" rx="10" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+      <rect x="560" y="530" width="250" height="52" rx="8" fill="url(#sky)" stroke="#2a1a2e" stroke-width="3"/>
+      <path d="M470 524 L700 556" stroke="#2a1a2e" stroke-width="12" stroke-linecap="round"/><path d="M470 524 L700 556" stroke="#e7b15a" stroke-width="6" stroke-linecap="round"/>
+      <rect x="850" y="514" width="140" height="80" rx="10" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="4"/>
+      <rect x="866" y="526" width="30" height="22" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><rect x="944" y="530" width="30" height="22" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/>
+      <rect x="1010" y="514" width="160" height="80" rx="10" fill="url(#hatch)" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="10 7"/>
+      <use href="#wren" transform="translate(150 690) rotate(180) scale(.45)"/>
+    </g>
+    <g class="b">
+      <rect x="44" y="562" width="132" height="26" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="110" y="581" text-anchor="middle" font-size="15" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">Dockmaster</text>
+      <rect x="250" y="562" width="120" height="26" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="310" y="581" text-anchor="middle" font-size="15" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">Market</text>
+      <rect x="444" y="562" width="104" height="26" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="496" y="581" text-anchor="middle" font-size="15" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">Wharf</text>
+      <rect x="864" y="562" width="112" height="26" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="920" y="581" text-anchor="middle" font-size="15" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">Notices</text>
+      <rect x="1030" y="562" width="120" height="26" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1090" y="581" text-anchor="middle" font-size="15" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">To let</text>
+    </g>
+    <rect x="1190" y="530" width="74" height="50" rx="12" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+    <text x="1227" y="561" text-anchor="middle" font-size="16" font-weight="700" fill="#000" font-family="Trebuchet MS, Segoe UI, sans-serif">more ▶</text>
+    <text x="640" y="700" text-anchor="middle" font-size="15" fill="#fff" font-family="Trebuchet MS, Segoe UI, sans-serif">Drag the quay or click a front · W A S D flies off</text>
+  </g>
+</defs>
+</svg>
+
+<div class="wrap">
+<div class="topbar">Irudd Galaxy · Lantern Reach slice · station concept (issue #45)</div>
+
+<h1>Station concept: a station that can grow</h1>
+<p class="lead">Three ways to build a station out of parts, so Lantern Reach can start with a market and a hullwright and later hold ten or more rooms without feeling cramped. The game master adds, alters and removes those parts as data. <strong>Recommendation: proposal A, "The station up close"</strong>, with proposal C's news cards folded into its station key. Build its hullwright view first: that decision is already made, and the hullwright is the weakest screen today.</p>
+
+<div class="card a-amber">
+<p><strong>What this page is.</strong> A design and art-direction exploration. Nothing here changes the Rust slice. Every mock is drawn in the page as SVG in the warm sketched style of the art bible (warm ink, hatching, lamp glow, faction paint). Numbers in the mocks are illustrative and get tuned in play.</p>
+</div>
+
+<p class="toc"><a href="#shared">Same in all three</a> · <a href="#fit">The fit model</a> · <a href="#a">A. The station up close</a> · <a href="#b">B. The quay</a> · <a href="#c">C. The harbour board</a> · <a href="#compare">Comparison and recommendation</a></p>
+
+<h2 id="shared" class="a-blue">Same in all three</h2>
+<p>The problem from playtests: the dock is one cream panel, and everything a station offers is a row in it. The hullwright is a flat text line. A station with ten things to do would be a scroll of rows. All three proposals start from the same idea and differ in how the player sees and moves between the parts.</p>
+<ul>
+<li><strong>A station is a list of parts.</strong> Each part is a room of a kind the code already knows how to show: dockmaster, market, wharf (hullwright), notice wall, canteen, greenhouse, berths, and a general <em>counter</em> (a keeper, a list of offers, a few talk lines) that covers most new shops. The game master writes parts as data. Only a brand-new kind of room needs code.</li>
+<li><strong>Every part has a keeper.</strong> A person, so every change has someone to talk about it, which is the existing legibility rule (a place and a person).</li>
+<li><strong>Talk stays short.</strong> Dock talk is bubbles over whoever speaks, click to advance. The log is one small icon in the bottom-left corner. No proposal adds a text panel that grows with history.</li>
+<li><strong>Mouse first.</strong> Every room is reachable by clicking. W A S D always belongs to the ship and flies off.</li>
+<li><strong>Readable.</strong> Text is pure black on paper or pure white on sky, never grey. State colours (hover, drop target, over budget, gain, loss) come from a colourblind-safe set (orange, sky blue, vermilion, blue) and always pair with a shape, an arrow or a word.</li>
+<li><strong>Calm changes.</strong> Game master changes to parts follow the existing rules: applied while docked or paused, one big change per region, a rollback line, and nothing taken from the player.</li>
+</ul>
+
+<h2 id="fit" class="a-green">The fit model (shared by all three)</h2>
+<p>The hullwright decisions from the issue, made concrete enough to draw. The three proposals frame this differently, but the rules are the same.</p>
+<ul>
+<li><strong>Sockets.</strong> The Wren, seen from above, has four: <em>drill mount</em> (nose), <em>utility</em> (behind the cockpit), <em>hold</em> (belly) and <em>engine</em> (tail). The utility socket carries a small <em>control rack</em> with room for every control module, plus one larger utility part.</li>
+<li><strong>Parts change the look.</strong> The lens sits on the nose, hold pods hang off the sides, swift fins sweep back from the tail. A glance at the ship in flight tells you its fit.</li>
+<li><strong>Two budgets.</strong> <em>Power</em> (lamp pips) caps what can run at once. <em>Mass</em> (weights) beyond what the hull carries freely costs top speed and turn rate. This makes fits a choice of style, such as a <em>hauler</em> (pods, steady engine, slow turns) or a <em>prospector</em> (lens or long-throw drill, seam lamp, swift fins), not one ladder.</li>
+<li><strong>Drag to fit.</strong> Drag a part onto a glowing socket. Sockets that can take it light up with a dashed sky-blue ring, and the stat preview shows the change before you let go. The hullwright then fits it with a short animation (about a second and a half, click to skip): the crane swings over, lowers the part, three bolt flashes, the hull dips and settles.</li>
+<li><strong>Nothing is lost.</strong> A part you take off goes into your locker at that wharf. (Today fittings are never removed. Swapping is needed once fits are tradeoffs, so the locker keeps the "nothing lost" promise.)</li>
+<li><strong>Controls are modules.</strong> Nav chip, rock cradle, docking clamp, order slate, loop log and the lane chart (autopilot) are small physical modules in the control rack. They use little or no power, so the budget never takes away a control the player has already earned. Open question for later hulls: should controls ever compete for power?</li>
+<li><strong>Where parts come from.</strong> Three tabs at every wharf: <em>Ready</em> (pay credits), <em>Make</em> (materials plus a blueprint found in the world) and <em>Friends</em> (the hullwright's contacts at other stations send a part after you dock there; counted in dockings, never time).</li>
+</ul>
+<table>
+<thead><tr><th>Part (illustrative)</th><th>Socket</th><th>Power</th><th>Mass</th><th>What it does</th><th>Comes from</th></tr></thead>
+<tbody>
+<tr><td>Mining lens</td><td>Drill mount</td><td>2</td><td>1</td><td>Mine half again as fast</td><td>Ready: Orrin, 600 cr</td></tr>
+<tr><td>Long-throw drill</td><td>Drill mount</td><td>3</td><td>2</td><td>Mine from further off</td><td>Make: blueprint from the Cinder Belt, plus iron ore and plate</td></tr>
+<tr><td>Hold pods</td><td>Hold</td><td>0</td><td>4</td><td>Hold +10, a little slower, wider turns</td><td>Ready: Orrin (replaces the hold extender)</td></tr>
+<tr><td>Swift fins</td><td>Engine</td><td>1</td><td>1</td><td>Turn rate +40</td><td>Make: fin blueprint plus plate</td></tr>
+<tr><td>Seam lamp</td><td>Utility</td><td>2</td><td>0</td><td>Shows what is left in nearby rocks</td><td>Friends: a lens-grinder at the Observatory</td></tr>
+<tr><td>Control modules</td><td>Control rack</td><td>0 to 1</td><td>0</td><td>The control tiers, unchanged</td><td>As today</td></tr>
+</tbody>
+</table>
+
+<!-- ============================ A ============================ -->
+<h2 id="a" class="a-amber">A. The station up close</h2>
+<p class="lead">Docking zooms the camera into the station itself. Each part is a real module on the station, and you click the module to step into it.</p>
+
+<h3 class="a-amber">1. Structure</h3>
+<ul>
+<li>The docked view is the station drawn large, from above, in the same style as flight: the pier, the berths, your ship moored. Each part is a module on it (the market booth, the wharf's cradle arm, the canteen dome, the notice mast) with a hanging sign.</li>
+<li><strong>Hover</strong> a module: it lifts a little, gets an orange outline, and its sign says who keeps it and one line of what it offers. <strong>Click</strong>: the camera glides to it (under half a second) and the room opens as a panel beside it. The station stays visible, and the panel never covers more than about 45% of the screen.</li>
+<li><strong>The station key</strong> is a row of icons along the bottom, one per part, for players who would rather not hunt. Right-click, Esc or the back button returns to the whole station.</li>
+<li>The dockmaster's bubbles rise from the office; a keeper's bubbles rise from their module.</li>
+</ul>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal A docked view: Lantern Wharf drawn large with signs over its parts, the wharf hovered, and a station key along the bottom">
+  <rect width="1280" height="720" fill="url(#sky)"/><rect width="1280" height="720" fill="url(#stars)"/>
+  <ellipse cx="260" cy="600" rx="420" ry="170" fill="url(#cloudT)"/><ellipse cx="980" cy="120" rx="380" ry="150" fill="url(#cloudP)"/>
+  <!-- hover lift on the wharf -->
+  <path d="M994 234 H1206 V280 H1046 V432 H1206 V478 H994 Z" fill="none" stroke="#E69F00" stroke-width="12" stroke-linejoin="round" opacity=".9"/>
+  <g filter="url(#sk)"><use href="#wharf"/></g>
+  <!-- signs -->
+  <g stroke="#2a1a2e" stroke-width="2.5"><path d="M190 224 V250"/><path d="M363 212 V236"/><path d="M520 194 V205"/><path d="M730 194 V190"/><path d="M1110 212 V240"/></g>
+  <g><rect x="115" y="168" width="160" height="56" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="129" y="192" class="b">Dockmaster</text><text x="129" y="213" class="s">Ilse Marrow</text></g>
+  <g><rect x="300" y="160" width="128" height="52" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="314" y="184" class="b">Notices</text><text x="314" y="204" class="s">2 new</text></g>
+  <g><rect x="452" y="140" width="140" height="54" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="466" y="164" class="b">Market</text><text x="466" y="185" class="s">5 wares</text></g>
+  <g><rect x="652" y="138" width="190" height="56" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="9 6"/><text x="666" y="162" class="b">Canteen</text><text x="666" y="184" class="s">Being built</text></g>
+  <g filter="url(#shadow)"><rect x="990" y="136" width="250" height="76" rx="12" fill="#f7ead2" stroke="#E69F00" stroke-width="5"/></g>
+  <text x="1008" y="166" class="h2">Wharf</text><text x="1008" y="192" class="s">Orrin Vale · fit parts to your ship</text>
+  <use href="#cursor" transform="translate(1104 330)"/>
+  <!-- title and HUD -->
+  <rect x="20" y="16" width="330" height="44" rx="12" fill="#2a1a2e" stroke="#2f9d86" stroke-width="3"/>
+  <text x="38" y="45" class="w b">Lantern Wharf · Wharf Cooperative</text>
+  <rect x="1080" y="16" width="180" height="64" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/>
+  <text x="1098" y="44" class="w b" style="font-size:24px">160 cr</text><text x="1098" y="68" class="w s">Hold 0 / 20</text>
+  <!-- Ilse's bubble -->
+  <path d="M172 498 L196 424 L214 498 Z" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="30" y="496" width="290" height="84" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <path d="M176 498 H210" stroke="#f7ead2" stroke-width="5"/>
+  <text x="46" y="522" class="s b">Ilse Marrow</text>
+  <text x="46" y="545">Orrin's on the east end.</text><text x="46" y="567">Your lens is on his bench.</text>
+  <!-- station key -->
+  <rect x="330" y="600" width="620" height="100" rx="18" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <text x="350" y="622" class="cap">STATION KEY</text>
+  <g>
+    <circle cx="400" cy="648" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-lamp" transform="translate(400 649)"/><text x="400" y="690" class="s c">Dockmaster</text>
+    <circle cx="520" cy="648" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-crate" transform="translate(520 648)"/><text x="520" y="690" class="s c">Market</text>
+    <circle cx="640" cy="648" r="28" fill="#f4e2c4" stroke="#E69F00" stroke-width="6"/><use href="#i-hook" transform="translate(640 650)"/><text x="640" y="690" class="s c b">Wharf</text>
+    <circle cx="760" cy="648" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-note" transform="translate(760 648)"/><text x="760" y="690" class="s c">Notices</text>
+    <circle cx="783" cy="628" r="10" fill="#0072B2" stroke="#2a1a2e" stroke-width="2"/><text x="783" y="633" class="w xs c b">2</text>
+    <circle cx="880" cy="648" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="7 5"/><use href="#i-cup" transform="translate(878 649)"/><text x="880" y="690" class="s c">Canteen (soon)</text>
+  </g>
+  <!-- log -->
+  <rect x="24" y="636" width="64" height="64" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(56 660)"/><text x="56" y="692" class="xs c b">Log</text>
+</svg>
+<figcaption>A, docked. Lantern Wharf up close. Hovering the cradle arm lifts it and its sign. The canteen is a part the game master has started building (not in the slice). The station key gives a one-click way to every part.</figcaption>
+</figure>
+
+<h3 class="a-amber">2. Growth</h3>
+<ul>
+<li>Parts bolt onto <strong>anchors</strong> on the station's asset-kit recipe (arms, rings, pier slots). Adding a part adds a module where people can see it, which is how Kettle Dock's greenhouse rings already grow.</li>
+<li><strong>Outpost</strong> (2 to 4 parts): the camera frames the whole station; one click reaches any part.</li>
+<li><strong>Hub</strong> (10 or more parts): parts group into <strong>quarters</strong> (a ring, an arm, a row of booths), each with one sign that lists its count. Click a quarter, the camera moves to it, click a part. Never more than two clicks, and the station key (grouped by quarter) is always one.</li>
+<li>Size is held in bounds by the art bible's existing budget (at most 48 parts, a cap per kind), so a hub cannot sprawl past what the camera can frame.</li>
+</ul>
+<figure class="grow">
+<svg viewBox="0 0 1200 330" role="img" aria-label="Proposal A growth: an outpost with two parts, the Wharf with five, and a hub with fourteen parts in four quarters">
+  <rect width="1200" height="330" fill="url(#sky)"/><rect width="1200" height="330" fill="url(#stars)"/>
+  <g filter="url(#sk)">
+    <!-- outpost -->
+    <circle cx="190" cy="140" r="56" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="4"/><circle cx="190" cy="140" r="34" fill="#2f9d86" stroke="#2a1a2e" stroke-width="3"/><circle cx="190" cy="140" r="9" fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2"/>
+    <rect x="236" y="128" width="70" height="20" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="96" y="70" width="58" height="46" rx="6" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="3"/>
+    <use href="#wren" transform="translate(320 170) rotate(200) scale(.36)"/>
+  </g>
+  <rect x="58" y="32" width="96" height="30" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="106" y="53" class="s b c">Market</text>
+  <rect x="150" y="214" width="122" height="30" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="211" y="235" class="s b c">Dockmaster</text>
+  <text x="30" y="292" class="w b">Outpost · 2 parts</text><text x="30" y="316" class="w s">Camera frames it all. One click to each.</text>
+  <!-- wharf -->
+  <g filter="url(#sk)"><use href="#wharf" transform="translate(402 30) scale(.32)"/></g>
+  <text x="420" y="292" class="w b">Lantern Wharf · 5 parts</text><text x="420" y="316" class="w s">One pier, a sign on every part.</text>
+  <!-- hub -->
+  <g filter="url(#sk)">
+    <circle cx="1000" cy="140" r="104" fill="none" stroke="#2a1a2e" stroke-width="20"/>
+    <circle cx="1000" cy="140" r="104" fill="none" stroke="#c98f4a" stroke-width="13"/>
+    <circle cx="1000" cy="140" r="44" fill="#f3ddb0" stroke="#2a1a2e" stroke-width="4"/><circle cx="1000" cy="140" r="12" fill="#ffcf6b" stroke="#2a1a2e" stroke-width="2"/>
+    <g fill="#f3ddb0" stroke="#2a1a2e" stroke-width="3">
+      <rect x="930" y="30" width="22" height="22"/><rect x="960" y="22" width="22" height="22"/><rect x="990" y="20" width="22" height="22" fill="url(#awnRed)"/><rect x="1020" y="24" width="22" height="22" fill="url(#awnBrass)"/>
+      <circle cx="1112" cy="100" r="13"/><circle cx="1118" cy="134" r="13" fill="#c9b6f0"/><circle cx="1112" cy="168" r="13"/>
+      <rect x="950" y="232" width="24" height="24" fill="url(#awnBrass)"/><rect x="984" y="236" width="24" height="24"/><rect x="1018" y="232" width="24" height="24" fill="url(#awnRed)"/><rect x="1052" y="226" width="24" height="24"/>
+      <circle cx="886" cy="120" r="14"/><circle cx="884" cy="158" r="14" fill="#b7e6cf"/>
+    </g>
+  </g>
+  <path d="M915 12 h120 v52 h-120 Z" fill="none" stroke="#E69F00" stroke-width="5" rx="8"/>
+  <rect x="1038" y="14" width="150" height="30" rx="8" fill="#f7ead2" stroke="#E69F00" stroke-width="3"/><text x="1113" y="35" class="s b c">Brass booths · 4</text>
+  <rect x="1138" y="122" width="58" height="30" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1167" y="143" class="s b c">Lens 3</text>
+  <rect x="1080" y="254" width="112" height="30" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1136" y="275" class="s b c">Barge row 4</text>
+  <rect x="806" y="72" width="70" height="30" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="841" y="93" class="s b c">Dock 3</text>
+  <text x="810" y="304" class="w b">Hub · 14 parts in 4 quarters</text><text x="810" y="326" class="w s">Click a quarter, then a part.</text>
+</svg>
+<figcaption>A, growth. The frame is always "the station"; only the camera's framing and the quarter signs change with size.</figcaption>
+</figure>
+
+<h3 class="a-amber">3. Game master hooks</h3>
+<p>A part is a module plus a room. The game master writes it into a station-parts store, the validator checks it, and it appears at the next calm moment.</p>
+<pre><code># One part of a station, written by core or by a game master script.
+[[station.lantern_wharf.part]]
+id      = "part.wharf.canteen"
+room    = "canteen"            # a room kind the code knows
+module  = "dome"               # asset-kit kind; the art bible's budget applies
+anchor  = "pier.north.4"       # a free anchor on the station recipe
+quarter = "pier"               # hubs only: which quarter sign it sits under
+keeper  = "npc.bel_ashby"      # example keeper; must have a line citing the cause
+state   = "building"           # open | closed | building
+level   = 1                    # upgrades swap module parameters and widen offers
+sign    = "Canteen · opens when Kettle ships rations"
+cause   = { script = "gm.kettle_growth", facts = ["stage_built:kettle_dock:2"] }
+rollback_line = "We've taken the canteen frame down to re-seal it."</code></pre>
+<ul>
+<li><strong>A new shop opens:</strong> add a part with <code>state = "building"</code> (scaffold module, dashed sign), then <code>"open"</code>.</li>
+<li><strong>The wharf closes for repairs:</strong> set <code>state = "closed"</code>. The cradle gets a scaffold overlay and a sign ("Cradle down for re-tarring · Orrin fits at Kettle Dock"); the key icon shows a closed lamp; Orrin's line explains. Your locker stays yours.</li>
+<li><strong>A part is upgraded:</strong> raise <code>level</code>. A bigger cradle, more offers, a new line from the keeper.</li>
+<li><strong>Validator:</strong> the anchor exists and is free; the kind is within budget; there is a keeper with a line citing the cause; changes apply while docked or paused.</li>
+</ul>
+
+<h3 class="a-amber">4. Art direction</h3>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal A market: the camera is on the market booth, the market panel is a striped stall beside it">
+  <rect width="1280" height="720" fill="url(#sky)"/><rect width="1280" height="720" fill="url(#stars)"/>
+  <ellipse cx="200" cy="640" rx="360" ry="150" fill="url(#cloudT)"/>
+  <g filter="url(#sk)"><use href="#wharf" transform="translate(-670 -310) scale(2)"/></g>
+  <rect x="236" y="86" width="268" height="232" rx="22" fill="none" stroke="#E69F00" stroke-width="7"/>
+  <!-- Ilse's bubble -->
+  <path d="M330 430 L380 318 L384 430 Z" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="40" y="428" width="420" height="88" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <path d="M334 430 H382" stroke="#f7ead2" stroke-width="5"/>
+  <text x="58" y="455" class="s b">Ilse Marrow</text>
+  <text x="58" y="479">Glassite pays well here. The lamp-glass</text><text x="58" y="501">works can't get enough of it.</text>
+  <!-- back and HUD -->
+  <rect x="20" y="16" width="120" height="42" rx="12" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="80" y="43" class="b c">◀ Station</text>
+  <rect x="152" y="16" width="250" height="42" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/><text x="170" y="44" class="w b">160 cr · Hold 20 / 20</text>
+  <!-- stall panel -->
+  <g filter="url(#shadow)"><rect x="700" y="70" width="550" height="620" rx="18" fill="#f7ead2" stroke="#2a1a2e" stroke-width="4"/></g>
+  <g filter="url(#sk)">
+    <path d="M700 88 a18 18 0 0 1 18 -18 H1232 a18 18 0 0 1 18 18 V114 H700 Z" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="4"/>
+    <path d="M700 114 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0 q25 18 50 0" fill="#2f9d86" stroke="#2a1a2e" stroke-width="3"/>
+  </g>
+  <text x="730" y="172" class="h1">Market</text><text x="730" y="198" class="s">Lantern Wharf · Ilse Marrow keeps the stalls</text>
+  <text x="730" y="236" class="cap">WARE</text><text x="910" y="236" class="cap">PRICE</text><text x="1030" y="236" class="cap">HOLD</text>
+  <g>
+    <rect x="716" y="246" width="518" height="56" rx="10" fill="#f1dcb4"/>
+    <use href="#w-glass" transform="translate(744 274)"/><text x="768" y="281" class="b" style="font-size:18px">Glassite</text>
+    <path d="M908 258 H1006 V290 H908 L898 274 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><text x="957" y="280" class="s b c">pays 26 cr</text>
+    <text x="1040" y="281" class="c">0</text>
+    <rect x="1066" y="256" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1104" y="280" class="s c">Sell 1</text>
+    <rect x="1150" y="256" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1188" y="280" class="s c">All</text>
+  </g>
+  <g>
+    <rect x="716" y="310" width="518" height="56" rx="10" fill="#fbe9c9" stroke="#E69F00" stroke-width="4"/>
+    <use href="#w-ice" transform="translate(744 338)"/><text x="768" y="345" class="b" style="font-size:18px">Ice</text>
+    <path d="M908 322 H1006 V354 H908 L898 338 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><text x="957" y="344" class="s b c">pays 10 cr</text>
+    <text x="1040" y="345" class="c b">14</text>
+    <rect x="1066" y="320" width="76" height="36" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="1104" y="344" class="s b c">Sell 1</text>
+    <rect x="1150" y="320" width="76" height="36" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="1188" y="344" class="s b c">All</text>
+  </g>
+  <g>
+    <rect x="716" y="374" width="518" height="56" rx="10" fill="#f1dcb4"/>
+    <use href="#w-iron" transform="translate(744 402)"/><text x="768" y="409" class="b" style="font-size:18px">Iron ore</text>
+    <path d="M908 386 H1006 V418 H908 L898 402 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><text x="957" y="408" class="s b c">pays 15 cr</text>
+    <text x="1040" y="409" class="c b">6</text>
+    <rect x="1066" y="384" width="76" height="36" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="1104" y="408" class="s b c">Sell 1</text>
+    <rect x="1150" y="384" width="76" height="36" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="1188" y="408" class="s b c">All</text>
+  </g>
+  <g>
+    <use href="#w-rations" transform="translate(744 466)"/><text x="768" y="473" class="b" style="font-size:18px">Rations</text>
+    <path d="M908 450 H1006 V482 H908 L898 466 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><text x="957" y="472" class="s b c">asks 16 cr</text>
+    <text x="1040" y="473" class="c">0</text>
+    <rect x="1066" y="448" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1104" y="472" class="s c">Buy 1</text>
+    <rect x="1150" y="448" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1188" y="472" class="s c">Max</text>
+  </g>
+  <g>
+    <rect x="716" y="502" width="518" height="56" rx="10" fill="#f1dcb4"/>
+    <use href="#w-plate" transform="translate(744 530)"/><text x="768" y="537" class="b" style="font-size:18px">Refined plate</text>
+    <path d="M908 514 H1006 V546 H908 L898 530 Z" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/><text x="957" y="536" class="s b c">asks 34 cr</text>
+    <text x="1040" y="537" class="c">0</text>
+    <rect x="1066" y="512" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1104" y="536" class="s c">Buy 1</text>
+    <rect x="1150" y="512" width="76" height="36" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="1188" y="536" class="s c">Max</text>
+  </g>
+  <rect x="716" y="580" width="518" height="46" rx="10" fill="#fff6e3" stroke="#0072B2" stroke-width="3"/>
+  <use href="#i-note" transform="translate(744 603) scale(.8)"/><text x="766" y="609" class="s"><tspan class="b">Goal</tspan> · Odo at Kettle Dock needs ice for his greenhouse</text>
+  <text x="730" y="666" class="s">Hold full: buy buttons rest until you sell. Fly off with W A S D.</text>
+  <rect x="24" y="636" width="64" height="64" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(56 660)"/><text x="56" y="692" class="xs c b">Log</text>
+</svg>
+<figcaption>A, market. The camera has glided onto the market booth, which keeps its orange outline. The market is a striped stall beside it, with room to breathe: wares as drawn goods, prices on tags, one row hovered. Disabled buttons are dashed, never greyed text.</figcaption>
+</figure>
+
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal A hullwright: the Wren lifted into the cradle with four sockets, hold pods being dragged onto the hold socket, a crane swinging over, budgets and a stat preview on the right">
+  <rect width="1280" height="720" fill="url(#sky)"/><rect width="1280" height="720" fill="url(#stars)"/>
+  <g filter="url(#sk)">
+    <rect x="80" y="72" width="760" height="640" rx="16" fill="#120f26" opacity=".5"/>
+    <path fill-rule="evenodd" d="M70 60 H830 V700 H70 Z M250 110 H650 V650 H250 Z" fill="url(#planks)" stroke="#2a1a2e" stroke-width="5"/>
+    <path fill-rule="evenodd" d="M70 640 H830 V700 H70 Z" fill="url(#hatch)"/>
+    <g fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"><rect x="250" y="252" width="94" height="28" rx="6"/><rect x="556" y="252" width="94" height="28" rx="6"/><rect x="250" y="600" width="140" height="28" rx="6"/><rect x="510" y="600" width="140" height="28" rx="6"/></g>
+    <g fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"><rect x="334" y="248" width="14" height="36" rx="3"/><rect x="552" y="248" width="14" height="36" rx="3"/></g>
+    <g fill="url(#glow)"><circle cx="70" cy="60" r="34"/><circle cx="830" cy="60" r="34"/><circle cx="70" cy="700" r="34"/><circle cx="830" cy="700" r="34"/></g>
+  </g>
+  <use href="#wren" transform="translate(450 380) scale(2.6)"/>
+  <use href="#p-lens" transform="translate(450 380) scale(2.6)"/>
+  <use href="#p-chip" transform="translate(408 359) scale(2.2)"/>
+  <!-- sockets -->
+  <circle cx="450" cy="162" r="46" fill="none" stroke="#e7b15a" stroke-width="4"/>
+  <g fill="none" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="6 5"><circle cx="450" cy="359" r="17"/><circle cx="492" cy="359" r="17"/><circle cx="450" cy="568" r="26"/></g>
+  <circle cx="408" cy="359" r="19" fill="none" stroke="#e7b15a" stroke-width="4"/>
+  <!-- drop preview on hold -->
+  <use href="#pods-shape" transform="translate(450 380) scale(2.6)" fill="#56B4E9" fill-opacity=".18" stroke="#56B4E9" stroke-width="4" stroke-dasharray="12 8" class="ns"/>
+  <circle cx="450" cy="453" r="34" fill="none" stroke="#fff" stroke-width="10"/>
+  <circle cx="450" cy="453" r="34" fill="none" stroke="#0072B2" stroke-width="5" stroke-dasharray="10 6"/>
+  <!-- crane swinging over -->
+  <path d="M790 104 L520 404" stroke="#2a1a2e" stroke-width="22" stroke-linecap="round"/>
+  <path d="M790 104 L520 404" stroke="#e7b15a" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="790" cy="104" r="26" fill="#2f9d86" stroke="#2a1a2e" stroke-width="4"/>
+  <path d="M600 470 q30 -20 40 -60 M620 492 q40 -26 52 -76" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <!-- dragged pods -->
+  <path d="M1000 300 C900 360 760 420 560 412" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="4 9" stroke-linecap="round"/>
+  <g filter="url(#shadow)" opacity=".95"><use href="#p-pods" transform="translate(486 412) scale(2.6)" class="ns"/></g>
+  <use href="#cursor" transform="translate(520 404)"/>
+  <rect x="540" y="430" width="196" height="54" rx="10" fill="#f7ead2" stroke="#0072B2" stroke-width="3"/>
+  <text x="554" y="452" class="s b">Let go to fit hold pods</text><text x="554" y="474" class="s">Hold +10 · Mass +4</text>
+  <!-- socket labels -->
+  <g stroke="#2a1a2e" stroke-width="2.5"><path d="M240 162 H404"/><path d="M240 359 H389"/><path d="M240 453 H416"/><path d="M240 568 H424"/></g>
+  <g><rect x="84" y="136" width="158" height="52" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="96" y="158" class="s b">Drill mount</text><text x="96" y="178" class="s">Mining lens</text></g>
+  <g><rect x="84" y="333" width="158" height="52" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="96" y="355" class="s b">Utility</text><text x="96" y="375" class="s">Nav chip · 2 free</text></g>
+  <g><rect x="84" y="427" width="158" height="52" rx="10" fill="#f7ead2" stroke="#0072B2" stroke-width="5"/><text x="96" y="449" class="s b">Hold</text><text x="96" y="469" class="s">Drop here</text></g>
+  <g><rect x="84" y="542" width="158" height="52" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="96" y="564" class="s b">Engine</text><text x="96" y="584" class="s">Free</text></g>
+  <!-- Orrin -->
+  <rect x="270" y="10" width="400" height="76" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <path d="M640 84 L700 110 L612 84" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-linejoin="round"/><path d="M614 84 H638" stroke="#f7ead2" stroke-width="5"/>
+  <text x="288" y="36" class="s b">Orrin Vale</text><text x="288" y="62">Set the pods on her belly. I'll swing them in.</text>
+  <rect x="14" y="14" width="120" height="40" rx="12" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="74" y="40" class="b c">◀ Station</text>
+  <rect x="1050" y="12" width="210" height="40" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/><text x="1068" y="39" class="w b">1 840 cr · Hold 0 / 20</text>
+  <!-- right panel -->
+  <g filter="url(#shadow)"><rect x="852" y="64" width="408" height="640" rx="18" fill="#f7ead2" stroke="#2a1a2e" stroke-width="4"/></g>
+  <text x="874" y="104" class="h2">Orrin's wharf</text><text x="874" y="128" class="s">Lantern Wharf · Wharf Cooperative</text>
+  <rect x="874" y="140" width="364" height="5" rx="2" fill="#2f9d86"/>
+  <text x="874" y="176" class="cap">POWER</text>
+  <g stroke="#2a1a2e" stroke-width="2.5"><circle cx="964" cy="171" r="9" fill="#ffcf6b"/><circle cx="990" cy="171" r="9" fill="#ffcf6b"/><circle cx="1016" cy="171" r="9" fill="#ffcf6b"/><circle cx="1042" cy="171" r="9" fill="#f7ead2"/><circle cx="1068" cy="171" r="9" fill="#f7ead2"/><circle cx="1094" cy="171" r="9" fill="#f7ead2"/></g>
+  <text x="1236" y="177" class="s r">3 of 6</text>
+  <text x="874" y="210" class="cap">MASS</text>
+  <g stroke="#2a1a2e" stroke-width="2"><rect x="956" y="196" width="16" height="20" rx="3" fill="#c98f4a"/><rect x="978" y="196" width="16" height="20" rx="3" fill="#56B4E9"/><rect x="1000" y="196" width="16" height="20" rx="3" fill="#56B4E9"/><rect x="1022" y="196" width="16" height="20" rx="3" fill="#56B4E9"/><rect x="1044" y="196" width="16" height="20" rx="3" fill="#56B4E9"/><rect x="1066" y="196" width="16" height="20" rx="3" fill="#f7ead2"/><rect x="1088" y="196" width="16" height="20" rx="3" fill="#f7ead2"/><rect x="1110" y="196" width="16" height="20" rx="3" fill="#f7ead2"/></g>
+  <text x="1236" y="212" class="s r">1 → 5 of 8</text>
+  <text x="874" y="250" class="cap">IF YOU FIT HOLD PODS</text>
+  <text x="874" y="280">Top speed</text><text x="1080" y="280" class="r b">72 → 66</text>
+  <rect x="1094" y="262" width="66" height="26" rx="13" fill="#D55E00"/><text x="1127" y="281" class="w s b c">▼ 6</text>
+  <text x="874" y="312">Turn</text><text x="1080" y="312" class="r b">270 → 248</text>
+  <rect x="1094" y="294" width="66" height="26" rx="13" fill="#D55E00"/><text x="1127" y="313" class="w s b c">▼ 22</text>
+  <text x="874" y="344">Hold</text><text x="1080" y="344" class="r b">20 → 30</text>
+  <rect x="1094" y="326" width="66" height="26" rx="13" fill="#0072B2"/><text x="1127" y="345" class="w s b c">▲ 10</text>
+  <text x="874" y="376">Mining</text><text x="1080" y="376" class="r b">× 1.5</text><text x="1127" y="376" class="s c">same</text>
+  <text x="874" y="414" class="cap">STYLE</text>
+  <rect x="874" y="426" width="364" height="10" rx="5" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2"/>
+  <circle cx="1010" cy="431" r="9" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="3 3"/>
+  <circle cx="1140" cy="431" r="12" fill="#E69F00" stroke="#2a1a2e" stroke-width="2.5"/>
+  <text x="874" y="458" class="s">Prospector</text><text x="1238" y="458" class="s r b">Hauler</text>
+  <g>
+    <rect x="874" y="474" width="108" height="34" rx="10" fill="#2a1a2e"/><text x="928" y="497" class="w s b c">Ready 3</text>
+    <rect x="990" y="474" width="108" height="34" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1044" y="497" class="s b c">Make 2</text>
+    <rect x="1106" y="474" width="132" height="34" rx="10" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1172" y="497" class="s b c">Friends 1</text>
+  </g>
+  <rect x="874" y="520" width="364" height="54" rx="10" fill="none" stroke="#0072B2" stroke-width="3" stroke-dasharray="8 6"/>
+  <text x="890" y="553" class="s b">Hold pods · on the crane hook</text>
+  <rect x="874" y="582" width="364" height="54" rx="10" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/>
+  <use href="#fins-shape" transform="translate(906 590) scale(.32)" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2"/>
+  <text x="944" y="604" class="s b">Swift fins · engine</text><text x="944" y="624" class="s">Turn +40 · power 1 · 450 cr</text>
+  <rect x="874" y="644" width="364" height="54" rx="10" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="2.5"/>
+  <use href="#p-chip" transform="translate(906 671) scale(1.3)"/>
+  <text x="944" y="666" class="s b">Rock cradle · control rack</text><text x="944" y="686" class="s">Click a rock to mine it · 700 cr</text>
+  <rect x="14" y="648" width="56" height="56" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(42 670)"/><text x="42" y="698" class="xs c b">Log</text>
+</svg>
+<figcaption>A, hullwright. Clicking the cradle arm zooms right into it: the Wren is lifted into the cradle, large, with its four sockets. The lens is already fitted on the nose (gold ring); the nav chip sits in the control rack. Hold pods are being dragged from the tray: the hold socket rings sky blue, a dashed outline shows where they will sit, the crane is already swinging over, and the panel previews the cost before you let go.</figcaption>
+</figure>
+
+<h3 class="a-amber">5. Hullwright fit</h3>
+<ul>
+<li>The wharf is the cradle arm you can see on the station. Clicking it zooms the camera into the cradle, and your ship is lifted into it. There is no separate "shop screen": the drydock is a place on the station.</li>
+<li>Drag from the tray onto a socket; the crane on the arm does the fitting animation where you can see it, and the ship is already wearing the part when you zoom back out to the whole station.</li>
+<li>The tray has the three tabs (Ready, Make, Friends). A Friends part shows the person and station it comes from, and arrives after your next docking there.</li>
+<li>Places differ through data: a wharf room lists the sockets it can work on and its own parts. A rough rigger at Cinder Hook might only do drill mounts, with heavier, cheaper parts and a smaller cradle module.</li>
+</ul>
+
+<h3 class="a-amber">6. Risks, and what to test first</h3>
+<ul>
+<li><strong>Click targets at hub size.</strong> Small modules on a big station get hard to hit. Quarters and the key are the answer, but they need testing.</li>
+<li><strong>Art and layout are coupled.</strong> A game master part needs a free anchor and a module that reads from above. Every room kind needs a module, which is more art than the other proposals.</li>
+<li><strong>Camera moves can feel slow</strong> on the tenth visit. Keep them short and skippable (a click during the glide lands at once).</li>
+<li><strong>Test first:</strong> the hullwright cradle view at the Wharf with the drag, the preview and the animation; then a mock 12-part hub against the Wharf, timing clicks to a named room and counting misclicks.</li>
+</ul>
+
+<!-- ============================ B ============================ -->
+<h2 id="b" class="a-purple">B. The quay</h2>
+<p class="lead">Docking opens a street of rooms. Each part is a shopfront on a boardwalk along the station's edge, and the room you are in fills the screen above it.</p>
+
+<h3 class="a-purple">1. Structure</h3>
+<ul>
+<li>The docked view is a quay: shopfronts side by side along a boardwalk, seen from above, with your ship moored at the water's edge (the space side). The dockmaster's stand is always the first front, next to your ship.</li>
+<li><strong>Click a front</strong> and you step in: the room fills the upper two-thirds of the screen, at full width. The quay stays as a strip of rooftops along the bottom, so you can hop to the neighbour in one click.</li>
+<li>Long quays scroll: drag the boardwalk, or click "more" at its end. The mouse wheel also pans it.</li>
+<li>The keeper's portrait sits behind the counter, and their bubbles come from there.</li>
+</ul>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal B market: the market room fills the top of the screen with five crates of wares, and the quay of shopfronts runs along the bottom">
+  <rect width="1280" height="502" fill="url(#floor)"/>
+  <g filter="url(#sk)">
+    <rect x="-10" y="-10" width="1300" height="78" fill="url(#awnGold)" stroke="#2a1a2e" stroke-width="4"/>
+    <path d="M-10 68 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0 q26 18 52 0" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="30" y="100" width="1220" height="44" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+    <rect x="32" y="128" width="1216" height="14" fill="url(#hatch)"/>
+  </g>
+  <rect x="20" y="14" width="190" height="46" rx="12" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><text x="38" y="46" class="h2">Market</text>
+  <circle cx="640" cy="92" r="36" fill="#f7ead2" stroke="#2a1a2e" stroke-width="4"/>
+  <circle cx="640" cy="98" r="20" fill="#f1c597" stroke="#2a1a2e" stroke-width="3"/><path d="M620 92 q20 -24 40 0" fill="#7a4a3a" stroke="#2a1a2e" stroke-width="3"/><circle cx="633" cy="100" r="2.5" fill="#2a1a2e"/><circle cx="647" cy="100" r="2.5" fill="#2a1a2e"/>
+  <rect x="700" y="12" width="420" height="72" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <path d="M702 56 L676 80 L702 72" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-linejoin="round"/>
+  <text x="718" y="38" class="s b">Ilse Marrow</text><text x="718" y="64">Odo's still short of ice at Kettle Dock.</text>
+  <rect x="1132" y="14" width="132" height="46" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/><text x="1198" y="44" class="w b c">160 cr</text>
+  <!-- crates -->
+  <g id="b-crates">
+    <g filter="url(#sk)" fill="#d9a865" stroke="#2a1a2e" stroke-width="4">
+      <rect x="60" y="168" width="174" height="140" rx="6"/><rect x="300" y="168" width="174" height="140" rx="6"/><rect x="540" y="168" width="174" height="140" rx="6"/><rect x="780" y="168" width="174" height="140" rx="6"/><rect x="1020" y="168" width="174" height="140" rx="6"/>
+    </g>
+    <g stroke="#2a1a2e" stroke-width="2" opacity=".45"><path d="M60 214 H234 M60 262 H234 M300 214 H474 M300 262 H474 M540 214 H714 M540 262 H714 M780 214 H954 M780 262 H954 M1020 214 H1194 M1020 262 H1194"/></g>
+    <use href="#w-glass" transform="translate(147 238) scale(2.4)"/><use href="#w-ice" transform="translate(387 238) scale(2.4)"/><use href="#w-iron" transform="translate(627 238) scale(2.4)"/><use href="#w-rations" transform="translate(867 238) scale(2.2)"/><use href="#w-plate" transform="translate(1107 238) scale(2.2)"/>
+  </g>
+  <rect x="290" y="158" width="194" height="330" rx="14" fill="none" stroke="#E69F00" stroke-width="6"/>
+  <g class="b">
+    <text x="147" y="340" class="c">Glassite</text><text x="387" y="340" class="c">Ice</text><text x="627" y="340" class="c">Iron ore</text><text x="867" y="340" class="c">Rations</text><text x="1107" y="340" class="c">Refined plate</text>
+  </g>
+  <g fill="#2a1a2e"><rect x="92" y="352" width="110" height="30" rx="6"/><rect x="332" y="352" width="110" height="30" rx="6"/><rect x="572" y="352" width="110" height="30" rx="6"/><rect x="812" y="352" width="110" height="30" rx="6"/><rect x="1052" y="352" width="110" height="30" rx="6"/></g>
+  <g class="b"><text x="147" y="373" class="w s c">pays 26 cr</text><text x="387" y="373" class="w s c">pays 10 cr</text><text x="627" y="373" class="w s c">pays 15 cr</text><text x="867" y="373" class="w s c">asks 16 cr</text><text x="1107" y="373" class="w s c">asks 34 cr</text></g>
+  <text x="147" y="408" class="s c">In hold: 0</text><text x="387" y="408" class="s c b">In hold: 14</text><text x="627" y="408" class="s c b">In hold: 6</text><text x="867" y="408" class="s c">Stock 146</text><text x="1107" y="408" class="s c">Stock 124</text>
+  <g stroke="#2a1a2e">
+    <rect x="76" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/><rect x="152" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/>
+    <rect x="316" y="424" width="68" height="36" rx="8" fill="#e7b15a" stroke-width="2.5"/><rect x="392" y="424" width="68" height="36" rx="8" fill="#e7b15a" stroke-width="2.5"/>
+    <rect x="556" y="424" width="68" height="36" rx="8" fill="#e7b15a" stroke-width="2.5"/><rect x="632" y="424" width="68" height="36" rx="8" fill="#e7b15a" stroke-width="2.5"/>
+    <rect x="796" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/><rect x="872" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/>
+    <rect x="1036" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/><rect x="1112" y="424" width="68" height="36" rx="8" fill="none" stroke-width="2" stroke-dasharray="5 4"/>
+  </g>
+  <g class="s c"><text x="110" y="448" class="s c">Sell 1</text><text x="186" y="448" class="s c">All</text><text x="350" y="448" class="s c b">Sell 1</text><text x="426" y="448" class="s c b">All</text><text x="590" y="448" class="s c b">Sell 1</text><text x="666" y="448" class="s c b">All</text><text x="830" y="448" class="s c">Buy 1</text><text x="906" y="448" class="s c">Max</text><text x="1070" y="448" class="s c">Buy 1</text><text x="1146" y="448" class="s c">Max</text></g>
+  <use href="#quay"/>
+  <rect x="204" y="508" width="212" height="92" rx="14" fill="none" stroke="#E69F00" stroke-width="6"/>
+  <rect x="24" y="652" width="56" height="56" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(52 674)"/><text x="52" y="702" class="xs c b">Log</text>
+</svg>
+<figcaption>B, market. The market room fills the width: each ware is a crate on the floor with a chalk price tag, and the hovered crate (ice) is outlined. Below, the quay: the market front is outlined as "you are here", the wharf is the wide timber front with the crane, and an empty lot waits for the game master.</figcaption>
+</figure>
+
+<h3 class="a-purple">2. Growth</h3>
+<ul>
+<li>A room takes one or two fronts of width. The quay is as long as its rooms.</li>
+<li><strong>Outpost:</strong> a short stub of pier with two or three fronts. No scrolling.</li>
+<li><strong>Hub:</strong> the quay is longer than the screen. It splits into named sections (Barge row, Lamp lane, Brass booths) shown as pills along the top of the strip; clicking a pill pans there. A very big hub can have two quays, an upper and a lower.</li>
+<li>Empty lots ("To let") are part of the look: a station with space to grow shows it.</li>
+</ul>
+<figure class="grow">
+<svg viewBox="0 0 1200 300" role="img" aria-label="Proposal B growth: a stub quay with two fronts, a full quay with five, a hub quay that scrolls with section pills">
+  <rect width="1200" height="300" fill="url(#sky)"/><rect width="1200" height="300" fill="url(#stars)"/>
+  <g filter="url(#sk)">
+    <rect x="30" y="140" width="200" height="30" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="40" y="86" width="80" height="54" rx="8" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="3"/><rect x="130" y="86" width="90" height="54" rx="8" fill="url(#awnGold)" stroke="#2a1a2e" stroke-width="3"/>
+    <use href="#wren" transform="translate(80 200) rotate(180) scale(.32)"/>
+    <rect x="420" y="140" width="340" height="30" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="424" y="86" width="56" height="54" rx="8" fill="url(#awnTeal)" stroke="#2a1a2e" stroke-width="3"/><rect x="486" y="86" width="60" height="54" rx="8" fill="url(#awnGold)" stroke="#2a1a2e" stroke-width="3"/><rect x="552" y="86" width="110" height="54" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/><rect x="668" y="86" width="44" height="54" rx="8" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><rect x="718" y="86" width="38" height="54" rx="8" fill="url(#hatch)" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="7 5"/>
+    <use href="#wren" transform="translate(456 200) rotate(180) scale(.32)"/>
+    <rect x="820" y="140" width="390" height="30" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="826" y="86" width="50" height="54" rx="8" fill="url(#awnRed)" stroke="#2a1a2e" stroke-width="3"/><rect x="882" y="86" width="50" height="54" rx="8" fill="url(#awnBrass)" stroke="#2a1a2e" stroke-width="3"/><rect x="938" y="86" width="50" height="54" rx="8" fill="url(#awnRed)" stroke="#2a1a2e" stroke-width="3"/><rect x="994" y="86" width="96" height="54" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/><rect x="1096" y="86" width="50" height="54" rx="8" fill="url(#awnBrass)" stroke="#2a1a2e" stroke-width="3"/><rect x="1152" y="86" width="60" height="54" rx="8" fill="url(#awnRed)" stroke="#2a1a2e" stroke-width="3"/>
+  </g>
+  <rect x="826" y="40" width="112" height="28" rx="14" fill="#2a1a2e" stroke="#E69F00" stroke-width="3"/><text x="882" y="60" class="w s b c">Brass booths</text>
+  <rect x="946" y="40" width="102" height="28" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="997" y="60" class="s b c">Barge row</text>
+  <rect x="1056" y="40" width="100" height="28" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1106" y="60" class="s b c">Lamp lane</text>
+  <rect x="1164" y="40" width="30" height="28" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2"/><text x="1179" y="60" class="s b c">▶</text>
+  <text x="30" y="262" class="w b">Outpost · 2 fronts</text><text x="30" y="286" class="w s">Fits on screen, no scrolling.</text>
+  <text x="420" y="262" class="w b">Lantern Wharf · 5 fronts</text><text x="420" y="286" class="w s">Wharf is a double front. One lot to let.</text>
+  <text x="820" y="262" class="w b">Hub · 14 fronts, 3 sections</text><text x="820" y="286" class="w s">Pills pan the quay. Drag to scroll.</text>
+</svg>
+<figcaption>B, growth. The frame is always "a street"; it simply gets longer, and sections name its stretches.</figcaption>
+</figure>
+
+<h3 class="a-purple">3. Game master hooks</h3>
+<pre><code># One room on a station's quay.
+[[station.brassmouth_exchange.room]]
+id       = "room.brassmouth.chandlery"
+kind     = "counter"           # general shop: keeper, offers, talk lines
+section  = "barge_row"
+after    = "room.brassmouth.market"   # its place along the quay
+frontage = 1                   # 1 or 2 widths
+awning   = "faction"           # paint from the owner's swatch
+keeper   = "npc.tamsin_oddway"
+state    = "open"              # open | shuttered | lot
+offers   = ["part.hold_pods", "ware.plate"]
+cause    = { script = "gm.chandlery", facts = ["sell:plate:brassmouth"] }</code></pre>
+<ul>
+<li><strong>A new shop opens:</strong> a "To let" lot becomes a front, or the quay grows by one front at the end.</li>
+<li><strong>The wharf closes for repairs:</strong> <code>state = "shuttered"</code>. Shutters come down over the front with a chalked sign; clicking it gets the keeper's line about where to go instead.</li>
+<li><strong>A room goes away:</strong> it becomes a lot for a few dockings (counted, never timed), so the change is visible, then the quay closes up.</li>
+<li><strong>Validator:</strong> the section exists, the order is unambiguous, the quay length stays under the hub cap, and there is a keeper with a line citing the cause. No station mesh changes are needed, so the art cost of a new room is one awning and one interior.</li>
+</ul>
+
+<h3 class="a-purple">4. Art direction</h3>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal B hullwright: a dry dock room with the Wren lying in a basin, a gantry crane on rails, parts on racks, swift fins being dragged onto the engine socket, and a chalkboard of budgets">
+  <rect width="1280" height="502" fill="url(#floor)"/>
+  <g filter="url(#sk)">
+    <rect x="30" y="16" width="580" height="112" rx="10" fill="#c98f4a" stroke="#2a1a2e" stroke-width="4"/>
+    <rect x="30" y="100" width="580" height="22" fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="60" y="150" width="840" height="290" rx="18" fill="url(#sky)" stroke="#2a1a2e" stroke-width="5"/>
+    <rect x="60" y="150" width="840" height="290" rx="18" fill="url(#stars)"/>
+    <rect x="40" y="134" width="880" height="16" rx="5" fill="#c98f4a" stroke="#2a1a2e" stroke-width="3"/>
+    <rect x="40" y="440" width="880" height="16" rx="5" fill="#c98f4a" stroke="#2a1a2e" stroke-width="3"/>
+    <g fill="url(#planks)" stroke="#2a1a2e" stroke-width="3"><rect x="300" y="150" width="20" height="62" rx="4"/><rect x="300" y="378" width="20" height="62" rx="4"/><rect x="560" y="150" width="20" height="56" rx="4"/><rect x="560" y="384" width="20" height="56" rx="4"/></g>
+  </g>
+  <!-- racks: parts on pegs -->
+  <use href="#p-pods" transform="translate(110 64) scale(.62)" class="ns"/>
+  <rect x="190" y="30" width="96" height="66" rx="8" fill="none" stroke="#f7ead2" stroke-width="3" stroke-dasharray="7 5"/>
+  <use href="#p-chip" transform="translate(370 60) scale(2)"/>
+  <g opacity=".9"><circle cx="500" cy="60" r="26" fill="none" stroke="#f7ead2" stroke-width="3" stroke-dasharray="6 5"/><path d="M500 44 V76 M484 60 H516" stroke="#f7ead2" stroke-width="3"/></g>
+  <g class="b">
+    <rect x="62" y="102" width="96" height="20" rx="4" fill="#f7ead2"/><text x="110" y="117" class="xs c b">Hold pods</text>
+    <rect x="190" y="102" width="96" height="20" rx="4" fill="#f7ead2"/><text x="238" y="117" class="xs c b">Swift fins</text>
+    <rect x="322" y="102" width="96" height="20" rx="4" fill="#f7ead2"/><text x="370" y="117" class="xs c b">Nav chip</text>
+    <rect x="440" y="102" width="122" height="20" rx="4" fill="#f7ead2"/><text x="501" y="117" class="xs c b">Long-throw (Make)</text>
+  </g>
+  <!-- ship lying in the basin -->
+  <use href="#wren" transform="translate(480 295) rotate(90) scale(2)"/>
+  <use href="#p-lens" transform="translate(480 295) rotate(90) scale(2)"/>
+  <circle cx="648" cy="295" r="38" fill="none" stroke="#e7b15a" stroke-width="4"/>
+  <g fill="none" stroke="#f7ead2" stroke-width="3" stroke-dasharray="6 5"><circle cx="496" cy="263" r="13"/><circle cx="496" cy="295" r="13"/><circle cx="496" cy="327" r="13"/><circle cx="424" cy="295" r="22"/></g>
+  <!-- drop preview on engine -->
+  <use href="#fins-shape" transform="translate(480 295) rotate(90) scale(2)" fill="#56B4E9" fill-opacity=".2" stroke="#56B4E9" stroke-width="4" stroke-dasharray="12 8" class="ns"/>
+  <circle cx="336" cy="295" r="30" fill="none" stroke="#fff" stroke-width="10"/>
+  <circle cx="336" cy="295" r="30" fill="none" stroke="#0072B2" stroke-width="5" stroke-dasharray="10 6"/>
+  <!-- gantry rolling over -->
+  <rect x="356" y="122" width="26" height="346" rx="6" fill="#2f9d86" stroke="#2a1a2e" stroke-width="4"/>
+  <rect x="347" y="270" width="44" height="50" rx="6" fill="#e7b15a" stroke="#2a1a2e" stroke-width="3"/>
+  <path d="M410 160 h-22 m8 -8 l-8 8 l8 8 M410 432 h-22 m8 -8 l-8 8 l8 8" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <!-- dragged fins -->
+  <path d="M238 96 C250 130 290 150 330 170" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="4 9" stroke-linecap="round"/>
+  <g filter="url(#shadow)"><use href="#p-fins" transform="translate(496 281) rotate(90) scale(2)" class="ns"/></g>
+  <use href="#cursor" transform="translate(384 182)"/>
+  <!-- Orrin -->
+  <rect x="630" y="16" width="290" height="98" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/>
+  <text x="646" y="40" class="s b">Orrin Vale</text><text x="646" y="68">Fins on the tail. Mind the mass,</text><text x="646" y="94">and she'll turn like a swift.</text>
+  <!-- chalkboard -->
+  <g filter="url(#sk)"><rect x="930" y="16" width="330" height="470" rx="12" fill="#23403a" stroke="#8a5a2e" stroke-width="12"/></g>
+  <rect x="924" y="10" width="342" height="482" rx="14" fill="none" stroke="#2a1a2e" stroke-width="3"/>
+  <text x="954" y="56" class="w h2">Orrin's wharf</text>
+  <text x="954" y="90" class="w cap">POWER</text>
+  <g stroke="#fff" stroke-width="2"><circle cx="1030" cy="85" r="7" fill="#ffcf6b"/><circle cx="1050" cy="85" r="7" fill="#ffcf6b"/><circle cx="1070" cy="85" r="7" fill="#56B4E9"/><circle cx="1090" cy="85" r="7" fill="none"/><circle cx="1110" cy="85" r="7" fill="none"/><circle cx="1130" cy="85" r="7" fill="none"/></g>
+  <text x="1236" y="91" class="w s r">2 → 3 of 6</text>
+  <text x="954" y="124" class="w cap">MASS</text>
+  <g stroke="#fff" stroke-width="2"><rect x="1024" y="111" width="12" height="16" rx="3" fill="#c98f4a"/><rect x="1040" y="111" width="12" height="16" rx="3" fill="#56B4E9"/><rect x="1056" y="111" width="12" height="16" rx="3" fill="none"/><rect x="1072" y="111" width="12" height="16" rx="3" fill="none"/><rect x="1088" y="111" width="12" height="16" rx="3" fill="none"/><rect x="1104" y="111" width="12" height="16" rx="3" fill="none"/><rect x="1120" y="111" width="12" height="16" rx="3" fill="none"/><rect x="1136" y="111" width="12" height="16" rx="3" fill="none"/></g>
+  <text x="1236" y="125" class="w s r">1 → 2 of 8</text>
+  <path d="M954 144 H1236" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 5"/>
+  <text x="954" y="172" class="w b">Swift fins</text>
+  <text x="954" y="200" class="w">Turn 270 → 310</text><text x="1236" y="200" class="w b r">▲ 40</text>
+  <text x="954" y="226" class="w">Top speed 72 → 71</text><text x="1236" y="226" class="w b r">▼ 1</text>
+  <text x="954" y="254" class="w s">Leaning prospector</text>
+  <path d="M954 272 H1236" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 5"/>
+  <text x="954" y="300" class="w cap">MAKE</text>
+  <text x="954" y="326" class="w b">Long-throw drill</text>
+  <text x="954" y="350" class="w s">Blueprint: found ✓</text>
+  <text x="954" y="372" class="w s">Iron ore 6 of 8 · Plate 4 of 4</text>
+  <text x="954" y="406" class="w cap">FRIENDS</text>
+  <text x="954" y="432" class="w b">Seam lamp</text>
+  <text x="954" y="456" class="w s">Hesper's lens-grinder sends it</text>
+  <text x="954" y="476" class="w s">after you dock at the Observatory.</text>
+  <use href="#quay"/>
+  <rect x="424" y="508" width="412" height="92" rx="14" fill="none" stroke="#E69F00" stroke-width="6"/>
+  <rect x="24" y="652" width="56" height="56" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(52 674)"/><text x="52" y="702" class="xs c b">Log</text>
+</svg>
+<figcaption>B, hullwright. The wharf is the double-width room: a dry-dock basin open to space with the Wren lying in it, and a gantry crane on rails that rolls to whichever socket you drop on. Parts hang on the rack along the wall; the swift fins have been lifted off their peg and are being dragged to the engine socket. Budgets, the stat preview and the Make and Friends lists are chalked on the board.</figcaption>
+</figure>
+
+<h3 class="a-purple">5. Hullwright fit</h3>
+<ul>
+<li>The wharf is a double front on the quay. Inside, the dry dock is wide enough to show the ship large with every socket at once.</li>
+<li>Parts live on the rack: the Ready parts hang on pegs, Make parts show as outlines with what they need, Friends parts as a note pinned to an empty peg.</li>
+<li>Neighbouring rooms feed it: the chandlery next door sells plate, and a drafting office (later) trades blueprints. The street makes these relationships visible.</li>
+<li>Places differ by data: another station's wharf can be a single front with a short basin that only takes small parts, or a two-basin yard at a hub.</li>
+</ul>
+
+<h3 class="a-purple">6. Risks, and what to test first</h3>
+<ul>
+<li><strong>It can read as a menu dressed as a street.</strong> The quay is not the station's real shape, so the station you flew to and the place you walk can feel unrelated.</li>
+<li><strong>Sideways scrolling</strong> is awkward on many mice; drag and section pills must carry it.</li>
+<li><strong>Wide rooms on narrow screens.</strong> Every room interior must lay out at full width and at two-thirds height.</li>
+<li><strong>Test first:</strong> whether a two-front quay at the Wharf feels roomy rather than empty, and how long it takes to find a named room on a 14-front quay.</li>
+</ul>
+
+<!-- ============================ C ============================ -->
+<h2 id="c" class="a-cyan">C. The harbour board</h2>
+<p class="lead">Docking pins up the station's board. Each part is a card with its keeper's face and one line of news; click a card and it unfolds into the room.</p>
+
+<h3 class="a-cyan">1. Structure</h3>
+<ul>
+<li>The station stays in view on the left, with your ship moored. On the right is a timber-framed cork board, and every part is a card pinned to it: a small sketch of the room, the keeper's portrait, and one line ("Orrin: your lens is ready to fit").</li>
+<li><strong>Click a card</strong> and it unfolds to fill most of the board. The other cards fold into a column at the side, still clickable. "Fold up" or right-click returns to the board.</li>
+<li>Cards for parts that changed since your last docking carry a ribbon (New, Changed, Closed). This is the "what changed" at a glance, without a list of text.</li>
+</ul>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal C market: the station on the left, the cork board on the right with the market card unfolded and the other cards folded into a side column">
+  <rect width="1280" height="720" fill="url(#sky)"/><rect width="1280" height="720" fill="url(#stars)"/>
+  <ellipse cx="260" cy="560" rx="300" ry="160" fill="url(#cloudT)"/>
+  <g filter="url(#sk)"><use href="#wharf" transform="translate(-28 220) scale(.46)"/></g>
+  <rect x="20" y="16" width="250" height="42" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/><text x="38" y="44" class="w b">160 cr · Hold 20 / 20</text>
+  <path d="M190 300 L170 356 L210 300 Z" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="30" y="214" width="380" height="88" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><path d="M192 302 H208" stroke="#f7ead2" stroke-width="5"/>
+  <text x="48" y="240" class="s b">Ilse Marrow</text><text x="48" y="264">Sell the ice at Kettle if you can.</text><text x="48" y="286">Odo pays more for it.</text>
+  <!-- board -->
+  <g filter="url(#sk)"><rect x="540" y="20" width="724" height="684" rx="16" fill="url(#cork)" stroke="#8a5a2e" stroke-width="16"/></g>
+  <rect x="530" y="10" width="744" height="704" rx="20" fill="none" stroke="#2a1a2e" stroke-width="3"/>
+  <!-- unfolded market card -->
+  <g transform="rotate(-.6 790 370)">
+    <g filter="url(#shadow)"><rect x="566" y="50" width="446" height="630" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/></g>
+    <g stroke="#2f9d86" stroke-width="1.5" opacity=".5"><path d="M580 220 H998 M580 290 H998 M580 360 H998 M580 430 H998 M580 500 H998 M580 570 H998"/></g>
+    <circle cx="789" cy="60" r="9" fill="#D55E00" stroke="#2a1a2e" stroke-width="2"/>
+    <text x="590" y="110" class="h1">Market</text><text x="590" y="136" class="s">Ilse Marrow keeps the stalls</text>
+    <rect x="890" y="84" width="104" height="36" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2.5"/><text x="942" y="108" class="s b c">Fold up ▲</text>
+    <text x="590" y="176" class="cap">WARE</text><text x="780" y="176" class="cap">PRICE</text><text x="874" y="176" class="cap">HOLD</text>
+    <use href="#w-glass" transform="translate(614 204) scale(.9)"/><text x="640" y="210" class="b">Glassite</text>
+    <rect x="762" y="186" width="100" height="30" rx="4" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><text x="812" y="207" class="s b c">PAYS 26</text><text x="888" y="208" class="c">0</text>
+    <use href="#w-ice" transform="translate(614 274) scale(.9)"/><text x="640" y="280" class="b">Ice</text>
+    <rect x="762" y="256" width="100" height="30" rx="4" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><text x="812" y="277" class="s b c">PAYS 10</text><text x="888" y="278" class="c b">14</text>
+    <rect x="912" y="252" width="80" height="34" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="952" y="275" class="s b c">Sell</text>
+    <use href="#w-iron" transform="translate(614 344) scale(.9)"/><text x="640" y="350" class="b">Iron ore</text>
+    <rect x="762" y="326" width="100" height="30" rx="4" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><text x="812" y="347" class="s b c">PAYS 15</text><text x="888" y="348" class="c b">6</text>
+    <rect x="912" y="322" width="80" height="34" rx="8" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2.5"/><text x="952" y="345" class="s b c">Sell</text>
+    <use href="#w-rations" transform="translate(614 414) scale(.9)"/><text x="640" y="420" class="b">Rations</text>
+    <rect x="762" y="396" width="100" height="30" rx="4" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><text x="812" y="417" class="s b c">ASKS 16</text><text x="888" y="418" class="c">0</text>
+    <rect x="912" y="392" width="80" height="34" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="952" y="415" class="s c">Buy</text>
+    <use href="#w-plate" transform="translate(614 484) scale(.9)"/><text x="640" y="490" class="b">Refined plate</text>
+    <rect x="762" y="466" width="100" height="30" rx="4" fill="none" stroke="#2a1a2e" stroke-width="2.5"/><text x="812" y="487" class="s b c">ASKS 34</text><text x="888" y="488" class="c">0</text>
+    <rect x="912" y="462" width="80" height="34" rx="8" fill="none" stroke="#2a1a2e" stroke-width="2" stroke-dasharray="5 4"/><text x="952" y="485" class="s c">Buy</text>
+    <text x="590" y="540" class="s">Click Sell for one; hold it down to keep selling.</text>
+    <rect x="586" y="582" width="406" height="72" rx="8" fill="#fff6e3" stroke="#0072B2" stroke-width="3"/>
+    <text x="604" y="610" class="s b">Goal</text><text x="604" y="634" class="s">Odo at Kettle Dock needs ice for his greenhouse.</text>
+  </g>
+  <!-- folded cards -->
+  <g>
+    <g filter="url(#shadow)"><rect x="1030" y="50" width="210" height="140" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/></g>
+    <circle cx="1135" cy="58" r="7" fill="#0072B2" stroke="#2a1a2e" stroke-width="2"/>
+    <circle cx="1068" cy="100" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-lamp" transform="translate(1068 101)"/>
+    <text x="1102" y="96" class="b">Dockmaster</text><text x="1102" y="116" class="s">Ilse Marrow</text>
+    <text x="1046" y="158" class="s">Kettle needs ice.</text><text x="1046" y="178" class="s">Ask what changed.</text>
+  </g>
+  <g>
+    <g filter="url(#shadow)"><rect x="1030" y="206" width="210" height="140" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/></g>
+    <circle cx="1135" cy="214" r="7" fill="#D55E00" stroke="#2a1a2e" stroke-width="2"/>
+    <path d="M1180 206 H1240 V250 L1210 238 L1180 250 Z" fill="#0072B2" stroke="#2a1a2e" stroke-width="2"/><text x="1210" y="230" class="w xs b c">NEW</text>
+    <circle cx="1068" cy="256" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-hook" transform="translate(1068 258)"/>
+    <text x="1102" y="252" class="b">Wharf</text><text x="1102" y="272" class="s">Orrin Vale</text>
+    <text x="1046" y="314" class="s">Your lens is ready</text><text x="1046" y="334" class="s">to fit.</text>
+  </g>
+  <g>
+    <g filter="url(#shadow)"><rect x="1030" y="362" width="210" height="140" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/></g>
+    <circle cx="1135" cy="370" r="7" fill="#e7b15a" stroke="#2a1a2e" stroke-width="2"/>
+    <circle cx="1068" cy="412" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-note" transform="translate(1068 412)"/>
+    <text x="1102" y="408" class="b">Notices</text><text x="1102" y="428" class="s">2 new notes</text>
+    <text x="1046" y="470" class="s">Pip has a rumor about</text><text x="1046" y="490" class="s">the Ember Shoals.</text>
+  </g>
+  <g>
+    <g filter="url(#shadow)"><rect x="1030" y="518" width="210" height="140" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="9 6"/></g>
+    <rect x="1030" y="518" width="210" height="140" rx="6" fill="url(#hatch)"/>
+    <path d="M1170 518 H1240 V562 L1205 550 L1170 562 Z" fill="#E69F00" stroke="#2a1a2e" stroke-width="2"/><text x="1205" y="542" class="xs b c">BUILDING</text>
+    <circle cx="1068" cy="568" r="24" fill="#f4e2c4" stroke="#2a1a2e" stroke-width="3"/><use href="#i-cup" transform="translate(1066 569)"/>
+    <text x="1102" y="564" class="b">Canteen</text>
+    <text x="1046" y="626" class="s">Opens when Kettle</text><text x="1046" y="646" class="s">ships rations.</text>
+  </g>
+  <rect x="24" y="636" width="64" height="64" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(56 660)"/><text x="56" y="692" class="xs c b">Log</text>
+</svg>
+<figcaption>C, market. The station keeps the left of the screen, with Ilse's bubble over her office. The market card is unfolded on the board as a ledger with stamped prices; the wharf card carries a "New" ribbon, and the canteen card is hatched and dashed while the game master builds it.</figcaption>
+</figure>
+
+<h3 class="a-cyan">2. Growth</h3>
+<ul>
+<li>Cards sit in three columns: <strong>Trade</strong>, <strong>Ship</strong>, <strong>People and news</strong>.</li>
+<li><strong>Outpost:</strong> two or three big cards with room for a sketch and two lines each.</li>
+<li><strong>Hub:</strong> up to four cards per column at a compact size; beyond that, a column's extra cards stack, and the stack fans out on click. Card sizes come in three steps (large, standard, compact), chosen from the count.</li>
+<li>Pinned order is data, so the game master can put a new shop at the top of its column for a few dockings.</li>
+</ul>
+<figure class="grow">
+<svg viewBox="0 0 1200 300" role="img" aria-label="Proposal C growth: a board with two large cards, one with six standard cards in three columns, and a hub board with compact cards and stacks">
+  <rect width="1200" height="300" fill="url(#sky)"/>
+  <g filter="url(#sk)">
+    <rect x="20" y="20" width="360" height="210" rx="10" fill="url(#cork)" stroke="#8a5a2e" stroke-width="10"/>
+    <rect x="420" y="20" width="360" height="210" rx="10" fill="url(#cork)" stroke="#8a5a2e" stroke-width="10"/>
+    <rect x="820" y="20" width="360" height="210" rx="10" fill="url(#cork)" stroke="#8a5a2e" stroke-width="10"/>
+  </g>
+  <g fill="#f7ead2" stroke="#2a1a2e" stroke-width="2.5">
+    <rect x="44" y="44" width="148" height="164" rx="4"/><rect x="208" y="44" width="148" height="164" rx="4"/>
+    <rect x="440" y="40" width="102" height="80" rx="4"/><rect x="440" y="130" width="102" height="80" rx="4"/>
+    <rect x="550" y="40" width="102" height="80" rx="4"/><rect x="550" y="130" width="102" height="80" rx="4"/>
+    <rect x="660" y="40" width="102" height="80" rx="4"/><rect x="660" y="130" width="102" height="80" rx="4"/>
+    <rect x="840" y="38" width="102" height="40" rx="3"/><rect x="840" y="84" width="102" height="40" rx="3"/><rect x="840" y="130" width="102" height="40" rx="3"/><rect x="840" y="176" width="102" height="40" rx="3"/>
+    <rect x="950" y="38" width="102" height="40" rx="3"/><rect x="950" y="84" width="102" height="40" rx="3"/><rect x="950" y="130" width="102" height="40" rx="3"/>
+    <rect x="1060" y="38" width="102" height="40" rx="3"/><rect x="1060" y="84" width="102" height="40" rx="3"/><rect x="1060" y="130" width="102" height="40" rx="3"/>
+    <rect x="1066" y="182" width="102" height="40" rx="3"/><rect x="1063" y="179" width="102" height="40" rx="3"/><rect x="1060" y="176" width="102" height="40" rx="3"/>
+  </g>
+  <g><use href="#i-crate" transform="translate(118 100) scale(1.6)"/><use href="#i-hook" transform="translate(282 100) scale(1.6)"/></g>
+  <text x="118" y="170" class="s b c">Market</text><text x="282" y="170" class="s b c">Wharf</text>
+  <g class="xs"><text x="491" y="86" class="xs b c">Market</text><text x="601" y="86" class="xs b c">Wharf</text><text x="711" y="86" class="xs b c">Dockmaster</text><text x="491" y="176" class="xs b c">Fuel barge</text><text x="601" y="176" class="xs b c">Locker</text><text x="711" y="176" class="xs b c">Notices</text></g>
+  <text x="1111" y="203" class="xs b c">+3 more</text>
+  <text x="20" y="262" class="w b">Outpost · 2 large cards</text><text x="20" y="286" class="w s">A sketch and two lines each.</text>
+  <text x="420" y="262" class="w b">Station · 6 standard cards</text><text x="420" y="286" class="w s">Trade · Ship · People and news.</text>
+  <text x="820" y="262" class="w b">Hub · 13 compact cards</text><text x="820" y="286" class="w s">Extra cards stack and fan out.</text>
+</svg>
+<figcaption>C, growth. The frame is always "the board"; cards shrink in steps and stack, so the board never overflows.</figcaption>
+</figure>
+
+<h3 class="a-cyan">3. Game master hooks</h3>
+<p>The smallest data shape of the three, because a card has no place in the station's geometry.</p>
+<pre><code># One card on a station's board.
+[[station.cinder_hook.card]]
+id       = "card.hook.rigger"
+room     = "wharf"               # room kind the card unfolds into
+column   = "ship"                # trade | ship | people
+pin      = 1                     # order within the column
+keeper   = "npc.rook_adeyemi"
+headline = "Rook rigs drill mounts. Nothing fancy."   # one line, checked for length
+state    = "open"                # open | closed | building
+ribbon   = "new"                 # new | changed | closed, cleared after 3 dockings
+works_on = ["drill"]             # this wharf only fits drill mounts</code></pre>
+<ul>
+<li><strong>A new shop opens:</strong> add a card with <code>ribbon = "new"</code>.</li>
+<li><strong>The wharf closes for repairs:</strong> <code>state = "closed"</code>: the card is crossed with a strip of tape and the headline becomes the keeper's reason.</li>
+<li><strong>A part is upgraded:</strong> the card's sketch and headline change and it gets the "Changed" ribbon.</li>
+<li><strong>Validator:</strong> one-line headline, a keeper with a line citing the cause, the column cap. A visible change on the station itself is optional, so the "place" half of the legibility rule needs a separate asset-kit part.</li>
+</ul>
+
+<h3 class="a-cyan">4. Art direction</h3>
+<figure class="mock">
+<svg viewBox="0 0 1280 720" role="img" aria-label="Proposal C hullwright: the Wren in the cradle on the left, and on the board a drafting sheet of the ship with circled sockets, paper cut-out parts, and swift fins being dragged onto the engine">
+  <rect width="1280" height="720" fill="url(#sky)"/><rect width="1280" height="720" fill="url(#stars)"/>
+  <ellipse cx="240" cy="200" rx="300" ry="160" fill="url(#cloudP)"/>
+  <!-- the real cradle, where the fit plays -->
+  <g filter="url(#sk)">
+    <rect x="70" y="190" width="40" height="380" rx="6" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+    <rect x="70" y="190" width="380" height="34" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+    <rect x="70" y="536" width="380" height="34" rx="8" fill="url(#planks)" stroke="#2a1a2e" stroke-width="4"/>
+    <g fill="url(#glow)"><circle cx="450" cy="207" r="30"/><circle cx="450" cy="553" r="30"/></g>
+    <path d="M430 160 L300 420" stroke="#2a1a2e" stroke-width="16" stroke-linecap="round"/><path d="M430 160 L300 420" stroke="#e7b15a" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="430" cy="160" r="20" fill="#2f9d86" stroke="#2a1a2e" stroke-width="4"/>
+  </g>
+  <use href="#wren" transform="translate(270 380) scale(1.45)"/>
+  <use href="#p-lens" transform="translate(270 380) scale(1.45)"/>
+  <use href="#p-fins" transform="translate(270 380) scale(1.45)" opacity=".55"/>
+  <g stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M196 470 l-14 8 M206 488 l-16 2 M344 470 l14 8 M334 488 l16 2"/></g>
+  <text x="70" y="610" class="w b">The fit plays here, on the real cradle.</text>
+  <text x="70" y="634" class="w s">Fins swing in as you let go on the sheet.</text>
+  <rect x="20" y="16" width="250" height="42" rx="12" fill="#2a1a2e" stroke="#e7b15a" stroke-width="3"/><text x="38" y="44" class="w b">1 390 cr · Hold 0 / 20</text>
+  <!-- board with drafting sheet -->
+  <g filter="url(#sk)"><rect x="540" y="20" width="724" height="684" rx="16" fill="url(#cork)" stroke="#8a5a2e" stroke-width="16"/></g>
+  <rect x="530" y="10" width="744" height="704" rx="20" fill="none" stroke="#2a1a2e" stroke-width="3"/>
+  <g filter="url(#shadow)"><rect x="566" y="46" width="672" height="634" rx="6" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/></g>
+  <rect x="580" y="140" width="430" height="440" fill="url(#grid)"/>
+  <circle cx="902" cy="56" r="9" fill="#D55E00" stroke="#2a1a2e" stroke-width="2"/>
+  <text x="590" y="96" class="h1">Wharf sheet</text><text x="590" y="122" class="s">Orrin Vale · Lantern Wharf</text>
+  <rect x="1118" y="70" width="104" height="36" rx="8" fill="#f7ead2" stroke="#2a1a2e" stroke-width="2.5"/><text x="1170" y="94" class="s b c">Fold up ▲</text>
+  <!-- plan view of the ship -->
+  <g opacity=".92"><use href="#wren" transform="translate(796 340) scale(2.1)"/><use href="#p-lens" transform="translate(796 340) scale(2.1)"/></g>
+  <g fill="none" stroke="#2a1a2e" stroke-width="3"><ellipse cx="796" cy="164" rx="40" ry="36"/><circle cx="796" cy="323" r="22" stroke-dasharray="6 5"/><circle cx="796" cy="399" r="26" stroke-dasharray="6 5"/></g>
+  <use href="#fins-shape" transform="translate(796 340) scale(2.1)" fill="#56B4E9" fill-opacity=".2" stroke="#56B4E9" stroke-width="4" stroke-dasharray="12 8" class="ns"/>
+  <circle cx="796" cy="491" r="30" fill="none" stroke="#fff" stroke-width="10"/>
+  <circle cx="796" cy="491" r="30" fill="none" stroke="#0072B2" stroke-width="5" stroke-dasharray="10 6"/>
+  <g transform="rotate(-8 680 170)"><rect x="616" y="148" width="104" height="40" rx="4" fill="none" stroke="#D55E00" stroke-width="4"/><text x="668" y="176" class="b c" style="font-size:20px">FITTED</text></g>
+  <text x="852" y="170" class="s b">drill mount</text>
+  <text x="830" y="328" class="s b">utility</text>
+  <text x="830" y="404" class="s b">hold</text>
+  <text x="636" y="532" class="s b">engine · drop here</text>
+  <!-- cut-out parts -->
+  <text x="1030" y="160" class="cap">READY</text>
+  <g transform="rotate(2 1130 210)"><rect x="1030" y="172" width="196" height="76" rx="3" fill="#fff6e3" stroke="#2a1a2e" stroke-width="2.5" stroke-dasharray="2 3"/><use href="#p-pods" transform="translate(1070 206) scale(.42)" class="ns"/><text x="1110" y="204" class="s b">Hold pods</text><text x="1110" y="226" class="s">Hold +10</text></g>
+  <rect x="1030" y="262" width="196" height="76" rx="3" fill="none" stroke="#0072B2" stroke-width="3" stroke-dasharray="8 6"/><text x="1046" y="306" class="s b">Swift fins · lifted</text>
+  <text x="1030" y="376" class="cap">FRIENDS</text>
+  <g transform="rotate(-2 1130 430)"><rect x="1030" y="388" width="196" height="92" rx="3" fill="#fff6e3" stroke="#2a1a2e" stroke-width="2.5"/><text x="1044" y="414" class="s b">Seam lamp</text><text x="1044" y="436" class="s">Letter from Hesper:</text><text x="1044" y="456" class="s">dock at the Observatory</text><text x="1044" y="474" class="s">to collect it.</text></g>
+  <!-- dragged fins cut-out -->
+  <path d="M1040 300 C990 380 930 420 880 452" fill="none" stroke="#2a1a2e" stroke-width="3" stroke-dasharray="4 9" stroke-linecap="round"/>
+  <g transform="rotate(8 850 470)" filter="url(#shadow)"><rect x="770" y="430" width="160" height="80" rx="3" fill="#fff6e3" stroke="#2a1a2e" stroke-width="2.5"/><use href="#p-fins" transform="translate(850 404) scale(.95)" class="ns"/></g>
+  <use href="#cursor" transform="translate(866 462)"/>
+  <!-- budget strip -->
+  <rect x="580" y="592" width="644" height="74" rx="6" fill="#fff6e3" stroke="#2a1a2e" stroke-width="2"/>
+  <text x="596" y="618" class="cap">POWER</text>
+  <g stroke="#2a1a2e" stroke-width="2"><circle cx="672" cy="613" r="7" fill="#ffcf6b"/><circle cx="692" cy="613" r="7" fill="#ffcf6b"/><circle cx="712" cy="613" r="7" fill="#56B4E9"/><circle cx="732" cy="613" r="7" fill="none"/><circle cx="752" cy="613" r="7" fill="none"/><circle cx="772" cy="613" r="7" fill="none"/></g>
+  <text x="596" y="652" class="cap">MASS</text>
+  <g stroke="#2a1a2e" stroke-width="2"><rect x="666" y="639" width="12" height="16" rx="2" fill="#c98f4a"/><rect x="684" y="639" width="12" height="16" rx="2" fill="#56B4E9"/><rect x="702" y="639" width="12" height="16" rx="2" fill="none"/><rect x="720" y="639" width="12" height="16" rx="2" fill="none"/><rect x="738" y="639" width="12" height="16" rx="2" fill="none"/><rect x="756" y="639" width="12" height="16" rx="2" fill="none"/></g>
+  <text x="810" y="620" class="s">Turn <tspan class="b">270 → 310</tspan></text>
+  <rect x="958" y="602" width="62" height="24" rx="12" fill="#0072B2"/><text x="989" y="620" class="w s b c">▲ 40</text>
+  <text x="810" y="652" class="s">Top speed <tspan class="b">72 → 71</tspan></text>
+  <rect x="958" y="634" width="62" height="24" rx="12" fill="#D55E00"/><text x="989" y="652" class="w s b c">▼ 1</text>
+  <text x="1040" y="638" class="s b">Leaning prospector</text>
+  <rect x="24" y="648" width="56" height="56" rx="14" fill="#f7ead2" stroke="#2a1a2e" stroke-width="3"/><use href="#i-log" transform="translate(52 670)"/><text x="52" y="698" class="xs c b">Log</text>
+</svg>
+<figcaption>C, hullwright. The wharf card unfolds into a drafting sheet: the ship in plan view on a grid, sockets circled in ink, the lens stamped "Fitted". Parts are paper cut-outs; the swift fins are being dragged to the engine. Letting go plays the fit on the real cradle at the left, where the fins are already shown faintly.</figcaption>
+</figure>
+
+<h3 class="a-cyan">5. Hullwright fit</h3>
+<ul>
+<li>The drafting sheet is the fitting surface; the cradle beside the board is where the result shows. You drag on paper and watch the crane do it on the station.</li>
+<li>Ready parts are cut-outs, Make parts are cut-outs with their materials pencilled on, and Friends parts are letters from the person who will send them.</li>
+<li>The budget strip and stat preview run along the bottom of the sheet.</li>
+<li>Places differ by data, and the sheet makes it obvious: a station's sheet shows only the sockets its wharf works on, with the rest drawn in faint pencil.</li>
+</ul>
+
+<h3 class="a-cyan">6. Risks, and what to test first</h3>
+<ul>
+<li><strong>It is the closest to today's panel.</strong> Prettier, but still a menu; it may not fix "cramped" so much as tidy it.</li>
+<li><strong>Weakest sense of place.</strong> The station on the left is decoration unless every card also has a visible part on the station.</li>
+<li><strong>Headlines become a wall of text</strong> if the game master writes long ones, which is exactly what the log must avoid. The one-line limit has to be enforced.</li>
+<li><strong>Test first:</strong> show the Wharf board and today's panel to a playtester and ask which feels roomier; then fill a hub board to 13 cards and check it still reads at a glance.</li>
+</ul>
+
+<!-- ============================ Compare ============================ -->
+<h2 id="compare" class="a-verm">Comparison and recommendation</h2>
+<table>
+<thead><tr><th></th><th>A. The station up close</th><th>B. The quay</th><th>C. The harbour board</th></tr></thead>
+<tbody>
+<tr><th>Feels like a place</th><td>Strongest: you are on the station you flew to</td><td>Good: a street, but not the station's real shape</td><td>Weakest: a board beside the station</td></tr>
+<tr><th>Fixes "cramped" in the slice</th><td>Yes: the station fills the screen, rooms open beside it</td><td>Yes: full-width rooms</td><td>Partly: tidier, still a panel</td></tr>
+<tr><th>At 10+ parts</th><td>Quarters plus the key; at most two clicks</td><td>Scrolling and section pills</td><td>Compact cards and stacks</td></tr>
+<tr><th>Game master changes</th><td>Most visible (a module appears, scaffolds, closes); needs a free anchor</td><td>Easy: lots and shutters; no mesh work</td><td>Easiest: a card; place change is separate</td></tr>
+<tr><th>Art per new room kind</th><td>Highest: a module and a room panel</td><td>Medium: an awning and an interior</td><td>Lowest: a card sketch</td></tr>
+<tr><th>Hullwright drama</th><td>Highest: the cradle on the station, zoomed in</td><td>High: dry dock and gantry</td><td>Medium: on paper, result beside it</td></tr>
+<tr><th>Main risk</th><td>Small click targets at hub size; art cost</td><td>Reads as a menu; sideways scrolling</td><td>Does not fix the feel; headline creep</td></tr>
+</tbody>
+</table>
+
+<div class="card a-verm">
+<p><strong>Recommendation: A, the station up close.</strong> It is the only proposal where what the game master changes is what the player sees, which is the point of a living station: a new canteen is a dome going up on the pier, a closed wharf is scaffolding on the cradle arm. It reuses things that already exist (the runtime asset kit, the art bible's part budget, Kettle Dock's staged growth) instead of adding a second layout for stations. Its hullwright is the strongest version of the decided "wharf and drydock" feel.</p>
+<p><strong>Borrow from C:</strong> each icon in A's station key carries C's ribbon (New, Changed, Closed) and a one-line headline on hover. That gives the at-a-glance news without a board.</p>
+<p><strong>Keep from B for later:</strong> the "To let" lot is a good way to show a station has room to grow; in A it is an empty anchor with a marked plot.</p>
+</div>
+
+<h3 class="a-verm">What to test first, in order</h3>
+<ol>
+<li><strong>The hullwright cradle view</strong> at Lantern Wharf: drag to fit, the socket highlight, the stat preview and the one-and-a-half-second animation. Measure how long a first-time player takes to fit the lens, and whether they read the preview before letting go.</li>
+<li><strong>The station overview at two sizes:</strong> the Wharf with 3 to 5 parts and a mock hub with 12 to 14 in quarters. Measure time to reach a named room and misclicks, with and without the station key.</li>
+<li><strong>One game master change end to end:</strong> the wharf closes for repairs and reopens, with the scaffold, the key icon, Orrin's line and the rollback line, to prove a part change needs data only.</li>
+</ol>
+</div>
+</body>
+</html>
