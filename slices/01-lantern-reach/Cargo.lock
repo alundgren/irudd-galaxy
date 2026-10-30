@@ -1040,6 +1040,7 @@ dependencies = [
  "blake3",
  "galaxy-contract",
  "galaxy-core",
+ "galaxy-economy",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

@@ -297,6 +297,27 @@ impl View {
             }
         }
 
+        // Named traffic: the same faction-painted hulls as in flight, at map scale.
+        for ship in world.ships.values().filter(|s| s.owner != Owner::Player) {
+            let Some(&mesh) = self.hulls.get(&super::paint_key(world, ship)) else {
+                continue;
+            };
+            let pos = g(ship.position);
+            let mut inst = MeshInstance::at(mesh, pos, ship.heading, 2.5 * wpp)
+                .with_material(ArtBible::bundled().material(InkRole::Ship));
+            inst.transform = Mat4::from_translation(Vec3::Z * 9.0 * wpp) * inst.transform;
+            scene.meshes.push(inst);
+            if let Some(at) = screen(pos) {
+                let rect = place(&placed, at, G2::new(110.0, 20.0), false, viewport);
+                placed.push(rect);
+                scene.overlay.texts.push(
+                    Text::new(ship.name.clone(), G2::new(rect.x, rect.y), 13.0)
+                        .weight(600)
+                        .color(palette::CREAM),
+                );
+            }
+        }
+
         // The player, a little Wren that's easy to find.
         if let Some(me) = &map.player
             && let Some(ship) = world.ships.get(&me.ship)

@@ -377,6 +377,12 @@ pub enum Command {
         id: RumorId,
         value: Option<Box<Rumor>>,
     },
+    /// Creates, replaces or removes (`value: null`) a named trader's route policy. Its
+    /// ship must exist (put it first in the same batch).
+    PutTrader {
+        id: ShipId,
+        value: Option<Box<crate::data::TraderDef>>,
+    },
     /// Adds `station` to a rumor's `heard_at` (or removes it), and fails if it's already
     /// there (or isn't). Spreads compose: two craft carrying one rumor to different
     /// stations in one tick both land, and a second spread to the same station is

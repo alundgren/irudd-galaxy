@@ -43,6 +43,8 @@ pub struct WorldState {
     pub fields: Store<FieldId, RockField>,
     pub rocks: Store<RockId, Rock>,
     pub ships: Store<ShipId, Ship>,
+    /// Authored NPC trader policies. Empty in older saves.
+    pub traders: BTreeMap<ShipId, crate::data::TraderDef>,
     pub factions: Store<FactionId, Faction>,
     pub npcs: Store<NpcId, Npc>,
     pub rumors: Store<RumorId, Rumor>,

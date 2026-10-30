@@ -93,6 +93,84 @@ where
     store
 }
 
+/// The cause name of [`craft_backfill`]'s batches.
+pub const CRAFT_BACKFILL: &str = "craft_backfill";
+
+/// Batches that add the named traders `dir` defines to a world that has none of them
+/// yet (a save made before `craft.toml`): one per craft, each putting its hull (if the
+/// world lacks it), its ship at home with orders to dock there, and its route policy,
+/// caused by the system [`CRAFT_BACKFILL`]. A craft whose ship or policy the world
+/// already has is left alone, and so is one whose faction, stations or wares the world
+/// doesn't know. The result depends only on `dir` and the world, so it repeats exactly.
+pub fn craft_backfill(dir: &Path, world: &WorldState) -> Result<Vec<CommandBatch>, DataError> {
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batches = Vec::new();
+    for (id, def) in &fresh.traders {
+        if world.traders.contains_key(id) || world.ships.contains(id) {
+            continue;
+        }
+        let known = world.factions.contains(&def.faction)
+            && def
+                .stations
+                .iter()
+                .chain(def.preferences.iter().map(|p| &p.station))
+                .all(|s| world.stations.contains(s))
+            && def.wares.iter().all(|w| world.wares.contains(w));
+        let (Some(ship), Some(hull), true) =
+            (fresh.ships.get(id), fresh.hulls.get(&def.hull), known)
+        else {
+            continue;
+        };
+        let mut batch = CommandBatch::new(Cause::system(
+            CRAFT_BACKFILL,
+            format!("{} joins a save made before named traders", def.name),
+        ));
+        if !world.hulls.contains(&def.hull) {
+            batch = batch.with(Command::PutHull {
+                id: def.hull.clone(),
+                value: Some(Box::new(hull.clone())),
+            });
+        }
+        batches.push(
+            batch
+                .with(Command::PutShip {
+                    id: id.clone(),
+                    value: Some(Box::new(ship.clone())),
+                })
+                .with(Command::PutTrader {
+                    id: id.clone(),
+                    value: Some(Box::new(def.clone())),
+                }),
+        );
+    }
+    Ok(batches)
+}
+
+/// The cause name of [`pacing_backfill`]'s batch.
+pub const PACING_BACKFILL: &str = "pacing_backfill";
+
+/// A batch that adds the tunables `dir`'s `pacing.toml` defines and the world lacks (a
+/// save made before they were authored), each at its authored value, caused by the
+/// system [`PACING_BACKFILL`]. A tunable the world has, tuned or not, is left alone, so
+/// saved overrides stay. `None` when nothing is missing. The result depends only on
+/// `dir` and the world, so it repeats exactly.
+pub fn pacing_backfill(dir: &Path, world: &WorldState) -> Result<Option<CommandBatch>, DataError> {
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batch = CommandBatch::new(Cause::system(
+        PACING_BACKFILL,
+        "pacing tunables a save made before them lacks",
+    ));
+    for (id, tunable) in &fresh.progress.tunables {
+        if !world.progress.tunables.contains_key(id) {
+            batch = batch.with(Command::SetTunable {
+                id: id.clone(),
+                value: Some(Box::new(tunable.clone())),
+            });
+        }
+    }
+    Ok((!batch.commands.is_empty()).then_some(batch))
+}
+
 /// Reads `dir` and builds the starting world for `seed`.
 pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let wares: WaresFile = read(dir, "wares.toml")?;
@@ -110,6 +188,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let traits: TraitsFile = read(dir, "traits.toml")?;
     let pacing: PacingFile = read(dir, "pacing.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
+    let craft: CraftFile = read(dir, "craft.toml")?;
     let ranks = hulls.rank;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
@@ -148,6 +227,43 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     }
     generate_rocks(&mut world, &mut errors);
     place_player(&mut world, start.player, &mut errors);
+    for def in craft.craft {
+        let Some(home) = world.stations.get(&def.home) else {
+            errors.push(format!(
+                "craft.toml: {} has unknown home {}",
+                def.id, def.home
+            ));
+            continue;
+        };
+        let ship = Ship {
+            id: def.id.clone(),
+            name: def.name.clone(),
+            hull: def.hull.clone(),
+            owner: Owner::Faction {
+                faction: def.faction.clone(),
+            },
+            region: home.region.clone(),
+            position: home.position,
+            velocity: Vec2::ZERO,
+            heading: 0.0,
+            // The runner performs the first docking, opening the first menu.
+            docked_at: None,
+            hold: Hold::default(),
+            orders: OrderQueue {
+                orders: vec![Order::Dock {
+                    station: def.home.clone(),
+                }],
+                ..OrderQueue::default()
+            },
+            activity: ShipActivity::default(),
+        };
+        if world.ships.contains(&def.id) || world.traders.contains_key(&def.id) {
+            errors.push(format!("craft.toml: duplicate ship {}", def.id));
+            continue;
+        }
+        world.ships.put(ship);
+        world.traders.insert(def.id.clone(), def);
+    }
     crate::load_progress::build(
         &mut world,
         crate::load_progress::Files {

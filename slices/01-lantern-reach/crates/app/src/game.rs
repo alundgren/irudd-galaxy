@@ -36,6 +36,10 @@
 //!   order as `core` and `gm-examples`, and a new revision of a pack replaces the one
 //!   running. The sandbox child loads its packs the same way ([`Game::open_with`]).
 //! - **Hot reload** ([`GameOptions::hot_reload`]) is for development only.
+//! - **Older saves.** A save made before newer authored data gets it on open, applied
+//!   with the first step: one `pacing_backfill` system batch with the `pacing.toml`
+//!   tunables it lacks (at their authored values; saved ones stay), then one
+//!   `craft_backfill` batch per named trader it lacks.
 //! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
 //!   then steps once so its batches apply; save after it.
 
@@ -136,6 +140,15 @@ pub fn gm_packs(packs: &Path) -> Vec<PathBuf> {
     dirs
 }
 
+/// No model: people say their authored lines and trader menus take the utility
+/// default at once (no calls budgeted, so no refused request is booked).
+fn no_model(config: &mut MindConfig) {
+    config.talk.pick = false;
+    config.talk.free_phrasing = false;
+    config.budget.default.calls = 0;
+    config.budget.region.clear();
+}
+
 /// The executor for "no model": it takes no jobs, so every moment takes its default.
 struct NoModel;
 
@@ -207,6 +220,9 @@ impl Game {
     ) -> Result<Game, String> {
         let mut sim = native(state);
         let mut notes = Vec::new();
+        // A save made before newer tunables or named traders gets them (no-op otherwise).
+        galaxy_core::queue_backfill(&mut sim, &core_data(&opts.packs))
+            .map_err(|e| e.to_string())?;
         let analyzer = galaxy_script::analyzer::find(None);
         if analyzer.is_none() {
             notes.push(
@@ -276,8 +292,7 @@ impl Game {
         let mind = match &opts.mind {
             MindMode::Off => {
                 let mut config = MindConfig::load_dir(&data).map_err(|e| e.to_string())?;
-                config.talk.pick = false;
-                config.talk.free_phrasing = false;
+                no_model(&mut config);
                 Some(MindHost::new(config, NoModel, sim.history()))
             }
             mode => {
@@ -295,8 +310,7 @@ impl Game {
                                  their authored lines as written"
                                     .to_owned(),
                             );
-                            config.talk.pick = false;
-                            config.talk.free_phrasing = false;
+                            no_model(&mut config);
                             Box::new(NoModel)
                         }
                     },

@@ -29,7 +29,8 @@ use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Servic
 pub const CONFIG_FILES: [&str; 2] = ["mind.toml", "lines.toml"];
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 15] = [
+pub const DATA_FILES: [&str; 16] = [
+    "craft.toml",
     "wares.toml",
     "hulls.toml",
     "factions.toml",
@@ -302,6 +303,42 @@ pub struct NpcsFile {
 #[serde(deny_unknown_fields)]
 pub struct StartFile {
     pub player: StartDef,
+}
+
+/// Named traders and their modest, authored route menus. Saved with the world.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CraftFile {
+    #[serde(default)]
+    pub craft: Vec<TraderDef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TraderDef {
+    pub id: ShipId,
+    pub name: String,
+    pub faction: FactionId,
+    pub hull: HullId,
+    pub home: StationId,
+    pub stations: BTreeSet<StationId>,
+    pub wares: BTreeSet<WareId>,
+    pub max_units_per_ware: u32,
+    pub max_wares_per_docking: u32,
+    pub cost_per_distance: f64,
+    /// Utility bonus for returning empty to the supply dock (centicredits).
+    pub return_home_bonus: f64,
+    #[serde(default)]
+    pub preferences: Vec<RoutePreference>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoutePreference {
+    pub station: StationId,
+    /// Also admits this station to the route when the flag is set.
+    pub when_flag: FlagId,
+    pub bonus: f64,
 }
 
 /// Where a new game starts.

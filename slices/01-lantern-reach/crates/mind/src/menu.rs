@@ -56,6 +56,18 @@ pub struct Menu {
     pub preconditions: Vec<Precondition>,
 }
 
+impl Menu {
+    /// Whether `cause` is this menu's outcome: a fast-model decision on the same kind
+    /// of menu, for the same person, citing the same trigger. Another menu the same
+    /// docking opened (a rumor the craft carried in) doesn't answer this one.
+    pub fn answered_by(&self, cause: &Cause) -> bool {
+        matches!(&cause.kind, CauseKind::Mind { npc, decision }
+            if *npc == self.npc
+                && decision.split_once(':').is_some_and(|(kind, _)| kind == self.kind))
+            && cause.cites.contains(&self.trigger)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct MenuOption {
     /// Stable within the menu (`plan.1`, a rumor ID, a line ID).
@@ -161,6 +173,52 @@ pub struct TraderMenus<P: PlanSource> {
 impl<P: PlanSource> MenuProvider for TraderMenus<P> {
     fn name(&self) -> &'static str {
         TRADER_ROUTE
+    }
+
+    /// A craft whose route choice was still out when the save was written sits docked
+    /// with no orders, and only a new docking would ask again. On reopening, each such
+    /// craft is asked again for its last docking, unless a committed route decision for
+    /// that craft already answered it (the host also skips one whose answer is queued in
+    /// the save). Other decisions citing the docking, such as the rumor it carried in,
+    /// don't count. The outcome is the model's pick or the utility default, so it never
+    /// stays parked.
+    fn resume(&self, cx: &MenuCtx<'_>, facts: &[Fact]) -> Vec<Menu> {
+        let decided: Vec<(&Cause, Option<&ShipId>)> = cx
+            .history
+            .facts()
+            .iter()
+            .filter(|f| f.kind.as_str() == crate::DECISION_FACT)
+            .filter_map(|f| Some((&cx.history.cause(f.cause)?.cause, f.subjects.ship.as_ref())))
+            .collect();
+        let mut out = Vec::new();
+        for (id, ship) in cx.world.ships.iter() {
+            if !cx.world.traders.contains_key(id)
+                || ship.docked_at.is_none()
+                || !ship.orders.orders.is_empty()
+            {
+                continue;
+            }
+            // The craft's latest docking or undocking, if it was saved: a newer one
+            // opens its menu the usual way.
+            let last = cx.history.facts().iter().rev().find(|f| {
+                f.subjects.ship.as_ref() == Some(id)
+                    && matches!(
+                        f.payload,
+                        FactPayload::Event(Event::Dock { .. } | Event::Undock { .. })
+                    )
+            });
+            if let Some(f) = last
+                && facts.last().is_some_and(|saved| f.id <= saved.id)
+                && docked(f).is_some_and(|(_, at)| ship.docked_at.as_ref() == Some(at))
+            {
+                out.extend(self.menus(cx, f).into_iter().filter(|m| {
+                    !decided
+                        .iter()
+                        .any(|(cause, ship)| *ship == m.ship.as_ref() && m.answered_by(cause))
+                }));
+            }
+        }
+        out
     }
 
     fn menus(&self, cx: &MenuCtx<'_>, fact: &Fact) -> Vec<Menu> {

@@ -30,8 +30,8 @@ pub fn station_recipe(station: &Station) -> StationRecipe {
 /// The mesh parameters for a hull.
 pub fn hull_params(hull: &HullId) -> HullParams {
     match hull.as_str() {
-        "hull.tandem" => HullParams::tandem(),
-        "hull.heron" => HullParams::heron(),
+        "hull.tandem" | "hull.compact_barge" => HullParams::tandem(),
+        "hull.heron" | "hull.lamp_launch" => HullParams::heron(),
         "hull.tender" => HullParams {
             length: 5.0,
             width: 3.4,
@@ -46,7 +46,7 @@ pub fn hull_params(hull: &HullId) -> HullParams {
             },
             ..HullParams::tandem()
         },
-        "hull.wren" => HullParams::wren(),
+        "hull.wren" | "hull.coop_skiff" => HullParams::wren(),
         _ => HullParams {
             colors: HullColors {
                 body: palette::SAGE,

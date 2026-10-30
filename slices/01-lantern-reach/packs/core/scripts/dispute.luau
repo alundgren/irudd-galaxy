@@ -63,6 +63,9 @@ end
 -- backed, and Rook's 300 cr "from the new owners" if that side won.
 local function hand_over(ctx: G.Ctx, why: G.Cause, to: string)
 	local other = if to == ids.COOP then ids.COMPACT else ids.COOP
+	if to == ids.COOP then
+		ctx.mechanics:set("mech.coop_hook", true, why)
+	end
 	ctx.stations:set_owner(ids.HOOK, to, why)
 	ctx.stations:detach(ids.HOOK, if to == ids.COOP then "part.banner.compact" else "part.banner.coop", why)
 	ctx.stations:attach(ids.HOOK, if to == ids.COOP then "part.banner.coop" else "part.banner.compact", why)
@@ -253,6 +256,11 @@ return G.script({
 					math.floor(units * 1000 + 0.5),
 					`{units} toward the depot for {faction}`
 				)
+				local at = ctx.beats:pilot().docked_at
+				if at ~= nil and winner(ctx, faction, units) ~= nil then
+					ctx.beats:expect_docked(at, why)
+					settle(ctx, why, faction, units)
+				end
 				return
 			end
 			if ev.ship ~= ids.PLAYER then

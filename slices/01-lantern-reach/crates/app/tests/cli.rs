@@ -79,7 +79,8 @@ fn new_run_inspect() {
 
     let (code, history) = galaxy(&["history", "query", "--save", save, "--kind", "dock"]);
     assert_eq!(code, 0);
-    assert_eq!(history["count"], 0);
+    // The four traders arrive at their home docks even while the player stays put.
+    assert_eq!(history["count"], 4);
     let (code, _) = galaxy(&["history", "query", "--save", save, "--kind", "Not A Kind"]);
     assert_eq!(code, 4);
 }

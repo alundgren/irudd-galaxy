@@ -65,7 +65,9 @@ fn npc_ship(id: ShipId, name: &str) -> Command {
 
 /// A new game with the Ninefold docked at Cinder Hook.
 fn sim(seed: u64) -> Sim {
-    let state = galaxy_core::new_game(&data_dir(), seed).expect("core data loads");
+    let mut state = galaxy_core::new_game(&data_dir(), seed).expect("core data loads");
+    // These tests supply their own synthetic plan source.
+    state.world.traders.clear();
     let mut sim = Sim::new(state);
     sim.submit(
         CommandBatch::new(Cause::system("test", "setup")).with(npc_ship(NINEFOLD, "Ninefold")),
