@@ -260,15 +260,19 @@ mod tests {
     #[test]
     fn the_budget_counts_the_recipe_and_the_other_modules() {
         let mut w = world();
-        // Cranes: the art bible allows two per station. The Wharf's recipe has none and
-        // its wharf is one, so a second fits and a third doesn't.
+        // Cranes: the art bible allows two per station and the Wharf's recipe has
+        // none. Two crane modules fit; turning the market into a third doesn't.
+        let mut first = canteen();
+        first.module = "crane".into();
+        check(&w, &first).unwrap();
+        w.station_parts.insert(first.id.clone(), first.clone());
         let mut second = canteen();
+        second.id = "part.wharf.second_crane".parse().unwrap();
+        second.anchor = "pier.southwest".into();
         second.module = "crane".into();
         check(&w, &second).unwrap();
-        w.station_parts.insert(second.id.clone(), second.clone());
-        let mut third = canteen();
-        third.id = "part.wharf.second_crane".parse().unwrap();
-        third.anchor = "pier.southwest".into();
+        w.station_parts.insert(second.id.clone(), second);
+        let mut third = w.station_parts.get("part.wharf.market").unwrap().clone();
         third.module = "crane".into();
         let errors = check(&w, &third).unwrap_err();
         assert!(errors.iter().any(|e| e.contains("allows 2")), "{errors:?}");
