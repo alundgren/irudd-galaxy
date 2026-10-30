@@ -79,13 +79,13 @@ By system:
 
 ### The ten questions the slice must prove
 
-Each pass signal is something Andreas feels while playing, so these notes say what the
+Each pass signal is something a player feels while playing, so these notes say what the
 build makes possible, not whether it passes.
 
 | # | Question | Honest note |
 |---|---|---|
 | 1 | Does a hands-on first ship stay satisfying while it works toward clear goals? | Every beat has a one-line goal and Act 1 runs in minutes. The first playtest found the Space confirm to undock, a low start speed and a mining lens with no perceptible effect. None is fixed yet. |
-| 2 | Do control unlocks feel like progression, from WASD and Space to queues and loops? | Every control tier unlocks in order through beats (nav chip b06, map travel b07, order slate and loop log b11), and the bot uses each. The flight model is on hold for Andreas's prototypes. |
+| 2 | Do control unlocks feel like progression, from WASD and Space to queues and loops? | Every control tier unlocks in order through beats (nav chip b06, map travel b07, order slate and loop log b11), and the bot uses each. The flight model is on hold pending a separate design exploration. |
 | 3 | Does first automation feel like a new game opening? | The tender runs your own loop with the same verbs and does a patient sell no other craft does. It stalls often on authored data (119 to 168 stalled laps per run), and the player can't tell it apart in flight because it has no label. |
 | 4 | Do scouted living prices with saturation create real choices? | The mechanics are there: dated snapshots, "?" for unvisited stations, per-unit price drops, flood facts and split sales. Whether they create choices is untested with a human. |
 | 5 | Does the Hearthbound choice read as a calling, not paying to lose work? | The card lists what stays and what resets (it was unreadable until this PR), and both hulls are reachable. On authored pacing the 8,000 cr fee comes hours late. |
