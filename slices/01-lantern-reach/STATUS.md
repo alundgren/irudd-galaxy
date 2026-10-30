@@ -9,10 +9,11 @@ the design's two hours to prestige. Read "What doesn't" before you play.
 
 | Where | What ran | Result |
 |---|---|---|
-| Windows 11 | `cargo xtask check` (fetch-luau, fmt, clippy `-D warnings`, tests) | Pass: 507 tests, 0 failed, 19 ignored |
+| Windows 11 | `cargo xtask check` (fetch-luau, fmt, clippy `-D warnings`, tests) | Pass: 509 tests, 0 failed, 19 ignored (507 before this PR's two new tests) |
 | Windows 11 | `cargo test -p render -- --ignored` (GPU) | Pass: 9 of 9 |
 | Windows 11 | `galaxy play` for 40,000 frames, plus the live game-master steps | 0 render errors |
-| Linux (WSL 2, Ubuntu 26.04) | `cargo xtask check`, then `cargo build --release` (thin LTO) | Pass: 507 tests, 0 failed, 19 ignored; release builds |
+| Linux (WSL 2, Ubuntu 26.04) | `cargo xtask check`, then `cargo build --release` (thin LTO) | Pass: 509 tests, 0 failed, 19 ignored; release builds |
+| Linux (WSL 2) | headless `galaxy shot` of a new game, mining | Renders the same frame as Windows |
 | Linux (WSL 2) | render GPU tests on lavapipe (Mesa's software Vulkan) | Pass: 9 of 9 with `VK_ICD_FILENAMES` pinned to lavapipe. With WSL's default driver list they crash with SIGSEGV in the driver |
 
 Linux had no real GPU, no desktop session and no audio device. macOS is untested.
@@ -37,8 +38,11 @@ New saves with seed 1, `galaxy sim run --bot journey`, release build:
 | Tender `loop_stalled` facts | 119 | 168 |
 | Wall-clock run time | 9 min 12 s | 2 min 49 s |
 
-The default test suite covers both journeys on a fast data profile; the numbers above are
-for the authored data. Run A was repeated after this PR's fixes (see "Fixed in this pass").
+The numbers above come from the merged branch before this PR. Run A again after this PR's
+fixes: 17 of 17 beats, 8 of 8 change types `checked`, tick 799,961 (7.4 h), 1,136
+dockings, 31 rejected batches, 78 tender stalls, no script faults. Hesper's border line
+now first comes at tick 33,170 (b09), and Odo's tuning at tick 58,689 (after b11 starts).
+The default test suite covers both journeys on a fast data profile.
 
 ## What works
 
@@ -81,7 +85,7 @@ build makes possible, not whether it passes.
 | # | Question | Honest note |
 |---|---|---|
 | 1 | Does a hands-on first ship stay satisfying while it works toward clear goals? | Every beat has a one-line goal and Act 1 runs in minutes. The first playtest found the Space confirm to undock, a low start speed and a mining lens with no perceptible effect. None is fixed yet. |
-| 2 | Do control unlocks feel like progression, from WASD and Space to queues and loops? | All six tiers unlock in order through beats (nav chip b06, map travel b07, order slate and loop log b11), and the bot uses each. The flight model is on hold for Andreas's prototypes. |
+| 2 | Do control unlocks feel like progression, from WASD and Space to queues and loops? | Every control tier unlocks in order through beats (nav chip b06, map travel b07, order slate and loop log b11), and the bot uses each. The flight model is on hold for Andreas's prototypes. |
 | 3 | Does first automation feel like a new game opening? | The tender runs your own loop with the same verbs and does a patient sell no other craft does. It stalls often on authored data (119 to 168 stalled laps per run), and the player can't tell it apart in flight because it has no label. |
 | 4 | Do scouted living prices with saturation create real choices? | The mechanics are there: dated snapshots, "?" for unvisited stations, per-unit price drops, flood facts and split sales. Whether they create choices is untested with a human. |
 | 5 | Does the Hearthbound choice read as a calling, not paying to lose work? | The card lists what stays and what resets (it was unreadable until this PR), and both hulls are reachable. On authored pacing the 8,000 cr fee comes hours late. |
