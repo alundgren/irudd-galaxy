@@ -24,6 +24,7 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
+use crate::game::{Game, GameOptions, MindMode};
 use crate::input::{self, Key, Keys};
 use crate::saves::{self, SaveChoice, SaveFolder, Saver};
 use crate::session::Session;
@@ -37,6 +38,10 @@ pub struct PlayArgs {
     pub new: bool,
     pub seed: u64,
     pub packs: Option<PathBuf>,
+    /// Run the core pack only: no `gm-examples` (also `GALAXY_NO_GM=1`).
+    pub no_gm: bool,
+    /// Reload packs when their files change (development only).
+    pub hot_reload: bool,
     /// Close after this many frames (a smoke test of the window without a player).
     pub quit_after_frames: Option<u32>,
 }
@@ -102,6 +107,11 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         std::fs::create_dir_all(dir).map_err(|e| (1, format!("{}: {e}", dir.display())))?;
     }
     let created = matches!(choice, SaveChoice::Create(_));
+    let packs = crate::game::packs_dir(args.packs.clone()).ok_or((
+        4,
+        "can't find the packs folder; pass --packs or set GALAXY_PACKS".to_owned(),
+    ))?;
+    let gm = !args.no_gm && crate::game::gm_allowed();
     let (save, state) = match &choice {
         SaveChoice::Open(path) => {
             let save = Save::open(path).map_err(|e| (4, e.to_string()))?;
@@ -109,18 +119,24 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
             (save, state)
         }
         SaveChoice::Create(path) => {
-            let packs = crate::game::packs_dir(args.packs.clone()).ok_or((
-                4,
-                "can't find the packs folder; pass --packs or set GALAXY_PACKS".to_owned(),
-            ))?;
-            let state = galaxy_core::new_game(&crate::game::core_data(&packs), args.seed)
-                .map_err(|e| (4, e.to_string()))?;
+            let state = crate::game::new_state(&packs, args.seed, gm).map_err(|e| (4, e))?;
             let save = Save::create(path, &state).map_err(|e| (1, e.to_string()))?;
             (save, state)
         }
     };
     let audio = galaxy_audio::Audio::open();
-    let mut session = Session::new(state);
+    let opts = GameOptions {
+        packs,
+        gm,
+        mind: MindMode::Live,
+        hot_reload: args.hot_reload,
+    };
+    let mut game = Game::open(state, &opts).map_err(|e| (4, e))?;
+    for note in game.take_notes() {
+        eprintln!("{note}");
+    }
+    let packs_loaded: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
+    let mut session = Session::with_game(game);
     session.begin();
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
@@ -143,13 +159,15 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
     let App {
-        session,
+        mut session,
         saver,
         error,
         frames,
         render_errors,
         ..
     } = app;
+    // The mind books every call still out and its last batches apply, then the save.
+    session.finish();
     let path = saver.path().to_path_buf();
     let saved = saver.finish(Some(session.state().clone()));
     run.map_err(|e| (1, e.to_string()))?;
@@ -162,6 +180,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         "new": created,
         "tick": session.world().meta.tick,
         "session": session.session(),
+        "packs": packs_loaded,
         "frames": frames,
         "render_errors": render_errors,
         "audio": if audio.has_device() { "silent (device open)".to_owned() } else {
@@ -218,6 +237,16 @@ impl App {
             UiAction::Select(i) => self.ui.selected = i,
             UiAction::Undock => self.keys.press_action(),
             UiAction::CloseMap => self.ui.map_open = false,
+            UiAction::Service(req) => self.session.request_service(req),
+            UiAction::Prestige(to) => self.ui.confirm = Some(to),
+            UiAction::ConfirmPrestige(to) => {
+                self.ui.confirm = None;
+                self.session.request_service(ServiceRequest::Prestige { to });
+            }
+            UiAction::CancelPrestige => self.ui.confirm = None,
+            UiAction::AskWhatChanged => {
+                self.session.ask_what_changed();
+            }
         }
     }
 
@@ -297,6 +326,12 @@ impl App {
                 self.ui.selected = 0;
                 self.autosave();
             }
+            if out.undocked {
+                self.ui.confirm = None;
+            }
+        }
+        for note in self.session.game_mut().take_notes() {
+            eprintln!("{note}");
         }
         let alpha = self.step.alpha();
         let time = (now - self.started).as_secs_f32();

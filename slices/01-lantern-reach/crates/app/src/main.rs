@@ -38,6 +38,9 @@ enum Cmd {
         seed: u64,
         #[command(flatten)]
         packs: PacksArg,
+        /// Don't install `gm-examples`: the save runs the core pack only.
+        #[arg(long)]
+        no_gm: bool,
     },
     /// Headless simulation.
     Sim {
@@ -79,6 +82,12 @@ enum Cmd {
         quit_after_frames: Option<u32>,
         #[command(flatten)]
         packs: PacksArg,
+        /// Run the core pack only, without `gm-examples` (also `GALAXY_NO_GM=1`).
+        #[arg(long)]
+        no_gm: bool,
+        /// Reload packs when their files change (development).
+        #[arg(long)]
+        hot_reload: bool,
     },
     /// Jump to a journey beat (not implemented yet).
     Beat {
@@ -145,6 +154,11 @@ enum SimCmd {
         /// Don't write the result back to the save.
         #[arg(long)]
         dry_run: bool,
+        #[command(flatten)]
+        packs: PacksArg,
+        /// Run the core pack only, without `gm-examples`.
+        #[arg(long)]
+        no_gm: bool,
     },
 }
 
@@ -305,15 +319,22 @@ type Out = Result<Value, Fail>;
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Cmd::New { save, seed, packs } => new(&save, seed, packs.packs),
+        Cmd::New {
+            save,
+            seed,
+            packs,
+            no_gm,
+        } => new(&save, seed, packs.packs, no_gm),
         Cmd::Sim {
             command:
                 SimCmd::Run {
                     save,
                     ticks,
                     dry_run,
+                    packs,
+                    no_gm,
                 },
-        } => sim_run(&save, ticks, dry_run),
+        } => sim_run(&save, ticks, dry_run, packs.packs, no_gm),
         Cmd::State {
             command: StateCmd::Get { save, path },
         } => state_get(&save, path.as_deref()),
@@ -331,11 +352,15 @@ fn main() -> ExitCode {
             packs,
             beat: None,
             quit_after_frames,
+            no_gm,
+            hot_reload,
         } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
             save,
             new,
             seed,
             packs: packs.packs,
+            no_gm,
+            hot_reload,
             quit_after_frames,
         })
         .map_err(fail),
@@ -517,12 +542,13 @@ fn packs_dir(flag: Option<PathBuf>) -> Result<PathBuf, Fail> {
         .ok_or_else(|| Fail::input("can't find the packs folder; pass --packs or set GALAXY_PACKS"))
 }
 
-fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
+fn new(save: &Path, seed: u64, packs: Option<PathBuf>, no_gm: bool) -> Out {
     if save.exists() {
         return Err(SaveError::Exists(save.to_path_buf()).into());
     }
-    let data = galaxy_app::game::core_data(&packs_dir(packs)?);
-    let state = galaxy_core::new_game(&data, seed).map_err(|e| Fail::input(e.to_string()))?;
+    let gm = !no_gm && galaxy_app::game::gm_allowed();
+    let state =
+        galaxy_app::game::new_state(&packs_dir(packs)?, seed, gm).map_err(Fail::input)?;
     let hash = galaxy_core::state_hash(&state);
     Save::create(save, &state)?;
     Ok(json!({
@@ -532,30 +558,42 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>) -> Out {
         "hash": hash,
         "stations": state.world.stations.len(),
         "rocks": state.world.rocks.len(),
+        "gm_examples": gm,
     }))
 }
 
-use galaxy_app::game::game;
-
-fn sim_run(path: &Path, ticks: u64, dry_run: bool) -> Out {
+/// Fast-forwards the whole game (the same composition as play, with the seeded fake
+/// mind instead of the network).
+fn sim_run(path: &Path, ticks: u64, dry_run: bool, packs: Option<PathBuf>, no_gm: bool) -> Out {
+    use galaxy_app::game::{Game, GameOptions};
     let mut save = Save::open(path)?;
-    let mut sim = game(save.load()?);
-    let start = sim.tick();
+    let state = save.load()?;
+    let seed = state.world.meta.seed;
+    let mut opts = GameOptions::headless(packs_dir(packs)?, seed);
+    opts.gm &= !no_gm;
+    let mut game = Game::open(state, &opts).map_err(Fail::input)?;
+    let start = game.sim().tick();
     let input = PlayerInput::default();
     let (mut applied, mut events) = (0usize, 0usize);
     let mut rejected = Vec::new();
     for _ in 0..ticks {
-        let Some(report) = sim.step(&input) else {
+        let Some(report) = game.step(&input) else {
             break;
         };
         applied += report.applied;
         events += report.events;
         rejected.extend(report.rejected);
     }
+    game.finish();
+    let notes = game.take_notes();
+    let packs: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
+    let sim = game.sim();
     if !dry_run {
         save.write(sim.state())?;
     }
     Ok(json!({
+        "packs": packs,
+        "notes": notes,
         "from_tick": start,
         "tick": sim.tick(),
         "ticks_run": sim.tick().0 - start.0,

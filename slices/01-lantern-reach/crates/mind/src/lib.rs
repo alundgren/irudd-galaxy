@@ -36,6 +36,7 @@ pub mod config;
 pub mod executor;
 pub mod fake;
 pub mod host;
+pub mod lines;
 pub mod menu;
 pub mod mind;
 pub mod openrouter;
@@ -48,6 +49,7 @@ pub use config::{Brief, Budget, MindConfig};
 pub use executor::{Done, Executor, Inline, Job, JobResult, Worker};
 pub use fake::{FakeMind, RecordedMind, Recording};
 pub use host::{MindHost, PumpReport, SpokenLine};
+pub use lines::{LINES_FILE, LineDef, TalkLines};
 pub use menu::{
     DockTalk, LineCandidate, LinePool, LineSource, Menu, MenuCtx, MenuOption, MenuProvider,
     PlanOption, PlanSource, PoolLine, Precondition, RumorSpread, TraderMenus,

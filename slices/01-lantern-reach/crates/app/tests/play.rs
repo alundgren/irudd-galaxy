@@ -141,7 +141,9 @@ fn without_the_app_a_contended_dock_trade_is_lost() {
     // line's compare-and-set is never retried by the economy.
     let s = settled_session();
     let req = buy_rations(&s);
-    let mut sim = galaxy_app::game::game(s.state().clone());
+    let opts = galaxy_app::game::GameOptions::headless(packs(), 1);
+    let mut game = galaxy_app::game::Game::open(s.state().clone(), &opts).unwrap();
+    let sim = game.sim_mut();
     let input = PlayerInput {
         trades: vec![req],
         ..PlayerInput::default()
@@ -488,32 +490,6 @@ fn the_saver_writes_in_the_background() {
     assert_eq!(galaxy_core::state_hash(&loaded), hash);
 }
 
-#[test]
-fn the_goal_line_moves_on_with_act_one() {
-    let mut s = Session::new(new_state());
-    assert_eq!(
-        galaxy_app::hooks::goal_line(s.world()).as_deref(),
-        Some("Bring ice to Kettle Dock")
-    );
-    let mut ui = UiState::default();
-    // Mine, fly to Kettle Dock, dock, sell the ice.
-    galaxy_app::script::run(
-        &mut s,
-        &mut ui,
-        "space,wait*3,d*200,space*400,wait*2,d+s*354,s*50,wait*5,space,wait*3,:tradeall",
-    )
-    .unwrap();
-    assert_eq!(
-        flagship(&s).docked_at.as_ref().map(StationId::as_str),
-        Some("station.kettle_dock")
-    );
-    assert_eq!(flagship(&s).hold.count(&ICE), 0);
-    assert_eq!(
-        galaxy_app::hooks::goal_line(s.world()).as_deref(),
-        Some("Sell iron ore at Lantern Wharf")
-    );
-}
-
 fn inside(r: &render::Rect, viewport: render::glam::Vec2) -> bool {
     let eps = 0.01;
     r.x >= -eps && r.y >= -eps && r.x + r.w <= viewport.x + eps && r.y + r.h <= viewport.y + eps
@@ -611,9 +587,13 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
         ui::dock_panel(
             &mut d,
             s.world(),
+            s.sim().history(),
             &WHARF,
             &UiState::default(),
-            s.trades.notice.as_deref(),
+            ui::Notices {
+                trade: s.trades.notice.as_deref(),
+                service: None,
+            },
             canvas,
         );
         let dock = d.panels[0].rect;

@@ -190,6 +190,107 @@ pub fn credits(cents: i64) -> String {
     }
 }
 
+/// A station-service purchase (an upgrade, a tender, prestige) asked for on the dock
+/// screen. It goes out with the next tick's `PlayerInput::services`, after
+/// `services::check` said it can happen, and is settled by its own committed event:
+/// `upgrade_fitted`, `tender_acquired` or `prestige`. A refusal is one calm line.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ServiceDesk {
+    pending: Option<ServiceRequest>,
+    sent: Option<ServiceRequest>,
+    /// The latest refusal. Cleared by the next purchase that goes through.
+    pub notice: Option<String>,
+}
+
+impl ServiceDesk {
+    /// Asks for a purchase; one that can't happen now is refused at once.
+    pub fn request(&mut self, world: &WorldState, history: &History, req: ServiceRequest) {
+        match galaxy_progress::services::check(world, history, &req) {
+            Ok(()) => {
+                self.pending = Some(req);
+                self.notice = None;
+            }
+            Err(r) => self.notice = Some(service_refusal(world, &req, &r)),
+        }
+    }
+
+    /// The purchase for this tick's input, if one is waiting.
+    pub fn for_tick(&mut self) -> Option<ServiceRequest> {
+        self.sent = self.pending.take();
+        self.sent.clone()
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.pending.is_some() || self.sent.is_some()
+    }
+
+    /// After the tick: did the purchase sent with it go through?
+    pub fn settle(&mut self, world: &WorldState, history: &History, events: &[EventEnvelope]) {
+        let Some(req) = self.sent.take() else { return };
+        let bought = events.iter().any(|e| match (&req, &e.event) {
+            (ServiceRequest::Fit { upgrade }, Event::UpgradeFitted { upgrade: u, .. }) => {
+                u == upgrade
+            }
+            (ServiceRequest::Build { craft }, Event::TenderAcquired { craft: c, .. }) => {
+                c == craft
+            }
+            (ServiceRequest::Prestige { to }, Event::Prestige { to_hull, .. }) => to_hull == to,
+            _ => false,
+        });
+        self.notice = if bought {
+            None
+        } else {
+            Some(match galaxy_progress::services::check(world, history, &req) {
+                Err(r) => service_refusal(world, &req, &r),
+                Ok(()) => "That didn't go through, and nothing was charged.".into(),
+            })
+        };
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// What a purchase is called on screen.
+pub fn service_name(world: &WorldState, req: &ServiceRequest) -> String {
+    let rules = &world.progress.rules;
+    match req {
+        ServiceRequest::Fit { upgrade } => rules
+            .upgrades
+            .get(upgrade)
+            .map_or_else(|| upgrade.to_string(), |u| u.name.clone()),
+        ServiceRequest::Build { craft } => rules
+            .crafts
+            .get(craft)
+            .map_or_else(|| craft.to_string(), |c| c.name.clone()),
+        ServiceRequest::Prestige { to } => world
+            .hulls
+            .get(to)
+            .map_or_else(|| to.to_string(), |h| format!("A {}", h.name)),
+    }
+}
+
+/// One calm line for why a purchase can't happen.
+pub fn service_refusal(
+    world: &WorldState,
+    req: &ServiceRequest,
+    r: &galaxy_progress::services::Refusal,
+) -> String {
+    use galaxy_progress::services::Refusal as R;
+    let name = service_name(world, req);
+    match r {
+        R::Credits { need, have } => format!("{name} costs {need} cr. You have {have} cr."),
+        R::Locked => format!("{name} isn't on offer yet."),
+        R::AlreadyFitted => format!("Your ship already has the {}.", name.to_lowercase()),
+        R::AlreadyOwned => format!("{name} is already yours."),
+        R::NotDocked(station) => format!("Dock at {} for that.", station_name(world, station)),
+        R::NoBranch => "The hullwright has no hull for that here.".into(),
+        R::NotSold => format!("{name} can't be bought; it's given."),
+        R::NoShip | R::Unknown(_) => "That can't be bought here.".into(),
+    }
+}
+
 /// One calm line for why a trade can't happen.
 pub fn refusal(world: &WorldState, e: &TradeError) -> String {
     match e {
