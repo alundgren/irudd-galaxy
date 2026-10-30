@@ -103,6 +103,8 @@ struct StationArt {
     /// Station space to world.
     transform: Mat4,
     lights: Vec<StationLight>,
+    /// How far the art reaches from the station-space origin, in world units.
+    reach: f32,
 }
 
 struct RockArt {
@@ -260,6 +262,7 @@ impl View {
                     stage: s.build.stage,
                     transform: station_transform(s, &recipe),
                     lights: kit::station_lights(&recipe),
+                    reach: recipe.footprint() * station_transform(s, &recipe).x_axis.length(),
                 },
             );
         }
@@ -409,6 +412,9 @@ impl View {
 
         // Stations, their docking rings and lanterns.
         let mut lights: Vec<(f32, PointLight)> = Vec::new();
+        // Where station art covers the screen (centre, radius in pixels): ship names
+        // keep off it.
+        let mut station_art: Vec<(G2, f32)> = Vec::new();
         for s in world.stations.values() {
             let Some(art) = self.stations.get(&s.id) else {
                 continue;
@@ -421,6 +427,15 @@ impl View {
                 MeshInstance::new(art.mesh, art.transform)
                     .with_material(ArtBible::bundled().material(InkRole::Station)),
             );
+            let centre = art.transform.w_axis.truncate();
+            if let Some(c) = camera.world_to_screen(centre, viewport) {
+                let r = [Vec3::X, Vec3::Y]
+                    .into_iter()
+                    .filter_map(|d| camera.world_to_screen(centre + d * art.reach, viewport))
+                    .map(|p| p.distance(c))
+                    .fold(0.0, f32::max);
+                station_art.push((c, r));
+            }
             for l in &art.lights {
                 let p = art.transform.transform_point3(l.position);
                 let scale = art.transform.x_axis.length();
@@ -518,13 +533,30 @@ impl View {
                 .with_material(ArtBible::bundled().material(InkRole::Ship));
             inst.transform = Mat4::from_translation(Vec3::Z * hover) * inst.transform;
             scene.meshes.push(inst);
+            // A trader's name, off the station art and on screen. A docked ship sits
+            // inside its station's art, so it goes unnamed until it flies off.
             if world.traders.contains_key(&ship.id)
+                && !docked
                 && let Some(at) = camera.world_to_screen(pos.extend(hover), viewport)
+                && (0.0..=viewport.x).contains(&at.x)
+                && (0.0..=viewport.y).contains(&at.y)
             {
+                let size = G2::new(
+                    crate::ui::text_width(&ship.name, LABEL_SIZE),
+                    LABEL_SIZE * 1.3,
+                );
+                let nose = recipes::hull_params(&ship.hull).length * 0.5 * scale;
+                let own = camera
+                    .world_to_screen(pos.extend(hover) + Vec3::X * nose, viewport)
+                    .map_or(0.0, |p| p.distance(at));
                 scene.overlay.texts.push(
-                    render::Text::new(ship.name.clone(), at + G2::new(0.0, 18.0), 13.0)
-                        .align(render::Align::Center)
-                        .color(palette::CREAM),
+                    render::Text::new(
+                        ship.name.clone(),
+                        place_label(at, own, size, &station_art, viewport),
+                        LABEL_SIZE,
+                    )
+                    .align(render::Align::Center)
+                    .color(Color::WHITE),
                 );
             }
             let fwd = G2::from_angle(pose.heading);
@@ -582,6 +614,62 @@ impl View {
     }
 }
 
+/// Font size of a ship's name.
+const LABEL_SIZE: f32 = 13.0;
+
+/// Where a ship's name goes (the top centre of the text) for a ship drawn at `at` on
+/// screen, `own` pixels in radius: under it, or over it, whichever keeps clear of the
+/// station art in `avoid` (screen circles) without leaving the screen; failing both,
+/// just outside the nearest station's art and the ship, on the ship's side. Always
+/// inside the viewport.
+fn place_label(at: G2, own: f32, size: G2, avoid: &[(G2, f32)], viewport: G2) -> G2 {
+    const GAP: f32 = 18.0;
+    const MARGIN: f32 = 6.0;
+    let half = size.x * 0.5;
+    let clamp = |p: G2| {
+        G2::new(
+            p.x.clamp(
+                MARGIN + half,
+                (viewport.x - MARGIN - half).max(MARGIN + half),
+            ),
+            p.y.clamp(MARGIN, (viewport.y - MARGIN - size.y).max(MARGIN)),
+        )
+    };
+    let clear = |p: G2| {
+        avoid.iter().all(|&(c, r)| {
+            let min = G2::new(p.x - half, p.y);
+            c.clamp(min, min + size).distance(c) >= r
+        })
+    };
+    let below = G2::new(at.x, at.y + GAP);
+    let above = G2::new(at.x, at.y - GAP - size.y);
+    // A side that only fits by sliding over the ship (at the top or bottom edge)
+    // doesn't count: the other side flips in.
+    for p in [below, above] {
+        let q = clamp(p);
+        if (q.y - p.y).abs() < 0.5 && clear(q) {
+            return q;
+        }
+    }
+    if let Some(&(c, r)) = avoid
+        .iter()
+        .min_by(|a, b| (a.0.distance(at) - a.1).total_cmp(&(b.0.distance(at) - b.1)))
+    {
+        let reach = r.max(at.distance(c) + own);
+        let out = c + (at - c).normalize_or(G2::Y) * (reach + size.length() * 0.5 + 4.0);
+        let q = clamp(G2::new(out.x, out.y - size.y * 0.5));
+        if clear(q) {
+            return q;
+        }
+    }
+    let q = clamp(below);
+    if (q.y - below.y).abs() < 0.5 {
+        q
+    } else {
+        clamp(above)
+    }
+}
+
 /// Where a docked ship is drawn: parked on the station's ring, nose along it, at a
 /// spot that depends on the ship so several don't stack.
 fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
@@ -630,6 +718,48 @@ mod tests {
         assert_eq!(rock_step(&rock), 19);
         rock.remaining = 0;
         assert_eq!(rock_step(&rock), 0);
+    }
+
+    #[test]
+    fn ship_names_keep_off_station_art_and_on_screen() {
+        let view = G2::new(1280.0, 720.0);
+        let size = G2::new(80.0, 17.0);
+        let overlaps = |p: G2, (c, r): (G2, f32)| {
+            let min = G2::new(p.x - size.x * 0.5, p.y);
+            c.clamp(min, min + size).distance(c) < r
+        };
+        let on_screen = |p: G2| {
+            p.x - size.x * 0.5 >= 0.0
+                && p.x + size.x * 0.5 <= view.x
+                && p.y >= 0.0
+                && p.y + size.y <= view.y
+        };
+        // In open space: under the ship, as before.
+        let p = place_label(G2::new(600.0, 300.0), 20.0, size, &[], view);
+        assert_eq!(p, G2::new(600.0, 318.0));
+        // A station just under the ship: the name goes over it.
+        let wharf = (G2::new(600.0, 420.0), 90.0);
+        let p = place_label(G2::new(600.0, 300.0), 20.0, size, &[wharf], view);
+        assert!(p.y < 300.0 && !overlaps(p, wharf), "{p}");
+        // Flying across the art: outside it and the ship, on the ship's side.
+        let ship = (G2::new(670.0, 420.0), 20.0);
+        let p = place_label(ship.0, ship.1, size, &[wharf], view);
+        assert!(
+            !overlaps(p, wharf) && !overlaps(p, ship) && p.x > 600.0,
+            "{p}"
+        );
+        // At the edges: clamped in, and flipped over the ship at the bottom.
+        for at in [
+            G2::new(4.0, 300.0),
+            G2::new(1276.0, 300.0),
+            G2::new(600.0, 716.0),
+            G2::new(600.0, 2.0),
+        ] {
+            let p = place_label(at, 20.0, size, &[], view);
+            assert!(on_screen(p), "{at} -> {p}");
+        }
+        let p = place_label(G2::new(600.0, 716.0), 20.0, size, &[], view);
+        assert!(p.y + size.y < 716.0, "{p}");
     }
 
     #[test]
