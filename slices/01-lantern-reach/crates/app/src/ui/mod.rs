@@ -92,7 +92,10 @@ pub struct UiState {
 /// What a button does.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UiAction {
-    Trade { line: usize, amount: Amount },
+    Trade {
+        line: usize,
+        amount: Amount,
+    },
     Select(usize),
     Undock,
     CloseMap,
@@ -557,8 +560,11 @@ pub fn prestige_card(
         );
         y += 20.0;
         for l in list {
-            o.texts
-                .push(Text::new(l.clone(), G2::new(x + 8.0, y), 15.0).weight(500).wrap(w - 64.0));
+            o.texts.push(
+                Text::new(l.clone(), G2::new(x + 8.0, y), 15.0)
+                    .weight(500)
+                    .wrap(w - 64.0),
+            );
             y += row;
         }
         y += 8.0;
@@ -614,9 +620,7 @@ fn services_height(services: &[hooks::ServiceEntry]) -> f32 {
         .iter()
         .filter(|s| !s.offers.is_empty() || s.can_ask)
         .map(|s| {
-            SERVICE_HEAD
-                + s.offers.len() as f32 * OFFER_ROW
-                + if s.can_ask { 42.0 } else { 0.0 }
+            SERVICE_HEAD + s.offers.len() as f32 * OFFER_ROW + if s.can_ask { 42.0 } else { 0.0 }
         })
         .sum::<f32>()
 }
@@ -626,7 +630,6 @@ fn services_height(services: &[hooks::ServiceEntry]) -> f32 {
 /// hullwright and tender keeper sell, with the price and what stands in the way in
 /// plain words; the dockmaster's "What changed?"), and Undock. It sits under the hold
 /// and fits the canvas height: market rows that don't fit scroll with the selection.
-#[allow(clippy::too_many_arguments)]
 pub fn dock_panel(
     o: &mut Overlay,
     world: &WorldState,
@@ -829,7 +832,10 @@ pub fn dock_panel(
         );
         y += notice_h;
     }
-    for s in services.iter().filter(|s| !s.offers.is_empty() || s.can_ask) {
+    for s in services
+        .iter()
+        .filter(|s| !s.offers.is_empty() || s.can_ask)
+    {
         let head = match &s.keeper_name {
             Some(k) => format!("{}  ·  {k}", s.name.to_uppercase()),
             None => s.name.to_uppercase(),

@@ -307,11 +307,14 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         }
         if pressed {
             let at = self.motion.position;
-            if let Some(station) = space::ring_within(self.w, &self.region, at, self.mods.dock_reach) {
+            if let Some(station) =
+                space::ring_within(self.w, &self.region, at, self.mods.dock_reach)
+            {
                 self.dock(station.id.clone());
                 return;
             }
-            if let Some(way) = space::mouth_within(self.w, &self.region, at, self.mods.mouth_radius) {
+            if let Some(way) = space::mouth_within(self.w, &self.region, at, self.mods.mouth_radius)
+            {
                 self.enter_lane(way);
                 return;
             }
@@ -425,7 +428,8 @@ impl<'a, 'c> ShipStep<'a, 'c> {
 
     fn free_hold(&self) -> u64 {
         let used = i64::try_from(self.ship.hold.total()).unwrap_or(i64::MAX) + self.hold_delta;
-        galaxy_contract::modifiers::hold_capacity(self.w, self.ship).saturating_sub(used.max(0) as u64)
+        galaxy_contract::modifiers::hold_capacity(self.w, self.ship)
+            .saturating_sub(used.max(0) as u64)
     }
 
     /// Mines `rock` for one tick. Returns true once the run is over (hold full or rock

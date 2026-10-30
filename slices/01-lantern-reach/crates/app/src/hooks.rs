@@ -245,7 +245,10 @@ fn offer_row(world: &WorldState, history: &History, o: &services::Offer) -> Offe
 }
 
 /// What a prestige keeps and what it resets, for the confirm card.
-pub fn prestige_summary(world: &WorldState, history: &History) -> Option<(Vec<String>, Vec<String>)> {
+pub fn prestige_summary(
+    world: &WorldState,
+    history: &History,
+) -> Option<(Vec<String>, Vec<String>)> {
     let offer = prestige::offer(world, history)?;
     Some(prestige::summary(world, &offer))
 }
@@ -303,7 +306,9 @@ pub fn what_changed(
         if cited.contains(&f.id) {
             continue;
         }
-        let Some(text) = digest(world, f) else { continue };
+        let Some(text) = digest(world, f) else {
+            continue;
+        };
         let place = f.subjects.station.clone();
         if !places.insert(place.clone()) {
             continue;
@@ -337,7 +342,10 @@ pub fn what_changed(
 fn previous_docking(world: &WorldState, history: &History, station: &StationId) -> FactId {
     let ship = world.player.ship.as_ref();
     let mut docks = history.facts().iter().rev().filter(|f| match &f.payload {
-        FactPayload::Event(Event::Dock { ship: s, station: at }) => Some(s) == ship && at == station,
+        FactPayload::Event(Event::Dock {
+            ship: s,
+            station: at,
+        }) => Some(s) == ship && at == station,
         _ => false,
     });
     // Docked here now: the docking before this one.
@@ -377,14 +385,24 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
         }
         Event::TraitEarned { trait_id, .. } => {
             let t = rules.traits.get(trait_id)?;
-            Some(format!("You've picked up a habit: {}.", t.name.to_lowercase()))
+            Some(format!(
+                "You've picked up a habit: {}.",
+                t.name.to_lowercase()
+            ))
         }
         Event::RegardChanged { faction, to, .. } => {
             let f = world.factions.get(faction)?;
-            Some(format!("The {} count you {} now.", f.name, to.to_lowercase()))
+            Some(format!(
+                "The {} count you {} now.",
+                f.name,
+                to.to_lowercase()
+            ))
         }
         Event::TenderAcquired { craft, station, .. } => {
-            let name = world.ships.get(craft).map_or(craft.as_str(), |s| s.name.as_str());
+            let name = world
+                .ships
+                .get(craft)
+                .map_or(craft.as_str(), |s| s.name.as_str());
             let at = world.stations.get(station)?;
             Some(format!("{name} is yours, berthed at {}.", at.name))
         }
@@ -393,7 +411,10 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
         } => {
             let from = world.hulls.get(from_hull)?;
             let to = world.hulls.get(to_hull)?;
-            Some(format!("You traded the {} up into a {}.", from.name, to.name))
+            Some(format!(
+                "You traded the {} up into a {}.",
+                from.name, to.name
+            ))
         }
         Event::HullRank { hull, .. } => {
             let h = world.hulls.get(hull)?;

@@ -547,8 +547,7 @@ fn new(save: &Path, seed: u64, packs: Option<PathBuf>, no_gm: bool) -> Out {
         return Err(SaveError::Exists(save.to_path_buf()).into());
     }
     let gm = !no_gm && galaxy_app::game::gm_allowed();
-    let state =
-        galaxy_app::game::new_state(&packs_dir(packs)?, seed, gm).map_err(Fail::input)?;
+    let state = galaxy_app::game::new_state(&packs_dir(packs)?, seed, gm).map_err(Fail::input)?;
     let hash = galaxy_core::state_hash(&state);
     Save::create(save, &state)?;
     Ok(json!({

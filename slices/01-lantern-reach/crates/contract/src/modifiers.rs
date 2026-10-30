@@ -78,7 +78,11 @@ impl Modifiers {
 }
 
 fn player_ship(world: &WorldState) -> Option<&Ship> {
-    world.player.ship.as_ref().and_then(|id| world.ships.get(id))
+    world
+        .player
+        .ship
+        .as_ref()
+        .and_then(|id| world.ships.get(id))
 }
 
 /// Every modifier the pilot carries: traits, fittings, and the current hull's ranks.

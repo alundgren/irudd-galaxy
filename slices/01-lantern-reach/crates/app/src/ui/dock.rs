@@ -94,7 +94,8 @@ pub fn trade_request(
                 .ships
                 .get(&base.ship)
                 .map(|s| {
-                    galaxy_contract::modifiers::hold_capacity(world, s).saturating_sub(s.hold.total())
+                    galaxy_contract::modifiers::hold_capacity(world, s)
+                        .saturating_sub(s.hold.total())
                 })
                 .unwrap_or(0);
             let most = room.min(u64::from(line.stock)) as u32;

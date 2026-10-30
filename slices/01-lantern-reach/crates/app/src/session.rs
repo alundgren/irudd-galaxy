@@ -316,7 +316,11 @@ impl Session {
                 note: format!("asked what changed at {station}"),
             }),
         });
-        for line in answer.lines.iter().filter(|l| l.channel != galaxy_contract::talk::Channel::Chronicle) {
+        for line in answer
+            .lines
+            .iter()
+            .filter(|l| l.channel != galaxy_contract::talk::Channel::Chronicle)
+        {
             batch.push(Command::Say {
                 line: Box::new(line.clone()),
             });

@@ -35,8 +35,7 @@ use galaxy_contract::talk::TalkLine;
 use galaxy_core::{Sim, SimState, System, TickReport};
 use galaxy_mind::executor::{Done, Executor, Job};
 use galaxy_mind::{
-    DockTalk, FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, TalkLines,
-    Worker,
+    DockTalk, FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, TalkLines, Worker,
 };
 use galaxy_script::ScriptHost;
 
@@ -296,7 +295,10 @@ impl Game {
                 self.notes.push(if r.accepted() {
                     format!("reloaded {} ({})", r.pack, r.revision)
                 } else {
-                    format!("{} changed but failed its checks; the last good one runs", r.pack)
+                    format!(
+                        "{} changed but failed its checks; the last good one runs",
+                        r.pack
+                    )
                 });
             }
         }

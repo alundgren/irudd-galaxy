@@ -9,10 +9,11 @@ kernel with saves, ships (arcade flight, mining and regrowth, docking, lanes, co
 tiers, orders, the tender), the living market and map (`crates/economy`) and the
 cel-shaded renderer (`crates/render`), the Luau script host (`crates/script`: sandboxed
 packs, the hook API, `galaxy pack check`, hot reload, rollback by cause), the fast-model
-layer (`crates/mind`) and progress (`crates/progress`): the beat runtime with b01 to b03
-in the core pack, standing, traits, hull ranks, prestige and station services. Beats,
-scripts and dock talk aren't wired into play yet: the goal line is a placeholder that
-follows Act 1 (ice to Kettle Dock, then iron ore at the Wharf).
+layer (`crates/mind`) and progress (`crates/progress`): the beat runtime with b01 to b05
+in the core pack, standing, traits, hull ranks, prestige and station services. All of
+it runs in `galaxy play` and `galaxy sim run` as one composition
+(`crates/app/src/game.rs`): the goal line is the active beat's, people speak authored
+lines that cite what happened, and the hullwright sells upgrades on the dock screen.
 
 ![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
 
@@ -42,6 +43,22 @@ stock and what's in your hold. **W/S** (or the arrows) pick a line, **E** trades
 the same. Each price moves a little with every unit, so selling all at once earns less
 per unit than spreading it out. **Space** or the Undock button leaves. A trade you ask
 for goes ahead of the flagship's own queued orders, which wait their turn.
+
+Below the market are the station's people. The hullwright (Orrin, at the Wharf) lists
+what he can fit now, with the price and what it does, or what stands in the way ("Mining
+lens costs 600 cr. You have 160 cr."); **Fit** buys it. Tamsin at Kettle Dock builds the
+tender once you've earned it, and Orrin's prestige offer opens a card that says what
+stays and what resets before you trade up. At a dockmaster, **Ask what changed** gets
+up to three things that happened since you were last there, each about a real event.
+
+The talk panel at the bottom left shows what people said since you last docked, with
+who and where. It's empty, and hidden, until someone has something to say.
+
+The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
+examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
+save without them. With `OPENROUTER_API_KEY` set, a fast model picks which authored line
+someone says; without it people say their most specific line, and the log says so once.
+`--hot-reload` reloads packs as you edit them (development).
 
 The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
 rather than clipping, and a market longer than the screen scrolls with the selection.
@@ -88,13 +105,13 @@ Or build once and call `target/debug/galaxy` directly.
 
 | Command | What it does |
 |---|---|
-| `new --save PATH [--seed N] [--packs DIR]` | New save from the core pack. Seed defaults to 1. |
-| `sim run --save PATH --ticks N [--dry-run]` | Fast-forward headless with hands-off input; prints tick and hash; writes back unless `--dry-run`. |
+| `new --save PATH [--seed N] [--packs DIR] [--no-gm]` | New save from the core pack, installing `gm-examples` unless `--no-gm`. Seed defaults to 1. |
+| `sim run --save PATH --ticks N [--dry-run] [--packs DIR] [--no-gm]` | Fast-forward the whole game (scripts, beats, progress; the seeded fake mind, never the network) with hands-off input; prints tick, hash and the packs that ran; writes back unless `--dry-run`. |
 | `state get --save PATH [--path a/b/c]` | The world state, or a slash-separated part of it. |
 | `history query --save PATH [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since T] [--until T] [--limit N]` | History facts, oldest first. |
 | `api dump [--name NAME]` | The contract's JSON Schemas. |
-| `play [--save PATH] [--new] [--seed N] [--packs DIR]` | The game in a window (see Play). Prints the save and tick when it closes. |
-| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade` and `:tradeall` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `space,wait*3,d*200,space*240` (undock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
 | `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
 | `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
 | `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |

@@ -164,25 +164,19 @@ impl Pilot {
                         .get(&r.rock_type)
                         .is_some_and(|t| t.ware == ICE)
                 })
-                .filter(|r| {
-                    galaxy_ship::space::rock_region(world, r) == Some(&self.ship().region)
-                })
-                .min_by(|a, b| {
-                    a.position
-                        .distance(at)
-                        .total_cmp(&b.position.distance(at))
-                })
+                .filter(|r| galaxy_ship::space::rock_region(world, r) == Some(&self.ship().region))
+                .min_by(|a, b| a.position.distance(at).total_cmp(&b.position.distance(at)))
                 .expect("an ice rock")
                 .clone();
-            let reach = galaxy_ship::space::rock_radius(world, &rock)
-                + world.ship_rules.mining.reach * 0.5;
+            let reach =
+                galaxy_ship::space::rock_radius(world, &rock) + world.ship_rules.mining.reach * 0.5;
             self.fly_to(rock.position, reach);
             self.keys.press(Key::Space);
             for _ in 0..1200 {
                 self.tick();
                 let world = self.s.world();
-                let full =
-                    self.ship().hold.total() >= galaxy_contract::modifiers::hold_capacity(world, self.ship());
+                let full = self.ship().hold.total()
+                    >= galaxy_contract::modifiers::hold_capacity(world, self.ship());
                 let spent = world.rocks.get(&rock.id).is_none_or(|r| r.remaining == 0);
                 if full || spent {
                     break;
@@ -210,7 +204,12 @@ impl Pilot {
                 break;
             }
         }
-        assert_eq!(self.ship().hold.count(ware), 0, "{:?}", self.s.trades.notice);
+        assert_eq!(
+            self.ship().hold.count(ware),
+            0,
+            "{:?}",
+            self.s.trades.notice
+        );
     }
 
     fn buy(&mut self, req: ServiceRequest) {
@@ -236,7 +235,12 @@ fn said(s: &Session, by: &NpcId) -> Vec<String> {
 fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     let mut p = Pilot::new(session(new_state(true)));
     // gm-examples is installed on a new game and runs beside core.
-    let packs: Vec<String> = p.s.game().reports().iter().map(|r| r.pack.to_string()).collect();
+    let packs: Vec<String> =
+        p.s.game()
+            .reports()
+            .iter()
+            .map(|r| r.pack.to_string())
+            .collect();
     assert_eq!(packs, ["core", "gm.kettle_growth"]);
     p.tick();
     assert_eq!(
@@ -257,29 +261,43 @@ fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     // b02: a full hold of ice, by hand.
     p.mine_ice_until_full();
     p.ticks(3);
-    assert_eq!(status(&p.s, "beat.b02_mine_by_hand"), Some(BeatStatus::Completed));
+    assert_eq!(
+        status(&p.s, "beat.b02_mine_by_hand"),
+        Some(BeatStatus::Completed)
+    );
     assert!(p.goal().unwrap().starts_with("Fly into Kettle Dock's ring"));
 
     // b03: Odo takes the ice for the greenhouse and says so; Kettle grows a dome.
     p.dock_at(&KETTLE);
     p.ticks(5);
-    assert_eq!(status(&p.s, "beat.b03_first_delivery"), Some(BeatStatus::Completed));
+    assert_eq!(
+        status(&p.s, "beat.b03_first_delivery"),
+        Some(BeatStatus::Completed)
+    );
     assert_eq!(p.ship().hold.count(&ICE), 0, "handed over");
     assert!(
-        said(&p.s, &ODO).iter().any(|t| t == "20 ice. The beans will hear about this."),
+        said(&p.s, &ODO)
+            .iter()
+            .any(|t| t == "20 ice. The beans will hear about this."),
         "{:?}",
         said(&p.s, &ODO)
     );
     // The talk panel shows it, naming Odo and Kettle Dock.
     let talk = hooks::talk_lines(p.s.world(), p.s.sim().history(), 3);
-    assert!(talk.iter().any(|l| l.speaker.as_ref() == Some(&ODO)
-        && l.place.as_ref() == Some(&KETTLE)));
+    assert!(
+        talk.iter()
+            .any(|l| l.speaker.as_ref() == Some(&ODO) && l.place.as_ref() == Some(&KETTLE))
+    );
     assert_eq!(p.s.world().stations.get(&KETTLE).unwrap().build.stage, 1);
     assert_eq!(
         p.goal().as_deref(),
         Some("Orrin can fit a mining lens for 600 credits. Sell what you mine to pay for it.")
     );
-    assert_eq!(hooks::goal_place(p.s.world()), Some(WHARF), "Orrin is at the Wharf");
+    assert_eq!(
+        hooks::goal_place(p.s.world()),
+        Some(WHARF),
+        "Orrin is at the Wharf"
+    );
 
     // b04: mine and sell until the lens is affordable, then have Orrin fit it.
     let mut trips = 0;
@@ -295,10 +313,17 @@ fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     p.dock_at(&WHARF);
     let before = p.s.world().player.credits;
     p.buy(ServiceRequest::Fit { upgrade: LENS });
-    assert!(p.s.world().player.fittings.contains(&LENS), "{:?}", p.s.services.notice);
+    assert!(
+        p.s.world().player.fittings.contains(&LENS),
+        "{:?}",
+        p.s.services.notice
+    );
     assert_eq!(p.s.world().player.credits, before - 600 * CENTS_PER_CREDIT);
     p.ticks(3);
-    assert_eq!(status(&p.s, "beat.b04_first_sale"), Some(BeatStatus::Completed));
+    assert_eq!(
+        status(&p.s, "beat.b04_first_sale"),
+        Some(BeatStatus::Completed)
+    );
     assert_eq!(
         p.goal().as_deref(),
         Some("Press P or Esc whenever you like. The whole galaxy waits for you.")
@@ -321,14 +346,13 @@ fn act_one_plays_through_b01_to_b05_with_the_goal_line_following() {
     assert!(goals[4].starts_with("Press P or Esc"));
 
     // The fast-model layer ran on the fake (never the network) and booked its picks.
-    let picks = p
-        .s
-        .sim()
-        .history()
-        .facts()
-        .iter()
-        .filter(|f| f.kind.as_str() == galaxy_mind::LINE_FACT)
-        .count();
+    let picks =
+        p.s.sim()
+            .history()
+            .facts()
+            .iter()
+            .filter(|f| f.kind.as_str() == galaxy_mind::LINE_FACT)
+            .count();
     assert!(picks > 0, "dock talk picked at least one authored line");
 }
 
@@ -337,7 +361,12 @@ fn the_core_pack_alone_plays_b01_and_core_only_saves_stay_core_only() {
     let state = new_state(false);
     assert!(!state.world.player.flags.contains(&game::GM_FLAG));
     let mut p = Pilot::new(session(state));
-    let packs: Vec<String> = p.s.game().reports().iter().map(|r| r.pack.to_string()).collect();
+    let packs: Vec<String> =
+        p.s.game()
+            .reports()
+            .iter()
+            .map(|r| r.pack.to_string())
+            .collect();
     assert_eq!(packs, ["core"]);
     p.tick();
     p.undock();
@@ -353,13 +382,17 @@ fn at_the_wharf_after_b03(credits: i64) -> Session {
     p.mine_ice_until_full();
     p.dock_at(&KETTLE);
     p.ticks(5);
-    assert_eq!(status(&p.s, "beat.b03_first_delivery"), Some(BeatStatus::Completed));
+    assert_eq!(
+        status(&p.s, "beat.b03_first_delivery"),
+        Some(BeatStatus::Completed)
+    );
     p.undock();
     p.dock_at(&WHARF);
     p.ticks(3);
     let delta = credits - p.s.world().player.credits;
     p.s.submit(
-        CommandBatch::new(Cause::system("test", "the player's savings")).with(Command::AdjustCredits { delta }),
+        CommandBatch::new(Cause::system("test", "the player's savings"))
+            .with(Command::AdjustCredits { delta }),
     );
     p.ticks(1);
     p.s
@@ -385,7 +418,10 @@ fn station_services_list_offers_and_refuse_calmly() {
         lens.blocked.as_deref(),
         Some("Mining lens costs 600 cr. You have 100 cr.")
     );
-    assert!(services.iter().any(|e| e.can_ask), "the dockmaster can be asked");
+    assert!(
+        services.iter().any(|e| e.can_ask),
+        "the dockmaster can be asked"
+    );
 
     // A refused purchase: one calm line, nothing charged.
     s.request_service(ServiceRequest::Fit { upgrade: LENS });
@@ -405,8 +441,9 @@ fn station_services_list_offers_and_refuse_calmly() {
 
     // With the money it goes through, and the notice clears.
     s.submit(
-        CommandBatch::new(Cause::system("test", "a windfall"))
-            .with(Command::AdjustCredits { delta: 1000 * CENTS_PER_CREDIT }),
+        CommandBatch::new(Cause::system("test", "a windfall")).with(Command::AdjustCredits {
+            delta: 1000 * CENTS_PER_CREDIT,
+        }),
     );
     s.tick(PlayerInput::default());
     s.request_service(ServiceRequest::Fit { upgrade: LENS });
@@ -416,10 +453,12 @@ fn station_services_list_offers_and_refuse_calmly() {
     assert_eq!(s.world().player.credits, 500 * CENTS_PER_CREDIT);
     // Once fitted it leaves the list.
     let services = hooks::station_services(s.world(), s.sim().history(), &WHARF);
-    assert!(services
-        .iter()
-        .flat_map(|e| &e.offers)
-        .all(|o| o.request != ServiceRequest::Fit { upgrade: LENS }));
+    assert!(
+        services
+            .iter()
+            .flat_map(|e| &e.offers)
+            .all(|o| o.request != ServiceRequest::Fit { upgrade: LENS })
+    );
 }
 
 #[test]
@@ -436,10 +475,16 @@ fn the_dock_screen_draws_services_with_working_buttons() {
         ui::Notices::default(),
         canvas,
     );
-    assert!(buttons
-        .iter()
-        .any(|b| b.action == ui::UiAction::Service(ServiceRequest::Fit { upgrade: LENS })));
-    assert!(buttons.iter().any(|b| b.action == ui::UiAction::AskWhatChanged));
+    assert!(
+        buttons
+            .iter()
+            .any(|b| b.action == ui::UiAction::Service(ServiceRequest::Fit { upgrade: LENS }))
+    );
+    assert!(
+        buttons
+            .iter()
+            .any(|b| b.action == ui::UiAction::AskWhatChanged)
+    );
     assert!(o.texts.iter().any(|t| t.text == "Mining lens  ·  600 cr"));
     for b in &buttons {
         assert!(b.rect.y + b.rect.h <= canvas.y, "{b:?} fits");
@@ -449,9 +494,15 @@ fn the_dock_screen_draws_services_with_working_buttons() {
 #[test]
 fn asking_what_changed_cites_facts_and_records_the_question() {
     let mut s = at_the_wharf_after_b03(40 * CENTS_PER_CREDIT);
-    let answer = s.ask_what_changed().cloned().expect("the Wharf has a dockmaster");
+    let answer = s
+        .ask_what_changed()
+        .cloned()
+        .expect("the Wharf has a dockmaster");
     assert_eq!(answer.speaker, Some(ILSE));
-    assert!(!answer.lines.is_empty(), "the dome went up at Kettle since the first visit");
+    assert!(
+        !answer.lines.is_empty(),
+        "the dome went up at Kettle since the first visit"
+    );
     for line in &answer.lines {
         assert!(line.validate().is_ok(), "{line:?}");
         for f in &line.cites {
@@ -468,8 +519,18 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
         .count();
     assert_eq!(asked, 1);
     // Said, so ambient dock talk won't cite those facts again.
-    for line in answer.lines.iter().filter(|l| l.channel == Channel::DockTalk) {
-        assert!(s.world().talk.lines.values().any(|l| l.line.cites == line.cites));
+    for line in answer
+        .lines
+        .iter()
+        .filter(|l| l.channel == Channel::DockTalk)
+    {
+        assert!(
+            s.world()
+                .talk
+                .lines
+                .values()
+                .any(|l| l.line.cites == line.cites)
+        );
     }
 }
 
@@ -482,7 +543,12 @@ fn modifiers_change_mining_rate_and_hold() {
         let mut p = Pilot::new(session(state));
         p.tick();
         p.undock();
-        let rock = p.s.world().rocks.get("rock.shallows.ice.09").unwrap().clone();
+        let rock =
+            p.s.world()
+                .rocks
+                .get("rock.shallows.ice.09")
+                .unwrap()
+                .clone();
         let reach = galaxy_ship::space::rock_radius(p.s.world(), &rock)
             + p.s.world().ship_rules.mining.reach * 0.5;
         p.fly_to(rock.position, reach);
@@ -535,26 +601,43 @@ fn click_controls_work_once_their_flags_are_on() {
     galaxy_app::script::run(&mut s, &mut ui, "space,wait*5").unwrap();
     let at = s.flagship().unwrap().position;
     let target = at + Vec2::new(150.0, -150.0); // clear of the Wharf's ring
-    galaxy_app::script::run(&mut s, &mut ui, &format!(":click:{}:{}", target.x, target.y))
-        .unwrap();
+    galaxy_app::script::run(
+        &mut s,
+        &mut ui,
+        &format!(":click:{}:{}", target.x, target.y),
+    )
+    .unwrap();
     assert!(matches!(
         s.flagship().unwrap().orders.orders.first(),
-        Some(Order::Fly { to: FlyTarget::Point { .. } })
+        Some(Order::Fly {
+            to: FlyTarget::Point { .. }
+        })
     ));
     galaxy_app::script::run(&mut s, &mut ui, "wait*200").unwrap();
     assert!(s.flagship().unwrap().position.distance(target) < 5.0);
 
     // Click a rock: mine it. Shift-click Kettle Dock: queued after it.
-    let rock = s.world().rocks.get("rock.shallows.ice.09").unwrap().position;
+    let rock = s
+        .world()
+        .rocks
+        .get("rock.shallows.ice.09")
+        .unwrap()
+        .position;
     let kettle = s.world().stations.get(&KETTLE).unwrap().position;
     galaxy_app::script::run(
         &mut s,
         &mut ui,
-        &format!(":click:{}:{},:qclick:{}:{}", rock.x, rock.y, kettle.x, kettle.y),
+        &format!(
+            ":click:{}:{},:qclick:{}:{}",
+            rock.x, rock.y, kettle.x, kettle.y
+        ),
     )
     .unwrap();
     let orders = s.flagship().unwrap().orders.orders.clone();
-    assert!(matches!(orders.first(), Some(Order::Mine { .. })), "{orders:?}");
+    assert!(
+        matches!(orders.first(), Some(Order::Mine { .. })),
+        "{orders:?}"
+    );
     assert!(
         matches!(orders.get(1), Some(Order::Dock { station }) if *station == KETTLE),
         "{orders:?}"
@@ -568,13 +651,18 @@ fn click_controls_work_once_their_flags_are_on() {
         .counters
         .get(CounterKind::UnitsMined, &CounterScope::Player);
     assert_eq!(mined, 20);
-    assert_eq!(status(&s, "beat.b03_first_delivery"), Some(BeatStatus::Completed));
+    assert_eq!(
+        status(&s, "beat.b03_first_delivery"),
+        Some(BeatStatus::Completed)
+    );
 
     // Map travel: click another region; the route goes through the lanes.
     galaxy_app::script::run(&mut s, &mut ui, ":mapclick:region.cinder_drift").unwrap();
     assert!(matches!(
         s.flagship().unwrap().orders.orders.first(),
-        Some(Order::Fly { to: FlyTarget::Region { .. } })
+        Some(Order::Fly {
+            to: FlyTarget::Region { .. }
+        })
     ));
 }
 
@@ -593,7 +681,9 @@ fn the_mind_without_a_key_says_authored_lines() {
     let mut game = Game::open(new_state(true), &opts).unwrap();
     let notes = game.take_notes();
     assert!(
-        notes.iter().any(|n| n.contains("OPENROUTER_API_KEY isn't set")),
+        notes
+            .iter()
+            .any(|n| n.contains("OPENROUTER_API_KEY isn't set")),
         "{notes:?}"
     );
     assert!(game.take_notes().is_empty(), "said once");
@@ -610,7 +700,14 @@ fn facts_of<'a>(s: &'a Session, kind: &str) -> Vec<&'a Fact> {
 
 fn with_ice(mut state: SimState, n: u32) -> SimState {
     let id = state.world.player.ship.clone().unwrap();
-    state.world.ships.get_mut(&id).unwrap().hold.cargo.insert(ICE, n);
+    state
+        .world
+        .ships
+        .get_mut(&id)
+        .unwrap()
+        .hold
+        .cargo
+        .insert(ICE, n);
     state
 }
 
@@ -650,7 +747,10 @@ fn docking_where_the_snapshot_is_old_is_a_far_docking() {
     p.undock();
     p.dock_at(&KETTLE);
     p.ticks(2);
-    assert!(facts_of(&p.s, "far_docking").is_empty(), "Kettle was never seen");
+    assert!(
+        facts_of(&p.s, "far_docking").is_empty(),
+        "Kettle was never seen"
+    );
     p.undock();
     p.dock_at(&WHARF);
     p.ticks(2);
@@ -683,10 +783,12 @@ fn a_tandem_hands_cargo_to_a_tender_alongside() {
         ..OrderQueue::default()
     };
     s.submit(
-        CommandBatch::new(Cause::system("test", "hand Thimble some ice")).with(Command::SetOrders {
-            ship: id.clone(),
-            orders: transfer(&thimble),
-        }),
+        CommandBatch::new(Cause::system("test", "hand Thimble some ice")).with(
+            Command::SetOrders {
+                ship: id.clone(),
+                orders: transfer(&thimble),
+            },
+        ),
     );
     for _ in 0..4 {
         s.tick(PlayerInput::default());

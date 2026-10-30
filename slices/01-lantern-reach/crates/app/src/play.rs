@@ -241,7 +241,8 @@ impl App {
             UiAction::Prestige(to) => self.ui.confirm = Some(to),
             UiAction::ConfirmPrestige(to) => {
                 self.ui.confirm = None;
-                self.session.request_service(ServiceRequest::Prestige { to });
+                self.session
+                    .request_service(ServiceRequest::Prestige { to });
             }
             UiAction::CancelPrestige => self.ui.confirm = None,
             UiAction::AskWhatChanged => {

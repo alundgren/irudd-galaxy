@@ -71,7 +71,10 @@ impl LineDef {
     fn matches(&self, fact: &Fact) -> bool {
         let s = &fact.subjects;
         same_kind(&self.cites, fact.kind.as_str())
-            && self.ware.as_ref().is_none_or(|w| s.ware.as_ref() == Some(w))
+            && self
+                .ware
+                .as_ref()
+                .is_none_or(|w| s.ware.as_ref() == Some(w))
             && self
                 .station
                 .as_ref()
@@ -201,7 +204,12 @@ impl TalkLines {
     }
 
     /// The player's last docking at `station` before `before`.
-    fn previous_docking(history: &History, world: &WorldState, station: &StationId, before: FactId) -> FactId {
+    fn previous_docking(
+        history: &History,
+        world: &WorldState,
+        station: &StationId,
+        before: FactId,
+    ) -> FactId {
         let ship = world.player.ship.as_ref();
         history
             .facts()
@@ -209,9 +217,10 @@ impl TalkLines {
             .rev()
             .filter(|f| f.id < before)
             .find(|f| match &f.payload {
-                FactPayload::Event(Event::Dock { ship: s, station: at }) => {
-                    Some(s) == ship && at == station
-                }
+                FactPayload::Event(Event::Dock {
+                    ship: s,
+                    station: at,
+                }) => Some(s) == ship && at == station,
                 _ => false,
             })
             .map_or(FactId(0), |f| f.id)
@@ -235,7 +244,9 @@ impl TalkLines {
         lines
             .into_iter()
             .filter(|l| {
-                let place = history.fact(l.cites).and_then(|f| f.subjects.station.clone());
+                let place = history
+                    .fact(l.cites)
+                    .and_then(|f| f.subjects.station.clone());
                 places.insert(place)
             })
             .take(limit)
@@ -256,12 +267,7 @@ fn sort(lines: &mut [LineCandidate]) {
 impl LineSource for TalkLines {
     fn candidates(&self, cx: &MenuCtx<'_>, station: &StationId, dock: &Fact) -> Vec<LineCandidate> {
         let since = Self::previous_docking(cx.history, cx.world, station, dock.id);
-        let facts = cx
-            .history
-            .facts()
-            .iter()
-            .rev()
-            .take_while(|f| f.id > since);
+        let facts = cx.history.facts().iter().rev().take_while(|f| f.id > since);
         let here = |l: &LineDef| {
             cx.world
                 .npcs

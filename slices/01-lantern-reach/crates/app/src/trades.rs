@@ -231,19 +231,19 @@ impl ServiceDesk {
             (ServiceRequest::Fit { upgrade }, Event::UpgradeFitted { upgrade: u, .. }) => {
                 u == upgrade
             }
-            (ServiceRequest::Build { craft }, Event::TenderAcquired { craft: c, .. }) => {
-                c == craft
-            }
+            (ServiceRequest::Build { craft }, Event::TenderAcquired { craft: c, .. }) => c == craft,
             (ServiceRequest::Prestige { to }, Event::Prestige { to_hull, .. }) => to_hull == to,
             _ => false,
         });
         self.notice = if bought {
             None
         } else {
-            Some(match galaxy_progress::services::check(world, history, &req) {
-                Err(r) => service_refusal(world, &req, &r),
-                Ok(()) => "That didn't go through, and nothing was charged.".into(),
-            })
+            Some(
+                match galaxy_progress::services::check(world, history, &req) {
+                    Err(r) => service_refusal(world, &req, &r),
+                    Ok(()) => "That didn't go through, and nothing was charged.".into(),
+                },
+            )
         };
     }
 

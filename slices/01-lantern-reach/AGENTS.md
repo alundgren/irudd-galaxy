@@ -135,8 +135,9 @@ the game-master bridge) reads events with `Sim::subscribe` / `Sim::drain_events`
 (`name()` + `step(&self, ctx)`), read `ctx.world`, submit batches. Register it with
 `Sim::add_system`. Workstream crates depend on `galaxy-core`, so they can't be listed in
 `galaxy_core::default_systems()` (the kernel's own, none so far): export a
-`systems(..)` function from your crate and add it to `game()` in `crates/app/src/main.rs`
-so the app and `sim run` use it. The name keys its RNG stream; don't rename casually.
+`systems(..)` function from your crate and add it to `Game::open` in
+`crates/app/src/game.rs`, the one composition `play`, `sim run`, `shot` and the tests
+use. The name keys its RNG stream; don't rename casually.
 `placeholder::PlaceholderFlight` only drives the kernel's own tests.
 
 **Ships** (`galaxy-ship`): `ShipSystem` runs every ship each tick (the flagship from
@@ -155,9 +156,10 @@ it fits the runner's "up to" requests to `galaxy_economy::plan_trade` (a buy is 
 to the stock, the free hold and what the credits afford), maps the economy's errors one
 for one onto `TradeError`, passes the economy's commands through unchanged (they open
 with `ExpectDocked` and change the line with a compare-and-set `UpdateMarketLine`), and
-takes its ceiling from the top of the line's price band. The app's `game()` registers
-the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`, then
-`galaxy_economy::EconomySystem`. `FlatDesk` (fixed prices) and closures are for tests.
+takes its ceiling from the top of the line's price band. The app's `Game::open`
+registers the kernel's systems, `galaxy_ship::systems(Box::new(EconomyDesk))`,
+`galaxy_economy::EconomySystem`, the script host (core, then gm-examples), then
+`galaxy_progress::ProgressSystem`, and pumps `galaxy_mind::MindHost` after each step. `FlatDesk` (fixed prices) and closures are for tests.
 Control tiers are per-save flags named in `ship_rules.toml`: read them with
 `Controls::of(world)`, set them with `controls::set_capability`. Loops: `controls::{save_loop, run_loop, assign_loop}` build
 the batches; `assign_loop` takes the desk to refuse floors above the ceiling. Every
@@ -313,7 +315,10 @@ error.
   `[[regard]]` / `[[deed]]` / `[standing]` in `factions.toml`, and `pacing.toml`
   (tunables and `[prestige]`). The core loader checks every reference.
 - **Effects**: traits, fittings and ranks only ever add up to the fixed `Modifier`
-  list; read a ship's totals with `galaxy_progress::modifiers::for_ship`.
+  list; read a ship's totals with `galaxy_progress::modifiers::for_ship` (the fold
+  lives in `galaxy_contract::modifiers`, so the kernel's hold invariant, the ship and
+  the economy read it without depending on progress). Free hold is always
+  `modifiers::hold_capacity(world, ship)`, never the hull's `hold_capacity` alone.
 - **Standing** is hidden; show `standing::tier` (regard). Change it only through
   `standing::Deeds` (or `ctx.standing:deed`), which clamps, applies trait bonuses and
   writes `standing_changed` / `regard_changed`. Each deed carries an `ExpectStanding`

@@ -265,8 +265,8 @@ pub fn plan_trade(world: &WorldState, req: &TradeRequest) -> Result<TradeOutcome
         }
         TradeSide::Buy => {
             let capacity = galaxy_contract::modifiers::hold_capacity(world, ship);
-            let free = u32::try_from(capacity.saturating_sub(ship.hold.total()))
-                .unwrap_or(u32::MAX);
+            let free =
+                u32::try_from(capacity.saturating_sub(ship.hold.total())).unwrap_or(u32::MAX);
             if free < req.quantity {
                 return Err(TradeError::HoldFull {
                     free,
