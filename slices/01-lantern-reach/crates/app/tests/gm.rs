@@ -182,7 +182,7 @@ fn propose_on_a_save_then_roll_back() {
     let (_, status) = galaxy(&["gm", "status", "--save", s]);
     assert_eq!(status["applied"][0]["state"], "rolled_back");
     let (code, _) = galaxy(&["state", "get", "--save", s, "--path", "npcs.npc.odo_fenn"]);
-    assert_eq!(code, 4, "the installed person went with the change");
+    assert_eq!(code, 0, "Odo is the core pack's, so he stays");
     let (code, again) = galaxy(&["gm", "rollback", &change, "--save", s]);
     assert_eq!(code, 4, "{again}");
     let (code, nope) = galaxy(&["gm", "rollback", "cause.999", "--save", s]);
@@ -421,7 +421,12 @@ fn the_live_cli_against_a_running_game() {
     for _ in 0..3 {
         sim.step(&PlayerInput::default());
     }
-    assert!(!sim.world().npcs.contains(&ODO));
+    assert!(sim.world().npcs.contains(&ODO), "Odo is the core pack's");
+    assert!(
+        !sim.world().packs[&PackId::from_static("gm.kettle_growth")]
+            .retired
+            .is_empty()
+    );
     let (_, status) = live_cli(
         &["gm", "status", "--live", p],
         &mut bridge,
