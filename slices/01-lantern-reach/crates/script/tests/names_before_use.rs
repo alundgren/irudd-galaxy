@@ -157,7 +157,10 @@ struct DockLine {
 /// The core pack's lines: ID, speaker and the text they can say (literals only).
 fn dock_lines() -> Vec<DockLine> {
     let core = slice().join("packs/core/lib");
-    let ids_src = std::fs::read_to_string(core.join("ids.luau")).unwrap();
+    // Windows checkouts may have CRLF endings (core.autocrlf).
+    let ids_src = std::fs::read_to_string(core.join("ids.luau"))
+        .unwrap()
+        .replace("\r\n", "\n");
     let ids: BTreeMap<&str, &str> = ids_src
         .lines()
         .filter_map(|l| {
@@ -165,7 +168,9 @@ fn dock_lines() -> Vec<DockLine> {
             Some((k, v.strip_prefix('"')?.strip_suffix('"')?))
         })
         .collect();
-    let src = std::fs::read_to_string(core.join("lines.luau")).unwrap();
+    let src = std::fs::read_to_string(core.join("lines.luau"))
+        .unwrap()
+        .replace("\r\n", "\n");
     let mut out = Vec::new();
     for block in src.split("\t{\n").skip(1) {
         let field = |name: &str| {
