@@ -1,5 +1,6 @@
 use galaxy_app::harness::{self, Profile, RunOptions};
 use galaxy_contract::prelude::*;
+use galaxy_contract::verbs::Order;
 use std::path::PathBuf;
 
 fn packs() -> PathBuf {
@@ -82,10 +83,30 @@ fn exercise(gm: bool, profile: Profile, hull: &str) {
         .iter()
         .filter(|f| f.kind.as_str() == "loop_stalled")
     {
+        // SetOrders is a player verb with no synthetic assignment fact. A new
+        // lap proves recovery; otherwise verify that the documented fallback
+        // replaced the stalled route and is still active in the actual craft.
+        let reassigned = stall.subjects.ship.as_ref().is_some_and(|id| {
+            if id.as_str() != "craft.thimble" {
+                return false;
+            }
+            let w = run.game.sim().world();
+            let mut expected = w.player.loops["Wharf plate run"].clone();
+            for order in &mut expected {
+                if let Order::Sell { floor, .. } = order {
+                    *floor = Some(4000);
+                }
+            }
+            w.ships.get(id).is_some_and(|s| {
+                matches!(s.orders.orders.get(s.orders.current),
+                    Some(Order::Loop { orders, .. }) if orders == &expected)
+            })
+        });
         assert!(
             history.facts().iter().any(|f| f.tick > stall.tick
                 && f.subjects.ship == stall.subjects.ship
-                && matches!(f.kind.as_str(), "tender_assigned" | "loop_lap")),
+                && f.kind.as_str() == "loop_lap")
+                || reassigned,
             "unanswered stall {stall:?}"
         );
     }
