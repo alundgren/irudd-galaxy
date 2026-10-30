@@ -90,6 +90,10 @@ struct App {
     quit_after_frames: Option<u32>,
     /// The game-master bridge, serviced between frames ([`App::serve_bridge`]).
     bridge: Option<galaxy_gm::Bridge>,
+    /// Sound cues from committed events ([`crate::sound`]); N mutes.
+    audio: galaxy_audio::Audio,
+    /// Which cues each tick asks for.
+    cues: crate::sound::Cues,
 }
 
 /// Opens the game-master bridge on the loaded session: loads applied packs, applies
@@ -147,13 +151,21 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
             (save, state)
         }
     };
-    let audio = galaxy_audio::Audio::open();
+    let audio = galaxy_audio::Audio::open(
+        folder
+            .as_ref()
+            .map(|f| f.dir().join(galaxy_audio::settings::FILE)),
+    );
+    if let Some(note) = audio.settings_note() {
+        eprintln!("sound: {note}");
+    }
     let mut session = Session::new(state);
     // The game-master bridge: applied packs run, staged ones apply now (loading is a
     // calm moment), and the live socket opens.
     let mut save = save;
     let bridge = open_bridge(choice.path(), &mut session, &mut save);
     session.begin();
+    let cues = crate::sound::Cues::new(session.world());
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -172,6 +184,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         frames: 0,
         quit_after_frames: args.quit_after_frames,
         bridge,
+        audio,
+        cues,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -182,6 +196,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         frames,
         render_errors,
         bridge,
+        audio,
         ..
     } = app;
     let gm = bridge.as_ref().map(|b| {
@@ -208,9 +223,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         "frames": frames,
         "render_errors": render_errors,
         "gm": gm,
-        "audio": if audio.has_device() { "silent (device open)".to_owned() } else {
-            format!("no device: {}", audio.problem().unwrap_or("none"))
-        },
+        "audio": audio.status(),
     }))
 }
 
@@ -295,6 +308,7 @@ impl App {
         self.last = Instant::now();
         // Both ways: nothing held or pressed across the card counts afterwards.
         self.keys.clear();
+        self.audio.set_paused(now_paused);
         if now_paused {
             self.autosave();
         }
@@ -397,6 +411,10 @@ impl App {
             let click = if i == 0 { self.click.take() } else { None };
             let input = self.keys.tick_input(docked, click);
             let out = self.session.tick(input);
+            let world = self.session.world();
+            for (cue, seed) in self.cues.tick(world, self.session.last_events(), &out) {
+                self.audio.play(cue, seed);
+            }
             if out.docked.is_some() {
                 self.ui.selected = 0;
                 self.autosave();
@@ -512,8 +530,16 @@ impl ApplicationHandler for App {
                     },
                 ..
             } => {
-                let Some(key) = key_of(code) else { return };
                 let down = state == ElementState::Pressed;
+                // N mutes and unmutes, paused or not. Not a game key: it never reaches
+                // the sim.
+                if code == KeyCode::KeyN {
+                    if down && !repeat {
+                        self.audio.toggle_mute();
+                    }
+                    return;
+                }
+                let Some(key) = key_of(code) else { return };
                 if self.keys.event(key, down, repeat) {
                     self.key_pressed(key);
                 }
