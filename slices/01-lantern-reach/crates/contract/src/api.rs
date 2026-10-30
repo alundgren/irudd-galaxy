@@ -263,6 +263,7 @@ pub const fn event_use(kind: EventKind) -> &'static str {
         EventKind::TraitEarned => "events.trait_earned",
         EventKind::Prestige => "events.prestige",
         EventKind::SessionStart => "events.session_start",
+        EventKind::Paused => "events.paused",
     }
 }
 

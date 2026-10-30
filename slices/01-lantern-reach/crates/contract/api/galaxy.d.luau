@@ -40,7 +40,7 @@ export type MarketLine = { base_price: number, consumption: number?, consumption
 export type Fact = { amount: number?, cause: CauseId, id: FactId, kind: FactKind, payload: FactPayload, subjects: Subjects, tick: Tick }
 export type FactDraft = { amount: number?, kind: FactKind, note: string, subjects: Subjects? }
 export type HistoryQuery = { after: FactId?, cause: CauseId?, faction: FactionId?, kind: FactKind?, limit: number?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, since: Tick?, station: StationId?, ["until"]: Tick?, ware: WareId? }
-export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { trait_id: TraitId, type: "trait_earned" } | { from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" }
+export type Event = { ship: ShipId, station: StationId, type: "dock" } | { ship: ShipId, station: StationId, type: "undock" } | { amount: number, rock: RockId, ship: ShipId, type: "mine", ware: WareId } | { rock: RockId, ship: ShipId?, type: "rock_depleted" } | { quantity: number, ship: ShipId, station: StationId, type: "buy", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "sell", unit_price: number, ware: WareId } | { quantity: number, ship: ShipId, station: StationId, type: "deliver", ware: WareId } | { from: RegionId, lane: LaneId, ship: ShipId, to: RegionId, type: "jump" } | { ship: ShipId, station: StationId, type: "scout" } | { ship: ShipId, type: "order_done", verb: VerbKind } | { quest: QuestId, step: string, type: "quest_step" } | { trait_id: TraitId, type: "trait_earned" } | { from_hull: HullId, to_hull: HullId, type: "prestige" } | { type: "session_start" } | { session: number, type: "paused" }
 export type CounterKind = "dockings" | "jumps" | "sessions" | "units_mined" | "rocks_depleted" | "sales" | "purchases" | "scouts" | "orders_done" | "deliveries"
 
 -- Event handler arguments: the event plus the fact it was recorded as.
@@ -59,6 +59,7 @@ export type QuestStepEvent = { cause: CauseId, fact: FactId, quest: QuestId, ste
 export type TraitEarnedEvent = { cause: CauseId, fact: FactId, tick: Tick, trait_id: TraitId, type: "trait_earned" }
 export type PrestigeEvent = { cause: CauseId, fact: FactId, from_hull: HullId, tick: Tick, to_hull: HullId, type: "prestige" }
 export type SessionStartEvent = { cause: CauseId, fact: FactId, tick: Tick, type: "session_start" }
+export type PausedEvent = { cause: CauseId, fact: FactId, session: number, tick: Tick, type: "paused" }
 
 -- Hook arguments
 
@@ -228,6 +229,7 @@ export type Handlers = {
 	trait_earned: ((ev: TraitEarnedEvent, ctx: Ctx) -> ())?,
 	prestige: ((ev: PrestigeEvent, ctx: Ctx) -> ())?,
 	session_start: ((ev: SessionStartEvent, ctx: Ctx) -> ())?,
+	paused: ((ev: PausedEvent, ctx: Ctx) -> ())?,
 }
 export type ScriptDef = { id: string, on: Handlers?, after: { [string]: Trigger }? }
 

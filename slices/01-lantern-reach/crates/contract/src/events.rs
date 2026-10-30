@@ -93,6 +93,12 @@ pub enum Event {
     },
     /// A play session began (the app emits it when the game starts).
     SessionStart {},
+    /// The PAUSED card opened. The app submits it every time the card opens; the sim
+    /// doesn't tick while paused, so it commits on the first tick after the card
+    /// closes. `session` is the `sessions` counter of the play session it happened in.
+    Paused {
+        session: u64,
+    },
 }
 
 /// Event names, for subscriptions and filters.
@@ -115,10 +121,11 @@ pub enum EventKind {
     TraitEarned,
     Prestige,
     SessionStart,
+    Paused,
 }
 
 impl EventKind {
-    pub const ALL: [EventKind; 14] = [
+    pub const ALL: [EventKind; 15] = [
         EventKind::Dock,
         EventKind::Undock,
         EventKind::Mine,
@@ -133,6 +140,7 @@ impl EventKind {
         EventKind::TraitEarned,
         EventKind::Prestige,
         EventKind::SessionStart,
+        EventKind::Paused,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -151,6 +159,7 @@ impl EventKind {
             EventKind::TraitEarned => "trait_earned",
             EventKind::Prestige => "prestige",
             EventKind::SessionStart => "session_start",
+            EventKind::Paused => "paused",
         }
     }
 
@@ -177,6 +186,7 @@ impl Event {
             Event::TraitEarned { .. } => EventKind::TraitEarned,
             Event::Prestige { .. } => EventKind::Prestige,
             Event::SessionStart {} => EventKind::SessionStart,
+            Event::Paused { .. } => EventKind::Paused,
         }
     }
 
@@ -196,7 +206,8 @@ impl Event {
             Event::QuestStep { .. }
             | Event::TraitEarned { .. }
             | Event::Prestige { .. }
-            | Event::SessionStart {} => None,
+            | Event::SessionStart {}
+            | Event::Paused { .. } => None,
         }
     }
 
@@ -208,6 +219,7 @@ impl Event {
                 | Event::TraitEarned { .. }
                 | Event::Prestige { .. }
                 | Event::SessionStart {}
+                | Event::Paused { .. }
         )
     }
 
@@ -239,7 +251,7 @@ impl Event {
             Event::QuestStep { quest, .. } => s.other = AnyId::new(quest.as_str()).ok(),
             Event::TraitEarned { trait_id } => s.other = AnyId::new(trait_id.as_str()).ok(),
             Event::Prestige { to_hull, .. } => s.other = AnyId::new(to_hull.as_str()).ok(),
-            Event::OrderDone { .. } | Event::SessionStart {} => {}
+            Event::OrderDone { .. } | Event::SessionStart {} | Event::Paused { .. } => {}
         }
         s
     }
@@ -270,9 +282,10 @@ impl Event {
             Event::Scout { .. } => vec![(C::Scouts, 1)],
             Event::OrderDone { .. } => vec![(C::OrdersDone, 1)],
             Event::SessionStart {} => vec![(C::Sessions, 1)],
-            Event::QuestStep { .. } | Event::TraitEarned { .. } | Event::Prestige { .. } => {
-                vec![]
-            }
+            Event::QuestStep { .. }
+            | Event::TraitEarned { .. }
+            | Event::Prestige { .. }
+            | Event::Paused { .. } => vec![],
         }
     }
 }

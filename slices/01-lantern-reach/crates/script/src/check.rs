@@ -444,6 +444,7 @@ fn sample_event(kind: EventKind, scans: &[(String, scan::Scan)], w: &WorldState)
             to_hull: hull,
         },
         EventKind::SessionStart => Event::SessionStart {},
+        EventKind::Paused => Event::Paused { session: 1 },
     })
 }
 

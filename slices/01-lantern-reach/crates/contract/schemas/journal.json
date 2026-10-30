@@ -1156,6 +1156,31 @@
           ]
         },
         {
+          "description": "Adds `station` to a rumor's `heard_at` (or removes it), and fails if it's already\nthere (or isn't). Spreads compose: two craft carrying one rumor to different\nstations in one tick both land, and a second spread to the same station is\nrejected instead of overwriting the set. Its inverse flips `heard`.",
+          "type": "object",
+          "properties": {
+            "heard": {
+              "type": "boolean"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_rumor_heard"
+            },
+            "rumor": {
+              "$ref": "#/$defs/RumorId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "op",
+            "rumor",
+            "station",
+            "heard"
+          ]
+        },
+        {
           "description": "Emits an event on commit; the engine records its fact and bumps counters.",
           "type": "object",
           "properties": {
@@ -1987,6 +2012,25 @@
           },
           "required": [
             "type"
+          ]
+        },
+        {
+          "description": "The PAUSED card opened. The app submits it every time the card opens; the sim\ndoesn't tick while paused, so it commits on the first tick after the card\ncloses. `session` is the `sessions` counter of the play session it happened in.",
+          "type": "object",
+          "properties": {
+            "session": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "paused"
+            }
+          },
+          "required": [
+            "type",
+            "session"
           ]
         }
       ]

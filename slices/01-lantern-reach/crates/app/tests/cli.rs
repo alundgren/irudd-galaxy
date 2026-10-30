@@ -88,7 +88,6 @@ fn stubs_say_not_implemented() {
         &["beat", "jump", "5"],
         &["gm", "propose", "./change"],
         &["gm", "rollback", "cause.3"],
-        &["shot"],
     ] {
         let (code, out) = galaxy(args);
         assert_eq!(code, 3, "{args:?}");
@@ -145,4 +144,34 @@ fn pack_check_and_pack_test() {
 
     let (code, _) = galaxy(&["pack", "check", "no/such/pack"]);
     assert_eq!(code, 4);
+}
+
+#[test]
+fn shot_and_play_refuse_bad_input_before_opening_anything() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("missing.sqlite");
+    let out = dir.path().join("x.png");
+    let (code, v) = galaxy(&[
+        "shot",
+        "--save",
+        missing.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 4, "{v}");
+    let (code, _) = galaxy(&[
+        "shot",
+        "--save",
+        missing.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+        "--size",
+        "huge",
+    ]);
+    assert_eq!(code, 4);
+    // --new on an existing save is refused rather than overwriting it.
+    let existing = dir.path().join("e.sqlite");
+    std::fs::write(&existing, b"x").unwrap();
+    let (code, v) = galaxy(&["play", "--save", existing.to_str().unwrap(), "--new"]);
+    assert_eq!(code, 4, "{v}");
 }
