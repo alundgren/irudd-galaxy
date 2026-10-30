@@ -188,6 +188,20 @@ fn said_cause(line: &SpokenLine) -> Cause {
 }
 
 impl Game {
+    pub fn mind_debug(&self) -> String {
+        self.mind.as_ref().map_or_else(
+            || "Mind off".into(),
+            |mind| {
+                format!(
+                    "Mind ${:.4} / ${:.4}  calls {}  in flight {}",
+                    mind.spent_usd(),
+                    mind.config().budget.spend_cap_usd,
+                    mind.stats().requests,
+                    mind.in_flight()
+                )
+            },
+        )
+    }
     /// Builds the game over `state`. Fails only if the core pack can't load.
     pub fn open(state: SimState, opts: &GameOptions) -> Result<Game, String> {
         Self::open_with(state, opts, &mut |_, _| {})

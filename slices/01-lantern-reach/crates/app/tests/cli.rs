@@ -96,12 +96,24 @@ fn api_dump_prints_schemas() {
 }
 
 #[test]
-fn stubs_say_not_implemented() {
-    for args in [&["play", "--beat", "3"][..], &["beat", "jump", "5"]] {
-        let (code, out) = galaxy(args);
-        assert_eq!(code, 3, "{args:?}");
-        assert_eq!(out["error"], "not implemented yet");
-    }
+fn beat_jump_and_bot_cli_use_real_progress() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("beat.sqlite");
+    let save = path.to_str().unwrap();
+    let (code, report) = galaxy(&["beat", "jump", "2", "--out", save, "--no-gm"]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["report"]["completed"], 1);
+    let (code, _) = galaxy(&["beat", "jump", "2", "--out", save, "--no-gm"]);
+    assert_eq!(code, 4, "never overwrite a save");
+    let (code, report) = galaxy(&[
+        "sim", "run", "--save", save, "--bot", "journey", "--until", "beat:2", "--no-gm",
+    ]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["completed"], 2);
+    let (code, _) = galaxy(&[
+        "sim", "run", "--save", save, "--bot", "journey", "--until", "beat:99",
+    ]);
+    assert_eq!(code, 2);
 }
 
 #[test]

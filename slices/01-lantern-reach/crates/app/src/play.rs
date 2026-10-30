@@ -34,6 +34,7 @@ use crate::view::{CameraRig, View, g};
 
 #[derive(Clone, Debug, Default)]
 pub struct PlayArgs {
+    pub beat: Option<u32>,
     pub save: Option<PathBuf>,
     pub new: bool,
     pub seed: u64,
@@ -141,8 +142,13 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    let choice =
-        saves::choose(folder.as_ref(), args.save.clone(), args.new, stamp).map_err(|e| (4, e))?;
+    let choice = saves::choose(
+        folder.as_ref(),
+        args.save.clone(),
+        args.new || args.beat.is_some(),
+        stamp,
+    )
+    .map_err(|e| (4, e))?;
     if let Some(dir) = choice.path().parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| (1, format!("{}: {e}", dir.display())))?;
     }
@@ -159,7 +165,15 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
             (save, state)
         }
         SaveChoice::Create(path) => {
-            let state = crate::game::new_state(&packs, args.seed, gm).map_err(|e| (4, e))?;
+            let state = if let Some(beat) = args.beat {
+                let run = crate::harness::jump(&packs, args.seed, gm, beat).map_err(|e| (4, e))?;
+                if run.report["ok"] == false {
+                    return Err((4, run.report.to_string()));
+                }
+                run.game.sim().state().clone()
+            } else {
+                crate::game::new_state(&packs, args.seed, gm).map_err(|e| (4, e))?
+            };
             let save = Save::create(path, &state).map_err(|e| (1, e.to_string()))?;
             (save, state)
         }
@@ -594,6 +608,12 @@ impl ApplicationHandler for App {
                 ..
             } => {
                 let down = state == ElementState::Pressed;
+                if code == KeyCode::F3 {
+                    if down && !repeat {
+                        self.ui.debug_open = !self.ui.debug_open;
+                    }
+                    return;
+                }
                 // N mutes and unmutes, paused or not. Not a game key: it never reaches
                 // the sim.
                 if code == KeyCode::KeyN {

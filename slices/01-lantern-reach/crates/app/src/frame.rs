@@ -112,6 +112,9 @@ pub fn compose(
         // The card is on top: only its own buttons work while it's open.
         buttons = ui::prestige_card(&mut panels, world, history, to, &on_canvas, canvas);
     }
+    if ui_state.debug_open {
+        ui::debug_overlay(&mut panels, session);
+    }
     ui::scale_overlay(&mut panels, scale);
     ui::scale_buttons(&mut buttons, scale);
     // Labels and markers pinned to the world never show through a panel.

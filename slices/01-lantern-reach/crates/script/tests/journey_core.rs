@@ -3,10 +3,10 @@
 //! seeded fake) driven by the player's input and, once unlocked, their orders, along
 //! the journey bot's route in `content/07-pacing.md`.
 //!
-//! One focused test per act, plus the route's special tests (the pause test and the
-//! shortage-during-demo test). A later act starts from state set up the way `beat
-//! jump` will (earlier beats done, the fittings and flags they earned), and a long
-//! activity wait is shortened by lowering its pacing tunable: pacing is data.
+//! One focused test per act, plus the pause and shortage-during-demo regressions.
+//! Later acts use explicit fixtures with earlier beats, fittings and flags. These
+//! fixtures lack completion facts; the app harness earns actual checkpoint history.
+//! Long activity waits are shortened by lowering pacing tunables: pacing is data.
 
 mod common;
 

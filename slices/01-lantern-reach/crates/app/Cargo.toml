@@ -15,6 +15,7 @@ name = "galaxy"
 path = "src/main.rs"
 
 [dependencies]
+blake3.workspace = true
 galaxy-audio.workspace = true
 galaxy-contract.workspace = true
 galaxy-core.workspace = true

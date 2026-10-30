@@ -947,6 +947,7 @@ dependencies = [
 name = "galaxy-app"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "clap",
  "directories",
  "galaxy-audio",
