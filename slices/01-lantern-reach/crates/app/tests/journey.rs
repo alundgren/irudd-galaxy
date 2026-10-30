@@ -492,6 +492,39 @@ fn the_dock_screen_draws_services_with_working_buttons() {
 }
 
 #[test]
+fn every_authored_station_has_an_ask_what_changed_button() {
+    let s = session(new_state(false));
+    let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    let stations: Vec<StationId> = s.world().stations.keys().cloned().collect();
+    assert_eq!(stations.len(), 5);
+    for station in &stations {
+        let services = hooks::station_services(s.world(), s.sim().history(), station);
+        let dockmaster = services
+            .iter()
+            .find(|e| e.can_ask)
+            .unwrap_or_else(|| panic!("{station}: no dockmaster to ask"));
+        let keeper = dockmaster.keeper.as_ref().expect("a resident dockmaster");
+        assert_eq!(s.world().npcs.get(keeper).unwrap().role, "dockmaster");
+        let mut o = render::Overlay::default();
+        let buttons = ui::dock_panel(
+            &mut o,
+            s.world(),
+            s.sim().history(),
+            station,
+            &UiState::default(),
+            ui::Notices::default(),
+            canvas,
+        );
+        assert!(
+            buttons
+                .iter()
+                .any(|b| b.action == ui::UiAction::AskWhatChanged),
+            "{station}: no Ask button"
+        );
+    }
+}
+
+#[test]
 fn asking_what_changed_cites_facts_and_records_the_question() {
     let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
     let mut p = Pilot::new(s);

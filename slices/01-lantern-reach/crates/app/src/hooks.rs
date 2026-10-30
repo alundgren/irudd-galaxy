@@ -170,7 +170,14 @@ pub fn station_services(
     };
     let offers = services::offers(world, history, station);
     let mut out: Vec<ServiceEntry> = Vec::new();
-    for sv in s.services.iter().filter(|sv| **sv != Service::Market) {
+    // Every station's dockmaster can be asked what changed, whether or not its data
+    // lists the service: a resident dockmaster is enough (Odo, Rook, Hesper, or one a
+    // game-master pack founds).
+    let mut listed: Vec<Service> = s.services.iter().copied().collect();
+    if !listed.contains(&Service::Dockmaster) && keeper(world, station, "dockmaster").is_some() {
+        listed.insert(0, Service::Dockmaster);
+    }
+    for sv in listed.iter().filter(|sv| **sv != Service::Market) {
         let (name, role) = match sv {
             Service::Dockmaster => ("Dockmaster", "dockmaster"),
             Service::Hullwright => ("Hullwright", "hullwright"),
