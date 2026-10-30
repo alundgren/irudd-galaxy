@@ -279,10 +279,12 @@ const ANSWER_CHRONICLE: usize = 2;
 /// The dockmaster's answer at `station`: their authored lines for facts since the
 /// player's previous docking there (most specific first, one per place), then digest
 /// lines for the rest of what happened, then the chronicle entries written since. Like
-/// all ambient talk, it never tells a fact some said line already cites.
+/// all ambient talk, it never tells a fact some said line already cites, or one a
+/// `queued` batch is about to say (an ambient line picked at the docking).
 pub fn what_changed(
     world: &WorldState,
     history: &History,
+    queued: &[CommandBatch],
     lines: &TalkLines,
     station: &StationId,
 ) -> Answer {
@@ -290,7 +292,7 @@ pub fn what_changed(
     let since = previous_docking(world, history, station);
     let mut out: Vec<TalkLine> = Vec::new();
     if let Some(npc) = &speaker {
-        for c in lines.what_changed(world, history, since, npc, ANSWER_LINES) {
+        for c in lines.what_changed(world, history, queued, since, npc, ANSWER_LINES) {
             let place = history
                 .fact(c.cites)
                 .and_then(|f| f.subjects.station.clone())
@@ -305,15 +307,10 @@ pub fn what_changed(
             });
         }
     }
-    // Facts any said line already cites (ambient talk tells each once), and the ones
-    // the dockmaster's own lines just took.
-    let cited: BTreeSet<FactId> = world
-        .talk
-        .lines
-        .values()
-        .flat_map(|l| l.line.cites.iter().copied())
-        .chain(out.iter().flat_map(|l| l.cites.iter().copied()))
-        .collect();
+    // Facts any said or queued line already cites (ambient talk tells each once), and
+    // the ones the dockmaster's own lines just took.
+    let mut cited = TalkLines::cited_facts(world, queued);
+    cited.extend(out.iter().flat_map(|l| l.cites.iter().copied()));
     let mut places: BTreeSet<Option<StationId>> = out.iter().map(|l| l.place.clone()).collect();
     for f in history.facts().iter().rev().take_while(|f| f.id > since) {
         if out.len() >= ANSWER_LINES {

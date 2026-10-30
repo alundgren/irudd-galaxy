@@ -13,7 +13,9 @@
 //!
 //! - **Retirement**: a fact that any said line already cites (in the world's talk log)
 //!   isn't cited again, so a delivery Odo thanked the player for in a script isn't
-//!   thanked for twice.
+//!   thanked for twice. A line queued to be said counts too ([`TalkLines::cited_facts`]),
+//!   and the mind host checks again when it says a line it picked earlier, so an
+//!   ambient line and an answer to "What changed?" never cite the same fact.
 //! - **Reuse cap**: a line said `max_uses` times (`mind.line` facts naming it) retires,
 //!   so stock phrasing doesn't wear thin.
 //!
@@ -148,14 +150,19 @@ impl TalkLines {
         })
     }
 
-    /// Facts some said line already cites: ambient talk never cites them again.
-    fn retired_facts(world: &WorldState) -> BTreeSet<FactId> {
-        world
-            .talk
-            .lines
-            .values()
-            .flat_map(|l| l.line.cites.iter().copied())
-            .collect()
+    /// Facts some said line already cites, or will once `queued` (the batches waiting
+    /// for the next tick) applies: ambient talk and answers never cite them again.
+    pub fn cited_facts(world: &WorldState, queued: &[CommandBatch]) -> BTreeSet<FactId> {
+        let said = world.talk.lines.values().flat_map(|l| l.line.cites.iter());
+        let queued = queued
+            .iter()
+            .flat_map(|b| &b.commands)
+            .filter_map(|c| match c {
+                Command::Say { line } => Some(line.cites.iter()),
+                _ => None,
+            })
+            .flatten();
+        said.chain(queued).copied().collect()
     }
 
     /// How often each line has been said, from the `mind.line` facts naming it.
@@ -174,15 +181,16 @@ impl TalkLines {
     }
 
     /// The candidates for lines by `speakers` (all lines when `None`) that cite one of
-    /// `facts`, newest fact first per line, under the ambient rules.
+    /// `facts` but none of `retired`, newest fact first per line, under the ambient
+    /// rules.
     fn eligible<'f>(
         &self,
         world: &WorldState,
         history: &History,
+        retired: &BTreeSet<FactId>,
         facts: impl Iterator<Item = &'f Fact> + Clone,
         speaker: &dyn Fn(&LineDef) -> bool,
     ) -> Vec<LineCandidate> {
-        let retired = Self::retired_facts(world);
         let uses = Self::uses(history);
         let mut out = Vec::new();
         for line in self.lines.iter().filter(|l| speaker(l)) {
@@ -234,17 +242,21 @@ impl TalkLines {
 
     /// A dockmaster's answer to "What changed?": up to `limit` of `speaker`'s lines
     /// citing facts after `since` (the player's previous docking there), at most one
-    /// per place, most specific first, then the newest fact.
+    /// per place, most specific first, then the newest fact. Facts already said, or
+    /// about to be by a `queued` batch (an ambient line picked at the docking, waiting
+    /// for the next tick), are left to that line.
     pub fn what_changed(
         &self,
         world: &WorldState,
         history: &History,
+        queued: &[CommandBatch],
         since: FactId,
         speaker: &NpcId,
         limit: usize,
     ) -> Vec<LineCandidate> {
+        let retired = Self::cited_facts(world, queued);
         let facts = history.facts().iter().rev().take_while(|f| f.id > since);
-        let mut lines = self.eligible(world, history, facts, &|l| &l.npc == speaker);
+        let mut lines = self.eligible(world, history, &retired, facts, &|l| &l.npc == speaker);
         sort(&mut lines);
         let mut places = BTreeSet::new();
         lines
@@ -280,6 +292,7 @@ impl LineSource for TalkLines {
                 .get(&l.npc)
                 .is_some_and(|n| n.location.as_ref() == Some(station))
         };
-        self.eligible(cx.world, cx.history, facts, &here)
+        let retired = Self::cited_facts(cx.world, &[]);
+        self.eligible(cx.world, cx.history, &retired, facts, &here)
     }
 }

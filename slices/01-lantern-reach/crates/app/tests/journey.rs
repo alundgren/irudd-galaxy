@@ -524,6 +524,75 @@ fn every_authored_station_has_an_ask_what_changed_button() {
     }
 }
 
+/// Every fact the talk log cites, with how often.
+fn citations(s: &Session) -> std::collections::BTreeMap<FactId, usize> {
+    let mut n = std::collections::BTreeMap::new();
+    for l in s.world().talk.lines.values() {
+        for f in &l.line.cites {
+            *n.entry(*f).or_default() += 1;
+        }
+    }
+    n
+}
+
+#[test]
+fn asking_right_after_docking_never_repeats_the_ambient_line() {
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(3);
+    p.undock();
+    // Something Ilse has a line about: Kettle's first pane.
+    p.s.submit(
+        CommandBatch::new(Cause::system("test", "a stage")).with(Command::RecordFact {
+            fact: Box::new(galaxy_contract::history::FactDraft {
+                kind: FactKind::from_static("core.stage_built"),
+                subjects: Subjects {
+                    station: Some(KETTLE),
+                    ..Subjects::default()
+                },
+                amount: Some(1),
+                note: "Kettle Dock stage 1".into(),
+            }),
+        }),
+    );
+    p.ticks(1);
+    let stage = p.s.sim().history().last_fact_id().unwrap();
+    // Dock, and stop on the tick the docking commits: the mind's pump has just queued
+    // Ilse's ambient line about it.
+    let wharf = p.s.world().stations.get(&WHARF).unwrap().clone();
+    p.fly_to(wharf.position, wharf.dock_radius * 0.5);
+    p.keys.press_action();
+    for _ in 0..10 {
+        p.tick();
+        if p.docked().is_some() {
+            break;
+        }
+    }
+    assert_eq!(p.docked(), Some(WHARF));
+    let queued = |s: &Session| {
+        s.sim()
+            .state()
+            .kernel
+            .pending
+            .iter()
+            .flat_map(|b| &b.commands)
+            .any(|c| matches!(c, Command::Say { line } if line.cites.contains(&stage)))
+    };
+    assert!(queued(&p.s), "an ambient line about the pane is queued");
+    // The player asks before the next tick: the answer leaves that fact to Ilse's line.
+    let answer = p.s.ask_what_changed().cloned().unwrap();
+    assert!(
+        answer.lines.iter().all(|l| !l.cites.contains(&stage)),
+        "{answer:?}"
+    );
+    p.ticks(3);
+    assert_eq!(citations(&p.s).get(&stage), Some(&1));
+    assert!(
+        citations(&p.s).values().all(|n| *n == 1),
+        "{:?}",
+        citations(&p.s)
+    );
+}
+
 #[test]
 fn asking_what_changed_cites_facts_and_records_the_question() {
     let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
@@ -807,7 +876,10 @@ fn handing_over_the_rest_of_a_stack_clears_the_split_mark() {
     p.s.submit(cargo(-6));
     p.ticks(2);
     assert_eq!(p.ship().hold.count(&ICE), 0);
-    assert!(p.s.world().economy.split_stacks.is_empty(), "the mark retired");
+    assert!(
+        p.s.world().economy.split_stacks.is_empty(),
+        "the mark retired"
+    );
     // A new stack, sold whole elsewhere: not a split sale.
     p.undock();
     p.s.submit(cargo(8));

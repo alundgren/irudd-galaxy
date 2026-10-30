@@ -298,7 +298,13 @@ impl Session {
     pub fn ask_what_changed(&mut self) -> Option<&Answer> {
         let station = self.flagship()?.docked_at.clone()?;
         let sim = self.game.sim();
-        let answer = hooks::what_changed(sim.world(), sim.history(), self.game.lines(), &station);
+        let answer = hooks::what_changed(
+            sim.world(),
+            sim.history(),
+            &sim.state().kernel.pending,
+            self.game.lines(),
+            &station,
+        );
         let mut batch = CommandBatch::new(Cause::verb(
             Actor::Player,
             VerbKind::Wait,

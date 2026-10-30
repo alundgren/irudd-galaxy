@@ -37,7 +37,7 @@ fn stage_built(sim: &mut Sim, kind: &'static str, stage: i64) -> FactId {
 
 fn answer(sim: &Sim, lines: &TalkLines, npc: &NpcId) -> Vec<(String, FactId)> {
     lines
-        .what_changed(sim.world(), sim.history(), FactId(0), npc, 3)
+        .what_changed(sim.world(), sim.history(), &[], FactId(0), npc, 3)
         .into_iter()
         .map(|c| (c.line, c.cites))
         .collect()
