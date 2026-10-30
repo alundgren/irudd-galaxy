@@ -1,25 +1,29 @@
 # AGENTS.md: the Lantern Reach slice
 
-Read this before changing anything under `slices/01-lantern-reach/`. Brief: issue
+Read this before changing anything under `slices/01-lantern-reach/`, after the root
+`AGENTS.md` (phase, what blocks a merge, multi-agent work, platforms). Brief: issue
 #10. Decisions that override it: the kickoff comment on PR #11. Design:
 `design/vertical-slice-lantern-reach.html` and `design/high-level-plan.html`.
 
 ## Commands
 
-Run from this folder. In Git Bash on Windows, first `export PATH="$HOME/.cargo/bin:$PATH"`.
+Run from this folder, on any OS. Windows shell notes are under "Platforms" in the root
+`AGENTS.md`.
 
 ```sh
 cargo xtask check      # fetch-luau, fmt --check, clippy -D warnings, tests. Must pass before a PR.
 cargo xtask contract   # regenerate crates/contract/schemas/ and api/. Commit the result.
 cargo xtask fetch-luau # pinned luau-analyze into tools/luau/ (git-ignored, SHA-256 checked)
-cargo test -p galaxy-core
-cargo run -p galaxy-app -- <command>   # see README.md for the CLI
+cargo xtask cargo test -p galaxy-core          # any cargo command, in the branch's target folder
+cargo xtask cargo run -p galaxy-app -- <command>   # see README.md for the CLI
+cargo xtask target-dir # where those build (GALAXY_TARGET_ROOT/<branch>, or target/)
 ```
 
 ## Rules
 
-- Work on a branch `slice/01/<topic>` and open a PR into `slice/01-lantern-reach`.
-  Never push to `slice/01-lantern-reach` or `main`. Don't merge your own PR.
+- Work on a branch `slice/01/<topic>` and open a PR into the integration branch the brief
+  names (`main` if it names none). Never push to the integration branch or `main`. Don't
+  merge your own PR.
 - Git and `gh` only. No CI or GitHub Actions: checks run locally.
 - `cargo test` stays headless: no window, GPU, audio device or network. Tests that need
   one go behind `#[ignore]`.

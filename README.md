@@ -12,3 +12,5 @@ A calm solo top-down space mining and trading sandbox.
 - `assets/`: art and audio, stored with Git LFS
 
 Rule: `game/` never depends on `slices/` or `prototypes/`.
+
+Agents (and people working with them): start with [AGENTS.md](AGENTS.md).
