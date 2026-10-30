@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PackManifest",
+  "description": "`manifest.toml` at the root of a pack.",
+  "type": "object",
+  "properties": {
+    "asserts": {
+      "description": "Explicit canon assertions checked against locked/open nodes.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "creates": {
+      "description": "IDs the scripts create at runtime (so the reference check knows them).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnyId"
+      }
+    },
+    "data": {
+      "description": "Data files, relative to the pack root. Records they define are created when\nthe pack is installed, if the world doesn't have them yet.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "depends": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PackId"
+      }
+    },
+    "description": {
+      "type": "string",
+      "default": ""
+    },
+    "id": {
+      "description": "`core`, or namespaced for game-master packs: `gm.kettle_growth`.",
+      "$ref": "#/$defs/PackId"
+    },
+    "lib": {
+      "description": "`true` makes `lib/` a script root next to `scripts/`: scripts may `require`\nmodules there. Only the script roots are loadable, and every check covers\nexactly the files in them.",
+      "type": "boolean"
+    },
+    "limits": {
+      "$ref": "#/$defs/Limits",
+      "default": {
+        "contention_retries": 3,
+        "memory_bytes": 16777216,
+        "quarantine_after": 3,
+        "steps_per_call": 100000
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "observes": {
+      "description": "Optional records created later by dependencies; reads must tolerate absence.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnyId"
+      }
+    },
+    "opens": {
+      "description": "Canon revelations this pack is permitted to perform.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "opportunity": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Opportunity"
+      }
+    },
+    "rollback": {
+      "description": "What a person says when this pack's changes are rolled back in-world.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RollbackLine"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "script": {
+      "description": "The pack's scripts, run in this order.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ScriptDecl"
+      }
+    },
+    "shock": {
+      "description": "Changes that make something worse for the player. Each names its paired\nopportunity.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Shock"
+      }
+    },
+    "uses": {
+      "description": "Hook capabilities the pack's scripts may use, e.g. `events.dock`,\n`stations.write`. See `crates/contract/api/HOOKS.md`. Undeclared namespaces are\nabsent from `ctx` at runtime.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "version"
+  ],
+  "$defs": {
+    "AnyId": {
+      "description": "Stable entity id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Limits": {
+      "description": "Per-pack runtime limits. The engine clamps them to its own maxima.",
+      "type": "object",
+      "properties": {
+        "contention_retries": {
+          "description": "Times an event handler whose writes lost to contention is run again for the\nsame event, one tick apart, before it is dropped (`script_contention_dropped`).",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        },
+        "memory_bytes": {
+          "description": "Memory limit for the pack's Luau state.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 16777216,
+          "minimum": 0
+        },
+        "quarantine_after": {
+          "description": "Aborted calls (per script and revision) before the script is quarantined.\nOnly script faults abort; a write that loses to contention never counts.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 3,
+          "minimum": 0
+        },
+        "steps_per_call": {
+          "description": "VM interrupt checks (loop back-edges and calls) per handler call.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 100000,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Opportunity": {
+      "description": "A declared opportunity the player can reach.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "summary"
+      ]
+    },
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "RollbackLine": {
+      "description": "The in-world line said when the pack's changes are rolled back.",
+      "type": "object",
+      "properties": {
+        "place": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speaker": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text"
+      ]
+    },
+    "ScriptDecl": {
+      "description": "One script in a pack.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "Relative to the pack root, e.g. `scripts/kettle_growth.luau`.",
+          "type": "string"
+        },
+        "handlers": {
+          "description": "What the script handles: `on.<event>` and `after.<trigger>`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "description": "`[a-z][a-z0-9_]*`, unique in the pack. The script's `G.script { id = ... }`.",
+          "type": "string"
+        },
+        "stores": {
+          "description": "Persistent per-script stores: store name -> key -> value type. Saved with the\nworld, so a reload keeps them.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/ValueType"
+            }
+          },
+          "default": {}
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "file"
+      ]
+    },
+    "Shock": {
+      "description": "A declared shock: a change that makes something worse.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "opportunity": {
+          "description": "The `id` of the opportunity it opens. Required.",
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "summary",
+        "opportunity"
+      ]
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ValueType": {
+      "description": "The type of a value in a script store.",
+      "type": "string",
+      "enum": [
+        "boolean",
+        "integer",
+        "number",
+        "string"
+      ]
+    }
+  }
+}

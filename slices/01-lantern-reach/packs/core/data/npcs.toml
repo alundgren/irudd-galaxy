@@ -1,0 +1,76 @@
+# The ten named people of the slice (content/05-people.md). Their lines live with the
+# talk channel (W5); voices and memory briefs are the fast-model layer's (W5).
+# Schema: crates/contract/schemas/data-npcs.json
+
+[[npc]]
+id = "npc.ilse_marrow"
+name = "Ilse Marrow"
+role = "dockmaster"
+faction = "faction.wharf_cooperative"
+location = "station.lantern_wharf"
+
+# Fits every upgrade except the lane chart and the price glass; asks the prestige question.
+[[npc]]
+id = "npc.orrin_vale"
+name = "Orrin Vale"
+role = "hullwright"
+faction = "faction.wharf_cooperative"
+location = "station.lantern_wharf"
+
+[[npc]]
+id = "npc.odo_fenn"
+name = "Odo Fenn"
+role = "dockmaster"
+faction = "faction.wharf_cooperative"
+location = "station.kettle_dock"
+
+# Teaches the tender and builds it; flies craft.little_pail.
+[[npc]]
+id = "npc.tamsin_oddway"
+name = "Tamsin Oddway"
+role = "tender_keeper"
+faction = "faction.wharf_cooperative"
+location = "station.kettle_dock"
+
+# Works for whoever owns the depot.
+[[npc]]
+id = "npc.rook_adeyemi"
+name = "Rook Adeyemi"
+role = "dockmaster"
+location = "station.cinder_hook"
+
+[[npc]]
+id = "npc.juno_brask"
+name = "Juno Brask"
+role = "prospector"
+location = "station.cinder_hook"
+
+[[npc]]
+id = "npc.saffron_vey"
+name = "Saffron Vey"
+role = "dockmaster"
+faction = "faction.tollway_compact"
+location = "station.brassmouth_exchange"
+
+# Tells the Ember Shoals rumor.
+[[npc]]
+id = "npc.pip_calloway"
+name = "Pip Calloway"
+role = "dockhand"
+faction = "faction.tollway_compact"
+location = "station.brassmouth_exchange"
+
+[[npc]]
+id = "npc.nell_quillon"
+name = "Nell Quillon"
+role = "archivist"
+faction = "faction.lamplighter_society"
+location = "station.glass_drift_observatory"
+
+# Sells the price glass.
+[[npc]]
+id = "npc.hesper_lune"
+name = "Hesper Lune"
+role = "dockmaster"
+faction = "faction.lamplighter_society"
+location = "station.glass_drift_observatory"

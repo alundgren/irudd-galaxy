@@ -1,0 +1,17 @@
+id = "gm.territory_map"
+name = "Territory map"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.beat_completed", "events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "kit.write", "territory.read", "stations.read"]
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.beat_completed", "on.dock", "on.session_start"]
+stores = { progress = { owner = "string" } }
+[rollback]
+speaker = "npc.hesper_lune"
+place = "station.glass_drift_observatory"
+text = "The map-makers are redrawing the Hook. The lamps don't mind."
+

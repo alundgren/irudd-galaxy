@@ -1,0 +1,11 @@
+# BAD on purpose: a talk line that cites no history fact. Every line must.
+# `galaxy pack check` rejects it at the invariants step (and the typecheck).
+id = "gm.bad_uncited_talk"
+name = "Bad: uncited talk line"
+version = "0.1.0"
+uses = ["events.dock", "talk.write"]
+
+[[script]]
+id = "chatter"
+file = "scripts/chatter.luau"
+handlers = ["on.dock"]

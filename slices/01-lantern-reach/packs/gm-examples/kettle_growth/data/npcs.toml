@@ -1,0 +1,11 @@
+# Odo Fenn, Kettle Dock's greenhouse keeper (content/05-people.md). The core pack owns
+# him once the content spec lands; until then this pack brings him, and installing it
+# skips him if the world already has him.
+# Schema: crates/contract/schemas/data-npcs.json
+
+[[npc]]
+id = "npc.odo_fenn"
+name = "Odo Fenn"
+role = "dockmaster"
+faction = "faction.wharf_cooperative"
+location = "station.kettle_dock"

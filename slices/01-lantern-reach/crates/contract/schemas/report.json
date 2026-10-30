@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ValidationReport",
+  "description": "The result of validating (and maybe applying) a pack revision.",
+  "type": "object",
+  "properties": {
+    "pack": {
+      "$ref": "#/$defs/PackId"
+    },
+    "revision": {
+      "description": "Content hash of the pack's files.",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ReportStatus"
+    },
+    "steps": {
+      "description": "In pipeline order. Later steps are appended as they run.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StepReport"
+      }
+    }
+  },
+  "required": [
+    "pack",
+    "revision",
+    "status",
+    "steps"
+  ],
+  "$defs": {
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "Diagnostic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "description": "Stable machine-readable reason, e.g. `undeclared_hook`, `clock_api`,\n`over_budget`, `uncited_line`, `type_error`.",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Location"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message"
+      ]
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "file": {
+          "description": "Relative to the pack root, `/`-separated.",
+          "type": "string"
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "ReportStatus": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "rejected"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "description": "Applied; `change` is the cause ID to roll back by.",
+          "type": "object",
+          "properties": {
+            "change": {
+              "$ref": "#/$defs/CauseId"
+            },
+            "status": {
+              "type": "string",
+              "const": "applied"
+            }
+          },
+          "required": [
+            "status",
+            "change"
+          ]
+        }
+      ]
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ]
+    },
+    "StepOutcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        {
+          "description": "Not run (a tool is missing, or an earlier step failed); see the diagnostics.",
+          "type": "string",
+          "const": "skipped"
+        }
+      ]
+    },
+    "StepReport": {
+      "type": "object",
+      "properties": {
+        "diagnostics": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          }
+        },
+        "outcome": {
+          "$ref": "#/$defs/StepOutcome"
+        },
+        "step": {
+          "$ref": "#/$defs/ValidationStep"
+        }
+      },
+      "required": [
+        "step",
+        "outcome"
+      ]
+    },
+    "ValidationStep": {
+      "description": "The validation pipeline, in order. `pack check` and dev hot reload run the fast\nsteps (`manifest` to `smoke`); the game-master path adds the rest.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "canon",
+            "sandbox",
+            "legibility",
+            "stage"
+          ]
+        },
+        {
+          "description": "`manifest.toml` and data files parse against their schemas; files exist.",
+          "type": "string",
+          "const": "manifest"
+        },
+        {
+          "description": "Strict Luau typecheck against `galaxy.d.luau`.",
+          "type": "string",
+          "const": "types"
+        },
+        {
+          "description": "Every hook a script uses is declared in `uses`; handlers match the manifest.",
+          "type": "string",
+          "const": "hooks"
+        },
+        {
+          "description": "Every referenced ID exists or is created by this pack.",
+          "type": "string",
+          "const": "references"
+        },
+        {
+          "description": "Static invariants: no clock or timer APIs, shocks paired with opportunities.",
+          "type": "string",
+          "const": "invariants"
+        },
+        {
+          "description": "Each script loads and each handler runs once on a sample event within budget.",
+          "type": "string",
+          "const": "smoke"
+        }
+      ]
+    }
+  }
+}

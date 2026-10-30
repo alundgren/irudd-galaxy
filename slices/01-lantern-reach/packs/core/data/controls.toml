@@ -1,0 +1,104 @@
+# Control capabilities, the tiers that group them for presentation, and the reserved
+# input and UI slots a taught mechanic may bind (content/03-ships-and-controls.md).
+# Capabilities are per-save flags. The ship crate reads the same flag names from
+# ship_rules.toml; upgrades.toml and beats set them. Tiers aren't a strict ladder.
+# Schema: crates/contract/schemas/data-controls.json
+
+[[tier]]
+tier = 0
+name = "Hands on"
+summary = "WASD flies and stops on release. Space does the one thing in reach. P pauses. M shows the map."
+
+[[tier]]
+tier = 1
+name = "Click to fly"
+summary = "Click a point near the ship: it flies there and stops."
+
+[[tier]]
+tier = 2
+name = "Click to work"
+summary = "Click a rock to mine it, or a station to dock."
+
+[[tier]]
+tier = 3
+name = "Map travel"
+summary = "Click anything on the map: the ship routes there through the lanes."
+
+[[tier]]
+tier = 4
+name = "Queues"
+summary = "Shift-click lines up to 8 orders."
+
+[[tier]]
+tier = 5
+name = "Loops"
+summary = "Save a queue as a named loop that repeats."
+
+[[tier]]
+tier = 6
+name = "First automation"
+summary = "Tenders run your saved loops while you do anything else."
+
+[[capability]]
+id = "cap.click_fly"
+name = "Click to fly"
+tier = 1
+summary = "Left-click a point within 450 u of the ship: it flies there and stops. Any WASD input cancels."
+
+[[capability]]
+id = "cap.click_mine"
+name = "Click to mine"
+tier = 2
+summary = "Click a rock: fly into reach and mine until the hold is full or the rock is spent."
+
+[[capability]]
+id = "cap.click_dock"
+name = "Click to dock"
+tier = 2
+summary = "Click a station: fly into the ring and dock."
+
+[[capability]]
+id = "cap.map_travel"
+name = "Map travel"
+tier = 3
+summary = "Click a station, field or lane mouth on the map: the ship routes there, entering lanes on its own."
+
+[[capability]]
+id = "cap.queues"
+name = "Queues"
+tier = 4
+summary = "Shift-click appends orders, up to 8. Any order can be removed; a sell can take a floor."
+
+[[capability]]
+id = "cap.loops"
+name = "Loops"
+tier = 5
+summary = "Save the current queue as a named loop (up to 3). It repeats until stopped or it stalls."
+
+[[capability]]
+id = "cap.automation"
+name = "Automation"
+tier = 6
+summary = "Tenders run saved loops."
+
+# Reserved slots: free until a taught mechanic (ctx.mechanics:teach) binds one. The app
+# shows a bound slot's key or button; nothing else may use them.
+[[slot]]
+id = "slot.key_t"
+kind = "input"
+name = "T"
+
+[[slot]]
+id = "slot.right_click"
+kind = "input"
+name = "Right click"
+
+[[slot]]
+id = "slot.hud_verb"
+kind = "ui"
+name = "Verb button on the HUD"
+
+[[slot]]
+id = "slot.hold_column"
+kind = "ui"
+name = "Column on the hold screen"

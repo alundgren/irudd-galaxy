@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Making Good Art and Audio, and Letting the Game Master Make More</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --blue: #6CB8FF; --green: #4BE3A0; --amber: #FFC93C; --verm: #FF8A65; --purple: #E0A3FF; --cyan: #5EE6F0; --acc: var(--blue); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --blue: #004C99; --green: #00603F; --amber: #7A4E00; --verm: #A12A00; --purple: #6B1F99; --cyan: #00626B; }
+}
+.a-blue { --acc: var(--blue); } .a-green { --acc: var(--green); } .a-amber { --acc: var(--amber); }
+.a-verm { --acc: var(--verm); } .a-purple { --acc: var(--purple); } .a-cyan { --acc: var(--cyan); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--blue); font-weight: 600; }
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+h4 { font-size: 19px; line-height: 1.4; margin: 22px 0 8px; }
+h3.hb, h4.hb { border-left: 4px solid var(--acc); padding-left: 12px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul, li > ol { margin-top: 6px; }
+code { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+strong { font-weight: 700; }
+.summary { font-size: 19px; }
+.lead { font-size: 20px; line-height: 1.45; margin: 0 0 6px; }
+.card { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 16px 18px; margin: 0 0 14px; }
+.card > :last-child, .card dd > :last-child, .col > :last-child { margin-bottom: 0; }
+.card-title { font-size: 19px; line-height: 1.4; margin: 0 0 8px; border: 0; padding: 0; }
+.t-acc { color: var(--acc); }
+.tag { display: inline-block; background: var(--acc); color: var(--bg); font-size: 15px; line-height: 22px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: middle; }
+.pill { display: inline-block; border: 2px solid var(--acc); border-radius: 999px; padding: 1px 10px; font-size: 15px; line-height: 1.5; font-weight: 600; vertical-align: middle; }
+.chip { flex: 0 0 auto; display: inline-block; min-width: 28px; height: 28px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: var(--acc); color: var(--bg); font-weight: 800; font-size: 16px; line-height: 28px; text-align: center; }
+.row { display: flex; gap: 12px; align-items: flex-start; }
+.row.wrap { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.row > p, .col > p { margin: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.col > dl { margin: 0; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; margin: 0 0 14px; }
+.pair > .card { margin: 0; }
+.b { font-weight: 700; } .it { font-style: italic; font-size: 19px; } .center { text-align: center; font-size: 20px; margin: 4px 0; }
+dl { margin: 0 0 12px; }
+dl.kv > div { margin: 0 0 8px; }
+dl.kv dt { display: inline; font-weight: 700; }
+dl.kv dt::after { content: ": "; }
+dl.kv dd { display: inline; margin: 0; }
+dl.facts { padding: 6px 18px; }
+dl.facts > div { padding: 10px 0; border-top: 1px solid var(--acc); }
+dl.facts > div:first-child { border-top: 0; }
+dl.facts dt { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+dl.facts dd { margin: 0; }
+ul.marks { list-style: none; padding: 0; margin: 0; }
+ul.marks > li { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 10px; }
+ul.marks > li:last-child { margin-bottom: 0; }
+.mk { font-weight: 700; }
+ul.rows, ol.steps, ol.flow { list-style: none; padding: 0; margin: 0 0 14px; }
+ul.rows > li.card, ol.steps > li.card { padding: 10px 14px; margin: 0 0 10px; border-radius: 10px; }
+ul.rows p, ol.steps p { margin: 4px 0 0; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.num { flex: 0 0 auto; width: 32px; height: 32px; box-sizing: border-box; border-radius: 999px; border: 2px solid var(--acc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+ol.flow > li { margin: 0; }
+ol.flow > li.node { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border: 2px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 10px; padding: 10px 14px; margin: 0 0 6px; }
+ol.flow > li.node.terminal { border-radius: 22px; }
+ol.flow > li.node p { margin: 4px 0 0; }
+ol.flow > li.edge { margin: 0 0 6px 18px; padding: 2px 0 2px 12px; border-left: 2px solid var(--fg); font-weight: 500; }
+ol.flow > li.edge.dashed { border-left-style: dashed; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table.tbl { width: 100%; border-collapse: collapse; border: 1px solid var(--acc); border-left: 4px solid var(--acc); }
+.tbl th, .tbl td { padding: 9px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--acc); }
+.tbl thead th { background: color-mix(in srgb, var(--acc) 14%, var(--bg)); border-bottom: 2px solid var(--acc); font-weight: 700; vertical-align: bottom; }
+.tbl tbody th { font-weight: 700; }
+.tbl .r { text-align: right; }
+nav.toc ol { margin: 0; padding-left: 30px; }
+nav.toc li { margin: 0 0 4px; }
+nav.toc li::marker { color: var(--acc); font-weight: 700; }
+nav.toc li > a { color: var(--acc); font-weight: 600; }
+nav.toc ul { margin: 4px 0 6px; padding-left: 22px; }
+nav.toc ul a { font-weight: 500; }
+blockquote { margin: 0 0 14px; }
+blockquote p { font-size: 20px; line-height: 1.45; }
+blockquote footer { font-weight: 600; }
+section.group { margin-top: 8px; }
+.case { margin: 0 0 8px; }
+
+pre { margin: 0 0 14px; padding: 12px 14px; overflow-x: auto; border: 1px solid var(--cyan); border-left: 4px solid var(--cyan); border-radius: 10px; background: color-mix(in srgb, var(--cyan) 8%, var(--bg)); line-height: 1.45; }
+pre code { font-size: 15px; overflow-wrap: normal; white-space: pre; }
+    </style>
+
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="topbar"><a href="../design/index.html">← Irudd Galaxy hub</a></header>
+      <main>
+        <article>
+          <h1>Making Good Art and Audio, and Letting the Game Master Make More</h1>
+          <p class="summary">How to turn the Lantern Reach's cel-shaded, ink-outlined kit into a real art direction, which ways of producing art and audio fit a small project worked on by coding agents, what a calm game needs to sound like without becoming annoying, and how the AI game master could safely create new stations, colours, banners and sound motifs while the game runs. Grounded in the renderer and audio crate as they are in the slice today.</p>
+          <nav class="toc card a-blue" aria-label="On this page">
+            <p class="lead"><strong>On this page</strong></p>
+            <ol>
+              <li class="a-blue"><a href="#takeaway">Takeaway</a></li>
+              <li class="a-green"><a href="#today">What the renderer and audio do today</a></li>
+              <li class="a-amber">
+                <a href="#direction">The art direction made concrete</a>
+                <ul>
+                  <li><a href="#d-influences">The four influences</a></li>
+                  <li><a href="#d-palette">Palette rules</a></li>
+                  <li><a href="#d-shape">Shape language and silhouettes</a></li>
+                  <li><a href="#d-ink">Outlines and cel bands</a></li>
+                  <li><a href="#d-dodont">Do and don't</a></li>
+                </ul>
+              </li>
+              <li class="a-verm">
+                <a href="#art">Producing quality art</a>
+                <ul>
+                  <li><a href="#art-routes">Four routes compared</a></li>
+                  <li><a href="#art-rec">Recommendation and first steps</a></li>
+                </ul>
+              </li>
+              <li class="a-purple">
+                <a href="#audio">Producing quality audio</a>
+                <ul>
+                  <li><a href="#a-needs">What a calm game needs</a></li>
+                  <li><a href="#a-rules">Rules against fatigue</a></li>
+                  <li><a href="#a-sources">Sources compared</a></li>
+                  <li><a href="#a-kira">What kira gives us</a></li>
+                  <li><a href="#a-rec">Recommendation and first steps</a></li>
+                </ul>
+              </li>
+              <li class="a-cyan">
+                <a href="#live">Assets the game master can create live</a>
+                <ul>
+                  <li><a href="#l-recipes">Recipes over a validated kit</a></li>
+                  <li><a href="#l-manifest">The asset manifest contract</a></li>
+                  <li><a href="#l-hooks">A proposed <code>assets</code> hook surface</a></li>
+                  <li><a href="#l-validate">Validating a new asset</a></li>
+                  <li><a href="#l-images">Generated portraits and banners</a></li>
+                  <li><a href="#l-audio">Sound motifs as parameters</a></li>
+                  <li><a href="#l-line">Base engine or scripting layer</a></li>
+                </ul>
+              </li>
+              <li class="a-blue"><a href="#risks">Risks and open questions</a></li>
+              <li class="a-green"><a href="#sources">Sources</a></li>
+            </ol>
+          </nav>
+
+          <section id="takeaway">
+            <h2 class="hb a-blue">Takeaway</h2>
+            <div class="card a-blue">
+              <h3 class="card-title"><span class="tag a-blue">Recommendation</span> <span class="t-acc a-blue">Keep art in code, make it richer, and let the game master write recipes, not assets</span></h3>
+              <p>The parametric kit is already the right backbone: it is consistent by construction, every piece is ours under MIT, coding agents such as Grok Build can extend it and check their work in headless screenshots, and it is the only route that lets the game master build a station at runtime. What it lacks is richness: inner ink lines, decals and banners, more part kinds with faction flavour, and an art bible that the validator can enforce. Add Blender and glTF later for a few hero parts, use AI image models only for a 2D layer such as portraits and concept sheets, and consider commissioning one style sheet to anchor everything.</p>
+              <p>For audio, start from rules rather than sounds: no loops tied to held keys, information-bearing cues only, variation on everything that repeats, and silence as a valid state. Build a small cue set by synthesis rendered offline plus CC0 samples, routed through kira buses with ducking and region layers. The game master never ships raw meshes, images or audio into the game: it writes validated recipes and parameter sets over kits the base engine owns, and the base engine renders, checks and caches the result.</p>
+            </div>
+          </section>
+
+          <section id="today">
+            <h2 class="hb a-green">What the renderer and audio do today</h2>
+            <p>The slice's renderer (<code>crates/render</code>) is a small wgpu 3D scene renderer with a top-down camera that can also tilt or go fully perspective. All art is generated in code by <code>render::kit</code>. The audio crate on the play branch wraps kira and plays nothing, by decision.</p>
+            <div class="tablewrap">
+              <table class="tbl a-green">
+                <thead>
+                  <tr>
+                    <th>Area</th>
+                    <th>What exists</th>
+                    <th>Gap that matters for the art direction</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Shading</th>
+                    <td>Cel shading with 2 or 3 hard tone bands from a half-Lambert key light, warm violet shadow multiplier (never gray), highlight band, hard rim light, stepped point-light pools, hatching in the shadow band, self-lit vertex paint and an emissive term. Set per instance through <code>Material</code>.</td>
+                    <td>Band thresholds are fixed in the shader, so every material bands the same way. No per-vertex control of where shadow falls, which is how stylised games keep faces and panels clean.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Outlines</th>
+                    <td>Inverted-hull ink outlines pushed out a constant number of pixels (default 4) along normals averaged across hard edges, so lines keep their weight at any zoom and under perspective.</td>
+                    <td>Only the outer silhouette gets a line. Creases, panel seams and colour borders inside a shape have none, so faceted rocks and stations read as flat colour steps. Inner lines are what make the look feel drawn.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Surface colour</th>
+                    <td>Flat vertex paint times a tint. Palettes are slots (hull, trim, accent, glow, glass, leaf) on a station recipe; <code>palette.rs</code> holds about twenty warm swatches.</td>
+                    <td>No UVs or textures, so no decals, faction marks, stripes, signage, banners or name plates. Faction identity can only come from colour today.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Parts</th>
+                    <td>Hulls from <code>HullParams</code> (Wren, Tandem, Heron); rocks of three kinds that shrink, chip and crack; stations as serde recipes of eight part kinds (<code>hub</code>, <code>docking_ring</code>, <code>arm</code>, <code>greenhouse</code>, <code>antenna</code>, <code>tank</code>, <code>sail</code>, <code>lantern</code>) with <code>validate()</code>, a 48-part cap and a 120-unit reach limit.</td>
+                    <td>Eight parts give few silhouettes: Lantern Wharf and Brassmouth are both wheels with spokes. No banner, spire, dome, hangar, crane or sign part, and no faction variants of a part.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Scene extras</th>
+                    <td>Gradient backdrop with nebula puffs and parallax stars; dashed, wobbly line ribbons; additive beams and glows; SDF panels and Fredoka text; the PAUSED card.</td>
+                    <td>No planets, no engine trails or small particles, almost no idle motion (blinking tips and beam shimmer only).</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Checking</th>
+                    <td><code>cargo run -p render --example shot</code> renders headless PNGs, including <code>--gallery</code> with every kit piece labelled. Generators are deterministic for a seed and unit tested.</td>
+                    <td>Validation covers numbers and reach only: no triangle budget, palette rule or silhouette check yet.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Contract and hooks</th>
+                    <td><code>contract::assets::AssetManifest</code> is a placeholder: parts with an ID, name, free-form kind, optional asset ID and variant names. Luau scripts can <code>attach</code> and <code>detach</code> a part by ID, set a station's stage and owner.</td>
+                    <td>No hook to define a new recipe, palette, decal or sound; and the recipe types and their validator live in <code>render</code>, which the sim crates may not depend on.</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Audio</th>
+                    <td><code>galaxy-audio</code> opens a kira 0.12 manager on the default device, falls back to silence if none opens, and plays nothing.</td>
+                    <td>No buses, cues, ambience or music. The rejected mining-beam and engine loops are gone and stay gone.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pair">
+              <div class="card a-green">
+                <p class="lead"><strong>What already works</strong></p>
+                <p>The screenshots show a coherent look: warm cream, coral and teal against a violet sky, chunky ink lines, hatched shadows, glowing lanterns. Greenhouse stages and shrinking rocks already show change in the world, which is what the game master needs.</p>
+              </div>
+              <div class="card a-amber">
+                <p class="lead"><strong>What reads as placeholder</strong></p>
+                <p>Rocks dominate the mining view and look alike; the Wren is small next to them. Stations have no signs of who lives there. Surfaces are clean colour with no drawn detail, so the "illustrated" feel stops at the outline.</p>
+              </div>
+            </div>
+          </section>
+
+          <section id="direction">
+            <h2 class="hb a-amber">The art direction made concrete</h2>
+            <div class="card a-amber">
+              <p class="lead"><strong>One sentence to test every asset against</strong></p>
+              <p>A warm, hand-inked storybook of frontier space: chunky low-poly shapes with thick ink lines, two or three flat tones, a few saturated glows, and every place telling you at a glance who built it and what it is for.</p>
+            </div>
+
+            <section id="d-influences">
+              <h3 class="hb a-amber">The four influences</h3>
+              <p>Each influence contributes something specific. Each also has a part to leave behind, because copied wholesale they pull away from a calm, readable top-down game.</p>
+              <div class="tablewrap">
+                <table class="tbl a-amber">
+                  <thead>
+                    <tr>
+                      <th>Influence</th>
+                      <th>Take</th>
+                      <th>How it shows up here</th>
+                      <th>Leave behind</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Star Traders</th>
+                      <td>Sketched, painted warmth; illustrated station screens; a comic-illustration feel. Already the locked presentation direction.</td>
+                      <td>Warm palette, hatching, the parchment panels, and later illustrated portraits and station headers in the dock UI.</td>
+                      <td>Many game modes and dense menus. One illustrated layer, not five genres.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">The Outer Worlds</th>
+                      <td>Colour-coded owners: its art lead says every corporation has a recognisable colour scheme you can pick out in a crowd. Retro-futurist frontier industry next to more elegant settled places ("Dieselpunk Deadwood").</td>
+                      <td>Each faction owns a colour pair, a mark and a shape motif, so a station's owner reads from across the map. The Compact's brass and red counting-houses feel more ornate than the Cooperative's hand-built greenhouses.</td>
+                      <td>Grime, corporate satire everywhere, and ad copy on every wall. Text stays important or absent.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">No Man's Sky</th>
+                      <td>"A science fiction book cover come to life", after the colourful 1970s covers of Chris Foss rather than grey monoliths on black.</td>
+                      <td>A coloured sky, never black; saturated nebulae; bold, slightly inflated ships; big simple planets later, banded like a cover painting.</td>
+                      <td>Busyness: noisy procedural surfaces, particles everywhere, heavy fog and bloom, and HUD clutter. One focal glow per object.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Borderlands</th>
+                      <td>The "concept art style": hand-drawn look and graphic-novel outlines around everything.</td>
+                      <td>Thick ink silhouettes plus inner lines at creases and colour borders; hatching in shadow; a few drawn decals such as stripes and panel marks.</td>
+                      <td>Grit, dirt overlays, gore, sneering graffiti and its aggressive punk graphics. The ink is friendly, not loud.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section id="d-palette">
+              <h3 class="hb a-amber">Palette rules</h3>
+              <ul class="rows">
+                <li class="card a-amber">
+                  <strong>The sky is coloured, the ink is not black</strong>
+                  <p>Space runs from <code>#2a1f48</code> to <code>#4e3672</code> with rose, amber, teal and violet nebulae. Lines and text use ink <code>#2a1a2e</code>. Shadows multiply toward warm violet. No pure black, no neutral gray, no blue-gray chrome (rejected in Prototype 4).</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Three hues per object, in a 60/30/10 split</strong>
+                  <p>Hull about 60 percent, trim about 30, accent about 10, plus ink and one glow colour. More hues than that and the object stops reading as one thing at top-down zoom.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Glow is reserved</strong>
+                  <p>Lantern yellow, window cream and the beam teal mean "lit, alive or interactive". Hull paint never uses them at full strength, so the eye finds lights, docking rings and the mining beam first.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Value before hue</strong>
+                  <p>Every hull must be clearly lighter than the sky behind it. Measured in OKLab lightness (a perceptual colour space where equal steps look equal), a hull should stay at least 0.25 above the backdrop's lightness. Rocks may sit darker than stations; ships always sit lighter than rocks.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Factions own colour pairs</strong>
+                  <p>From the content spec: Wharf Cooperative, lantern green with a lantern-over-kettle mark; Tollway Compact, brass and deep red with a toll key; Lamplighter Society, amber on midnight blue with an open lamp. Each faction also gets a shape motif (below), so identity never rests on hue alone, which matters for colour-blind players.</p>
+                </li>
+                <li class="card a-amber">
+                  <strong>Regions tint, they don't recolour</strong>
+                  <p>The Shallows lean cool and minty, Cinder Drift warm and ember-orange, Brassmouth Narrows gold and plum. Region tint goes into the backdrop and point lights, never into an object's own paint.</p>
+                </li>
+              </ul>
+            </section>
+
+            <section id="d-shape">
+              <h3 class="hb a-amber">Shape language and silhouettes</h3>
+              <div class="pair">
+                <div class="card a-amber">
+                  <p class="lead"><strong>Shapes</strong></p>
+                  <ul>
+                    <li>Chunky and slightly oversized: thick struts, fat tanks, rounded caps. Nothing thinner than one world unit unless it ends in a glowing tip.</li>
+                    <li>Big, medium, small: one dominant mass, a few secondary parts, a sprinkle of small detail.</li>
+                    <li>A little lopsided on purpose: hand-built places are not perfectly symmetric.</li>
+                    <li>Faction motifs: Cooperative round and organic (domes, greenhouses, patched plates); Compact square and ordered (arches, counting-house blocks, brass rings); Lamplighters tall and pointed (spires, lamp masts, open frames).</li>
+                  </ul>
+                </div>
+                <div class="card a-amber">
+                  <p class="lead"><strong>Readability at play zoom</strong></p>
+                  <ul>
+                    <li>A comfortable view is 80 to 120 units tall. At 720 pixels that is about 6 to 9 pixels per unit, so a Wren is roughly 40 to 55 pixels long and a 4-pixel outline eats half a unit on each side.</li>
+                    <li>Every station kind needs its own top-down silhouette: wheel, cluster, spire with rings, dumbbell, crescent. Two wheels in one region is a failure.</li>
+                    <li>A ship must be identifiable as a black shape at 32 pixels: nose, wings and engines in distinct positions.</li>
+                    <li>Keep side and underside detail, since true-3D views of stations and planets are likely later.</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <section id="d-ink">
+              <h3 class="hb a-amber">Outlines and cel bands</h3>
+              <div class="tablewrap">
+                <table class="tbl a-amber">
+                  <thead>
+                    <tr>
+                      <th>Rule</th>
+                      <th>Value</th>
+                      <th>Why</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Silhouette line</th>
+                      <td>Stations 4 to 5 px, ships 3 to 4 px, rocks 3 px, small props 2 to 3 px, in logical pixels, constant at any zoom.</td>
+                      <td>Weight shows importance. The renderer already holds the line at a constant pixel width.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Inner lines</th>
+                      <td>Ink at creases sharper than about 40 degrees and at borders between paint slots, at about half the silhouette width.</td>
+                      <td>The inverted hull can't draw inner lines; Guilty Gear Xrd solved this separately. The kit knows its hard edges when it builds a mesh, so it can emit them as line ribbons.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Line colour</th>
+                      <td>Ink everywhere; glass and glowing parts may use a darker shade of their own colour.</td>
+                      <td>A coloured line keeps lights soft instead of caged.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Bands</th>
+                      <td>Three bands by default (shadow, mid, highlight). Highlight covers less than a fifth of a lit object; shadow covers at least a quarter.</td>
+                      <td>Form reads from above only if the fixed sun leaves a real shadow side.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Hatching</th>
+                      <td>Shadow band only. Strong on rocks and rough plating, light on hulls, none on glass, glow or UI.</td>
+                      <td>Hatching is the "sketched" signature; on everything it turns into noise.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Rim light</th>
+                      <td>Kept hard and thin.</td>
+                      <td>Separates shapes from a coloured sky without outline-only contrast.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Shadow control</th>
+                      <td>Add a per-vertex "shadow bias" channel later, so a part can be told to stay lit or stay shaded.</td>
+                      <td>Arc System Works stored shading control in vertex data rather than textures because it is resolution independent; it suits a texture-free kit.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section id="d-dodont">
+              <h3 class="hb a-amber">Do and don't</h3>
+              <div class="tablewrap">
+                <table class="tbl a-amber">
+                  <thead>
+                    <tr>
+                      <th>Do</th>
+                      <th>Don't</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Give each station a silhouette you could draw from memory.</td><td>Make every station a wheel with spokes and change only the colours.</td></tr>
+                    <tr><td>Show ownership with colour pair, mark and shape motif together.</td><td>Rely on hue alone, or on a text label.</td></tr>
+                    <tr><td>Use one focal glow per object: the ring, the lantern, the beam.</td><td>Light every window, add bloom, fog and particles everywhere.</td></tr>
+                    <tr><td>Draw ink on silhouettes, creases and colour borders.</td><td>Ink every polygon edge so rocks look like wireframes.</td></tr>
+                    <tr><td>Keep surfaces clean with a few drawn decals: stripes, numbers, marks.</td><td>Add dirt, rust streaks, grime or Borderlands-style grit.</td></tr>
+                    <tr><td>Show change as visible state: a new ring, a banner, a lit lamp.</td><td>Show change with a pop-up, a badge or a progress bar.</td></tr>
+                    <tr><td>Make shapes chunky and a little lopsided.</td><td>Use thin greebles, cables and antennas that vanish at play zoom.</td></tr>
+                    <tr><td>Keep the sky coloured and calm.</td><td>Use a black starfield, or a sky busier than the objects on it.</td></tr>
+                    <tr><td>Model the sides and underside of hero parts too.</td><td>Build flat cards that only work straight down.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="art">
+            <h2 class="hb a-verm">Producing quality art</h2>
+            <p>Four routes, judged on what matters for this project: the quality ceiling, how consistent the results stay, the effort, the licence position (the repo is public and MIT, and third-party material must be well known, reasonably safe and MIT-compatible), how well coding agents including Grok Build can do the work, and whether it carries over to true-3D views.</p>
+
+            <section id="art-routes">
+              <h3 class="hb a-verm">Four routes compared</h3>
+              <div class="tablewrap">
+                <table class="tbl a-verm">
+                  <thead>
+                    <tr>
+                      <th>Route</th>
+                      <th>Quality ceiling</th>
+                      <th>Consistency</th>
+                      <th>Effort</th>
+                      <th>Licensing</th>
+                      <th>Fit for agents</th>
+                      <th>3D future</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">(a) Parametric kit in code, extended</th>
+                      <td>Medium to high for hard-surface stations, ships and rocks. Low for faces, creatures and anything organic.</td>
+                      <td>Highest: every piece shares one shader, palette and line rule.</td>
+                      <td>Code work per part kind; then each new station is free.</td>
+                      <td>All ours, MIT.</td>
+                      <td>Excellent: text in, PNG out. An agent edits a generator, runs <code>shot --gallery</code> and looks at the result.</td>
+                      <td>Already real 3D meshes; needs more side and underside detail.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">(b) Blender plus glTF with a cel convention</th>
+                      <td>High: hand-shaped hero parts, characters and later planets.</td>
+                      <td>Good if a convention and a validator enforce it; drifts without one.</td>
+                      <td>A modelling pass per part, plus a loader and an export check.</td>
+                      <td>Blender's GPL does not cover what you make with it; the <code>gltf</code> crate is MIT or Apache-2.0.</td>
+                      <td>Fair: agents can script Blender from Python headless, but taste work is hard to do blind. Best for parts a person shapes and agents tidy.</td>
+                      <td>Best: glTF is the standard 3D interchange format.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">(c) AI image and 3D generation</th>
+                      <td>Images: high for illustration. 3D: rough meshes, noisy topology and baked textures that fight flat cel bands.</td>
+                      <td>Low without strong style references and curation; each image drifts.</td>
+                      <td>Low per item, high in curation and clean-up.</td>
+                      <td>Varies by tool and plan (table below); purely prompted output may not be copyrightable in the US.</td>
+                      <td>Easy to call from an agent; judging quality still needs a human eye.</td>
+                      <td>3D output needs retopology or decimation before it fits the kit.</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">(d) Commissioning an artist</th>
+                      <td>Highest, and it can define the style itself.</td>
+                      <td>High within what is commissioned.</td>
+                      <td>Money and a brief; slower to iterate.</td>
+                      <td>Clean if the contract assigns copyright (or grants an exclusive licence) including derivatives the game master makes.</td>
+                      <td>Good as an anchor: an artist sets a style sheet and key parts, agents extend them.</td>
+                      <td>Good if the brief asks for 3D-ready parts.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 class="hb a-verm">AI generators and their licence terms</h4>
+              <p>Checked on the vendors' own pages where they allowed it; terms change often, so re-check before use.</p>
+              <div class="tablewrap">
+                <table class="tbl a-verm">
+                  <thead>
+                    <tr>
+                      <th>Tool</th>
+                      <th>Kind</th>
+                      <th>Licence for output</th>
+                      <th>Fit here</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">FLUX.1 [schnell]</th><td>Image model, open weights</td><td>Apache 2.0; personal, scientific and commercial use.</td><td>Good: clean licence, runs locally or via hosts.</td></tr>
+                    <tr><th scope="row">FLUX.1 [dev]</th><td>Image model, open weights</td><td>Non-commercial model licence; its terms on commercial use of outputs conflict with each other.</td><td>Avoid without legal advice.</td></tr>
+                    <tr><th scope="row">Stable Diffusion 3.5 and other Stability models</th><td>Image model, open weights</td><td>Community License: free for individuals and organisations under US $1M annual revenue; you own outputs; commercial users register.</td><td>Usable; watch the threshold.</td></tr>
+                    <tr><th scope="row">OpenAI image models</th><td>Hosted image API</td><td>Terms say you own the output, and OpenAI assigns its rights in output, if any.</td><td>Usable; easy from an agent.</td></tr>
+                    <tr><th scope="row">Midjourney</th><td>Hosted image service</td><td>Paid users own their assets; companies over US $1M revenue need Pro or Mega.</td><td>Usable for concept art; no official API for agents.</td></tr>
+                    <tr><th scope="row">Adobe Firefly</th><td>Hosted image service</td><td>Adobe describes its own models as commercially safe; partner models in the same app carry their own terms.</td><td>Usable; check which model made each image.</td></tr>
+                    <tr><th scope="row">Meshy</th><td>Hosted text or image to 3D</td><td>Free plan: CC BY 4.0 (credit Meshy). Paid plans: you own the assets.</td><td>Blockouts and reference only.</td></tr>
+                    <tr><th scope="row">Tripo</th><td>Hosted text or image to 3D</td><td>Paid plans grant commercial rights; sources conflict on the free plan, and Tripo's own help page says it keeps rights to free users' output.</td><td>Paid plan only, as reference.</td></tr>
+                    <tr><th scope="row">TRELLIS and TRELLIS.2 (Microsoft)</th><td>Image to 3D, open weights</td><td>MIT for models and most code; some submodules carry their own licences.</td><td>Cleanest open option; needs a large GPU.</td></tr>
+                    <tr><th scope="row">Hunyuan3D 2 (Tencent)</th><td>Image to 3D, open weights</td><td>Community licence that does not apply in the EU, the UK or South Korea.</td><td>Avoid: territory limits make it unsafe for a project that may ship there.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card a-verm">
+                <p class="lead"><strong>Ownership caution</strong></p>
+                <p>The US Copyright Office concluded in January 2025 that prompts alone do not give enough human control to make the user the author of AI output, while AI used as a tool inside human work does not block protection. So a purely generated image may be usable under a tool's terms yet not protectable as ours. Art that matters to the game's identity should be authored, by code, a person, or heavy human editing.</p>
+              </div>
+            </section>
+
+            <section id="art-rec">
+              <h3 class="hb a-verm">Recommendation and first steps</h3>
+              <div class="card a-verm">
+                <p class="lead"><strong>Route (a) as the backbone, (b) for hero parts, (c) for a 2D layer, (d) to anchor the style</strong></p>
+                <p>The kit is the only route the game master can use live, it is the most consistent, and it is the one agents can verify on their own by rendering and looking. Make it richer before adding anything else. Blender and glTF earn their place for a few hero parts that code can't shape well, plugged into recipes through named sockets. AI images suit portraits, station-screen headers and concept sheets, where a quantise-to-palette and ink pass keeps them on style. A single commissioned style sheet would give the agents and the validator a target better than any written rule.</p>
+              </div>
+              <ol class="steps">
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">1</span>
+                  <div>
+                    <strong>Write the art bible as data</strong>
+                    <p>A palette file with roles (sky, ink, hull, trim, accent, glow) and faction and region pairs, plus the numeric rules on this page (hue count, lightness gap, line widths, minimum feature size). The validator and the agents read the same file.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">2</span>
+                  <div>
+                    <strong>Add inner ink lines</strong>
+                    <p>Have each kit generator emit its hard edges and paint-slot borders as line ribbons drawn with the outline colour. This is the biggest single step toward the drawn look.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">3</span>
+                  <div>
+                    <strong>Add decals and banners</strong>
+                    <p>A small decal kit of vector shapes (faction marks, stripes, chevrons, numbers) drawn as signed-distance quads laid on a part, and a <code>banner</code> part: a cloth-like quad that carries a mark. Signed distance keeps edges crisp at any zoom without textures.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">4</span>
+                  <div>
+                    <strong>Grow the part kit with faction flavour</strong>
+                    <p>From eight kinds toward about twenty: spire, dome, hangar, crane, arch, counting block, lamp mast, pod cluster, cargo rack, solar petals, beacon, scaffold. Give each a faction variant through shape parameters, not new code per faction.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">5</span>
+                  <div>
+                    <strong>Build the contact-sheet loop for agents</strong>
+                    <p>Extend <code>shot</code> with a sheet that shows each asset at play zoom, as a 64-pixel thumbnail, as a black silhouette, and next to its neighbours. Grok Build changes a generator, renders the sheet, compares it with the art bible and iterates; a reviewer agent on another model looks at the same PNGs.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">6</span>
+                  <div>
+                    <strong>Spike one Blender part through glTF</strong>
+                    <p>Agree a convention: paint slots in <code>COLOR_0</code>, sockets as named empties, line width and band count as custom properties exported to glTF <code>extras</code>, and a triangle budget. Load it with the <code>gltf</code> crate and check that it sits beside kit parts without looking foreign.</p>
+                  </div>
+                </li>
+                <li class="card a-verm">
+                  <span class="num" aria-hidden="true">7</span>
+                  <div>
+                    <strong>Test a portrait and banner style</strong>
+                    <p>Pick one generator with a clean licence, a fixed style prompt and reference sheet, and a post-process that maps the image onto the game palette and adds ink. Judge a handful side by side with the dock UI before deciding whether this layer belongs in the game.</p>
+                  </div>
+                </li>
+              </ol>
+            </section>
+          </section>
+
+          <section id="audio">
+            <h2 class="hb a-purple">Producing quality audio</h2>
+            <div class="card a-purple">
+              <p class="lead"><strong>Why the old loops failed</strong></p>
+              <p>The rejected mining-beam and engine sounds were continuous, tonal loops tied to held keys: they played for as long as the player did the most common thing in the game, carried no new information after the first second, and could not be escaped. That is a design failure, not a failure of synthesis. Any source will annoy if it is used that way.</p>
+            </div>
+
+            <section id="a-needs">
+              <h3 class="hb a-purple">What a calm game needs</h3>
+              <div class="tablewrap">
+                <table class="tbl a-purple">
+                  <thead>
+                    <tr>
+                      <th>Layer</th>
+                      <th>What it does</th>
+                      <th>How it stays calm</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Region ambience</th><td>A bed per region: the Shallows soft and glassy, Cinder Drift a low warm rumble with distant metal, Brassmouth busier with brass and radio murmur.</td><td>Long loops built from several layers with different lengths so the repeat point never lines up; crossfade at lane jumps.</td></tr>
+                    <tr><th scope="row">Station proximity</th><td>Near a station its own layer fades in: greenhouse drips at Kettle Dock, lantern hum at the Wharf, coin-counting clicks at Brassmouth.</td><td>Distance-based volume and a low-pass that opens as you approach; fades out once docked.</td></tr>
+                    <tr><th scope="row">Music</th><td>Sparse pieces or stems by region and act.</td><td>Plays now and then with silence between pieces; never under every moment.</td></tr>
+                    <tr><th scope="row">UI</th><td>Select, confirm, cancel, trade one, trade all, open map, pause.</td><td>Short, soft, low-mid wood and glass sounds, quieter than the world.</td></tr>
+                    <tr><th scope="row">Mining</th><td>A soft onset when the beam locks on, a small "chunk" tick each time a unit enters the hold, a crack when a rock breaks, a gentle cue when the hold is full.</td><td>No sustained beam tone. The sound carries information (ore gained) and is otherwise near silence.</td></tr>
+                    <tr><th scope="row">Flight</th><td>A light filtered whoosh on starting and stopping.</td><td>Silent while cruising; no engine loop.</td></tr>
+                    <tr><th scope="row">Docking</th><td>A two- or three-note chime in the station's motif on docking; its reverse on undocking.</td><td>Musical, short, and different per station, so it is a pleasure rather than a notification.</td></tr>
+                    <tr><th scope="row">World change</th><td>A soft motif when a chronicle entry, a new station or a faction change is revealed at docking.</td><td>Only at calm moments, never during a mining run.</td></tr>
+                    <tr><th scope="row">Pause</th><td>Everything ducks and dulls under a low-pass.</td><td>Silence is the feedback.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>Adaptive layers follow region and activity, not time: mining adds a faint rhythmic layer that thins out the longer you mine, docking brings in station murmur, and the map view thins the bed to its pad.</p>
+            </section>
+
+            <section id="a-rules">
+              <h3 class="hb a-purple">Rules against fatigue</h3>
+              <ul class="rows">
+                <li class="card a-purple"><strong>No loops tied to held input</strong><p>If the player holds a key for a long time, the sound for it fades to near silence after its onset.</p></li>
+                <li class="card a-purple"><strong>Every sound carries information or is ambience</strong><p>A cue says something new (ore gained, docked, hold full). Anything else is quiet background and fades.</p></li>
+                <li class="card a-purple"><strong>Variation on everything that repeats</strong><p>At least four to six takes per frequent cue, small random pitch and volume offsets, and never the same take twice in a row. Layering a few variations multiplies the combinations, a common practice in game sound design.</p></li>
+                <li class="card a-purple"><strong>Rate limits</strong><p>Each cue has a cap on how often it may play; rapid repeats merge into one.</p></li>
+                <li class="card a-purple"><strong>Soft spectrum</strong><p>Soft attacks, little energy in the harsh 2 to 5 kHz band for frequent cues, low-passed long sounds.</p></li>
+                <li class="card a-purple"><strong>A loudness budget</strong><p>UI sits below the world, cues duck the bed only slightly, and every file is measured for peak and loudness before it ships.</p></li>
+                <li class="card a-purple"><strong>Silence is allowed</strong><p>Music is occasional; ambience can thin to almost nothing in empty space.</p></li>
+                <li class="card a-purple"><strong>Separate sliders</strong><p>Music, ambience, effects and UI each get a volume slider, so the player can remove whatever bothers them.</p></li>
+                <li class="card a-purple"><strong>Judge by long listening</strong><p>Test a long play session on both headphones and laptop speakers, and keep a written list of anything that grates. That list is the real acceptance test.</p></li>
+              </ul>
+            </section>
+
+            <section id="a-sources">
+              <h3 class="hb a-purple">Sources compared</h3>
+              <p>A public MIT repository changes the picture: assets committed to it are redistributed to anyone, so only material whose licence allows redistribution of the raw files belongs there.</p>
+              <div class="tablewrap">
+                <table class="tbl a-purple">
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Licence</th>
+                      <th>Quality and fit</th>
+                      <th>In the public repo?</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Kenney audio (for example Interface Sounds, Sci-fi Sounds)</th><td>CC0, no attribution required.</td><td>Clean, small, game-ready UI and simple effects; a good starting set.</td><td>Yes.</td></tr>
+                    <tr><th scope="row">Freesound</th><td>Per sound: CC0, CC BY or CC BY-NC.</td><td>Huge range of field recordings for ambience; quality varies.</td><td>CC0 yes; CC BY yes with tracked credits; NC never.</td></tr>
+                    <tr><th scope="row">Sonniss GDC Game Audio Bundle</th><td>Royalty free, commercial use, no attribution; you may not distribute the effects as sound effects to others.</td><td>Professional library recordings.</td><td>No: committing raw files to a public repo risks breaking the redistribution rule. Usable only baked into private builds.</td></tr>
+                    <tr><th scope="row">Pixabay sound and music</th><td>Free, no attribution; no standalone redistribution of unchanged files; no warranty about third-party rights.</td><td>Mixed quality.</td><td>No, for the same reason.</td></tr>
+                    <tr><th scope="row">OpenGameArt</th><td>Mixed: CC0, CC BY, CC BY-SA, GPL.</td><td>Mixed; some good game audio.</td><td>CC0 only, to keep things simple.</td></tr>
+                    <tr><th scope="row">Procedural synthesis, done well (fundsp, MIT or Apache-2.0)</th><td>Ours.</td><td>Very good for UI, chimes, ticks, soft pads and motifs; weaker for realistic textures and rich music. Deterministic from parameters, so the game master can drive it.</td><td>Yes: patches are code.</td></tr>
+                    <tr><th scope="row">ElevenLabs Sound Effects</th><td>Free plan: non-commercial use only. Commercial rights need an eligible paid plan. Even then, the terms forbid making the output available as isolated audio files or samples without separate written permission; no use of output to build competing products.</td><td>Good for textures and one-off effects from a text prompt.</td><td>No raw files in the public repo (same as Sonniss and Pixabay) unless ElevenLabs gives written permission. Usable only baked into builds on a paid plan; keep provenance per file.</td></tr>
+                    <tr><th scope="row">Stable Audio Open</th><td>Stability AI Community License: free under US $1M annual revenue.</td><td>Short samples and textures; can run locally.</td><td>Possible; keep provenance.</td></tr>
+                    <tr><th scope="row">Suno (music)</th><td>Free plan: personal, non-commercial only. Paid plans: commercial rights for songs made while subscribed, not retroactive.</td><td>Full songs; hard to make sparse, stem-based, adaptive music.</td><td>Paid plan only, with caution.</td></tr>
+                    <tr><th scope="row">MusicGen (Meta AudioCraft)</th><td>Code MIT; model weights CC BY-NC 4.0.</td><td>Decent short music.</td><td>No: non-commercial weights.</td></tr>
+                    <tr><th scope="row">Commissioning a composer or sound designer</th><td>Whatever the contract says; ask for assignment or an exclusive licence that allows redistribution in the repo and variations.</td><td>Highest, especially for music and a signature UI set.</td><td>Yes, if the contract allows it.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>Even a famously procedural game mixes sources: No Man's Sky's audio director Paul Weir has said that very little of its audio is procedurally created (mainly creature voices and background fauna), with the rest recorded and designed, and the music composed as material for a generative system. A synthesised cue set plus recorded beds is the same split at a small scale.</p>
+            </section>
+
+            <section id="a-kira">
+              <h3 class="hb a-purple">What kira gives us</h3>
+              <p>The slice already depends on kira 0.12 (MIT or Apache-2.0). Its current API covers everything the plan above needs.</p>
+              <div class="tablewrap">
+                <table class="tbl a-purple">
+                  <thead>
+                    <tr>
+                      <th>Need</th>
+                      <th>kira feature</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Buses for music, ambience, effects and UI</th><td>Mixer sub-tracks: <code>manager.add_sub_track(TrackBuilder)</code>, nestable; a track's volume affects its children; sounds play on a track.</td></tr>
+                    <tr><th scope="row">Shared reverb</th><td>Send tracks: <code>add_send_track(SendTrackBuilder::new().with_effect(..))</code>, fed by <code>TrackBuilder::with_send(&amp;send, level_db)</code>.</td></tr>
+                    <tr><th scope="row">Layered beds fading independently</th><td>Each bed is its own sound or sub-track with a handle; volumes change through tweens. Long beds stream (<code>StreamingSoundData</code>); short cues load fully (<code>StaticSoundData</code>).</td></tr>
+                    <tr><th scope="row">Ducking</th><td>Tween the music and ambience track volumes down while a cue or dialogue plays, and back up after. The built-in <code>compressor</code> documents no sidechain input, so ducking is explicit, which also makes it predictable.</td></tr>
+                    <tr><th scope="row">Parameters from the game</th><td>Modulators: a <code>tweener</code> (smooth moves to a target) or <code>lfo</code>, linked to any parameter with <code>Value::from_modulator(&amp;m, Mapping { input_range, output_range, easing })</code>. One tweener for "calm" can drive filter cutoff and bed volume together; one per region drives crossfades.</td></tr>
+                    <tr><th scope="row">Effects</th><td>Built in: filter, reverb, compressor, delay, distortion, EQ filter, panning and volume control. A low-pass on the main track gives the pause sound.</td></tr>
+                    <tr><th scope="row">Music in time</th><td>Clocks: <code>add_clock(ClockSpeed::SecondsPerTick(..))</code>; sounds and tweens can start on a clock tick, so stems and motifs enter on the beat.</td></tr>
+                    <tr><th scope="row">3D later</th><td><code>SpatialTrackBuilder</code> for positioned sounds when the camera goes true-3D.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>The audio clock is the player's real time, which is fine: audio is presentation, sits outside the deterministic sim, and only reacts to events and state, as the renderer does.</p>
+            </section>
+
+            <section id="a-rec">
+              <h3 class="hb a-purple">Recommendation and first steps</h3>
+              <div class="card a-purple">
+                <p class="lead"><strong>Rules first, then a small synthesised and CC0 cue set, music last</strong></p>
+                <p>Build the bus layout and a cue table that enforces the anti-fatigue rules in code, then fill it with short cues synthesised offline with fundsp and a few CC0 samples, all committed to the repo. Synthesis fits agents well: Grok Build can write patches, render WAVs, measure them and lay them out on a listening page, and the owner judges by ear. Add region beds next. Leave music for last, and consider commissioning it, because it is the hardest part to get right and the easiest to grow tired of.</p>
+              </div>
+              <ol class="steps">
+                <li class="card a-purple"><span class="num" aria-hidden="true">1</span><div><strong>Bus layout</strong><p>In <code>galaxy-audio</code>: main, then music, ambience, effects and UI sub-tracks, one reverb send, a "calm" tweener and a pause low-pass. The app still only calls methods on <code>Audio</code>.</p></div></li>
+                <li class="card a-purple"><span class="num" aria-hidden="true">2</span><div><strong>A cue table as data</strong><p><code>audio.toml</code>: cue ID, files or patch, bus, pitch and volume ranges, no-repeat, rate limit, duck amount. Pack data, so the game master can later add rows.</p></div></li>
+                <li class="card a-purple"><span class="num" aria-hidden="true">3</span><div><strong>Five cues first</strong><p>UI confirm, docking chime, undock, ore tick and hold full. No mining loop and no engine loop.</p></div></li>
+                <li class="card a-purple"><span class="num" aria-hidden="true">4</span><div><strong>An offline render and check tool</strong><p><code>cargo xtask audio</code> renders fundsp patches to WAV, measures peak, loudness, spectral centroid and length against the rules, and writes a listening page.</p></div></li>
+                <li class="card a-purple"><span class="num" aria-hidden="true">5</span><div><strong>One region bed</strong><p>The Shallows, from layered CC0 recordings and synth pads, with station proximity layers for the Wharf and Kettle Dock.</p></div></li>
+                <li class="card a-purple"><span class="num" aria-hidden="true">6</span><div><strong>A long listening test</strong><p>The owner plays with sound on and keeps the "grates" list. Nothing ships that is on it.</p></div></li>
+              </ol>
+            </section>
+          </section>
+
+          <section id="live">
+            <h2 class="hb a-cyan">Assets the game master can create live</h2>
+            <div class="card a-cyan">
+              <p class="lead"><strong>The rule: recipes in, assets out</strong></p>
+              <p>The game master never hands the game a mesh, an image file or an audio file. It writes data: a recipe over kit parts, a palette chosen inside the rules, a decal or banner by ID, a motif as a parameter set. The base engine owns the kits, builds the asset, checks it against budgets and the art bible, renders previews the agent can look at, and caches the result by content hash. This keeps saves deterministic and small, keeps every asset on style, and makes rollback trivial: a rolled-back recipe simply stops being drawn.</p>
+            </div>
+            <ol class="flow">
+              <li class="node a-purple"><strong>Game master</strong> <span class="pill a-purple">Actor</span><p>Reads history, picks a cause, writes a recipe or motif through the scripting engine.</p></li>
+              <li class="edge">↓ recipe as data</li>
+              <li class="node a-blue"><strong>Asset check in the script pipeline</strong><p>Schema and ranges, budgets, palette rules, placement rules.</p></li>
+              <li class="edge">↓</li>
+              <li class="node a-amber"><strong>Preview render</strong> <span class="pill a-amber">Outside the tick</span><p>Headless contact sheet: play zoom, thumbnail, silhouette, beside neighbours. Silhouette and readability scores.</p><p class="jump"><strong>↺ back to Game master</strong>: report and PNGs; revise and resubmit</p></li>
+              <li class="edge">↓ pass</li>
+              <li class="node a-green"><strong>Applied at a calm moment</strong><p>A reversible command stores the recipe; the renderer builds and caches the mesh; legibility channels name the place and the person.</p></li>
+              <li class="edge dashed">↓ if it misbehaves</li>
+              <li class="node a-verm terminal"><strong>In-world rollback</strong> <span class="pill a-verm">Outcome</span><p>The recipe reverts (for example to scaffold) with a dockmaster line; nothing the player owns is lost.</p></li>
+            </ol>
+
+            <section id="l-recipes">
+              <h3 class="hb a-cyan">Recipes over a validated kit</h3>
+              <div class="tablewrap">
+                <table class="tbl a-cyan">
+                  <thead>
+                    <tr>
+                      <th>Change</th>
+                      <th>What the script writes</th>
+                      <th>Constraints</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Add a station (change type 7)</th><td>A <code>StationRecipe</code> under a <code>gm.*</code> ID: parts by kind with parameters and placements, a palette, decals, a banner.</td><td>Only kit parts; part ranges; at most 48 parts and 120 units of reach; a docking radius inside the content spec's range; a silhouette distinct from every station in the region; faction motif and colour pair matching the cited cause.</td></tr>
+                    <tr><th scope="row">Grow a station (change type 1)</th><td>Stages as recipe deltas: parts to add or replace at stage <em>n</em>, as Kettle Dock's greenhouse rings do.</td><td>A stage only adds or swaps parts; it never shrinks the footprint below what the player has seen. Each stage stays inside the same budgets.</td></tr>
+                    <tr><th scope="row">Recolour a faction</th><td>A new palette pair for a faction, for example after an era change or a merger.</td><td>Colours within a small perceptual distance of the art bible's allowed swatches; lightness gap to the sky kept; no clash with another faction's pair; applied everywhere at once with a cause.</td></tr>
+                    <tr><th scope="row">Add a decal or banner</th><td>A decal ID from the kit, its colours and a placement on a named part; or a banner part carrying a faction mark.</td><td>Decals per part and per station capped; marks only from the faction or the cited cause; no free text on hulls.</td></tr>
+                    <tr><th scope="row">Add a sound motif</th><td>A motif parameter set (below), attached to a station's docking chime or a faction.</td><td>Scale, register, length and loudness inside the motif kit's ranges; distinct from existing motifs.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section id="l-manifest">
+              <h3 class="hb a-cyan">The asset manifest contract</h3>
+              <p>Today's <code>AssetManifest</code> lists parts by ID with a free-form kind. To support live creation it should describe the kit precisely enough that a script, the validator and the renderer agree on what is allowed.</p>
+              <div class="tablewrap">
+                <table class="tbl a-cyan">
+                  <thead>
+                    <tr>
+                      <th>Section</th>
+                      <th>Holds</th>
+                      <th>Owned by</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row"><code>parts</code></th><td>Each part kind: parameters with ranges and defaults, sockets, triangle cost, tags (faction motif, role: dock, living, industry, light), variants and the station stages it may appear in.</td><td>Base engine (kit code), exported from Rust so it can't drift.</td></tr>
+                    <tr><th scope="row"><code>palettes</code></th><td>Roles, allowed swatches, faction and region pairs, the numeric palette rules.</td><td>Art bible data; factions can be recoloured live inside the rules.</td></tr>
+                    <tr><th scope="row"><code>decals</code></th><td>Vector marks, stripes and numbers by ID with allowed colours and sizes.</td><td>Base kit; new marks by release or reviewed pack.</td></tr>
+                    <tr><th scope="row"><code>motifs</code></th><td>Instruments, scales, ranges and loudness limits for sound motifs.</td><td>Base kit.</td></tr>
+                    <tr><th scope="row"><code>budgets</code></th><td>Triangles per class, parts per station, decals per part, new station types per era, motifs per region.</td><td>Pack data, so pacing stays tunable.</td></tr>
+                    <tr><th scope="row"><code>recipes</code></th><td>Authored and game-master recipes by ID, with cause, stage deltas and provenance.</td><td>Packs (<code>core</code> authored, <code>gm</code> live).</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>One structural change follows: the recipe types and <code>validate()</code> currently live in <code>render</code>, which sim and script crates may not depend on. Move the recipe data types, ranges and data checks into a render-free crate (the contract, or a small <code>kit-spec</code> crate) so the Luau host can validate in the tick, and keep mesh building and preview renders in <code>render</code>.</p>
+            </section>
+
+            <section id="l-hooks">
+              <h3 class="hb a-cyan">A proposed <code>assets</code> hook surface</h3>
+              <p>A sketch in the style of the existing <code>ctx.stations</code> hooks. Every write takes a <code>why</code> table with the facts it cites and becomes a reversible command in the script's batch.</p>
+              <pre><code>-- Reading the kit
+ctx.assets.parts({ tag = "lamplighter" })     -- part kinds, ranges, sockets, costs
+ctx.assets.palette("faction.lamplighters")    -- roles and allowed swatches
+ctx.assets.decals({ faction = "faction.lamplighters" })
+ctx.assets.budget("station")                  -- what is left this era
+
+-- Dry run inside the tick: data checks only, no rendering
+local report = ctx.assets.check_station(recipe)
+
+-- Writes (each a reversible command with a cause)
+ctx.assets.put_station_recipe("gm.listening_post", recipe, why)
+ctx.assets.add_stage("station.kettle_dock", 4, { add = { ... } }, why)
+ctx.assets.set_faction_palette("faction.tollway_compact", { primary = "#c98f4a", secondary = "#8a2f3c" }, why)
+ctx.assets.put_decal("gm.listening_post", { decal = "decal.mark.open_lamp", on = "part:3", colors = { "glow", "ink" } }, why)
+ctx.assets.put_banner("station.cinder_hook", { mark = "decal.mark.toll_key", palette = "faction.tollway_compact" }, why)
+ctx.assets.put_motif("gm.motif.listening_post", { instrument = "glass_bell", scale = "major_pentatonic", notes = { 1, 3, 5, 3 }, register = "mid", space = 0.4 }, why)
+ctx.assets.attach_motif("gm.listening_post", "dock_chime", "gm.motif.listening_post", why)</code></pre>
+              <p>Matching commands: <code>PutStationRecipe</code>, <code>SetStationStageDelta</code>, <code>SetFactionPalette</code>, <code>PutDecal</code>, <code>PutMotif</code>, <code>AttachMotif</code>, all reversible. The existing <code>attach</code>, <code>detach</code> and <code>set_stage</code> keep working for authored parts.</p>
+            </section>
+
+            <section id="l-validate">
+              <h3 class="hb a-cyan">Validating a new asset</h3>
+              <p>An "asset check" step fits into the game master's script validation pipeline right after types and schema, in two halves: data checks that run anywhere, and render checks that run outside the tick in the game-master bridge and <code>galaxy pack check</code>, where a GPU (or a software adapter) is available.</p>
+              <ol class="steps">
+                <li class="card a-cyan"><span class="num" aria-hidden="true">1</span><div><strong>Schema and ranges</strong><p>The recipe parses; every part kind exists; every parameter is in range (today's <code>validate()</code>).</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">2</span><div><strong>Budgets</strong><p>Parts, triangles, decals and reach under the class budget; new station types per era under the cap.</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">3</span><div><strong>Palette</strong><p>Every colour within a small OKLab distance of an allowed swatch; at most three hues plus ink and glow; hull lightness at least 0.25 above the sky; the owner's colour pair present.</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">4</span><div><strong>Placement</strong><p>The content spec's sixth-station rules: near a cited player fact, one at a time, a complete station with a ring and a dockmaster, the right faction.</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">5</span><div><strong>Render the contact sheet</strong><p>Play zoom, a 64-pixel thumbnail, a flat silhouette, and the asset beside its region's stations.</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">6</span><div><strong>Silhouette and readability</strong><p>Smallest feature at play zoom at least one and a half outline widths; the silhouette fills enough of its bounding circle; best-rotation overlap with any other station in the region below a threshold; the docking ring visible and reachable.</p></div></li>
+                <li class="card a-cyan"><span class="num" aria-hidden="true">7</span><div><strong>Look at it</strong><p>The report carries the PNG paths. The game-master agent looks at the sheet before proposing; the owner can look at the same sheet with their own agent outside the game. There is no approval inbox in the game.</p></div></li>
+              </ol>
+              <pre><code>// Sketch: the render half, in the game-master bridge (not in the sim tick).
+pub fn check_station_asset(recipe: &amp;StationRecipe, cx: &amp;AssetCheck) -&gt; AssetReport {
+    let mut r = AssetReport::new(&amp;recipe.name);
+    if let Err(errs) = recipe.validate() { r.errors.extend(errs.iter().map(|e| e.to_string())); }
+    r.budget("parts", recipe.parts.len(), cx.budgets.parts);
+    let mesh = kit::station(recipe);
+    r.budget("triangles", mesh.triangle_count(), cx.budgets.station_triangles);
+    r.palette = palette_report(&amp;recipe.palette, &amp;cx.art_bible, cx.region_sky);
+    if !r.errors.is_empty() { return r; }               // don't render broken data
+
+    let sil = cx.renderer.silhouette(&amp;mesh, cx.play_view);  // flat ink on white, headless
+    r.min_feature_px = sil.min_feature_px();
+    r.fill = sil.fill_of_bounding_circle();
+    r.max_overlap = cx.neighbours.iter()
+        .map(|n| sil.best_rotation_iou(n)).fold(0.0, f32::max);
+    r.ring_reachable = kit::docking_ring_center(recipe).is_some();
+    r.sheet = cx.renderer.contact_sheet(&amp;mesh, &amp;cx.neighbours, &amp;[
+        Shot::PlayZoom, Shot::Thumb(64), Shot::Silhouette, Shot::WithNeighbours,
+    ]);
+    r.pass = r.errors.is_empty()
+        &amp;&amp; r.min_feature_px &gt;= 1.5 * cx.rules.outline_px
+        &amp;&amp; r.max_overlap &lt; cx.rules.max_silhouette_overlap
+        &amp;&amp; r.palette.ok() &amp;&amp; r.ring_reachable;
+    r
+}</code></pre>
+            </section>
+
+            <section id="l-images">
+              <h3 class="hb a-cyan">Generated portraits and banners</h3>
+              <div class="pair">
+                <div class="card a-cyan">
+                  <p class="lead"><strong>Optional, 2D only, outside the tick</strong></p>
+                  <p>A new dockmaster at the sixth station could get a portrait, and a station screen an illustrated header. These are generated by the game-master bridge, not by a Luau script, with one licence-clear model, a fixed style prompt and reference sheet. A post-process maps the image to the game palette and adds ink edges so it matches the dock UI. The file is stored with provenance (model, licence, prompt hash) and cached by hash.</p>
+                </div>
+                <div class="card a-cyan">
+                  <p class="lead"><strong>Always a fallback</strong></p>
+                  <p>Every portrait slot also has a procedural version: a parametric bust from a small 2D part kit in the same palette. If generation fails, is slow, or the owner turns the layer off, the game shows the fallback and nothing breaks. Banners and marks stay vector decals from the kit rather than generated images, because they must read at play zoom and stay crisp.</p>
+                </div>
+              </div>
+            </section>
+
+            <section id="l-audio">
+              <h3 class="hb a-cyan">Sound motifs as parameters</h3>
+              <p>A motif is a short phrase (two to six notes) played by a small instrument kit: synthesised glass bell, soft pluck, warm pad, wooden knock, or a few CC0 sampled instruments. The game master picks parameters; the base engine renders it deterministically with fundsp, caches the WAV, and plays it through kira's buses.</p>
+              <div class="tablewrap">
+                <table class="tbl a-cyan">
+                  <thead>
+                    <tr>
+                      <th>Parameter</th>
+                      <th>Allowed</th>
+                      <th>Checked</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Instrument</th><td>An ID from the motif kit</td><td>Exists; suits the bus (UI, effects, music)</td></tr>
+                    <tr><th scope="row">Scale and notes</th><td>Major or minor pentatonic, Dorian, Lydian; two to six scale steps</td><td>All notes in the scale; no large leaps</td></tr>
+                    <tr><th scope="row">Register and tempo</th><td>Low, mid or high; a tempo range per use</td><td>Inside the use's range (a docking chime is short and mid)</td></tr>
+                    <tr><th scope="row">Space</th><td>Reverb send from 0 to 1</td><td>Within loudness and tail limits</td></tr>
+                    <tr><th scope="row">Identity</th><td>Attached to a station, faction or chronicle kind</td><td>Interval pattern distinct from existing motifs in the region</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p>Rendered motifs are measured like any cue: peak, loudness, spectral centroid and length. Motifs also obey the rate limits and the "only at calm moments" rule.</p>
+            </section>
+
+            <section id="l-line">
+              <h3 class="hb a-cyan">Base engine or scripting layer</h3>
+              <p>Three tiers rather than two: what changes only with a release, what reviewed content packs may add, and what the game master may do live.</p>
+              <div class="tablewrap">
+                <table class="tbl a-cyan">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Contains</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Base engine (release only)</th><td>Renderer, shaders, the outline and cel model; kit part generators (code); decal rasteriser; glTF loader; the validators and their metrics; the art bible's rule set; image post-processing; synth instruments and effects; kira bus layout; caches; the contact-sheet renderer.</td></tr>
+                    <tr><th scope="row">Reviewed packs (data, owner-approved outside the game)</th><td>New decal marks, Blender-made glTF parts that pass the export check, new motif instruments from CC0 samples, palette additions, budgets.</td></tr>
+                    <tr><th scope="row">Live scripting layer (game master)</th><td>Station recipes and stage deltas, palette choices inside the rules, faction recolours, decals and banners from the kit, motif parameter sets, which cue or motif plays where; optional generated portraits through the bridge.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="risks">
+            <h2 class="hb a-blue">Risks and open questions</h2>
+            <ul class="rows">
+              <li class="card a-verm"><strong>The kit limits imagination</strong> <span class="pill a-verm">Risk</span><p>A game master can only build from the parts it has, so invented stations may start to look alike. Mitigation: grow the kit with each release, cap new station types per era, and fail recipes whose silhouette overlaps a neighbour.</p></li>
+              <li class="card a-amber"><strong>Validators can't judge taste</strong> <span class="pill a-amber">Risk</span><p>Numbers catch broken and unreadable assets, not ugly ones. The contact sheet must be looked at, by the game-master agent and by the owner.</p></li>
+              <li class="card a-purple"><strong>Licences change</strong> <span class="pill a-purple">Risk</span><p>AI tool terms move often, and copyright in generated output is unsettled. Keep a provenance record per file and prefer code, CC0 and authored work for anything central.</p></li>
+              <li class="card a-cyan"><strong>Public repo versus asset licences</strong> <span class="pill a-cyan">Risk</span><p>Libraries that forbid redistributing raw files (Sonniss, Pixabay) can't live in the repo. Decide whether private builds may use them, or stay CC0-only.</p></li>
+              <li class="card a-blue"><strong>Audio taste</strong> <span class="pill a-blue">Risk</span><p>Sound was rejected once already. Small sets judged by ear in long sessions, and a "grates" list, are safer than a big pass.</p></li>
+              <li class="card a-green"><strong>3D later</strong> <span class="pill a-green">Question</span><p>Stations are built for top-down; true-3D views need sides and undersides, and planets need their own kit. How much should be modelled now?</p></li>
+              <li class="card a-verm"><strong>Commission a style sheet?</strong> <span class="pill a-verm">Question</span><p>One artist-made style sheet (palette, three station kinds, faction marks, a portrait style) would anchor agents and validators. Worth it before growing the kit?</p></li>
+              <li class="card a-amber"><strong>Generated portraits in the game?</strong> <span class="pill a-amber">Question</span><p>Keep the illustrated 2D layer to authored and procedural art, or allow generated portraits with a fallback?</p></li>
+              <li class="card a-purple"><strong>Music or not</strong> <span class="pill a-purple">Question</span><p>Ambience only for now, occasional generative pieces, or commissioned stems later?</p></li>
+              <li class="card a-cyan"><strong>Text on hulls</strong> <span class="pill a-cyan">Question</span><p>Station names and pilot name plates (the Kin regard tier mentions one) are text on art. Allowed as decals, or kept in UI only?</p></li>
+            </ul>
+          </section>
+
+          <section id="sources">
+            <h2 class="hb a-green">Sources</h2>
+            <p>Links were checked on 30 October 2026. Some sites refused automated reading (GameSpot, Midjourney, OpenAI, Tripo's terms, the Guilty Gear Xrd slides); for those, claims rest on search results and well-established knowledge. Licence terms are summaries, not legal advice.</p>
+            <h3 class="hb a-green">This project</h3>
+            <ul class="links">
+              <li><a href="../design/vertical-slice-lantern-reach.html">Vertical Slice Proposal — The Lantern Reach</a> — runtime asset kit and change types 1 and 7</li>
+              <li><a href="../design/visual-styles-and-feel.html">Visual Styles &amp; Gameplay Feel</a></li>
+              <li><a href="../design/high-level-plan.html">High-Level Plan</a> — presentation lock and the rejected audio</li>
+              <li><a href="game-master-menu.html">The Game Master's Menu</a> — validation pipeline and base engine hooks</li>
+              <li><a href="https://github.com/alundgren/irudd-galaxy/pull/11">PR #11 kickoff decisions</a> — GitHub</li>
+              <li><code>slices/01-lantern-reach/crates/render/README.md</code>, <code>src/kit/</code>, <code>src/shaders/mesh.wgsl</code>, <code>src/palette.rs</code>, <code>crates/contract/src/assets.rs</code>, <code>content/01-galaxy.md</code>, <code>content/05-people.md</code>, <code>content/06-game-master.md</code></li>
+            </ul>
+            <h3 class="hb a-green">Art direction</h3>
+            <ul class="links">
+              <li><a href="https://gameinformer.com/2019/02/20/the-story-behind-the-outer-worlds-amazing-art">The story behind The Outer Worlds' amazing art</a> — Game Informer</li>
+              <li><a href="https://www.nomanssky.com/2016/04/art-of-no-mans-sky/">The Art of No Man's Sky</a> — Hello Games</li>
+              <li><a href="https://en.wikipedia.org/wiki/Development_of_No_Man%27s_Sky">Development of No Man's Sky</a> — Wikipedia (Chris Foss influence)</li>
+              <li><a href="https://gamespot.com/articles/behind-borderlands-11th-hour-style-change/1100-6253257/">Behind Borderlands' 11th-hour style change</a> — GameSpot</li>
+              <li><a href="https://engadget.com/2009/04/09/borderlands-decides-on-cel-shaded-art-style">Borderlands decides on cel-shaded art style</a> — Engadget</li>
+              <li><a href="https://cdn.fastly.steamstatic.com/apps/valve/2007/NPAR07_IllustrativeRenderingInTeamFortress2_Slides.pdf">Illustrative Rendering in Team Fortress 2</a> — Valve, NPAR 2007</li>
+              <li><a href="https://gdcvault.com/play/1022031/GuiltyGearXrd-s-Art-Style-The">GuiltyGearXrd's Art Style: The X Factor Between 2D and 3D</a> — GDC Vault, 2015</li>
+              <li><a href="https://bottosson.github.io/posts/oklab/">A perceptual color space for image processing (OKLab)</a> — Björn Ottosson</li>
+            </ul>
+            <h3 class="hb a-green">Art tools and formats</h3>
+            <ul class="links">
+              <li><a href="https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html">glTF 2.0 specification</a> — Khronos</li>
+              <li><a href="https://docs.blender.org/manual/en/dev/addons/scene_gltf2.html">glTF 2.0 add-on</a> — Blender manual</li>
+              <li><a href="https://docs.blender.org/manual/en/dev/grease_pencil/modifiers/generate/line_art.html">Line Art modifier</a> — Blender manual</li>
+              <li><a href="https://www.blender.org/about/license/">Blender licence</a> — blender.org</li>
+              <li><a href="https://github.com/gltf-rs/gltf">gltf crate</a> — GitHub</li>
+            </ul>
+            <h3 class="hb a-green">AI generators and copyright</h3>
+            <ul class="links">
+              <li><a href="https://huggingface.co/black-forest-labs/FLUX.1-schnell">FLUX.1 [schnell]</a> and <a href="https://huggingface.co/black-forest-labs/FLUX.1-dev/blob/main/LICENSE.md">FLUX.1 [dev] licence</a> — Hugging Face</li>
+              <li><a href="https://stability.ai/community-license-agreement">Stability AI Community License</a> — Stability AI</li>
+              <li><a href="https://openai.com/policies/terms-of-use/">Terms of use</a> — OpenAI</li>
+              <li><a href="https://docs.midjourney.com/docs/terms-of-service">Terms of Service</a> — Midjourney</li>
+              <li><a href="https://www.adobe.com/products/firefly.html">Adobe Firefly</a> — Adobe</li>
+              <li><a href="https://www.meshy.ai/pricing">Pricing and licence</a> — Meshy</li>
+              <li><a href="https://www.tripo3d.ai/help/privacy-policy/how-to-use-tripo-models-commercially">How to use Tripo models commercially</a> — Tripo</li>
+              <li><a href="https://github.com/microsoft/TRELLIS">TRELLIS</a> and <a href="https://github.com/microsoft/TRELLIS.2">TRELLIS.2</a> — Microsoft, GitHub</li>
+              <li><a href="https://huggingface.co/tencent/Hunyuan3D-2/blob/main/LICENSE">Hunyuan3D 2 licence</a> — Tencent, Hugging Face</li>
+              <li><a href="https://www.copyright.gov/ai/">Copyright and Artificial Intelligence, Part 2: Copyrightability</a> — US Copyright Office</li>
+            </ul>
+            <h3 class="hb a-green">Audio</h3>
+            <ul class="links">
+              <li><a href="https://docs.rs/kira/latest/kira/">kira</a>, <a href="https://docs.rs/kira/latest/kira/track/index.html">tracks</a>, <a href="https://docs.rs/kira/latest/kira/modulator/index.html">modulators</a>, <a href="https://docs.rs/kira/latest/kira/effect/index.html">effects</a>, <a href="https://docs.rs/kira/latest/kira/clock/index.html">clocks</a>, <a href="https://docs.rs/kira/latest/kira/sound/index.html">sounds</a> — docs.rs</li>
+              <li><a href="https://github.com/SamiPerttu/fundsp">fundsp</a> — GitHub</li>
+              <li><a href="https://kenney.nl/support">Kenney support and licence (CC0)</a> and <a href="https://opengameart.org/content/interface-sounds">Interface Sounds</a> — Kenney, OpenGameArt</li>
+              <li><a href="https://freesound.org/help/faq/">Freesound FAQ</a> — Freesound</li>
+              <li><a href="https://sonniss.com/gdc-bundle-license/">GDC bundle licence</a> — Sonniss</li>
+              <li><a href="https://pixabay.com/service/license-summary/">Content licence summary</a> — Pixabay</li>
+              <li><a href="https://opengameart.org/content/faq">FAQ</a> — OpenGameArt</li>
+              <li><a href="https://elevenlabs.io/creative-terms">ElevenCreative terms (Exhibit 4: Sound Effects)</a> — ElevenLabs</li>
+              <li><a href="https://elevenlabs.io/sound-effects">Sound Effects: pricing and FAQ</a> — ElevenLabs</li>
+              <li><a href="https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform">Can I publish the content I generate on the platform?</a> — ElevenLabs help</li>
+              <li><a href="https://huggingface.co/stabilityai/stable-audio-open-1.0">Stable Audio Open 1.0</a> — Stability AI, Hugging Face</li>
+              <li><a href="https://help.suno.com/en/categories/550145-rights-ownership">Rights and ownership</a> — Suno help</li>
+              <li><a href="https://github.com/facebookresearch/audiocraft">AudioCraft</a> — Meta, GitHub</li>
+              <li><a href="https://gdcvault.com/play/1024067/The-Sound-of-No-Man">The Sound of No Man's Sky</a> — Paul Weir, GDC Vault, 2017</li>
+              <li><a href="https://www.asoundeffect.com/game-audio-immersion/">Game audio immersion</a> — A Sound Effect</li>
+              <li><a href="https://etheses.whiterose.ac.uk/id/eprint/38684/">Reducing music repetition in games</a> — Kyle Worrall, PhD thesis, University of York</li>
+            </ul>
+          </section>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+id = "gm.ancients_bearing"
+name = "Ancients bearing"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "canon.read", "canon.write", "kit.write", "stations.read"]
+opens = ["canon.second_fragment"]
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.dock", "on.session_start"]
+
+[rollback]
+speaker = "npc.nell_quillon"
+place = "station.glass_drift_observatory"
+text = "I've put my notes on the song's direction aside for now. The fragment is just as you left it."

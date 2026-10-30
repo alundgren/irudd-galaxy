@@ -1,0 +1,7 @@
+# Generated files keep LF so the staleness test and diffs agree on every OS.
+crates/contract/schemas/*.json text eol=lf
+*.ttf binary
+*.png binary
+# Launch scripts keep their platform line endings.
+*.sh text eol=lf
+*.cmd text eol=crlf

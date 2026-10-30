@@ -1,0 +1,133 @@
+# Factions, regard tiers and memory rules (content/05-people.md, "Factions").
+# Standing is a hidden number per faction; the player only ever sees regard, how
+# people treat them. Beat rewards (b03's +5, the dispute ...) are beat data; the deeds
+# below are the standing changes ordinary play makes.
+# Schema: crates/contract/schemas/data-factions.json
+
+[[faction]]
+id = "faction.wharf_cooperative"
+name = "Wharf Cooperative"
+wants = ["ware.ice", "ware.refined_plate"]
+colour = "lantern_green"
+mark = "a lantern over a kettle"
+claims = ["station.cinder_hook"]
+
+[[faction]]
+id = "faction.tollway_compact"
+name = "Tollway Compact"
+wants = ["ware.glassite", "ware.iron_ore"]
+colour = "brass_and_deep_red"
+mark = "a toll key"
+claims = ["station.cinder_hook"]
+
+[[faction]]
+id = "faction.lamplighter_society"
+name = "Lamplighter Society"
+wants = ["ware.ancients_fragment"]
+colour = "amber_on_midnight"
+mark = "an open lamp"
+
+[standing]
+min = -100
+max = 100
+
+# How people treat you. The economy's asking spreads (economy.toml [[pricing.regard]])
+# start at these same thresholds.
+[[regard]]
+id = "cold"
+name = "Cold"
+min_standing = -100
+shows = "They use your hull's name, not yours. Lines are short. No tips, no rumors."
+
+[[regard]]
+id = "stranger"
+name = "Stranger"
+min_standing = -9
+shows = "Polite: \"Pilot.\""
+
+[[regard]]
+id = "known"
+name = "Known"
+min_standing = 10
+shows = "They use your name, mention one of your deeds, and share a price they heard."
+
+[[regard]]
+id = "trusted"
+name = "Trusted"
+min_standing = 30
+shows = "Warm: they ask after your tender or hull, and tell you rumors first."
+
+[[regard]]
+id = "kin"
+name = "Kin"
+min_standing = 60
+shows = "\"One of ours.\" Their stations hang your name plate on the ring."
+
+# --- Wharf Cooperative: deliveries, and whom you sided with at Cinder Hook ---
+
+# Every 10 units of ice or plate sold at Kettle Dock: +1, at most +2 per docking.
+[[deed]]
+id = "deed.coop.kettle_supply"
+faction = "faction.wharf_cooperative"
+on = { kinds = ["sell"], stations = ["station.kettle_dock"], wares = ["ware.ice", "ware.refined_plate"] }
+per = 10
+delta = 1
+cap_per_docking = 2
+
+# Every 10 units delivered to a Cooperative ledger: +1, at most +2 per docking.
+[[deed]]
+id = "deed.coop.ledger_deliveries"
+faction = "faction.wharf_cooperative"
+on = { kinds = ["deliver"], others = ["ledger.kettle_greenhouse", "ledger.hook_consignment", "ledger.hook_depot_coop", "ledger.ice_relief", "ledger.kettle_condenser"] }
+per = 10
+delta = 1
+cap_per_docking = 2
+tags = ["delivery"]
+
+# Bought a tender from Tamsin (the craft is the fact's ship, so any ship counts).
+[[deed]]
+id = "deed.coop.tender_bought"
+faction = "faction.wharf_cooperative"
+on = { kinds = ["tender_acquired"], stations = ["station.kettle_dock"], any_ship = true }
+delta = 3
+
+# --- Tollway Compact: big sales, and whether you flooded their market ---
+
+[[deed]]
+id = "deed.compact.first_glassite"
+faction = "faction.tollway_compact"
+on = { kinds = ["sell"], stations = ["station.brassmouth_exchange"], wares = ["ware.glassite"] }
+delta = 3
+once = true
+
+[[deed]]
+id = "deed.compact.brassmouth_sales"
+faction = "faction.tollway_compact"
+on = { kinds = ["sell"], stations = ["station.brassmouth_exchange"] }
+per = 15
+delta = 1
+cap_per_docking = 2
+
+[[deed]]
+id = "deed.compact.flooded"
+faction = "faction.tollway_compact"
+on = { kinds = ["market_flooded"], stations = ["station.brassmouth_exchange"] }
+delta = -2
+cap_per_docking = 1
+
+# --- Lamplighter Society: what you found, and whom you told first ---
+
+[[deed]]
+id = "deed.lamplighters.first_visit"
+faction = "faction.lamplighter_society"
+on = { kinds = ["dock"], stations = ["station.glass_drift_observatory"] }
+delta = 3
+once = true
+
+[[deed]]
+id = "deed.lamplighters.observatory_sales"
+faction = "faction.lamplighter_society"
+on = { kinds = ["sell"], stations = ["station.glass_drift_observatory"] }
+per = 15
+delta = 1
+cap_per_docking = 1

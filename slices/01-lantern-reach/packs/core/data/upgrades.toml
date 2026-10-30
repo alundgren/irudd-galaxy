@@ -1,0 +1,153 @@
+# What hullwrights and dockmasters fit and build (content/03-ships-and-controls.md,
+# "Upgrades"). Costs are credits. An upgrade appears on its seller's list once its
+# `unlock` holds; unlocks are activity counts, history or beats, never time. Fitting
+# writes `upgrade_fitted`, and each capability it grants writes `cap_unlocked`.
+# Fittings are never removed and move to a new hull at prestige.
+# Requirements: crates/contract/schemas/data-upgrades.json (`Requirement`). A number
+# can be `{ tunable = "id" }` to share a threshold with a beat (pacing.toml).
+
+[[upgrade]]
+id = "upgrade.mining_lens"
+name = "Mining lens"
+effect = "You mine half again as fast"
+cost = 600
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { beat_done = "beat.b03_first_delivery" }
+modifiers = [{ modifier = "mining_rate", factor = 1.5 }]
+
+[[upgrade]]
+id = "upgrade.nav_chip"
+name = "Nav chip"
+effect = "Click a point near your ship and it flies there"
+cost = 225
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+grants = ["cap.click_fly"]
+[upgrade.unlock]
+all = [
+    { beat_done = "beat.b05_pause" },
+    { counter = { kind = "dockings", at_least = { tunable = "b06.dockings" } } },
+]
+
+[[upgrade]]
+id = "upgrade.rock_cradle"
+name = "Rock cradle"
+effect = "Click a rock and your ship flies over and mines it"
+cost = 700
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+grants = ["cap.click_mine"]
+[upgrade.unlock]
+all = [
+    { fitted = "upgrade.nav_chip" },
+    { counter = { kind = "rocks_depleted", at_least = 4 } },
+]
+
+[[upgrade]]
+id = "upgrade.docking_clamp"
+name = "Docking clamp"
+effect = "Click a station and your ship flies in and docks"
+cost = 700
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+grants = ["cap.click_dock"]
+[upgrade.unlock]
+all = [
+    { fitted = "upgrade.nav_chip" },
+    { counter = { kind = "dockings", at_least = 14 } },
+]
+
+# A gift: b07's reward fits it at Cinder Hook (Rook hands it over).
+[[upgrade]]
+id = "upgrade.lane_chart"
+name = "Lane chart"
+effect = "Click a place on the map and your ship goes there"
+cost = 0
+seller = "npc.rook_adeyemi"
+station = "station.cinder_hook"
+grants = ["cap.map_travel"]
+unlock = { beat_done = "beat.b07_cinder_drift" }
+
+# "player.units_sold >= 150": units the player's own ship has sold.
+[[upgrade]]
+id = "upgrade.hold_extender"
+name = "Hold extender"
+effect = "Your hold carries 10 more, in any hull"
+cost = 1500
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { sum = { query = { kind = "sell", ship = "ship.player" }, at_least = 150 } }
+modifiers = [{ modifier = "hold", units = 10 }]
+
+# Docked at all five authored stations.
+[[upgrade]]
+id = "upgrade.price_glass"
+name = "Price glass"
+effect = "Live prices at stations within 1200 u, on the map"
+cost = 1800
+seller = "npc.hesper_lune"
+station = "station.glass_drift_observatory"
+# The economy's price reach reads this flag (economy.toml [reach.flags]).
+grants = ["flag.price_glass"]
+modifiers = [{ modifier = "price_glass", range = 1200.0 }]
+[upgrade.unlock]
+all = [
+    { counter = { kind = "dockings", at_least = 1, station = "station.lantern_wharf" } },
+    { counter = { kind = "dockings", at_least = 1, station = "station.kettle_dock" } },
+    { counter = { kind = "dockings", at_least = 1, station = "station.cinder_hook" } },
+    { counter = { kind = "dockings", at_least = 1, station = "station.brassmouth_exchange" } },
+    { counter = { kind = "dockings", at_least = 1, station = "station.glass_drift_observatory" } },
+]
+
+[[upgrade]]
+id = "upgrade.order_slate"
+name = "Order slate"
+effect = "Shift-click to line up orders; they run in turn"
+cost = 2000
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+grants = ["cap.queues"]
+[upgrade.unlock]
+all = [
+    { beat_done = "beat.b08_chasing_a_gap" },
+    { flag = "cap.map_travel" },
+    { counter = { kind = "dockings", at_least = { tunable = "b11.dockings" } } },
+]
+
+# A gift once the player has finished 4 queues (`queue_done` facts from the ship crate).
+[[upgrade]]
+id = "upgrade.loop_log"
+name = "Loop log"
+effect = "Save a line of orders as a loop that repeats"
+cost = 0
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+grants = ["cap.loops"]
+unlock = { facts = { query = { kind = "queue_done", ship = "ship.player" }, at_least = 4 } }
+
+# Tenders. Building one writes `tender_acquired`; it starts berthed at its station.
+# Thimble (b13 step 2) grants `cap.automation`: b13's last step is Thimble running one
+# of the player's loops, so assigning it has to work before b13 completes. b13's own
+# reward lists the flag too, which grants nothing once it's set.
+[[craft]]
+id = "craft.thimble"
+name = "Thimble"
+effect = "A crewless tender: runs your loop, sells at your price"
+hull = "hull.tender"
+cost = 2400
+seller = "npc.tamsin_oddway"
+station = "station.kettle_dock"
+grants = ["cap.automation"]
+unlock = { beat_step = { beat = "beat.b13_first_tender", at_least = 1 } }
+
+[[craft]]
+id = "craft.button"
+name = "Button"
+effect = "A second tender: two loops run while you fly"
+hull = "hull.tender"
+cost = 2400
+seller = "npc.tamsin_oddway"
+station = "station.kettle_dock"
+[craft.unlock]
+all = [{ hull = "hull.tandem" }, { beat_done = "beat.b13_first_tender" }]

@@ -1,0 +1,24 @@
+id = "gm.shortage_tuning"
+name = "Shortage tuning"
+version = "0.1.0"
+depends = ["core"]
+lib = true
+uses = ["events.sell", "events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "map.write", "pacing.read", "pacing.write"]
+[[shock]]
+id = "local_shortage"
+summary = "The authored shortage follows the pilot's buyers."
+opportunity = "relief"
+[[opportunity]]
+id = "relief"
+summary = "Ice earns more at those buyers; Brassmouth ice and Hookside mining remain reachable."
+
+[[script]]
+id = "main"
+file = "scripts/main.luau"
+handlers = ["on.sell", "on.dock", "on.session_start"]
+stores = { progress = { signature = "string" } }
+[rollback]
+speaker = "npc.odo_fenn"
+place = "station.kettle_dock"
+text = "We counted the ice wrong. It's the usual three stations that are short."
+

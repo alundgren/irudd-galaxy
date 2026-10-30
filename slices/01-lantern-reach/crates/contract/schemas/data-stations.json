@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StationsFile",
+  "type": "object",
+  "properties": {
+    "station": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StationDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "MarketLineDef": {
+      "description": "A starting market line, prices in credits. Prices default from the ware's\n`base_price`: price = base, min = base / 2, max = base * 2. The economy re-prices every line from the formula on\nits first tick. The pricing and pulse rules are `economy.toml`\n([`EconomyRules`](crate::economy::EconomyRules), schema `data-economy.json`).",
+      "type": "object",
+      "properties": {
+        "base_price": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        },
+        "consumption": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "max_price": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        },
+        "min_price": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        },
+        "needs": {
+          "description": "Production runs only while these wares are in stock here.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WareId"
+          },
+          "uniqueItems": true
+        },
+        "price": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double",
+          "default": null
+        },
+        "production": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "role": {
+          "description": "Defaults to `sells` for a line with production, else `buys`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sat_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "sat_recover": {
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "stock": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "target": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "stock"
+      ]
+    },
+    "MarketRole": {
+      "description": "Whether a station buys a ware from ships or sells it to them. A station never\nbuys a ware it produces, or sells one it consumes.",
+      "oneOf": [
+        {
+          "description": "The station buys it (pays a price that saturation lowers).",
+          "type": "string",
+          "const": "buys"
+        },
+        {
+          "description": "The station sells it (asks a price with a spread).",
+          "type": "string",
+          "const": "sells"
+        }
+      ]
+    },
+    "PartId": {
+      "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
+      "type": "string",
+      "examples": [
+        "part.kettle.greenhouse_a"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Service": {
+      "description": "What a station offers when docked.",
+      "type": "string",
+      "enum": [
+        "market",
+        "dockmaster",
+        "hullwright",
+        "archive"
+      ]
+    },
+    "StationDef": {
+      "type": "object",
+      "properties": {
+        "dock_radius": {
+          "type": "number",
+          "format": "float"
+        },
+        "id": {
+          "$ref": "#/$defs/StationId"
+        },
+        "market": {
+          "description": "Market lines; a station with any gets a market.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MarketLineDef"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "parts": {
+          "description": "Kit parts attached at the start.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PartId"
+          },
+          "uniqueItems": true
+        },
+        "position": {
+          "$ref": "#/$defs/Vec2"
+        },
+        "region": {
+          "$ref": "#/$defs/RegionId"
+        },
+        "services": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Service"
+          },
+          "uniqueItems": true
+        },
+        "stage": {
+          "description": "Starting build stage.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "region",
+        "position",
+        "dock_radius"
+      ]
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

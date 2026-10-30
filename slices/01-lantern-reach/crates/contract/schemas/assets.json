@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AssetManifest",
+  "description": "`assets/manifest.toml`.",
+  "type": "object",
+  "properties": {
+    "parts": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PartDef"
+      }
+    }
+  },
+  "$defs": {
+    "AssetId": {
+      "description": "Stable asset id, e.g. `asset.station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "asset.station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PartDef": {
+      "description": "A station kit part a station can attach.",
+      "type": "object",
+      "properties": {
+        "asset": {
+          "description": "The visual recipe or sprite, if not drawn from the kind alone.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/PartId"
+        },
+        "kind": {
+          "description": "Free-form part kind, e.g. `ring`, `dome`, `dock_arm`.",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ]
+    },
+    "PartId": {
+      "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
+      "type": "string",
+      "examples": [
+        "part.kettle.greenhouse_a"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

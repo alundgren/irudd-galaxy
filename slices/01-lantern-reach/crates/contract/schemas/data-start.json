@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StartFile",
+  "type": "object",
+  "properties": {
+    "player": {
+      "$ref": "#/$defs/StartDef"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "player"
+  ],
+  "$defs": {
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StartDef": {
+      "description": "Where a new game starts.",
+      "type": "object",
+      "properties": {
+        "credits": {
+          "description": "In credits.",
+          "type": "number",
+          "format": "double"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ship": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "ship_name": {
+          "type": "string"
+        },
+        "station": {
+          "description": "The station the ship starts docked at.",
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "credits",
+        "ship",
+        "ship_name",
+        "hull",
+        "station"
+      ]
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

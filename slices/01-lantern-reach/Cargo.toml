@@ -1,0 +1,84 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
+[workspace.dependencies]
+# Our crates
+galaxy-kit = { path = "crates/kit" }
+galaxy-contract = { path = "crates/contract" }
+galaxy-core = { path = "crates/core" }
+galaxy-ship = { path = "crates/ship" }
+galaxy-economy = { path = "crates/economy" }
+galaxy-script = { path = "crates/script" }
+galaxy-progress = { path = "crates/progress" }
+galaxy-audio = { path = "crates/audio" }
+render = { path = "crates/render" }
+galaxy-mind = { path = "crates/mind" }
+galaxy-gm = { path = "crates/gm" }
+
+# Third party (all MIT or MIT/Apache-2.0)
+anyhow = "1.0.104"
+blake3 = "1.8.7"
+bytemuck = { version = "1.25", features = ["derive"] }
+clap = { version = "4.6.7", features = ["derive"] }
+directories = "6.0"
+# OS randomness for the live socket's token.
+# Offline synthesis of the sound cues (rendered once at startup, never on the audio thread).
+fundsp = { version = "0.23", default-features = false, features = ["std"] }
+getrandom = "0.3.4"
+glam = { version = "0.34", features = ["serde", "bytemuck"] }
+glyphon = "0.12"
+# Local sockets for the game-master bridge: a named pipe on Windows, a Unix socket elsewhere.
+interprocess = "2.4.7"
+# Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
+mlua = { version = "0.12.2", features = ["luau", "serialize"] }
+notify = "8.2.1"
+# Audio: only the cpal backend; the cues are synthesised in code, so no decoders yet.
+kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
+png = "0.18"
+pollster = "1.0"
+rand_core = "0.10.1"
+rand_pcg = { version = "0.10.2", features = ["serde"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+schemars = "1.2.3"
+serde = { version = "1.0.229", features = ["derive", "rc"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+sha2 = "0.11.1"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+toml = "1.1.8"
+zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# HTTP for the fast-model layer: rustls (no OpenSSL), no gzip.
+ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
+wgpu = "30.0"
+winit = "0.30.13"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+# Dev builds: our code is lightly optimised so the game is playable, dependencies
+# (wgpu, mlua, rusqlite ...) are optimised once and cached.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+[profile.test]
+opt-level = 1
+
+# Release: thin LTO only. Never fat LTO; build time matters more than the last few percent.
+[profile.release]
+lto = "thin"
+codegen-units = 16
+incremental = true
+debug = "line-tables-only"

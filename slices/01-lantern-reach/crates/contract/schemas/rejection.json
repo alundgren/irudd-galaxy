@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rejection",
+  "description": "A batch the engine refused.",
+  "type": "object",
+  "properties": {
+    "cause": {
+      "$ref": "#/$defs/Cause"
+    },
+    "command": {
+      "description": "Index of the failing command, or `None` for an invariant failure.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "reason": {
+      "type": "string"
+    },
+    "tick": {
+      "$ref": "#/$defs/Tick"
+    }
+  },
+  "required": [
+    "tick",
+    "cause",
+    "reason"
+  ],
+  "$defs": {
+    "Actor": {
+      "description": "Who performed a verb.",
+      "oneOf": [
+        {
+          "description": "The player, flying by hand or through their own order queue.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "player"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "A craft running orders (the player's automated craft or an NPC craft).",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "ship"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "kind",
+            "ship"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "npc"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            }
+          },
+          "required": [
+            "kind",
+            "npc"
+          ]
+        }
+      ]
+    },
+    "Cause": {
+      "description": "Why a change happened. Recorded with every batch that leaves a trace.",
+      "type": "object",
+      "properties": {
+        "cites": {
+          "description": "History facts this change is based on.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "kind": {
+          "$ref": "#/$defs/CauseKind"
+        },
+        "summary": {
+          "description": "One line a person could read, e.g. \"greenhouse stage 2 from the player's ice\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "summary"
+      ]
+    },
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "CauseKind": {
+      "oneOf": [
+        {
+          "description": "A verb by the player, an automated craft or an NPC craft.",
+          "type": "object",
+          "properties": {
+            "actor": {
+              "$ref": "#/$defs/Actor"
+            },
+            "kind": {
+              "type": "string",
+              "const": "verb"
+            },
+            "verb": {
+              "$ref": "#/$defs/VerbKind"
+            }
+          },
+          "required": [
+            "kind",
+            "actor",
+            "verb"
+          ]
+        },
+        {
+          "description": "A script in a pack revision (the authored `core` pack or the live `gm` layer).",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "script"
+            },
+            "pack": {
+              "$ref": "#/$defs/PackId"
+            },
+            "revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "pack",
+            "revision"
+          ]
+        },
+        {
+          "description": "A fast-model decision.",
+          "type": "object",
+          "properties": {
+            "decision": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "mind"
+            },
+            "npc": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NpcId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "decision"
+          ]
+        },
+        {
+          "description": "A native engine system (flight, market maths ...).",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "system"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ]
+        },
+        {
+          "description": "An in-world rollback of earlier causes.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rollback"
+            },
+            "of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CauseId"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "of"
+          ]
+        }
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PackId": {
+      "description": "Stable pack id, e.g. `core`.",
+      "type": "string",
+      "examples": [
+        "core"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Tick": {
+      "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "VerbKind": {
+      "description": "Verb names, used in causes and `order_done` events.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fly",
+            "mine",
+            "dock",
+            "undock",
+            "buy",
+            "sell",
+            "wait",
+            "loop",
+            "tag"
+          ]
+        },
+        {
+          "description": "Hand cargo to one of the player's tenders (the Tandem's Coupling).",
+          "type": "string",
+          "const": "transfer"
+        }
+      ]
+    }
+  }
+}

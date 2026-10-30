@@ -1,0 +1,38 @@
+# Change type 1 (content/06-game-master.md): Kettle Dock grows from deliveries.
+# Schema: crates/contract/schemas/manifest.json. Hooks: crates/contract/api/HOOKS.md.
+id = "gm.kettle_growth"
+name = "Kettle Dock grows from deliveries"
+version = "0.1.0"
+description = """
+Ice and plate delivered or sold at Kettle Dock fill Odo's greenhouse ledger. At 60 ice
+and 20 plate the second ring goes up; at 120 and 50 the orchard lamps, and Kettle starts
+buying glassite. Odo says so, citing the deliveries."""
+uses = [
+    "events.sell",
+    "events.deliver",
+    "history.read",
+    "history.write",
+    "stations.read",
+    "stations.write",
+    "market.read",
+    "market.lines",
+    "npcs.write",
+    "talk.write",
+    "map.write",
+]
+# Odo Fenn, until the core pack has him (install skips him if the world does).
+data = ["data/npcs.toml"]
+
+[[script]]
+id = "kettle_growth"
+file = "scripts/kettle_growth.luau"
+handlers = ["on.sell", "on.deliver", "after.regulars"]
+# The last stage this script built, so a reload or a save never repeats a stage.
+stores = { progress = { built = "integer" } }
+
+# No shock: the new stock is the opportunity, so nothing to pair.
+
+[rollback]
+speaker = "npc.odo_fenn"
+place = "station.kettle_dock"
+text = "We've taken the new ring down to re-seal it. Your ice is still counted, every bit."

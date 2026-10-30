@@ -1,0 +1,90 @@
+# The five authored stations (the sixth is grown live by the game master).
+# PROVISIONAL positions. Market lines follow the content spec's market tables
+# (content/02-economy.md): role, base price, target stock, opening stock, the rate
+# per station pulse (production or consumption), and for lines the station buys,
+# saturation per unit sold and saturation recovered per pulse. Pulses come from
+# activity (economy.toml), never a clock. The economy prices every line from the
+# formula; `needs` stops production while an input is out of stock.
+# Kettle Dock's rations (stage 2) and glassite (stage 3) arrive through market levers.
+# Schema: crates/contract/schemas/data-stations.json
+
+# Home station: dockmaster Ilse, the hullwright, buys iron.
+[[station]]
+id = "station.lantern_wharf"
+name = "Lantern Wharf"
+region = "region.lantern_shallows"
+position = { x = -200.0, y = 150.0 }
+dock_radius = 60.0
+owner = "faction.wharf_cooperative"
+services = ["market", "dockmaster", "hullwright"]
+market = [
+    { ware = "ware.ice", role = "buys", base_price = 10, target = 160, stock = 150, consumption = 2, sat_per_unit = 0.02, sat_recover = 0.05 },
+    { ware = "ware.iron_ore", role = "buys", base_price = 14, target = 200, stock = 190, consumption = 3, sat_per_unit = 0.015, sat_recover = 0.05 },
+    { ware = "ware.refined_plate", role = "sells", base_price = 30, target = 120, stock = 120, production = 2, needs = ["ware.iron_ore"] },
+    { ware = "ware.glassite", role = "buys", base_price = 24, target = 80, stock = 70, consumption = 1, sat_per_unit = 0.03, sat_recover = 0.04 },
+    { ware = "ware.rations", role = "sells", base_price = 14, target = 150, stock = 150, production = 2 },
+]
+
+# Greenhouse co-op that grows in stages from the ice and plate you bring.
+[[station]]
+id = "station.kettle_dock"
+name = "Kettle Dock"
+region = "region.lantern_shallows"
+position = { x = 700.0, y = -450.0 }
+dock_radius = 50.0
+owner = "faction.wharf_cooperative"
+services = ["market"]
+stage = 0
+parts = ["part.kettle.core"]
+market = [
+    { ware = "ware.ice", role = "buys", base_price = 12, target = 160, stock = 120, consumption = 3, sat_per_unit = 0.025, sat_recover = 0.05 },
+    { ware = "ware.refined_plate", role = "buys", base_price = 38, target = 60, stock = 40, consumption = 1, sat_per_unit = 0.03, sat_recover = 0.04 },
+]
+
+# Rough mining camp: buys plate, sells ore cheap. Contested.
+[[station]]
+id = "station.cinder_hook"
+name = "Cinder Hook"
+region = "region.cinder_drift"
+position = { x = 4600.0, y = 900.0 }
+dock_radius = 55.0
+services = ["market"]
+market = [
+    { ware = "ware.ice", role = "buys", base_price = 14, target = 100, stock = 70, consumption = 2, sat_per_unit = 0.03, sat_recover = 0.05 },
+    { ware = "ware.iron_ore", role = "sells", base_price = 6, target = 300, stock = 300, production = 4 },
+    { ware = "ware.refined_plate", role = "buys", base_price = 55, target = 100, stock = 80, consumption = 2, sat_per_unit = 0.02, sat_recover = 0.05 },
+    { ware = "ware.glassite", role = "sells", base_price = 16, target = 100, stock = 80, production = 1 },
+    { ware = "ware.rations", role = "buys", base_price = 26, target = 120, stock = 80, consumption = 2, sat_per_unit = 0.01, sat_recover = 0.05 },
+]
+
+# Scholars studying an Ancients fragment.
+[[station]]
+id = "station.glass_drift_observatory"
+name = "Glass Drift Observatory"
+region = "region.cinder_drift"
+position = { x = 5700.0, y = 1800.0 }
+dock_radius = 50.0
+owner = "faction.lamplighter_society"
+services = ["market", "archive"]
+market = [
+    { ware = "ware.ice", role = "buys", base_price = 13, target = 60, stock = 40, consumption = 1, sat_per_unit = 0.03, sat_recover = 0.05 },
+    { ware = "ware.glassite", role = "buys", base_price = 36, target = 60, stock = 50, consumption = 1, sat_per_unit = 0.04, sat_recover = 0.04 },
+    { ware = "ware.rations", role = "buys", base_price = 24, target = 80, stock = 60, consumption = 1, sat_per_unit = 0.015, sat_recover = 0.05 },
+]
+
+# Big market that pays well for glassite until you flood it.
+[[station]]
+id = "station.brassmouth_exchange"
+name = "Brassmouth Exchange"
+region = "region.brassmouth_narrows"
+position = { x = 2400.0, y = 5200.0 }
+dock_radius = 70.0
+owner = "faction.tollway_compact"
+services = ["market", "dockmaster"]
+market = [
+    { ware = "ware.ice", role = "sells", base_price = 8, target = 200, stock = 200, production = 3 },
+    { ware = "ware.iron_ore", role = "buys", base_price = 16, target = 200, stock = 180, consumption = 3, sat_per_unit = 0.015, sat_recover = 0.05 },
+    { ware = "ware.refined_plate", role = "sells", base_price = 26, target = 150, stock = 150, production = 2, needs = ["ware.iron_ore"] },
+    { ware = "ware.glassite", role = "buys", base_price = 48, target = 120, stock = 110, consumption = 2, sat_per_unit = 0.03, sat_recover = 0.05 },
+    { ware = "ware.rations", role = "buys", base_price = 20, target = 200, stock = 180, consumption = 2, sat_per_unit = 0.01, sat_recover = 0.06 },
+]

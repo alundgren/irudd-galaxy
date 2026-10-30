@@ -1,0 +1,4 @@
+# A test-only pack: tests/escape.luau tries to get out of the sandbox.
+id = "test.sandbox"
+name = "Sandbox escape attempts"
+version = "0.1.0"

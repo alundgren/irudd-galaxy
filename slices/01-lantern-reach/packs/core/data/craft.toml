@@ -1,0 +1,66 @@
+# Named traders: small loads, real orders, utility-ranked routes.
+# Schema: crates/contract/schemas/data-craft.json
+
+[[craft]]
+id = "craft.little_mercy"
+name = "Little Mercy"
+faction = "faction.wharf_cooperative"
+hull = "hull.coop_skiff"
+home = "station.lantern_wharf"
+stations = ["station.lantern_wharf", "station.kettle_dock", "station.cinder_hook"]
+wares = ["ware.ice", "ware.refined_plate", "ware.rations", "ware.iron_ore"]
+max_units_per_ware = 8
+max_wares_per_docking = 2
+cost_per_distance = 0.1
+return_home_bonus = 2000.0
+[[craft.preferences]]
+station = "station.brassmouth_exchange"
+when_flag = "mech.ice_road"
+bonus = 0.0
+[[craft.preferences]]
+station = "station.glass_drift_observatory"
+when_flag = "mech.coop_hook"
+bonus = 0.0
+
+[[craft]]
+id = "craft.ninefold"
+name = "Ninefold"
+faction = "faction.tollway_compact"
+hull = "hull.compact_barge"
+home = "station.cinder_hook"
+stations = ["station.cinder_hook", "station.brassmouth_exchange"]
+wares = ["ware.iron_ore", "ware.refined_plate", "ware.glassite", "ware.rations"]
+max_units_per_ware = 8
+max_wares_per_docking = 2
+cost_per_distance = 0.1
+return_home_bonus = 2000.0
+
+[[craft]]
+id = "craft.even_keel"
+name = "Even Keel"
+faction = "faction.tollway_compact"
+hull = "hull.compact_barge"
+home = "station.brassmouth_exchange"
+stations = ["station.brassmouth_exchange", "station.lantern_wharf", "station.kettle_dock"]
+wares = ["ware.ice", "ware.refined_plate", "ware.rations", "ware.iron_ore"]
+max_units_per_ware = 8
+max_wares_per_docking = 2
+cost_per_distance = 0.1
+return_home_bonus = 2000.0
+[[craft.preferences]]
+station = "station.kettle_dock"
+when_flag = "mech.even_keel_relief"
+bonus = 100000.0
+
+[[craft]]
+id = "craft.quiet_lamp"
+name = "Quiet Lamp"
+faction = "faction.lamplighter_society"
+hull = "hull.lamp_launch"
+home = "station.lantern_wharf"
+stations = ["station.glass_drift_observatory", "station.lantern_wharf", "station.cinder_hook"]
+wares = ["ware.rations", "ware.ice", "ware.glassite"]
+max_units_per_ware = 8
+max_wares_per_docking = 2
+cost_per_distance = 0.1
+return_home_bonus = 2000.0

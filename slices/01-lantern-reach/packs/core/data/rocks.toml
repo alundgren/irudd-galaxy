@@ -1,0 +1,126 @@
+# Rock types and fields. PROVISIONAL numbers: the content spec replaces them.
+# hardness multiplies a hull's mining rate (ice 1.0, iron 0.6, glassite 0.3).
+# A field regrows `regrow` units per region pulse (0 when unset: the Cinder Belt and the
+# Narrows drift don't regrow), given to the rock with the lowest
+# remaining share (spent rocks included); a spent rock reforms once regrowth brings it
+# back to ship_rules.regrowth.reform_share of its yield. Pulses are activity
+# (ship_rules.toml), never time.
+# Rocks are generated once at new game from each field, with stable IDs
+# <rock_prefix>.01, .02, ... and a layout keyed by the field ID (not the seed).
+# rock_type.regrowth is unused: regrowth is per field (regrow).
+# Schema: crates/contract/schemas/data-rocks.json
+
+[[rock_type]]
+id = "rock_type.ice"
+name = "Ice rock"
+ware = "ware.ice"
+hardness = 1.0
+regrowth = 2
+
+[[rock_type]]
+id = "rock_type.iron"
+name = "Iron rock"
+ware = "ware.iron_ore"
+hardness = 0.6
+regrowth = 1
+
+[[rock_type]]
+id = "rock_type.glassite"
+name = "Glassite rock"
+ware = "ware.glassite"
+hardness = 0.3
+regrowth = 0
+
+[[field]]
+id = "field.shallows.ice"
+name = "Rimewater"
+region = "region.lantern_shallows"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.shallows.ice"
+center = { x = 500.0, y = 300.0 }
+radius = 300.0
+count = 12
+amount_min = 40
+amount_max = 80
+regrow = 0.15
+
+[[field]]
+id = "field.shallows.iron"
+name = "Tinroot"
+region = "region.lantern_shallows"
+rock_type = "rock_type.iron"
+rock_prefix = "rock.shallows.iron"
+center = { x = -700.0, y = -500.0 }
+radius = 250.0
+count = 8
+amount_min = 60
+amount_max = 100
+regrow = 0.3
+
+[[field]]
+id = "field.cinder.iron"
+name = "Cinder Belt"
+region = "region.cinder_drift"
+rock_type = "rock_type.iron"
+rock_prefix = "rock.cinder.iron"
+center = { x = 4900.0, y = 300.0 }
+radius = 400.0
+count = 12
+amount_min = 120
+amount_max = 200
+
+[[field]]
+id = "field.cinder.glassite"
+name = "Glass Drift"
+region = "region.cinder_drift"
+rock_type = "rock_type.glassite"
+rock_prefix = "rock.cinder.glassite"
+center = { x = 6000.0, y = 900.0 }
+radius = 300.0
+count = 8
+amount_min = 40
+amount_max = 90
+# Glass Drift's regrowth (content/07-pacing.md): b15's fragment waits on a glassite
+# rock spent after b13, and Act 2 to 4 income leans on this belt, so a field mined out
+# earlier must come back with activity. At 0.15 a mined-out belt needed about 870
+# Cinder Drift pulses before its first rock reformed (the journey bot shuttled for
+# hours). At 1.5 a lone spent rock (about 65 units, reforming at 25%) is dust for about
+# 11 pulses, and a whole mined-out belt comes back in about 90.
+regrow = 1.5
+
+[[field]]
+id = "field.narrows.ice"
+name = "Narrows ice drift"
+region = "region.brassmouth_narrows"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.narrows.ice"
+center = { x = 2900.0, y = 5700.0 }
+radius = 250.0
+count = 6
+amount_min = 40
+amount_max = 70
+
+# Rich glassite: only in the Ember Shoals, laid out live by beat b10 if the rumor is
+# true (content/01-galaxy.md). Like glassite, with bright seams; quicker to cut.
+[[rock_type]]
+id = "rock_type.rich_glassite"
+name = "Rich glassite rock"
+ware = "ware.glassite"
+hardness = 0.45
+regrowth = 0
+
+# Hookside: a small ice field by Cinder Hook, outside the Shallows. Free ice when
+# Rimewater runs thin (b12's paired opportunity); its regrowth doubles if the
+# Compact takes the Hook depot (b09).
+[[field]]
+id = "field.hookside"
+name = "Hookside"
+region = "region.cinder_drift"
+rock_type = "rock_type.ice"
+rock_prefix = "rock.hookside"
+center = { x = 4250.0, y = 1250.0 }
+radius = 140.0
+count = 5
+amount_min = 30
+amount_max = 30
+regrow = 0.2

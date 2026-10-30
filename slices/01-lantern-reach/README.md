@@ -1,0 +1,353 @@
+# The Lantern Reach (slice 01)
+
+The first vertical slice of Irudd Galaxy: a calm, solo, top-down space mining and
+trading game in Rust. Brief: issue #10, with the decisions in the kickoff comment on
+PR #11. Design: `design/vertical-slice-lantern-reach.html` at the repository root.
+
+## Status: release candidate
+
+The whole slice is in: all 17 beats across four acts, playable in a window from a new
+game to the Hearthbound choice and home again, with the three factions, the named NPC
+traders, the tender, the eight game-master change types as validated script packs, and
+the live game-master socket. The journey bot finishes both runs headless (core plus
+game-master packs, and core alone), and `cargo xtask check` passes on Windows and Linux.
+[STATUS.md](STATUS.md) is the end-of-run report: what works, what doesn't, and what
+needed a base change.
+
+What to expect: the authored pacing is far slower than the design's arc. Act 1 takes
+minutes, but the bot needs six to eight hours of game time to reach prestige (the target
+is two), mostly waiting for the far glassite belt to regrow. Use `--beat N` (see "Testing
+the slice end to end") to skip ahead. The playtest notes posted on PR #11 (undocking by flying off, start speed, the
+nav-chip hint, the mining lens, rock shading) aren't addressed yet. Sound is on; there's
+no music. Art is drawn in code.
+
+![Mining ice in the Lantern Shallows](docs/screenshots/mining.png)
+
+## Play
+
+```sh
+./play.sh            # macOS and Linux (Linux packages: see "Playing on Linux")
+play.cmd             # Windows
+```
+
+Both build in release (thin LTO) and run `galaxy play`, which continues your latest save
+or starts a new game. Arguments pass through: `play.cmd --new` starts over (the old save
+stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular file.
+
+| Key | Does |
+|---|---|
+| **W A S D** | Fly. The ship stops when you let go. |
+| **Space** | The one thing in reach: dock in a ring, ride a lantern current, or hold it by a rock to mine. A hint at the bottom says which; while you mine it shows how fast the ore comes aboard. |
+| **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
+| **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
+| **N** | Mute or unmute the sound (remembered between games). |
+| **F3** | Small developer overlay: active beats and steps, activity counters, recent facts, mind spend and script health. |
+| **Mouse wheel**, **-** / **=** | Zoom. |
+| **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
+
+Docked, the dock screen lists the station's market: the price of the next unit, the
+stock and what's in your hold. It's mouse-first: **Sell 1** / **Buy 1** trade one,
+**Sell all** sells all of it and **Buy max** buys as many as fit and you can afford; a
+long market pages with Up and Down. Each price moves a little with every unit, so
+selling all at once earns less per unit than spreading it out. To leave, just fly off
+with **W A S D**: there's no undock button or key, and keys still held from the approach
+don't count until you press them again. A trade you ask for goes ahead of the
+flagship's own queued orders, which wait their turn.
+
+Below the market are the station's people. The hullwright (Orrin, at the Wharf) lists
+what he can fit now, with the price, what it does in plain words, and what stands in
+the way ("Mining lens costs 600 cr. You have 160 cr."); **Fit** buys it, and a green
+line says what changed ("Orrin fitted your mining lens. You mine half again as fast."). Tamsin at Kettle Dock builds the
+tender once you've earned it, and Orrin's prestige offer opens a card that says what
+stays and what resets before you trade up. At a dockmaster, **Ask what changed** gets
+up to three things that happened since you were last there, each about a real event.
+
+The talk panel at the bottom left shows what people said since you last docked, with
+who and where. It's empty, and hidden, until someone has something to say. When
+someone asks you something (Rook's question about the depot, Orrin's about your
+flying, Nell's about the fragment), your answers are buttons under their line; the
+number keys **1** to **9** pick them too.
+
+![Orrin's list on the Wharf's dock screen](docs/screenshots/dock-services.png)
+
+![Rook asks whose name the plate is in](docs/screenshots/dock-replies.png)
+
+The packs: a new game installs `core` (the journey) and `gm-examples` (the game-master
+examples). `--no-gm` (or `GALAXY_NO_GM=1`) starts a game with `core` only and runs any
+save without them. The core pack offers fitting authored dock lines, with slots
+filled from their cited facts. With `OPENROUTER_API_KEY`, TypeSafe Jev picks one;
+without a key, budget or a timely valid answer, the pack's most specific line wins.
+The script checks the docking and citation again before speaking. These script
+menus never use free phrasing (even if `talk.free_phrasing` is enabled for other
+providers); every displayed word is authored or a fact value. Without a key the log
+says so once.
+`--hot-reload` reloads packs as you edit them (development).
+
+Finding the way is part of the game: there are no waypoint arrows. Stations in your
+region that are off screen show as small markers at the edge. `--goal-marker` (off by
+default) is an accessibility aid that also marks the current goal's station, in gold,
+wherever it is.
+
+The window won't shrink below 960x540. Below 1280x720 the panels scale down to fit
+rather than clipping, and a market longer than the screen scrolls with the selection.
+
+Saves are written at calm moments (when you dock, when you pause, when you quit) to a
+per-user folder: `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
+a `saves` folder for the game under `~/Library/Application Support` on macOS,
+`$XDG_DATA_HOME/lanternreach/saves` (normally `~/.local/share/lanternreach/saves`) on
+Linux. Set `GALAXY_SAVES` to use another folder.
+
+Sound is on at a modest volume: a few soft cues for docking, undocking, ore coming
+aboard, a full hold and a trade going through. There's nothing while you fly and no
+beam tone while you mine. **N** mutes. The volumes (`master`, `ui`, `world`, from 0.0
+to 1.0) and the mute live in `sound.toml` in the save folder, which is written the first
+time you play. Without an audio device the game just runs silent. The rules the
+sounds follow are in [crates/audio/README.md](crates/audio/README.md).
+
+A first loop: fly off the dock with W A S D, fly right into the ice field, hold Space beside a rock
+until your hold fills, fly down and right to Kettle Dock, drift into its ring, press
+Space, and sell.
+
+![The dock screen at Lantern Wharf](docs/screenshots/dock.png)
+
+## Testing the slice end to end
+
+1. **Install and play.** On Windows run `play.cmd` from this folder; on macOS or Linux,
+   `./play.sh` (Linux packages: "Playing on Linux"). The first release build takes several
+   minutes. `play.cmd --new` starts a fresh game; your old save stays.
+2. **Controls.** W A S D fly (and fly off a dock to undock), Space does the one thing in
+   reach (mine, dock, ride a lane), P or Esc pauses, M opens the map, N mutes, F3 shows the developer overlay, and
+   the mouse wheel zooms. Clicks fly, mine and dock once the nav chip unlocks them in
+   Act 2; Shift-click queues orders in Act 3. Docked, the dock screen is mouse-first:
+   click its buttons; 1 to 9 answer people. See "Play" for
+   the details.
+3. **Skip ahead.** `play.cmd --beat N` (or `./play.sh --beat N`) lets the journey bot
+   earn every beat before N with real play, then opens that checkpoint in a new save.
+   Useful starting points: 6 (the nav chip, Act 2), 9 (the Cinder Hook dispute), 11
+   (orders and loops, Act 3), 13 (the tender), 16 (the Hearthbound choice), 17 (coming
+   home). A late beat takes several minutes to earn (b17 about ten), since the bot plays
+   the authored pacing. `galaxy beat jump N --out PATH` makes the same save without a
+   window.
+4. **Feedback.** Comment on PR #11 with what you did, what you expected and what
+   happened. A screenshot helps: `galaxy shot --live --out shot.png` captures the running
+   window, and `galaxy gm digest --live` lists what changed recently, citing fact IDs.
+   The F3 overlay shows the active beat and step for a "where am I stuck" report.
+5. **Saves.** They're written when you dock, pause or quit, to
+   `%APPDATA%\Irudd\Lantern Reach\data\saves` on Windows,
+   `~/.local/share/lanternreach/saves` on Linux, and the game's folder under
+   `~/Library/Application Support` on macOS. Set `GALAXY_SAVES` to use another folder.
+   Each save keeps its game-master state in a `<save>.gm/` folder beside it.
+
+## Named trader traffic
+
+![Little Mercy and Quiet Lamp leaving the Wharf](docs/screenshots/npc-traders.png)
+
+Little Mercy, Ninefold, Even Keel and Quiet Lamp fly from the starting world.
+Their faction, hull, home, allowed stations and wares, load limits and route
+preferences are in `packs/core/data/craft.toml`. They use the same order runner
+and compare-and-set market trades as the player, carrying at most eight units
+of a ware and trading at most two wares per docking. The economy ranks complete
+plans; the trader mind picks among the best few when available, with the top
+utility plan as the default. Decisions happen on docking, never on a timer.
+
+Their faction-painted hulls appear in flight and on the map. Dockings count
+for the Hook dispute and carry rumors from the previous station without changing
+truth. After enough activity during an ignored shortage, Even Keel favours Kettle;
+its actual arrival delivers the Compact relief. The preference lasts afterwards.
+If Even Keel can't come (it isn't in the save, or Kettle sees
+`relief_fallback_pulses` more pulses first), the Compact sends the ice anyway.
+Little Mercy gains the ice road after player relief and the Observatory route
+after a Cooperative victory. A save made before the traders gets them when it
+opens (one `craft_backfill` system batch per craft, at home with orders to dock),
+and any `pacing.toml` tunable it lacks at its authored value (`pacing_backfill`).
+A route choice still out when an autosave was written is asked again on restore,
+so no trader stays parked.
+
+## Playing on Linux
+
+Desktop Linux on x86_64 with a Vulkan driver, under X11 or Wayland. Install the build
+tools, ALSA's headers and the libraries the window opens at run time (the X11, Wayland
+and xkbcommon libraries are loaded when the game starts, so their `-dev` packages aren't
+needed):
+
+```sh
+# Debian 12+, Ubuntu 22.04+
+sudo apt-get install -y build-essential pkg-config libasound2-dev curl git \
+  mesa-vulkan-drivers libvulkan1 libxkbcommon0 libxkbcommon-x11-0 \
+  libx11-xcb1 libxcursor1 libxi6 libxrandr2 libwayland-client0 libwayland-cursor0
+# Fedora 36+
+sudo dnf install -y gcc gcc-c++ make pkgconf-pkg-config alsa-lib-devel curl git \
+  mesa-vulkan-drivers vulkan-loader libxkbcommon libxkbcommon-x11 \
+  libX11-xcb libXcursor libXi libXrandr libwayland-client libwayland-cursor
+```
+
+NVIDIA's proprietary driver brings its own Vulkan driver; `mesa-vulkan-drivers` covers
+AMD and Intel (and `llvmpipe`, a slow software fallback). Then install Rust with
+[rustup](https://rustup.rs) (the pinned toolchain installs itself on the first build) and,
+from a terminal in your desktop session:
+
+```sh
+# The slice lives on the slice branch, not on main.
+git clone --branch slice/01-lantern-reach https://github.com/alundgren/irudd-galaxy.git
+cd irudd-galaxy/slices/01-lantern-reach
+./play.sh              # the first release build takes several minutes
+./play.sh --new        # start over (the old save stays)
+```
+
+Saves and `sound.toml` go to `~/.local/share/lanternreach/saves/` (or `$GALAXY_SAVES`).
+`cargo xtask check` works as on Windows; its `luau-analyze` needs glibc 2.34 or later.
+`play.sh` finds a fresh rustup install by itself, but for running `cargo` directly in
+the same shell right after installing rustup, first run `source "$HOME/.cargo/env"`.
+
+If it doesn't start:
+
+- **`no window system: ... Failed to open connection to X server`** or **`Could not find
+  wayland compositor`**: no display. Run it from a terminal inside the desktop session,
+  or set `DISPLAY` (X11, e.g. `:0`) or `WAYLAND_DISPLAY` (e.g. `wayland-0`).
+- **`Library libxkbcommon-x11.so could not be loaded`**: install `libxkbcommon-x11-0`
+  (Fedora: `libxkbcommon-x11`).
+- **No GPU adapter, or a blank or broken window**: check `vulkaninfo --summary`
+  (package `vulkan-tools`) lists your GPU. `WGPU_BACKEND=gl ./play.sh` uses OpenGL
+  instead of Vulkan; `WGPU_POWER_PREF=low` picks the integrated GPU on a laptop.
+- **Wayland or X11**: the game uses Wayland when `WAYLAND_DISPLAY` is set, X11
+  otherwise. `WAYLAND_DISPLAY= ./play.sh` forces X11 (XWayland) if the Wayland window
+  misbehaves.
+- **No sound**: the game runs silent without an audio device; lines starting `ALSA lib`
+  (`Unknown PCM default`) mean it found none. Sound goes through ALSA, so on PipeWire
+  install `pipewire-alsa`, on PulseAudio `libasound2-plugins` (Fedora:
+  `alsa-plugins-pulseaudio`).
+
+## Build and check
+
+You need the pinned toolchain (`rust-toolchain.toml`, installed by rustup on first
+use). On Windows, the MSVC Build Tools; on Linux, the packages in "Playing on Linux".
+Run everything from this folder.
+
+```sh
+cargo build                 # everything
+cargo test                  # headless tests (no window, GPU or network)
+cargo xtask check           # fetch-luau + fmt + clippy -D warnings + tests: run before every PR
+cargo xtask contract        # regenerate crates/contract/schemas/ and api/ after a contract change
+cargo xtask fetch-luau      # pinned luau-analyze (strict typecheck) into tools/luau/
+```
+
+There is no CI. Checks run locally.
+
+## The `galaxy` CLI
+
+Every command prints one JSON value on stdout.
+
+```sh
+cargo run -p galaxy-app -- new --save saves/a.sqlite --seed 7
+cargo run -p galaxy-app -- sim run --save saves/a.sqlite --ticks 3000
+cargo run -p galaxy-app -- state get --save saves/a.sqlite --path stations/station.kettle_dock
+cargo run -p galaxy-app -- history query --save saves/a.sqlite --kind dock --limit 20
+cargo run -p galaxy-app -- api dump --name world
+```
+
+Or build once and call `target/debug/galaxy` directly.
+
+| Command | What it does |
+|---|---|
+| `new --save PATH [--seed N] [--packs DIR] [--no-gm]` | New save from the core pack, installing `gm-examples` unless `--no-gm`. Seed defaults to 1. |
+| `sim run --save PATH --ticks N [--dry-run] [--packs DIR] [--no-gm]` | Fast-forward the whole game (scripts, beats, progress; the seeded fake mind, never the network) with hands-off input; prints tick, hash and the packs that ran; writes back unless `--dry-run`. Game-master packs applied to the save run in the same script host, and staged ones apply first. |
+| `sim sandbox --save PATH [--pack DIR]... [--dockings N] [--packs DIR]` | One sandbox run (what `gm propose` starts as a child process): the whole game with these packs loaded beside core and gm-examples, the activity bot flying N dockings; prints telemetry and what each pack did. Never writes. |
+| `state get (--save PATH \| --live [SAVE]) [--path P]` | The world state, or part of it: dotted (`stations.station.kettle_dock.build`, IDs stay whole) or slash-separated. |
+| `state query STORE (--save PATH \| --live) [--where F=V]... [--fields a,b] [--limit N]` | Records of one store matching filters (`F~text` for a substring). |
+| `history query (--save PATH \| --live) [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since fact.N\|T] [--until T] [--limit N]` | History facts, oldest first. `--since fact.N`: after that fact; a number: from that tick. |
+| `watch --live [SAVE] [--since fact.N] [--count N]` | Streams the running game's facts, talk lines, game-master and calm-moment events, one JSON object per line. |
+| `gm digest (--save PATH \| --live) [--since fact.N]` | What changed since a fact, grouped by place and person, citing fact IDs. |
+| `gm propose DIR (--save PATH \| --live) [--wait] [--dockings N] [--no-typecheck] [--packs DIR]` | Full validation (fast checks, a sandbox run with and without the pack in child processes, legibility), then stage: live, it applies at the next calm moment (docked or paused); on a save, at the next load. The sandbox children get the packs folder: `--packs`, else the running game's own (live), else the default lookup. Prints the report; exit 5 if rejected. |
+| `gm status (--save PATH \| --live)` | Applied, staged and quarantined packs, with change IDs. |
+| `gm rollback CHANGE (--save PATH \| --live) [--packs DIR]` | In-world rollback of `cause.N` or `stage.N`: inverts the pack revision's writes, retires it, switches its pack off in the save (no revision of it runs again, gm-examples' copy included, until a new one is applied), and its speaker says why. |
+| `api dump [--name NAME]` | The contract's JSON Schemas. |
+| `play [--save PATH] [--new] [--seed N] [--packs DIR] [--no-gm] [--hot-reload] [--goal-marker]` | The game in a window (see Play). Prints the save, tick and packs when it closes. |
+| `shot --live [SAVE] --out P.png` | What the running game's window shows right now. |
+| `shot --save PATH --out P.png [--map] [--size WxH] [--zoom H] [--keys SCRIPT] [--write]` | Renders a save headless with the same scene and panels as play (needs a GPU adapter, no window). `--keys` flies it first with scripted input, e.g. `d,wait*3,d*200,space*240` (fly off the dock, fly right, mine); `:pause`, `:map`, `:next`, `:trade`, `:tradeall`, `:buy:upgrade.mining_lens`, `:ask`, `:reply:N` (or `:reply:choice.side_coop`), `:click:X:Y`, `:qclick:X:Y` and `:mapclick:REGION` work too (`crates/app/src/script.rs`). `--write` keeps the scripted run. |
+| `mind try [--packs DIR]` | Live TypeSafe Jev calls on OpenRouter, with latency and cost: a trader choice and a dock-talk pick among authored lines, plus a gpt-oss line if `talk.free_phrasing` is on. Needs `OPENROUTER_API_KEY` in the environment (exit 4 without it). |
+| `pack check DIR [--save PATH] [--analyzer PATH] [--no-typecheck]` | Validate a pack: manifest, strict typecheck, hooks, references, invariants, smoke run. Prints the validation report. |
+| `pack test DIR` | Run the pack's `tests/*.luau` unit tests. |
+| `audio render --out DIR` | Render every take of every sound cue to a WAV in DIR and print its measurements (peak, RMS, spectral centroid, length). Exit 5 if one is outside the design limits. |
+| `sim run --save PATH --bot journey [--no-gm] [--until beat:N] [--ticks BUDGET] [--record G.json]` | Play the journey headless through `Game`, with the seeded fake mind. Stops after beat N completes (default 17); writes the save unless `--dry-run`. Prints completion ticks/dockings, credits by activity, stalls, script faults, rejected batches and the final hash. A bounded failure prints its report and exits 5. |
+| `beat jump N --out PATH [--seed N] [--no-gm] [--packs DIR]` | Run the journey up to the first tick where beat N is active, then create a save with real completion facts and citations. Refuses to overwrite a save. |
+| `play --beat N [--save NEW_PATH] [--seed N] [--no-gm]` | Earn the checkpoint, then open it in a new save. Without `--save`, choose a new path in the usual save folder. |
+| `sim replay --golden G.json [--packs DIR]` | Replay recorded inputs offline and verify checkpoint hashes. A mismatch names the first diverging checkpoint tick and stores. Never writes a save. |
+
+Exit codes: `0` ok, `1` runtime failure, `2` usage error, `3` reserved,
+`4` bad input (missing or existing save, invalid data, unknown path or ID, no running game
+for `--live`), `5` rejected (`pack check` or `gm propose` rejected the pack, `pack test`
+had failures, or `audio render` found a cue outside its limits; the report is on stdout).
+
+The harness lives in `crates/app/src/harness`. It selects replies by stable choice
+IDs and services by availability, not dock-line text. Before click controls unlock,
+it steers with player thrust and Space; afterwards it uses clicks and the same
+queue/loop verbs as the control layer. Manual flight detours around nearby craft.
+It never seeds completion flags, inventory, money, counters or history. Beat jumps
+run the authored profile each time; there is no stale checkpoint cache.
+
+`cargo test -p galaxy-app --test harness` runs both complete journeys with a fresh-game
+fast data profile (quicker flight/mining, lower fitting costs and selected activity
+gates), plus golden replay, save provenance and overlay checks. Reports go in ignored
+`target/harness/run-a.json` and `run-b.json`. Run the authored profile explicitly with
+`cargo test -p galaxy-app --test harness full_slice_journey -- --ignored --nocapture`;
+`authored_economy_journey` keeps the authored prices and activity gates with faster
+travel/mining, and `heron_journey` covers the alternative prestige hull. The script crate's
+`journey_core` tests retain the shortage-during-demonstration variants and early-pause
+regression. The Act 1 fixture is `crates/app/tests/golden/act1.json`; regenerate only
+deliberately with `record_act_one_golden -- --ignored`, then review its diff. Regular
+replay never updates an expected hash.
+
+Current content gaps: the order contract mines a rock rather than a field, so the bot
+refreshes the glass loop's target between laps. `Order::Buy` has no maximum-price field,
+so the glass loop cannot encode the spec's 25-credit cap.
+
+```sh
+cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth
+cargo run -p galaxy-app -- pack check packs/gm-examples/bad_script/os_time   # exit 5
+cargo run -p galaxy-app -- pack test packs/gm-examples/kettle_growth
+```
+
+`pack check` needs `luau-analyze` for the strict typecheck (`cargo xtask fetch-luau`,
+or `--analyzer`, or `$GALAXY_LUAU_ANALYZE`); without it, it rejects unless you pass
+`--no-typecheck`.
+
+`--live` talks to the running `galaxy play` over a local socket (a named pipe on Windows,
+a Unix socket elsewhere): the newest game, or the one playing `--live SAVE`. Only the local
+user can connect. A game master's guide, with the JSON shapes, is
+[GM-AGENTS.md](GM-AGENTS.md). Each save keeps its game-master state in `<save>.gm/` next
+to it, and a running game picks up pack folders dropped into `gm-inbox/` there once
+they hold a `READY` file (write it last).
+
+The CLI finds `packs/` through `--packs`, then `$GALAXY_PACKS`, then the nearest
+`packs/core` above the working directory or the executable. Saves go wherever you
+point `--save`; `saves/` here is git-ignored.
+
+## Layout
+
+```
+crates/contract   shared interfaces (IDs, world schema, events, verbs, commands, history, hook API)
+crates/contract/schemas   generated JSON Schemas (commit them)
+crates/contract/api       generated galaxy.d.luau and HOOKS.md: the Luau hook API (commit them)
+crates/core       headless sim kernel, data loading, saves, determinism hash
+crates/ship       flight, control tiers, orders and loops, mining, docking, lanes, tenders
+crates/economy    the living market: prices, pulses, trades, scouting, map, levers, telemetry
+crates/script     the Luau script host: sandbox, packs, ctx hooks, checks, hot reload, rollback
+crates/progress   beats, standing and regard, traits, hull ranks, prestige, station services
+crates/kit        render-free station recipes, palettes and art-bible validation
+crates/render     the cel-shaded wgpu renderer; builds meshes from kit recipes (knows no sim)
+crates/audio      five soft cues synthesised offline (fundsp) and played through kira; never required
+crates/mind       the fast-model layer: OpenRouter behind a trait, menus, budgets, write-back
+crates/gm         the game-master bridge: live socket, digest, propose with a sandbox run, staging, rollback
+crates/app        the galaxy binary: play, shot and the JSON CLI
+                  session (pause, dock trades), input, view (world to scene), ui, saves
+packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/ (the journey's beats)
+packs/gm-examples eight optional game-master layers; see its README for validation and base hooks
+                  bad_script/ and bad_sandbox/ must be rejected
+tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
+xtask             cargo xtask check | contract | fetch-luau
+```
+
+Live fast-model tests are ignored by default:
+`cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
+
+Coding agents: read [AGENTS.md](AGENTS.md). Game-master agents: [GM-AGENTS.md](GM-AGENTS.md).

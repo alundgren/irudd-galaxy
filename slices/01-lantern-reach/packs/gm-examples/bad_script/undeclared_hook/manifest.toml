@@ -1,0 +1,12 @@
+# BAD on purpose: the script writes a station stage and a talk line, but `uses` only
+# declares reads. `galaxy pack check` rejects it at the hooks step (and the strict
+# typecheck, if luau-analyze is installed).
+id = "gm.bad_undeclared_hook"
+name = "Bad: undeclared hook"
+version = "0.1.0"
+uses = ["events.dock", "stations.read"]
+
+[[script]]
+id = "grow_on_dock"
+file = "scripts/grow_on_dock.luau"
+handlers = ["on.dock"]

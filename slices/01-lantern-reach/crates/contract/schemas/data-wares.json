@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WaresFile",
+  "type": "object",
+  "properties": {
+    "ware": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WareDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "WareDef": {
+      "description": "A ware. The loader turns it into a [`Ware`](crate::world::Ware).",
+      "type": "object",
+      "properties": {
+        "base_price": {
+          "description": "In credits.",
+          "type": "number",
+          "format": "double"
+        },
+        "id": {
+          "$ref": "#/$defs/WareId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tradeable": {
+          "description": "False for things that can't be bought or sold (the Ancients fragment).",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "base_price"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

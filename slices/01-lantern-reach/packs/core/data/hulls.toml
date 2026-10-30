@@ -1,0 +1,166 @@
+# Hulls. PROVISIONAL numbers from the content spec (content/03-ships-and-controls.md).
+# Speeds are world units per second, turn rates degrees per second and mining rates
+# units per second at hardness 1.0, all at the nominal 30 ticks per second.
+# accel (u/s^2) is optional: without it a hull reaches top speed in
+# ship_rules.toml's flight.accel_time.
+# Schema: crates/contract/schemas/data-hulls.json
+
+# A good little ship: the player's first. 72 u/s: the first playtest found 60 slow.
+[[hull]]
+id = "hull.wren"
+name = "Wren"
+tier = 0
+hold_capacity = 20
+max_speed = 72.0
+turn_rate = 270.0
+mining_rate = 1.0
+
+# Hearthbound branch: hauler that pairs with automation.
+[[hull]]
+id = "hull.tandem"
+name = "Tandem"
+tier = 1
+hold_capacity = 40
+max_speed = 50.0
+turn_rate = 160.0
+mining_rate = 1.0
+# The Coupling: hands cargo to the player's tenders (the `transfer` verb).
+coupling = true
+
+# Hearthbound branch: scout with longer price reach.
+[[hull]]
+id = "hull.heron"
+name = "Heron"
+tier = 1
+hold_capacity = 16
+max_speed = 78.0
+turn_rate = 330.0
+mining_rate = 0.8
+# Long glass: live prices for the whole region; a lane arrival refreshes the
+# snapshots of every station in the new region.
+price_reach = { region = true, lane_scout = true }
+
+# The first automated craft. Its standing berth lets it wait docked for a price.
+[[hull]]
+id = "hull.tender"
+name = "Tender"
+tier = 0
+hold_capacity = 24
+max_speed = 45.0
+turn_rate = 180.0
+mining_rate = 0.5
+standing_berth = true
+
+# Hull ranks (W4, content/03-ships-and-controls.md "Hull ranks"): deeds done in the hull,
+# counted from facts since the player started flying it. Shown as painted lantern
+# stripes, never a number. Prestige resets them; the old hull's ranks stay on record.
+[[rank]]
+hull = "hull.wren"
+rank = 1
+name = "Settled"
+deed = { facts = { kind = "dock", ship = "ship.player" } }
+at_least = 25
+effect = "Turn +10%"
+modifiers = [{ modifier = "turn_rate", factor = 1.1 }]
+
+[[rank]]
+hull = "hull.wren"
+rank = 2
+name = "Worn in"
+deed = { sum = { kind = "sell", ship = "ship.player" } }
+at_least = 300
+effect = "Hold +2"
+modifiers = [{ modifier = "hold", units = 2 }]
+
+[[rank]]
+hull = "hull.wren"
+rank = 3
+name = "Known by the lanes"
+deed = { facts = { kind = "jump", ship = "ship.player" } }
+at_least = 20
+effect = "Speed +5%"
+modifiers = [{ modifier = "speed", factor = 1.05 }]
+
+[[rank]]
+hull = "hull.tandem"
+rank = 1
+name = "Steady"
+deed = { facts = { kind = "dock", ship = "ship.player" } }
+at_least = 25
+effect = "Turn +10%"
+modifiers = [{ modifier = "turn_rate", factor = 1.1 }]
+
+[[rank]]
+hull = "hull.tandem"
+rank = 2
+name = "Broad-backed"
+deed = { sum = { kind = "sell", ship = "ship.player" } }
+at_least = 400
+effect = "Hold +4"
+modifiers = [{ modifier = "hold", units = 4 }]
+
+# Transfers to a tender (the Coupling's `transfer` verb, W2).
+[[rank]]
+hull = "hull.tandem"
+rank = 3
+name = "Good company"
+deed = { facts = { kind = "transfer", ship = "ship.player" } }
+at_least = 10
+effect = "Each tender's hold +4"
+modifiers = [{ modifier = "tender_hold", units = 4 }]
+
+[[rank]]
+hull = "hull.heron"
+rank = 1
+name = "Steady"
+deed = { facts = { kind = "dock", ship = "ship.player" } }
+at_least = 25
+effect = "Turn +10%"
+modifiers = [{ modifier = "turn_rate", factor = 1.1 }]
+
+# Dockings at stations whose snapshot was more than 10 dockings old: the economy
+# records a `far_docking` fact for each (pending in W3).
+[[rank]]
+hull = "hull.heron"
+rank = 2
+name = "Far-sighted"
+deed = { facts = { kind = "far_docking", ship = "ship.player" } }
+at_least = 15
+effect = "Long glass also refreshes stations within 2500 u at each jump"
+modifiers = [{ modifier = "feature", feature = "long_glass_far" }]
+
+[[rank]]
+hull = "hull.heron"
+rank = 3
+name = "Quick"
+deed = { facts = { kind = "jump", ship = "ship.player" } }
+at_least = 20
+effect = "Speed +5%"
+modifiers = [{ modifier = "speed", factor = 1.05 }]
+
+[[hull]]
+id = "hull.coop_skiff"
+name = "Cooperative skiff"
+tier = 0
+hold_capacity = 30
+max_speed = 40.0
+turn_rate = 180.0
+mining_rate = 0.0
+
+[[hull]]
+id = "hull.compact_barge"
+name = "Compact barge"
+tier = 0
+hold_capacity = 60
+max_speed = 35.0
+turn_rate = 180.0
+mining_rate = 0.0
+
+[[hull]]
+id = "hull.lamp_launch"
+name = "Lamplighter launch"
+tier = 0
+hold_capacity = 20
+max_speed = 55.0
+turn_rate = 180.0
+mining_rate = 0.0

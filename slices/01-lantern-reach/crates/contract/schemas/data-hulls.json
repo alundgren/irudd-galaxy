@@ -1,0 +1,735 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HullsFile",
+  "type": "object",
+  "properties": {
+    "hull": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Hull"
+      }
+    },
+    "rank": {
+      "description": "Hull ranks: deeds done in a hull (W4). Prestige resets them.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RankDef"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AnyId": {
+      "description": "Stable entity id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "CauseId": {
+      "type": "string",
+      "examples": [
+        "cause.42"
+      ],
+      "pattern": "^cause\\.[0-9]+$"
+    },
+    "CounterKind": {
+      "description": "Activity counters. Pacing reads these, never a clock.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "dockings",
+            "jumps",
+            "sessions",
+            "units_mined",
+            "rocks_depleted",
+            "sales",
+            "purchases",
+            "scouts",
+            "orders_done"
+          ]
+        },
+        {
+          "description": "Sales and deliveries, one per transaction.",
+          "type": "string",
+          "const": "deliveries"
+        },
+        {
+          "description": "Handovers to a ledger (goal deliveries, station growth, dispute tallies).",
+          "type": "string",
+          "const": "ledger_deliveries"
+        }
+      ]
+    },
+    "FactId": {
+      "type": "string",
+      "examples": [
+        "fact.42"
+      ],
+      "pattern": "^fact\\.[0-9]+$"
+    },
+    "FactKind": {
+      "description": "Stable fact kind id, e.g. `dock`.",
+      "type": "string",
+      "examples": [
+        "dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"
+    },
+    "FactionId": {
+      "description": "Stable faction id, e.g. `faction.wharf_cooperative`.",
+      "type": "string",
+      "examples": [
+        "faction.wharf_cooperative"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "HistoryQuery": {
+      "description": "A history filter. Empty matches everything. `count`, `find` and `last` take one.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Facts with an ID greater than this (for paging).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CauseId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "description": "Most results `find` returns (oldest first).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "npc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnyId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RockId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ship": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShipId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "since": {
+          "description": "Facts at or after this tick.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Tick"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "until": {
+          "description": "Facts at or before this tick.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Tick"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ware": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WareId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Hull": {
+      "description": "A hull class. Provisional numbers live in the core pack's `hulls.toml`.",
+      "type": "object",
+      "properties": {
+        "accel": {
+          "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
+        "coupling": {
+          "description": "The Coupling: the hull can hand cargo to the player's tenders (`transfer`).",
+          "type": "boolean",
+          "default": false
+        },
+        "hold_capacity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "id": {
+          "$ref": "#/$defs/HullId"
+        },
+        "max_speed": {
+          "description": "World units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "mining_rate": {
+          "description": "Mining units per second at nominal tick rate.",
+          "type": "number",
+          "format": "float"
+        },
+        "name": {
+          "type": "string"
+        },
+        "price_reach": {
+          "description": "How far the hull sees live market prices. Default: docked only.",
+          "$ref": "#/$defs/PriceReach",
+          "default": {
+            "lane_scout": false,
+            "radius": 0.0,
+            "region": false
+          }
+        },
+        "standing_berth": {
+          "description": "Docking rings give this hull a standing berth, so it may wait docked for a\nprice (the tender's patient sell). Crewed hulls trade and clear the ring.",
+          "type": "boolean",
+          "default": false
+        },
+        "tier": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "turn_rate": {
+          "description": "Degrees per second. Missing: `flight.turn_rate`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "tier",
+        "hold_capacity",
+        "max_speed",
+        "mining_rate"
+      ]
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Measure": {
+      "description": "How many times a deed was done.",
+      "oneOf": [
+        {
+          "description": "An activity counter (player scope unless a station or region is given).",
+          "type": "object",
+          "properties": {
+            "counter": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/$defs/CounterKind"
+                },
+                "region": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/RegionId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "station": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/StationId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "counter"
+          ]
+        },
+        {
+          "description": "Matching history facts.",
+          "type": "object",
+          "properties": {
+            "facts": {
+              "$ref": "#/$defs/HistoryQuery"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "facts"
+          ]
+        },
+        {
+          "description": "The `amount`s of matching facts.",
+          "type": "object",
+          "properties": {
+            "sum": {
+              "$ref": "#/$defs/HistoryQuery"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "sum"
+          ]
+        }
+      ]
+    },
+    "Modifier": {
+      "description": "The fixed list of native effects traits, fittings and ranks may have. Each is\nsmall and qualitative; `galaxy-progress` adds them up per ship and the ship,\neconomy and app crates read the totals.",
+      "oneOf": [
+        {
+          "description": "Multiplies mining rate (the mining lens: 1.5).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "mining_rate"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Mining while facing a rock's richest face yields this much more (Rimesight).",
+          "type": "object",
+          "properties": {
+            "bonus": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "rich_face"
+            }
+          },
+          "required": [
+            "modifier",
+            "bonus"
+          ]
+        },
+        {
+          "description": "Extra hold units (hold extender, Wren rank 2).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "hold"
+            },
+            "units": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Extra hold units on each of the player's tenders (Tandem rank 3).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "tender_hold"
+            },
+            "units": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Multiplies turn rate.",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "turn_rate"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies top speed.",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "speed"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies docking ring reach (Ringwise: 1.25).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "dock_reach"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Lane mouths catch the ship from this radius (Lanerunner: 105).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mouth_radius"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "radius"
+          ]
+        },
+        {
+          "description": "Live prices of stations within this distance (price glass: 1200).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "price_glass"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
+          "description": "Multiplies standing gains from deeds with this tag (Good neighbour: delivery x1.5).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "deed_bonus"
+            },
+            "tag": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "modifier",
+            "tag",
+            "factor"
+          ]
+        },
+        {
+          "description": "A named presentation feature for the app and talk (`sell_preview`,\n`last_visit_greeting`, `lane_radio`, `rumor_first`, `seam_sense` ...).",
+          "type": "object",
+          "properties": {
+            "feature": {
+              "type": "string"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "feature"
+            }
+          },
+          "required": [
+            "modifier",
+            "feature"
+          ]
+        }
+      ]
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PriceReach": {
+      "description": "How far a hull sees live prices. The default is \"docked only\".",
+      "type": "object",
+      "properties": {
+        "lane_scout": {
+          "description": "A lane arrival refreshes the snapshots of every station in the new region.",
+          "type": "boolean",
+          "default": false
+        },
+        "radius": {
+          "description": "Live prices of stations within this distance. Zero: docked only.",
+          "type": "number",
+          "format": "float",
+          "default": 0.0
+        },
+        "region": {
+          "description": "Live prices of every station in the ship's region.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "RankDef": {
+      "description": "A hull rank: deeds done in that hull. Ranks are what prestige resets.",
+      "type": "object",
+      "properties": {
+        "at_least": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "deed": {
+          "description": "Counted only over facts since the player started flying this hull. Use\n`facts` or `sum` measures on `ship.player`.",
+          "$ref": "#/$defs/Measure"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Modifier"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "rank": {
+          "description": "1, 2, 3 ... in order.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "hull",
+        "rank",
+        "name",
+        "deed",
+        "at_least",
+        "effect"
+      ]
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Tick": {
+      "description": "Simulation tick count (30 per second nominal; the sim never reads a clock).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

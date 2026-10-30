@@ -1,0 +1,695 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Order",
+  "description": "One order.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "to": {
+          "$ref": "#/$defs/FlyTarget"
+        },
+        "verb": {
+          "type": "string",
+          "const": "fly"
+        }
+      },
+      "required": [
+        "verb",
+        "to"
+      ]
+    },
+    {
+      "description": "Mine until the hold is full or the rock is depleted.",
+      "type": "object",
+      "properties": {
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "mine"
+        }
+      },
+      "required": [
+        "verb",
+        "rock"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "rock": {
+          "$ref": "#/$defs/RockId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "tag"
+        }
+      },
+      "required": [
+        "verb",
+        "rock"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldId"
+        },
+        "prefer_tagged": {
+          "type": "boolean",
+          "default": false
+        },
+        "verb": {
+          "type": "string",
+          "const": "mine_field"
+        }
+      },
+      "required": [
+        "verb",
+        "field"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "dock"
+        }
+      },
+      "required": [
+        "verb",
+        "station"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "verb": {
+          "type": "string",
+          "const": "undock"
+        }
+      },
+      "required": [
+        "verb"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "verb": {
+          "type": "string",
+          "const": "buy"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "verb",
+        "ware",
+        "quantity"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "floor": {
+          "description": "Sell only while the unit price, in centicredits, is at or above this. A crewed\nship then keeps the rest; a hull with a standing berth waits docked for the\nprice (patient sell).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "verb": {
+          "type": "string",
+          "const": "sell"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "verb",
+        "ware",
+        "quantity"
+      ]
+    },
+    {
+      "description": "Wait until a world condition holds (e.g. a price recovers above a floor).",
+      "type": "object",
+      "properties": {
+        "until": {
+          "$ref": "#/$defs/Condition"
+        },
+        "verb": {
+          "type": "string",
+          "const": "wait"
+        }
+      },
+      "required": [
+        "verb",
+        "until"
+      ]
+    },
+    {
+      "description": "Repeat `orders` until `until` holds, or forever.",
+      "type": "object",
+      "properties": {
+        "orders": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verb": {
+          "type": "string",
+          "const": "loop"
+        }
+      },
+      "required": [
+        "verb",
+        "orders"
+      ]
+    },
+    {
+      "description": "Hand cargo to one of the player's tenders, both docked at the same station or\nwithin `docking.transfer_reach` in space. Only a hull with `coupling` (the\nTandem) can. Writes a `transfer` fact.",
+      "type": "object",
+      "properties": {
+        "quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "to": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "verb": {
+          "type": "string",
+          "const": "transfer"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "verb",
+        "ware",
+        "quantity",
+        "to"
+      ]
+    }
+  ],
+  "$defs": {
+    "Condition": {
+      "description": "A world condition. Evaluated by the engine against world state only.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "hold_full"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "hold_empty"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "description": "The line's current price, in centicredits, is at least `price`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "price_at_least"
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "price"
+          ]
+        },
+        {
+          "description": "The line's current price, in centicredits, is at most `price`.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "price_at_most"
+            },
+            "price": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "price"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "stock_at_least"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            },
+            "stock": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "ware": {
+              "$ref": "#/$defs/WareId"
+            }
+          },
+          "required": [
+            "kind",
+            "station",
+            "ware",
+            "stock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "counter": {
+              "$ref": "#/$defs/CounterKind"
+            },
+            "kind": {
+              "type": "string",
+              "const": "counter_at_least"
+            },
+            "scope": {
+              "$ref": "#/$defs/CounterScope"
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "counter",
+            "scope",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "kind": {
+              "type": "string",
+              "const": "flag_set"
+            }
+          },
+          "required": [
+            "kind",
+            "flag"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "all"
+            },
+            "of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "of"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "any"
+            },
+            "of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "of"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cond": {
+              "$ref": "#/$defs/Condition"
+            },
+            "kind": {
+              "type": "string",
+              "const": "not"
+            }
+          },
+          "required": [
+            "kind",
+            "cond"
+          ]
+        }
+      ]
+    },
+    "CounterKind": {
+      "description": "Activity counters. Pacing reads these, never a clock.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "dockings",
+            "jumps",
+            "sessions",
+            "units_mined",
+            "rocks_depleted",
+            "sales",
+            "purchases",
+            "scouts",
+            "orders_done"
+          ]
+        },
+        {
+          "description": "Sales and deliveries, one per transaction.",
+          "type": "string",
+          "const": "deliveries"
+        },
+        {
+          "description": "Handovers to a ledger (goal deliveries, station growth, dispute tallies).",
+          "type": "string",
+          "const": "ledger_deliveries"
+        }
+      ]
+    },
+    "CounterScope": {
+      "description": "Where a counter is read.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "player"
+            }
+          },
+          "required": [
+            "scope"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "scope",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            },
+            "scope": {
+              "type": "string",
+              "const": "region"
+            }
+          },
+          "required": [
+            "scope",
+            "region"
+          ]
+        }
+      ]
+    },
+    "FieldId": {
+      "description": "Stable field id, e.g. `field.shallows.ice`.",
+      "type": "string",
+      "examples": [
+        "field.shallows.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlagId": {
+      "description": "Stable flag id, e.g. `flag.nav_chip`.",
+      "type": "string",
+      "examples": [
+        "flag.nav_chip"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "FlyTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "description": "Travel to another region along lanes.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
+    "Quantity": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "units"
+            },
+            "n": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "kind",
+            "n"
+          ]
+        },
+        {
+          "description": "Everything in the hold (sell) or everything affordable that fits (buy).",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}

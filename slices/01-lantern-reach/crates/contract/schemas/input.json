@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlayerInput",
+  "description": "What the player is doing this tick. `Default` is \"hands off\".",
+  "type": "object",
+  "properties": {
+    "action": {
+      "description": "The context action (Space) is held: mine, dock, whatever is in reach.",
+      "type": "boolean",
+      "default": false
+    },
+    "click": {
+      "description": "A click this tick, once click controls are unlocked.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Click"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "replies": {
+      "description": "Answers the player gives at the dock this tick: a choice a line offered, or a\nstanding question. Each becomes a `reply` event when the player is docked\nwhere that person is; others are dropped.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Reply"
+      }
+    },
+    "services": {
+      "description": "Purchases asked for at the dock this tick: upgrades, tenders, prestige. The\nprogress system runs each as one atomic batch; check them first with\n`galaxy_progress::services::check`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ServiceRequest"
+      }
+    },
+    "tag": {
+      "description": "Tag the nearest rock (reserved T input).",
+      "type": "boolean",
+      "default": false
+    },
+    "thrust": {
+      "description": "Thrust axes, each in -1..=1 (WASD). Arcade flight: zero means stop.",
+      "$ref": "#/$defs/Vec2",
+      "default": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    },
+    "trades": {
+      "description": "Trades the player asks for this tick (the dock screen). The economy system\nexecutes them in order and drops invalid ones, so check them first with\n`galaxy_economy::check_trade` or `quote`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TradeRequest"
+      }
+    }
+  },
+  "$defs": {
+    "AnyId": {
+      "description": "Stable entity id, e.g. `quest.ice_for_kettle`.",
+      "type": "string",
+      "examples": [
+        "quest.ice_for_kettle"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Click": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "description": "Shift held: append to the queue instead of replacing it.",
+          "type": "boolean",
+          "default": false
+        },
+        "target": {
+          "$ref": "#/$defs/ClickTarget"
+        }
+      },
+      "required": [
+        "target"
+      ]
+    },
+    "ClickTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Vec2"
+            },
+            "kind": {
+              "type": "string",
+              "const": "point"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "station"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "required": [
+            "kind",
+            "station"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "rock"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "tag"
+            },
+            "rock": {
+              "$ref": "#/$defs/RockId"
+            }
+          },
+          "required": [
+            "kind",
+            "rock"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "region"
+            },
+            "region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "required": [
+            "kind",
+            "region"
+          ]
+        }
+      ]
+    },
+    "HullId": {
+      "description": "Stable hull id, e.g. `hull.wren`.",
+      "type": "string",
+      "examples": [
+        "hull.wren"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "NpcId": {
+      "description": "Stable npc id, e.g. `npc.ilse`.",
+      "type": "string",
+      "examples": [
+        "npc.ilse"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RegionId": {
+      "description": "Stable region id, e.g. `region.lantern_shallows`.",
+      "type": "string",
+      "examples": [
+        "region.lantern_shallows"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Reply": {
+      "description": "One answer at the dock: to whom, and which choice (a line's `choices` ID, or a\nstanding question such as `choice.what_changed`).",
+      "type": "object",
+      "properties": {
+        "choice": {
+          "$ref": "#/$defs/AnyId"
+        },
+        "npc": {
+          "$ref": "#/$defs/NpcId"
+        }
+      },
+      "required": [
+        "npc",
+        "choice"
+      ]
+    },
+    "RockId": {
+      "description": "Stable rock id, e.g. `rock.shallows.ice.03`.",
+      "type": "string",
+      "examples": [
+        "rock.shallows.ice.03"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "ServiceRequest": {
+      "description": "A purchase the player asks for at a dock this tick. The progress system runs each\nas one atomic batch and drops ones that don't apply; check with\n`galaxy_progress::services::check` first.",
+      "oneOf": [
+        {
+          "description": "Buy and fit an upgrade.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "fit"
+            },
+            "upgrade": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "service",
+            "upgrade"
+          ]
+        },
+        {
+          "description": "Have a craft built (a tender).",
+          "type": "object",
+          "properties": {
+            "craft": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "service": {
+              "type": "string",
+              "const": "build"
+            }
+          },
+          "required": [
+            "service",
+            "craft"
+          ]
+        },
+        {
+          "description": "Hullwright prestige to a new hull.",
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "const": "prestige"
+            },
+            "to": {
+              "$ref": "#/$defs/HullId"
+            }
+          },
+          "required": [
+            "service",
+            "to"
+          ]
+        }
+      ]
+    },
+    "ShipId": {
+      "description": "Stable ship id, e.g. `ship.player`.",
+      "type": "string",
+      "examples": [
+        "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "StationId": {
+      "description": "Stable station id, e.g. `station.kettle_dock`.",
+      "type": "string",
+      "examples": [
+        "station.kettle_dock"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "TradeRequest": {
+      "description": "One trade a docked ship asks for. Priced unit by unit, each unit rounded to a\ncenticredit.",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "description": "Price limit per unit, in centicredits: sell only while the unit price is at least this, buy only\nwhile it's at most this. With a limit the trade fills as many units as it can.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "quantity": {
+          "description": "Units wanted. Without a `limit` it's all or nothing.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ship": {
+          "$ref": "#/$defs/ShipId"
+        },
+        "side": {
+          "$ref": "#/$defs/TradeSide"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "required": [
+        "ship",
+        "station",
+        "ware",
+        "side",
+        "quantity"
+      ]
+    },
+    "TradeSide": {
+      "description": "Buy from or sell to a station's market.",
+      "type": "string",
+      "enum": [
+        "buy",
+        "sell"
+      ]
+    },
+    "UpgradeId": {
+      "description": "Stable upgrade id, e.g. `upgrade.mining_lens`.",
+      "type": "string",
+      "examples": [
+        "upgrade.mining_lens"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Vec2": {
+      "description": "A point or vector on the sim plane.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "format": "float"
+        },
+        "y": {
+          "type": "number",
+          "format": "float"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WareId": {
+      "description": "Stable ware id, e.g. `ware.ice`.",
+      "type": "string",
+      "examples": [
+        "ware.ice"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    }
+  }
+}
