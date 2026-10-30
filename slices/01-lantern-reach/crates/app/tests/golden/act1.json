@@ -2087,9 +2087,9 @@
   "checkpoints": [
     {
       "tick": 5,
-      "hash": "4403810306eb9b23777b4328ab40b7da60447117f212b3f7064f2629941bb3ad",
+      "hash": "f864d6c9db01b747f571f8ba569e5f3bf1831d75707315f08e384e0bc9acfd9b",
       "stores": {
-        "history": "e64c3c6b570150e7f80085251aca80f72d212334e3b6ed877856cfd01945abce",
+        "history": "d36b9e24685b706f5519621ea21b3bb19de9c811a0383288d7c5f1e422346fa2",
         "journal": "ef0ae01cfc3ce0f89cdbf3da19b4bc26967e43483408deda739aeb96a64884b7",
         "kernel": "3b551abfcf4e878b3fcd58bec8c020ddd8291a847a8de12129f2c3a8338fbd34",
         "world.counters": "1b0fd7ab04756be198ec03062959cd0eb596aaf346fcb10b8f915f67995673c3",
@@ -2103,7 +2103,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
-        "world.progress": "4f3af6ef2163f20158ebcc557e6a35470ee68b3d29d2a782402444d7502f3c4e",
+        "world.progress": "328cf75cadabee0b94ff138aa641362ee3a4ac2ce400cad820894a6dd1d55dfd",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "4ccbf72d9fec183dc3bed8ae0539a2376622b9007477e5d7dd7d9487805e5484",
@@ -2117,9 +2117,9 @@
     },
     {
       "tick": 59,
-      "hash": "c4dfdf760c8dd6f223418a451609f7026154f2b1be0d927e12b86be1d369d603",
+      "hash": "0ae77a3c4fd5c79a1d2f40b38e896f33aa7cfdaeebb0aebd0ca77f47d80aad0b",
       "stores": {
-        "history": "6b6c1e0e6a07455cab3e863928b22a282edf3e395c3ba3b0e2d9bc729824fece",
+        "history": "af3b9029716f3206ddaecb76d79f84a03b127be73a31e7b93a54e8d176d5d450",
         "journal": "5c6caa7624f56592c142c55b9f8d5669f3925c8f82c8595df4b94692e285415e",
         "kernel": "b654099ae165c73cd613b00e38195f91991d373fa5e1d7f0f37d9b1f699e5fd9",
         "world.counters": "819e5d7a6eb25d6bd794d3480301ea85d8dc568321228a9d600c75a879da8787",
@@ -2133,7 +2133,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "6f4b9400dcfe75af06a160cfd6159c961906d0621e1fec843bf85dd185ff166b",
-        "world.progress": "89c002922779b9f3ed528d985cc38af09e18ab1ce094a122df54d36be0082a05",
+        "world.progress": "ee829942145d30bcc65ca7ba866a0b0483a08b28063de2be9af0618216826a5a",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "fa97d00f9da4b9743c95a96e831f2fcd771650fc107c399008b524c9d2a8b288",
@@ -2147,9 +2147,9 @@
     },
     {
       "tick": 97,
-      "hash": "339bcef8dd79215120dac67a12d5dede18d1f0c8f0981023e1b4bb2ace8b0a1b",
+      "hash": "c88d8a38b35e070de5e9b566f9acee7107c299d11093f7e04dc6b8e81a425356",
       "stores": {
-        "history": "ffe0cc25b4df3914ea3fb103683b0a08e0cdda283da70f71c2e0e99c13f13f3c",
+        "history": "6f10141dc874e0dbbe3f5e4abe55dd6a8e81b0446d83e4f81b11794b0c5c3dc8",
         "journal": "6807727756d66ccafd7aa301d90c2e83c1b49ebd8377eb06a1793ccbc6f7c3f5",
         "kernel": "50da897a85ee62443c6dc0916254c2f4acb63005ee52ac50b75b89a2e7d72512",
         "world.counters": "ace910038356e6b9003a302752ad3974210e0cfcf4c70e3ee11e2dfeb4a0cdfd",
@@ -2163,7 +2163,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "32d0f7c6c3510b4f26a8de36d9ae19b50e970f4d0e9df2adb2886a6b4531ff90",
-        "world.progress": "bdaabf05f3e24f557d079c00e5117282df4537e22f5c05556dd95b73dee9b2bd",
+        "world.progress": "c573e0fd7ed89df867905262e8e76f747f4e4580fef2561531bfc5164d853cbd",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "6387e03ad8fd476311d30fcc4d2195f182b81bb46db5b8d19788d129f84095a4",
@@ -2177,11 +2177,11 @@
     },
     {
       "tick": 240,
-      "hash": "3163aceddeb192c1f76fc1489afc7fe158f7502c21e0ca09542842861d70f01f",
+      "hash": "0f82f66e96e73057d6b31199cdbd74f88a4a4df4fbf8bd8c5a5e87047457d88c",
       "stores": {
-        "history": "5a1941c6b0c6a2f97a0ff33bac2832e5b7af1e977729df6396b26ddff34ecf91",
-        "journal": "231c3e643f3a6d7e168629d4d01c78039d454421a2b9b473823b0e618aadbb47",
-        "kernel": "4ea85b4753ca7371bca242ba107864407f8b3348168924d6a4e981a465f3c8c4",
+        "history": "4d14a1238a75793fa2e4367f404e56996d84eb30e7dd21ed5cee6e0c11e7bc0a",
+        "journal": "0ce67e84222c588a8a37c332dd5c32c572d7c15ee7eb43192f2a2b7f0a9249e2",
+        "kernel": "55596a7cb76dd57af65430536bca0c4f8d5fca2d2f3979f00312c062da820401",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
         "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
@@ -2193,7 +2193,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "0a35c23db7079f99ca29dcdd083e7074820c22e52f6d1679f4dfaa3b4ffdb23a",
+        "world.progress": "ba47f1517c14b43c1c0c6b6377abb19414bb9077a4c8a0f85c780f2b82f58248",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
@@ -2201,17 +2201,17 @@
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
         "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
       "tick": 245,
-      "hash": "a8b56550d42de28325457f60ab407b282d3ef96af4c10a1ced3133613872cf01",
+      "hash": "f39f65202ba83c694082b8d14ba50bc35d0ddf0775664ecaf9b93b7db4d56809",
       "stores": {
-        "history": "43d393685633109b1174f10daf9b905f389d224ef7274dc9251f7db21b9ba308",
-        "journal": "e1d5bdba43c07567b01c59e7810fcc25a644bfb36b76c7e64f375e4a67382968",
-        "kernel": "48bf16fb35db6660e5057b8261f87f3229d1b86b021f47eb72f13f1247ba2bdd",
+        "history": "2929f701196f1ab75b0b61363c8212bec1c857a49bb34aec462e078df6648a7e",
+        "journal": "b0b653056448fb680ca352dc57f25c458e66995807ca7d1e29d3250cd05f7752",
+        "kernel": "48224709b0792269e71009c99c31f87d52b2344de43bae15707895500a11fd39",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
         "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
@@ -2223,7 +2223,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "9838fbbfb19e9e5ea006a5d3e24504e654efeb5a0f9cb585b11186342ad86d54",
+        "world.progress": "fc3eba79948de344fd19fa771c225927fd26c80c6a3f4f4bac94ae0381928929",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
@@ -2231,17 +2231,17 @@
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
         "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     },
     {
       "tick": 245,
-      "hash": "a8b56550d42de28325457f60ab407b282d3ef96af4c10a1ced3133613872cf01",
+      "hash": "f39f65202ba83c694082b8d14ba50bc35d0ddf0775664ecaf9b93b7db4d56809",
       "stores": {
-        "history": "43d393685633109b1174f10daf9b905f389d224ef7274dc9251f7db21b9ba308",
-        "journal": "e1d5bdba43c07567b01c59e7810fcc25a644bfb36b76c7e64f375e4a67382968",
-        "kernel": "48bf16fb35db6660e5057b8261f87f3229d1b86b021f47eb72f13f1247ba2bdd",
+        "history": "2929f701196f1ab75b0b61363c8212bec1c857a49bb34aec462e078df6648a7e",
+        "journal": "b0b653056448fb680ca352dc57f25c458e66995807ca7d1e29d3250cd05f7752",
+        "kernel": "48224709b0792269e71009c99c31f87d52b2344de43bae15707895500a11fd39",
         "world.counters": "6d2124b9662fe45963320b4085ef40739774a8ee2766e37d2781d63b822c4815",
         "world.economy": "cb4ae17a3e1d788d340d29ce29549e3bb3d7acee3ad60e32d907c9eb7afd3d77",
         "world.factions": "d437f9380eb793776334ed6f4f55e9d3203f9ce3a6eb14ecd212931aa514aa15",
@@ -2253,7 +2253,7 @@
         "world.npcs": "7f56e6b4b6e46dd224cd9b3762ac1bb16ef0fdfc06b435e270f2575027b85a2e",
         "world.packs": "6e46dd10defc9b56c29a6ec56b508c21f54c08192194e4df25bf36f0c9c3c279",
         "world.player": "5e717ba6a8af8d1d10b84074f89ea172b9d7eb17d1874ac2b662b7371b5f7c14",
-        "world.progress": "9838fbbfb19e9e5ea006a5d3e24504e654efeb5a0f9cb585b11186342ad86d54",
+        "world.progress": "fc3eba79948de344fd19fa771c225927fd26c80c6a3f4f4bac94ae0381928929",
         "world.regions": "d4690f372f71f5d0d683d9be878f1f9acefeb49edadd63db207a45cae9aa10c4",
         "world.rock_types": "afe00faae56fb085bc16f961fe13d52bf342659a608e2633ef469a4346a0940e",
         "world.rocks": "463f1b5d8e857645ba317ae4926c1bcd5cf6e0497a59c30e04ac099d23b06b01",
@@ -2261,7 +2261,7 @@
         "world.ship_rules": "8e5a9bc74ab2ac254ddc80975dfdf9101fa1a2f585d0b24aa766c1b36a5d546f",
         "world.ships": "3c57c207be2ac65646963792e4db1de720612adcdebf0b73b6398334ebb9ce40",
         "world.stations": "28943911ec8a7360529e36631b6bea68619a80f47c86375548f898a2859c7396",
-        "world.talk": "8317b3b3e8ff4a997113319fca791124e48875e76af29d88c62de97059bad080",
+        "world.talk": "296488635447125705993f87819f7ede32c3a35b0acef77dd07daa2ca8f7a0d6",
         "world.wares": "fbf43088985dc04b997cbf8e87ae53942ab92157a3e856710ef2c8470cd2243a"
       }
     }
