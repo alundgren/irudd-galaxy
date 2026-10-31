@@ -1,0 +1,99 @@
+# Saves and replay
+
+How a world is saved and loaded, how a session is recorded, and how a recording is run
+again. The code is `crates/sim` (`save.rs`, `recording.rs`, `scenario.rs`) and the `sim`
+commands in `crates/galaxy`.
+
+## Trying it
+
+From `engine/`, with the engine installed (`modules-and-install.md`):
+
+```sh
+galaxy sim run --modules tests/modules --seed 7 --ticks 450 \
+    --inputs tests/sessions/stroll.toml --save end.db --record session.json
+galaxy sim replay session.json          # identical: true, the same hash
+galaxy sim run --modules tests/modules --ticks 120 --save half.db
+galaxy sim load half.db --modules tests/modules --ticks 80 --state
+galaxy sim run --modules tests/modules --watch --ticks 900   # edit a script meanwhile
+```
+
+Every command prints one JSON object: the tick, the world's hash, the modules, script
+failures, hot-loads, what scripts printed, and with `--state` the whole world.
+
+## Saves
+
+A save is one SQLite file. Tables: `meta` (format, engine, build, seed, tick, hash),
+`modules` (each module the world ran with: ID, version, minimum engine version and the hash
+of its files), `components`, `facts`, `causes`, and `state` (the random streams and the
+engine services' causes). Writing goes to a temporary file that replaces the target when
+complete.
+
+Loading rebuilds the world from the tables and checks it hashes as it did when saved, so
+a save that doesn't come back exactly is refused. `sim load` needs the same set of modules
+the save lists. Their versions may differ: every stored component must still fit its
+schema, and fields a newer module added get their defaults (with a `load` cause). A save
+that would lose data, such as a field a module no longer declares, is refused with a
+message. Saves of other formats are refused too: the game is a prototype, so there are
+no migrations. Saves of the slice are not supported.
+
+## Recordings
+
+A recording is one JSON file that holds everything needed to run a session again:
+
+- `build`: the engine version, and for an installed build its commit and build name. The
+  launcher runs exactly that build for `galaxy sim replay`;
+- `modules`: the exact files of every module at the start;
+- `seed` and `start`: the whole world the session started from;
+- `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
+  `module` and its exact new files) and notes (`tick`, `text`, and `camera` and `frame`,
+  which stay empty until the renderer exists);
+- `end`: the last tick and the world's hash there.
+
+An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is
+a declared event kind and its `source` says where it came from, so flight controls and
+widget clicks fit the same shape later.
+
+## Replay
+
+`galaxy sim replay <recording>` builds the modules from the recorded files (never the
+module folders), starts from the recorded world, applies each input and hot-load on its
+tick, and compares the end hash with the recorded one. It reports the world's hash at
+every note, so an audit can jump to a noted moment. A different end exits 5 with kind
+`replay_diverged`.
+
+## Inputs files and scenario tests
+
+`--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]` and `[[hot_load]]` entries
+by tick (`crates/sim/src/scenario.rs` shows the format; `tests/sessions/stroll.toml` is an
+example). A hot-load names a module folder; it is read when the run starts.
+
+A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs, and
+`[[expect]]` entries on component fields or fact counts, checked after their tick. The
+runner (`run_module_tests`) runs each and reports the expectations that failed and any
+script failures. `galaxy-gm` will run it for modules; today the engine's own tests run the
+test module's scenarios.
+
+## Hot-loading
+
+A changed module can replace the running one between two ticks, from `--watch` (a file in
+a module folder changed) or an inputs file. The engine rebuilds the schemas and every
+module's scripts, checks the world still fits (as for a save: new fields get defaults, a
+change that would lose data is refused and nothing changes), swaps them in, and records an
+`engine.hot_loaded` fact with a `hot_load` cause naming the module, its version and its
+files' hash. Scripts keep no state between calls, so swapping them loses nothing. A
+recording stores the new files, so the replay loads exactly what the session did.
+
+## Alternatives and why this design
+
+- **Saves as one serialized blob.** Simpler, but tools and agents could only read it by
+  loading the engine. Tables are queryable with plain SQL.
+- **Replay from saves every few ticks (snapshots).** Robust to non-determinism, but large,
+  and it hides non-determinism instead of finding it. Because the sim is deterministic, a
+  recording only needs the start, the inputs and the module files, and the end hash proves
+  the replay matched.
+- **Recording module folders by path.** Smaller, but a replay would run whatever the
+  folder holds now. Storing the exact files makes a recording self-contained, which is
+  what lets agents audit a playtest later.
+- **A binary recording format.** Smaller and faster, but opaque. JSON is readable by
+  people and agents, and recordings are small while modules are text. Binary assets will
+  need a different encoding when they arrive.

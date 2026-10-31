@@ -1,0 +1,14 @@
+# A generic test module for the engine: two walkers on a ramp and a deck. It uses every
+# engine part a headless module can: components, start state, events, inputs, the slow
+# cadence, seeded randomness, height and two floor layers.
+id = "stroll"
+version = "0.1.0"
+min_engine_version = "0.2.0"
+scripts = ["scripts/stroll.luau"]
+events = ["started", "turn", "climbed", "paced"]
+writes = ["engine.position", "engine.motion", "engine.surface"]
+
+[components.walker]
+steps = "int"
+climbs = "int"
+pace = { type = "number", default = 1 }

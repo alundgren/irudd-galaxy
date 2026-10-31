@@ -6,7 +6,7 @@ members = ["crates/*", "xtask"]
 # module's `min_engine_version` is compared with it. A release bumps it (see
 # docs/modules-and-install.md).
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 publish = false
@@ -22,12 +22,27 @@ publish = false
 # Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
 [workspace.dependencies]
 # Our crates
+galaxy-api = { path = "crates/api" }
 galaxy-module = { path = "crates/module" }
+galaxy-script = { path = "crates/script" }
+galaxy-sim = { path = "crates/sim" }
 
-# Third party (all MIT or MIT/Apache-2.0)
+# Third party (all MIT or MIT/Apache-2.0). Versions and features match the slice's, so
+# the shared build slots reuse what is already compiled.
+blake3 = "1.8.7"
 directories = "6.0"
+# Pure-Rust float maths for the sim, so replays match on every OS (std's sin, cos, atan2
+# and hypot call the platform's C library, which rounds differently on each).
+libm = "0.2.16"
+# Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
+mlua = { version = "0.12.2", features = ["luau", "serialize"] }
+# Watches module folders for hot-loading.
+notify = "8.2.1"
+rand_core = "0.10.1"
+rand_pcg = { version = "0.10.2", features = ["serde"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
+serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 toml = "1.1.8"
