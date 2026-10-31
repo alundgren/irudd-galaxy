@@ -294,6 +294,28 @@ fn generalized_iteration_refuses_address_order_at_its_line() {
 }
 
 #[test]
+fn generalized_iteration_after_a_z_escape_is_still_checked() {
+    // The re-check's reproduction on PR #56: `\z` carries a string across a line break, and
+    // the loop after its closing quote must still be checked.
+    let script = "return { cadence = function(ctx)
+        local objects = {}
+        for i = 1, 30 do objects[{}] = i end
+        local order = {}
+        local s = \"\\z
+\"; for object, value in objects do table.insert(order, value) end
+        ctx.record('rang', { order = table.concat(order, ',') })
+    end }";
+    let first = cadence(script).result.unwrap_err();
+    assert_eq!(first.code, "runtime_error", "{first}");
+    assert!(first.message.contains("as a key"), "{first}");
+    assert_eq!(
+        first.location.as_ref().map(|l| (l.file.as_str(), l.line)),
+        Some(("main.luau", Some(6)))
+    );
+    assert_eq!(cadence(script).result.unwrap_err(), first);
+}
+
+#[test]
 fn generalized_iteration_over_stable_keys_still_works() {
     let out = cadence(
         "return { cadence = function(ctx)

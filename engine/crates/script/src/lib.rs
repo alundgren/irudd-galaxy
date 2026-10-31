@@ -4,13 +4,15 @@
 //!
 //! - [`vm`]: the sandbox (carried over from the slice), budgets and aborts;
 //! - [`meter`]: what native helpers charge to the step budget (carried over);
-//! - [`iteration`]: generic `for` loops routed through the checked traversal;
+//! - [`iteration`]: generic `for` loops routed through the checked traversal, confirmed on
+//!   the compiled bytecode (`bytecode`);
 //! - [`api`]: the `ctx` API, declared once, and the Luau type file made from it;
 //! - [`host`]: a module's scripts loaded and called.
 //!
 //! `engine/docs/script-host.md` explains the design.
 
 pub mod api;
+mod bytecode;
 pub mod host;
 pub mod iteration;
 pub mod meter;

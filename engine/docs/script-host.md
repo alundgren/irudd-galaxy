@@ -76,12 +76,34 @@ table goes through one check that refuses such tables:
   is the same on every run and every OS. A script keys by strings or numbers instead (an
   entity's ID, for example).
 
-The rewrite reads tokens, not a full parse: it skips strings and comments, and finds the
-loop's `do` as the first one outside brackets and function literals. A misplaced
-insertion can't compile. When it can't place one (an if-expression inside a function
-literal in the loop's iterator), the file fails to load at that loop's line and asks for
-the iterator in parentheses, so a loop is never left unchecked. This all runs once per
-module load, when the bytecode is compiled, and costs nothing per tick.
+**What is guaranteed:** no generic `for` loop in a loaded file walks a table natively.
+Every one gets its iterator from `__galaxy_iterate`, or the file doesn't load.
+
+The rewrite reads tokens, not a full parse. It skips strings, comments and interpolated
+strings by Luau's own lexical rules (escapes such as `\z`, which carries a string across
+a line break, long brackets with their level, numbers), and finds the loop's `do` as the
+first one outside brackets and function literals. A misplaced insertion can't compile.
+When it can't place one (an if-expression inside a function literal in the loop's
+iterator), the file fails to load at that loop's line and asks for the iterator in
+parentheses.
+
+**How a miss fails closed.** The scanner isn't trusted on its own. After compiling, the
+host reads the bytecode the Luau compiler produced (`bytecode.rs`). It finds every
+instruction that starts a generic loop and checks the instruction right before it: a call
+whose three results seed the loop, of a function loaded from the global
+`__galaxy_iterate`. That global can only be the engine's function: the globals are frozen,
+each chunk's environment is read-only, and a local of that name compiles to a different
+load. The name can't appear anywhere in a script's text, even in a comment, so every use
+of it in the compiled code is one the rewrite added. A loop that fails the check stops the
+file from loading, with the file and the loop's line and a note that this is an engine
+bug. So a future scanner miss is a load error, never an order that changes between runs.
+The reader follows Luau's loader for the bytecode versions it knows. Bytecode it can't
+read (another version after a Luau upgrade, an unknown opcode or constant) also stops the
+file from loading, so an upgrade that changes the format shows up as every script failing
+to load, not as a skipped check.
+
+This all runs once per module load, when the bytecode is compiled, and costs nothing per
+tick.
 
 ## Budgets
 
@@ -107,8 +129,11 @@ runs out is the same on every run and every machine. The limits are in `vm.rs`
   tables has no stable rule, and making heap addresses the same on every run would mean
   owning the allocator and the collector's timing. **Refusing every `for k, v in t do`**
   would be simpler than the rewrite, but walking a table keyed by strings is ordinary
-  code. Patching the bytecode instead of the source would avoid the token scan but
-  depend on Luau's bytecode format, which changes between Luau versions.
+  code. Patching the bytecode instead of the source would avoid the token scan, but
+  rewriting jumps and registers in a format that changes between Luau versions is far
+  riskier than reading it. The host only reads the bytecode, to confirm the rewrite, and
+  refuses what it can't read. Luau's own parser would be the best cross-check, but its
+  C API offers only the compiler.
 - **Wall-clock time limits.** Simple, but a call could pass on one machine and fail on
   another, which breaks replays. Step counting is deterministic.
 - **Another language (plain Lua, JavaScript, WebAssembly).** Luau has a sandbox mode, a

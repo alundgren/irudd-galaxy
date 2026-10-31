@@ -427,8 +427,8 @@ pub struct Code(Rc<RefCell<BTreeMap<String, Rc<[u8]>>>>);
 impl Code {
     /// The bytecode of `src` with every generic `for` loop's iterator wrapped
     /// ([`crate::iteration`]). `Ok(None)` if `src` isn't valid Luau: loading the source then
-    /// reports Luau's own error. Fails, at the loop's line in `path`, if a loop can't be
-    /// wrapped.
+    /// reports Luau's own error. Fails, in `path` and at the loop's line where known, if a
+    /// loop can't be wrapped or the compiled code doesn't confirm that every loop was.
     fn of(&self, path: &str, src: &str) -> mlua::Result<Option<Rc<[u8]>>> {
         if let Some(b) = self.0.borrow().get(src) {
             return Ok(Some(b.clone()));
@@ -436,9 +436,11 @@ impl Code {
         let compiler = compiler();
         let compiles = |s: &str| compiler.compile(s).is_ok();
         let wrapped = iteration::loops(src).and_then(|loops| {
-            compiler
+            let b = compiler
                 .compile(iteration::wrap(src, &loops))
-                .map_err(|_| iteration::culprit(src, &loops, compiles))
+                .map_err(|_| iteration::culprit(src, &loops, compiles))?;
+            iteration::confirm(&b)?;
+            Ok(b)
         });
         match wrapped {
             Ok(b) => {
@@ -447,10 +449,10 @@ impl Code {
                 Ok(Some(b))
             }
             Err(_) if !compiles(src) => Ok(None),
-            Err(p) => Err(mlua::Error::runtime(format!(
-                "{path}:{}: {}",
-                p.line, p.message
-            ))),
+            Err(p) => Err(mlua::Error::runtime(match p.line {
+                Some(line) => format!("{path}:{line}: {}", p.message),
+                None => format!("{path}: {}", p.message),
+            })),
         }
     }
 }
