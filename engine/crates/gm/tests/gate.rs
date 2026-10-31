@@ -63,16 +63,13 @@ fn check_refuses_a_module_that_needs_a_newer_engine() {
 }
 
 #[test]
-fn check_passes_the_gate_then_says_it_is_not_built() {
+fn check_passes_the_gate_then_checks_the_module() {
     let tmp = tempfile::tempdir().unwrap();
     module(&tmp.path().join("demo"), ENGINE);
     let (code, json) = gm(tmp.path(), &["check", "demo"]);
-    assert_eq!(
-        (code, json["kind"].as_str()),
-        (1, Some("not_built")),
-        "{json}"
-    );
-    assert_eq!(json["modules"][0]["id"], "demo");
+    assert_eq!(code, 0, "{json}");
+    assert_eq!(json["ok"], true);
+    assert_eq!(json["module"], "demo");
 
     let (code, json) = gm(tmp.path(), &["doctor"]);
     assert_eq!(code, 0, "{json}");

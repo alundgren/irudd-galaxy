@@ -1,0 +1,50 @@
+# w1 reaches the top of the ramp after ten seconds and steps onto the deck; w2, turned
+# around once, stays on the ground.
+seed = 3
+ticks = 330
+
+[[input]]
+tick = 45
+name = "turn"
+payload = { walker = "stroll.w2" }
+
+[[expect]]
+tick = 290
+entity = "w1"
+component = "engine.position"
+field = "layer"
+equals = 0
+
+[[expect]]
+entity = "w1"
+component = "engine.position"
+field = "layer"
+equals = 1
+
+[[expect]]
+entity = "w1"
+component = "engine.position"
+field = "height"
+equals = 2.0
+
+[[expect]]
+entity = "w2"
+component = "engine.position"
+field = "height"
+equals = 0.0
+
+[[expect]]
+entity = "w2"
+component = "engine.motion"
+field = "vx"
+equals = -1.5
+
+[[expect]]
+facts = "climbed"
+equals = 1
+
+[[expect]]
+entity = "tally.board"
+component = "tally.count"
+field = "climbs"
+equals = 1

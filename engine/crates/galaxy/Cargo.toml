@@ -13,7 +13,10 @@ name = "engine-galaxy"
 path = "src/main.rs"
 
 [dependencies]
+galaxy-api.workspace = true
 galaxy-module.workspace = true
+galaxy-sim.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

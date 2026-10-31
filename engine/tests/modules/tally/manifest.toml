@@ -1,0 +1,11 @@
+# A second generic test module: it keeps count of what stroll records, on its own entity,
+# so tests cover several modules, namespaces and events across modules.
+id = "tally"
+version = "0.1.0"
+min_engine_version = "0.2.0"
+scripts = ["scripts/tally.luau"]
+
+[components.count]
+climbs = "int"
+turns = "int"
+last = "id"

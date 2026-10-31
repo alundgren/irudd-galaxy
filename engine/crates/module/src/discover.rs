@@ -1,7 +1,9 @@
 //! Which modules a command is about.
 //!
 //! - `galaxy-gm check <path>`: the module at `<path>` (a folder or its `manifest.toml`).
-//! - `galaxy play --modules <dir>`: `<dir>` if it is a module, else every module folder in it.
+//! - `galaxy play --modules <dir>`, `galaxy sim run --modules <dir>` and
+//!   `galaxy sim load <save> --modules <dir>`: `<dir>` if it is a module, else every module
+//!   folder in it.
 //! - `doctor`: the modules near the working folder ([`modules_near`]).
 
 use std::ffi::OsString;
@@ -85,8 +87,25 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
         (Tool::Game, Some("play")) => modules_dir_arg(&args[1..])
             .map(|dir| modules_in(&at(&dir)))
             .unwrap_or_default(),
+        (Tool::Game, Some("sim")) => modules_dir_arg(args.get(2..).unwrap_or_default())
+            .map(|dir| modules_in(&at(&dir)))
+            .unwrap_or_default(),
         _ => Vec::new(),
     }
+}
+
+/// The build a recording names, for `galaxy sim replay <recording>`: the launcher runs
+/// exactly that build. `None` for other commands, or a recording made by a build that was
+/// not installed.
+pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<String> {
+    let command: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
+    if tool != Tool::Game || command != ["sim", "replay"] {
+        return None;
+    }
+    let path = resolve(cwd, Path::new(args.get(2)?));
+    let text = std::fs::read_to_string(path).ok()?;
+    let recording: serde_json::Value = serde_json::from_str(&text).ok()?;
+    recording["build"]["name"].as_str().map(str::to_owned)
 }
 
 /// The value of `--modules <dir>` or `--modules=<dir>`.
@@ -157,5 +176,35 @@ mod tests {
         assert_eq!(modules_for(Tool::Gm, &args(&["doctor"]), root), both);
         assert!(modules_for(Tool::Gm, &args(&["play", "--modules", "x"]), root).is_empty());
         assert!(modules_for(Tool::Game, &args(&["--version"]), root).is_empty());
+        assert_eq!(
+            modules_for(
+                Tool::Game,
+                &args(&["sim", "run", "--modules", "game/modules"]),
+                root
+            ),
+            both
+        );
+        assert_eq!(
+            modules_for(
+                Tool::Game,
+                &args(&["sim", "load", "s.db", "--modules=game/modules/a"]),
+                root
+            ),
+            vec![modules.join("a")]
+        );
+
+        std::fs::write(
+            root.join("r.json"),
+            r#"{"format": 1, "build": {"name": "0.2.0-abc", "version": "0.2.0"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            recording_build(Tool::Game, &args(&["sim", "replay", "r.json"]), root).as_deref(),
+            Some("0.2.0-abc")
+        );
+        assert_eq!(
+            recording_build(Tool::Gm, &args(&["sim", "replay", "r.json"]), root),
+            None
+        );
     }
 }
