@@ -16,9 +16,10 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use mlua::{Function, Lua, MultiValue, Table, Value};
+use mlua::{Function, IntoLuaMulti, Lua, MultiValue, Table, Value};
 
-use crate::vm::{Location, caller_location, whole_number};
+use crate::iteration::ITERATE;
+use crate::vm::{Location, caller_location, script_location, whole_number};
 
 /// Bytes of string or buffer per step.
 pub(crate) const BYTES_PER_STEP: u64 = 64;
@@ -282,7 +283,9 @@ pub(crate) fn install(lua: &Lua, globals: &Table, budget: &Rc<Budget>) -> mlua::
 }
 
 /// The sandbox's `pairs` and `next`, which refuse tables keyed by tables or functions
-/// (their order follows heap addresses) and charge for walking the table.
+/// (their order follows heap addresses) and charge for walking the table, and the
+/// [`ITERATE`] wrapper every generic `for` loop calls ([`crate::iteration`]), which walks a
+/// plain table the same way `pairs` does.
 ///
 /// - `next(t, nil)` and `pairs(t)` walk the whole table first: `1 +` its slots.
 /// - `pairs(t)` returns its own iterator. Continuing its traversal (called with the
@@ -303,47 +306,84 @@ pub(crate) fn install_iteration(
     let next = lua.create_function(move |lua, (t, k): (Table, Value)| {
         if k.is_nil() {
             b.charge(lua, 1 + table_slots(&t))?;
-            stable_keys(&t, "next")?;
+            stable_keys(lua, &t, "next")?;
         } else {
             b.charge(lua, 1 + table_slots(&t) / 64)?;
         }
-        checked_next(&raw, t, k, "next")
+        checked_next(lua, &raw, t, k, "next")
     })?;
 
     let b = budget.clone();
-    let pairs = lua.create_function(move |lua, t: Table| {
-        b.charge(lua, 1 + table_slots(&t))?;
-        stable_keys(&t, "pairs")?;
-        let raw = raw_next.clone();
-        let budget = b.clone();
-        let table = t.to_pointer();
-        // The control value the traversal expects next: nil, then each returned key.
-        let expect = RefCell::new(Value::Nil);
-        let iter = lua.create_function(move |lua, (s, k): (Table, Value)| {
-            let continuing = s.to_pointer() == table && same_key(&k, &expect.borrow());
-            if !continuing {
-                budget.charge(lua, 1 + table_slots(&s) / 64)?;
-            }
-            let out = checked_next(&raw, s, k, "pairs")?;
-            *expect.borrow_mut() = out.front().cloned().unwrap_or(Value::Nil);
-            Ok(out)
-        })?;
-        Ok((iter, t, Value::Nil))
+    let raw = raw_next.clone();
+    let pairs =
+        lua.create_function(move |lua, t: Table| checked_pairs(lua, &b, &raw, t, "pairs"))?;
+
+    // `for k, v in t do`: Luau would walk a plain table natively (in address order for
+    // keys that are tables or functions). Anything else it iterates as given.
+    let b = budget.clone();
+    let iterate = lua.create_function(move |lua, args: MultiValue| match args.front() {
+        Some(Value::Table(t)) if walked_natively(t) => {
+            checked_pairs(lua, &b, &raw_next, t.clone(), "for ... in")?.into_lua_multi(lua)
+        }
+        _ => Ok(args),
     })?;
     globals.raw_set("next", next)?;
     globals.raw_set("pairs", pairs)?;
+    globals.raw_set(ITERATE, iterate)?;
     Ok(())
+}
+
+/// Whether Luau's `for ... in` walks `t` itself: it has no `__iter` or `__call`.
+fn walked_natively(t: &Table) -> bool {
+    t.metatable().is_none_or(|mt| {
+        ["__iter", "__call"]
+            .iter()
+            .all(|m| mt.raw_get::<Value>(*m).is_ok_and(|v| v.is_nil()))
+    })
+}
+
+/// `pairs(t)`: charges for the walk, refuses unstable keys, and returns the iterator.
+fn checked_pairs(
+    lua: &Lua,
+    budget: &Rc<Budget>,
+    raw_next: &Function,
+    t: Table,
+    what: &'static str,
+) -> mlua::Result<(Function, Table, Value)> {
+    budget.charge(lua, 1 + table_slots(&t))?;
+    stable_keys(lua, &t, what)?;
+    let raw = raw_next.clone();
+    let budget = budget.clone();
+    let table = t.to_pointer();
+    // The control value the traversal expects next: nil, then each returned key.
+    let expect = RefCell::new(Value::Nil);
+    let iter = lua.create_function(move |lua, (s, k): (Table, Value)| {
+        let continuing = s.to_pointer() == table && same_key(&k, &expect.borrow());
+        if !continuing {
+            budget.charge(lua, 1 + table_slots(&s) / 64)?;
+        }
+        let out = checked_next(lua, &raw, s, k, what)?;
+        *expect.borrow_mut() = out.front().cloned().unwrap_or(Value::Nil);
+        Ok(out)
+    })?;
+    Ok((iter, t, Value::Nil))
 }
 
 /// The raw `next`, refusing a key (given or returned) whose place in the table
 /// depends on its address.
-fn checked_next(raw: &Function, t: Table, k: Value, what: &str) -> mlua::Result<MultiValue> {
+fn checked_next(
+    lua: &Lua,
+    raw: &Function,
+    t: Table,
+    k: Value,
+    what: &str,
+) -> mlua::Result<MultiValue> {
     if crate::vm::by_reference(&k) {
-        return Err(unstable_order(what, &k));
+        return Err(unstable_order(lua, what, &k));
     }
     let out: MultiValue = raw.call((t, k))?;
     if let Some(k) = out.front().filter(|k| crate::vm::by_reference(k)) {
-        return Err(unstable_order(what, k));
+        return Err(unstable_order(lua, what, k));
     }
     Ok(out)
 }
@@ -373,19 +413,23 @@ fn as_f64(v: &Value) -> f64 {
 
 /// Fails if a table has a key whose position depends on its address. The caller has
 /// charged for the walk.
-pub(crate) fn stable_keys(t: &Table, what: &str) -> mlua::Result<()> {
+pub(crate) fn stable_keys(lua: &Lua, t: &Table, what: &str) -> mlua::Result<()> {
     for pair in t.pairs::<Value, Value>() {
         let (k, _) = pair?;
         if crate::vm::by_reference(&k) {
-            return Err(unstable_order(what, &k));
+            return Err(unstable_order(lua, what, &k));
         }
     }
     Ok(())
 }
 
-fn unstable_order(what: &str, k: &Value) -> mlua::Error {
+/// The refusal, at the script line that iterated (`file:line: ...`).
+fn unstable_order(lua: &Lua, what: &str, k: &Value) -> mlua::Error {
+    let at = script_location(lua)
+        .map(|l| format!("{l}: "))
+        .unwrap_or_default();
     mlua::Error::runtime(format!(
-        "{what}: this table has a {} as a key, and the order of such keys changes from \
+        "{at}{what}: this table has a {} as a key, and the order of such keys changes from \
          run to run; key it by strings or numbers",
         k.type_name()
     ))

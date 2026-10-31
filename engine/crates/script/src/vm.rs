@@ -21,8 +21,9 @@
 //!   charge steps for the work they do ([`crate::meter`]); over the budget, every further
 //!   step fails, so even `pcall` can't keep a loop alive.
 //! - **No addresses.** `tostring`, `string.format` and `print` show tables, functions and
-//!   buffers as their type name; `pairs` and `next` refuse tables keyed by them (their
-//!   order follows heap addresses). `table.foreach` is removed.
+//!   buffers as their type name; `pairs`, `next` and `for k, v in t do` refuse tables keyed
+//!   by them (their order follows heap addresses; see [`crate::iteration`]).
+//!   `table.foreach` is removed.
 //! - **Same bits on every OS.** `math` and `vector` functions that call the platform's C
 //!   library (`sin`, `pow`, `log` ...) or whose C++ arithmetic a compiler may fuse
 //!   (`math.lerp`, `vector.dot` ...) are replaced with `libm` and plain-Rust versions, and
@@ -41,6 +42,7 @@ use mlua::{
     Function, Lua, LuaOptions, LuaString, MultiValue, StdLib, Table, Value, Variadic, VmState,
 };
 
+use crate::iteration;
 use crate::meter::{self, Budget};
 
 /// What one call may use.
@@ -423,13 +425,33 @@ pub(crate) fn script_location(lua: &Lua) -> Option<Location> {
 pub struct Code(Rc<RefCell<BTreeMap<String, Rc<[u8]>>>>);
 
 impl Code {
-    fn of(&self, src: &str) -> Option<Rc<[u8]>> {
+    /// The bytecode of `src` with every generic `for` loop's iterator wrapped
+    /// ([`crate::iteration`]). `Ok(None)` if `src` isn't valid Luau: loading the source then
+    /// reports Luau's own error. Fails, at the loop's line in `path`, if a loop can't be
+    /// wrapped.
+    fn of(&self, path: &str, src: &str) -> mlua::Result<Option<Rc<[u8]>>> {
         if let Some(b) = self.0.borrow().get(src) {
-            return Some(b.clone());
+            return Ok(Some(b.clone()));
         }
-        let b: Rc<[u8]> = compiler().compile(src).ok()?.into();
-        self.0.borrow_mut().insert(src.to_owned(), b.clone());
-        Some(b)
+        let compiler = compiler();
+        let compiles = |s: &str| compiler.compile(s).is_ok();
+        let wrapped = iteration::loops(src).and_then(|loops| {
+            compiler
+                .compile(iteration::wrap(src, &loops))
+                .map_err(|_| iteration::culprit(src, &loops, compiles))
+        });
+        match wrapped {
+            Ok(b) => {
+                let b: Rc<[u8]> = b.into();
+                self.0.borrow_mut().insert(src.to_owned(), b.clone());
+                Ok(Some(b))
+            }
+            Err(_) if !compiles(src) => Ok(None),
+            Err(p) => Err(mlua::Error::runtime(format!(
+                "{path}:{}: {}",
+                p.line, p.message
+            ))),
+        }
     }
 }
 
@@ -631,7 +653,10 @@ fn load_chunk(lua: &Lua, path: &str, src: &str) -> mlua::Result<Function> {
     mt.raw_set("__metatable", false)?;
     env.set_metatable(Some(mt))?;
     env.set_readonly(true);
-    let code = lua.app_data_ref::<Code>().and_then(|c| c.of(src));
+    let code = match lua.app_data_ref::<Code>() {
+        Some(c) => c.of(path, src)?,
+        None => None,
+    };
     let chunk = match &code {
         Some(b) => lua.load(&b[..]),
         None => lua.load(src),

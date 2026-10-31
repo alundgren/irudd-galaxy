@@ -268,3 +268,80 @@ fn the_type_file_lists_every_member() {
     }
     assert!(types.contains("engine 9.9.9"));
 }
+
+#[test]
+fn generalized_iteration_refuses_address_order_at_its_line() {
+    // The reproduction from PR #56: a table keyed by tables, walked by `for ... in` alone.
+    for key in ["{}", "function() end"] {
+        let script = format!(
+            "return {{ cadence = function(ctx)
+                local objects = {{}}
+                for i = 1, 30 do objects[{key}] = i end
+                local order = {{}}
+                for object, value in objects do table.insert(order, value) end
+                ctx.record('rang', {{ order = table.concat(order, ',') }})
+            end }}"
+        );
+        let first = cadence(&script).result.unwrap_err();
+        assert_eq!(first.code, "runtime_error", "{first}");
+        assert!(first.message.contains("as a key"), "{first}");
+        assert_eq!(
+            first.location.as_ref().map(|l| (l.file.as_str(), l.line)),
+            Some(("main.luau", Some(5)))
+        );
+        assert_eq!(cadence(&script).result.unwrap_err(), first);
+    }
+}
+
+#[test]
+fn generalized_iteration_over_stable_keys_still_works() {
+    let out = cadence(
+        "return { cadence = function(ctx)
+            local t = { 'a', 'b', 'c', x = 1, [true] = 2, [2.5] = 3 }
+            local seen, via_pairs = {}, {}
+            for k, v in t do table.insert(seen, tostring(k) .. '=' .. tostring(v)) end
+            for k, v in pairs(t) do table.insert(via_pairs, tostring(k) .. '=' .. tostring(v)) end
+            local words = {}
+            for w in string.gmatch('one two', '%a+') do table.insert(words, w) end
+            local custom = setmetatable({}, { __iter = function() return next, { 5, 6 } end })
+            local sum = 0
+            for _, v in custom do sum += v end
+            for i, v in ipairs({ 1, 2 }) do sum += v end
+            ctx.record('rang', {
+                same = table.concat(seen, ',') == table.concat(via_pairs, ','),
+                n = #seen, words = table.concat(words, ','), sum = sum,
+            })
+        end }",
+    );
+    let commands = out.result.unwrap();
+    let Command::Record { payload, .. } = &commands[0] else {
+        panic!("{commands:?}")
+    };
+    assert_eq!(payload["same"], true);
+    assert_eq!(payload["n"], 6);
+    assert_eq!(payload["words"], "one,two");
+    assert_eq!(payload["sum"], 14);
+}
+
+#[test]
+fn a_loop_that_cant_be_wrapped_fails_to_load_at_its_line() {
+    for (script, line) in [
+        // An if-expression in a function literal hides where the loop's iterator ends.
+        (
+            "local function f()\nfor k in function() return if k then nil else nil end do end\nend\ndo end\nreturn {}",
+            2,
+        ),
+        ("local x = 1\nlocal __galaxy_iterate = 2\nreturn {}", 2),
+    ] {
+        let m = module(script);
+        let problems = ScriptSet::load(&m, &Registry::new(&[&m]).unwrap())
+            .err()
+            .unwrap();
+        assert_eq!(problems[0].code, "load_error", "{problems:?}");
+        assert_eq!(
+            problems[0].location.as_ref().map(|l| l.line),
+            Some(Some(line)),
+            "{problems:?}"
+        );
+    }
+}

@@ -4,6 +4,7 @@
 //!
 //! - [`vm`]: the sandbox (carried over from the slice), budgets and aborts;
 //! - [`meter`]: what native helpers charge to the step budget (carried over);
+//! - [`iteration`]: generic `for` loops routed through the checked traversal;
 //! - [`api`]: the `ctx` API, declared once, and the Luau type file made from it;
 //! - [`host`]: a module's scripts loaded and called.
 //!
@@ -11,6 +12,7 @@
 
 pub mod api;
 pub mod host;
+pub mod iteration;
 pub mod meter;
 pub mod vm;
 

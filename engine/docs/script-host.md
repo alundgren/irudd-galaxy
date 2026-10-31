@@ -48,11 +48,40 @@ every install ships as `galaxy.d.luau`.
   same. The module's bytecode is compiled once and shared, so a fresh state costs little
   more than its libraries.
 - **No addresses.** `tostring`, `string.format` and `print` show tables and functions as
-  their type name, and `pairs` and `next` refuse tables keyed by tables or functions, whose
-  order follows heap addresses.
+  their type name. Iteration never follows heap addresses (next section).
 - **Portable maths.** `math.sin`, `math.pow`, `vector.dot` and the like are `libm` and plain
   Rust, and the compiler is told they aren't builtins, so the platform's C library is never
   reached. The same script gives the same bits on every OS.
+
+## Iteration order
+
+A table's keys come back in slot order. For strings, numbers and booleans the slot comes
+from the value, so the order is the same on every run. For keys that are tables or
+functions it comes from the heap address, which changes from run to run, so a script
+walking such a table would write a different world on replay. Every way of walking a
+table goes through one check that refuses such tables:
+
+- `pairs` and `next` are the engine's own (`meter.rs`). They check the keys when a walk
+  starts and each key as it comes back.
+- **Generalized iteration** (`for k, v in t do`) is walked by the Luau VM itself, not by a
+  function, so it would skip that check. Before a module file is compiled, the host
+  rewrites each generic `for` so its iterator goes through an engine function:
+  `for k, v in t do` compiles as `for k, v in __galaxy_iterate(t) do` (`iteration.rs`).
+  For a plain table that function does what `pairs(t)` does, in the same order the VM
+  would use. Anything else (iterator functions such as `pairs(t)` or `string.gmatch`,
+  tables with `__iter` or `__call`) passes through unchanged. The rewrite only adds text
+  on the loop's own lines, so error lines stay right, and scripts can't use the name
+  `__galaxy_iterate`.
+- The refusal is a runtime error at the line of the loop, `pairs` or `next` call, and it
+  is the same on every run and every OS. A script keys by strings or numbers instead (an
+  entity's ID, for example).
+
+The rewrite reads tokens, not a full parse: it skips strings and comments, and finds the
+loop's `do` as the first one outside brackets and function literals. A misplaced
+insertion can't compile. When it can't place one (an if-expression inside a function
+literal in the loop's iterator), the file fails to load at that loop's line and asks for
+the iterator in parentheses, so a loop is never left unchecked. This all runs once per
+module load, when the bytecode is compiled, and costs nothing per tick.
 
 ## Budgets
 
@@ -74,6 +103,12 @@ runs out is the same on every run and every machine. The limits are in `vm.rs`
   engine services.
 - **Hand-written bindings plus a hand-written type file** (what the slice had). They
   drifted. One declaration for both keeps them in step.
+- **Iteration order: a deterministic order instead of a refusal.** Sorting keys that are
+  tables has no stable rule, and making heap addresses the same on every run would mean
+  owning the allocator and the collector's timing. **Refusing every `for k, v in t do`**
+  would be simpler than the rewrite, but walking a table keyed by strings is ordinary
+  code. Patching the bytecode instead of the source would avoid the token scan but
+  depend on Luau's bytecode format, which changes between Luau versions.
 - **Wall-clock time limits.** Simple, but a call could pass on one machine and fail on
   another, which breaks replays. Step counting is deterministic.
 - **Another language (plain Lua, JavaScript, WebAssembly).** Luau has a sandbox mode, a
