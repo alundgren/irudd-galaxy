@@ -73,10 +73,12 @@ never keep it silently at the game's expense.
 | Packs, mods and scripts | written by us and our agents: guard against mistakes (bad data, runaway scripts, wrong namespace), not attackers | same | once players share packs, treat them as hostile: sandbox escapes block |
 | Performance | only if it makes the game unplayable | past the scene's budget | past the budget on the minimum target machine |
 
-Everything else blocks in no phase: hardening, edge-case limits, contrived ways to smuggle
-data out, style. Non-blocking findings do not stop authorized work. The author fixes
-small, useful ones in passing and drops speculative ones. Do not automatically file
-follow-up issues or ask the owner to triage them.
+Use the table and agreed requirements to distinguish real defects from speculative
+hardening, edge-case limits, contrived attacks and style preferences. A real defect in
+the work gets fixed and validated before the work is called done, however small it is.
+A concern that is not a real defect is dropped. There is no category of accepted defects
+to leave behind as "non-blocking findings", and no follow-up issue queue for review
+findings. Filing an issue is not a substitute for finishing the work.
 
 A merge blocker is work for the author, not automatically a decision for the owner.
 Fix it within the agreed scope and validate it. Ask the owner only when resolution needs
@@ -115,9 +117,10 @@ instructions from this template, filling in the brackets:
 Review PR #<n>: <one line on what it does>. <Folder> is in phase <phase>. Apply the
 "What blocks a merge" table in the root AGENTS.md and be proportionate for a
 single-player game in that phase.
-Verdict: APPROVE, APPROVE WITH NOTES (non-blocking findings) or
-CHANGES REQUESTED (blocking findings only, each with a reproduction or failing test).
-For each blocker, name the broken requirement and explain how supported use or a
+Verdict: APPROVE (no real defects remain) or CHANGES REQUESTED (real defects to fix,
+each with a reproduction or failing test). Drop speculative concerns and preferences;
+do not turn them into findings or follow-up issues.
+For each defect, name the broken requirement and explain how supported use or a
 plausible authoring mistake reaches it. A synthetic reproduction can prove a real bug;
 unusual syntax alone does not prove an attack. Apply the phase's threat model, and do
 not expand the review into a search for deliberate bypasses.
@@ -128,15 +131,16 @@ run the tests for what you probe (`cargo xtask cargo test -p <crate>`).
 A re-check covers only the findings it lists and the fixer's "new behaviour" list. It is
 not a new review: no "final sweep", no attack lists. After two re-checks the coordinator
 ends the delegated review loop, assesses remaining findings against the merge table,
-and handles small fixes directly with targeted verification and the required `check`.
-The round limit neither waives a real blocker nor requires asking the owner about a
-routine fix. Merge only with authorization; otherwise hand back the ready PR.
+and owns completing the remaining real fixes with appropriate verification and the
+required `check`. The round limit stops review churn, not the work of fixing defects.
+Merge only with authorization; otherwise hand back the ready PR.
 
 ### Fixes
 
 - One job, one purpose. Merging the integration branch into a PR is its own step, with
   its own check, never part of a fix.
-- Fix the blocking findings first. Minor ones are fixed in passing or dropped.
+- Fix real defects, including minor ones. Drop concerns that are not defects. Do not
+  defer a real fix into an issue or hand it back to the owner as code triage.
 - Give constraints, not designs: "the save format stays compatible", not "use
   compare-and-set".
 - Keep fixes proportional to the demonstrated failure and agreed requirements. Do not
