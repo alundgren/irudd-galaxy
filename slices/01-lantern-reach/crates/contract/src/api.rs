@@ -543,6 +543,34 @@ pub const FUNCTIONS: &[FnDef] = &[
         "Sets (or clears) a station's owner.",
     ),
     f(
+        "parts",
+        "get",
+        "stations.read",
+        "(id: StationPartId) -> StationPart?",
+        "A station part: a room with a module, a keeper and a sign.",
+    ),
+    f(
+        "parts",
+        "list",
+        "stations.read",
+        "(station: StationId) -> { StationPartId }",
+        "A station's part IDs, sorted.",
+    ),
+    f(
+        "parts",
+        "put",
+        "stations.write",
+        "(part: StationPart, why: Cause) -> boolean",
+        "Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = \"closed\"` puts a scaffold and a closed sign up.",
+    ),
+    f(
+        "parts",
+        "remove",
+        "stations.write",
+        "(id: StationPartId, why: Cause) -> boolean",
+        "Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.",
+    ),
+    f(
         "factions",
         "get",
         "factions.read",
@@ -1112,6 +1140,7 @@ pub const NAMESPACES: &[(&str, &str)] = &[
     ("counters", "CountersApi"),
     ("history", "HistoryApi"),
     ("stations", "StationsApi"),
+    ("parts", "PartsApi"),
     ("factions", "FactionsApi"),
     ("npcs", "NpcsApi"),
     ("rumors", "RumorsApi"),
@@ -1346,6 +1375,7 @@ fn allowed(uses: Option<&[String]>) -> impl Fn(&FnDef) -> bool + '_ {
 pub fn luau_module(uses: Option<&[String]>) -> String {
     let roots: Vec<(&str, Value)> = vec![
         ("Station", schema_value::<Station>()),
+        ("StationPart", schema_value::<crate::parts::StationPart>()),
         ("Faction", schema_value::<Faction>()),
         ("Npc", schema_value::<Npc>()),
         ("Rumor", schema_value::<Rumor>()),

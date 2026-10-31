@@ -224,6 +224,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "Recipes come with `found_station`.",
     ),
     row(
+        "put_station_part",
+        Needs::Uses(&[&["stations.write"]]),
+        "`ctx.parts:put`, `ctx.parts:remove` (only while the player is docked).",
+    ),
+    row(
         "put_map_overlay",
         Needs::Uses(&[&["kit.write"]]),
         "`ctx.kit:overlay`.",

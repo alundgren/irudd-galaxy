@@ -40,6 +40,9 @@ pub struct WorldState {
     pub regions: Store<RegionId, Region>,
     pub lanes: Store<LaneId, Lane>,
     pub stations: Store<StationId, Station>,
+    /// Each station's parts: rooms with a module, a keeper and a sign
+    /// ([`crate::parts`]). Empty in saves from before them (the game backfills).
+    pub station_parts: Store<StationPartId, crate::parts::StationPart>,
     /// One market per station that trades, keyed by station.
     pub markets: Store<StationId, Market>,
     pub wares: Store<WareId, Ware>,
@@ -513,6 +516,7 @@ record!(
     Faction => FactionId,
     Npc => NpcId,
     Rumor => RumorId,
+    crate::parts::StationPart => StationPartId,
 );
 
 impl Record for Market {

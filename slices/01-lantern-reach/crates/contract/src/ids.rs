@@ -246,6 +246,9 @@ string_id!(
     /// A station part from the runtime asset kit.
     PartId, kind = "part", min_segments = 2, example = "part.kettle.greenhouse_a");
 string_id!(
+    /// A part of a station: a room with a module, a keeper and a sign (`station_parts.toml`).
+    StationPartId, kind = "station part", min_segments = 2, example = "part.wharf.market");
+string_id!(
     /// A per-save mechanic flag (control unlocks, script switches).
     FlagId, kind = "flag", min_segments = 2, example = "flag.nav_chip");
 string_id!(

@@ -297,8 +297,11 @@ fn long_bubble() -> ui::talk::Bubble {
     ui::talk::Bubble::new(Some(TalkId(1)), line, &choices, 3)
 }
 
+const MARKET: StationPartId = StationPartId::from_static("part.wharf.market");
+const WHARF_ROOM: StationPartId = StationPartId::from_static("part.wharf.wharf");
+
 #[test]
-fn docked_the_bubble_card_goal_hold_and_log_icon_keep_apart() {
+fn docked_the_bubble_room_key_plate_goal_hold_and_log_icon_keep_apart() {
     let mut state = new_state();
     let w = &mut state.world;
     add_goals(w);
@@ -313,20 +316,23 @@ fn docked_the_bubble_card_goal_hold_and_log_icon_keep_apart() {
     for size in SIZES {
         let canvas = ui::canvas(G2::new(size.0, size.1));
         let mut o = render::Overlay::default();
-        ui::dock_panel(
+        let (card, _) = ui::rooms::panel(
             &mut o,
             w,
             h,
             &WHARF,
+            &MARKET,
             &UiState::default(),
             ui::Notices::default(),
             canvas,
-        );
-        let card = o.panels[0].rect;
+        )
+        .unwrap();
         let goal = ui::goal_rect(w, canvas).unwrap();
         let hold = ui::hold_rect(w, canvas).unwrap();
         let icon = ui::log::icon_area(5, canvas);
-        let bounds = ui::talk::bounds(Some(goal), Some(card), icon, canvas);
+        let key = ui::station::key_area(w, &WHARF, canvas).unwrap();
+        let plate = ui::station::plate_rect(w, &WHARF);
+        let bounds = ui::station::bubble_bounds(w, &WHARF, true, 5, canvas);
         // Wherever the speaker's spot is on screen, even off the room's edges.
         for anchor in [
             bounds.center(),
@@ -341,10 +347,12 @@ fn docked_the_bubble_card_goal_hold_and_log_icon_keep_apart() {
                 size,
                 &[
                     ("bubble", rect),
-                    ("card", card),
+                    ("room", card),
                     ("goal", goal),
                     ("hold", hold),
                     ("log icon", icon),
+                    ("key", key),
+                    ("plate", plate),
                 ],
                 canvas,
             );
@@ -446,16 +454,19 @@ fn the_hullwright_shows_what_is_fitted_and_every_card_names_its_holder() {
         .find(|o| o.name == "Mining lens")
         .expect("the fitted lens still shows under Orrin");
     assert!(lens.owned);
+    // Orrin's wharf room lists it as Fitted.
     let mut o = render::Overlay::default();
-    let buttons = ui::dock_panel(
+    let (_, buttons) = ui::rooms::panel(
         &mut o,
         w,
         h,
         &WHARF,
+        &WHARF_ROOM,
         &UiState::default(),
         ui::Notices::default(),
         ui::DESIGN,
-    );
+    )
+    .unwrap();
     assert!(o.texts.iter().any(|t| t.text == "Fitted"), "a Fitted state");
     assert!(
         !buttons.iter().any(|b| matches!(
@@ -464,7 +475,7 @@ fn the_hullwright_shows_what_is_fitted_and_every_card_names_its_holder() {
         )),
         "no button for what's already fitted"
     );
-    // Every station's card says who holds it; nobody owns Cinder Hook at the start.
+    // Every station's plate says who holds it; nobody owns Cinder Hook at the start.
     for st in w.stations.values() {
         let holder = ui::holder(w, st);
         assert!(!holder.is_empty());
@@ -699,4 +710,51 @@ fn the_log_pages_instead_of_growing_and_marks_each_kind() {
             .iter()
             .any(|t| t.text.starts_with("A chandlery") && t.color == render::Color::WHITE)
     );
+}
+
+#[test]
+fn docked_overview_plate_key_goal_hold_and_log_keep_apart_and_every_plate_names_its_holder() {
+    let mut state = new_state();
+    add_goals(&mut state.world);
+    let s = Session::new(state);
+    let w = s.world();
+    for size in SIZES {
+        let canvas = ui::canvas(G2::new(size.0, size.1));
+        for station in w.stations.keys() {
+            let key = ui::station::key_area(w, station, canvas).expect("every station has parts");
+            let plate = ui::station::plate_rect(w, station);
+            let bounds = ui::station::bubble_bounds(w, station, false, 120, canvas);
+            assert!(
+                bounds.w > 200.0 && bounds.h > 120.0,
+                "{size:?} {station}: {bounds:?}"
+            );
+            assert_apart(
+                size,
+                &[
+                    ("plate", plate),
+                    ("key", key),
+                    ("goal", ui::goal_rect(w, canvas).unwrap()),
+                    ("hold", ui::hold_rect(w, canvas).unwrap()),
+                    ("log icon", ui::log::icon_area(120, canvas)),
+                ],
+                canvas,
+            );
+            // The plate shows the holder, including at Cinder Hook (#44).
+            let mut o = render::Overlay::default();
+            ui::station::plate(&mut o, w, station);
+            let st = w.stations.get(station).unwrap();
+            assert!(
+                o.texts.iter().any(|t| t.text == ui::holder(w, st)),
+                "{station}"
+            );
+            for t in &o.texts {
+                assert_eq!(
+                    t.color,
+                    render::Color::BLACK,
+                    "{}: black on parchment",
+                    t.text
+                );
+            }
+        }
+    }
 }

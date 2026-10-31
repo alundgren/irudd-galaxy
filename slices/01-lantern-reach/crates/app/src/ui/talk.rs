@@ -374,14 +374,32 @@ impl TalkAnchors {
             .unwrap_or(&self.default)
     }
 
-    /// The world point a line's bubble rises from at `station`.
+    /// The world point a line's bubble rises from at `station`: the module of the part
+    /// its speaker keeps here (the office first, so the dockmaster speaks from the
+    /// office), else their spot.
     pub fn anchor(&self, world: &WorldState, line: &TalkLine, station: &StationId) -> Option<Vec2> {
+        if let Some(part) = keeper_part(world, line, station) {
+            return crate::view::modules::bubble_point(world, part);
+        }
         let st = world.stations.get(station)?;
         let spot = self.spots.get(self.spot_name(world, line, station))?;
         let a = spot.angle.to_radians();
         let r = spot.reach * st.dock_radius;
         Some(st.position + Vec2::new(a.cos() * r, a.sin() * r))
     }
+}
+
+/// The part at `station` whose keeper speaks `line`, if they keep one: the office
+/// before any other.
+pub fn keeper_part<'a>(
+    world: &'a WorldState,
+    line: &TalkLine,
+    station: &'a StationId,
+) -> Option<&'a galaxy_contract::parts::StationPart> {
+    let npc = line.speaker.as_ref()?;
+    super::station::parts_here(world, station)
+        .into_iter()
+        .find(|p| &p.keeper == npc)
 }
 
 /// The bubble's text size, row height, padding and widest text.
@@ -733,6 +751,16 @@ mod tests {
         assert!(
             office.distance(hub) > 1.0,
             "a part of the station, not its centre"
+        );
+        // Keepers speak from their modules: the dockmaster from the office (she keeps
+        // the market too), the hullwright from the wharf.
+        let module = |id: &str| {
+            crate::view::modules::bubble_point(w, w.station_parts.get(id).unwrap()).unwrap()
+        };
+        assert_eq!(office, module("part.wharf.office"));
+        assert_eq!(
+            a.anchor(w, &line(Some("npc.orrin_vale")), &wharf).unwrap(),
+            module("part.wharf.wharf")
         );
     }
 

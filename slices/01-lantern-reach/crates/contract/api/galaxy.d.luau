@@ -32,16 +32,22 @@ export type Modifier = { factor: number, modifier: "mining_rate" } | { bonus: nu
 export type NpcId = string
 export type OrderProgress = { blocked: boolean?, credits: number?, lap_end: boolean?, lap_moved: boolean?, laps: number?, step: number?, traded: number?, waiting: number? }
 export type PackId = string
+export type PartCause = { facts: { FactId }, script: PackId? }
 export type PartId = string
+export type PartNews = { docking: number, ribbon: Ribbon }
+export type PartState = "open" | "closed" | "building"
 export type Quantity = { kind: "units", n: number } | { kind: "all" }
 export type QuestId = string
 export type RegionId = string
+export type Ribbon = "new" | "changed" | "closed"
 export type RockId = string
+export type RoomKind = "market" | "notice_wall" | "canteen" | "greenhouse" | "berths" | "wharf" | "dockmaster" | "counter"
 export type RumorId = string
 export type Service = "market" | "dockmaster" | "hullwright" | "archive"
 export type ShipId = string
 export type SlotId = string
 export type StationId = string
+export type StationPartId = string
 export type Subjects = { faction: FactionId?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, station: StationId?, ware: WareId? }
 export type Tick = number
 export type TraitId = string
@@ -51,6 +57,7 @@ export type Vec2 = { x: number, y: number }
 export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop" | "tag" | "transfer"
 export type WareId = string
 export type Station = { build: BuildState, dock_radius: number, id: StationId, name: string, owner: FactionId?, position: Vec2, region: RegionId, services: { Service } }
+export type StationPart = { anchor: string, cause: PartCause?, id: StationPartId, keeper: NpcId, level: number?, line: string?, module: string, name: string?, news: PartNews?, quarter: string?, rollback_line: string, room: RoomKind, sign: string, state: PartState?, station: StationId }
 export type Faction = { claims: { StationId }?, colour: string?, id: FactionId, mark: string?, name: string, standing: number?, wants: { WareId }? }
 export type Npc = { faction: FactionId?, id: NpcId, location: StationId?, name: string, role: string }
 export type Rumor = { claim: string, heard_at: { StationId }, heard_by_player: boolean, id: RumorId, is_true: boolean, planted_by: FactionId?, source: FactId? }
@@ -234,6 +241,16 @@ export type StationsApi = {
 	detach: (self: StationsApi, id: StationId, part: PartId, why: Cause) -> (),
 	-- Sets (or clears) a station's owner.
 	set_owner: (self: StationsApi, id: StationId, owner: FactionId?, why: Cause) -> (),
+}
+export type PartsApi = {
+	-- A station part: a room with a module, a keeper and a sign.
+	get: (self: PartsApi, id: StationPartId) -> StationPart?,
+	-- A station's part IDs, sorted.
+	list: (self: PartsApi, station: StationId) -> { StationPartId },
+	-- Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = "closed"` puts a scaffold and a closed sign up.
+	put: (self: PartsApi, part: StationPart, why: Cause) -> boolean,
+	-- Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.
+	remove: (self: PartsApi, id: StationPartId, why: Cause) -> boolean,
 }
 export type FactionsApi = {
 	-- A faction record.
@@ -436,6 +453,7 @@ export type Ctx = {
 	counters: CountersApi,
 	history: HistoryApi,
 	stations: StationsApi,
+	parts: PartsApi,
 	factions: FactionsApi,
 	npcs: NpcsApi,
 	rumors: RumorsApi,

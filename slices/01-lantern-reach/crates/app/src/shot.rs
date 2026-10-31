@@ -99,8 +99,11 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     if let Some(z) = args.zoom {
         rig.zoom = z.clamp(CameraRig::MIN_ZOOM, CameraRig::MAX_ZOOM * 4.0);
     }
-    if let Some(target) = frame::camera_target(&session, &rig, 1.0, renderer.logical_size()) {
-        rig.center = target;
+    if let Some(goal) = frame::camera_goal(&session, &ui_state, 1.0, renderer.logical_size()) {
+        rig.center = goal.center;
+        if let (Some(zoom), None) = (goal.zoom, args.zoom) {
+            rig.zoom = zoom;
+        }
     }
     let time = session.world().meta.tick.0 as f32 / galaxy_contract::TICKS_PER_SECOND as f32;
     let (scene, _) = frame::compose(
@@ -144,6 +147,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         })),
         "log_new": session.talk.log_new(),
         "log_open": ui_state.log_open,
+        "room": frame::open_room(&session, &ui_state).map(|p| p.id.to_string()),
         "written": args.write && args.keys.is_some(),
     }))
 }

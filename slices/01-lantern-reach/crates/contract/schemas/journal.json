@@ -1403,6 +1403,33 @@
           ]
         },
         {
+          "description": "Adds, changes (`Some`) or removes (`None`) a station part\n([`crate::parts::StationPart`]). Checked by `galaxy_core::parts::check`.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/StationPartId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_station_part"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StationPart"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "id": {
@@ -5851,6 +5878,32 @@
         }
       ]
     },
+    "PartCause": {
+      "description": "Who changed a part and why: the pack and the facts the keeper's line cites.",
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "script": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ]
+    },
     "PartId": {
       "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
       "type": "string",
@@ -5859,6 +5912,25 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PartNews": {
+      "description": "The station key's ribbon for a part that changed: its kind and the player's\ndocking count when it changed. It clears after `station.ribbon_dockings` more\ndockings (counted dockings, never time).",
+      "type": "object",
+      "properties": {
+        "docking": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ribbon": {
+          "$ref": "#/$defs/Ribbon"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ribbon",
+        "docking"
+      ]
     },
     "PartOrder": {
       "description": "A part on its way from a friend.",
@@ -5967,6 +6039,27 @@
             "npc",
             "station"
           ]
+        }
+      ]
+    },
+    "PartState": {
+      "description": "Whether a part is open for business.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "open"
+          ]
+        },
+        {
+          "description": "Shut for now: a scaffold over the module and a closed sign.",
+          "type": "string",
+          "const": "closed"
+        },
+        {
+          "description": "Going up: a scaffold and a dashed sign.",
+          "type": "string",
+          "const": "building"
         }
       ]
     },
@@ -6626,6 +6719,15 @@
         }
       ]
     },
+    "Ribbon": {
+      "description": "C's news ribbons.",
+      "type": "string",
+      "enum": [
+        "new",
+        "changed",
+        "closed"
+      ]
+    },
     "Rock": {
       "type": "object",
       "properties": {
@@ -6805,6 +6907,36 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RoomKind": {
+      "description": "What kind of room a part opens into. Only a brand-new kind needs code in the app;\nevery other change is data.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "market",
+            "notice_wall",
+            "canteen",
+            "greenhouse",
+            "berths"
+          ]
+        },
+        {
+          "description": "The hullwright's wharf: the cradle where parts are fitted.",
+          "type": "string",
+          "const": "wharf"
+        },
+        {
+          "description": "The dockmaster's office: talk, and \"Ask what changed\".",
+          "type": "string",
+          "const": "dockmaster"
+        },
+        {
+          "description": "A general counter: a keeper, their offers and a few lines. Covers most shops.",
+          "type": "string",
+          "const": "counter"
+        }
+      ]
     },
     "RoutePreference": {
       "type": "object",
@@ -7280,6 +7412,113 @@
           "default": "#d9774b"
         }
       }
+    },
+    "StationPart": {
+      "description": "One part of a station.",
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "description": "A free anchor on the station's kit recipe (`galaxy_kit::anchors`).",
+          "type": "string"
+        },
+        "cause": {
+          "description": "Who changed it and the facts the keeper's line cites. `None`: authored.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartCause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/StationPartId"
+        },
+        "keeper": {
+          "description": "Who keeps it: a person at the station. Their bubbles rise from its module.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "level": {
+          "description": "Upgrades raise it: a bigger module.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 1,
+          "minimum": 0
+        },
+        "line": {
+          "description": "The keeper's line about the part as it is now, in the first person (why it's\nclosed, what's going up). Required whenever there's a cause or it isn't open.",
+          "type": "string"
+        },
+        "module": {
+          "description": "The asset-kit kind it's drawn as (`galaxy_kit::MODULE_KINDS`); the art bible's\nbudget applies.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Its name on its sign and key icon (\"Archive\"), if not its kind's (\"Counter\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "news": {
+          "description": "The latest change, for the station key's ribbon (set by the write that made it).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartNews"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quarter": {
+          "description": "Hubs only: which quarter's sign it sits under.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rollback_line": {
+          "description": "What the keeper says if the part is taken away.",
+          "type": "string"
+        },
+        "room": {
+          "description": "The kind of room it opens into.",
+          "$ref": "#/$defs/RoomKind"
+        },
+        "sign": {
+          "description": "The hanging sign: one line of what it is and offers.",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PartState",
+          "default": "open"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "station",
+        "room",
+        "module",
+        "anchor",
+        "keeper",
+        "sign",
+        "rollback_line"
+      ]
+    },
+    "StationPartId": {
+      "description": "Stable station part id, e.g. `part.wharf.market`.",
+      "type": "string",
+      "examples": [
+        "part.wharf.market"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "StationRecipe": {
       "description": "A station: a name, a seed for small variations, a palette and parts.",

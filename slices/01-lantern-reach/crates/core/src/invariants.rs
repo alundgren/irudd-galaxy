@@ -67,7 +67,8 @@ impl Invariant for KeysMatchIds {
         keys_match(&w.ships, "ship")?;
         keys_match(&w.factions, "faction")?;
         keys_match(&w.npcs, "npc")?;
-        keys_match(&w.rumors, "rumor")
+        keys_match(&w.rumors, "rumor")?;
+        keys_match(&w.station_parts, "station part")
     }
 }
 
@@ -129,6 +130,10 @@ impl Invariant for ReferencesResolve {
         for (id, s) in &w.stations {
             exists(&w.regions, &s.region, id)?;
             maybe(&w.factions, &s.owner, id)?;
+        }
+        for (id, p) in &w.station_parts {
+            exists(&w.stations, &p.station, id)?;
+            exists(&w.npcs, &p.keeper, id)?;
         }
         for (id, m) in &w.markets {
             exists(&w.stations, id, &"market")?;

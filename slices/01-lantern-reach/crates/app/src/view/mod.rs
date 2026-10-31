@@ -15,6 +15,7 @@
 pub mod fit_look;
 mod live;
 pub mod map;
+pub mod modules;
 pub mod recipes;
 
 use render::art_bible::ArtMaterial;
@@ -68,7 +69,23 @@ pub struct CameraRig {
     pub zoom: f32,
     /// The mouse wheel's share of the zoom, on top of the data's (1 = as the data says).
     pub wheel: f32,
+    /// A glide in progress: docking, undocking, opening or closing a room.
+    pub glide: Option<Glide>,
 }
+
+/// A short camera move: from where the camera was when it began to wherever its goal is
+/// now (the goal may move, as a ship does), eased, over [`GLIDE_SECONDS`]. View only: a
+/// click skips it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Glide {
+    pub from: G2,
+    pub from_zoom: f32,
+    /// Seconds into the glide.
+    pub t: f32,
+}
+
+/// How long a glide takes: under half a second.
+pub const GLIDE_SECONDS: f32 = 0.4;
 
 impl CameraRig {
     pub const MIN_ZOOM: f32 = 220.0;
@@ -81,15 +98,61 @@ impl CameraRig {
             center,
             zoom: Self::DEFAULT_ZOOM,
             wheel: 1.0,
+            glide: None,
         }
+    }
+
+    /// Starts a glide from where the camera is now.
+    pub fn begin_glide(&mut self) {
+        self.glide = Some(Glide {
+            from: self.center,
+            from_zoom: self.zoom,
+            t: 0.0,
+        });
+    }
+
+    /// Whether a glide is under way.
+    pub fn gliding(&self) -> bool {
+        self.glide.is_some()
+    }
+
+    /// Ends a glide at once (a click during it).
+    pub fn skip_glide(&mut self) {
+        if let Some(g) = &mut self.glide {
+            g.t = GLIDE_SECONDS;
+        }
+    }
+
+    /// Moves towards `center` and `zoom` (the visible height): along the glide while one
+    /// is under way, `dt` real seconds further; else straight there. A docked camera
+    /// holds still on its goal.
+    pub fn glide_to(&mut self, center: G2, zoom: f32, dt: f32) {
+        let Some(g) = &mut self.glide else {
+            self.center = center;
+            self.zoom = zoom;
+            return;
+        };
+        g.t += dt.max(0.0);
+        let k = (g.t / GLIDE_SECONDS).clamp(0.0, 1.0);
+        let k = k * k * (3.0 - 2.0 * k);
+        self.center = g.from.lerp(center, k);
+        self.zoom = g.from_zoom + (zoom - g.from_zoom) * k;
+        if g.t >= GLIDE_SECONDS {
+            self.glide = None;
+        }
+    }
+
+    /// The flight zoom the data and the wheel ask for now.
+    pub fn flight_zoom(&self, world: &WorldState) -> f32 {
+        let ship = world.player.ship.as_ref().and_then(|s| world.ships.get(s));
+        let zoom = galaxy_ship::flight::camera_zoom(world, ship);
+        (Self::DEFAULT_ZOOM / zoom * self.wheel).clamp(Self::MIN_ZOOM, Self::MAX_ZOOM)
     }
 
     /// Sets the visible height from the data: [`Self::DEFAULT_ZOOM`] at zoom 1.0, more
     /// below it (0.8 shows 550 u), times the wheel's share.
     pub fn fit(&mut self, world: &WorldState) {
-        let ship = world.player.ship.as_ref().and_then(|s| world.ships.get(s));
-        let zoom = galaxy_ship::flight::camera_zoom(world, ship);
-        self.zoom = (Self::DEFAULT_ZOOM / zoom * self.wheel).clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
+        self.zoom = self.flight_zoom(world);
     }
 
     pub fn camera(&self) -> Camera {
@@ -150,6 +213,8 @@ pub struct View {
     stations: BTreeMap<StationId, StationArt>,
     rocks: BTreeMap<RockId, RockArt>,
     backdrops: BTreeMap<Option<RegionId>, BackdropHandle>,
+    /// Station parts' modules, by what changes their look.
+    modules: BTreeMap<StationPartId, (modules::ModuleKey, MeshHandle)>,
 }
 
 fn rock_step(rock: &Rock) -> i32 {
@@ -302,6 +367,23 @@ impl View {
                 },
             );
         }
+        for part in world.station_parts.values() {
+            let key = modules::ModuleKey::of(world, part);
+            if self.modules.get(&part.id).is_some_and(|(k, _)| *k == key) {
+                continue;
+            }
+            let Some(data) = modules::mesh(world, part) else {
+                continue;
+            };
+            let mesh = match self.modules.get(&part.id) {
+                Some((_, m)) => {
+                    r.update_mesh(*m, &data);
+                    *m
+                }
+                None => r.upload_mesh(&data),
+            };
+            self.modules.insert(part.id.clone(), (key, mesh));
+        }
         for rock in world.rocks.values() {
             let step = rock_step(rock);
             match self.rocks.get_mut(&rock.id) {
@@ -389,6 +471,38 @@ impl View {
             look,
             rings,
             shadow: kit::CRADLE_SHADOW,
+        }
+    }
+
+    /// Every station part's module near the camera, the `hovered` one lifted and
+    /// outlined in orange. A part removed since the last sync isn't drawn.
+    pub fn draw_modules(
+        &self,
+        scene: &mut Scene,
+        world: &WorldState,
+        rig: &CameraRig,
+        hovered: Option<&StationPartId>,
+    ) {
+        let material = ArtBible::bundled().material(InkRole::Station);
+        for part in world.station_parts.values() {
+            let Some((_, mesh)) = self.modules.get(&part.id) else {
+                continue;
+            };
+            let Some((p, _)) = modules::module_point(world, part) else {
+                continue;
+            };
+            if p.distance(rig.center) > rig.zoom * 2.5 + 400.0 {
+                continue;
+            }
+            let lift = hovered == Some(&part.id);
+            if let Some(m) = modules::draw_transform(world, part, lift) {
+                scene
+                    .meshes
+                    .push(MeshInstance::new(*mesh, m).with_material(material));
+            }
+            if lift {
+                modules::outline(scene, world, part);
+            }
         }
     }
 

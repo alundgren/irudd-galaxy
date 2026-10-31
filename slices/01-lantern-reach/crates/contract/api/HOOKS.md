@@ -148,6 +148,13 @@ and `ctx.store` (the script's declared stores).
 - `ctx.stations:detach(id: StationId, part: PartId, why: Cause) -> ()` (`stations.write`): Detaches a kit part.
 - `ctx.stations:set_owner(id: StationId, owner: FactionId?, why: Cause) -> ()` (`stations.write`): Sets (or clears) a station's owner.
 
+### `ctx.parts`
+
+- `ctx.parts:get(id: StationPartId) -> StationPart?` (`stations.read`): A station part: a room with a module, a keeper and a sign.
+- `ctx.parts:list(station: StationId) -> { StationPartId }` (`stations.read`): A station's part IDs, sorted.
+- `ctx.parts:put(part: StationPart, why: Cause) -> boolean` (`stations.write`): Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = "closed"` puts a scaffold and a closed sign up.
+- `ctx.parts:remove(id: StationPartId, why: Cause) -> boolean` (`stations.write`): Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.
+
 ### `ctx.factions`
 
 - `ctx.factions:get(id: FactionId) -> Faction?` (`factions.read`): A faction record.
@@ -379,6 +386,7 @@ beat precondition can be met by a forged fact.
 | `put_survey_buoy` | by payload | `ctx.kit:buoy`: `kit.write`; a reward paying credits also needs `beats.write`, one moving standing `standing.write`. Never placed read or claimed. |
 | `set_canon_status` | `canon.write` | `ctx.canon:open`. |
 | `put_station_recipe` | never | Recipes come with `found_station`. |
+| `put_station_part` | `stations.write` | `ctx.parts:put`, `ctx.parts:remove` (only while the player is docked). |
 | `put_map_overlay` | `kit.write` | `ctx.kit:overlay`. |
 | `put_region` | `territory.write` | `ctx.territory:set_owner`. |
 | `put_lane` | never | Authored data. |

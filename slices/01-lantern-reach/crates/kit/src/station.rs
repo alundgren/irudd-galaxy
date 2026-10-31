@@ -1479,3 +1479,190 @@ pub fn docking_ring_center(recipe: &StationRecipe) -> Option<Vec2> {
         _ => None,
     })
 }
+
+/// The kind name of a part as the art bible and its budget name it (`"block"`).
+pub fn kind_name(kind: &PartKind) -> &'static str {
+    part_params(kind).0
+}
+
+impl StationRecipe {
+    /// The recipe that draws a station at its build stage, by station ID: the five
+    /// authored stations, and a small generic one for any other (the game master's
+    /// sixth) until it carries its own.
+    pub fn for_station(id: &str, stage: u8) -> Self {
+        let stage = stage.min(3);
+        match id {
+            "station.lantern_wharf" => Self::lantern_wharf(),
+            "station.kettle_dock" => Self::kettle_dock(stage),
+            "station.brassmouth_exchange" => Self::brassmouth(),
+            "station.cinder_hook" => Self::cinder_hook(),
+            "station.glass_drift_observatory" => Self::glass_drift_observatory(),
+            _ => {
+                let mut r = Self::kettle_dock(stage);
+                r.parts
+                    .retain(|p| !matches!(p.kind, PartKind::Greenhouse { .. }) || stage > 0);
+                r
+            }
+        }
+    }
+}
+
+/// A named spot on a station where a part's module bolts on (issue #47, 3.1): a quay, a
+/// pier slot, a rim berth. In station space, like a part's placement: the module's +X
+/// points away from the centre.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Anchor {
+    pub name: &'static str,
+    pub at: Placement,
+}
+
+/// The anchors on a station's recipe, by station ID: the authored stations' own, kept
+/// clear of their art, or for any other station a ring of eight pier slots just outside
+/// its recipe's footprint (`pier.1` east, counter-clockwise).
+pub fn anchors(station: &str, recipe: &StationRecipe) -> Vec<Anchor> {
+    let a = |name, angle, distance| Anchor {
+        name,
+        at: Placement::polar(angle, distance),
+    };
+    match station {
+        "station.lantern_wharf" => vec![
+            a("quay.west", 185.0, 22.0),
+            a("quay.north", 116.0, 23.0),
+            a("pier.south", 262.0, 22.0),
+            a("quay.northwest", 150.0, 24.0),
+            a("pier.southwest", 222.0, 23.0),
+        ],
+        "station.kettle_dock" => vec![
+            a("rim.north", 100.0, 21.0),
+            a("rim.west", 215.0, 21.0),
+            a("rim.east", 345.0, 24.0),
+            a("rim.northwest", 140.0, 22.0),
+        ],
+        "station.cinder_hook" => vec![
+            a("hook.north", 112.0, 21.0),
+            a("hook.west", 222.0, 21.0),
+            a("hook.south", 278.0, 21.0),
+            a("hook.northwest", 160.0, 21.0),
+        ],
+        "station.brassmouth_exchange" => vec![
+            a("row.north", 90.0, 27.0),
+            a("row.southwest", 248.0, 27.0),
+            a("row.southeast", 325.0, 27.0),
+            a("row.west", 158.0, 28.0),
+        ],
+        "station.glass_drift_observatory" => vec![
+            a("deck.north", 125.0, 22.0),
+            a("deck.west", 168.0, 23.0),
+            a("deck.east", 330.0, 23.0),
+            a("deck.south", 290.0, 25.0),
+        ],
+        _ => {
+            const PIER: [&str; 8] = [
+                "pier.1", "pier.2", "pier.3", "pier.4", "pier.5", "pier.6", "pier.7", "pier.8",
+            ];
+            let d = (recipe.footprint() + 6.0).clamp(12.0, MAX_STATION_RADIUS - 12.0);
+            PIER.iter()
+                .enumerate()
+                .map(|(i, name)| a(name, i as f32 * 45.0, d))
+                .collect()
+        }
+    }
+}
+
+/// The module kinds a station part can be drawn as: kit part kinds that read from
+/// above, each with the parameters its module is drawn with.
+pub const MODULE_KINDS: [&str; 9] = [
+    "block",
+    "banner",
+    "crane",
+    "dome",
+    "tank",
+    "cargo_pod",
+    "docking_arm",
+    "greenhouse",
+    "lamp_mast",
+];
+
+/// The kit part a module of `kind` is drawn as, `level` making it a little bigger (an
+/// upgraded part). `None` for a kind that isn't a module kind.
+pub fn module_part(kind: &str, level: u32) -> Option<PartKind> {
+    let grow = 1.0 + 0.12 * level.saturating_sub(1).min(4) as f32;
+    Some(match kind {
+        "block" => PartKind::Block {
+            width: 6.0 * grow,
+            depth: 5.0 * grow,
+            height: 3.6,
+        },
+        "banner" => PartKind::Banner {
+            width: 7.0 * grow,
+            height: 4.2,
+        },
+        "crane" => PartKind::Crane {
+            height: 8.0,
+            reach: 7.0 * grow,
+        },
+        "dome" => PartKind::Dome { radius: 3.6 * grow },
+        "tank" => PartKind::Tank {
+            radius: 1.6,
+            length: 5.0 * grow,
+            count: 2,
+        },
+        "cargo_pod" => PartKind::CargoPod {
+            radius: 1.8,
+            length: 5.0 * grow,
+        },
+        "docking_arm" => PartKind::DockingArm { length: 8.0 * grow },
+        "greenhouse" => PartKind::Greenhouse {
+            radius: 3.8 * grow,
+            stage: 3,
+        },
+        "lamp_mast" => PartKind::LampMast { height: 7.0 },
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod anchor_tests {
+    use super::*;
+
+    const AUTHORED: [&str; 5] = [
+        "station.lantern_wharf",
+        "station.kettle_dock",
+        "station.cinder_hook",
+        "station.brassmouth_exchange",
+        "station.glass_drift_observatory",
+    ];
+
+    #[test]
+    fn anchors_have_unique_names_and_sit_inside_the_station() {
+        for id in AUTHORED.iter().chain(&["gm.sixth_station"]) {
+            let recipe = StationRecipe::for_station(id, 0);
+            let list = anchors(id, &recipe);
+            assert!(list.len() >= 3, "{id}");
+            let mut names: Vec<_> = list.iter().map(|a| a.name).collect();
+            names.sort_unstable();
+            names.dedup();
+            assert_eq!(names.len(), list.len(), "{id}: duplicate anchor names");
+            for a in &list {
+                assert!(a.at.distance + 12.0 < MAX_STATION_RADIUS, "{id} {}", a.name);
+            }
+        }
+    }
+
+    #[test]
+    fn every_module_kind_passes_the_art_bible_at_every_level() {
+        let bible = ArtBible::bundled();
+        for kind in MODULE_KINDS {
+            for level in 1..=5 {
+                let part = module_part(kind, level).unwrap();
+                assert_eq!(kind_name(&part), kind);
+                let (name, params) = part_params(&part);
+                for (p, v) in params {
+                    assert_eq!(bible.proportion_issue(name, p, v), None, "{kind} {p}");
+                }
+                assert!(bible.kind_cap(kind) >= 1, "{kind} has a budget");
+            }
+        }
+        assert_eq!(module_part("spire", 1), None, "not a module kind");
+    }
+}

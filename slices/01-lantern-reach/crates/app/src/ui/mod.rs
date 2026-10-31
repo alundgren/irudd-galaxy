@@ -1,8 +1,10 @@
 //! The screen's panels, minimal and warm: the active goals with who gave them, the hold
 //! and credits, a hint for what Space does when something is in reach (until it has
-//! taught it, [`hints`]), the dock screen, talk bubbles over whoever speaks at the dock
-//! ([`talk`]), the ship log behind one small icon ([`log`]) and the PAUSED card. No
-//! timers, no progress bars; text is important or absent.
+//! taught it, [`hints`]), the station frame at the dock ([`station`]: the plate, module
+//! signs and the station key) with a room open beside its module ([`rooms`]), talk
+//! bubbles over whoever speaks at the dock ([`talk`]), the ship log behind one small
+//! icon ([`log`]) and the PAUSED card. No timers, no progress bars; text is important
+//! or absent.
 //!
 //! Layout is logical pixels from the viewport, so it needs no renderer and can be
 //! tested headless. Each function adds to an [`Overlay`] and returns the buttons it
@@ -12,17 +14,19 @@
 //! down to the window ([`ui_scale`], [`scale_overlay`]), so a small window shows all of
 //! them smaller rather than clipping any. Inside the canvas they're laid out against
 //! each other so none covers another: the goal banner between the edge and the hold
-//! (beside the title on the map), the log icon in the bottom-left corner, the log panel
-//! in the left column between the banner and the icon, the dock screen on the right
-//! with room left of it for the station and its bubbles, the bubbles inside that room,
-//! and the hint pill clear of the log icon. A market with more lines than fit scrolls
-//! with the selection. The window won't shrink below [`MIN_WINDOW`], where the text is
-//! still readable.
+//! (beside the title on the map), the log icon in the bottom-left corner with the
+//! station key beside it, the log panel in the left column between the banner and the
+//! icon, an open room on the right (at most 45% of the width) with the station and its
+//! bubbles left of it, and the hint pill clear of the log icon. A market with more lines
+//! than fit pages with the selection. The window won't shrink below [`MIN_WINDOW`], where
+//! the text is still readable.
 
 pub mod dock;
 pub mod fps;
 pub mod hints;
 pub mod log;
+pub mod rooms;
+pub mod station;
 pub mod talk;
 
 use galaxy_contract::prelude::*;
@@ -36,18 +40,15 @@ use crate::view::g;
 pub use dock::{Amount, DockLine, dock_lines, trade_request};
 pub use hints::{HintBook, HintKind, HintRules};
 
-/// The dock screen's width on the canvas.
-pub const DOCK_PANEL_WIDTH: f32 = 600.0;
-
 /// The hold panel's width on the canvas.
 pub const HOLD_PANEL_WIDTH: f32 = 200.0;
 
-/// The room the dock screen leaves on its left for the station and its talk bubbles.
+/// The log panel's width: the left column.
 pub const BUBBLE_ROOM: f32 = 460.0;
 
 /// The space between a panel and the canvas edge, and between two panels.
-const MARGIN: f32 = 18.0;
-const GAP: f32 = 12.0;
+pub(crate) const MARGIN: f32 = 18.0;
+pub(crate) const GAP: f32 = 12.0;
 
 /// Pure white and pure black: the only text colours, on dark and on light panels.
 const WHITE: Color = Color::WHITE;
@@ -126,6 +127,11 @@ pub struct UiState {
     pub log_first: usize,
     /// A visit replayed in the log.
     pub replay: Option<log::Replay>,
+    /// The station part whose room is open beside its module, while docked.
+    pub room: Option<StationPartId>,
+    /// A module or key icon shown hovered whatever the mouse does (`galaxy shot`'s
+    /// `:hover:ID`); the window hovers by the mouse.
+    pub hover: Option<StationPartId>,
 }
 
 impl UiState {
@@ -252,6 +258,10 @@ pub enum UiAction {
     Replay(Option<log::Replay>),
     /// A panel's background: the click stops there.
     Absorb,
+    /// Open a station part's room (its module, or its icon on the station key).
+    OpenRoom(StationPartId),
+    /// Back to the whole station (Back, Esc or a right-click).
+    CloseRoom,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -260,7 +270,7 @@ pub struct Button {
     pub action: UiAction,
 }
 
-fn contains(r: &Rect, p: G2) -> bool {
+pub(crate) fn contains(r: &Rect, p: G2) -> bool {
     p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
 }
 
@@ -898,9 +908,9 @@ pub fn prestige_card(
     ]
 }
 
-/// The market rows the dock screen shows: `(first, count)` out of `lines`, keeping the
+/// The market rows a market room shows: `(first, count)` out of `lines`, keeping the
 /// selected one in view when they don't all fit in `room`.
-fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
+pub(crate) fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
     if lines <= fits {
         return (0, lines);
     }
@@ -910,7 +920,7 @@ fn visible_rows(lines: usize, selected: usize, fits: usize) -> (usize, usize) {
     (first, count)
 }
 
-/// What the dock screen says besides the market: the latest refusals, one calm line
+/// What a room says besides its rows: the latest refusals, one calm line
 /// each, and what the latest purchase changed.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Notices<'a> {
@@ -920,512 +930,9 @@ pub struct Notices<'a> {
     pub fitted: Option<&'a str>,
 }
 
-/// An offer: its name and price, what it does, and what stands in the way, if anything.
-const OFFER_ROW: f32 = 68.0;
-const SERVICE_HEAD: f32 = 26.0;
-const ASK_ROW: f32 = 42.0;
-/// The services pager: "Services 2–4 of 6" with Up and Down.
-const PAGER_ROW: f32 = 40.0;
-
-/// One row of the services block.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum ServiceRow {
-    /// A service's heading (its keeper's name).
-    Head(usize),
-    /// An offer: service, offer.
-    Offer(usize, usize),
-    /// The dockmaster's "Ask what changed".
-    Ask(usize),
-}
-
-impl ServiceRow {
-    fn service(self) -> usize {
-        match self {
-            ServiceRow::Head(s) | ServiceRow::Offer(s, _) | ServiceRow::Ask(s) => s,
-        }
-    }
-
-    fn height(self) -> f32 {
-        match self {
-            ServiceRow::Head(_) => SERVICE_HEAD,
-            ServiceRow::Offer(..) => OFFER_ROW,
-            ServiceRow::Ask(_) => ASK_ROW,
-        }
-    }
-}
-
-/// The services block, row by row: a heading per service with something to offer (or
-/// a dockmaster to ask), a row per offer, the ask button.
-fn service_rows(services: &[hooks::ServiceEntry]) -> Vec<ServiceRow> {
-    let mut rows = Vec::new();
-    for (i, s) in services.iter().enumerate() {
-        if s.offers.is_empty() && !s.can_ask {
-            continue;
-        }
-        rows.push(ServiceRow::Head(i));
-        rows.extend((0..s.offers.len()).map(|o| ServiceRow::Offer(i, o)));
-        if s.can_ask {
-            rows.push(ServiceRow::Ask(i));
-        }
-    }
-    rows
-}
-
-/// The height of `rows[first..first + n]`, with its service's heading repeated on top
-/// when the window starts inside a service.
-fn window_height(rows: &[ServiceRow], first: usize, n: usize) -> f32 {
-    let head = match rows.get(first) {
-        Some(ServiceRow::Head(_)) | None => 0.0,
-        Some(_) => SERVICE_HEAD,
-    };
-    head + rows[first..first + n]
-        .iter()
-        .map(|r| r.height())
-        .sum::<f32>()
-}
-
-/// How many rows from `first` fit in `room` (at least one).
-fn rows_fitting(rows: &[ServiceRow], first: usize, room: f32) -> usize {
-    let mut n = 1;
-    while first + n < rows.len() && window_height(rows, first, n + 1) <= room {
-        n += 1;
-    }
-    n.min(rows.len() - first)
-}
-
-/// The services rows shown: `(first, count)`, starting near `wanted` and filling
-/// `room` (the last page is a full one).
-fn service_window(rows: &[ServiceRow], wanted: usize, room: f32) -> (usize, usize) {
-    if rows.is_empty() {
-        return (0, 0);
-    }
-    let last_page = (0..rows.len())
-        .find(|&f| window_height(rows, f, rows.len() - f) <= room)
-        .unwrap_or(rows.len() - 1);
-    let first = wanted.min(last_page);
-    (first, rows_fitting(rows, first, room))
-}
-
-/// The dock screen: the station's name, its market lines (price per unit, stock, your
-/// hold, buy or sell), any refusal in one calm line, the station's services (what the
-/// hullwright and tender keeper sell, with the price and what stands in the way in
-/// plain words; the dockmaster's "What changed?"), and how to leave. It sits under the hold,
-/// or beside it when a full hold leaves too little room below, and always fits the
-/// canvas height with its foot on screen: market rows that don't fit page with the
-/// selection, and services that don't fit page with Up and Down.
-pub fn dock_panel(
-    o: &mut Overlay,
-    world: &WorldState,
-    history: &History,
-    station: &StationId,
-    ui: &UiState,
-    notices: Notices<'_>,
-    viewport: G2,
-) -> Vec<Button> {
-    let mut buttons = Vec::new();
-    let Some(st) = world.stations.get(station) else {
-        return buttons;
-    };
-    let notice = notices.trade;
-    let lines = dock_lines(world, station);
-    let services = hooks::station_services(world, history, station);
-    let w = DOCK_PANEL_WIDTH.min(viewport.x - 36.0);
-    let row = 44.0;
-    let notice_h = if notice.is_some() { 34.0 } else { 0.0 };
-    // A refusal, or else what the purchase that just went through changes (it can
-    // take two rows).
-    let service_line = notices.service.or(notices.fitted);
-    let service_notice_h = match service_line {
-        Some(n) if text_width(n, 16.0) > w - 48.0 => 50.0,
-        Some(_) => 30.0,
-        None => 0.0,
-    };
-    let (scroll_h, head_h) = (24.0, 26.0);
-    let rows = service_rows(&services);
-    let services_full = window_height(&rows, 0, rows.len());
-    let market_full = if lines.is_empty() {
-        30.0
-    } else {
-        head_h + lines.len() as f32 * row
-    };
-    // Title, the notices and the foot (how to leave): always shown.
-    let fixed = 74.0 + notice_h + service_notice_h + 70.0;
-    let natural = fixed + market_full + services_full;
-    // Under the goal banner and the hold, which share the top right; if it doesn't fit
-    // there (a full hold makes the hold panel tall), beside the hold, under the goal,
-    // as long as that leaves the station and its bubbles their room.
-    let goal_bottom = goal_rect(world, viewport).map_or(0.0, |r| r.y + r.h + 12.0);
-    let hold = hold_rect(world, viewport);
-    let under = hold
-        .map_or(90.0, |r| r.y + r.h + 12.0)
-        .max(goal_bottom)
-        .max(90.0);
-    let beside = hold
-        .map(|r| r.x - GAP - w)
-        .filter(|x| *x >= MARGIN + BUBBLE_ROOM + GAP);
-    let (top, x0) = match beside {
-        Some(x) if natural > viewport.y - under - 18.0 => (goal_bottom.max(90.0), x),
-        _ => (under, viewport.x - w - 18.0),
-    };
-    // The body between the title and the foot shares what's left: everything if it
-    // fits; otherwise the services get what they need (at least one row and the pager)
-    // and page, and the market scrolls with the selection in the rest.
-    let body = viewport.y - top - 18.0 - fixed;
-    let market_min = if lines.len() > 1 {
-        head_h + row + scroll_h
-    } else {
-        market_full
-    };
-    let (services_first, services_shown, services_h) = if services_full <= body - market_min {
-        (0, rows.len(), services_full)
-    } else {
-        let room = (body - market_min).max(SERVICE_HEAD + OFFER_ROW + PAGER_ROW) - PAGER_ROW;
-        let (first, n) = service_window(&rows, ui.services_first, room);
-        (first, n, window_height(&rows, first, n) + PAGER_ROW)
-    };
-    let market_room = body - services_h;
-    let fits = if market_full <= market_room {
-        lines.len()
-    } else {
-        ((market_room - head_h - scroll_h) / row).floor().max(1.0) as usize
-    };
-    let (first, shown) = visible_rows(lines.len(), ui.selected, fits);
-    let scrolled = shown < lines.len();
-    let table_h = if lines.is_empty() {
-        30.0
-    } else {
-        head_h + shown as f32 * row + if scrolled { scroll_h } else { 0.0 }
-    };
-    let h = fixed + table_h + services_h;
-    // Never below the canvas: on a screen too small for even the minimum, the panel
-    // rides up over the goal line rather than lose its foot.
-    let y0 = top
-        .max((viewport.y - h - 18.0).min(140.0))
-        .min((viewport.y - h - 18.0).max(18.0));
-    o.panels.push(Panel {
-        radius: 16.0,
-        border_px: 3.5,
-        ..Panel::new(Rect::new(x0, y0, w, h))
-    });
-    // A coloured band under the title in the owner's colour.
-    let owner_color = st
-        .owner
-        .as_ref()
-        .map_or(palette::TERRACOTTA, crate::view::recipes::faction_color);
-    o.panels.push(Panel {
-        fill: owner_color,
-        border_px: 0.0,
-        radius: 3.0,
-        shadow: false,
-        ..Panel::new(Rect::new(x0 + 24.0, y0 + 58.0, w - 48.0, 4.0))
-    });
-    o.texts
-        .push(Text::new(st.name.clone(), G2::new(x0 + 24.0, y0 + 16.0), 30.0).weight(700));
-    o.texts.push(
-        Text::new(holder(world, st), G2::new(x0 + w - 24.0, y0 + 28.0), 15.0)
-            .weight(600)
-            .color(BLACK)
-            .align(Align::Right),
-    );
-
-    let col_ware = x0 + 24.0;
-    let col_price = x0 + 190.0;
-    let col_stock = x0 + 330.0;
-    let col_hold = x0 + 386.0;
-    let col_btn = x0 + w - 24.0 - 64.0 - 8.0 - 78.0;
-    let mut y = y0 + 74.0;
-    if lines.is_empty() {
-        o.texts.push(
-            Text::new("No market here.", G2::new(col_ware, y), 17.0)
-                .weight(500)
-                .color(BLACK),
-        );
-        y += 30.0;
-    } else {
-        let head = |o: &mut Overlay, t: &str, x: f32, align: Align| {
-            o.texts.push(
-                Text::new(t, G2::new(x, y), 13.0)
-                    .weight(600)
-                    .color(palette::TERRACOTTA)
-                    .align(align),
-            );
-        };
-        head(o, "WARE", col_ware, Align::Left);
-        head(o, "PRICE EACH", col_price, Align::Left);
-        head(o, "STOCK", col_stock + 30.0, Align::Right);
-        head(o, "HOLD", col_hold + 30.0, Align::Right);
-        y += 24.0;
-        for (i, line) in lines.iter().enumerate().skip(first).take(shown) {
-            let selected = i == ui.selected.min(lines.len() - 1);
-            let row_rect = Rect::new(x0 + 12.0, y - 2.0, w - 24.0, row - 4.0);
-            if selected {
-                o.panels.push(Panel {
-                    fill: palette::MUSTARD.with_alpha(0.28),
-                    border: palette::MUSTARD,
-                    border_px: 1.5,
-                    radius: 9.0,
-                    shadow: false,
-                    ..Panel::new(row_rect)
-                });
-            }
-            buttons.push(Button {
-                rect: row_rect,
-                action: UiAction::Select(i),
-            });
-            let ty = y + 9.0;
-            o.texts
-                .push(Text::new(line.name.clone(), G2::new(col_ware, ty), 18.0).weight(600));
-            let (verb, color) = match line.side {
-                TradeSide::Sell => ("pays", Color::hex(0x2f7a4a)),
-                TradeSide::Buy => ("asks", palette::INK),
-            };
-            let price = line.unit.map_or_else(
-                || "—".to_owned(),
-                |c| format!("{verb} {}", credits(i64::from(c))),
-            );
-            o.texts.push(
-                Text::new(price, G2::new(col_price, ty), 17.0)
-                    .weight(600)
-                    .color(color),
-            );
-            o.texts.push(
-                Text::new(line.stock.to_string(), G2::new(col_stock + 30.0, ty), 17.0)
-                    .weight(500)
-                    .align(Align::Right),
-            );
-            o.texts.push(
-                Text::new(line.in_hold.to_string(), G2::new(col_hold + 30.0, ty), 17.0)
-                    .weight(if line.in_hold > 0 { 700 } else { 400 })
-                    .align(Align::Right),
-            );
-            let can = match line.side {
-                TradeSide::Sell => line.in_hold > 0 && line.unit.is_some(),
-                TradeSide::Buy => line.stock > 0 && line.unit.is_some(),
-            };
-            let (one, most) = match line.side {
-                TradeSide::Sell => ("Sell 1", "Sell all"),
-                TradeSide::Buy => ("Buy 1", "Buy max"),
-            };
-            let by = y + 3.0;
-            buttons.push(button(
-                o,
-                ui,
-                Rect::new(col_btn, by, 64.0, 32.0),
-                one,
-                can,
-                UiAction::Trade {
-                    line: i,
-                    amount: Amount::One,
-                },
-            ));
-            buttons.push(button(
-                o,
-                ui,
-                Rect::new(col_btn + 72.0, by, 78.0, 32.0),
-                most,
-                can,
-                UiAction::Trade {
-                    line: i,
-                    amount: Amount::Most,
-                },
-            ));
-            y += row;
-        }
-        if scrolled {
-            // The rest of the market pages with the mouse, like the services.
-            let last = first + shown;
-            o.texts.push(
-                Text::new(
-                    format!("{}–{} of {}", first + 1, last, lines.len()),
-                    G2::new(col_ware, y + 2.0),
-                    13.0,
-                )
-                .weight(500)
-                .color(BLACK),
-            );
-            buttons.push(button(
-                o,
-                ui,
-                Rect::new(x0 + w - 24.0 - 128.0, y - 2.0, 60.0, 24.0),
-                "Up",
-                first > 0,
-                UiAction::Select(first.saturating_sub(1)),
-            ));
-            buttons.push(button(
-                o,
-                ui,
-                Rect::new(x0 + w - 24.0 - 60.0, y - 2.0, 60.0, 24.0),
-                "Down",
-                last < lines.len(),
-                UiAction::Select((last + shown - 1).min(lines.len() - 1)),
-            ));
-            y += scroll_h;
-        }
-    }
-    if let Some(n) = notice {
-        o.texts.push(
-            Text::new(n, G2::new(col_ware, y + 6.0), 16.0)
-                .weight(600)
-                .color(palette::TERRACOTTA)
-                .wrap(w - 48.0),
-        );
-        y += notice_h;
-    }
-    let head = |o: &mut Overlay, s: &hooks::ServiceEntry, y: f32| {
-        let head = match &s.keeper_name {
-            Some(k) => format!("{}  ·  {k}", s.name.to_uppercase()),
-            None => s.name.to_uppercase(),
-        };
-        o.texts.push(
-            Text::new(head, G2::new(col_ware, y + 6.0), 13.0)
-                .weight(600)
-                .color(palette::TERRACOTTA),
-        );
-    };
-    let window = &rows[services_first..services_first + services_shown];
-    if let Some(r) = window.first().filter(|r| !matches!(r, ServiceRow::Head(_))) {
-        // The window starts inside a service: say whose it is.
-        head(o, &services[r.service()], y);
-        y += SERVICE_HEAD;
-    }
-    for r in window {
-        match *r {
-            ServiceRow::Head(s) => head(o, &services[s], y),
-            ServiceRow::Offer(s, i) => {
-                let offer = &services[s].offers[i];
-                let title = if offer.owned {
-                    offer.name.clone()
-                } else {
-                    format!("{}  ·  {}", offer.name, offer.price)
-                };
-                o.texts.push(
-                    Text::new(title, G2::new(col_ware, y + 2.0), 17.0)
-                        .weight(600)
-                        .color(BLACK),
-                );
-                // What it does always shows, even before you can buy it.
-                o.texts.push(
-                    Text::new(offer.effect.as_str(), G2::new(col_ware, y + 23.0), 14.0)
-                        .weight(500)
-                        .color(BLACK)
-                        .wrap(w - 48.0 - 140.0),
-                );
-                if let Some(blocked) = offer.blocked.as_deref() {
-                    o.texts.push(
-                        Text::new(blocked, G2::new(col_ware, y + 43.0), 13.0)
-                            .weight(600)
-                            .color(palette::TERRACOTTA)
-                            .wrap(w - 48.0 - 140.0),
-                    );
-                }
-                let state_rect = Rect::new(x0 + w - 24.0 - 120.0, y + 4.0, 120.0, 34.0);
-                if offer.owned {
-                    // Already yours: an outline and a word where the button was.
-                    owned_mark(o, state_rect, &offer.request);
-                    y += r.height();
-                    continue;
-                }
-                let (label, action) = match &offer.request {
-                    ServiceRequest::Prestige { to } => ("Trade up", UiAction::Prestige(to.clone())),
-                    ServiceRequest::Build { .. } => {
-                        ("Build", UiAction::Service(offer.request.clone()))
-                    }
-                    ServiceRequest::Fit { .. } if offer.price == "a gift" => {
-                        ("Take it", UiAction::Service(offer.request.clone()))
-                    }
-                    ServiceRequest::Fit { .. } => ("Fit", UiAction::Service(offer.request.clone())),
-                    ServiceRequest::Refit { .. } => {
-                        ("Refit", UiAction::Service(offer.request.clone()))
-                    }
-                    ServiceRequest::Remove { .. } => {
-                        ("Take off", UiAction::Service(offer.request.clone()))
-                    }
-                    ServiceRequest::Make { .. } => {
-                        ("Make", UiAction::Service(offer.request.clone()))
-                    }
-                    ServiceRequest::Order { .. } => {
-                        ("Order", UiAction::Service(offer.request.clone()))
-                    }
-                };
-                buttons.push(button(
-                    o,
-                    ui,
-                    state_rect,
-                    label,
-                    offer.blocked.is_none(),
-                    action,
-                ));
-            }
-            ServiceRow::Ask(_) => {
-                buttons.push(button(
-                    o,
-                    ui,
-                    Rect::new(col_ware, y + 2.0, 200.0, 32.0),
-                    "Ask what changed",
-                    true,
-                    UiAction::AskWhatChanged,
-                ));
-            }
-        }
-        y += r.height();
-    }
-    if services_shown < rows.len() {
-        // The services page: what's shown of how many, and Up / Down.
-        let last = services_first + services_shown;
-        o.texts.push(
-            Text::new(
-                format!("Services {}–{} of {}", services_first + 1, last, rows.len()),
-                G2::new(col_ware, y + 12.0),
-                13.0,
-            )
-            .weight(500)
-            .color(BLACK),
-        );
-        buttons.push(button(
-            o,
-            ui,
-            Rect::new(x0 + w - 24.0 - 168.0, y + 4.0, 80.0, 30.0),
-            "Up",
-            services_first > 0,
-            UiAction::ServicesFrom(services_first.saturating_sub(services_shown)),
-        ));
-        buttons.push(button(
-            o,
-            ui,
-            Rect::new(x0 + w - 24.0 - 80.0, y + 4.0, 80.0, 30.0),
-            "Down",
-            last < rows.len(),
-            UiAction::ServicesFrom(last),
-        ));
-        y += PAGER_ROW;
-    }
-    if let Some(n) = service_line {
-        let color = if notices.service.is_some() {
-            palette::TERRACOTTA
-        } else {
-            Color::hex(0x2f7a4a)
-        };
-        o.texts.push(
-            Text::new(n, G2::new(col_ware, y + 4.0), 16.0)
-                .weight(600)
-                .color(color)
-                .wrap(w - 48.0),
-        );
-        y += service_notice_h;
-    }
-    let foot_y = y0 + h - 52.0;
-    let _ = y;
-    o.texts.push(
-        Text::new(DOCK_FOOT, G2::new(col_ware, foot_y + 12.0), 15.0)
-            .weight(500)
-            .color(BLACK),
-    );
-    buttons
-}
-
 /// "Fitted" (an upgrade) or "Yours" (a tender) in an outline, for something the player
 /// already has: a state, not a button.
-fn owned_mark(o: &mut Overlay, rect: Rect, request: &ServiceRequest) {
+pub(crate) fn owned_mark(o: &mut Overlay, rect: Rect, request: &ServiceRequest) {
     let word = match request {
         ServiceRequest::Build { .. } => "Yours",
         _ => "Fitted",
@@ -1450,7 +957,7 @@ fn owned_mark(o: &mut Overlay, rect: Rect, request: &ServiceRequest) {
     );
 }
 
-/// Who holds a station, for its card: the owning faction, or, for a station nobody
+/// Who holds a station, for its plate: the owning faction, or, for a station nobody
 /// owns (Cinder Hook at the start), its region's state as the map shows it.
 pub fn holder(world: &WorldState, st: &Station) -> String {
     match &st.owner {
@@ -1465,8 +972,7 @@ pub fn holder(world: &WorldState, st: &Station) -> String {
     }
 }
 
-/// The dock screen's foot: how to leave. There's no undock button or key: flying off
-/// undocks.
+/// A room's foot: how to leave. There's no undock button or key: flying off undocks.
 pub const DOCK_FOOT: &str = "W or S · fly off and undock";
 
 /// The map's own furniture: a title (the goal banner sits beside it, [`map_goal`]) and

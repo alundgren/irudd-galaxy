@@ -20,6 +20,7 @@ pub mod history;
 pub mod invariants;
 pub mod load;
 mod load_progress;
+pub mod parts;
 pub mod placeholder;
 pub mod rng;
 pub mod save;
@@ -34,8 +35,8 @@ pub use galaxy_contract::world::WorldState as World;
 pub use hash::state_hash;
 pub use history::History;
 pub use load::{
-    CRAFT_BACKFILL, DataError, FIT_BACKFILL, PACING_BACKFILL, craft_backfill, fit_backfill,
-    load_world, pacing_backfill,
+    CRAFT_BACKFILL, DataError, FIT_BACKFILL, PACING_BACKFILL, PARTS_BACKFILL, craft_backfill,
+    fit_backfill, load_world, pacing_backfill, parts_backfill,
 };
 pub use save::{Save, SaveError, fork};
 pub use sim::{KernelState, RollbackPlan, Sim, SimState, TickReport};
@@ -57,13 +58,15 @@ pub fn new_game(data_dir: &Path, seed: u64) -> Result<SimState, DataError> {
 
 /// Queues what a save made before newer authored data lacks, as the game does on open:
 /// [`pacing_backfill`]'s batch first, then [`craft_backfill`]'s, then
-/// [`fit_backfill`]'s. Each skips itself if an earlier open already queued it and the
+/// [`fit_backfill`]'s, then [`parts_backfill`]'s. Each skips itself if an earlier open
+/// already queued it and the
 /// save was written before it applied. Returns how many batches it queued (none on new
 /// games and up-to-date saves).
 pub fn queue_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
     Ok(queue_pacing_backfill(sim, data_dir)?
         + queue_craft_backfill(sim, data_dir)?
-        + queue_fit_backfill(sim, data_dir)?)
+        + queue_fit_backfill(sim, data_dir)?
+        + queue_parts_backfill(sim, data_dir)?)
 }
 
 /// Queues [`fit_backfill`]'s batch for `sim`'s world, unless an earlier open already
@@ -73,6 +76,19 @@ pub fn queue_fit_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataE
         return Ok(0);
     }
     let Some(batch) = fit_backfill(data_dir, sim.world())? else {
+        return Ok(0);
+    };
+    sim.submit(batch);
+    Ok(1)
+}
+
+/// Queues [`parts_backfill`]'s batch for `sim`'s world, unless an earlier open already
+/// queued it. Opening a save is a calm moment, so the parts go up with the first step.
+pub fn queue_parts_backfill(sim: &mut Sim, data_dir: &Path) -> Result<usize, DataError> {
+    if queued(sim, PARTS_BACKFILL) {
+        return Ok(0);
+    }
+    let Some(batch) = parts_backfill(data_dir, sim.world())? else {
         return Ok(0);
     };
     sim.submit(batch);

@@ -3,9 +3,13 @@
 # by person where someone stands apart. The dockmaster speaks from the office.
 #
 # A spot is an angle in degrees (0 = east, 90 = north, counterclockwise) and a reach
-# from the station's centre as a fraction of its docking ring's radius. Station modules
-# (Phase 3) will replace the spots; the role and person maps stay. Read by the app
+# from the station's centre as a fraction of its docking ring's radius. Read by the app
 # (crates/app/src/ui/talk.rs).
+#
+# Station parts (station_parts.toml, Phase 3) come first: a keeper's bubbles rise from
+# the module of the part they keep at that station, the office before any other, so the
+# dockmaster speaks from the office. These spots are for everyone else: a visitor from
+# another station, a person who keeps no part, and lines with no speaker.
 
 # A person with no role or person entry here, and anyone not at this station.
 default = "hub"

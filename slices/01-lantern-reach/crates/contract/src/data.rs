@@ -29,7 +29,7 @@ use crate::world::{Faction, Hull, Lane, Npc, Region, RockField, RockType, Servic
 pub const CONFIG_FILES: [&str; 2] = ["mind.toml", "lines.toml"];
 
 /// Every data file, in load order. All are optional except `start.toml`.
-pub const DATA_FILES: [&str; 17] = [
+pub const DATA_FILES: [&str; 18] = [
     "craft.toml",
     "wares.toml",
     "hulls.toml",
@@ -37,6 +37,7 @@ pub const DATA_FILES: [&str; 17] = [
     "regions.toml",
     "lanes.toml",
     "stations.toml",
+    "station_parts.toml",
     "rocks.toml",
     "npcs.toml",
     "ship_rules.toml",

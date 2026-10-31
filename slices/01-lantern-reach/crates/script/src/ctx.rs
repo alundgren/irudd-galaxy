@@ -34,6 +34,7 @@ use crate::meter::{Budget, FACTS_PER_STEP, table_slots};
 use crate::vm::{RngSource, TEXT_CAP, by_reference, caller_location, whole_number};
 
 mod live;
+mod parts;
 mod progress;
 mod space;
 mod talk;
@@ -1479,6 +1480,7 @@ pub(crate) fn build<'scope, 'env: 'scope>(
     ];
     tables.extend(progress::namespaces(lua, scope, env)?);
     tables.push(("space", space::namespace(lua, scope, env)?));
+    tables.push(("parts", parts::namespace(lua, scope, env)?));
     tables.extend(live::namespaces(lua, scope, env)?);
     for (name, t) in tables {
         if present.contains(name) {
