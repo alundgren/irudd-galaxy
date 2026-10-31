@@ -1556,7 +1556,10 @@ impl MindHost {
             return;
         }
         let live_rules = &self.config.live;
-        let region = world.stations.get(&channel.station).map(|s| s.region.clone());
+        let region = world
+            .stations
+            .get(&channel.station)
+            .map(|s| s.region.clone());
         let window = self.window(world, region.as_ref());
         let Ok(allowed) = self.allowance_up_to(region.as_ref(), window, live_rules.max_attempts)
         else {
@@ -1598,8 +1601,7 @@ impl MindHost {
             .rev()
             .find(|f| {
                 f.kind.as_str() == radio::FOUND_FACT
-                    && f
-                        .subjects
+                    && f.subjects
                         .other
                         .as_ref()
                         .is_some_and(|o| o.as_str() == channel.id)
@@ -1648,7 +1650,13 @@ impl MindHost {
                 self.verdict(call.as_ref(), Verdict::Accepted, "");
                 self.stats.live_accepted += 1;
                 out.batches.push(radio::accepted(
-                    world, &channel, &bit, &p.sent.key, &model, p.docking, cites,
+                    world,
+                    &channel,
+                    &bit,
+                    &p.sent.key,
+                    &model,
+                    p.docking,
+                    cites,
                 ));
             }
             Err(e) => {

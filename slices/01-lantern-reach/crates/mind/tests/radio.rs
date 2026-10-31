@@ -292,7 +292,10 @@ fn bits_that_break_the_rules_or_name_someone_else_are_rejected_and_skipped() {
         let mut host = host(&sim, &mock, &log.sink, Rules::default());
         let at = near(&sim, &WHARF);
         fly_to(&mut sim, &mut host, at);
-        assert!(radio_facts(&sim).is_empty(), "{answer}: nothing reaches the world");
+        assert!(
+            radio_facts(&sim).is_empty(),
+            "{answer}: nothing reaches the world"
+        );
         let rows = log.rows();
         assert_eq!(rows.len(), 1, "{answer}");
         assert_eq!(rows[0]["verdict"], "rejected", "{answer}");
@@ -310,7 +313,9 @@ fn the_cooldown_counts_dockings_per_channel_and_the_run_has_a_cap() {
     let mock = Mock::default();
     let log = TempLog::new("cooldown");
     for _ in 0..8 {
-        mock.ok(r#"{"speaker":"npc.ilse_marrow","text":"I have lamps lit along the pier for you."}"#);
+        mock.ok(
+            r#"{"speaker":"npc.ilse_marrow","text":"I have lamps lit along the pier for you."}"#,
+        );
     }
     let rules = Rules {
         cooldown_dockings: 2,
@@ -352,7 +357,11 @@ fn the_cooldown_survives_a_new_host_from_history() {
     // A new session (as after a load) reads the last ask from history.
     let mut second = host(&sim, &mock, &log.sink, Rules::default());
     run(&mut sim, &mut second, 3);
-    assert_eq!(mock.posts().len(), 1, "no docking since: still cooling down");
+    assert_eq!(
+        mock.posts().len(),
+        1,
+        "no docking since: still cooling down"
+    );
 }
 
 #[test]

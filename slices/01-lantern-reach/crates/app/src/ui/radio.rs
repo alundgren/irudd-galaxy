@@ -97,13 +97,7 @@ fn radio_button(
 }
 
 /// Draws the radio and returns its buttons. Nothing unless `radio.show`.
-pub fn draw(
-    o: &mut Overlay,
-    ui: &UiState,
-    radio: &RadioUi,
-    time: f32,
-    canvas: G2,
-) -> Vec<Button> {
+pub fn draw(o: &mut Overlay, ui: &UiState, radio: &RadioUi, time: f32, canvas: G2) -> Vec<Button> {
     if !radio.show {
         return Vec::new();
     }
@@ -116,8 +110,11 @@ pub fn draw(
     let x = r.x + PAD;
     let inner = r.w - 2.0 * PAD;
     let y = r.y + 12.0;
-    o.texts
-        .push(Text::new("RADIO", G2::new(x, y + 2.0), 12.0).weight(700).color(WHITE));
+    o.texts.push(
+        Text::new("RADIO", G2::new(x, y + 2.0), 12.0)
+            .weight(700)
+            .color(WHITE),
+    );
     let signal = if radio.on && radio.channel.is_some() {
         radio.signal
     } else {
@@ -141,8 +138,11 @@ pub fn draw(
             ..Panel::new(Rect::new(bx, y + 16.0 - h, 6.0, h))
         });
     }
-    o.texts
-        .push(Text::new(word, G2::new(word_x, y), 14.0).weight(600).color(WHITE));
+    o.texts.push(
+        Text::new(word, G2::new(word_x, y), 14.0)
+            .weight(600)
+            .color(WHITE),
+    );
     let name = match (&radio.channel, radio.on) {
         (_, false) => "Radio off".to_owned(),
         (Some(n), true) => n.clone(),

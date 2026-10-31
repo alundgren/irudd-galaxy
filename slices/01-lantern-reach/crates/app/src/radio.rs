@@ -148,7 +148,11 @@ impl ChannelSpec {
     /// The flagship's distance from the source, if it is flying in the source's region
     /// (not docked, not in a lane).
     pub fn distance(&self, world: &WorldState) -> Option<f32> {
-        let ship = world.player.ship.as_ref().and_then(|s| world.ships.get(s))?;
+        let ship = world
+            .player
+            .ship
+            .as_ref()
+            .and_then(|s| world.ships.get(s))?;
         if ship.docked_at.is_some() || ship.activity.transit.is_some() {
             return None;
         }
@@ -269,8 +273,11 @@ impl RadioData {
             if !name_ok(&c.name) {
                 bad(format!("{at}: a name of 1 to {MAX_NAME} characters"));
             }
-            if !(c.range > 0.0 && c.range <= MAX_RANGE) {
-                bad(format!("{at}: range {} is outside 0 to {MAX_RANGE}", c.range));
+            if c.range.is_nan() || c.range <= 0.0 || c.range > MAX_RANGE {
+                bad(format!(
+                    "{at}: range {} is outside 0 to {MAX_RANGE}",
+                    c.range
+                ));
             }
             if !sources.insert(c.source.clone()) {
                 bad(format!("{at}: `{}` already has a channel", c.source));
@@ -390,9 +397,8 @@ impl RadioData {
             .stations
             .get(c.station())
             .map_or_else(|| c.name.clone(), |s| s.name.clone());
-        let mut mood = format!(
-            "Gentle instrumental radio music for {name}, a {feel} frontier station"
-        );
+        let mut mood =
+            format!("Gentle instrumental radio music for {name}, a {feel} frontier station");
         if !sounds.is_empty() {
             mood.push_str(&format!(", with a hint of {}", sounds.join(", ")));
         }
@@ -824,7 +830,10 @@ impl Radio {
             .on(&spec.id)
             .iter()
             .map(|(npc, text)| {
-                let who = world.npcs.get(npc).map_or(npc.as_str(), |n| n.name.as_str());
+                let who = world
+                    .npcs
+                    .get(npc)
+                    .map_or(npc.as_str(), |n| n.name.as_str());
                 let first = who.split_whitespace().next().unwrap_or(who);
                 format!("{first}: {text}")
             })
@@ -891,7 +900,10 @@ mod tests {
         let themes = Themes::load(&data_dir()).unwrap();
         let kettle = data.channel("radio.kettle_dock").unwrap();
         let mood = data.mood(kettle, &state.world, &themes);
-        assert!(mood.contains("Kettle Dock") && mood.contains("kettle whistle"), "{mood}");
+        assert!(
+            mood.contains("Kettle Dock") && mood.contains("kettle whistle"),
+            "{mood}"
+        );
     }
 
     #[test]
@@ -943,6 +955,10 @@ mod tests {
         )
         .unwrap();
         let state = galaxy_core::new_game(&data_dir(), 1).unwrap();
-        assert!(bad.check(&state.world).unwrap_err().contains("station.nowhere"));
+        assert!(
+            bad.check(&state.world)
+                .unwrap_err()
+                .contains("station.nowhere")
+        );
     }
 }

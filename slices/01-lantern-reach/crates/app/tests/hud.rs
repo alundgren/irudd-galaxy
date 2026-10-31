@@ -206,7 +206,10 @@ fn nothing_on_the_flying_hud_overlaps() {
             ],
             canvas,
         );
-        assert!(!overlaps(&mining, &radio), "{size:?}: mining pill on the radio");
+        assert!(
+            !overlaps(&mining, &radio),
+            "{size:?}: mining pill on the radio"
+        );
         assert!(
             !overlaps(&mining, &icon),
             "{size:?}: mining pill on the icon"
@@ -328,8 +331,14 @@ fn the_radio_says_its_signal_in_words_and_bars_and_rotates_its_bits() {
     assert_eq!(ui::radio::bars(0.0), 0);
     let bits = vec!["a".to_owned(), "b".to_owned()];
     assert_eq!(ui::radio::bit_at(&bits, 0.0), Some("a"));
-    assert_eq!(ui::radio::bit_at(&bits, ui::radio::BIT_SECONDS + 0.1), Some("b"));
-    assert_eq!(ui::radio::bit_at(&bits, 2.0 * ui::radio::BIT_SECONDS), Some("a"));
+    assert_eq!(
+        ui::radio::bit_at(&bits, ui::radio::BIT_SECONDS + 0.1),
+        Some("b")
+    );
+    assert_eq!(
+        ui::radio::bit_at(&bits, 2.0 * ui::radio::BIT_SECONDS),
+        Some("a")
+    );
     assert_eq!(ui::radio::bit_at(&[], 3.0), None);
 }
 

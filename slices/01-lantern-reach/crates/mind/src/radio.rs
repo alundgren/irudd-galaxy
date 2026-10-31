@@ -222,7 +222,10 @@ pub fn accepted(
                 subjects: Subjects {
                     station: Some(channel.station.clone()),
                     npc: Some(bit.speaker.clone()),
-                    region: world.stations.get(&channel.station).map(|s| s.region.clone()),
+                    region: world
+                        .stations
+                        .get(&channel.station)
+                        .map(|s| s.region.clone()),
                     other: AnyId::new(&channel.id).ok(),
                     ..Subjects::default()
                 },

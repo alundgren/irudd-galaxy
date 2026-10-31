@@ -61,7 +61,10 @@ fn found(s: &Session, channel: &str) -> Vec<FactId> {
         .iter()
         .filter(|f| {
             f.kind.as_str() == FOUND_FACT
-                && f.subjects.other.as_ref().is_some_and(|o| o.as_str() == channel)
+                && f.subjects
+                    .other
+                    .as_ref()
+                    .is_some_and(|o| o.as_str() == channel)
         })
         .map(|f| f.id)
         .collect()
@@ -140,7 +143,11 @@ fn a_discovery_saved_before_its_notice_is_said_after_the_load() {
     // The move applies in the first tick and the discovery in the second; stop there.
     run(&mut s, 2);
     assert_eq!(found(&s, "radio.kettle_dock").len(), 1);
-    assert_eq!(notices(&s, "New signal: Kettle Dock radio"), 0, "not said yet");
+    assert_eq!(
+        notices(&s, "New signal: Kettle Dock radio"),
+        0,
+        "not said yet"
+    );
     let mut again = Session::new(s.state().clone());
     run(&mut again, 2);
     assert_eq!(notices(&again, "New signal: Kettle Dock radio"), 1);
@@ -150,7 +157,10 @@ fn a_discovery_saved_before_its_notice_is_said_after_the_load() {
 #[test]
 fn docked_nothing_is_discovered() {
     let mut s = Session::new(galaxy_core::new_game(&data(), 1).unwrap());
-    assert!(s.flagship().unwrap().docked_at.is_some(), "a new game starts docked");
+    assert!(
+        s.flagship().unwrap().docked_at.is_some(),
+        "a new game starts docked"
+    );
     run(&mut s, 10);
     assert!(found(&s, "radio.lantern_wharf").is_empty());
 }
@@ -208,7 +218,11 @@ fn volume_and_static_follow_the_distance_and_out_of_range_is_quiet() {
         f.mix.voices[0].source,
         galaxy_audio::radio::Source::Placeholder("placeholder.calm".into())
     );
-    assert_eq!(r.entries("radio.kettle_dock"), 2, "entries are counted (view only)");
+    assert_eq!(
+        r.entries("radio.kettle_dock"),
+        2,
+        "entries are counted (view only)"
+    );
 }
 
 #[test]
@@ -224,12 +238,19 @@ fn overlapping_channels_crossfade_and_tuning_picks_one() {
         let t = i as f32 / 10.0;
         move_to(&mut s, wharf + (kettle - wharf) * t);
         let f = frame(&mut r, &s);
-        let (gw, gk) = (gain(&f, "radio.lantern_wharf"), gain(&f, "radio.kettle_dock"));
+        let (gw, gk) = (
+            gain(&f, "radio.lantern_wharf"),
+            gain(&f, "radio.kettle_dock"),
+        );
         assert!(gw <= last.0 + 1e-6 && gk >= last.1 - 1e-6, "{t}: {gw} {gk}");
         if gw > 0.0 && gk > 0.0 {
             handed_over = true;
             assert_eq!(f.ui.others, 1);
-            let stronger = if gw >= gk { "Lantern Wharf radio" } else { "Kettle Dock radio" };
+            let stronger = if gw >= gk {
+                "Lantern Wharf radio"
+            } else {
+                "Kettle Dock radio"
+            };
             assert_eq!(f.ui.channel.as_deref(), Some(stronger), "{t}");
         }
         last = (gw, gk);

@@ -434,7 +434,10 @@ impl Output {
             radio::Source::Placeholder(n) => n.as_str(),
             radio::Source::File(_) => radio::CALM,
         };
-        let data = self.loops.get(name).or_else(|| self.loops.get(radio::CALM))?;
+        let data = self
+            .loops
+            .get(name)
+            .or_else(|| self.loops.get(radio::CALM))?;
         let data = data.volume(Decibels::SILENCE);
         self.radio.play(data).ok().map(Playing::Loop)
     }

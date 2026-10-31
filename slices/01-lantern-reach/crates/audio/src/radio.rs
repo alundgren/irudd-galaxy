@@ -57,7 +57,7 @@ impl Default for Falloff {
 /// The signal at `distance` from a source with `range`: 1 within `near` of the range,
 /// easing (smoothstep) to 0 at the edge, 0 beyond it.
 pub fn signal(distance: f32, range: f32, falloff: &Falloff) -> f32 {
-    if !(range > 0.0) || !distance.is_finite() || distance >= range {
+    if range.is_nan() || range <= 0.0 || !distance.is_finite() || distance >= range {
         return 0.0;
     }
     let near = falloff.near.clamp(0.0, 0.99) * range;
@@ -74,7 +74,7 @@ pub fn signal(distance: f32, range: f32, falloff: &Falloff) -> f32 {
 /// is silence, not a burst of hiss.
 pub fn static_level(signal: f32, falloff: &Falloff) -> f32 {
     let below = falloff.static_below.clamp(0.01, 1.0);
-    if !(signal > 0.0) || signal >= below {
+    if signal.is_nan() || signal <= 0.0 || signal >= below {
         return 0.0;
     }
     let creep = 1.0 - signal / below;
@@ -330,7 +330,10 @@ mod tests {
     #[test]
     fn overlapping_channels_crossfade_by_signal() {
         assert_eq!(crossfade(&[]), Vec::<f32>::new());
-        assert!((crossfade(&[0.8])[0] - 0.8).abs() < 1e-6, "alone: its own signal");
+        assert!(
+            (crossfade(&[0.8])[0] - 0.8).abs() < 1e-6,
+            "alone: its own signal"
+        );
         assert_eq!(crossfade(&[0.0, 0.0]), vec![0.0, 0.0]);
         let even = crossfade(&[0.5, 0.5]);
         assert!((even[0] - 0.25).abs() < 1e-6 && (even[0] - even[1]).abs() < 1e-6);
@@ -357,7 +360,11 @@ mod tests {
             assert!(m.duration >= 10.0, "{name}: {:.1} s", m.duration);
             assert!(m.peak_db <= -11.9, "{name}: peak {:.1}", m.peak_db);
             assert!(m.rms_db <= -24.0, "{name}: rms {:.1}", m.rms_db);
-            assert!(m.centroid_hz <= 900.0, "{name}: centroid {:.0}", m.centroid_hz);
+            assert!(
+                m.centroid_hz <= 900.0,
+                "{name}: centroid {:.0}",
+                m.centroid_hz
+            );
             assert!(m.harsh_share <= 0.01, "{name}: harsh {:.4}", m.harsh_share);
             assert!(m.dc.abs() <= 1e-4, "{name}: dc {}", m.dc);
             // The end runs into the start: no step at the seam.
