@@ -17,7 +17,7 @@ mod station;
 pub use backdrop::{Backdrop, BackdropParams, Blob, backdrop};
 pub use parts::{
     CRADLE_SHADOW, Cradle, CradlePose, CradleSocket, FITTED_GOLD, SEAM_LIGHT, SKY_BLUE, SocketRing,
-    fitted_hull, ghost_material, part, part_ghost, seam_lamp_light,
+    cradle_sockets, fitted_hull, ghost_material, part, part_ghost, seam_lamp_light,
 };
 pub use rng::Rng;
 pub use rock::{RockKind, RockParams, rock, rock_morph, rock_scale};

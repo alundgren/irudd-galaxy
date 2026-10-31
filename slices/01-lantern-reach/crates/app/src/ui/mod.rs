@@ -132,6 +132,9 @@ pub struct UiState {
     /// A module or key icon shown hovered whatever the mouse does (`galaxy shot`'s
     /// `:hover:ID`); the window hovers by the mouse.
     pub hover: Option<StationPartId>,
+    /// The hullwright's room: the tray tab, a part in hand, the Make confirm and the
+    /// fitting animation ([`rooms::fit`]).
+    pub wharf: rooms::fit::WharfUi,
 }
 
 impl UiState {
@@ -262,6 +265,8 @@ pub enum UiAction {
     OpenRoom(StationPartId),
     /// Back to the whole station (Back, Esc or a right-click).
     CloseRoom,
+    /// Something at the hullwright's cradle: a tab, a part, a socket, the locker.
+    Wharf(rooms::fit::WharfAction),
 }
 
 #[derive(Clone, Debug, PartialEq)]

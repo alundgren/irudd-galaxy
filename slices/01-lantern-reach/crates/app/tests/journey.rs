@@ -828,11 +828,12 @@ fn the_wharf_and_office_rooms_draw_services_with_working_buttons() {
         ui::Notices::default(),
         canvas,
     );
-    assert!(
-        buttons
-            .iter()
-            .any(|b| b.action == ui::UiAction::Service(ServiceRequest::Fit { upgrade: LENS }))
-    );
+    // The lens is a part: its tray row is picked up and dragged onto the drill mount.
+    assert!(buttons.iter().any(|b| b.action
+        == ui::UiAction::Wharf(ui::rooms::fit::WharfAction::Part {
+            part: LENS,
+            from: ui::rooms::fit::Source::Tray,
+        })));
     assert!(o.texts.iter().any(|t| t.text == "Mining lens  ·  600 cr"));
     for b in &buttons {
         assert!(b.rect.y + b.rect.h <= canvas.y, "{b:?} fits");
@@ -1072,6 +1073,16 @@ fn a_crowded_wharf_keeps_undock_and_every_service_on_screen() {
                         ui::UiAction::Service(r) => {
                             seen.insert(format!("{r:?}"));
                         }
+                        // A part at the hullwright is fitted by dragging its row.
+                        ui::UiAction::Wharf(ui::rooms::fit::WharfAction::Part {
+                            part,
+                            from: ui::rooms::fit::Source::Tray,
+                        }) => {
+                            let fit = ServiceRequest::Fit {
+                                upgrade: part.clone(),
+                            };
+                            seen.insert(format!("{fit:?}"));
+                        }
                         ui::UiAction::AskWhatChanged => {
                             seen.insert("ask".to_owned());
                         }
@@ -1079,11 +1090,22 @@ fn a_crowded_wharf_keeps_undock_and_every_service_on_screen() {
                     }
                 }
                 let down = buttons.iter().find_map(|b| match b.action {
-                    ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => Some(n),
+                    ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => {
+                        Some((n, false))
+                    }
+                    ui::UiAction::Wharf(ui::rooms::fit::WharfAction::From(n))
+                        if n > ui_state.wharf.first =>
+                    {
+                        Some((n, true))
+                    }
                     _ => None,
                 });
-                let Some(next) = down else { break };
-                ui_state.services_first = next;
+                let Some((next, tray)) = down else { break };
+                if tray {
+                    ui_state.wharf.first = next;
+                } else {
+                    ui_state.services_first = next;
+                }
             }
         }
         for r in &offered {

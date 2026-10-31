@@ -36,6 +36,44 @@ pub fn open_room<'a>(session: &'a Session, ui_state: &UiState) -> Option<Cow<'a,
     ui::station::room_here(session.world(), docked, id)
 }
 
+/// The open room if it's an open wharf the fit rules know: the hullwright's cradle
+/// (#47, 3.2), with the flagship lifted into it.
+pub fn cradle_room<'a>(
+    session: &'a Session,
+    ui_state: &UiState,
+) -> Option<(StationId, Cow<'a, StationPart>)> {
+    let part = open_room(session, ui_state)?;
+    let station = session.flagship()?.docked_at.clone()?;
+    let world = session.world();
+    (part.room == galaxy_contract::parts::RoomKind::Wharf
+        && part.state == galaxy_contract::parts::PartState::Open
+        && world.progress.rules.fit.wharves.contains_key(&station))
+    .then_some((station, part))
+}
+
+/// What the cradle draws this frame, if a wharf's room is open.
+pub fn cradle_spec(
+    session: &Session,
+    ui_state: &UiState,
+) -> Option<crate::view::cradle::CradleSpec> {
+    let (station, part) = cradle_room(session, ui_state)?;
+    crate::view::cradle::spec(
+        session.world(),
+        session.sim().history(),
+        &station,
+        &part,
+        &ui_state.wharf,
+    )
+}
+
+/// Uploads what this frame needs that [`View::sync`] doesn't know about: the ship in the
+/// cradle as it's drawn now. Call before [`compose`].
+pub fn prepare(view: &mut View, r: &mut render::Renderer, session: &Session, ui_state: &UiState) {
+    if let Some(spec) = cradle_spec(session, ui_state) {
+        view.prepare_cradle(r, &spec);
+    }
+}
+
 /// The camera's goal. Flying, the flagship, drawn between ticks. Docked, the camera
 /// comes in close on the whole station (its art and every module); with a room open,
 /// closer still, on the room's module in the middle of the space the room leaves free.
@@ -76,10 +114,21 @@ pub fn camera_goal(
             zoom: Some(zoom),
         });
     };
+    let canvas = ui::canvas(viewport);
+    if let Some((_, wharf)) = cradle_room(session, ui_state) {
+        // The cradle, close up, in the room the panel leaves on its left.
+        let free = ui::station::bubble_bounds(world, &st.id, true, session.talk.log_new(), canvas);
+        if let Some((center, zoom)) = crate::view::cradle::camera_goal(world, &wharf, free, canvas)
+        {
+            return Some(CameraGoal {
+                center,
+                zoom: Some(zoom),
+            });
+        }
+    }
     let zoom = zoom * ROOM_ZOOM;
     let at = crate::view::modules::module_point(world, &part).map_or(centre, |(p, _)| p);
     // The module in the middle of what the room leaves free on its left.
-    let canvas = ui::canvas(viewport);
     let free = ui::station::room_rect(world, &st.id, canvas).x * ui::ui_scale(viewport);
     let shift_px = viewport.x * 0.5 - free * 0.5;
     let wpp = Camera::top_down(at, zoom)
@@ -165,6 +214,11 @@ pub fn compose(
             );
         }
         view.draw_modules(&mut s, world, rig, hovered.as_ref());
+        if ui_state.confirm.is_none()
+            && let Some(spec) = cradle_spec(session, ui_state)
+        {
+            view.draw_cradle(&mut s, &spec, viewport);
+        }
         s
     };
     if ui_state.map_open {
@@ -245,9 +299,15 @@ fn station_frame(
     let key = ui::station::key_rects(world, station, canvas);
     let key_area = ui::station::key_area(world, station, canvas);
     let plate = ui::station::plate_rect(world, station);
+    let cradle = cradle_room(session, ui_state);
     let mut cover: Vec<Rect> = vec![plate, ui::log::icon_area(log_new, canvas)];
     cover.extend(key_area);
     cover.extend(room_rect);
+    if let Some((_, part)) = &cradle {
+        cover.extend(crate::view::cradle::canvas_rect(
+            world, part, camera, viewport, scale,
+        ));
+    }
     cover.extend(ui::hold_rect(world, canvas));
     if log_open {
         cover.push(ui::log::panel_rect(canvas));
@@ -329,6 +389,12 @@ fn station_frame(
                 fitted: session.services.fitted.as_deref(),
             },
         };
+        if cradle.is_some() {
+            let free = ui::station::bubble_bounds(world, station, true, log_new, canvas);
+            buttons.extend(ui::rooms::cradle::furniture(
+                panels, &r, camera, viewport, scale, free,
+            ));
+        }
         buttons.extend(ui::rooms::draw(panels, &r, rect));
     }
     if let Some((b, anchor, bounds, _)) = bubble {

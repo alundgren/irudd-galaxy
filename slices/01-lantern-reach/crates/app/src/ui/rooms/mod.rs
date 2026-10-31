@@ -11,6 +11,8 @@
 //! key scripts and the tests drive rooms the same way.
 
 pub mod counter;
+pub mod cradle;
+pub mod fit;
 pub mod market;
 pub mod office;
 pub mod wharf;

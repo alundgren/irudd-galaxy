@@ -12,6 +12,7 @@
 //! one step to the next as it is mined, and its instance shrinks with what is left, so
 //! its shape and shading change continuously.
 
+pub mod cradle;
 pub mod fit_look;
 mod live;
 pub mod map;
@@ -210,6 +211,8 @@ pub struct View {
     hulls: BTreeMap<HullKey, MeshHandle>,
     /// Single parts for the cradle's ghost previews.
     parts: BTreeMap<(HullId, LookId), MeshHandle>,
+    /// Single parts in their paint, for the crane to carry in the cradle.
+    solids: BTreeMap<(HullId, LookId), MeshHandle>,
     stations: BTreeMap<StationId, StationArt>,
     rocks: BTreeMap<RockId, RockArt>,
     backdrops: BTreeMap<Option<RegionId>, BackdropHandle>,

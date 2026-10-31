@@ -106,6 +106,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         }
     }
     let time = session.world().meta.tick.0 as f32 / galaxy_contract::TICKS_PER_SECOND as f32;
+    frame::prepare(&mut view, &mut renderer, &session, &ui_state);
     let (scene, _) = frame::compose(
         &view,
         &session,
@@ -148,8 +149,27 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "log_new": session.talk.log_new(),
         "log_open": ui_state.log_open,
         "room": frame::open_room(&session, &ui_state).map(|p| p.id.to_string()),
+        "wharf": wharf_report(&session, &ui_state),
         "written": args.write && args.keys.is_some(),
     }))
+}
+
+/// The hullwright room's state, for agents reading a shot: the tab, what's in hand and
+/// over what, the fitting animation, and the keeper's word.
+fn wharf_report(session: &Session, ui_state: &UiState) -> Value {
+    frame::cradle_room(session, ui_state).map_or(Value::Null, |_| {
+        let w = &ui_state.wharf;
+        json!({
+            "tab": w.tab.label(),
+            "held": w.held.as_ref().map(|h| h.part.to_string()),
+            "over": w.over.as_ref().map(|o| format!("{o:?}")),
+            "chosen": w.chosen.as_ref().map(|p| p.to_string()),
+            "make": w.make.as_ref().map(|(p, fit)| json!({ "part": p, "fit": fit })),
+            "fitting": w.fitting.as_ref().map(|f| json!({ "part": f.part, "t": f.t })),
+            "said": w.said.as_ref().map(|s| s.text.clone()),
+            "fittings": session.world().player.fittings,
+        })
+    })
 }
 
 #[cfg(test)]

@@ -32,6 +32,10 @@ use crate::ui::{self, Amount, Button, UiAction, UiState};
 use crate::view::map::map_camera;
 use crate::view::{CameraRig, View, g};
 
+/// How far the mouse travels, in logical pixels, before a press on a part is a drag
+/// rather than a click.
+const DRAG_PX: f32 = 6.0;
+
 #[derive(Clone, Debug, Default)]
 pub struct PlayArgs {
     pub beat: Option<u32>,
@@ -110,6 +114,8 @@ struct App {
     cues: crate::sound::Cues,
     /// Where the camera was framing (the dock and the open room): a change glides.
     framing: (Option<StationId>, Option<StationPartId>),
+    /// Where the left button went down on a part at the cradle: a drag starts there.
+    press_at: Option<G2>,
 }
 
 /// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
@@ -256,6 +262,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         audio,
         cues,
         framing: (None, None),
+        press_at: None,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -351,6 +358,7 @@ impl App {
         };
         let viewport = r.renderer.logical_size();
         let time = (Instant::now() - self.started).as_secs_f32();
+        crate::frame::prepare(&mut r.view, &mut r.renderer, &self.session, &self.ui);
         let (scene, _) = crate::frame::compose(
             &r.view,
             &self.session,
@@ -410,7 +418,9 @@ impl App {
             UiAction::Trade { line, amount } => self.trade(line, amount),
             UiAction::Select(i) => self.ui.selected = i,
             UiAction::CloseMap => self.ui.map_open = false,
-            UiAction::Service(req) => self.session.request_service(req),
+            UiAction::Service(req) => {
+                ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
+            }
             UiAction::Prestige(to) => self.ui.confirm = Some(to),
             UiAction::ConfirmPrestige(to) => {
                 self.ui.confirm = None;
@@ -435,6 +445,35 @@ impl App {
             UiAction::Absorb => {}
             UiAction::OpenRoom(id) => self.open_room(Some(id)),
             UiAction::CloseRoom => self.open_room(None),
+            UiAction::Wharf(a) => self.wharf(&a),
+        }
+    }
+
+    /// A click at the hullwright's cradle: a tab, a socket, the locker, a confirm.
+    fn wharf(&mut self, a: &ui::rooms::fit::WharfAction) {
+        let Some(station) = self.docked() else { return };
+        let (world, history) = (self.session.world(), self.session.sim().history());
+        if let Some(req) = self.ui.wharf.click(world, history, &station, a) {
+            ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
+        }
+    }
+
+    /// The left button came up: the end of a drag at the cradle (a drop on a socket or
+    /// the locker), or a click that picked a part up.
+    fn released(&mut self) {
+        let Some(at) = self.press_at.take() else {
+            return;
+        };
+        if self.session.is_paused() {
+            return;
+        }
+        let cursor = self.ui.cursor.unwrap_or(at);
+        let moved = cursor.distance(at) > DRAG_PX;
+        let over = ui::rooms::cradle::over_of(ui::hit(&self.buttons, cursor));
+        self.ui.wharf.hover(over);
+        let (world, history) = (self.session.world(), self.session.sim().history());
+        if let Some(req) = self.ui.wharf.release(world, history, moved) {
+            ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
         }
     }
 
@@ -447,11 +486,18 @@ impl App {
         if room != self.ui.room {
             self.ui.selected = 0;
             self.ui.services_first = 0;
+            self.ui.wharf.reset();
+            self.press_at = None;
         }
         self.ui.room = room;
     }
 
     fn key_pressed(&mut self, key: Key) {
+        // At the cradle, Esc puts down a part in hand (or closes a confirm) first.
+        if key == Key::Escape && !self.session.is_paused() && self.ui.wharf.back() {
+            self.press_at = None;
+            return;
+        }
         // At the dock, Esc goes back from a room to the whole station first.
         if key == Key::Escape
             && !self.session.is_paused()
@@ -494,9 +540,21 @@ impl App {
             return;
         }
         let Some(cursor) = self.ui.cursor else { return };
-        // A click during a camera glide lands it at once.
+        // A click during a camera glide lands it at once; one during the fitting
+        // animation ends it.
         if self.rig.gliding() {
             self.rig.skip_glide();
+            return;
+        }
+        if self.ui.wharf.skip() {
+            return;
+        }
+        // A press on a part at the cradle picks it up: a drag, or (let go where it
+        // was) a click.
+        if let Some(UiAction::Wharf(a)) = ui::hit(&self.buttons, cursor)
+            && self.ui.wharf.press(self.session.world(), a)
+        {
+            self.press_at = Some(cursor);
             return;
         }
         if let Some(action) = ui::hit(&self.buttons, cursor).cloned() {
@@ -554,8 +612,12 @@ impl App {
             if out.undocked {
                 self.ui.confirm = None;
                 self.ui.room = None;
+                self.ui.wharf.reset();
+                self.press_at = None;
             }
+            ui::rooms::fit::settle(&self.session, &mut self.ui.wharf);
         }
+        self.ui.wharf.advance(dt as f32);
         for note in self.session.game_mut().take_notes() {
             eprintln!("{note}");
         }
@@ -587,6 +649,7 @@ impl App {
                 }
             }
         }
+        crate::frame::prepare(&mut r.view, &mut r.renderer, &self.session, &self.ui);
         let (scene, buttons) = crate::frame::compose(
             &r.view,
             &self.session,
@@ -728,6 +791,13 @@ impl ApplicationHandler for App {
                     .as_ref()
                     .map_or(1.0, |r| r.renderer.scale_factor());
                 self.ui.cursor = Some(G2::new(position.x as f32, position.y as f32) / scale);
+                // A part in hand: which socket (or the locker) it's over now.
+                if self.ui.wharf.held.is_some()
+                    && let Some(c) = self.ui.cursor
+                {
+                    let over = ui::rooms::cradle::over_of(ui::hit(&self.buttons, c));
+                    self.ui.wharf.hover(over);
+                }
             }
             WindowEvent::CursorLeft { .. } => self.ui.cursor = None,
             WindowEvent::MouseInput {
@@ -736,13 +806,21 @@ impl ApplicationHandler for App {
                 ..
             } => self.clicked(),
             WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => self.released(),
+            WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
                 ..
             } => {
-                // At the dock, a right-click goes back to the whole station.
+                // At the dock, a right-click puts down a part in hand, or goes back to
+                // the whole station.
                 if !self.ui.map_open && !self.session.is_paused() && self.docked().is_some() {
-                    if self.ui.confirm.is_none() {
+                    if self.ui.wharf.back() {
+                        self.press_at = None;
+                    } else if self.ui.confirm.is_none() {
                         self.open_room(None);
                     }
                     return;

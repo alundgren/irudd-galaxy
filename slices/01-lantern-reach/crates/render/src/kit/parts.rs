@@ -394,24 +394,7 @@ impl Cradle {
 
     /// The four sockets on screen, in [`Socket::ALL`] order. Headless: no renderer.
     pub fn sockets(&self, camera: &Camera, viewport: Vec2) -> [CradleSocket; 4] {
-        let p = self.hull.sanitized();
-        let m = self.pose.transform();
-        // Rings are slid towards the camera along the line of sight: on the same pixel
-        // as the socket, but in front of the hull, so the depth test never buries them.
-        let toward = (camera.eye - camera.target).normalize_or(Vec3::Z);
-        let clear = (p.height + p.width) * self.pose.scale;
-        let px = camera.world_per_pixel(viewport).max(f32::EPSILON);
-        Socket::ALL.map(|socket| {
-            let world = m.transform_point3(Self::ring_center(&p, socket)) + toward * clear;
-            let radius = Self::ring_share(socket) * p.width * self.pose.scale;
-            CradleSocket {
-                socket,
-                world,
-                screen: camera.world_to_screen(world, viewport),
-                radius,
-                radius_px: radius / px,
-            }
-        })
+        cradle_sockets(&self.hull, &self.pose, camera, viewport)
     }
 
     /// Draws the shadow, the ship, a ghost part and the socket rings into `scene`, and
@@ -474,6 +457,34 @@ impl Cradle {
         }
         sockets
     }
+}
+
+/// A ship's four sockets on screen in the cradle `pose`, in [`Socket::ALL`] order:
+/// [`Cradle::sockets`] without the meshes, so hit tests run with no renderer.
+pub fn cradle_sockets(
+    hull: &HullParams,
+    pose: &CradlePose,
+    camera: &Camera,
+    viewport: Vec2,
+) -> [CradleSocket; 4] {
+    let p = hull.sanitized();
+    let m = pose.transform();
+    // Rings are slid towards the camera along the line of sight: on the same pixel
+    // as the socket, but in front of the hull, so the depth test never buries them.
+    let toward = (camera.eye - camera.target).normalize_or(Vec3::Z);
+    let clear = (p.height + p.width) * pose.scale;
+    let px = camera.world_per_pixel(viewport).max(f32::EPSILON);
+    Socket::ALL.map(|socket| {
+        let world = m.transform_point3(Cradle::ring_center(&p, socket)) + toward * clear;
+        let radius = Cradle::ring_share(socket) * p.width * pose.scale;
+        CradleSocket {
+            socket,
+            world,
+            screen: camera.world_to_screen(world, viewport),
+            radius,
+            radius_px: radius / px,
+        }
+    })
 }
 
 /// A ghost part ([`part_ghost`]): flat, a little lit, inked in sky blue.
