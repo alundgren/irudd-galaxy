@@ -495,12 +495,12 @@ fn a_save_from_before_the_fit_model_loads_with_nothing_lost() {
     let credits = world.player.credits;
 
     let mut s = galaxy_core::Sim::new(galaxy_core::SimState::new(world));
-    s.add_system(Box::new(galaxy_progress::ProgressSystem));
-    // The fit model's backfill, with the station parts' and the pacing tunables added
-    // since that build.
+    s.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+    // The fit model's backfill, with the station parts', the authored happenings' and
+    // the pacing tunables added since that build.
     assert_eq!(
         galaxy_core::queue_backfill(&mut s, &core_data()).unwrap(),
-        3
+        4
     );
     // A second open before it applied doesn't queue it again.
     assert_eq!(

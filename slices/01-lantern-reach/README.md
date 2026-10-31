@@ -318,6 +318,7 @@ cargo run -p galaxy-app -- new --save saves/a.sqlite --seed 7
 cargo run -p galaxy-app -- sim run --save saves/a.sqlite --ticks 3000
 cargo run -p galaxy-app -- state get --save saves/a.sqlite --path stations/station.kettle_dock
 cargo run -p galaxy-app -- history query --save saves/a.sqlite --kind dock --limit 20
+cargo run -p galaxy-app -- memory search --save saves/a.sqlite "sold ice" --station station.kettle_dock
 cargo run -p galaxy-app -- api dump --name world
 ```
 
@@ -331,6 +332,7 @@ Or build once and call `target/debug/galaxy` directly.
 | `state get (--save PATH \| --live [SAVE]) [--path P]` | The world state, or part of it: dotted (`stations.station.kettle_dock.build`, IDs stay whole) or slash-separated. |
 | `state query STORE (--save PATH \| --live) [--where F=V]... [--fields a,b] [--limit N]` | Records of one store matching filters (`F~text` for a substring). |
 | `history query (--save PATH \| --live) [--kind K] [--station ID] [--ship ID] [--ware ID] [--region ID] [--since fact.N\|T] [--until T] [--limit N]` | History facts, oldest first. `--since fact.N`: after that fact; a number: from that tick. |
+| `memory search --save PATH [QUERY] [--station ID] [--person ID] [--faction ID] [--source S] [--limit N]` | World memory: the save's summarised history per station, person and faction (trades rolled up per visit, deliveries, beats, part changes, happenings, standing, notices and talk), each with its subjects, tick, docking count, source (`authored`, `game_master`, `live_layer`) and the facts it summarises. QUERY is full-text (FTS5, stemmed; every word must match), best match first; without it, the filter's entries newest first. Default limit 20. |
 | `watch --live [SAVE] [--since fact.N] [--count N]` | Streams the running game's facts, talk lines, game-master and calm-moment events, one JSON object per line. |
 | `gm digest (--save PATH \| --live) [--since fact.N]` | What changed since a fact, grouped by place and person, citing fact IDs. |
 | `gm propose DIR (--save PATH \| --live) [--wait] [--dockings N] [--no-typecheck] [--packs DIR]` | Full validation (fast checks, a sandbox run with and without the pack in child processes, legibility), then stage: live, it applies at the next calm moment (docked or paused); on a save, at the next load. The sandbox children get the packs folder: `--packs`, else the running game's own (live), else the default lookup. Prints the report; exit 5 if rejected. |

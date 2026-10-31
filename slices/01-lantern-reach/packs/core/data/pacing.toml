@@ -20,6 +20,8 @@ profile = "slice"
 # A station part's news ribbon (New, Changed, Closed) on the station key stays for this
 # many dockings after the change (station_parts.toml, issue #47 3.1).
 "station.ribbon_dockings" = 3
+# Rations in the crate Odo offers from Kettle's first harvest (happenings.toml), once.
+"harvest.rations" = 4
 
 # --- Act 2 ---------------------------------------------------------------------------
 # b07: Ilse's consignment of plate for Rook.

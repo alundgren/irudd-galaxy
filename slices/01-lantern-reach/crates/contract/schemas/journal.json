@@ -298,6 +298,82 @@
         "forbidden"
       ]
     },
+    "CauseFact": {
+      "description": "One fact a happening waits for: a fact by ID (it must exist when the happening is\nwritten), or a pattern a fact has to match. A pattern names the fact's `kind`\n(`stage_built` matches `core.stage_built` and `gm.kettle_growth.stage_built`, as\nline citations do) and any subjects or amount it must have.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "npc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ware": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WareId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "CauseId": {
       "type": "string",
       "examples": [
@@ -1417,6 +1493,60 @@
               "anyOf": [
                 {
                   "$ref": "#/$defs/StationPart"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Adds, changes (`Some`) or removes (`None`) a happening\n([`crate::happening::Happening`]). Checked by `galaxy_core::happenings::check`.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/HappeningId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_happening"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Happening"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless the happening `id` is `value` (`null`: none).\nCarried ahead of every `PutHappening` worked out from the tick's starting world,\nso no batch writes over a change another committed earlier in the tick. Its\ninverse is itself.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/HappeningId"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_happening"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Happening"
                 },
                 {
                   "type": "null"
@@ -3806,6 +3936,192 @@
         "lost"
       ]
     },
+    "Happening": {
+      "description": "One happening.",
+      "type": "object",
+      "properties": {
+        "by": {
+          "description": "The pack that wrote it, if a pack did. `None`: the core pack's data.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cause": {
+          "$ref": "#/$defs/HappeningCause"
+        },
+        "id": {
+          "$ref": "#/$defs/HappeningId"
+        },
+        "lasts": {
+          "$ref": "#/$defs/Lasts"
+        },
+        "line": {
+          "description": "What its speaker says when it starts.",
+          "$ref": "#/$defs/HappeningLine"
+        },
+        "run": {
+          "description": "Where it is in its run. Written by the runtime only; data and packs leave it\nupcoming.",
+          "$ref": "#/$defs/HappeningRun"
+        },
+        "show": {
+          "description": "What the docked view shows while it runs, as `<kind>:<value>` entries\n([`SHOW_KINDS`]): `\"banner_string:lamps\"`, `\"crowd:pier.north\"`,\n`\"residents:+6\"`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "station",
+        "lasts",
+        "cause",
+        "line"
+      ]
+    },
+    "HappeningCause": {
+      "description": "The facts a happening waits for. It starts once each one exists.",
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseFact"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ]
+    },
+    "HappeningId": {
+      "description": "Stable happening id, e.g. `happening.wharf.lamp_night`.",
+      "type": "string",
+      "examples": [
+        "happening.wharf.lamp_night"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "HappeningLine": {
+      "description": "The line a happening's speaker says when it starts, in the first person.",
+      "type": "object",
+      "properties": {
+        "choices": {
+          "description": "Answers the player may give (at most four). A pack's `on.reply` handler acts on\nthe pick, the way any dock-talk offer works (the core pack's harvest gift).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TalkChoice"
+          }
+        },
+        "id": {
+          "description": "`line.<speaker>.<name>`, stable, so a line said twice can be told apart.",
+          "type": "string"
+        },
+        "speaker": {
+          "description": "A person at the station.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "speaker",
+        "text"
+      ]
+    },
+    "HappeningRun": {
+      "description": "Where a happening is in its run.",
+      "oneOf": [
+        {
+          "description": "Waiting for its cause facts, or for the station to be free.",
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "upcoming"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "description": "Running. `first_docking` is the station's counted dockings when it started\n(the docking it started in counts as its first); it ends when the count\nreaches `first_docking + lasts.dockings`. `cites` are the cause facts that\nstarted it.",
+          "type": "object",
+          "properties": {
+            "cites": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FactId"
+              }
+            },
+            "first_docking": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "since": {
+              "$ref": "#/$defs/Tick"
+            },
+            "status": {
+              "type": "string",
+              "const": "active"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "since",
+            "first_docking",
+            "cites"
+          ]
+        },
+        {
+          "description": "Over.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Tick"
+            },
+            "first_docking": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "since": {
+              "$ref": "#/$defs/Tick"
+            },
+            "status": {
+              "type": "string",
+              "const": "ended"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "since",
+            "first_docking",
+            "at"
+          ]
+        }
+      ]
+    },
     "HistoryQuery": {
       "description": "A history filter. Empty matches everything. `count`, `find` and `last` take one.",
       "type": "object",
@@ -4196,6 +4512,21 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Lasts": {
+      "description": "How long a happening runs: counted player dockings at its station.",
+      "type": "object",
+      "properties": {
+        "dockings": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "dockings"
+      ]
     },
     "LedgerId": {
       "description": "Stable ledger id, e.g. `ledger.kettle_greenhouse`.",

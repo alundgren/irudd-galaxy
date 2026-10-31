@@ -425,7 +425,7 @@ fn progress_runs_are_deterministic_and_survive_save_and_load() {
     galaxy_core::Save::create(&path, c.state()).unwrap();
     let state = galaxy_core::Save::open(&path).unwrap().load().unwrap();
     let mut d = galaxy_core::Sim::new(state);
-    d.add_system(Box::new(galaxy_progress::ProgressSystem));
+    d.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
     script(&mut d, 60, 120);
     assert_eq!(d.hash(), a.hash());
     assert!(a.world().player.traits.contains("trait.lanerunner"));

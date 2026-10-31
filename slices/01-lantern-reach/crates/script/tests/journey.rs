@@ -23,7 +23,7 @@ fn game(seed: u64) -> (Sim, ScriptHost) {
         .with_systems(galaxy_ship::systems(Box::new(galaxy_ship::EconomyDesk)))
         .with_systems([
             Box::new(galaxy_economy::EconomySystem) as Box<dyn galaxy_core::System>,
-            Box::new(ProgressSystem),
+            Box::new(ProgressSystem::default()),
         ]);
     let host = ScriptHost::new(None);
     let report = host.load(&slice().join("packs/core"), sim.world(), sim.history());

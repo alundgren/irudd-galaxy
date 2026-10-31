@@ -28,7 +28,7 @@ pub fn core_data() -> PathBuf {
 /// and economy systems).
 pub fn sim(seed: u64) -> Sim {
     let mut sim = Sim::new(galaxy_core::new_game(&core_data(), seed).expect("core data loads"));
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     sim
 }
 

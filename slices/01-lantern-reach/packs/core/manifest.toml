@@ -28,6 +28,7 @@ uses = ["canon.read", "canon.write",
     "events.undock",
     "events.upgrade_fitted",
     "history.read",
+    "happenings.read",
     "history.write",
     "map.write",
     "market.levers",
@@ -174,3 +175,10 @@ handlers = ["on.beat_started", "on.dock", "on.reply"]
 id = "talk"
 file = "scripts/talk.luau"
 handlers = ["on.dock", "on.reply", "on.talk_picked"]
+
+# Kettle Dock's first harvest (issue #47, 4.1): while the happening runs, Odo offers a
+# crate of rations (Accept / Not now) and loads it only on Accept, with a receipt.
+[[script]]
+id = "harvest"
+file = "scripts/harvest.luau"
+handlers = ["on.dock", "on.reply"]

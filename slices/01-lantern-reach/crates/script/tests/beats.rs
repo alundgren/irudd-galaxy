@@ -40,7 +40,7 @@ fn journey(seed: u64, extra: &[&Path]) -> (Sim, ScriptHost) {
         assert!(report.accepted(), "{report:#?}");
     }
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 
@@ -326,7 +326,7 @@ fn attach_probe(mut sim: Sim) -> (Sim, ScriptHost) {
     let report = host.load(&probe_pack(), sim.world(), sim.history());
     assert!(report.accepted(), "{report:#?}");
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 
@@ -400,7 +400,7 @@ fn beats_survive_save_and_load() {
             .accepted()
     );
     host.attach(&mut back);
-    back.add_system(Box::new(ProgressSystem));
+    back.add_system(Box::new(ProgressSystem::default()));
     step(&mut back, 1);
     assert_eq!(status(&back, B01), Some(BeatStatus::Completed));
     assert_eq!(status(&back, B02), Some(BeatStatus::Completed));
@@ -424,7 +424,7 @@ fn beats_survive_hot_reload() {
     let host = ScriptHost::new(None);
     assert!(host.load(&pack, sim.world(), sim.history()).accepted());
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     step(&mut sim, 1);
     undock_from(&mut sim, &WHARF);
     step(&mut sim, 1);
@@ -493,7 +493,7 @@ fn the_beat_journey_is_deterministic_and_save_load_matches_an_uninterrupted_run(
     let hd = ScriptHost::new(None);
     assert!(hd.load(&core_pack(), d.world(), d.history()).accepted());
     hd.attach(&mut d);
-    d.add_system(Box::new(ProgressSystem));
+    d.add_system(Box::new(ProgressSystem::default()));
     mine_ice(&mut d, 20);
     step(&mut d, 1);
     dock_at(&mut d, &KETTLE);

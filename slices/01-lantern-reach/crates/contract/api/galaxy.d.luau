@@ -11,6 +11,7 @@ export type BeatId = string
 export type BeatKind = "directed" | "situation"
 export type BeatStatus = "active" | "completed"
 export type BuildState = { parts: { PartId }?, stage: number }
+export type CauseFact = { amount: number?, faction: FactionId?, id: FactId?, kind: string?, npc: NpcId?, other: string?, station: StationId?, ware: WareId? }
 export type CauseId = string
 export type Condition = { kind: "hold_full" } | { kind: "hold_empty" } | { kind: "price_at_least", price: number, station: StationId, ware: WareId } | { kind: "price_at_most", price: number, station: StationId, ware: WareId } | { kind: "stock_at_least", station: StationId, stock: number, ware: WareId } | { counter: CounterKind, kind: "counter_at_least", scope: CounterScope, value: number } | { flag: FlagId, kind: "flag_set" } | { kind: "all", of: { Condition } } | { kind: "any", of: { Condition } } | { cond: Condition, kind: "not" }
 export type CounterScope = { scope: "player" } | { scope: "station", station: StationId } | { region: RegionId, scope: "region" }
@@ -23,8 +24,13 @@ export type FactionId = string
 export type FieldId = string
 export type FlagId = string
 export type FlyTarget = { at: Vec2, kind: "point" } | { kind: "station", station: StationId } | { kind: "rock", rock: RockId } | { kind: "region", region: RegionId }
+export type HappeningCause = { facts: { CauseFact } }
+export type HappeningId = string
+export type HappeningLine = { choices: { TalkChoice }?, id: string, speaker: NpcId, text: string }
+export type HappeningRun = { status: "upcoming" } | { cites: { FactId }, first_docking: number, since: Tick, status: "active" } | { at: Tick, first_docking: number, since: Tick, status: "ended" }
 export type HullId = string
 export type LaneId = string
+export type Lasts = { dockings: number }
 export type LedgerId = string
 export type MarketRole = "buys" | "sells"
 export type Measure = { counter: { kind: CounterKind, region: RegionId?, station: StationId? } } | { facts: HistoryQuery } | { sum: HistoryQuery }
@@ -58,6 +64,7 @@ export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wa
 export type WareId = string
 export type Station = { build: BuildState, dock_radius: number, id: StationId, name: string, owner: FactionId?, position: Vec2, region: RegionId, services: { Service } }
 export type StationPart = { anchor: string, cause: PartCause?, id: StationPartId, keeper: NpcId, level: number?, line: string?, module: string, name: string?, news: PartNews?, quarter: string?, rollback_line: string, room: RoomKind, sign: string, state: PartState?, station: StationId }
+export type Happening = { by: PackId?, cause: HappeningCause, id: HappeningId, lasts: Lasts, line: HappeningLine, run: HappeningRun?, show: { string }?, station: StationId }
 export type Faction = { claims: { StationId }?, colour: string?, id: FactionId, mark: string?, name: string, standing: number?, wants: { WareId }? }
 export type Npc = { faction: FactionId?, id: NpcId, location: StationId?, name: string, role: string }
 export type Rumor = { claim: string, heard_at: { StationId }, heard_by_player: boolean, id: RumorId, is_true: boolean, planted_by: FactionId?, source: FactId? }
@@ -251,6 +258,18 @@ export type PartsApi = {
 	put: (self: PartsApi, part: StationPart, why: Cause) -> boolean,
 	-- Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.
 	remove: (self: PartsApi, id: StationPartId, why: Cause) -> boolean,
+}
+export type HappeningsApi = {
+	-- A happening, with where it is in its run (`run.status`: upcoming, active, ended).
+	get: (self: HappeningsApi, id: HappeningId) -> Happening?,
+	-- A station's happenings, upcoming, running and over, sorted by ID.
+	list: (self: HappeningsApi, station: StationId) -> { HappeningId },
+	-- The happening running at a station now, if any (at most one at a time).
+	active: (self: HappeningsApi, station: StationId) -> HappeningId?,
+	-- Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.
+	put: (self: HappeningsApi, happening: Happening, why: Cause) -> (),
+	-- Takes away a happening that hasn't started. One that is running or over stays.
+	remove: (self: HappeningsApi, id: HappeningId, why: Cause) -> (),
 }
 export type FactionsApi = {
 	-- A faction record.
@@ -454,6 +473,7 @@ export type Ctx = {
 	history: HistoryApi,
 	stations: StationsApi,
 	parts: PartsApi,
+	happenings: HappeningsApi,
 	factions: FactionsApi,
 	npcs: NpcsApi,
 	rumors: RumorsApi,

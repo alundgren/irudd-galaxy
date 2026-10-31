@@ -43,6 +43,9 @@ pub struct WorldState {
     /// Each station's parts: rooms with a module, a keeper and a sign
     /// ([`crate::parts`]). Empty in saves from before them (the game backfills).
     pub station_parts: Store<StationPartId, crate::parts::StationPart>,
+    /// Happenings at stations: upcoming, running and over ([`crate::happening`]).
+    /// Empty in saves from before them (the game backfills the authored ones).
+    pub happenings: Store<HappeningId, crate::happening::Happening>,
     /// One market per station that trades, keyed by station.
     pub markets: Store<StationId, Market>,
     pub wares: Store<WareId, Ware>,
@@ -517,6 +520,7 @@ record!(
     Npc => NpcId,
     Rumor => RumorId,
     crate::parts::StationPart => StationPartId,
+    crate::happening::Happening => HappeningId,
 );
 
 impl Record for Market {

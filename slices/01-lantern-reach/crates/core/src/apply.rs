@@ -919,6 +919,43 @@ fn apply_with(
                 value: old.map(Box::new),
             })
         }
+        C::PutHappening { id, value } => {
+            if let Some(v) = value {
+                if &v.id != id {
+                    return Err(CommandError::Invalid(format!(
+                        "happening `{}` stored under `{id}`",
+                        v.id
+                    )));
+                }
+                // An ended happening is the runtime's record of what ran: it isn't
+                // checked again, so a speaker who has moved on never keeps it running.
+                let ended = matches!(
+                    v.run,
+                    galaxy_contract::happening::HappeningRun::Ended { .. }
+                );
+                if refs.check && !ended {
+                    crate::happenings::check(world, v).map_err(|e| {
+                        CommandError::Invalid(format!("happening {id}: {}", e.join("; ")))
+                    })?;
+                }
+            }
+            let old = match value {
+                Some(v) => world.happenings.insert(id.clone(), (**v).clone()),
+                None => world.happenings.remove(id),
+            };
+            invert(C::PutHappening {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::ExpectHappening { id, value } => {
+            if refs.check && world.happenings.get(id) != value.as_deref() {
+                return Err(CommandError::Invalid(format!(
+                    "happening {id} changed since this was worked out"
+                )));
+            }
+            invert(cmd.clone())
+        }
         C::PutMapOverlay { id, value } => {
             if let Some(v) = value
                 && (!v.radius.is_finite()

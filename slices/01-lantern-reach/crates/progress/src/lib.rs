@@ -9,6 +9,8 @@
 //!   hullwright's Hearthbound trade-up; [`hullwright`]: ship parts in sockets, power
 //!   and mass, the hull's locker, Ready / Make / Friends, and the room's read API.
 //! - [`survey`]: survey-buoy rewards, paid on a reply with standing deeds.
+//! - [`happenings`]: visible life at a station that starts from its cause facts and
+//!   runs for a number of dockings; [`happenings::active`] is what the docked view draws.
 //! - [`modifiers`]: the native effects of traits, fittings and ranks, added up per
 //!   ship, for the ship, economy and app crates.
 //! - [`ProgressSystem`]: the per-tick system. Register it after the ship and economy
@@ -20,6 +22,7 @@
 pub mod beats;
 pub mod eval;
 pub mod growth;
+pub mod happenings;
 pub mod hullwright;
 pub mod modifiers;
 pub mod prestige;
