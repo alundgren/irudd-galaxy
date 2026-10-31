@@ -310,7 +310,17 @@ cargo xtask cargo test --workspace # headless tests (no window, GPU or network)
 cargo xtask check           # fetch-luau + fmt + clippy -D warnings + tests: run before every PR
 cargo xtask contract        # regenerate crates/contract/schemas/ and api/ after a contract change
 cargo xtask fetch-luau      # pinned luau-analyze (strict typecheck) into tools/luau/
+cargo xtask build-report    # timings of cold, warm, no-op and test builds, as JSON
+cargo xtask loc             # code lines per crate (src, unit tests, tests); --base <ref> for the change
 ```
+
+Builds don't go to `target/`: `cargo xtask` builds in one of a few shared slots under a
+per-user cache folder (`cargo xtask target-dir` prints the one in use), so a new branch
+or worktree starts with its dependencies compiled. Only one compiling command runs at a
+time on the machine; another one prints that it is waiting and starts when the first
+finishes. `GALAXY_TARGET_ROOT` moves the slots, `GALAXY_TARGET_ROOT=off` builds into
+`target/` again, and `GALAXY_BUILD_PERMITS` allows more builds at once. Details:
+"Builds" in the root `AGENTS.md`.
 
 Use `cargo xtask build` and `cargo xtask run -- <command>` during development;
 add `--release` before `--` when needed. These select the game and xtask together,
@@ -338,7 +348,7 @@ cargo xtask run -- memory search --save saves/a.sqlite "sold ice" --station stat
 cargo xtask run -- api dump --name world
 ```
 
-Or build once and call `target/debug/galaxy` directly.
+Or build once and call the `galaxy` executable under `debug/` in `cargo xtask target-dir`.
 
 | Command | What it does |
 |---|---|
@@ -443,7 +453,7 @@ packs/core        the authored backbone: manifest.toml, data/*.toml and scripts/
 packs/gm-examples eight optional game-master layers; see its README for validation and base hooks
                   bad_script/ and bad_sandbox/ must be rejected
 tools/            git-ignored: luau-analyze from cargo xtask fetch-luau
-xtask             cargo xtask check | contract | fetch-luau
+xtask             cargo xtask check | contract | fetch-luau | build | run | build-report | loc
 ```
 
 Live fast-model tests are ignored by default:
