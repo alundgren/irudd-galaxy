@@ -316,6 +316,28 @@ fn generalized_iteration_after_a_z_escape_is_still_checked() {
 }
 
 #[test]
+fn mixed_unstable_keys_refuse_with_one_message() {
+    // The second re-check's reproduction on PR #56: with both table and function keys, which
+    // one the walk meets first follows addresses, so the refusal must not depend on it.
+    let script = "return { cadence = function(ctx)
+        local objects = {}
+        for i = 1, 30 do
+            objects[{}] = i
+            objects[function() return i end] = i
+        end
+        for k, v in objects do end
+    end }";
+    let first = cadence(script).result.unwrap_err();
+    assert!(
+        first.message.contains("a table or function as a key"),
+        "{first}"
+    );
+    for _ in 0..8 {
+        assert_eq!(cadence(script).result.unwrap_err(), first);
+    }
+}
+
+#[test]
 fn generalized_iteration_over_stable_keys_still_works() {
     let out = cadence(
         "return { cadence = function(ctx)

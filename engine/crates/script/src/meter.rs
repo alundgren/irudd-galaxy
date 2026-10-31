@@ -424,14 +424,16 @@ pub(crate) fn stable_keys(lua: &Lua, t: &Table, what: &str) -> mlua::Result<()> 
 }
 
 /// The refusal, at the script line that iterated (`file:line: ...`).
-fn unstable_order(lua: &Lua, what: &str, k: &Value) -> mlua::Error {
+/// The refusal for a key whose place in the table follows its address. The message never
+/// names the key's type: in a table with both table and function keys, which one is met
+/// first follows addresses too, and the message is recorded in the world.
+fn unstable_order(lua: &Lua, what: &str, _k: &Value) -> mlua::Error {
     let at = script_location(lua)
         .map(|l| format!("{l}: "))
         .unwrap_or_default();
     mlua::Error::runtime(format!(
-        "{at}{what}: this table has a {} as a key, and the order of such keys changes from \
-         run to run; key it by strings or numbers",
-        k.type_name()
+        "{at}{what}: this table has a table or function as a key, and the order of such keys \
+         changes from run to run; key it by strings or numbers"
     ))
 }
 
