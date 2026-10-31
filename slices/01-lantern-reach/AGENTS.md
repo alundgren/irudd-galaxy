@@ -23,8 +23,9 @@ cargo xtask loc --base origin/main    # code lines per crate, and the change sin
 ```
 
 Builds go to a shared slot outside the worktree, and compiling commands queue for one
-machine-wide build permit, printing who they wait for. Never run plain `cargo build` or
-`cargo test`: it builds cold into `target/` and skips the queue.
+machine-wide build permit, printing who they wait for. There is no opt-out. Never run
+plain `cargo build` or `cargo test` (it builds cold into `target/` and skips the queue),
+and never run cold or uncached builds.
 
 ## Rules
 

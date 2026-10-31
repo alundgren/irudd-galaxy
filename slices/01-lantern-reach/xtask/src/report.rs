@@ -20,12 +20,7 @@ pub fn run(args: &[std::ffi::OsString]) -> ExitCode {
         return ExitCode::FAILURE;
     }
     let _permit = crate::build::permit();
-    let Some(slot) = crate::build::target_dir() else {
-        eprintln!(
-            "build-report needs a shared target folder (CARGO_TARGET_DIR or GALAXY_TARGET_ROOT=off is set)"
-        );
-        return ExitCode::FAILURE;
-    };
+    let slot = crate::build::target_dir();
     let core = crate::workspace_root().join("crates/core/src/lib.rs");
     let mut steps = serde_json::Map::new();
     let mut step = |name: &str, mut cmd: Command| -> bool {
