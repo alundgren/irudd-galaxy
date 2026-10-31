@@ -74,9 +74,14 @@ never keep it silently at the game's expense.
 | Performance | only if it makes the game unplayable | past the scene's budget | past the budget on the minimum target machine |
 
 Everything else blocks in no phase: hardening, edge-case limits, contrived ways to smuggle
-data out, style. Unless the reviewer shows a realistic player hitting it, the author fixes
-it in passing when that is cheap and otherwise drops it. It never becomes an issue, and
-never a question for the owner.
+data out, style. Non-blocking findings do not stop authorized work. The author fixes
+small, useful ones in passing and drops speculative ones. Do not automatically file
+follow-up issues or ask the owner to triage them.
+
+A merge blocker is work for the author, not automatically a decision for the owner.
+Fix it within the agreed scope and validate it. Ask the owner only when resolution needs
+a product or scope decision, missing access, or an action not already authorized. State
+that decision precisely; keep independent authorized work moving.
 
 ## Public repo
 
@@ -112,13 +117,20 @@ Review PR #<n>: <one line on what it does>. <Folder> is in phase <phase>. Apply 
 single-player game in that phase.
 Verdict: APPROVE, APPROVE WITH NOTES (non-blocking findings) or
 CHANGES REQUESTED (blocking findings only, each with a reproduction or failing test).
+For each blocker, name the broken requirement and explain how supported use or a
+plausible authoring mistake reaches it. A synthetic reproduction can prove a real bug;
+unusual syntax alone does not prove an attack. Apply the phase's threat model, and do
+not expand the review into a search for deliberate bypasses.
 The author reported `check` passed at <sha>. If HEAD is that commit, don't rerun it:
 run the tests for what you probe (`cargo xtask cargo test -p <crate>`).
 ```
 
 A re-check covers only the findings it lists and the fixer's "new behaviour" list. It is
 not a new review: no "final sweep", no attack lists. After two re-checks the coordinator
-decides: merge, or stop and say why.
+ends the delegated review loop, assesses remaining findings against the merge table,
+and handles small fixes directly with targeted verification and the required `check`.
+The round limit neither waives a real blocker nor requires asking the owner about a
+routine fix. Merge only with authorization; otherwise hand back the ready PR.
 
 ### Fixes
 
@@ -127,6 +139,8 @@ decides: merge, or stop and say why.
 - Fix the blocking findings first. Minor ones are fixed in passing or dropped.
 - Give constraints, not designs: "the save format stays compatible", not "use
   compare-and-set".
+- Keep fixes proportional to the demonstrated failure and agreed requirements. Do not
+  add a new validation subsystem just to satisfy an expanding set of review probes.
 - Before pushing, the fixer reviews its own diff, runs `check`, and posts on the PR
   "`check` passed at `<sha>`" and "New behaviour this fix introduces: ...".
 
