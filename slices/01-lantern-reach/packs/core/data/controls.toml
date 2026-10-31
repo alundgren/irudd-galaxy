@@ -113,3 +113,7 @@ name = "Column on the hold screen"
 # Developer keys, not game controls (never taught, never bound to a slot): F2 shows
 # frames and sim ticks a second (`galaxy play --fps` starts with it on), F3 the debug
 # overlay, N mutes the sound.
+
+# A setting key, not a game control (never taught, never bound to a slot): Q turns a
+# docked station's ambient life down to quiet, or back up to full. The PAUSED card has
+# the same switch as a button, and the choice is kept in view.toml beside the saves.

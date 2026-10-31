@@ -1004,6 +1004,7 @@ pub fn paused_card() -> PausedCard {
     PausedCard {
         title: "PAUSED".into(),
         hint: "Nothing moves until you're back. P or Esc to carry on.".into(),
+        toggles: Vec::new(),
     }
 }
 

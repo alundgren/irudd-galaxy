@@ -6,8 +6,10 @@
 //! - [`station`]: stations assembled from a serde [`StationRecipe`] of parts.
 //! - [`rock`]: ice, iron and glassite rocks that shrink and crack as they're mined.
 //! - [`backdrop`]: a quiet nebula and star field.
+//! - [`life`]: residents, stock piles, lamp posts and the cargo crane of a living station.
 
 mod backdrop;
+pub mod life;
 mod parts;
 mod rng;
 mod rock;

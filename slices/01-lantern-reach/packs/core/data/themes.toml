@@ -1,0 +1,83 @@
+# Station themes (issue #47, 4.1; the station concept's "Theming"): how a faction builds,
+# lights and peoples its stations. Every station keeps the same room kinds; its theme
+# decides the props and residents around them, their shapes and paint, and how much may
+# move at once. View data only: the sim never reads this file.
+#
+# A station wears the theme named for it under [station."<id>"], else the theme whose
+# `faction` owns it, else `default`. Unknown keys and names are load errors, and the
+# factions, stations and craft hulls named here must exist.
+#
+# Fields:
+#   faction    the faction whose stations wear the theme (at most one theme each)
+#   spine      the layout life follows, main one first: pier (out along the struts),
+#              ring (round the hub), quay (along the modules' front), spire (close in)
+#   motif      shape language from the art bible: round, square or pointed
+#   paint      "station" (the station owner's paint) or a faction in the art bible
+#   props      lamp_string (lamps the lamplighter lights, one per station pulse),
+#              one stock style for the market's piles (crate_pile, brass_bins,
+#              glass_jars), steam, greenhouse_glow, banner, signal_lamps
+#   residents  who walks the pier: dockhand, lamplighter, grower, clerk, porter,
+#              scholar, welder (the welder works scaffolds)
+#   craft      hulls for filler traffic when the economy's own craft aren't near
+#   sounds     ambient sound names (names only for now; no new audio)
+#   signage    a faction mark from the art bible, or plain
+#   lamps      how many lamps the lamplighter tends (1 to 16; default 8)
+#   calm       caps on what moves: max_walkers, max_moving_craft, max_particles,
+#              max_crowd (default 6). The ceiling for any theme is 16, 6, 48 and 10.
+# Loader and checker: crates/app/src/view/themes.rs
+
+[theme.default]
+spine = ["quay"]
+motif = "round"
+paint = "station"
+props = ["crate_pile", "lamp_string"]
+residents = ["dockhand", "porter"]
+craft = ["hull.coop_skiff"]
+sounds = ["low_hum", "hammering"]
+signage = "plain"
+lamps = 5
+calm = { max_walkers = 4, max_moving_craft = 1, max_particles = 8, max_crowd = 4 }
+
+[theme.wharf_cooperative]
+faction = "faction.wharf_cooperative"
+spine = ["pier", "ring"]
+motif = "round"
+paint = "faction.wharf_cooperative"
+props = ["lamp_string", "crate_pile", "greenhouse_glow", "steam", "banner"]
+residents = ["dockhand", "lamplighter", "grower", "welder"]
+craft = ["hull.coop_skiff"]
+sounds = ["kettle_whistle", "hammering", "market_talk"]
+signage = "lantern_kettle"
+lamps = 9
+calm = { max_walkers = 8, max_moving_craft = 2, max_particles = 24, max_crowd = 6 }
+
+[theme.tollway_compact]
+faction = "faction.tollway_compact"
+spine = ["pier", "quay"]
+motif = "square"
+paint = "faction.tollway_compact"
+props = ["brass_bins", "signal_lamps", "lamp_string", "banner"]
+residents = ["clerk", "porter", "dockhand", "welder"]
+craft = ["hull.compact_barge"]
+sounds = ["toll_bell", "ledger_scratch", "brass_chime"]
+signage = "toll_key"
+lamps = 6
+calm = { max_walkers = 6, max_moving_craft = 2, max_particles = 12, max_crowd = 5 }
+
+[theme.lamplighter_society]
+faction = "faction.lamplighter_society"
+spine = ["spire", "ring"]
+motif = "pointed"
+paint = "faction.lamplighter_society"
+props = ["lamp_string", "glass_jars", "steam"]
+residents = ["lamplighter", "scholar"]
+craft = ["hull.lamp_launch"]
+sounds = ["lamp_hiss", "wind_chimes", "pages"]
+signage = "open_lamp"
+lamps = 14
+calm = { max_walkers = 4, max_moving_craft = 1, max_particles = 16, max_crowd = 4 }
+
+# Cinder Hook is claimed by the Cooperative and the Compact and owned by neither, so it
+# keeps the plain working theme until one of them holds it.
+[station."station.cinder_hook"]
+theme = "default"

@@ -14,10 +14,12 @@
 
 pub mod cradle;
 pub mod fit_look;
+pub mod life;
 mod live;
 pub mod map;
 pub mod modules;
 pub mod recipes;
+pub mod themes;
 
 use render::art_bible::ArtMaterial;
 use std::collections::BTreeMap;
@@ -41,8 +43,12 @@ pub const ROCK_STEPS: f32 = 20.0;
 pub const SHIP_SCALE: f32 = 5.0;
 /// Ships fly this high above the plane, so they pass over rocks rather than through.
 pub const SHIP_HOVER: f32 = 22.0;
-/// The camera's gentle tilt, degrees: top-down with a little depth.
+/// The camera's gentle tilt in flight, degrees: top-down with a little depth.
 pub const TILT: f32 = 14.0;
+/// The docked three-quarter view (#47, 4.1): docking tilts the camera this far from
+/// straight down, so module heights, awnings and cranes read. View only: everything
+/// still moves on the plane.
+pub const DOCK_TILT: f32 = 40.0;
 /// A station's kit docking ring is drawn this share of the sim's docking radius...
 const RING_FILL: f32 = 0.9;
 /// ...unless that makes the whole station wider than this many docking radii.
@@ -70,6 +76,8 @@ pub struct CameraRig {
     pub zoom: f32,
     /// The mouse wheel's share of the zoom, on top of the data's (1 = as the data says).
     pub wheel: f32,
+    /// Degrees from straight down: [`TILT`] in flight, [`DOCK_TILT`] docked.
+    pub tilt: f32,
     /// A glide in progress: docking, undocking, opening or closing a room.
     pub glide: Option<Glide>,
 }
@@ -81,12 +89,16 @@ pub struct CameraRig {
 pub struct Glide {
     pub from: G2,
     pub from_zoom: f32,
+    pub from_tilt: f32,
     /// Seconds into the glide.
     pub t: f32,
 }
 
 /// How long a glide takes: under half a second.
 pub const GLIDE_SECONDS: f32 = 0.4;
+/// A glide that tilts the camera (docking swoops in, undocking tilts back) takes a
+/// little longer, so the turn reads. A click still lands it at once.
+pub const SWOOP_SECONDS: f32 = 0.75;
 
 impl CameraRig {
     pub const MIN_ZOOM: f32 = 220.0;
@@ -99,7 +111,19 @@ impl CameraRig {
             center,
             zoom: Self::DEFAULT_ZOOM,
             wheel: 1.0,
+            tilt: TILT,
             glide: None,
+        }
+    }
+
+    /// Straight onto `goal`, with no glide: a shot, a test, the first frame.
+    pub fn settle(&mut self, goal: &crate::frame::CameraGoal, world: &WorldState) {
+        self.glide = None;
+        self.center = goal.center;
+        self.tilt = goal.tilt;
+        match goal.zoom {
+            Some(zoom) => self.zoom = zoom,
+            None => self.fit(world),
         }
     }
 
@@ -108,6 +132,7 @@ impl CameraRig {
         self.glide = Some(Glide {
             from: self.center,
             from_zoom: self.zoom,
+            from_tilt: self.tilt,
             t: 0.0,
         });
     }
@@ -120,25 +145,32 @@ impl CameraRig {
     /// Ends a glide at once (a click during it).
     pub fn skip_glide(&mut self) {
         if let Some(g) = &mut self.glide {
-            g.t = GLIDE_SECONDS;
+            g.t = f32::INFINITY;
         }
     }
 
-    /// Moves towards `center` and `zoom` (the visible height): along the glide while one
-    /// is under way, `dt` real seconds further; else straight there. A docked camera
-    /// holds still on its goal.
-    pub fn glide_to(&mut self, center: G2, zoom: f32, dt: f32) {
+    /// Moves towards `center`, `zoom` (the visible height) and `tilt`: along the glide
+    /// while one is under way, `dt` real seconds further; else straight there. A docked
+    /// camera holds still on its goal.
+    pub fn glide_to(&mut self, center: G2, zoom: f32, tilt: f32, dt: f32) {
         let Some(g) = &mut self.glide else {
             self.center = center;
             self.zoom = zoom;
+            self.tilt = tilt;
             return;
         };
+        let seconds = if (tilt - g.from_tilt).abs() > 1.0 {
+            SWOOP_SECONDS
+        } else {
+            GLIDE_SECONDS
+        };
         g.t += dt.max(0.0);
-        let k = (g.t / GLIDE_SECONDS).clamp(0.0, 1.0);
+        let k = (g.t / seconds).clamp(0.0, 1.0);
         let k = k * k * (3.0 - 2.0 * k);
         self.center = g.from.lerp(center, k);
         self.zoom = g.from_zoom + (zoom - g.from_zoom) * k;
-        if g.t >= GLIDE_SECONDS {
+        self.tilt = g.from_tilt + (tilt - g.from_tilt) * k;
+        if g.t >= seconds {
             self.glide = None;
         }
     }
@@ -157,7 +189,7 @@ impl CameraRig {
     }
 
     pub fn camera(&self) -> Camera {
-        Camera::top_down(self.center, self.zoom).with_tilt(TILT)
+        Camera::top_down(self.center, self.zoom).with_tilt(self.tilt)
     }
 
     /// Eases towards `target`: quick enough to keep the ship in view, soft enough not
@@ -218,7 +250,30 @@ pub struct View {
     backdrops: BTreeMap<Option<RegionId>, BackdropHandle>,
     /// Station parts' modules, by what changes their look.
     modules: BTreeMap<StationPartId, (modules::ModuleKey, MeshHandle)>,
+    /// How stations build, light and people themselves ([`themes`]).
+    themes: Option<themes::Themes>,
+    /// How much ambient life a docked station shows (the player's setting).
+    pub life: life::LifeLevel,
+    /// Life's meshes, per theme and paint ([`life`]).
+    life_art: BTreeMap<(String, Option<String>), LifeArt>,
 }
+
+/// One theme's life meshes in one paint.
+struct LifeArt {
+    residents: BTreeMap<themes::Resident, MeshHandle>,
+    stock: BTreeMap<WareId, MeshHandle>,
+    /// Dark, lit.
+    lamps: [MeshHandle; 2],
+    mast: MeshHandle,
+    jib: MeshHandle,
+    pole: MeshHandle,
+}
+
+/// The crane's mast and the banner's pole, in station units.
+const CRANE_HEIGHT: f32 = 9.0;
+const POLE_HEIGHT: f32 = 7.0;
+/// How long a craft takes to come in to its berth, or pull away from it, in ticks.
+const BERTH_TICKS: u64 = 2 * galaxy_contract::TICKS_PER_SECOND as u64;
 
 fn rock_step(rock: &Rock) -> i32 {
     let frac = rock.remaining as f32 / rock.initial.max(1) as f32;
@@ -336,6 +391,18 @@ impl View {
         Self::default()
     }
 
+    /// The station themes this view draws with: the core pack's built in, until
+    /// [`Self::set_themes`] gives it others.
+    pub fn themes(&self) -> &themes::Themes {
+        self.themes.as_ref().unwrap_or_else(|| themes::Themes::bundled())
+    }
+
+    /// Draws with these themes from now on (the packs folder's, checked).
+    pub fn set_themes(&mut self, themes: themes::Themes) {
+        self.themes = Some(themes);
+        self.life_art.clear();
+    }
+
     /// Uploads what's new and re-meshes what changed visibly.
     pub fn sync(&mut self, r: &mut Renderer, world: &WorldState) {
         for s in world.stations.values() {
@@ -408,6 +475,7 @@ impl View {
             let (hull, faction, look) = paint_key(world, ship);
             self.hull_mesh(r, &hull, faction.as_ref(), look);
         }
+        self.sync_life(r, world);
         let mut regions: Vec<Option<RegionId>> = vec![None];
         regions.extend(world.regions.keys().cloned().map(Some));
         for region in regions {
@@ -523,6 +591,7 @@ impl View {
     pub fn world_scene(
         &self,
         world: &WorldState,
+        history: Option<&galaxy_core::History>,
         poses: &BTreeMap<ShipId, Pose>,
         rig: &CameraRig,
         time: f32,
@@ -715,6 +784,10 @@ impl View {
             );
         }
 
+        // Craft coming in to a berth or pulling away from one, from their latest dock or
+        // undock fact: (ship, the fact's station, docking, share of the way done).
+        let berthing = berthing(world, history);
+
         // Ships, engine glow and the mining beam.
         for ship in world.ships.values() {
             let pose = poses.get(&ship.id).copied().unwrap_or(Pose {
@@ -734,6 +807,26 @@ impl View {
             let (pos, heading) = match ship.docked_at.as_ref().and_then(|s| world.stations.get(s)) {
                 Some(st) => berth(st, &ship.id),
                 None => (pos, pose.heading),
+            };
+            // A real craft glides in to its berth from where it docked, and out again
+            // to where it is, rather than jumping.
+            let (pos, heading) = match berthing.get(&ship.id) {
+                Some((st, docking, k)) if *docking == docked => {
+                    let Some(st) = world.stations.get(st) else {
+                        continue;
+                    };
+                    let (b, bh) = berth(st, &ship.id);
+                    let (from, to, fh, th) = if *docking {
+                        (g(ship.position), b, ship.heading, bh)
+                    } else {
+                        (b, pos, bh, heading)
+                    };
+                    let k = k * k * (3.0 - 2.0 * k);
+                    let turn = (th - fh + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+                        - std::f32::consts::PI;
+                    (from.lerp(to, k), fh + turn * k)
+                }
+                _ => (pos, heading),
             };
             let pose = Pose {
                 position: Vec2::new(pos.x, pos.y),
@@ -946,13 +1039,242 @@ fn place_label(at: G2, own: f32, size: G2, avoid: &[(G2, f32)], viewport: G2) ->
 
 /// Where a docked ship is drawn: parked on the station's ring, nose along it, at a
 /// spot that depends on the ship so several don't stack.
-fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
+pub(super) fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
     let a = -0.7 + (seed_of(ship.as_str()) % 6) as f32 * std::f32::consts::TAU / 6.0;
     let r = station.dock_radius * RING_FILL;
     (
         g(station.position) + G2::from_angle(a) * r,
         a + std::f32::consts::FRAC_PI_2,
     )
+}
+
+/// Craft that docked or undocked within [`BERTH_TICKS`]: their station, whether they
+/// docked, and how far through the move they are (0 to 1).
+fn berthing(
+    world: &WorldState,
+    history: Option<&galaxy_core::History>,
+) -> BTreeMap<ShipId, (StationId, bool, f32)> {
+    let mut out = BTreeMap::new();
+    let Some(history) = history else {
+        return out;
+    };
+    let now = world.meta.tick.0;
+    let since = Tick(now.saturating_sub(BERTH_TICKS));
+    let (dock, undock) = (
+        galaxy_contract::ids::FactKind::from_static("dock"),
+        galaxy_contract::ids::FactKind::from_static("undock"),
+    );
+    let q = galaxy_contract::history::HistoryQuery {
+        since: Some(since),
+        ..Default::default()
+    };
+    for f in history.find(&q) {
+        let docking = f.kind == dock;
+        if !docking && f.kind != undock {
+            continue;
+        }
+        let (Some(ship), Some(station)) = (f.subjects.ship.clone(), f.subjects.station.clone())
+        else {
+            continue;
+        };
+        let k = now.saturating_sub(f.tick.0) as f32 / BERTH_TICKS as f32;
+        // Later facts replace earlier ones: the newest move wins.
+        out.insert(ship, (station, docking, k.clamp(0.0, 1.0)));
+    }
+    out
+}
+
+impl View {
+    /// Uploads the life meshes for every station's theme and paint, once each.
+    fn sync_life(&mut self, r: &mut Renderer, world: &WorldState) {
+        let mut wanted: Vec<((String, Option<String>), themes::Theme, Option<Station>)> = Vec::new();
+        for st in world.stations.values() {
+            let theme = self.themes().for_station(world, &st.id);
+            let key = (
+                theme.id.clone(),
+                theme.paint_faction(Some(st)).map(str::to_owned),
+            );
+            if !self.life_art.contains_key(&key) && !wanted.iter().any(|(k, ..)| *k == key) {
+                wanted.push((key, theme.clone(), Some(st.clone())));
+            }
+        }
+        for (key, theme, st) in wanted {
+            let pal = life::palette_for(&theme, st.as_ref());
+            let motif = theme.motif;
+            let residents = themes::Resident::ALL
+                .into_iter()
+                .map(|res| {
+                    let (coat, hat, skin) = life::resident_colors(res, &pal);
+                    (res, r.upload_mesh(&kit::life::resident(coat, hat, skin, motif)))
+                })
+                .collect();
+            let stock = world
+                .wares
+                .keys()
+                .map(|w| {
+                    let paint = life::ware_paint(w, &pal);
+                    let mesh = kit::life::stock_unit(theme.stock(), paint, pal.trim);
+                    (w.clone(), r.upload_mesh(&mesh))
+                })
+                .collect();
+            let art = LifeArt {
+                residents,
+                stock,
+                lamps: [false, true].map(|lit| r.upload_mesh(&kit::life::lamp_post(&pal, motif, lit))),
+                mast: r.upload_mesh(&kit::life::crane_mast(&pal, CRANE_HEIGHT)),
+                jib: r.upload_mesh(&kit::life::jib(&pal, 0.5)),
+                pole: r.upload_mesh(&kit::life::banner_pole(&pal, motif, POLE_HEIGHT)),
+            };
+            if let Some(paint) = key.1.as_deref().and_then(|f| f.parse::<FactionId>().ok()) {
+                for hull in &theme.craft {
+                    self.hull_mesh(r, hull, Some(&paint), ShipFitLook::default());
+                }
+            }
+            self.life_art.insert(key, art);
+        }
+    }
+
+    /// The docked station's life ([`life`]): residents, stock piles, lamps, the crane,
+    /// filler craft and the trading craft's approach, drawn while the camera is in the
+    /// docked tilt (not at the cradle, which keeps its own framing).
+    pub fn draw_life(
+        &self,
+        scene: &mut Scene,
+        world: &WorldState,
+        history: &galaxy_core::History,
+        rig: &CameraRig,
+        time: f32,
+    ) {
+        let Some(station) = world
+            .player
+            .ship
+            .as_ref()
+            .and_then(|s| world.ships.get(s))
+            .and_then(|s| s.docked_at.as_ref())
+        else {
+            return;
+        };
+        if rig.tilt < (TILT + DOCK_TILT) * 0.5 {
+            return;
+        }
+        let theme = self.themes().for_station(world, station);
+        let paint = theme
+            .paint_faction(world.stations.get(station))
+            .map(str::to_owned);
+        let Some(art) = self.life_art.get(&(theme.id.clone(), paint)) else {
+            return;
+        };
+        let f = life::frame(&life::LifeInput {
+            world,
+            history,
+            station,
+            theme,
+            level: self.life,
+            time,
+        });
+        let s = f.scale;
+        let bible = ArtBible::bundled();
+        let props = bible.material(InkRole::Prop);
+        // People are lighter-inked than anything clickable.
+        let people = render::Material {
+            outline_px: 1.6,
+            hatch: 0.0,
+            ..props
+        };
+        let place = |at: Vec3, yaw: f32| {
+            Mat4::from_scale_rotation_translation(Vec3::splat(s), Quat::from_rotation_z(yaw), at)
+        };
+        for fig in &f.figures {
+            if let Some(m) = art.residents.get(&fig.resident) {
+                scene
+                    .meshes
+                    .push(MeshInstance::new(*m, place(fig.at, fig.facing)).with_material(people));
+            }
+        }
+        for c in &f.stock {
+            if let Some(m) = art.stock.get(&c.ware) {
+                scene
+                    .meshes
+                    .push(MeshInstance::new(*m, place(c.at, c.turn)).with_material(props));
+            }
+        }
+        for l in &f.lamps {
+            scene.meshes.push(
+                MeshInstance::new(art.lamps[usize::from(l.lit)], place(l.at, 0.0))
+                    .with_material(props),
+            );
+        }
+        for p in &f.poles {
+            scene
+                .meshes
+                .push(MeshInstance::new(art.pole, place(*p, 0.0)).with_material(props));
+        }
+        if let Some(c) = &f.crane {
+            scene
+                .meshes
+                .push(MeshInstance::new(art.mast, place(c.at, 0.0)).with_material(props));
+            let top = c.at + Vec3::Z * c.height * 0.97;
+            scene.meshes.push(
+                MeshInstance::new(
+                    art.jib,
+                    Mat4::from_translation(top)
+                        * Mat4::from_rotation_z(c.yaw)
+                        * Mat4::from_scale(Vec3::new(c.reach, s, s)),
+                )
+                .with_material(props),
+            );
+            let tip = top + Vec3::new(c.yaw.cos(), c.yaw.sin(), 0.0) * c.reach;
+            if let Some((ware, at)) = &c.load {
+                let hook = *at + Vec3::Z * kit::life::CRATE_SIZE * s;
+                scene.lines.push(Line::path(
+                    vec![tip, hook],
+                    0.25 * s,
+                    palette::INK.with_alpha(0.7),
+                ));
+                if let Some(m) = art.stock.get(ware) {
+                    scene
+                        .meshes
+                        .push(MeshInstance::new(*m, place(*at, c.yaw)).with_material(props));
+                }
+            } else {
+                // An idle hook, hanging short.
+                scene.lines.push(Line::path(
+                    vec![tip, tip - Vec3::Z * 2.0 * s],
+                    0.25 * s,
+                    palette::INK.with_alpha(0.6),
+                ));
+            }
+        }
+        for c in &f.craft {
+            if let Some(m) = self.hulls.get(&(c.hull.clone(), Some(c.faction.clone()), ShipFitLook::default())) {
+                let mut inst = MeshInstance::at(*m, c.at, c.heading, SHIP_SCALE * 0.8)
+                    .with_material(ArtBible::bundled().material(InkRole::Ship));
+                inst.transform = Mat4::from_translation(Vec3::Z * SHIP_HOVER) * inst.transform;
+                scene.meshes.push(inst);
+            }
+        }
+        // The economy's own traders heading in to dock: a faint dashed way to the berth.
+        for (from, to) in life::approaches(world, station) {
+            scene.lines.push(
+                Line::path(
+                    vec![from.extend(SHIP_HOVER - 4.0), to.extend(SHIP_HOVER - 4.0)],
+                    2.5,
+                    palette::LANTERN.with_alpha(0.35),
+                )
+                .dashed(12.0, 10.0),
+            );
+        }
+        scene.glows.extend(f.glows);
+        scene.lines.extend(f.lines);
+        // Lamps light the deck with whatever point lights the station left over.
+        let free = MAX_POINT_LIGHTS.saturating_sub(scene.lights.points.len());
+        let mut lights = f.lights;
+        lights.sort_by(|a, b| {
+            let d = |l: &PointLight| l.position.truncate().distance(rig.center);
+            d(a).total_cmp(&d(b))
+        });
+        scene.lights.points.extend(lights.into_iter().take(free));
+    }
 }
 
 #[cfg(test)]

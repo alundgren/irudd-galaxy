@@ -116,6 +116,11 @@ struct App {
     framing: (Option<StationId>, Option<StationPartId>),
     /// Where the left button went down on a part at the cradle: a drag starts there.
     press_at: Option<G2>,
+    /// The view's settings (station life) and where they're kept.
+    view_settings: crate::view::life::ViewSettings,
+    view_settings_path: Option<PathBuf>,
+    /// The station themes from the packs folder, for the view.
+    themes: crate::view::themes::Themes,
 }
 
 /// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
@@ -238,6 +243,20 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let bridge = start_bridge(bridge, &mut session, &mut save);
     session.begin();
     let cues = crate::sound::Cues::new(session.world());
+    // Station themes (#47, 4.1): the packs folder's, checked against the world.
+    let themes = crate::view::themes::Themes::load(&crate::game::core_data(&opts.packs))
+        .and_then(|t| t.check(session.world()).map(|()| t))
+        .map_err(|e| (4, e))?;
+    let view_settings_path = folder
+        .as_ref()
+        .map(|f| f.dir().join(crate::view::life::SETTINGS_FILE));
+    let view_settings = view_settings_path.as_deref().map_or_else(Default::default, |p| {
+        let (settings, note) = crate::view::life::ViewSettings::load(p);
+        if let Some(note) = note {
+            eprintln!("view: {note}");
+        }
+        settings
+    });
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -263,6 +282,9 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         cues,
         framing: (None, None),
         press_at: None,
+        view_settings,
+        view_settings_path,
+        themes,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -389,6 +411,24 @@ impl App {
         self.running
             .as_ref()
             .map_or(G2::new(1280.0, 720.0), |r| r.renderer.logical_size())
+    }
+
+    /// Q, or the PAUSED card's button: station life full or quiet, kept for next time.
+    fn toggle_life(&mut self) {
+        self.view_settings.life = self.view_settings.life.toggled();
+        if let Some(r) = &mut self.running {
+            r.view.life = self.view_settings.life;
+        }
+        if let Some(path) = self.view_settings_path.clone() {
+            let settings = self.view_settings;
+            let _ = std::thread::Builder::new()
+                .name("view-settings".into())
+                .spawn(move || {
+                    if let Err(e) = settings.save(&path) {
+                        eprintln!("view: {e}");
+                    }
+                });
+        }
     }
 
     fn toggle_pause(&mut self) {
@@ -537,6 +577,17 @@ impl App {
 
     fn clicked(&mut self) {
         if self.session.is_paused() {
+            // The PAUSED card's one button: station life.
+            let mut card = ui::paused_card();
+            card.toggles.push(self.view_settings.life.label().to_owned());
+            if let Some(c) = self.ui.cursor
+                && card
+                    .toggle_rects(self.viewport())
+                    .first()
+                    .is_some_and(|r| ui::contains(r, c))
+            {
+                self.toggle_life();
+            }
             return;
         }
         let Some(cursor) = self.ui.cursor else { return };
@@ -638,13 +689,14 @@ impl App {
             }
             let world = self.session.world();
             match goal.zoom {
-                Some(zoom) => self.rig.glide_to(goal.center, zoom, dt as f32),
+                Some(zoom) => self.rig.glide_to(goal.center, zoom, goal.tilt, dt as f32),
                 None if self.rig.gliding() => {
                     let zoom = self.rig.flight_zoom(world);
-                    self.rig.glide_to(goal.center, zoom, dt as f32);
+                    self.rig.glide_to(goal.center, zoom, goal.tilt, dt as f32);
                 }
                 None => {
                     self.rig.fit(world);
+                    self.rig.tilt = goal.tilt;
                     self.rig.follow(goal.center, dt as f32);
                 }
             }
@@ -711,15 +763,13 @@ impl ApplicationHandler for App {
             }
         };
         let mut view = View::new();
+        view.set_themes(self.themes.clone());
+        view.life = self.view_settings.life;
         view.sync(&mut renderer, self.session.world());
         if let Some(goal) =
             crate::frame::camera_goal(&self.session, &self.ui, 1.0, renderer.logical_size())
         {
-            self.rig.center = goal.center;
-            match goal.zoom {
-                Some(zoom) => self.rig.zoom = zoom,
-                None => self.rig.fit(self.session.world()),
-            }
+            self.rig.settle(&goal, self.session.world());
             self.framing = (
                 self.docked(),
                 crate::frame::open_room(&self.session, &self.ui).map(|p| p.id.clone()),
@@ -777,6 +827,13 @@ impl ApplicationHandler for App {
                 if code == KeyCode::KeyN {
                     if down && !repeat {
                         self.audio.toggle_mute();
+                    }
+                    return;
+                }
+                // Q turns a docked station's ambient life down or back up, paused or not.
+                if code == KeyCode::KeyQ {
+                    if down && !repeat {
+                        self.toggle_life();
                     }
                     return;
                 }

@@ -548,6 +548,7 @@ fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> Fr
     let mut rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::ZERO);
     if let Some(goal) = galaxy_app::frame::camera_goal(s, ui_state, 1.0, viewport) {
         rig.center = goal.center;
+        rig.tilt = goal.tilt;
         if let Some(z) = goal.zoom {
             rig.zoom = z;
         }
