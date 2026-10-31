@@ -132,11 +132,11 @@ decides: merge with a follow-up issue, or stop and say why.
 
 ### Builds
 
-`cargo xtask check` is the merge gate. Run it from `engine/` for the engine (the slice has
-its own copy of xtask in its folder; both share the folders, slots and permit below). Run it
-before asking for review, and again before merging if the branch changed since. A PR that
-only changes `game/` or docs builds nothing. Reviewers skip it when the commit matches a reported
-pass. Never enable fat LTO; thin LTO or none.
+`cargo xtask check` is the merge gate. Run it from `engine/` for the engine; the slice has
+its own copy of xtask in its folder, and both share the folders, slots and permit below.
+Run it before asking for review, and again before merging if the branch changed since.
+A PR that only changes `game/` or docs builds nothing. Reviewers skip it when the commit
+matches a reported pass. Never enable fat LTO; thin LTO or none.
 
 Cold builds are the slowest part of a review, and parallel builds starve the machine.
 `cargo xtask` handles both by default; nothing needs setting up:
@@ -151,8 +151,7 @@ Cold builds are the slowest part of a review, and parallel builds starve the mac
   our own crates. `GALAXY_TARGET_SLOTS` changes the pool size; each slot is several GB.
 - **One heavy build at a time.** Commands that compile (`build`, `run`'s build, `check`,
   `install`, `linux-check`, and `cargo xtask cargo` with `build`, `test`, `clippy` and the
-  like)
-  first wait for a machine-wide build permit and print who holds it. `run` gives the
+  like) first wait for a machine-wide build permit and print who holds it. `run` gives the
   permit back once the game is built but keeps its slot while the game runs.
   `GALAXY_BUILD_PERMITS=2` allows two at once and sets `CARGO_BUILD_JOBS` to
   cores / permits; `0` turns the wait off.
