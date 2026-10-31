@@ -41,6 +41,7 @@ use crate::mind::{
     DecisionRequest, LineRequest, LiveRequest, MAX_ATTEMPTS, MindError, Purpose, Question,
 };
 use crate::packet::{self, Names};
+use crate::radio;
 use crate::situation::{
     self, Cached, Ledger, LineNote, OutcomeNote, SPEND_FACT, Source, SpendNote, micros,
 };
@@ -151,6 +152,8 @@ struct LivePending {
     /// The docking fact that asked for it.
     trigger: FactId,
     deadline: Tick,
+    /// A radio bit's channel and what it cites ([`crate::radio`]).
+    radio: Option<(radio::Channel, Vec<FactId>)>,
 }
 
 /// An accepted discount waiting for a calm moment.
@@ -202,6 +205,14 @@ pub struct MindHost {
     /// Discounts whose end is submitted but not yet in history.
     ending: BTreeSet<FactId>,
     held_live: Vec<HeldLive>,
+    /// Radio channels the live layer may write bits for ([`MindHost::set_radio`]).
+    radio: radio::Setup,
+    /// Station channels in range at the last pump: a channel not in it is entered.
+    radio_heard: BTreeSet<String>,
+    /// Per channel, the player's docking count when a bit was last asked for there.
+    radio_asked: BTreeMap<String, u64>,
+    /// Radio bits asked for in this run.
+    radio_runs: u32,
     /// The call log, for the verdict on each answer.
     log: CallSink,
 }
@@ -248,6 +259,10 @@ impl MindHost {
             discounts: live::Discounts::default(),
             ending: BTreeSet::new(),
             held_live: Vec::new(),
+            radio: radio::Setup::default(),
+            radio_heard: BTreeSet::new(),
+            radio_asked: BTreeMap::new(),
+            radio_runs: 0,
             log: CallSink::new(),
         };
         host.catch_up(history);
@@ -259,6 +274,13 @@ impl MindHost {
     /// runs never ask for a flourish. Running discounts end either way.
     pub fn set_live(&mut self, on: bool) -> &mut Self {
         self.live_on = on;
+        self
+    }
+
+    /// The station radio channels the live layer writes bits for, as the flagship flies
+    /// into their range (only while the live layer is on).
+    pub fn set_radio(&mut self, setup: radio::Setup) -> &mut Self {
+        self.radio = setup;
         self
     }
 
@@ -392,6 +414,7 @@ impl MindHost {
             for (station, trigger) in docked_at {
                 self.live_open(world, tick, &station, trigger, &mut out);
             }
+            self.radio_open(world, history, tick, &mut out);
             let mut due = Vec::new();
             for (at, done) in std::mem::take(&mut self.held) {
                 if at <= tick {
@@ -518,6 +541,10 @@ impl MindHost {
         for f in &facts[from..] {
             self.ledger.observe(f);
             self.discounts.observe(f);
+            if let Some(note) = radio::RadioNote::parse(f) {
+                let at = self.radio_asked.entry(note.channel).or_default();
+                *at = (*at).max(note.docking);
+            }
             if let Some(note) = live::LiveNote::parse(f) {
                 if let Some(of) = note.ends {
                     self.ending.remove(&of);
@@ -1489,8 +1516,146 @@ impl MindHost {
                 docking: now,
                 trigger,
                 deadline,
+                radio: None,
             },
         );
+    }
+
+    /// The flagship flew into station radio channels' range: maybe ask for one bit on
+    /// the first of them. Counted per channel entry, with the channel's cooldown in
+    /// dockings and the run's cap; the region's budget as for the live layer.
+    fn radio_open(&mut self, world: &WorldState, history: &History, tick: Tick, out: &mut Out) {
+        let heard: BTreeSet<String> = radio::in_range(world, &self.radio)
+            .into_iter()
+            .map(|c| c.id.clone())
+            .collect();
+        let entered: Vec<radio::Channel> = self
+            .radio
+            .channels
+            .iter()
+            .filter(|c| heard.contains(&c.id) && !self.radio_heard.contains(&c.id))
+            .cloned()
+            .collect();
+        self.radio_heard = heard;
+        let rules = self.radio.rules;
+        let now = live::dockings(world);
+        let Some(channel) = entered.into_iter().find(|c| {
+            self.radio_asked
+                .get(&c.id)
+                .is_none_or(|at| now >= at + u64::from(rules.cooldown_dockings))
+        }) else {
+            return;
+        };
+        if !self.live_on() || self.closing || self.radio_runs >= rules.run_calls {
+            return;
+        }
+        let Some(closed) = live::closed_world(world, &self.config, &channel.station) else {
+            return;
+        };
+        if closed.keepers.is_empty() {
+            return;
+        }
+        let live_rules = &self.config.live;
+        let region = world.stations.get(&channel.station).map(|s| s.region.clone());
+        let window = self.window(world, region.as_ref());
+        let Ok(allowed) = self.allowance_up_to(region.as_ref(), window, live_rules.max_attempts)
+        else {
+            return;
+        };
+        let key = situation::key(&json!({
+            "live": Purpose::Radio.as_str(),
+            "channel": channel.id,
+            "docking": now,
+            "closed": closed,
+        }));
+        let (user, schema) = radio::task(&channel, &closed);
+        let req = LiveRequest {
+            key: key.clone(),
+            purpose: Purpose::Radio,
+            session_id: channel.station.to_string(),
+            system: live::system_prompt(live_rules, &self.config.talk.forbidden),
+            user,
+            schema,
+            max_attempts: allowed,
+            deadline_ms: live_rules.deadline_ticks * 1000 / u64::from(TICKS_PER_SECOND),
+        };
+        let deadline = Tick(tick.0 + live_rules.deadline_ticks);
+        let sent = Sent {
+            menu: Purpose::Radio.menu(),
+            actor: channel.station.to_string(),
+            stage: situation::Stage::Live,
+            key,
+            region,
+            window,
+            at: tick,
+            ticket: self.ticket(),
+            allowed,
+        };
+        // The bit cites the channel's discovery, when it is in history.
+        let found = history
+            .facts()
+            .iter()
+            .rev()
+            .find(|f| {
+                f.kind.as_str() == radio::FOUND_FACT
+                    && f
+                        .subjects
+                        .other
+                        .as_ref()
+                        .is_some_and(|o| o.as_str() == channel.id)
+            })
+            .map(|f| f.id);
+        self.radio_asked.insert(channel.id.clone(), now);
+        self.radio_runs += 1;
+        if !self.exec.submit(sent.ticket, Job::Live(req)) {
+            self.record_busy(&sent, out);
+            return;
+        }
+        self.stats.live_requests += 1;
+        self.live_pending.insert(
+            sent.ticket,
+            LivePending {
+                sent,
+                purpose: Purpose::Radio,
+                station: channel.station.clone(),
+                closed,
+                docking: now,
+                trigger: found.unwrap_or(FactId(0)),
+                deadline,
+                radio: Some((channel, found.into_iter().collect())),
+            },
+        );
+    }
+
+    /// A radio bit came in time: validate it and, if it holds, record it in the
+    /// station's history.
+    fn radio_answer(
+        &mut self,
+        world: &WorldState,
+        p: LivePending,
+        draft: crate::mind::LiveDraft,
+        model: String,
+        call: Option<CallId>,
+        out: &mut Out,
+    ) {
+        let Some((channel, cites)) = p.radio else {
+            return;
+        };
+        let names = live::name_words(world, &p.closed);
+        let text = radio::text_rules(&self.config.live, &self.config.talk.forbidden, &names);
+        match radio::validate(&draft, &p.closed, &text) {
+            Ok(bit) => {
+                self.verdict(call.as_ref(), Verdict::Accepted, "");
+                self.stats.live_accepted += 1;
+                out.batches.push(radio::accepted(
+                    world, &channel, &bit, &p.sent.key, &model, p.docking, cites,
+                ));
+            }
+            Err(e) => {
+                self.stats.live_rejected += 1;
+                self.verdict(call.as_ref(), Verdict::Rejected, &e.to_string());
+            }
+        }
     }
 
     /// A live answer came in time: validate it against what was offered and, if it
@@ -1510,6 +1675,9 @@ impl MindHost {
         let Ok(draft) = reply.result else {
             return;
         };
+        if p.purpose == Purpose::Radio {
+            return self.radio_answer(world, p, draft, reply.model, call, out);
+        }
         let rules = &self.config.live;
         let names = live::name_words(world, &p.closed);
         let text = TextRules {
