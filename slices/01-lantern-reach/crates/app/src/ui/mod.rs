@@ -600,7 +600,7 @@ pub fn context_hint(world: &WorldState) -> Option<String> {
         let rate = rate.trim_end_matches('0').trim_end_matches('.');
         return Some(format!("Mining {ware}  ·  {rate} a second"));
     }
-    if let Some(rock) = space::rock_in_reach(world, &ship.region, ship.position) {
+    if let Some(rock) = space::rock_in_reach_of(world, &ship.id, &ship.region, ship.position) {
         let cap = galaxy_contract::modifiers::hold_capacity(world, ship);
         if ship.hold.total() >= cap {
             return Some("Your hold is full".into());
@@ -644,7 +644,7 @@ pub fn hint_kind(world: &WorldState) -> Option<HintKind> {
     if ship.activity.mining.is_some() {
         return Some(HintKind::MiningRate);
     }
-    galaxy_ship::space::rock_in_reach(world, &ship.region, ship.position)?;
+    galaxy_ship::space::rock_in_reach_of(world, &ship.id, &ship.region, ship.position)?;
     if ship.hold.total() >= galaxy_contract::modifiers::hold_capacity(world, ship) {
         return Some(HintKind::HoldFull);
     }
@@ -1334,6 +1334,18 @@ pub fn dock_panel(
                         ("Take it", UiAction::Service(offer.request.clone()))
                     }
                     ServiceRequest::Fit { .. } => ("Fit", UiAction::Service(offer.request.clone())),
+                    ServiceRequest::Refit { .. } => {
+                        ("Refit", UiAction::Service(offer.request.clone()))
+                    }
+                    ServiceRequest::Remove { .. } => {
+                        ("Take off", UiAction::Service(offer.request.clone()))
+                    }
+                    ServiceRequest::Make { .. } => {
+                        ("Make", UiAction::Service(offer.request.clone()))
+                    }
+                    ServiceRequest::Order { .. } => {
+                        ("Order", UiAction::Service(offer.request.clone()))
+                    }
                 };
                 buttons.push(button(
                     o,

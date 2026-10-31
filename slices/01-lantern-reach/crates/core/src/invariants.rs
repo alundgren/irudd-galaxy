@@ -21,6 +21,7 @@ pub fn builtin() -> Vec<Box<dyn Invariant>> {
         Box::new(RockWithinInitial),
         Box::new(PricesInBand),
         Box::new(NumbersFinite),
+        Box::new(FitsHold),
     ]
 }
 
@@ -216,6 +217,57 @@ impl Invariant for HoldWithinCapacity {
             if s.hold.total() > capacity {
                 return Err(format!("{id} holds {} of {capacity}", s.hold.total()));
             }
+        }
+        Ok(())
+    }
+}
+
+/// The fit model holds together: a single socket on the flagship holds one part, a
+/// part is in one place at a time (fitted, one locker, or on order), every locker and
+/// order belongs to a ship that exists, and the flagship's parts stay within its power
+/// cap. The hullwright refuses a fit over the cap while planning; this catches two fits
+/// planned on the same starting world in one tick, so the second batch is undone.
+pub struct FitsHold;
+
+impl Invariant for FitsHold {
+    fn name(&self) -> &'static str {
+        "fits_hold"
+    }
+    fn check(&self, w: &WorldState) -> Result<(), String> {
+        use galaxy_contract::fit;
+        let mut taken = std::collections::BTreeMap::new();
+        for u in &w.player.fittings {
+            if fit::is_module(w, u) {
+                continue;
+            }
+            if let Some(socket) = fit::part(w, u).and_then(|d| d.socket.as_ref())
+                && let Some(other) = taken.insert(socket, u)
+            {
+                return Err(format!("{socket} holds both {other} and {u}"));
+            }
+        }
+        let mut seen: std::collections::BTreeSet<&UpgradeId> = w.player.fittings.iter().collect();
+        for (ship, locker) in &w.progress.fit.lockers {
+            exists(&w.ships, ship, &"locker")?;
+            for u in locker {
+                if !seen.insert(u) {
+                    return Err(format!("{u} is in {ship}'s locker and somewhere else too"));
+                }
+            }
+        }
+        for (u, o) in &w.progress.fit.orders {
+            exists(&w.ships, &o.ship, u)?;
+            if !seen.insert(u) {
+                return Err(format!("{u} is on order and the player has it already"));
+            }
+        }
+        if let Some(b) = fit::flagship_budget(w)
+            && b.power_used > b.power_cap
+        {
+            return Err(format!(
+                "fitted parts draw {} power; the hull carries {}",
+                b.power_used, b.power_cap
+            ));
         }
         Ok(())
     }

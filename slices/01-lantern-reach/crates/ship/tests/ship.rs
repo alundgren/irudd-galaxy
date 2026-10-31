@@ -347,6 +347,11 @@ fn speed_turn_and_zoom_modifiers_change_the_feel() {
                 Modifier::TurnRate { factor: 1.5 },
                 Modifier::Zoom { factor: 0.5 },
             ],
+            socket: None,
+            power: 0,
+            mass: 0,
+            look: None,
+            source: Default::default(),
         },
     );
     world.player.fittings.insert(fins);

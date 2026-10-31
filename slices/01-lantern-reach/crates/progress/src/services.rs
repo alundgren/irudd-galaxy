@@ -1,5 +1,6 @@
 //! Station services: what hullwrights and dockmasters fit and build, and the
-//! hullwright's prestige. Each purchase is one atomic batch: if any part of it can't
+//! hullwright's prestige. Ship parts, the locker, Make and Friends go to
+//! [`crate::hullwright`]. Each purchase is one atomic batch: if any part of it can't
 //! apply (not enough credits, undocked earlier in the tick, already bought by an
 //! earlier request in the same tick), none of it does and nothing is charged.
 
@@ -37,6 +38,9 @@ pub enum Refusal {
     NoBranch,
     #[error("the new hull holds {room}; sell or deliver down from {holds} first")]
     HoldTooFull { holds: u64, room: u32 },
+    /// The hullwright can't fit, take off, make or order that part.
+    #[error("{0}")]
+    Fit(crate::hullwright::FitRefusal),
 }
 
 /// One line on a seller's list.
@@ -53,14 +57,17 @@ pub struct Offer {
     pub affordable: bool,
 }
 
-/// Everything on offer at `station` right now: unlocked, not yet owned.
+/// Everything on offer for credits at `station` right now: unlocked, not yet owned.
+/// Parts made or ordered from a friend, and the hull's locker, are in the wharf's
+/// room ([`crate::hullwright::wharf`]).
 pub fn offers(world: &WorldState, history: &History, station: &StationId) -> Vec<Offer> {
     let eval = Eval::new(world, history);
     let rules = &world.progress.rules;
     let mut out = Vec::new();
     for u in rules.upgrades.values() {
         if u.station.as_ref() == Some(station)
-            && !world.player.fittings.contains(&u.id)
+            && u.source.is_ready()
+            && !galaxy_contract::fit::owned(world, &u.id)
             && eval.holds_data(&u.unlock)
         {
             out.push(Offer {
@@ -130,6 +137,9 @@ fn afford(world: &WorldState, cost: i64) -> Result<(), Refusal> {
 
 /// Whether the player could buy this now.
 pub fn check(world: &WorldState, history: &History, req: &ServiceRequest) -> Result<(), Refusal> {
+    if crate::hullwright::handles(world, req) {
+        return crate::hullwright::check(world, history, req);
+    }
     let eval = Eval::new(world, history);
     let rules = &world.progress.rules;
     match req {
@@ -163,6 +173,10 @@ pub fn check(world: &WorldState, history: &History, req: &ServiceRequest) -> Res
             afford(world, c.cost)
         }
         ServiceRequest::Prestige { to } => crate::prestige::check(world, history, to),
+        ServiceRequest::Remove { .. }
+        | ServiceRequest::Refit { .. }
+        | ServiceRequest::Make { .. }
+        | ServiceRequest::Order { .. } => crate::hullwright::check(world, history, req),
     }
 }
 
@@ -201,6 +215,9 @@ pub fn batch(
     history: &History,
     req: &ServiceRequest,
 ) -> Result<CommandBatch, Refusal> {
+    if crate::hullwright::handles(world, req) {
+        return crate::hullwright::batch(world, history, req);
+    }
     check(world, history, req)?;
     let rules = &world.progress.rules;
     match req {
@@ -252,6 +269,10 @@ pub fn batch(
             Ok(b)
         }
         ServiceRequest::Prestige { to } => crate::prestige::batch(world, history, to),
+        ServiceRequest::Remove { .. }
+        | ServiceRequest::Refit { .. }
+        | ServiceRequest::Make { .. }
+        | ServiceRequest::Order { .. } => crate::hullwright::batch(world, history, req),
     }
 }
 

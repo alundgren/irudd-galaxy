@@ -3,6 +3,14 @@
   "title": "HullsFile",
   "type": "object",
   "properties": {
+    "fit": {
+      "description": "Each fittable hull's sockets, power cap and free mass (`crate::fit`).",
+      "type": "array",
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/HullFit"
+      }
+    },
     "hull": {
       "type": "array",
       "default": [],
@@ -323,6 +331,40 @@
         "mining_rate"
       ]
     },
+    "HullFit": {
+      "description": "A hull's sockets and budgets.",
+      "type": "object",
+      "properties": {
+        "free_mass": {
+          "description": "Mass the hull carries without slowing down.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "power": {
+          "description": "Power pips: the most the fitted parts may draw together.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "sockets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketId"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "hull",
+        "sockets",
+        "power",
+        "free_mass"
+      ]
+    },
     "HullId": {
       "description": "Stable hull id, e.g. `hull.wren`.",
       "type": "string",
@@ -590,6 +632,42 @@
           ]
         },
         {
+          "description": "Mines from this many world units further off (the long-throw drill).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mining_reach"
+            },
+            "units": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Shows what's left in rocks within this distance (the seam lamp).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "seam_lamp"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
           "description": "Multiplies standing gains from deeds with this tag (Good neighbour: delivery x1.5).",
           "type": "object",
           "properties": {
@@ -730,6 +808,15 @@
       "type": "string",
       "examples": [
         "ship.player"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "SocketId": {
+      "description": "Stable socket id, e.g. `socket.drill`.",
+      "type": "string",
+      "examples": [
+        "socket.drill"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"

@@ -147,6 +147,42 @@ pub fn craft_backfill(dir: &Path, world: &WorldState) -> Result<Vec<CommandBatch
     Ok(batches)
 }
 
+/// The cause name of [`fit_backfill`]'s batch.
+pub const FIT_BACKFILL: &str = "fit_backfill";
+
+/// A batch that brings the fit model (#47 Phase 3) into a save made before it: the
+/// fit tables, and every upgrade `dir` defines that the world lacks or has without a
+/// socket, as authored. Nothing the player has changes: what's fitted stays fitted,
+/// each part in its socket and each control module in the rack. `None` once the world
+/// has the fit tables (or `dir` has none). The result depends only on `dir` and the
+/// world, so it repeats exactly.
+pub fn fit_backfill(dir: &Path, world: &WorldState) -> Result<Option<CommandBatch>, DataError> {
+    if !world.progress.rules.fit.is_empty() {
+        return Ok(None);
+    }
+    let fresh = load_world(dir, world.meta.seed)?;
+    if fresh.progress.rules.fit.is_empty() {
+        return Ok(None);
+    }
+    let mut batch = CommandBatch::new(Cause::system(
+        FIT_BACKFILL,
+        "sockets and parts for a save made before the hullwright's fit model",
+    ));
+    for (id, def) in &fresh.progress.rules.upgrades {
+        let have = world.progress.rules.upgrades.get(id);
+        if have.is_none_or(|u| u.socket.is_none()) {
+            batch = batch.with(Command::PutUpgrade {
+                id: id.clone(),
+                value: Some(Box::new(def.clone())),
+            });
+        }
+    }
+    batch = batch.with(Command::SetFitRules {
+        rules: Box::new(fresh.progress.rules.fit.clone()),
+    });
+    Ok(Some(batch))
+}
+
 /// The cause name of [`pacing_backfill`]'s batch.
 pub const PACING_BACKFILL: &str = "pacing_backfill";
 
@@ -186,12 +222,14 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let economy: EconomyRules = read(dir, "economy.toml")?;
     let controls: ControlsFile = read(dir, "controls.toml")?;
     let upgrades: UpgradesFile = read(dir, "upgrades.toml")?;
+    let parts: ShipPartsFile = read(dir, "ship_parts.toml")?;
     let traits: TraitsFile = read(dir, "traits.toml")?;
     let pacing: PacingFile = read(dir, "pacing.toml")?;
     let start: StartFile = read_required(dir, "start.toml")?;
     let canon: galaxy_contract::canon::CanonFile = read(dir, "canon.toml")?;
     let craft: CraftFile = read(dir, "craft.toml")?;
     let ranks = hulls.rank;
+    let hull_fits = hulls.fit;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
 
     let mut errors = Vec::new();
@@ -287,6 +325,8 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
         crate::load_progress::Files {
             controls,
             upgrades,
+            parts,
+            hull_fits,
             traits,
             pacing,
             ranks,

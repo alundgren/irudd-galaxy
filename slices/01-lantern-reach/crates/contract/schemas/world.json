@@ -296,10 +296,22 @@
       "$ref": "#/$defs/ProgressState",
       "default": {
         "beats": {},
+        "fit": {},
         "rules": {
           "capabilities": {},
           "crafts": {},
           "deeds": [],
+          "fit": {
+            "blueprints": {},
+            "hulls": {},
+            "mass": {
+              "floor": 0.5,
+              "speed_per_unit": 0.04,
+              "turn_per_unit": 0.06
+            },
+            "sockets": {},
+            "wharves": {}
+          },
           "profile": "",
           "ranks": [],
           "regard": [],
@@ -710,6 +722,39 @@
       "enum": [
         "active",
         "completed"
+      ]
+    },
+    "BlueprintDef": {
+      "description": "A blueprint found in the world: its flag is set (with a `blueprint_found` fact) the\nfirst time `found` holds. Making its part needs it.",
+      "type": "object",
+      "properties": {
+        "found": {
+          "description": "When it's found: activity, history or beats, never time.",
+          "$ref": "#/$defs/Requirement"
+        },
+        "found_in": {
+          "description": "Where it turns up, for the log line (\"in the Cinder Belt\").",
+          "type": "string"
+        },
+        "id": {
+          "description": "The flag that marks it found (`blueprint.long_drill`).",
+          "$ref": "#/$defs/FlagId"
+        },
+        "name": {
+          "description": "\"Long-throw drill blueprint\".",
+          "type": "string"
+        },
+        "part": {
+          "$ref": "#/$defs/UpgradeId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "part",
+        "found_in",
+        "found"
       ]
     },
     "BuildState": {
@@ -2643,6 +2688,93 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "FitRules": {
+      "description": "The fit tables from the core pack's data. Saved with the world.",
+      "type": "object",
+      "properties": {
+        "blueprints": {
+          "description": "Blueprints by the flag that marks them found.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/BlueprintDef"
+            }
+          }
+        },
+        "hulls": {
+          "description": "The sockets and budgets of each hull that takes parts.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/HullFit"
+            }
+          }
+        },
+        "mass": {
+          "$ref": "#/$defs/MassRules",
+          "default": {
+            "floor": 0.5,
+            "speed_per_unit": 0.04,
+            "turn_per_unit": 0.06
+          }
+        },
+        "sockets": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/SocketDef"
+            }
+          }
+        },
+        "wharves": {
+          "description": "One wharf per station at most: who fits there and which sockets they work on.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/WharfDef"
+            }
+          }
+        }
+      }
+    },
+    "FitState": {
+      "description": "The player's lockers and orders. Missing parts load empty.",
+      "type": "object",
+      "properties": {
+        "lockers": {
+          "description": "Each hull's spare parts, by the ship they belong to.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/UpgradeId"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "orders": {
+          "description": "Parts on order from a friend, by part.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/PartOrder"
+            }
+          }
+        }
+      }
+    },
     "FlagId": {
       "description": "Stable flag id, e.g. `flag.nav_chip`.",
       "type": "string",
@@ -3067,6 +3199,40 @@
         "mining_rate"
       ]
     },
+    "HullFit": {
+      "description": "A hull's sockets and budgets.",
+      "type": "object",
+      "properties": {
+        "free_mass": {
+          "description": "Mass the hull carries without slowing down.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "power": {
+          "description": "Power pips: the most the fitted parts may draw together.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "sockets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketId"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "hull",
+        "sockets",
+        "power",
+        "free_mass"
+      ]
+    },
     "HullId": {
       "description": "Stable hull id, e.g. `hull.wren`.",
       "type": "string",
@@ -3382,6 +3548,47 @@
         }
       ]
     },
+    "MassRules": {
+      "description": "How mass past the free allowance slows the hull. Each unit over takes these shares\noff top speed and turn rate, never below `floor`.",
+      "type": "object",
+      "properties": {
+        "floor": {
+          "type": "number",
+          "format": "double",
+          "default": 0.5
+        },
+        "speed_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.04
+        },
+        "turn_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.06
+        }
+      },
+      "additionalProperties": false
+    },
+    "Material": {
+      "description": "Units of a ware a Make consumes from the hold.",
+      "type": "object",
+      "properties": {
+        "units": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "units"
+      ]
+    },
     "Measure": {
       "description": "How many times a deed was done.",
       "oneOf": [
@@ -3687,6 +3894,42 @@
             "modifier": {
               "type": "string",
               "const": "price_glass"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
+          "description": "Mines from this many world units further off (the long-throw drill).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mining_reach"
+            },
+            "units": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Shows what's left in rocks within this distance (the seam lamp).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "seam_lamp"
             },
             "range": {
               "type": "number",
@@ -4863,6 +5106,116 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "PartOrder": {
+      "description": "A part on its way from a friend.",
+      "type": "object",
+      "properties": {
+        "from": {
+          "description": "Who sends it, and from where: it's sent after the flagship's next docking there.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "paid": {
+          "description": "Centicredits paid when it was ordered.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "part": {
+          "$ref": "#/$defs/UpgradeId"
+        },
+        "ship": {
+          "description": "The locker it arrives in.",
+          "$ref": "#/$defs/ShipId"
+        },
+        "since": {
+          "description": "Dockings after this fact count (`None`: all of history).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "part",
+        "ship",
+        "from",
+        "station",
+        "paid"
+      ]
+    },
+    "PartSource": {
+      "description": "Where a part comes from: one tab of the wharf at the part's `station`.",
+      "oneOf": [
+        {
+          "description": "Bought for its `cost` and fitted.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "ready"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from"
+          ]
+        },
+        {
+          "description": "Made from materials in the hold, once its blueprint is found. No credits.",
+          "type": "object",
+          "properties": {
+            "blueprint": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "from": {
+              "type": "string",
+              "const": "make"
+            },
+            "materials": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Material"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "blueprint",
+            "materials"
+          ]
+        },
+        {
+          "description": "Ordered for its `cost` from the wharf keeper's friend, who sends it after the\nplayer's next docking at the friend's station; it arrives in the locker.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "friend"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "npc",
+            "station"
+          ]
+        }
+      ]
+    },
     "Placement": {
       "description": "Where a part sits, in polar coordinates around the station centre.",
       "type": "object",
@@ -5190,6 +5543,21 @@
             "$ref": "#/$defs/DeedRule"
           }
         },
+        "fit": {
+          "description": "Sockets, hull budgets, wharves and blueprints (`crate::fit`). Empty in a save\nfrom before the fit model until the game backfills it on open.",
+          "$ref": "#/$defs/FitRules",
+          "default": {
+            "blueprints": {},
+            "hulls": {},
+            "mass": {
+              "floor": 0.5,
+              "speed_per_unit": 0.04,
+              "turn_per_unit": 0.06
+            },
+            "sockets": {},
+            "wharves": {}
+          }
+        },
         "prestige": {
           "anyOf": [
             {
@@ -5286,6 +5654,11 @@
             }
           }
         },
+        "fit": {
+          "description": "The hulls' parts lockers and parts on order (`crate::fit`).",
+          "$ref": "#/$defs/FitState",
+          "default": {}
+        },
         "rules": {
           "description": "The progression tables from the core pack's data (upgrades, controls, traits,\nranks, regard, deeds, prestige). Saved with the world.",
           "$ref": "#/$defs/ProgressRules",
@@ -5293,6 +5666,17 @@
             "capabilities": {},
             "crafts": {},
             "deeds": [],
+            "fit": {
+              "blueprints": {},
+              "hulls": {},
+              "mass": {
+                "floor": 0.5,
+                "speed_per_unit": 0.04,
+                "turn_per_unit": 0.06
+              },
+              "sockets": {},
+              "wharves": {}
+            },
             "profile": "",
             "ranks": [],
             "regard": [],
@@ -6743,6 +7127,43 @@
         "ui"
       ]
     },
+    "SocketDef": {
+      "description": "A socket kind. A hull has at most one of each.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SocketId"
+        },
+        "name": {
+          "description": "\"Drill mount\".",
+          "type": "string"
+        },
+        "place": {
+          "description": "Where it sits on the hull seen from above, for the cradle and the ship's look:\n`nose`, `utility` (behind the cockpit), `belly`, `tail` or `bay`.",
+          "type": "string"
+        },
+        "rack": {
+          "description": "The control rack: holds every control module, uses no budget, and its modules\nare never taken off. Any other socket holds one part.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "place"
+      ]
+    },
+    "SocketId": {
+      "description": "Stable socket id, e.g. `socket.drill`.",
+      "type": "string",
+      "examples": [
+        "socket.drill"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "Station": {
       "type": "object",
       "properties": {
@@ -7326,7 +7747,7 @@
       ]
     },
     "UpgradeDef": {
-      "description": "A fitting a station sells. Fittings are never removed and move with the pilot.",
+      "description": "A fitting a station sells: a ship part for a socket, or a control module for the\ncontrol rack (`crate::fit`). Fittings move with the pilot to a new hull; control\nmodules are never taken off, parts can go to the hull's locker and back.",
       "type": "object",
       "properties": {
         "cost": {
@@ -7348,6 +7769,19 @@
         "id": {
           "$ref": "#/$defs/UpgradeId"
         },
+        "look": {
+          "description": "How it looks on the ship (`lens`, `pods`, `fins` ...), for the renderer.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mass": {
+          "description": "Its weight against the hull's free mass.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
         "modifiers": {
           "type": "array",
           "items": {
@@ -7356,6 +7790,12 @@
         },
         "name": {
           "type": "string"
+        },
+        "power": {
+          "description": "Power pips it draws while fitted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
         },
         "seller": {
           "anyOf": [
@@ -7366,6 +7806,21 @@
               "type": "null"
             }
           ]
+        },
+        "socket": {
+          "description": "The socket it fits (`socket.rack` for control modules). `None` only in a save\nfrom before the fit model, until it's backfilled: then it counts as a module.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocketId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "description": "Which tab of the wharf at `station` it comes from: Ready (the default, for\n`cost`), Make or Friends.",
+          "$ref": "#/$defs/PartSource"
         },
         "station": {
           "description": "Where it's fitted. `None`: only as a beat reward.",
@@ -7478,6 +7933,37 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "WharfDef": {
+      "description": "A wharf: a hullwright at a station and the sockets they work on. Its parts are the\nupgrades whose `station` is this one (Ready, Make or Friends by their `source`).",
+      "type": "object",
+      "properties": {
+        "keeper": {
+          "description": "Who fits here.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "name": {
+          "description": "\"Orrin's cradle\".",
+          "type": "string"
+        },
+        "sockets": {
+          "description": "The sockets this wharf fits and removes parts on. Control modules don't need a\nwharf: their seller fits them, as before.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketId"
+          }
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "station",
+        "keeper",
+        "name",
+        "sockets"
+      ]
     },
     "WorldMeta": {
       "type": "object",

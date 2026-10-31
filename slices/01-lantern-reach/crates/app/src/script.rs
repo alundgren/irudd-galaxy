@@ -13,7 +13,8 @@
 //!   ticks run so the trade settles);
 //! - `:buy:ID`: buy a station service, as its dock-screen button does: an upgrade
 //!   (`upgrade.mining_lens`), a tender (`craft.thimble`) or a prestige hull
-//!   (`hull.tandem`);
+//!   (`hull.tandem`); or a hullwright service on a part: `:buy:remove:ID`,
+//!   `:buy:refit:ID`, `:buy:make:ID`, `:buy:makefit:ID`, `:buy:order:ID`;
 //! - `:ask`: ask the dockmaster what changed;
 //! - `:reply:N`: pick the Nth open answer at the dock (1-based, as the number keys and
 //!   the bubbles' buttons number them), or `:reply:CHOICE` by its ID
@@ -268,9 +269,25 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
     Ok(ticks)
 }
 
-/// The service request a dock-screen button would make for `id`.
+/// The service request a dock-screen button would make for `id`. The hullwright's
+/// other services take a word first: `remove:ID`, `refit:ID`, `make:ID`,
+/// `makefit:ID` (make and fit) and `order:ID`.
 fn service(id: &str) -> Result<ServiceRequest, String> {
     let bad = |e: galaxy_contract::ids::IdError| format!("`{id}`: {e}");
+    if let Some((verb, part)) = id.split_once(':') {
+        let upgrade: UpgradeId = part.parse().map_err(bad)?;
+        return Ok(match verb {
+            "remove" => ServiceRequest::Remove { upgrade },
+            "refit" => ServiceRequest::Refit { upgrade },
+            "make" => ServiceRequest::Make {
+                upgrade,
+                fit: false,
+            },
+            "makefit" => ServiceRequest::Make { upgrade, fit: true },
+            "order" => ServiceRequest::Order { upgrade },
+            _ => return Err(format!("`{verb}`: not a hullwright service")),
+        });
+    }
     Ok(if id.starts_with("upgrade.") {
         ServiceRequest::Fit {
             upgrade: id.parse().map_err(bad)?,

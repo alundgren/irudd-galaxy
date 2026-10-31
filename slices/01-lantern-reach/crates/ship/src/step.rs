@@ -345,14 +345,15 @@ impl<'a, 'c> ShipStep<'a, 'c> {
         // A press starts a run on the nearest rock; holding keeps it going. When the
         // run ends (rock spent, hold full, out of reach) it takes a new press.
         let rock = if pressed {
-            space::rock_in_reach(self.w, &self.region, self.motion.position)
+            space::nearest_within(self.w, &self.region, self.motion.position, self.reach())
         } else if held {
             self.activity
                 .mining
                 .as_ref()
                 .and_then(|m| self.w.rocks.get(&m.rock))
                 .filter(|r| {
-                    self.claims.left(r) > 0 && space::in_reach(self.w, r, self.motion.position)
+                    self.claims.left(r) > 0
+                        && space::within_reach(self.w, r, self.motion.position, self.reach())
                 })
         } else {
             None
@@ -974,7 +975,7 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             && self.motion.velocity.length() <= self.feel.brake * TICK_SECONDS;
         let ready = self.docked.is_none()
             && &self.region == region
-            && space::in_reach(self.w, rock, self.motion.position)
+            && space::within_reach(self.w, rock, self.motion.position, self.reach())
             && (mining || parked);
         if !ready {
             let dest = self.dest(&FlyTarget::Rock {
@@ -991,6 +992,11 @@ impl<'a, 'c> ShipStep<'a, 'c> {
             return None;
         }
         self.mine(rock_id).then_some(Outcome::Done)
+    }
+
+    /// How far from a rock's drawn edge this ship mines (the long-throw drill adds).
+    fn reach(&self) -> f32 {
+        space::reach_with(self.w, &self.mods)
     }
 
     /// How far from a rock's centre a mine order parks: its drawn edge plus the

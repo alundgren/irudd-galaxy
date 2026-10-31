@@ -406,6 +406,10 @@ beat precondition can be met by a forged fact.
 | `put_beat` | beat runtime only, `beats.write` | Beat transitions (`G.beat`), core layer only. |
 | `set_fitting` | beat runtime only, `beats.write` | A beat's `rewards.fit`, core layer only. |
 | `expect_fitting` | nothing (a check) | A check. |
+| `set_locker` | never | Hullwright services. |
+| `set_part_order` | never | Hullwright services. |
+| `put_upgrade` | never | Authored data. |
+| `set_fit_rules` | never | Authored data. |
 | `set_hull_record` | never | Hull ranks and prestige. |
 | `expect_hull_record` | nothing (a check) | A check. |
 | `set_tunable` | `pacing.write` | `ctx.pacing:set`. |

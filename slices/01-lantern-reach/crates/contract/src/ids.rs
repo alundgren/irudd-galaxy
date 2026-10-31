@@ -261,6 +261,10 @@ string_id!(
     /// A station upgrade a hullwright or dockmaster fits (`upgrade.mining_lens`).
     UpgradeId, kind = "upgrade", min_segments = 2, example = "upgrade.mining_lens");
 string_id!(
+    /// A socket on a hull that takes one ship part, or the control rack
+    /// (`socket.drill`, `socket.rack`). See [`crate::fit`].
+    SocketId, kind = "socket", min_segments = 2, example = "socket.drill");
+string_id!(
     /// A delivery tally a station keeps (`ledger.kettle_greenhouse`).
     LedgerId, kind = "ledger", min_segments = 2, example = "ledger.kettle_greenhouse");
 string_id!(

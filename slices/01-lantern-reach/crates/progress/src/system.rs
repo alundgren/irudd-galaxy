@@ -5,8 +5,10 @@
 //!    (`PlayerInput::services`) one atomic batch; one that doesn't apply is dropped
 //!    (check it first). A reply committed last tick that claims a read survey buoy's
 //!    reward pays it ([`crate::survey`]).
-//! 2. After anything happened (facts committed last tick): standing from faction
-//!    deeds, pilot traits, and the next hull rank, each as its own batch.
+//! 2. After anything happened (facts committed last tick): a part a friend sends
+//!    arriving in the hull's locker once the flagship has docked at the friend's
+//!    station ([`hullwright::arrivals`]), then standing from faction deeds, pilot
+//!    traits, blueprints found, and the next hull rank, each as its own batch.
 //!
 //! Every batch is worked out from the tick's starting world and checks what it relies
 //! on when it applies (`Expect*`), so a purchase asked for twice, a rank earned on the
@@ -19,7 +21,7 @@
 use galaxy_contract::prelude::*;
 use galaxy_core::{System, TickCtx};
 
-use crate::{growth, services, standing, survey};
+use crate::{growth, hullwright, services, standing, survey};
 
 /// The name the system runs under.
 pub const SYSTEM_NAME: &str = "progress";
@@ -68,6 +70,10 @@ impl System for ProgressSystem {
         if standing::last_tick_facts(world, history).is_empty() {
             return;
         }
+        // A docking is a fact, so a part a friend sends arrives the tick after it.
+        for batch in hullwright::arrivals(world, history) {
+            ctx.submit(batch);
+        }
         let mut submit = |summary: &str, commands: Vec<Command>| {
             if !commands.is_empty() {
                 ctx.submit(CommandBatch {
@@ -83,6 +89,10 @@ impl System for ProgressSystem {
         submit(
             "the pilot picked up a habit",
             growth::earned_traits(world, history),
+        );
+        submit(
+            "the pilot found a blueprint",
+            hullwright::found_blueprints(world, history),
         );
         // A prestige carries the stripe due this tick itself. If it fails, the next
         // check after anything happens finds the stripe still due.

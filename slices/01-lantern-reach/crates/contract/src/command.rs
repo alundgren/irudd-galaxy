@@ -532,6 +532,31 @@ pub enum Command {
         upgrade: UpgradeId,
         fitted: bool,
     },
+    /// Puts a part into (`stored: true`) or takes it out of (`false`) a ship's locker.
+    /// Fails if it's already in (or not in) that locker, so a part can't be stored or
+    /// taken out twice by two batches worked out from the same tick.
+    SetLocker {
+        ship: ShipId,
+        part: UpgradeId,
+        stored: bool,
+    },
+    /// Places (`Some`) or clears (`None`) the order for a part from a friend. Placing
+    /// fails if one is already on order; clearing fails if none is.
+    SetPartOrder {
+        part: UpgradeId,
+        order: Option<Box<crate::fit::PartOrder>>,
+    },
+    /// Puts (or with `null` removes) an upgrade's definition: authored data, for a save
+    /// from before it was authored.
+    PutUpgrade {
+        id: UpgradeId,
+        value: Option<Box<crate::progress::UpgradeDef>>,
+    },
+    /// Replaces the fit tables (sockets, hull budgets, wharves, blueprints): authored
+    /// data, for a save from before the fit model.
+    SetFitRules {
+        rules: Box<crate::fit::FitRules>,
+    },
     /// Sets (or with `null` clears) a hull's rank record.
     SetHullRecord {
         hull: HullId,
@@ -648,6 +673,10 @@ impl Command {
             Command::PutBeat { .. } => "put_beat",
             Command::SetFitting { .. } => "set_fitting",
             Command::ExpectFitting { .. } => "expect_fitting",
+            Command::SetLocker { .. } => "set_locker",
+            Command::SetPartOrder { .. } => "set_part_order",
+            Command::PutUpgrade { .. } => "put_upgrade",
+            Command::SetFitRules { .. } => "set_fit_rules",
             Command::SetHullRecord { .. } => "set_hull_record",
             Command::ExpectHullRecord { .. } => "expect_hull_record",
             Command::SetTunable { .. } => "set_tunable",

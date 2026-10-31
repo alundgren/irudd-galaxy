@@ -490,6 +490,42 @@
           ]
         },
         {
+          "description": "Mines from this many world units further off (the long-throw drill).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mining_reach"
+            },
+            "units": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Shows what's left in rocks within this distance (the seam lamp).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "seam_lamp"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
           "description": "Multiplies standing gains from deeds with this tag (Good neighbour: delivery x1.5).",
           "type": "object",
           "properties": {

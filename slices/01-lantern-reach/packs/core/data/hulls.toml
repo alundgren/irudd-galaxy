@@ -66,6 +66,28 @@ turn_rate = 180.0
 mining_rate = 0.5
 standing_berth = true
 
+# What each hull the player flies takes from the hullwright (ship_parts.toml): its
+# sockets, its power cap (what its parts may draw at once) and the mass it carries
+# without slowing. Hulls without a [[fit]] take no parts.
+[[fit]]
+hull = "hull.wren"
+sockets = ["socket.drill", "socket.utility", "socket.rack", "socket.hold", "socket.engine"]
+power = 4
+free_mass = 3
+
+# The hauler: room for weight, and a drone bay for bigger automation.
+[[fit]]
+hull = "hull.tandem"
+sockets = ["socket.drill", "socket.utility", "socket.rack", "socket.hold", "socket.engine", "socket.bay"]
+power = 5
+free_mass = 6
+
+[[fit]]
+hull = "hull.heron"
+sockets = ["socket.drill", "socket.utility", "socket.rack", "socket.hold", "socket.engine"]
+power = 5
+free_mass = 2
+
 # Hull ranks (W4, content/03-ships-and-controls.md "Hull ranks"): deeds done in the hull,
 # counted from facts since the player started flying it. Shown as painted lantern
 # stripes, never a number. Prestige resets them; the old hull's ranks stay on record.

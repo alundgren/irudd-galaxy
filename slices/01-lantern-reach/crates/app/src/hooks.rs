@@ -211,7 +211,7 @@ pub fn station_services(
     let rows = offers
         .iter()
         .map(|o| (o.seller.clone(), offer_row(world, history, o)))
-        .chain(owned_rows(world, station));
+        .chain(owned_rows(world, history, station));
     for (seller, row) in rows {
         let slot = out
             .iter_mut()
@@ -239,8 +239,41 @@ pub fn station_services(
 
 /// What the player already has from `station`'s sellers: fitted upgrades and the
 /// tenders built here, with their sellers.
-fn owned_rows(world: &WorldState, station: &StationId) -> Vec<(Option<NpcId>, OfferRow)> {
+fn owned_rows(
+    world: &WorldState,
+    history: &History,
+    station: &StationId,
+) -> Vec<(Option<NpcId>, OfferRow)> {
     let rules = &world.progress.rules;
+    // A part in the hull's locker stays on its seller's list with a Refit button.
+    let ship = world.player.ship.clone();
+    let stored = rules
+        .upgrades
+        .values()
+        .filter(|u| {
+            u.station.as_ref() == Some(station)
+                && ship
+                    .as_ref()
+                    .is_some_and(|s| galaxy_contract::fit::locker(world, s).any(|p| p == &u.id))
+        })
+        .map(|u| {
+            let request = ServiceRequest::Refit {
+                upgrade: u.id.clone(),
+            };
+            let blocked = services::check(world, history, &request)
+                .err()
+                .map(|r| crate::trades::service_refusal(world, &request, &r));
+            let row = OfferRow {
+                request,
+                name: u.name.clone(),
+                effect: u.effect.clone(),
+                price: "in your locker".into(),
+                blocked,
+                prestige: false,
+                owned: false,
+            };
+            (u.seller.clone(), row)
+        });
     let fitted = rules
         .upgrades
         .values()
@@ -261,7 +294,7 @@ fn owned_rows(world: &WorldState, station: &StationId) -> Vec<(Option<NpcId>, Of
             };
             (c.seller.clone(), owned_row(request, &c.name, &c.effect))
         });
-    fitted.chain(built).collect()
+    fitted.chain(stored).chain(built).collect()
 }
 
 fn owned_row(request: ServiceRequest, name: &str, effect: &str) -> OfferRow {
@@ -556,13 +589,21 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
     if let FactPayload::Note(note) = &f.payload {
         // Station growth from the core pack or a game-master pack: its note is the
         // authored description ("Kettle Dock stage 1: a fogged glass dome").
-        return kind.ends_with("stage_built").then(|| note.clone());
+        // The hullwright's own lines ("Removed mining lens to the Wren's locker").
+        let fit = kind.starts_with("part_") || kind == "blueprint_found";
+        return (kind.ends_with("stage_built") || fit).then(|| note.clone());
     }
     let FactPayload::Event(event) = &f.payload else {
         return None;
     };
     let rules = &world.progress.rules;
     match event {
+        // A part's own `part_fitted` fact says it, with the price.
+        Event::UpgradeFitted { upgrade, .. }
+            if !galaxy_contract::fit::is_module(world, upgrade) =>
+        {
+            None
+        }
         Event::UpgradeFitted { upgrade, .. } => {
             let u = rules.upgrades.get(upgrade)?;
             // By first name, as people at the dock say it.

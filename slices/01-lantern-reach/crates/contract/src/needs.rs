@@ -340,6 +340,10 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "A beat's `rewards.fit`, core layer only.",
     ),
     row("expect_fitting", Needs::Nothing, "A check."),
+    row("set_locker", Needs::Never, "Hullwright services."),
+    row("set_part_order", Needs::Never, "Hullwright services."),
+    row("put_upgrade", Needs::Never, "Authored data."),
+    row("set_fit_rules", Needs::Never, "Authored data."),
     row("set_hull_record", Needs::Never, "Hull ranks and prestige."),
     row("expect_hull_record", Needs::Nothing, "A check."),
     row(
