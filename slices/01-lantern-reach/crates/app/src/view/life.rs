@@ -115,22 +115,8 @@ impl ViewSettings {
     }
 }
 
-/// Game master happenings, read through worker B's one call. Until
-/// `galaxy_progress::happenings` lands this stand-in has the same signature and returns
-/// nothing; the merge replaces it with `use galaxy_progress::happenings;`.
-pub mod happenings {
-    use galaxy_contract::prelude::*;
-
-    /// The part of a happening the view reads: its `show` entries.
-    pub struct Happening {
-        pub show: Vec<String>,
-    }
-
-    /// The happenings running at `station` now.
-    pub fn active<'a>(_world: &'a WorldState, _station: &StationId) -> Vec<&'a Happening> {
-        Vec::new()
-    }
-}
+/// Game master happenings: what each running one at a station asks the view to show.
+use galaxy_progress::happenings;
 
 /// What the running happenings ask the station to show. Entries the view doesn't know
 /// are ignored.
