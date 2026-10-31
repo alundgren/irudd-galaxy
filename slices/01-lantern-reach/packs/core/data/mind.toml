@@ -120,6 +120,39 @@ max_dockings = 4
 keep_days = 14
 max_mb = 50
 
+# Generated music for the radio: Google Lyria 3 through OpenRouter chat completions,
+# cached beside the save in <stem>.music/<channel>/<n>.mp3 with an index.json. A cached
+# track is never generated again. Only with OPENROUTER_API_KEY set; without it, or when
+# capped or failing, channels play the placeholder loops (placeholder.calm,
+# placeholder.drift).
+[music]
+enabled = true
+# The clip model (about 30 s, listed at $0.04) by default; the pro model
+# (google/lyria-3-pro-preview, a full song of up to about 3 minutes, $0.08) on request.
+model = "google/lyria-3-clip-preview"
+tracks_per_channel = 2
+# Generations started per run (one launch of the game), failed ones included. HTTP 402
+# (out of credit) stops music for the rest of the run.
+run_generations = 2
+# For this save's music over all runs, reported cost (or the listed price for a call
+# still out when the game quit).
+spend_cap_usd = 0.40
+prompt = "Background music for a small space station's radio channel, heard while flying between stations. Mood: {mood}."
+instrumental = true
+instrumental_prompt = "Instrumental only: no vocals, no singing, no lyrics."
+audio_format = "mp3"
+max_attempts = 3
+# First wait before retrying a 429 or 5xx that names none; it doubles each retry.
+backoff_ms = 2000
+# Per attempt: a track streams for a while.
+timeout_ms = 240000
+deadline_ms = 600000
+
+# The listed price per generation, kept beside the reported cost in the index.
+[music.expected_usd]
+"google/lyria-3-clip-preview" = 0.04
+"google/lyria-3-pro-preview" = 0.08
+
 # --- NPC traders (02-economy.md, "NPC traders") ---
 
 [[brief]]

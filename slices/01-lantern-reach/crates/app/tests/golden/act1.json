@@ -3078,9 +3078,9 @@
   "checkpoints": [
     {
       "tick": 5,
-      "hash": "492a049de85d9eff9dfe5a7008da66ce1b9869c94643359964a648a007683d59",
+      "hash": "3696d8501cf572977cd1295dd4d94ec1f032f6c5144ab248130b41e696e7f984",
       "stores": {
-        "history": "4acf1eacee77c1f83ed6e84506c96da798cb5525d8ddd62abc6602330a1392ca",
+        "history": "9845b451b14fe57d6d76785c5b948671ec78ac664481cc3475c2d13be67de79d",
         "journal": "2bc6588678c96a78383c3c84dbaa76804b4f9e525b168c1acb697b771cf447b2",
         "kernel": "d15e3b3d7b39484b6acaa782b82ea7ac22553e6c1b998b7c62208ae20a6675bc",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
@@ -3116,9 +3116,9 @@
     },
     {
       "tick": 135,
-      "hash": "620bd1eeeac3569455a79b4712b8f39acf01308e0c234480fa8c28eb1ed66164",
+      "hash": "67f413f543e7a68f11b12748c47ee33e7bdff86c1613cfd90220fe7e93597401",
       "stores": {
-        "history": "cf0d2ffbb6ee2b51afaa621f2c0d6bd9c3b8c225a07ef0266944bc56ac40f27b",
+        "history": "2cbc23fdcb3500ef54c0e28abf6357fe107808df1b16894f391cf5e917c6e5e0",
         "journal": "076128058ce9d55e54c9947b026e48579a60ab5876a0d58b984028ecc9698166",
         "kernel": "56acf59366f5a8d2ddf54a1db691ce48448505649361184ac431e7db6d11bd8f",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
@@ -3154,9 +3154,9 @@
     },
     {
       "tick": 243,
-      "hash": "11549c3d0fd017ada8b613e9ddc1dcfd66cda2e502d87d3f82cae35f397a6251",
+      "hash": "048233ffb31bc6fbb0cc08051ec6a2744e27d3d02df81f0c0536bbf81582efaf",
       "stores": {
-        "history": "fc1e44640890d8198502fe85eb4399ed54d52253136491a90e221b17b5a01369",
+        "history": "3523ae8a212c8cf012d6ebe312db62622a752c93da41ff5859ba4850812da432",
         "journal": "72793a7d3b0c6fddafc4b7e874cdede232c8845cd8ba88dc6b8833afc4a1cc49",
         "kernel": "76b4ead3b71f02cd00951a1d0977594ab2a8f449bc1c52324113ac01cfc7fdd2",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
@@ -3192,9 +3192,9 @@
     },
     {
       "tick": 357,
-      "hash": "d1e0bb3016c4cae2120f2e3049a6f97c4c964dec0b18e2554ddc8e41a6ac1920",
+      "hash": "4fac10b6ba36970c269e6356b93bcb2cadd2f2786d317f6cc769b3def8e97ced",
       "stores": {
-        "history": "85347ec522a95488bfb92675ab647e8415e14302c83f91b23b2870bea558db72",
+        "history": "971cbe16e05637dd42a8f8fa503c7ec60483f5ea181aa07f3e0b89b6256566e8",
         "journal": "399eb6fc8000e1068dec3029ada586ac61a8a2d7fe24b004413f2695262baa2a",
         "kernel": "df9d848b55ae4dd6ccdc69731213c95a276b33b7c7eb75fa42ce514e06694238",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
@@ -3230,9 +3230,9 @@
     },
     {
       "tick": 362,
-      "hash": "d1205ed59814cb51e08568105ff94c80094dcc1d4a9723968b65873464b0423b",
+      "hash": "9718994acc5a0471aa058c32370614cb67288b359d2f3bf5b6d2d221ea12d47b",
       "stores": {
-        "history": "58c23d4bf5beb9c9ed2fb04ca5d1cb934b012fa4a263b7e40ffea0137e31234a",
+        "history": "0df79319fd66de85c9716de30bdfecc82c59c5aed44936b9347c8bb40734370b",
         "journal": "0409f5a5b776e27c52b837083b339f14c88273e3813ca8e06486937bb59d3662",
         "kernel": "3d22cd19803947db96a09434ad0313828b6e54d35573c193f3fdbc97b2faf478",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
@@ -3268,9 +3268,9 @@
     },
     {
       "tick": 362,
-      "hash": "d1205ed59814cb51e08568105ff94c80094dcc1d4a9723968b65873464b0423b",
+      "hash": "9718994acc5a0471aa058c32370614cb67288b359d2f3bf5b6d2d221ea12d47b",
       "stores": {
-        "history": "58c23d4bf5beb9c9ed2fb04ca5d1cb934b012fa4a263b7e40ffea0137e31234a",
+        "history": "0df79319fd66de85c9716de30bdfecc82c59c5aed44936b9347c8bb40734370b",
         "journal": "0409f5a5b776e27c52b837083b339f14c88273e3813ca8e06486937bb59d3662",
         "kernel": "3d22cd19803947db96a09434ad0313828b6e54d35573c193f3fdbc97b2faf478",
         "world.canon": "51d80af1e005545d9cdc3648e00fb7fbf3a17d8cc4e0d7aa69cad6fc816a184a",
