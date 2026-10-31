@@ -1,17 +1,26 @@
 //! What a ship wears: the world's fitted parts as render looks.
 //!
-//! The one place that maps fittings to looks. Today fittings belong to the pilot
-//! (`Player.fittings`), so only the flagship wears them; repoint [`look_of`] and
-//! [`ship_look`] when parts move onto the hull's sockets.
+//! The one place that maps fittings to looks. Fittings belong to the pilot
+//! (`Player.fittings`), so only the flagship wears them; each part's data names its look.
 
 use galaxy_contract::prelude::*;
 use galaxy_contract::progress::Modifier;
 use render::kit::{LookId, ShipFitLook, Socket};
 
-/// The look an upgrade gives, and where: the mining lens on the nose, any hold upgrade
-/// as pods on the belly. Parts named for a look (`…long_drill`, `…fins`, `…seam_lamp`)
-/// wear it. Control modules and the rest have no outside look.
+/// The look an upgrade gives, and where. A part's data names its `look`
+/// (`ship_parts.toml`, `galaxy_contract::fit`): the rough lens wears the lens and the
+/// hold extender wears pods, and a part with no `look` (control modules) has no outside
+/// look. Upgrades without a part definition fall back to their ids: the mining lens on
+/// the nose, any hold upgrade as pods on the belly.
 pub fn look_of(world: &WorldState, upgrade: &UpgradeId) -> Option<(Socket, LookId)> {
+    if let Some(def) = galaxy_contract::fit::part(world, upgrade) {
+        let look = match def.look.as_deref()? {
+            "rough_lens" => LookId::Lens,
+            "hold_extender" => LookId::Pods,
+            other => LookId::parse(other)?,
+        };
+        return Some((look.socket(), look));
+    }
     let id = upgrade.as_str();
     let adds_hold = world.progress.rules.upgrades.get(upgrade).is_some_and(|d| {
         d.modifiers
