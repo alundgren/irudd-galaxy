@@ -265,7 +265,8 @@ pub fn render_static() -> Vec<f32> {
     const SEAM: f32 = 0.25;
     let mut node = pink() >> lowpass_hz(1100.0, 0.5) >> lowpass_hz(1400.0, 0.5);
     node.set_hash(0x5ad10);
-    let total = SECONDS + SEAM;
+    // One seam to settle the filters, the loop, then one more seam to crossfade from.
+    let total = SECONDS + 2.0 * SEAM;
     let wave = Wave::render(f64::from(SAMPLE_RATE), f64::from(total), &mut node);
     let raw = wave.channel(0);
     let len = (SECONDS * SAMPLE_RATE as f32).round() as usize;
@@ -288,6 +289,21 @@ pub fn render_static() -> Vec<f32> {
 mod tests {
     use super::*;
     use crate::analysis::measure;
+
+    #[test]
+    fn the_static_loops_without_a_jump_at_its_seam() {
+        // A raw cut lands near the loudest steps in the noise; the crossfaded seam is an
+        // ordinary one.
+        let s = render_static();
+        let mut steps: Vec<f32> = s.windows(2).map(|w| (w[1] - w[0]).abs()).collect();
+        steps.sort_by(f32::total_cmp);
+        let p90 = steps[steps.len() * 9 / 10];
+        let seam = (s[0] - s[s.len() - 1]).abs();
+        assert!(
+            seam <= p90,
+            "seam jump {seam} is past the 90th-percentile step {p90}"
+        );
+    }
 
     #[test]
     fn signal_is_full_near_the_source_and_fades_to_nothing_at_the_edge() {
