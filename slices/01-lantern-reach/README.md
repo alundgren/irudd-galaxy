@@ -305,12 +305,23 @@ use). On Windows, the MSVC Build Tools; on Linux, the packages in "Playing on Li
 Run everything from this folder.
 
 ```sh
-cargo build                 # everything
-cargo test                  # headless tests (no window, GPU or network)
+cargo xtask build           # game, sharing dependency features with the workspace checks
+cargo xtask cargo test --workspace # headless tests (no window, GPU or network)
 cargo xtask check           # fetch-luau + fmt + clippy -D warnings + tests: run before every PR
 cargo xtask contract        # regenerate crates/contract/schemas/ and api/ after a contract change
 cargo xtask fetch-luau      # pinned luau-analyze (strict typecheck) into tools/luau/
 ```
+
+Use `cargo xtask build` and `cargo xtask run -- <command>` during development;
+add `--release` before `--` when needed. These select the game and xtask together,
+matching the dependency features of the workspace check. The launch scripts use
+this route too and respect the configured build folder.
+
+Integration scenarios share one executable per crate (the app's process-environment
+test stays separate). For a focused run, use a module filter, for example:
+`cargo xtask cargo test -p galaxy-script --test integration journey_core::`.
+Keep new scenarios in modules listed in `tests/integration.rs`; automatic test-target
+discovery is disabled in consolidated crates. Unit tests remain in their libraries.
 
 There is no CI. Checks run locally.
 
@@ -319,12 +330,12 @@ There is no CI. Checks run locally.
 Every command prints one JSON value on stdout.
 
 ```sh
-cargo run -p galaxy-app -- new --save saves/a.sqlite --seed 7
-cargo run -p galaxy-app -- sim run --save saves/a.sqlite --ticks 3000
-cargo run -p galaxy-app -- state get --save saves/a.sqlite --path stations/station.kettle_dock
-cargo run -p galaxy-app -- history query --save saves/a.sqlite --kind dock --limit 20
-cargo run -p galaxy-app -- memory search --save saves/a.sqlite "sold ice" --station station.kettle_dock
-cargo run -p galaxy-app -- api dump --name world
+cargo xtask run -- new --save saves/a.sqlite --seed 7
+cargo xtask run -- sim run --save saves/a.sqlite --ticks 3000
+cargo xtask run -- state get --save saves/a.sqlite --path stations/station.kettle_dock
+cargo xtask run -- history query --save saves/a.sqlite --kind dock --limit 20
+cargo xtask run -- memory search --save saves/a.sqlite "sold ice" --station station.kettle_dock
+cargo xtask run -- api dump --name world
 ```
 
 Or build once and call `target/debug/galaxy` directly.
@@ -372,11 +383,11 @@ queue/loop verbs as the control layer. Manual flight detours around nearby craft
 It never seeds completion flags, inventory, money, counters or history. Beat jumps
 run the authored profile each time; there is no stale checkpoint cache.
 
-`cargo test -p galaxy-app --test harness` runs both complete journeys with a fresh-game
+`cargo test -p galaxy-app --test integration harness::` runs both complete journeys with a fresh-game
 fast data profile (quicker flight/mining, lower fitting costs and selected activity
 gates), plus golden replay, save provenance and overlay checks. Reports go in ignored
 `target/harness/run-a.json` and `run-b.json`. Run the authored profile explicitly with
-`cargo test -p galaxy-app --test harness full_slice_journey -- --ignored --nocapture`;
+`cargo test -p galaxy-app --test integration harness::full_slice_journey -- --ignored --nocapture`;
 `authored_economy_journey` keeps the authored prices and activity gates with faster
 travel/mining, and `heron_journey` covers the alternative prestige hull. The script crate's
 `journey_core` tests retain the shortage-during-demonstration variants and early-pause
@@ -389,9 +400,9 @@ refreshes the glass loop's target between laps. `Order::Buy` has no maximum-pric
 so the glass loop cannot encode the spec's 25-credit cap.
 
 ```sh
-cargo run -p galaxy-app -- pack check packs/gm-examples/kettle_growth
-cargo run -p galaxy-app -- pack check packs/gm-examples/bad_script/os_time   # exit 5
-cargo run -p galaxy-app -- pack test packs/gm-examples/kettle_growth
+cargo xtask run -- pack check packs/gm-examples/kettle_growth
+cargo xtask run -- pack check packs/gm-examples/bad_script/os_time   # exit 5
+cargo xtask run -- pack test packs/gm-examples/kettle_growth
 ```
 
 `pack check` needs `luau-analyze` for the strict typecheck (`cargo xtask fetch-luau`,
@@ -436,6 +447,6 @@ xtask             cargo xtask check | contract | fetch-luau
 ```
 
 Live fast-model tests are ignored by default:
-`cargo test -p galaxy-mind --test live -- --ignored --nocapture` (needs the key).
+`cargo test -p galaxy-mind --test integration live:: -- --ignored --nocapture` (needs the key).
 
 Coding agents: read [AGENTS.md](AGENTS.md). Game-master agents: [GM-AGENTS.md](GM-AGENTS.md).

@@ -12,7 +12,7 @@
 //!   in a batch that cites the player's reply (`galaxy_script::confirm`), checked both
 //!   by the host's guard and by sweeping the journal after play.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

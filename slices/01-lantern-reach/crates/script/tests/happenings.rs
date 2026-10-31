@@ -4,7 +4,7 @@
 //! dockings there (a dock-tap doesn't count) and then ends. One at a time per station.
 //! Kettle's first harvest pays off only on the player's Accept, with a receipt.
 
-mod common;
+use crate::common;
 
 use common::pilot::*;
 use galaxy_contract::happening::HappeningRun;

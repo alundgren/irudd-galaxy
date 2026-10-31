@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-app"
 description = "The `galaxy` binary: the game and its JSON CLI."
 version.workspace = true
@@ -40,3 +41,12 @@ tempfile.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+# This test mutates the process environment and must stay isolated.
+[[test]]
+name = "gm_packs_root"
+path = "tests/gm_packs_root.rs"

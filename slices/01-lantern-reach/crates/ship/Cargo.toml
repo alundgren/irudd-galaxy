@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-ship"
 description = "Ships: tank flight with inertia, control tiers, the order runner, mining and rocks, docking and lanes, automated craft."
 version.workspace = true
@@ -18,3 +19,7 @@ tempfile.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

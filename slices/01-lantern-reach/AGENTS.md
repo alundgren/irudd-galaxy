@@ -15,7 +15,8 @@ cargo xtask check      # fetch-luau, fmt --check, clippy -D warnings, tests. Mus
 cargo xtask contract   # regenerate crates/contract/schemas/ and api/. Commit the result.
 cargo xtask fetch-luau # pinned luau-analyze into tools/luau/ (git-ignored, SHA-256 checked)
 cargo xtask cargo test -p galaxy-core          # any cargo command, in the branch's target folder
-cargo xtask cargo run -p galaxy-app -- <command>   # see README.md for the CLI
+cargo xtask build                            # game with workspace-check dependency features
+cargo xtask run -- <command>                 # see README.md for the CLI
 cargo xtask target-dir # where those build (GALAXY_TARGET_ROOT/<branch>, or target/)
 ```
 

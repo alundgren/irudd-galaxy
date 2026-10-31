@@ -8,7 +8,7 @@
 //! jump` will (earlier beats done, the fittings and flags they earned), and a long
 //! activity wait is shortened by lowering its pacing tunable: pacing is data.
 
-mod common;
+use crate::common;
 
 use common::pilot::*;
 use galaxy_contract::prelude::*;

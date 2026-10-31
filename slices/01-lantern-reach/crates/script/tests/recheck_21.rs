@@ -3,7 +3,7 @@
 //! transition the kernel would reject never unlocks its successor, and field views
 //! pay for the rocks they scan.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

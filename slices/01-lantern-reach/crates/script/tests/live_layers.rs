@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 use common::*;
 use galaxy_contract::{canon::CanonStatus, pack::StepOutcome, prelude::*};
 use galaxy_script::{CheckOptions, check_dir, read_pack};

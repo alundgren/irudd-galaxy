@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-script"
 description = "The Luau script host: sandboxed packs, budgets, the ctx hook API, validation, hot reload and rollback."
 version.workspace = true
@@ -28,3 +29,7 @@ workspace = true
 [dev-dependencies]
 galaxy-mind.workspace = true
 galaxy-ship.workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

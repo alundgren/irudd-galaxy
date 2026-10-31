@@ -808,7 +808,7 @@ fn the_inbox_validates_and_stages_at_calm_moments() {
     assert!(game.sim().world().npcs.contains(&ODO));
 }
 
-/// Needs a GPU and a window: `cargo test -p galaxy-app --test gm -- --ignored`.
+/// Needs a GPU and a window: `cargo test -p galaxy-app --test integration gm:: -- --ignored`.
 #[test]
 #[ignore]
 fn shot_live_shows_the_running_game() {

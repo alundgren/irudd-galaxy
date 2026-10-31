@@ -4,7 +4,7 @@
 //! degrees of the word, and fails on a compass word nobody has claimed, so a new
 //! direction gets checked the day it's written.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

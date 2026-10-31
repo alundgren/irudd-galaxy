@@ -2,7 +2,7 @@
 //! are checked against the committed world, berthed hulls can't be automated, and
 //! Thimble can be given a loop before b13 completes.
 
-mod common;
+use crate::common;
 
 use common::*;
 use galaxy_contract::prelude::*;

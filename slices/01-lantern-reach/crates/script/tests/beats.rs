@@ -2,7 +2,7 @@
 //! pack's b01-b03, a probe pack for orders, mechanics, standing, levers and pacing,
 //! save/load, hot reload and determinism.
 
-mod common;
+use crate::common;
 
 use std::path::{Path, PathBuf};
 

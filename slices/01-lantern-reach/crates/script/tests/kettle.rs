@@ -1,6 +1,6 @@
 //! The proof script: change type 1, Kettle Dock grows from deliveries. Headless.
 
-mod common;
+use crate::common;
 
 use std::time::{Duration, Instant};
 

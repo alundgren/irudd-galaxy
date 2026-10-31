@@ -1,5 +1,5 @@
 //! Real orders, markets and core journey hooks; FakeMind, no GPU or network.
-mod common;
+use crate::common;
 
 use common::{core_data, slice};
 use galaxy_contract::prelude::*;

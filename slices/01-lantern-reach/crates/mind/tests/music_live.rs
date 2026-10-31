@@ -3,7 +3,7 @@
 //! and makes one generation (retries within its backoff included):
 //!
 //! ```sh
-//! cargo test -p galaxy-mind --test music_live -- --ignored --nocapture
+//! cargo test -p galaxy-mind --test integration music_live:: -- --ignored --nocapture
 //! ```
 //!
 //! It prints the response's shape (base64 elided), the index entry and the call log
