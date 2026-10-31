@@ -18,7 +18,10 @@
 //! wait, or a 429 without one, skips the moment, unless the call has a backoff (the live
 //! layer): then it waits that long, doubling, within the deadline. A malformed answer
 //! is not retried. A 2xx whose body reports no cost is priced from the generation stats
-//! endpoint by its generation ID, on the worker thread.
+//! endpoint by its generation ID, on the worker thread. A streamed answer (server-sent
+//! events, which audio output needs) is folded into one body first ([`fold_stream`]),
+//! and the log keeps long base64 strings as a note of their length ([`elide_blobs`]).
+//! A 402 (insufficient credit), as a status or inside a 2xx, is `MindError::Http(402)`.
 //! Every attempt's `usage.cost` is summed and returned with the answer or the error, so
 //! a billed response is never lost. The transport is a trait so tests run against
 //! canned responses without a network.
@@ -279,6 +282,9 @@ pub trait Transport: Send {
     }
 }
 
+/// Largest response body read: room for a full generated song as streamed base64.
+pub const MAX_BODY_BYTES: u64 = 64 * 1024 * 1024;
+
 /// The real transport: `ureq` with rustls.
 pub struct UreqTransport {
     agent: ureq::Agent,
@@ -308,7 +314,14 @@ fn read_reply(resp: ureq::http::Response<ureq::Body>) -> Result<HttpReply, MindE
         .headers()
         .get("retry-after")
         .map(|v| v.to_str().map_or(u64::MAX, parse_retry_after));
-    let body = resp.into_body().read_to_string().map_err(ureq_error)?;
+    // A generated track arrives as several megabytes of base64, past ureq's 10 MB
+    // default once streamed; text answers are far below either limit.
+    let body = resp
+        .into_body()
+        .with_config()
+        .limit(MAX_BODY_BYTES)
+        .read_to_string()
+        .map_err(ureq_error)?;
     Ok(HttpReply {
         status,
         body,
@@ -498,14 +511,21 @@ impl<T: Transport> Client<T> {
                 // An upstream error may echo the key: drop it before the body is read,
                 // truncated or logged, so not even part of it reaches an error.
                 r.body = key.redact(&r.body);
-                // A billed response carries its cost whatever its status or shape.
-                let parsed = serde_json::from_str::<Value>(&r.body);
+                // A billed response carries its cost whatever its status or shape. A
+                // streamed answer (audio needs `stream: true`) is folded into the one
+                // JSON body a plain answer would have been.
+                let parsed = serde_json::from_str::<Value>(&r.body)
+                    .or_else(|e| fold_stream(&r.body).ok_or(e));
                 if let Ok(v) = &parsed
                     && let Some(c) = reported_cost(v)
                 {
                     *cost_usd.get_or_insert(0.0) += c;
                 }
-                raw = std::mem::take(&mut r.body);
+                // Audio is megabytes of base64: the log keeps its length, not its bytes.
+                raw = match &parsed {
+                    Ok(v) if r.body.len() > calllog::MAX_TEXT => elide_blobs(v).to_string(),
+                    _ => std::mem::take(&mut r.body),
+                };
                 match r.status {
                     200..=299 => {
                         let v =
@@ -516,6 +536,7 @@ impl<T: Transport> Client<T> {
                         // Only the numeric code is kept.
                         match v.get("error") {
                             Some(err) => Err(match err.get("code").and_then(Value::as_u64) {
+                                Some(402) => MindError::Http(402, "insufficient credit".into()),
                                 Some(429) => MindError::RateLimited,
                                 Some(c @ 500..=599) => MindError::Server(c as u16),
                                 Some(c) => MindError::Malformed(format!("upstream error {c}")),
@@ -652,6 +673,96 @@ impl<T: Transport> Client<T> {
             }
         }
         None
+    }
+}
+
+/// A streamed chat completion (server-sent events) folded into one JSON body:
+/// `choices[0].message` gathers the deltas (`content`, `audio.data` and
+/// `audio.transcript` are joined in order; other fields keep their last value), and
+/// `id`, `model`, `usage`, `openrouter_metadata` and any `error` come from the chunks
+/// that carry them. Comment lines (`: OPENROUTER PROCESSING`) and `[DONE]` are
+/// skipped. `None` if the text isn't an event stream with at least one JSON chunk.
+pub fn fold_stream(text: &str) -> Option<Value> {
+    let mut out = serde_json::Map::new();
+    let mut message = serde_json::Map::new();
+    let mut finish = Value::Null;
+    let mut chunks = 0usize;
+    for line in text.lines() {
+        let Some(data) = line.strip_prefix("data:") else {
+            continue;
+        };
+        let data = data.trim();
+        if data.is_empty() || data == "[DONE]" {
+            continue;
+        }
+        let Ok(Value::Object(chunk)) = serde_json::from_str::<Value>(data) else {
+            continue;
+        };
+        chunks += 1;
+        for (k, v) in &chunk {
+            match k.as_str() {
+                "choices" => {}
+                "usage" | "error" | "openrouter_metadata" if v.is_null() => {}
+                _ => {
+                    out.insert(k.clone(), v.clone());
+                }
+            }
+        }
+        let Some(choice) = chunk.get("choices").and_then(|c| c.get(0)) else {
+            continue;
+        };
+        if let Some(Value::Object(delta)) = choice.get("delta").or_else(|| choice.get("message")) {
+            merge_delta(&mut message, delta);
+        }
+        if let Some(f) = choice.get("finish_reason").filter(|f| !f.is_null()) {
+            finish = f.clone();
+        }
+    }
+    if chunks == 0 {
+        return None;
+    }
+    out.insert("object".into(), json!("chat.completion"));
+    out.insert(
+        "choices".into(),
+        json!([{ "index": 0, "message": message, "finish_reason": finish }]),
+    );
+    Some(Value::Object(out))
+}
+
+/// Adds one delta to the message being gathered: text and base64 are joined, objects
+/// merged, arrays appended, anything else replaced.
+fn merge_delta(into: &mut serde_json::Map<String, Value>, delta: &serde_json::Map<String, Value>) {
+    const JOINED: [&str; 4] = ["content", "data", "transcript", "reasoning"];
+    for (k, v) in delta {
+        match (into.get_mut(k), v) {
+            (_, Value::Null) => {}
+            (Some(Value::String(have)), Value::String(more)) if JOINED.contains(&k.as_str()) => {
+                have.push_str(more);
+            }
+            (Some(Value::Object(have)), Value::Object(more)) => merge_delta(have, more),
+            (Some(Value::Array(have)), Value::Array(more)) => have.extend(more.iter().cloned()),
+            _ => {
+                into.insert(k.clone(), v.clone());
+            }
+        }
+    }
+}
+
+/// Longest string kept whole by [`elide_blobs`].
+const BLOB_CHARS: usize = 1024;
+
+/// `v` with every string longer than [`BLOB_CHARS`] that has no spaces (base64 audio,
+/// say) replaced by a note of its length, for the log.
+pub fn elide_blobs(v: &Value) -> Value {
+    match v {
+        Value::String(s) if s.len() > BLOB_CHARS && !s.contains(' ') => {
+            Value::String(format!("<{} bytes of data>", s.len()))
+        }
+        Value::Array(a) => Value::Array(a.iter().map(elide_blobs).collect()),
+        Value::Object(o) => {
+            Value::Object(o.iter().map(|(k, v)| (k.clone(), elide_blobs(v))).collect())
+        }
+        v => v.clone(),
     }
 }
 

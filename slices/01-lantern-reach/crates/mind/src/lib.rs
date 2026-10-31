@@ -27,6 +27,8 @@
 //!   [`MindHost::shutdown`] before the final save so every billed call is booked.
 //! - [`MindConfig`]: models, limits, per-region budgets and NPC briefs, from the core
 //!   pack's `data/mind.toml`.
+//! - [`MusicLibrary`]: the radio's music, Lyria 3 tracks generated in the background,
+//!   cached beside the save, with placeholders when there are none ([`music`]).
 //!
 //! The API key comes only from `OPENROUTER_API_KEY` and never appears in an error,
 //! `Debug` output or log line. `cargo test` never touches the network; the live tests
@@ -41,6 +43,7 @@ pub mod lines;
 pub mod live;
 pub mod menu;
 pub mod mind;
+pub mod music;
 pub mod openrouter;
 pub mod packet;
 pub mod probe;
@@ -61,6 +64,7 @@ pub use menu::{
 pub use mind::{
     Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply,
 };
+pub use music::{MusicLibrary, MusicRules, TrackSource};
 pub use openrouter::{ApiKey, HttpReply, OpenRouterMind, Transport, UreqTransport};
 pub use packet::Packet;
 

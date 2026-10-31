@@ -32,6 +32,9 @@ pub struct MindConfig {
     pub live: LiveRules,
     #[serde(default)]
     pub log: LogRules,
+    /// Generated music for the radio (`crate::music`).
+    #[serde(default)]
+    pub music: crate::music::MusicRules,
     /// One brief per NPC or craft the layer may speak or decide for.
     #[serde(default)]
     pub brief: Vec<Brief>,
@@ -458,6 +461,7 @@ impl MindConfig {
         if self.talk.max_words == 0 || self.talk.max_chars == 0 {
             return bad("talk.max_words and talk.max_chars must be above 0".into());
         }
+        self.music.validate().map_err(ConfigError::Invalid)?;
         let live = &self.live;
         if !["low", "medium", "high", "xhigh", "max"].contains(&live.cost_tier.as_str()) {
             return bad(format!(

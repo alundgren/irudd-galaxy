@@ -222,6 +222,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     {
         eprintln!("{e}");
     }
+    // The radio's music beside the save: the cache plays; with a key, new tracks.
+    game.open_music(choice.path());
     for note in game.take_notes() {
         eprintln!("{note}");
     }
