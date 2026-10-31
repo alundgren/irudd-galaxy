@@ -1,0 +1,4 @@
+# The core module: the base game. It is written through the GM (game/AGENTS.md).
+id = "core"
+version = "0.1.0"
+min_engine_version = "0.1.0"

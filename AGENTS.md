@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Rules for every agent working in this repo, whether one agent on a small change or an
-orchestrator running many. Folders add their own (`slices/01-lantern-reach/AGENTS.md`);
+orchestrator running many. Folders add their own (`engine/AGENTS.md`, `game/AGENTS.md`);
 where a folder's rules are stricter, they win. A task's brief can override anything here
 except "Public repo" below.
 
@@ -9,13 +9,39 @@ except "Public repo" below.
 
 | Folder | Phase |
 |---|---|
-| `slices/01-lantern-reach/` | prototype |
+| `game/` (with `engine/`, which serves it) | prototype |
+| `slices/01-lantern-reach/` | prototype, frozen |
 
 Phases: **prototype** (slices: a test of an idea), **production** (`game/`, building the
 real game), **released** (`game/` once players have a public build). `prototypes/` are
-throwaway: they only have to run. When `game/` starts, add it here, and change its phase
-when it moves on. The phase decides what blocks a merge (below). Nothing else in this file
-changes with it.
+throwaway: they only have to run. `engine/` has the phase of `game/`. Change the phase
+when the game moves on. The phase decides what blocks a merge (below). Nothing else in
+this file changes with it.
+
+The slice `slices/01-lantern-reach/` is frozen as a reference: no changes, except to keep
+it building through its own `cargo xtask`. It is deleted later, with the owner's OK.
+
+## The two folders
+
+- **`engine/`** is one Cargo workspace holding everything compiled: the engine crates, the
+  game binary `galaxy`, the GM binary `galaxy-gm`, `xtask`, and `engine/docs` with one
+  "how it works" note per system. Rules: `engine/AGENTS.md`.
+- **`game/`** is never compiled. It holds the game as modules: `game/modules/core` is the
+  base game, written through the GM. `game/AGENTS.md` is the GM's instructions;
+  `game/docs` the change list and design notes.
+
+Game work uses the installed `galaxy` and `galaxy-gm` and never builds them. Engines
+install as versioned builds side by side, and a module names the oldest engine it runs on
+(`engine/docs/modules-and-install.md`).
+
+A PR changes `engine/` or `game/`; try very hard never to change both. A breaking engine
+change carries its mechanical core fix in the same PR and says so; anything beyond a
+mechanical fix goes through the GM in its own PR.
+
+**The boundary rule.** The engine boundary (no game nouns in the engine, and the other
+engine rules) serves the game. When a boundary rule would block a feature the owner wants,
+or make the game worse, stop and raise it with the owner. Never bend it silently, and
+never keep it silently at the game's expense.
 
 ## Principles
 
@@ -106,8 +132,10 @@ decides: merge with a follow-up issue, or stop and say why.
 
 ### Builds
 
-`cargo xtask check` is the merge gate. Run it before asking for review, and again before
-merging if the branch changed since. Reviewers skip it when the commit matches a reported
+`cargo xtask check` is the merge gate. Run it from `engine/` for the engine (the slice has
+its own copy of xtask in its folder; both share the folders, slots and permit below). Run it
+before asking for review, and again before merging if the branch changed since. A PR that
+only changes `game/` or docs builds nothing. Reviewers skip it when the commit matches a reported
 pass. Never enable fat LTO; thin LTO or none.
 
 Cold builds are the slowest part of a review, and parallel builds starve the machine.
@@ -122,7 +150,8 @@ Cold builds are the slowest part of a review, and parallel builds starve the mac
   branch or worktree therefore starts with the dependencies compiled and rebuilds only
   our own crates. `GALAXY_TARGET_SLOTS` changes the pool size; each slot is several GB.
 - **One heavy build at a time.** Commands that compile (`build`, `run`'s build, `check`,
-  `build-report`, and `cargo xtask cargo` with `build`, `test`, `clippy` and the like)
+  `install`, `linux-check`, and `cargo xtask cargo` with `build`, `test`, `clippy` and the
+  like)
   first wait for a machine-wide build permit and print who holds it. `run` gives the
   permit back once the game is built but keeps its slot while the game runs.
   `GALAXY_BUILD_PERMITS=2` allows two at once and sets `CARGO_BUILD_JOBS` to
@@ -139,13 +168,10 @@ Notes:
 - There is no opt-out. `cargo xtask` ignores `CARGO_TARGET_DIR`, and a
   `GALAXY_TARGET_ROOT` that isn't an absolute folder falls back to the default.
 - Never turn off, bypass or opt out of the shared build cache (the shared folders or the
-  machine's compiler cache), and never run cold or uncached builds, for measurements or
-  any other reason: no fresh or emptied target folders, no deleting slots, no
-  `cargo clean`. Measure builds as the machine is set up.
-- `cargo xtask build-report` times the first build in the leased slot, a no-op rebuild,
-  a rebuild after touching `galaxy-core` and the test build, and writes
-  `build-report.json` into the slot. It never builds from scratch.
-  `cargo xtask loc [--base <ref>]` counts code lines per crate. A change to how things build or where code lives reports both in its PR.
+  machine's compiler cache), and never run cold or uncached builds, for any reason: no
+  fresh or emptied target folders, no deleting slots, no `cargo clean`. No build
+  measurements.
+- `cargo xtask loc [--base <ref>]` counts code lines per crate.
 
 ## Platforms
 
@@ -173,7 +199,8 @@ three unless it sits under a platform heading.
   breaks across the two shells. Run `cargo`, `git` and `gh` directly. There's no `&&`, and
   brace patterns like `crates/{a,b}` don't expand, so list the paths:
   `rg -n pat crates/app crates/gm`.
-- WSL is the second-platform check for Linux.
+- WSL is the second-platform check for Linux: `cargo xtask linux-check` in `engine/` runs
+  the check there while holding this machine's build permit.
 - Optional: put worktrees and the target root on a Dev Drive, or exclude the target root
   from Defender scanning.
 
