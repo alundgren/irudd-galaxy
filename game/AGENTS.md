@@ -23,7 +23,7 @@ folder in a game worktree. Use the installed `galaxy` and `galaxy-gm` on PATH (s
 
 ```sh
 galaxy-gm doctor                      # the installed engine and the modules here
-galaxy-gm check game/modules/<id>     # check a module (not built yet)
+galaxy-gm check game/modules/<id>     # check a module
 galaxy play --modules game/modules    # play (not built yet)
 ```
 
