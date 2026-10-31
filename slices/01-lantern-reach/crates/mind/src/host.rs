@@ -31,11 +31,15 @@ use galaxy_core::{History, Sim};
 use serde::Serialize;
 use serde_json::json;
 
+use crate::calllog::{CallId, CallSink, Verdict};
 use crate::config::{Brief, MindConfig};
 use crate::executor::{Done, Executor, Job, JobResult};
 use crate::lines::TalkLines;
+use crate::live::{self, Closed, Flourish, LIVE_FACTS, TextRules};
 use crate::menu::{DOCK_TALK, LineCandidate, Menu, MenuCtx, MenuProvider, RumorSpread};
-use crate::mind::{DecisionRequest, LineRequest, MAX_ATTEMPTS, MindError, Question};
+use crate::mind::{
+    DecisionRequest, LineRequest, LiveRequest, MAX_ATTEMPTS, MindError, Purpose, Question,
+};
 use crate::packet::{self, Names};
 use crate::situation::{
     self, Cached, Ledger, LineNote, OutcomeNote, SPEND_FACT, Source, SpendNote, micros,
@@ -79,6 +83,10 @@ pub struct Stats {
     pub late_dropped: u64,
     pub cost_usd: f64,
     pub latency_ms: u64,
+    /// Live-layer calls sent, and answers accepted and rejected.
+    pub live_requests: u64,
+    pub live_accepted: u64,
+    pub live_rejected: u64,
 }
 
 /// An outcome being put together across stages.
@@ -131,6 +139,30 @@ struct Sent {
     allowed: u8,
 }
 
+/// A live flourish waiting for its answer.
+struct LivePending {
+    sent: Sent,
+    purpose: Purpose,
+    station: StationId,
+    /// What the model was offered: the answer may name nothing else.
+    closed: Closed,
+    /// The player's docking count when it was asked for.
+    docking: u64,
+    /// The docking fact that asked for it.
+    trigger: FactId,
+    deadline: Tick,
+}
+
+/// An accepted discount waiting for a calm moment.
+struct HeldLive {
+    station: StationId,
+    flourish: Flourish,
+    key: String,
+    model: String,
+    docking: u64,
+    trigger: FactId,
+}
+
 struct Pending {
     provider: usize,
     menu: Menu,
@@ -159,6 +191,19 @@ pub struct MindHost {
     /// Shutting down: no new requests.
     closing: bool,
     stats: Stats,
+    /// The live world layer asks for flourishes (only with a live model).
+    live_on: bool,
+    live_pending: BTreeMap<u64, LivePending>,
+    /// Per station, the player's docking count when the live layer last asked there.
+    live_asked: BTreeMap<StationId, u64>,
+    /// Live calls asked for in this run.
+    live_runs: u32,
+    discounts: live::Discounts,
+    /// Discounts whose end is submitted but not yet in history.
+    ending: BTreeSet<FactId>,
+    held_live: Vec<HeldLive>,
+    /// The call log, for the verdict on each answer.
+    log: CallSink,
 }
 
 /// Work produced during a pump, submitted at its end.
@@ -196,9 +241,40 @@ impl MindHost {
             next_ticket: 1,
             closing: false,
             stats: Stats::default(),
+            live_on: false,
+            live_pending: BTreeMap::new(),
+            live_asked: BTreeMap::new(),
+            live_runs: 0,
+            discounts: live::Discounts::default(),
+            ending: BTreeSet::new(),
+            held_live: Vec::new(),
+            log: CallSink::new(),
         };
         host.catch_up(history);
         host
+    }
+
+    /// Turns the live world layer on or off (`live.enabled` must be on too). Only a
+    /// live model should turn it on: the fake and the replays leave it off, so their
+    /// runs never ask for a flourish. Running discounts end either way.
+    pub fn set_live(&mut self, on: bool) -> &mut Self {
+        self.live_on = on;
+        self
+    }
+
+    pub fn live_on(&self) -> bool {
+        self.live_on && self.config.live.enabled
+    }
+
+    /// Where the host records the game's verdict on each logged call.
+    pub fn set_call_log(&mut self, log: CallSink) -> &mut Self {
+        self.log = log;
+        self
+    }
+
+    /// The discounts running now, from history.
+    pub fn discounts(&self) -> &live::Discounts {
+        &self.discounts
     }
 
     pub fn add_provider(&mut self, provider: impl MenuProvider + 'static) -> &mut Self {
@@ -259,8 +335,23 @@ impl MindHost {
                 config: &self.config,
             };
             let mut opened = Vec::new();
+            let mut docked_at = Vec::new();
             if self.resume {
                 self.resume = false;
+                // Live facts recorded but never said (a save between the two ticks).
+                for f in facts[..from].iter().rev().take(64) {
+                    if LIVE_FACTS.contains(&f.kind.as_str())
+                        && !live::said(world, f.id)
+                        && !sim
+                            .state()
+                            .kernel
+                            .pending
+                            .iter()
+                            .any(|b| b.cause.cites.contains(&f.id))
+                    {
+                        out.batches.extend(live::say(world, f));
+                    }
+                }
                 for (i, p) in self.providers.iter().enumerate() {
                     opened.extend(
                         p.resume(&cx, &facts[..from])
@@ -277,8 +368,16 @@ impl MindHost {
                 }
             }
             for f in &facts[from..] {
+                if LIVE_FACTS.contains(&f.kind.as_str()) {
+                    out.batches.extend(live::say(world, f));
+                }
                 if f.kind.as_str().starts_with("mind.") {
                     continue;
+                }
+                if let FactPayload::Event(Event::Dock { ship, station }) = &f.payload
+                    && world.player.ship.as_ref() == Some(ship)
+                {
+                    docked_at.push((station.clone(), f.id));
                 }
                 for (i, p) in self.providers.iter().enumerate() {
                     opened.extend(p.menus(&cx, f).into_iter().map(|m| (i, m)));
@@ -289,6 +388,9 @@ impl MindHost {
 
             for (provider, menu) in opened {
                 self.open(world, history, tick, provider, menu, &mut out);
+            }
+            for (station, trigger) in docked_at {
+                self.live_open(world, tick, &station, trigger, &mut out);
             }
             let mut due = Vec::new();
             for (at, done) in std::mem::take(&mut self.held) {
@@ -314,6 +416,18 @@ impl MindHost {
                 self.expired.insert(ticket, p.sent.clone());
                 self.give_up(world, history, tick, p, "late", &mut out);
             }
+            // A flourish past its deadline is skipped; its call is booked when it lands.
+            let late: Vec<u64> = self
+                .live_pending
+                .iter()
+                .filter(|(_, p)| p.deadline <= tick)
+                .map(|(t, _)| *t)
+                .collect();
+            for ticket in late {
+                let p = self.live_pending.remove(&ticket).expect("listed above");
+                self.expired.insert(ticket, p.sent);
+            }
+            self.live_calm(world, &mut out);
         }
         let report = PumpReport {
             menus,
@@ -332,7 +446,12 @@ impl MindHost {
     /// wait, which never runs past the request's deadline. Queued calls are cancelled.
     pub fn drain_bound(&self) -> Duration {
         let l = &self.config.limits;
-        Duration::from_millis(u64::from(MAX_ATTEMPTS) * l.timeout_ms + self.deadline_ms())
+        let live = &self.config.live;
+        let attempts = MAX_ATTEMPTS.max(live.max_attempts);
+        let deadline = self
+            .deadline_ms()
+            .max(live.deadline_ticks * 1000 / u64::from(TICKS_PER_SECOND));
+        Duration::from_millis(u64::from(attempts) * l.timeout_ms + deadline)
     }
 
     /// Ends the session before the final save, so every billed response is in history.
@@ -369,6 +488,9 @@ impl MindHost {
                 self.record_unsettled(&p.sent, tick, false, &mut out);
                 self.give_up(world, history, tick, p, "shutdown", &mut out);
             }
+            for (_, p) in std::mem::take(&mut self.live_pending) {
+                self.record_unsettled(&p.sent, tick, false, &mut out);
+            }
             for (_, sent) in std::mem::take(&mut self.expired) {
                 self.record_unsettled(&sent, tick, true, &mut out);
             }
@@ -395,6 +517,15 @@ impl MindHost {
             .map_or(0, |id| facts.partition_point(|f| f.id <= id));
         for f in &facts[from..] {
             self.ledger.observe(f);
+            self.discounts.observe(f);
+            if let Some(note) = live::LiveNote::parse(f) {
+                if let Some(of) = note.ends {
+                    self.ending.remove(&of);
+                } else if let Some(st) = &f.subjects.station {
+                    let at = self.live_asked.entry(st.clone()).or_default();
+                    *at = (*at).max(note.docking);
+                }
+            }
             self.next_ticket = self.next_ticket.max(self.ledger.last_ticket() + 1);
             if let Some(note) = SpendNote::parse(f)
                 && let Some(i) = self
@@ -423,6 +554,16 @@ impl MindHost {
     /// window once spent and reserved attempts are counted. A request that would go
     /// over isn't sent.
     fn allowance(&self, region: Option<&RegionId>, window: u64) -> Result<u8, &'static str> {
+        self.allowance_up_to(region, window, MAX_ATTEMPTS)
+    }
+
+    /// As [`MindHost::allowance`], for a request that may make up to `max` attempts.
+    fn allowance_up_to(
+        &self,
+        region: Option<&RegionId>,
+        window: u64,
+        max: u8,
+    ) -> Result<u8, &'static str> {
         if self.closing {
             return Err("shutdown");
         }
@@ -431,6 +572,7 @@ impl MindHost {
             .pending
             .values()
             .map(|p| &p.sent)
+            .chain(self.live_pending.values().map(|p| &p.sent))
             .chain(self.expired.values())
             .filter(|s| s.region.as_ref() == region)
             .map(|s| u32::from(s.allowed))
@@ -452,7 +594,7 @@ impl MindHost {
         {
             return Err("spend_cap");
         }
-        Ok(left.min(u32::from(MAX_ATTEMPTS)) as u8)
+        Ok(left.min(u32::from(max)) as u8)
     }
 
     fn deadline_ms(&self) -> u64 {
@@ -616,6 +758,10 @@ impl MindHost {
                 r.result.as_ref().ok().map(|v| json!(v)),
                 r.result.as_ref().err(),
             ),
+            JobResult::Live(r) => (
+                r.result.as_ref().ok().map(|v| json!(v)),
+                r.result.as_ref().err(),
+            ),
         };
         let note = SpendNote {
             attempts: u32::from(attempts),
@@ -695,6 +841,7 @@ impl MindHost {
             .pending
             .get(&done.ticket)
             .map(|p| &p.sent)
+            .or_else(|| self.live_pending.get(&done.ticket).map(|p| &p.sent))
             .or_else(|| self.expired.get(&done.ticket))
             .cloned()
         else {
@@ -708,9 +855,19 @@ impl MindHost {
         }
         let late = self.expired.remove(&done.ticket).is_some();
         self.record_spend(&sent, tick, &done.result, late, out);
+        let call = done.result.call().cloned();
         if late {
+            self.verdict(
+                call.as_ref(),
+                Verdict::Rejected,
+                "late: the moment had passed",
+            );
             self.stats.late_dropped += 1;
             return;
+        }
+        if let Some(p) = self.live_pending.remove(&done.ticket) {
+            self.stats.latency_ms += done.latency_ms;
+            return self.live_answer(world, p, done.result, call, out);
         }
         let p = self.pending.remove(&done.ticket).expect("found above");
         self.stats.latency_ms += done.latency_ms;
@@ -728,10 +885,12 @@ impl MindHost {
                 match reply.result {
                     Ok(decision) => match validate::choice(&menu, &decision) {
                         Ok(i) => {
+                            self.verdict(call.as_ref(), Verdict::Accepted, "");
                             acc.source = Source::Model;
                             self.choose(world, history, tick, provider, menu, acc, i, out);
                         }
                         Err(e) => {
+                            self.verdict(call.as_ref(), Verdict::Rejected, &e.to_string());
                             acc.why.push(e.to_string());
                             self.choose(world, history, tick, provider, menu, acc, 0, out);
                         }
@@ -772,8 +931,12 @@ impl MindHost {
                             slots: &line.slots,
                         };
                         match validate::line(&draft, &rules) {
-                            Ok(clean) => Some((clean.text, clean.cites)),
+                            Ok(clean) => {
+                                self.verdict(call.as_ref(), Verdict::Accepted, "");
+                                Some((clean.text, clean.cites))
+                            }
                             Err(e) => {
+                                self.verdict(call.as_ref(), Verdict::Rejected, &e.to_string());
                                 acc.why.push(e.to_string());
                                 None
                             }
@@ -1225,6 +1388,222 @@ impl MindHost {
                 cites,
             },
             commands,
+        }
+    }
+
+    /// The game's verdict on a logged call. Reasons never quote the model's text.
+    fn verdict(&self, call: Option<&CallId>, verdict: Verdict, reason: &str) {
+        if let Some(id) = call {
+            self.log
+                .verdict(id, verdict, (!reason.is_empty()).then(|| reason.to_owned()));
+        }
+    }
+
+    /// The player docked at `station`: maybe ask for one live flourish there. Counted
+    /// in dockings: the station's cooldown, the run's budget and the region's.
+    fn live_open(
+        &mut self,
+        world: &WorldState,
+        tick: Tick,
+        station: &StationId,
+        trigger: FactId,
+        out: &mut Out,
+    ) {
+        let rules = &self.config.live;
+        if !self.live_on() || self.closing || self.live_runs >= rules.run_calls {
+            return;
+        }
+        let now = live::dockings(world);
+        if self
+            .live_asked
+            .get(station)
+            .is_some_and(|at| now < at + u64::from(rules.cooldown_dockings))
+        {
+            return;
+        }
+        let Some(closed) = live::closed_world(world, &self.config, station) else {
+            return;
+        };
+        let here = world.counters.get(
+            CounterKind::Dockings,
+            &CounterScope::Station {
+                station: station.clone(),
+            },
+        );
+        let mut purpose = rules.rotation[(here as usize) % rules.rotation.len()];
+        if (purpose == Purpose::Discount && self.discounts.at(station)) || !closed.offers(purpose) {
+            purpose = Purpose::Banter;
+        }
+        if !closed.offers(purpose) {
+            return;
+        }
+        let region = world.stations.get(station).map(|s| s.region.clone());
+        let window = self.window(world, region.as_ref());
+        let Ok(allowed) = self.allowance_up_to(region.as_ref(), window, rules.max_attempts) else {
+            return;
+        };
+        let key = situation::key(&json!({
+            "live": purpose.as_str(),
+            "station": station,
+            "docking": now,
+            "closed": closed,
+        }));
+        let (user, schema) = live::task(purpose, &closed, rules);
+        let req = LiveRequest {
+            key: key.clone(),
+            purpose,
+            session_id: station.to_string(),
+            system: live::system_prompt(rules, &self.config.talk.forbidden),
+            user,
+            schema,
+            max_attempts: allowed,
+            deadline_ms: rules.deadline_ticks * 1000 / u64::from(TICKS_PER_SECOND),
+        };
+        let deadline = Tick(tick.0 + rules.deadline_ticks);
+        let sent = Sent {
+            menu: purpose.menu(),
+            actor: station.to_string(),
+            stage: situation::Stage::Live,
+            key,
+            region,
+            window,
+            at: tick,
+            ticket: self.ticket(),
+            allowed,
+        };
+        // The cooldown and the run's budget count asks, answered or not.
+        self.live_asked.insert(station.clone(), now);
+        self.live_runs += 1;
+        if !self.exec.submit(sent.ticket, Job::Live(req)) {
+            self.record_busy(&sent, out);
+            return;
+        }
+        self.stats.live_requests += 1;
+        self.live_pending.insert(
+            sent.ticket,
+            LivePending {
+                sent,
+                purpose,
+                station: station.clone(),
+                closed,
+                docking: now,
+                trigger,
+                deadline,
+            },
+        );
+    }
+
+    /// A live answer came in time: validate it against what was offered and, if it
+    /// holds, record it in station history. A discount waits for a calm moment.
+    fn live_answer(
+        &mut self,
+        world: &WorldState,
+        p: LivePending,
+        result: JobResult,
+        call: Option<CallId>,
+        out: &mut Out,
+    ) {
+        let JobResult::Live(reply) = result else {
+            return;
+        };
+        // A failed call is already in the log as failed: the flourish is skipped.
+        let Ok(draft) = reply.result else {
+            return;
+        };
+        let rules = &self.config.live;
+        let names = live::name_words(world, &p.closed);
+        let text = TextRules {
+            max_chars: rules.max_chars,
+            forbidden: &self.config.talk.forbidden,
+            markers: &rules.reject_markers,
+            names: &names,
+        };
+        let flourish = match live::validate(p.purpose, &draft, &p.closed, rules, &text) {
+            Ok(f) => f,
+            Err(e) => {
+                self.stats.live_rejected += 1;
+                return self.verdict(call.as_ref(), Verdict::Rejected, &e.to_string());
+            }
+        };
+        // Someone's line at this dock is only said while the player is here or in
+        // flight, never at another dock.
+        let docked = world
+            .player
+            .ship
+            .as_ref()
+            .and_then(|s| world.ships.get(s))
+            .and_then(|s| s.docked_at.as_ref());
+        if matches!(
+            flourish,
+            Flourish::Banter { .. } | Flourish::Discount { .. }
+        ) && docked.is_some_and(|d| d != &p.station)
+        {
+            self.stats.live_rejected += 1;
+            return self.verdict(
+                call.as_ref(),
+                Verdict::Rejected,
+                "moved on: the player is docked elsewhere",
+            );
+        }
+        let reason = match &flourish {
+            Flourish::Discount { clamped: true, .. } => "clamped into the discount bound",
+            _ => "",
+        };
+        let held = HeldLive {
+            station: p.station,
+            flourish,
+            key: p.sent.key,
+            model: reply.model,
+            docking: p.docking,
+            trigger: p.trigger,
+        };
+        if matches!(held.flourish, Flourish::Discount { .. }) && !live::calm(world) {
+            self.verdict(call.as_ref(), Verdict::Accepted, reason);
+            self.stats.live_accepted += 1;
+            self.held_live.push(held);
+            return;
+        }
+        match self.live_batch(world, &held) {
+            Ok(batch) => {
+                self.verdict(call.as_ref(), Verdict::Accepted, reason);
+                self.stats.live_accepted += 1;
+                out.batches.push(batch);
+            }
+            Err(why) => {
+                self.stats.live_rejected += 1;
+                self.verdict(call.as_ref(), Verdict::Rejected, &format!("rules: {why}"));
+            }
+        }
+    }
+
+    fn live_batch(&self, world: &WorldState, h: &HeldLive) -> Result<CommandBatch, String> {
+        live::accepted(
+            world,
+            &h.station,
+            &h.flourish,
+            &h.key,
+            &h.model,
+            h.docking,
+            h.trigger,
+        )
+    }
+
+    /// At a calm moment (the player docked): apply held discounts and end the ones
+    /// whose dockings are up.
+    fn live_calm(&mut self, world: &WorldState, out: &mut Out) {
+        if !live::calm(world) {
+            return;
+        }
+        for h in std::mem::take(&mut self.held_live) {
+            if let Ok(batch) = self.live_batch(world, &h) {
+                out.batches.push(batch);
+            }
+        }
+        let now = live::dockings(world);
+        for r in self.discounts.running.values() {
+            if r.note.until.is_some_and(|u| now >= u) && self.ending.insert(r.fact) {
+                out.batches.push(live::end(world, r));
+            }
         }
     }
 }

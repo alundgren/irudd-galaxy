@@ -6,27 +6,44 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
-use crate::mind::{Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Reply};
+use crate::calllog::CallId;
+use crate::mind::{
+    Decision, DecisionRequest, LineDraft, LineRequest, LiveDraft, LiveRequest, Mind, MindError,
+    Reply,
+};
 
 /// One request for a mind.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Job {
     Decide(DecisionRequest),
     Line(LineRequest),
+    /// A live-layer flourish (chat completions through the auto router).
+    Live(LiveRequest),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum JobResult {
     Decide(Reply<Decision>),
     Line(Reply<LineDraft>),
+    Live(Reply<LiveDraft>),
 }
 
 impl JobResult {
+    /// The call log row the call was written to, if any.
+    pub fn call(&self) -> Option<&CallId> {
+        match self {
+            JobResult::Decide(r) => r.call.as_ref(),
+            JobResult::Line(r) => r.call.as_ref(),
+            JobResult::Live(r) => r.call.as_ref(),
+        }
+    }
+
     /// Attempts, cost and model, whatever the outcome.
     pub fn usage(&self) -> (u8, f64, &str, u64) {
         match self {
             JobResult::Decide(r) => (r.attempts, r.cost_usd, &r.model, r.hold_ticks),
             JobResult::Line(r) => (r.attempts, r.cost_usd, &r.model, r.hold_ticks),
+            JobResult::Live(r) => (r.attempts, r.cost_usd, &r.model, r.hold_ticks),
         }
     }
 }
@@ -45,6 +62,7 @@ fn run(mind: &mut dyn Mind, ticket: u64, job: &Job) -> Done {
     let result = match job {
         Job::Decide(r) => JobResult::Decide(mind.decide(r)),
         Job::Line(r) => JobResult::Line(mind.line(r)),
+        Job::Live(r) => JobResult::Live(mind.live(r)),
     };
     Done {
         ticket,
@@ -60,6 +78,7 @@ fn cancelled(ticket: u64, job: &Job) -> Done {
         result: match job {
             Job::Decide(_) => JobResult::Decide(Reply::none(MindError::Cancelled)),
             Job::Line(_) => JobResult::Line(Reply::none(MindError::Cancelled)),
+            Job::Live(_) => JobResult::Live(Reply::none(MindError::Cancelled)),
         },
         latency_ms: 0,
     }

@@ -216,6 +216,12 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     };
     let (mut game, bridge) =
         Game::open_gm(state, &opts, choice.path(), bridge_opts).map_err(|e| (4, e))?;
+    // Every OpenRouter call is logged beside the save (only when the mind calls out).
+    if game.calls_out()
+        && let Err(e) = game.open_call_log(&galaxy_mind::calllog::path_for(choice.path()))
+    {
+        eprintln!("{e}");
+    }
     for note in game.take_notes() {
         eprintln!("{note}");
     }

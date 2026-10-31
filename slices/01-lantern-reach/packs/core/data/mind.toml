@@ -76,6 +76,50 @@ claims = [
   "sold", "steal", "stole", "stolen", "theft", "thief", "war", "wreck",
 ]
 
+# The live world layer: small, local flourishes at a station through OpenRouter's auto
+# router (chat completions, `openrouter/auto` at a cost tier). Each counted docking may ask
+# for one: banter (a keeper's line), traffic (a craft's hail), a brag (a trader's haul) or
+# a discount (a few percent off one ware here for a few dockings). The model picks only
+# from the IDs it is offered; the game checks every ID and line, clamps a discount into
+# [live.discount], and skips anything else. Only with OPENROUTER_API_KEY set.
+[live]
+enabled = true
+model = "openrouter/auto"
+cost_tier = "low"
+# The router may pick a reasoning model: the cap counts its thinking too, kept low.
+max_tokens = 1200
+reasoning_effort = "none"
+# Dockings a station waits after a live call before the next one there.
+cooldown_dockings = 2
+# Live calls per run (one launch of the game).
+run_calls = 12
+# Ticks to wait for an answer (900 = 30 s at 30 ticks/s; ticks stop while paused).
+deadline_ticks = 900
+max_attempts = 3
+# First wait before retrying a 429 or 5xx that names none; it doubles each retry.
+backoff_ms = 1000
+# The prompt asks for at most max_words; a line over max_chars is rejected.
+max_words = 18
+max_chars = 160
+max_craft = 6
+# The flourish for a station's n-th counted docking: entry n % len. A discount is skipped
+# (banter instead) while one runs at the station.
+rotation = ["banter", "traffic", "brag", "banter", "discount"]
+# Any of these, case-insensitive, rejects a line: links, trademarks, talk about models.
+reject_markers = ["http", "://", "www.", ".com", ".net", ".org", "™", "®", "©", "video game", "language model", "as an ai", "npc", "chatbot"]
+
+[live.discount]
+min_percent = 5
+max_percent = 15
+min_dockings = 2
+max_dockings = 4
+
+# The LLM call log beside the save (<stem>.llm-log.sqlite). Pruned on startup: rows older
+# than keep_days roll into permanent daily rollups, and the file stays under max_mb.
+[log]
+keep_days = 14
+max_mb = 50
+
 # --- NPC traders (02-economy.md, "NPC traders") ---
 
 [[brief]]

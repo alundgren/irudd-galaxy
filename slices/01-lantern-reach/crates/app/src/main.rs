@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
+
+mod llm_log_cli;
 use galaxy_contract::prelude::*;
 use galaxy_core::{Save, SaveError, SimState};
 use serde_json::{Value, json};
@@ -164,6 +166,9 @@ enum Cmd {
         #[command(subcommand)]
         command: AudioCmd,
     },
+    /// Query the LLM call log beside a save: rejections, cost by model or purpose,
+    /// totals, rollups, prune. For agents; the player never sees it.
+    LlmLog(llm_log_cli::LlmLogArgs),
 }
 
 #[derive(Subcommand)]
@@ -747,6 +752,7 @@ fn main() -> ExitCode {
         Cmd::Mind {
             command: MindCmd::Try { packs },
         } => mind_try(packs.packs),
+        Cmd::LlmLog(args) => llm_log_cli::run(args).map_err(fail),
         Cmd::Audio {
             command: AudioCmd::Render { out },
         } => galaxy_app::sound::render(&out).map_err(|(code, body)| Fail {
@@ -1165,14 +1171,32 @@ fn mind_try(packs: Option<PathBuf>) -> Out {
     use galaxy_mind::{MindConfig, MindError};
     let data = packs_dir(packs)?.join("core").join("data");
     let config = MindConfig::load_dir(&data).map_err(|e| Fail::input(e.to_string()))?;
-    galaxy_mind::probe::live(&config).map_err(|e| match e {
-        MindError::NoKey => Fail::input(e.to_string()),
-        e => Fail {
-            code: 1,
-            kind: "mind",
-            message: e.to_string(),
-            command: None,
-            body: None,
-        },
-    })
+    // Its calls are logged beside the default save folder, like a game's beside its save.
+    let log = galaxy_mind::calllog::CallSink::new();
+    let at = galaxy_app::saves::SaveFolder::user()
+        .map(|f| galaxy_mind::calllog::path_for(&f.dir().join("mind-try.sqlite")));
+    if let Some(path) = &at
+        && let Err(e) = log.open(path, &config.log)
+    {
+        eprintln!("{e}");
+    }
+    let result = galaxy_mind::probe::live_logged(&config, &log);
+    log.flush(std::time::Duration::from_secs(2));
+    result
+        .map(|mut v| {
+            if log.is_connected() {
+                v["log"] = json!(at);
+            }
+            v
+        })
+        .map_err(|e| match e {
+            MindError::NoKey => Fail::input(e.to_string()),
+            e => Fail {
+                code: 1,
+                kind: "mind",
+                message: e.to_string(),
+                command: None,
+                body: None,
+            },
+        })
 }

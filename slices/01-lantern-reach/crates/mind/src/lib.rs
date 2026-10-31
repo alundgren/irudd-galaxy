@@ -32,11 +32,13 @@
 //! `Debug` output or log line. `cargo test` never touches the network; the live tests
 //! are `#[ignore]`.
 
+pub mod calllog;
 pub mod config;
 pub mod executor;
 pub mod fake;
 pub mod host;
 pub mod lines;
+pub mod live;
 pub mod menu;
 pub mod mind;
 pub mod openrouter;

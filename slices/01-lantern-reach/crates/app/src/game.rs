@@ -40,8 +40,12 @@
 //!   with the first step: one `pacing_backfill` system batch with the `pacing.toml`
 //!   tunables it lacks (at their authored values; saved ones stay), then one
 //!   `craft_backfill` batch per named trader it lacks.
+//! - **The live world layer and the call log.** With a key, the mind also asks the auto
+//!   router for small station flourishes on dockings (`galaxy_mind::live`). Every call
+//!   is logged in `<stem>.llm-log.sqlite` beside the save once [`Game::open_call_log`]
+//!   opens it (play does; headless runs make no calls and keep no log).
 //! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
-//!   then steps once so its batches apply; save after it.
+//!   then steps once so its batches apply, and flushes the call log; save after it.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -51,6 +55,7 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::talk::TalkLine;
 use galaxy_core::{Sim, SimState, System, TickReport};
 use galaxy_gm::{Bridge, BridgeOptions};
+use galaxy_mind::calllog::CallSink;
 use galaxy_mind::executor::{Done, Executor, Job};
 use galaxy_mind::{FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, Worker};
 use galaxy_script::ScriptHost;
@@ -169,6 +174,10 @@ pub struct Game {
     sim: Sim,
     scripts: ScriptHost,
     mind: Option<MindHost>,
+    /// Where every OpenRouter call is logged, once [`Game::open_call_log`] connects it.
+    call_log: CallSink,
+    /// The mind calls OpenRouter (a live mode with a key).
+    calls_out: bool,
     hot_reload: bool,
     /// What a player or developer should know (warnings, skipped packs, the mind).
     notes: Vec<String>,
@@ -290,6 +299,8 @@ impl Game {
         }
 
         let data = core_data(&opts.packs);
+        let call_log = CallSink::new();
+        let mut calls_out = false;
         let mind = match &opts.mind {
             MindMode::Off => {
                 let mut config = MindConfig::load_dir(&data).map_err(|e| e.to_string())?;
@@ -303,6 +314,8 @@ impl Game {
                     _ => match OpenRouterMind::from_env(config.models.clone(), &config.limits) {
                         Ok(m) => {
                             notes.push("the fast-model layer is on (OpenRouter)".to_owned());
+                            calls_out = true;
+                            let m = m.with_live(config.live.clone()).with_log(call_log.clone());
                             Box::new(Worker::spawn(m, config.limits.max_in_flight.max(1)))
                         }
                         Err(_) => {
@@ -316,13 +329,18 @@ impl Game {
                         }
                     },
                 };
-                Some(MindHost::new(config, BoxedExec(exec), sim.history()))
+                let mut host = MindHost::new(config, BoxedExec(exec), sim.history());
+                // Live flourishes only with a live model: the fake never asks for one.
+                host.set_live(calls_out).set_call_log(call_log.clone());
+                Some(host)
             }
         };
         Ok(Game {
             sim,
             scripts,
             mind,
+            call_log,
+            calls_out,
             hot_reload: opts.hot_reload,
             notes,
             reports,
@@ -353,6 +371,22 @@ impl Game {
 
     pub fn sim(&self) -> &Sim {
         &self.sim
+    }
+
+    /// Whether the mind calls OpenRouter (live mode with a key).
+    pub fn calls_out(&self) -> bool {
+        self.calls_out
+    }
+
+    /// Opens the call log at `path` (`galaxy_mind::calllog::path_for` the save) and
+    /// prunes it on its writer thread. Every call from then on is logged there.
+    pub fn open_call_log(&mut self, path: &Path) -> Result<(), String> {
+        let rules = self
+            .mind
+            .as_ref()
+            .map(|m| m.config().log.clone())
+            .unwrap_or_default();
+        self.call_log.open(path, &rules).map_err(|e| e.to_string())
     }
 
     /// The sim, for code that works between ticks.
@@ -414,6 +448,7 @@ impl Game {
         let Some(mind) = &mut self.mind else { return };
         let wait = mind.drain_bound().min(Duration::from_secs(30));
         let report = mind.shutdown(&mut self.sim, wait);
+        self.call_log.flush(Duration::from_secs(2));
         self.say(&report.lines);
         if report.batches == 0 && report.lines.is_empty() {
             return;

@@ -10,7 +10,9 @@ use std::path::Path;
 use galaxy_contract::ids::{AnyId, NpcId, RegionId};
 use serde::{Deserialize, Serialize};
 
+use crate::calllog::LogRules;
 use crate::menu::{DOCK_TALK, KINDS, RUMOR_SPREAD, TRADER_ROUTE};
+use crate::mind::Purpose;
 
 /// The data file name under a pack's `data/`.
 pub const MIND_FILE: &str = "mind.toml";
@@ -26,6 +28,10 @@ pub struct MindConfig {
     pub budget: Budgets,
     #[serde(default)]
     pub talk: TalkRules,
+    #[serde(default)]
+    pub live: LiveRules,
+    #[serde(default)]
+    pub log: LogRules,
     /// One brief per NPC or craft the layer may speak or decide for.
     #[serde(default)]
     pub brief: Vec<Brief>,
@@ -172,6 +178,114 @@ pub struct TalkRules {
     /// one (or its `-s`, `-ed`, `-ing` form) only if the authored line or a cited fact
     /// does, so a model can't add an event the record doesn't hold.
     pub claims: Vec<String>,
+}
+
+/// The live world layer (`[live]`): small, local flourishes through OpenRouter's auto
+/// router, triggered on the player's dockings. Pacing is counted in dockings.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct LiveRules {
+    /// Off: no live calls (the game still ends discounts already running).
+    pub enabled: bool,
+    /// The chat model: the auto router.
+    pub model: String,
+    /// The auto router's `cost_tier` (`low`, `medium`, `high`, `xhigh`, `max`).
+    pub cost_tier: String,
+    /// Token cap, reasoning included (the router may pick a reasoning model).
+    pub max_tokens: u32,
+    /// OpenRouter's `reasoning.effort` for the chosen model (`none`, `minimal`, `low` ...).
+    pub reasoning_effort: String,
+    /// Dockings a station waits after a live call before the next one there.
+    pub cooldown_dockings: u32,
+    /// Live calls per run (one launch of the game). Not saved.
+    pub run_calls: u32,
+    /// Ticks to wait for an answer before the flourish is skipped.
+    pub deadline_ticks: u64,
+    /// HTTP attempts per call, retries included (at most 4).
+    pub max_attempts: u8,
+    /// First backoff before retrying a 429 or 5xx that named no wait; it doubles.
+    pub backoff_ms: u64,
+    /// Words the prompt asks a line to stay within.
+    pub max_words: u32,
+    /// Longest line accepted, in characters.
+    pub max_chars: u32,
+    /// Most craft offered to the model.
+    pub max_craft: usize,
+    /// Which flourish a docking asks for: entry `n % len` at the station's `n`-th
+    /// counted docking. A discount is skipped while one runs at the station.
+    pub rotation: Vec<Purpose>,
+    /// Text that marks a line as out of the world (links, trademarks, talk about
+    /// models): any of these, case-insensitive, rejects it.
+    pub reject_markers: Vec<String>,
+    pub discount: DiscountRules,
+}
+
+impl Default for LiveRules {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            model: "openrouter/auto".into(),
+            cost_tier: "low".into(),
+            max_tokens: 1200,
+            reasoning_effort: "none".into(),
+            cooldown_dockings: 2,
+            run_calls: 12,
+            deadline_ticks: 900,
+            max_attempts: 3,
+            backoff_ms: 1000,
+            max_words: 18,
+            max_chars: 160,
+            max_craft: 6,
+            rotation: vec![
+                Purpose::Banter,
+                Purpose::Traffic,
+                Purpose::Brag,
+                Purpose::Banter,
+                Purpose::Discount,
+            ],
+            reject_markers: [
+                "http",
+                "://",
+                "www.",
+                ".com",
+                ".net",
+                ".org",
+                "™",
+                "®",
+                "©",
+                "video game",
+                "language model",
+                "as an ai",
+                "npc",
+                "chatbot",
+            ]
+            .map(str::to_owned)
+            .into(),
+            discount: DiscountRules::default(),
+        }
+    }
+}
+
+/// The fixed bound on a live discount. A number outside it is clamped into it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct DiscountRules {
+    pub min_percent: u32,
+    pub max_percent: u32,
+    /// How many of the player's dockings it lasts.
+    pub min_dockings: u32,
+    pub max_dockings: u32,
+}
+
+impl Default for DiscountRules {
+    fn default() -> Self {
+        Self {
+            min_percent: 5,
+            max_percent: 15,
+            min_dockings: 2,
+            max_dockings: 4,
+        }
+    }
 }
 
 /// The claim words used when `talk.claims` isn't set.
@@ -343,6 +457,35 @@ impl MindConfig {
         }
         if self.talk.max_words == 0 || self.talk.max_chars == 0 {
             return bad("talk.max_words and talk.max_chars must be above 0".into());
+        }
+        let live = &self.live;
+        if !["low", "medium", "high", "xhigh", "max"].contains(&live.cost_tier.as_str()) {
+            return bad(format!(
+                "live.cost_tier `{}` is not low, medium, high, xhigh or max",
+                live.cost_tier
+            ));
+        }
+        if live.rotation.is_empty() || live.rotation.iter().any(|p| !Purpose::LIVE.contains(p)) {
+            return bad(
+                "live.rotation lists banter, traffic, brag or discount, at least once".into(),
+            );
+        }
+        if !(1..=4).contains(&live.max_attempts)
+            || live.max_chars == 0
+            || live.max_words == 0
+            || live.max_tokens == 0
+        {
+            return bad(
+                "live.max_attempts must be 1 to 4, live.max_chars and live.max_tokens above 0"
+                    .into(),
+            );
+        }
+        let d = &live.discount;
+        if d.min_percent == 0 || d.min_percent > d.max_percent || d.max_percent > 50 {
+            return bad("live.discount: 1 <= min_percent <= max_percent <= 50".into());
+        }
+        if d.min_dockings == 0 || d.min_dockings > d.max_dockings {
+            return bad("live.discount: 1 <= min_dockings <= max_dockings".into());
         }
         Ok(())
     }

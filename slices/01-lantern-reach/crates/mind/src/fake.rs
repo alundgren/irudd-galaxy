@@ -9,7 +9,8 @@ use serde_json::Value;
 
 use crate::executor::Job;
 use crate::mind::{
-    Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply, wire_id,
+    Decision, DecisionRequest, LineDraft, LineRequest, LiveDraft, LiveRequest, Mind, MindError,
+    Question, Reply, wire_id,
 };
 use crate::situation::{SpendNote, Stage};
 
@@ -205,6 +206,7 @@ impl RecordedMind {
             model: o.model,
             attempts: o.attempts,
             hold_ticks: o.waited,
+            call: None,
         }
     }
 }
@@ -222,11 +224,16 @@ impl Mind for RecordedMind {
         self.next(Stage::Phrase, &req.key)
     }
 
+    fn live(&mut self, req: &LiveRequest) -> Reply<LiveDraft> {
+        self.next(Stage::Live, &req.key)
+    }
+
     /// Refuses (and uses up) a request the original executor refused.
     fn admits(&mut self, job: &Job) -> bool {
         let (stage, key) = match job {
             Job::Decide(r) => (Stage::Pick, &r.key),
             Job::Line(r) => (Stage::Phrase, &r.key),
+            Job::Live(r) => (Stage::Live, &r.key),
         };
         let Some(queue) = self.queue(stage, key) else {
             return true;
