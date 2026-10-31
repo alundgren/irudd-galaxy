@@ -41,7 +41,7 @@ text. Messages from the build tools (`cargo xtask`) go to stderr.
 | `engine_version` | 2 | A module needs a newer engine than this one (the version gate). Names both versions and how to install. Nothing is built. | `engine`, `required`, `module`, `module_dir`, `install` |
 | `not_installed` | 2 | Launcher only: no installed build to run, or the build named with `--build` is not installed. | `install_root`, `install`, `builds` |
 | `bad_input` | 4 | A module folder, its manifest, start state or scripts are missing or invalid; a save, recording or inputs file can't be read or doesn't fit the modules; a path is not a folder. | `path` (sometimes) |
-| `findings` | 5 | `galaxy-gm check` found problems in the module. | `module`, `findings` (each with `kind`: `schema`, `script`, `start` or `id_in_engine`, and `message`) |
+| `findings` | 5 | `galaxy-gm check` found problems in the module. | `module`, `findings` (each with `kind`: `schema`, `script`, `start` or `id_in_engine`, and `message`), `warnings` |
 | `replay_diverged` | 5 | `galaxy sim replay` ended on a different world than the recording did. | `tick`, `hash`, `recorded_hash`, `recorded_build`, `this_build` |
 | `not_built` | 1 | The command exists in the plan but not yet in this engine. It still ran the version gate first, and the modules passed. | `command`, `engine`, `modules` |
 | `runtime` | 1 | Anything else that failed after starting: I/O, a build the launcher could not start. | `path` (sometimes) |

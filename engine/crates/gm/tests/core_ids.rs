@@ -9,13 +9,13 @@
 use std::io::Write as _;
 use std::path::Path;
 
-use galaxy_module::idscan;
+use galaxy_module::idscan::{self, SCANNED_MODULE};
 use galaxy_module::module::Module;
 
 #[test]
 fn no_core_id_appears_in_engine_or_gm_source() {
     let engine = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let core = engine.join("../game/modules/core");
+    let core = engine.join("../game/modules").join(SCANNED_MODULE);
     let mut stderr = std::io::stderr();
     if !core.join("manifest.toml").is_file() {
         let _ = writeln!(

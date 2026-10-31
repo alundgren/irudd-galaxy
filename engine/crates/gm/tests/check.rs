@@ -35,6 +35,7 @@ fn the_test_modules_pass_check() {
         assert_eq!(out["module"], module);
         // Not an installed build, so no index: it says so.
         assert!(out["id_index"]["skipped"].is_string(), "{out}");
+        assert_eq!(out["warnings"], serde_json::json!([]));
     }
     let (_, out) = gm(&engine(), &["check", "tests/modules/stroll"]);
     assert_eq!(json(&out)["context_modules"][0], "tally");

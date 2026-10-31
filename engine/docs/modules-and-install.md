@@ -82,10 +82,12 @@ Two checks keep the base game's names out of engine and GM source:
   for. A match fails `cargo xtask check`. Without a `game/` folder it prints
   `core-ID scan: SKIPPED` past the test capture, so the skip is visible.
 - **In `galaxy-gm check`.** Each install ships `source-ids.json`, the words in engine and
-  GM program source (`crates/*/src`). `galaxy-gm check <module>` reports each declared ID
-  whose local name is one of those words (`id_in_engine`), so a module change that brings
-  in a clashing ID is caught on that change, before the next engine check. A build that
-  isn't installed has no index and says the comparison was skipped.
+  GM program source (`crates/*/src`). `galaxy-gm check <module>` compares each declared ID's
+  local name with those words. For the core module a match is a finding (`id_in_engine`,
+  exit 5), so a core change that brings in a clashing ID is caught on that change, before
+  the next engine check. For any other module it is only a warning: the engine check never
+  scans for its IDs. A build that isn't installed has no index and says the comparison was
+  skipped.
 
 Matching is case-sensitive on whole words (letters, digits and `_`).
 

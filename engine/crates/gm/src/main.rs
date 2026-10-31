@@ -11,7 +11,7 @@ use galaxy_api::Registry;
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
 use galaxy_module::failure::code;
-use galaxy_module::idscan::{self, INDEX_FILE, SourceIndex};
+use galaxy_module::idscan::{self, INDEX_FILE, SCANNED_MODULE, SourceIndex};
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, gate, install, manifest, version};
 use galaxy_script::ScriptSet;
@@ -111,22 +111,28 @@ fn check(dir: &Path) -> Result<Output, Failure> {
     }
 
     let declared = module.declared_ids();
+    let mut warnings = Vec::new();
     let index = install::current()
         .map(|(_, build)| build.dir.join(INDEX_FILE))
         .and_then(|path| std::fs::read_to_string(path).ok())
         .and_then(|text| serde_json::from_str::<SourceIndex>(&text).ok());
     let id_index = match &index {
         Some(index) => {
+            // Only the base game's IDs fail the engine check, so only they are rejected;
+            // another module hears about a clash, harmless to it, as a warning.
+            let scanned = module.id() == SCANNED_MODULE;
             for id in index.clashes(module.id(), &declared) {
-                findings.push(finding(
-                    "id_in_engine",
-                    format!(
-                        "the {} `{}` is named `{}`, a word engine or GM source uses; the engine \
-                         knows no game nouns, so rename it (or, if the engine is wrong to use \
-                         the word, raise it as an engine change)",
-                        id.what, id.full, id.local
-                    ),
-                ));
+                let message = format!(
+                    "the {} `{}` is named `{}`, a word engine or GM source uses; the engine \
+                     knows no game nouns, so rename it (or, if the engine is wrong to use the \
+                     word, raise it as an engine change)",
+                    id.what, id.full, id.local
+                );
+                if scanned {
+                    findings.push(finding("id_in_engine", message));
+                } else {
+                    warnings.push(finding("id_in_engine", message));
+                }
             }
             json!({ "checked": declared.len(), "engine": index.engine })
         }
@@ -147,6 +153,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         "context_modules": context.iter().map(Module::id).collect::<Vec<_>>(),
         "notes": notes,
         "findings": findings,
+        "warnings": warnings,
     });
     if ok {
         return Ok(Output::Json(out));

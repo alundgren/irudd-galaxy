@@ -24,6 +24,11 @@ use crate::module::DeclaredId;
 /// The index file in an installed build.
 pub const INDEX_FILE: &str = "source-ids.json";
 
+/// The module whose IDs the engine check scans for: the base game, `game/modules/core`.
+/// `galaxy-gm check` rejects its clashes and only warns about other modules', since only
+/// its IDs fail the engine check.
+pub const SCANNED_MODULE: &str = "core";
+
 /// File types the scan reads.
 const TEXT: [&str; 6] = ["rs", "toml", "luau", "md", "json", "txt"];
 
