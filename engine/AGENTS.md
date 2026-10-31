@@ -30,10 +30,11 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
 
 ## Rules
 
-- **The engine knows no game.** It builds and passes its tests without `game/`, and no
-  module ID from `game/` appears in engine or GM source. Tests use generic modules made in
-  the test or under `tests/modules`. `check` scans engine and GM source for every ID the
-  core module declares and fails on a match (`docs/modules-and-install.md`).
+- **The engine knows no game.** It builds and passes its tests without `game/`. Engine and
+  GM source never refer to anything a `game/` module defines: no `core.` IDs and no code
+  for one particular ship, station or ware. Ordinary words such as `deck` or `target` are
+  fine. Tests use generic modules made in the test or under `tests/modules`. Reviewers
+  reject an engine PR that names something from `game/`.
 - **The boundary serves the game.** See the boundary rule in the root `AGENTS.md`: when a
   rule here would block a feature the owner wants or make the game worse, stop and raise
   it.

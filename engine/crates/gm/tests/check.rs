@@ -1,4 +1,4 @@
-//! `galaxy-gm check`, `types` and `index-source` through the real executable.
+//! `galaxy-gm check` and `types` through the real executable.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -33,9 +33,6 @@ fn the_test_modules_pass_check() {
         let out = json(&out);
         assert_eq!(code, 0, "{out}");
         assert_eq!(out["module"], module);
-        // Not an installed build, so no index: it says so.
-        assert!(out["id_index"]["skipped"].is_string(), "{out}");
-        assert_eq!(out["warnings"], serde_json::json!([]));
     }
     let (_, out) = gm(&engine(), &["check", "tests/modules/stroll"]);
     assert_eq!(json(&out)["context_modules"][0], "tally");
@@ -67,20 +64,8 @@ fn a_module_with_problems_is_rejected_with_findings() {
 }
 
 #[test]
-fn types_and_the_source_index_print() {
+fn types_print() {
     let (code, types) = gm(&engine(), &["types"]);
     assert_eq!(code, 0);
     assert!(types.contains("export type Ctx"), "{types}");
-    let (code, index) = gm(&engine(), &["index-source", "."]);
-    assert_eq!(code, 0);
-    let index = json(&index);
-    let words: Vec<&str> = index["words"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
-    assert!(words.contains(&"WorldView") && words.contains(&"position"));
-    // Program source only: the test modules' names are not in it.
-    assert!(!words.contains(&"stroll"));
 }

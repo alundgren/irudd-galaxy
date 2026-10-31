@@ -131,17 +131,6 @@ pub struct Module {
     pub start: BTreeMap<String, StartEntity>,
 }
 
-/// An ID a module declares, for the core-ID scan and `galaxy-gm check`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DeclaredId {
-    /// `module.name`.
-    pub full: String,
-    /// `name`.
-    pub local: String,
-    /// `component`, `event` or `entity`.
-    pub what: &'static str,
-}
-
 impl Module {
     /// Reads a module folder from disk. Run the version gate first.
     pub fn read(dir: &Path) -> Result<Module, Failure> {
@@ -191,30 +180,6 @@ impl Module {
     /// The full ID of one of this module's component types or event kinds.
     pub fn full(&self, local: &str) -> String {
         format!("{}.{local}", self.manifest.id)
-    }
-
-    /// Every ID the module declares: its component types, event kinds and start entities.
-    pub fn declared_ids(&self) -> Vec<DeclaredId> {
-        let id = &self.manifest.id;
-        let entry = |local: &str, what| DeclaredId {
-            full: format!("{id}.{local}"),
-            local: local.to_owned(),
-            what,
-        };
-        let mut out: Vec<DeclaredId> = self
-            .manifest
-            .components
-            .keys()
-            .map(|c| entry(c, "component"))
-            .chain(self.manifest.events.iter().map(|e| entry(e, "event")))
-            .chain(self.start.keys().filter_map(|full| {
-                let (_, local) = ids::split(full)?;
-                Some(entry(local, "entity"))
-            }))
-            .collect();
-        out.sort();
-        out.dedup();
-        out
     }
 }
 
@@ -295,19 +260,6 @@ mod tests {
         let front = &module.start["demo.front"];
         assert_eq!(front["demo.door"]["open"], Value::Bool(true));
         assert_eq!(front["engine.position"]["x"], Value::from(1.5));
-        let declared: Vec<(String, &str)> = module
-            .declared_ids()
-            .into_iter()
-            .map(|d| (d.full, d.what))
-            .collect();
-        assert_eq!(
-            declared,
-            [
-                ("demo.door".to_owned(), "component"),
-                ("demo.front".to_owned(), "entity"),
-                ("demo.opened".to_owned(), "event"),
-            ]
-        );
 
         // The same files on another line ending hash the same.
         let lf = module.files.hash();

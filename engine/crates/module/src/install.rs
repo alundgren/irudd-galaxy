@@ -10,7 +10,6 @@
 //!       galaxy, galaxy-gm
 //!       tools/luau/luau-analyze
 //!       galaxy.d.luau          Luau types for module scripts
-//!       source-ids.json        words in engine and GM source, for galaxy-gm check
 //!       build.toml             version, commit, dev, install time
 //!     0.1.0-<commit>-dev/      a --dev build: only run when named
 //! ```

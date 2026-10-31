@@ -7,10 +7,8 @@
 //!    the leased slot, holding the build permit.
 //! 3. Assembles the build folder next to the others, then moves it into place:
 //!    `galaxy`, `galaxy-gm`, `tools/luau/luau-analyze`, `galaxy.d.luau` (the Luau types for
-//!    module scripts), `source-ids.json` (the words in engine and GM source, which
-//!    `galaxy-gm check` compares module IDs with) and `build.toml`. The built `galaxy-gm`
-//!    writes the type file and the index (`types`, `index-source`), so xtask needs no
-//!    engine crate beyond the install layout.
+//!    module scripts) and `build.toml`. The built `galaxy-gm` writes the type file
+//!    (`types`), so xtask needs no engine crate beyond the install layout.
 //! 4. Copies the launcher into the launcher folder as `galaxy` and `galaxy-gm`, unless the
 //!    launchers there come from a newer engine version, or this is a `--dev` build and
 //!    launchers are already installed.
@@ -68,25 +66,14 @@ fn install(dev: bool) -> Result<(), String> {
     let luau = fetch_luau()?;
     let gm = &executables["galaxy-gm"];
     let types = gm_output(gm, &["types"])?;
-    let root_dir = crate::workspace_root();
-    let index = gm_output(gm, &["index-source", &root_dir.to_string_lossy()])?;
 
     let builds = install::builds_dir(&root);
     fs::create_dir_all(&builds).map_err(|e| format!("can't create {}: {e}", builds.display()))?;
     remove_leftovers(&builds);
     let pid = std::process::id();
     let staging = builds.join(format!(".staging-{name}-{pid}"));
-    assemble(
-        &staging,
-        &executables,
-        &luau,
-        &types,
-        &index,
-        version,
-        &commit,
-        dev,
-    )
-    .map_err(|e| format!("can't assemble {}: {e}", staging.display()))?;
+    assemble(&staging, &executables, &luau, &types, version, &commit, dev)
+        .map_err(|e| format!("can't assemble {}: {e}", staging.display()))?;
     let dir = builds.join(&name);
     if dir.exists() {
         let old = builds.join(format!(".old-{name}-{pid}"));
@@ -140,13 +127,11 @@ fn gm_output(gm: &Path, args: &[&str]) -> Result<String, String> {
 }
 
 /// Writes a complete build folder at `staging`.
-#[allow(clippy::too_many_arguments)]
 fn assemble(
     staging: &Path,
     executables: &std::collections::BTreeMap<String, PathBuf>,
     luau: &Path,
     types: &str,
-    index: &str,
     version: Version,
     commit: &str,
     dev: bool,
@@ -159,7 +144,6 @@ fn assemble(
     }
     fs::copy(luau, &analyzer)?;
     fs::write(staging.join(install::LUAU_TYPES), types)?;
-    fs::write(staging.join(galaxy_module::idscan::INDEX_FILE), index)?;
     let info = BuildInfo {
         version: version.to_string(),
         commit: commit.to_owned(),

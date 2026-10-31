@@ -69,27 +69,7 @@ door = { open = false }                # this module's component type
 `crates/module/src/module.rs` reads a module folder into memory once: its `.toml` and
 `.luau` files (names starting with `.` are skipped), with line endings made `\n`. The
 engine runs, records and hashes only that copy, so a recording can store exactly the files
-a session ran. Other files (notes, later assets) are not read yet. The loader also lists
-the IDs a module declares: its component types, event kinds and start entities.
-
-## The engine knows no game nouns
-
-Two checks keep the base game's names out of engine and GM source:
-
-- **In the engine check.** `crates/gm/tests/core_ids.rs` reads the IDs `game/modules/core`
-  declares through the loader and looks for each, full (`core.name`) and local (`name`),
-  as a whole word in `crates/`, `tests/` and `xtask/`. The module's own name is not looked
-  for. A match fails `cargo xtask check`. Without a `game/` folder it prints
-  `core-ID scan: SKIPPED` past the test capture, so the skip is visible.
-- **In `galaxy-gm check`.** Each install ships `source-ids.json`, the words in engine and
-  GM program source (`crates/*/src`). `galaxy-gm check <module>` compares each declared ID's
-  local name with those words. For the core module a match is a finding (`id_in_engine`,
-  exit 5), so a core change that brings in a clashing ID is caught on that change, before
-  the next engine check. For any other module it is only a warning: the engine check never
-  scans for its IDs. A build that isn't installed has no index and says the comparison was
-  skipped.
-
-Matching is case-sensitive on whole words (letters, digits and `_`).
+a session ran. Other files (notes, later assets) are not read yet.
 
 ## The version gate
 
@@ -113,8 +93,8 @@ Which modules a command is about:
 | `doctor` (both binaries) | walking up from the working folder: the first folder that is a module, holds modules, or holds `game/modules` |
 
 `play` is not built yet: after the gate passes it exits 1 with kind `not_built`. `check`
-loads the module with the modules beside it (manifest, schemas, scripts, start state) and
-compares its IDs with the source index; findings exit 5 with kind `findings`. `doctor`
+loads the module with the modules beside it (manifest, schemas, scripts, start state);
+findings exit 5 with kind `findings`. `doctor`
 reports this engine, the installed builds, the launchers and the modules it found. The
 `sim` commands are in `saves-and-replay.md`.
 
@@ -134,7 +114,6 @@ One per-user folder: `irudd-galaxy/engine` in `%LOCALAPPDATA%` (Windows),
       galaxy, galaxy-gm
       tools/luau/luau-analyze
       galaxy.d.luau          Luau types for module scripts, from the ctx declaration
-      source-ids.json        words in engine and GM source, for galaxy-gm check
       build.toml             version, commit, dev, install time
     0.1.0-<commit>-dev/      a --dev build
 ```
@@ -151,8 +130,7 @@ cargo xtask install --dev  # a branch build with uncommitted changes
 It refuses when `engine/` has uncommitted changes, unless `--dev`. It builds `galaxy`,
 `galaxy-gm` and the launcher once, with the release profile (thin LTO), in the leased slot
 while holding the build permit. The built `galaxy-gm` writes the Luau type file
-(`galaxy-gm types`) and the source index (`galaxy-gm index-source <engine dir>`). It
-assembles the build folder beside the others and moves it into place. Earlier builds stay; installing the same build again replaces it. Then it
+(`galaxy-gm types`). It assembles the build folder beside the others and moves it into place. Earlier builds stay; installing the same build again replaces it. Then it
 prints where the launcher folder is and how to put it on PATH. It never edits PATH.
 
 An engine release is a version bump in `engine/Cargo.toml` merged to `main`, then installed
