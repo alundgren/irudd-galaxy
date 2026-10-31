@@ -57,7 +57,8 @@ player hitting it.
   issues, PRs or comments. Keys come from the environment only.
 - Git and `gh` directly. No CI: GitHub Actions are only for releases, and checks run
   locally.
-- Only the owner merges into `main`.
+- Only the owner merges into `main`, or an agent the owner's brief explicitly authorizes
+  to merge (for example the coordinator of an overnight run).
 
 ## Multi-agent work
 
