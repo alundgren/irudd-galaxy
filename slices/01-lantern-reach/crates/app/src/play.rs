@@ -250,13 +250,15 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     let view_settings_path = folder
         .as_ref()
         .map(|f| f.dir().join(crate::view::life::SETTINGS_FILE));
-    let view_settings = view_settings_path.as_deref().map_or_else(Default::default, |p| {
-        let (settings, note) = crate::view::life::ViewSettings::load(p);
-        if let Some(note) = note {
-            eprintln!("view: {note}");
-        }
-        settings
-    });
+    let view_settings = view_settings_path
+        .as_deref()
+        .map_or_else(Default::default, |p| {
+            let (settings, note) = crate::view::life::ViewSettings::load(p);
+            if let Some(note) = note {
+                eprintln!("view: {note}");
+            }
+            settings
+        });
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -578,8 +580,7 @@ impl App {
     fn clicked(&mut self) {
         if self.session.is_paused() {
             // The PAUSED card's one button: station life.
-            let mut card = ui::paused_card();
-            card.toggles.push(self.view_settings.life.label().to_owned());
+            let card = crate::view::life::paused_card(self.view_settings.life);
             if let Some(c) = self.ui.cursor
                 && card
                     .toggle_rects(self.viewport())

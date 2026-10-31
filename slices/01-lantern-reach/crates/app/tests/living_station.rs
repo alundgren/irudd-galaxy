@@ -83,7 +83,11 @@ fn docking_tilts_the_camera_and_flight_and_the_cradle_keep_their_own() {
         room: Some(MARKET),
         ..UiState::default()
     };
-    assert_eq!(goal(&room).tilt, DOCK_TILT, "a room keeps the station's tilt");
+    assert_eq!(
+        goal(&room).tilt,
+        DOCK_TILT,
+        "a room keeps the station's tilt"
+    );
     let cradle = UiState {
         room: Some(StationPartId::from_static("part.wharf.wharf")),
         ..UiState::default()
@@ -188,7 +192,10 @@ fn stock_piles_follow_the_market_and_the_crane_carries_the_players_sale() {
     let ice = |f: &LifeFrame| f.stock.iter().filter(|c| c.ware == ICE).count();
     let line = s.world().markets.get(&WHARF).unwrap().lines[&ICE].clone();
     assert_eq!(ice(&before) as u32, life::crates_for(&line));
-    let crane = before.crane.clone().expect("the Wharf's market has a crane");
+    let crane = before
+        .crane
+        .clone()
+        .expect("the Wharf's market has a crane");
     assert!(crane.load.is_none(), "nothing to carry before a sale");
 
     s.request_trade(TradeRequest {
@@ -202,7 +209,11 @@ fn stock_piles_follow_the_market_and_the_crane_carries_the_players_sale() {
     for _ in 0..3 {
         s.tick(PlayerInput::default());
     }
-    assert_eq!(s.flagship().unwrap().hold.count(&ICE), 0, "the sale went through");
+    assert_eq!(
+        s.flagship().unwrap().hold.count(&ICE),
+        0,
+        "the sale went through"
+    );
     let after = life_at(&s, &WHARF, LifeLevel::Full, 0.0);
     let line = s.world().markets.get(&WHARF).unwrap().lines[&ICE].clone();
     assert_eq!(ice(&after) as u32, life::crates_for(&line));
@@ -249,7 +260,11 @@ fn the_lamplighter_lights_one_more_lamp_per_station_pulse() {
     assert_eq!(lit(1_000).0, base + 1);
     assert_eq!(lit(3_400).0, base + 3, "whole pulses only");
     assert_eq!(lit(4_000).0, base + 4);
-    assert_eq!(lit(500_000).0, lamps, "every lamp, once the station is busy");
+    assert_eq!(
+        lit(500_000).0,
+        lamps,
+        "every lamp, once the station is busy"
+    );
 }
 
 #[test]
@@ -282,7 +297,10 @@ fn a_crowd_gathers_when_news_lands_and_workers_come_with_scaffold() {
     assert!((2..=cap).contains(&crowd(&f)), "{}", crowd(&f));
     assert!(workers(&f) >= 1, "workers at the scaffold");
     let quiet = life_at(&busy, &WHARF, LifeLevel::Quiet, 0.0);
-    assert!(crowd(&quiet) <= 2 && crowd(&quiet) >= 1, "quiet keeps a small crowd");
+    assert!(
+        crowd(&quiet) <= 2 && crowd(&quiet) >= 1,
+        "quiet keeps a small crowd"
+    );
     assert!(quiet.figures.iter().all(|f| !f.moving), "and nothing moves");
 }
 
@@ -294,7 +312,11 @@ fn busy_everywhere(station: &StationId) -> Session {
         for t in w.economy.stations.values_mut() {
             t.pulses_milli = 90_000;
         }
-        w.economy.stations.entry(station.clone()).or_default().pulses_milli = 90_000;
+        w.economy
+            .stations
+            .entry(station.clone())
+            .or_default()
+            .pulses_milli = 90_000;
         let id: RumorId = "rumor.test_news".parse().unwrap();
         w.rumors.insert(
             id.clone(),
@@ -319,7 +341,11 @@ fn busy_everywhere(station: &StationId) -> Session {
         let id = w.player.ship.clone().unwrap();
         w.ships.get_mut(&id).unwrap().hold.cargo.insert(ICE, 10);
     });
-    if s.world().markets.get(&station).is_some_and(|m| m.lines.contains_key(&ICE)) {
+    if s.world()
+        .markets
+        .get(&station)
+        .is_some_and(|m| m.lines.contains_key(&ICE))
+    {
         s.request_trade(TradeRequest {
             ship: s.flagship().unwrap().id.clone(),
             station,
@@ -353,7 +379,9 @@ fn every_station_keeps_its_themes_calm_caps_and_quiet_stills_it() {
                 .filter(|sh| {
                     world.player.ship.as_ref() != Some(&sh.id)
                         && sh.docked_at.is_none()
-                        && sh.position.distance(world.stations.get(&station).unwrap().position)
+                        && sh
+                            .position
+                            .distance(world.stations.get(&station).unwrap().position)
                             < world.stations.get(&station).unwrap().dock_radius * 4.0
                 })
                 .count();
@@ -380,7 +408,10 @@ fn every_station_keeps_its_themes_calm_caps_and_quiet_stills_it() {
             assert!(fl == ql || fl + 1 == ql, "{station}: {fl} vs {ql}");
         }
         let f = life_at(&s, &station, LifeLevel::Full, 1.0);
-        assert!(f.walkers() > 0, "{station}: a busy station has people about");
+        assert!(
+            f.walkers() > 0,
+            "{station}: a busy station has people about"
+        );
     }
 }
 
@@ -402,7 +433,12 @@ fn keep_clear(world: &WorldState, station: &StationId, camera: &Camera, viewport
             PartState::Building => format!("{}  ·  Building", part.title()),
         };
         let w = ui::text_width(&word, 14.0) + 20.0;
-        out.push(Rect::new(t.at.x - w * 0.5, t.at.y + t.radius * 0.9, w, 24.0));
+        out.push(Rect::new(
+            t.at.x - w * 0.5,
+            t.at.y + t.radius * 0.9,
+            w,
+            24.0,
+        ));
     }
     out
 }
@@ -467,6 +503,40 @@ fn nothing_moving_covers_a_click_target_or_a_sign() {
 }
 
 #[test]
+fn craft_glide_in_to_their_berth_and_out_again() {
+    // Undocked inside the Wharf's ring, the flagship docks with Space.
+    let mut s = session_with(|w| {
+        let id = w.player.ship.clone().unwrap();
+        w.ships.get_mut(&id).unwrap().docked_at = None;
+    });
+    let id = s.flagship().unwrap().id.clone();
+    let mut keys = galaxy_app::input::Keys::default();
+    keys.event(galaxy_app::input::Key::Space, true, false);
+    let input = keys.tick_input(false, None);
+    s.tick(input);
+    keys.event(galaxy_app::input::Key::Space, false, false);
+    for _ in 0..3 {
+        if s.flagship().unwrap().docked_at.is_some() {
+            break;
+        }
+        s.tick(keys.tick_input(false, None));
+    }
+    assert_eq!(s.flagship().unwrap().docked_at, Some(WHARF), "docked");
+    let moving = galaxy_app::view::berthing(s.world(), Some(s.sim().history()));
+    let (station, docking, k) = moving.get(&id).cloned().expect("just docked: gliding in");
+    assert_eq!(station, WHARF);
+    assert!(docking && k < 0.2, "{k}");
+    for _ in 0..90 {
+        s.tick(PlayerInput::default());
+    }
+    let moving = galaxy_app::view::berthing(s.world(), Some(s.sim().history()));
+    assert!(
+        moving.get(&id).is_none_or(|m| m.2 >= 1.0),
+        "and settled at its berth"
+    );
+}
+
+#[test]
 fn the_pause_card_has_the_station_life_switch() {
     let mut s = session_with(|_| {});
     s.pause();
@@ -488,10 +558,16 @@ fn the_pause_card_has_the_station_life_switch() {
     assert_eq!(rects.len(), 1);
     let r = rects[0];
     assert!(
-        r.x >= body.x && r.x + r.w <= body.x + body.w && r.y >= body.y && r.y + r.h <= body.y + body.h,
+        r.x >= body.x
+            && r.x + r.w <= body.x + body.w
+            && r.y >= body.y
+            && r.y + r.h <= body.y + body.h,
         "{r:?} inside {body:?}"
     );
-    assert!(ui::text_width(LifeLevel::Quiet.label(), 18.0) < r.w - 16.0, "the label fits");
+    assert!(
+        ui::text_width(LifeLevel::Quiet.label(), 18.0) < r.w - 16.0,
+        "the label fits"
+    );
     assert_eq!(LifeLevel::Full.toggled(), LifeLevel::Quiet);
     assert_eq!(LifeLevel::Quiet.toggled(), LifeLevel::Full);
 }

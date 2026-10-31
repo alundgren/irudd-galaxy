@@ -35,7 +35,7 @@ use galaxy_core::History;
 use render::glam::{Vec2 as G2, Vec3};
 use render::kit::life::{CRATE_SIZE, LAMP_LIGHT, RESIDENT_HEIGHT, huddle};
 use render::kit::{PartKind, StationPalette, StationRecipe};
-use render::{ArtBible, Color, Glow, Line, PointLight};
+use render::{ArtBible, Color, Glow, Line, PointLight, palette};
 use serde::{Deserialize, Serialize};
 
 use super::themes::{Prop, Resident, Spine, Theme};
@@ -68,6 +68,13 @@ impl LifeLevel {
             LifeLevel::Quiet => "Station life: Quiet · Q livens it",
         }
     }
+}
+
+/// The PAUSED card, with the station life switch as its button.
+pub fn paused_card(level: LifeLevel) -> render::PausedCard {
+    let mut card = crate::ui::paused_card();
+    card.toggles.push(level.label().to_owned());
+    card
 }
 
 /// The view's settings file, next to the saves.
@@ -359,8 +366,9 @@ const CARRY_TICKS: u64 = 6 * galaxy_contract::TICKS_PER_SECOND as u64;
 const WALK_TICKS: u64 = 4 * galaxy_contract::TICKS_PER_SECOND as u64;
 /// Walking pace, station units a second: an unhurried stroll.
 const STROLL: f32 = 1.4;
-/// The crane's mast, station units.
-const CRANE_HEIGHT: f32 = 9.0;
+/// The crane's mast and the banner's pole, station units.
+pub const CRANE_HEIGHT: f32 = 9.0;
+pub const POLE_HEIGHT: f32 = 7.0;
 
 /// A point `r` station units from `c` at `deg` degrees.
 fn polar(c: G2, s: f32, deg: f32, r: f32) -> G2 {
@@ -458,7 +466,13 @@ impl<'a> Site<'a> {
         (0..n)
             .map(|i| {
                 let k = i as f32 / (n - 1).max(1) as f32;
-                polar(self.c, self.s, self.arc.0 + (self.arc.1 - self.arc.0) * k, r).extend(0.0)
+                polar(
+                    self.c,
+                    self.s,
+                    self.arc.0 + (self.arc.1 - self.arc.0) * k,
+                    r,
+                )
+                .extend(0.0)
             })
             .collect()
     }
@@ -466,7 +480,9 @@ impl<'a> Site<'a> {
     /// A circle of `n` points round `centre` at `r` world units, `z` up.
     fn circle(centre: G2, r: f32, z: f32, n: usize) -> Vec<Vec3> {
         (0..=n)
-            .map(|i| (centre + G2::from_angle(i as f32 / n as f32 * std::f32::consts::TAU) * r).extend(z))
+            .map(|i| {
+                (centre + G2::from_angle(i as f32 / n as f32 * std::f32::consts::TAU) * r).extend(z)
+            })
             .collect()
     }
 
@@ -521,11 +537,9 @@ fn along(run: &[Vec3], dist: f32) -> (Vec3, f32) {
 
 /// The station's pulses so far, whole.
 fn pulses(world: &WorldState, station: &StationId) -> u64 {
-    world
-        .economy
-        .stations
-        .get(station)
-        .map_or(0, |t| u64::try_from(t.pulses_milli.max(0) / 1000).unwrap_or(0))
+    world.economy.stations.get(station).map_or(0, |t| {
+        u64::try_from(t.pulses_milli.max(0) / 1000).unwrap_or(0)
+    })
 }
 
 /// The ticks of the player's last two dockings at `station`, newest first.
@@ -604,281 +618,347 @@ fn crate_slot(i: u32) -> Vec3 {
 /// Spots round `at` (a module), towards the hub first: (spot, the way it faces).
 fn spots_round(site: &Site, at: G2, out: f32) -> Vec<(G2, G2)> {
     let inward = (site.c - at).normalize_or(G2::Y);
-    [0.0f32, 35.0, -35.0, 70.0, -70.0, 110.0, -110.0, 150.0, -150.0]
-        .into_iter()
-        .flat_map(|a| {
-            let dir = G2::from_angle(a.to_radians()).rotate(inward);
-            [1.0, 1.3, 1.7].map(|k| (at + dir * out * k, dir))
-        })
-        .collect()
+    [
+        0.0f32, 35.0, -35.0, 70.0, -70.0, 110.0, -110.0, 150.0, -150.0,
+    ]
+    .into_iter()
+    .flat_map(|a| {
+        let dir = G2::from_angle(a.to_radians()).rotate(inward);
+        [1.0, 1.3, 1.7].map(|k| (at + dir * out * k, dir))
+    })
+    .collect()
+}
+
+/// What every part of a frame reads: the input, the station's geometry and the rules.
+struct Ctx<'a> {
+    world: &'a WorldState,
+    history: &'a History,
+    station: &'a StationId,
+    theme: &'a Theme,
+    time: f32,
+    full: bool,
+    site: Site<'a>,
+    clear: Clear,
+    pal: StationPalette,
+    shows: Shows,
+    pulses: u64,
+    now: u64,
+    /// A resident's height and the room kept round anything that moves, world units.
+    fig_h: f32,
+    pad: f32,
+}
+
+/// Small glows left to spend this frame ([`Calm::max_particles`]).
+struct Budget(u32);
+
+impl Budget {
+    fn spend(&mut self, n: u32) -> u32 {
+        let n = n.min(self.0);
+        self.0 -= n;
+        n
+    }
 }
 
 /// The life at the player's docked station this frame. Pure: the same world, history,
 /// theme, level and time give the same frame.
 pub fn frame(input: &LifeInput) -> LifeFrame {
-    let LifeInput {
-        world,
-        history,
-        station,
-        theme,
-        level,
-        time,
-    } = *input;
-    let Some(site) = Site::new(world, station) else {
+    let Some(site) = Site::new(input.world, input.station) else {
         return LifeFrame::default();
     };
-    let clear = Clear::at(world, station);
     let s = site.s;
-    let calm = theme.calm;
-    let full = level == LifeLevel::Full;
-    let now = world.meta.tick.0;
-    let shows = Shows::of(world, station);
-    let pulses = pulses(world, station);
-    let pal = palette_for(theme, Some(site.st));
-    let fig_h = RESIDENT_HEIGHT * s;
-    let pad = 0.5 * s;
+    let cx = Ctx {
+        world: input.world,
+        history: input.history,
+        station: input.station,
+        theme: input.theme,
+        time: input.time,
+        full: input.level == LifeLevel::Full,
+        clear: Clear::at(input.world, input.station),
+        pal: palette_for(input.theme, Some(site.st)),
+        shows: Shows::of(input.world, input.station),
+        pulses: pulses(input.world, input.station),
+        now: input.world.meta.tick.0,
+        fig_h: RESIDENT_HEIGHT * s,
+        pad: 0.5 * s,
+        site,
+    };
     let mut out = LifeFrame {
         scale: s,
         ..LifeFrame::default()
     };
-    let mut particles = calm.max_particles;
-    let mut spend = |n: u32| -> u32 {
-        let n = n.min(particles);
-        particles -= n;
-        n
-    };
-    let (deck_r, deck_z) = site.deck;
+    let mut budget = Budget(cx.theme.calm.max_particles);
+    if cx.theme.has(Prop::LampString) {
+        lamps(&cx, &mut out);
+    }
+    if cx.shows.lamp_string {
+        lamp_string(&cx, &mut out);
+    }
+    if let Some(yard) = stock_yard(&cx, &mut out) {
+        out.crane = crane(&cx, yard);
+    }
+    crowds(&cx, &mut out);
+    workers(&cx, &mut out, &mut budget);
+    if cx.full {
+        walkers(&cx, &mut out);
+        fillers(&cx, &mut out);
+    }
+    idle(&cx, &mut out, &mut budget);
+    out.particles = cx.theme.calm.max_particles - budget.0;
+    out
+}
 
-    // Lamps round the hub's top deck, lit one more per station pulse.
-    if theme.has(Prop::LampString) {
-        let k = theme.lamps as usize;
-        let spots: Vec<Vec3> = (0..k)
-            .map(|i| {
-                let a = 90.0 + i as f32 / k as f32 * 360.0;
-                polar(site.c, 1.0, a, deck_r * 0.92).extend(deck_z)
+/// Lamps round the hub's top deck, lit one more per station pulse, and the lamplighter
+/// at the newest (or, after a ship's docking, walking to it and lighting it on arrival).
+fn lamps(cx: &Ctx, out: &mut LifeFrame) {
+    let (s, (deck_r, deck_z)) = (cx.site.s, cx.site.deck);
+    let k = cx.theme.lamps as usize;
+    let spots: Vec<Vec3> = (0..k)
+        .map(|i| {
+            let a = 90.0 + i as f32 / k as f32 * 360.0;
+            polar(cx.site.c, 1.0, a, deck_r * 0.92).extend(deck_z)
+        })
+        .filter(|p| cx.clear.ok(*p, 4.7 * s, cx.pad))
+        .collect();
+    let n = spots.len() as u64;
+    if n == 0 {
+        return;
+    }
+    let walk = if cx.full && cx.pulses > 0 {
+        cx.history
+            .last(&HistoryQuery {
+                kind: Some(FactKind::from_static("dock")),
+                station: Some(cx.station.clone()),
+                since: Some(Tick(cx.now.saturating_sub(WALK_TICKS))),
+                ..HistoryQuery::default()
             })
-            .filter(|p| clear.ok(*p, 4.7 * s, pad))
-            .collect();
-        let n = spots.len() as u64;
-        if n > 0 {
-            // A ship's docking is a pulse: the lamplighter walks to the next lamp and
-            // lights it on arrival.
-            let walk = if full && pulses > 0 {
-                history
-                    .last(&HistoryQuery {
-                        kind: Some(FactKind::from_static("dock")),
-                        station: Some(station.clone()),
-                        since: Some(Tick(now.saturating_sub(WALK_TICKS))),
-                        ..HistoryQuery::default()
-                    })
-                    .map(|f| now.saturating_sub(f.tick.0) as f32 / WALK_TICKS as f32)
+            .map(|f| cx.now.saturating_sub(f.tick.0) as f32 / WALK_TICKS as f32)
+    } else {
+        None
+    };
+    let lit = cx.pulses.min(n);
+    let newest = (cx.pulses.max(1) - 1) % n;
+    for (i, p) in spots.iter().enumerate() {
+        let i = i as u64;
+        let fresh = i == newest && walk.is_some_and(|k| k < 1.0);
+        let on = i < lit && !fresh;
+        out.lamps.push(Lamp { at: *p, lit: on });
+        if on {
+            let top = *p + LAMP_LIGHT * s;
+            let flicker = if cx.full {
+                0.92 + 0.08 * (cx.time * 1.7 + i as f32 * 1.3).sin()
             } else {
-                None
+                1.0
             };
-            let lit = pulses.min(n);
-            let newest = (pulses.max(1) - 1) % n;
-            for (i, p) in spots.iter().enumerate() {
-                let i = i as u64;
-                let fresh = i == newest && walk.is_some_and(|k| k < 1.0);
-                let on = i < lit && !fresh;
-                out.lamps.push(Lamp { at: *p, lit: on });
-                if on {
-                    let top = *p + LAMP_LIGHT * s;
-                    let flicker = if full {
-                        0.92 + 0.08 * (time * 1.7 + i as f32 * 1.3).sin()
-                    } else {
-                        1.0
-                    };
-                    out.glows.push(Glow {
-                        position: top,
-                        radius: 1.5 * s,
-                        color: pal.glow.with_alpha(0.4 * flicker),
-                    });
-                    out.lights.push(PointLight {
-                        position: top + Vec3::Z * s,
-                        color: pal.glow.scale(0.55),
-                        radius: 8.0 * s,
-                    });
-                }
-            }
-            // The lamplighter: at the newest lamp, or on the way to it round the deck.
-            let to = spots[newest as usize];
-            let from = spots[((newest + n - 1) % n) as usize];
-            let (at, moving) = match walk {
-                Some(k) if n > 1 && k < 1.0 => {
-                    let (a0, a1) = (heading((from - site.c.extend(0.0)).truncate()), heading((to - site.c.extend(0.0)).truncate()));
-                    let mut turn = (a1 - a0).rem_euclid(std::f32::consts::TAU);
-                    if turn > std::f32::consts::PI {
-                        turn -= std::f32::consts::TAU;
-                    }
-                    let a = a0 + turn * smooth(k);
-                    ((site.c + G2::from_angle(a) * deck_r * 0.92).extend(deck_z), true)
-                }
-                _ => (to, false),
-            };
-            let stand = at.truncate() + (site.c - at.truncate()).normalize_or(G2::Y) * 0.9 * s;
-            let stand = stand.extend(deck_z);
-            if clear.ok(stand, fig_h, pad) {
-                out.figures.push(Figure {
-                    resident: theme.lamplighter(),
-                    role: Role::Lamplighter,
-                    at: stand,
-                    facing: heading(to.truncate() - stand.truncate()),
-                    moving,
-                });
-            }
-        }
-    }
-
-    // A lamp string over the pier for a happening.
-    if shows.lamp_string {
-        let pts: Vec<Vec3> = match site.ring {
-            Some((rc, rr, rz)) => Site::circle(rc, rr, 0.0, 36)
-                .into_iter()
-                .enumerate()
-                .map(|(i, p)| p.truncate().extend(rz + (4.5 + 0.8 * ((i % 4) as f32 - 1.5).abs()) * s))
-                .collect(),
-            None => site.quay(QUAY_R, 36),
-        };
-        out.lines
-            .push(Line::path(pts.clone(), 0.15 * s, pal.trim.with_alpha(0.6)));
-        for p in pts.iter().step_by(3) {
             out.glows.push(Glow {
-                position: *p,
-                radius: 0.9 * s,
-                color: pal.glow.with_alpha(0.45),
+                position: top,
+                radius: 1.5 * s,
+                color: cx.pal.glow.with_alpha(0.4 * flicker),
+            });
+            out.lights.push(PointLight {
+                position: top + Vec3::Z * s,
+                color: cx.pal.glow.scale(0.55),
+                radius: 8.0 * s,
             });
         }
     }
+    let to = spots[newest as usize];
+    let from = spots[((newest + n - 1) % n) as usize];
+    let centre = cx.site.c.extend(0.0);
+    let (at, moving) = match walk {
+        Some(k) if n > 1 && k < 1.0 => {
+            // Round the deck, the short way.
+            let a0 = heading((from - centre).truncate());
+            let turn = short_turn(heading((to - centre).truncate()) - a0);
+            let a = a0 + turn * smooth(k);
+            (
+                (cx.site.c + G2::from_angle(a) * deck_r * 0.92).extend(deck_z),
+                true,
+            )
+        }
+        _ => (to, false),
+    };
+    let inward = (cx.site.c - at.truncate()).normalize_or(G2::Y);
+    let stand = (at.truncate() + inward * 0.9 * s).extend(deck_z);
+    if cx.clear.ok(stand, cx.fig_h, cx.pad) {
+        out.figures.push(Figure {
+            resident: cx.theme.lamplighter(),
+            role: Role::Lamplighter,
+            at: stand,
+            facing: heading(to.truncate() - stand.truncate()),
+            moving,
+        });
+    }
+}
 
-    // Stock piles in a small yard by the market, one pile per market line.
-    let mut yard = None;
-    if let (Some(market), Some(lines)) = (
-        site.part(RoomKind::Market),
-        world.markets.get(station).map(|m| &m.lines),
-    ) && let Some((at, r)) = modules::module_point(world, market)
-    {
-        let piles: Vec<(&WareId, u32)> = lines.iter().map(|(w, l)| (w, crates_for(l))).collect();
-        let cols = piles.len().div_ceil(2).max(1);
-        let pitch = 3.0;
-        let placed = spots_round(&site, at, r + 2.2 * s)
+/// A string of lamps hung over the pier, for a happening's `banner_string:lamps`.
+fn lamp_string(cx: &Ctx, out: &mut LifeFrame) {
+    let s = cx.site.s;
+    let pts: Vec<Vec3> = match cx.site.ring {
+        Some((rc, rr, rz)) => Site::circle(rc, rr, 0.0, 36)
             .into_iter()
-            .find_map(|(spot, dir)| {
-                let side = G2::new(-dir.y, dir.x);
-                let middle = |i: usize| {
-                    let col = (i / 2) as f32 - (cols as f32 - 1.0) * 0.5;
-                    let row = (i % 2) as f32 - 0.5;
-                    spot + side * col * pitch * s + dir * row * pitch * s
-                };
-                // The whole yard keeps clear, full or empty.
-                let corners_clear = (0..cols * 2)
-                    .all(|i| clear.ok(middle(i).extend(0.0), 2.0 * CRATE_SIZE * s, pad + s));
-                corners_clear.then(|| {
-                    let crates: Vec<Stock> = piles
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(i, (ware, n))| {
-                            let m = middle(i);
-                            (0..*n).map(move |k| {
-                                let c = crate_slot(k);
-                                Stock {
-                                    ware: (*ware).clone(),
-                                    at: (m + side * c.x * s + dir * c.y * s).extend(c.z * s),
-                                    turn: heading(side) + (k as f32 * 0.37).sin() * 0.12,
-                                }
-                            })
-                        })
-                        .collect();
-                    (spot, crates)
-                })
-            });
-        if let Some((spot, crates)) = placed {
-            out.stock = crates;
-            yard = Some(spot);
-        }
+            .enumerate()
+            .map(|(i, p)| {
+                let sag = 0.8 * ((i % 4) as f32 - 1.5).abs();
+                p.truncate().extend(rz + (4.5 + sag) * s)
+            })
+            .collect(),
+        None => cx.site.quay(QUAY_R, 36),
+    };
+    out.lines.push(Line::path(
+        pts.clone(),
+        0.15 * s,
+        cx.pal.trim.with_alpha(0.6),
+    ));
+    for p in pts.iter().step_by(3) {
+        out.glows.push(Glow {
+            position: *p,
+            radius: 0.9 * s,
+            color: cx.pal.glow.with_alpha(0.45),
+        });
     }
-    if let Some(spot) = yard {
-        out.crane = crane(world, history, &site, &clear, spot, now);
-    }
+}
 
-    // A crowd at the notice wall (or the office) when news has landed.
-    let news = news_since_last_docking(world, history, station);
-    let wall = site
-        .part(RoomKind::NoticeWall)
-        .or_else(|| site.part(RoomKind::Dockmaster));
+/// Stock piles in a small yard by the market, one pile per market line, as many crates
+/// as its stock. Returns where the yard is, for the crane.
+fn stock_yard(cx: &Ctx, out: &mut LifeFrame) -> Option<G2> {
+    let s = cx.site.s;
+    let market = cx.site.part(RoomKind::Market)?;
+    let lines = &cx.world.markets.get(cx.station)?.lines;
+    let (at, r) = modules::module_point(cx.world, market)?;
+    let piles: Vec<(&WareId, u32)> = lines.iter().map(|(w, l)| (w, crates_for(l))).collect();
+    let cols = piles.len().div_ceil(2).max(1);
+    let pitch = 3.0 * s;
+    let (spot, crates) = spots_round(&cx.site, at, r + 2.2 * s)
+        .into_iter()
+        .find_map(|(spot, dir)| {
+            let side = G2::new(-dir.y, dir.x);
+            let middle = |i: usize| {
+                let col = (i / 2) as f32 - (cols as f32 - 1.0) * 0.5;
+                let row = (i % 2) as f32 - 0.5;
+                spot + side * col * pitch + dir * row * pitch
+            };
+            // The whole yard keeps clear, full or empty.
+            let clear = (0..cols * 2).all(|i| {
+                cx.clear
+                    .ok(middle(i).extend(0.0), 2.0 * CRATE_SIZE * s, cx.pad + s)
+            });
+            clear.then(|| {
+                let crates: Vec<Stock> = piles
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(i, (ware, n))| {
+                        let m = middle(i);
+                        (0..*n).map(move |k| {
+                            let c = crate_slot(k);
+                            Stock {
+                                ware: (*ware).clone(),
+                                at: (m + side * c.x * s + dir * c.y * s).extend(c.z * s),
+                                turn: heading(side) + (k as f32 * 0.37).sin() * 0.12,
+                            }
+                        })
+                    })
+                    .collect();
+                (spot, crates)
+            })
+        })?;
+    out.stock = crates;
+    Some(spot)
+}
+
+/// A crowd at the notice wall (or the office) when news has landed since the player's
+/// last docking, and one at each anchor a happening names.
+fn crowds(cx: &Ctx, out: &mut LifeFrame) {
+    let s = cx.site.s;
+    let calm = cx.theme.calm;
     let mut crowds: Vec<(G2, f32, u32)> = Vec::new();
+    let news = news_since_last_docking(cx.world, cx.history, cx.station);
+    let wall = cx
+        .site
+        .part(RoomKind::NoticeWall)
+        .or_else(|| cx.site.part(RoomKind::Dockmaster));
     if news > 0
-        && let Some((at, r)) = wall.and_then(|p| modules::module_point(world, p))
+        && let Some((at, r)) = wall.and_then(|p| modules::module_point(cx.world, p))
     {
         let n = (2 + 2 * news).min(calm.max_crowd);
-        crowds.push((at, r, if full { n } else { n.min(2) }));
+        crowds.push((at, r, if cx.full { n } else { n.min(2) }));
     }
-    for anchor in &shows.crowds {
-        if let Some((at, r)) = anchor_point(world, &site, anchor) {
+    for anchor in &cx.shows.crowds {
+        if let Some((at, r)) = anchor_point(cx.world, &cx.site, anchor) {
             crowds.push((at, r, calm.max_crowd.div_ceil(2).max(2)));
         }
     }
     for (at, r, n) in crowds {
         let ring = huddle(n as usize, 1.2);
-        let spot = spots_round(&site, at, r + 2.0 * s)
-            .into_iter()
-            .find(|(spot, _)| {
-                ring.iter()
-                    .all(|o| clear.ok((*spot + o.truncate() * s).extend(0.0), fig_h, pad))
-            });
-        if let Some((spot, _)) = spot {
-            for (i, o) in ring.iter().enumerate() {
-                let p = spot + o.truncate() * s;
-                let sway = if full {
-                    0.15 * (time * 0.6 + i as f32 * 1.7).sin()
-                } else {
-                    0.0
-                };
-                out.figures.push(Figure {
-                    resident: theme.residents[i % theme.residents.len()],
-                    role: Role::Crowd,
-                    at: p.extend(0.0),
-                    facing: heading(at - p) + sway,
-                    moving: full,
-                });
-            }
-        }
-    }
-
-    // Workers and sparks at a part being built.
-    for part in site.parts.iter().filter(|p| p.state == PartState::Building) {
-        let Some((at, r)) = modules::module_point(world, part) else {
+        let Some((spot, _)) =
+            spots_round(&cx.site, at, r + 2.0 * s)
+                .into_iter()
+                .find(|(spot, _)| {
+                    ring.iter().all(|o| {
+                        cx.clear
+                            .ok((*spot + o.truncate() * s).extend(0.0), cx.fig_h, cx.pad)
+                    })
+                })
+        else {
             continue;
         };
-        let mut placed = 0;
-        for (spot, _) in spots_round(&site, at, r + 1.4 * s) {
-            if placed == 3 {
-                break;
-            }
-            let foot = spot.extend(0.0);
-            if !clear.ok(foot, fig_h, pad)
-                || out
-                    .figures
-                    .iter()
-                    .any(|f| f.at.truncate().distance(spot) < 1.6 * s)
-            {
-                continue;
-            }
-            let bob = if full {
-                0.08 * s * (time * 2.1 + placed as f32 * 2.0).sin().max(0.0)
+        for (i, o) in ring.iter().enumerate() {
+            let p = spot + o.truncate() * s;
+            let sway = if cx.full {
+                0.15 * (cx.time * 0.6 + i as f32 * 1.7).sin()
             } else {
                 0.0
             };
             out.figures.push(Figure {
-                resident: theme.builder(),
+                resident: cx.theme.residents[i % cx.theme.residents.len()],
+                role: Role::Crowd,
+                at: p.extend(0.0),
+                facing: heading(at - p) + sway,
+                moving: cx.full,
+            });
+        }
+    }
+}
+
+/// Workers, and a welder's sparks, at every part being built.
+fn workers(cx: &Ctx, out: &mut LifeFrame, budget: &mut Budget) {
+    let s = cx.site.s;
+    for part in cx
+        .site
+        .parts
+        .iter()
+        .filter(|p| p.state == PartState::Building)
+    {
+        let Some((at, r)) = modules::module_point(cx.world, part) else {
+            continue;
+        };
+        let mut placed = 0;
+        for (spot, _) in spots_round(&cx.site, at, r + 1.4 * s) {
+            if placed == 3 {
+                break;
+            }
+            let foot = spot.extend(0.0);
+            let crowded = out
+                .figures
+                .iter()
+                .any(|f| f.at.truncate().distance(spot) < 1.6 * s);
+            if crowded || !cx.clear.ok(foot, cx.fig_h, cx.pad) {
+                continue;
+            }
+            let bob = if cx.full {
+                0.08 * s * (cx.time * 2.1 + placed as f32 * 2.0).sin().max(0.0)
+            } else {
+                0.0
+            };
+            out.figures.push(Figure {
+                resident: cx.theme.builder(),
                 role: Role::Worker,
                 at: foot + Vec3::Z * bob,
                 facing: heading(at - spot),
-                moving: full,
+                moving: cx.full,
             });
-            if full && spend(1) == 1 {
+            if cx.full && budget.spend(1) == 1 {
                 let hands = spot + (at - spot).normalize_or_zero() * 0.8 * s;
-                let glint = 0.25 + 0.12 * (time * 3.1 + placed as f32 * 1.9).sin();
+                let glint = 0.25 + 0.12 * (cx.time * 3.1 + placed as f32 * 1.9).sin();
                 out.glows.push(Glow {
                     position: hands.extend(1.3 * s),
                     radius: 0.8 * s,
@@ -888,64 +968,121 @@ pub fn frame(input: &LifeInput) -> LifeFrame {
             placed += 1;
         }
     }
+}
 
-    // Residents walking: more as the pulses add up, never past the cap.
-    if full {
-        let want = (2 + pulses / 3 + u64::from(shows.residents)).min(u64::from(calm.max_walkers));
-        let mut runs: Vec<Vec<Vec3>> = Vec::new();
-        for spine in &theme.spine {
-            for path in walk_paths(world, &site, *spine) {
-                runs.extend(clear_runs(&path, &clear, fig_h, pad));
-            }
-        }
-        let kinds: Vec<Resident> = {
-            let k: Vec<Resident> = theme
-                .residents
-                .iter()
-                .copied()
-                .filter(|r| !matches!(r, Resident::Lamplighter | Resident::Welder))
-                .collect();
-            if k.is_empty() {
-                theme.residents.clone()
-            } else {
-                k
-            }
-        };
-        if !runs.is_empty() {
-            for i in 0..want as usize {
-                let run = &runs[i % runs.len()];
-                let seed = seed_of(&format!("{station}.walker.{i}"));
-                let phase = (seed % 1000) as f32 / 1000.0 * length(run) * 2.0;
-                let pace = STROLL * s * (0.8 + (seed % 7) as f32 * 0.06);
-                let (p, facing) = along(run, phase + time * pace);
-                out.figures.push(Figure {
-                    resident: kinds[i % kinds.len()],
-                    role: Role::Walker,
-                    at: p,
-                    facing,
-                    moving: true,
-                });
-            }
-        }
+/// Residents walking the theme's spines: two, and one more per three station pulses
+/// (and a happening's `residents:+N`), never past the calm cap. Each paces a clear
+/// stretch of its path there and back.
+fn walkers(cx: &Ctx, out: &mut LifeFrame) {
+    let s = cx.site.s;
+    let want = (2 + cx.pulses / 3 + u64::from(cx.shows.residents))
+        .min(u64::from(cx.theme.calm.max_walkers));
+    let runs: Vec<Vec<Vec3>> = cx
+        .theme
+        .spine
+        .iter()
+        .flat_map(|spine| walk_paths(cx.world, &cx.site, *spine))
+        .flat_map(|path| clear_runs(&path, &cx.clear, cx.fig_h, cx.pad))
+        .collect();
+    if runs.is_empty() {
+        return;
     }
+    // The lamplighter and the welder have their own work.
+    let mut kinds: Vec<Resident> = cx
+        .theme
+        .residents
+        .iter()
+        .copied()
+        .filter(|r| !matches!(r, Resident::Lamplighter | Resident::Welder))
+        .collect();
+    if kinds.is_empty() {
+        kinds = cx.theme.residents.clone();
+    }
+    for i in 0..want as usize {
+        let run = &runs[i % runs.len()];
+        let seed = seed_of(&format!("{}.walker.{i}", cx.station));
+        let phase = (seed % 1000) as f32 / 1000.0 * length(run) * 2.0;
+        let pace = STROLL * s * (0.8 + (seed % 7) as f32 * 0.06);
+        let (p, facing) = along(run, phase + cx.time * pace);
+        out.figures.push(Figure {
+            resident: kinds[i % kinds.len()],
+            role: Role::Walker,
+            at: p,
+            facing,
+            moving: true,
+        });
+    }
+}
 
-    // Idle loops: steam, greenhouse light, signal lamps, the banner.
-    if full && theme.has(Prop::Steam) {
-        let n = spend(4);
+/// Filler craft from the theme on a slow wide circuit, only up to the calm cap with the
+/// economy's own moving craft counted first.
+fn fillers(cx: &Ctx, out: &mut LifeFrame) {
+    if cx.theme.craft.is_empty() {
+        return;
+    }
+    let st = cx.site.st;
+    let s = cx.site.s;
+    let real = cx
+        .world
+        .ships
+        .values()
+        .filter(|sh| {
+            cx.world.player.ship.as_ref() != Some(&sh.id)
+                && sh.docked_at.is_none()
+                && sh.position.distance(st.position) < st.dock_radius * 4.0
+        })
+        .count() as u32;
+    let free = cx.theme.calm.max_moving_craft.saturating_sub(real);
+    let paint = cx
+        .theme
+        .paint_faction(Some(st))
+        .and_then(|f| f.parse::<FactionId>().ok())
+        .unwrap_or_else(|| FactionId::from_static("faction.none"));
+    let centre = g(st.position);
+    for i in 0..free {
+        // A circuit that stays clear of every module and sign all the way round.
+        let Some(radius) = [2.4f32, 2.8, 3.2, 3.6].into_iter().find_map(|k| {
+            let r = st.dock_radius * (k + 0.3 * i as f32);
+            Site::circle(centre, r, super::SHIP_HOVER, 48)
+                .iter()
+                .all(|p| cx.clear.ok(*p, 0.0, 8.0 * s))
+                .then_some(r)
+        }) else {
+            continue;
+        };
+        let seed = seed_of(&format!("{}.filler.{i}", cx.station));
+        let w = 0.03 + (seed % 5) as f32 * 0.004;
+        let a = (seed % 628) as f32 / 100.0 + cx.time * w;
+        out.craft.push(Filler {
+            hull: cx.theme.craft[i as usize % cx.theme.craft.len()].clone(),
+            faction: paint.clone(),
+            at: centre + G2::from_angle(a) * radius,
+            heading: a + std::f32::consts::FRAC_PI_2,
+        });
+    }
+}
+
+/// The idle loops that may run on view time: steam off the hub, light on greenhouse
+/// glass, signal lamps brightening in turn, the owner's banner.
+fn idle(cx: &Ctx, out: &mut LifeFrame, budget: &mut Budget) {
+    let (s, (deck_r, deck_z)) = (cx.site.s, cx.site.deck);
+    let (full, time) = (cx.full, cx.time);
+    if full && cx.theme.has(Prop::Steam) {
+        let n = budget.spend(4);
         for i in 0..n {
             let k = (time / 5.0 + i as f32 / n.max(1) as f32).fract();
             let drift = G2::from_angle(i as f32 * 2.1) * 1.2 * s * k;
             out.glows.push(Glow {
-                position: (site.c + drift).extend(deck_z + (1.0 + k * 5.0) * s),
+                position: (cx.site.c + drift).extend(deck_z + (1.0 + k * 5.0) * s),
                 radius: (0.8 + 1.6 * k) * s,
                 color: Color::hex(0xfff4e0).with_alpha(0.14 * (1.0 - k)),
             });
         }
     }
-    if theme.has(Prop::GreenhouseGlow) {
-        for p in &site.recipe.parts {
+    if cx.theme.has(Prop::GreenhouseGlow) {
+        for p in &cx.site.recipe.parts {
             if let PartKind::Greenhouse { radius, .. } = p.kind {
-                let at = polar(site.c, s, p.at.angle, p.at.distance);
+                let at = polar(cx.site.c, s, p.at.angle, p.at.distance);
                 let breathe = if full {
                     0.9 + 0.1 * (time * 0.5).sin()
                 } else {
@@ -954,15 +1091,15 @@ pub fn frame(input: &LifeInput) -> LifeFrame {
                 out.glows.push(Glow {
                     position: at.extend(2.0 * s),
                     radius: radius * 1.5 * s,
-                    color: pal.leaf.with_alpha(0.18 * breathe),
+                    color: cx.pal.leaf.with_alpha(0.18 * breathe),
                 });
             }
         }
     }
-    if theme.has(Prop::SignalLamps) {
-        let n = spend(5);
+    if cx.theme.has(Prop::SignalLamps) {
+        let n = budget.spend(5);
         for i in 0..n {
-            let p = polar(site.c, 1.0, 200.0 + i as f32 * 32.0, deck_r * 0.7);
+            let p = polar(cx.site.c, 1.0, 200.0 + i as f32 * 32.0, deck_r * 0.7);
             let a = if full {
                 0.2 + 0.16 * smooth(0.5 + 0.5 * (time * 0.7 - i as f32 * 0.8).sin())
             } else {
@@ -971,16 +1108,16 @@ pub fn frame(input: &LifeInput) -> LifeFrame {
             out.glows.push(Glow {
                 position: p.extend(deck_z + 0.6 * s),
                 radius: 0.8 * s,
-                color: pal.accent.lerp(pal.glow, 0.5).with_alpha(a),
+                color: cx.pal.accent.lerp(cx.pal.glow, 0.5).with_alpha(a),
             });
         }
     }
-    if theme.has(Prop::Banner)
-        && let Some(owner) = site.st.owner.as_ref()
+    if cx.theme.has(Prop::Banner)
+        && let Some(owner) = cx.site.st.owner.as_ref()
     {
-        let foot = polar(site.c, 1.0, 315.0, deck_r * 0.55).extend(deck_z);
-        let h = 7.0 * s;
-        if clear.ok(foot, h, pad) {
+        let foot = polar(cx.site.c, 1.0, 315.0, deck_r * 0.55).extend(deck_z);
+        let h = POLE_HEIGHT * s;
+        if cx.clear.ok(foot, h, cx.pad) {
             out.poles.push(foot);
             let color = super::recipes::faction_color(owner);
             let fly = G2::from_angle(0.35);
@@ -995,53 +1132,80 @@ pub fn frame(input: &LifeInput) -> LifeFrame {
                     (foot.truncate() + fly * k * 0.7 * s).extend(foot.z + h - 0.6 * s + wave)
                 })
                 .collect();
-            out.lines.push(Line::path(pts, 1.5 * s, color.with_alpha(0.85)));
+            out.lines
+                .push(Line::path(pts, 1.5 * s, color.with_alpha(0.85)));
         }
     }
+}
 
-    // Filler craft, only up to the cap with the economy's own craft counted first.
-    if full && !theme.craft.is_empty() {
-        let near = site.st.dock_radius * 4.0;
-        let real = world
-            .ships
-            .values()
-            .filter(|sh| {
-                world.player.ship.as_ref() != Some(&sh.id)
-                    && sh.docked_at.is_none()
-                    && sh.position.distance(site.st.position) < near
-            })
-            .count() as u32;
-        let free = calm.max_moving_craft.saturating_sub(real);
-        let paint = theme
-            .paint_faction(Some(site.st))
-            .and_then(|f| f.parse::<FactionId>().ok())
-            .unwrap_or_else(|| FactionId::from_static("faction.none"));
-        let centre = g(site.st.position);
-        for i in 0..free {
-            // A wide slow circuit that stays clear of every module and sign.
-            let Some(radius) = [2.4f32, 2.8, 3.2, 3.6].into_iter().find_map(|k| {
-                let r = site.st.dock_radius * (k + 0.3 * i as f32);
-                Site::circle(centre, r, super::SHIP_HOVER, 48)
-                    .iter()
-                    .all(|p| clear.ok(*p, 0.0, 8.0 * s))
-                    .then_some(r)
-            }) else {
-                continue;
-            };
-            let seed = seed_of(&format!("{station}.filler.{i}"));
-            let w = 0.03 + (seed % 5) as f32 * 0.004;
-            let a = (seed % 628) as f32 / 100.0 + time * w;
-            out.craft.push(Filler {
-                hull: theme.craft[i as usize % theme.craft.len()].clone(),
-                faction: paint.clone(),
-                at: centre + G2::from_angle(a) * radius,
-                heading: a + std::f32::consts::FRAC_PI_2,
+/// An angle wrapped to the short way round, `-PI..=PI`.
+fn short_turn(a: f32) -> f32 {
+    let t = a.rem_euclid(std::f32::consts::TAU);
+    if t > std::f32::consts::PI {
+        t - std::f32::consts::TAU
+    } else {
+        t
+    }
+}
+
+/// The far layer, a depth cue under the docked tilt: the region's rock fields and lane
+/// mouths, each a faint mark out past the station's art in its true direction, sitting
+/// below the plane and drifting slower than the station as the camera moves (it rides
+/// along with `camera` by `PARALLAX`). `zoom` is the visible height.
+pub fn far_layer(
+    world: &WorldState,
+    station: &StationId,
+    camera: G2,
+    zoom: f32,
+) -> (Vec<Glow>, Vec<Line>) {
+    const PARALLAX: f32 = 0.55;
+    const DEPTH: f32 = -80.0;
+    let (mut glows, mut lines) = (Vec::new(), Vec::new());
+    let Some(st) = world.stations.get(station) else {
+        return (glows, lines);
+    };
+    let home = g(st.position);
+    let drift = (camera - home) * PARALLAX;
+    let out = (zoom * 0.62).max(st.dock_radius * 2.6);
+    let place = |at: G2| -> Option<G2> {
+        let d = at - home;
+        let far = d.length();
+        (far > 1.0 && far < 6000.0).then(|| home + d / far * out + drift)
+    };
+    for field in world.fields.values().filter(|f| f.region == st.region) {
+        let Some(at) = place(g(field.center)) else {
+            continue;
+        };
+        let seed = seed_of(field.id.as_str());
+        for k in 0..6u64 {
+            let a = ((seed >> (k * 5)) % 360) as f32;
+            let r = zoom * 0.035 * (0.3 + ((seed >> (k * 3)) % 10) as f32 / 10.0);
+            glows.push(Glow {
+                position: (at + G2::from_angle(a.to_radians()) * r).extend(DEPTH),
+                radius: zoom * 0.008,
+                color: Color::hex(0xb9a8c9).with_alpha(0.28),
             });
         }
     }
-
-    out.particles = calm.max_particles - particles;
-    out
+    for lane in world.lanes.values() {
+        for (region, gate) in [(&lane.a, lane.a_gate), (&lane.b, lane.b_gate)] {
+            if *region != st.region {
+                continue;
+            }
+            if let Some(at) = place(g(gate)) {
+                lines.push(
+                    Line::circle(
+                        at.extend(DEPTH),
+                        zoom * 0.03,
+                        zoom * 0.004,
+                        palette::LANTERN.with_alpha(0.3),
+                    )
+                    .dashed(zoom * 0.012, zoom * 0.01),
+                );
+            }
+        }
+    }
+    (glows, lines)
 }
 
 /// A crowd's anchor from a happening: a part at this station by ID, or a kit anchor by
@@ -1097,22 +1261,15 @@ fn walk_paths(world: &WorldState, site: &Site, spine: Spine) -> Vec<Vec<Vec3>> {
 
 /// The crane: between the market's yard and the player's berth, swinging the player's
 /// latest sale here from the berth to the yard over the ticks after it.
-fn crane(
-    world: &WorldState,
-    history: &History,
-    site: &Site,
-    clear: &Clear,
-    yard: G2,
-    now: u64,
-) -> Option<Crane> {
-    let s = site.s;
-    let ship = world.player.ship.as_ref()?;
-    let berth = super::berth(site.st, ship).0;
+fn crane(cx: &Ctx, yard: G2) -> Option<Crane> {
+    let s = cx.site.s;
+    let ship = cx.world.player.ship.as_ref()?;
+    let berth = super::berth(cx.world, cx.site.st, ship).0;
     let height = CRANE_HEIGHT * s;
     let mast = [0.3f32, 0.4, 0.2, 0.5]
         .into_iter()
         .map(|k| yard.lerp(berth, k))
-        .find(|p| clear.ok(p.extend(0.0), height, 0.5 * s))?;
+        .find(|p| cx.clear.ok(p.extend(0.0), height, 0.5 * s))?;
     let reach_yard = mast.distance(yard).max(2.0 * s);
     let to_yard = heading(yard - mast);
     let mut out = Crane {
@@ -1122,34 +1279,26 @@ fn crane(
         reach: reach_yard,
         load: None,
     };
-    let Some(sale) = history.last(&HistoryQuery {
+    let sale = cx.history.last(&HistoryQuery {
         kind: Some(FactKind::from_static("sell")),
         ship: Some(ship.clone()),
-        station: Some(site.st.id.clone()),
-        since: Some(Tick(now.saturating_sub(CARRY_TICKS))),
+        station: Some(cx.station.clone()),
+        since: Some(Tick(cx.now.saturating_sub(CARRY_TICKS))),
         ..HistoryQuery::default()
-    }) else {
+    });
+    let Some((sale, ware)) = sale.and_then(|f| Some((f, f.subjects.ware.clone()?))) else {
         return Some(out);
     };
-    let Some(ware) = sale.subjects.ware.clone() else {
-        return Some(out);
-    };
-    let k = now.saturating_sub(sale.tick.0) as f32 / CARRY_TICKS as f32;
+    let k = cx.now.saturating_sub(sale.tick.0) as f32 / CARRY_TICKS as f32;
     let to_berth = heading(berth - mast);
     let reach_berth = mast.distance(berth).max(2.0 * s);
-    // Swing the short way round, from the berth to the yard.
-    let mut turn = (to_yard - to_berth).rem_euclid(std::f32::consts::TAU);
-    if turn > std::f32::consts::PI {
-        turn -= std::f32::consts::TAU;
-    }
+    let turn = short_turn(to_yard - to_berth);
+    // Hoist off the ship, swing over, set down on the yard.
     let deck = super::SHIP_HOVER;
     let carry = (height * 0.7).max(deck + 2.0 * s);
     let (yaw, reach, z) = if k < 0.15 {
-        (
-            to_berth,
-            reach_berth,
-            deck + (carry - deck) * smooth(k / 0.15),
-        )
+        let m = smooth(k / 0.15);
+        (to_berth, reach_berth, deck + (carry - deck) * m)
     } else if k < 0.8 {
         let m = smooth((k - 0.15) / 0.65);
         (
@@ -1159,14 +1308,15 @@ fn crane(
         )
     } else {
         let m = smooth((k - 0.8) / 0.2);
-        (to_yard, reach_yard, carry * (1.0 - m) + 2.0 * CRATE_SIZE * s * m)
+        let rest = 2.0 * CRATE_SIZE * s;
+        (to_yard, reach_yard, carry + (rest - carry) * m)
     };
     out.yaw = yaw;
     out.reach = reach;
     let hang = (mast + G2::from_angle(yaw) * reach).extend(z.max(0.0));
     // Never drawn over a module or a sign: a load whose way crosses one is only seen
     // either side of it.
-    if clear.ok(hang, CRATE_SIZE * s, 0.3 * s) {
+    if cx.clear.ok(hang, CRATE_SIZE * s, 0.3 * s) {
         out.load = Some((ware, hang));
     }
     Some(out)
@@ -1210,7 +1360,9 @@ pub fn ware_paint(ware: &WareId, pal: &StationPalette) -> Color {
         "ware.glassite" => Color::hex(0x9fd8c4),
         "ware.rations" => Color::hex(0xe7b15a),
         "ware.ancients_fragment" => Color::hex(0xb9a2e8),
-        other => pal.hull.lerp(pal.accent, (seed_of(other) % 100) as f32 / 140.0),
+        other => pal
+            .hull
+            .lerp(pal.accent, (seed_of(other) % 100) as f32 / 140.0),
     }
 }
 
@@ -1231,7 +1383,7 @@ pub fn approaches(world: &WorldState, station: &StationId) -> Vec<(G2, G2)> {
             )
         })
         .filter(|sh| sh.position.distance(st.position) < st.dock_radius * 6.0)
-        .map(|sh| (g(sh.position), super::berth(st, &sh.id).0))
+        .map(|sh| (g(sh.position), super::berth(world, st, &sh.id).0))
         .collect()
 }
 
@@ -1258,7 +1410,16 @@ mod tests {
         let dir =
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data");
         let world = galaxy_core::new_game(&dir, 1).unwrap().world;
-        let mut line = world.markets.values().next().unwrap().lines.values().next().unwrap().clone();
+        let mut line = world
+            .markets
+            .values()
+            .next()
+            .unwrap()
+            .lines
+            .values()
+            .next()
+            .unwrap()
+            .clone();
         line.stock = 100;
         line.target = 100;
         assert_eq!(crates_for(&line), 4);

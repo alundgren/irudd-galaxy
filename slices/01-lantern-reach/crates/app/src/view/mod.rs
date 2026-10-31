@@ -255,8 +255,11 @@ pub struct View {
     /// How much ambient life a docked station shows (the player's setting).
     pub life: life::LifeLevel,
     /// Life's meshes, per theme and paint ([`life`]).
-    life_art: BTreeMap<(String, Option<String>), LifeArt>,
+    life_art: BTreeMap<ArtKey, LifeArt>,
 }
+
+/// A theme's ID and the faction it paints with.
+type ArtKey = (String, Option<String>);
 
 /// One theme's life meshes in one paint.
 struct LifeArt {
@@ -269,9 +272,6 @@ struct LifeArt {
     pole: MeshHandle,
 }
 
-/// The crane's mast and the banner's pole, in station units.
-const CRANE_HEIGHT: f32 = 9.0;
-const POLE_HEIGHT: f32 = 7.0;
 /// How long a craft takes to come in to its berth, or pull away from it, in ticks.
 const BERTH_TICKS: u64 = 2 * galaxy_contract::TICKS_PER_SECOND as u64;
 
@@ -394,7 +394,9 @@ impl View {
     /// The station themes this view draws with: the core pack's built in, until
     /// [`Self::set_themes`] gives it others.
     pub fn themes(&self) -> &themes::Themes {
-        self.themes.as_ref().unwrap_or_else(|| themes::Themes::bundled())
+        self.themes
+            .as_ref()
+            .unwrap_or_else(|| themes::Themes::bundled())
     }
 
     /// Draws with these themes from now on (the packs folder's, checked).
@@ -805,7 +807,7 @@ impl View {
             let look = key.2;
             let docked = ship.docked_at.is_some();
             let (pos, heading) = match ship.docked_at.as_ref().and_then(|s| world.stations.get(s)) {
-                Some(st) => berth(st, &ship.id),
+                Some(st) => berth(world, st, &ship.id),
                 None => (pos, pose.heading),
             };
             // A real craft glides in to its berth from where it docked, and out again
@@ -815,7 +817,7 @@ impl View {
                     let Some(st) = world.stations.get(st) else {
                         continue;
                     };
-                    let (b, bh) = berth(st, &ship.id);
+                    let (b, bh) = berth(world, st, &ship.id);
                     let (from, to, fh, th) = if *docking {
                         (g(ship.position), b, ship.heading, bh)
                     } else {
@@ -1037,11 +1039,17 @@ fn place_label(at: G2, own: f32, size: G2, avoid: &[(G2, f32)], viewport: G2) ->
     }
 }
 
-/// Where a docked ship is drawn: parked on the station's ring, nose along it, at a
-/// spot that depends on the ship so several don't stack.
-pub(super) fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
+/// Where a docked ship is drawn: parked on the station's drawn docking ring (the kit's,
+/// which can be smaller than the sim's where the station's art had to shrink to fit),
+/// nose along it, at a spot that depends on the ship so several don't stack.
+pub(super) fn berth(world: &WorldState, station: &Station, ship: &ShipId) -> (G2, f32) {
     let a = -0.7 + (seed_of(ship.as_str()) % 6) as f32 * std::f32::consts::TAU / 6.0;
-    let r = station.dock_radius * RING_FILL;
+    let recipe = galaxy_core::parts::recipe_of(world, station);
+    let scale = station_transform(station, &recipe)
+        .x_axis
+        .truncate()
+        .length();
+    let r = ring_radius(&recipe).map_or(station.dock_radius * RING_FILL, |r| r * scale);
     (
         g(station.position) + G2::from_angle(a) * r,
         a + std::f32::consts::FRAC_PI_2,
@@ -1050,7 +1058,7 @@ pub(super) fn berth(station: &Station, ship: &ShipId) -> (G2, f32) {
 
 /// Craft that docked or undocked within [`BERTH_TICKS`]: their station, whether they
 /// docked, and how far through the move they are (0 to 1).
-fn berthing(
+pub fn berthing(
     world: &WorldState,
     history: Option<&galaxy_core::History>,
 ) -> BTreeMap<ShipId, (StationId, bool, f32)> {
@@ -1087,7 +1095,7 @@ fn berthing(
 impl View {
     /// Uploads the life meshes for every station's theme and paint, once each.
     fn sync_life(&mut self, r: &mut Renderer, world: &WorldState) {
-        let mut wanted: Vec<((String, Option<String>), themes::Theme, Option<Station>)> = Vec::new();
+        let mut wanted: Vec<(ArtKey, themes::Theme, Station)> = Vec::new();
         for st in world.stations.values() {
             let theme = self.themes().for_station(world, &st.id);
             let key = (
@@ -1095,17 +1103,20 @@ impl View {
                 theme.paint_faction(Some(st)).map(str::to_owned),
             );
             if !self.life_art.contains_key(&key) && !wanted.iter().any(|(k, ..)| *k == key) {
-                wanted.push((key, theme.clone(), Some(st.clone())));
+                wanted.push((key, theme.clone(), st.clone()));
             }
         }
         for (key, theme, st) in wanted {
-            let pal = life::palette_for(&theme, st.as_ref());
+            let pal = life::palette_for(&theme, Some(&st));
             let motif = theme.motif;
             let residents = themes::Resident::ALL
                 .into_iter()
                 .map(|res| {
                     let (coat, hat, skin) = life::resident_colors(res, &pal);
-                    (res, r.upload_mesh(&kit::life::resident(coat, hat, skin, motif)))
+                    (
+                        res,
+                        r.upload_mesh(&kit::life::resident(coat, hat, skin, motif)),
+                    )
                 })
                 .collect();
             let stock = world
@@ -1120,10 +1131,11 @@ impl View {
             let art = LifeArt {
                 residents,
                 stock,
-                lamps: [false, true].map(|lit| r.upload_mesh(&kit::life::lamp_post(&pal, motif, lit))),
-                mast: r.upload_mesh(&kit::life::crane_mast(&pal, CRANE_HEIGHT)),
+                lamps: [false, true]
+                    .map(|lit| r.upload_mesh(&kit::life::lamp_post(&pal, motif, lit))),
+                mast: r.upload_mesh(&kit::life::crane_mast(&pal, life::CRANE_HEIGHT)),
                 jib: r.upload_mesh(&kit::life::jib(&pal, 0.5)),
-                pole: r.upload_mesh(&kit::life::banner_pole(&pal, motif, POLE_HEIGHT)),
+                pole: r.upload_mesh(&kit::life::banner_pole(&pal, motif, life::POLE_HEIGHT)),
             };
             if let Some(paint) = key.1.as_deref().and_then(|f| f.parse::<FactionId>().ok()) {
                 for hull in &theme.craft {
@@ -1246,7 +1258,11 @@ impl View {
             }
         }
         for c in &f.craft {
-            if let Some(m) = self.hulls.get(&(c.hull.clone(), Some(c.faction.clone()), ShipFitLook::default())) {
+            if let Some(m) = self.hulls.get(&(
+                c.hull.clone(),
+                Some(c.faction.clone()),
+                ShipFitLook::default(),
+            )) {
                 let mut inst = MeshInstance::at(*m, c.at, c.heading, SHIP_SCALE * 0.8)
                     .with_material(ArtBible::bundled().material(InkRole::Ship));
                 inst.transform = Mat4::from_translation(Vec3::Z * SHIP_HOVER) * inst.transform;
@@ -1266,6 +1282,9 @@ impl View {
         }
         scene.glows.extend(f.glows);
         scene.lines.extend(f.lines);
+        let (glows, lines) = life::far_layer(world, station, rig.center, rig.zoom);
+        scene.glows.extend(glows);
+        scene.lines.extend(lines);
         // Lamps light the deck with whatever point lights the station left over.
         let free = MAX_POINT_LIGHTS.saturating_sub(scene.lights.points.len());
         let mut lights = f.lights;

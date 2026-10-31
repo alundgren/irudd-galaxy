@@ -189,7 +189,10 @@ impl Theme {
         if self.residents.contains(&Resident::Lamplighter) {
             Resident::Lamplighter
         } else {
-            self.residents.first().copied().unwrap_or(Resident::Dockhand)
+            self.residents
+                .first()
+                .copied()
+                .unwrap_or(Resident::Dockhand)
         }
     }
 
@@ -198,7 +201,10 @@ impl Theme {
         if self.residents.contains(&Resident::Welder) {
             Resident::Welder
         } else {
-            self.residents.first().copied().unwrap_or(Resident::Dockhand)
+            self.residents
+                .first()
+                .copied()
+                .unwrap_or(Resident::Dockhand)
         }
     }
 
@@ -304,7 +310,10 @@ impl Themes {
             }
             for s in &def.sounds {
                 if !SOUNDS.contains(&s.as_str()) {
-                    err(format!("unknown sound `{s}` (known: {})", SOUNDS.join(", ")));
+                    err(format!(
+                        "unknown sound `{s}` (known: {})",
+                        SOUNDS.join(", ")
+                    ));
                 }
             }
             if !(1..=16).contains(&def.lamps) {
@@ -476,7 +485,10 @@ mod tests {
         let pick = |s: &str| themes.for_station(&world, &s.parse().unwrap()).id.clone();
         assert_eq!(pick("station.lantern_wharf"), "wharf_cooperative");
         assert_eq!(pick("station.brassmouth_exchange"), "tollway_compact");
-        assert_eq!(pick("station.glass_drift_observatory"), "lamplighter_society");
+        assert_eq!(
+            pick("station.glass_drift_observatory"),
+            "lamplighter_society"
+        );
         // Cinder Hook is claimed by two factions and owned by neither: its own theme.
         assert_eq!(pick("station.cinder_hook"), "default");
         // A Compact market and a Cooperative one look different.
@@ -506,7 +518,10 @@ calm = { max_walkers = 4, max_moving_craft = 1, max_particles = 8 }
         for (bad, why) in [
             (GOOD.replace("signage", "sign_style"), "unknown field"),
             (GOOD.replace("\"quay\"", "\"maze\""), "unknown variant"),
-            (GOOD.replace("crate_pile", "crate_pyramid"), "unknown variant"),
+            (
+                GOOD.replace("crate_pile", "crate_pyramid"),
+                "unknown variant",
+            ),
             (GOOD.replace("dockhand", "pirate"), "unknown variant"),
             (GOOD.replace("\"round\"", "\"wobbly\""), "motif"),
             (GOOD.replace("\"station\"", "\"faction.nobody\""), "paint"),
@@ -542,7 +557,10 @@ calm = { max_walkers = 4, max_moving_craft = 1, max_particles = 8 }
             + "\n[station.\"station.nowhere\"]\ntheme = \"default\"\n";
         let themes = Themes::parse(&text).unwrap();
         let e = themes.check(&world).unwrap_err();
-        assert!(e.contains("hull.nothing") && e.contains("station.nowhere"), "{e}");
+        assert!(
+            e.contains("hull.nothing") && e.contains("station.nowhere"),
+            "{e}"
+        );
         let text = GOOD.replace("motif", "faction = \"faction.nobody\"\nmotif");
         let e = Themes::parse(&text).unwrap().check(&world).unwrap_err();
         assert!(e.contains("faction.nobody"), "{e}");

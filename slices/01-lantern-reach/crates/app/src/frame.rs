@@ -277,9 +277,7 @@ pub fn compose(
     scene.overlay.panels.extend(panels.panels);
     scene.overlay.texts.extend(panels.texts);
     if session.is_paused() {
-        let mut card = ui::paused_card();
-        card.toggles.push(view.life.label().to_owned());
-        scene.overlay.paused = Some(card);
+        scene.overlay.paused = Some(crate::view::life::paused_card(view.life));
         // Nothing is clickable under the card.
         buttons.clear();
     }

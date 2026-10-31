@@ -95,15 +95,22 @@ pub fn resident(coat: Color, trim: Color, skin: Color, motif: Motif) -> MeshData
         )
     });
     b.paint(trim, 0.0);
-    b.with(Mat4::from_translation(Vec3::Z * h * 0.86), |b| match motif {
-        Motif::Round => b.lathe(&[(h * 0.17, 0.0), (h * 0.1, h * 0.06), (0.0, h * 0.1)], 8, 0.0),
-        Motif::Square => {
-            b.with(Mat4::from_translation(Vec3::Z * h * 0.05), |b| {
-                b.cuboid(Vec3::new(h * 0.22, h * 0.22, h * 0.1))
-            });
-        }
-        Motif::Pointed => b.lathe(&[(h * 0.13, 0.0), (0.0, h * 0.3)], 6, 0.0),
-    });
+    b.with(
+        Mat4::from_translation(Vec3::Z * h * 0.86),
+        |b| match motif {
+            Motif::Round => b.lathe(
+                &[(h * 0.17, 0.0), (h * 0.1, h * 0.06), (0.0, h * 0.1)],
+                8,
+                0.0,
+            ),
+            Motif::Square => {
+                b.with(Mat4::from_translation(Vec3::Z * h * 0.05), |b| {
+                    b.cuboid(Vec3::new(h * 0.22, h * 0.22, h * 0.1))
+                });
+            }
+            Motif::Pointed => b.lathe(&[(h * 0.13, 0.0), (0.0, h * 0.3)], 6, 0.0),
+        },
+    );
     // A belt, so the figure has a waist from the side.
     b.with(Mat4::from_translation(Vec3::Z * h * 0.42), |b| {
         b.frustum(h * 0.205, h * 0.2, h * 0.05, 8)
@@ -178,15 +185,18 @@ pub fn lamp_post(pal: &StationPalette, motif: Motif, lit: bool) -> MeshData {
         b.lathe(&[(0.3, 0.0), (0.4, 0.35), (0.26, 0.7)], 6, 0.0)
     });
     b.paint(pal.accent, 0.0);
-    b.with(Mat4::from_translation(Vec3::Z * (h + 0.7)), |b| match motif {
-        Motif::Round => b.lathe(&[(0.38, 0.0), (0.0, 0.3)], 6, 0.0),
-        Motif::Square => {
-            b.with(Mat4::from_translation(Vec3::Z * 0.08), |b| {
-                b.cuboid(Vec3::new(0.7, 0.7, 0.16))
-            });
-        }
-        Motif::Pointed => b.lathe(&[(0.32, 0.0), (0.0, 0.8)], 6, 0.0),
-    });
+    b.with(
+        Mat4::from_translation(Vec3::Z * (h + 0.7)),
+        |b| match motif {
+            Motif::Round => b.lathe(&[(0.38, 0.0), (0.0, 0.3)], 6, 0.0),
+            Motif::Square => {
+                b.with(Mat4::from_translation(Vec3::Z * 0.08), |b| {
+                    b.cuboid(Vec3::new(0.7, 0.7, 0.16))
+                });
+            }
+            Motif::Pointed => b.lathe(&[(0.32, 0.0), (0.0, 0.8)], 6, 0.0),
+        },
+    );
     b.build()
 }
 
