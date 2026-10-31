@@ -16,11 +16,17 @@
 //!   the key). A cached track is never regenerated: a channel with
 //!   `music.tracks_per_channel` tracks on disk asks for nothing, and a restart plays the
 //!   cache without a call. A file is only ever written to a free slot.
-//! - **Limits.** At most `music.run_generations` generations per run (one launch), and
-//!   none once `music.spend_cap_usd` has been spent from this save's cache. HTTP 402
-//!   (insufficient credit) stops music for the rest of the run, as does a refused key
-//!   (401, 403). The client retries a timeout, a transport error, a 429 and a 5xx, with
-//!   a doubling backoff; after `music.max_attempts` the channel gives up for the run.
+//! - **Limits.** At most `music.run_generations` generations per run (one launch). The
+//!   spend in the index never passes `music.spend_cap_usd`, summed over every run, in
+//!   whole nano-dollars: a generation starts only if its estimate (the listed price, or
+//!   the dearest cached track of the model, per attempt) fits under the cap, and it is
+//!   booked in the index before the call goes out, so a call in flight or lost to a crash
+//!   counts. When the call ends the booking becomes its charge: the reported cost, plus
+//!   the estimate for each attempt that may have billed without reporting a cost. A
+//!   model without a listed price generates nothing. HTTP 402 (insufficient credit)
+//!   stops music for the rest of the run, as does a refused key (401, 403). The client
+//!   retries a timeout, a transport error, a 429 and a 5xx, with a doubling backoff;
+//!   after `music.max_attempts` the channel gives up for the run.
 //! - **Placeholders.** Whenever a channel has no generated track (no key, no save,
 //!   capped, failed, or still generating) it plays one of two named loops the audio
 //!   layer synthesises: [`PLACEHOLDER_CALM`] or [`PLACEHOLDER_DRIFT`].
@@ -71,8 +77,8 @@ pub struct MusicRules {
     pub tracks_per_channel: u32,
     /// Generations started per run (one launch of the game), failed ones included.
     pub run_generations: u32,
-    /// Spend cap for this save's music, summed over every run (reported cost, or the
-    /// expected price where none was reported).
+    /// Spend cap for this save's music, summed over every run (reported cost, plus the
+    /// expected price for every attempt that may have billed without reporting one).
     pub spend_cap_usd: f64,
     /// The prompt; `{mood}` is the channel's mood line.
     pub prompt: String,
@@ -91,7 +97,7 @@ pub struct MusicRules {
     /// No retry starts after this long since the first attempt.
     pub deadline_ms: u64,
     /// The listed price per generation by model, in US dollars, recorded beside the
-    /// reported cost.
+    /// reported cost. The spend cap's estimate: a model without one generates nothing.
     pub expected_usd: BTreeMap<String, f64>,
 }
 
@@ -416,6 +422,32 @@ fn fnv(s: &str) -> u64 {
     })
 }
 
+/// Nano-dollars per US dollar: the index keeps spend in whole nano-dollars, so summing
+/// never drifts.
+const NANOS_PER_USD: f64 = 1e9;
+
+/// `usd` in nano-dollars, rounded up (a cost) or down (a cap). A value within float
+/// noise of a whole nano-dollar is that nano-dollar, so `0.04` is exactly 40,000,000.
+fn nanos(usd: f64, up: bool) -> u64 {
+    let x = usd * NANOS_PER_USD;
+    if x.is_nan() || x <= 0.0 {
+        return 0;
+    }
+    let near = x.round();
+    let n = if (x - near).abs() <= 1e-3_f64.max(x * 1e-12) {
+        near
+    } else if up {
+        x.ceil()
+    } else {
+        x.floor()
+    };
+    n as u64
+}
+
+fn usd(nanos: u64) -> f64 {
+    nanos as f64 / NANOS_PER_USD
+}
+
 /// One cached track, as recorded in `index.json`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -454,9 +486,12 @@ pub struct MusicIndex {
     pub version: u32,
     /// Runs that opened this cache (which cached track a channel plays turns with it).
     pub runs: u64,
-    /// Every generation's cost, failed ones included: reported, or the expected price
-    /// for a call still out at shutdown.
+    /// [`MusicIndex::spent_nanos`] in US dollars, for reading.
     pub spent_usd: f64,
+    /// What this save's music has cost, in nano-dollars: every generation's charge,
+    /// failed ones included, and the booking of a call still out (or lost to a crash).
+    /// An older index without it is read from `spent_usd`, rounded up.
+    pub spent_nanos: u64,
     pub generations: u64,
     pub tracks: Vec<CachedTrack>,
 }
@@ -466,6 +501,32 @@ impl MusicIndex {
 
     fn count(&self, folder: &str) -> usize {
         self.tracks.iter().filter(|t| t.folder == folder).count()
+    }
+
+    fn book(&mut self, nanos: u64) {
+        self.spent_nanos = self.spent_nanos.saturating_add(nanos);
+        self.spent_usd = usd(self.spent_nanos);
+    }
+
+    fn unbook(&mut self, nanos: u64) {
+        self.spent_nanos = self.spent_nanos.saturating_sub(nanos);
+        self.spent_usd = usd(self.spent_nanos);
+    }
+
+    /// The estimate for one attempt with `rules.model`, in nano-dollars: the listed
+    /// price, or the dearest cached track of the model if one cost more. `None` without
+    /// a listed price.
+    fn estimate(&self, rules: &MusicRules) -> Option<u64> {
+        let listed = nanos(rules.expected()?, true);
+        let dearest = self
+            .tracks
+            .iter()
+            .filter(|t| t.model == rules.model)
+            .filter_map(|t| t.cost_usd)
+            .map(|c| nanos(c, true))
+            .max()
+            .unwrap_or(0);
+        Some(listed.max(dearest))
     }
 }
 
@@ -482,8 +543,11 @@ pub enum Stopped {
     NoCache,
     /// `music.run_generations` reached.
     RunCap,
-    /// `music.spend_cap_usd` reached for this save.
+    /// `music.spend_cap_usd` leaves no room for another generation for this save.
     SpendCap,
+    /// `music.expected_usd` lists no price for `music.model`, so a generation's cost
+    /// can't be bounded.
+    Unpriced,
     /// HTTP 402: the key has too little credit left.
     NoCredit,
     /// HTTP 401 or 403: the key was refused.
@@ -501,6 +565,7 @@ impl Stopped {
             Stopped::NoCache => "the music folder can't be written",
             Stopped::RunCap => "this run's generation cap is reached",
             Stopped::SpendCap => "this save's music spend cap is reached",
+            Stopped::Unpriced => "music.expected_usd lists no price for music.model",
             Stopped::NoCredit => "the key is out of credit (HTTP 402)",
             Stopped::KeyRefused => "the key was refused",
             Stopped::Shutdown => "the game is shutting down",
@@ -549,8 +614,15 @@ struct State {
     failed: BTreeSet<String>,
     started: u32,
     stopped: Option<Stopped>,
-    /// The generation out now: its channel and when it started.
-    out: Option<(String, i64)>,
+    /// The generation out now.
+    out: Option<Out>,
+}
+
+/// A generation out now: its channel, when it started, and what is booked for it.
+struct Out {
+    channel: String,
+    ts_ms: i64,
+    booked: u64,
 }
 
 struct Shared {
@@ -743,7 +815,7 @@ impl MusicLibrary {
             started: st.started,
             cap: self.shared.rules.run_generations,
             cached: st.index.tracks.len(),
-            spent_usd: st.index.spent_usd,
+            spent_usd: usd(st.index.spent_nanos),
             failed: st.failed.iter().cloned().collect(),
             stopped: st.stopped,
             busy: st.queued.len(),
@@ -774,8 +846,8 @@ impl MusicLibrary {
         true
     }
 
-    /// Stops generating for the rest of the run. A generation still out is booked in
-    /// the call log and the index at its expected price, so spend is never
+    /// Stops generating for the rest of the run. A generation still out stays booked in
+    /// the index at its estimate and is logged at its expected price, so spend is never
     /// under-counted when the game quits mid-call. Call before the call log's flush.
     pub fn shutdown(&self) {
         *lock(&self.tx) = None;
@@ -783,16 +855,13 @@ impl MusicLibrary {
         if st.stopped.is_none() {
             st.stopped = Some(Stopped::Shutdown);
         }
-        let Some((channel, ts_ms)) = st.out.take() else {
+        // It was booked in the index when it went out.
+        let Some(Out { channel, ts_ms, .. }) = st.out.take() else {
             return;
         };
+        drop(st);
         let rules = &self.shared.rules;
         let expected = rules.expected();
-        st.index.spent_usd += expected.unwrap_or(0.0);
-        if let Some(dir) = &self.shared.dir {
-            let _ = write_index(dir, &st.index);
-        }
-        drop(st);
         self.shared.log.record(CallRow {
             uid: CallId::fresh(),
             ts_ms,
@@ -834,6 +903,9 @@ fn read_index(dir: &Path) -> MusicIndex {
         .and_then(|t| serde_json::from_str(&t).ok())
         .unwrap_or_default();
     index.version = MusicIndex::VERSION;
+    // An older index kept only the float sum: never read it as less than it says.
+    index.spent_nanos = index.spent_nanos.max(nanos(index.spent_usd, true));
+    index.spent_usd = usd(index.spent_nanos);
     // An entry names a file in its own folder and nothing else.
     index.tracks.retain(|t| {
         folder(&t.folder) == t.folder
@@ -924,41 +996,63 @@ fn work<T: Transport>(shared: &Shared, mut client: Client<T>, rx: Receiver<Want>
         };
         let f = folder(&want.channel);
         // The gate: stopped, capped or full channels leave the queue.
-        let slot = {
+        let (slot, attempts, each) = {
             let mut st = lock(&shared.state);
             if st.stopped.is_none() && st.started >= rules.run_generations {
                 st.stopped = Some(Stopped::RunCap);
             }
-            if st.stopped.is_none() && st.index.spent_usd >= rules.spend_cap_usd {
-                st.stopped = Some(Stopped::SpendCap);
-            }
-            let slot = match st.stopped {
+            let room = match st.stopped {
                 Some(_) => None,
-                None => free_slot(&dir, &st.index, &f, rules.tracks_per_channel),
+                None => match afford(&st.index, rules) {
+                    Ok(room) => Some(room),
+                    Err(stop) => {
+                        st.stopped = Some(stop);
+                        None
+                    }
+                },
             };
-            match slot {
-                Some(n) => {
-                    st.started += 1;
-                    st.out = Some((want.channel.clone(), calllog::now_ms()));
-                    n
-                }
-                None => {
-                    st.queued.remove(&f);
-                    shared.changed.notify_all();
-                    continue;
-                }
+            let go = room.and_then(|room| {
+                free_slot(&dir, &st.index, &f, rules.tracks_per_channel).map(|n| (n, room))
+            });
+            let Some((n, (attempts, each))) = go else {
+                st.queued.remove(&f);
+                shared.changed.notify_all();
+                continue;
+            };
+            // Booked before the call goes out, so a call in flight or lost to a crash
+            // counts in every run. If the index can't keep it, nothing is bought.
+            let booked = each.saturating_mul(u64::from(attempts));
+            st.index.book(booked);
+            if write_index(&dir, &st.index).is_err() {
+                st.index.unbook(booked);
+                st.stopped = Some(Stopped::NoCache);
+                st.queued.remove(&f);
+                shared.changed.notify_all();
+                continue;
             }
+            st.started += 1;
+            st.out = Some(Out {
+                channel: want.channel.clone(),
+                ts_ms: calllog::now_ms(),
+                booked,
+            });
+            (n, attempts, each)
         };
-        let outcome = generate(&mut client, rules, &dir, &want, &f, slot);
+        let outcome = generate(&mut client, rules, &dir, &want, &f, slot, attempts);
         let mut st = lock(&shared.state);
-        if st.out.take().is_none() {
-            // Shut down while this was out: it is booked already.
+        let Some(out) = st.out.take() else {
+            // Shut down while this was out: it stays booked at its estimate.
             st.queued.remove(&f);
             shared.changed.notify_all();
             continue;
-        }
+        };
         st.index.generations += 1;
-        st.index.spent_usd += outcome.cost_usd;
+        // The booking becomes the charge: the reported cost, and the estimate for each
+        // attempt that may have billed without reporting one.
+        let unpriced = each.saturating_mul(u64::from(outcome.unpriced));
+        st.index.unbook(out.booked);
+        st.index
+            .book(outcome.reported_nanos.saturating_add(unpriced));
         match outcome.result {
             Ok(track) => st.index.tracks.push(track),
             Err(stop) => {
@@ -981,8 +1075,28 @@ fn work<T: Transport>(shared: &Shared, mut client: Client<T>, rx: Receiver<Want>
     }
 }
 
+/// How many attempts the spend cap leaves room for (at most `music.max_attempts`), and
+/// the estimate for each, in nano-dollars; `Err` if not one fits.
+fn afford(index: &MusicIndex, rules: &MusicRules) -> Result<(u8, u64), Stopped> {
+    let each = index.estimate(rules).ok_or(Stopped::Unpriced)?;
+    let room = nanos(rules.spend_cap_usd, false).saturating_sub(index.spent_nanos);
+    let fit = match room.checked_div(each) {
+        Some(fit) => fit.min(u64::from(rules.attempts())) as u8,
+        // Listed as free: only a spent cap stops it.
+        None if room > 0 => rules.attempts(),
+        None => 0,
+    };
+    match fit {
+        0 => Err(Stopped::SpendCap),
+        n => Ok((n, each)),
+    }
+}
+
 struct Outcome {
-    cost_usd: f64,
+    /// The cost OpenRouter reported, in nano-dollars (0 if none).
+    reported_nanos: u64,
+    /// Attempts that may have billed without reporting a cost.
+    unpriced: u8,
     /// The cached track, or why not: `Some(stop)` stops music for the run.
     result: Result<CachedTrack, Option<Stopped>>,
 }
@@ -995,6 +1109,7 @@ fn generate<T: Transport>(
     want: &Want,
     f: &str,
     n: u32,
+    attempts: u8,
 ) -> Outcome {
     let prompt = rules.prompt_for(&want.mood);
     let body = music_body(rules, &want.channel, &prompt);
@@ -1004,12 +1119,13 @@ fn generate<T: Transport>(
         path: CHAT_PATH,
         body: &body,
         session_id: Some(&want.channel),
-        max_attempts: rules.attempts(),
+        max_attempts: attempts,
         deadline_ms: rules.deadline_ms,
         backoff_ms: rules.backoff_ms,
         metadata: false,
     });
-    let cost_usd = answer.cost_usd();
+    let reported_nanos = nanos(answer.cost_usd(), true);
+    let unpriced = answer.usage.unpriced_attempts;
     let v = match &answer.result {
         Ok(v) => v,
         Err(e) => {
@@ -1019,7 +1135,8 @@ fn generate<T: Transport>(
                 _ => None,
             };
             return Outcome {
-                cost_usd,
+                reported_nanos,
+                unpriced,
                 result: Err(stop),
             };
         }
@@ -1038,7 +1155,8 @@ fn generate<T: Transport>(
                 Some(format!("cached as {f}/{file} ({} bytes)", g.audio.len())),
             );
             Outcome {
-                cost_usd,
+                reported_nanos,
+                unpriced,
                 result: Ok(CachedTrack {
                     channel: want.channel.clone(),
                     folder: f.to_owned(),
@@ -1064,7 +1182,8 @@ fn generate<T: Transport>(
         Err(e) => {
             client.verdict(&answer, Verdict::Rejected, Some(e.to_string()));
             Outcome {
-                cost_usd,
+                reported_nanos,
+                unpriced,
                 result: Err(None),
             }
         }
@@ -1093,6 +1212,23 @@ mod tests {
         assert_eq!(decode_base64("_-8=").unwrap(), [0xFF, 0xEF]);
         assert!(decode_base64("SUQz!").is_none());
         assert!(decode_base64("S").is_none());
+    }
+
+    #[test]
+    fn money_is_whole_nano_dollars() {
+        assert_eq!(nanos(0.04, true), 40_000_000);
+        assert_eq!(nanos(0.04, false), 40_000_000);
+        // Ten float 0.04s fall just short of 0.4, and are still 0.4.
+        let ten = (0..10).fold(0.0, |s, _| s + 0.04);
+        assert!(ten < 0.40);
+        assert_eq!(nanos(ten, false), 400_000_000);
+        assert_eq!(nanos(0.43999999999999995, true), 440_000_000);
+        // A real fraction of a nano-dollar rounds against the spender.
+        assert_eq!(nanos(1.5e-9, true), 2);
+        assert_eq!(nanos(1.5e-9, false), 1);
+        assert_eq!(nanos(-1.0, true), 0);
+        assert_eq!(nanos(f64::NAN, true), 0);
+        assert_eq!(usd(400_000_000), 0.4);
     }
 
     #[test]

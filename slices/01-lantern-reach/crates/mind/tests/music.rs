@@ -4,7 +4,7 @@
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use galaxy_mind::calllog::{CallLog, CallSink, LogRules};
@@ -67,6 +67,8 @@ struct MockState {
     replies: VecDeque<Result<HttpReply, MindError>>,
     bodies: Vec<Value>,
     slept: Vec<Duration>,
+    /// Generation stats lookups; each answers 503.
+    gets: usize,
 }
 
 impl Mock {
@@ -75,6 +77,15 @@ impl Mock {
     }
     fn stream(&self) {
         self.queue(Ok(HttpReply::new(200, STREAM)));
+    }
+    /// The stream without `usage.cost`.
+    fn stream_without_cost(&self) {
+        let text = STREAM.replace(",\"cost\":0.04", "");
+        assert_ne!(text, STREAM);
+        self.queue(Ok(HttpReply::new(200, text)));
+    }
+    fn gets(&self) -> usize {
+        self.0.lock().unwrap().gets
     }
     fn status(&self, status: u16) {
         self.queue(Ok(HttpReply::new(
@@ -100,6 +111,10 @@ impl Transport for Mock {
         s.replies
             .pop_front()
             .unwrap_or_else(|| Err(MindError::Transport("no reply queued".into())))
+    }
+    fn get(&mut self, _url: &str, _auth: &str) -> Result<HttpReply, MindError> {
+        self.0.lock().unwrap().gets += 1;
+        Ok(HttpReply::new(503, "{\"error\":{\"code\":503}}"))
     }
     fn sleep(&mut self, wait: Duration) {
         self.0.lock().unwrap().slept.push(wait);
@@ -413,6 +428,167 @@ fn the_spend_cap_counts_every_run() {
     assert_eq!(lib.status().stopped, Some(Stopped::SpendCap));
 }
 
+/// Six launches share one cache, each asking for two tracks for a new channel. Ten
+/// $0.04 clips fill the default $0.40 cap exactly (a float sum of them falls just
+/// short), so an eleventh never starts.
+fn six_launches(save: &Save, mock: &Mock) -> MusicLibrary {
+    let mut last = None;
+    for run in 0..6 {
+        let lib = save.open(&rules(), mock);
+        lib.want(&format!("radio.run{run}"), "calm");
+        assert!(lib.idle(WAIT));
+        lib.shutdown();
+        last = Some(lib);
+    }
+    last.unwrap()
+}
+
+fn assert_capped_at_ten_clips(lib: &MusicLibrary, mock: &Mock) {
+    assert_eq!(mock.calls(), 10, "ten clips, never an eleventh");
+    assert_eq!(lib.status().stopped, Some(Stopped::SpendCap));
+    let spent = lib.index().spent_usd;
+    assert!(spent <= 0.40 && spent > 0.40 - 1e-9, "spent {spent}");
+}
+
+#[test]
+fn the_default_cap_buys_ten_clips_not_eleven() {
+    let save = Save::new("ten");
+    let mock = Mock::default();
+    for _ in 0..12 {
+        mock.stream();
+    }
+    let lib = six_launches(&save, &mock);
+    assert_capped_at_ten_clips(&lib, &mock);
+}
+
+/// Answers without `usage.cost`, and generation stats that answer 503: each call counts
+/// its listed price, while the index and the log keep the cost as unreported.
+#[test]
+fn an_unreported_cost_counts_the_listed_price() {
+    let save = Save::new("unreported");
+    let mock = Mock::default();
+    for _ in 0..12 {
+        mock.stream_without_cost();
+    }
+    let lib = six_launches(&save, &mock);
+    assert!(mock.gets() > 0, "the stats were asked");
+    assert_capped_at_ten_clips(&lib, &mock);
+    let index = lib.index();
+    assert_eq!(index.tracks.len(), 10);
+    assert!(index.tracks.iter().all(|t| t.cost_usd.is_none()));
+    let rows = save.rows();
+    assert_eq!(rows.len(), 10);
+    assert!(rows.iter().all(|r| r["cost_usd"].is_null()), "{rows:?}");
+}
+
+/// A call still out counts against the cap: another run on the same cache, opened while
+/// it is in flight, finds no room under a one-clip cap and makes no call.
+#[test]
+fn a_call_in_flight_counts_against_the_cap() {
+    #[derive(Clone, Default)]
+    struct Held(Arc<(Mutex<(bool, bool)>, Condvar)>);
+    impl Transport for Held {
+        fn post(&mut self, _: &str, _: &str, _: &str) -> Result<HttpReply, MindError> {
+            let (m, c) = &*self.0;
+            let mut s = m.lock().unwrap();
+            s.0 = true;
+            c.notify_all();
+            while !s.1 {
+                s = c.wait(s).unwrap();
+            }
+            Ok(HttpReply::new(200, STREAM))
+        }
+    }
+    impl Held {
+        fn wait_started(&self) {
+            let (m, c) = &*self.0;
+            let mut s = m.lock().unwrap();
+            while !s.0 {
+                s = c.wait(s).unwrap();
+            }
+        }
+        fn release(&self) {
+            let (m, c) = &*self.0;
+            m.lock().unwrap().1 = true;
+            c.notify_all();
+        }
+    }
+    let save = Save::new("in-flight");
+    let capped = MusicRules {
+        spend_cap_usd: 0.04,
+        tracks_per_channel: 1,
+        ..rules()
+    };
+    let held = Held::default();
+    let first = MusicLibrary::open_with(
+        save.music(),
+        capped.clone(),
+        Some((held.clone(), ApiKey::new(KEY))),
+        save.log.clone(),
+    );
+    first.want("radio.a", "calm");
+    held.wait_started();
+
+    let mock = Mock::default();
+    mock.stream();
+    let second = save.open(&capped, &mock);
+    second.want("radio.b", "calm");
+    let idle = second.idle(WAIT);
+    let calls = mock.calls();
+    let stopped = second.status().stopped;
+    held.release();
+    assert!(idle && first.idle(WAIT));
+    assert_eq!(calls, 0, "the call in flight leaves no room");
+    assert_eq!(stopped, Some(Stopped::SpendCap));
+    assert_eq!(first.tracks("radio.a").len(), 1);
+    assert!((first.index().spent_usd - 0.04).abs() < 1e-12);
+}
+
+/// An index written before spend was kept in whole nano-dollars still loads, and its
+/// float sum counts in full.
+#[test]
+fn an_older_index_keeps_its_spend() {
+    let save = Save::new("older");
+    std::fs::create_dir_all(save.music()).unwrap();
+    std::fs::write(
+        save.music().join(music::INDEX_FILE),
+        json!({"version": 1, "runs": 6, "spent_usd": 0.43999999999999995,
+               "generations": 11, "tracks": []})
+        .to_string(),
+    )
+    .unwrap();
+    let mock = Mock::default();
+    mock.stream();
+    let lib = save.open(&rules(), &mock);
+    lib.want("radio.a", "calm");
+    assert!(lib.idle(WAIT));
+    assert_eq!(mock.calls(), 0);
+    assert_eq!(lib.status().stopped, Some(Stopped::SpendCap));
+    let index = lib.index();
+    assert_eq!(index.runs, 7);
+    assert_eq!(index.spent_nanos, 440_000_000);
+}
+
+/// A model without a listed price can't be bounded, so it generates nothing.
+#[test]
+fn a_model_without_a_price_generates_nothing() {
+    let save = Save::new("unpriced");
+    let mock = Mock::default();
+    mock.stream();
+    let lib = save.open(
+        &MusicRules {
+            model: "google/lyria-4-preview".into(),
+            ..rules()
+        },
+        &mock,
+    );
+    lib.want("radio.a", "calm");
+    assert!(lib.idle(WAIT));
+    assert_eq!(mock.calls(), 0);
+    assert_eq!(lib.status().stopped, Some(Stopped::Unpriced));
+    assert!(is_placeholder(&lib.track("radio.a")));
+}
+
 /// HTTP 402 (out of credit) stops music for the rest of the run, without retries.
 #[test]
 fn a_402_stops_music_for_the_run() {
@@ -432,6 +608,7 @@ fn a_402_stops_music_for_the_run() {
     let rows = save.rows();
     assert_eq!(rows[0]["verdict"], "failed");
     assert_eq!(rows[0]["http_status"], 402);
+    assert_eq!(lib.index().spent_usd, 0.0, "a refusal bills nothing");
 }
 
 /// The same, reported inside a 200 stream.
@@ -481,6 +658,8 @@ fn failures_retry_with_backoff_then_give_up() {
     let rows = save.rows();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0]["attempts"], 3);
+    // A 5xx without a cost may still bill: each attempt counts the listed price.
+    assert!((lib.index().spent_usd - 0.12).abs() < 1e-12);
     assert_eq!(rows[0]["verdict"], "failed");
 }
 

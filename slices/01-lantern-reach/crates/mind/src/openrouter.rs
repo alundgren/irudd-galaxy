@@ -400,6 +400,10 @@ pub struct Usage {
     pub cost_usd: Option<f64>,
     /// `usage` (in the response) or `generation` (looked up by generation ID).
     pub cost_source: Option<&'static str>,
+    /// Attempts that may have been billed but whose cost nothing reported: a timeout or
+    /// transport error, or a 2xx or 5xx without `usage.cost` (and not priced from the
+    /// generation stats). A refusal (4xx, or a 4xx code inside a 2xx) bills nothing.
+    pub unpriced_attempts: u8,
 }
 
 /// What a [`Call`] came to.
@@ -498,6 +502,7 @@ impl<T: Transport> Client<T> {
         let mut attempts = 0u8;
         let mut result = Err(MindError::NotRecorded);
         let mut cost_usd = None::<f64>;
+        let mut unpriced = 0u8;
         let mut status = None::<u16>;
         let mut raw = String::new();
         while attempts < call.max_attempts {
@@ -505,6 +510,10 @@ impl<T: Transport> Client<T> {
             let mut retry_after = None;
             let key = &self.key;
             let sent = self.transport.post_with(&url, &auth, headers, &body);
+            // The request may have reached the model before the line dropped.
+            if sent.is_err() {
+                unpriced += 1;
+            }
             result = sent.map_err(|e| key.redact_error(e)).and_then(|mut r| {
                 retry_after = r.retry_after_ms;
                 status = Some(r.status);
@@ -516,10 +525,10 @@ impl<T: Transport> Client<T> {
                 // JSON body a plain answer would have been.
                 let parsed = serde_json::from_str::<Value>(&r.body)
                     .or_else(|e| fold_stream(&r.body).ok_or(e));
-                if let Ok(v) = &parsed
-                    && let Some(c) = reported_cost(v)
-                {
-                    *cost_usd.get_or_insert(0.0) += c;
+                match parsed.as_ref().ok().and_then(reported_cost) {
+                    Some(c) => *cost_usd.get_or_insert(0.0) += c,
+                    None if may_bill(r.status, parsed.as_ref().ok()) => unpriced += 1,
+                    None => {}
                 }
                 // Audio is megabytes of base64: the log keeps its length, not its bytes.
                 raw = match &parsed {
@@ -587,6 +596,7 @@ impl<T: Transport> Client<T> {
             completion_tokens: ok.and_then(|v| v.pointer("/usage/completion_tokens")?.as_u64()),
             cost_usd,
             cost_source: cost_usd.map(|_| "usage"),
+            unpriced_attempts: unpriced,
         };
         if usage.cost_usd.is_none()
             && let Some(id) = &generation_id
@@ -594,6 +604,8 @@ impl<T: Transport> Client<T> {
         {
             usage.cost_usd = Some(c);
             usage.cost_source = Some("generation");
+            // The stats price the answer, the one 2xx that reported nothing.
+            usage.unpriced_attempts = usage.unpriced_attempts.saturating_sub(1);
         }
         let answer = Answer {
             model: ok.map_or_else(String::new, |v| model_of(v, call.model)),
@@ -861,6 +873,18 @@ fn reply<T, U: Transport>(
         attempts: answer.attempts,
         hold_ticks: 0,
         call: answer.call,
+    }
+}
+
+/// Whether a response without a cost may still have been billed: a 2xx (unless it
+/// carries a 4xx error code, a refusal) or a 5xx. A 4xx is a refusal.
+fn may_bill(status: u16, body: Option<&Value>) -> bool {
+    match status {
+        200..=299 => !body
+            .and_then(|v| v.pointer("/error/code")?.as_u64())
+            .is_some_and(|c| (400..=499).contains(&c)),
+        400..=499 => false,
+        _ => true,
     }
 }
 
