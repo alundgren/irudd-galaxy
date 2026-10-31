@@ -282,7 +282,7 @@ impl Game {
         }
         hook(&scripts, &sim);
         scripts.attach(&mut sim);
-        sim.add_system(Box::new(galaxy_progress::ProgressSystem));
+        sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
         if opts.hot_reload
             && let Err(e) = scripts.watch()
         {

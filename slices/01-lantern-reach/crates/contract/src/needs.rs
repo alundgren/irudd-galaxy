@@ -234,6 +234,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "`ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). Its speaker talks when it starts, so `talk.write` too.",
     ),
     row(
+        "expect_happening",
+        Needs::Nothing,
+        "A check, carried ahead of `ctx.happenings:put` and `ctx.happenings:remove`.",
+    ),
+    row(
         "put_map_overlay",
         Needs::Uses(&[&["kit.write"]]),
         "`ctx.kit:overlay`.",

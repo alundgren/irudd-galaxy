@@ -1533,6 +1533,33 @@
           ]
         },
         {
+          "description": "Changes nothing, and fails unless the happening `id` is `value` (`null`: none).\nCarried ahead of every `PutHappening` worked out from the tick's starting world,\nso no batch writes over a change another committed earlier in the tick. Its\ninverse is itself.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/HappeningId"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_happening"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Happening"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "id": {

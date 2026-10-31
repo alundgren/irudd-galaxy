@@ -27,7 +27,7 @@ fn review_sim(seed: u64) -> (Sim, ScriptHost) {
     let report = host.load(&review_pack(), sim.world(), sim.history());
     assert!(report.accepted(), "{report:#?}");
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 

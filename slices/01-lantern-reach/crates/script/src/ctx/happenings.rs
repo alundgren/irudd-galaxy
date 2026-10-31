@@ -9,7 +9,9 @@
 //!
 //! Every happening passes `galaxy_core::happenings::check` first, and a cause fact
 //! named by ID must exist (`check_facts`). One that is running or over is the
-//! runtime's: a pack can't rewrite or remove it.
+//! runtime's: a pack can't rewrite or remove it. Each write carries an
+//! `ExpectHappening` on the record the hook read, so it fails whole if another batch
+//! changed that happening earlier in the tick.
 
 use galaxy_contract::happening::{Happening, HappeningRun};
 use galaxy_contract::prelude::*;
@@ -100,6 +102,7 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
             if !problems.is_empty() {
                 return Err(env.fail(lua, "invalid_happening", problems.join("; ")));
             }
+            expect(lua, env, &why, &h.id)?;
             env.push(
                 lua,
                 &why,
@@ -127,8 +130,29 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
                     format!("`{id}` has started; it stays"),
                 ));
             }
+            expect(lua, env, &why, &id)?;
             env.push(lua, &why, Command::PutHappening { id, value: None })
         })?,
     )?;
     Ok(ns)
+}
+
+/// Guards a write to `id` with the record the hook read, unless this call has already
+/// written it: a batch committed earlier in the tick that changed it (the game
+/// master's, or another call's) makes this one fail rather than be overwritten.
+fn expect(lua: &Lua, env: &CallEnv<'_>, why: &Table, id: &HappeningId) -> mlua::Result<()> {
+    let written = env.buffer.borrow().commands.iter().any(|c| {
+        matches!(c, Command::PutHappening { id: i, .. } | Command::ExpectHappening { id: i, .. } if i == id)
+    });
+    if written {
+        return Ok(());
+    }
+    env.push(
+        lua,
+        why,
+        Command::ExpectHappening {
+            id: id.clone(),
+            value: env.world.happenings.get(id).cloned().map(Box::new),
+        },
+    )
 }

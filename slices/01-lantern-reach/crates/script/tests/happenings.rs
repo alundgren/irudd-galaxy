@@ -286,3 +286,174 @@ fn no_pack_records_the_runtimes_facts_or_writes_happenings_without_the_capabilit
     assert!(why.contains("happenings.write"), "{why}");
     check(&[put], &caller, Route::Hooks).unwrap();
 }
+
+// --- Review of the happenings runtime (e0f16dc): starts without a fact, and races ---
+
+const CROWD: &str = "gm.happening_edit.crowd";
+
+/// A new game with the flagship docked at the Wharf, and `crowd` waiting there if given.
+fn docked_at_wharf(crowd: Option<galaxy_contract::happening::Happening>) -> galaxy_core::Sim {
+    let mut state = galaxy_core::new_game(&common::core_data(), 10).unwrap();
+    state.world.ships.get_mut(&PLAYER).unwrap().docked_at = Some(WHARF);
+    if let Some(h) = crowd {
+        state.world.happenings.insert(h.id.clone(), h);
+    }
+    galaxy_core::game(state)
+}
+
+/// An upcoming happening at the Wharf, caused by any docking there.
+fn crowd() -> galaxy_contract::happening::Happening {
+    use galaxy_contract::happening::{CauseFact, Happening, HappeningCause, HappeningLine, Lasts};
+    Happening {
+        id: CROWD.parse().unwrap(),
+        station: WHARF,
+        show: vec![],
+        lasts: Lasts { dockings: 1 },
+        cause: HappeningCause {
+            facts: vec![CauseFact {
+                kind: Some("dock".into()),
+                station: Some(WHARF),
+                ..CauseFact::default()
+            }],
+        },
+        line: HappeningLine {
+            id: "line.ilse_marrow.edit_crowd".into(),
+            speaker: "npc.ilse_marrow".parse().unwrap(),
+            text: "I've kept the old line.".into(),
+            choices: vec![],
+        },
+        by: None,
+        run: HappeningRun::Upcoming,
+    }
+}
+
+/// A pack that, on a docking at the Wharf, rewrites the crowd's line while it waits.
+fn edit_pack(dir: &std::path::Path) {
+    std::fs::create_dir_all(dir.join("scripts")).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        "id = \"gm.happening_edit\"\nname = \"Happening edit\"\nversion = \"0.1.0\"\n\
+         uses = [\"events.dock\", \"happenings.read\", \"happenings.write\", \"talk.write\"]\n\n\
+         [[script]]\nid = \"edit\"\nfile = \"scripts/edit.luau\"\nhandlers = [\"on.dock\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("scripts/edit.luau"),
+        r#"--!strict
+local G = require("@galaxy")
+return G.script({ id = "edit", on = { dock = function(ev: G.DockEvent, ctx: G.Ctx)
+    if ev.station ~= "station.lantern_wharf" then return end
+    local h = ctx.happenings:get("gm.happening_edit.crowd")
+    if h == nil or (h.run ~= nil and h.run.status ~= "upcoming") then return end
+    h.by = nil
+    h.run = nil
+    h.line.text = "I've updated the line."
+    ctx.happenings:put(h, ctx:cause({ summary = "the crowd's news changes", cites = { ev.fact } }))
+end } })
+"#,
+    )
+    .unwrap();
+}
+
+/// The docking at the Wharf, committed this tick.
+fn wharf_docking(sim: &mut galaxy_core::Sim) {
+    common::dock(sim, &WHARF);
+    common::step(sim, 1);
+}
+
+fn crowd_of(sim: &galaxy_core::Sim, id: &str) -> galaxy_contract::happening::Happening {
+    sim.world().happenings.get(id).unwrap().clone()
+}
+
+#[test]
+fn a_happening_a_hook_writes_starts_the_next_tick_with_nothing_else_happening() {
+    let mut sim = docked_at_wharf(None);
+    let host = galaxy_script::ScriptHost::new(None);
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/happening_probe");
+    let report = host.load_layer(&dir, sim.world(), sim.history());
+    assert!(report.accepted(), "{report:#?}");
+    // The game's order: the script host, then progress.
+    host.attach(&mut sim);
+    sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+    common::step(&mut sim, 1);
+    wharf_docking(&mut sim);
+    // The hook writes it, citing the docking: no fact comes with that.
+    common::step(&mut sim, 1);
+    let id = "gm.happening_probe.crowd";
+    assert!(crowd_of(&sim, id).run.is_upcoming());
+    let facts = sim.history().len();
+    // Its cause exists and the player is docked there, so it starts the next tick,
+    // although nothing else happened.
+    common::step(&mut sim, 1);
+    assert!(
+        crowd_of(&sim, id).is_active(),
+        "{:?}",
+        crowd_of(&sim, id).run
+    );
+    let started = &sim.history().facts()[facts..];
+    assert_eq!(
+        started.iter().map(|f| f.kind.as_str()).collect::<Vec<_>>(),
+        ["happening_started"]
+    );
+    assert!(
+        common::lines(&sim, galaxy_contract::talk::Channel::DockTalk)
+            .iter()
+            .any(|l| l.line.text.contains("a crowd on the quay"))
+    );
+}
+
+#[test]
+fn a_pack_edit_to_a_waiting_happening_is_not_overwritten_when_it_starts() {
+    let tmp = tempfile::tempdir().unwrap();
+    edit_pack(tmp.path());
+    let mut sim = docked_at_wharf(Some(crowd()));
+    let host = galaxy_script::ScriptHost::new(None);
+    let report = host.load_layer(tmp.path(), sim.world(), sim.history());
+    assert!(report.accepted(), "{report:#?}");
+    host.attach(&mut sim);
+    sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+    common::step(&mut sim, 1);
+    wharf_docking(&mut sim);
+    // The docking is its cause; the same tick the pack rewrites its line. The start
+    // waits a tick for the new line rather than write the old one over it.
+    common::step(&mut sim, 1);
+    let h = crowd_of(&sim, CROWD);
+    assert_eq!(h.line.text, "I've updated the line.");
+    assert!(h.run.is_upcoming());
+    common::step(&mut sim, 1);
+    let h = crowd_of(&sim, CROWD);
+    assert!(h.is_active(), "{:?}", h.run);
+    assert_eq!(h.line.text, "I've updated the line.");
+    let said = common::lines(&sim, galaxy_contract::talk::Channel::DockTalk);
+    assert!(said.iter().any(|l| l.line.text == "I've updated the line."));
+    assert!(
+        !said
+            .iter()
+            .any(|l| l.line.text == "I've kept the old line.")
+    );
+}
+
+#[test]
+fn a_pack_writing_after_a_start_in_the_same_tick_loses_instead_of_undoing_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    edit_pack(tmp.path());
+    let mut sim = docked_at_wharf(Some(crowd()));
+    let host = galaxy_script::ScriptHost::new(None);
+    let report = host.load_layer(tmp.path(), sim.world(), sim.history());
+    assert!(report.accepted(), "{report:#?}");
+    // Progress before the host: its start applies first.
+    sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+    host.attach(&mut sim);
+    common::step(&mut sim, 1);
+    wharf_docking(&mut sim);
+    // The pack's rewrite, worked out from the waiting record, loses to the start.
+    sim.step(&PlayerInput::default()).unwrap();
+    let h = crowd_of(&sim, CROWD);
+    assert!(h.is_active(), "the start stands: {:?}", h.run);
+    assert_eq!(h.line.text, "I've kept the old line.");
+    // The pack's handler runs again, finds it started, and leaves it.
+    common::step(&mut sim, 2);
+    let h = crowd_of(&sim, CROWD);
+    assert!(h.is_active(), "{:?}", h.run);
+    assert_eq!(h.line.text, "I've kept the old line.");
+}

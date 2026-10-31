@@ -162,7 +162,7 @@ fn core_sim(seed: u64) -> (Sim, ScriptHost) {
     let report = host.load(&slice().join("packs/core"), sim.world(), sim.history());
     assert!(report.accepted(), "{report:#?}");
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 

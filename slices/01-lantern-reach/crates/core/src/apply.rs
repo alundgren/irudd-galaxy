@@ -948,6 +948,14 @@ fn apply_with(
                 value: old.map(Box::new),
             })
         }
+        C::ExpectHappening { id, value } => {
+            if refs.check && world.happenings.get(id) != value.as_deref() {
+                return Err(CommandError::Invalid(format!(
+                    "happening {id} changed since this was worked out"
+                )));
+            }
+            invert(cmd.clone())
+        }
         C::PutMapOverlay { id, value } => {
             if let Some(v) = value
                 && (!v.radius.is_finite()

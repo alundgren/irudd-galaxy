@@ -337,7 +337,22 @@ fn undo_records_invert_commands() {
                     .clone()
             })),
         },
+        Command::ExpectHappening {
+            id: "happening.wharf.lamp_night".parse().unwrap(),
+            value: Some(Box::new(galaxy_contract::happening::Happening {
+                lasts: galaxy_contract::happening::Lasts { dockings: 1 },
+                ..world
+                    .happenings
+                    .get("happening.wharf.lamp_night")
+                    .unwrap()
+                    .clone()
+            })),
+        },
         Command::PutHappening {
+            id: "happening.kettle.lamp_night".parse().unwrap(),
+            value: None,
+        },
+        Command::ExpectHappening {
             id: "happening.kettle.lamp_night".parse().unwrap(),
             value: None,
         },
@@ -707,6 +722,30 @@ fn undo_records_invert_commands() {
         galaxy_core::apply::apply(&mut world, &emit, &mut staged).unwrap(),
         UndoRecord::Compensate { .. }
     ));
+}
+
+/// `ExpectHappening` holds only while the committed record is the one expected.
+#[test]
+fn expect_happening_fails_once_the_record_changed() {
+    let mut world = new_game(&data_dir(), 1).unwrap().world;
+    let mut staged = galaxy_core::apply::Staged::default();
+    let id: HappeningId = "happening.wharf.lamp_night".parse().unwrap();
+    let h = world.happenings.get(&id).unwrap().clone();
+    let expect = |value: Option<&galaxy_contract::happening::Happening>| Command::ExpectHappening {
+        id: id.clone(),
+        value: value.cloned().map(Box::new),
+    };
+    let mut apply = |c: Command| galaxy_core::apply::apply(&mut world, &c, &mut staged);
+    assert!(apply(expect(Some(&h))).is_ok());
+    assert!(apply(expect(None)).is_err(), "it exists");
+    let mut edited = h.clone();
+    edited.line.text = "Another line.".into();
+    assert!(apply(expect(Some(&edited))).is_err(), "a different record");
+    let gone = Command::ExpectHappening {
+        id: "happening.wharf.none".parse().unwrap(),
+        value: None,
+    };
+    assert!(apply(gone).is_ok());
 }
 
 /// A save made before `craft.toml`: no named traders, their ships or their hulls.

@@ -112,10 +112,11 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   history can't be unsaid, so a rollback must compensate in-world).
 - Batches are worked out from the tick's starting world, so a batch checks what it
   relies on when it applies: `Expect*` commands (`ExpectDocked`, `ExpectShip`,
-  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`) change nothing and fail if the
-  committed world no longer matches; `UpdateOrders` and `UpdateMarketLine` are
-  compare-and-set. Never write a whole record from the planning snapshot (prestige
-  changes only the hull, `SetShipHull`). Rollback batches leave expectations out.
+  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`, `ExpectHappening`) change
+  nothing and fail if the committed world no longer matches; `UpdateOrders` and
+  `UpdateMarketLine` are compare-and-set. Never write a whole record from the planning
+  snapshot (prestige changes only the hull, `SetShipHull`). Rollback batches leave
+  expectations out.
 
 ## How a tick works
 

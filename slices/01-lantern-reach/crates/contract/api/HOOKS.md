@@ -398,6 +398,7 @@ beat precondition can be met by a forged fact.
 | `put_station_recipe` | never | Recipes come with `found_station`. |
 | `put_station_part` | `stations.write` | `ctx.parts:put`, `ctx.parts:remove` (only while the player is docked). |
 | `put_happening` | `happenings.write` and `talk.write` | `ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). Its speaker talks when it starts, so `talk.write` too. |
+| `expect_happening` | nothing (a check) | A check, carried ahead of `ctx.happenings:put` and `ctx.happenings:remove`. |
 | `put_map_overlay` | `kit.write` | `ctx.kit:overlay`. |
 | `put_region` | `territory.write` | `ctx.territory:set_owner`. |
 | `put_lane` | never | Authored data. |

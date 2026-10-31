@@ -405,6 +405,14 @@ pub enum Command {
         id: HappeningId,
         value: Option<Box<crate::happening::Happening>>,
     },
+    /// Changes nothing, and fails unless the happening `id` is `value` (`null`: none).
+    /// Carried ahead of every `PutHappening` worked out from the tick's starting world,
+    /// so no batch writes over a change another committed earlier in the tick. Its
+    /// inverse is itself.
+    ExpectHappening {
+        id: HappeningId,
+        value: Option<Box<crate::happening::Happening>>,
+    },
     PutMapOverlay {
         id: String,
         value: Option<Box<crate::live::MapOverlay>>,
@@ -660,6 +668,7 @@ impl Command {
             Command::PutStationRecipe { .. } => "put_station_recipe",
             Command::PutStationPart { .. } => "put_station_part",
             Command::PutHappening { .. } => "put_happening",
+            Command::ExpectHappening { .. } => "expect_happening",
             Command::PutMapOverlay { .. } => "put_map_overlay",
             Command::PutRegion { .. } => "put_region",
             Command::PutLane { .. } => "put_lane",
@@ -721,6 +730,7 @@ impl Command {
                 | Command::ExpectStanding { .. }
                 | Command::ExpectFitting { .. }
                 | Command::ExpectHullRecord { .. }
+                | Command::ExpectHappening { .. }
         )
     }
 }
