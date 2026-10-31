@@ -18,18 +18,21 @@
 //!   cost, rejections), and a file over `log.max_mb` rolls its oldest rows up until it
 //!   fits.
 //!
-//! The key is never written: rows hold request bodies (which never carry it) and
-//! response bodies the client has already redacted.
+//! The key is never written: the client redacts response bodies as they arrive, and
+//! a sink a client writes through redacts its key from every text in a row and every
+//! verdict reason before the writer sees them ([`CallSink::redact_with`]).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+use crate::openrouter::ApiKey;
 
 /// The log file for a save: `<stem>.llm-log.sqlite` in the save's folder.
 pub fn path_for(save: &Path) -> PathBuf {
@@ -617,7 +620,11 @@ enum Msg {
 /// Where calls are written. Cheap to clone; clones share one writer. Never blocks: a
 /// sink that isn't connected (no save, a log that couldn't open) drops what it gets.
 #[derive(Clone, Default)]
-pub struct CallSink(Arc<OnceLock<Sender<Msg>>>);
+pub struct CallSink {
+    tx: Arc<OnceLock<Sender<Msg>>>,
+    /// Keys redacted from everything written, shared by every clone.
+    keys: Arc<Mutex<Vec<ApiKey>>>,
+}
 
 impl std::fmt::Debug for CallSink {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -636,7 +643,7 @@ impl CallSink {
     }
 
     pub fn is_connected(&self) -> bool {
-        self.0.get().is_some()
+        self.tx.get().is_some()
     }
 
     /// Opens the log at `path` and starts its writer thread, which prunes first (at
@@ -655,7 +662,7 @@ impl CallSink {
     /// log and a fixed clock.
     pub fn start(&self, mut log: CallLog, rules: LogRules, clock: fn() -> i64) {
         let (tx, rx) = mpsc::channel::<Msg>();
-        if self.0.set(tx).is_err() {
+        if self.tx.set(tx).is_err() {
             return;
         }
         std::thread::Builder::new()
@@ -682,15 +689,55 @@ impl CallSink {
             .expect("spawning the call log thread");
     }
 
-    pub fn record(&self, row: CallRow) {
-        if let Some(tx) = self.0.get() {
+    /// From now on, `key` is redacted from every text this sink and its clones write:
+    /// prompts, outputs, reasons, model names and tags ([`ApiKey::redact`]).
+    pub fn redact_with(&self, key: &ApiKey) {
+        self.keys
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(key.clone());
+    }
+
+    fn redact(&self, text: &mut String) {
+        for key in self.keys.lock().unwrap_or_else(|e| e.into_inner()).iter() {
+            *text = key.redact(text);
+        }
+    }
+
+    pub fn record(&self, mut row: CallRow) {
+        if let Some(tx) = self.tx.get() {
+            for text in [
+                &mut row.purpose,
+                &mut row.requested_model,
+                &mut row.prompt,
+                &mut row.output,
+            ]
+            .into_iter()
+            .chain(
+                [
+                    &mut row.actual_model,
+                    &mut row.task_type,
+                    &mut row.session_id,
+                    &mut row.generation_id,
+                    &mut row.cost_source,
+                    &mut row.error_kind,
+                    &mut row.reason,
+                ]
+                .into_iter()
+                .flatten(),
+            ) {
+                self.redact(text);
+            }
             let _ = tx.send(Msg::Record(Box::new(row)));
         }
     }
 
     /// The game's verdict on a call (only a pending call takes it).
-    pub fn verdict(&self, uid: &CallId, verdict: Verdict, reason: Option<String>) {
-        if let Some(tx) = self.0.get() {
+    pub fn verdict(&self, uid: &CallId, verdict: Verdict, mut reason: Option<String>) {
+        if let Some(tx) = self.tx.get() {
+            if let Some(r) = &mut reason {
+                self.redact(r);
+            }
             let _ = tx.send(Msg::Verdict(uid.clone(), verdict, reason));
         }
     }
@@ -698,7 +745,7 @@ impl CallSink {
     /// Waits up to `wait` until everything sent so far is written. `false` if it
     /// wasn't in time (or there is no writer).
     pub fn flush(&self, wait: Duration) -> bool {
-        let Some(tx) = self.0.get() else {
+        let Some(tx) = self.tx.get() else {
             return false;
         };
         let (ack, done) = mpsc::channel();

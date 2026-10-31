@@ -24,8 +24,9 @@
 //! canned responses without a network.
 //!
 //! The key never leaves in diagnostics: `ApiKey`'s `Debug` is redacted, and a response
-//! body or transport error that echoes the key has it replaced before it is read,
-//! truncated or put in a [`MindError`].
+//! body or transport error that echoes the key, or a long run of it, in any JSON
+//! spelling has it replaced before it is read, truncated or put in a [`MindError`]
+//! ([`ApiKey::redact`]). The call log redacts it again from everything it writes.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -63,12 +64,45 @@ impl ApiKey {
         format!("Bearer {}", self.0)
     }
 
-    /// `text` with every copy of the key replaced by `<redacted>`.
+    /// `text` with the key, and any run of [`MIN_RUN`] or more of its characters in key
+    /// order, replaced by `<redacted>`. A character counts however JSON spells it: as
+    /// itself, or as a `\uXXXX` escape behind any number of backslashes (JSON inside a
+    /// JSON string), so decoding the result, once or many times, can't bring the key
+    /// back. Only whole characters and escapes are replaced, so JSON stays JSON; should
+    /// it not (a key that spans JSON punctuation), the parsed value is redacted string
+    /// by string and written out again, and if even that would show the key, the text
+    /// is kept redacted but marked [`NOT_JSON`].
     pub fn redact(&self, text: &str) -> String {
-        if self.0.is_empty() {
-            text.to_owned()
-        } else {
-            text.replace(&self.0, REDACTED)
+        let key: Vec<u32> = self.0.chars().map(u32::from).collect();
+        if key.is_empty() {
+            return text.to_owned();
+        }
+        let min = MIN_RUN.min(key.len());
+        let Some(out) = redact_runs(text, &key, min) else {
+            return text.to_owned();
+        };
+        if serde_json::from_str::<serde::de::IgnoredAny>(&out).is_err()
+            && let Ok(v) = serde_json::from_str::<Value>(text)
+        {
+            let walked = self.redact_value(v).to_string();
+            return match redact_runs(&walked, &key, min) {
+                None => walked,
+                Some(_) => format!("{NOT_JSON}{out}"),
+            };
+        }
+        out
+    }
+
+    fn redact_value(&self, v: Value) -> Value {
+        match v {
+            Value::String(s) => Value::String(self.redact(&s)),
+            Value::Array(a) => Value::Array(a.into_iter().map(|v| self.redact_value(v)).collect()),
+            Value::Object(o) => Value::Object(
+                o.into_iter()
+                    .map(|(k, v)| (self.redact(&k), self.redact_value(v)))
+                    .collect(),
+            ),
+            v => v,
         }
     }
 
@@ -85,6 +119,103 @@ impl ApiKey {
 
 /// What a redacted key reads as.
 pub const REDACTED: &str = "<redacted>";
+
+/// Leads a redacted text that was JSON but no longer parses.
+pub const NOT_JSON: &str = "<redacted, no longer JSON> ";
+
+/// The shortest run of key characters that is redacted: enough to identify a key, more
+/// than its public `sk-or-v1-` prefix. A key shorter than this is redacted whole.
+pub const MIN_RUN: usize = 12;
+
+/// One character of a text as JSON may spell it: the bytes `start..end`, and the
+/// character they decode to (`None` for an escape that is no character, like `\n`).
+struct Spelled {
+    start: usize,
+    end: usize,
+    unit: Option<u32>,
+}
+
+/// `text` split into characters and escapes. `\uXXXX` counts behind any number of
+/// backslashes; a run of escaped backslashes stays one piece, so nothing is cut inside
+/// an escape.
+fn spell(text: &str) -> Vec<Spelled> {
+    let b = text.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let start = i;
+        let c = text[i..].chars().next().expect("i is a char boundary");
+        if c != '\\' {
+            i += c.len_utf8();
+            out.push(Spelled {
+                start,
+                end: i,
+                unit: Some(u32::from(c)),
+            });
+            continue;
+        }
+        let mut j = i;
+        while b.get(j) == Some(&b'\\') {
+            j += 1;
+        }
+        let hex = b.get(j + 1..j + 5);
+        let (end, unit) = if b.get(j) == Some(&b'u')
+            && let Some(hex) = hex.filter(|h| h.iter().all(u8::is_ascii_hexdigit))
+        {
+            let hex = std::str::from_utf8(hex).expect("ASCII hex");
+            (j + 5, u32::from_str_radix(hex, 16).ok())
+        } else if (j - i) % 2 == 1
+            && let Some(e) = text[j..].chars().next()
+        {
+            let unit = (!matches!(e, 'b' | 'f' | 'n' | 'r' | 't')).then_some(u32::from(e));
+            (j + e.len_utf8(), unit)
+        } else {
+            (j, None)
+        };
+        out.push(Spelled { start, end, unit });
+        i = end;
+    }
+    out
+}
+
+/// `text` with every run of at least `min` spelled characters that appears in `key`
+/// replaced by [`REDACTED`], or `None` if there is none.
+fn redact_runs(text: &str, key: &[u32], min: usize) -> Option<String> {
+    let spelled = spell(text);
+    // `run[j + 1]`: how many characters up to this one match the key up to `key[j]`.
+    let mut run = vec![0usize; key.len() + 1];
+    let mut cut = vec![false; spelled.len()];
+    let mut next = 0;
+    for (i, s) in spelled.iter().enumerate() {
+        let mut best = 0;
+        for j in (0..key.len()).rev() {
+            run[j + 1] = if s.unit == Some(key[j]) {
+                run[j] + 1
+            } else {
+                0
+            };
+            best = best.max(run[j + 1]);
+        }
+        if best >= min {
+            for c in &mut cut[(i + 1 - best).max(next)..=i] {
+                *c = true;
+            }
+            next = i + 1;
+        }
+    }
+    if next == 0 {
+        return None;
+    }
+    let mut out = String::with_capacity(text.len());
+    for (i, s) in spelled.iter().enumerate() {
+        if !cut[i] {
+            out.push_str(&text[s.start..s.end]);
+        } else if i == 0 || !cut[i - 1] {
+            out.push_str(REDACTED);
+        }
+    }
+    Some(out)
+}
 
 impl fmt::Debug for ApiKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -311,8 +442,9 @@ impl<T: Transport> Client<T> {
         }
     }
 
-    /// Logs every call to `log`.
+    /// Logs every call to `log`, which redacts the key from all it writes.
     pub fn with_log(mut self, log: CallSink) -> Self {
+        log.redact_with(&self.key);
         self.log = log;
         self
     }
@@ -484,8 +616,9 @@ impl<T: Transport> Client<T> {
                     Verdict::Pending
                 },
                 reason: None,
+                // The sink redacts the key from these, as from every text it writes.
                 prompt: body,
-                output: self.key.redact(&output),
+                output,
             });
         }
         answer
@@ -948,6 +1081,99 @@ mod tests {
     fn key_is_redacted() {
         let k = ApiKey::new("sk-or-secret");
         assert!(!format!("{k:?}").contains("secret"));
+    }
+
+    /// Every text `text` decodes to, decoding again wherever a string is JSON.
+    fn decoded(text: &str, out: &mut Vec<String>) {
+        out.push(text.to_owned());
+        fn walk(v: &Value, out: &mut Vec<String>) {
+            match v {
+                Value::String(s) => decoded(s, out),
+                Value::Array(a) => a.iter().for_each(|v| walk(v, out)),
+                Value::Object(o) => o.iter().for_each(|(k, v)| {
+                    decoded(k, out);
+                    walk(v, out);
+                }),
+                _ => {}
+            }
+        }
+        if let Ok(v) = serde_json::from_str::<Value>(text) {
+            walk(&v, out);
+        }
+    }
+
+    #[test]
+    fn the_key_is_redacted_however_json_spells_it() {
+        const KEY: &str = "sk-or-v1-0123456789abcdef";
+        let k = ApiKey::new(KEY);
+        let esc = |c: char| format!(r"\u{:04x}", u32::from(c));
+        let first = format!("{}{}", esc('s'), &KEY[1..]);
+        let every: String = KEY.chars().map(esc).collect();
+        let upper = format!(r"\u{:04X}{}", u32::from('s'), &KEY[1..]);
+        let inner = format!(r#"{{"text":"hi {first}","n":1}}"#);
+        let once = json!({ "content": inner }).to_string();
+        let twice = json!({ "message": once }).to_string();
+        let cases = [
+            format!(r#"{{"error":{{"message":"bad key {KEY}","code":401}}}}"#),
+            format!(r#"{{"error":{{"message":"bad key {first}","code":401}}}}"#),
+            format!(r#"{{"m":"{every}"}}"#),
+            format!(r#"{{"m":"{upper}"}}"#),
+            format!(r#"{{"m":"line\n{KEY}\t"}}"#),
+            once,
+            twice,
+            format!("transport error: {first} (plain text)"),
+            format!("cut at the end: {}", &KEY[..14]),
+        ];
+        for text in cases {
+            let out = k.redact(&text);
+            assert!(out.contains(REDACTED), "{out}");
+            if serde_json::from_str::<Value>(&text).is_ok() {
+                serde_json::from_str::<Value>(&out).unwrap_or_else(|e| panic!("{e}: {out}"));
+            }
+            let mut all = Vec::new();
+            decoded(&out, &mut all);
+            for t in all {
+                for run in KEY.as_bytes().windows(MIN_RUN) {
+                    let run = std::str::from_utf8(run).unwrap();
+                    assert!(!t.contains(run), "{run} in {t} from {text}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn redaction_keeps_what_is_not_the_key() {
+        let k = ApiKey::new("sk-or-v1-0123456789abcdef");
+        // The public prefix and short runs identify nothing; the text around a key and
+        // its escapes stays as it was.
+        for text in [
+            "keys look like sk-or-v1-...",
+            "0123456789a",
+            r#"{"a":"b\\n"}"#,
+        ] {
+            assert_eq!(k.redact(text), text);
+        }
+        assert_eq!(
+            k.redact(r#"{"m":"bad sk-or-v1-0123456789abcdef, sorry"}"#),
+            r#"{"m":"bad <redacted>, sorry"}"#
+        );
+        assert_eq!(k.redact("x 456789abcdef y"), "x <redacted> y");
+    }
+
+    #[test]
+    fn a_key_across_json_punctuation_still_leaves_json_or_a_marked_text() {
+        // A key that spans JSON punctuation: the parsed strings are redacted instead.
+        let k = ApiKey::new(r#"a","b"#);
+        let out = k.redact(r#"{"x":"a","b":"c"}"#);
+        assert_eq!(out, r#"{"b":"c","x":"a"}"#);
+        // Written out again they show it, so the text is kept redacted and marked.
+        let k = ApiKey::new(r#"a","#);
+        let out = k.redact(r#"["a","b"]"#);
+        assert_eq!(out, format!(r#"{NOT_JSON}["{REDACTED}"b"]"#));
+        // A key that is a whole string's worth inside escapes stays JSON.
+        let k = ApiKey::new(r#"quote"in-the-key"#);
+        let text = json!({ "m": r#"quote"in-the-key"# }).to_string();
+        assert_eq!(k.redact(&text), format!(r#"{{"m":"{REDACTED}"}}"#));
     }
 
     #[test]

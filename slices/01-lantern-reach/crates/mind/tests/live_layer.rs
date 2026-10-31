@@ -639,6 +639,153 @@ fn a_bad_key_is_logged_as_failed_with_its_status() {
     assert!(all.contains("<redacted>"));
 }
 
+/// `KEY` with its first letter as a JSON unicode escape: replacing the literal key
+/// can't see it, and decoding the text brings it back.
+fn escaped_key() -> String {
+    format!(r"\u{:04x}{}", u32::from('s'), &KEY[1..])
+}
+
+/// Neither the key nor any 12-character run of it can be read from `text`, however
+/// often it is JSON-decoded (a string that is JSON is decoded again).
+fn assert_no_key(text: &str) {
+    fn strings(v: &Value, out: &mut Vec<String>) {
+        match v {
+            Value::String(s) => decoded(s, out),
+            Value::Array(a) => a.iter().for_each(|v| strings(v, out)),
+            Value::Object(o) => o.iter().for_each(|(k, v)| {
+                decoded(k, out);
+                strings(v, out);
+            }),
+            _ => {}
+        }
+    }
+    fn decoded(text: &str, out: &mut Vec<String>) {
+        out.push(text.to_owned());
+        if let Ok(v) = serde_json::from_str::<Value>(text) {
+            strings(&v, out);
+        }
+    }
+    let mut all = Vec::new();
+    decoded(text, &mut all);
+    for t in &all {
+        for run in KEY.as_bytes().windows(12) {
+            let run = std::str::from_utf8(run).unwrap();
+            assert!(!t.contains(run), "{run:?} is readable in {t:?}");
+        }
+    }
+}
+
+/// Every text column of every row, the world and its history: none holds the key.
+fn assert_no_key_stored(sim: &Sim, rows: &[Value]) {
+    for row in rows {
+        for v in row.as_object().unwrap().values() {
+            match v.as_str() {
+                Some(text) => assert_no_key(text),
+                None => assert_no_key(&v.to_string()),
+            }
+        }
+    }
+    assert_no_key(&serde_json::to_string(sim.world()).unwrap());
+    assert_no_key(&serde_json::to_string(sim.history().facts()).unwrap());
+}
+
+/// Review probe: a live answer whose content (itself JSON) echoes the key in a JSON
+/// escape. The logged output still decodes, and decoding it, twice, finds no key.
+#[test]
+fn an_escaped_key_in_a_live_answer_cannot_be_decoded_from_the_log() {
+    let mut sim = sim();
+    let mock = Mock::default();
+    let log = TempLog::new("escaped-answer");
+    let escaped = escaped_key();
+    mock.ok(completion(&format!(
+        r#"{{"speaker":"npc.ilse_marrow","text":"I see {escaped}"}}"#
+    )));
+    let mut host = host(&sim, config(&[Purpose::Banter]), &mock, &log.sink);
+    dock(&mut sim, &mut host, &WHARF);
+    let rows = log.rows();
+    let output = rows[0]["output"].as_str().unwrap();
+    let decoded: Value = serde_json::from_str(output).unwrap();
+    let text = decoded["text"].as_str().unwrap();
+    assert!(!text.contains(KEY), "{text}");
+    assert!(text.contains("<redacted>"), "{text}");
+    assert_no_key_stored(&sim, &rows);
+}
+
+/// Review probe: a 401 whose error body echoes the key in a JSON escape. The row keeps
+/// the body as JSON, with the message but not the key.
+#[test]
+fn an_escaped_key_in_an_error_body_cannot_be_decoded_from_the_log() {
+    let mut sim = sim();
+    let mock = Mock::default();
+    let log = TempLog::new("escaped-401");
+    let escaped = escaped_key();
+    mock.queue(Ok(HttpReply::new(
+        401,
+        format!(r#"{{"error":{{"message":"bad key {escaped}","code":401}}}}"#),
+    )));
+    let mut host = host(&sim, config(&[Purpose::Banter]), &mock, &log.sink);
+    dock(&mut sim, &mut host, &WHARF);
+    let rows = log.rows();
+    assert_eq!(rows[0]["verdict"], "failed");
+    let decoded: Value = serde_json::from_str(rows[0]["output"].as_str().unwrap()).unwrap();
+    let message = decoded["error"]["message"].as_str().unwrap();
+    assert_eq!(message, "bad key <redacted>");
+    assert_eq!(decoded["error"]["code"], 401);
+    assert_no_key_stored(&sim, &rows);
+}
+
+/// Every other way an answer can carry the key: a 5xx body with the key escaped twice
+/// (JSON in a JSON string), a 200 reporting an upstream error, a transport error (what
+/// a timed-out read reports), a model name, and part of the key. None is stored.
+#[test]
+fn no_response_path_stores_the_key_in_any_encoding() {
+    let escaped = escaped_key();
+    let twice = format!(r"\\u{:04x}{}", u32::from('s'), &KEY[1..]);
+    let every = KEY
+        .chars()
+        .map(|c| format!(r"\u{:04X}", c as u32))
+        .collect::<String>();
+    let part = &KEY[KEY.len() - 14..];
+    let cases: Vec<Vec<Result<HttpReply, MindError>>> = vec![
+        vec![Ok(HttpReply::new(
+            502,
+            format!(r#"{{"error":{{"message":"{{\"inner\":\"{twice}\"}}","code":502}}}}"#),
+        ))],
+        vec![Ok(HttpReply::new(
+            200,
+            format!(r#"{{"error":{{"message":"Bearer {every}","code":403}}}}"#),
+        ))],
+        vec![Err(MindError::Transport(format!(
+            "timed out reading {escaped}"
+        )))],
+        vec![Ok(HttpReply::new(200, {
+            let mut body = completion(&format!(
+                r#"{{"speaker":"npc.ilse_marrow","text":"tail {part}"}}"#
+            ));
+            body["model"] = json!(format!("vendor/{escaped}"));
+            body.to_string()
+        }))],
+    ];
+    for (n, replies) in cases.into_iter().enumerate() {
+        let mut sim = sim();
+        let mock = Mock::default();
+        let log = TempLog::new(&format!("paths-{n}"));
+        for r in replies {
+            for _ in 0..3 {
+                mock.queue(r.clone());
+            }
+        }
+        let mut host = host(&sim, config(&[Purpose::Banter]), &mock, &log.sink);
+        dock(&mut sim, &mut host, &WHARF);
+        let rows = log.rows();
+        assert!(!rows.is_empty(), "case {n}");
+        assert_no_key_stored(&sim, &rows);
+        if let Ok(v) = serde_json::from_str::<Value>(rows[0]["output"].as_str().unwrap()) {
+            assert!(v.is_object(), "case {n}: {v}");
+        }
+    }
+}
+
 #[test]
 fn a_missing_cost_is_read_from_the_generation_endpoint() {
     let mut sim = sim();
