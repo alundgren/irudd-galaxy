@@ -3,11 +3,22 @@
 //! - Typed choices: `POST /api/alpha/decisions` with TypeSafe Jev.
 //! - Short lines: `POST /api/v1/chat/completions` with a strict JSON schema and
 //!   `provider.require_parameters`, so only providers that honour the schema answer.
+//! - Live flourishes: chat completions through the auto router (`openrouter/auto` with
+//!   the `auto-router` plugin at a cost tier), a per-station `session_id` and
+//!   `X-OpenRouter-Metadata: enabled`, so the answer names the model the router picked
+//!   and, when it classified the prompt, the task type.
+//!
+//! Every request goes through [`Client::call`]: a purpose, a model, a path and a body
+//! in; the raw answer, tokens, cost, actual model and task type out, and one row in the
+//! call log ([`crate::calllog`]). The radio and music reuse it.
 //!
 //! A request makes at most `max_attempts` HTTP attempts (the host's budget decides). A
 //! timeout, transport error or 5xx is retried at once. A 429 or 5xx with `Retry-After`
 //! is retried after that wait if the wait ends before the request's deadline; a longer
-//! wait, or a 429 without one, skips the moment. A malformed answer is not retried.
+//! wait, or a 429 without one, skips the moment, unless the call has a backoff (the live
+//! layer): then it waits that long, doubling, within the deadline. A malformed answer
+//! is not retried. A 2xx whose body reports no cost is priced from the generation stats
+//! endpoint by its generation ID, on the worker thread.
 //! Every attempt's `usage.cost` is summed and returned with the answer or the error, so
 //! a billed response is never lost. The transport is a trait so tests run against
 //! canned responses without a network.
@@ -21,9 +32,11 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
-use crate::config::{Limits, Models};
+use crate::calllog::{self, CallId, CallRow, CallSink, Verdict};
+use crate::config::{Limits, LiveRules, Models};
 use crate::mind::{
-    Decision, DecisionRequest, LineDraft, LineRequest, Mind, MindError, Question, Reply, wire_index,
+    Decision, DecisionRequest, LineDraft, LineRequest, LiveDraft, LiveRequest, Mind, MindError,
+    Purpose, Question, Reply, wire_index,
 };
 
 /// The OpenRouter API key. Never printed: `Debug` and `Display` are redacted.
@@ -109,10 +122,27 @@ pub fn parse_retry_after(value: &str) -> u64 {
         .map_or(u64::MAX, |s| (s * 1000.0).min(u64::MAX as f64) as u64)
 }
 
-/// Sends one JSON POST. Errors are only for calls that got no HTTP answer at all.
+/// Sends JSON requests. Errors are only for calls that got no HTTP answer at all.
 pub trait Transport: Send {
     fn post(&mut self, url: &str, auth: &str, body: &str) -> Result<HttpReply, MindError>;
-    /// Waits out a `Retry-After`. Runs on the worker thread, never the frame thread.
+    /// A POST with extra headers (`X-OpenRouter-Metadata`). A transport that can't send
+    /// headers sends the plain POST.
+    fn post_with(
+        &mut self,
+        url: &str,
+        auth: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpReply, MindError> {
+        let _ = headers;
+        self.post(url, auth, body)
+    }
+    /// A GET (the generation stats endpoint). Unsupported unless implemented.
+    fn get(&mut self, _url: &str, _auth: &str) -> Result<HttpReply, MindError> {
+        Err(MindError::Transport("GET is not supported".into()))
+    }
+    /// Waits out a `Retry-After` or a backoff. Runs on the worker thread, never the
+    /// frame thread.
     fn sleep(&mut self, wait: Duration) {
         std::thread::sleep(wait);
     }
@@ -134,104 +164,216 @@ impl UreqTransport {
     }
 }
 
+fn ureq_error(e: ureq::Error) -> MindError {
+    match e {
+        ureq::Error::Timeout(_) => MindError::Timeout,
+        e => MindError::Transport(e.to_string()),
+    }
+}
+
+fn read_reply(resp: ureq::http::Response<ureq::Body>) -> Result<HttpReply, MindError> {
+    let status = resp.status().as_u16();
+    let retry_after_ms = resp
+        .headers()
+        .get("retry-after")
+        .map(|v| v.to_str().map_or(u64::MAX, parse_retry_after));
+    let body = resp.into_body().read_to_string().map_err(ureq_error)?;
+    Ok(HttpReply {
+        status,
+        body,
+        retry_after_ms,
+    })
+}
+
 impl Transport for UreqTransport {
     fn post(&mut self, url: &str, auth: &str, body: &str) -> Result<HttpReply, MindError> {
-        let map = |e: ureq::Error| match e {
-            ureq::Error::Timeout(_) => MindError::Timeout,
-            e => MindError::Transport(e.to_string()),
-        };
-        let resp = self
+        self.post_with(url, auth, &[], body)
+    }
+
+    fn post_with(
+        &mut self,
+        url: &str,
+        auth: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> Result<HttpReply, MindError> {
+        let mut req = self
             .agent
             .post(url)
             .header("Authorization", auth)
             .header("Content-Type", "application/json")
+            .header("X-Title", "Irudd Galaxy");
+        for (name, value) in headers {
+            req = req.header(*name, *value);
+        }
+        read_reply(req.send(body).map_err(ureq_error)?)
+    }
+
+    fn get(&mut self, url: &str, auth: &str) -> Result<HttpReply, MindError> {
+        let resp = self
+            .agent
+            .get(url)
+            .header("Authorization", auth)
             .header("X-Title", "Irudd Galaxy")
-            .send(body)
-            .map_err(map)?;
-        let status = resp.status().as_u16();
-        let retry_after_ms = resp
-            .headers()
-            .get("retry-after")
-            .map(|v| v.to_str().map_or(u64::MAX, parse_retry_after));
-        let body = resp.into_body().read_to_string().map_err(map)?;
-        Ok(HttpReply {
-            status,
-            body,
-            retry_after_ms,
-        })
+            .call()
+            .map_err(ureq_error)?;
+        read_reply(resp)
     }
 }
 
-pub struct OpenRouterMind<T: Transport = UreqTransport> {
+/// The chat completions path.
+pub const CHAT_PATH: &str = "/api/v1/chat/completions";
+/// The Decisions API path.
+pub const DECISIONS_PATH: &str = "/api/alpha/decisions";
+
+/// One OpenRouter call for a purpose: a model, a path and a request body. The live
+/// layer, the decision and line calls, and later the radio and music, all go through
+/// [`Client::call`], so every one is logged the same way.
+#[derive(Clone, Debug)]
+pub struct Call<'a> {
+    pub purpose: Purpose,
+    /// The model asked for (also in `body`), for the log.
+    pub model: &'a str,
+    pub path: &'a str,
+    pub body: &'a Value,
+    /// The `session_id` in `body`, if any, for the log.
+    pub session_id: Option<&'a str>,
+    pub max_attempts: u8,
+    pub deadline_ms: u64,
+    /// Before retrying a 429 or 5xx that named no wait: this long, doubling each time.
+    /// 0 keeps the plain rule: a 5xx is retried at once and a bare 429 is not.
+    pub backoff_ms: u64,
+    /// Sends `X-OpenRouter-Metadata: enabled`, for the router's task type.
+    pub metadata: bool,
+}
+
+/// Tokens and cost as OpenRouter reported them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Usage {
+    pub prompt_tokens: Option<u64>,
+    pub completion_tokens: Option<u64>,
+    /// US dollars, summed over attempts; `None` if no response reported any.
+    pub cost_usd: Option<f64>,
+    /// `usage` (in the response) or `generation` (looked up by generation ID).
+    pub cost_source: Option<&'static str>,
+}
+
+/// What a [`Call`] came to.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Answer {
+    /// The 2xx body, or why there was none.
+    pub result: Result<Value, MindError>,
+    pub attempts: u8,
+    pub usage: Usage,
+    /// The model that answered, from the response (empty if nothing did).
+    pub model: String,
+    /// The auto router's task type, when the metadata named one.
+    pub task_type: Option<String>,
+    pub generation_id: Option<String>,
+    pub latency_ms: u64,
+    /// The log row, if the client has a log.
+    pub call: Option<CallId>,
+}
+
+impl Answer {
+    /// Cost for the budget: what OpenRouter reported, 0 if nothing.
+    pub fn cost_usd(&self) -> f64 {
+        self.usage.cost_usd.unwrap_or(0.0)
+    }
+
+    /// The first choice's message content, if the body has one.
+    pub fn content(&self) -> Option<&str> {
+        self.result
+            .as_ref()
+            .ok()?
+            .pointer("/choices/0/message/content")
+            .and_then(Value::as_str)
+    }
+}
+
+/// The OpenRouter HTTP client: the key, the transport and the call log. Every request
+/// goes through [`Client::call`], which retries, reads the metadata, prices the call
+/// and writes one log row.
+pub struct Client<T: Transport = UreqTransport> {
     transport: T,
     key: ApiKey,
-    models: Models,
     base_url: String,
-    line_max_tokens: u32,
+    log: CallSink,
 }
 
-impl OpenRouterMind<UreqTransport> {
-    /// The live mind, with the key from `OPENROUTER_API_KEY`.
-    pub fn from_env(models: Models, limits: &Limits) -> Result<Self, MindError> {
-        let transport = UreqTransport::new(Duration::from_millis(limits.timeout_ms));
-        Ok(Self::with_transport(
-            transport,
-            ApiKey::from_env()?,
-            models,
-            limits,
-        ))
-    }
-}
-
-/// What a POST came to, before its body is read.
-struct Posted {
-    result: Result<Value, MindError>,
-    attempts: u8,
-    cost_usd: f64,
-}
-
-impl<T: Transport> OpenRouterMind<T> {
-    pub fn with_transport(transport: T, key: ApiKey, models: Models, limits: &Limits) -> Self {
+impl<T: Transport> Client<T> {
+    pub fn new(transport: T, key: ApiKey) -> Self {
         Self {
             transport,
             key,
-            models,
             base_url: "https://openrouter.ai".into(),
-            line_max_tokens: limits.line_max_tokens,
+            log: CallSink::new(),
         }
+    }
+
+    /// Logs every call to `log`.
+    pub fn with_log(mut self, log: CallSink) -> Self {
+        self.log = log;
+        self
+    }
+
+    pub fn log(&self) -> &CallSink {
+        &self.log
     }
 
     pub fn transport(&self) -> &T {
         &self.transport
     }
 
-    /// One POST in at most `max_attempts` attempts. Returns the 2xx body or the last
-    /// error, the attempts made and the cost every attempt reported.
-    fn post(&mut self, path: &str, body: &Value, max_attempts: u8, deadline_ms: u64) -> Posted {
-        let url = format!("{}{path}", self.base_url);
-        let body = body.to_string();
+    /// Records the game's verdict on a call's answer.
+    pub fn verdict(&self, answer: &Answer, verdict: Verdict, reason: Option<String>) {
+        if let Some(id) = &answer.call {
+            self.log.verdict(id, verdict, reason);
+        }
+    }
+
+    /// One call in at most `max_attempts` attempts. A timeout, transport error or 5xx
+    /// is retried; a 429 or 5xx with `Retry-After` after that wait, if it ends before
+    /// the deadline (a longer wait gives up); without one, after the backoff, if the
+    /// call has one. A malformed answer is not retried. Every attempt's `usage.cost`
+    /// counts; a 2xx without one is priced from the generation stats endpoint while
+    /// the deadline allows. Then the call is logged: its verdict is `pending` for an
+    /// answer (the caller settles it) and `failed` for none.
+    pub fn call(&mut self, call: &Call<'_>) -> Answer {
+        let url = format!("{}{}", self.base_url, call.path);
+        let body = call.body.to_string();
         let auth = self.key.bearer();
         let start = Instant::now();
-        let mut out = Posted {
-            result: Err(MindError::NotRecorded),
-            attempts: 0,
-            cost_usd: 0.0,
+        let ts_ms = calllog::now_ms();
+        let headers: &[(&str, &str)] = if call.metadata {
+            &[("X-OpenRouter-Metadata", "enabled")]
+        } else {
+            &[]
         };
-        while out.attempts < max_attempts {
-            out.attempts += 1;
+        let mut attempts = 0u8;
+        let mut result = Err(MindError::NotRecorded);
+        let mut cost_usd = None::<f64>;
+        let mut status = None::<u16>;
+        let mut raw = String::new();
+        while attempts < call.max_attempts {
+            attempts += 1;
             let mut retry_after = None;
             let key = &self.key;
-            let sent = self.transport.post(&url, &auth, &body);
-            out.result = sent.map_err(|e| key.redact_error(e)).and_then(|mut r| {
+            let sent = self.transport.post_with(&url, &auth, headers, &body);
+            result = sent.map_err(|e| key.redact_error(e)).and_then(|mut r| {
                 retry_after = r.retry_after_ms;
-                // An upstream error may echo the key: drop it before the body is read
-                // or truncated, so not even part of it reaches an error.
+                status = Some(r.status);
+                // An upstream error may echo the key: drop it before the body is read,
+                // truncated or logged, so not even part of it reaches an error.
                 r.body = key.redact(&r.body);
                 // A billed response carries its cost whatever its status or shape.
                 let parsed = serde_json::from_str::<Value>(&r.body);
-                if let Ok(v) = &parsed {
-                    out.cost_usd += cost(v);
+                if let Ok(v) = &parsed
+                    && let Some(c) = reported_cost(v)
+                {
+                    *cost_usd.get_or_insert(0.0) += c;
                 }
+                raw = std::mem::take(&mut r.body);
                 match r.status {
                     200..=299 => {
                         let v =
@@ -255,54 +397,288 @@ impl<T: Transport> OpenRouterMind<T> {
                     s => Err(MindError::Http(s, "upstream error".into())),
                 }
             });
-            let Err(e) = &out.result else {
+            let Err(e) = &result else {
                 break;
             };
-            if !e.retryable() || out.attempts >= max_attempts {
+            if !e.retryable() || attempts >= call.max_attempts {
                 break;
             }
-            match (e, retry_after) {
+            let used = start.elapsed().as_millis() as u64;
+            let wait = match (e, retry_after) {
                 // The server named a wait: honour it if it ends before the deadline,
                 // else skip the moment rather than retry inside the interval.
-                (MindError::RateLimited | MindError::Server(_), Some(wait)) => {
-                    let used = start.elapsed().as_millis() as u64;
-                    if used.saturating_add(wait) >= deadline_ms {
-                        break;
-                    }
-                    self.transport.sleep(Duration::from_millis(wait));
+                (MindError::RateLimited | MindError::Server(_), Some(wait)) => Some(wait),
+                // No word on when to come back: back off, doubling, if the call does.
+                (MindError::RateLimited | MindError::Server(_), None) if call.backoff_ms > 0 => {
+                    Some(call.backoff_ms.saturating_mul(1 << (attempts - 1).min(16)))
                 }
-                // Rate limited with no word on when to come back: don't hammer.
+                // Rate limited and no backoff: don't hammer.
                 (MindError::RateLimited, None) => break,
-                _ => {}
+                _ => None,
+            };
+            if let Some(wait) = wait {
+                if used.saturating_add(wait) >= call.deadline_ms {
+                    break;
+                }
+                self.transport.sleep(Duration::from_millis(wait));
             }
         }
-        out
+        let ok = result.as_ref().ok();
+        let generation_id = ok
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .filter(|id| is_generation_id(id))
+            .map(str::to_owned);
+        let mut usage = Usage {
+            prompt_tokens: ok.and_then(|v| v.pointer("/usage/prompt_tokens")?.as_u64()),
+            completion_tokens: ok.and_then(|v| v.pointer("/usage/completion_tokens")?.as_u64()),
+            cost_usd,
+            cost_source: cost_usd.map(|_| "usage"),
+        };
+        if usage.cost_usd.is_none()
+            && let Some(id) = &generation_id
+            && let Some(c) = self.generation_cost(id, start, call.deadline_ms)
+        {
+            usage.cost_usd = Some(c);
+            usage.cost_source = Some("generation");
+        }
+        let answer = Answer {
+            model: ok.map_or_else(String::new, |v| model_of(v, call.model)),
+            task_type: ok.and_then(task_type),
+            generation_id,
+            usage,
+            attempts,
+            latency_ms: start.elapsed().as_millis() as u64,
+            call: self.log.is_connected().then(CallId::fresh),
+            result,
+        };
+        if let Some(uid) = &answer.call {
+            let error = answer.result.as_ref().err();
+            let output = answer
+                .content()
+                .map(str::to_owned)
+                .unwrap_or_else(|| match error {
+                    Some(e) if raw.is_empty() => e.to_string(),
+                    _ => raw,
+                });
+            self.log.record(CallRow {
+                uid: uid.clone(),
+                ts_ms,
+                purpose: call.purpose.as_str().to_owned(),
+                requested_model: call.model.to_owned(),
+                actual_model: (!answer.model.is_empty()).then(|| answer.model.clone()),
+                task_type: answer.task_type.clone(),
+                session_id: call.session_id.map(str::to_owned),
+                generation_id: answer.generation_id.clone(),
+                prompt_tokens: answer.usage.prompt_tokens,
+                completion_tokens: answer.usage.completion_tokens,
+                cost_usd: answer.usage.cost_usd,
+                cost_source: answer.usage.cost_source.map(str::to_owned),
+                latency_ms: answer.latency_ms,
+                attempts,
+                http_status: status,
+                error_kind: error.map(|e| e.tag().to_owned()),
+                verdict: if error.is_some() {
+                    Verdict::Failed
+                } else {
+                    Verdict::Pending
+                },
+                reason: None,
+                prompt: body,
+                output: self.key.redact(&output),
+            });
+        }
+        answer
+    }
+
+    /// The cost of a generation from the stats endpoint, tried twice (it can lag the
+    /// answer a little) while the deadline allows.
+    fn generation_cost(&mut self, id: &str, start: Instant, deadline_ms: u64) -> Option<f64> {
+        let url = format!("{}/api/v1/generation?id={id}", self.base_url);
+        let auth = self.key.bearer();
+        for (i, wait) in [0u64, 500].into_iter().enumerate() {
+            let used = start.elapsed().as_millis() as u64;
+            if used.saturating_add(wait) >= deadline_ms {
+                return None;
+            }
+            if i > 0 {
+                self.transport.sleep(Duration::from_millis(wait));
+            }
+            let Ok(r) = self.transport.get(&url, &auth) else {
+                continue;
+            };
+            if !(200..=299).contains(&r.status) {
+                continue;
+            }
+            let cost = serde_json::from_str::<Value>(&r.body)
+                .ok()
+                .and_then(|v| v.pointer("/data/total_cost")?.as_f64())
+                .filter(|c| c.is_finite() && *c >= 0.0);
+            if cost.is_some() {
+                return cost;
+            }
+        }
+        None
     }
 }
 
-fn reply<T>(
-    posted: Posted,
-    model: &str,
+fn is_generation_id(id: &str) -> bool {
+    id.starts_with("gen-")
+        && id.len() <= 128
+        && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+/// The router stage's task type: `data.task_type` on any stage of
+/// `openrouter_metadata.pipeline` (the docs name no stage type, so any stage counts).
+/// Kept only if it looks like a tag (`code:debugging`).
+pub fn task_type(v: &Value) -> Option<String> {
+    v.pointer("/openrouter_metadata/pipeline")?
+        .as_array()?
+        .iter()
+        .filter_map(|stage| stage.pointer("/data/task_type")?.as_str())
+        .find(|t| {
+            (1..=64).contains(&t.len())
+                && !t.contains("sk-")
+                && t.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b" :_-./".contains(&b))
+        })
+        .map(str::to_owned)
+}
+
+pub struct OpenRouterMind<T: Transport = UreqTransport> {
+    client: Client<T>,
+    models: Models,
+    line_max_tokens: u32,
+    live: LiveRules,
+}
+
+impl OpenRouterMind<UreqTransport> {
+    /// The live mind, with the key from `OPENROUTER_API_KEY`.
+    pub fn from_env(models: Models, limits: &Limits) -> Result<Self, MindError> {
+        let transport = UreqTransport::new(Duration::from_millis(limits.timeout_ms));
+        Ok(Self::with_transport(
+            transport,
+            ApiKey::from_env()?,
+            models,
+            limits,
+        ))
+    }
+}
+
+impl<T: Transport> OpenRouterMind<T> {
+    pub fn with_transport(transport: T, key: ApiKey, models: Models, limits: &Limits) -> Self {
+        Self {
+            client: Client::new(transport, key),
+            models,
+            line_max_tokens: limits.line_max_tokens,
+            live: LiveRules::default(),
+        }
+    }
+
+    /// Logs every call to `log`.
+    pub fn with_log(mut self, log: CallSink) -> Self {
+        self.client = self.client.with_log(log);
+        self
+    }
+
+    /// The live layer's model, router tier and limits.
+    pub fn with_live(mut self, live: LiveRules) -> Self {
+        self.live = live;
+        self
+    }
+
+    pub fn transport(&self) -> &T {
+        self.client.transport()
+    }
+
+    pub fn client(&mut self) -> &mut Client<T> {
+        &mut self.client
+    }
+}
+
+/// The answer as a [`Reply`]: parsed, with the cost and the actual model. A body that
+/// doesn't parse is a rejected call in the log.
+fn reply<T, U: Transport>(
+    client: &Client<U>,
+    answer: Answer,
     parse: impl FnOnce(&Value) -> Result<T, MindError>,
 ) -> Reply<T> {
-    let (result, model) = match posted.result {
-        Ok(v) => (parse(&v), model_of(&v, model)),
-        Err(e) => (Err(e), String::new()),
+    let result = match &answer.result {
+        Ok(v) => parse(v),
+        Err(e) => Err(e.clone()),
     };
+    if let (Ok(_), Err(e)) = (&answer.result, &result) {
+        client.verdict(&answer, Verdict::Rejected, Some(e.to_string()));
+    }
     Reply {
         result,
-        cost_usd: posted.cost_usd,
-        model,
-        attempts: posted.attempts,
+        cost_usd: answer.cost_usd(),
+        model: answer.model,
+        attempts: answer.attempts,
         hold_ticks: 0,
+        call: answer.call,
     }
 }
 
-fn cost(v: &Value) -> f64 {
+/// `usage.cost`, if the body reports it.
+fn reported_cost(v: &Value) -> Option<f64> {
     v.pointer("/usage/cost")
         .and_then(Value::as_f64)
         .filter(|c| c.is_finite() && *c >= 0.0)
-        .unwrap_or(0.0)
+}
+
+#[cfg(test)]
+fn cost(v: &Value) -> f64 {
+    reported_cost(v).unwrap_or(0.0)
+}
+
+/// The chat completions body for a live flourish: the auto router at its cost tier,
+/// the station's session, a JSON schema for the answer (honoured where the chosen
+/// model takes it; the answer is parsed defensively either way).
+pub fn live_body(rules: &LiveRules, req: &LiveRequest) -> Value {
+    json!({
+        "model": rules.model,
+        "plugins": [{ "id": "auto-router", "cost_tier": rules.cost_tier }],
+        "session_id": req.session_id,
+        "max_tokens": rules.max_tokens,
+        // The router may pick a reasoning model; a flourish needs little thought.
+        "reasoning": { "effort": rules.reasoning_effort },
+        "messages": [
+            { "role": "system", "content": req.system },
+            { "role": "user", "content": req.user.to_string() },
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": format!("live_{}", req.purpose.as_str()),
+                "strict": true,
+                "schema": req.schema,
+            },
+        },
+    })
+}
+
+/// Reads a live answer: the message content as one JSON object. Tolerates a code
+/// fence or a sentence around it; anything else is malformed.
+pub fn parse_live(v: &Value) -> Result<LiveDraft, MindError> {
+    let bad = |m: &str| MindError::Malformed(m.to_owned());
+    let content = v
+        .pointer("/choices/0/message/content")
+        .and_then(Value::as_str)
+        .filter(|c| !c.trim().is_empty())
+        .ok_or_else(|| bad("no message content"))?;
+    let (Some(open), Some(close)) = (content.find('{'), content.rfind('}')) else {
+        return Err(bad("message content is not a JSON object"));
+    };
+    if close < open {
+        return Err(bad("message content is not a JSON object"));
+    }
+    let value: Value = serde_json::from_str(&content[open..=close])
+        .map_err(|_| bad("message content is not a JSON object"))?;
+    if !value.is_object() {
+        return Err(bad("message content is not a JSON object"));
+    }
+    Ok(LiveDraft { value })
 }
 
 /// The Decisions API body for one question named `pick`.
@@ -487,31 +863,67 @@ impl<T: Transport> Mind for OpenRouterMind<T> {
 
     fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision> {
         let body = decision_body(&self.models.decision, req);
-        let posted = self.post(
-            "/api/alpha/decisions",
-            &body,
-            req.max_attempts,
-            req.deadline_ms,
-        );
-        reply(posted, &self.models.decision, |v| parse_decision(req, v))
+        let answer = self.client.call(&Call {
+            purpose: Purpose::Decision,
+            model: &self.models.decision,
+            path: DECISIONS_PATH,
+            body: &body,
+            session_id: None,
+            max_attempts: req.max_attempts,
+            deadline_ms: req.deadline_ms,
+            backoff_ms: 0,
+            metadata: false,
+        });
+        reply(&self.client, answer, |v| parse_decision(req, v))
     }
 
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         let body = line_body(&self.models.line, self.line_max_tokens, req);
-        let posted = self.post(
-            "/api/v1/chat/completions",
-            &body,
-            req.max_attempts,
-            req.deadline_ms,
-        );
+        let answer = self.client.call(&Call {
+            purpose: Purpose::Line,
+            model: &self.models.line,
+            path: CHAT_PATH,
+            body: &body,
+            session_id: None,
+            max_attempts: req.max_attempts,
+            deadline_ms: req.deadline_ms,
+            backoff_ms: 0,
+            metadata: false,
+        });
         // Model-written text is kept for exact replay (opt-in free phrasing only).
         // Redact the key from the *decoded* text and cites, so an echo in any JSON
         // encoding is caught before it is stored, shown or quoted anywhere.
-        let key = &self.key;
-        reply(posted, &self.models.line, |v| {
+        let key = self.client.key.clone();
+        reply(&self.client, answer, |v| {
             parse_line(v).map(|d| LineDraft {
                 text: key.redact(&d.text),
                 cites: d.cites.iter().map(|c| key.redact(c)).collect(),
+            })
+        })
+    }
+
+    fn live(&mut self, req: &LiveRequest) -> Reply<LiveDraft> {
+        let body = live_body(&self.live, req);
+        let answer = self.client.call(&Call {
+            purpose: req.purpose,
+            model: &self.live.model,
+            path: CHAT_PATH,
+            body: &body,
+            session_id: Some(&req.session_id),
+            max_attempts: req.max_attempts,
+            deadline_ms: req.deadline_ms,
+            backoff_ms: self.live.backoff_ms,
+            metadata: true,
+        });
+        // As for lines: the key is redacted from the decoded answer before anything
+        // stores or validates it.
+        let key = self.client.key.clone();
+        reply(&self.client, answer, |v| {
+            let draft = parse_live(v)?;
+            let text = key.redact(&draft.value.to_string());
+            Ok(LiveDraft {
+                value: serde_json::from_str(&text)
+                    .map_err(|_| MindError::Malformed("redacted answer".into()))?,
             })
         })
     }

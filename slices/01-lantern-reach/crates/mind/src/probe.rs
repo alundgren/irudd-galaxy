@@ -10,6 +10,7 @@ use galaxy_contract::ids::FactId;
 use serde::Serialize;
 use serde_json::json;
 
+use crate::calllog::CallSink;
 use crate::config::MindConfig;
 use crate::host::system_prompt;
 use crate::mind::{
@@ -338,7 +339,13 @@ pub fn line(mind: &mut impl Mind, config: &MindConfig) -> ProbeResult<serde_json
 /// The live calls against OpenRouter, as JSON for the CLI: a trader choice and a dock
 /// talk pick (both Jev), and a free-phrased line only if `talk.free_phrasing` is on.
 pub fn live(config: &MindConfig) -> Result<serde_json::Value, MindError> {
-    let mut mind = OpenRouterMind::from_env(config.models.clone(), &config.limits)?;
+    live_logged(config, &CallSink::new())
+}
+
+/// As [`live`], every call logged to `log`.
+pub fn live_logged(config: &MindConfig, log: &CallSink) -> Result<serde_json::Value, MindError> {
+    let mut mind =
+        OpenRouterMind::from_env(config.models.clone(), &config.limits)?.with_log(log.clone());
     let jev = decision(&mut mind);
     let pick = line_pick(&mut mind);
     let mut total = jev.cost_usd + pick.cost_usd;

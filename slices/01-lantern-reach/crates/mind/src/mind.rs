@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::calllog::CallId;
 use crate::executor::Job;
 
 /// A typed choice for a decision model (TypeSafe Jev).
@@ -125,6 +126,108 @@ pub struct LineDraft {
     pub cites: Vec<String>,
 }
 
+/// What a call is for. It is the call log's `purpose` column, and the live layer's
+/// flourish kinds are four of them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Purpose {
+    /// A typed choice (Jev).
+    Decision,
+    /// A free-phrased line (opt-in).
+    Line,
+    /// Station banter: a keeper's line at the dock.
+    Banter,
+    /// NPC ship traffic: a named craft and where it is bound.
+    Traffic,
+    /// A trader brags about a haul.
+    Brag,
+    /// A small discount on one ware at one station, for a few dockings.
+    Discount,
+    /// Radio text bits (reserved for the radio).
+    Radio,
+    /// Generated music (reserved).
+    Music,
+}
+
+impl Purpose {
+    /// The live layer's flourishes.
+    pub const LIVE: [Purpose; 4] = [
+        Purpose::Banter,
+        Purpose::Traffic,
+        Purpose::Brag,
+        Purpose::Discount,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Purpose::Decision => "decision",
+            Purpose::Line => "line",
+            Purpose::Banter => "banter",
+            Purpose::Traffic => "traffic",
+            Purpose::Brag => "brag",
+            Purpose::Discount => "discount",
+            Purpose::Radio => "radio",
+            Purpose::Music => "music",
+        }
+    }
+
+    /// The host's menu name for a live flourish (`live.banter` ...), as spend notes
+    /// and causes name it.
+    pub const fn menu(self) -> &'static str {
+        match self {
+            Purpose::Decision => "decision",
+            Purpose::Line => "line",
+            Purpose::Banter => "live.banter",
+            Purpose::Traffic => "live.traffic",
+            Purpose::Brag => "live.brag",
+            Purpose::Discount => "live.discount",
+            Purpose::Radio => "live.radio",
+            Purpose::Music => "live.music",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        [
+            Purpose::Decision,
+            Purpose::Line,
+            Purpose::Banter,
+            Purpose::Traffic,
+            Purpose::Brag,
+            Purpose::Discount,
+            Purpose::Radio,
+            Purpose::Music,
+        ]
+        .into_iter()
+        .find(|p| p.as_str() == s)
+    }
+}
+
+/// A live-layer flourish for a chat model behind the auto router: a closed world of
+/// IDs in `user`, an answer schema, and the station's session so its voice stays put.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LiveRequest {
+    /// The situation key (replays look answers up by it).
+    pub key: String,
+    pub purpose: Purpose,
+    /// OpenRouter's `session_id`: the station's ID.
+    pub session_id: String,
+    pub system: String,
+    /// The closed world and the task, as JSON.
+    pub user: Value,
+    /// The answer's JSON Schema (sent as `response_format` if the model takes it).
+    pub schema: Value,
+    /// As for [`DecisionRequest::max_attempts`].
+    pub max_attempts: u8,
+    /// As for [`DecisionRequest::deadline_ms`].
+    pub deadline_ms: u64,
+}
+
+/// A live answer before validation: the JSON object the model wrote.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LiveDraft {
+    pub value: Value,
+}
+
 /// What one call came to: the answer or why there was none, and what it cost either
 /// way. A failed, malformed or retried call can still be billed, and every billed
 /// response is recorded, so the cost travels with the error too.
@@ -140,6 +243,8 @@ pub struct Reply<T> {
     /// Replays only: ticks after the request before the host may handle the answer, so
     /// a recorded answer lands when the original did. 0 for live minds.
     pub hold_ticks: u64,
+    /// The call log row, if the call was logged: the host records its verdict there.
+    pub call: Option<CallId>,
 }
 
 impl<T> Reply<T> {
@@ -151,6 +256,7 @@ impl<T> Reply<T> {
             model: model.into(),
             attempts: 1,
             hold_ticks: 0,
+            call: None,
         }
     }
 
@@ -162,6 +268,7 @@ impl<T> Reply<T> {
             model: String::new(),
             attempts: 0,
             hold_ticks: 0,
+            call: None,
         }
     }
 
@@ -172,6 +279,7 @@ impl<T> Reply<T> {
             model: self.model,
             attempts: self.attempts,
             hold_ticks: self.hold_ticks,
+            call: self.call,
         }
     }
 }
@@ -260,6 +368,11 @@ pub trait Mind: Send {
     fn name(&self) -> &str;
     fn decide(&mut self, req: &DecisionRequest) -> Reply<Decision>;
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft>;
+    /// A live-layer flourish. Minds without one answer `NotRecorded`: nothing is sent and
+    /// the flourish is skipped.
+    fn live(&mut self, _req: &LiveRequest) -> Reply<LiveDraft> {
+        Reply::none(MindError::NotRecorded)
+    }
     /// Whether an [`crate::Inline`] executor takes this job. Live minds always do. A
     /// replay refuses the jobs the original executor refused as busy, so the same
     /// moments take the default at the same point.
@@ -277,6 +390,9 @@ impl<M: Mind + ?Sized> Mind for Box<M> {
     }
     fn line(&mut self, req: &LineRequest) -> Reply<LineDraft> {
         (**self).line(req)
+    }
+    fn live(&mut self, req: &LiveRequest) -> Reply<LiveDraft> {
+        (**self).live(req)
     }
     fn admits(&mut self, job: &Job) -> bool {
         (**self).admits(job)

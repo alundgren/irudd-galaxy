@@ -125,6 +125,8 @@ pub enum Stage {
     Pick,
     /// The line model's phrasing.
     Phrase,
+    /// A live-layer flourish.
+    Live,
 }
 
 /// The JSON note of a `mind.spend` fact: one request, everything a replay needs. A

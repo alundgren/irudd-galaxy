@@ -1060,6 +1060,8 @@ dependencies = [
  "galaxy-contract",
  "galaxy-core",
  "galaxy-economy",
+ "libm",
+ "rusqlite",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
