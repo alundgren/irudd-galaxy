@@ -1,0 +1,23 @@
+[package]
+name = "galaxy-gm"
+description = "The GM: builds and checks modules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+# The bin target's name is engine-only while the slice exists (see the workspace Cargo.toml).
+autobins = false
+
+[[bin]]
+name = "engine-galaxy-gm"
+path = "src/main.rs"
+
+[dependencies]
+galaxy-module.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
