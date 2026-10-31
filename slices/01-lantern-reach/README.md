@@ -50,11 +50,12 @@ a hanging sign: hover one and it lifts, outlined in orange, and its sign says wh
 it and what it offers; click it and the camera glides there and its room opens beside
 it, leaving the station in view. **Back**, **Esc** or a right-click returns to the whole
 station, and a click during a camera move finishes it. The station key along the bottom,
-beside the log icon, opens any part in one click. A part that changed lately carries a
-ribbon (**New**, **Changed**, **Closed**) for a few dockings; hover its icon for one line
-of news. The plate top left names the station and who holds it: the owning faction, or
-"Contested" or "Unclaimed" (as the map shows its region) for a station nobody owns, such
-as Cinder Hook at the start.
+beside the log icon, opens any part in one click. A market or a dockmaster that no part
+houses, as at a station a game-master pack founds during play, still has its room in the
+key, with no module. A part that changed lately carries a ribbon (**New**, **Changed**,
+**Closed**) for a few dockings; hover its icon for one line of news. The plate top left
+names the station and who holds it: the owning faction, or "Contested" or "Unclaimed" (as
+the map shows its region) for a station nobody owns, such as Cinder Hook at the start.
 
 The market room lists the station's wares, each drawn as goods with its price on a tag,
 the stock and what's in your hold. It's mouse-first: **Sell 1** / **Buy 1** trade one,

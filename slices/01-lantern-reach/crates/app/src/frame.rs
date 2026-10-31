@@ -1,6 +1,8 @@
 //! One frame: the world (or the map) plus the screen's panels. The window and
 //! `galaxy shot` build frames the same way, so a shot shows exactly what play shows.
 
+use std::borrow::Cow;
+
 use galaxy_contract::prelude::*;
 use render::glam::Vec2 as G2;
 use render::{Camera, Overlay, Rect, Scene};
@@ -26,15 +28,12 @@ const BUBBLE_MIN_W: f32 = 340.0;
 /// How much closer the camera comes when a room opens.
 const ROOM_ZOOM: f32 = 0.85;
 
-/// The room open at the dock now: the part, if the flagship is docked at its station.
-pub fn open_room<'a>(session: &'a Session, ui_state: &UiState) -> Option<&'a StationPart> {
+/// The room open at the dock now: the part (or stand-in room,
+/// [`ui::station::stand_ins`]), if the flagship is docked at its station.
+pub fn open_room<'a>(session: &'a Session, ui_state: &UiState) -> Option<Cow<'a, StationPart>> {
     let docked = session.flagship()?.docked_at.as_ref()?;
     let id = ui_state.room.as_ref()?;
-    session
-        .world()
-        .station_parts
-        .get(id)
-        .filter(|p| &p.station == docked)
+    ui::station::room_here(session.world(), docked, id)
 }
 
 /// The camera's goal. Flying, the flagship, drawn between ticks. Docked, the camera
@@ -78,7 +77,7 @@ pub fn camera_goal(
         });
     };
     let zoom = zoom * ROOM_ZOOM;
-    let at = crate::view::modules::module_point(world, part).map_or(centre, |(p, _)| p);
+    let at = crate::view::modules::module_point(world, &part).map_or(centre, |(p, _)| p);
     // The module in the middle of what the room leaves free on its left.
     let canvas = ui::canvas(viewport);
     let free = ui::station::room_rect(world, &st.id, canvas).x * ui::ui_scale(viewport);
@@ -240,7 +239,9 @@ fn station_frame(
     let world = session.world();
     let log_new = session.talk.log_new();
     let room = open_room(session, ui_state);
-    let room_rect = room.map(|_| ui::station::room_rect(world, station, canvas));
+    let room_rect = room
+        .as_ref()
+        .map(|_| ui::station::room_rect(world, station, canvas));
     let key = ui::station::key_rects(world, station, canvas);
     let key_area = ui::station::key_area(world, station, canvas);
     let plate = ui::station::plate_rect(world, station);
@@ -320,7 +321,7 @@ fn station_frame(
             world,
             history: session.sim().history(),
             station,
-            part,
+            part: &part,
             ui: ui_state,
             notices: ui::Notices {
                 trade: session.trades.notice.as_deref(),

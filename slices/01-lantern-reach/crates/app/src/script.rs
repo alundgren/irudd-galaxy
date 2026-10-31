@@ -331,13 +331,14 @@ fn click(session: &mut Session, keys: &mut Keys, click: Click) {
     session.tick(keys.tick_input(docked, Some(click)));
 }
 
-/// The part at the dock named by ID or by room kind (`market`, `wharf`, `dockmaster`).
+/// The room at the dock (a part, or a stand-in) named by ID or by room kind (`market`,
+/// `wharf`, `dockmaster`).
 fn docked_part(session: &Session, which: &str) -> Result<StationPartId, String> {
     let Some(station) = session.flagship().and_then(|f| f.docked_at.clone()) else {
         return Err(format!("`{which}`: rooms need the ship docked"));
     };
     let world = session.world();
-    let parts = ui::station::parts_here(world, &station);
+    let parts = ui::station::rooms_here(world, &station);
     parts
         .iter()
         .find(|p| {

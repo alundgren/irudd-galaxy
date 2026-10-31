@@ -303,3 +303,142 @@ fn an_older_save_without_parts_gets_them_on_open() {
         None
     );
 }
+
+const HALT: StationId = StationId::from_static("gm.sixth_station.halt");
+const WYNN: NpcId = NpcId::from_static("gm.sixth_station.wynn");
+const KETTLE: StationId = StationId::from_static("station.kettle_dock");
+
+/// A session docked at a station a game-master pack founded during play, like the
+/// example `gm.sixth_station`'s Meltwater Halt: a stocked market and a dockmaster, and
+/// no station parts. It's in the save, as an older save that founded it would have it.
+fn docked_at_a_founded_halt() -> Session {
+    let mut state = galaxy_app::game::new_state(&packs(), 1, false).unwrap();
+    let w = &mut state.world;
+    let mut halt = w.stations.get(&KETTLE).unwrap().clone();
+    halt.id = HALT;
+    halt.name = "Meltwater Halt".into();
+    halt.position = Vec2::new(300.0, 850.0);
+    halt.services = [Service::Market, Service::Dockmaster].into_iter().collect();
+    w.stations.insert(HALT, halt.clone());
+    let mut market = w.markets.get(&KETTLE).unwrap().clone();
+    market.station = HALT;
+    w.markets.insert(HALT, market);
+    w.npcs.insert(
+        WYNN,
+        Npc {
+            id: WYNN,
+            name: "Wynn Halloran".into(),
+            role: "dockmaster".into(),
+            faction: halt.owner.clone(),
+            location: Some(HALT),
+        },
+    );
+    let ship = w.player.ship.clone().unwrap();
+    let ship = w.ships.get_mut(&ship).unwrap();
+    ship.region = halt.region.clone();
+    ship.position = halt.position;
+    ship.velocity = Vec2::new(0.0, 0.0);
+    ship.docked_at = Some(HALT);
+    ship.hold.cargo.insert(ICE, 6);
+    let game = Game::open(state, &GameOptions::headless(packs(), 1)).unwrap();
+    let mut s = Session::with_game(game);
+    s.tick(PlayerInput::default());
+    assert_eq!(s.flagship().unwrap().docked_at, Some(HALT));
+    assert_eq!(galaxy_core::parts::of_station(s.world(), &HALT).count(), 0);
+    s
+}
+
+/// The buttons of the room the UI has open now, drawn as play draws it.
+fn open_room_buttons(s: &Session, ui_state: &UiState) -> Vec<ui::UiAction> {
+    let part = galaxy_app::frame::open_room(s, ui_state).expect("a room is open");
+    let mut o = render::Overlay::default();
+    let (_, buttons) = ui::rooms::panel(
+        &mut o,
+        s.world(),
+        s.sim().history(),
+        &HALT,
+        &part.id,
+        ui_state,
+        ui::Notices::default(),
+        ui::DESIGN,
+    )
+    .expect("the room draws");
+    buttons.into_iter().map(|b| b.action).collect()
+}
+
+#[test]
+fn a_station_with_no_parts_still_opens_its_market_and_office() {
+    let mut s = docked_at_a_founded_halt();
+    // The key offers both rooms, for one click each.
+    let mut key = render::Overlay::default();
+    let icons = ui::station::key(
+        &mut key,
+        s.world(),
+        &HALT,
+        &UiState::default(),
+        None,
+        ui::DESIGN,
+    );
+    let opens: Vec<&StationPartId> = icons
+        .iter()
+        .filter_map(|b| match &b.action {
+            ui::UiAction::OpenRoom(id) => Some(id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(opens.len(), 2, "an office and a market: {opens:?}");
+    let texts: Vec<&str> = key.texts.iter().map(|t| t.text.as_str()).collect();
+    assert!(
+        texts.contains(&"Office") && texts.contains(&"Market"),
+        "{texts:?}"
+    );
+    assert!(texts.contains(&"Wynn"), "kept by the dockmaster: {texts:?}");
+
+    // The market: buy and sell.
+    let mut ui_state = UiState::default();
+    galaxy_app::script::run(&mut s, &mut ui_state, ":room:market").unwrap();
+    let market = open_room_buttons(&s, &ui_state);
+    assert!(
+        market
+            .iter()
+            .any(|a| matches!(a, ui::UiAction::Trade { .. })),
+        "{market:?}"
+    );
+    // Kettle's ice line, where the station buys it.
+    ui_state.selected = ui::dock_lines(s.world(), &HALT)
+        .iter()
+        .position(|l| l.ware == ICE && l.side == TradeSide::Sell)
+        .expect("the halt buys ice");
+    let credits = s.world().player.credits;
+    galaxy_app::script::run(&mut s, &mut ui_state, ":trade").unwrap();
+    assert!(s.world().player.credits > credits, "the ice sold");
+
+    // The office: ask what changed, and Wynn answers.
+    galaxy_app::script::run(&mut s, &mut ui_state, ":room:dockmaster").unwrap();
+    let office = open_room_buttons(&s, &ui_state);
+    assert!(office.contains(&ui::UiAction::AskWhatChanged), "{office:?}");
+    assert!(s.ask_what_changed(), "Wynn can be asked");
+    assert!(office.contains(&ui::UiAction::CloseRoom));
+}
+
+#[test]
+fn authored_stations_need_no_stand_in_rooms() {
+    let s = Session::with_game(
+        Game::open(
+            galaxy_app::game::new_state(&packs(), 1, false).unwrap(),
+            &GameOptions::headless(packs(), 1),
+        )
+        .unwrap(),
+    );
+    for station in s.world().stations.keys() {
+        let key: Vec<StationPartId> = ui::station::key_rects(s.world(), station, ui::DESIGN)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        let parts: Vec<StationPartId> = ui::station::parts_here(s.world(), station)
+            .into_iter()
+            .map(|p| p.id.clone())
+            .collect();
+        assert_eq!(key, parts, "{station}: the key is its parts alone");
+    }
+}

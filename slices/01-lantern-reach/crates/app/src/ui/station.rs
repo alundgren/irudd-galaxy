@@ -11,9 +11,16 @@
 //!   one click to any of them. A part that changed lately carries a ribbon (New, Changed,
 //!   Closed) for `station.ribbon_dockings` dockings, counted, never timed. Hovering an
 //!   icon shows a one-line headline, cut to one line in code ([`headline_line`]).
+//! - **Stand-in rooms** ([`stand_ins`]): what a station offers that none of its parts
+//!   houses still gets a room in the key, with no module: its market, and the
+//!   dockmaster's office. A station a pack founds during play has no parts, so these
+//!   are all its rooms.
 //!
 //! Layout is on the UI canvas like the rest of [`super`], laid out against the goal
 //! banner, the hold, the log icon and the open room so nothing overlaps.
+
+use std::borrow::Cow;
+use std::cmp::Ordering;
 
 use galaxy_contract::parts::{PartState, RIBBON_DOCKINGS, Ribbon, RoomKind, StationPart};
 use galaxy_contract::prelude::*;
@@ -45,19 +52,141 @@ pub const HEADLINE_W: f32 = 520.0;
 pub const ROOM_SHARE: f32 = 0.45;
 const ROOM_MAX_W: f32 = 600.0;
 
-/// The station's parts in the key's order: by quarter, the office first, then by room
-/// kind and ID.
+/// The key's order: by quarter, the office first, then by room kind and ID.
+fn key_order(a: &StationPart, b: &StationPart) -> Ordering {
+    (&a.quarter, a.room != RoomKind::Dockmaster, a.room, &a.id).cmp(&(
+        &b.quarter,
+        b.room != RoomKind::Dockmaster,
+        b.room,
+        &b.id,
+    ))
+}
+
+/// The station's parts (its modules) in the key's order.
 pub fn parts_here<'a>(world: &'a WorldState, station: &'a StationId) -> Vec<&'a StationPart> {
     let mut parts: Vec<&StationPart> = galaxy_core::parts::of_station(world, station).collect();
-    parts.sort_by(|a, b| {
-        (&a.quarter, a.room != RoomKind::Dockmaster, a.room, &a.id).cmp(&(
-            &b.quarter,
-            b.room != RoomKind::Dockmaster,
-            b.room,
-            &b.id,
-        ))
-    });
+    parts.sort_by(|a, b| key_order(a, b));
     parts
+}
+
+/// Who keeps a stand-in room at a station where nobody lives. The room names no keeper.
+pub const NOBODY: NpcId = NpcId::from_static("npc.nobody");
+
+fn stand_in_id(station: &StationId, room: &str) -> StationPartId {
+    format!("part.{station}.{room}")
+        .parse()
+        .unwrap_or_else(|_| StationPartId::from_static("part.station.stand_in"))
+}
+
+/// Rooms for what `station` offers that none of its parts houses, so the key reaches
+/// everything for sale and everyone to ask: the dockmaster's office, when a dockmaster
+/// lives there or something is sold there whose seller keeps no part (the office shows
+/// those offers), and its market, when it has market lines. A station a pack founds
+/// during play has no parts, so these are all its rooms.
+///
+/// They have no module (an empty anchor): the key opens them, and the camera keeps to
+/// the station. They're worked out from the world each frame and never stored, so the
+/// sim, its hash and saves never see them; a part a pack puts up later takes over.
+pub fn stand_ins(world: &WorldState, station: &StationId) -> Vec<StationPart> {
+    if !world.stations.contains(station) {
+        return Vec::new();
+    }
+    let parts: Vec<&StationPart> = galaxy_core::parts::of_station(world, station).collect();
+    let housed = |kind: RoomKind| parts.iter().any(|p| p.room == kind);
+    let unhoused = |seller: &Option<NpcId>| {
+        seller
+            .as_ref()
+            .is_none_or(|s| !parts.iter().any(|p| &p.keeper == s))
+    };
+    let dockmaster = crate::hooks::keeper(world, station, "dockmaster");
+    let keeper = dockmaster
+        .clone()
+        .or_else(|| {
+            world
+                .npcs
+                .values()
+                .find(|n| n.location.as_ref() == Some(station))
+                .map(|n| n.id.clone())
+        })
+        .unwrap_or(NOBODY);
+    let part = |room: RoomKind, slug: &str, sign: String| StationPart {
+        id: stand_in_id(station, slug),
+        station: station.clone(),
+        room,
+        name: None,
+        module: String::new(),
+        anchor: String::new(),
+        quarter: None,
+        keeper: keeper.clone(),
+        state: PartState::Open,
+        level: 1,
+        sign,
+        line: String::new(),
+        cause: None,
+        rollback_line: String::new(),
+        news: None,
+    };
+    let mut out = Vec::new();
+    if !housed(RoomKind::Dockmaster) {
+        let rules = &world.progress.rules;
+        let sold = rules
+            .upgrades
+            .values()
+            .any(|u| u.station.as_ref() == Some(station) && unhoused(&u.seller))
+            || rules
+                .crafts
+                .values()
+                .any(|c| &c.station == station && unhoused(&c.seller))
+            || rules
+                .prestige
+                .as_ref()
+                .is_some_and(|p| &p.station == station && unhoused(&p.seller));
+        if let Some(d) = &dockmaster {
+            let sign = format!("{} runs the dock", full_name(world, d));
+            out.push(part(RoomKind::Dockmaster, "office", sign));
+        } else if sold {
+            let sign = "What's for sale here".to_owned();
+            out.push(part(RoomKind::Dockmaster, "office", sign));
+        }
+    }
+    let market = world
+        .markets
+        .get(station)
+        .is_some_and(|m| !m.lines.is_empty());
+    if market && !housed(RoomKind::Market) {
+        out.push(part(RoomKind::Market, "market", "Buy and sell here".into()));
+    }
+    out
+}
+
+/// Every room the key opens at `station`, in the key's order: its parts, and the
+/// [`stand_ins`] for what they don't house.
+pub fn rooms_here<'a>(world: &'a WorldState, station: &'a StationId) -> Vec<Cow<'a, StationPart>> {
+    let mut rooms: Vec<Cow<'a, StationPart>> = galaxy_core::parts::of_station(world, station)
+        .map(Cow::Borrowed)
+        .chain(stand_ins(world, station).into_iter().map(Cow::Owned))
+        .collect();
+    rooms.sort_by(|a, b| key_order(a, b));
+    rooms
+}
+
+/// The room `id` at `station`: one of its parts, or a stand-in.
+pub fn room_here<'a>(
+    world: &'a WorldState,
+    station: &StationId,
+    id: &StationPartId,
+) -> Option<Cow<'a, StationPart>> {
+    match world
+        .station_parts
+        .get(id)
+        .filter(|p| &p.station == station)
+    {
+        Some(p) => Some(Cow::Borrowed(p)),
+        None => stand_ins(world, station)
+            .into_iter()
+            .find(|p| &p.id == id)
+            .map(Cow::Owned),
+    }
 }
 
 /// How many dockings a ribbon stays, from the pacing data (3 if the save lacks it).
@@ -172,7 +301,8 @@ pub fn plate(o: &mut Overlay, world: &WorldState, station: &StationId) {
     );
 }
 
-/// The key's icons, left to right after the log icon: each part and its rect.
+/// The key's icons, left to right after the log icon: each room ([`rooms_here`]) and
+/// its rect.
 pub fn key_rects(
     world: &WorldState,
     station: &StationId,
@@ -182,7 +312,7 @@ pub fn key_rects(
     // Clear of the log's "new" tag at its widest, so the key never shifts.
     let tag = super::log::icon_area(999, canvas);
     let y = log.y + log.h - KEY_H;
-    parts_here(world, station)
+    rooms_here(world, station)
         .into_iter()
         .enumerate()
         .map(|(i, p)| {
@@ -192,7 +322,7 @@ pub fn key_rects(
         .collect()
 }
 
-/// The whole key with its ribbons, for layout; `None` for a station with no parts.
+/// The whole key with its ribbons, for layout; `None` for a station with no rooms.
 pub fn key_area(world: &WorldState, station: &StationId, canvas: G2) -> Option<Rect> {
     let rects = key_rects(world, station, canvas);
     let (first, last) = (rects.first()?.1, rects.last()?.1);
@@ -338,8 +468,9 @@ pub fn key(
     canvas: G2,
 ) -> Vec<Button> {
     let mut buttons = Vec::new();
+    let rooms = rooms_here(world, station);
     for (id, r) in key_rects(world, station, canvas) {
-        let Some(part) = world.station_parts.get(&id) else {
+        let Some(part) = rooms.iter().find(|p| p.id == id) else {
             continue;
         };
         let open = ui.room.as_ref() == Some(&id);
@@ -372,6 +503,7 @@ pub fn key(
                 .align(Align::Center),
         );
         let under = match part.state {
+            PartState::Open if !world.npcs.contains(&part.keeper) => "Open".to_owned(),
             PartState::Open => first_name(world, &part.keeper),
             PartState::Closed => "Closed".to_owned(),
             PartState::Building => "Building".to_owned(),
@@ -644,5 +776,43 @@ mod tests {
         for (_, r) in &rects {
             assert!(!overlaps(r, &log), "{r:?} on the log icon");
         }
+    }
+
+    #[test]
+    fn a_station_where_nobody_lives_keeps_its_market_and_what_it_sells() {
+        const KETTLE: StationId = StationId::from_static("station.kettle_dock");
+        let mut w = world();
+        assert!(stand_ins(&w, &KETTLE).is_empty(), "its parts house it all");
+        let parts: Vec<StationPartId> = galaxy_core::parts::of_station(&w, &KETTLE)
+            .map(|p| p.id.clone())
+            .collect();
+        for id in &parts {
+            w.station_parts.remove(id);
+        }
+        let here: Vec<NpcId> = w
+            .npcs
+            .values()
+            .filter(|n| n.location.as_ref() == Some(&KETTLE))
+            .map(|n| n.id.clone())
+            .collect();
+        for id in &here {
+            w.npcs.get_mut(id).unwrap().location = None;
+        }
+        // Tamsin's tenders are still sold here, so an office shows them; nobody keeps it.
+        let rooms = stand_ins(&w, &KETTLE);
+        let kinds: Vec<RoomKind> = rooms.iter().map(|p| p.room).collect();
+        assert_eq!(kinds, [RoomKind::Dockmaster, RoomKind::Market]);
+        assert!(rooms.iter().all(|p| p.keeper == NOBODY));
+        let mut o = Overlay::default();
+        key(
+            &mut o,
+            &w,
+            &KETTLE,
+            &UiState::default(),
+            None,
+            super::super::DESIGN,
+        );
+        let texts: Vec<&str> = o.texts.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(texts, ["Office", "Open", "Market", "Open"]);
     }
 }

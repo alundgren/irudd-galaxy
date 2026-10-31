@@ -1,7 +1,8 @@
 //! The dockmaster's office: ask what changed here and nearby (the answer comes as the
 //! dockmaster's bubbles, rising from this office), the dockmaster's own offers, and any
 //! offer at the station whose seller keeps no part of it, so nothing for sale goes
-//! missing.
+//! missing. With no dockmaster living here (a stand-in office for those offers alone),
+//! the ask button shows dashed.
 
 use render::glam::Vec2 as G2;
 use render::{Overlay, Rect, Text};
@@ -11,6 +12,7 @@ use crate::ui::{BLACK, Button, UiAction};
 
 pub fn draw(o: &mut Overlay, room: &Room<'_>, body: Rect) -> Vec<Button> {
     let mut buttons = Vec::new();
+    let can_ask = crate::hooks::keeper(room.world, room.station, "dockmaster").is_some();
     let first = room
         .world
         .npcs
@@ -23,18 +25,19 @@ pub fn draw(o: &mut Overlay, room: &Room<'_>, body: Rect) -> Vec<Button> {
         room.ui,
         Rect::new(body.x, body.y + 2.0, 200.0, 36.0),
         "Ask what changed",
-        true,
+        can_ask,
         UiAction::AskWhatChanged,
     ));
+    let says = if can_ask {
+        format!("{first} tells you what changed here and nearby.")
+    } else {
+        "No dockmaster lives here to ask.".to_owned()
+    };
     o.texts.push(
-        Text::new(
-            format!("{first} tells you what changed here and nearby."),
-            G2::new(body.x + 214.0, body.y + 11.0),
-            14.0,
-        )
-        .weight(500)
-        .color(BLACK)
-        .wrap(body.w - 214.0),
+        Text::new(says, G2::new(body.x + 214.0, body.y + 11.0), 14.0)
+            .weight(500)
+            .color(BLACK)
+            .wrap(body.w - 214.0),
     );
     let mut offers = offers_of(room, &room.part.keeper);
     for extra in unhoused_offers(room) {

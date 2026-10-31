@@ -63,20 +63,23 @@ pub fn draw(o: &mut Overlay, room: &Room<'_>, rect: Rect) -> Vec<Button> {
             .weight(700)
             .color(BLACK),
     );
+    // A stand-in room at a station where nobody lives names no keeper.
     let keeper = room
         .world
         .npcs
         .get(&part.keeper)
-        .map_or_else(|| part.keeper.to_string(), |n| n.name.clone());
-    o.texts.push(
-        Text::new(
-            format!("Kept by {keeper}"),
-            G2::new(x + text_width(part.title(), 26.0) + 14.0, rect.y + 25.0),
-            15.0,
-        )
-        .weight(600)
-        .color(BLACK),
-    );
+        .map_or_else(String::new, |n| n.name.clone());
+    if !keeper.is_empty() {
+        o.texts.push(
+            Text::new(
+                format!("Kept by {keeper}"),
+                G2::new(x + text_width(part.title(), 26.0) + 14.0, rect.y + 25.0),
+                15.0,
+            )
+            .weight(600)
+            .color(BLACK),
+        );
+    }
     buttons.push(button(
         o,
         room.ui,
@@ -157,8 +160,8 @@ pub fn draw(o: &mut Overlay, room: &Room<'_>, rect: Rect) -> Vec<Button> {
 }
 
 /// Draws the room of `part` at `station` where the frame puts it, with `notices`: its
-/// rect and buttons. `None` if the part isn't at that station. For tests and tools; play
-/// draws rooms through [`crate::frame::compose`].
+/// rect and buttons. `None` if there's no such part or stand-in room at that station.
+/// For tests and tools; play draws rooms through [`crate::frame::compose`].
 #[allow(clippy::too_many_arguments)]
 pub fn panel(
     o: &mut Overlay,
@@ -170,25 +173,22 @@ pub fn panel(
     notices: Notices<'_>,
     canvas: G2,
 ) -> Option<(Rect, Vec<Button>)> {
-    let part = world
-        .station_parts
-        .get(part)
-        .filter(|p| &p.station == station)?;
+    let part = super::station::room_here(world, station, part)?;
     let rect = super::station::room_rect(world, station, canvas);
     let room = Room {
         world,
         history,
         station,
-        part,
+        part: &part,
         ui,
         notices,
     };
     Some((rect, draw(o, &room, rect)))
 }
 
-/// The first part at `station` that opens into a `kind` room.
+/// The first room at `station` (a part, or a stand-in) of `kind`.
 pub fn of_kind(world: &WorldState, station: &StationId, kind: RoomKind) -> Option<StationPartId> {
-    super::station::parts_here(world, station)
+    super::station::rooms_here(world, station)
         .into_iter()
         .find(|p| p.room == kind)
         .map(|p| p.id.clone())
