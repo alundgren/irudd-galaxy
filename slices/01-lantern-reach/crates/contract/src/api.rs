@@ -606,7 +606,7 @@ pub const FUNCTIONS: &[FnDef] = &[
         "put",
         "happenings.write",
         "(happening: Happening, why: Cause) -> ()",
-        "Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.",
+        "Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.",
     ),
     f(
         "happenings",

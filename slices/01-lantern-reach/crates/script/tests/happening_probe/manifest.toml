@@ -8,6 +8,7 @@ uses = [
     "events.dock",
     "happenings.read",
     "happenings.write",
+    "talk.write",
 ]
 
 [[script]]

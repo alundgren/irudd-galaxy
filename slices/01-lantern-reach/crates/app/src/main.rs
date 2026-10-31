@@ -16,6 +16,8 @@ use galaxy_contract::prelude::*;
 use galaxy_core::{Save, SaveError, SimState};
 use serde_json::{Value, json};
 
+mod memory_cli;
+
 #[derive(Parser)]
 #[command(
     name = "galaxy",
@@ -56,6 +58,11 @@ enum Cmd {
     History {
         #[command(subcommand)]
         command: HistoryCmd,
+    },
+    /// Search world memory: summarised history per station, person and faction.
+    Memory {
+        #[command(subcommand)]
+        command: memory_cli::MemoryCmd,
     },
     /// The contract's JSON Schemas.
     Api {
@@ -610,6 +617,7 @@ fn main() -> ExitCode {
         Cmd::History {
             command: HistoryCmd::Query { target, filter },
         } => history_query(target, filter),
+        Cmd::Memory { command } => memory_cli::run(command).map_err(fail),
         Cmd::Api {
             command: ApiCmd::Dump { name },
         } => api_dump(name.as_deref()),

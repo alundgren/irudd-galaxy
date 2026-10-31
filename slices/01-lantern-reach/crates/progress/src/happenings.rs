@@ -118,17 +118,24 @@ fn end(world: &WorldState, h: &Happening) -> Option<CommandBatch> {
     })
 }
 
-/// The batch that starts `h` at the station the flagship `ship` is docked at.
-fn start(world: &WorldState, ship: &ShipId, h: &Happening, cites: Vec<FactId>) -> CommandBatch {
+/// The batch that starts `h` at the station the flagship `ship` is docked at, if `h`
+/// still passes its checks there (a speaker who has moved away makes it wait).
+fn start(
+    world: &WorldState,
+    ship: &ShipId,
+    h: &Happening,
+    cites: Vec<FactId>,
+) -> Option<CommandBatch> {
     let mut running = h.clone();
     running.run = HappeningRun::Active {
         since: Tick(world.meta.tick.0 + 1),
         first_docking: dockings_at(world, &h.station),
         cites: cites.clone(),
     };
+    galaxy_core::happenings::check(world, &running).ok()?;
     let mut cause = Cause::system(SYSTEM_NAME, format!("{} begins", h.id));
     cause.cites = cites.clone();
-    CommandBatch {
+    Some(CommandBatch {
         cause,
         commands: vec![
             Command::ExpectDocked {
@@ -149,7 +156,7 @@ fn start(world: &WorldState, ship: &ShipId, h: &Happening, cites: Vec<FactId>) -
                 line: Box::new(start_line(h, cites)),
             },
         ],
-    }
+    })
 }
 
 /// This tick's batches: every running happening whose last docking has passed ends,
@@ -174,9 +181,9 @@ pub fn due(world: &WorldState, history: &History) -> Vec<CommandBatch> {
     }
     let next = galaxy_core::happenings::of_station(world, &station)
         .filter(|h| h.run.is_upcoming())
-        .find_map(|h| causes_met(history, h).map(|cites| (h, cites)));
-    if let Some((h, cites)) = next {
-        out.push(start(world, ship, h, cites));
+        .find_map(|h| start(world, ship, h, causes_met(history, h)?));
+    if let Some(batch) = next {
+        out.push(batch);
     }
     out
 }

@@ -64,6 +64,13 @@ pub(super) fn namespace<'scope, 'env: 'scope>(
         "put",
         m(scope, env, |lua, env, (spec, why): (Table, Table)| {
             let mut h: Happening = env.decode(lua, spec, "happening")?;
+            if !env.may("talk.write") {
+                return Err(env.fail(
+                    lua,
+                    "undeclared_capability",
+                    "a happening's speaker talks when it starts: declare `talk.write` too",
+                ));
+            }
             if h.by.is_some() || !h.run.is_upcoming() {
                 return Err(env.fail(
                     lua,

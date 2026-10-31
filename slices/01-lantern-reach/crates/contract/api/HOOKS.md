@@ -162,7 +162,7 @@ and `ctx.store` (the script's declared stores).
 - `ctx.happenings:get(id: HappeningId) -> Happening?` (`happenings.read`): A happening, with where it is in its run (`run.status`: upcoming, active, ended).
 - `ctx.happenings:list(station: StationId) -> { HappeningId }` (`happenings.read`): A station's happenings, upcoming, running and over, sorted by ID.
 - `ctx.happenings:active(station: StationId) -> HappeningId?` (`happenings.read`): The happening running at a station now, if any (at most one at a time).
-- `ctx.happenings:put(happening: Happening, why: Cause) -> ()` (`happenings.write`): Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.
+- `ctx.happenings:put(happening: Happening, why: Cause) -> ()` (`happenings.write`): Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.
 - `ctx.happenings:remove(id: HappeningId, why: Cause) -> ()` (`happenings.write`): Takes away a happening that hasn't started. One that is running or over stays.
 
 ### `ctx.factions`
@@ -397,7 +397,7 @@ beat precondition can be met by a forged fact.
 | `set_canon_status` | `canon.write` | `ctx.canon:open`. |
 | `put_station_recipe` | never | Recipes come with `found_station`. |
 | `put_station_part` | `stations.write` | `ctx.parts:put`, `ctx.parts:remove` (only while the player is docked). |
-| `put_happening` | `happenings.write` | `ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). |
+| `put_happening` | `happenings.write` and `talk.write` | `ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). Its speaker talks when it starts, so `talk.write` too. |
 | `put_map_overlay` | `kit.write` | `ctx.kit:overlay`. |
 | `put_region` | `territory.write` | `ctx.territory:set_owner`. |
 | `put_lane` | never | Authored data. |

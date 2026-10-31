@@ -21,6 +21,7 @@ pub mod history;
 pub mod invariants;
 pub mod load;
 mod load_progress;
+pub mod memory;
 pub mod parts;
 pub mod placeholder;
 pub mod rng;

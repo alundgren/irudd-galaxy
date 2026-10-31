@@ -927,7 +927,13 @@ fn apply_with(
                         v.id
                     )));
                 }
-                if refs.check {
+                // An ended happening is the runtime's record of what ran: it isn't
+                // checked again, so a speaker who has moved on never keeps it running.
+                let ended = matches!(
+                    v.run,
+                    galaxy_contract::happening::HappeningRun::Ended { .. }
+                );
+                if refs.check && !ended {
                     crate::happenings::check(world, v).map_err(|e| {
                         CommandError::Invalid(format!("happening {id}: {}", e.join("; ")))
                     })?;

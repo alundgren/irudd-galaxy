@@ -230,8 +230,8 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
     ),
     row(
         "put_happening",
-        Needs::Uses(&[&["happenings.write"]]),
-        "`ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only).",
+        Needs::Uses(&[&["happenings.write"], &["talk.write"]]),
+        "`ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). Its speaker talks when it starts, so `talk.write` too.",
     ),
     row(
         "put_map_overlay",

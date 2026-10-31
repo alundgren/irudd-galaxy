@@ -266,7 +266,7 @@ export type HappeningsApi = {
 	list: (self: HappeningsApi, station: StationId) -> { HappeningId },
 	-- The happening running at a station now, if any (at most one at a time).
 	active: (self: HappeningsApi, station: StationId) -> HappeningId?,
-	-- Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.
+	-- Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.
 	put: (self: HappeningsApi, happening: Happening, why: Cause) -> (),
 	-- Takes away a happening that hasn't started. One that is running or over stays.
 	remove: (self: HappeningsApi, id: HappeningId, why: Cause) -> (),
