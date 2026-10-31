@@ -109,8 +109,8 @@ Cold builds are the slowest part of a review, and parallel builds starve the mac
 `cargo xtask` handles both by default; nothing needs setting up:
 - **Shared folders.** It builds outside the worktree, under a per-user cache folder
   (`irudd-galaxy/target` in the OS cache folder; `cargo xtask target-dir` prints the
-  one in use). Set `GALAXY_TARGET_ROOT` to put the folders elsewhere, such as a fast
-  drive.
+  one in use). Set `GALAXY_TARGET_ROOT` to an absolute folder to put them elsewhere,
+  such as a fast drive. It moves the shared folders; it can't turn them off.
 - **Slots.** Each run leases one of a small pool of folders (`slot-1` to `slot-4`) and
   holds it until it exits, so one agent uses a slot at a time. It takes the slot its
   worktree used last, else its branch's, else the most recently used free one. A new
@@ -123,7 +123,6 @@ Cold builds are the slowest part of a review, and parallel builds starve the mac
   `GALAXY_BUILD_PERMITS=2` allows two at once and sets `CARGO_BUILD_JOBS` to
   cores / permits; `0` turns the wait off.
 - Locks are OS file locks: a crashed or killed run releases its slot and permit.
-  Folders under the root can be deleted any time; they rebuild.
 
 Notes:
 - Run targeted commands through it, `cargo xtask cargo test -p <crate>`, never plain
@@ -132,14 +131,16 @@ Notes:
   both running at half speed.
 - `GALAXY_TARGET_KEY=<name>` pins a folder of that name under the root instead of a
   slot (still one run at a time).
-- Opting out: `GALAXY_TARGET_ROOT=off` builds into the worktree's own `target/`, and an
-  explicit `CARGO_TARGET_DIR` always wins. Both still wait for the build permit.
-- Never build from scratch: no fresh or emptied target folders, no `cargo clean`, no
-  bypassing the machine's compiler cache. Measure builds as the machine is set up.
+- There is no opt-out. `cargo xtask` ignores `CARGO_TARGET_DIR`, and a
+  `GALAXY_TARGET_ROOT` that isn't an absolute folder falls back to the default.
+- Never turn off, bypass or opt out of the shared build cache (the shared folders or the
+  machine's compiler cache), and never run cold or uncached builds, for measurements or
+  any other reason: no fresh or emptied target folders, no deleting slots, no
+  `cargo clean`. Measure builds as the machine is set up.
 - `cargo xtask build-report` times the first build in the leased slot, a no-op rebuild,
   a rebuild after touching `galaxy-core` and the test build, and writes
-  `build-report.json` into the slot. It never builds from scratch. `cargo xtask loc [--base <ref>]` counts code lines
-  per crate. A change to how things build or where code lives reports both in its PR.
+  `build-report.json` into the slot. It never builds from scratch.
+  `cargo xtask loc [--base <ref>]` counts code lines per crate. A change to how things build or where code lives reports both in its PR.
 
 ## Platforms
 

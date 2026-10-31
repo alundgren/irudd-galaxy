@@ -318,8 +318,9 @@ Builds don't go to `target/`: `cargo xtask` builds in one of a few shared slots 
 per-user cache folder (`cargo xtask target-dir` prints the one in use), so a new branch
 or worktree starts with its dependencies compiled. Only one compiling command runs at a
 time on the machine; another one prints that it is waiting and starts when the first
-finishes. `GALAXY_TARGET_ROOT` moves the slots, `GALAXY_TARGET_ROOT=off` builds into
-`target/` again, and `GALAXY_BUILD_PERMITS` allows more builds at once. Details:
+finishes. `GALAXY_TARGET_ROOT` (an absolute folder) moves the slots, and
+`GALAXY_BUILD_PERMITS` allows more builds at once. There is no way to turn the shared
+folders off, and builds never run without the cache. Details:
 "Builds" in the root `AGENTS.md`.
 
 Use `cargo xtask build` and `cargo xtask run -- <command>` during development;

@@ -79,15 +79,15 @@ fn main() -> ExitCode {
         }
         "contract" => contract(),
         "cargo" => {
+            if let Err(message) = build::validate_args(&rest) {
+                eprintln!("xtask: {message}");
+                return ExitCode::FAILURE;
+            }
             let _permit = build::is_heavy(&rest).then(build::permit);
             exit(cargo().args(rest).status().is_ok_and(|s| s.success()))
         }
         "target-dir" => {
-            let dir = std::env::var_os("CARGO_TARGET_DIR")
-                .map(PathBuf::from)
-                .or_else(|| build::target_dir().map(Path::to_path_buf))
-                .unwrap_or_else(|| workspace_root().join("target"));
-            println!("{}", dir.display());
+            println!("{}", build::target_dir().display());
             ExitCode::SUCCESS
         }
         "build-report" => report::run(&rest),

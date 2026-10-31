@@ -1,8 +1,8 @@
 //! Where cargo builds, and how many heavy builds run at once.
 //!
-//! Target folders live under one shared root outside the worktree: `GALAXY_TARGET_ROOT`,
-//! or a per-user cache folder when that is unset. `GALAXY_TARGET_ROOT=off` opts out (the
-//! worktree's own `target/`), and `CARGO_TARGET_DIR` wins over both.
+//! Every build goes to one shared root outside the worktree: a per-user cache folder, or
+//! the absolute folder `GALAXY_TARGET_ROOT` names. There is no opt-out: the root can move
+//! but never turn off, and a `CARGO_TARGET_DIR` from the environment is ignored.
 //!
 //! Each run leases one folder and holds it until it exits, so one run uses a folder at a
 //! time: a slot from a small pool (`slot-1` to `slot-N`, `GALAXY_TARGET_SLOTS`, default 4),
@@ -38,11 +38,12 @@ const RUN_VARS: &[&str] = &[
 ];
 
 static HELD: AtomicBool = AtomicBool::new(false);
+static ROOT: OnceLock<PathBuf> = OnceLock::new();
 static LEASE: OnceLock<Lease> = OnceLock::new();
 
 struct Lease {
-    dir: Option<PathBuf>,
-    _lock: Option<File>,
+    dir: PathBuf,
+    _lock: File,
 }
 
 /// Holds a build permit until dropped.
@@ -66,26 +67,32 @@ fn number(name: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-/// The shared root, or `None` when `GALAXY_TARGET_ROOT=off`.
-pub fn shared_root() -> Option<PathBuf> {
-    match var("GALAXY_TARGET_ROOT") {
-        Some(v) if v.trim().eq_ignore_ascii_case("off") => None,
-        Some(v) => Some(PathBuf::from(v)),
-        None => Some(default_root()),
-    }
+/// The shared root: `GALAXY_TARGET_ROOT` if it is an absolute folder, else the per-user
+/// cache folder (`%LOCALAPPDATA%`, `~/Library/Caches` or `~/.cache`).
+fn shared_root() -> &'static Path {
+    ROOT.get_or_init(|| {
+        let default = directories::BaseDirs::new()
+            .map(|d| d.cache_dir().join("irudd-galaxy").join("target"))
+            .unwrap_or_else(|| std::env::temp_dir().join("irudd-galaxy-target"));
+        match var("GALAXY_TARGET_ROOT").map(PathBuf::from) {
+            Some(root) if root.is_absolute() => root,
+            Some(root) => {
+                eprintln!(
+                    "note: GALAXY_TARGET_ROOT={} is not an absolute folder. It can move the \
+                     shared build folder but not turn it off; using {}",
+                    root.display(),
+                    default.display()
+                );
+                default
+            }
+            None => default,
+        }
+    })
 }
 
-/// The per-user cache folder: `%LOCALAPPDATA%`, `~/Library/Caches` or `~/.cache`.
-fn default_root() -> PathBuf {
-    directories::BaseDirs::new()
-        .map(|d| d.cache_dir().join("irudd-galaxy").join("target"))
-        .unwrap_or_else(|| std::env::temp_dir().join("irudd-galaxy-target"))
-}
-
-/// The folder cargo builds into for this run, leased on first use. `None` leaves the choice
-/// to cargo (`CARGO_TARGET_DIR`, or `target/` when opted out).
-pub fn target_dir() -> Option<&'static Path> {
-    LEASE.get_or_init(lease).dir.as_deref()
+/// The shared folder cargo builds into for this run, leased on first use.
+pub fn target_dir() -> &'static Path {
+    &LEASE.get_or_init(lease).dir
 }
 
 /// Cargo, building into [`target_dir`], with the permit marker and job cap set.
@@ -101,9 +108,7 @@ pub fn cargo() -> std::process::Command {
             cmd.env_remove(name.as_ref());
         }
     }
-    if let Some(dir) = target_dir() {
-        cmd.env("CARGO_TARGET_DIR", dir);
-    }
+    cmd.env("CARGO_TARGET_DIR", target_dir());
     if HELD.load(Ordering::SeqCst) {
         cmd.env(PERMIT_HELD, "1");
     }
@@ -113,6 +118,20 @@ pub fn cargo() -> std::process::Command {
         cmd.env("CARGO_BUILD_JOBS", (cores / permits).max(1).to_string());
     }
     cmd
+}
+
+/// Reject accidental cache deletion or target overrides before launching Cargo.
+pub fn validate_args(args: &[std::ffi::OsString]) -> Result<(), &'static str> {
+    for arg in args.iter().take_while(|arg| *arg != "--") {
+        let arg = arg.to_string_lossy();
+        if arg == "clean" {
+            return Err("cargo clean is disabled: preserve the shared warm cache");
+        }
+        if arg == "--target-dir" || arg.starts_with("--target-dir=") {
+            return Err("--target-dir is disabled: use the leased shared target folder");
+        }
+    }
+    Ok(())
 }
 
 /// Whether `cargo <args>` compiles.
@@ -129,8 +148,7 @@ pub fn permit() -> Permit {
     if permits == 0 || var(PERMIT_HELD).is_some() {
         return Permit(None);
     }
-    // Opted out of the shared folders, the permit still lives in the default root.
-    let dir = shared_root().unwrap_or_else(default_root).join("locks");
+    let dir = shared_root().join("locks");
     let names: Vec<String> = (1..=permits).map(|i| format!("build-{i}")).collect();
     let what = "a build permit (one heavy build at a time; GALAXY_BUILD_PERMITS raises it)";
     let (_, file) = acquire(&dir, &names, what);
@@ -139,16 +157,12 @@ pub fn permit() -> Permit {
 }
 
 fn lease() -> Lease {
-    let none = Lease {
-        dir: None,
-        _lock: None,
-    };
     if var("CARGO_TARGET_DIR").is_some() {
-        return none;
+        eprintln!(
+            "note: ignoring CARGO_TARGET_DIR; cargo xtask always builds in the shared folder"
+        );
     }
-    let Some(root) = shared_root() else {
-        return none;
-    };
+    let root = shared_root();
     let mut names: Vec<String> = match var("GALAXY_TARGET_KEY") {
         Some(key) => vec![folder_name(&key)],
         None => (1..=number("GALAXY_TARGET_SLOTS", DEFAULT_SLOTS).max(1))
@@ -170,13 +184,10 @@ fn lease() -> Lease {
             std::cmp::Reverse(used),
         )
     });
-    let (name, file) = acquire(&root, &names, "a free target folder");
+    let (name, file) = acquire(root, &names, "a free target folder");
     let dir = root.join(name);
     eprintln!("==> target folder {}", dir.display());
-    Lease {
-        dir: Some(dir),
-        _lock: Some(file),
-    }
+    Lease { dir, _lock: file }
 }
 
 /// Locks the first free `<name>.lock` in `dir`, in order, polling until one is free, and
@@ -300,7 +311,18 @@ fn folder_name(key: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{folder_name, is_heavy};
+    use super::{folder_name, is_heavy, validate_args};
+
+    #[test]
+    fn passthrough_preserves_warm_targets() {
+        let valid =
+            |args: &[&str]| validate_args(&args.iter().map(Into::into).collect::<Vec<_>>()).is_ok();
+        assert!(!valid(&["clean"]));
+        assert!(!valid(&["build", "--target-dir", "elsewhere"]));
+        assert!(!valid(&["test", "--target-dir=elsewhere"]));
+        assert!(valid(&["test", "--", "clean", "--target-dir=fixture"]));
+        assert!(valid(&["test", "-p", "galaxy-core"]));
+    }
 
     #[test]
     fn keys_become_one_folder() {
