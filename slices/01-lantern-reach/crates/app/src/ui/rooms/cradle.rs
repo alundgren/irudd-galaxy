@@ -22,6 +22,9 @@ const LABEL_W: f32 = 176.0;
 const LABEL_H: f32 = 46.0;
 const LABEL_GAP: f32 = 8.0;
 const CHIP_H: f32 = 22.0;
+/// How much of the room left of the panel the socket labels take, from its left edge:
+/// talk bubbles keep right of it.
+pub const COLUMN: f32 = LABEL_W + 18.0;
 
 /// What a pointer over `action` is over, for a part in hand.
 pub fn over_of(action: Option<&UiAction>) -> Option<Over> {
@@ -112,8 +115,11 @@ pub fn furniture(
         let hovered = room.ui.cursor.is_some_and(|c| contains(rect, c))
             || ui.chosen.is_some() && ui.chosen == fitted;
         let over_here = ui.over == Some(Over::Socket(s.socket.clone()));
+        let refused_here = over_here && !target && holding.is_some();
         let (border, px) = if target {
             (SKY, if over_here { 5.0 } else { 4.0 })
+        } else if refused_here {
+            (VERMILION, 4.0)
         } else if hovered {
             (ORANGE, 3.5)
         } else {
@@ -137,6 +143,8 @@ pub fn furniture(
         let fitting_here = ui.fitting.as_ref().is_some_and(|f| f.socket == s.socket);
         let what = if target {
             "Drop here".to_owned()
+        } else if refused_here {
+            "×  Can't go on here now".to_owned()
         } else if fitting_here {
             "Fitting…".to_owned()
         } else if let Some(p) = &fitted {
@@ -150,7 +158,7 @@ pub fn furniture(
                 G2::new(rect.x + 12.0, rect.y + 25.0),
                 13.0,
             )
-            .weight(if target { 700 } else { 500 })
+            .weight(if target || refused_here { 700 } else { 500 })
             .color(BLACK),
         );
         buttons.push(Button {

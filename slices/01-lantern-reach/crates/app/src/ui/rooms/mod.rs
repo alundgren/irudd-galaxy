@@ -6,7 +6,8 @@
 //! its buttons. It frames every room the same way (its name and keeper, the sign, the
 //! keeper's line when there's news or it's shut, Back, how to leave) and hands the body
 //! to the room kind's own function in [`body`]. A new kind of room is one more arm
-//! there; the later hullwright cradle view replaces [`wharf::draw`]. Room actions are
+//! there; the wharf's is the hullwright's cradle ([`wharf::draw`], with
+//! [`cradle::furniture`] beside the ship and [`fit`] for drag to fit). Room actions are
 //! the screen's ordinary [`UiAction`]s (trades, services, asking), so the window, the
 //! key scripts and the tests drive rooms the same way.
 
@@ -285,9 +286,20 @@ pub fn offers_of(room: &Room<'_>, keeper: &NpcId) -> Vec<OfferRow> {
 /// Offers at the station whose seller keeps no part here: the office shows them, so
 /// nothing for sale goes missing.
 pub fn unhoused_offers(room: &Room<'_>) -> Vec<OfferRow> {
-    let keepers: Vec<&NpcId> = galaxy_core::parts::of_station(room.world, room.station)
+    let mut keepers: Vec<&NpcId> = galaxy_core::parts::of_station(room.world, room.station)
         .map(|p| &p.keeper)
         .collect();
+    // A wharf's keeper sells at their own cradle (a stand-in room where no part houses
+    // it).
+    keepers.extend(
+        room.world
+            .progress
+            .rules
+            .fit
+            .wharves
+            .get(room.station)
+            .map(|w| &w.keeper),
+    );
     hooks::station_services(room.world, room.history, room.station)
         .into_iter()
         .filter(|e| e.keeper.as_ref().is_none_or(|k| !keepers.contains(&k)))

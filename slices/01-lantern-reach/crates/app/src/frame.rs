@@ -336,25 +336,47 @@ fn station_frame(
     // Modules first: every panel's buttons sit on top of them.
     buttons.extend(ui::station::module_buttons(&targets, canvas));
     // The bubble, laid out first so no sign prints through it.
-    let bubble = (!log_open).then(|| session.bubble()).flatten().map(|b| {
-        let mut bounds =
-            ui::station::bubble_bounds(world, station, room.is_some(), log_new, canvas);
-        // Over the whole station, bubbles keep to the space left of it when that's
-        // roomy enough, so every module stays in view.
-        if room.is_none()
-            && let Some(left) = ui::station::art_left(world, station, camera, viewport, scale)
-            && left - ui::GAP - bounds.x >= BUBBLE_MIN_W
-        {
-            bounds.w = bounds.w.min(left - ui::GAP - bounds.x);
-        }
-        let anchor = session
-            .anchors
-            .anchor(world, &b.line, station)
-            .and_then(|at| camera.world_to_screen(g(at).extend(0.0), viewport))
-            .map_or(bounds.center(), |p| p / scale);
-        let rect = ui::talk::layout(&b, world, anchor, bounds).rect;
-        (b, anchor, bounds, rect)
-    });
+    // With a part in hand at the cradle, talk waits until it's put down: the drag's
+    // tag and the rings stay clear.
+    let holding = cradle.is_some() && ui_state.wharf.held.is_some();
+    let bubble = (!log_open && !holding)
+        .then(|| session.bubble())
+        .flatten()
+        .map(|b| {
+            let mut bounds =
+                ui::station::bubble_bounds(world, station, room.is_some(), log_new, canvas);
+            // At the cradle, bubbles keep right of the socket labels.
+            if cradle.is_some() {
+                let column = ui::rooms::cradle::COLUMN;
+                bounds.x += column;
+                bounds.w = (bounds.w - column).max(0.0);
+            }
+            // Over the whole station, bubbles keep to the space left of it when that's
+            // roomy enough, so every module stays in view.
+            if room.is_none()
+                && let Some(left) = ui::station::art_left(world, station, camera, viewport, scale)
+                && left - ui::GAP - bounds.x >= BUBBLE_MIN_W
+            {
+                bounds.w = bounds.w.min(left - ui::GAP - bounds.x);
+            }
+            let anchor = session
+                .anchors
+                .anchor(world, &b.line, station)
+                .and_then(|at| camera.world_to_screen(g(at).extend(0.0), viewport))
+                .map_or(bounds.center(), |p| p / scale);
+            // Close in on the cradle, a speaker's module is often off screen: their bubble
+            // keeps to the bounds rather than following it off the edge.
+            let anchor = if cradle.is_some() {
+                G2::new(
+                    anchor.x.clamp(bounds.x, bounds.x + bounds.w),
+                    anchor.y.clamp(bounds.y, bounds.y + bounds.h),
+                )
+            } else {
+                anchor
+            };
+            let rect = ui::talk::layout(&b, world, anchor, bounds).rect;
+            (b, anchor, bounds, rect)
+        });
     let mut avoid = cover.clone();
     avoid.extend(bubble.as_ref().map(|(.., r)| *r));
     if let (Some(area), true) = (

@@ -512,7 +512,9 @@ fn word(o: &mut Overlay, room: &Room<'_>, x: f32, y: f32, w: f32) -> f32 {
         14.0,
         500,
     );
-    o.texts.last_mut().map(|t| t.max_width = Some(w));
+    if let Some(t) = o.texts.last_mut() {
+        t.max_width = Some(w);
+    }
     44.0
 }
 
@@ -693,7 +695,9 @@ fn tray_rows(o: &mut Overlay, room: &Room<'_>, view: &WharfView, tray: Rect) -> 
             Tab::Friends => "Nobody sends parts through here yet.",
         };
         line(o, text, tray.x, tray.y + 4.0, 15.0, 600);
-        o.texts.last_mut().map(|t| t.max_width = Some(tray.w));
+        if let Some(t) = o.texts.last_mut() {
+            t.max_width = Some(tray.w);
+        }
         return buttons;
     }
     let fits = (tray.h / ROW).floor().max(1.0) as usize;
@@ -773,7 +777,10 @@ fn part_row(
     let text_x = x + 18.0;
     let text_w = w - state_w - 30.0;
     let row = Rect::new(x - 8.0, y, w + 16.0, ROW - 6.0);
-    let in_hand = ui.held.as_ref().is_some_and(|h| h.part == p.part);
+    let in_hand = ui
+        .held
+        .as_ref()
+        .is_some_and(|h| h.part == p.part && h.from != Source::Socket);
     let draggable = p.held.is_none() && p.tab != "Friends";
     if in_hand {
         // On the hook: a dashed sky-blue outline where it was.

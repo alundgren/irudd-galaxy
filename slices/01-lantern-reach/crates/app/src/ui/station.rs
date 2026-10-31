@@ -81,8 +81,9 @@ fn stand_in_id(station: &StationId, room: &str) -> StationPartId {
 /// Rooms for what `station` offers that none of its parts houses, so the key reaches
 /// everything for sale and everyone to ask: the dockmaster's office, when a dockmaster
 /// lives there or something is sold there whose seller keeps no part (the office shows
-/// those offers), and its market, when it has market lines. A station a pack founds
-/// during play has no parts, so these are all its rooms.
+/// those offers), its market, when it has market lines, and a wharf the fit rules list
+/// there (kept by that wharf's keeper). A station a pack founds during play has no
+/// parts, so these are all its rooms.
 ///
 /// They have no module (an empty anchor): the key opens them, and the camera keeps to
 /// the station. They're worked out from the world each frame and never stored, so the
@@ -155,6 +156,17 @@ pub fn stand_ins(world: &WorldState, station: &StationId) -> Vec<StationPart> {
         .is_some_and(|m| !m.lines.is_empty());
     if market && !housed(RoomKind::Market) {
         out.push(part(RoomKind::Market, "market", "Buy and sell here".into()));
+    }
+    // A wharf the fit rules know (Cinder Hook's rough rigger) with no part for it: its
+    // keeper's cradle.
+    if !housed(RoomKind::Wharf)
+        && let Some(w) = world.progress.rules.fit.wharves.get(station)
+        && world.npcs.contains(&w.keeper)
+    {
+        out.push(StationPart {
+            keeper: w.keeper.clone(),
+            ..part(RoomKind::Wharf, "wharf", w.name.clone())
+        });
     }
     out
 }

@@ -28,9 +28,21 @@ const FILL: f32 = 0.5;
 /// fit on its left.
 const ACROSS: f32 = 0.62;
 
-/// Where the cradle holds the ship: on the wharf's module.
+/// Where the cradle holds the ship: on the wharf's module, or for a stand-in wharf
+/// with no module, at the station's heart.
 pub fn center(world: &WorldState, part: &StationPart) -> Option<G2> {
-    super::modules::module_point(world, part).map(|(p, _)| p)
+    super::modules::module_point(world, part)
+        .map(|(p, _)| p)
+        .or_else(|| {
+            let st = world.stations.get(&part.station)?;
+            let recipe = galaxy_core::parts::recipe_of(world, st);
+            Some(
+                super::station_transform(st, &recipe)
+                    .w_axis
+                    .truncate()
+                    .truncate(),
+            )
+        })
 }
 
 /// The kit's socket for one of ours: the rack sits in the utility bay but has no ring

@@ -275,7 +275,7 @@ pub struct Button {
     pub action: UiAction,
 }
 
-pub(crate) fn contains(r: &Rect, p: G2) -> bool {
+pub fn contains(r: &Rect, p: G2) -> bool {
     p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
 }
 
