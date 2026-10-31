@@ -13,7 +13,8 @@
 # npcs.toml, and their talk bubbles rise from this module. Packs change parts at a calm
 # moment with `ctx.parts` (crates/contract/api/HOOKS.md).
 #
-# Every station has a market and a dockmaster's office; Lantern Wharf has the wharf.
+# Every station has a market and a dockmaster's office; Lantern Wharf has the wharf, and
+# Cinder Hook has Juno's rough rig.
 # Schema: crates/contract/schemas/data-station-parts.json
 
 # --- Lantern Wharf ---------------------------------------------------------------------
@@ -101,6 +102,17 @@ anchor = "hook.north"
 keeper = "npc.juno_brask"
 sign = "Ore sold cheap, plate wanted"
 rollback_line = "I've stacked the crates away. Trade with Rook for now."
+
+# Juno's rough rig: drill mounts only (ship_parts.toml), heavier and cheaper.
+[[part]]
+id = "part.hook.rig"
+station = "station.cinder_hook"
+room = "wharf"
+module = "docking_arm"
+anchor = "hook.south"
+keeper = "npc.juno_brask"
+sign = "Juno rigs drill mounts, rough and cheap"
+rollback_line = "I've chained the rig up. Your locker is safe; Orrin fits at the Wharf."
 
 # --- Brassmouth Exchange ---------------------------------------------------------------
 

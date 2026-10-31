@@ -33,6 +33,22 @@
 //! - `:hover:PART`: show a part's module and key icon hovered, as the mouse would
 //!   (`:hover:` with nothing clears it).
 //!
+//! At the hullwright's cradle (the wharf's room open), the mouse's verbs:
+//!
+//! - `:tab:ready`, `:tab:make`, `:tab:friends`: click a tray tab;
+//! - `:drag:ID:SOCKET`: press on a part (in the tray, the locker, or fitted on its
+//!   socket) and drag it over a socket (`socket.drill`) or the locker (`locker`),
+//!   still held, so a shot shows the rings, the ghost and the preview; `:drop`: let
+//!   go there (the ticks run so the request settles);
+//! - `:pick:ID`: click a part (it's picked up; a fitted one is chosen, showing its
+//!   Remove); `:socket:ID`: click a socket (drops what's picked up, or chooses what's
+//!   in it); `:locker`: click the locker (takes a picked-up fitted part off);
+//! - `:remove`: click Remove for the chosen part; `:make:ID`: click a Make part's
+//!   Make button (the confirm opens); `:confirm`: click the confirm's Make button;
+//!   `:cancel`: put down what's in hand or close the confirm (Esc).
+//!
+//! The fitting animation runs on the ticks a script runs (`wait*45` plays it out).
+//!
 //! Example: `w,wait*3,w*75,wait*30,space*150` flies off the dock, flies ahead (east
 //! from a new game's Wharf) for two and a half seconds, coasts to a stop, then mines
 //! for five.
@@ -62,6 +78,22 @@ enum Step {
     Room(String),
     Back,
     Hover(String),
+    Wharf(WharfStep),
+}
+
+/// A mouse step at the hullwright's cradle.
+#[derive(Clone, Debug, PartialEq)]
+enum WharfStep {
+    Tab(String),
+    Drag(String, String),
+    Drop,
+    Pick(String),
+    Socket(String),
+    Locker,
+    Remove,
+    Make(String),
+    Confirm,
+    Cancel,
 }
 
 fn point(raw: &str, rest: &str) -> Result<(f32, f32), String> {
@@ -132,6 +164,21 @@ fn parse(script: &str) -> Result<Vec<Step>, String> {
             t if t.starts_with(":room:") => Step::Room(t[6..].to_owned()),
             ":back" => Step::Back,
             t if t.starts_with(":hover:") => Step::Hover(t[7..].to_owned()),
+            t if t.starts_with(":tab:") => Step::Wharf(WharfStep::Tab(t[5..].to_owned())),
+            t if t.starts_with(":drag:") => {
+                let (part, to) = t[6..]
+                    .rsplit_once(':')
+                    .ok_or_else(|| format!("`{raw}` needs PART:SOCKET"))?;
+                Step::Wharf(WharfStep::Drag(part.to_owned(), to.to_owned()))
+            }
+            ":drop" => Step::Wharf(WharfStep::Drop),
+            t if t.starts_with(":pick:") => Step::Wharf(WharfStep::Pick(t[6..].to_owned())),
+            t if t.starts_with(":socket:") => Step::Wharf(WharfStep::Socket(t[8..].to_owned())),
+            ":locker" => Step::Wharf(WharfStep::Locker),
+            ":remove" => Step::Wharf(WharfStep::Remove),
+            t if t.starts_with(":make:") => Step::Wharf(WharfStep::Make(t[6..].to_owned())),
+            ":confirm" => Step::Wharf(WharfStep::Confirm),
+            ":cancel" => Step::Wharf(WharfStep::Cancel),
             "wait" => Step::Hold(Vec::new(), n),
             keys => Step::Hold(
                 keys.split('+')
@@ -150,6 +197,8 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
     let mut ticks = 0;
     let mut keys = Keys::default();
     for step in parse(script)? {
+        let before = ticks;
+        let wharf_step = matches!(step, Step::Wharf(_));
         match step {
             Step::Hold(held, n) => {
                 for k in &held {
@@ -267,10 +316,23 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                 if ui_state.room.as_ref() != Some(&id) {
                     ui_state.selected = 0;
                     ui_state.services_first = 0;
+                    ui_state.wharf.reset();
                 }
                 ui_state.room = Some(id);
             }
-            Step::Back => ui_state.room = None,
+            Step::Back => {
+                ui_state.room = None;
+                ui_state.wharf.reset();
+            }
+            Step::Wharf(w) => {
+                if let Some(req) = wharf(session, ui_state, &w)? {
+                    ui::rooms::fit::send(session, &mut ui_state.wharf, req);
+                    for _ in 0..3 {
+                        tick(session, &mut keys);
+                        ticks += 1;
+                    }
+                }
+            }
             Step::Hover(which) => {
                 ui_state.hover = if which.is_empty() {
                     None
@@ -292,8 +354,123 @@ pub fn run(session: &mut Session, ui_state: &mut UiState, script: &str) -> Resul
                 ticks += 1;
             }
         }
+        if session.flagship().is_some_and(|f| f.docked_at.is_none()) {
+            ui_state.room = None;
+            ui_state.wharf.reset();
+        }
+        ui::rooms::fit::settle(session, &mut ui_state.wharf);
+        let ran = ticks - before;
+        // A wharf step's own settling ticks happen as the animation starts.
+        if ran > 0 && !wharf_step {
+            ui_state
+                .wharf
+                .advance(ran as f32 / galaxy_contract::TICKS_PER_SECOND as f32);
+        }
     }
     Ok(ticks)
+}
+
+/// A mouse step at the cradle: what the window's press, move, release or click would
+/// do there. Returns the request it sends.
+fn wharf(
+    session: &Session,
+    ui_state: &mut UiState,
+    step: &WharfStep,
+) -> Result<Option<ServiceRequest>, String> {
+    use ui::rooms::fit::{Over, Source, WharfAction};
+    if crate::frame::cradle_room(session, ui_state).is_none() {
+        return Err(format!(
+            "`{step:?}` needs a wharf's room open at the dock (`:room:wharf`)"
+        ));
+    }
+    let station = session
+        .flagship()
+        .and_then(|f| f.docked_at.clone())
+        .expect("docked");
+    let (world, history) = (session.world(), session.sim().history());
+    let w = &mut ui_state.wharf;
+    let upgrade = |id: &str| id.parse::<UpgradeId>().map_err(|e| format!("`{id}`: {e}"));
+    let socket = |id: &str| id.parse::<SocketId>().map_err(|e| format!("`{id}`: {e}"));
+    // A part as the mouse finds it: fitted on its socket, in the locker, or in the tray.
+    let part_action = |part: UpgradeId| {
+        if world.player.fittings.contains(&part) {
+            ui::rooms::fit::socket_of(world, &part).map_or(
+                WharfAction::Part {
+                    part: part.clone(),
+                    from: Source::Socket,
+                },
+                WharfAction::Socket,
+            )
+        } else {
+            let in_locker = galaxy_contract::fit::flagship(world)
+                .is_some_and(|s| galaxy_contract::fit::locker(world, &s.id).any(|p| p == &part));
+            WharfAction::Part {
+                part,
+                from: if in_locker {
+                    Source::Locker
+                } else {
+                    Source::Tray
+                },
+            }
+        }
+    };
+    Ok(match step {
+        WharfStep::Tab(t) => {
+            let tab = ui::rooms::fit::Tab::parse(t)
+                .ok_or_else(|| format!("`{t}`: the tabs are ready, make and friends"))?;
+            w.click(world, history, &station, &WharfAction::Tab(tab))
+        }
+        WharfStep::Drag(part, to) => {
+            let a = part_action(upgrade(part)?);
+            if !w.press(world, &a) {
+                return Err(format!("`{part}` can't be picked up now"));
+            }
+            let over = if to == "locker" {
+                Over::Locker
+            } else {
+                Over::Socket(socket(to)?)
+            };
+            w.hover(Some(over));
+            None
+        }
+        WharfStep::Drop => w.release(world, history, true),
+        WharfStep::Pick(part) => {
+            let a = part_action(upgrade(part)?);
+            if w.press(world, &a) {
+                w.release(world, history, false)
+            } else {
+                w.click(world, history, &station, &a)
+            }
+        }
+        WharfStep::Socket(s) => w.click(world, history, &station, &WharfAction::Socket(socket(s)?)),
+        WharfStep::Locker => w.click(world, history, &station, &WharfAction::Locker),
+        WharfStep::Remove => {
+            let part = w
+                .chosen
+                .clone()
+                .ok_or("`:remove` needs a fitted part chosen (`:pick:ID` on it)")?;
+            w.click(world, history, &station, &WharfAction::Remove(part))
+        }
+        WharfStep::Make(part) => w.click(
+            world,
+            history,
+            &station,
+            &WharfAction::Make {
+                part: upgrade(part)?,
+                fit: false,
+            },
+        ),
+        WharfStep::Confirm => {
+            if w.make.is_none() {
+                return Err("`:confirm` needs the Make confirm open".into());
+            }
+            w.click(world, history, &station, &WharfAction::ConfirmMake)
+        }
+        WharfStep::Cancel => {
+            w.back();
+            None
+        }
+    })
 }
 
 /// The service request a dock-screen button would make for `id`. The hullwright's
@@ -416,6 +593,20 @@ mod tests {
                 Step::Hover(String::new()),
             ]
         );
+        assert_eq!(
+            parse(":tab:make,:drag:upgrade.mining_lens:socket.drill,:drop,:pick:upgrade.hold_pods")
+                .unwrap(),
+            vec![
+                Step::Wharf(WharfStep::Tab("make".into())),
+                Step::Wharf(WharfStep::Drag(
+                    "upgrade.mining_lens".into(),
+                    "socket.drill".into()
+                )),
+                Step::Wharf(WharfStep::Drop),
+                Step::Wharf(WharfStep::Pick("upgrade.hold_pods".into())),
+            ]
+        );
+        assert!(parse(":drag:upgrade.mining_lens").is_err());
         assert!(parse(":replay:0").is_err());
         assert!(parse("x*3").is_err());
         assert!(parse("w*lots").is_err());
