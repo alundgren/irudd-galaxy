@@ -1,0 +1,13 @@
+# The stroll test module, changed: hot-loaded into a running sim by the engine tests.
+id = "stroll"
+version = "0.1.1"
+min_engine_version = "0.2.0"
+scripts = ["scripts/stroll.luau"]
+events = ["started", "turn", "climbed", "paced"]
+writes = ["engine.position", "engine.motion", "engine.surface"]
+
+[components.walker]
+steps = "int"
+climbs = "int"
+pace = { type = "number", default = 1 }
+boosts = { type = "int", default = 7 }

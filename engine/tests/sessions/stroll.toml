@@ -1,0 +1,21 @@
+# A scripted session for `galaxy sim run --inputs`: two turns, a note, and a hot-load of
+# a changed stroll module (each walker then counts ten steps a second).
+[[input]]
+tick = 45
+name = "stroll.turn"
+source = "keyboard"
+payload = { walker = "stroll.w2" }
+
+[[input]]
+tick = 200
+name = "stroll.turn"
+source = "keyboard"
+payload = { walker = "stroll.w2" }
+
+[[note]]
+tick = 150
+text = "w1 is half way up the ramp"
+
+[[hot_load]]
+tick = 360
+from = "../hot-load/stroll"

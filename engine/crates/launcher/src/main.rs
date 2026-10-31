@@ -5,7 +5,10 @@
 //!
 //! Which build:
 //! - `--build <name>` before the command: exactly that build folder (the only way to run a
-//!   `--dev` build). Recordings will name their build the same way.
+//!   `--dev` build).
+//! - `galaxy sim replay <recording>`: the build the recording names, if it names one (a
+//!   recording made by an installed build does), so a replay runs on the engine that made
+//!   it.
 //! - Otherwise the newest non-dev build that is at least the highest minimum engine version
 //!   of the modules the arguments name (`check <path>`, `play --modules <dir>`, `doctor`:
 //!   the working folder). If none is new enough, the newest build, whose version gate
@@ -40,10 +43,10 @@ fn launch() -> Result<ExitCode, Failure> {
     })?;
     let root = root_of(&exe);
     let (named, args) = split_build_arg(std::env::args_os().skip(1).collect())?;
-    let want = match named {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let want = match named.or_else(|| discover::recording_build(tool, &args, &cwd)) {
         Some(name) => Want::Named(name),
         None => {
-            let cwd = std::env::current_dir().unwrap_or_default();
             let minimum = discover::modules_for(tool, &args, &cwd)
                 .iter()
                 .filter_map(|dir| manifest::read_minimum(dir).ok())

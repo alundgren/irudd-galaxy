@@ -30,10 +30,11 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
 
 ## Rules
 
-- **The engine knows no game.** It builds and passes its tests without `game/`, and no
-  module ID from `game/` appears in engine or GM source. Tests use generic modules made in
-  the test or under `tests/modules`. A coming part of `check` will scan engine and GM
-  source for every ID the core module declares and fail on a match.
+- **The engine knows no game.** It builds and passes its tests without `game/`. Engine and
+  GM source never refer to anything a `game/` module defines: no `core.` IDs and no code
+  for one particular ship, station or ware. Ordinary words such as `deck` or `target` are
+  fine. Tests use generic modules made in the test or under `tests/modules`. Reviewers
+  reject an engine PR that names something from `game/`.
 - **The boundary serves the game.** See the boundary rule in the root `AGENTS.md`: when a
   rule here would block a feature the owner wants or make the game worse, stop and raise
   it.
@@ -41,11 +42,16 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   for plumbing (windowing, GPU, audio output, font shaping, file formats, the Luau VM).
 - **One note per system.** `docs/` has a "how it works" note for each engine system: how
   it works, the alternatives and why this design. A PR that changes a system updates its
-  note. Current notes: `docs/modules-and-install.md`, `docs/exit-codes.md`.
+  note. Current notes: `docs/world-and-sim.md`, `docs/saves-and-replay.md`,
+  `docs/script-host.md`, `docs/modules-and-install.md`, `docs/exit-codes.md`.
 - **Exit codes and error kinds** are one table for both binaries, kept in
   `crates/module/src/failure.rs` and `docs/exit-codes.md` together.
-- **Determinism.** The simulation will be deterministic: fixed tick, seeded randomness,
+- **Determinism.** The simulation is deterministic: fixed tick, seeded randomness,
   portable maths (`libm` or plain Rust, never `f32::sin` and friends), recorded inputs.
+  `crates/galaxy/tests/sim.rs` holds the world hash a scripted session must end with on
+  every OS; change it only on purpose, and say so in the PR.
+- **Per-frame work never runs in Luau.** Scripts run on events and the slow cadence;
+  per-frame work is engine services in Rust.
 - **Tests stay headless**: no window, GPU, audio device or network. Tests that need one go
   behind `#[ignore]`.
 - **Dependencies** live in `[workspace.dependencies]` in `Cargo.toml`; crates use

@@ -31,11 +31,45 @@ A module is a folder with a `manifest.toml`:
 ```toml
 id = "example"                 # lowercase letters, digits, - and _; starts with a letter
 version = "0.1.0"              # the module's own version
-min_engine_version = "0.1.0"   # the oldest engine that can run it
+min_engine_version = "0.2.0"   # the oldest engine that can run it
+
+scripts = ["scripts/main.luau"]   # entry scripts (script-host.md)
+events = ["opened", "pressed"]    # event kinds it records or takes as input
+writes = ["engine.position"]      # other modules' or the engine's component types it writes
+
+[components.door]                 # a component type, example.door
+open = "bool"                     # a field and its type
+pushes = { type = "int", default = 0 }
 ```
 
-Versions are `MAJOR.MINOR.PATCH` (`MAJOR.MINOR` means `.0`), compared number by number.
-The format grows with the engine; unknown fields are an error, so typos are caught.
+Field types are `number`, `int`, `bool`, `text` and `id` (an entity ID, or `""` for
+none). Component types, event kinds and fields have one-part names; everything a module
+names is `<module>.<name>` to everyone else (`world-and-sim.md`). Versions are
+`MAJOR.MINOR.PATCH` (`MAJOR.MINOR` means `.0`), compared number by number. Unknown fields
+are an error, so typos are caught.
+
+Beside the manifest:
+
+```text
+start.toml         optional: the entities a new world starts with
+scripts/*.luau     scripts
+tests/*.toml       scenario tests (saves-and-replay.md)
+```
+
+`start.toml` lists entities by name with their components:
+
+```toml
+[entities.front]                       # example.front
+door = { open = false }                # this module's component type
+"engine.position" = { x = 1.0, y = 2.0 }
+```
+
+## The module loader
+
+`crates/module/src/module.rs` reads a module folder into memory once: its `.toml` and
+`.luau` files (names starting with `.` are skipped), with line endings made `\n`. The
+engine runs, records and hashes only that copy, so a recording can store exactly the files
+a session ran. Other files (notes, later assets) are not read yet.
 
 ## The version gate
 
@@ -55,12 +89,14 @@ Which modules a command is about:
 | Command | Modules |
 |---|---|
 | `galaxy-gm check <path>` | the module at `<path>` (the folder or its `manifest.toml`) |
-| `galaxy play --modules <dir>` | `<dir>` if it is a module, else every module folder in it |
+| `galaxy play --modules <dir>`, `galaxy sim run --modules <dir>`, `galaxy sim load <save> --modules <dir>` | `<dir>` if it is a module, else every module folder in it |
 | `doctor` (both binaries) | walking up from the working folder: the first folder that is a module, holds modules, or holds `game/modules` |
 
-`check` and `play` are not built yet: after the gate passes they exit 1 with kind
-`not_built`. `doctor` reports this engine, the installed builds, the launchers and the
-modules it found.
+`play` is not built yet: after the gate passes it exits 1 with kind `not_built`. `check`
+loads the module with the modules beside it (manifest, schemas, scripts, start state);
+findings exit 5 with kind `findings`. `doctor`
+reports this engine, the installed builds, the launchers and the modules it found. The
+`sim` commands are in `saves-and-replay.md`.
 
 ## The install layout
 
@@ -77,7 +113,7 @@ One per-user folder: `irudd-galaxy/engine` in `%LOCALAPPDATA%` (Windows),
     0.1.0-<commit>/          one folder per build: version plus 12-character commit
       galaxy, galaxy-gm
       tools/luau/luau-analyze
-      galaxy.d.luau          Luau types for module scripts (a placeholder for now)
+      galaxy.d.luau          Luau types for module scripts, from the ctx declaration
       build.toml             version, commit, dev, install time
     0.1.0-<commit>-dev/      a --dev build
 ```
@@ -93,8 +129,8 @@ cargo xtask install --dev  # a branch build with uncommitted changes
 
 It refuses when `engine/` has uncommitted changes, unless `--dev`. It builds `galaxy`,
 `galaxy-gm` and the launcher once, with the release profile (thin LTO), in the leased slot
-while holding the build permit. It assembles the build folder beside the others and moves
-it into place. Earlier builds stay; installing the same build again replaces it. Then it
+while holding the build permit. The built `galaxy-gm` writes the Luau type file
+(`galaxy-gm types`). It assembles the build folder beside the others and moves it into place. Earlier builds stay; installing the same build again replaces it. Then it
 prints where the launcher folder is and how to put it on PATH. It never edits PATH.
 
 An engine release is a version bump in `engine/Cargo.toml` merged to `main`, then installed
@@ -113,11 +149,14 @@ executable with the same arguments and the same working folder, passing its exit
 It picks:
 
 1. `--build <name>` as the first argument: exactly that build. It is taken off the
-   arguments. Recordings will name their build the same way.
-2. Otherwise the newest non-dev build whose version is at least the highest
+   arguments.
+2. For `galaxy sim replay <recording>`: the build the recording names, if it names one (a
+   recording made by an installed build does), so a replay runs on the engine that made
+   it. If that build is not installed it exits 2 with kind `not_installed`.
+3. Otherwise the newest non-dev build whose version is at least the highest
    `min_engine_version` of the modules the arguments name (the table above). If none is
    new enough, the newest one, whose own gate refuses with the message above.
-3. No non-dev build installed: exit 2, kind `not_installed`.
+4. No non-dev build installed: exit 2, kind `not_installed`.
 
 Installing copies the launchers in unless the installed launchers come from a newer engine
 version, so installing an older build never replaces newer launchers. A `--dev` install

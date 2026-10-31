@@ -6,7 +6,9 @@
 //! 2. Builds `galaxy`, `galaxy-gm` and the launcher with the release profile (thin LTO) in
 //!    the leased slot, holding the build permit.
 //! 3. Assembles the build folder next to the others, then moves it into place:
-//!    `galaxy`, `galaxy-gm`, `tools/luau/luau-analyze`, `galaxy.d.luau` and `build.toml`.
+//!    `galaxy`, `galaxy-gm`, `tools/luau/luau-analyze`, `galaxy.d.luau` (the Luau types for
+//!    module scripts) and `build.toml`. The built `galaxy-gm` writes the type file
+//!    (`types`), so xtask needs no engine crate beyond the install layout.
 //! 4. Copies the launcher into the launcher folder as `galaxy` and `galaxy-gm`, unless the
 //!    launchers there come from a newer engine version, or this is a `--dev` build and
 //!    launchers are already installed.
@@ -62,13 +64,15 @@ fn install(dev: bool) -> Result<(), String> {
     let executables = build_binaries(true)?;
     drop(permit);
     let luau = fetch_luau()?;
+    let gm = &executables["galaxy-gm"];
+    let types = gm_output(gm, &["types"])?;
 
     let builds = install::builds_dir(&root);
     fs::create_dir_all(&builds).map_err(|e| format!("can't create {}: {e}", builds.display()))?;
     remove_leftovers(&builds);
     let pid = std::process::id();
     let staging = builds.join(format!(".staging-{name}-{pid}"));
-    assemble(&staging, &executables, &luau, version, &commit, dev)
+    assemble(&staging, &executables, &luau, &types, version, &commit, dev)
         .map_err(|e| format!("can't assemble {}: {e}", staging.display()))?;
     let dir = builds.join(&name);
     if dir.exists() {
@@ -106,11 +110,28 @@ fn install(dev: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// What the built `galaxy-gm` prints for `args`.
+fn gm_output(gm: &Path, args: &[&str]) -> Result<String, String> {
+    let out = Command::new(gm)
+        .args(args)
+        .output()
+        .map_err(|e| format!("can't run the built galaxy-gm: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "galaxy-gm {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&out.stdout)
+        ));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 /// Writes a complete build folder at `staging`.
 fn assemble(
     staging: &Path,
     executables: &std::collections::BTreeMap<String, PathBuf>,
     luau: &Path,
+    types: &str,
     version: Version,
     commit: &str,
     dev: bool,
@@ -122,7 +143,7 @@ fn assemble(
         fs::copy(&executables[tool], staging.join(install::exe(tool)))?;
     }
     fs::copy(luau, &analyzer)?;
-    fs::write(staging.join(install::LUAU_TYPES), luau_types(version))?;
+    fs::write(staging.join(install::LUAU_TYPES), types)?;
     let info = BuildInfo {
         version: version.to_string(),
         commit: commit.to_owned(),
@@ -134,17 +155,6 @@ fn assemble(
     fs::write(
         staging.join(install::BUILD_FILE),
         toml::to_string(&info).expect("build info serializes"),
-    )
-}
-
-/// The Luau type file for module scripts. The engine has no module API yet, so it is a
-/// placeholder; the engine spine generates it from the API.
-fn luau_types(version: Version) -> String {
-    format!(
-        "--!strict\n\
-         -- Luau types for module scripts, from engine {version}.\n\
-         -- This engine has no module API yet, so there is nothing to declare.\n\
-         return {{}}\n"
     )
 }
 
