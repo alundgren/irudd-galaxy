@@ -124,7 +124,7 @@ pub fn is_heavy(args: &[std::ffi::OsString]) -> bool {
 }
 
 /// Waits for a machine-wide build permit, saying so while it waits.
-pub fn permit(task: &str) -> Permit {
+pub fn permit() -> Permit {
     let permits = number("GALAXY_BUILD_PERMITS", 1);
     if permits == 0 || var(PERMIT_HELD).is_some() {
         return Permit(None);
@@ -133,7 +133,7 @@ pub fn permit(task: &str) -> Permit {
     let dir = shared_root().unwrap_or_else(default_root).join("locks");
     let names: Vec<String> = (1..=permits).map(|i| format!("build-{i}")).collect();
     let what = "a build permit (one heavy build at a time; GALAXY_BUILD_PERMITS raises it)";
-    let (_, file) = acquire(&dir, &names, what, task);
+    let (_, file) = acquire(&dir, &names, what);
     HELD.store(true, Ordering::SeqCst);
     Permit(Some(file))
 }
@@ -170,8 +170,7 @@ fn lease() -> Lease {
             std::cmp::Reverse(used),
         )
     });
-    let task = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
-    let (name, file) = acquire(&root, &names, "a free target folder", &task);
+    let (name, file) = acquire(&root, &names, "a free target folder");
     let dir = root.join(name);
     eprintln!("==> target folder {}", dir.display());
     Lease {
@@ -182,7 +181,8 @@ fn lease() -> Lease {
 
 /// Locks the first free `<name>.lock` in `dir`, in order, polling until one is free, and
 /// records who holds it in `<name>.owner`.
-fn acquire(dir: &Path, names: &[String], what: &str, task: &str) -> (String, File) {
+fn acquire(dir: &Path, names: &[String], what: &str) -> (String, File) {
+    let task = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
     if let Err(e) = std::fs::create_dir_all(dir) {
         eprintln!("xtask: can't create {}: {e}", dir.display());
         std::process::exit(1);

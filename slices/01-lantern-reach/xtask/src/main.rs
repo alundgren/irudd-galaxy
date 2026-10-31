@@ -59,7 +59,7 @@ fn main() -> ExitCode {
     match task.as_str() {
         "build" | "run" => game_command(&task, rest),
         "check" => {
-            let _permit = build::permit("check");
+            let _permit = build::permit();
             // Without the analyzer the typecheck tests skip; that's a warning, not a failure.
             if let Err(e) = fetch_luau() {
                 eprintln!("warning: fetch-luau failed ({e}); typecheck tests will skip");
@@ -79,7 +79,7 @@ fn main() -> ExitCode {
         }
         "contract" => contract(),
         "cargo" => {
-            let _permit = build::is_heavy(&rest).then(|| build::permit("cargo"));
+            let _permit = build::is_heavy(&rest).then(build::permit);
             exit(cargo().args(rest).status().is_ok_and(|s| s.success()))
         }
         "target-dir" => {
@@ -122,7 +122,7 @@ fn game_command(task: &str, mut args: Vec<OsString>) -> ExitCode {
         eprintln!("usage: cargo xtask build [--release]");
         return ExitCode::FAILURE;
     }
-    let permit = build::permit(task);
+    let permit = build::permit();
     let mut build = game_build(release);
     if task == "build" {
         return exit(build.status().is_ok_and(|s| s.success()));

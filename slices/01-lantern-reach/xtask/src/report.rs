@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 
 pub fn run(args: &[std::ffi::OsString]) -> ExitCode {
     let cold = !args.iter().any(|a| a == "--no-cold");
-    let _permit = crate::build::permit("build-report");
+    let _permit = crate::build::permit();
     let Some(slot) = crate::build::target_dir() else {
         eprintln!(
             "build-report needs a shared target folder (CARGO_TARGET_DIR or GALAXY_TARGET_ROOT=off is set)"
