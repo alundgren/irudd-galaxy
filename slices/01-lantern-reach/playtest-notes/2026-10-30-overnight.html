@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lantern Reach: overnight build 2026-10-30, play notes</title>
+    <style>
+:root { color-scheme: dark light; --bg: #000000; --fg: #FFFFFF; --orange: #E69F00; --sky: #56B4E9; --verm: #FF7A33; --blue: #4DA3FF; --acc: var(--sky); }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #FFFFFF; --fg: #000000; --orange: #8A5A00; --sky: #00628F; --verm: #B33A00; --blue: #0058A3; }
+}
+.a-orange { --acc: var(--orange); } .a-sky { --acc: var(--sky); } .a-verm { --acc: var(--verm); } .a-blue { --acc: var(--blue); }
+html { background: var(--bg); color: var(--fg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.6; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 12px 20px 72px; }
+.topbar { padding: 10px 0; border-bottom: 2px solid var(--sky); font-weight: 600; }
+a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--sky); text-underline-offset: 3px; overflow-wrap: anywhere; }
+h1 { font-size: 32px; line-height: 1.25; margin: 24px 0 14px; }
+h2 { font-size: 26px; line-height: 1.3; margin: 44px 0 14px; border-left: 4px solid var(--acc); padding-left: 12px; }
+h3 { font-size: 21px; line-height: 1.35; margin: 28px 0 10px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 14px; padding-left: 28px; }
+li { margin-bottom: 8px; }
+li > ul { margin-top: 6px; }
+code, kbd { font-family: ui-monospace, monospace; font-size: 16px; overflow-wrap: anywhere; }
+kbd { border: 1px solid var(--fg); border-radius: 4px; padding: 0 5px; }
+.lead { font-size: 20px; line-height: 1.45; }
+.card { border: 1px solid var(--acc); border-left: 4px solid var(--acc); border-radius: 12px; padding: 14px 18px; margin: 0 0 14px; }
+.card > :last-child { margin-bottom: 0; }
+.tag { display: inline-block; border: 2px solid var(--acc); color: var(--fg); font-size: 14px; line-height: 20px; font-weight: 700; padding: 0 8px; border-radius: 999px; margin-right: 6px; }
+table { border-collapse: collapse; width: 100%; margin: 0 0 16px; font-size: 16px; }
+th, td { border: 1px solid var(--fg); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { font-weight: 700; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">Lantern Reach · slice 01 · play notes</div>
+      <h1>Overnight build 2026-10-30</h1>
+      <p class="lead">Tonight's work for issue #47, in its five phases: fixes and flight, talk and the ship log, the station up close with the full hullwright, a station that lives with the live world layer, and radio with generated music. Branch <code>slice/overnight-2026-10-30</code>, draft PR #48 (not merged).</p>
+      <div class="card a-sky">
+        <p><strong>State at the end:</strong> <code>cargo xtask check</code> passes with 763 tests, 0 failed, 28 ignored, and the release build has no warnings. The game opens and plays in a real window at 60 fps. Every worker branch had a first review from an agent that didn't write it. Each blocking finding was fixed and passed a scoped re-check before merging. Checked on Windows only; see Known issues.</p>
+      </div>
+
+      <h2 class="a-blue">What landed</h2>
+
+      <h3><span class="tag a-blue">Phase 1</span>Fixes and flight · eb9fc2c</h3>
+      <ul>
+        <li><strong>Cargo agency (#21, #30):</strong> Kettle offers <em>Deliver / Sell / Keep</em> instead of taking the ice. Every hand-over shows a receipt ("Delivered 20 ice to Odo · +120 cr"). Ilse's plate is an offer you accept. The script host refuses changes to the hold, credits or fitted parts unless they cite a player reply.</li>
+        <li><strong>Exploits (#31, #32):</strong> docking counters share the economy's recount rule, so tapping W and Space no longer farms dockings. Ilse's plate is marked as hers in the hold, the market won't buy it, and only that plate completes b07.</li>
+        <li><strong>Gifts and copy (#33, #38–#40):</strong>
+          <ul>
+            <li>The lane chart is offered, not fitted silently.</li>
+            <li>NPC lines are in the first person.</li>
+            <li>News only comes from here or nearby.</li>
+            <li>Directions are correct, checked by a compass test.</li>
+          </ul>
+        </li>
+        <li><strong>Flight preset:</strong> tank controls (<kbd>W</kbd>/<kbd>S</kbd> thrust, <kbd>A</kbd>/<kbd>D</kbd> turn, <kbd>Space</kbd> brake, <kbd>Shift</kbd> boost ×2).
+          <ul>
+            <li>Inertia 0.40 and auto-brake to a stop in 1.0 s.</li>
+            <li>Top speed 165 u/s, turn 180°/s, zoom 0.80 = 550 u. The scale is 1 lab px = 0.55 u, agreed on the PR.</li>
+            <li>Speed, turn and zoom are data.</li>
+            <li>A <kbd>Space</kbd> press does what's in reach; holding it brakes. The hint names which.</li>
+          </ul>
+        </li>
+        <li><strong>World edge (#47), mining (#48), controls text (#42):</strong> past a region's edge a current carries you back, with lantern chevrons and a literal hint. Mining starts without a nudge, at the drawn rock's edge. The controls text reads its numbers from the rules.</li>
+        <li><strong>Determinism (#42, 1.4):</strong> station-art checks and Luau <code>math</code> run on <code>libm</code>, with bit-pinned tests. <code>^</code> and <code>math.noise</code> are refused by the pack check.</li>
+        <li><strong>Rendering (1.6):</strong> rocks morph smoothly while mined, band edges are anti-aliased, the hatching sticks to the rock, the chip colour fades in, and the beam ends on the surface.</li>
+        <li><strong>Tooling (1.7):</strong> the adapter is logged at startup. An FPS counter is on <kbd>F2</kbd> or <code>galaxy play --fps</code>.</li>
+        <li><strong>HUD (#34, #35, #41, #43, #44, #46):</strong> nothing overlaps at 1280×720, all active goals show with who gave them, one credit format is used everywhere, and the window opens at 1280×720. Hints retire after a few uses, and the save remembers them.</li>
+      </ul>
+
+      <h3><span class="tag a-blue">Phase 2</span>Talk and the ship log · d23047a</h3>
+      <ul>
+        <li><strong>Talk bubbles:</strong> they rise from the speaker's part of the station, oldest first. Click or <kbd>Enter</kbd> for the next line. Choices are buttons, and keys 1–9 still work. Nothing stays on screen after you undock, and unsaid lines come back at the next docking.</li>
+        <li><strong>The ship log</strong> (the Log icon, bottom left, or <kbd>L</kbd>):
+          <ul>
+            <li>Jobs, cargo you carry for someone, and open offers are pinned at the top.</li>
+            <li>There's one line per visit, with Replay.</li>
+            <li>Notices and receipts are separate tickets.</li>
+            <li>Older entries page.</li>
+          </ul>
+        </li>
+        <li>Lines said in flight go to the log, and the icon shows "N new".</li>
+      </ul>
+
+      <h3><span class="tag a-blue">Phase 3</span>The station up close and the hullwright · df10aea</h3>
+      <ul>
+        <li><strong>The station:</strong> docking zooms into the station. Modules lift on hover with an orange ring, and a click glides to the room beside them. <kbd>Esc</kbd>, right-click or Back returns.</li>
+        <li><strong>The station key:</strong> one icon per part, with New, Changed and Closed ribbons counted in dockings.</li>
+        <li><strong>Parts as data:</strong> station parts are data (<code>station_parts.toml</code>) with a validator. The game master can close, build, reopen and remove parts.</li>
+        <li><strong>Hullwright model:</strong>
+          <ul>
+            <li>Four sockets, plus a control rack whose modules stay fitted.</li>
+            <li>Power and mass budgets; extra mass lowers speed and turn.</li>
+            <li>A locker per hull.</li>
+            <li>Ready, Make and Friends sources.</li>
+            <li>Juno at Cinder Hook fits drill mounts only.</li>
+          </ul>
+        </li>
+        <li><strong>Cradle view:</strong> drag a part, or click it and then a socket.
+          <ul>
+            <li>Sockets that can take it get a dashed sky-blue ring.</li>
+            <li>A ghost part shows where it would go.</li>
+            <li>A before → after preview with ▲/▼.</li>
+            <li>An over-power fit is refused.</li>
+            <li>The crane fits the part with a skippable animation.</li>
+            <li>The Wren then wears the part, in the cradle and in flight.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3><span class="tag a-blue">Phase 4</span>A station that lives, the live layer and logging · 7c28b10</h3>
+      <ul>
+        <li><strong>Tilted docked view (40°), with life driven by the sim:</strong>
+          <ul>
+            <li>Crate piles follow stock.</li>
+            <li>The crane carries your sale.</li>
+            <li>A crowd gathers for new notices.</li>
+            <li>A lamplighter lights a lamp each station pulse.</li>
+            <li>Workers stand at parts that are being built.</li>
+            <li>Real NPC craft dock and leave.</li>
+          </ul>
+          Faction themes are data (<code>themes.toml</code>). <kbd>Q</kbd> or the PAUSED card switches full or quiet life.</li>
+        <li><strong>Happenings as data</strong> (#27): lamp night when Kettle's greenhouse reaches stage 2. At stage 3, Odo offers a crate of 4 rations, with Accept / Not now and a receipt.</li>
+        <li><strong>World memory:</strong> summarised entries per station, person and faction in the save, each tagged with its source (authored, game master or live layer). It has an FTS5 index and an empty table kept for embeddings later. Search it with <code>galaxy memory search</code>.</li>
+        <li><strong>Live world layer</strong> on OpenRouter's auto router (low cost tier, a <code>session_id</code> per station): banter, traffic, brags and small discounts.
+          <ul>
+            <li>The model only gets a closed list of ids. Everything is validated and clamped.</li>
+            <li>Results go into station history only.</li>
+            <li>It never blocks play, and simply skips when there's no key or a call fails.</li>
+          </ul>
+        </li>
+        <li><strong>LLM call log:</strong> <code>&lt;stem&gt;.llm-log.sqlite</code> beside the save, one row per call. It's pruned on startup into daily rollups. Query it with <code>galaxy llm-log</code>.</li>
+      </ul>
+
+      <h3><span class="tag a-blue">Phase 5</span>Radio and generated music · 345bfad</h3>
+      <ul>
+        <li><strong>Radio:</strong> every station and two lane beacons have a channel with a range.
+          <ul>
+            <li>The signal fades with distance, with a little static at the edges, and crossfades where channels overlap.</li>
+            <li>The first time a channel comes into range, the log says "New signal: Kettle Dock radio".</li>
+            <li>The widget is at the bottom right: Prev / Off / Next, or <kbd>R</kbd>.</li>
+            <li>It shows authored text bits, and live ones too when a key is set.</li>
+          </ul>
+        </li>
+        <li><strong>Generated music</strong> (Lyria 3 clip through OpenRouter):
+          <ul>
+            <li>Tracks are cached in <code>&lt;stem&gt;.music/</code> beside the save and never generated again.</li>
+            <li>Caps: 2 per run, and $0.40 per save, kept in exact money and booked before each call.</li>
+            <li>An HTTP 402 or a refused key stops generation for the run.</li>
+            <li>The radio plays cached tracks, or quiet synthesised placeholder loops.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h2 class="a-orange">What didn't land, and why</h2>
+      <ul>
+        <li><strong>Solid rock collision:</strong> with rocks 40–60 u apart it walled off mining spots and stalled the pilots. Ships still pass over rocks; mining stops at the drawn edge.</li>
+        <li><strong>Hub quarters:</strong> quarter signs and two-click framing aren't built, because no slice station is big enough. Quarters are only a sort key in the station key.</li>
+        <li><strong>Cradle extras:</strong>
+          <ul>
+            <li>The Wren isn't animated rising into the cradle; the camera glide stands in for it.</li>
+            <li>The drone bay exists only as a socket.</li>
+          </ul>
+        </li>
+        <li><strong>Living station extras:</strong> two banners during a dispute, module shadows, and the wharf working on NPC ships aren't built. Theme sounds are names only.</li>
+        <li><strong>Discounts:</strong> the market room doesn't mark the discounted row itself. A notice, a ribbon, the keeper's line and the price show it.</li>
+        <li><strong>Balance (#36, #37):</strong> left open on purpose, as the issue says.</li>
+      </ul>
+
+      <h2 class="a-verm">Known issues</h2>
+      <ul>
+        <li><strong>Platforms:</strong> only Windows 11 was checked, with an NVIDIA GPU on Vulkan. <strong>Linux and macOS are unchecked</strong> for tonight's platform-layer changes: GPU (morph and lights), audio (kira MP3 decoding, the radio track) and file paths (the call log and music cache beside the save).</li>
+        <li><strong>Radio audio:</strong> nobody has listened to the radio mix and generated music on a real device while flying. Only the automated tests cover the mix.</li>
+        <li><strong>Mouse drag in the cradle:</strong> not tried by hand in a real window. The same state machine is tested headless.</li>
+        <li><strong>Live layer:</strong> some routed models refuse <code>reasoning: none</code>. Those calls are logged as failed and skipped.</li>
+        <li><strong>Music costs:</strong> with a key set, entering a channel's range can buy a clip (about $0.04), up to 2 a run and $0.40 a save. A reported cost above the estimate could pass the save cap once, and then generation stops.</li>
+        <li><strong>Small things:</strong>
+          <ul>
+            <li>At the very start of a new game, two NPC ship names near the Wharf can overlap for a moment.</li>
+            <li>At 960×540, holding a part leaves room for one tray row, and the tray pages.</li>
+            <li>The <code>mind.toml</code> comment on the music spend cap describes the older rule.</li>
+          </ul>
+        </li>
+        <li><strong>A test failed once under load:</strong> <code>gm_examples</code> failed once while four agents were compiling, and passes on its own and in every later full check.</li>
+      </ul>
+
+      <h2 class="a-sky">How to try each feature</h2>
+      <p>Run everything from <code>slices/01-lantern-reach</code>: <code>cargo xtask cargo run --release -p galaxy-app -- play --new</code>, or <code>play.cmd</code> / <code>play.sh</code>. To jump ahead, use <code>galaxy beat jump N --out PATH</code> and then <code>galaxy play --save PATH</code>.</p>
+      <table>
+        <tr><th>Feature</th><th>How</th></tr>
+        <tr><td>Flight</td><td><kbd>W</kbd> flies off the dock. Steer with <kbd>A</kbd>/<kbd>D</kbd>, boost with <kbd>Shift</kbd>, brake by holding <kbd>Space</kbd>. Let go of <kbd>W</kbd> to coast to a stop in about 1 s. Fly far west to meet the edge current.</td></tr>
+        <tr><td>Kettle hand-in</td><td>Beat jump 3, fill the hold with ice, and dock at Kettle. Odo offers Deliver / Sell / Keep; pick one and read the receipt.</td></tr>
+        <tr><td>Ilse's plate</td><td>Beat jump 7: Ilse asks; Accept. The hold shows "Refined plate 20 · Ilse's", and the market won't take it. Deliver it to Rook at Cinder Hook.</td></tr>
+        <tr><td>Talk and the log</td><td>Click a bubble or press <kbd>Enter</kbd>. Press <kbd>L</kbd> or click Log; Replay replays a visit.</td></tr>
+        <tr><td>Station view</td><td>Dock, hover a module, and click it, or use the station key. <kbd>Esc</kbd> or right-click to go back.</td></tr>
+        <tr><td>Hullwright</td><td>Open the Wharf room and drag a part onto a socket. Read the preview and watch the crane; a click skips the animation. Drag a fitted part to the Locker and back. The Make tab confirms materials first.</td></tr>
+        <tr><td>Living station</td><td>Dock, sell from the market room, and watch the crane carry the sale. <kbd>Q</kbd> or the PAUSED card switches quiet life.</td></tr>
+        <tr><td>Happenings</td><td>Beat jump 13 and grow Kettle's greenhouse. Lamp night, then Odo's harvest crate (Accept / Not now).</td></tr>
+        <tr><td>Live layer</td><td>Set <code>OPENROUTER_API_KEY</code> and dock a few times: banter bubbles, traffic notices, a discount ribbon. Then <code>galaxy llm-log --save PATH totals</code>.</td></tr>
+        <tr><td>Memory</td><td><code>galaxy memory search --save PATH "lamps" --station station.kettle_dock</code></td></tr>
+        <tr><td>Radio and music</td><td>Fly off the Wharf; the radio fades in and the log says "New signal". Use Prev / Off / Next or <kbd>R</kbd>. With a key, a channel asks for a clip once it's in range, and the track is cached beside the save.</td></tr>
+        <tr><td>Tools</td><td><kbd>F2</kbd> or <code>--fps</code> for FPS and ticks/s. The adapter is printed on stderr at startup.</td></tr>
+      </table>
+
+      <h2 class="a-blue">Measurements</h2>
+      <h3>Frame time</h3>
+      <p>Measured in a release build, headless on the GPU, docked at Lantern Wharf at 1280×720, on an RTX 5070 Ti with Vulkan.</p>
+      <table>
+        <tr><th>View</th><th class="num">ms per frame</th><th class="num">compose ms</th></tr>
+        <tr><td>Tilt and full life</td><td class="num">0.47</td><td class="num">0.14</td></tr>
+        <tr><td>Tilt and quiet life</td><td class="num">0.49</td><td class="num">0.13</td></tr>
+        <tr><td>Flat, no life</td><td class="num">0.35</td><td class="num">0.07</td></tr>
+      </table>
+      <p>The reviewer measured 0.56 ms with the tilt and full life on. A real <code>galaxy play --fps</code> window showed 60 fps (vsync cap) and 29 ticks/s.</p>
+
+      <h3>LLM and music calls (from <code>galaxy llm-log</code>)</h3>
+      <table>
+        <tr><th>Run</th><th class="num">Calls</th><th>Models</th><th class="num">Cost (USD)</th></tr>
+        <tr><td>Live-layer check (banter, traffic, discount; several rounds fixing the request)</td><td class="num">≈15</td><td>deepseek-v4-flash, deepseek-v4.1-flash, glm-5.3-flash (auto router)</td><td class="num">≈0.0025</td></tr>
+        <tr><td>Radio check (trader decisions)</td><td class="num">4</td><td>typesafe/jev-1.14</td><td class="num">0.00018</td></tr>
+        <tr><td>Final play run, 45 s</td><td class="num">4</td><td>typesafe/jev-1.14-20261014</td><td class="num">0.00018</td></tr>
+        <tr><td>Music, one Lyria clip</td><td class="num">1</td><td>google/lyria-3-clip-preview</td><td class="num">0.04</td></tr>
+        <tr><th>Total</th><th class="num">≈24</th><th></th><th class="num">≈0.043</th></tr>
+      </table>
+      <p>The router reported these task types: <code>roleplay_fiction</code>, <code>content_writing</code> and <code>classification_tagging</code>. A live-layer call costs about $0.00003 with reasoning off, and up to $0.00038 when a reasoning model used its whole cap.</p>
+
+      <h3>The Lyria response shape</h3>
+      <table>
+        <tr><th></th><th>Found</th></tr>
+        <tr><td>Request</td><td><code>POST /api/v1/chat/completions</code> with <code>model</code>, <code>messages</code>, <code>modalities: ["text","audio"]</code>, <code>audio: {"format":"mp3"}</code>, <code>stream: true</code> and <code>session_id</code>. Audio comes back only when the request streams.</td></tr>
+        <tr><td>Response</td><td>Server-sent events with <code>: OPENROUTER PROCESSING</code> keep-alive lines.
+          <ul>
+            <li>The first <code>delta.content</code> was <code>"&lt;instrumental&gt;"</code>.</li>
+            <li>One chunk carried all the audio as base64 in <code>delta.audio.data</code> (about 990,000 characters).</li>
+            <li>The last chunks carry <code>finish_reason: "stop"</code> and <code>usage</code>.</li>
+          </ul>
+        </td></tr>
+        <tr><td>Audio</td><td>MP3 with an ID3 header: 192 kbps, 44.1 kHz, stereo, 744,659 bytes, about 30.8 s. It took about 8 s to generate.</td></tr>
+        <tr><td>Cost</td><td><code>usage.cost: 0.04</code>, all of it in <code>cost_details.upstream_inference_completions_cost</code>. 57 prompt tokens and 4 completion (audio) tokens. The actual cost matched the listed $0.04 per clip exactly. Provider: Google AI Studio.</td></tr>
+      </table>
+
+      <h3>Builds and tests</h3>
+      <ul>
+        <li>A full cold build of the workspace took 479 s on 16 cores.</li>
+        <li>Agents that borrowed an existing warm build folder started in 53–304 s. It was about 1–2 minutes when a branch touched few shared crates, and up to 5 minutes when it changed the contract crate that everything depends on. The slot scheme is now in the root <code>AGENTS.md</code> under "Builds".</li>
+        <li>Tests went from 585 at the Phase 1 boundary to 763 at the end.</li>
+      </ul>
+    </div>
+  </body>
+</html>
