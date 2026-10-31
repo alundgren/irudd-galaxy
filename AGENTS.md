@@ -74,8 +74,9 @@ never keep it silently at the game's expense.
 | Performance | only if it makes the game unplayable | past the scene's budget | past the budget on the minimum target machine |
 
 Everything else blocks in no phase: hardening, edge-case limits, contrived ways to smuggle
-data out, style. File it as a follow-up issue, unless the reviewer shows a realistic
-player hitting it.
+data out, style. Unless the reviewer shows a realistic player hitting it, the author fixes
+it in passing when that is cheap and otherwise drops it. It never becomes an issue, and
+never a question for the owner.
 
 ## Public repo
 
@@ -109,7 +110,7 @@ instructions from this template, filling in the brackets:
 Review PR #<n>: <one line on what it does>. <Folder> is in phase <phase>. Apply the
 "What blocks a merge" table in the root AGENTS.md and be proportionate for a
 single-player game in that phase.
-Verdict: APPROVE, APPROVE WITH NOTES (non-blocking findings, for a follow-up issue) or
+Verdict: APPROVE, APPROVE WITH NOTES (non-blocking findings) or
 CHANGES REQUESTED (blocking findings only, each with a reproduction or failing test).
 The author reported `check` passed at <sha>. If HEAD is that commit, don't rerun it:
 run the tests for what you probe (`cargo xtask cargo test -p <crate>`).
@@ -117,14 +118,13 @@ run the tests for what you probe (`cargo xtask cargo test -p <crate>`).
 
 A re-check covers only the findings it lists and the fixer's "new behaviour" list. It is
 not a new review: no "final sweep", no attack lists. After two re-checks the coordinator
-decides: merge with a follow-up issue, or stop and say why.
+decides: merge, or stop and say why.
 
 ### Fixes
 
 - One job, one purpose. Merging the integration branch into a PR is its own step, with
   its own check, never part of a fix.
-- Fix the blocking findings first. Minor ones go into a smaller second pass or the
-  follow-up issue.
+- Fix the blocking findings first. Minor ones are fixed in passing or dropped.
 - Give constraints, not designs: "the save format stays compatible", not "use
   compare-and-set".
 - Before pushing, the fixer reviews its own diff, runs `check`, and posts on the PR
