@@ -310,7 +310,7 @@ cargo xtask cargo test --workspace # headless tests (no window, GPU or network)
 cargo xtask check           # fetch-luau + fmt + clippy -D warnings + tests: run before every PR
 cargo xtask contract        # regenerate crates/contract/schemas/ and api/ after a contract change
 cargo xtask fetch-luau      # pinned luau-analyze (strict typecheck) into tools/luau/
-cargo xtask build-report    # timings of cold, warm, no-op and test builds, as JSON
+cargo xtask build-report    # timings of first, no-op, touch and test builds in the slot, as JSON
 cargo xtask loc             # code lines per crate (src, unit tests, tests); --base <ref> for the change
 ```
 

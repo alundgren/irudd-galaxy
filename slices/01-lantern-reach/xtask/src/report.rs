@@ -1,9 +1,9 @@
-//! `cargo xtask build-report [--no-cold]`: times the builds an agent waits on and writes
-//! them as `build-report.json` in the leased target folder (also printed on stdout).
+//! `cargo xtask build-report`: times the builds an agent waits on and writes them as
+//! `build-report.json` in the leased target folder (also printed on stdout).
 //!
-//! Steps, in order: a cold game build in an empty folder (skipped with `--no-cold`; the
-//! folder is deleted afterwards), the game build in the leased folder (what a new branch
-//! pays), a no-op rebuild, a rebuild after touching `galaxy-core`, the workspace test
+//! It never builds from scratch: every step runs in the leased slot, with the machine's
+//! build setup as configured. Steps, in order: the game build (what a new branch or
+//! worktree pays), a no-op rebuild, a rebuild after touching `galaxy-core`, the workspace test
 //! build and link, the same after touching `galaxy-core` again, and the folder's size.
 //! Each step counts the units of our crates cargo compiled and names the third-party ones.
 //! Run it on an idle machine: it holds the build permit throughout.
@@ -15,7 +15,10 @@ use std::time::{Instant, SystemTime};
 use serde_json::{Value, json};
 
 pub fn run(args: &[std::ffi::OsString]) -> ExitCode {
-    let cold = !args.iter().any(|a| a == "--no-cold");
+    if !args.is_empty() {
+        eprintln!("usage: cargo xtask build-report");
+        return ExitCode::FAILURE;
+    }
     let _permit = crate::build::permit();
     let Some(slot) = crate::build::target_dir() else {
         eprintln!(
@@ -43,15 +46,7 @@ pub fn run(args: &[std::ffi::OsString]) -> ExitCode {
         cmd.args(["test", "--workspace", "--no-run"]);
         cmd
     };
-    let ok = (!cold || {
-        let dir = slot.with_file_name("build-report-cold");
-        let _ = std::fs::remove_dir_all(&dir);
-        let mut cmd = crate::game_build(false);
-        cmd.env("CARGO_TARGET_DIR", &dir);
-        let ok = step("cold_build", cmd);
-        let _ = std::fs::remove_dir_all(&dir);
-        ok
-    }) && step("first_build", crate::game_build(false))
+    let ok = step("first_build", crate::game_build(false))
         && step("noop_build", crate::game_build(false))
         && touch(&core)
         && step("touch_core_build", crate::game_build(false))
