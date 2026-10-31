@@ -134,9 +134,11 @@ Notes:
   slot (still one run at a time).
 - Opting out: `GALAXY_TARGET_ROOT=off` builds into the worktree's own `target/`, and an
   explicit `CARGO_TARGET_DIR` always wins. Both still wait for the build permit.
-- `cargo xtask build-report` times a cold build, the first build in the leased slot, a
-  no-op rebuild, a rebuild after touching `galaxy-core` and the test build, and writes
-  `build-report.json` into the slot. `cargo xtask loc [--base <ref>]` counts code lines
+- Never build from scratch: no fresh or emptied target folders, no `cargo clean`, no
+  bypassing the machine's compiler cache. Measure builds as the machine is set up.
+- `cargo xtask build-report` times the first build in the leased slot, a no-op rebuild,
+  a rebuild after touching `galaxy-core` and the test build, and writes
+  `build-report.json` into the slot. It never builds from scratch. `cargo xtask loc [--base <ref>]` counts code lines
   per crate. A change to how things build or where code lives reports both in its PR.
 
 ## Platforms

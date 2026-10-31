@@ -9,7 +9,7 @@
 //! - `target-dir`: print that folder.
 //! - `build [--release]`: build the game with the workspace check's dependency features.
 //! - `run [--release] -- <args>`: build the same way, then run the game.
-//! - `build-report [--no-cold]`: time the builds an agent waits on (see [`report`]).
+//! - `build-report`: time the builds an agent waits on (see [`report`]).
 //! - `loc [--base <ref>]`: code lines per crate (see [`loc`]).
 //!
 //! Every command that runs cargo leases a shared target folder, and compiling commands
@@ -102,7 +102,7 @@ fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage: cargo xtask <build [--release]|run [--release] -- <args>|check|contract|\
-                 fetch-luau|cargo <args>|target-dir|build-report [--no-cold]|loc [--base <ref>]>"
+                 fetch-luau|cargo <args>|target-dir|build-report|loc [--base <ref>]>"
             );
             ExitCode::FAILURE
         }
