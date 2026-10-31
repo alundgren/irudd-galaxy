@@ -31,6 +31,7 @@ pub fn over_of(action: Option<&UiAction>) -> Option<Over> {
     match action? {
         UiAction::Wharf(WharfAction::Socket(s)) => Some(Over::Socket(s.clone())),
         UiAction::Wharf(WharfAction::Locker)
+        | UiAction::Wharf(WharfAction::LockerPage(_))
         | UiAction::Wharf(WharfAction::Part {
             from: Source::Locker,
             ..

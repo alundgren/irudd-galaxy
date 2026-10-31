@@ -13,8 +13,9 @@
 //!   confirm that lists what it uses) and Friends (sent after your next docking at the
 //!   friend's station). A part the player has shows where it is (Fitted, In the locker,
 //!   On its way), so nothing ever vanishes (#44).
-//! - **The locker**: the hull's spare parts, to drag back onto a socket; a fitted part
-//!   dragged here comes off.
+//! - **The locker**: the hull's spare parts, to drag (or click, then click a socket)
+//!   back onto a socket, paged with Prev and Next when they don't fit in one row; a
+//!   fitted part dragged here comes off.
 //!
 //! A wharf the fit rules don't know (a stand-in) lists its keeper's offers as before.
 
@@ -37,6 +38,8 @@ const ROW: f32 = 58.0;
 const TAB_H: f32 = 32.0;
 const LOCKER_H: f32 = 66.0;
 const PAGER_H: f32 = 30.0;
+/// The locker's Prev and Next buttons, side by side.
+const LOCKER_PAGER_W: f32 = 110.0;
 
 fn wharf_action(a: WharfAction) -> UiAction {
     UiAction::Wharf(a)
@@ -1035,12 +1038,29 @@ fn locker(
         x + 12.0,
         y + 8.0,
     );
+    // The chips in one row, paged when they don't all fit beside each other.
+    let widths: Vec<f32> = view
+        .locker
+        .iter()
+        .map(|i| text_width(&i.name, 14.0) + 28.0)
+        .collect();
+    let row_w = w - 20.0;
+    let pages = locker_pages(&widths, row_w, row_w - LOCKER_PAGER_W - 8.0);
+    let page = ui.locker_page.min(pages.len() - 1);
+    let shown = pages[page].clone();
     let hint = if taking_off {
-        "Let go here to take it off"
+        "Let go here to take it off".to_owned()
     } else if view.locker.is_empty() {
-        "Empty. Drag a fitted part here to take it off."
+        "Empty. Drag a fitted part here to take it off.".to_owned()
+    } else if pages.len() > 1 {
+        format!(
+            "Parts {}–{} of {}. Drag one back onto a socket",
+            shown.start + 1,
+            shown.end,
+            view.locker.len()
+        )
     } else {
-        "Drag a part back onto a socket"
+        "Drag a part back onto a socket".to_owned()
     };
     o.texts.push(
         Text::new(hint, G2::new(x + w - 12.0, y + 7.0), 12.0)
@@ -1048,12 +1068,14 @@ fn locker(
             .color(BLACK)
             .align(Align::Right),
     );
+    let chip_max = if pages.len() > 1 {
+        row_w - LOCKER_PAGER_W - 8.0
+    } else {
+        row_w
+    };
     let mut cx = x + 12.0;
-    for item in &view.locker {
-        let cw = text_width(&item.name, 14.0) + 28.0;
-        if cx + cw > x + w - 8.0 {
-            break;
-        }
+    for (item, cw) in view.locker[shown.clone()].iter().zip(&widths[shown]) {
+        let cw = cw.min(chip_max);
         let chip = Rect::new(cx, y + 28.0, cw, 28.0);
         let in_hand = ui.held.as_ref().is_some_and(|h| h.part == item.part);
         if in_hand {
@@ -1069,7 +1091,14 @@ fn locker(
             });
         }
         grip(o, chip.x + 6.0, chip.y + 7.0);
-        line(o, &item.name, chip.x + 20.0, chip.y + 5.0, 14.0, 700);
+        line(
+            o,
+            &clip(&item.name, 14.0, cw - 28.0),
+            chip.x + 20.0,
+            chip.y + 5.0,
+            14.0,
+            700,
+        );
         buttons.push(Button {
             rect: chip,
             action: wharf_action(WharfAction::Part {
@@ -1079,5 +1108,49 @@ fn locker(
         });
         cx += cw + 8.0;
     }
+    if pages.len() > 1 {
+        // Prev and Next at the row's end; at either end of the pages the one that
+        // can't go further is an outline.
+        let bw = (LOCKER_PAGER_W - 6.0) * 0.5;
+        let next_x = x + w - 8.0 - bw;
+        buttons.push(action(
+            o,
+            room.ui,
+            Rect::new(next_x - 6.0 - bw, y + 28.0, bw, 28.0),
+            "Prev",
+            page > 0,
+            wharf_action(WharfAction::LockerPage(page.saturating_sub(1))),
+        ));
+        buttons.push(action(
+            o,
+            room.ui,
+            Rect::new(next_x, y + 28.0, bw, 28.0),
+            "Next",
+            page + 1 < pages.len(),
+            wharf_action(WharfAction::LockerPage((page + 1).min(pages.len() - 1))),
+        ));
+    }
     buttons
+}
+
+/// The locker's chips (their widths) as pages of one row each: one page if they all
+/// fit in `whole`, else pages that fit in `paged` (the row less the pager), at least
+/// one chip a page. At least one page: an empty one for an empty locker.
+fn locker_pages(widths: &[f32], whole: f32, paged: f32) -> Vec<std::ops::Range<usize>> {
+    let row = |ws: &[f32]| ws.iter().sum::<f32>() + 8.0 * ws.len().saturating_sub(1) as f32;
+    let mut pages = Vec::new();
+    if row(widths) <= whole {
+        pages.push(0..widths.len());
+        return pages;
+    }
+    let mut start = 0;
+    while start < widths.len() {
+        let mut end = start + 1;
+        while end < widths.len() && row(&widths[start..=end]) <= paged {
+            end += 1;
+        }
+        pages.push(start..end);
+        start = end;
+    }
+    pages
 }

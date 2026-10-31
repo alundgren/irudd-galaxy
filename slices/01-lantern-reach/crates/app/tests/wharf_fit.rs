@@ -22,6 +22,8 @@ const PODS: UpgradeId = UpgradeId::from_static("upgrade.hold_pods");
 const FINS: UpgradeId = UpgradeId::from_static("upgrade.swift_fins");
 const LAMP: UpgradeId = UpgradeId::from_static("upgrade.seam_lamp");
 const NAV: UpgradeId = UpgradeId::from_static("upgrade.nav_chip");
+const EXTENDER: UpgradeId = UpgradeId::from_static("upgrade.hold_extender");
+const LONG_DRILL: UpgradeId = UpgradeId::from_static("upgrade.long_drill");
 const DRILL: SocketId = SocketId::from_static("socket.drill");
 const HOLD: SocketId = SocketId::from_static("socket.hold");
 const ENGINE: SocketId = SocketId::from_static("socket.engine");
@@ -497,4 +499,145 @@ fn junos_rough_rig_shows_only_the_drill_mount() {
     let shown = cradle::shown_sockets(s.world(), &HOOK);
     assert_eq!(shown, vec![(DRILL, Socket::Nose)]);
     assert_eq!(cradle::shown_sockets(s.world(), &WHARF).len(), 4);
+}
+
+/// The open room at `canvas` at the Wharf: its rect, text and buttons.
+fn room_panel(
+    s: &Session,
+    ui: &UiState,
+    canvas: render::glam::Vec2,
+) -> (render::Rect, render::Overlay, Vec<ui::Button>) {
+    let mut o = render::Overlay::default();
+    let (rect, buttons) = ui::rooms::panel(
+        &mut o,
+        s.world(),
+        s.sim().history(),
+        &WHARF,
+        ui.room.as_ref().unwrap(),
+        ui,
+        ui::Notices::default(),
+        canvas,
+    )
+    .expect("the wharf's room");
+    (rect, o, buttons)
+}
+
+#[test]
+fn every_locker_part_has_a_pick_target() {
+    // Five parts: more than one row of chips holds.
+    let five = [EXTENDER, PODS, LONG_DRILL, LENS, LAMP];
+    let (mut s, mut ui) = at_the_wharf(|state| {
+        let ship = state.world.player.ship.clone().unwrap();
+        let locker = state.world.progress.fit.lockers.entry(ship).or_default();
+        locker.extend(five.clone());
+    });
+    let inside = |outer: &render::Rect, r: &render::Rect| {
+        r.x >= outer.x
+            && r.y >= outer.y
+            && r.x + r.w <= outer.x + outer.w
+            && r.y + r.h <= outer.y + outer.h
+    };
+    // The minimum window, the design size, larger, and wide.
+    for (w, h) in [
+        (960.0, 540.0),
+        (1280.0, 720.0),
+        (1920.0, 1080.0),
+        (2560.0, 1080.0),
+    ] {
+        let canvas = ui::canvas(render::glam::Vec2::new(w, h));
+        let screen = render::Rect::new(0.0, 0.0, canvas.x, canvas.y);
+        ui.wharf.locker_page = 0;
+        let mut found = std::collections::BTreeSet::new();
+        for page in 0.. {
+            assert!(page < five.len(), "the pages end at {w}x{h}");
+            let (rect, o, buttons) = room_panel(&s, &ui, canvas);
+            assert!(inside(&screen, &rect), "{rect:?} on {w}x{h}");
+            for b in &buttons {
+                if let UiAction::Wharf(WharfAction::Part {
+                    part,
+                    from: Source::Locker,
+                }) = &b.action
+                {
+                    // On screen, in the room, and what the mouse finds there.
+                    assert!(inside(&rect, &b.rect), "{part} at {:?} in {rect:?}", b.rect);
+                    assert_eq!(ui::hit(&buttons, b.rect.center()), Some(&b.action));
+                    found.insert(part.clone());
+                }
+            }
+            let next = buttons.iter().rev().find_map(|b| match &b.action {
+                UiAction::Wharf(WharfAction::LockerPage(n)) if *n > ui.wharf.locker_page => {
+                    Some((*n, b.rect))
+                }
+                _ => None,
+            });
+            let Some((n, at)) = next else { break };
+            // The pager reads literally, in the room, and a click there turns the page.
+            assert!(o.texts.iter().any(|t| t.text == "Next"));
+            assert!(o.texts.iter().any(|t| t.text == "Prev"));
+            assert!(
+                o.texts
+                    .iter()
+                    .any(|t| t.text.starts_with("Parts 1–") || page > 0)
+            );
+            assert!(inside(&rect, &at));
+            let hit = ui::hit(&buttons, at.center()).cloned();
+            let Some(UiAction::Wharf(a)) = hit else {
+                panic!("Next at {at:?} on {w}x{h}");
+            };
+            assert_eq!(a, WharfAction::LockerPage(n));
+            ui.wharf.click(s.world(), s.sim().history(), &WHARF, &a);
+        }
+        assert_eq!(
+            found,
+            five.iter().cloned().collect(),
+            "every locker part can be picked up at {w}x{h}"
+        );
+    }
+    // The last part, by click: picked up from the locker, then a click on its socket
+    // refits it.
+    let lamp = WharfAction::Part {
+        part: LAMP,
+        from: Source::Locker,
+    };
+    ui.wharf.click(s.world(), s.sim().history(), &WHARF, &lamp);
+    assert_eq!(ui.wharf.held.as_ref().map(|h| h.from), Some(Source::Locker));
+    let socket = fit::socket_of(s.world(), &LAMP).unwrap();
+    let req = ui.wharf.click(
+        s.world(),
+        s.sim().history(),
+        &WHARF,
+        &WharfAction::Socket(socket),
+    );
+    assert_eq!(req, Some(ServiceRequest::Refit { upgrade: LAMP }));
+    send(&mut s, &mut ui, req.unwrap());
+    assert!(s.world().player.fittings.contains(&LAMP));
+    assert!(ui.wharf.skip(), "a click ends the animation");
+    // And one on a later page, by drag.
+    assert!(ui.wharf.press(
+        s.world(),
+        &WharfAction::Part {
+            part: LENS,
+            from: Source::Locker,
+        },
+    ));
+    ui.wharf.hover(Some(Over::Socket(DRILL)));
+    let req = ui.wharf.release(s.world(), s.sim().history(), true);
+    assert_eq!(req, Some(ServiceRequest::Refit { upgrade: LENS }));
+    // Fewer parts than pages: the page shown is the last one there is.
+    send(&mut s, &mut ui, req.unwrap());
+    let canvas = ui::canvas(render::glam::Vec2::new(1280.0, 720.0));
+    let (_, _, buttons) = room_panel(&s, &ui, canvas);
+    let chips = buttons
+        .iter()
+        .filter(|b| {
+            matches!(
+                b.action,
+                UiAction::Wharf(WharfAction::Part {
+                    from: Source::Locker,
+                    ..
+                })
+            )
+        })
+        .count();
+    assert_eq!(chips, 3, "the three left all show in one row");
 }

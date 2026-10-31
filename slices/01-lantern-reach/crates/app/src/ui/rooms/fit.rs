@@ -114,6 +114,8 @@ pub enum WharfAction {
     Module(UpgradeId),
     /// Show the tray from this row.
     From(usize),
+    /// Show this page of the locker's chips.
+    LockerPage(usize),
 }
 
 /// What the keeper says in the room: their reason for a refusal, or a word about what
@@ -141,6 +143,8 @@ pub struct WharfUi {
     pub sent: Option<ServiceRequest>,
     /// The first tray row shown.
     pub first: usize,
+    /// The locker's page of chips shown, when they don't all fit in one row.
+    pub locker_page: usize,
 }
 
 /// A held part's preview against where it is over: the hullwright's for a fit, or the
@@ -287,6 +291,10 @@ impl WharfUi {
             }
             WharfAction::From(n) => {
                 self.first = *n;
+                None
+            }
+            WharfAction::LockerPage(n) => {
+                self.locker_page = *n;
                 None
             }
             WharfAction::Part { part, from } => {
