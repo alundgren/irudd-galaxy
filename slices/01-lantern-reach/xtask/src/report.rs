@@ -56,7 +56,7 @@ pub fn run(args: &[std::ffi::OsString]) -> ExitCode {
         "os": std::env::consts::OS,
         "cores": std::thread::available_parallelism().map_or(1, |n| n.get()),
         "target_folder": slot.file_name().map(|n| n.to_string_lossy()),
-        "rustc_wrapper_env": std::env::var("RUSTC_WRAPPER").ok(),
+        "rustc_wrapper_enabled": std::env::var_os("RUSTC_WRAPPER").is_some_and(|v| !v.is_empty()),
         "unix_time": SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_secs()),
         "steps": steps,
         "target_size_gb": (size(slot) as f64 / 1e9 * 100.0).round() / 100.0,

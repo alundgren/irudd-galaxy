@@ -120,6 +120,20 @@ pub fn cargo() -> std::process::Command {
     cmd
 }
 
+/// Reject accidental cache deletion or target overrides before launching Cargo.
+pub fn validate_args(args: &[std::ffi::OsString]) -> Result<(), &'static str> {
+    for arg in args.iter().take_while(|arg| *arg != "--") {
+        let arg = arg.to_string_lossy();
+        if arg == "clean" {
+            return Err("cargo clean is disabled: preserve the shared warm cache");
+        }
+        if arg == "--target-dir" || arg.starts_with("--target-dir=") {
+            return Err("--target-dir is disabled: use the leased shared target folder");
+        }
+    }
+    Ok(())
+}
+
 /// Whether `cargo <args>` compiles.
 pub fn is_heavy(args: &[std::ffi::OsString]) -> bool {
     args.iter()
@@ -297,7 +311,18 @@ fn folder_name(key: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{folder_name, is_heavy};
+    use super::{folder_name, is_heavy, validate_args};
+
+    #[test]
+    fn passthrough_preserves_warm_targets() {
+        let valid =
+            |args: &[&str]| validate_args(&args.iter().map(Into::into).collect::<Vec<_>>()).is_ok();
+        assert!(!valid(&["clean"]));
+        assert!(!valid(&["build", "--target-dir", "elsewhere"]));
+        assert!(!valid(&["test", "--target-dir=elsewhere"]));
+        assert!(valid(&["test", "--", "clean", "--target-dir=fixture"]));
+        assert!(valid(&["test", "-p", "galaxy-core"]));
+    }
 
     #[test]
     fn keys_become_one_folder() {

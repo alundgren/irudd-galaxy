@@ -79,6 +79,10 @@ fn main() -> ExitCode {
         }
         "contract" => contract(),
         "cargo" => {
+            if let Err(message) = build::validate_args(&rest) {
+                eprintln!("xtask: {message}");
+                return ExitCode::FAILURE;
+            }
             let _permit = build::is_heavy(&rest).then(build::permit);
             exit(cargo().args(rest).status().is_ok_and(|s| s.success()))
         }
