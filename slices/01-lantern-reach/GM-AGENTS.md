@@ -168,6 +168,15 @@ Each line is one object with a `type`:
 | `script` | `event: { kind: aborted / quarantined, pack, script, ... }` | A handler was aborted or quarantined. |
 | `lagged` | `dropped` | You read too slowly; items were dropped (the game never waits for you). |
 
+To search what has happened, by place, person or faction:
+
+```sh
+galaxy memory search --save PATH "lamps" --station station.kettle_dock
+```
+
+Each entry says where it came from (`authored`, `game_master`, `live_layer`) and cites
+its facts.
+
 ## 4. Write and check a pack
 
 A pack is a folder (see AGENTS.md "Packs and scripts"). Copy

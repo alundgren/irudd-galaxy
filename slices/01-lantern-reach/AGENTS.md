@@ -304,6 +304,13 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `market_base_changed` (station, ware, amount = the new base). A change that must
   wait for a calm moment calls `ctx.beats:expect_docked(station, why)`: the call's
   writes apply only if the player is still docked there.
+- `ctx.parts` (`stations.write`, `talk.write`) puts, closes, rebuilds and removes a
+  station's parts (`station_parts.toml`'s shape) at a calm moment: the player docked
+  there. The keeper says the part's line, or its `rollback_line` on removal.
+  `ctx.happenings` (`happenings.write`, `talk.write`) writes happenings: visible life at
+  a station with a cause, a first-person line and a length in dockings. One runs at a
+  time per station, and each carries `ExpectHappening`, so a write never overwrites one
+  made earlier in the tick.
 
 **Capabilities, one table**: `uses` bounds everything a pack can change, by every
 route, not only the `ctx` hooks. `galaxy_contract::needs::COMMAND_NEEDS` maps every
@@ -481,3 +488,14 @@ before dropping them, so every listed snapshot stays loadable (checked by a dige
 Fork = `galaxy_core::fork(from, to)` (a file copy). `state_hash` is BLAKE3 over the
 canonical JSON of everything a save holds: same build, seed and inputs give the same
 hash, and save -> load -> continue gives the same hash as an uninterrupted run.
+
+**World memory** (`galaxy_core::memory`) lives in the same file: summarised entries per
+station, person and faction (stable ids `mem.fact.N` / `mem.talk.N`, the facts they
+summarise, and their source: `authored`, `game_master` or `live_layer`), a subject link
+table, an FTS5 index over the text, and an empty `memory_embedding` table keyed by entry
+id, kept for a vector extension later. It is a derived index: `Save::write` appends to it
+(and rebuilds it if it no longer matches), opening an older save builds it, and the sim
+never reads it. `galaxy memory search` queries it. Two files sit beside a save, never
+inside it: `<stem>.llm-log.sqlite`, the log of every OpenRouter call
+(`galaxy_mind::calllog`, `galaxy llm-log`), and `<stem>.music/`, cached generated tracks.
+Neither holds the key.
