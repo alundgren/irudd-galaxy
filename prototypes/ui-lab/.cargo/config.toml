@@ -1,0 +1,4 @@
+# The engine's xtask runs cargo for the lab in the shared build folders, with the same
+# slots and build permit as the engine and the slice: `cargo xtask cargo run`.
+[alias]
+xtask = "run --quiet --manifest-path ../../engine/xtask/Cargo.toml --"
