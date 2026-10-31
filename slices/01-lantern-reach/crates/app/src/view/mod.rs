@@ -812,13 +812,13 @@ impl View {
             };
             // A real craft glides in to its berth from where it docked, and out again
             // to where it is, rather than jumping.
-            let (pos, heading) = match berthing.get(&ship.id) {
-                Some((st, docking, k)) if *docking == docked => {
-                    let Some(st) = world.stations.get(st) else {
-                        continue;
-                    };
+            let moving = berthing.get(&ship.id).and_then(|(st, docking, k)| {
+                (*docking == docked).then_some((world.stations.get(st)?, *docking, *k))
+            });
+            let (pos, heading) = match moving {
+                Some((st, docking, k)) => {
                     let (b, bh) = berth(world, st, &ship.id);
-                    let (from, to, fh, th) = if *docking {
+                    let (from, to, fh, th) = if docking {
                         (g(ship.position), b, ship.heading, bh)
                     } else {
                         (b, pos, bh, heading)
