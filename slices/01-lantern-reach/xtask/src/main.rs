@@ -5,15 +5,26 @@
 //! - `contract`: regenerate the JSON Schemas in `crates/contract/schemas/` and the hook
 //!   API (`galaxy.d.luau`, `HOOKS.md`) in `crates/contract/api/`.
 //! - `fetch-luau`: download the pinned `luau-analyze` into `tools/luau/` (git-ignored).
-//! - `cargo <args>`: run cargo with the target folder `check` uses (see [`target_dir`]).
+//! - `cargo <args>`: run cargo in the target folder `check` uses.
 //! - `target-dir`: print that folder.
 //! - `build [--release]`: build the game with the workspace check's dependency features.
 //! - `run [--release] -- <args>`: build the same way, then run the game.
+//! - `build-report [--no-cold]`: time the builds an agent waits on (see [`report`]).
+//! - `loc [--base <ref>]`: code lines per crate (see [`loc`]).
+//!
+//! Every command that runs cargo leases a shared target folder, and compiling commands
+//! wait for a machine-wide build permit first; [`build`] explains both.
 
+mod build;
+mod loc;
+mod report;
+
+use std::ffi::OsString;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
+use build::cargo;
 use sha2::{Digest, Sha256};
 
 /// The pinned Luau release. Keep it in step with the VM mlua builds
@@ -44,15 +55,11 @@ fn luau_asset() -> Option<(&'static str, &'static str)> {
 
 fn main() -> ExitCode {
     let task = std::env::args().nth(1).unwrap_or_default();
-    if matches!(task.as_str(), "check" | "cargo" | "build" | "run") && unshared() {
-        eprintln!(
-            "note: GALAXY_TARGET_ROOT is unset, so this worktree builds into its own target/ \
-             and other worktrees on this branch start cold. See \"Builds\" in the root AGENTS.md."
-        );
-    }
+    let rest: Vec<OsString> = std::env::args_os().skip(2).collect();
     match task.as_str() {
-        "build" | "run" => game_command(&task, std::env::args_os().skip(2).collect()),
+        "build" | "run" => game_command(&task, rest),
         "check" => {
+            let _permit = build::permit("check");
             // Without the analyzer the typecheck tests skip; that's a warning, not a failure.
             if let Err(e) = fetch_luau() {
                 eprintln!("warning: fetch-luau failed ({e}); typecheck tests will skip");
@@ -72,24 +79,19 @@ fn main() -> ExitCode {
         }
         "contract" => contract(),
         "cargo" => {
-            let ok = cargo()
-                .args(std::env::args().skip(2))
-                .status()
-                .is_ok_and(|s| s.success());
-            if ok {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
+            let _permit = build::is_heavy(&rest).then(|| build::permit("cargo"));
+            exit(cargo().args(rest).status().is_ok_and(|s| s.success()))
         }
         "target-dir" => {
             let dir = std::env::var_os("CARGO_TARGET_DIR")
                 .map(PathBuf::from)
-                .or_else(target_dir)
+                .or_else(|| build::target_dir().map(Path::to_path_buf))
                 .unwrap_or_else(|| workspace_root().join("target"));
             println!("{}", dir.display());
             ExitCode::SUCCESS
         }
+        "build-report" => report::run(&rest),
+        "loc" => loc::run(&rest),
         "fetch-luau" => match fetch_luau() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
@@ -99,17 +101,16 @@ fn main() -> ExitCode {
         },
         _ => {
             eprintln!(
-                "usage: cargo xtask <build [--release]|run [--release] -- <args>|check|contract|fetch-luau|cargo <args>|target-dir>"
+                "usage: cargo xtask <build [--release]|run [--release] -- <args>|check|contract|\
+                 fetch-luau|cargo <args>|target-dir|build-report [--no-cold]|loc [--base <ref>]>"
             );
             ExitCode::FAILURE
         }
     }
 }
 
-/// Select xtask alongside the game so its ZIP dependency does not create a second
-/// memchr -> serde_json -> game dependency graph when switching to workspace tests.
 /// Cargo reports the executable path, including custom target folders; do not guess it.
-fn game_command(task: &str, mut args: Vec<std::ffi::OsString>) -> ExitCode {
+fn game_command(task: &str, mut args: Vec<OsString>) -> ExitCode {
     let release = args.first().is_some_and(|arg| arg == "--release");
     if release {
         args.remove(0);
@@ -121,26 +122,10 @@ fn game_command(task: &str, mut args: Vec<std::ffi::OsString>) -> ExitCode {
         eprintln!("usage: cargo xtask build [--release]");
         return ExitCode::FAILURE;
     }
-    let mut build = cargo();
-    // Select both packages for feature resolution, but never rebuild the running
-    // xtask executable (Windows may lock it when the target folder is shared).
-    build.args([
-        "build",
-        "-p",
-        "galaxy-app",
-        "-p",
-        "xtask",
-        "--bin",
-        "galaxy",
-    ]);
-    if release {
-        build.arg("--release");
-    }
+    let permit = build::permit(task);
+    let mut build = game_build(release);
     if task == "build" {
-        return match build.status() {
-            Ok(status) if status.success() => ExitCode::SUCCESS,
-            _ => ExitCode::FAILURE,
-        };
+        return exit(build.status().is_ok_and(|s| s.success()));
     }
     let output = match build
         .arg("--message-format=json-render-diagnostics")
@@ -150,6 +135,9 @@ fn game_command(task: &str, mut args: Vec<std::ffi::OsString>) -> ExitCode {
         Ok(output) if output.status.success() => output,
         _ => return ExitCode::FAILURE,
     };
+    // The game runs without the permit but keeps the folder leased: Windows locks a
+    // running executable, so nobody may rebuild it meanwhile.
+    drop(permit);
     let executable = String::from_utf8_lossy(&output.stdout)
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
@@ -168,6 +156,34 @@ fn game_command(task: &str, mut args: Vec<std::ffi::OsString>) -> ExitCode {
             eprintln!("could not start galaxy: {error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// `cargo build` of the game. Selects xtask too, so its ZIP dependency does not create a
+/// second memchr -> serde_json -> game dependency graph when switching to workspace tests,
+/// but never builds the running xtask executable (Windows locks it).
+fn game_build(release: bool) -> Command {
+    let mut build = cargo();
+    build.args([
+        "build",
+        "-p",
+        "galaxy-app",
+        "-p",
+        "xtask",
+        "--bin",
+        "galaxy",
+    ]);
+    if release {
+        build.arg("--release");
+    }
+    build
+}
+
+fn exit(ok: bool) -> ExitCode {
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }
 
@@ -245,9 +261,6 @@ fn fetch_luau() -> Result<(), String> {
 }
 
 fn run_all(steps: &[&[&str]]) -> ExitCode {
-    if let Some(dir) = target_dir() {
-        eprintln!("==> target folder {}", dir.display());
-    }
     for args in steps {
         eprintln!("==> cargo {}", args.join(" "));
         let ok = cargo().args(*args).status().is_ok_and(|s| s.success());
@@ -258,93 +271,7 @@ fn run_all(steps: &[&[&str]]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// Cargo, building into [`target_dir`] when there is one.
-fn cargo() -> Command {
-    let mut cmd = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
-    if let Some(dir) = target_dir() {
-        cmd.env("CARGO_TARGET_DIR", dir);
-    }
-    cmd
-}
-
-/// Neither `CARGO_TARGET_DIR` nor `GALAXY_TARGET_ROOT` picks the folder, so cargo uses the
-/// worktree's own `target/`.
-fn unshared() -> bool {
-    let set = |name: &str| std::env::var_os(name).is_some_and(|v| !v.is_empty());
-    !set("CARGO_TARGET_DIR") && !set("GALAXY_TARGET_ROOT")
-}
-
-/// `$GALAXY_TARGET_ROOT/<branch>` when that variable is set and `CARGO_TARGET_DIR` isn't,
-/// so every worktree on a branch shares one warm build. `GALAXY_TARGET_KEY` overrides the
-/// branch name. Otherwise `None`, and cargo uses its usual folder.
-fn target_dir() -> Option<PathBuf> {
-    if std::env::var_os("CARGO_TARGET_DIR").is_some() {
-        return None;
-    }
-    let root = std::env::var_os("GALAXY_TARGET_ROOT").filter(|r| !r.is_empty())?;
-    let key = std::env::var("GALAXY_TARGET_KEY")
-        .ok()
-        .filter(|k| !k.is_empty())
-        .or_else(branch)
-        .unwrap_or_else(|| "detached".into());
-    Some(PathBuf::from(root).join(folder_name(&key)))
-}
-
-/// The checked-out branch. On a detached HEAD (a read-only review of `origin/<branch>`),
-/// the one remote branch at this commit, if there is exactly one.
-fn branch() -> Option<String> {
-    let git = |args: &[&str]| -> Option<String> {
-        let out = Command::new("git")
-            .args(args)
-            .current_dir(workspace_root())
-            .output()
-            .ok()?;
-        out.status
-            .success()
-            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
-    };
-    if let Some(name) = git(&["symbolic-ref", "--quiet", "--short", "HEAD"]) {
-        return Some(name);
-    }
-    let remotes = git(&[
-        "for-each-ref",
-        "--points-at",
-        "HEAD",
-        "--format=%(refname:lstrip=3)",
-        "refs/remotes",
-    ])?;
-    let names: std::collections::BTreeSet<&str> = remotes
-        .lines()
-        .filter(|n| !n.is_empty() && *n != "HEAD")
-        .collect();
-    let mut names = names.into_iter();
-    match (names.next(), names.next()) {
-        (Some(name), None) => Some(name.to_string()),
-        _ => None,
-    }
-}
-
-/// A branch name as one folder name: `slice/01/x` becomes `slice-01-x`.
-fn folder_name(key: &str) -> String {
-    let name: String = key
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
-                c
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let name = name.trim_start_matches('.');
-    if name.is_empty() {
-        "detached".into()
-    } else {
-        name.into()
-    }
-}
-
-fn workspace_root() -> PathBuf {
+pub(crate) fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("xtask lives in the workspace")
@@ -388,21 +315,4 @@ fn write_schemas(dir: &Path) -> std::io::Result<()> {
     }
     eprintln!("wrote {} schemas to crates/contract/schemas/", files.len());
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::folder_name;
-
-    #[test]
-    fn branch_names_become_one_folder() {
-        assert_eq!(
-            folder_name("slice/01/playtest-fixes"),
-            "slice-01-playtest-fixes"
-        );
-        assert_eq!(folder_name("main"), "main");
-        assert_eq!(folder_name(r"a\b:c"), "a-b-c");
-        assert_eq!(folder_name(".."), "detached");
-        assert_eq!(folder_name("../up"), "-up");
-    }
 }
