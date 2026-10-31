@@ -320,6 +320,22 @@ pub struct Panel {
     pub border: Color,
     pub border_px: f32,
     pub shadow: bool,
+    /// Dash length plus gap of the border in logical pixels; 0 draws it solid.
+    pub dash: f32,
+    /// Turn around the centre, radians, clockwise on screen.
+    pub rotate: f32,
+    pub shape: PanelShape,
+}
+
+/// What a [`Panel`] draws inside its rectangle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PanelShape {
+    /// A box with rounded corners.
+    #[default]
+    Box,
+    /// A triangle pointing up the screen, its base the rectangle's bottom edge (corner
+    /// radius rounds it).
+    Triangle,
 }
 
 impl Panel {
@@ -332,6 +348,9 @@ impl Panel {
             border: palette::INK,
             border_px: 3.0,
             shadow: true,
+            dash: 0.0,
+            rotate: 0.0,
+            shape: PanelShape::Box,
         }
     }
 }
@@ -444,10 +463,19 @@ impl PausedCard {
     }
 }
 
-/// Screen-space UI. Panels draw first, then text; the paused card draws above both.
+/// One overlay layer: its panels draw first, then its text.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct UiLayer {
+    pub panels: Vec<Panel>,
+    pub texts: Vec<Text>,
+}
+
+/// Screen-space UI. Panels draw first, then text; then each `upper` layer the same way,
+/// and the paused card above everything.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Overlay {
     pub panels: Vec<Panel>,
     pub texts: Vec<Text>,
+    pub upper: [UiLayer; 2],
     pub paused: Option<PausedCard>,
 }

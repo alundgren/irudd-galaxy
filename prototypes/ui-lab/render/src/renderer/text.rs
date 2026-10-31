@@ -29,8 +29,8 @@ struct Shaped {
     used: bool,
 }
 
-/// Number of independently drawn text layers (the HUD and the pause card).
-pub(crate) const LAYERS: usize = 2;
+/// Number of independently drawn text layers (the HUD, two upper layers, the pause card).
+pub(crate) const LAYERS: usize = 4;
 
 pub(crate) struct TextSystem {
     font_system: FontSystem,

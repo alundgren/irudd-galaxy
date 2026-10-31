@@ -9,7 +9,7 @@ use crate::kit::Backdrop;
 use crate::mesh::{MeshData, Vertex};
 use crate::palette;
 use crate::scene::{
-    BackdropHandle, MAX_POINT_LIGHTS, MeshHandle, Panel, PausedCard, Rect, Scene, Text,
+    BackdropHandle, MAX_POINT_LIGHTS, MeshHandle, Panel, PanelShape, PausedCard, Rect, Scene, Text,
 };
 use bytemuck::{Pod, Zeroable};
 use fx::FxVertex;
@@ -173,6 +173,7 @@ struct PanelGpu {
     params: [f32; 4],
     fill: [f32; 4],
     border: [f32; 4],
+    shape: [f32; 4],
 }
 
 /// A buffer that grows (by recreation) to fit what is written into it.
@@ -1097,12 +1098,18 @@ impl Renderer {
         let sky_blobs = (src.clouds.len() + src.stars.len()) as u32;
         let sky_instances = sky_blobs * sky_gpu.counts[0] as u32 * sky_gpu.counts[1] as u32;
 
-        // Overlay: layer 0 is the HUD, layer 1 the pause card.
+        // Overlay: layer 0 is the HUD, then the two upper layers, then the pause card.
         let (pause_panels, pause_texts) = match &scene.overlay.paused {
             Some(card) => paused_card(card, logical),
             None => (vec![], vec![]),
         };
-        let panel_layers: [&[Panel]; text::LAYERS] = [&scene.overlay.panels, &pause_panels];
+        let up = &scene.overlay.upper;
+        let panel_layers: [&[Panel]; text::LAYERS] = [
+            &scene.overlay.panels,
+            &up[0].panels,
+            &up[1].panels,
+            &pause_panels,
+        ];
         let mut panel_counts = [0u32; text::LAYERS];
         for (i, panels) in panel_layers.iter().enumerate() {
             let data: Vec<PanelGpu> = panels.iter().map(|p| panel_gpu(p, self.scale)).collect();
@@ -1126,7 +1133,12 @@ impl Renderer {
                 &self.queue,
                 self.size,
                 self.scale,
-                [&scene.overlay.texts, &pause_texts],
+                [
+                    &scene.overlay.texts,
+                    &up[0].texts,
+                    &up[1].texts,
+                    &pause_texts,
+                ],
             )
             .map_err(|e| RenderError::Text(e.to_string()))?;
 
@@ -1355,11 +1367,20 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
             p.radius.max(0.0) * scale,
             p.border_px.max(0.0) * scale,
             if p.shadow { 5.0 * scale } else { 0.0 },
-            0.0,
+            p.dash.max(0.0) * scale,
         ],
         // Straight alpha; the shader premultiplies.
         fill: p.fill.to_array(),
         border: p.border.to_array(),
+        shape: [
+            p.rotate,
+            match p.shape {
+                PanelShape::Box => 0.0,
+                PanelShape::Triangle => 1.0,
+            },
+            0.0,
+            0.0,
+        ],
     }
 }
 
@@ -1375,6 +1396,7 @@ fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
         border: Color::TRANSPARENT,
         border_px: 0.0,
         shadow: false,
+        ..Panel::new(Rect::default())
     };
     let body = Panel {
         radius: 30.0,
@@ -1388,6 +1410,7 @@ fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
         border: Color::TRANSPARENT,
         border_px: 0.0,
         shadow: false,
+        ..Panel::new(Rect::default())
     };
     let title = Text::new(card.title.clone(), Vec2::new(cx, rect.y + 18.0), 84.0)
         .weight(700)
