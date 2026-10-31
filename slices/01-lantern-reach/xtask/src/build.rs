@@ -28,6 +28,15 @@ const HEAVY: &[&str] = &[
     "rustdoc", "fix",
 ];
 
+/// Variables `cargo run` sets for the program it runs, besides `CARGO_PKG_*`.
+const RUN_VARS: &[&str] = &[
+    "CARGO_MANIFEST_DIR",
+    "CARGO_MANIFEST_PATH",
+    "CARGO_CRATE_NAME",
+    "CARGO_BIN_NAME",
+    "CARGO_PRIMARY_PACKAGE",
+];
+
 static HELD: AtomicBool = AtomicBool::new(false);
 static LEASE: OnceLock<Lease> = OnceLock::new();
 
@@ -83,6 +92,15 @@ pub fn target_dir() -> Option<&'static Path> {
 pub fn cargo() -> std::process::Command {
     let mut cmd =
         std::process::Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
+    // `cargo run` gave xtask this worktree's `CARGO_MANIFEST_DIR` and package variables.
+    // Passed on, they reach crates whose fingerprints record them (ring does), so every
+    // worktree would rebuild those crates and everything above them in a shared folder.
+    for (name, _) in std::env::vars_os() {
+        let name = name.to_string_lossy();
+        if name.starts_with("CARGO_PKG_") || RUN_VARS.contains(&name.as_ref()) {
+            cmd.env_remove(name.as_ref());
+        }
+    }
     if let Some(dir) = target_dir() {
         cmd.env("CARGO_TARGET_DIR", dir);
     }
