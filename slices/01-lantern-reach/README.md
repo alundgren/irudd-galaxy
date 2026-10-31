@@ -42,6 +42,7 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
 | **N** | Mute or unmute the sound (remembered between games). |
 | **Q** | Station life full or quiet (also a button on the PAUSED card; remembered between games). Quiet keeps what the numbers say (stock piles, lamps, your sale on the crane, a crowd for news) and stills the rest. |
+| **R** | The radio: the next channel in range, and past the last one, off (R again turns it on). The radio at the bottom right has the same as buttons: Prev, Off, Next. |
 | **F3** | Small developer overlay: active beats and steps, activity counters, recent facts, mind spend and script health. |
 | **Mouse wheel**, **-** / **=** | Zoom. |
 | **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
@@ -174,9 +175,13 @@ a `saves` folder for the game under `~/Library/Application Support` on macOS,
 Linux. Set `GALAXY_SAVES` to use another folder.
 
 Sound is on at a modest volume: a few soft cues for docking, undocking, ore coming
-aboard, a full hold and a trade going through. There's nothing while you fly and no
-beam tone while you mine. **N** mutes. The volumes (`master`, `ui`, `world`, from 0.0
-to 1.0) and the mute live in `sound.toml` in the save folder, which is written the first
+aboard, a full hold and a trade going through. There's no beam tone while you mine.
+In flight, the radio picks up the stations and lane beacons near you: quiet music
+that fades in and out with distance, a little static at the edge of a channel's range,
+and short lines from the station as text under the radio. The first time a channel
+comes into range, the ship log notes "New signal". **N** mutes. The volumes (`master`,
+`ui`, `world`, `radio`, from 0.0 to 1.0), the mute and the radio's Off live in
+`sound.toml` in the save folder, which is written the first
 time you play. Without an audio device the game just runs silent. The rules the
 sounds follow are in [crates/audio/README.md](crates/audio/README.md).
 

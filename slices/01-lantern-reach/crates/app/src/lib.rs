@@ -16,6 +16,7 @@
 //! - [`ui`]: the HUD, dock screen, map, talk bubbles and the ship log.
 //! - [`saves`]: the per-user save folder and the background saver.
 //! - [`sound`]: which sound cues a tick asks for, and `galaxy audio render`.
+//! - [`radio`]: radio channels by station and beacon: discovery, tuning and the mix.
 //! - [`frame`]: one frame's scene and buttons, shared by the window and the shot.
 //! - [`play`]: the window. [`shot`]: the same scene, headless, to a PNG, optionally
 //!   after a [`script`]ed input run.
@@ -26,6 +27,7 @@ pub mod harness;
 pub mod hooks;
 pub mod input;
 pub mod play;
+pub mod radio;
 pub mod saves;
 pub mod script;
 pub mod session;

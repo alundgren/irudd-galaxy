@@ -3,7 +3,7 @@
 //! taught it, [`hints`]), the station frame at the dock ([`station`]: the plate, module
 //! signs and the station key) with a room open beside its module ([`rooms`]), talk
 //! bubbles over whoever speaks at the dock ([`talk`]), the ship log behind one small
-//! icon ([`log`]) and the PAUSED card. No timers, no progress bars; text is important
+//! icon ([`log`]), the radio in flight ([`radio`]) and the PAUSED card. No timers, no progress bars; text is important
 //! or absent.
 //!
 //! Layout is logical pixels from the viewport, so it needs no renderer and can be
@@ -17,14 +17,15 @@
 //! (beside the title on the map), the log icon in the bottom-left corner with the
 //! station key beside it, the log panel in the left column between the banner and the
 //! icon, an open room on the right (at most 45% of the width) with the station and its
-//! bubbles left of it, and the hint pill clear of the log icon. A market with more lines
-//! than fit pages with the selection. The window won't shrink below [`MIN_WINDOW`], where
-//! the text is still readable.
+//! bubbles left of it, the hint pill clear of the log icon, and in flight the radio in
+//! the bottom-right corner. A market with more lines than fit pages with the selection.
+//! The window won't shrink below [`MIN_WINDOW`], where the text is still readable.
 
 pub mod dock;
 pub mod fps;
 pub mod hints;
 pub mod log;
+pub mod radio;
 pub mod rooms;
 pub mod station;
 pub mod talk;
@@ -135,6 +136,8 @@ pub struct UiState {
     /// The hullwright's room: the tray tab, a part in hand, the Make confirm and the
     /// fitting animation ([`rooms::fit`]).
     pub wharf: rooms::fit::WharfUi,
+    /// What the radio shows this frame ([`crate::radio::Radio::update`]).
+    pub radio: crate::radio::RadioUi,
 }
 
 impl UiState {
@@ -267,6 +270,8 @@ pub enum UiAction {
     CloseRoom,
     /// Something at the hullwright's cradle: a tab, a part, a socket, the locker.
     Wharf(rooms::fit::WharfAction),
+    /// The radio's Prev, Off (or On) and Next.
+    Radio(crate::radio::Tune),
 }
 
 #[derive(Clone, Debug, PartialEq)]

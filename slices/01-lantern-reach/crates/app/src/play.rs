@@ -121,6 +121,8 @@ struct App {
     view_settings_path: Option<PathBuf>,
     /// The station themes from the packs folder, for the view.
     themes: crate::view::themes::Themes,
+    /// The radio: tuning and the mix, played through `audio` ([`crate::radio`]).
+    radio: crate::radio::Radio,
 }
 
 /// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
@@ -265,6 +267,11 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
             }
             settings
         });
+    let radio = crate::radio::Radio::new(
+        session.game().radio().clone(),
+        themes.clone(),
+        audio.settings().radio_on,
+    );
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -293,6 +300,7 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         view_settings,
         view_settings_path,
         themes,
+        radio,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -439,6 +447,12 @@ impl App {
         }
     }
 
+    /// The radio's buttons, or R: tunes, and keeps On or Off in the sound settings.
+    fn tune_radio(&mut self, t: crate::radio::Tune) {
+        let on = self.radio.tune(self.session.world(), t);
+        self.audio.set_radio_on(on);
+    }
+
     fn toggle_pause(&mut self) {
         let now_paused = self.session.toggle_pause();
         self.step.reset();
@@ -494,6 +508,7 @@ impl App {
             UiAction::OpenRoom(id) => self.open_room(Some(id)),
             UiAction::CloseRoom => self.open_room(None),
             UiAction::Wharf(a) => self.wharf(&a),
+            UiAction::Radio(t) => self.tune_radio(t),
         }
     }
 
@@ -679,6 +694,12 @@ impl App {
         for note in self.session.game_mut().take_notes() {
             eprintln!("{note}");
         }
+        // The radio follows the flagship: its mix to the audio, its widget to the HUD.
+        let radio = self
+            .radio
+            .update(self.session.world(), self.session.sim().history());
+        self.audio.radio(&radio.mix);
+        self.ui.radio = radio.ui;
         let alpha = self.step.alpha();
         let time = (now - self.started).as_secs_f32();
         let Some(r) = &mut self.running else { return };
@@ -834,6 +855,14 @@ impl ApplicationHandler for App {
                 if code == KeyCode::KeyN {
                     if down && !repeat {
                         self.audio.toggle_mute();
+                    }
+                    return;
+                }
+                // R tunes the radio to the next channel in range (past the last, off; off,
+                // on again), as its Next button does. Not a game key.
+                if code == KeyCode::KeyR {
+                    if down && !repeat && !self.session.is_paused() {
+                        self.tune_radio(crate::radio::Tune::Cycle);
                     }
                     return;
                 }
