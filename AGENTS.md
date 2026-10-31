@@ -105,28 +105,39 @@ decides: merge with a follow-up issue, or stop and say why.
 merging if the branch changed since. Reviewers skip it when the commit matches a reported
 pass. Never enable fat LTO; thin LTO or none.
 
-Cold builds are the slowest part of a review. Set `GALAXY_TARGET_ROOT` once per machine
-to a folder outside the repo. `cargo xtask` then builds into `<root>/<branch>`, so every
-worktree on a branch (builder, reviewer, fixer) shares one warm build. Notes:
-- Run targeted commands through it: `cargo xtask cargo test -p <crate>`.
-- `cargo xtask target-dir` prints the folder.
-- Two agents on the same branch at once wait on cargo's lock, so run them in turn.
-- Folders under the root can be deleted any time; they rebuild.
-- If `GALAXY_TARGET_ROOT` is unset, the normal `target/` is used, and `cargo xtask` prints
-  a note saying so. Before a multi-agent run, check that it's set: an unset root is the
-  cold-build cost this section exists to avoid.
+Cold builds are the slowest part of a review, and parallel builds starve the machine.
+`cargo xtask` handles both by default; nothing needs setting up:
+- **Shared folders.** It builds outside the worktree, under a per-user cache folder
+  (`irudd-galaxy/target` in the OS cache folder; `cargo xtask target-dir` prints the
+  one in use). Set `GALAXY_TARGET_ROOT` to put the folders elsewhere, such as a fast
+  drive.
+- **Slots.** Each run leases one of a small pool of folders (`slot-1` to `slot-4`) and
+  holds it until it exits, so one agent uses a slot at a time. It takes the slot its
+  worktree used last, else its branch's, else the most recently used free one. A new
+  branch or worktree therefore starts with the dependencies compiled and rebuilds only
+  our own crates. `GALAXY_TARGET_SLOTS` changes the pool size; each slot is several GB.
+- **One heavy build at a time.** Commands that compile (`build`, `run`'s build, `check`,
+  `build-report`, and `cargo xtask cargo` with `build`, `test`, `clippy` and the like)
+  first wait for a machine-wide build permit and print who holds it. `run` gives the
+  permit back once the game is built but keeps its slot while the game runs.
+  `GALAXY_BUILD_PERMITS=2` allows two at once and sets `CARGO_BUILD_JOBS` to
+  cores / permits; `0` turns the wait off.
+- Locks are OS file locks: a crashed or killed run releases its slot and permit.
+  Folders under the root can be deleted any time; they rebuild.
 
-**Fanning out: borrow a slot.** Stable cargo has no compiled-dependency cache shared
-between folders, so a new folder per branch means a full cold build (about 8 minutes on
-16 cores) for every worker. When a job fans out onto several branches, give each agent a
-long-lived folder instead: `GALAXY_TARGET_KEY=slot-1`, `slot-2`, and so on.
-- Slots outlive branches and runs. The dependencies stay compiled; only our own crates
-  rebuild where the branch differs.
-- One agent per slot at a time. A reviewer or fixer borrows the slot its builder used,
-  after the builder is done.
-- Cap each build at its share of the cores, `CARGO_BUILD_JOBS` = cores / parallel agents,
-  or parallel builds starve the machine.
-- Keep the pool small (about four). Each slot is several GB.
+Notes:
+- Run targeted commands through it, `cargo xtask cargo test -p <crate>`, never plain
+  `cargo`: that builds cold into the worktree's `target/` and skips the queue.
+- Parallel agents queue for the permit: a second build waits for the first instead of
+  both running at half speed.
+- `GALAXY_TARGET_KEY=<name>` pins a folder of that name under the root instead of a
+  slot (still one run at a time).
+- Opting out: `GALAXY_TARGET_ROOT=off` builds into the worktree's own `target/`, and an
+  explicit `CARGO_TARGET_DIR` always wins. Both still wait for the build permit.
+- `cargo xtask build-report` times a cold build, the first build in the leased slot, a
+  no-op rebuild, a rebuild after touching `galaxy-core` and the test build, and writes
+  `build-report.json` into the slot. `cargo xtask loc [--base <ref>]` counts code lines
+  per crate. A change to how things build or where code lives reports both in its PR.
 
 ## Platforms
 

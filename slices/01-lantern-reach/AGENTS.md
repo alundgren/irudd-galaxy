@@ -14,11 +14,17 @@ Run from this folder, on any OS. Windows shell notes are under "Platforms" in th
 cargo xtask check      # fetch-luau, fmt --check, clippy -D warnings, tests. Must pass before a PR.
 cargo xtask contract   # regenerate crates/contract/schemas/ and api/. Commit the result.
 cargo xtask fetch-luau # pinned luau-analyze into tools/luau/ (git-ignored, SHA-256 checked)
-cargo xtask cargo test -p galaxy-core          # any cargo command, in the branch's target folder
-cargo xtask build                            # game with workspace-check dependency features
-cargo xtask run -- <command>                 # see README.md for the CLI
-cargo xtask target-dir # where those build (GALAXY_TARGET_ROOT/<branch>, or target/)
+cargo xtask cargo test -p galaxy-core # any cargo command, in the shared target folder
+cargo xtask build      # game with workspace-check dependency features
+cargo xtask run -- <command>          # see README.md for the CLI
+cargo xtask target-dir # the leased slot those build in (see "Builds" in the root AGENTS.md)
+cargo xtask build-report # build timings as JSON, written into the slot
+cargo xtask loc --base origin/main    # code lines per crate, and the change since main
 ```
+
+Builds go to a shared slot outside the worktree, and compiling commands queue for one
+machine-wide build permit, printing who they wait for. Never run plain `cargo build` or
+`cargo test`: it builds cold into `target/` and skips the queue.
 
 ## Rules
 
@@ -72,7 +78,7 @@ Rust's own `core`). Only `app` depends on everything; the sim crates never depen
 | `crates/gm` | `galaxy-gm` | W5 | Game-master bridge: live socket, `--live` reads, digest, `gm propose` (sandbox run in child processes), calm-moment staging, inbox, rollback. Agents acting as game master read [GM-AGENTS.md](GM-AGENTS.md). |
 | `crates/audio` | `galaxy-audio` | W6 | Sound cues synthesised offline (fundsp) and played through kira; the anti-fatigue rules. See `crates/audio/README.md`. |
 | `crates/mind` | | W5 | Fast-model layer on OpenRouter, behind a trait. |
-| `xtask` | `xtask` | W1 | `cargo xtask check`, `cargo xtask contract`, `cargo xtask fetch-luau`. |
+| `xtask` | `xtask` | W1 | `cargo xtask check`, `contract`, `fetch-luau`, `build`, `run`, `build-report`, `loc`; target slots and the build permit (`xtask/src/build.rs`). |
 | `packs/core` | | W4 (+W3 data) | The authored backbone: `manifest.toml`, `data/*.toml`, later scripts. |
 | `packs/gm-examples` | | W5 | Game-master example packs; `bad_script/` holds packs `pack check` must reject, `bad_sandbox/` packs only the sandbox catches. |
 
