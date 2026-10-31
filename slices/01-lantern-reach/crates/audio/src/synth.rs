@@ -81,7 +81,7 @@ fn shape(t: f32, attack: f32, tau: f32) -> f32 {
 
 /// One struck note, `samples` long: the fundamental and its overtones, each under its
 /// own envelope, with the noise onset, through the low-pass and a DC blocker.
-fn render_note(hz: f32, t: &Timbre, env: Envelope, samples: f32, seed: u64) -> Vec<f32> {
+pub(crate) fn render_note(hz: f32, t: &Timbre, env: Envelope, samples: f32, seed: u64) -> Vec<f32> {
     let [(r1, a1), (r2, a2)] = t.overtones;
     let (attack, tau, damp) = (env.attack, env.decay, t.overtone_damping.max(1.0));
     let air = t.air;

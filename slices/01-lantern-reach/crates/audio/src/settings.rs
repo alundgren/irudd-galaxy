@@ -1,7 +1,7 @@
 //! The player's sound settings: a small TOML file next to the saves.
 //!
 //! Volumes are 0.0 (off) to 1.0 (full) and multiply down the mixer: master, then the
-//! UI and world tracks under it. A missing file means the defaults (and is written so
+//! UI, world and radio tracks under it. A missing file means the defaults (and is written so
 //! the player can find it); a broken one means the defaults too, and is left alone for
 //! the whole session. Changes in play are written by a [`Writer`] on its own thread.
 
@@ -21,8 +21,12 @@ pub struct Settings {
     pub master: f32,
     pub ui: f32,
     pub world: f32,
+    /// The radio's music and static, under the cues.
+    pub radio: f32,
     /// N in the game toggles this.
     pub muted: bool,
+    /// The radio's Off button (or R past the last channel) turns this off.
+    pub radio_on: bool,
 }
 
 impl Default for Settings {
@@ -32,7 +36,9 @@ impl Default for Settings {
             master: 0.5,
             ui: 0.6,
             world: 0.8,
+            radio: 0.5,
             muted: false,
+            radio_on: true,
         }
     }
 }
@@ -95,9 +101,10 @@ impl Settings {
     pub fn to_text(&self) -> String {
         format!(
             "# The Lantern Reach: sound. Volumes go from 0.0 (off) to 1.0 (full).\n\
-             # N in the game mutes and unmutes.\n\
-             master = {:.2}\nui = {:.2}\nworld = {:.2}\nmuted = {}\n",
-            self.master, self.ui, self.world, self.muted
+             # N in the game mutes and unmutes. The radio's Off button (or R) sets radio_on.\n\
+             master = {:.2}\nui = {:.2}\nworld = {:.2}\nradio = {:.2}\nmuted = {}\n\
+             radio_on = {}\n",
+            self.master, self.ui, self.world, self.radio, self.muted, self.radio_on
         )
     }
 
@@ -115,7 +122,9 @@ impl Settings {
             master: c(self.master),
             ui: c(self.ui),
             world: c(self.world),
+            radio: c(self.radio),
             muted: self.muted,
+            radio_on: self.radio_on,
         }
     }
 }
@@ -246,6 +255,15 @@ mod tests {
         assert_eq!(s.master, 1.0);
         assert!(s.muted);
         assert_eq!(s.world, Settings::default().world);
+        // A file from before the radio gets its defaults.
+        let old = Settings::parse("master = 0.5\nui = 0.6\nworld = 0.8\nmuted = false\n").unwrap();
+        assert_eq!(old.radio, Settings::default().radio);
+        assert!(old.radio_on);
+        let off = Settings {
+            radio_on: false,
+            ..Settings::default()
+        };
+        assert_eq!(Settings::parse(&off.to_text()).unwrap(), off);
     }
 
     #[test]
@@ -254,6 +272,8 @@ mod tests {
         assert!(!s.muted);
         assert!(volume_db(s.master) <= -6.0 + 1e-3);
         assert!(s.ui < s.world, "UI sits below the world");
+        assert!(s.radio < s.world, "the radio sits below the world");
+        assert!(s.radio_on);
         assert_eq!(volume_db(0.0), -60.0);
         assert!((volume_db(1.0)).abs() < 1e-6);
     }

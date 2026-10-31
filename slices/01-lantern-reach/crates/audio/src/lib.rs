@@ -7,20 +7,27 @@
 //! [`Audio`] plays its choices on a UI or a world track under the master track, with
 //! the volumes from the player's [`Settings`] file. The rules are in `README.md`.
 //!
+//! The radio ([`radio`]) plays on a third track: each channel heard loops its music at
+//! its signal's gain, with static mixed in at the edges ([`Audio::radio`]).
+//!
 //! Sound is never required. If no device opens (no sound card, a headless machine, a
 //! busy driver) [`Audio::open`] returns a silent [`Audio`] and the game carries on.
 
 pub mod analysis;
 pub mod cue;
 pub mod director;
+pub mod radio;
 pub mod settings;
 pub mod synth;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use kira::sound::static_sound::{StaticSoundData, StaticSoundSettings};
+use kira::sound::FromFileError;
+use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
+use kira::sound::streaming::{StreamingSoundData, StreamingSoundHandle};
 use kira::track::{TrackBuilder, TrackHandle};
 use kira::{
     AudioManager, AudioManagerSettings, Decibels, DefaultBackend, Easing, Frame, PlaybackRate,
@@ -32,13 +39,51 @@ pub use cue::{Bus, Cue};
 pub use director::{Director, Play};
 pub use settings::Settings;
 
-/// The open device: the manager, its two tracks and every cue's takes.
+/// The open device: the manager, its three tracks, every cue's takes and the radio's
+/// sounds.
 struct Output {
     manager: AudioManager<DefaultBackend>,
     ui: TrackHandle,
     world: TrackHandle,
+    radio: TrackHandle,
     /// `takes[cue.index()][take]`.
     takes: Vec<Vec<StaticSoundData>>,
+    /// The placeholder loops by name, and the static, ready to loop.
+    loops: BTreeMap<&'static str, StaticSoundData>,
+    hiss: StaticSoundData,
+    /// The channels playing now, by key, and the static.
+    voices: BTreeMap<String, RadioVoice>,
+    static_voice: Option<(StaticSoundHandle, f32)>,
+}
+
+/// One radio channel playing.
+struct RadioVoice {
+    source: radio::Source,
+    handle: Playing,
+    /// The gain last asked for.
+    gain: f32,
+}
+
+enum Playing {
+    Loop(StaticSoundHandle),
+    Track(StreamingSoundHandle<FromFileError>),
+}
+
+impl Playing {
+    fn set_gain(&mut self, gain: f32, secs: f32) {
+        let db = Decibels(settings::volume_db(gain));
+        match self {
+            Playing::Loop(h) => h.set_volume(db, tween(secs)),
+            Playing::Track(h) => h.set_volume(db, tween(secs)),
+        }
+    }
+
+    fn stop(&mut self, secs: f32) {
+        match self {
+            Playing::Loop(h) => h.stop(tween(secs)),
+            Playing::Track(h) => h.stop(tween(secs)),
+        }
+    }
 }
 
 /// Where changes to the settings go.
@@ -184,15 +229,45 @@ impl Audio {
             return;
         }
         self.paused = paused;
-        let world = self.settings.world;
+        let (world, radio) = (self.settings.world, self.settings.radio);
         if let Some(out) = &mut self.out {
-            let (db, secs) = if paused {
-                (Decibels::SILENCE, 0.3)
-            } else {
-                (Decibels(settings::volume_db(world)), 0.6)
+            let level = |v: f32| {
+                if paused {
+                    (Decibels::SILENCE, 0.3)
+                } else {
+                    (Decibels(settings::volume_db(v)), 0.6)
+                }
             };
+            let (db, secs) = level(world);
             out.world.set_volume(db, tween(secs));
+            let (db, secs) = level(radio);
+            out.radio.set_volume(db, tween(secs));
         }
+    }
+
+    /// The radio's Off and On (the HUD's button, or R): kept in the settings file like
+    /// the mute. Off silences the radio at once.
+    pub fn set_radio_on(&mut self, on: bool) {
+        if self.settings.radio_on == on {
+            return;
+        }
+        self.settings.radio_on = on;
+        if !on {
+            self.radio(&radio::Mix::default());
+        }
+        self.keep("radio switch");
+    }
+
+    /// Plays the radio as `mix` says: a channel new to the mix starts its loop (or its
+    /// generated track) from silence and fades up, one already playing glides to its
+    /// new gain, and one gone from the mix fades out and stops. The same for the
+    /// static. Call it every frame; small changes are skipped. Silent while the radio
+    /// is off.
+    pub fn radio(&mut self, mix: &radio::Mix) {
+        let Some(out) = &mut self.out else { return };
+        let off = radio::Mix::default();
+        let mix = if self.settings.radio_on { mix } else { &off };
+        out.radio_mix(mix);
     }
 
     /// N: mutes or unmutes everything and keeps the choice in the settings file,
@@ -206,6 +281,14 @@ impl Audio {
                 .main_track()
                 .set_volume(Decibels(master_db(&s)), tween(0.15));
         }
+        self.keep("mute");
+        s.muted
+    }
+
+    /// Writes the settings in the background, unless the file didn't load at startup:
+    /// then the change lasts the session, and that's said once.
+    fn keep(&mut self, what: &str) {
+        let s = self.settings;
         match &mut self.store {
             Store::Nowhere => {}
             Store::File(w) => w.write(s),
@@ -214,7 +297,7 @@ impl Audio {
                     *told = true;
                     let line = format!(
                         "{}: didn't load at startup, so it isn't overwritten; \
-                         the mute holds for this session only",
+                         the {what} holds for this session only",
                         path.display()
                     );
                     eprintln!("sound: {line}");
@@ -222,7 +305,6 @@ impl Audio {
                 }
             }
         }
-        s.muted
     }
 }
 
@@ -240,6 +322,7 @@ impl Output {
         };
         let ui = track(s.ui)?;
         let world = track(s.world)?;
+        let radio = track(s.radio)?;
         let takes = Cue::ALL
             .iter()
             .map(|c| {
@@ -249,12 +332,111 @@ impl Output {
                     .collect()
             })
             .collect();
+        let looped = |samples: &[f32]| sound_data(samples).loop_region(..);
+        let loops = radio::LOOPS
+            .iter()
+            .filter_map(|&name| radio::render_loop(name).map(|s| (name, looped(&s))))
+            .collect();
         Ok(Self {
             manager,
             ui,
             world,
+            radio,
             takes,
+            loops,
+            hiss: looped(&radio::render_static()),
+            voices: BTreeMap::new(),
+            static_voice: None,
         })
+    }
+
+    /// See [`Audio::radio`].
+    fn radio_mix(&mut self, mix: &radio::Mix) {
+        const AUDIBLE: f32 = 0.002;
+        const STEP: f32 = 0.01;
+        let wanted: BTreeMap<&str, &radio::Voice> = mix
+            .voices
+            .iter()
+            .filter(|v| v.gain > AUDIBLE)
+            .map(|v| (v.key.as_str(), v))
+            .collect();
+        // Gone from the mix, or now playing something else: fade out and stop.
+        let gone: Vec<String> = self
+            .voices
+            .iter()
+            .filter(|(k, v)| wanted.get(k.as_str()).is_none_or(|w| w.source != v.source))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in gone {
+            if let Some(mut v) = self.voices.remove(&k) {
+                v.handle.stop(0.8);
+            }
+        }
+        for (key, want) in wanted {
+            if let Some(v) = self.voices.get_mut(key) {
+                if (v.gain - want.gain).abs() > STEP {
+                    v.gain = want.gain;
+                    v.handle.set_gain(want.gain, 0.25);
+                }
+                continue;
+            }
+            if let Some(mut handle) = self.start(&want.source) {
+                handle.set_gain(want.gain, 0.6);
+                self.voices.insert(
+                    key.to_owned(),
+                    RadioVoice {
+                        source: want.source.clone(),
+                        handle,
+                        gain: want.gain,
+                    },
+                );
+            }
+        }
+        let hiss = mix.static_gain;
+        match &mut self.static_voice {
+            Some((h, _)) if hiss <= AUDIBLE => {
+                h.stop(tween(0.5));
+                self.static_voice = None;
+            }
+            Some((h, g)) => {
+                if (*g - hiss).abs() > STEP {
+                    *g = hiss;
+                    h.set_volume(Decibels(settings::volume_db(hiss)), tween(0.25));
+                }
+            }
+            None if hiss > AUDIBLE => {
+                let data = self.hiss.volume(Decibels::SILENCE);
+                if let Ok(mut h) = self.radio.play(data) {
+                    h.set_volume(Decibels(settings::volume_db(hiss)), tween(0.4));
+                    self.static_voice = Some((h, hiss));
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// Starts `source` looping from silence on the radio track. A generated track that
+    /// won't open or decode plays the calm placeholder instead.
+    fn start(&mut self, source: &radio::Source) -> Option<Playing> {
+        if let radio::Source::File(path) = source {
+            if let Ok(data) = StreamingSoundData::from_file(path) {
+                let data = data.loop_region(..).volume(Decibels::SILENCE);
+                if let Ok(h) = self.radio.play(data) {
+                    return Some(Playing::Track(h));
+                }
+            }
+            eprintln!(
+                "sound: {} won't play; the radio plays its placeholder",
+                path.display()
+            );
+        }
+        let name = match source {
+            radio::Source::Placeholder(n) => n.as_str(),
+            radio::Source::File(_) => radio::CALM,
+        };
+        let data = self.loops.get(name).or_else(|| self.loops.get(radio::CALM))?;
+        let data = data.volume(Decibels::SILENCE);
+        self.radio.play(data).ok().map(Playing::Loop)
     }
 }
 
