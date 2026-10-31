@@ -584,43 +584,9 @@ pub fn found(history: &History) -> BTreeSet<String> {
 
 // --- Music ---
 
-pub mod music {
-    //! What a channel plays. This is the music library's interface (worker B's
-    //! `galaxy_mind::music`), behind a shim until it lands: it never generates and
-    //! always names a placeholder loop. Swap the `use` in [`super`] for the real
-    //! library; the calls stay the same.
-
-    use std::path::PathBuf;
-
-    /// What a channel should play now.
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    pub enum TrackSource {
-        Generated(PathBuf),
-        Placeholder(&'static str),
-    }
-
-    /// The shim: no cache, no generation.
-    #[derive(Clone, Debug, Default)]
-    pub struct MusicLibrary;
-
-    impl MusicLibrary {
-        /// What `channel` should play now: a cached generated track if one exists, else
-        /// a named placeholder loop. Never blocks and never calls the network.
-        pub fn track(&self, channel: &str) -> TrackSource {
-            if channel.ends_with("_beacon") {
-                TrackSource::Placeholder("placeholder.drift")
-            } else {
-                TrackSource::Placeholder("placeholder.calm")
-            }
-        }
-
-        /// Ask for tracks for `channel` with a mood prompt; generation (if allowed)
-        /// happens in the background. Safe to call every time a channel comes into range.
-        pub fn want(&self, _channel: &str, _mood: &str) {}
-    }
-}
-
-use music::{MusicLibrary, TrackSource};
+// What a channel plays comes from the music library: cached generated tracks, else a
+// named placeholder loop. It never blocks and never calls the network from here.
+use galaxy_mind::music::{MusicLibrary, TrackSource};
 
 // --- Tuning and the mix: view and audio only ---
 
@@ -689,13 +655,20 @@ impl Radio {
         Self {
             data,
             themes,
-            music: MusicLibrary,
+            music: MusicLibrary::placeholders(),
             tuned: None,
             on,
             heard: BTreeSet::new(),
             entries: BTreeMap::new(),
             bits: live::Bits::default(),
         }
+    }
+
+    /// Plays from `music` (the game's library, [`crate::game::Game::music`]) instead of
+    /// placeholders only.
+    pub fn with_music(mut self, music: MusicLibrary) -> Self {
+        self.music = music;
+        self
     }
 
     pub fn data(&self) -> &RadioData {

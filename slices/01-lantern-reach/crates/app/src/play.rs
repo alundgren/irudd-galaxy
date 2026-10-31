@@ -273,7 +273,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         session.game().radio().clone(),
         themes.clone(),
         audio.settings().radio_on,
-    );
+    )
+    .with_music(session.game().music().clone());
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,

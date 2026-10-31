@@ -211,12 +211,17 @@ fn volume_and_static_follow_the_distance_and_out_of_range_is_quiet() {
     move_to(&mut s, kettle + Vec2::new(range * 1.05, 0.0));
     let f = frame(&mut r, &s);
     assert!(f.mix.voices.is_empty() && f.mix.static_gain == 0.0);
-    // The placeholder loop the music library names (until generated tracks land).
+    // The placeholder loop the music library names (nothing generated here).
     move_to(&mut s, kettle);
     let f = frame(&mut r, &s);
+    let galaxy_mind::TrackSource::Placeholder(name) =
+        galaxy_mind::MusicLibrary::placeholders().track("radio.kettle_dock")
+    else {
+        panic!("a library with no cache plays a placeholder");
+    };
     assert_eq!(
         f.mix.voices[0].source,
-        galaxy_audio::radio::Source::Placeholder("placeholder.calm".into())
+        galaxy_audio::radio::Source::Placeholder(name.into())
     );
     assert_eq!(
         r.entries("radio.kettle_dock"),
