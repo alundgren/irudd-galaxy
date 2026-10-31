@@ -1,7 +1,7 @@
 //! The HUD laid out against itself (#34, #35), talk bubbles and the ship log among it
 //! (#47 Phase 2), all active goals with their sources (#46), the station card's fitted
-//! state and faction (#44), and hints that retire once they've taught (1.8). Pure rect
-//! maths over real worlds: no window or GPU.
+//! state and faction (#44), hints that retire once they've taught (1.8), and the radio
+//! in flight (#47, 5.1). Pure rect maths over real worlds: no window or GPU.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -194,6 +194,7 @@ fn nothing_on_the_flying_hud_overlaps() {
         // The mining readout is the same pill.
         let mining = ui::hint_rect("Mining ice  ·  1.5 a second", canvas, Some(icon));
         let log = ui::log::panel_rect(canvas);
+        let radio = ui::radio::rect(canvas);
         assert_apart(
             size,
             &[
@@ -201,9 +202,11 @@ fn nothing_on_the_flying_hud_overlaps() {
                 ("hold", hold),
                 ("log icon", icon),
                 ("hint", pill),
+                ("radio", radio),
             ],
             canvas,
         );
+        assert!(!overlaps(&mining, &radio), "{size:?}: mining pill on the radio");
         assert!(
             !overlaps(&mining, &icon),
             "{size:?}: mining pill on the icon"
@@ -217,10 +220,117 @@ fn nothing_on_the_flying_hud_overlaps() {
                 ("hold", hold),
                 ("log icon", icon),
                 ("hint", pill),
+                ("radio", radio),
             ],
             canvas,
         );
     }
+}
+
+/// The radio as `galaxy play` shows it for a session: its frame from the world.
+fn radio_ui(s: &Session) -> galaxy_app::radio::RadioUi {
+    let mut radio = galaxy_app::radio::Radio::new(
+        s.game().radio().clone(),
+        galaxy_app::view::themes::Themes::bundled().clone(),
+        true,
+    );
+    radio.update(s.world(), s.sim().history()).ui
+}
+
+#[test]
+fn the_radio_shows_in_flight_where_its_measured_with_its_buttons_and_hides_docked() {
+    // Flying beside the Wharf, with the busiest HUD.
+    let mut state = new_state();
+    add_goals(&mut state.world);
+    let wharf = state.world.stations.get(&WHARF).unwrap().position;
+    let ship = flagship_mut(&mut state.world);
+    ship.docked_at = None;
+    ship.position = wharf + Vec2::new(150.0, 0.0);
+    let s = Session::new(state);
+    let radio = radio_ui(&s);
+    assert!(radio.show && radio.on);
+    assert_eq!(radio.channel.as_deref(), Some("Lantern Wharf radio"));
+    assert!(radio.signal > 0.99, "close by: full signal");
+    let ui_state = UiState {
+        radio: radio.clone(),
+        ..UiState::default()
+    };
+    let view = galaxy_app::view::View::new();
+    let rig = galaxy_app::view::CameraRig::new(G2::ZERO);
+    for size in SIZES {
+        let viewport = G2::new(size.0, size.1);
+        let canvas = ui::canvas(viewport);
+        let scale = ui::ui_scale(viewport);
+        let (scene, buttons) =
+            galaxy_app::frame::compose(&view, &s, &rig, &ui_state, 1.0, 0.0, viewport);
+        let at = ui::radio::rect(canvas);
+        let scaled = Rect::new(at.x * scale, at.y * scale, at.w * scale, at.h * scale);
+        assert!(
+            scene.overlay.panels.iter().any(|p| p.rect == scaled),
+            "{size:?}: the radio is drawn where it's measured"
+        );
+        // Off, Prev and Next are buttons inside it (Prev and Next only with a second
+        // channel in range; here there's one).
+        let tunes: Vec<_> = buttons
+            .iter()
+            .filter(|b| matches!(b.action, ui::UiAction::Radio(_)))
+            .collect();
+        assert_eq!(tunes.len(), 1, "{size:?}: Off, with one channel in range");
+        assert!(tunes.iter().all(|b| b.rect.x >= scaled.x
+            && b.rect.y >= scaled.y
+            && b.rect.x + b.rect.w <= scaled.x + scaled.w + 0.5
+            && b.rect.y + b.rect.h <= scaled.y + scaled.h + 0.5));
+        // The signal is bars and a word; the channel's name and a text bit show.
+        for want in ["Strong", "Lantern Wharf radio", "Off"] {
+            assert!(
+                scene.overlay.texts.iter().any(|t| t.text == want),
+                "{size:?}: `{want}`"
+            );
+        }
+        // Text on the radio is pure white or black (black only on its buttons).
+        for t in scene.overlay.texts.iter().filter(|t| {
+            t.pos.x >= scaled.x && t.pos.y >= scaled.y && t.pos.y <= scaled.y + scaled.h
+        }) {
+            assert!(
+                t.color == render::Color::WHITE || t.color == render::Color::BLACK,
+                "{size:?}: `{}` in {:?}",
+                t.text,
+                t.color
+            );
+        }
+    }
+    // Docked: no radio.
+    let docked = Session::new(new_state());
+    let radio = radio_ui(&docked);
+    assert!(!radio.show);
+    let ui_state = UiState {
+        radio,
+        ..UiState::default()
+    };
+    let (_, buttons) =
+        galaxy_app::frame::compose(&view, &docked, &rig, &ui_state, 1.0, 0.0, ui::DESIGN);
+    assert!(
+        !buttons
+            .iter()
+            .any(|b| matches!(b.action, ui::UiAction::Radio(_)))
+    );
+}
+
+#[test]
+fn the_radio_says_its_signal_in_words_and_bars_and_rotates_its_bits() {
+    assert_eq!(ui::radio::strength(1.0), "Strong");
+    assert_eq!(ui::radio::strength(0.5), "Fair");
+    assert_eq!(ui::radio::strength(0.1), "Faint");
+    assert_eq!(ui::radio::strength(0.0), "None");
+    assert_eq!(ui::radio::bars(1.0), 4);
+    assert_eq!(ui::radio::bars(0.3), 2);
+    assert_eq!(ui::radio::bars(0.01), 1, "any signal lights a bar");
+    assert_eq!(ui::radio::bars(0.0), 0);
+    let bits = vec!["a".to_owned(), "b".to_owned()];
+    assert_eq!(ui::radio::bit_at(&bits, 0.0), Some("a"));
+    assert_eq!(ui::radio::bit_at(&bits, ui::radio::BIT_SECONDS + 0.1), Some("b"));
+    assert_eq!(ui::radio::bit_at(&bits, 2.0 * ui::radio::BIT_SECONDS), Some("a"));
+    assert_eq!(ui::radio::bit_at(&[], 3.0), None);
 }
 
 #[test]

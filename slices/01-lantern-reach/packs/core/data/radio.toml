@@ -1,0 +1,134 @@
+# Radio channels (issue #47, 5.1): every station and a few beacons have a channel with a
+# range. While flying, the strongest channel in range plays: its volume follows the
+# signal (full near the source, fading to nothing at the edge of the range), a little
+# static creeps in at the edges, and overlapping channels crossfade by signal. The
+# first time a channel comes into range is recorded once per save (a `radio_found`
+# fact) with a notice in the ship log: "New signal: Kettle Dock radio".
+#
+# View and audio data, except that discovery. Unknown keys are load errors, and the
+# stations, regions and beacons named here must exist.
+#
+# [signal]
+#   near          the share of the range, from the source, at full signal (0 to 0.9)
+#   static_below  static creeps in below this signal (0.05 to 1)
+#   static_max    the loudest the static gets on the radio track (0 to 0.6)
+#
+# [live]  text bits from the live layer (purpose `radio`), counted, never timed:
+#   cooldown_dockings  dockings between two bits on the same channel
+#   run_calls          bits asked for in one run, at most
+#
+# [[beacon]]  a source that isn't a station
+#   id        beacon.<name>
+#   name      what the map and the log call it
+#   station   the station that tends it: the place its notice is about
+#   region    the region it sits in
+#   position  where, in world units
+#
+# [[channel]]
+#   id        radio.<name>
+#   source    a station or a beacon ID; one channel per source
+#   name      what the radio shows ("Kettle Dock radio"), at most 32 characters
+#   range     in world units (up to 3000)
+#   mood      the music library's prompt for the channel. Optional for a station: left
+#             out, it is written from the station's theme in themes.toml (its motif,
+#             its sounds). A beacon must have one.
+#   bits      short lines said on the channel, shown as text under the radio: each in
+#             the first person, no digits, at most 110 characters
+#
+# Loader and checker: crates/app/src/radio.rs
+
+[signal]
+near = 0.3
+static_below = 0.5
+static_max = 0.3
+
+[live]
+cooldown_dockings = 2
+run_calls = 8
+
+[[beacon]]
+id = "beacon.cinder_lane"
+name = "Cinder lane beacon"
+station = "station.lantern_wharf"
+region = "region.lantern_shallows"
+position = { x = 1800.0, y = 400.0 }
+
+[[beacon]]
+id = "beacon.brassmouth_lane"
+name = "Brassmouth lane beacon"
+station = "station.lantern_wharf"
+region = "region.lantern_shallows"
+position = { x = 900.0, y = 1800.0 }
+
+[[channel]]
+id = "radio.lantern_wharf"
+source = "station.lantern_wharf"
+name = "Lantern Wharf radio"
+range = 700.0
+bits = [
+    "Lantern Wharf here. We keep the lamps lit along the pier all shift.",
+    "We're buying ice at the Wharf, and the kettle is always on.",
+    "If your hull needs a fitting, our hullwright is in the cradle today.",
+]
+
+[[channel]]
+id = "radio.kettle_dock"
+source = "station.kettle_dock"
+name = "Kettle Dock radio"
+range = 700.0
+bits = [
+    "Kettle Dock calling. Our greenhouse wants ice, as much as you can carry.",
+    "We grow what we can out here. Bring us water and we'll make it green.",
+]
+
+[[channel]]
+id = "radio.cinder_hook"
+source = "station.cinder_hook"
+name = "Cinder Hook radio"
+range = 800.0
+bits = [
+    "Cinder Hook. We trade with anyone who keeps their engines quiet.",
+    "Nobody owns these belts yet. We like it that way, for now.",
+]
+
+[[channel]]
+id = "radio.glass_drift_observatory"
+source = "station.glass_drift_observatory"
+name = "Observatory radio"
+range = 800.0
+bits = [
+    "Glass Drift Observatory. We read the drift by lamplight, slowly.",
+    "Our archive is open to pilots who bring their logs.",
+]
+
+[[channel]]
+id = "radio.brassmouth_exchange"
+source = "station.brassmouth_exchange"
+name = "Brassmouth radio"
+range = 900.0
+bits = [
+    "Brassmouth Exchange. We pay fair and we pay on the ledger.",
+    "Mind the toll lights as you come in. We count every hull.",
+]
+
+[[channel]]
+id = "radio.cinder_lane_beacon"
+source = "beacon.cinder_lane"
+name = "Cinder lane beacon"
+range = 420.0
+mood = "Sparse, slow ambient tones for a lone lane beacon at the edge of calm space: soft pulses, wide and quiet, no vocals."
+bits = [
+    "I mark the current to Cinder Drift. Ride it from my lamp.",
+    "We keep this lamp burning so nobody misses the lane.",
+]
+
+[[channel]]
+id = "radio.brassmouth_lane_beacon"
+source = "beacon.brassmouth_lane"
+name = "Brassmouth lane beacon"
+range = 420.0
+mood = "Slow, low ambient drones for a lane beacon on the road to a busy trading hub: steady, patient, no vocals."
+bits = [
+    "I mark the current to Brassmouth Narrows. Ride it from my lamp.",
+    "We light the way to the Exchange. Keep your hold tidy for the tolls.",
+]

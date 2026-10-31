@@ -90,6 +90,13 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
             crate::saves::write_talk(&args.save, &session.talk.record()).map_err(|e| (1, e))?;
         }
     }
+    // The radio's widget as play shows it (always on here: a shot has no sound).
+    let mut radio = crate::radio::Radio::new(
+        session.game().radio().clone(),
+        crate::view::themes::Themes::bundled().clone(),
+        true,
+    );
+    ui_state.radio = radio.update(session.world(), session.sim().history()).ui;
     let mut renderer =
         Renderer::new_headless(args.width, args.height).map_err(|e| (1, e.to_string()))?;
     let mut view = View::new();

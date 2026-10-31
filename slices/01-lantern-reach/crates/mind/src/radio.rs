@@ -86,7 +86,7 @@ pub fn in_range<'a>(world: &WorldState, setup: &'a Setup) -> Vec<&'a Channel> {
         .iter()
         .filter(|c| {
             world.stations.get(&c.station).is_some_and(|st| {
-                st.region == ship.region && st.position.distance(ship.position) <= c.range
+                st.region == ship.region && st.position.distance(ship.position) < c.range
             })
         })
         .collect()

@@ -44,6 +44,9 @@
 //!   router for small station flourishes on dockings (`galaxy_mind::live`). Every call
 //!   is logged in `<stem>.llm-log.sqlite` beside the save once [`Game::open_call_log`]
 //!   opens it (play does; headless runs make no calls and keep no log).
+//! - **The radio.** `data/radio.toml`'s channels ([`crate::radio`]): the radio system
+//!   runs last in the tick and records each channel's discovery once per save; with a
+//!   live model, the mind writes station channels' text bits as the flagship flies in.
 //! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
 //!   then steps once so its batches apply, and flushes the call log; save after it.
 
@@ -182,6 +185,8 @@ pub struct Game {
     /// What a player or developer should know (warnings, skipped packs, the mind).
     notes: Vec<String>,
     reports: Vec<ValidationReport>,
+    /// The radio's channels, from the core pack.
+    radio: crate::radio::RadioData,
 }
 
 /// The cause of a line the mind decided on.
@@ -292,6 +297,9 @@ impl Game {
         hook(&scripts, &sim);
         scripts.attach(&mut sim);
         sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+        let radio = crate::radio::RadioData::load(&core_data(&opts.packs))
+            .and_then(|r| r.check(sim.world()).map(|()| r))?;
+        sim.add_system(Box::new(crate::radio::RadioSystem::new(&radio)));
         if opts.hot_reload
             && let Err(e) = scripts.watch()
         {
@@ -331,7 +339,9 @@ impl Game {
                 };
                 let mut host = MindHost::new(config, BoxedExec(exec), sim.history());
                 // Live flourishes only with a live model: the fake never asks for one.
-                host.set_live(calls_out).set_call_log(call_log.clone());
+                host.set_live(calls_out)
+                    .set_call_log(call_log.clone())
+                    .set_radio(radio.live_setup());
                 Some(host)
             }
         };
@@ -344,6 +354,7 @@ impl Game {
             hot_reload: opts.hot_reload,
             notes,
             reports,
+            radio,
         })
     }
 
@@ -371,6 +382,11 @@ impl Game {
 
     pub fn sim(&self) -> &Sim {
         &self.sim
+    }
+
+    /// The radio's channels, as loaded and checked.
+    pub fn radio(&self) -> &crate::radio::RadioData {
+        &self.radio
     }
 
     /// Whether the mind calls OpenRouter (live mode with a key).

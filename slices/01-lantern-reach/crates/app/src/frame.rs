@@ -235,6 +235,16 @@ pub fn compose(
         ui::goal(&mut panels, world, canvas);
     }
     ui::hold(&mut panels, world, canvas);
+    // The radio, bottom right, while flying (it hides itself docked).
+    if !ui_state.map_open && ui_state.confirm.is_none() {
+        buttons.extend(ui::radio::draw(
+            &mut panels,
+            &on_canvas,
+            &ui_state.radio,
+            time,
+            canvas,
+        ));
+    }
     // The ship log: its icon bottom left, and the panel over the left column when open.
     if !ui_state.map_open && ui_state.confirm.is_none() {
         buttons.extend(ui::log::icon(
