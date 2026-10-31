@@ -16,6 +16,7 @@ path = "src/main.rs"
 render.workspace = true
 mlua.workspace = true
 pollster.workspace = true
+serde_json.workspace = true
 winit.workspace = true
 
 [lints]

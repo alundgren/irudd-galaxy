@@ -2317,6 +2317,7 @@ dependencies = [
  "lab-render",
  "mlua",
  "pollster",
+ "serde_json",
  "winit",
 ]
 

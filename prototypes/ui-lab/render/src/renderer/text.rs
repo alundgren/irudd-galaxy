@@ -121,6 +121,28 @@ impl TextSystem {
         self.shaped[&k].size / scale
     }
 
+    /// Characters of `text` the bundled font has no glyph for.
+    pub fn missing(&mut self, text: &Text, scale: f32) -> Vec<char> {
+        let k = key(text, scale);
+        if !self.shaped.contains_key(&k) {
+            let s = shape(&mut self.font_system, text, scale);
+            self.shaped.insert(k.clone(), s);
+        }
+        let mut out = Vec::new();
+        for run in self.shaped[&k].buffer.layout_runs() {
+            for g in run.glyphs {
+                if g.glyph_id == 0
+                    && let Some(c) = run.text.get(g.start..g.end).and_then(|s| s.chars().next())
+                    && !c.is_whitespace()
+                    && !out.contains(&c)
+                {
+                    out.push(c);
+                }
+            }
+        }
+        out
+    }
+
     /// Shapes and uploads every layer's text for this frame.
     pub fn prepare(
         &mut self,

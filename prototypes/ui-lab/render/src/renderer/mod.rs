@@ -787,6 +787,11 @@ impl Renderer {
         self.text.measure(text, self.scale)
     }
 
+    /// Characters in `text` the bundled font can't draw.
+    pub fn missing_glyphs(&mut self, text: &Text) -> Vec<char> {
+        self.text.missing(text, self.scale)
+    }
+
     /// Draws a frame. For a window this presents to the screen; headless it renders into
     /// the offscreen target (use [`Renderer::render_to_rgba`] to read it back).
     pub fn render(&mut self, scene: &Scene) -> Result<(), RenderError> {
