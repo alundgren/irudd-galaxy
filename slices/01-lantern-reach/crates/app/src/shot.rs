@@ -55,6 +55,9 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         4,
         "can't find the packs folder; set GALAXY_PACKS".to_owned(),
     ))?;
+    let rules = crate::ui::HintRules::load(&crate::game::core_data(&packs)).map_err(|e| (4, e))?;
+    let anchors =
+        crate::ui::talk::TalkAnchors::load(&crate::game::core_data(&packs)).map_err(|e| (4, e))?;
     let seed = state.world.meta.seed;
     // The same composition as play: the game master's applied packs run in the game's
     // script host too (staged ones wait for a real load).
@@ -66,6 +69,12 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     )
     .map_err(|e| (4, e))?;
     let mut session = Session::with_game(game);
+    let taught = crate::saves::read_hints(&args.save).map_err(|e| (4, e))?;
+    session.hints = crate::ui::HintBook::new(rules, taught);
+    session.anchors = anchors;
+    if let Some(record) = crate::saves::read_talk(&args.save).map_err(|e| (4, e))? {
+        session.talk = crate::ui::talk::TalkBook::from_record(&record);
+    }
     let mut ui_state = UiState {
         map_open: args.map,
         ..UiState::default()
@@ -77,20 +86,35 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
             session.finish();
             save.write(session.state())
                 .map_err(|e| (1, e.to_string()))?;
+            crate::saves::write_hints(&args.save, session.hints.counts()).map_err(|e| (1, e))?;
+            crate::saves::write_talk(&args.save, &session.talk.record()).map_err(|e| (1, e))?;
         }
     }
+    // The radio's widget as play shows it (always on here: a shot has no sound).
+    let mut radio = crate::radio::Radio::new(
+        session.game().radio().clone(),
+        crate::view::themes::Themes::bundled().clone(),
+        true,
+    );
+    ui_state.radio = radio.update(session.world(), session.sim().history()).ui;
     let mut renderer =
         Renderer::new_headless(args.width, args.height).map_err(|e| (1, e.to_string()))?;
     let mut view = View::new();
     view.sync(&mut renderer, session.world());
     let mut rig = CameraRig::new(G2::ZERO);
+    rig.fit(session.world());
     if let Some(z) = args.zoom {
         rig.zoom = z.clamp(CameraRig::MIN_ZOOM, CameraRig::MAX_ZOOM * 4.0);
     }
-    if let Some(target) = frame::camera_target(&session, &rig, 1.0, renderer.logical_size()) {
-        rig.center = target;
+    if let Some(goal) = frame::camera_goal(&session, &ui_state, 1.0, renderer.logical_size()) {
+        rig.center = goal.center;
+        rig.tilt = goal.tilt;
+        if let (Some(zoom), None) = (goal.zoom, args.zoom) {
+            rig.zoom = zoom;
+        }
     }
     let time = session.world().meta.tick.0 as f32 / galaxy_contract::TICKS_PER_SECOND as f32;
+    frame::prepare(&mut view, &mut renderer, &session, &ui_state);
     let (scene, _) = frame::compose(
         &view,
         &session,
@@ -122,16 +146,38 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
         "notice": session.trades.notice,
         "service_notice": session.services.notice,
         "fitted": session.services.fitted,
-        "talk": crate::hooks::talk_lines(world, session.sim().history(), 3)
-            .iter()
-            .map(|l| json!({
-                "speaker": crate::hooks::speaker(world, l),
-                "place": crate::hooks::place(world, l),
-                "text": l.text,
-            }))
-            .collect::<Vec<_>>(),
+        "bubble": session.bubble().map(|b| json!({
+            "speaker": crate::hooks::speaker(world, &b.line),
+            "place": crate::hooks::place(world, &b.line),
+            "voice": format!("{:?}", b.voice).to_lowercase(),
+            "text": b.line.text,
+            "choices": b.choices.iter().map(|(_, c)| c.text.clone()).collect::<Vec<_>>(),
+            "more": b.more,
+        })),
+        "log_new": session.talk.log_new(),
+        "log_open": ui_state.log_open,
+        "room": frame::open_room(&session, &ui_state).map(|p| p.id.to_string()),
+        "wharf": wharf_report(&session, &ui_state),
         "written": args.write && args.keys.is_some(),
     }))
+}
+
+/// The hullwright room's state, for agents reading a shot: the tab, what's in hand and
+/// over what, the fitting animation, and the keeper's word.
+fn wharf_report(session: &Session, ui_state: &UiState) -> Value {
+    frame::cradle_room(session, ui_state).map_or(Value::Null, |_| {
+        let w = &ui_state.wharf;
+        json!({
+            "tab": w.tab.label(),
+            "held": w.held.as_ref().map(|h| h.part.to_string()),
+            "over": w.over.as_ref().map(|o| format!("{o:?}")),
+            "chosen": w.chosen.as_ref().map(|p| p.to_string()),
+            "make": w.make.as_ref().map(|(p, fit)| json!({ "part": p, "fit": fit })),
+            "fitting": w.fitting.as_ref().map(|f| json!({ "part": f.part, "t": f.t })),
+            "said": w.said.as_ref().map(|s| s.text.clone()),
+            "fittings": session.world().player.fittings,
+        })
+    })
 }
 
 #[cfg(test)]

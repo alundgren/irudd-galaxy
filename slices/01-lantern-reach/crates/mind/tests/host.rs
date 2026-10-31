@@ -1612,7 +1612,8 @@ fn an_upstream_error_that_echoes_the_key_is_redacted() {
     // it, and parsing restores it. Upstream text is never copied into errors, so it
     // can't come back out either.
     let escaped = format!(
-        r#"{{"error":{{"code":400,"message":"Bearer s{}"}}}}"#,
+        r#"{{"error":{{"code":400,"message":"Bearer \u{:04x}{}"}}}}"#,
+        u32::from('s'),
         &KEY[1..]
     );
     let cases: [Vec<Result<HttpReply, MindError>>; 5] = [
@@ -1677,7 +1678,7 @@ fn the_line_pick_probe_says_authored_lines() {
 #[test]
 fn an_escaped_key_in_a_drafted_line_is_redacted_after_decoding() {
     const KEY: &str = "sk-or-v1-0123456789abcdefSECRET";
-    let escaped = String::from(r"s") + &KEY[1..];
+    let escaped = format!(r"\u{:04x}{}", u32::from('s'), &KEY[1..]);
     let content = format!(r#"{{"text":"Ilse says {escaped} hi","cite":"{escaped}"}}"#);
     let mock = Mock::default();
     mock.ok(json!({ "choices": [{ "message": { "content": content } }] }));

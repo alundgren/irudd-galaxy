@@ -1,0 +1,170 @@
+# Station parts (issue #47, 3.1; the station concept's direction A). A station is a list
+# of parts. Each is a room of a kind the game shows (market, wharf, dockmaster, notice_wall,
+# canteen, greenhouse, berths, counter), drawn as a module bolted onto a free anchor of the
+# station's kit recipe (crates/kit/src/station.rs `anchors`), with a keeper and a hanging
+# sign (one line of what it offers). Hovering a module shows its keeper and sign; clicking
+# it opens the room beside it.
+#
+# Fields: `name` (optional) names a counter on its sign and key icon. `module` is an asset-kit kind (`MODULE_KINDS`: block, banner, crane, dome, tank,
+# cargo_pod, docking_arm, greenhouse, lamp_mast) and the art bible's budget applies.
+# `state` is open, closed (a scaffold and a closed sign) or building (a scaffold and a
+# dashed sign). `line` is the keeper's line about the part as it is now; `rollback_line`
+# is what they say if it's taken away. The keeper is a person at the station, from
+# npcs.toml, and their talk bubbles rise from this module. Packs change parts at a calm
+# moment with `ctx.parts` (crates/contract/api/HOOKS.md).
+#
+# Every station has a market and a dockmaster's office; Lantern Wharf has the wharf, and
+# Cinder Hook has Juno's rough rig.
+# Schema: crates/contract/schemas/data-station-parts.json
+
+# --- Lantern Wharf ---------------------------------------------------------------------
+
+[[part]]
+id = "part.wharf.office"
+station = "station.lantern_wharf"
+room = "dockmaster"
+module = "block"
+anchor = "quay.west"
+keeper = "npc.ilse_marrow"
+sign = "Ilse Marrow keeps the berths"
+rollback_line = "I've moved my desk to the hub for now. Ask me anything there."
+
+[[part]]
+id = "part.wharf.market"
+station = "station.lantern_wharf"
+room = "market"
+module = "banner"
+anchor = "quay.north"
+keeper = "npc.ilse_marrow"
+sign = "Ice and ore bought, plate sold"
+rollback_line = "I've folded the stalls away. I'll still buy what you bring."
+
+[[part]]
+id = "part.wharf.wharf"
+station = "station.lantern_wharf"
+room = "wharf"
+module = "docking_arm"
+anchor = "pier.south"
+keeper = "npc.orrin_vale"
+sign = "Orrin fits parts in the cradle"
+rollback_line = "I've taken the cradle arm down. Your locker stays yours."
+
+# --- Kettle Dock -----------------------------------------------------------------------
+
+[[part]]
+id = "part.kettle.office"
+station = "station.kettle_dock"
+room = "dockmaster"
+module = "block"
+anchor = "rim.west"
+keeper = "npc.odo_fenn"
+sign = "Odo Fenn tends the rings"
+rollback_line = "I've shut the office. Find me in the greenhouse."
+
+[[part]]
+id = "part.kettle.market"
+station = "station.kettle_dock"
+room = "market"
+module = "banner"
+anchor = "rim.north"
+keeper = "npc.odo_fenn"
+sign = "Ice and plate for the greenhouse"
+rollback_line = "I've packed the stall up. Bring the ice to me direct."
+
+[[part]]
+id = "part.kettle.berths"
+station = "station.kettle_dock"
+room = "berths"
+module = "docking_arm"
+anchor = "rim.east"
+keeper = "npc.tamsin_oddway"
+sign = "Tamsin builds tenders"
+rollback_line = "I've closed the berths. Any tender you own still waits on you."
+
+# --- Cinder Hook -----------------------------------------------------------------------
+
+[[part]]
+id = "part.hook.office"
+station = "station.cinder_hook"
+room = "dockmaster"
+module = "block"
+anchor = "hook.west"
+keeper = "npc.rook_adeyemi"
+sign = "Rook Adeyemi runs the Hook"
+rollback_line = "I've boarded the office up. Shout and I'll hear you."
+
+[[part]]
+id = "part.hook.market"
+station = "station.cinder_hook"
+room = "market"
+module = "cargo_pod"
+anchor = "hook.north"
+keeper = "npc.juno_brask"
+sign = "Ore sold cheap, plate wanted"
+rollback_line = "I've stacked the crates away. Trade with Rook for now."
+
+# Juno's rough rig: drill mounts only (ship_parts.toml), heavier and cheaper.
+[[part]]
+id = "part.hook.rig"
+station = "station.cinder_hook"
+room = "wharf"
+module = "docking_arm"
+anchor = "hook.south"
+keeper = "npc.juno_brask"
+sign = "Juno rigs drill mounts, rough and cheap"
+rollback_line = "I've chained the rig up. Your locker is safe; Orrin fits at the Wharf."
+
+# --- Brassmouth Exchange ---------------------------------------------------------------
+
+[[part]]
+id = "part.brass.office"
+station = "station.brassmouth_exchange"
+room = "dockmaster"
+module = "block"
+anchor = "row.southwest"
+keeper = "npc.saffron_vey"
+sign = "Saffron Vey keeps the tolls"
+rollback_line = "I've closed the toll office. The Exchange still trades."
+
+[[part]]
+id = "part.brass.market"
+station = "station.brassmouth_exchange"
+room = "market"
+module = "banner"
+anchor = "row.north"
+keeper = "npc.pip_calloway"
+sign = "Glassite wanted"
+rollback_line = "I've rolled the awning up. Prices hold till it's back."
+
+# --- Glass Drift Observatory -----------------------------------------------------------
+
+[[part]]
+id = "part.observatory.office"
+station = "station.glass_drift_observatory"
+room = "dockmaster"
+module = "block"
+anchor = "deck.west"
+keeper = "npc.hesper_lune"
+sign = "Hesper Lune logs arrivals"
+rollback_line = "I've closed the arrivals desk. I'm at the lens if you need me."
+
+[[part]]
+id = "part.observatory.market"
+station = "station.glass_drift_observatory"
+room = "market"
+module = "tank"
+anchor = "deck.north"
+keeper = "npc.hesper_lune"
+sign = "Ice, glassite and rations bought"
+rollback_line = "I've sealed the stores. We'll manage on what we have."
+
+[[part]]
+id = "part.observatory.archive"
+station = "station.glass_drift_observatory"
+room = "counter"
+name = "Archive"
+module = "dome"
+anchor = "deck.east"
+keeper = "npc.nell_quillon"
+sign = "Nell Quillon keeps the fragment notes"
+rollback_line = "I've shut the archive dome. The notes are safe with me."

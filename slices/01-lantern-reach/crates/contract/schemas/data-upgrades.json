@@ -323,6 +323,25 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "Material": {
+      "description": "Units of a ware a Make consumes from the hold.",
+      "type": "object",
+      "properties": {
+        "units": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "units"
+      ]
+    },
     "Modifier": {
       "description": "The fixed list of native effects traits, fittings and ranks may have. Each is\nsmall and qualitative; `galaxy-progress` adds them up per ship and the ship,\neconomy and app crates read the totals.",
       "oneOf": [
@@ -437,6 +456,24 @@
           ]
         },
         {
+          "description": "Multiplies the camera's zoom (below 1 shows more around the ship).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "zoom"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
           "description": "Multiplies docking ring reach (Ringwise: 1.25).",
           "type": "object",
           "properties": {
@@ -479,6 +516,42 @@
             "modifier": {
               "type": "string",
               "const": "price_glass"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
+          "description": "Mines from this many world units further off (the long-throw drill).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mining_reach"
+            },
+            "units": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Shows what's left in rocks within this distance (the seam lamp).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "seam_lamp"
             },
             "range": {
               "type": "number",
@@ -556,6 +629,72 @@
           },
           "required": [
             "tunable"
+          ]
+        }
+      ]
+    },
+    "PartSource": {
+      "description": "Where a part comes from: one tab of the wharf at the part's `station`.",
+      "oneOf": [
+        {
+          "description": "Bought for its `cost` and fitted.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "ready"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from"
+          ]
+        },
+        {
+          "description": "Made from materials in the hold, once its blueprint is found. No credits.",
+          "type": "object",
+          "properties": {
+            "blueprint": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "from": {
+              "type": "string",
+              "const": "make"
+            },
+            "materials": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Material"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "blueprint",
+            "materials"
+          ]
+        },
+        {
+          "description": "Ordered for its `cost` from the wharf keeper's friend, who sends it after the\nplayer's next docking at the friend's station; it arrives in the locker.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "friend"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "npc",
+            "station"
           ]
         }
       ]
@@ -1084,6 +1223,15 @@
         }
       ]
     },
+    "SocketId": {
+      "description": "Stable socket id, e.g. `socket.drill`.",
+      "type": "string",
+      "examples": [
+        "socket.drill"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
     "StationId": {
       "description": "Stable station id, e.g. `station.kettle_dock`.",
       "type": "string",
@@ -1155,6 +1303,19 @@
         "id": {
           "$ref": "#/$defs/UpgradeId"
         },
+        "look": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "mass": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
         "modifiers": {
           "type": "array",
           "default": [],
@@ -1164,6 +1325,12 @@
         },
         "name": {
           "type": "string"
+        },
+        "power": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
         },
         "seller": {
           "anyOf": [
@@ -1175,6 +1342,24 @@
             }
           ],
           "default": null
+        },
+        "socket": {
+          "description": "The socket it fits (`socket.rack` for control modules). See `ship_parts.toml`.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocketId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "$ref": "#/$defs/PartSource",
+          "default": {
+            "from": "ready"
+          }
         },
         "station": {
           "anyOf": [

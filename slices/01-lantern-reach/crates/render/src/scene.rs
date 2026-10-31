@@ -98,6 +98,13 @@ pub struct MeshInstance {
     pub mesh: MeshHandle,
     pub transform: Mat4,
     pub material: Material,
+    /// How far towards its morph target the mesh is drawn, `0..=1`
+    /// ([`crate::MeshData::morph_to`]).
+    pub morph: f32,
+    /// The uniform scale the hatching is spaced for, or 0 for the instance's own. A
+    /// mesh that shrinks (a rock being mined) keeps its full-size spacing, so the
+    /// strokes stay on its surface instead of sliding across it.
+    pub hatch_scale: f32,
 }
 
 impl MeshInstance {
@@ -106,6 +113,8 @@ impl MeshInstance {
             mesh,
             transform,
             material: Material::default(),
+            morph: 0.0,
+            hatch_scale: 0.0,
         }
     }
 
@@ -123,6 +132,26 @@ impl MeshInstance {
 
     pub fn with_material(mut self, material: Material) -> Self {
         self.material = material;
+        self
+    }
+
+    /// Draws the mesh `w` of the way to its morph target.
+    pub fn with_morph(mut self, w: f32) -> Self {
+        self.morph = if w.is_finite() {
+            w.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self
+    }
+
+    /// Spaces the hatching as if the instance were drawn at uniform `scale`.
+    pub fn with_hatch_scale(mut self, scale: f32) -> Self {
+        self.hatch_scale = if scale.is_finite() {
+            scale.max(0.0)
+        } else {
+            0.0
+        };
         self
     }
 }
@@ -371,6 +400,9 @@ impl Text {
 pub struct PausedCard {
     pub title: String,
     pub hint: String,
+    /// Settings shown as buttons on the card, one row each (`"Station life: Full"`).
+    /// The app hit-tests them with [`PausedCard::toggle_rects`].
+    pub toggles: Vec<String>,
 }
 
 impl Default for PausedCard {
@@ -378,7 +410,37 @@ impl Default for PausedCard {
         Self {
             title: "PAUSED".into(),
             hint: "Nothing moves until you're back. Press P to resume.".into(),
+            toggles: Vec::new(),
         }
+    }
+}
+
+/// The pause card's height without toggles, and what each toggle row adds.
+const CARD_H: f32 = 196.0;
+const TOGGLE_H: f32 = 52.0;
+
+impl PausedCard {
+    /// The card's rectangle on a viewport of `logical` pixels.
+    pub fn rect(&self, logical: Vec2) -> Rect {
+        let w = (logical.x * 0.86).min(560.0);
+        let h = CARD_H + TOGGLE_H * self.toggles.len() as f32;
+        Rect::new((logical.x - w) * 0.5, (logical.y - h) * 0.5, w, h)
+    }
+
+    /// Where each toggle's button sits, in the order of [`Self::toggles`].
+    pub fn toggle_rects(&self, logical: Vec2) -> Vec<Rect> {
+        let card = self.rect(logical);
+        let w = (card.w - 96.0).clamp(120.0, 340.0);
+        (0..self.toggles.len())
+            .map(|i| {
+                Rect::new(
+                    card.x + (card.w - w) * 0.5,
+                    card.y + CARD_H - 12.0 + TOGGLE_H * i as f32,
+                    w,
+                    40.0,
+                )
+            })
+            .collect()
     }
 }
 

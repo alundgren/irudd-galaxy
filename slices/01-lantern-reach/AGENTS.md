@@ -112,10 +112,11 @@ else (native systems, scripts, fast-model choices, the CLI) submits a
   history can't be unsaid, so a rollback must compensate in-world).
 - Batches are worked out from the tick's starting world, so a batch checks what it
   relies on when it applies: `Expect*` commands (`ExpectDocked`, `ExpectShip`,
-  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`) change nothing and fail if the
-  committed world no longer matches; `UpdateOrders` and `UpdateMarketLine` are
-  compare-and-set. Never write a whole record from the planning snapshot (prestige
-  changes only the hull, `SetShipHull`). Rollback batches leave expectations out.
+  `ExpectStanding`, `ExpectFitting`, `ExpectHullRecord`, `ExpectHappening`) change
+  nothing and fail if the committed world no longer matches; `UpdateOrders` and
+  `UpdateMarketLine` are compare-and-set. Never write a whole record from the planning
+  snapshot (prestige changes only the hull, `SetShipHull`). Rollback batches leave
+  expectations out.
 
 ## How a tick works
 
@@ -258,6 +259,12 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `next, t`, between `in` and `do` (checked on a tokenizer that follows Luau's lexer;
   `for k, v in t` and `pairs(a) and t` are check errors). Scripts are always strict:
   the first line is `--!strict`, and `!nocheck`/`!nonstrict` anywhere is a check error.
+- Maths gives the same bits on every OS: `math.sin`, `pow`, `log` and the other
+  transcendental functions, `math.lerp`/`map` and the `vector` helpers run on `libm`
+  and plain Rust, never the platform's C library (`vm::install_portable_math`). The `^`
+  operator calls the platform's `pow` inside the VM, so it is a check error
+  (`platform_math`): write `math.pow(x, y)`. `math.noise` is removed. `%` is exact on
+  whole numbers; for fractions use `math.fmod`.
 - Bounded: each handler call, beat callback and `G.test` predicate runs in a fresh
   Luau state (so memory outcomes don't depend on earlier calls; the pack's bytecode is
   compiled once and shared), native helpers that do O(n) work, world views such as
@@ -278,9 +285,9 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   most 4, needs a `speaker`). The player's pick (or a standing question such as
   `choice.what_changed`) comes in as `PlayerInput::replies`; the progress system turns
   each into a `reply` event (`on.reply`: `npc`, `station`, `choice`) only while the
-  player is docked where that person is. In play the talk panel shows the open
-  choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dock screen's
-  "Ask what changed" sends `choice.what_changed` to the dockmaster: the core pack's
+  player is docked where that person is. In play the speaker's talk bubble shows the
+  open choices as buttons (keys 1 to 9, `app::hooks::open_choices`), and the dockmaster's office's
+  "Ask what changed" (a station part's room, `app::ui::rooms`) sends `choice.what_changed` to the dockmaster: the core pack's
   `talk` script answers (Ilse's b17 homecoming in `act4`) and records
   `core.asked_what_changed`. Ambient talk declares `talk.pick` and calls `ctx.talk:request` with ordered,
   authored candidates filled from cited facts. `MindHost` picks an ID using Jev or
@@ -297,6 +304,13 @@ manifest lists `uses` (capabilities such as `events.sell`, `stations.write`), ea
   `market_base_changed` (station, ware, amount = the new base). A change that must
   wait for a calm moment calls `ctx.beats:expect_docked(station, why)`: the call's
   writes apply only if the player is still docked there.
+- `ctx.parts` (`stations.write`, `talk.write`) puts, closes, rebuilds and removes a
+  station's parts (`station_parts.toml`'s shape) at a calm moment: the player docked
+  there. The keeper says the part's line, or its `rollback_line` on removal.
+  `ctx.happenings` (`happenings.write`, `talk.write`) writes happenings: visible life at
+  a station with a cause, a first-person line and a length in dockings. One runs at a
+  time per station, and each carries `ExpectHappening`, so a write never overwrites one
+  made earlier in the tick.
 
 **Capabilities, one table**: `uses` bounds everything a pack can change, by every
 route, not only the `ctx` hooks. `galaxy_contract::needs::COMMAND_NEEDS` maps every
@@ -363,7 +377,7 @@ revision runs nothing in the tick its change is undone; the lines are checked ag
 the world the rollback leaves and dropped (never the retirement) if they can't be said.
 
 **The game-master bridge** (`galaxy-gm`): `Bridge::open` loads the packs a save's
-game-master folder (`<save>.gm/state.json`) says run into the game's one `ScriptHost`, before
+game-master folder (`<stem>.gm/state.json`) says run into the game's one `ScriptHost`, before
 the game attaches it (`Game::open_gm`; `Game::open_with` takes the same hook, and the
 sandbox child loads its packs there too). A revision of a pack the game already runs replaces
 it, so gm packs run in the same tick order as `core` and `gm-examples`. The app (`galaxy
@@ -474,3 +488,14 @@ before dropping them, so every listed snapshot stays loadable (checked by a dige
 Fork = `galaxy_core::fork(from, to)` (a file copy). `state_hash` is BLAKE3 over the
 canonical JSON of everything a save holds: same build, seed and inputs give the same
 hash, and save -> load -> continue gives the same hash as an uninterrupted run.
+
+**World memory** (`galaxy_core::memory`) lives in the same file: summarised entries per
+station, person and faction (stable ids `mem.fact.N` / `mem.talk.N`, the facts they
+summarise, and their source: `authored`, `game_master` or `live_layer`), a subject link
+table, an FTS5 index over the text, and an empty `memory_embedding` table keyed by entry
+id, kept for a vector extension later. It is a derived index: `Save::write` appends to it
+(and rebuilds it if it no longer matches), opening an older save builds it, and the sim
+never reads it. `galaxy memory search` queries it. Two files sit beside a save, never
+inside it: `<stem>.llm-log.sqlite`, the log of every OpenRouter call
+(`galaxy_mind::calllog`, `galaxy llm-log`), and `<stem>.music/`, cached generated tracks.
+Neither holds the key.

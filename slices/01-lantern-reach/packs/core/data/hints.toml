@@ -1,0 +1,18 @@
+# Hints taught once (issue #47, 1.8). Each context hint at the bottom of the screen
+# shows until the player has done what it says this many times, then retires. Notices
+# (`mining_rate`, `hold_full`) retire after being seen this many times; the mining
+# readout counts each rate on its own, so a fitted lens shows its new rate again.
+# The counts are kept per save, in the app's own table in the save file. A hint not
+# listed here teaches 3 times. Read by the app (crates/app/src/ui/hints.rs).
+
+[retire_after]
+# "Space · dock at ...": dockings.
+dock = 3
+# "Space · ride the lantern current to ...": rides.
+ride_current = 3
+# "Hold Space · mine ...": mining runs.
+mine = 3
+# "Mining ice · 1 a second": mining runs at one rate.
+mining_rate = 3
+# "Your hold is full": sightings.
+hold_full = 2

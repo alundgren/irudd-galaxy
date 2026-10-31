@@ -27,7 +27,7 @@ fn review_sim(seed: u64) -> (Sim, ScriptHost) {
     let report = host.load(&review_pack(), sim.world(), sim.history());
     assert!(report.accepted(), "{report:#?}");
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 
@@ -37,6 +37,21 @@ fn act(sim: &mut Sim, commands: Vec<Command>) {
         commands,
     });
     step(sim, 1);
+}
+
+/// The player answers someone at Kettle (the probe hands over ice on it next tick).
+fn answer(sim: &mut Sim) {
+    act(
+        sim,
+        vec![Command::Emit {
+            event: Event::Reply {
+                ship: PLAYER,
+                npc: "npc.odo_fenn".parse().unwrap(),
+                station: KETTLE,
+                choice: "choice.review".parse().unwrap(),
+            },
+        }],
+    );
 }
 
 fn dock_at(sim: &mut Sim, station: &StationId) {
@@ -204,7 +219,8 @@ fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
         }],
     );
     dock_at(&mut sim, &KETTLE);
-    // The handler for that docking runs this tick, but the player undocks first.
+    answer(&mut sim);
+    // The handler for that answer runs this tick, but the player undocks first.
     sim.submit(CommandBatch {
         cause: Cause::system("test_player", "undock"),
         commands: vec![Command::SetShipDocked {
@@ -226,13 +242,14 @@ fn a_delivery_after_an_undock_in_the_same_tick_is_rejected() {
             _ => None,
         })
         .collect();
-    assert_eq!(outcomes, vec!["contended on.dock".to_owned()]);
+    assert_eq!(outcomes, vec!["contended on.reply".to_owned()]);
     let ship = sim.world().ships.get(&PLAYER).unwrap();
     assert_eq!(ship.hold.count(&ICE), 5, "the cargo stays aboard");
     assert!(facts(&sim, "deliver").is_empty());
 
     // Docked for the whole tick, it goes through.
     dock_at(&mut sim, &KETTLE);
+    answer(&mut sim);
     step(&mut sim, 1);
     assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 0);
     assert_eq!(facts(&sim, "deliver").len(), 1);

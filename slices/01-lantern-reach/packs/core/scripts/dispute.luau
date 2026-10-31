@@ -60,7 +60,8 @@ local function set_base(station: string, ware: string, credits: number): G.Lever
 end
 
 -- The handover: the depot's owner, banner and markets, standing for whoever the player
--- backed, and Rook's 300 cr "from the new owners" if that side won.
+-- backed, and, if that side won, a fee "from the new owners" that Rook holds until
+-- the player takes it at the Hook (nothing reaches the wallet without their say).
 local function hand_over(ctx: G.Ctx, why: G.Cause, to: string)
 	local other = if to == ids.COOP then ids.COMPACT else ids.COOP
 	if to == ids.COOP then
@@ -107,7 +108,15 @@ local function hand_over(ctx: G.Ctx, why: G.Cause, to: string)
 			delta = util.num(ctx, if won then "dispute.hook.won_other" else "dispute.hook.lost_other"),
 		}, why)
 		if won then
-			ctx.beats:pay(util.num(ctx, "dispute.hook.reward"), why)
+			-- Rook holds the new owners' thanks until the player takes it at the Hook.
+			util.record(
+				ctx,
+				why,
+				"dispute_pay_due",
+				{ station = ids.HOOK, npc = ids.ROOK, faction = to, other = ids.DISPUTE },
+				util.num(ctx, "dispute.hook.reward"),
+				"The Hook's new owners left a fee with Rook for the pilot"
+			)
 		end
 	end
 	util.record(
@@ -118,6 +127,31 @@ local function hand_over(ctx: G.Ctx, why: G.Cause, to: string)
 		nil,
 		`The Cinder Hook depot changed hands: {other} to {to}`
 	)
+end
+
+-- The fee Rook holds for the player (credits), if it's due and not yet taken.
+local function pay_due(ctx: G.Ctx): number?
+	local due = ctx.history:last({ kind = "core.dispute_pay_due", other = ids.DISPUTE })
+	if due == nil or ctx.history:count({ kind = "core.dispute_paid", other = ids.DISPUTE }) > 0 then
+		return nil
+	end
+	return due.amount
+end
+
+-- Rook offers the fee at the Hook; the player takes it with a reply.
+local function offer_pay(ctx: G.Ctx, cite: string)
+	local fee = pay_due(ctx)
+	if fee == nil or ctx.beats:pilot().docked_at ~= ids.HOOK then
+		return
+	end
+	local why = ctx:cause({ summary = "Rook holds the new owners' fee", cites = { cite } })
+	ctx.talk:offer({
+		speaker = ids.ROOK,
+		place = ids.HOOK,
+		text = `The side you backed holds my depot now, and they left {fee} credits with me for you.`,
+		cites = { cite },
+		choices = { { id = ids.TAKE_DISPUTE_PAY, text = `Take the {fee} cr` } },
+	}, why)
 end
 
 -- At a calm moment: hand over if a side has won (with `extra` units of this call's own
@@ -145,7 +179,7 @@ return G.script({
 			act = 2,
 			kind = "situation",
 			giver = ids.ROOK,
-			goal = "The Wharf Cooperative and the Tollway Compact both want the Hook's ore depot. Supply it in whose name you like, or not at all.",
+			goal = "Rook says the Wharf Cooperative and the Tollway Compact both want his ore depot. Supply it in whose name you like, or not at all.",
 			requires = {
 				G.done(ids.B07),
 				G.counter("dockings", G.tunable("b09.hook_dockings"), { station = ids.HOOK }),
@@ -183,7 +217,23 @@ return G.script({
 				CHOICES
 			)
 		end,
+		beat_completed = function(ev: G.BeatCompletedEvent, ctx: G.Ctx)
+			if ev.beat == ids.B09 then
+				offer_pay(ctx, ev.fact)
+			end
+		end,
 		reply = function(ev: G.ReplyEvent, ctx: G.Ctx)
+			if ev.npc == ids.ROOK and ev.choice == ids.TAKE_DISPUTE_PAY and ev.station == ids.HOOK then
+				local fee = pay_due(ctx)
+				if fee == nil or ctx.beats:pilot().docked_at ~= ids.HOOK then
+					return
+				end
+				local why = ctx:cause({ summary = "the player takes the new owners' fee", cites = { ev.fact } })
+				ctx.beats:pay(fee, why)
+				util.record(ctx, why, "dispute_paid", { station = ids.HOOK, npc = ids.ROOK, other = ids.DISPUTE }, fee, "Rook paid over the new owners' fee")
+				util.confirm(ctx, why, ids.HOOK, `Rook paid you the new owners' fee · +{fee} cr`, ev.fact)
+				return
+			end
 			if ev.npc ~= ids.ROOK or not ctx.beats:is_active(ids.B09) then
 				return
 			end
@@ -239,6 +289,9 @@ return G.script({
 			end
 		end,
 		dock = function(ev: G.DockEvent, ctx: G.Ctx)
+			if ev.ship == ids.PLAYER and ev.station == ids.HOOK and pay_due(ctx) ~= nil then
+				offer_pay(ctx, ev.fact)
+			end
 			if not ctx.beats:is_active(ids.B09) then
 				return
 			end

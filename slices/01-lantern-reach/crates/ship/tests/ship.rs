@@ -169,38 +169,321 @@ fn set_price(sim: &mut Sim, station: &StationId, ware: &WareId, price: u32) {
 
 // --- Flight ---
 
-#[test]
-fn releasing_input_stops_the_ship_within_a_few_ticks() {
-    let mut sim = game(1);
-    assert_eq!(player(&sim).docked_at, Some(WHARF));
-    step(&mut sim, &thrust(1.0, 0.0)); // WASD undocks
-    assert_eq!(player(&sim).docked_at, None);
-    run(&mut sim, 30, &thrust(1.0, 0.0));
-    let top = sim.world().hulls.get("hull.wren").unwrap().max_speed;
-    assert!((player(&sim).velocity.length() - top).abs() < 0.5);
-
-    let mut ticks = 0;
-    while player(&sim).velocity != Vec2::ZERO {
-        step(&mut sim, &hands_off());
-        ticks += 1;
-        assert!(ticks <= 4, "still moving after {ticks} ticks");
+/// One tick of the flight keys: `turn` is A/D (+1 = D), `push` W/S (+1 = W).
+fn keys(turn: f32, push: f32, boost: bool) -> PlayerInput {
+    PlayerInput {
+        thrust: Vec2::new(turn, push),
+        boost,
+        ..PlayerInput::default()
     }
-    let stopped = player(&sim).position;
-    run(&mut sim, 60, &hands_off());
-    assert_eq!(player(&sim).position, stopped, "no drift after stopping");
+}
+
+/// The player undocked and stopped at `at` in the Shallows, nose along +x.
+fn afloat(sim: &mut Sim, at: Vec2) {
+    place(sim, &PLAYER, &SHALLOWS, at);
+    let p = player(sim);
+    submit(
+        sim,
+        CommandBatch::new(test_cause()).with(Command::SetShipMotion {
+            ship: PLAYER,
+            position: p.position,
+            velocity: Vec2::ZERO,
+            heading: 0.0,
+        }),
+    );
+}
+
+/// Ticks of hands off until the player is stopped.
+fn ticks_to_stop(sim: &mut Sim) -> u32 {
+    let mut ticks = 0;
+    while player(sim).velocity != Vec2::ZERO {
+        step(sim, &hands_off());
+        ticks += 1;
+        assert!(ticks <= 120, "still moving after {ticks} ticks");
+    }
+    ticks
 }
 
 #[test]
-fn the_ship_turns_to_face_its_movement() {
+fn w_flies_to_top_speed_and_letting_go_stops_in_a_second_from_any_speed() {
     let mut sim = game(1);
-    place(&mut sim, &PLAYER, &SHALLOWS, Vec2::new(0.0, -600.0));
-    run(&mut sim, 30, &thrust(0.0, 1.0));
+    assert_eq!(player(&sim).docked_at, Some(WHARF));
+    step(&mut sim, &thrust(0.0, 1.0)); // W flies off
+    assert_eq!(player(&sim).docked_at, None);
+    afloat(&mut sim, Vec2::new(-300.0, -1200.0));
+    let wren = sim.world().hulls.get("hull.wren").unwrap().clone();
+    assert_eq!(wren.max_speed, 165.0, "the locked preset");
+    // A second of W: past top speed's 0.67 s, along the nose.
+    run(&mut sim, 30, &keys(0.0, 1.0, false));
+    let v = player(&sim).velocity;
+    assert!((v.length() - 165.0).abs() < 0.01 && v.x > 0.0, "{v:?}");
+    // Let go: it coasts, then the auto-brake stops it in 1.0 s.
+    let from = player(&sim).position;
+    assert_eq!(ticks_to_stop(&mut sim), 30);
+    let coasted = player(&sim).position.distance(from);
+    assert!((75.0..85.0).contains(&coasted), "coasted {coasted} u");
+    // Shift doubles top speed, and the stop still takes 1.0 s.
+    run(&mut sim, 60, &keys(0.0, 1.0, true));
+    assert!((player(&sim).velocity.length() - 330.0).abs() < 0.01);
+    assert_eq!(ticks_to_stop(&mut sim), 30);
+    // From a crawl too.
+    run(&mut sim, 3, &keys(0.0, 1.0, false));
+    assert_eq!(ticks_to_stop(&mut sim), 30);
+    let stopped = player(&sim).position;
+    run(&mut sim, 60, &hands_off());
+    assert_eq!(player(&sim).position, stopped, "no drift after stopping");
+    assert_eq!(player(&sim).activity, ShipActivity::default());
+}
+
+#[test]
+fn a_and_d_turn_at_the_hull_rate_and_s_backs_off() {
+    let mut sim = game(1);
+    afloat(&mut sim, Vec2::new(-300.0, -1200.0));
+    // Half a second of D turns 90 degrees clockwise, without moving the ship.
+    run(&mut sim, 15, &keys(1.0, 0.0, false));
     let h = player(&sim).heading;
     assert!(
-        (h - std::f32::consts::FRAC_PI_2).abs() < 0.01,
+        (h + std::f32::consts::FRAC_PI_2).abs() < 1e-3,
         "heading {h}"
     );
-    assert!(player(&sim).velocity.y > 0.0);
+    assert_eq!(player(&sim).velocity, Vec2::ZERO);
+    run(&mut sim, 30, &keys(-1.0, 0.0, false));
+    let h = player(&sim).heading;
+    assert!(
+        (h - std::f32::consts::FRAC_PI_2).abs() < 1e-3,
+        "A: heading {h}"
+    );
+    // Facing +y, S thrusts toward -y.
+    run(&mut sim, 60, &keys(0.0, -1.0, false));
+    let v = player(&sim).velocity;
+    assert!(v.y < -164.0 && v.x.abs() < 0.5, "{v:?}");
+}
+
+#[test]
+fn space_brakes_when_nothing_is_in_reach() {
+    let mut sim = game(1);
+    afloat(&mut sim, Vec2::new(-300.0, -1200.0));
+    run(&mut sim, 30, &keys(0.0, 1.0, false));
+    let mut ticks = 0;
+    while player(&sim).velocity != Vec2::ZERO {
+        step(&mut sim, &hold_action());
+        ticks += 1;
+        assert!(ticks < 30, "still moving");
+    }
+    assert!(ticks < 20, "Space stops faster than letting go: {ticks}");
+    assert_eq!(player(&sim).docked_at, None);
+}
+
+/// A copy of the core data with `edit` applied to one file.
+fn edited_data(file: &str, edit: impl Fn(&str) -> String) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    for entry in std::fs::read_dir(data_dir()).unwrap() {
+        let entry = entry.unwrap();
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        let name = entry.file_name();
+        let text = if name.to_str() == Some(file) {
+            edit(&text)
+        } else {
+            text
+        };
+        std::fs::write(dir.path().join(name), text).unwrap();
+    }
+    dir
+}
+
+#[test]
+fn editing_the_data_changes_top_speed_turn_rate_and_zoom() {
+    let hulls = edited_data("hulls.toml", |t| {
+        let wren = t.find("id = \"hull.wren\"").unwrap();
+        let (head, tail) = t.split_at(wren);
+        let tail = tail
+            .replacen("max_speed = 165.0", "max_speed = 100.0", 1)
+            .replacen("turn_rate = 180.0", "turn_rate = 90.0", 1);
+        format!("{head}{tail}")
+    });
+    let mut sim = with_desk(new_game(hulls.path(), 1).unwrap(), Box::new(FlatDesk));
+    afloat(&mut sim, Vec2::new(-300.0, -1200.0));
+    run(&mut sim, 60, &keys(0.0, 1.0, false));
+    assert!((player(&sim).velocity.length() - 100.0).abs() < 0.01);
+    ticks_to_stop(&mut sim);
+    run(&mut sim, 30, &keys(1.0, 0.0, false));
+    let h = player(&sim).heading;
+    assert!(
+        (h + std::f32::consts::FRAC_PI_2).abs() < 1e-3,
+        "90 deg/s: {h}"
+    );
+
+    let rules = edited_data("ship_rules.toml", |t| {
+        t.replacen("zoom = 0.8 ", "zoom = 0.5 ", 1)
+    });
+    let sim = with_desk(new_game(rules.path(), 1).unwrap(), Box::new(FlatDesk));
+    let p = player(&sim);
+    assert_eq!(galaxy_ship::flight::camera_zoom(sim.world(), Some(&p)), 0.5);
+    let sim = game(1);
+    let p = player(&sim);
+    assert_eq!(galaxy_ship::flight::camera_zoom(sim.world(), Some(&p)), 0.8);
+}
+
+#[test]
+fn speed_turn_and_zoom_modifiers_change_the_feel() {
+    let sim = game(1);
+    let p = player(&sim);
+    let base = galaxy_ship::flight::Feel::of_ship(sim.world(), &p).unwrap();
+    let mut world = sim.world().clone();
+    let fins = UpgradeId::from_static("upgrade.test_fins");
+    world.progress.rules.upgrades.insert(
+        fins.clone(),
+        galaxy_contract::progress::UpgradeDef {
+            id: fins.clone(),
+            name: "Test fins".into(),
+            effect: "Speed and turn +50%, zoom out".into(),
+            cost: 0,
+            seller: None,
+            station: None,
+            unlock: Default::default(),
+            grants: Vec::new(),
+            modifiers: vec![
+                Modifier::Speed { factor: 1.5 },
+                Modifier::TurnRate { factor: 1.5 },
+                Modifier::Zoom { factor: 0.5 },
+            ],
+            socket: None,
+            power: 0,
+            mass: 0,
+            look: None,
+            source: Default::default(),
+        },
+    );
+    world.player.fittings.insert(fins);
+    let fitted = galaxy_ship::flight::Feel::of_ship(&world, &p).unwrap();
+    assert!((fitted.speed - base.speed * 1.5).abs() < 1e-3);
+    assert!((fitted.turn - base.turn * 1.5).abs() < 1e-5);
+    assert_eq!(galaxy_ship::flight::camera_zoom(&world, Some(&p)), 0.4);
+}
+
+// --- The edge of the play space ---
+
+#[test]
+fn past_the_edge_a_current_carries_the_ship_back() {
+    let mut sim = game(1);
+    let region = sim.world().regions.get(&SHALLOWS).unwrap().clone();
+    // Due west of the centre, 300 u past the drawn edge, stopped.
+    let out = region.center + Vec2::new(-(region.radius + 300.0), 0.0);
+    afloat(&mut sim, out);
+    let depth = galaxy_ship::space::past_edge(sim.world(), &SHALLOWS, player(&sim).position);
+    assert!(depth.is_some_and(|d| d > 250.0), "{depth:?}");
+    run(&mut sim, 10 * 30, &hands_off());
+    let p = player(&sim).position;
+    assert!(
+        (region.center.distance(p) - region.radius).abs() < 0.01,
+        "back on the edge: {p:?}"
+    );
+    assert_eq!(player(&sim).velocity, Vec2::ZERO, "carried, not pushed");
+    // It stops there: no creeping on once inside.
+    run(&mut sim, 30, &hands_off());
+    assert_eq!(player(&sim).position, p);
+
+    // Flying straight out at full boost, the current holds the ship within a few
+    // hundred units of the edge: a soft wall, never a hard one.
+    let mut furthest: f32 = 0.0;
+    submit(
+        &mut sim,
+        CommandBatch::new(test_cause()).with(Command::SetShipMotion {
+            ship: PLAYER,
+            position: p,
+            velocity: Vec2::ZERO,
+            heading: std::f32::consts::PI,
+        }),
+    );
+    for _ in 0..30 * 30 {
+        step(&mut sim, &keys(0.0, 1.0, true));
+        let d = galaxy_ship::space::past_edge(sim.world(), &SHALLOWS, player(&sim).position);
+        furthest = furthest.max(d.unwrap_or(0.0));
+    }
+    assert!((500.0..700.0).contains(&furthest), "furthest {furthest}");
+}
+
+#[test]
+fn a_fly_order_past_the_edge_stops_on_the_edge() {
+    let mut sim = game(1);
+    unlock(&mut sim, &[Capability::ClickFly]);
+    let region = sim.world().regions.get(&SHALLOWS).unwrap().clone();
+    let near = region.center + Vec2::new(-(region.radius - 100.0), 0.0);
+    afloat(&mut sim, near);
+    let out = region.center + Vec2::new(-(region.radius + 250.0), 0.0);
+    step(&mut sim, &click(ClickTarget::Point { at: out }, false));
+    assert!(
+        !player(&sim).orders.orders.is_empty(),
+        "the click made an order"
+    );
+    run_until(&mut sim, 30 * 30, |s| player(s).orders.orders.is_empty());
+    let p = player(&sim).position;
+    assert!(player(&sim).orders.orders.is_empty(), "done, at {p:?}");
+    assert!(
+        (region.center.distance(p) - region.radius).abs() < 3.0,
+        "{p:?}"
+    );
+}
+
+// --- Mining parks at the drawn rock ---
+
+#[test]
+fn a_mine_order_parks_beside_the_rock_and_does_not_slide_when_mining_starts() {
+    let mut sim = game(1);
+    unlock(&mut sim, &[Capability::ClickFly, Capability::ClickMine]);
+    let r = rock(&sim, &ICE_ROCK);
+    afloat(&mut sim, r.position - Vec2::new(300.0, 40.0));
+    step(
+        &mut sim,
+        &click(ClickTarget::Rock { rock: ICE_ROCK }, false),
+    );
+    run_until(&mut sim, 30 * 30, |s| player(s).activity.mining.is_some());
+    let started = player(&sim);
+    assert!(started.activity.mining.is_some(), "mining");
+    assert_eq!(started.velocity, Vec2::ZERO, "parked before mining");
+    run(&mut sim, 30, &hands_off());
+    assert_eq!(player(&sim).position, started.position, "no nudge");
+    let r = rock(&sim, &ICE_ROCK);
+    let edge = started.position.distance(r.position)
+        - galaxy_ship::space::rock_radius(sim.world(), &rock(&sim, &ICE_ROCK));
+    assert!(
+        edge <= sim.world().ship_rules.mining.standoff + 5.0,
+        "parked {edge} u off the drawn edge"
+    );
+}
+
+// --- Control text reads from the rules ---
+
+#[test]
+fn control_text_names_the_rules_limits() {
+    let sim = game(1);
+    let w = sim.world();
+    let caps = &w.progress.rules.capabilities;
+    let queues = &caps[&FlagId::from_static("cap.queues")].summary;
+    assert!(queues.contains("{queue_limit}"), "{queues}");
+    assert_eq!(
+        controls::describe(w, queues),
+        "Shift-click appends orders, up to 6. Any order can be removed; a sell can take a floor."
+    );
+    let tier = w.progress.rules.tiers.iter().find(|t| t.tier == 4).unwrap();
+    assert_eq!(
+        controls::describe(w, &tier.summary),
+        "Shift-click lines up to 6 orders."
+    );
+    let fly = &caps[&FlagId::from_static("cap.click_fly")].summary;
+    assert!(controls::describe(w, fly).starts_with("Left-click a point within 450 u"));
+    // No summary writes a limit as a number, and every placeholder is known.
+    let texts = caps
+        .values()
+        .map(|c| &c.summary)
+        .chain(w.progress.rules.tiers.iter().map(|t| &t.summary));
+    for text in texts {
+        let out = controls::describe(w, text);
+        assert!(!out.contains('{'), "unknown placeholder in {text:?}");
+        for limit in ["up to 8", "up to 3", "within 450"] {
+            assert!(!text.contains(limit), "a hard-coded limit in {text:?}");
+        }
+    }
 }
 
 // --- Docking ---
@@ -241,6 +524,12 @@ fn docking_needs_the_ring() {
         "docked, Space does nothing"
     );
     step(&mut sim, &thrust(1.0, 0.0));
+    assert_eq!(
+        player(&sim).docked_at,
+        Some(KETTLE),
+        "turning doesn't undock"
+    );
+    step(&mut sim, &thrust(0.0, 1.0));
     assert_eq!(player(&sim).docked_at, None, "flying off undocks");
     assert_eq!(kind_count(&sim, "undock"), 1);
     let w = sim.world();

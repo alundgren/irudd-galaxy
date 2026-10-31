@@ -1,0 +1,82 @@
+# The hullwright's fit model (#47 Phase 3, the station concept's "The fit model"):
+# sockets, the wharves that work on them, blueprints found in the world, and how mass
+# slows a hull. The parts themselves are upgrades in upgrades.toml (each names its
+# `socket`, `power`, `mass`, `look` and `source`); each hull's sockets, power cap and
+# free mass are its [[fit]] table in hulls.toml.
+#
+# - Power caps what can run at once: a fit that would draw more than the hull's cap is
+#   refused, so whatever is fitted always runs.
+# - Mass past the hull's free allowance takes `speed_per_unit` off top speed and
+#   `turn_per_unit` off turn rate for each unit over, never below `floor`.
+# - Control modules sit in the control rack: no budget, never taken off, and they move
+#   to a new hull at prestige. A part taken off goes to that hull's locker.
+# - Blueprints are found when `found` holds (activity, history or beats, never time):
+#   the flag `id` is set and a `blueprint_found` fact names where.
+# Schema: crates/contract/schemas/data-ship-parts.json
+
+[mass]
+speed_per_unit = 0.04
+turn_per_unit = 0.06
+floor = 0.5
+
+[[socket]]
+id = "socket.drill"
+name = "Drill mount"
+place = "nose"
+
+# Behind the cockpit: one larger utility part beside the control rack.
+[[socket]]
+id = "socket.utility"
+name = "Utility"
+place = "utility"
+
+[[socket]]
+id = "socket.rack"
+name = "Control rack"
+place = "utility"
+rack = true
+
+[[socket]]
+id = "socket.hold"
+name = "Hold"
+place = "belly"
+
+[[socket]]
+id = "socket.engine"
+name = "Engine"
+place = "tail"
+
+# Bigger automation (a drone bay) is per hull and competes for power like any other
+# part. Only the Tandem has the bay; no part for it ships in the slice yet.
+[[socket]]
+id = "socket.bay"
+name = "Drone bay"
+place = "bay"
+
+# Orrin's cradle at Lantern Wharf works on every socket.
+[[wharf]]
+station = "station.lantern_wharf"
+keeper = "npc.orrin_vale"
+name = "Orrin's cradle"
+sockets = ["socket.drill", "socket.utility", "socket.hold", "socket.engine", "socket.bay"]
+
+# The rough rigger at Cinder Hook: drill mounts only, heavier and cheaper.
+[[wharf]]
+station = "station.cinder_hook"
+keeper = "npc.juno_brask"
+name = "Juno's rough rig"
+sockets = ["socket.drill"]
+
+[[blueprint]]
+id = "blueprint.long_drill"
+name = "Long-throw drill blueprint"
+part = "upgrade.long_drill"
+found_in = "a seam in the Cinder Drift"
+found = { counter = { kind = "units_mined", at_least = 20, region = "region.cinder_drift" } }
+
+[[blueprint]]
+id = "blueprint.swift_fins"
+name = "Swift fins blueprint"
+part = "upgrade.swift_fins"
+found_in = "a plate crate at Brassmouth Exchange"
+found = { counter = { kind = "dockings", at_least = 1, station = "station.brassmouth_exchange" } }

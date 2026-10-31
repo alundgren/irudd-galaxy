@@ -11,6 +11,7 @@ export type BeatId = string
 export type BeatKind = "directed" | "situation"
 export type BeatStatus = "active" | "completed"
 export type BuildState = { parts: { PartId }?, stage: number }
+export type CauseFact = { amount: number?, faction: FactionId?, id: FactId?, kind: string?, npc: NpcId?, other: string?, station: StationId?, ware: WareId? }
 export type CauseId = string
 export type Condition = { kind: "hold_full" } | { kind: "hold_empty" } | { kind: "price_at_least", price: number, station: StationId, ware: WareId } | { kind: "price_at_most", price: number, station: StationId, ware: WareId } | { kind: "stock_at_least", station: StationId, stock: number, ware: WareId } | { counter: CounterKind, kind: "counter_at_least", scope: CounterScope, value: number } | { flag: FlagId, kind: "flag_set" } | { kind: "all", of: { Condition } } | { kind: "any", of: { Condition } } | { cond: Condition, kind: "not" }
 export type CounterScope = { scope: "player" } | { scope: "station", station: StationId } | { region: RegionId, scope: "region" }
@@ -23,25 +24,36 @@ export type FactionId = string
 export type FieldId = string
 export type FlagId = string
 export type FlyTarget = { at: Vec2, kind: "point" } | { kind: "station", station: StationId } | { kind: "rock", rock: RockId } | { kind: "region", region: RegionId }
+export type HappeningCause = { facts: { CauseFact } }
+export type HappeningId = string
+export type HappeningLine = { choices: { TalkChoice }?, id: string, speaker: NpcId, text: string }
+export type HappeningRun = { status: "upcoming" } | { cites: { FactId }, first_docking: number, since: Tick, status: "active" } | { at: Tick, first_docking: number, since: Tick, status: "ended" }
 export type HullId = string
 export type LaneId = string
+export type Lasts = { dockings: number }
 export type LedgerId = string
 export type MarketRole = "buys" | "sells"
 export type Measure = { counter: { kind: CounterKind, region: RegionId?, station: StationId? } } | { facts: HistoryQuery } | { sum: HistoryQuery }
-export type Modifier = { factor: number, modifier: "mining_rate" } | { bonus: number, modifier: "rich_face" } | { modifier: "hold", units: number } | { modifier: "tender_hold", units: number } | { factor: number, modifier: "turn_rate" } | { factor: number, modifier: "speed" } | { factor: number, modifier: "dock_reach" } | { modifier: "mouth_radius", radius: number } | { modifier: "price_glass", range: number } | { factor: number, modifier: "deed_bonus", tag: string } | { feature: string, modifier: "feature" }
+export type Modifier = { factor: number, modifier: "mining_rate" } | { bonus: number, modifier: "rich_face" } | { modifier: "hold", units: number } | { modifier: "tender_hold", units: number } | { factor: number, modifier: "turn_rate" } | { factor: number, modifier: "speed" } | { factor: number, modifier: "zoom" } | { factor: number, modifier: "dock_reach" } | { modifier: "mouth_radius", radius: number } | { modifier: "price_glass", range: number } | { modifier: "mining_reach", units: number } | { modifier: "seam_lamp", range: number } | { factor: number, modifier: "deed_bonus", tag: string } | { feature: string, modifier: "feature" }
 export type NpcId = string
 export type OrderProgress = { blocked: boolean?, credits: number?, lap_end: boolean?, lap_moved: boolean?, laps: number?, step: number?, traded: number?, waiting: number? }
 export type PackId = string
+export type PartCause = { facts: { FactId }, script: PackId? }
 export type PartId = string
+export type PartNews = { docking: number, ribbon: Ribbon }
+export type PartState = "open" | "closed" | "building"
 export type Quantity = { kind: "units", n: number } | { kind: "all" }
 export type QuestId = string
 export type RegionId = string
+export type Ribbon = "new" | "changed" | "closed"
 export type RockId = string
+export type RoomKind = "market" | "notice_wall" | "canteen" | "greenhouse" | "berths" | "wharf" | "dockmaster" | "counter"
 export type RumorId = string
 export type Service = "market" | "dockmaster" | "hullwright" | "archive"
 export type ShipId = string
 export type SlotId = string
 export type StationId = string
+export type StationPartId = string
 export type Subjects = { faction: FactionId?, npc: NpcId?, other: AnyId?, region: RegionId?, rock: RockId?, ship: ShipId?, station: StationId?, ware: WareId? }
 export type Tick = number
 export type TraitId = string
@@ -51,6 +63,8 @@ export type Vec2 = { x: number, y: number }
 export type VerbKind = "fly" | "mine" | "dock" | "undock" | "buy" | "sell" | "wait" | "loop" | "tag" | "transfer"
 export type WareId = string
 export type Station = { build: BuildState, dock_radius: number, id: StationId, name: string, owner: FactionId?, position: Vec2, region: RegionId, services: { Service } }
+export type StationPart = { anchor: string, cause: PartCause?, id: StationPartId, keeper: NpcId, level: number?, line: string?, module: string, name: string?, news: PartNews?, quarter: string?, rollback_line: string, room: RoomKind, sign: string, state: PartState?, station: StationId }
+export type Happening = { by: PackId?, cause: HappeningCause, id: HappeningId, lasts: Lasts, line: HappeningLine, run: HappeningRun?, show: { string }?, station: StationId }
 export type Faction = { claims: { StationId }?, colour: string?, id: FactionId, mark: string?, name: string, standing: number?, wants: { WareId }? }
 export type Npc = { faction: FactionId?, id: NpcId, location: StationId?, name: string, role: string }
 export type Rumor = { claim: string, heard_at: { StationId }, heard_by_player: boolean, id: RumorId, is_true: boolean, planted_by: FactionId?, source: FactId? }
@@ -138,7 +152,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }
 -- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.
-export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, consigned: { [LedgerId]: Consigned }, hold_free: number, credits: number }
+-- An upgrade or tender on someone's list (`ctx.beats:service`); `cost` is in credits.
+export type ServiceView = { id: string, name: string, effect: string, cost: number, seller: NpcId?, station: StationId?, owned: boolean }
+-- Goods carried for someone else: whose they are, who they're for and where.
+export type Consigned = { ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }
+-- Someone else's goods to carry, for `ctx.beats:consign` (the same fields, plus the ledger).
+export type ConsignSpec = { ledger: LedgerId, ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.
 export type Spot = { x: number, y: number, region: RegionId? }
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's
@@ -228,6 +248,28 @@ export type StationsApi = {
 	detach: (self: StationsApi, id: StationId, part: PartId, why: Cause) -> (),
 	-- Sets (or clears) a station's owner.
 	set_owner: (self: StationsApi, id: StationId, owner: FactionId?, why: Cause) -> (),
+}
+export type PartsApi = {
+	-- A station part: a room with a module, a keeper and a sign.
+	get: (self: PartsApi, id: StationPartId) -> StationPart?,
+	-- A station's part IDs, sorted.
+	list: (self: PartsApi, station: StationId) -> { StationPartId },
+	-- Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = "closed"` puts a scaffold and a closed sign up.
+	put: (self: PartsApi, part: StationPart, why: Cause) -> boolean,
+	-- Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.
+	remove: (self: PartsApi, id: StationPartId, why: Cause) -> boolean,
+}
+export type HappeningsApi = {
+	-- A happening, with where it is in its run (`run.status`: upcoming, active, ended).
+	get: (self: HappeningsApi, id: HappeningId) -> Happening?,
+	-- A station's happenings, upcoming, running and over, sorted by ID.
+	list: (self: HappeningsApi, station: StationId) -> { HappeningId },
+	-- The happening running at a station now, if any (at most one at a time).
+	active: (self: HappeningsApi, station: StationId) -> HappeningId?,
+	-- Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.
+	put: (self: HappeningsApi, happening: Happening, why: Cause) -> (),
+	-- Takes away a happening that hasn't started. One that is running or over stays.
+	remove: (self: HappeningsApi, id: HappeningId, why: Cause) -> (),
 }
 export type FactionsApi = {
 	-- A faction record.
@@ -334,8 +376,10 @@ export type BeatsApi = {
 	goals: (self: BeatsApi) -> { GoalLine },
 	-- The act the journey is in (the highest act of any started beat).
 	act: (self: BeatsApi) -> number,
-	-- The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).
+	-- The player as a beat sees them: ship, hull, where they're docked, region, position, their own cargo, consignments carried for others (by ledger), hold room and credits (in credits).
 	pilot: (self: BeatsApi) -> PilotView,
+	-- An upgrade or tender a hullwright or dockmaster offers (`upgrades.toml`): its name, its literal effect text, its cost in credits, who sells it and where, and whether the player has it (`owned`: fitted, or the tender built). `nil` for an unknown ID. For the lines that offer a gift and say it's fitted.
+	service: (self: BeatsApi, id: UpgradeId | ShipId) -> ServiceView?,
 	-- How far the player's ship is from a station or a spot, in u. `nil` without a ship, or when the target is in another region (a spot without `region` is in the ship's).
 	distance: (self: BeatsApi, to: StationId | Spot) -> number?,
 	-- A rock field's depletion: how many rocks, units left and when full, and `left` (remaining / full, 0 to 1). `nil` for an unknown field.
@@ -346,9 +390,13 @@ export type BeatsApi = {
 	deliver: (self: BeatsApi, spec: DeliverSpec, why: Cause) -> (),
 	-- Changes nothing: the call's writes apply only if the player is still docked at `station` when they do (an undock earlier in the tick makes the call contention). Fails unless docked there now. For changes that wait for a calm moment.
 	expect_docked: (self: BeatsApi, station: StationId, why: Cause) -> (),
-	-- Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.
+	-- Loads goal cargo into the player ship as the pilot's own: at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room. Someone else's goods go aboard with `consign`.
 	load: (self: BeatsApi, spec: LoadSpec, why: Cause) -> (),
-	-- Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.
+	-- Loads someone else's goods into the docked player ship under a ledger: they fill hold space but stay the owner's (no market buys them) until `deliver_consignment` hands them to the person they're for. Fails without the hold room, or if that ledger's consignment is already aboard. Cite the player's `reply` accepting it.
+	consign: (self: BeatsApi, spec: ConsignSpec, why: Cause) -> (),
+	-- Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.
+	deliver_consignment: (self: BeatsApi, ledger: LedgerId, why: Cause) -> (),
+	-- Pays the player credits (credits, not centicredits; more than 0): a fee for a hand-in or an offer the player accepted. The call's cause must cite the player's `reply` agreeing to it, or none of its writes apply (`unconfirmed_change`). Never takes credits.
 	pay: (self: BeatsApi, credits: number, why: Cause) -> (),
 }
 export type MechanicsApi = {
@@ -424,6 +472,8 @@ export type Ctx = {
 	counters: CountersApi,
 	history: HistoryApi,
 	stations: StationsApi,
+	parts: PartsApi,
+	happenings: HappeningsApi,
 	factions: FactionsApi,
 	npcs: NpcsApi,
 	rumors: RumorsApi,

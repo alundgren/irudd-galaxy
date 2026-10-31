@@ -138,6 +138,8 @@ struct InstanceGpu {
     highlight: [f32; 4],
     outline: [f32; 4],
     emissive: [f32; 4],
+    /// x: morph weight, y: hatch scale (0 for the instance's own).
+    morph: [f32; 4],
 }
 
 #[repr(C)]
@@ -467,6 +469,15 @@ impl Renderer {
         size: (u32, u32),
         scale: f32,
     ) -> Result<Self, RenderError> {
+        let info = adapter.get_info();
+        log::info!(
+            "adapter {} ({:?}, {:?}), driver {} {}",
+            info.name,
+            info.backend,
+            info.device_type,
+            info.driver,
+            info.driver_info
+        );
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("render"),
             required_features: wgpu::Features::empty(),
@@ -724,6 +735,10 @@ impl Renderer {
             color: [0.0; 4],
             span: [0.0; 2],
             facet: 0.0,
+            morph_position: [0.0; 3],
+            morph_normal: [0.0, 0.0, 1.0],
+            morph_color: [0.0; 4],
+            bite: [0.0; 2],
         }];
         let (verts, idx): (&[Vertex], &[u32]) = if mesh.is_empty() {
             (&zero, &[0, 0, 0])
@@ -1018,6 +1033,7 @@ impl Renderer {
                     mat.outline_px.clamp(0.0, 32.0) * self.scale,
                 ],
                 emissive: mat.emissive.to_array(),
+                morph: [inst.morph, inst.hatch_scale, 0.0, 0.0],
             });
             let k = gpu_instances.len() as u32 - 1;
             match runs.last_mut() {
@@ -1349,9 +1365,8 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
 
 /// Lays out the pause card for a viewport in logical pixels.
 fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
-    let w = (logical.x * 0.86).min(560.0);
-    let h = 196.0;
-    let rect = Rect::new((logical.x - w) * 0.5, (logical.y - h) * 0.5, w, h);
+    let rect = card.rect(logical);
+    let w = rect.w;
     let cx = logical.x * 0.5;
     let veil = Panel {
         rect: Rect::new(-4.0, -4.0, logical.x + 8.0, logical.y + 8.0),
@@ -1382,7 +1397,25 @@ fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
         .color(Color::hex(0x6b4f5f))
         .align(crate::scene::Align::Center)
         .wrap(w - 48.0);
-    (vec![veil, body, pill], vec![title, hint])
+    let mut panels = vec![veil, body, pill];
+    let mut texts = vec![title, hint];
+    // Settings: outlined buttons in black on the card's paper.
+    for (label, r) in card.toggles.iter().zip(card.toggle_rects(logical)) {
+        panels.push(Panel {
+            rect: r,
+            radius: 12.0,
+            border_px: 3.0,
+            shadow: false,
+            ..Panel::new(r)
+        });
+        texts.push(
+            Text::new(label.clone(), Vec2::new(r.x + r.w * 0.5, r.y + 9.0), 18.0)
+                .weight(700)
+                .color(Color::BLACK)
+                .align(crate::scene::Align::Center),
+        );
+    }
+    (panels, texts)
 }
 
 fn make_backdrop(
@@ -1563,7 +1596,7 @@ fn create_pipelines(
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
             0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x4, 4 => Float32x2,
-            5 => Float32
+            5 => Float32, 6 => Float32x3, 7 => Float32x3, 8 => Float32x4, 9 => Float32x2
         ],
     };
     let fx_vertex_layout = wgpu::VertexBufferLayout {
@@ -1704,7 +1737,8 @@ fn create_pipelines(
             buffers: &[Some(fx_vertex_layout)],
             cull: None,
             // Single-sampled: effects are drawn after the MSAA resolve, on top of
-            // inner ink, depth-tested against the geom buffer.
+            // inner ink, depth-tested against the geom buffer (beams aren't: see
+            // `vs_fx`).
             depth: depth(false, wgpu::CompareFunction::LessEqual),
             blend: premul,
             samples: 1,

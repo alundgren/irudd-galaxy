@@ -32,7 +32,8 @@ local function away(ctx: G.Ctx): (number, boolean)
 	local n, outside = 0, false
 	for _, d in ipairs(util.find_all(ctx, { kind = "dock", ship = ids.PLAYER }, p.id, 400)) do
 		local station = d.subjects.station
-		if station ~= nil and station ~= ids.WHARF then
+		-- A re-dock that didn't count (amount 0) isn't another docking.
+		if station ~= nil and station ~= ids.WHARF and d.amount ~= 0 then
 			n += 1
 			local s = ctx.stations:get(station)
 			if s ~= nil and s.region ~= ids.SHALLOWS then
@@ -49,7 +50,7 @@ local function invite(ctx: G.Ctx, cite: string)
 	ctx.talk:offer({
 		speaker = ids.ILSE,
 		place = ids.WHARF,
-		text = "Ilse wants to hear how the new hull flies. Ask her what changed while you were out.",
+		text = "Tell me how the new hull flies. And ask me what changed while you were out.",
 		cites = { cite },
 		choices = WHAT_CHANGED,
 	}, why)

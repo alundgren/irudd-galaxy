@@ -16,7 +16,9 @@ pub mod command;
 pub mod data;
 pub mod economy;
 pub mod events;
+pub mod fit;
 pub mod geom;
+pub mod happening;
 pub mod history;
 pub mod ids;
 pub mod input;
@@ -25,6 +27,7 @@ pub mod modifiers;
 pub mod money;
 pub mod needs;
 pub mod pack;
+pub mod parts;
 pub mod progress;
 pub mod schema;
 pub mod ship;
@@ -56,6 +59,7 @@ pub mod prelude {
     pub use crate::ids::*;
     pub use crate::input::{Click, ClickTarget, PlayerInput, Reply};
     pub use crate::money::{CENTS_PER_CREDIT, show_credits};
+    pub use crate::parts::{PartNews, PartState, Ribbon, RoomKind, StationPart};
     pub use crate::progress::{
         BeatKind, BeatState, BeatStatus, HullRecord, Modifier, ProgressRules, ProgressState,
         Requirement, ServiceRequest, Tunable, TunableValue,

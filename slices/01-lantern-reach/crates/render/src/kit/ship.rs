@@ -1,4 +1,5 @@
-//! Ship hulls: a chubby body, swept wings, glowing engines and a canopy.
+//! Ship hulls: a chubby body, swept wings, glowing engines and a canopy. The recipes
+//! ([`HullParams`], its sockets and fit looks) are render-free, in `galaxy_kit::ship`.
 //!
 //! Local axes: +X is forward (the nose), +Y is left, +Z is up. The hull is centred on the
 //! origin, so `MeshInstance::at(mesh, pos, heading, 1.0)` points the nose along `heading`.
@@ -7,190 +8,20 @@ use super::rng::Rng;
 use crate::color::Color;
 use crate::mesh::{MeshBuilder, MeshData};
 use crate::palette;
+pub use galaxy_kit::ship::*;
 use glam::{Mat4, Vec2, Vec3};
-use serde::{Deserialize, Serialize};
-
-/// The three hulls in the slice.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HullClass {
-    /// Tier 0: a small, round, friendly first ship.
-    Wren,
-    /// Hauler that pairs with automation: boxy body, trailing cargo pods.
-    Tandem,
-    /// Scout with long price reach: slender body, long wings, a sensor mast.
-    Heron,
-}
-
-/// Paint for a hull.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct HullColors {
-    pub body: Color,
-    pub nose: Color,
-    pub trim: Color,
-    pub canopy: Color,
-    pub engine: Color,
-}
-
-impl Default for HullColors {
-    fn default() -> Self {
-        Self {
-            body: palette::CORAL,
-            nose: palette::HULL_CREAM,
-            trim: palette::MUSTARD,
-            canopy: palette::GLASS,
-            engine: palette::LANTERN,
-        }
-    }
-}
-
-/// Parameters for [`hull`]. Lengths are world units.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct HullParams {
-    pub class: HullClass,
-    /// Nose to tail.
-    pub length: f32,
-    /// Widest point of the body.
-    pub width: f32,
-    /// Body thickness.
-    pub height: f32,
-    /// 0 is a blunt bean, 1 a sharp beak.
-    pub nose: f32,
-    /// Wing tip to wing tip (0 for no wings).
-    pub wing_span: f32,
-    /// How far back the wings sweep, `0..=1`.
-    pub wing_sweep: f32,
-    /// 1 to 3 engines.
-    pub engines: u32,
-    /// Cargo pods trailing behind (the Tandem's signature).
-    pub cargo_pods: u32,
-    /// Tail fin height (0 for none).
-    pub fin: f32,
-    /// Forward sensor mast length (the Heron's signature; 0 for none).
-    pub mast: f32,
-    /// Facets around the body; fewer reads as more hand-cut.
-    pub facets: u32,
-    pub colors: HullColors,
-    /// Faction sigil on the back. Empty draws none.
-    /// `lantern_kettle`, `toll_key` or `open_lamp`.
-    #[serde(default = "empty_mark", skip_serializing_if = "String::is_empty")]
-    pub mark: String,
-}
-
-fn empty_mark() -> String {
-    String::new()
-}
-
-impl Default for HullParams {
-    fn default() -> Self {
-        Self::wren()
-    }
-}
-
-impl HullParams {
-    pub fn wren() -> Self {
-        Self {
-            class: HullClass::Wren,
-            length: 6.0,
-            width: 3.2,
-            height: 2.0,
-            nose: 0.35,
-            wing_span: 6.4,
-            wing_sweep: 0.45,
-            engines: 1,
-            cargo_pods: 0,
-            fin: 1.1,
-            mast: 0.0,
-            facets: 8,
-            colors: HullColors::default(),
-            mark: "lantern_kettle".into(),
-        }
-    }
-
-    pub fn tandem() -> Self {
-        Self {
-            class: HullClass::Tandem,
-            length: 8.0,
-            width: 3.6,
-            height: 2.4,
-            nose: 0.15,
-            wing_span: 5.6,
-            wing_sweep: 0.2,
-            engines: 2,
-            cargo_pods: 2,
-            fin: 0.8,
-            mast: 0.0,
-            facets: 6,
-            colors: HullColors {
-                body: palette::TEAL,
-                nose: palette::HULL_CREAM,
-                trim: palette::TERRACOTTA,
-                ..HullColors::default()
-            },
-            mark: String::new(),
-        }
-    }
-
-    pub fn heron() -> Self {
-        Self {
-            class: HullClass::Heron,
-            length: 9.0,
-            width: 2.4,
-            height: 1.6,
-            nose: 0.9,
-            wing_span: 10.0,
-            wing_sweep: 0.75,
-            engines: 1,
-            cargo_pods: 0,
-            fin: 1.4,
-            mast: 3.0,
-            facets: 8,
-            colors: HullColors {
-                body: palette::HULL_CREAM,
-                nose: palette::NEBULA_VIOLET,
-                trim: palette::TEAL,
-                ..HullColors::default()
-            },
-            mark: String::new(),
-        }
-    }
-
-    pub fn for_class(class: HullClass) -> Self {
-        match class {
-            HullClass::Wren => Self::wren(),
-            HullClass::Tandem => Self::tandem(),
-            HullClass::Heron => Self::heron(),
-        }
-    }
-
-    /// Clamps every field into a range that builds a sane mesh.
-    pub fn sanitized(&self) -> Self {
-        let f = |v: f32, lo: f32, hi: f32| if v.is_finite() { v.clamp(lo, hi) } else { lo };
-        Self {
-            class: self.class,
-            length: f(self.length, 1.0, 60.0),
-            width: f(self.width, 0.4, 30.0),
-            height: f(self.height, 0.3, 20.0),
-            nose: f(self.nose, 0.0, 1.0),
-            wing_span: f(self.wing_span, 0.0, 80.0),
-            wing_sweep: f(self.wing_sweep, 0.0, 1.0),
-            engines: self.engines.clamp(1, 3),
-            cargo_pods: self.cargo_pods.min(4),
-            fin: f(self.fin, 0.0, 20.0),
-            mast: f(self.mast, 0.0, 40.0),
-            facets: self.facets.clamp(5, 16),
-            colors: self.colors,
-            mark: self.mark.clone(),
-        }
-    }
-}
 
 /// Builds a hull. `seed` adds small, stable variations (fin lean, light placement).
+/// [`super::fitted_hull`] builds one wearing its fitted parts.
 pub fn hull(params: &HullParams, seed: u64) -> MeshData {
-    let p = params.sanitized();
-    let mut rng = Rng::new(seed).fork(0x5111b);
     let mut b = MeshBuilder::new();
+    hull_into(&mut b, &params.sanitized(), seed);
+    b.build()
+}
+
+/// Adds a sanitized hull to `b`.
+pub(super) fn hull_into(b: &mut MeshBuilder, p: &HullParams, seed: u64) {
+    let mut rng = Rng::new(seed).fork(0x5111b);
     let (l, w, h) = (p.length, p.width, p.height);
     let c = p.colors;
     let boxy = matches!(p.class, HullClass::Tandem);
@@ -216,8 +47,8 @@ pub fn hull(params: &HullParams, seed: u64) -> MeshData {
             b.lathe(prof, p.facets, std::f32::consts::PI / p.facets as f32)
         });
     };
-    lathe_body(&mut b, &tail_profile, c.body);
-    lathe_body(&mut b, &nose_profile, c.nose);
+    lathe_body(b, &tail_profile, c.body);
+    lathe_body(b, &nose_profile, c.nose);
 
     // A trim band around the waist.
     b.paint(c.trim, 0.0);
@@ -454,7 +285,7 @@ pub fn hull(params: &HullParams, seed: u64) -> MeshData {
 
     // A tilted awning off the tail. Horizontal enough to read from above.
     pennant(
-        &mut b,
+        b,
         (l * 0.32).max(0.9),
         Vec3::new(-l * 0.4, w * 0.08, h * 0.34),
         c.nose,
@@ -462,7 +293,7 @@ pub fn hull(params: &HullParams, seed: u64) -> MeshData {
     );
     if !p.mark.is_empty() {
         ship_mark(
-            &mut b,
+            b,
             &p.mark,
             (w * 0.28).max(0.55),
             Vec3::new(-l * 0.08, 0.12, h * 0.64),
@@ -471,8 +302,6 @@ pub fn hull(params: &HullParams, seed: u64) -> MeshData {
             c.engine,
         );
     }
-
-    b.build()
 }
 
 /// A short banner in the XY plane, tilted up toward the tail.
@@ -575,7 +404,7 @@ fn ship_mark(
     });
 }
 
-fn signed_area(pts: &[Vec2]) -> f32 {
+pub(super) fn signed_area(pts: &[Vec2]) -> f32 {
     (0..pts.len())
         .map(|i| pts[i].perp_dot(pts[(i + 1) % pts.len()]))
         .sum::<f32>()

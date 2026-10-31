@@ -104,6 +104,32 @@ impl Controls {
     }
 }
 
+/// The limits control text may name, as `{name}` in `controls.toml`.
+pub const TEXT_LIMITS: [&str; 4] = [
+    "queue_limit",
+    "loop_limit",
+    "saved_loop_limit",
+    "click_fly_range",
+];
+
+/// Control text from `controls.toml` with the rules' limits filled in (see
+/// [`TEXT_LIMITS`]), so what the player reads always matches the rule. Anything else
+/// in braces is left as it is.
+pub fn describe(world: &WorldState, text: &str) -> String {
+    let rules = &world.ship_rules.controls;
+    let mut out = text.to_owned();
+    for name in TEXT_LIMITS {
+        let value = match name {
+            "queue_limit" => rules.queue_limit.to_string(),
+            "loop_limit" => rules.loop_limit.to_string(),
+            "saved_loop_limit" => rules.saved_loop_limit.to_string(),
+            _ => format!("{:.0}", rules.click_fly_range),
+        };
+        out = out.replace(&format!("{{{name}}}"), &value);
+    }
+    out
+}
+
 /// The command that sets or clears a capability's flag.
 pub fn set_capability(world: &WorldState, cap: Capability, on: bool) -> Command {
     Command::SetFlag {

@@ -87,6 +87,22 @@ function util.before(ctx: G.Ctx, q: G.HistoryQuery, tick: number): G.Fact?
 	return ctx.history:last(q2)
 end
 
+-- The newest counted docking matching `q` (a `dock` query) before `tick` (exclusive).
+-- A re-dock that didn't count (tapping out of the ring and straight back in: the
+-- economy's recount rule) has an amount of 0; the visit it continues began at the
+-- counted docking before it.
+function util.counted_dock(ctx: G.Ctx, q: G.HistoryQuery, tick: number): G.Fact?
+	local t = tick
+	for _ = 1, 64 do
+		local f = util.before(ctx, q, t)
+		if f == nil or f.amount ~= 0 then
+			return f
+		end
+		t = f.tick
+	end
+	return nil
+end
+
 -- Facts matching `q` after fact `after` (nil: all), oldest first, paging past the
 -- 50-fact cap up to `most` facts.
 function util.find_all(ctx: G.Ctx, q: G.HistoryQuery, after: string?, most: number): { G.Fact }
@@ -164,6 +180,19 @@ function util.say(
 		subjects = { npc = npc, station = place, other = line },
 		amount = util.seq(cite),
 		note = `{line}: {text}`,
+	}, why)
+end
+
+-- The confirmation of a transaction the player agreed to, as a notice at the dock
+-- (a place, no speaker): what was given and what came back, in plain words
+-- ("Delivered 20 ice to Odo · +120 cr"). Cites the player's reply.
+function util.confirm(ctx: G.Ctx, why: G.Cause, place: string, text: string, cite: string)
+	ctx.talk:offer({ place = place, text = text, cites = { cite } }, why)
+	ctx.history:record({
+		kind = "core.confirmed",
+		subjects = { station = place },
+		amount = util.seq(cite),
+		note = text,
 	}, why)
 end
 

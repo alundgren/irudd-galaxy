@@ -19,6 +19,10 @@
 //! rows from a discarded timeline. Before it drops rows a snapshot still shares, it
 //! moves them into that snapshot's tail, so every listed snapshot stays loadable.
 //!
+//! - `memory_meta`, `memory_entry`, `memory_subject`, `memory_fts` (FTS5) and
+//!   `memory_embedding`: world memory, a summary of the logs for search
+//!   ([`crate::memory`]). Derived: synced by every write, built on open when missing.
+//!
 //! Fork a save = copy the file ([`fork`]).
 
 use std::path::{Path, PathBuf};
@@ -339,7 +343,7 @@ impl Save {
             &path,
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
-        let save = Save { conn, path };
+        let mut save = Save { conn, path };
         let found = save.meta("format")?.unwrap_or_default();
         if found != SAVE_FORMAT_VERSION.to_string() {
             return Err(SaveError::Format {
@@ -347,7 +351,28 @@ impl Save {
                 expected: SAVE_FORMAT_VERSION,
             });
         }
+        // World memory is derived: a save made before it (or before this build's
+        // summary format) gets it built from its history now. A state that doesn't
+        // load leaves it for `load` to report.
+        if !crate::memory::is_current(&save.conn)?
+            && let Ok(state) = save.load()
+        {
+            save.sync_memory(&state)?;
+        }
         Ok(save)
+    }
+
+    /// Brings the world-memory tables in line with `state` ([`crate::memory`]), as
+    /// [`Save::write`] does. Returns how many entries it wrote.
+    pub fn sync_memory(&mut self, state: &SimState) -> Result<usize, SaveError> {
+        let tx = self.conn.transaction()?;
+        let n = crate::memory::sync(&tx, state)?;
+        tx.commit()?;
+        Ok(n)
+    }
+
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
     }
 
     pub fn path(&self) -> &Path {
@@ -395,6 +420,7 @@ impl Save {
                 Log::Journal => insert_journal(&tx, &state.journal[n..], &rows[n..])?,
             }
         }
+        crate::memory::sync(&tx, state)?;
         tx.commit()?;
         Ok(())
     }

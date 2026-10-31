@@ -4,13 +4,22 @@
 //! `directories` crate), or `$GALAXY_SAVES` when set. [`choose`] picks the save
 //! `galaxy play` opens. [`Saver`] writes on a background thread so an autosave never
 //! hitches a frame: the game hands it a copy of the state and carries on.
+//!
+//! The save file also holds two records the app owns rather than the sim, each in its
+//! own table: how far each hint has taught ([`read_hints`], [`write_hints`], the
+//! `app_hints` table), and which talk lines wait to be seen at which dock and what's
+//! new in the ship log ([`read_talk`], [`write_talk`], `app_talk`). They aren't world
+//! state, so they never touch the sim, a replay or a snapshot.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use galaxy_core::{Save, SimState};
+
+use crate::ui::talk::TalkRecord;
 
 /// The extension `galaxy play` writes and looks for.
 pub const SAVE_EXTENSION: &str = "sqlite";
@@ -124,8 +133,145 @@ pub fn choose(
     Ok(SaveChoice::Create(folder.fresh_path(stamp)))
 }
 
+/// The app's hint record in the save file: hint key, times taught.
+const HINTS_TABLE: &str =
+    "CREATE TABLE IF NOT EXISTS app_hints (hint TEXT PRIMARY KEY, count INTEGER NOT NULL)";
+
+/// How far each hint has taught in the save at `path` (empty for a save that has no
+/// record yet).
+pub fn read_hints(path: &Path) -> Result<BTreeMap<String, u32>, String> {
+    let read = || -> rusqlite::Result<BTreeMap<String, u32>> {
+        let conn = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_hints')",
+            [],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            return Ok(BTreeMap::new());
+        }
+        let mut stmt = conn.prepare("SELECT hint, count FROM app_hints")?;
+        let rows = stmt.query_map([], |r| {
+            let n: i64 = r.get(1)?;
+            Ok((
+                r.get::<_, String>(0)?,
+                u32::try_from(n.max(0)).unwrap_or(u32::MAX),
+            ))
+        })?;
+        rows.collect()
+    };
+    read().map_err(|e| format!("{}: hints: {e}", path.display()))
+}
+
+/// Replaces the hint record in the save at `path`.
+pub fn write_hints(path: &Path, counts: &BTreeMap<String, u32>) -> Result<(), String> {
+    let write = || -> rusqlite::Result<()> {
+        let mut conn = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        conn.busy_timeout(std::time::Duration::from_secs(2))?;
+        let tx = conn.transaction()?;
+        tx.execute(HINTS_TABLE, [])?;
+        tx.execute("DELETE FROM app_hints", [])?;
+        for (hint, n) in counts {
+            tx.execute(
+                "INSERT INTO app_hints (hint, count) VALUES (?1, ?2)",
+                rusqlite::params![hint, i64::from(*n)],
+            )?;
+        }
+        tx.commit()
+    };
+    write().map_err(|e| format!("{}: hints: {e}", path.display()))
+}
+
+/// The app's talk record in the save file: `through` and `log_new`, and one
+/// `unseen.<talk id>` row per line waiting to be seen, valued with its station.
+const TALK_TABLE: &str =
+    "CREATE TABLE IF NOT EXISTS app_talk (key TEXT PRIMARY KEY, value TEXT NOT NULL)";
+
+/// The talk record in the save at `path`; `None` for a save that has none yet.
+pub fn read_talk(path: &Path) -> Result<Option<TalkRecord>, String> {
+    let read = || -> rusqlite::Result<Option<Vec<(String, String)>>> {
+        let conn = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_talk')",
+            [],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            return Ok(None);
+        }
+        let mut stmt = conn.prepare("SELECT key, value FROM app_talk")?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        rows.collect::<rusqlite::Result<_>>().map(Some)
+    };
+    let fail = |e: String| format!("{}: talk: {e}", path.display());
+    let Some(rows) = read().map_err(|e| fail(e.to_string()))? else {
+        return Ok(None);
+    };
+    let mut record = TalkRecord::default();
+    for (key, value) in rows {
+        let number = |v: &str| v.parse::<u64>().map_err(|_| fail(format!("bad `{key}`")));
+        match key.as_str() {
+            "through" => record.through = number(&value)?,
+            "log_new" => record.log_new = u32::try_from(number(&value)?).unwrap_or(u32::MAX),
+            _ => match key.strip_prefix("unseen.") {
+                Some(id) => {
+                    record.unseen.insert(number(id)?, value);
+                }
+                None => return Err(fail(format!("unknown key `{key}`"))),
+            },
+        }
+    }
+    Ok(Some(record))
+}
+
+/// Replaces the talk record in the save at `path`.
+pub fn write_talk(path: &Path, record: &TalkRecord) -> Result<(), String> {
+    let write = || -> rusqlite::Result<()> {
+        let mut conn = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        conn.busy_timeout(std::time::Duration::from_secs(2))?;
+        let tx = conn.transaction()?;
+        tx.execute(TALK_TABLE, [])?;
+        tx.execute("DELETE FROM app_talk", [])?;
+        let rows = [
+            ("through".to_owned(), record.through.to_string()),
+            ("log_new".to_owned(), record.log_new.to_string()),
+        ]
+        .into_iter()
+        .chain(
+            record
+                .unseen
+                .iter()
+                .map(|(id, st)| (format!("unseen.{id}"), st.clone())),
+        );
+        for (key, value) in rows {
+            tx.execute(
+                "INSERT INTO app_talk (key, value) VALUES (?1, ?2)",
+                rusqlite::params![key, value],
+            )?;
+        }
+        tx.commit()
+    };
+    write().map_err(|e| format!("{}: talk: {e}", path.display()))
+}
+
 enum Job {
     Write(Box<SimState>),
+    /// The hint record, written after any state write queued before it.
+    Hints(BTreeMap<String, u32>),
+    /// The talk record, likewise.
+    Talk(TalkRecord),
     /// A snapshot of this state (before a game-master change), answered on `reply`.
     Snapshot {
         state: Box<SimState>,
@@ -169,6 +315,16 @@ impl Saver {
     /// Queues `state` to be written. Returns at once.
     pub fn save(&self, state: SimState) {
         let _ = self.tx.send(Job::Write(Box::new(state)));
+    }
+
+    /// Queues the hint record to be written. Returns at once.
+    pub fn save_hints(&self, counts: BTreeMap<String, u32>) {
+        let _ = self.tx.send(Job::Hints(counts));
+    }
+
+    /// Queues the talk record to be written. Returns at once.
+    pub fn save_talk(&self, record: TalkRecord) {
+        let _ = self.tx.send(Job::Talk(record));
     }
 
     /// Queues a snapshot of `state` (`Save::snapshot`) after the writes queued before
@@ -220,6 +376,14 @@ fn run(mut save: Save, rx: Receiver<Job>, errors: Arc<Mutex<Option<String>>>) {
         };
         let mut latest = match job {
             Job::Write(s) => s,
+            Job::Hints(h) => {
+                record(&errors, write_hints(save.path(), &h));
+                continue;
+            }
+            Job::Talk(t) => {
+                record(&errors, write_talk(save.path(), &t));
+                continue;
+            }
             Job::Snapshot {
                 state,
                 label,
@@ -231,11 +395,15 @@ fn run(mut save: Save, rx: Receiver<Job>, errors: Arc<Mutex<Option<String>>>) {
             Job::Stop => return,
         };
         let mut stop = false;
-        // Coalesce: whatever queued up meanwhile, only the newest state matters. A
-        // snapshot keeps its place after the writes before it.
+        let mut hints = None;
+        let mut talk = None;
+        // Coalesce: whatever queued up meanwhile, only the newest state (and hint
+        // record) matters. A snapshot keeps its place after the writes before it.
         while let Ok(next) = rx.try_recv() {
             match next {
                 Job::Write(s) => latest = s,
+                Job::Hints(h) => hints = Some(h),
+                Job::Talk(t) => talk = Some(t),
                 Job::Stop => {
                     stop = true;
                     break;
@@ -247,12 +415,23 @@ fn run(mut save: Save, rx: Receiver<Job>, errors: Arc<Mutex<Option<String>>>) {
             }
         }
         let result = save.write(&latest).map_err(|e| e.to_string());
-        if let Ok(mut slot) = errors.lock() {
-            *slot = result.err();
+        record(&errors, result);
+        if let Some(h) = hints {
+            record(&errors, write_hints(save.path(), &h));
+        }
+        if let Some(t) = talk {
+            record(&errors, write_talk(save.path(), &t));
         }
         if stop {
             return;
         }
+    }
+}
+
+/// Keeps the last write's result: an error until a later write succeeds.
+fn record(errors: &Mutex<Option<String>>, result: Result<(), String>) {
+    if let Ok(mut slot) = errors.lock() {
+        *slot = result.err();
     }
 }
 
@@ -334,6 +513,61 @@ mod tests {
         );
         assert!(choose(None, Some(explicit), true, 7).is_err());
         assert!(choose(None, None, false, 7).is_err());
+    }
+
+    #[test]
+    fn the_hint_record_round_trips_beside_the_world() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("h.sqlite");
+        let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data");
+        let state = galaxy_core::new_game(&data, 1).unwrap();
+        drop(Save::create(&path, &state).unwrap());
+        assert!(read_hints(&path).unwrap().is_empty(), "no record yet");
+        let mut counts = BTreeMap::new();
+        counts.insert("dock".to_owned(), 2);
+        counts.insert("mining_rate:1.5".to_owned(), 1);
+        let saver = Saver::start(Save::open(&path).unwrap());
+        saver.save(state.clone());
+        saver.save_hints(counts.clone());
+        saver.finish(Some(state.clone())).unwrap();
+        assert_eq!(read_hints(&path).unwrap(), counts);
+        // The world loads as before.
+        assert_eq!(
+            Save::open(&path).unwrap().load().unwrap().world,
+            state.world
+        );
+        counts.insert("dock".to_owned(), 3);
+        write_hints(&path, &counts).unwrap();
+        assert_eq!(read_hints(&path).unwrap(), counts);
+    }
+
+    #[test]
+    fn the_talk_record_round_trips_beside_the_world() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.sqlite");
+        let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data");
+        let state = galaxy_core::new_game(&data, 1).unwrap();
+        drop(Save::create(&path, &state).unwrap());
+        assert_eq!(read_talk(&path).unwrap(), None, "no record yet");
+        let mut record = TalkRecord {
+            through: 12,
+            log_new: 3,
+            ..TalkRecord::default()
+        };
+        record.unseen.insert(7, "station.kettle_dock".into());
+        record.unseen.insert(11, "station.lantern_wharf".into());
+        let saver = Saver::start(Save::open(&path).unwrap());
+        saver.save(state.clone());
+        saver.save_talk(record.clone());
+        saver.finish(Some(state.clone())).unwrap();
+        assert_eq!(read_talk(&path).unwrap(), Some(record.clone()));
+        assert_eq!(
+            Save::open(&path).unwrap().load().unwrap().world,
+            state.world
+        );
+        record.unseen.clear();
+        write_talk(&path, &record).unwrap();
+        assert_eq!(read_talk(&path).unwrap(), Some(record));
     }
 
     #[test]

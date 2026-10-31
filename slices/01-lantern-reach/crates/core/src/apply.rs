@@ -264,6 +264,48 @@ fn apply_with(
                 delta: inverse,
             })
         }
+        C::SetConsignment {
+            ship,
+            ledger,
+            consignment,
+        } => {
+            if let Some(c) = consignment {
+                refs.require(&world.wares, &c.ware, "ware")?;
+                refs.require(&world.npcs, &c.owner, "npc")?;
+                refs.require(&world.npcs, &c.to, "npc")?;
+                refs.require(&world.stations, &c.station, "station")?;
+                if c.quantity == 0 {
+                    return Err(CommandError::Invalid(format!(
+                        "consignment {ledger} carries nothing"
+                    )));
+                }
+            }
+            let s = find(&mut world.ships, ship, "ship")?;
+            let old = match consignment {
+                Some(c) => {
+                    if refs.check && s.hold.consigned.contains_key(ledger) {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} already carries consignment {ledger}"
+                        )));
+                    }
+                    s.hold.consigned.insert(ledger.clone(), (**c).clone())
+                }
+                None => {
+                    let old = s.hold.consigned.remove(ledger);
+                    if refs.check && old.is_none() {
+                        return Err(CommandError::Invalid(format!(
+                            "{ship} carries no consignment {ledger}"
+                        )));
+                    }
+                    old
+                }
+            };
+            invert(C::SetConsignment {
+                ship: ship.clone(),
+                ledger: ledger.clone(),
+                consignment: old.map(Box::new),
+            })
+        }
         C::SetOrders { ship, orders } => {
             let s = find(&mut world.ships, ship, "ship")?;
             let old = std::mem::replace(&mut s.orders, orders.clone());
@@ -854,6 +896,66 @@ fn apply_with(
                 value: old.map(Box::new),
             })
         }
+        C::PutStationPart { id, value } => {
+            if let Some(v) = value {
+                if &v.id != id {
+                    return Err(CommandError::Invalid(format!(
+                        "station part `{}` stored under `{id}`",
+                        v.id
+                    )));
+                }
+                if refs.check {
+                    crate::parts::check(world, v).map_err(|e| {
+                        CommandError::Invalid(format!("station part {id}: {}", e.join("; ")))
+                    })?;
+                }
+            }
+            let old = match value {
+                Some(v) => world.station_parts.insert(id.clone(), (**v).clone()),
+                None => world.station_parts.remove(id),
+            };
+            invert(C::PutStationPart {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::PutHappening { id, value } => {
+            if let Some(v) = value {
+                if &v.id != id {
+                    return Err(CommandError::Invalid(format!(
+                        "happening `{}` stored under `{id}`",
+                        v.id
+                    )));
+                }
+                // An ended happening is the runtime's record of what ran: it isn't
+                // checked again, so a speaker who has moved on never keeps it running.
+                let ended = matches!(
+                    v.run,
+                    galaxy_contract::happening::HappeningRun::Ended { .. }
+                );
+                if refs.check && !ended {
+                    crate::happenings::check(world, v).map_err(|e| {
+                        CommandError::Invalid(format!("happening {id}: {}", e.join("; ")))
+                    })?;
+                }
+            }
+            let old = match value {
+                Some(v) => world.happenings.insert(id.clone(), (**v).clone()),
+                None => world.happenings.remove(id),
+            };
+            invert(C::PutHappening {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::ExpectHappening { id, value } => {
+            if refs.check && world.happenings.get(id) != value.as_deref() {
+                return Err(CommandError::Invalid(format!(
+                    "happening {id} changed since this was worked out"
+                )));
+            }
+            invert(cmd.clone())
+        }
         C::PutMapOverlay { id, value } => {
             if let Some(v) = value
                 && (!v.radius.is_finite()
@@ -1159,6 +1261,100 @@ fn apply_with(
                 }));
             }
             invert(cmd.clone())
+        }
+        C::SetLocker { ship, part, stored } => {
+            if refs.check {
+                refs.require(&world.ships, ship, "ship")?;
+                if *stored && !world.progress.rules.upgrades.contains_key(part) {
+                    return Err(unknown("upgrade", part));
+                }
+            }
+            let lockers = &mut world.progress.fit.lockers;
+            if lockers.get(ship).is_some_and(|l| l.contains(part)) == *stored {
+                if refs.check {
+                    return Err(CommandError::Invalid(if *stored {
+                        format!("{part} is already in {ship}'s locker")
+                    } else {
+                        format!("{part} isn't in {ship}'s locker")
+                    }));
+                }
+                // Nothing changes; neither does doing it again.
+                return invert(cmd.clone());
+            }
+            if *stored {
+                lockers
+                    .entry(ship.clone())
+                    .or_default()
+                    .insert(part.clone());
+            } else if let Some(l) = lockers.get_mut(ship) {
+                l.remove(part);
+                if l.is_empty() {
+                    lockers.remove(ship);
+                }
+            }
+            invert(C::SetLocker {
+                ship: ship.clone(),
+                part: part.clone(),
+                stored: !*stored,
+            })
+        }
+        C::SetPartOrder { part, order } => {
+            let orders = &mut world.progress.fit.orders;
+            if refs.check {
+                match order {
+                    Some(o) => {
+                        if &o.part != part {
+                            return Err(CommandError::Invalid(format!(
+                                "the order for {part} names {}",
+                                o.part
+                            )));
+                        }
+                        if orders.contains_key(part) {
+                            return Err(CommandError::Invalid(format!(
+                                "{part} is already on order"
+                            )));
+                        }
+                    }
+                    None if !orders.contains_key(part) => {
+                        return Err(CommandError::Invalid(format!("{part} isn't on order")));
+                    }
+                    None => {}
+                }
+            }
+            let old = match order {
+                Some(o) => orders.insert(part.clone(), (**o).clone()),
+                None => orders.remove(part),
+            };
+            invert(C::SetPartOrder {
+                part: part.clone(),
+                order: old.map(Box::new),
+            })
+        }
+        C::PutUpgrade { id, value } => {
+            if refs.check
+                && let Some(v) = value
+                && &v.id != id
+            {
+                return Err(CommandError::Invalid(format!(
+                    "upgrade stored under `{id}` has id `{}`",
+                    v.id
+                )));
+            }
+            let upgrades = &mut world.progress.rules.upgrades;
+            let old = match value {
+                Some(v) => upgrades.insert(id.clone(), (**v).clone()),
+                None => upgrades.remove(id),
+            };
+            invert(C::PutUpgrade {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
+        C::SetFitRules { rules } => {
+            let old = std::mem::replace(&mut world.progress.rules.fit, (**rules).clone());
+            invert(C::SetFitRules {
+                rules: Box::new(old),
+            })
         }
         C::ExpectHullRecord { hull, record } => {
             if refs.check && world.player.hull_records.get(hull) != record.as_ref() {

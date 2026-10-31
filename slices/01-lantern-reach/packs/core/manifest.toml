@@ -24,8 +24,11 @@ uses = ["canon.read", "canon.write",
     "events.rock_depleted",
     "events.sell",
     "events.talk_picked",
+    "events.tender_acquired",
     "events.undock",
+    "events.upgrade_fitted",
     "history.read",
+    "happenings.read",
     "history.write",
     "map.write",
     "market.levers",
@@ -79,7 +82,7 @@ steps_per_call = 1000000
 [[script]]
 id = "act1"
 file = "scripts/act1.luau"
-handlers = ["on.dock", "on.deliver"]
+handlers = ["on.dock", "on.reply", "on.deliver"]
 
 # Names before they're used: as a beat starts, whoever is at the dock introduces the
 # people and places its goal names.
@@ -88,19 +91,27 @@ id = "intro"
 file = "scripts/intro.luau"
 handlers = ["on.beat_started"]
 
+# The "fitted" moment: whoever fits an upgrade or builds a tender says so, in the
+# first person, with its literal effect.
+[[script]]
+id = "fitted"
+file = "scripts/fitted.luau"
+handlers = ["on.upgrade_fitted", "on.tender_acquired"]
+
 # Act 2's directed beats, b06 to b08.
 [[script]]
 id = "act2"
 file = "scripts/act2.luau"
-handlers = ["on.beat_started", "on.sell", "on.dock", "on.deliver"]
-# b08: the Brassmouth dockings with a glassite sale so far, and the last one counted.
-stores = { b08 = { dockings = "number", dock = "string" } }
+handlers = ["on.beat_started", "on.beat_completed", "on.sell", "on.dock", "on.reply", "on.deliver"]
+# b07: Ilse asked again once the hold has room. b08: the Brassmouth dockings with a
+# glassite sale so far, and the last one counted.
+stores = { b07 = { room = "boolean" }, b08 = { dockings = "number", dock = "string" } }
 
 # b09, the Cinder Hook dispute.
 [[script]]
 id = "dispute"
 file = "scripts/dispute.luau"
-handlers = ["on.beat_started", "on.reply", "on.sell", "on.dock", "on.paused"]
+handlers = ["on.beat_started", "on.beat_completed", "on.reply", "on.sell", "on.dock", "on.paused"]
 # The name the player supplies the Hook in ("" for nobody).
 stores = { dispute = { side = "string" } }
 
@@ -150,7 +161,7 @@ stores = { demo = { since = "string" } }
 [[script]]
 id = "fragment"
 file = "scripts/fragment.luau"
-handlers = ["on.rock_depleted", "on.sell", "on.undock", "on.dock", "on.quest_step", "on.jump", "on.reply"]
+handlers = ["on.rock_depleted", "on.mine", "on.dock", "on.quest_step", "on.jump", "on.reply"]
 stores = { fragment = { glint = "string" } }
 
 # Act 4, b16 and b17.
@@ -164,3 +175,10 @@ handlers = ["on.beat_started", "on.dock", "on.reply"]
 id = "talk"
 file = "scripts/talk.luau"
 handlers = ["on.dock", "on.reply", "on.talk_picked"]
+
+# Kettle Dock's first harvest (issue #47, 4.1): while the happening runs, Odo offers a
+# crate of rations (Accept / Not now) and loads it only on Accept, with a receipt.
+[[script]]
+id = "harvest"
+file = "scripts/harvest.luau"
+handlers = ["on.dock", "on.reply"]

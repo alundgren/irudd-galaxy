@@ -3,14 +3,14 @@ name = "Chronicle"
 version = "0.1.0"
 depends = ["core"]
 lib = true
-uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "talk.pick", "map.write", "chronicle.write", "events.reply", "stations.read"]
+uses = ["events.dock", "events.session_start", "beats.read", "beats.write", "history.read", "history.write", "talk.write", "talk.pick", "map.write", "chronicle.write", "events.reply", "stations.read", "npcs.read"]
 
 [[script]]
 id = "main"
 file = "scripts/main.luau"
 handlers = ["on.dock", "on.session_start", "on.reply"]
-stores = { progress = { cursor = "string", last = "string", cite = "string", recalled = "string" } }
+stores = { progress = { cursor = "string", last = "string", cite = "string", recalled = "string", place = "string" } }
 [rollback]
 speaker = "npc.ilse_marrow"
 place = "station.lantern_wharf"
-text = "Ilse closes this volume for corrections. What happened is still remembered."
+text = "I'm closing this volume for corrections. What happened is still remembered."

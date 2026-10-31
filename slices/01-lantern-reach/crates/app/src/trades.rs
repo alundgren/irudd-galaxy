@@ -190,6 +190,31 @@ pub fn credits(cents: i64) -> String {
     }
 }
 
+/// The progress crate words its refusals with `show_credits` (to the centicredit);
+/// the screen shows every amount through [`credits`], so the HUD's balance and a
+/// refusal's "You have" always agree. Anything that isn't a plain amount stays as is.
+fn reshow_credits(amount: &str) -> String {
+    parse_credits(amount).map_or_else(|| format!("{amount} cr"), credits)
+}
+
+/// Centicredits from `show_credits` text ("369.65", "40", "-0.5").
+fn parse_credits(text: &str) -> Option<i64> {
+    let (neg, digits) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text),
+    };
+    let (whole, frac) = digits.split_once('.').unwrap_or((digits, ""));
+    if whole.is_empty()
+        || frac.len() > 2
+        || !(whole.chars().chain(frac.chars())).all(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    let cents =
+        whole.parse::<i64>().ok()?.checked_mul(100)? + format!("{frac:0<2}").parse::<i64>().ok()?;
+    Some(if neg { -cents } else { cents })
+}
+
 /// A station-service purchase (an upgrade, a tender, prestige) asked for on the dock
 /// screen. It goes out with the next tick's `PlayerInput::services`, after
 /// `services::check` said it can happen, and is settled by its own committed event:
@@ -235,6 +260,13 @@ impl ServiceDesk {
     /// After the tick: did the purchase sent with it go through?
     pub fn settle(&mut self, world: &WorldState, history: &History, events: &[EventEnvelope]) {
         let Some(req) = self.sent.take() else { return };
+        // A hullwright service (a part taken off, refitted, made or ordered) is
+        // settled by its own fact this tick, whose note is the line to show.
+        if let Some(note) = part_note(world, history, &req) {
+            self.fitted = Some(format!("{note}."));
+            self.notice = None;
+            return;
+        }
         let bought = events.iter().any(|e| match (&req, &e.event) {
             (ServiceRequest::Fit { upgrade }, Event::UpgradeFitted { upgrade: u, .. }) => {
                 u == upgrade
@@ -261,10 +293,45 @@ impl ServiceDesk {
     }
 }
 
+/// This tick's `part_*` fact for a hullwright service on a part, if it went through:
+/// its note ("Removed mining lens to the Wren's locker").
+fn part_note(world: &WorldState, history: &History, req: &ServiceRequest) -> Option<String> {
+    let part = match req {
+        ServiceRequest::Remove { upgrade }
+        | ServiceRequest::Refit { upgrade }
+        | ServiceRequest::Make { upgrade, .. }
+        | ServiceRequest::Order { upgrade } => upgrade,
+        ServiceRequest::Fit { upgrade } if !galaxy_contract::fit::is_module(world, upgrade) => {
+            upgrade
+        }
+        _ => return None,
+    };
+    history
+        .facts()
+        .iter()
+        .rev()
+        .take_while(|f| f.tick == world.meta.tick)
+        .find(|f| {
+            f.kind.as_str().starts_with("part_")
+                && f.subjects.other.as_ref().map(|o| o.as_str()) == Some(part.as_str())
+        })
+        .and_then(|f| match &f.payload {
+            FactPayload::Note(n) => Some(n.clone()),
+            _ => None,
+        })
+}
+
 /// What a purchase is called on screen.
 pub fn service_name(world: &WorldState, req: &ServiceRequest) -> String {
     let rules = &world.progress.rules;
     match req {
+        ServiceRequest::Remove { upgrade }
+        | ServiceRequest::Refit { upgrade }
+        | ServiceRequest::Make { upgrade, .. }
+        | ServiceRequest::Order { upgrade } => rules
+            .upgrades
+            .get(upgrade)
+            .map_or_else(|| upgrade.to_string(), |u| u.name.clone()),
         ServiceRequest::Fit { upgrade } => rules
             .upgrades
             .get(upgrade)
@@ -327,6 +394,11 @@ pub fn service_done(world: &WorldState, req: &ServiceRequest) -> String {
             "You fly the {} now. Everything you fitted came across.",
             world.hulls.get(to).map_or(to.as_str(), |h| h.name.as_str())
         ),
+        // Settled by their own facts' notes (`part_note`).
+        ServiceRequest::Remove { .. }
+        | ServiceRequest::Refit { .. }
+        | ServiceRequest::Make { .. }
+        | ServiceRequest::Order { .. } => "Done.".into(),
     }
 }
 
@@ -339,7 +411,11 @@ pub fn service_refusal(
     use galaxy_progress::services::Refusal as R;
     let name = service_name(world, req);
     match r {
-        R::Credits { need, have } => format!("{name} costs {need} cr. You have {have} cr."),
+        R::Credits { need, have } => format!(
+            "{name} costs {}. You have {}.",
+            reshow_credits(need),
+            reshow_credits(have)
+        ),
         R::Locked => format!("{name} isn't on offer yet."),
         R::AlreadyFitted => format!("Your ship already has the {}.", name.to_lowercase()),
         R::AlreadyOwned => format!("{name} is already yours."),
@@ -350,6 +426,7 @@ pub fn service_refusal(
             format!("{name} holds {room}. You carry {holds}: sell or deliver some first.")
         }
         R::NoShip | R::Unknown(_) => "That can't be bought here.".into(),
+        R::Fit(f) => f.to_string(),
     }
 }
 
@@ -405,5 +482,32 @@ mod tests {
         assert_eq!(credits(1436), "14.4 cr");
         assert_eq!(credits(-50), "-0.5 cr");
         assert_eq!(credits(0), "0 cr");
+    }
+
+    #[test]
+    fn a_refusal_shows_credits_like_the_hud() {
+        // #41: the HUD said 369.7 while the hullwright's row said 369.65.
+        let world = galaxy_core::new_game(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packs/core/data"),
+            1,
+        )
+        .unwrap()
+        .world;
+        let req = ServiceRequest::Fit {
+            upgrade: UpgradeId::from_static("upgrade.mining_lens"),
+        };
+        let r = galaxy_progress::services::Refusal::Credits {
+            need: show_credits(60000),
+            have: show_credits(36965),
+        };
+        assert_eq!(
+            service_refusal(&world, &req, &r),
+            "Mining lens costs 600 cr. You have 369.7 cr."
+        );
+        assert_eq!(credits(36965), "369.7 cr", "the HUD's own formatter");
+        assert_eq!(parse_credits("-0.5"), Some(-50));
+        assert_eq!(parse_credits("12.05"), Some(1205));
+        assert_eq!(parse_credits("a lot"), None);
+        assert_eq!(reshow_credits("a lot"), "a lot cr");
     }
 }

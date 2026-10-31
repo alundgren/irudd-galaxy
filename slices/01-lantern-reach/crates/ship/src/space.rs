@@ -139,25 +139,132 @@ pub fn rock_region<'w>(world: &'w WorldState, rock: &Rock) -> Option<&'w RegionI
     world.fields.get(&rock.field).map(|f| &f.region)
 }
 
-/// A rock's radius: it shrinks visibly as it is mined.
+/// A rock's radius as the game draws it: it shrinks visibly as it is mined, from its
+/// full size to `spent_scale` of it. Clicks, mining reach and mine orders all measure
+/// from it.
 pub fn rock_radius(world: &WorldState, rock: &Rock) -> f32 {
     let m = &world.ship_rules.mining;
-    m.radius_base + m.radius_per_sqrt_unit * (rock.remaining as f32).sqrt()
+    let full = m.radius_base + m.radius_per_sqrt_unit * (rock.initial as f32).sqrt();
+    let share = (rock.remaining as f32 / rock.initial.max(1) as f32).clamp(0.0, 1.0);
+    let spent = m.spent_scale.clamp(0.0, 1.0);
+    full * (spent + (1.0 - spent) * share.sqrt())
 }
 
-/// Whether a ship at `pos` can mine `rock`.
+/// How far from a rock's drawn edge `ship` mines: the rules' reach plus its
+/// `mining_reach` modifiers (the long-throw drill).
+pub fn mining_reach(world: &WorldState, ship: &ShipId) -> f32 {
+    reach_with(world, &galaxy_contract::modifiers::for_ship(world, ship))
+}
+
+/// Mining reach with these modifiers.
+pub fn reach_with(world: &WorldState, m: &galaxy_contract::modifiers::Modifiers) -> f32 {
+    world.ship_rules.mining.reach + m.mining_reach.max(0.0)
+}
+
+/// Whether a ship at `pos` can mine `rock` with the rules' reach (no reach
+/// modifiers: bots and tests). [`in_reach_of`] adds a ship's own.
 pub fn in_reach(world: &WorldState, rock: &Rock, pos: Vec2) -> bool {
-    rock.position.distance(pos) - rock_radius(world, rock) <= world.ship_rules.mining.reach
+    within_reach(world, rock, pos, world.ship_rules.mining.reach)
 }
 
-/// The nearest unspent rock in mining reach.
+/// Whether `ship` at `pos` can mine `rock`.
+pub fn in_reach_of(world: &WorldState, ship: &ShipId, rock: &Rock, pos: Vec2) -> bool {
+    within_reach(world, rock, pos, mining_reach(world, ship))
+}
+
+/// Whether `rock`'s drawn edge is within `reach` of `pos`.
+pub fn within_reach(world: &WorldState, rock: &Rock, pos: Vec2, reach: f32) -> bool {
+    rock.position.distance(pos) - rock_radius(world, rock) <= reach
+}
+
+/// The nearest unspent rock in the rules' mining reach, for a ship with no reach
+/// modifiers (bots and tests). [`rock_in_reach_of`] adds a ship's own.
 pub fn rock_in_reach<'w>(world: &'w WorldState, region: &RegionId, pos: Vec2) -> Option<&'w Rock> {
+    nearest_within(world, region, pos, world.ship_rules.mining.reach)
+}
+
+/// The nearest unspent rock `ship` at `pos` can mine.
+pub fn rock_in_reach_of<'w>(
+    world: &'w WorldState,
+    ship: &ShipId,
+    region: &RegionId,
+    pos: Vec2,
+) -> Option<&'w Rock> {
+    nearest_within(world, region, pos, mining_reach(world, ship))
+}
+
+/// The nearest unspent rock in `region` whose edge is within `reach` of `pos`.
+pub fn nearest_within<'w>(
+    world: &'w WorldState,
+    region: &RegionId,
+    pos: Vec2,
+    reach: f32,
+) -> Option<&'w Rock> {
     nearest(
         world.rocks.values().filter(|r| {
-            r.remaining > 0 && rock_region(world, r) == Some(region) && in_reach(world, r, pos)
+            r.remaining > 0
+                && rock_region(world, r) == Some(region)
+                && within_reach(world, r, pos, reach)
         }),
         |r| r.position.distance(pos),
     )
+}
+
+/// What a press of Space does for `ship` at `pos`, besides braking.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Press<'w> {
+    /// Dock: the ship is in a station's docking ring.
+    Dock(&'w Station),
+    /// Ride the lane current: the ship is in a lane mouth.
+    Ride(LaneWay),
+    /// Start mining: an unspent rock is in reach (holding Space keeps it going).
+    Mine(&'w Rock),
+}
+
+/// What a press of Space does for `ship` at `pos`, in that order: dock, ride a lane,
+/// start mining. `None`: held Space only brakes. The sim and the hint both read this,
+/// so the hint always says what Space really does.
+pub fn press_at<'w>(world: &'w WorldState, ship: &Ship, pos: Vec2) -> Option<Press<'w>> {
+    let m = galaxy_contract::modifiers::for_ship(world, &ship.id);
+    if let Some(station) = ring_within(world, &ship.region, pos, m.dock_reach) {
+        return Some(Press::Dock(station));
+    }
+    if let Some(way) = mouth_within(world, &ship.region, pos, m.mouth_radius) {
+        return Some(Press::Ride(way));
+    }
+    nearest_within(world, &ship.region, pos, reach_with(world, &m)).map(Press::Mine)
+}
+
+/// How far `pos` is past the edge of `region` (the drawn region circle), if it is.
+pub fn past_edge(world: &WorldState, region: &RegionId, pos: Vec2) -> Option<f32> {
+    let r = world.regions.get(region)?;
+    let depth = r.center.distance(pos) - r.radius;
+    (depth > 0.0).then_some(depth)
+}
+
+/// `pos`, or the nearest point on the edge of `region` if it is past it: where a fly
+/// order can actually stop, since the edge current carries ships back in.
+pub fn within_edge(world: &WorldState, region: &RegionId, pos: Vec2) -> Vec2 {
+    match (world.regions.get(region), past_edge(world, region, pos)) {
+        (Some(r), Some(_)) => r.center + (pos - r.center).normalize_or_zero() * r.radius,
+        _ => pos,
+    }
+}
+
+/// Where the edge current carries a ship at `pos` in `dt` seconds: straight back
+/// toward its region's centre, faster the further out it is, never past the edge.
+/// Inside the edge it does nothing.
+pub fn edge_drift(world: &WorldState, region: &RegionId, pos: Vec2, dt: f32) -> Vec2 {
+    let Some(r) = world.regions.get(region) else {
+        return pos;
+    };
+    let Some(depth) = past_edge(world, region, pos) else {
+        return pos;
+    };
+    let rules = &world.ship_rules.edge;
+    let speed = (rules.pull.max(0.0) * depth).max(rules.min_speed.max(0.0));
+    let step = (speed * dt).min(depth);
+    pos - (pos - r.center).normalize_or_zero() * step
 }
 
 fn nearest<T>(items: impl Iterator<Item = T>, dist: impl Fn(&T) -> f32) -> Option<T> {

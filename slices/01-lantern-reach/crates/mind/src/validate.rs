@@ -129,7 +129,7 @@ fn clean(text: &str) -> String {
     unquote(&t).split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn english(c: char) -> bool {
+pub(crate) fn english(c: char) -> bool {
     c.is_ascii_graphic()
         || c == ' '
         // Typographic punctuation and Latin-1 letters (café, naïve).
@@ -138,7 +138,7 @@ fn english(c: char) -> bool {
 }
 
 /// Words in order, without surrounding punctuation or a possessive `'s`, lowercased.
-fn tokens(s: &str) -> Vec<String> {
+pub(crate) fn tokens(s: &str) -> Vec<String> {
     s.split(|c: char| !(c.is_alphanumeric() || c == '\'' || c == '’'))
         .map(|w| w.trim_matches(['\'', '’']))
         .filter(|w| !w.is_empty())

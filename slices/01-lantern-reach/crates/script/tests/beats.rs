@@ -40,7 +40,7 @@ fn journey(seed: u64, extra: &[&Path]) -> (Sim, ScriptHost) {
         assert!(report.accepted(), "{report:#?}");
     }
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 
@@ -110,6 +110,26 @@ fn mine_ice(sim: &mut Sim, n: u32) {
     );
 }
 
+/// The player answers someone at the dock (a `reply` event, through the progress
+/// system), then the scripts react.
+fn reply(sim: &mut Sim, npc: &str, choice: &str) {
+    let input = PlayerInput {
+        replies: vec![Reply {
+            npc: npc.parse().unwrap(),
+            choice: choice.parse().unwrap(),
+        }],
+        ..PlayerInput::default()
+    };
+    let r = sim.step(&input).expect("not paused");
+    assert!(r.rejected.is_empty(), "rejected batches: {:#?}", r.rejected);
+    step(sim, 2);
+}
+
+/// At Kettle with ice: Odo asks, and the player picks Deliver.
+fn deliver_ice(sim: &mut Sim) {
+    reply(sim, "npc.odo_fenn", "choice.deliver_ice");
+}
+
 fn beat(sim: &Sim, id: &str) -> Option<BeatState> {
     sim.world().progress.beats.get(id).cloned()
 }
@@ -135,6 +155,7 @@ fn play_act1(sim: &mut Sim) {
     step(sim, 1);
     dock_at(sim, &KETTLE);
     step(sim, 3);
+    deliver_ice(sim);
 }
 
 #[test]
@@ -158,7 +179,7 @@ fn core_beats_b01_to_b03_complete_from_history_and_world_state() {
         beats::hud_goal(sim.world())
             .unwrap()
             .goal
-            .starts_with("Hold Space")
+            .starts_with("Ilse wants a full hold")
     );
 
     // b02's end state is world state: 20 ice in the hold (a tunable).
@@ -170,10 +191,17 @@ fn core_beats_b01_to_b03_complete_from_history_and_world_state() {
     assert_eq!(status(&sim, B02), Some(BeatStatus::Completed));
     assert_eq!(status(&sim, B03), Some(BeatStatus::Active));
 
-    // b03: dock at Kettle; the core script hands the ice to the greenhouse ledger.
+    // b03: dock at Kettle; nothing moves until the player picks Deliver, then the core
+    // script hands the ice to the greenhouse ledger.
     let credits = sim.world().player.credits;
     dock_at(&mut sim, &KETTLE);
     step(&mut sim, 3);
+    assert!(
+        facts(&sim, "deliver").is_empty(),
+        "docking hands nothing over"
+    );
+    assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 20);
+    deliver_ice(&mut sim);
     let deliveries = facts(&sim, "deliver");
     assert_eq!(deliveries.len(), 1);
     assert_eq!(deliveries[0].amount, Some(20));
@@ -201,7 +229,7 @@ fn core_beats_b01_to_b03_complete_from_history_and_world_state() {
     let talk = lines(&sim, Channel::DockTalk);
     let odo = talk
         .iter()
-        .find(|l| l.line.speaker == Some(ODO))
+        .find(|l| l.line.speaker == Some(ODO) && l.line.cites == vec![deliveries[0].id])
         .expect("Odo speaks");
     assert_eq!(odo.line.text, "20 ice. The beans will hear about this.");
     assert_eq!(odo.line.cites, vec![deliveries[0].id]);
@@ -254,11 +282,9 @@ fn a_situation_beat_runs_its_steps_from_counters_and_a_predicate() {
     assert_eq!(beat(&sim, PROBE).unwrap().status, BeatStatus::Active);
     assert_eq!(beat(&sim, PROBE).unwrap().step, 2, "awaiting the end state");
     let compact = sim.world().factions.get(&COMPACT).unwrap().standing;
-    let credits = sim.world().player.credits;
     dock_at(&mut sim, &WHARF);
     step(&mut sim, 2);
     assert_eq!(status(&sim, PROBE), Some(BeatStatus::Completed));
-    assert_eq!(sim.world().player.credits, credits + 150, "1.5 cr");
     assert!(sim.world().player.flags.contains("cap.click_fly"));
     assert_eq!(facts(&sim, "cap_unlocked").len(), 1);
     assert_eq!(
@@ -300,7 +326,7 @@ fn attach_probe(mut sim: Sim) -> (Sim, ScriptHost) {
     let report = host.load(&probe_pack(), sim.world(), sim.history());
     assert!(report.accepted(), "{report:#?}");
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     (sim, host)
 }
 
@@ -374,7 +400,7 @@ fn beats_survive_save_and_load() {
             .accepted()
     );
     host.attach(&mut back);
-    back.add_system(Box::new(ProgressSystem));
+    back.add_system(Box::new(ProgressSystem::default()));
     step(&mut back, 1);
     assert_eq!(status(&back, B01), Some(BeatStatus::Completed));
     assert_eq!(status(&back, B02), Some(BeatStatus::Completed));
@@ -385,6 +411,7 @@ fn beats_survive_save_and_load() {
     );
     dock_at(&mut back, &KETTLE);
     step(&mut back, 3);
+    deliver_ice(&mut back);
     assert_eq!(status(&back, B03), Some(BeatStatus::Completed));
 }
 
@@ -397,7 +424,7 @@ fn beats_survive_hot_reload() {
     let host = ScriptHost::new(None);
     assert!(host.load(&pack, sim.world(), sim.history()).accepted());
     host.attach(&mut sim);
-    sim.add_system(Box::new(ProgressSystem));
+    sim.add_system(Box::new(ProgressSystem::default()));
     step(&mut sim, 1);
     undock_from(&mut sim, &WHARF);
     step(&mut sim, 1);
@@ -410,8 +437,8 @@ fn beats_survive_hot_reload() {
     std::fs::write(
         &file,
         src.replace(
-            "Hold Space beside an ice rock until your hold is full.",
-            "Hold Space beside a pale ice rock until the hold is full.",
+            "hold Space beside a pale rock until your hold is full.",
+            "hold Space beside a pale ice rock until the hold is full.",
         ),
     )
     .unwrap();
@@ -424,7 +451,7 @@ fn beats_survive_hot_reload() {
     assert_eq!(b.status, BeatStatus::Active);
     assert_eq!(
         b.goal,
-        "Hold Space beside a pale ice rock until the hold is full."
+        "Ilse wants a full hold of ice: hold Space beside a pale ice rock until the hold is full."
     );
     assert_eq!(status(&sim, B01), Some(BeatStatus::Completed));
     assert_eq!(facts(&sim, "beat_started").len(), 2);
@@ -466,10 +493,11 @@ fn the_beat_journey_is_deterministic_and_save_load_matches_an_uninterrupted_run(
     let hd = ScriptHost::new(None);
     assert!(hd.load(&core_pack(), d.world(), d.history()).accepted());
     hd.attach(&mut d);
-    d.add_system(Box::new(ProgressSystem));
+    d.add_system(Box::new(ProgressSystem::default()));
     mine_ice(&mut d, 20);
     step(&mut d, 1);
     dock_at(&mut d, &KETTLE);
     step(&mut d, 3);
+    deliver_ice(&mut d);
     assert_eq!(d.hash(), a.hash());
 }

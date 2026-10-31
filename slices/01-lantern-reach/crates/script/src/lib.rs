@@ -8,6 +8,7 @@
 //! - [`ctx`]: the hook API a handler sees, built from the manifest's `uses`.
 //! - [`host`]: [`ScriptHost`], the per-tick system, install and dev hot reload.
 //! - [`check`]: the fast validation pipeline behind `galaxy pack check`.
+//! - [`confirm`]: no silent changes to the player's hold, credits or fitted parts.
 //! - [`analyzer`]: the strict typecheck with the pinned `luau-analyze`.
 //! - [`rollback`](mod@rollback): in-world rollback by cause with a compensating line.
 //! - [`testrun`]: `galaxy pack test`.
@@ -18,6 +19,7 @@
 
 pub mod analyzer;
 pub mod check;
+pub mod confirm;
 pub mod ctx;
 pub mod host;
 pub mod meter;

@@ -104,6 +104,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "`ctx.beats:deliver` and `ctx.beats:load`.",
     ),
     row(
+        "set_consignment",
+        Needs::Uses(&[&["beats.write"]]),
+        "`ctx.beats:consign` and `ctx.beats:deliver` of a consignment.",
+    ),
+    row(
         "set_orders",
         Needs::Uses(&[&["orders.write"]]),
         "`ctx.orders:give`, `append`, `clear`.",
@@ -219,6 +224,21 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "Recipes come with `found_station`.",
     ),
     row(
+        "put_station_part",
+        Needs::Uses(&[&["stations.write"]]),
+        "`ctx.parts:put`, `ctx.parts:remove` (only while the player is docked).",
+    ),
+    row(
+        "put_happening",
+        Needs::Uses(&[&["happenings.write"], &["talk.write"]]),
+        "`ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). Its speaker talks when it starts, so `talk.write` too.",
+    ),
+    row(
+        "expect_happening",
+        Needs::Nothing,
+        "A check, carried ahead of `ctx.happenings:put` and `ctx.happenings:remove`.",
+    ),
+    row(
         "put_map_overlay",
         Needs::Uses(&[&["kit.write"]]),
         "`ctx.kit:overlay`.",
@@ -282,7 +302,8 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "By event. `beat_started`, `quest_step`, `beat_completed`, `upgrade_fitted` \
          and `cap_unlocked` come only from the beat runtime (`beats.write`, core layer). \
          From the hooks: `deliver` (`beats.write`) right after the `adjust_cargo` that \
-         hands its cargo over; `standing_changed` (`standing.write` or \
+         hands its cargo over (or the `set_consignment` that hands over its ledger's \
+         consignment); `standing_changed` (`standing.write` or \
          `factions.write`) right after the `adjust_standing` (or, for no change, the \
          `expect_standing`) of its faction, and `regard_changed` right after that \
          `standing_changed`; `talk_requested` (`talk.pick`). Packs never emit any other \
@@ -334,6 +355,10 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "A beat's `rewards.fit`, core layer only.",
     ),
     row("expect_fitting", Needs::Nothing, "A check."),
+    row("set_locker", Needs::Never, "Hullwright services."),
+    row("set_part_order", Needs::Never, "Hullwright services."),
+    row("put_upgrade", Needs::Never, "Authored data."),
+    row("set_fit_rules", Needs::Never, "Authored data."),
     row("set_hull_record", Needs::Never, "Hull ranks and prestige."),
     row("expect_hull_record", Needs::Nothing, "A check."),
     row(
@@ -417,8 +442,14 @@ fn beat_only(route: Route, what: &str) -> Result<(), String> {
 
 /// Names in a pack's own namespace that report a checked change: only the hook that
 /// makes the change records them (`ctx.canon:open`, `ctx.mechanics:teach`), never
-/// `ctx.history:record`.
-pub const PROTECTED_FACTS: [&str; 2] = ["canon_opened", "mechanic_taught"];
+/// `ctx.history:record`. The happening runtime's `happening_started` and
+/// `happening_ended` are the engine's alone, so no pack forges one under its prefix.
+pub const PROTECTED_FACTS: [&str; 4] = [
+    "canon_opened",
+    "mechanic_taught",
+    "happening_started",
+    "happening_ended",
+];
 
 fn payload(
     cmd: &Command,
@@ -480,14 +511,27 @@ fn payload(
                 ship,
                 ware,
                 quantity,
+                ledger,
                 ..
             } => {
-                let handed = matches!(last, Some(Command::AdjustCargo { ship: s, ware: w, delta })
-                    if s == ship && w == ware && *delta == -i64::from(*quantity));
+                let handed = match last {
+                    Some(Command::AdjustCargo {
+                        ship: s,
+                        ware: w,
+                        delta,
+                    }) => s == ship && w == ware && *delta == -i64::from(*quantity),
+                    Some(Command::SetConsignment {
+                        ship: s,
+                        ledger: l,
+                        consignment: None,
+                    }) => s == ship && ledger.as_ref() == Some(l),
+                    _ => false,
+                };
                 if !handed {
                     return Err(
                         "a `deliver` event follows the `adjust_cargo` that hands its \
-                                cargo over (`ctx.beats:deliver`)"
+                                cargo over, or the `set_consignment` that hands over its \
+                                ledger's consignment (`ctx.beats:deliver_consignment`)"
                             .to_owned(),
                     );
                 }

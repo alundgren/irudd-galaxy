@@ -37,14 +37,17 @@ glam = { version = "0.34", features = ["serde", "bytemuck"] }
 glyphon = "0.12"
 # Local sockets for the game-master bridge: a named pipe on Windows, a Unix socket elsewhere.
 interprocess = "2.4.7"
+# The logging facade wgpu already logs through; the app prints our crates' lines.
+log = "0.4.34"
 # Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 notify = "8.2.1"
-# Audio: only the cpal backend; the cues are synthesised in code, so no decoders yet.
+# Audio: the cpal backend and the MP3 decoder (symphonia) for the radio's generated tracks;
+# the cues and placeholder loops are synthesised in code.
 # Pure-Rust float maths for the sim, so replays match on every OS (std's sin, cos,
 # atan2 and hypot call the platform's C library, which rounds differently on macOS).
 libm = "0.2.16"
-kira = { version = "0.12.6", default-features = false, features = ["cpal"] }
+kira = { version = "0.12.6", default-features = false, features = ["cpal", "mp3"] }
 png = "0.18"
 pollster = "1.0"
 rand_core = "0.10.1"

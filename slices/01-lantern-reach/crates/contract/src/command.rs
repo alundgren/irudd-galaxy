@@ -197,6 +197,13 @@ pub enum Command {
         ware: WareId,
         delta: i64,
     },
+    /// Puts (`Some`) or takes away (`None`) a consignment in a ship's hold, keyed by
+    /// its delivery tally. Loading one fails if one is already aboard under the key.
+    SetConsignment {
+        ship: ShipId,
+        ledger: LedgerId,
+        consignment: Option<Box<crate::world::Consignment>>,
+    },
     SetOrders {
         ship: ShipId,
         orders: OrderQueue,
@@ -386,6 +393,26 @@ pub enum Command {
         id: StationId,
         value: Option<Box<galaxy_kit::StationRecipe>>,
     },
+    /// Adds, changes (`Some`) or removes (`None`) a station part
+    /// ([`crate::parts::StationPart`]). Checked by `galaxy_core::parts::check`.
+    PutStationPart {
+        id: StationPartId,
+        value: Option<Box<crate::parts::StationPart>>,
+    },
+    /// Adds, changes (`Some`) or removes (`None`) a happening
+    /// ([`crate::happening::Happening`]). Checked by `galaxy_core::happenings::check`.
+    PutHappening {
+        id: HappeningId,
+        value: Option<Box<crate::happening::Happening>>,
+    },
+    /// Changes nothing, and fails unless the happening `id` is `value` (`null`: none).
+    /// Carried ahead of every `PutHappening` worked out from the tick's starting world,
+    /// so no batch writes over a change another committed earlier in the tick. Its
+    /// inverse is itself.
+    ExpectHappening {
+        id: HappeningId,
+        value: Option<Box<crate::happening::Happening>>,
+    },
     PutMapOverlay {
         id: String,
         value: Option<Box<crate::live::MapOverlay>>,
@@ -525,6 +552,31 @@ pub enum Command {
         upgrade: UpgradeId,
         fitted: bool,
     },
+    /// Puts a part into (`stored: true`) or takes it out of (`false`) a ship's locker.
+    /// Fails if it's already in (or not in) that locker, so a part can't be stored or
+    /// taken out twice by two batches worked out from the same tick.
+    SetLocker {
+        ship: ShipId,
+        part: UpgradeId,
+        stored: bool,
+    },
+    /// Places (`Some`) or clears (`None`) the order for a part from a friend. Placing
+    /// fails if one is already on order; clearing fails if none is.
+    SetPartOrder {
+        part: UpgradeId,
+        order: Option<Box<crate::fit::PartOrder>>,
+    },
+    /// Puts (or with `null` removes) an upgrade's definition: authored data, for a save
+    /// from before it was authored.
+    PutUpgrade {
+        id: UpgradeId,
+        value: Option<Box<crate::progress::UpgradeDef>>,
+    },
+    /// Replaces the fit tables (sockets, hull budgets, wharves, blueprints): authored
+    /// data, for a save from before the fit model.
+    SetFitRules {
+        rules: Box<crate::fit::FitRules>,
+    },
     /// Sets (or with `null` clears) a hull's rank record.
     SetHullRecord {
         hull: HullId,
@@ -581,6 +633,7 @@ impl Command {
             Command::SetShipHull { .. } => "set_ship_hull",
             Command::SetShipRegion { .. } => "set_ship_region",
             Command::AdjustCargo { .. } => "adjust_cargo",
+            Command::SetConsignment { .. } => "set_consignment",
             Command::SetOrders { .. } => "set_orders",
             Command::UpdateOrders { .. } => "update_orders",
             Command::SetShipActivity { .. } => "set_ship_activity",
@@ -613,6 +666,9 @@ impl Command {
             Command::PutSurveyBuoy { .. } => "put_survey_buoy",
             Command::SetCanonStatus { .. } => "set_canon_status",
             Command::PutStationRecipe { .. } => "put_station_recipe",
+            Command::PutStationPart { .. } => "put_station_part",
+            Command::PutHappening { .. } => "put_happening",
+            Command::ExpectHappening { .. } => "expect_happening",
             Command::PutMapOverlay { .. } => "put_map_overlay",
             Command::PutRegion { .. } => "put_region",
             Command::PutLane { .. } => "put_lane",
@@ -640,6 +696,10 @@ impl Command {
             Command::PutBeat { .. } => "put_beat",
             Command::SetFitting { .. } => "set_fitting",
             Command::ExpectFitting { .. } => "expect_fitting",
+            Command::SetLocker { .. } => "set_locker",
+            Command::SetPartOrder { .. } => "set_part_order",
+            Command::PutUpgrade { .. } => "put_upgrade",
+            Command::SetFitRules { .. } => "set_fit_rules",
             Command::SetHullRecord { .. } => "set_hull_record",
             Command::ExpectHullRecord { .. } => "expect_hull_record",
             Command::SetTunable { .. } => "set_tunable",
@@ -670,6 +730,7 @@ impl Command {
                 | Command::ExpectStanding { .. }
                 | Command::ExpectFitting { .. }
                 | Command::ExpectHullRecord { .. }
+                | Command::ExpectHappening { .. }
         )
     }
 }

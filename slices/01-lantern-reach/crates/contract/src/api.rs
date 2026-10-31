@@ -151,6 +151,16 @@ pub const USES: &[UseDef] = &[
         Hook::Stores,
         "Adjust the player's standing.",
     ),
+    cap(
+        "happenings.read",
+        Hook::Stores,
+        "Read happenings at stations: upcoming, running and over.",
+    ),
+    cap(
+        "happenings.write",
+        Hook::Stores,
+        "Write happenings: visible life at a station that starts when its cause facts exist and runs for a number of dockings.",
+    ),
     cap("npcs.read", Hook::Stores, "Read named people."),
     cap(
         "npcs.write",
@@ -543,6 +553,69 @@ pub const FUNCTIONS: &[FnDef] = &[
         "Sets (or clears) a station's owner.",
     ),
     f(
+        "parts",
+        "get",
+        "stations.read",
+        "(id: StationPartId) -> StationPart?",
+        "A station part: a room with a module, a keeper and a sign.",
+    ),
+    f(
+        "parts",
+        "list",
+        "stations.read",
+        "(station: StationId) -> { StationPartId }",
+        "A station's part IDs, sorted.",
+    ),
+    f(
+        "parts",
+        "put",
+        "stations.write",
+        "(part: StationPart, why: Cause) -> boolean",
+        "Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = \"closed\"` puts a scaffold and a closed sign up.",
+    ),
+    f(
+        "parts",
+        "remove",
+        "stations.write",
+        "(id: StationPartId, why: Cause) -> boolean",
+        "Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.",
+    ),
+    f(
+        "happenings",
+        "get",
+        "happenings.read",
+        "(id: HappeningId) -> Happening?",
+        "A happening, with where it is in its run (`run.status`: upcoming, active, ended).",
+    ),
+    f(
+        "happenings",
+        "list",
+        "happenings.read",
+        "(station: StationId) -> { HappeningId }",
+        "A station's happenings, upcoming, running and over, sorted by ID.",
+    ),
+    f(
+        "happenings",
+        "active",
+        "happenings.read",
+        "(station: StationId) -> HappeningId?",
+        "The happening running at a station now, if any (at most one at a time).",
+    ),
+    f(
+        "happenings",
+        "put",
+        "happenings.write",
+        "(happening: Happening, why: Cause) -> ()",
+        "Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.          Needs `talk.write` too: the speaker talks.",
+    ),
+    f(
+        "happenings",
+        "remove",
+        "happenings.write",
+        "(id: HappeningId, why: Cause) -> ()",
+        "Takes away a happening that hasn't started. One that is running or over stays.",
+    ),
+    f(
         "factions",
         "get",
         "factions.read",
@@ -837,7 +910,14 @@ pub const FUNCTIONS: &[FnDef] = &[
         "pilot",
         "beats.read",
         "() -> PilotView",
-        "The player as a beat sees them: ship, hull, where they're docked, region, position, cargo, hold room and credits (in credits).",
+        "The player as a beat sees them: ship, hull, where they're docked, region, position, their own cargo, consignments carried for others (by ledger), hold room and credits (in credits).",
+    ),
+    f(
+        "beats",
+        "service",
+        "beats.read",
+        "(id: UpgradeId | ShipId) -> ServiceView?",
+        "An upgrade or tender a hullwright or dockmaster offers (`upgrades.toml`): its name, its literal effect text, its cost in credits, who sells it and where, and whether the player has it (`owned`: fitted, or the tender built). `nil` for an unknown ID. For the lines that offer a gift and say it's fitted.",
     ),
     f(
         "beats",
@@ -879,14 +959,28 @@ pub const FUNCTIONS: &[FnDef] = &[
         "load",
         "beats.write",
         "(spec: LoadSpec, why: Cause) -> ()",
-        "Loads goal cargo into the player ship: a consignment at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room.",
+        "Loads goal cargo into the player ship as the pilot's own: at a dock, or with `found = true` something found in space, wherever the ship is. Fails without the hold room. Someone else's goods go aboard with `consign`.",
+    ),
+    f(
+        "beats",
+        "consign",
+        "beats.write",
+        "(spec: ConsignSpec, why: Cause) -> ()",
+        "Loads someone else's goods into the docked player ship under a ledger: they fill hold space but stay the owner's (no market buys them) until `deliver_consignment` hands them to the person they're for. Fails without the hold room, or if that ledger's consignment is already aboard. Cite the player's `reply` accepting it.",
+    ),
+    f(
+        "beats",
+        "deliver_consignment",
+        "beats.write",
+        "(ledger: LedgerId, why: Cause) -> ()",
+        "Hands the whole consignment under `ledger` to the person it's for and writes `deliver` (ware, quantity, the ledger). Fails unless the player is docked where that person is with the consignment aboard.",
     ),
     f(
         "beats",
         "pay",
         "beats.write",
         "(credits: number, why: Cause) -> ()",
-        "Pays the player credits (credits, not centicredits; more than 0) for something a beat settled that its fixed rewards can't say, such as a side winning a dispute. Never takes credits.",
+        "Pays the player credits (credits, not centicredits; more than 0): a fee for a hand-in or an offer the player accepted. The call's cause must cite the player's `reply` agreeing to it, or none of its writes apply (`unconfirmed_change`). Never takes credits.",
     ),
     // --- Space ---
     f(
@@ -1091,6 +1185,8 @@ pub const NAMESPACES: &[(&str, &str)] = &[
     ("counters", "CountersApi"),
     ("history", "HistoryApi"),
     ("stations", "StationsApi"),
+    ("parts", "PartsApi"),
+    ("happenings", "HappeningsApi"),
     ("factions", "FactionsApi"),
     ("npcs", "NpcsApi"),
     ("rumors", "RumorsApi"),
@@ -1325,6 +1421,8 @@ fn allowed(uses: Option<&[String]>) -> impl Fn(&FnDef) -> bool + '_ {
 pub fn luau_module(uses: Option<&[String]>) -> String {
     let roots: Vec<(&str, Value)> = vec![
         ("Station", schema_value::<Station>()),
+        ("StationPart", schema_value::<crate::parts::StationPart>()),
+        ("Happening", schema_value::<crate::happening::Happening>()),
         ("Faction", schema_value::<Faction>()),
         ("Npc", schema_value::<Npc>()),
         ("Rumor", schema_value::<Rumor>()),
@@ -1358,8 +1456,11 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
 
     out.push_str("-- Records and payloads (generated from the contract's JSON Schemas)\n\n");
     let root_names: BTreeSet<&str> = roots.iter().map(|(n, _)| *n).collect();
+    // Types the hook arguments below write out by hand (a happening's line offers
+    // the same answers a `LineSpec` does).
+    const HAND_WRITTEN: [&str; 1] = ["TalkChoice"];
     for (name, def) in lu.defs.iter() {
-        if root_names.contains(name.as_str()) {
+        if root_names.contains(name.as_str()) || HAND_WRITTEN.contains(&name.as_str()) {
             continue;
         }
         let _ = writeln!(out, "export type {name} = {}", lu.ty(def));
@@ -1530,7 +1631,13 @@ export type GoalLine = { beat: BeatId, act: number, goal: string, giver: NpcId?,
 export type TeachSpec = { mechanic: FlagId, teacher: NpcId, slots: { SlotId }? }\n\
 export type DeliverSpec = { station: StationId, ware: WareId, quantity: number, ledger: LedgerId? }\n\
 -- The player for a beat: their name, ship and hold; `credits` are credits (40.5), not centicredits.\n\
-export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, hold_free: number, credits: number }\n\
+export type PilotView = { name: string, ship: ShipId?, hull: HullId?, docked_at: StationId?, region: RegionId?, position: Vec2?, cargo: { [WareId]: number }, consigned: { [LedgerId]: Consigned }, hold_free: number, credits: number }\n\
+-- An upgrade or tender on someone's list (`ctx.beats:service`); `cost` is in credits.\n\
+export type ServiceView = { id: string, name: string, effect: string, cost: number, seller: NpcId?, station: StationId?, owned: boolean }\n\
+-- Goods carried for someone else: whose they are, who they're for and where.\n\
+export type Consigned = { ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }\n\
+-- Someone else's goods to carry, for `ctx.beats:consign` (the same fields, plus the ledger).\n\
+export type ConsignSpec = { ledger: LedgerId, ware: WareId, quantity: number, owner: NpcId, to: NpcId, station: StationId }\n\
 -- A point in a region, for `ctx.beats:distance`. Without `region`: the ship's region.\n\
 export type Spot = { x: number, y: number, region: RegionId? }\n\
 -- Read-only depletion views. `left` is remaining / full (1 when full is 0); a field's\n\

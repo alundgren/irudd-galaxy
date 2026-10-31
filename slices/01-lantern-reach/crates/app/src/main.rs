@@ -12,9 +12,13 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
+
+mod llm_log_cli;
 use galaxy_contract::prelude::*;
 use galaxy_core::{Save, SaveError, SimState};
 use serde_json::{Value, json};
+
+mod memory_cli;
 
 #[derive(Parser)]
 #[command(
@@ -57,6 +61,11 @@ enum Cmd {
         #[command(subcommand)]
         command: HistoryCmd,
     },
+    /// Search world memory: summarised history per station, person and faction.
+    Memory {
+        #[command(subcommand)]
+        command: memory_cli::MemoryCmd,
+    },
     /// The contract's JSON Schemas.
     Api {
         #[command(subcommand)]
@@ -92,6 +101,9 @@ enum Cmd {
         /// (off by default; the game leaves finding the way to you).
         #[arg(long)]
         goal_marker: bool,
+        /// Show frames and sim ticks a second, top left (F2 toggles it while playing).
+        #[arg(long)]
+        fps: bool,
     },
     /// Earn a journey checkpoint through real player actions.
     Beat {
@@ -137,7 +149,7 @@ enum Cmd {
         /// Visible world height (the mouse-wheel zoom).
         #[arg(long)]
         zoom: Option<f32>,
-        /// Scripted input to run first, e.g. `d*120,space*150` (see `script.rs`).
+        /// Scripted input to run first, e.g. `w,wait*3,w*75,wait*30,space*150` (see `script.rs`).
         #[arg(long)]
         keys: Option<String>,
         /// Write the scripted run back to the save.
@@ -154,6 +166,9 @@ enum Cmd {
         #[command(subcommand)]
         command: AudioCmd,
     },
+    /// Query the LLM call log beside a save: rejections, cost by model or purpose,
+    /// totals, rollups, prune. For agents; the player never sees it.
+    LlmLog(llm_log_cli::LlmLogArgs),
 }
 
 #[derive(Subcommand)]
@@ -495,7 +510,44 @@ impl From<SaveError> for Fail {
 
 type Out = Result<Value, Fail>;
 
+/// Prints log lines to stderr: our crates' from info up (the GPU adapter at startup),
+/// everyone else's (wgpu ...) errors only.
+struct StderrLog;
+
+impl log::Log for StderrLog {
+    fn enabled(&self, meta: &log::Metadata) -> bool {
+        let from = meta.target().split("::").next().unwrap_or("");
+        let ours = from == "render" || from.starts_with("galaxy");
+        meta.level()
+            <= if ours {
+                log::Level::Info
+            } else {
+                log::Level::Error
+            }
+    }
+
+    fn log(&self, record: &log::Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let from = record.target().split("::").next().unwrap_or("");
+        match record.level() {
+            log::Level::Info => eprintln!("{from}: {}", record.args()),
+            level => eprintln!(
+                "{from} {}: {}",
+                level.as_str().to_lowercase(),
+                record.args()
+            ),
+        }
+    }
+
+    fn flush(&self) {}
+}
+
 fn main() -> ExitCode {
+    if log::set_logger(&StderrLog).is_ok() {
+        log::set_max_level(log::LevelFilter::Info);
+    }
     let cli = Cli::parse();
     let result = match cli.command {
         Cmd::New {
@@ -570,6 +622,7 @@ fn main() -> ExitCode {
         Cmd::History {
             command: HistoryCmd::Query { target, filter },
         } => history_query(target, filter),
+        Cmd::Memory { command } => memory_cli::run(command).map_err(fail),
         Cmd::Api {
             command: ApiCmd::Dump { name },
         } => api_dump(name.as_deref()),
@@ -583,18 +636,22 @@ fn main() -> ExitCode {
             no_gm,
             hot_reload,
             goal_marker,
-        } => galaxy_app::play::play(galaxy_app::play::PlayArgs {
-            beat,
-            save,
-            new,
-            seed,
-            packs: packs.packs,
-            no_gm,
-            hot_reload,
-            quit_after_frames,
-            goal_marker,
-        })
-        .map_err(fail),
+            fps,
+        } => {
+            galaxy_app::ui::fps::set_shown(fps);
+            galaxy_app::play::play(galaxy_app::play::PlayArgs {
+                beat,
+                save,
+                new,
+                seed,
+                packs: packs.packs,
+                no_gm,
+                hot_reload,
+                quit_after_frames,
+                goal_marker,
+            })
+            .map_err(fail)
+        }
         Cmd::Beat {
             command:
                 BeatCmd::Jump {
@@ -695,6 +752,7 @@ fn main() -> ExitCode {
         Cmd::Mind {
             command: MindCmd::Try { packs },
         } => mind_try(packs.packs),
+        Cmd::LlmLog(args) => llm_log_cli::run(args).map_err(fail),
         Cmd::Audio {
             command: AudioCmd::Render { out },
         } => galaxy_app::sound::render(&out).map_err(|(code, body)| Fail {
@@ -1113,14 +1171,32 @@ fn mind_try(packs: Option<PathBuf>) -> Out {
     use galaxy_mind::{MindConfig, MindError};
     let data = packs_dir(packs)?.join("core").join("data");
     let config = MindConfig::load_dir(&data).map_err(|e| Fail::input(e.to_string()))?;
-    galaxy_mind::probe::live(&config).map_err(|e| match e {
-        MindError::NoKey => Fail::input(e.to_string()),
-        e => Fail {
-            code: 1,
-            kind: "mind",
-            message: e.to_string(),
-            command: None,
-            body: None,
-        },
-    })
+    // Its calls are logged beside the default save folder, like a game's beside its save.
+    let log = galaxy_mind::calllog::CallSink::new();
+    let at = galaxy_app::saves::SaveFolder::user()
+        .map(|f| galaxy_mind::calllog::path_for(&f.dir().join("mind-try.sqlite")));
+    if let Some(path) = &at
+        && let Err(e) = log.open(path, &config.log)
+    {
+        eprintln!("{e}");
+    }
+    let result = galaxy_mind::probe::live_logged(&config, &log);
+    log.flush(std::time::Duration::from_secs(2));
+    result
+        .map(|mut v| {
+            if log.is_connected() {
+                v["log"] = json!(at);
+            }
+            v
+        })
+        .map_err(|e| match e {
+            MindError::NoKey => Fail::input(e.to_string()),
+            e => Fail {
+                code: 1,
+                kind: "mind",
+                message: e.to_string(),
+                command: None,
+                body: None,
+            },
+        })
 }

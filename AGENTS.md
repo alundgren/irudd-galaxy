@@ -112,7 +112,21 @@ worktree on a branch (builder, reviewer, fixer) shares one warm build. Notes:
 - `cargo xtask target-dir` prints the folder.
 - Two agents on the same branch at once wait on cargo's lock, so run them in turn.
 - Folders under the root can be deleted any time; they rebuild.
-- If `GALAXY_TARGET_ROOT` is unset, the normal `target/` is used.
+- If `GALAXY_TARGET_ROOT` is unset, the normal `target/` is used, and `cargo xtask` prints
+  a note saying so. Before a multi-agent run, check that it's set: an unset root is the
+  cold-build cost this section exists to avoid.
+
+**Fanning out: borrow a slot.** Stable cargo has no compiled-dependency cache shared
+between folders, so a new folder per branch means a full cold build (about 8 minutes on
+16 cores) for every worker. When a job fans out onto several branches, give each agent a
+long-lived folder instead: `GALAXY_TARGET_KEY=slot-1`, `slot-2`, and so on.
+- Slots outlive branches and runs. The dependencies stay compiled; only our own crates
+  rebuild where the branch differs.
+- One agent per slot at a time. A reviewer or fixer borrows the slot its builder used,
+  after the builder is done.
+- Cap each build at its share of the cores, `CARGO_BUILD_JOBS` = cores / parallel agents,
+  or parallel builds starve the machine.
+- Keep the pool small (about four). Each slot is several GB.
 
 ## Platforms
 

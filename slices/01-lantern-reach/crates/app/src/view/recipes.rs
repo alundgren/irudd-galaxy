@@ -9,20 +9,7 @@ use render::{ArtBible, Color, palette};
 /// master's sixth) get a small generic recipe until they carry their own.
 pub fn station_recipe(station: &Station) -> StationRecipe {
     let stage = u8::try_from(station.build.stage.min(3)).unwrap_or(3);
-    let mut recipe = match station.id.as_str() {
-        "station.lantern_wharf" => StationRecipe::lantern_wharf(),
-        "station.kettle_dock" => StationRecipe::kettle_dock(stage),
-        "station.brassmouth_exchange" => StationRecipe::brassmouth(),
-        "station.cinder_hook" => StationRecipe::cinder_hook(),
-        "station.glass_drift_observatory" => StationRecipe::glass_drift_observatory(),
-        _ => {
-            let mut r = StationRecipe::kettle_dock(stage);
-            r.parts.retain(|p| {
-                !matches!(p.kind, render::kit::PartKind::Greenhouse { .. }) || stage > 0
-            });
-            r
-        }
-    };
+    let mut recipe = StationRecipe::for_station(station.id.as_str(), stage);
     recipe.name = station.name.clone();
     recipe
 }

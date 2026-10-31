@@ -26,7 +26,7 @@ local function draw(ctx:G.Ctx,cite:string)
  local s=ctx.stations:get("station.cinder_hook")
  if s~=nil then ctx.kit:overlay("gm.territory_map.hook",{region=s.region,center=s.position,radius=700,owner=if resolved then owner else nil,contested=not resolved},why) end
  ctx.store:set("progress","owner",key,why)
- U.say(ctx,why,if resolved then "Hesper's border now takes in Cinder Hook under its new banner." else "Hesper marks the Cinder Hook border as contested; the depot's lamps stay open.","npc.hesper_lune","station.cinder_hook",cites)
+ U.say(ctx,why,if resolved then "I've redrawn the border: it takes in Cinder Hook under its new banner." else "I've marked the Cinder Hook border as contested; the depot's lamps stay open.","npc.hesper_lune","station.cinder_hook",cites)
  U.fact(ctx,why,"gm.territory_map.border_moved","station.cinder_hook","npc.hesper_lune","Hesper drew the depot's current border")
 end
 return G.script({id="main",on={beat_completed=function(ev:G.BeatCompletedEvent,ctx:G.Ctx) draw(ctx,ev.fact) end,dock=function(ev:G.DockEvent,ctx:G.Ctx) draw(ctx,ev.fact) end,session_start=function(ev:G.SessionStartEvent,ctx:G.Ctx) draw(ctx,ev.fact) end}})

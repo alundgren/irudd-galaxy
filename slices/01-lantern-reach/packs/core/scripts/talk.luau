@@ -69,6 +69,8 @@ return G.script({
 			local picks = lines.candidates(ctx, ev.station, if prev then prev.id else nil, false)
 			-- Up to three, one per cited place and fact. Record the question even when
 			-- nobody has a line: the dock screen waits on it and fills in digest lines.
+			local station = ctx.stations:get(ev.station)
+			local region = if station then station.region else ""
 			local said: { lines.Pick } = {}
 			local cited: { [string]: boolean } = {}
 			local places: { [string]: boolean } = {}
@@ -76,9 +78,12 @@ return G.script({
 				if #said >= 3 then
 					break
 				end
-				-- Facts without a station share one place, as in the plain digest.
+				-- Facts without a station share one place, as in the plain digest. Only
+				-- what changed here or nearby: this station, or one in its region.
 				local place = pick.fact.subjects.station or ""
-				if not cited[pick.fact.id] and not places[place] then
+				local at = if place ~= "" then ctx.stations:get(place) else nil
+				local near = place == "" or place == ev.station or (at ~= nil and at.region == region)
+				if near and not cited[pick.fact.id] and not places[place] then
 					cited[pick.fact.id] = true
 					places[place] = true
 					table.insert(said, pick)

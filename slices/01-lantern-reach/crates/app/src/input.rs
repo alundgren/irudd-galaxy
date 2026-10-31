@@ -1,10 +1,11 @@
 //! Keys and clicks to [`PlayerInput`].
 //!
 //! The window maps winit's key codes onto [`Key`] so this stays plain and testable.
-//! WASD thrusts screen-relative (the camera looks straight down the world's Z with +Y
-//! up the screen, so W is +Y) and the sim stops the ship when they're released; docked,
-//! flying off undocks. Space is the context action, held while mining. Clicks become click targets on the play
-//! plane; the sim ignores them until the control flags unlock click controls.
+//! Tank controls: A/D turn the ship, W/S thrust along its heading, Shift boosts. Let
+//! go and the ship coasts until the auto-brake stops it; docked, W or S flies off.
+//! Space docks or rides a lane current when one is in reach, mines beside a rock
+//! (held), and otherwise brakes. Clicks become click targets on the play plane; the
+//! sim ignores them until the control flags unlock click controls.
 
 use std::collections::BTreeSet;
 
@@ -32,6 +33,10 @@ pub enum Key {
     ZoomIn,
     /// The number keys 1 to 9: pick that answer at the dock (0-based).
     Answer(u8),
+    /// L: open or close the ship log.
+    Log,
+    /// Enter: the next talk bubble (or the next line of a replay in the log).
+    Enter,
 }
 
 /// Which keys are down, plus a Space press the ticks haven't seen yet.
@@ -147,8 +152,7 @@ impl Keys {
             let axis = |minus: Key, plus: Key| {
                 f32::from(u8::from(live(plus))) - f32::from(u8::from(live(minus)))
             };
-            input.thrust =
-                Vec2::new(axis(Key::A, Key::D), axis(Key::S, Key::W)).normalize_or_zero();
+            input.thrust = Vec2::new(axis(Key::A, Key::D), axis(Key::S, Key::W));
         } else {
             // Whatever is held now is held into the docking if this tick docks.
             self.held_into_dock = FLIGHT_KEYS.into_iter().filter(|&k| self.held(k)).collect();
@@ -165,10 +169,10 @@ impl Keys {
     }
 }
 
-/// WASD as a thrust vector of length 0 or 1. Opposite keys cancel.
+/// WASD as tank axes: `x` turns (D +1, A -1), `y` thrusts along the heading (W +1,
+/// S -1). Opposite keys cancel.
 pub fn thrust(keys: &Keys) -> Vec2 {
-    let v = Vec2::new(keys.axis(Key::A, Key::D), keys.axis(Key::S, Key::W));
-    v.normalize_or_zero()
+    Vec2::new(keys.axis(Key::A, Key::D), keys.axis(Key::S, Key::W))
 }
 
 /// The input the held keys make. Docked, thrust flies off and undocks (Space does
@@ -179,6 +183,7 @@ pub fn player_input(keys: &Keys, click: Option<Click>) -> PlayerInput {
     PlayerInput {
         thrust: thrust(keys),
         action: keys.held(Key::Space),
+        boost: keys.held(Key::Shift),
         tag: false,
         click,
         trades: Vec::new(),
@@ -244,24 +249,53 @@ mod tests {
     use render::glam::Vec3;
 
     #[test]
-    fn wasd_thrusts_screen_relative_and_stops_on_release() {
+    fn wasd_are_tank_axes_and_shift_boosts() {
         let mut k = Keys::default();
         assert_eq!(thrust(&k), Vec2::ZERO);
         k.press(Key::W);
-        assert_eq!(thrust(&k), Vec2::new(0.0, 1.0));
+        assert_eq!(thrust(&k), Vec2::new(0.0, 1.0), "W thrusts forward");
         k.press(Key::D);
-        let t = thrust(&k);
-        assert!((t.length() - 1.0).abs() < 1e-5 && t.x > 0.0 && t.y > 0.0);
+        assert_eq!(thrust(&k), Vec2::new(1.0, 1.0), "D turns while W thrusts");
         k.press(Key::S);
         assert_eq!(thrust(&k), Vec2::new(1.0, 0.0), "W and S cancel");
         k.release(Key::W);
+        assert_eq!(thrust(&k), Vec2::new(1.0, -1.0), "S thrusts backward");
         k.release(Key::S);
         k.release(Key::D);
         k.press(Key::A);
         assert_eq!(thrust(&k), Vec2::new(-1.0, 0.0));
         k.release(Key::A);
+        k.press(Key::Shift);
+        assert!(player_input(&k, None).boost);
+        k.release(Key::Shift);
         let input = player_input(&k, None);
         assert_eq!(input, PlayerInput::default(), "released keys are hands off");
+    }
+
+    /// The drawn rock and the sim's rock are the same size: a click on the drawn edge
+    /// picks the rock, and mining reach and collisions measure from that edge.
+    #[test]
+    fn rocks_are_as_big_in_the_sim_as_they_are_drawn() {
+        let world = WorldState::default();
+        let m = world.ship_rules.mining.clone();
+        for (initial, remaining) in [(60u32, 60u32), (60, 30), (60, 6), (49, 5), (80, 1)] {
+            let rock = Rock {
+                id: RockId::from_static("rock.test.01"),
+                field: FieldId::from_static("field.test"),
+                rock_type: RockTypeId::from_static("rock_type.ice"),
+                position: Vec2::ZERO,
+                remaining,
+                initial,
+                growth: Default::default(),
+            };
+            let full = m.radius_base + m.radius_per_sqrt_unit * (initial as f32).sqrt();
+            let drawn = full * render::kit::rock_scale(remaining as f32 / initial as f32);
+            let sim = galaxy_ship::space::rock_radius(&world, &rock);
+            assert!(
+                (sim - drawn).abs() < 1e-3,
+                "{remaining}/{initial}: sim {sim} drawn {drawn}"
+            );
+        }
     }
 
     #[test]

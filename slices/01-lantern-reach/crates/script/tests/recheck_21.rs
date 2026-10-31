@@ -219,7 +219,7 @@ fn beat_calls_run_in_fresh_states_so_save_restore_continue_matches() {
 
 // P1: a successor sees its predecessor done only once the completion will commit.
 
-/// c01 completes by handing five ice to Kettle (`ExpectDocked`); c02 needs c01 done.
+/// c01 completes at Kettle, noting the haul there (`ExpectDocked`); c02 needs c01 done.
 /// The dock handler at the Wharf reads the Shallows ice field (for the P2 test).
 const CHAIN: &str = r#"--!strict
 local G = require("@galaxy")
@@ -237,7 +237,8 @@ return G.script({
 			requires = { G.docked_at(KETTLE), G.cargo("ware.ice", 5) },
 			done = { G.fact({ kind = "gm.recheck.go" }), G.docked_at(KETTLE) },
 			on_complete = function(ctx: G.Ctx, beat: G.BeatInfo)
-				ctx.beats:deliver({ station = KETTLE, ware = "ware.ice", quantity = 5 }, beat.why)
+				ctx.beats:expect_docked(KETTLE, beat.why)
+				ctx.history:record({ kind = "gm.recheck.hauled", note = "hauled" }, beat.why)
 			end,
 		}),
 		G.beat({
@@ -324,7 +325,7 @@ fn a_rejected_completion_never_unlocks_its_successor() {
     assert_eq!(status(&sim, HAUL), Some(BeatStatus::Active));
     assert_eq!(status(&sim, AFTER), None, "the successor stays locked");
     assert!(facts(&sim, "gm.recheck.after").is_empty());
-    assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 5);
+    assert!(facts(&sim, "gm.recheck.hauled").is_empty());
 
     // Docked for the whole tick, c01 completes and c02 follows in the same tick.
     dock_at(&mut sim, &KETTLE);
@@ -332,7 +333,7 @@ fn a_rejected_completion_never_unlocks_its_successor() {
     assert_eq!(status(&sim, HAUL), Some(BeatStatus::Completed));
     assert_eq!(status(&sim, AFTER), Some(BeatStatus::Active));
     assert_eq!(facts(&sim, "gm.recheck.after").len(), 1);
-    assert_eq!(sim.world().ships.get(&PLAYER).unwrap().hold.count(&ICE), 0);
+    assert_eq!(facts(&sim, "gm.recheck.hauled").len(), 1);
     assert!(aborted(&host).is_empty());
 }
 

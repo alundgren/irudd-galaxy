@@ -246,6 +246,12 @@ string_id!(
     /// A station part from the runtime asset kit.
     PartId, kind = "part", min_segments = 2, example = "part.kettle.greenhouse_a");
 string_id!(
+    /// A part of a station: a room with a module, a keeper and a sign (`station_parts.toml`).
+    StationPartId, kind = "station part", min_segments = 2, example = "part.wharf.market");
+string_id!(
+    /// A happening at a station: a short piece of visible life (`happenings.toml`).
+    HappeningId, kind = "happening", min_segments = 2, example = "happening.wharf.lamp_night");
+string_id!(
     /// A per-save mechanic flag (control unlocks, script switches).
     FlagId, kind = "flag", min_segments = 2, example = "flag.nav_chip");
 string_id!(
@@ -260,6 +266,10 @@ string_id!(
 string_id!(
     /// A station upgrade a hullwright or dockmaster fits (`upgrade.mining_lens`).
     UpgradeId, kind = "upgrade", min_segments = 2, example = "upgrade.mining_lens");
+string_id!(
+    /// A socket on a hull that takes one ship part, or the control rack
+    /// (`socket.drill`, `socket.rack`). See [`crate::fit`].
+    SocketId, kind = "socket", min_segments = 2, example = "socket.drill");
 string_id!(
     /// A delivery tally a station keeps (`ledger.kettle_greenhouse`).
     LedgerId, kind = "ledger", min_segments = 2, example = "ledger.kettle_greenhouse");

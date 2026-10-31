@@ -291,13 +291,14 @@ impl Sim {
         }
         let mut envelopes = Vec::with_capacity(staged.events.len());
         for event in staged.events {
+            let counted = counts(&s.world, &event);
             bump_counters(&mut s.world, &event);
             let fact = s.history.append(
                 tick,
                 event.kind().fact_kind(),
                 cause_id,
                 event.subjects(),
-                event.amount(),
+                if counted { event.amount() } else { Some(0) },
                 FactPayload::Event(event.clone()),
             );
             envelopes.push(EventEnvelope {
@@ -498,8 +499,26 @@ fn revert(world: &mut WorldState, undo: &[UndoRecord]) {
     }
 }
 
-/// Player-owned activity moves the player, station and region counters.
+/// Whether `event` counts as activity. Only a docking can fail to: a re-dock where the
+/// ship last docked, before it has gone `recount_distance` away, mined or docked
+/// elsewhere (the economy's recount rule, [`galaxy_contract::economy::docking_counts`]),
+/// moves no counter, and its `dock` fact has an amount of 0. Tapping out of the ring
+/// and back in is still a docking, but never a counted one.
+fn counts(world: &WorldState, event: &Event) -> bool {
+    match event {
+        Event::Dock { ship, station } => {
+            galaxy_contract::economy::docking_counts(&world.economy, ship, station)
+        }
+        _ => true,
+    }
+}
+
+/// Player-owned activity moves the player, station and region counters. A docking
+/// that doesn't count ([`counts`]) moves none.
 fn bump_counters(world: &mut WorldState, event: &Event) {
+    if !counts(world, event) {
+        return;
+    }
     let ship = event.ship().and_then(|id| world.ships.get(id));
     let players = match (event.ship(), ship) {
         (Some(_), Some(s)) => s.owner == Owner::Player,

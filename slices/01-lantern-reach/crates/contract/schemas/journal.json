@@ -233,6 +233,39 @@
         "completed"
       ]
     },
+    "BlueprintDef": {
+      "description": "A blueprint found in the world: its flag is set (with a `blueprint_found` fact) the\nfirst time `found` holds. Making its part needs it.",
+      "type": "object",
+      "properties": {
+        "found": {
+          "description": "When it's found: activity, history or beats, never time.",
+          "$ref": "#/$defs/Requirement"
+        },
+        "found_in": {
+          "description": "Where it turns up, for the log line (\"in the Cinder Belt\").",
+          "type": "string"
+        },
+        "id": {
+          "description": "The flag that marks it found (`blueprint.long_drill`).",
+          "$ref": "#/$defs/FlagId"
+        },
+        "name": {
+          "description": "\"Long-throw drill blueprint\".",
+          "type": "string"
+        },
+        "part": {
+          "$ref": "#/$defs/UpgradeId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "part",
+        "found_in",
+        "found"
+      ]
+    },
     "BuildState": {
       "description": "A station's visible growth: a stage number plus the kit parts attached.",
       "type": "object",
@@ -264,6 +297,82 @@
         "question",
         "forbidden"
       ]
+    },
+    "CauseFact": {
+      "description": "One fact a happening waits for: a fact by ID (it must exist when the happening is\nwritten), or a pattern a fact has to match. A pattern names the fact's `kind`\n(`stage_built` matches `core.stage_built` and `gm.kettle_growth.stage_built`, as\nline citations do) and any subjects or amount it must have.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        },
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "npc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ware": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WareId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "CauseId": {
       "type": "string",
@@ -570,6 +679,37 @@
             "ship",
             "ware",
             "delta"
+          ]
+        },
+        {
+          "description": "Puts (`Some`) or takes away (`None`) a consignment in a ship's hold, keyed by\nits delivery tally. Loading one fails if one is already aboard under the key.",
+          "type": "object",
+          "properties": {
+            "consignment": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Consignment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ledger": {
+              "$ref": "#/$defs/LedgerId"
+            },
+            "op": {
+              "type": "string",
+              "const": "set_consignment"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "ledger"
           ]
         },
         {
@@ -1339,6 +1479,87 @@
           ]
         },
         {
+          "description": "Adds, changes (`Some`) or removes (`None`) a station part\n([`crate::parts::StationPart`]). Checked by `galaxy_core::parts::check`.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/StationPartId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_station_part"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StationPart"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Adds, changes (`Some`) or removes (`None`) a happening\n([`crate::happening::Happening`]). Checked by `galaxy_core::happenings::check`.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/HappeningId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_happening"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Happening"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Changes nothing, and fails unless the happening `id` is `value` (`null`: none).\nCarried ahead of every `PutHappening` worked out from the tick's starting world,\nso no batch writes over a change another committed earlier in the tick. Its\ninverse is itself.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/HappeningId"
+            },
+            "op": {
+              "type": "string",
+              "const": "expect_happening"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Happening"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
           "type": "object",
           "properties": {
             "id": {
@@ -2022,6 +2243,102 @@
           ]
         },
         {
+          "description": "Puts a part into (`stored: true`) or takes it out of (`false`) a ship's locker.\nFails if it's already in (or not in) that locker, so a part can't be stored or\ntaken out twice by two batches worked out from the same tick.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_locker"
+            },
+            "part": {
+              "$ref": "#/$defs/UpgradeId"
+            },
+            "ship": {
+              "$ref": "#/$defs/ShipId"
+            },
+            "stored": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "ship",
+            "part",
+            "stored"
+          ]
+        },
+        {
+          "description": "Places (`Some`) or clears (`None`) the order for a part from a friend. Placing\nfails if one is already on order; clearing fails if none is.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_part_order"
+            },
+            "order": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PartOrder"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "part": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "required": [
+            "op",
+            "part"
+          ]
+        },
+        {
+          "description": "Puts (or with `null` removes) an upgrade's definition: authored data, for a save\nfrom before it was authored.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/UpgradeId"
+            },
+            "op": {
+              "type": "string",
+              "const": "put_upgrade"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/UpgradeDef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ]
+        },
+        {
+          "description": "Replaces the fit tables (sockets, hull budgets, wharves, blueprints): authored\ndata, for a save from before the fit model.",
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set_fit_rules"
+            },
+            "rules": {
+              "$ref": "#/$defs/FitRules"
+            }
+          },
+          "required": [
+            "op",
+            "rules"
+          ]
+        },
+        {
           "description": "Sets (or with `null` clears) a hull's rank record.",
           "type": "object",
           "properties": {
@@ -2378,6 +2695,40 @@
             "cond"
           ]
         }
+      ]
+    },
+    "Consignment": {
+      "description": "Goods carried for someone: whose they are and who they're for.",
+      "type": "object",
+      "properties": {
+        "owner": {
+          "description": "Whose goods they are (shown in the hold: \"Ilse's plate\").",
+          "$ref": "#/$defs/NpcId"
+        },
+        "quantity": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "station": {
+          "description": "Where that person is.",
+          "$ref": "#/$defs/StationId"
+        },
+        "to": {
+          "description": "Who they're for.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "quantity",
+        "owner",
+        "to",
+        "station"
       ]
     },
     "CounterKind": {
@@ -3431,6 +3782,63 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "FitRules": {
+      "description": "The fit tables from the core pack's data. Saved with the world.",
+      "type": "object",
+      "properties": {
+        "blueprints": {
+          "description": "Blueprints by the flag that marks them found.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/BlueprintDef"
+            }
+          }
+        },
+        "hulls": {
+          "description": "The sockets and budgets of each hull that takes parts.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/HullFit"
+            }
+          }
+        },
+        "mass": {
+          "$ref": "#/$defs/MassRules",
+          "default": {
+            "floor": 0.5,
+            "speed_per_unit": 0.04,
+            "turn_per_unit": 0.06
+          }
+        },
+        "sockets": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/SocketDef"
+            }
+          }
+        },
+        "wharves": {
+          "description": "One wharf per station at most: who fits there and which sockets they work on.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/WharfDef"
+            }
+          }
+        }
+      }
+    },
     "FlagId": {
       "description": "Stable flag id, e.g. `flag.nav_chip`.",
       "type": "string",
@@ -3528,10 +3936,345 @@
         "lost"
       ]
     },
+    "Happening": {
+      "description": "One happening.",
+      "type": "object",
+      "properties": {
+        "by": {
+          "description": "The pack that wrote it, if a pack did. `None`: the core pack's data.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cause": {
+          "$ref": "#/$defs/HappeningCause"
+        },
+        "id": {
+          "$ref": "#/$defs/HappeningId"
+        },
+        "lasts": {
+          "$ref": "#/$defs/Lasts"
+        },
+        "line": {
+          "description": "What its speaker says when it starts.",
+          "$ref": "#/$defs/HappeningLine"
+        },
+        "run": {
+          "description": "Where it is in its run. Written by the runtime only; data and packs leave it\nupcoming.",
+          "$ref": "#/$defs/HappeningRun"
+        },
+        "show": {
+          "description": "What the docked view shows while it runs, as `<kind>:<value>` entries\n([`SHOW_KINDS`]): `\"banner_string:lamps\"`, `\"crowd:pier.north\"`,\n`\"residents:+6\"`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "station",
+        "lasts",
+        "cause",
+        "line"
+      ]
+    },
+    "HappeningCause": {
+      "description": "The facts a happening waits for. It starts once each one exists.",
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseFact"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ]
+    },
+    "HappeningId": {
+      "description": "Stable happening id, e.g. `happening.wharf.lamp_night`.",
+      "type": "string",
+      "examples": [
+        "happening.wharf.lamp_night"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "HappeningLine": {
+      "description": "The line a happening's speaker says when it starts, in the first person.",
+      "type": "object",
+      "properties": {
+        "choices": {
+          "description": "Answers the player may give (at most four). A pack's `on.reply` handler acts on\nthe pick, the way any dock-talk offer works (the core pack's harvest gift).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TalkChoice"
+          }
+        },
+        "id": {
+          "description": "`line.<speaker>.<name>`, stable, so a line said twice can be told apart.",
+          "type": "string"
+        },
+        "speaker": {
+          "description": "A person at the station.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "speaker",
+        "text"
+      ]
+    },
+    "HappeningRun": {
+      "description": "Where a happening is in its run.",
+      "oneOf": [
+        {
+          "description": "Waiting for its cause facts, or for the station to be free.",
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "upcoming"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ]
+        },
+        {
+          "description": "Running. `first_docking` is the station's counted dockings when it started\n(the docking it started in counts as its first); it ends when the count\nreaches `first_docking + lasts.dockings`. `cites` are the cause facts that\nstarted it.",
+          "type": "object",
+          "properties": {
+            "cites": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FactId"
+              }
+            },
+            "first_docking": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "since": {
+              "$ref": "#/$defs/Tick"
+            },
+            "status": {
+              "type": "string",
+              "const": "active"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "since",
+            "first_docking",
+            "cites"
+          ]
+        },
+        {
+          "description": "Over.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/Tick"
+            },
+            "first_docking": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "since": {
+              "$ref": "#/$defs/Tick"
+            },
+            "status": {
+              "type": "string",
+              "const": "ended"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "since",
+            "first_docking",
+            "at"
+          ]
+        }
+      ]
+    },
+    "HistoryQuery": {
+      "description": "A history filter. Empty matches everything. `count`, `find` and `last` take one.",
+      "type": "object",
+      "properties": {
+        "after": {
+          "description": "Facts with an ID greater than this (for paging).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cause": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CauseId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "faction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "description": "Most results `find` returns (oldest first).",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "npc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnyId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rock": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RockId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ship": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShipId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "since": {
+          "description": "Facts at or after this tick.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Tick"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "until": {
+          "description": "Facts at or before this tick.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Tick"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ware": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WareId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
     "Hold": {
       "type": "object",
       "properties": {
         "cargo": {
+          "description": "The pilot's own goods, by ware.",
           "type": "object",
           "additionalProperties": false,
           "patternProperties": {
@@ -3539,6 +4282,16 @@
               "type": "integer",
               "format": "uint32",
               "minimum": 0
+            }
+          }
+        },
+        "consigned": {
+          "description": "Someone else's goods the pilot agreed to carry, keyed by the delivery tally they\ncount toward. They take hold space, but they aren't the pilot's: no market buys\nthem, no loop or tender moves them, and only handing them to the person they're\nfor removes them. Missing in older saves.",
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$": {
+              "$ref": "#/$defs/Consignment"
             }
           }
         }
@@ -3553,6 +4306,14 @@
       "properties": {
         "accel": {
           "description": "World units per second squared. Missing: top speed in `flight.accel_time`.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        },
+        "brake": {
+          "description": "World units per second squared when braking. Missing: `accel` times\n`flight.brake`.",
           "type": [
             "number",
             "null"
@@ -3621,6 +4382,40 @@
         "hold_capacity",
         "max_speed",
         "mining_rate"
+      ]
+    },
+    "HullFit": {
+      "description": "A hull's sockets and budgets.",
+      "type": "object",
+      "properties": {
+        "free_mass": {
+          "description": "Mass the hull carries without slowing down.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "hull": {
+          "$ref": "#/$defs/HullId"
+        },
+        "power": {
+          "description": "Power pips: the most the fitted parts may draw together.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "sockets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketId"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "hull",
+        "sockets",
+        "power",
+        "free_mass"
       ]
     },
     "HullId": {
@@ -3717,6 +4512,21 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Lasts": {
+      "description": "How long a happening runs: counted player dockings at its station.",
+      "type": "object",
+      "properties": {
+        "dockings": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "dockings"
+      ]
     },
     "LedgerId": {
       "description": "Stable ledger id, e.g. `ledger.kettle_greenhouse`.",
@@ -4019,6 +4829,47 @@
         "price"
       ]
     },
+    "MassRules": {
+      "description": "How mass past the free allowance slows the hull. Each unit over takes these shares\noff top speed and turn rate, never below `floor`.",
+      "type": "object",
+      "properties": {
+        "floor": {
+          "type": "number",
+          "format": "double",
+          "default": 0.5
+        },
+        "speed_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.04
+        },
+        "turn_per_unit": {
+          "type": "number",
+          "format": "double",
+          "default": 0.06
+        }
+      },
+      "additionalProperties": false
+    },
+    "Material": {
+      "description": "Units of a ware a Make consumes from the hold.",
+      "type": "object",
+      "properties": {
+        "units": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "ware": {
+          "$ref": "#/$defs/WareId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ware",
+        "units"
+      ]
+    },
     "MiningRun": {
       "type": "object",
       "properties": {
@@ -4041,6 +4892,268 @@
         "rock",
         "progress",
         "mined"
+      ]
+    },
+    "Modifier": {
+      "description": "The fixed list of native effects traits, fittings and ranks may have. Each is\nsmall and qualitative; `galaxy-progress` adds them up per ship and the ship,\neconomy and app crates read the totals.",
+      "oneOf": [
+        {
+          "description": "Multiplies mining rate (the mining lens: 1.5).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "mining_rate"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Mining while facing a rock's richest face yields this much more (Rimesight).",
+          "type": "object",
+          "properties": {
+            "bonus": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "rich_face"
+            }
+          },
+          "required": [
+            "modifier",
+            "bonus"
+          ]
+        },
+        {
+          "description": "Extra hold units (hold extender, Wren rank 2).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "hold"
+            },
+            "units": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Extra hold units on each of the player's tenders (Tandem rank 3).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "tender_hold"
+            },
+            "units": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Multiplies turn rate.",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "turn_rate"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies top speed.",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "speed"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies the camera's zoom (below 1 shows more around the ship).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "zoom"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Multiplies docking ring reach (Ringwise: 1.25).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "dock_reach"
+            }
+          },
+          "required": [
+            "modifier",
+            "factor"
+          ]
+        },
+        {
+          "description": "Lane mouths catch the ship from this radius (Lanerunner: 105).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mouth_radius"
+            },
+            "radius": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "radius"
+          ]
+        },
+        {
+          "description": "Live prices of stations within this distance (price glass: 1200).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "price_glass"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
+          "description": "Mines from this many world units further off (the long-throw drill).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "mining_reach"
+            },
+            "units": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "units"
+          ]
+        },
+        {
+          "description": "Shows what's left in rocks within this distance (the seam lamp).",
+          "type": "object",
+          "properties": {
+            "modifier": {
+              "type": "string",
+              "const": "seam_lamp"
+            },
+            "range": {
+              "type": "number",
+              "format": "float"
+            }
+          },
+          "required": [
+            "modifier",
+            "range"
+          ]
+        },
+        {
+          "description": "Multiplies standing gains from deeds with this tag (Good neighbour: delivery x1.5).",
+          "type": "object",
+          "properties": {
+            "factor": {
+              "type": "number",
+              "format": "double"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "deed_bonus"
+            },
+            "tag": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "modifier",
+            "tag",
+            "factor"
+          ]
+        },
+        {
+          "description": "A named presentation feature for the app and talk (`sell_preview`,\n`last_visit_greeting`, `lane_radio`, `rumor_first`, `seam_sense` ...).",
+          "type": "object",
+          "properties": {
+            "feature": {
+              "type": "string"
+            },
+            "modifier": {
+              "type": "string",
+              "const": "feature"
+            }
+          },
+          "required": [
+            "modifier",
+            "feature"
+          ]
+        }
       ]
     },
     "Npc": {
@@ -4093,6 +5206,26 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "Num": {
+      "description": "A number, or the current value of a tunable.",
+      "anyOf": [
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tunable": {
+              "$ref": "#/$defs/TunableId"
+            }
+          },
+          "required": [
+            "tunable"
+          ]
+        }
+      ]
     },
     "Order": {
       "description": "One order.",
@@ -5076,6 +6209,32 @@
         }
       ]
     },
+    "PartCause": {
+      "description": "Who changed a part and why: the pack and the facts the keeper's line cites.",
+      "type": "object",
+      "properties": {
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactId"
+          }
+        },
+        "script": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "facts"
+      ]
+    },
     "PartId": {
       "description": "Stable part id, e.g. `part.kettle.greenhouse_a`.",
       "type": "string",
@@ -5084,6 +6243,156 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "PartNews": {
+      "description": "The station key's ribbon for a part that changed: its kind and the player's\ndocking count when it changed. It clears after `station.ribbon_dockings` more\ndockings (counted dockings, never time).",
+      "type": "object",
+      "properties": {
+        "docking": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "ribbon": {
+          "$ref": "#/$defs/Ribbon"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ribbon",
+        "docking"
+      ]
+    },
+    "PartOrder": {
+      "description": "A part on its way from a friend.",
+      "type": "object",
+      "properties": {
+        "from": {
+          "description": "Who sends it, and from where: it's sent after the flagship's next docking there.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "paid": {
+          "description": "Centicredits paid when it was ordered.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "part": {
+          "$ref": "#/$defs/UpgradeId"
+        },
+        "ship": {
+          "description": "The locker it arrives in.",
+          "$ref": "#/$defs/ShipId"
+        },
+        "since": {
+          "description": "Dockings after this fact count (`None`: all of history).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "part",
+        "ship",
+        "from",
+        "station",
+        "paid"
+      ]
+    },
+    "PartSource": {
+      "description": "Where a part comes from: one tab of the wharf at the part's `station`.",
+      "oneOf": [
+        {
+          "description": "Bought for its `cost` and fitted.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "ready"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from"
+          ]
+        },
+        {
+          "description": "Made from materials in the hold, once its blueprint is found. No credits.",
+          "type": "object",
+          "properties": {
+            "blueprint": {
+              "$ref": "#/$defs/FlagId"
+            },
+            "from": {
+              "type": "string",
+              "const": "make"
+            },
+            "materials": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Material"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "blueprint",
+            "materials"
+          ]
+        },
+        {
+          "description": "Ordered for its `cost` from the wharf keeper's friend, who sends it after the\nplayer's next docking at the friend's station; it arrives in the locker.",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "const": "friend"
+            },
+            "npc": {
+              "$ref": "#/$defs/NpcId"
+            },
+            "station": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "npc",
+            "station"
+          ]
+        }
+      ]
+    },
+    "PartState": {
+      "description": "Whether a part is open for business.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "open"
+          ]
+        },
+        {
+          "description": "Shut for now: a scaffold over the module and a closed sign.",
+          "type": "string",
+          "const": "closed"
+        },
+        {
+          "description": "Going up: a scaffold and a dashed sign.",
+          "type": "string",
+          "const": "building"
+        }
+      ]
     },
     "Placement": {
       "description": "Where a part sits, in polar coordinates around the station centre.",
@@ -5264,6 +6573,492 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "Requirement": {
+      "description": "A condition over world state, history and activity counters. Never time: there is\nno clock to name. Used by beats, upgrade unlocks and prestige.",
+      "oneOf": [
+        {
+          "description": "Always holds.",
+          "type": "string",
+          "const": "always"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Requirement"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "all"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Requirement"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "any"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/Requirement"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "not"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "beat_done": {
+              "$ref": "#/$defs/BeatId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "beat_done"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "beat_started": {
+              "$ref": "#/$defs/BeatId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "beat_started"
+          ]
+        },
+        {
+          "description": "Started and not completed.",
+          "type": "object",
+          "properties": {
+            "beat_active": {
+              "$ref": "#/$defs/BeatId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "beat_active"
+          ]
+        },
+        {
+          "description": "The beat has reached at least this step (0 = its first step is under way).",
+          "type": "object",
+          "properties": {
+            "beat_step": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "beat": {
+                  "$ref": "#/$defs/BeatId"
+                }
+              },
+              "required": [
+                "beat",
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "beat_step"
+          ]
+        },
+        {
+          "description": "An activity counter for the player, a station or a region.",
+          "type": "object",
+          "properties": {
+            "counter": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num"
+                },
+                "kind": {
+                  "$ref": "#/$defs/CounterKind"
+                },
+                "region": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/RegionId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "station": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/StationId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "counter"
+          ]
+        },
+        {
+          "description": "At least `at_least` history facts match (default 1).",
+          "type": "object",
+          "properties": {
+            "facts": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num",
+                  "default": 1.0
+                },
+                "query": {
+                  "$ref": "#/$defs/HistoryQuery"
+                },
+                "since": {
+                  "$ref": "#/$defs/Since",
+                  "default": "ever"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "facts"
+          ]
+        },
+        {
+          "description": "The `amount`s of matching facts add up to at least `at_least`.",
+          "type": "object",
+          "properties": {
+            "sum": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num"
+                },
+                "query": {
+                  "$ref": "#/$defs/HistoryQuery"
+                },
+                "since": {
+                  "$ref": "#/$defs/Since",
+                  "default": "ever"
+                }
+              },
+              "required": [
+                "query",
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "sum"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "$ref": "#/$defs/FlagId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "flag"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "trait": {
+              "$ref": "#/$defs/TraitId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "trait"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fitted": {
+              "$ref": "#/$defs/UpgradeId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "fitted"
+          ]
+        },
+        {
+          "description": "The player's ship is this hull.",
+          "type": "object",
+          "properties": {
+            "hull": {
+              "$ref": "#/$defs/HullId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "hull"
+          ]
+        },
+        {
+          "description": "The player owns this craft.",
+          "type": "object",
+          "properties": {
+            "owns": {
+              "$ref": "#/$defs/ShipId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "owns"
+          ]
+        },
+        {
+          "description": "Credits, in centicredits.",
+          "type": "object",
+          "properties": {
+            "credits": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num"
+                }
+              },
+              "required": [
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "credits"
+          ]
+        },
+        {
+          "description": "Units of a ware in the player ship's hold.",
+          "type": "object",
+          "properties": {
+            "cargo": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num"
+                },
+                "ware": {
+                  "$ref": "#/$defs/WareId"
+                }
+              },
+              "required": [
+                "ware",
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "cargo"
+          ]
+        },
+        {
+          "description": "Free room in the player ship's hold.",
+          "type": "object",
+          "properties": {
+            "hold_free": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "$ref": "#/$defs/Num"
+                }
+              },
+              "required": [
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "hold_free"
+          ]
+        },
+        {
+          "description": "The player ship is docked at this station.",
+          "type": "object",
+          "properties": {
+            "docked_at": {
+              "$ref": "#/$defs/StationId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "docked_at"
+          ]
+        },
+        {
+          "description": "The player ship is docked anywhere.",
+          "type": "string",
+          "const": "docked"
+        },
+        {
+          "description": "The player ship is in this region.",
+          "type": "object",
+          "properties": {
+            "in_region": {
+              "$ref": "#/$defs/RegionId"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "in_region"
+          ]
+        },
+        {
+          "description": "The player ship is in `region`, within `within` u of (`x`, `y`): it went\nsomewhere (a rumored vein, a buoy). Any of the numbers can be a tunable.",
+          "type": "object",
+          "properties": {
+            "near": {
+              "type": "object",
+              "properties": {
+                "region": {
+                  "$ref": "#/$defs/RegionId"
+                },
+                "within": {
+                  "$ref": "#/$defs/Num"
+                },
+                "x": {
+                  "$ref": "#/$defs/Num"
+                },
+                "y": {
+                  "$ref": "#/$defs/Num"
+                }
+              },
+              "required": [
+                "region",
+                "x",
+                "y",
+                "within"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "near"
+          ]
+        },
+        {
+          "description": "The player's regard with a faction is at least this tier (by tier ID).",
+          "type": "object",
+          "properties": {
+            "regard": {
+              "type": "object",
+              "properties": {
+                "at_least": {
+                  "type": "string"
+                },
+                "faction": {
+                  "$ref": "#/$defs/FactionId"
+                }
+              },
+              "required": [
+                "faction",
+                "at_least"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "regard"
+          ]
+        },
+        {
+          "description": "A tunable holds this value.",
+          "type": "object",
+          "properties": {
+            "tunable_is": {
+              "type": "object",
+              "properties": {
+                "tunable": {
+                  "$ref": "#/$defs/TunableId"
+                },
+                "value": {
+                  "$ref": "#/$defs/TunableValue"
+                }
+              },
+              "required": [
+                "tunable",
+                "value"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "tunable_is"
+          ]
+        },
+        {
+          "description": "A Luau predicate a script registered with `G.test` (by index within its\nscript). Data files can't hold one.",
+          "type": "object",
+          "properties": {
+            "test": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "test"
+          ]
+        }
+      ]
+    },
+    "Ribbon": {
+      "description": "C's news ribbons.",
+      "type": "string",
+      "enum": [
+        "new",
+        "changed",
+        "closed"
+      ]
+    },
     "Rock": {
       "type": "object",
       "properties": {
@@ -5443,6 +7238,36 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "RoomKind": {
+      "description": "What kind of room a part opens into. Only a brand-new kind needs code in the app;\nevery other change is data.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "market",
+            "notice_wall",
+            "canteen",
+            "greenhouse",
+            "berths"
+          ]
+        },
+        {
+          "description": "The hullwright's wharf: the cradle where parts are fitted.",
+          "type": "string",
+          "const": "wharf"
+        },
+        {
+          "description": "The dockmaster's office: talk, and \"Ask what changed\".",
+          "type": "string",
+          "const": "dockmaster"
+        },
+        {
+          "description": "A general counter: a keeper, their offers and a few lines. Covers most shops.",
+          "type": "string",
+          "const": "counter"
+        }
+      ]
     },
     "RoutePreference": {
       "type": "object",
@@ -5729,6 +7554,12 @@
             }
           ]
         },
+        "stopping": {
+          "description": "Ticks left in the auto-brake's stop after thrust was let go. Speed falls in a\nstraight line to zero over the stop, from whatever it was at the release.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
         "transit": {
           "description": "Riding a lane current.",
           "anyOf": [
@@ -5751,11 +7582,68 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
+    "Since": {
+      "description": "Which facts a history requirement counts.",
+      "oneOf": [
+        {
+          "description": "The whole history.",
+          "type": "string",
+          "const": "ever"
+        },
+        {
+          "description": "Since the beat started (for beat requirements).",
+          "type": "string",
+          "const": "start"
+        },
+        {
+          "description": "Since the current step started.",
+          "type": "string",
+          "const": "step"
+        }
+      ]
+    },
     "SlotId": {
       "description": "Stable slot id, e.g. `slot.key_t`.",
       "type": "string",
       "examples": [
         "slot.key_t"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "SocketDef": {
+      "description": "A socket kind. A hull has at most one of each.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SocketId"
+        },
+        "name": {
+          "description": "\"Drill mount\".",
+          "type": "string"
+        },
+        "place": {
+          "description": "Where it sits on the hull seen from above, for the cradle and the ship's look:\n`nose`, `utility` (behind the cockpit), `belly`, `tail` or `bay`.",
+          "type": "string"
+        },
+        "rack": {
+          "description": "The control rack: holds every control module, uses no budget, and its modules\nare never taken off. Any other socket holds one part.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "place"
+      ]
+    },
+    "SocketId": {
+      "description": "Stable socket id, e.g. `socket.drill`.",
+      "type": "string",
+      "examples": [
+        "socket.drill"
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
@@ -5855,6 +7743,113 @@
           "default": "#d9774b"
         }
       }
+    },
+    "StationPart": {
+      "description": "One part of a station.",
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "description": "A free anchor on the station's kit recipe (`galaxy_kit::anchors`).",
+          "type": "string"
+        },
+        "cause": {
+          "description": "Who changed it and the facts the keeper's line cites. `None`: authored.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartCause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/StationPartId"
+        },
+        "keeper": {
+          "description": "Who keeps it: a person at the station. Their bubbles rise from its module.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "level": {
+          "description": "Upgrades raise it: a bigger module.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 1,
+          "minimum": 0
+        },
+        "line": {
+          "description": "The keeper's line about the part as it is now, in the first person (why it's\nclosed, what's going up). Required whenever there's a cause or it isn't open.",
+          "type": "string"
+        },
+        "module": {
+          "description": "The asset-kit kind it's drawn as (`galaxy_kit::MODULE_KINDS`); the art bible's\nbudget applies.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Its name on its sign and key icon (\"Archive\"), if not its kind's (\"Counter\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "news": {
+          "description": "The latest change, for the station key's ribbon (set by the write that made it).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartNews"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quarter": {
+          "description": "Hubs only: which quarter's sign it sits under.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rollback_line": {
+          "description": "What the keeper says if the part is taken away.",
+          "type": "string"
+        },
+        "room": {
+          "description": "The kind of room it opens into.",
+          "$ref": "#/$defs/RoomKind"
+        },
+        "sign": {
+          "description": "The hanging sign: one line of what it is and offers.",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/PartState",
+          "default": "open"
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "station",
+        "room",
+        "module",
+        "anchor",
+        "keeper",
+        "sign",
+        "rollback_line"
+      ]
+    },
+    "StationPartId": {
+      "description": "Stable station part id, e.g. `part.wharf.market`.",
+      "type": "string",
+      "examples": [
+        "part.wharf.market"
+      ],
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
     },
     "StationRecipe": {
       "description": "A station: a name, a seed for small variations, a palette and parts.",
@@ -6378,6 +8373,106 @@
         }
       ]
     },
+    "UpgradeDef": {
+      "description": "A fitting a station sells: a ship part for a socket, or a control module for the\ncontrol rack (`crate::fit`). Fittings move with the pilot to a new hull; control\nmodules are never taken off, parts can go to the hull's locker and back.",
+      "type": "object",
+      "properties": {
+        "cost": {
+          "description": "Centicredits. Zero: a gift.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "effect": {
+          "description": "One line for the seller's list.",
+          "type": "string"
+        },
+        "grants": {
+          "description": "Flags it sets (control-tier capabilities, from `controls.toml`).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FlagId"
+          }
+        },
+        "id": {
+          "$ref": "#/$defs/UpgradeId"
+        },
+        "look": {
+          "description": "How it looks on the ship (`lens`, `pods`, `fins` ...), for the renderer.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mass": {
+          "description": "Its weight against the hull's free mass.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Modifier"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "power": {
+          "description": "Power pips it draws while fitted.",
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
+        },
+        "seller": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NpcId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "socket": {
+          "description": "The socket it fits (`socket.rack` for control modules). `None` only in a save\nfrom before the fit model, until it's backfilled: then it counts as a module.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SocketId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "description": "Which tab of the wharf at `station` it comes from: Ready (the default, for\n`cost`), Make or Friends.",
+          "$ref": "#/$defs/PartSource"
+        },
+        "station": {
+          "description": "Where it's fitted. `None`: only as a beat reward.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unlock": {
+          "description": "When it appears on the seller's list.",
+          "$ref": "#/$defs/Requirement",
+          "default": "always"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "effect",
+        "cost"
+      ]
+    },
     "UpgradeId": {
       "description": "Stable upgrade id, e.g. `upgrade.mining_lens`.",
       "type": "string",
@@ -6465,6 +8560,37 @@
       ],
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "WharfDef": {
+      "description": "A wharf: a hullwright at a station and the sockets they work on. Its parts are the\nupgrades whose `station` is this one (Ready, Make or Friends by their `source`).",
+      "type": "object",
+      "properties": {
+        "keeper": {
+          "description": "Who fits here.",
+          "$ref": "#/$defs/NpcId"
+        },
+        "name": {
+          "description": "\"Orrin's cradle\".",
+          "type": "string"
+        },
+        "sockets": {
+          "description": "The sockets this wharf fits and removes parts on. Control modules don't need a\nwharf: their seller fits them, as before.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SocketId"
+          }
+        },
+        "station": {
+          "$ref": "#/$defs/StationId"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "station",
+        "keeper",
+        "name",
+        "sockets"
+      ]
     }
   }
 }

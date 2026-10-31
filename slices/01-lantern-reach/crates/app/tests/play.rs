@@ -379,9 +379,9 @@ fn flight_keys_held_into_a_docking_dont_undock_until_pressed_again() {
     let mut ui = UiState::default();
     galaxy_app::script::run(&mut s, &mut ui, "w,wait*3").unwrap();
     assert!(flagship(&s).docked_at.is_none());
-    // Space in the ring with D held: it docks, and stays docked while D is down.
+    // Space in the ring with W held: it docks, and stays docked while W is down.
     let mut keys = Keys::default();
-    keys.press(Key::D);
+    keys.press(Key::W);
     keys.press(Key::Space);
     s.tick(keys.tick_input(false, None));
     assert!(flagship(&s).docked_at.is_some(), "docked");
@@ -389,10 +389,10 @@ fn flight_keys_held_into_a_docking_dont_undock_until_pressed_again() {
     for _ in 0..10 {
         s.tick(keys.tick_input(true, None));
     }
-    assert!(flagship(&s).docked_at.is_some(), "D held from the approach");
-    keys.release(Key::D);
+    assert!(flagship(&s).docked_at.is_some(), "W held from the approach");
+    keys.release(Key::W);
     s.tick(keys.tick_input(true, None));
-    keys.press(Key::D);
+    keys.press(Key::W);
     s.tick(keys.tick_input(true, None));
     assert!(flagship(&s).docked_at.is_none(), "a fresh press flies off");
 }
@@ -435,15 +435,21 @@ fn flying_off_undocks_wasd_flies_and_holding_space_mines() {
     let mut s = Session::new(new_state());
     let mut ui = UiState::default();
     assert!(flagship(&s).docked_at.is_some());
-    galaxy_app::script::run(&mut s, &mut ui, "d,wait*3,d*200").unwrap();
+    // D only turns the ship: it doesn't fly off. W does, and the Wren starts out
+    // facing east, toward Rimewater's ice.
+    galaxy_app::script::run(&mut s, &mut ui, "d,wait*3").unwrap();
+    assert!(flagship(&s).docked_at.is_some(), "turning doesn't undock");
+    galaxy_app::script::run(&mut s, &mut ui, "w,wait*3,w*75").unwrap();
     let ship = flagship(&s);
     assert!(ship.docked_at.is_none());
     assert!(ship.position.x > 150.0, "{:?}", ship.position);
     let let_go = ship.position;
-    // Arcade flight: it brakes to a stop within a few ticks and stays there.
-    galaxy_app::script::run(&mut s, &mut ui, "wait*5").unwrap();
+    // Let go: it coasts, and the auto-brake stops it in a second.
+    galaxy_app::script::run(&mut s, &mut ui, "wait*30").unwrap();
+    assert_eq!(flagship(&s).velocity, Vec2::ZERO);
     let before = flagship(&s).position;
-    assert!(before.distance(let_go) < 5.0);
+    let coasted = before.distance(let_go);
+    assert!((60.0..90.0).contains(&coasted), "coasted {coasted} u");
     galaxy_app::script::run(&mut s, &mut ui, "wait*30").unwrap();
     assert_eq!(
         flagship(&s).position,
@@ -535,10 +541,18 @@ fn overlaps(a: &render::Rect, b: &render::Rect) -> bool {
     a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 }
 
-/// The frame's panels and buttons at `viewport`, built exactly as play builds them.
+/// The frame's panels and buttons at `viewport`, built exactly as play builds them,
+/// with the camera where play puts it.
 fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> FrameParts {
     let view = galaxy_app::view::View::new();
-    let rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::ZERO);
+    let mut rig = galaxy_app::view::CameraRig::new(render::glam::Vec2::ZERO);
+    if let Some(goal) = galaxy_app::frame::camera_goal(s, ui_state, 1.0, viewport) {
+        rig.center = goal.center;
+        rig.tilt = goal.tilt;
+        if let Some(z) = goal.zoom {
+            rig.zoom = z;
+        }
+    }
     let (scene, buttons) = galaxy_app::frame::compose(&view, s, &rig, ui_state, 1.0, 0.0, viewport);
     FrameParts {
         panels: scene.overlay.panels.iter().map(|p| p.rect).collect(),
@@ -555,7 +569,7 @@ fn frame_at(s: &Session, ui_state: &UiState, viewport: render::glam::Vec2) -> Fr
 struct FrameParts {
     panels: Vec<render::Rect>,
     buttons: Vec<ui::Button>,
-    /// Where the dock screen's "fly off to undock" foot is, if it shows.
+    /// Where the open room's "fly off to undock" foot is, if it shows.
     foot: Option<render::Rect>,
 }
 
@@ -587,12 +601,22 @@ const SIZES: [(f32, f32); 7] = [
     (2560.0, 1080.0),
 ];
 
+/// The Wharf's market room open.
+fn market_open() -> UiState {
+    UiState {
+        room: Some(MARKET.clone()),
+        ..UiState::default()
+    }
+}
+
+const MARKET: StationPartId = StationPartId::from_static("part.wharf.market");
+
 #[test]
-fn the_dock_screen_fits_small_and_large_windows() {
+fn the_market_room_fits_small_and_large_windows() {
     let s = busy_dock_session();
     for (w, h) in SIZES {
         let viewport = render::glam::Vec2::new(w, h);
-        let f = frame_at(&s, &UiState::default(), viewport);
+        let f = frame_at(&s, &market_open(), viewport);
         for b in &f.buttons {
             assert!(inside(&b.rect, viewport), "{w}x{h}: {b:?} is clipped");
         }
@@ -612,7 +636,7 @@ fn the_dock_screen_fits_small_and_large_windows() {
 }
 
 #[test]
-fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
+fn the_room_keeps_clear_of_the_goal_the_hold_and_the_key_and_leaves_the_station_in_view() {
     let s = busy_dock_session();
     for (w, h) in SIZES {
         let canvas = ui::canvas(render::glam::Vec2::new(w, h));
@@ -625,23 +649,32 @@ fn the_dock_screen_keeps_clear_of_the_goal_and_the_hold() {
             assert!(!overlaps(&top[0], &top[1]), "{w}x{h}: goal under the hold");
         }
         let mut d = render::Overlay::default();
-        ui::dock_panel(
+        let (dock, _) = ui::rooms::panel(
             &mut d,
             s.world(),
             s.sim().history(),
             &WHARF,
-            &UiState::default(),
+            &MARKET,
+            &market_open(),
             ui::Notices {
                 trade: s.trades.notice.as_deref(),
                 service: None,
                 fitted: None,
             },
             canvas,
-        );
-        let dock = d.panels[0].rect;
+        )
+        .expect("the Wharf has a market");
+        assert_eq!(d.panels[0].rect, dock, "drawn where it's measured");
         for t in &top {
-            assert!(!overlaps(&dock, t), "{w}x{h}: dock {dock:?} under {t:?}");
+            assert!(!overlaps(&dock, t), "{w}x{h}: room {dock:?} under {t:?}");
         }
+        let key = ui::station::key_area(s.world(), &WHARF, canvas).unwrap();
+        assert!(!overlaps(&dock, &key), "{w}x{h}: room on the key");
+        // The station stays in view: the room covers at most about 45% of the screen.
+        assert!(
+            dock.w <= canvas.x * ui::station::ROOM_SHARE + 0.5,
+            "{w}x{h}: {dock:?} is wider than 45%"
+        );
     }
 }
 
@@ -707,7 +740,7 @@ fn a_long_market_scrolls_and_keeps_the_selection_in_view() {
     for selected in [0, n / 2, n - 1] {
         let ui_state = UiState {
             selected,
-            ..UiState::default()
+            ..market_open()
         };
         let f = frame_at(&s, &ui_state, viewport);
         for b in &f.buttons {

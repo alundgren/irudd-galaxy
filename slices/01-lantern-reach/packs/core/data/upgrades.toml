@@ -2,7 +2,15 @@
 # "Upgrades"). Costs are credits. An upgrade appears on its seller's list once its
 # `unlock` holds; unlocks are activity counts, history or beats, never time. Fitting
 # writes `upgrade_fitted`, and each capability it grants writes `cap_unlocked`.
-# Fittings are never removed and move to a new hull at prestige.
+# Fittings move to a new hull at prestige.
+#
+# Every upgrade names its `socket` (ship_parts.toml). Control modules go in the
+# control rack (`socket.rack`): no power or mass, never taken off. Ship parts go in a
+# socket that holds one part, draw `power` and weigh `mass`, carry a `look` for the
+# renderer, and come from one tab of the wharf at their `station`: Ready (the default,
+# for `cost`), Make (`source = { from = "make", blueprint, materials }`, no credits)
+# or Friends (`source = { from = "friend", npc, station }`, for `cost`, sent after the
+# next docking at the friend's station). A part taken off goes to the hull's locker.
 # Requirements: crates/contract/schemas/data-upgrades.json (`Requirement`). A number
 # can be `{ tunable = "id" }` to share a threshold with a beat (pacing.toml).
 
@@ -15,6 +23,10 @@ seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
 unlock = { beat_done = "beat.b03_first_delivery" }
 modifiers = [{ modifier = "mining_rate", factor = 1.5 }]
+socket = "socket.drill"
+power = 2
+mass = 1
+look = "lens"
 
 [[upgrade]]
 id = "upgrade.nav_chip"
@@ -23,6 +35,7 @@ effect = "Click a point near your ship and it flies there"
 cost = 225
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
+socket = "socket.rack"
 grants = ["cap.click_fly"]
 [upgrade.unlock]
 all = [
@@ -37,6 +50,7 @@ effect = "Click a rock and your ship flies over and mines it"
 cost = 700
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
+socket = "socket.rack"
 grants = ["cap.click_mine"]
 [upgrade.unlock]
 all = [
@@ -51,6 +65,7 @@ effect = "Click a station and your ship flies in and docks"
 cost = 700
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
+socket = "socket.rack"
 grants = ["cap.click_dock"]
 [upgrade.unlock]
 all = [
@@ -66,6 +81,7 @@ effect = "Click a place on the map and your ship goes there"
 cost = 0
 seller = "npc.rook_adeyemi"
 station = "station.cinder_hook"
+socket = "socket.rack"
 grants = ["cap.map_travel"]
 unlock = { beat_done = "beat.b07_cinder_drift" }
 
@@ -79,6 +95,92 @@ seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
 unlock = { sum = { query = { kind = "sell", ship = "ship.player" }, at_least = 150 } }
 modifiers = [{ modifier = "hold", units = 10 }]
+socket = "socket.hold"
+mass = 1
+look = "hold_extender"
+
+# Cheaper and earlier than the extender, but heavy: on the Wren they cost a little top
+# speed and turn. Fitting them puts a hold extender in the locker, and back.
+[[upgrade]]
+id = "upgrade.hold_pods"
+name = "Hold pods"
+effect = "Your hold carries 10 more; heavy, so a little slower, with wider turns"
+cost = 450
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { sum = { query = { kind = "sell", ship = "ship.player" }, at_least = 60 } }
+modifiers = [{ modifier = "hold", units = 10 }]
+socket = "socket.hold"
+mass = 4
+look = "pods"
+
+# Made at Orrin's cradle once its blueprint turns up (ship_parts.toml).
+[[upgrade]]
+id = "upgrade.long_drill"
+name = "Long-throw drill"
+effect = "You mine from 30 u further off"
+cost = 0
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { flag = "blueprint.long_drill" }
+modifiers = [{ modifier = "mining_reach", units = 30.0 }]
+socket = "socket.drill"
+power = 3
+mass = 2
+look = "long_drill"
+[upgrade.source]
+from = "make"
+blueprint = "blueprint.long_drill"
+materials = [{ ware = "ware.iron_ore", units = 8 }, { ware = "ware.refined_plate", units = 4 }]
+
+[[upgrade]]
+id = "upgrade.swift_fins"
+name = "Swift fins"
+effect = "You turn a fifth faster"
+cost = 0
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { flag = "blueprint.swift_fins" }
+modifiers = [{ modifier = "turn_rate", factor = 1.2 }]
+socket = "socket.engine"
+power = 1
+mass = 1
+look = "fins"
+[upgrade.source]
+from = "make"
+blueprint = "blueprint.swift_fins"
+materials = [{ ware = "ware.refined_plate", units = 4 }]
+
+# Orrin orders it from Hesper at the Observatory, who grinds lenses; it comes after
+# your next docking there. Offered once you've been to the Observatory.
+[[upgrade]]
+id = "upgrade.seam_lamp"
+name = "Seam lamp"
+effect = "Shows what's left in rocks within 300 u"
+cost = 900
+seller = "npc.orrin_vale"
+station = "station.lantern_wharf"
+unlock = { counter = { kind = "dockings", at_least = 1, station = "station.glass_drift_observatory" } }
+modifiers = [{ modifier = "seam_lamp", range = 300.0 }]
+socket = "socket.utility"
+power = 2
+look = "seam_lamp"
+source = { from = "friend", npc = "npc.hesper_lune", station = "station.glass_drift_observatory" }
+
+# Juno's rough rig at Cinder Hook: drill mounts only, heavier and cheaper.
+[[upgrade]]
+id = "upgrade.rough_lens"
+name = "Rough lens"
+effect = "You mine 40% faster; heavy"
+cost = 350
+seller = "npc.juno_brask"
+station = "station.cinder_hook"
+unlock = { counter = { kind = "dockings", at_least = 1, station = "station.cinder_hook" } }
+modifiers = [{ modifier = "mining_rate", factor = 1.4 }]
+socket = "socket.drill"
+power = 2
+mass = 3
+look = "rough_lens"
 
 # Docked at all five authored stations.
 [[upgrade]]
@@ -88,6 +190,7 @@ effect = "Live prices at stations within 1200 u, on the map"
 cost = 1800
 seller = "npc.hesper_lune"
 station = "station.glass_drift_observatory"
+socket = "socket.rack"
 # The economy's price reach reads this flag (economy.toml [reach.flags]).
 grants = ["flag.price_glass"]
 modifiers = [{ modifier = "price_glass", range = 1200.0 }]
@@ -107,6 +210,7 @@ effect = "Shift-click to line up orders; they run in turn"
 cost = 2000
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
+socket = "socket.rack"
 grants = ["cap.queues"]
 [upgrade.unlock]
 all = [
@@ -123,6 +227,7 @@ effect = "Save a line of orders as a loop that repeats"
 cost = 0
 seller = "npc.orrin_vale"
 station = "station.lantern_wharf"
+socket = "socket.rack"
 grants = ["cap.loops"]
 unlock = { facts = { query = { kind = "queue_done", ship = "ship.player" }, at_least = 4 } }
 

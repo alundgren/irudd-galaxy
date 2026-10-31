@@ -139,7 +139,7 @@ return G.script({
 			act = 3,
 			kind = "situation",
 			giver = ids.ODO,
-			goal = "Rimewater is thin, and Kettle Dock is short of ice. Odo has two ideas.",
+			goal = "Odo says Rimewater is thin and Kettle Dock is short of ice. He has two ideas.",
 			requires = {
 				G.done(ids.B11),
 				-- A calm moment: the player docked. (Nothing else in core changes the

@@ -32,6 +32,10 @@ use crate::ui::{self, Amount, Button, UiAction, UiState};
 use crate::view::map::map_camera;
 use crate::view::{CameraRig, View, g};
 
+/// How far the mouse travels, in logical pixels, before a press on a part is a drag
+/// rather than a click.
+const DRAG_PX: f32 = 6.0;
+
 #[derive(Clone, Debug, Default)]
 pub struct PlayArgs {
     pub beat: Option<u32>,
@@ -73,6 +77,8 @@ pub fn key_of(code: KeyCode) -> Option<Key> {
         KeyCode::Digit7 | KeyCode::Numpad7 => Key::Answer(6),
         KeyCode::Digit8 | KeyCode::Numpad8 => Key::Answer(7),
         KeyCode::Digit9 | KeyCode::Numpad9 => Key::Answer(8),
+        KeyCode::KeyL => Key::Log,
+        KeyCode::Enter | KeyCode::NumpadEnter => Key::Enter,
         _ => return None,
     })
 }
@@ -106,6 +112,17 @@ struct App {
     audio: galaxy_audio::Audio,
     /// Which cues each tick asks for.
     cues: crate::sound::Cues,
+    /// Where the camera was framing (the dock and the open room): a change glides.
+    framing: (Option<StationId>, Option<StationPartId>),
+    /// Where the left button went down on a part at the cradle: a drag starts there.
+    press_at: Option<G2>,
+    /// The view's settings (station life) and where they're kept.
+    view_settings: crate::view::life::ViewSettings,
+    view_settings_path: Option<PathBuf>,
+    /// The station themes from the packs folder, for the view.
+    themes: crate::view::themes::Themes,
+    /// The radio: tuning and the mix, played through `audio` ([`crate::radio`]).
+    radio: crate::radio::Radio,
 }
 
 /// Starts the game-master bridge [`Game::open_gm`] opened on the session's game:
@@ -201,16 +218,63 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     };
     let (mut game, bridge) =
         Game::open_gm(state, &opts, choice.path(), bridge_opts).map_err(|e| (4, e))?;
+    // Every OpenRouter call is logged beside the save (only when the mind calls out).
+    if game.calls_out()
+        && let Err(e) = game.open_call_log(&galaxy_mind::calllog::path_for(choice.path()))
+    {
+        eprintln!("{e}");
+    }
+    // The radio's music beside the save: the cache plays; with a key, new tracks.
+    game.open_music(choice.path());
     for note in game.take_notes() {
         eprintln!("{note}");
     }
     let packs_loaded: Vec<String> = game.reports().iter().map(|r| r.pack.to_string()).collect();
     let mut session = Session::with_game(game);
+    // How far each hint has taught in this save; a record that can't be read starts
+    // over rather than stopping the game.
+    let rules = ui::HintRules::load(&crate::game::core_data(&opts.packs)).map_err(|e| (4, e))?;
+    let taught = saves::read_hints(choice.path()).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        Default::default()
+    });
+    session.hints = ui::HintBook::new(rules, taught);
+    // Where talk bubbles rise from, and which lines wait at which dock in this save. A
+    // save with no record (or one that can't be read) starts from its current visit.
+    session.anchors =
+        ui::talk::TalkAnchors::load(&crate::game::core_data(&opts.packs)).map_err(|e| (4, e))?;
+    match saves::read_talk(choice.path()) {
+        Ok(Some(record)) => session.talk = ui::talk::TalkBook::from_record(&record),
+        Ok(None) => {}
+        Err(e) => eprintln!("{e}"),
+    }
     // Staged packs apply now (loading is a calm moment), and the live socket opens.
     let mut save = save;
     let bridge = start_bridge(bridge, &mut session, &mut save);
     session.begin();
     let cues = crate::sound::Cues::new(session.world());
+    // Station themes (#47, 4.1): the packs folder's, checked against the world.
+    let themes = crate::view::themes::Themes::load(&crate::game::core_data(&opts.packs))
+        .and_then(|t| t.check(session.world()).map(|()| t))
+        .map_err(|e| (4, e))?;
+    let view_settings_path = folder
+        .as_ref()
+        .map(|f| f.dir().join(crate::view::life::SETTINGS_FILE));
+    let view_settings = view_settings_path
+        .as_deref()
+        .map_or_else(Default::default, |p| {
+            let (settings, note) = crate::view::life::ViewSettings::load(p);
+            if let Some(note) = note {
+                eprintln!("view: {note}");
+            }
+            settings
+        });
+    let radio = crate::radio::Radio::new(
+        session.game().radio().clone(),
+        themes.clone(),
+        audio.settings().radio_on,
+    )
+    .with_music(session.game().music().clone());
     let center = session.flagship().map_or(G2::ZERO, |s| g(s.position));
     let mut app = App {
         session,
@@ -234,6 +298,12 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
         bridge,
         audio,
         cues,
+        framing: (None, None),
+        press_at: None,
+        view_settings,
+        view_settings_path,
+        themes,
+        radio,
     };
     let event_loop = EventLoop::new().map_err(|e| (1, format!("no window system: {e}")))?;
     let run = event_loop.run_app(&mut app);
@@ -259,6 +329,8 @@ pub fn play(args: PlayArgs) -> Result<Value, (u8, String)> {
     // Closes the socket and removes the discovery files.
     drop(bridge);
     let path = saver.path().to_path_buf();
+    saver.save_hints(session.hints.counts().clone());
+    saver.save_talk(session.talk.record());
     let saved = saver.finish(Some(session.state().clone()));
     run.map_err(|e| (1, e.to_string()))?;
     if let Some(e) = error {
@@ -327,6 +399,7 @@ impl App {
         };
         let viewport = r.renderer.logical_size();
         let time = (Instant::now() - self.started).as_secs_f32();
+        crate::frame::prepare(&mut r.view, &mut r.renderer, &self.session, &self.ui);
         let (scene, _) = crate::frame::compose(
             &r.view,
             &self.session,
@@ -343,14 +416,44 @@ impl App {
         self.session.flagship().and_then(|f| f.docked_at.clone())
     }
 
-    fn autosave(&self) {
+    fn autosave(&mut self) {
         self.saver.save(self.session.state().clone());
+        if self.session.hints.take_changed() {
+            self.saver.save_hints(self.session.hints.counts().clone());
+        }
+        if self.session.talk.take_changed() {
+            self.saver.save_talk(self.session.talk.record());
+        }
     }
 
     fn viewport(&self) -> G2 {
         self.running
             .as_ref()
             .map_or(G2::new(1280.0, 720.0), |r| r.renderer.logical_size())
+    }
+
+    /// Q, or the PAUSED card's button: station life full or quiet, kept for next time.
+    fn toggle_life(&mut self) {
+        self.view_settings.life = self.view_settings.life.toggled();
+        if let Some(r) = &mut self.running {
+            r.view.life = self.view_settings.life;
+        }
+        if let Some(path) = self.view_settings_path.clone() {
+            let settings = self.view_settings;
+            let _ = std::thread::Builder::new()
+                .name("view-settings".into())
+                .spawn(move || {
+                    if let Err(e) = settings.save(&path) {
+                        eprintln!("view: {e}");
+                    }
+                });
+        }
+    }
+
+    /// The radio's buttons, or R: tunes, and keeps On or Off in the sound settings.
+    fn tune_radio(&mut self, t: crate::radio::Tune) {
+        let on = self.radio.tune(self.session.world(), t);
+        self.audio.set_radio_on(on);
     }
 
     fn toggle_pause(&mut self) {
@@ -380,7 +483,9 @@ impl App {
             UiAction::Trade { line, amount } => self.trade(line, amount),
             UiAction::Select(i) => self.ui.selected = i,
             UiAction::CloseMap => self.ui.map_open = false,
-            UiAction::Service(req) => self.session.request_service(req),
+            UiAction::Service(req) => {
+                ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
+            }
             UiAction::Prestige(to) => self.ui.confirm = Some(to),
             UiAction::ConfirmPrestige(to) => {
                 self.ui.confirm = None;
@@ -395,10 +500,80 @@ impl App {
             UiAction::AskWhatChanged => {
                 self.session.ask_what_changed();
             }
+            UiAction::NextLine => {
+                self.session.next_line();
+            }
+            UiAction::SkipTalk => self.session.skip_talk(),
+            UiAction::ToggleLog => self.ui.toggle_log(&mut self.session.talk),
+            UiAction::LogFrom(first) => self.ui.log_first = first,
+            UiAction::Replay(r) => self.ui.replay = r,
+            UiAction::Absorb => {}
+            UiAction::OpenRoom(id) => self.open_room(Some(id)),
+            UiAction::CloseRoom => self.open_room(None),
+            UiAction::Wharf(a) => self.wharf(&a),
+            UiAction::Radio(t) => self.tune_radio(t),
         }
     }
 
+    /// A click at the hullwright's cradle: a tab, a socket, the locker, a confirm.
+    fn wharf(&mut self, a: &ui::rooms::fit::WharfAction) {
+        let Some(station) = self.docked() else { return };
+        let (world, history) = (self.session.world(), self.session.sim().history());
+        if let Some(req) = self.ui.wharf.click(world, history, &station, a) {
+            ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
+        }
+    }
+
+    /// The left button came up: the end of a drag at the cradle (a drop on a socket or
+    /// the locker), or a click that picked a part up.
+    fn released(&mut self) {
+        let Some(at) = self.press_at.take() else {
+            return;
+        };
+        if self.session.is_paused() {
+            return;
+        }
+        let cursor = self.ui.cursor.unwrap_or(at);
+        let moved = cursor.distance(at) > DRAG_PX;
+        let over = ui::rooms::cradle::over_of(ui::hit(&self.buttons, cursor));
+        self.ui.wharf.hover(over);
+        let (world, history) = (self.session.world(), self.session.sim().history());
+        if let Some(req) = self.ui.wharf.release(world, history, moved) {
+            ui::rooms::fit::send(&mut self.session, &mut self.ui.wharf, req);
+        }
+    }
+
+    /// Opens a station part's room beside its module, or (`None`) goes back to the
+    /// whole station. The market's selection and the services' page start over.
+    fn open_room(&mut self, room: Option<StationPartId>) {
+        if self.docked().is_none() {
+            return;
+        }
+        if room != self.ui.room {
+            self.ui.selected = 0;
+            self.ui.services_first = 0;
+            self.ui.wharf.reset();
+            self.press_at = None;
+        }
+        self.ui.room = room;
+    }
+
     fn key_pressed(&mut self, key: Key) {
+        // At the cradle, Esc puts down a part in hand (or closes a confirm) first.
+        if key == Key::Escape && !self.session.is_paused() && self.ui.wharf.back() {
+            self.press_at = None;
+            return;
+        }
+        // At the dock, Esc goes back from a room to the whole station first.
+        if key == Key::Escape
+            && !self.session.is_paused()
+            && self.ui.room.is_some()
+            && self.docked().is_some()
+            && self.ui.confirm.is_none()
+        {
+            self.open_room(None);
+            return;
+        }
         if matches!(key, Key::P | Key::Escape) {
             self.toggle_pause();
             return;
@@ -408,6 +583,12 @@ impl App {
         }
         match key {
             Key::M => self.ui.map_open = !self.ui.map_open,
+            Key::Log if !self.ui.map_open && self.ui.confirm.is_none() => {
+                self.ui.toggle_log(&mut self.session.talk);
+            }
+            Key::Enter if !self.ui.map_open && self.ui.confirm.is_none() => {
+                self.ui.enter(&mut self.session);
+            }
             Key::ZoomIn => self.rig.zoom_by(1.0),
             Key::ZoomOut => self.rig.zoom_by(-1.0),
             // The dock screen is mouse-first: WASD stays the ship's (flying off undocks).
@@ -422,9 +603,36 @@ impl App {
 
     fn clicked(&mut self) {
         if self.session.is_paused() {
+            // The PAUSED card's one button: station life.
+            let card = crate::view::life::paused_card(self.view_settings.life);
+            if let Some(c) = self.ui.cursor
+                && card
+                    .toggle_rects(self.viewport())
+                    .first()
+                    .is_some_and(|r| ui::contains(r, c))
+            {
+                self.toggle_life();
+            }
             return;
         }
         let Some(cursor) = self.ui.cursor else { return };
+        // A click during a camera glide lands it at once; one during the fitting
+        // animation ends it.
+        if self.rig.gliding() {
+            self.rig.skip_glide();
+            return;
+        }
+        if self.ui.wharf.skip() {
+            return;
+        }
+        // A press on a part at the cradle picks it up: a drag, or (let go where it
+        // was) a click.
+        if let Some(UiAction::Wharf(a)) = ui::hit(&self.buttons, cursor)
+            && self.ui.wharf.press(self.session.world(), a)
+        {
+            self.press_at = Some(cursor);
+            return;
+        }
         if let Some(action) = ui::hit(&self.buttons, cursor).cloned() {
             self.act(action);
             return;
@@ -479,20 +687,52 @@ impl App {
             }
             if out.undocked {
                 self.ui.confirm = None;
+                self.ui.room = None;
+                self.ui.wharf.reset();
+                self.press_at = None;
             }
+            ui::rooms::fit::settle(&self.session, &mut self.ui.wharf);
         }
+        self.ui.wharf.advance(dt as f32);
         for note in self.session.game_mut().take_notes() {
             eprintln!("{note}");
         }
+        // The radio follows the flagship: its mix to the audio, its widget to the HUD.
+        let radio = self
+            .radio
+            .update(self.session.world(), self.session.sim().history());
+        self.audio.radio(&radio.mix);
+        self.ui.radio = radio.ui;
         let alpha = self.step.alpha();
         let time = (now - self.started).as_secs_f32();
         let Some(r) = &mut self.running else { return };
         r.view.sync(&mut r.renderer, self.session.world());
         let viewport = r.renderer.logical_size();
-        if let Some(target) = crate::frame::camera_target(&self.session, &self.rig, alpha, viewport)
-        {
-            self.rig.follow(target, dt as f32);
+        if let Some(goal) = crate::frame::camera_goal(&self.session, &self.ui, alpha, viewport) {
+            // Docking, undocking and opening or closing a room glide the camera there.
+            let framing = (
+                self.session.flagship().and_then(|f| f.docked_at.clone()),
+                crate::frame::open_room(&self.session, &self.ui).map(|p| p.id.clone()),
+            );
+            if framing != self.framing {
+                self.framing = framing;
+                self.rig.begin_glide();
+            }
+            let world = self.session.world();
+            match goal.zoom {
+                Some(zoom) => self.rig.glide_to(goal.center, zoom, goal.tilt, dt as f32),
+                None if self.rig.gliding() => {
+                    let zoom = self.rig.flight_zoom(world);
+                    self.rig.glide_to(goal.center, zoom, goal.tilt, dt as f32);
+                }
+                None => {
+                    self.rig.fit(world);
+                    self.rig.tilt = goal.tilt;
+                    self.rig.follow(goal.center, dt as f32);
+                }
+            }
         }
+        crate::frame::prepare(&mut r.view, &mut r.renderer, &self.session, &self.ui);
         let (scene, buttons) = crate::frame::compose(
             &r.view,
             &self.session,
@@ -535,7 +775,7 @@ impl ApplicationHandler for App {
         }
         let attrs = Window::default_attributes()
             .with_title("The Lantern Reach")
-            .with_inner_size(LogicalSize::new(1280.0, 760.0))
+            .with_inner_size(LogicalSize::new(ui::DESIGN.x, ui::DESIGN.y))
             .with_min_inner_size(LogicalSize::new(ui::MIN_WINDOW.x, ui::MIN_WINDOW.y));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
@@ -554,11 +794,17 @@ impl ApplicationHandler for App {
             }
         };
         let mut view = View::new();
+        view.set_themes(self.themes.clone());
+        view.life = self.view_settings.life;
         view.sync(&mut renderer, self.session.world());
-        if let Some(target) =
-            crate::frame::camera_target(&self.session, &self.rig, 1.0, renderer.logical_size())
+        if let Some(goal) =
+            crate::frame::camera_goal(&self.session, &self.ui, 1.0, renderer.logical_size())
         {
-            self.rig.center = target;
+            self.rig.settle(&goal, self.session.world());
+            self.framing = (
+                self.docked(),
+                crate::frame::open_room(&self.session, &self.ui).map(|p| p.id.clone()),
+            );
         }
         self.last = Instant::now();
         self.step.reset();
@@ -601,11 +847,32 @@ impl ApplicationHandler for App {
                     }
                     return;
                 }
+                if code == KeyCode::F2 {
+                    if down && !repeat {
+                        crate::ui::fps::toggle();
+                    }
+                    return;
+                }
                 // N mutes and unmutes, paused or not. Not a game key: it never reaches
                 // the sim.
                 if code == KeyCode::KeyN {
                     if down && !repeat {
                         self.audio.toggle_mute();
+                    }
+                    return;
+                }
+                // R tunes the radio to the next channel in range (past the last, off; off,
+                // on again), as its Next button does. Not a game key.
+                if code == KeyCode::KeyR {
+                    if down && !repeat && !self.session.is_paused() {
+                        self.tune_radio(crate::radio::Tune::Cycle);
+                    }
+                    return;
+                }
+                // Q turns a docked station's ambient life down or back up, paused or not.
+                if code == KeyCode::KeyQ {
+                    if down && !repeat {
+                        self.toggle_life();
                     }
                     return;
                 }
@@ -620,6 +887,13 @@ impl ApplicationHandler for App {
                     .as_ref()
                     .map_or(1.0, |r| r.renderer.scale_factor());
                 self.ui.cursor = Some(G2::new(position.x as f32, position.y as f32) / scale);
+                // A part in hand: which socket (or the locker) it's over now.
+                if self.ui.wharf.held.is_some()
+                    && let Some(c) = self.ui.cursor
+                {
+                    let over = ui::rooms::cradle::over_of(ui::hit(&self.buttons, c));
+                    self.ui.wharf.hover(over);
+                }
             }
             WindowEvent::CursorLeft { .. } => self.ui.cursor = None,
             WindowEvent::MouseInput {
@@ -628,10 +902,25 @@ impl ApplicationHandler for App {
                 ..
             } => self.clicked(),
             WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => self.released(),
+            WindowEvent::MouseInput {
                 state: ElementState::Pressed,
                 button: MouseButton::Right,
                 ..
             } => {
+                // At the dock, a right-click puts down a part in hand, or goes back to
+                // the whole station.
+                if !self.ui.map_open && !self.session.is_paused() && self.docked().is_some() {
+                    if self.ui.wharf.back() {
+                        self.press_at = None;
+                    } else if self.ui.confirm.is_none() {
+                        self.open_room(None);
+                    }
+                    return;
+                }
                 if !self.ui.map_open
                     && !self.session.is_paused()
                     && self.docked().is_none()
@@ -655,7 +944,8 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                if self.ui.map_open || self.session.is_paused() {
+                // Docked, the camera frames the station; the wheel is for flying.
+                if self.ui.map_open || self.session.is_paused() || self.docked().is_some() {
                     return;
                 }
                 let steps = match delta {

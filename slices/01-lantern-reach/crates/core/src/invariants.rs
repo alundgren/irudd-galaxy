@@ -21,6 +21,7 @@ pub fn builtin() -> Vec<Box<dyn Invariant>> {
         Box::new(RockWithinInitial),
         Box::new(PricesInBand),
         Box::new(NumbersFinite),
+        Box::new(FitsHold),
     ]
 }
 
@@ -66,7 +67,9 @@ impl Invariant for KeysMatchIds {
         keys_match(&w.ships, "ship")?;
         keys_match(&w.factions, "faction")?;
         keys_match(&w.npcs, "npc")?;
-        keys_match(&w.rumors, "rumor")
+        keys_match(&w.rumors, "rumor")?;
+        keys_match(&w.station_parts, "station part")?;
+        keys_match(&w.happenings, "happening")
     }
 }
 
@@ -129,6 +132,19 @@ impl Invariant for ReferencesResolve {
             exists(&w.regions, &s.region, id)?;
             maybe(&w.factions, &s.owner, id)?;
         }
+        for (id, p) in &w.station_parts {
+            exists(&w.stations, &p.station, id)?;
+            exists(&w.npcs, &p.keeper, id)?;
+        }
+        let mut running = std::collections::BTreeSet::new();
+        for (id, h) in &w.happenings {
+            exists(&w.stations, &h.station, id)?;
+            exists(&w.npcs, &h.line.speaker, id)?;
+            // The calm rule: at most one happening runs at a station at a time.
+            if h.is_active() && !running.insert(&h.station) {
+                return Err(format!("{id}: a second happening running at {}", h.station));
+            }
+        }
         for (id, m) in &w.markets {
             exists(&w.stations, id, &"market")?;
             for ware in m.lines.keys() {
@@ -152,6 +168,12 @@ impl Invariant for ReferencesResolve {
             maybe(&w.stations, &s.docked_at, id)?;
             for ware in s.hold.cargo.keys() {
                 exists(&w.wares, ware, id)?;
+            }
+            for c in s.hold.consigned.values() {
+                exists(&w.wares, &c.ware, id)?;
+                exists(&w.npcs, &c.owner, id)?;
+                exists(&w.npcs, &c.to, id)?;
+                exists(&w.stations, &c.station, id)?;
             }
             if let Some(t) = &s.activity.transit {
                 exists(&w.lanes, &t.lane, id)?;
@@ -210,6 +232,57 @@ impl Invariant for HoldWithinCapacity {
             if s.hold.total() > capacity {
                 return Err(format!("{id} holds {} of {capacity}", s.hold.total()));
             }
+        }
+        Ok(())
+    }
+}
+
+/// The fit model holds together: a single socket on the flagship holds one part, a
+/// part is in one place at a time (fitted, one locker, or on order), every locker and
+/// order belongs to a ship that exists, and the flagship's parts stay within its power
+/// cap. The hullwright refuses a fit over the cap while planning; this catches two fits
+/// planned on the same starting world in one tick, so the second batch is undone.
+pub struct FitsHold;
+
+impl Invariant for FitsHold {
+    fn name(&self) -> &'static str {
+        "fits_hold"
+    }
+    fn check(&self, w: &WorldState) -> Result<(), String> {
+        use galaxy_contract::fit;
+        let mut taken = std::collections::BTreeMap::new();
+        for u in &w.player.fittings {
+            if fit::is_module(w, u) {
+                continue;
+            }
+            if let Some(socket) = fit::part(w, u).and_then(|d| d.socket.as_ref())
+                && let Some(other) = taken.insert(socket, u)
+            {
+                return Err(format!("{socket} holds both {other} and {u}"));
+            }
+        }
+        let mut seen: std::collections::BTreeSet<&UpgradeId> = w.player.fittings.iter().collect();
+        for (ship, locker) in &w.progress.fit.lockers {
+            exists(&w.ships, ship, &"locker")?;
+            for u in locker {
+                if !seen.insert(u) {
+                    return Err(format!("{u} is in {ship}'s locker and somewhere else too"));
+                }
+            }
+        }
+        for (u, o) in &w.progress.fit.orders {
+            exists(&w.ships, &o.ship, u)?;
+            if !seen.insert(u) {
+                return Err(format!("{u} is on order and the player has it already"));
+            }
+        }
+        if let Some(b) = fit::flagship_budget(w)
+            && b.power_used > b.power_cap
+        {
+            return Err(format!(
+                "fitted parts draw {} power; the hull carries {}",
+                b.power_used, b.power_cap
+            ));
         }
         Ok(())
     }

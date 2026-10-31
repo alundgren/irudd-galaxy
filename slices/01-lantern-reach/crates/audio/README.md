@@ -1,6 +1,6 @@
 # galaxy-audio
 
-The game's sound: five short cues, synthesised in code, played through kira. Earlier
+The game's sound: five short cues and the radio, synthesised in code, played through kira. Earlier
 prototypes had a mining-beam loop and an engine loop, and both were rejected as
 annoying. They were continuous tones tied to held keys, so they told the player
 nothing new after the first second and there was no way to get away from them. These
@@ -44,6 +44,32 @@ Everything is in D major, so cues never clash. Each cue is a `CueSpec` in
 numbers on purpose. A game-master motif can later be the same parameter set, rendered
 and checked the same way.
 
+## Radio
+
+The one sound that isn't a cue (#47, 5.1). It follows the same rules where they apply,
+and these where they don't:
+
+- **It tells the player something**: a station or beacon is near. Each channel has a
+  range; the music's volume follows the signal, full near the source and fading to
+  nothing at the edge. A soft static creeps in as the signal weakens and fades out
+  with it. Out of range of everything, the radio is silent. Where two channels
+  overlap, the stronger takes over smoothly (`radio::crossfade`).
+- **Never tied to a key, and always escapable**: the HUD's radio has Prev, Off and
+  Next (R does Next, past the last channel to Off), and Off is kept in `sound.toml`
+  (`radio_on`). It plays only while flying: docked, it fades out.
+- **Under everything else**: its own track (`radio = 0.50` in `sound.toml`), under the
+  world. The placeholder loops peak at -12 dBFS with an RMS under -24 dBFS, the static
+  at -14 dBFS before its gain (at most 0.3), and the paused card fades it like the
+  world.
+- **Soft spectrum**: `placeholder.calm` (a slow I-vi-IV-V arpeggio over a soft bass,
+  12 s) and `placeholder.drift` (four slow, low chords swelling in, 16 s) use the
+  cues' notes and timbre in D major, low-passed at 1.4 kHz, with almost nothing in the
+  2 to 5 kHz band. Each folds the tails of its last notes back onto its start, so it
+  loops without a seam. The static is pink noise through two low-passes.
+- Generated tracks from the music library are MP3 files on disk, streamed through
+  kira's `mp3` feature (symphonia) and looped; one that won't decode plays the calm
+  placeholder instead.
+
 ## How it works
 
 - `synth`: renders a patch offline with fundsp into mono takes at 48 kHz. Each note
@@ -55,20 +81,27 @@ and checked the same way.
   finished samples.
 - `director`: the rules above, as a pure function of cue, seed and clock. It is
   tested headless.
-- `Audio`: a kira manager with UI and world sub-tracks under the main track. While the
-  game is paused the world track fades to silence; the UI track keeps playing. If no
+- `radio`: the signal, static and crossfade maths, the placeholder loops and the
+  static, as pure functions tested headless.
+- `Audio`: a kira manager with UI, world and radio sub-tracks under the main track.
+  While the game is paused the world and radio tracks fade to silence; the UI track
+  keeps playing. If no
   device opens, the game is silent and carries on.
 - `settings`: `sound.toml` in the save folder, written with the defaults the first
   time:
 
   ```toml
   # The Lantern Reach: sound. Volumes go from 0.0 (off) to 1.0 (full).
-  # N in the game mutes and unmutes.
+  # N in the game mutes and unmutes. The radio's Off button (or R) sets radio_on.
   master = 0.50
   ui = 0.60
   world = 0.80
+  radio = 0.50
   muted = false
+  radio_on = true
   ```
+
+  A file from before the radio gets `radio` and `radio_on` at their defaults.
 
   A file that can't be read leaves the defaults in place and is never overwritten that
   session: N still mutes, in memory, and says once that it isn't kept. Changes are

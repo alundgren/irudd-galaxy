@@ -43,8 +43,8 @@ fn session(state: SimState) -> Session {
     s
 }
 
-/// A player at the keys: WASD toward where they want to go (and to fly off a dock), Space
-/// for the one thing in reach, the dock screen's buttons.
+/// A player at the keys: A/D to face where they want to go and W to get there (and to
+/// fly off a dock), Space for the one thing in reach, the dock screen's buttons.
 struct Pilot {
     s: Session,
     keys: Keys,
@@ -95,22 +95,27 @@ impl Pilot {
         }
     }
 
-    /// Holds the WASD keys that point at `to` until within `within` of it.
+    /// Turns toward `to` with A/D and holds W while there's room to stop, then lets go
+    /// and lets the auto-brake park the ship within `within` of it.
     fn fly_to(&mut self, to: Vec2, within: f32) {
         for _ in 0..3000 {
-            let at = self.ship().position;
-            let d = to - at;
-            if d.length() <= within {
+            let ship = self.ship();
+            if ship.position.distance(to) <= within && ship.velocity == Vec2::ZERO {
                 self.let_go();
                 self.ticks(3);
                 return;
             }
-            let tol = within * 0.5;
+            // The keys `steer_to` would press, rounded to what a keyboard can do: turn
+            // while more than half a tick's turn is left, W while slower than wanted.
+            let feel = galaxy_ship::flight::Feel::of_ship(self.s.world(), ship).unwrap();
+            let motion = galaxy_ship::flight::Motion::of(ship);
+            let axes = galaxy_ship::flight::steer_to(&feel, motion, to, within);
+            let along = ship.velocity.x * motion.forward().x + ship.velocity.y * motion.forward().y;
             for (key, on) in [
-                (Key::D, d.x > tol),
-                (Key::A, d.x < -tol),
-                (Key::W, d.y > tol),
-                (Key::S, d.y < -tol),
+                (Key::D, axes.x > 0.5),
+                (Key::A, axes.x < -0.5),
+                (Key::W, axes.y > 0.0 && axes.y * feel.speed > along),
+                (Key::S, false),
             ] {
                 if on {
                     self.keys.press(key);
@@ -173,7 +178,8 @@ impl Pilot {
                 .clone();
             let reach =
                 galaxy_ship::space::rock_radius(world, &rock) + world.ship_rules.mining.reach * 0.5;
-            self.fly_to(rock.position, reach);
+            let spot = rock.position + (at - rock.position).normalize_or_zero() * reach;
+            self.fly_to(spot, 10.0);
             self.keys.press(Key::Space);
             for _ in 0..1200 {
                 self.tick();
@@ -213,6 +219,15 @@ impl Pilot {
             "{:?}",
             self.s.trades.notice
         );
+    }
+
+    /// Picks `choice` from `npc` at the dock, as its button does.
+    fn answer(&mut self, npc: &str, choice: &str) {
+        assert!(
+            self.s.reply(npc.parse().unwrap(), choice.parse().unwrap()),
+            "docked to answer"
+        );
+        self.ticks(5);
     }
 
     fn buy(&mut self, req: ServiceRequest) {
@@ -292,7 +307,7 @@ fn play_act_one(p: &mut Pilot) {
     assert_eq!(
         p.goal().as_deref(),
         Some(
-            "Ilse needs ice for the greenhouse at Kettle Dock. Fly off with W A S D and look for the pale rocks."
+            "Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W, turn with A and D, and look for the pale rocks."
         )
     );
     assert_eq!(hooks::goal_place(p.s.world()), Some(KETTLE));
@@ -313,7 +328,9 @@ fn play_act_one(p: &mut Pilot) {
     assert_eq!(status(&p.s, "beat.b01_undock"), Some(BeatStatus::Completed));
     assert_eq!(
         p.goal().as_deref(),
-        Some("Hold Space beside an ice rock until your hold is full.")
+        Some(
+            "Ilse wants a full hold of ice: hold Space beside a pale rock until your hold is full."
+        )
     );
 
     // b02: a full hold of ice, by hand.
@@ -323,11 +340,18 @@ fn play_act_one(p: &mut Pilot) {
         status(&p.s, "beat.b02_mine_by_hand"),
         Some(BeatStatus::Completed)
     );
-    assert!(p.goal().unwrap().starts_with("Fly into Kettle Dock's ring"));
+    assert!(
+        p.goal()
+            .unwrap()
+            .starts_with("Ilse asks you to take the ice to Odo")
+    );
 
-    // b03: Odo takes the ice for the greenhouse and says so; Kettle grows a dome.
+    // b03: Odo asks; nothing leaves the hold until the player picks Deliver. Then he
+    // takes the ice for the greenhouse and says so; Kettle grows a dome.
     p.dock_at(&KETTLE);
     p.ticks(5);
+    assert_eq!(p.ship().hold.count(&ICE), 20, "docking hands nothing over");
+    p.answer("npc.odo_fenn", "choice.deliver_ice");
     assert_eq!(
         status(&p.s, "beat.b03_first_delivery"),
         Some(BeatStatus::Completed)
@@ -340,12 +364,15 @@ fn play_act_one(p: &mut Pilot) {
         "{:?}",
         said(&p.s, &ODO)
     );
-    // The talk panel shows it, naming Odo and Kettle Dock.
-    let talk = hooks::talk_lines(p.s.world(), p.s.sim().history(), 3);
-    assert!(
-        talk.iter()
-            .any(|l| l.speaker.as_ref() == Some(&ODO) && l.place.as_ref() == Some(&KETTLE))
-    );
+    // It waits as a bubble at Kettle Dock, naming Odo and the dock.
+    let waiting: Vec<_> =
+        p.s.talk
+            .queue(&KETTLE)
+            .filter_map(|id| p.s.world().talk.lines.get(&id))
+            .collect();
+    assert!(waiting.iter().any(|l| {
+        l.line.speaker.as_ref() == Some(&ODO) && l.line.place.as_ref() == Some(&KETTLE)
+    }));
     assert_eq!(p.s.world().stations.get(&KETTLE).unwrap().build.stage, 1);
     // Odo names Orrin, the hullwright, as the goal turns to him.
     assert!(
@@ -392,10 +419,7 @@ fn play_act_one(p: &mut Pilot) {
         status(&p.s, "beat.b04_first_sale"),
         Some(BeatStatus::Completed)
     );
-    assert_eq!(
-        p.goal().as_deref(),
-        Some("Press P or Esc whenever you like. The whole galaxy waits for you.")
-    );
+    assert_eq!(p.goal().as_deref(), Some("P or Esc · pause"));
 
     // b05: the PAUSED card. The fact commits on the first tick after it closes.
     p.s.pause();
@@ -406,16 +430,18 @@ fn play_act_one(p: &mut Pilot) {
     // The trips that paid for the lens made the dockings b06 waits for: it opens at once.
     assert_eq!(
         p.goal().as_deref(),
-        Some("Orrin can fit a nav chip: then click a point near the Wren and she flies there.")
+        Some(
+            "Orrin can fit a nav chip at the Wharf: click a point near your ship, the Wren, and she flies there."
+        )
     );
 
     let goals: Vec<String> = p.goals.iter().flatten().cloned().collect();
     assert_eq!(goals.len(), 6, "{goals:#?}");
     assert!(goals[0].starts_with("Ilse needs ice"));
-    assert!(goals[1].starts_with("Hold Space"));
-    assert!(goals[2].starts_with("Fly into Kettle Dock"));
+    assert!(goals[1].starts_with("Ilse wants a full hold"));
+    assert!(goals[2].starts_with("Ilse asks you to take the ice"));
     assert!(goals[3].starts_with("Orrin, the Wharf's hullwright, can fit a mining lens"));
-    assert!(goals[4].starts_with("Press P or Esc"));
+    assert!(goals[4].starts_with("P or Esc"));
     assert!(goals[5].starts_with("Orrin can fit a nav chip"));
 }
 
@@ -461,18 +487,17 @@ fn act_one_crosses_into_act_two_at_the_keys() {
         Some(BeatStatus::Completed)
     );
 
-    // b07: docked at the Wharf with an empty hold, Ilse loads the plate at once.
+    // b07: docked at the Wharf with an empty hold, Ilse asks; Accept loads her plate.
     let plate = WareId::from_static("ware.refined_plate");
     p.ticks(3);
-    assert_eq!(
-        p.ship().hold.count(&plate),
-        20,
-        "Ilse loaded the consignment"
-    );
+    assert!(p.ship().hold.consigned.is_empty(), "nothing loaded unasked");
+    p.answer("npc.ilse_marrow", "choice.accept_consignment");
+    assert_eq!(p.ship().hold.count(&plate), 0, "none of it the pilot's");
+    assert_eq!(p.ship().hold.total(), 20, "Ilse's plate aboard");
     assert_eq!(
         p.goal().as_deref(),
         Some(
-            "Ilse has 20 plate for Rook at Cinder Hook. The lane to Cinder Drift starts east of the Wharf."
+            "Carry Ilse's 20 plate to Rook at Cinder Hook and pick Deliver. The lane to Cinder Drift starts east of the Wharf."
         )
     );
     // Into the Cinder lane's mouth by hand, Space, and ride it.
@@ -495,18 +520,19 @@ fn act_one_crosses_into_act_two_at_the_keys() {
     let hook = StationId::from_static("station.cinder_hook");
     p.dock_at(&hook);
     p.ticks(5);
+    p.answer("npc.rook_adeyemi", "choice.deliver_plate");
     assert_eq!(
         status(&p.s, "beat.b07_cinder_drift"),
         Some(BeatStatus::Completed)
     );
-    assert_eq!(p.ship().hold.count(&plate), 0, "handed to Rook");
-    assert!(
-        p.s.world()
-            .player
-            .fittings
-            .contains(&UpgradeId::from_static("upgrade.lane_chart")),
-        "Rook's gift"
-    );
+    assert!(p.ship().hold.consigned.is_empty(), "handed to Rook");
+    // Rook's gift is on his list; it's fitted when the player fits it.
+    let chart = UpgradeId::from_static("upgrade.lane_chart");
+    assert!(!p.s.world().player.fittings.contains(&chart));
+    p.buy(ServiceRequest::Fit {
+        upgrade: chart.clone(),
+    });
+    assert!(p.s.world().player.fittings.contains(&chart), "Rook's gift");
     let rook = NpcId::from_static("npc.rook_adeyemi");
     assert!(
         said(&p.s, &rook).iter().any(|t| t.contains("Ilse's plate")),
@@ -573,11 +599,11 @@ fn before_b14() -> SimState {
     state
 }
 
-/// b14 through the dock screen: Orrin's question shows as a button in the talk panel
-/// (and key 1), and picking it goes out as `PlayerInput::replies` through the session;
-/// the core pack answers, b14 completes and the choice closes.
+/// b14 through the dock: Orrin's question shows as a button on his bubble (and key 1),
+/// and picking it goes out as `PlayerInput::replies` through the session; the core pack
+/// answers, b14 completes, the choice closes and his bubble is done.
 #[test]
-fn orrins_question_is_answered_with_the_talk_panels_button() {
+fn orrins_question_is_answered_with_his_bubbles_button() {
     let mut p = Pilot::new(session(before_b14()));
     p.tick();
     // The docking that makes Ringwise: the habit b14 waits on.
@@ -600,17 +626,24 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
     assert_eq!(open[0].npc, orrin);
     assert_eq!(open[0].choice.as_str(), "choice.ask_orrin");
 
-    // The talk panel draws it as a button; clicking it is the session's reply.
+    // Orrin's bubble draws it as a button; clicking it is the session's reply. Until
+    // then a click on the bubble doesn't move past it.
     let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let bubble = p.s.bubble().expect("Orrin's question waits");
+    assert_eq!(bubble.line.speaker.as_ref(), Some(&orrin));
+    assert!(!p.s.next_line(), "it waits for an answer");
     let mut o = render::Overlay::default();
-    let buttons = ui::talk(
+    let bounds = render::Rect::new(18.0, 120.0, 460.0, 500.0);
+    let (_, buttons) = ui::talk::dock_bubble(
         &mut o,
         p.s.world(),
-        p.s.sim().history(),
-        None,
-        &open,
+        &bubble,
+        bounds.center(),
+        bounds,
         &UiState::default(),
-        canvas,
     );
     let action = buttons
         .iter()
@@ -619,7 +652,7 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
             _ => None,
         })
         .expect("an answer button");
-    assert!(o.texts.iter().any(|t| t.text == "1   What do you mean?"));
+    assert!(o.texts.iter().any(|t| t.text == "1  What do you mean?"));
     for b in &buttons {
         assert!(b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y, "{b:?}");
     }
@@ -639,6 +672,11 @@ fn orrins_question_is_answered_with_the_talk_panels_button() {
     assert!(
         hooks::open_choices(p.s.world(), p.s.sim().history(), &WHARF).is_empty(),
         "answered"
+    );
+    let asked = bubble.talk.expect("a line in the talk log");
+    assert!(
+        !p.s.talk.queue(&WHARF).any(|id| id == asked),
+        "his question's bubble is done"
     );
     // A reply where nobody asked anything is dropped: no key does anything now.
     assert!(!p.s.reply_to_open(0));
@@ -670,6 +708,7 @@ fn at_the_wharf_after_b03(credits: i64) -> Session {
     p.mine_ice_until_full();
     p.dock_at(&KETTLE);
     p.ticks(5);
+    p.answer("npc.odo_fenn", "choice.deliver_ice");
     assert_eq!(
         status(&p.s, "beat.b03_first_delivery"),
         Some(BeatStatus::Completed)
@@ -739,44 +778,82 @@ fn station_services_list_offers_and_refuse_calmly() {
     assert!(s.world().player.fittings.contains(&LENS));
     assert_eq!(s.services.notice, None);
     assert_eq!(s.world().player.credits, 500 * CENTS_PER_CREDIT);
-    // Once fitted it leaves the list.
+    // Once fitted it stays on the list as the player's, with nothing left to buy (#44).
     let services = hooks::station_services(s.world(), s.sim().history(), &WHARF);
-    assert!(
-        services
-            .iter()
-            .flat_map(|e| &e.offers)
-            .all(|o| o.request != ServiceRequest::Fit { upgrade: LENS })
-    );
+    let lens: Vec<_> = services
+        .iter()
+        .flat_map(|e| &e.offers)
+        .filter(|o| o.request == ServiceRequest::Fit { upgrade: LENS })
+        .collect();
+    assert_eq!(lens.len(), 1);
+    assert!(lens[0].owned, "{:?}", lens[0]);
 }
 
-#[test]
-fn the_dock_screen_draws_services_with_working_buttons() {
-    let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
+/// Draws the room of the `kind` part at `station`: its buttons and texts.
+fn room(
+    s: &Session,
+    station: &StationId,
+    kind: galaxy_contract::parts::RoomKind,
+    ui_state: &UiState,
+    notices: ui::Notices<'_>,
+    canvas: render::glam::Vec2,
+) -> (Vec<ui::Button>, render::Overlay) {
+    let part = ui::rooms::of_kind(s.world(), station, kind)
+        .unwrap_or_else(|| panic!("{station} has a {kind:?} room"));
     let mut o = render::Overlay::default();
-    let canvas = render::glam::Vec2::new(1280.0, 720.0);
-    let buttons = ui::dock_panel(
+    let (_, buttons) = ui::rooms::panel(
         &mut o,
         s.world(),
         s.sim().history(),
+        station,
+        &part,
+        ui_state,
+        notices,
+        canvas,
+    )
+    .unwrap();
+    (buttons, o)
+}
+
+#[test]
+fn the_wharf_and_office_rooms_draw_services_with_working_buttons() {
+    use galaxy_contract::parts::RoomKind;
+    let s = at_the_wharf_after_b03(800 * CENTS_PER_CREDIT);
+    let canvas = render::glam::Vec2::new(1280.0, 720.0);
+    let (buttons, o) = room(
+        &s,
         &WHARF,
+        RoomKind::Wharf,
+        &UiState::default(),
+        ui::Notices::default(),
+        canvas,
+    );
+    // The lens is a part: its tray row is picked up and dragged onto the drill mount.
+    assert!(buttons.iter().any(|b| b.action
+        == ui::UiAction::Wharf(ui::rooms::fit::WharfAction::Part {
+            part: LENS,
+            from: ui::rooms::fit::Source::Tray,
+        })));
+    assert!(o.texts.iter().any(|t| t.text == "Mining lens  ·  600 cr"));
+    for b in &buttons {
+        assert!(b.rect.y + b.rect.h <= canvas.y, "{b:?} fits");
+    }
+    // "Ask what changed" moved into the dockmaster's office.
+    let (office, _) = room(
+        &s,
+        &WHARF,
+        RoomKind::Dockmaster,
         &UiState::default(),
         ui::Notices::default(),
         canvas,
     );
     assert!(
-        buttons
-            .iter()
-            .any(|b| b.action == ui::UiAction::Service(ServiceRequest::Fit { upgrade: LENS }))
-    );
-    assert!(
-        buttons
+        office
             .iter()
             .any(|b| b.action == ui::UiAction::AskWhatChanged)
     );
-    assert!(o.texts.iter().any(|t| t.text == "Mining lens  ·  600 cr"));
-    for b in &buttons {
-        assert!(b.rect.y + b.rect.h <= canvas.y, "{b:?} fits");
-    }
+    // Every room has Back.
+    assert!(buttons.iter().any(|b| b.action == ui::UiAction::CloseRoom));
 }
 
 #[test]
@@ -793,12 +870,10 @@ fn every_authored_station_has_an_ask_what_changed_button() {
             .unwrap_or_else(|| panic!("{station}: no dockmaster to ask"));
         let keeper = dockmaster.keeper.as_ref().expect("a resident dockmaster");
         assert_eq!(s.world().npcs.get(keeper).unwrap().role, "dockmaster");
-        let mut o = render::Overlay::default();
-        let buttons = ui::dock_panel(
-            &mut o,
-            s.world(),
-            s.sim().history(),
+        let (buttons, _) = room(
+            &s,
             station,
+            galaxy_contract::parts::RoomKind::Dockmaster,
             &UiState::default(),
             ui::Notices::default(),
             canvas,
@@ -807,7 +882,13 @@ fn every_authored_station_has_an_ask_what_changed_button() {
             buttons
                 .iter()
                 .any(|b| b.action == ui::UiAction::AskWhatChanged),
-            "{station}: no Ask button"
+            "{station}: no Ask button in the office"
+        );
+        // And a market room at every station.
+        assert!(
+            ui::rooms::of_kind(s.world(), station, galaxy_contract::parts::RoomKind::Market)
+                .is_some(),
+            "{station}: no market"
         );
     }
 }
@@ -933,12 +1014,13 @@ fn crowded_wharf() -> Session {
 }
 
 #[test]
-fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
+fn a_crowded_wharf_keeps_undock_and_every_service_on_screen() {
     let s = crowded_wharf();
     let offered: Vec<ServiceRequest> =
         hooks::station_services(s.world(), s.sim().history(), &WHARF)
             .into_iter()
             .flat_map(|e| e.offers)
+            .filter(|o| !o.owned)
             .map(|o| o.request)
             .collect();
     for u in [
@@ -960,53 +1042,71 @@ fn a_crowded_dock_screen_keeps_undock_and_every_service_on_screen() {
         render::glam::Vec2::new(960.0, 540.0),
         render::glam::Vec2::new(1280.0, 720.0),
     ] {
-        // Page through the services with the panel's own Up / Down buttons.
-        let mut ui_state = UiState::default();
+        // Page through each room's services with its own Up / Down buttons: the wharf
+        // (Orrin's offers) and the office (asking, and anything else for sale).
         let mut seen = std::collections::BTreeSet::new();
-        for _ in 0..20 {
-            let mut o = render::Overlay::default();
-            let buttons = ui::dock_panel(
-                &mut o,
-                s.world(),
-                s.sim().history(),
-                &WHARF,
-                &ui_state,
-                notices,
-                canvas,
-            );
-            for b in &buttons {
+        for kind in [
+            galaxy_contract::parts::RoomKind::Wharf,
+            galaxy_contract::parts::RoomKind::Dockmaster,
+        ] {
+            let mut ui_state = UiState::default();
+            for _ in 0..20 {
+                let (buttons, o) = room(&s, &WHARF, kind, &ui_state, notices, canvas);
+                for b in &buttons {
+                    assert!(
+                        b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y,
+                        "{canvas}: {b:?} is on screen"
+                    );
+                    assert!(b.rect.x >= 0.0 && b.rect.x + b.rect.w <= canvas.x);
+                }
+                for p in &o.panels {
+                    assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
+                }
                 assert!(
-                    b.rect.y >= 0.0 && b.rect.y + b.rect.h <= canvas.y,
-                    "{canvas}: {b:?} is on screen"
+                    o.texts
+                        .iter()
+                        .any(|t| t.text == ui::DOCK_FOOT && t.pos.y + t.size <= canvas.y),
+                    "{canvas}: how to undock shows"
                 );
-                assert!(b.rect.x >= 0.0 && b.rect.x + b.rect.w <= canvas.x);
-            }
-            for p in &o.panels {
-                assert!(p.rect.y + p.rect.h <= canvas.y + 0.5, "{canvas}: {p:?}");
-            }
-            assert!(
-                o.texts
-                    .iter()
-                    .any(|t| t.text == ui::DOCK_FOOT && t.pos.y + t.size <= canvas.y),
-                "{canvas}: how to undock shows"
-            );
-            for b in &buttons {
-                match &b.action {
-                    ui::UiAction::Service(r) => {
-                        seen.insert(format!("{r:?}"));
+                for b in &buttons {
+                    match &b.action {
+                        ui::UiAction::Service(r) => {
+                            seen.insert(format!("{r:?}"));
+                        }
+                        // A part at the hullwright is fitted by dragging its row.
+                        ui::UiAction::Wharf(ui::rooms::fit::WharfAction::Part {
+                            part,
+                            from: ui::rooms::fit::Source::Tray,
+                        }) => {
+                            let fit = ServiceRequest::Fit {
+                                upgrade: part.clone(),
+                            };
+                            seen.insert(format!("{fit:?}"));
+                        }
+                        ui::UiAction::AskWhatChanged => {
+                            seen.insert("ask".to_owned());
+                        }
+                        _ => {}
                     }
-                    ui::UiAction::AskWhatChanged => {
-                        seen.insert("ask".to_owned());
+                }
+                let down = buttons.iter().find_map(|b| match b.action {
+                    ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => {
+                        Some((n, false))
                     }
-                    _ => {}
+                    ui::UiAction::Wharf(ui::rooms::fit::WharfAction::From(n))
+                        if n > ui_state.wharf.first =>
+                    {
+                        Some((n, true))
+                    }
+                    _ => None,
+                });
+                let Some((next, tray)) = down else { break };
+                if tray {
+                    ui_state.wharf.first = next;
+                } else {
+                    ui_state.services_first = next;
                 }
             }
-            let down = buttons.iter().find_map(|b| match b.action {
-                ui::UiAction::ServicesFrom(n) if n > ui_state.services_first => Some(n),
-                _ => None,
-            });
-            let Some(next) = down else { break };
-            ui_state.services_first = next;
         }
         for r in &offered {
             assert!(
@@ -1030,10 +1130,15 @@ fn asking_what_changed_cites_facts_and_records_the_question() {
     p.ticks(3);
     let answer = p.ask();
     assert_eq!(answer.speaker, Some(ILSE));
-    let texts: Vec<&str> = answer.lines.iter().map(|l| l.text.as_str()).collect();
+    // Orrin said so himself when he fitted it, in the first person with its effect,
+    // so the answer doesn't tell that fact again.
+    let orrin = NpcId::from_static("npc.orrin_vale");
     assert!(
-        texts.contains(&"Orrin fitted your mining lens."),
-        "{texts:?}"
+        said(&p.s, &orrin)
+            .iter()
+            .any(|t| t == "There: I've fitted your mining lens. You mine half again as fast."),
+        "{:?}",
+        said(&p.s, &orrin)
     );
     for line in &answer.lines {
         assert!(line.validate().is_ok(), "{line:?}");
@@ -1109,6 +1214,9 @@ fn assert_distinct_news(p: &Pilot, answer: &hooks::Answer) {
     }
 }
 
+/// The Wharf's answer tells what changed here or nearby (#38): Kettle and the Wharf,
+/// never the Hook or Brassmouth, and several Kettle facts still leave room for a
+/// Wharf digest line.
 #[test]
 fn asking_what_changed_leaves_room_for_other_places_after_several_kettle_facts() {
     let mut p = Pilot::new(session(new_state(false)));
@@ -1152,12 +1260,22 @@ fn asking_what_changed_leaves_room_for_other_places_after_several_kettle_facts()
         },
         None,
     );
-    // No authored line: the digest must still have room after the pack's picks.
+    // Far away: never told at the Wharf.
     let brass = news_fact(
         &mut p,
         "test.stage_built",
         Subjects {
             station: Some(StationId::from_static("station.brassmouth_exchange")),
+            ..Subjects::default()
+        },
+        Some(1),
+    );
+    // No authored line: the digest must still have room after the pack's picks.
+    let wharf = news_fact(
+        &mut p,
+        "test.stage_built",
+        Subjects {
+            station: Some(WHARF),
             ..Subjects::default()
         },
         Some(1),
@@ -1175,16 +1293,19 @@ fn asking_what_changed_leaves_room_for_other_places_after_several_kettle_facts()
 
     let answer = p.ask();
     assert_distinct_news(&p, &answer);
-    assert_eq!(answer.lines.len(), 3, "{answer:?}");
-    for fact in [stage, hook, brass] {
+    assert_eq!(answer.lines.len(), 2, "{answer:?}");
+    for fact in [stage, wharf] {
         assert!(answer.lines.iter().any(|l| l.cites == [fact]), "{answer:?}");
     }
     assert_eq!(answer.digest.len(), 1);
-    assert_eq!(answer.digest[0].cites, [brass]);
+    assert_eq!(answer.digest[0].cites, [wharf]);
     p.tick(); // Commit the digest before inspecting what was actually said.
     let said = citations(&p.s);
-    for fact in [stage, hook, brass] {
+    for fact in [stage, wharf] {
         assert_eq!(said.get(&fact), Some(&1));
+    }
+    for fact in [hook, brass] {
+        assert!(!said.contains_key(&fact), "far news isn't told here");
     }
     for fact in [delivery, shortage, kettle_digest] {
         assert!(
@@ -1219,28 +1340,27 @@ fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
         },
         Some(1),
     );
-    let brass_station = StationId::from_static("station.brassmouth_exchange");
-    let brass = news_fact(
+    let wharf = news_fact(
         &mut p,
         "test.stage_built",
         Subjects {
-            station: Some(brass_station.clone()),
+            station: Some(WHARF),
             ..Subjects::default()
         },
         Some(1),
     );
     let mut entries = Vec::new();
     for station in [
-        StationId::from_static("station.cinder_hook"),
-        StationId::from_static("station.glass_drift_observatory"),
-        KETTLE,
-        brass_station,
+        Some(StationId::from_static("station.cinder_hook")),
+        None,
+        Some(KETTLE),
+        Some(WHARF),
     ] {
         entries.push(news_fact(
             &mut p,
             "test.chronicle_news",
             Subjects {
-                station: Some(station),
+                station,
                 ..Subjects::default()
             },
             None,
@@ -1248,7 +1368,8 @@ fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
     }
     let mut batch = CommandBatch::new(Cause::system("test", "the chronicle records the news"));
     // Newest entries repeat places covered by the pack and digest. They must not
-    // crowd the two older, eligible chronicle entries out of the answer.
+    // crowd the older, eligible chronicle entry out of the answer; the Hook's entry
+    // is too far away to tell at the Wharf (#38).
     for fact in [entries[0], entries[1], entries[1], entries[2], entries[3]] {
         batch.push(Command::Say {
             line: Box::new(TalkLine {
@@ -1266,9 +1387,9 @@ fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
     p.tick();
     let answer = p.ask();
     assert_distinct_news(&p, &answer);
-    assert_eq!(answer.lines.len(), 4, "{answer:?}");
+    assert_eq!(answer.lines.len(), 3, "{answer:?}");
     assert_eq!(answer.digest.len(), 1);
-    assert_eq!(answer.digest[0].cites, [brass]);
+    assert_eq!(answer.digest[0].cites, [wharf]);
     assert!(answer.lines.iter().any(|l| l.cites == [kettle]));
     let chronicle: Vec<_> = answer
         .lines
@@ -1277,7 +1398,7 @@ fn asking_what_changed_shares_places_and_facts_with_the_chronicle() {
         .flat_map(|l| &l.cites)
         .copied()
         .collect();
-    assert_eq!(chronicle, [entries[0], entries[1]]);
+    assert_eq!(chronicle, [entries[1]]);
 }
 
 #[test]
@@ -1388,8 +1509,8 @@ fn click_controls_work_once_their_flags_are_on() {
         matches!(orders.get(1), Some(Order::Dock { station }) if *station == KETTLE),
         "{orders:?}"
     );
-    // The queue runs: mine until full, then dock at Kettle (where b03 hands the ice to
-    // Odo).
+    // The queue runs: mine until full, then dock at Kettle, where the player hands
+    // Odo the ice (b03) by picking Deliver.
     galaxy_app::script::run(&mut s, &mut ui, "wait*2400").unwrap();
     assert_eq!(s.flagship().unwrap().docked_at, Some(KETTLE));
     let mined = s
@@ -1397,6 +1518,7 @@ fn click_controls_work_once_their_flags_are_on() {
         .counters
         .get(CounterKind::UnitsMined, &CounterScope::Player);
     assert_eq!(mined, 20);
+    galaxy_app::script::run(&mut s, &mut ui, ":reply:choice.deliver_ice,wait*6").unwrap();
     assert_eq!(
         status(&s, "beat.b03_first_delivery"),
         Some(BeatStatus::Completed)
@@ -1692,4 +1814,170 @@ fn finishing_a_queue_of_three_orders_is_queue_done() {
     assert_eq!(done.len(), 1);
     assert_eq!(done[0].subjects.ship.as_ref(), Some(&id));
     assert_eq!(done[0].amount, Some(3));
+}
+
+/// Talk at the dock (#47 Phase 2): Ilse's welcome waits as a bubble at the Wharf, ends
+/// when the ship leaves and comes back at the next docking there; what's said in flight
+/// goes to the log and its icon counts it; the book's record round-trips.
+#[test]
+fn talk_waits_at_its_dock_and_what_is_said_in_flight_goes_to_the_log() {
+    use galaxy_app::ui::log::{self, Entry};
+    use galaxy_app::ui::talk::{TalkBook, Voice};
+    let mut p = Pilot::new(session(new_state(false)));
+    p.ticks(5);
+    let welcome = p.s.bubble().expect("Ilse's welcome");
+    assert_eq!(welcome.line.speaker.as_ref(), Some(&ILSE));
+    assert_eq!(welcome.voice, Voice::Person);
+    assert!(welcome.advances(), "no answers: a click moves on");
+    let id = welcome.talk.unwrap();
+
+    // Flying off ends the bubbles; the welcome still waits at the Wharf.
+    p.undock();
+    assert!(p.s.bubble().is_none(), "nothing lingers in flight");
+    assert!(p.s.talk.queue(&WHARF).any(|t| t == id));
+    let (w, h) = (p.s.world(), p.s.sim().history());
+    let visits = log::visits(w, h);
+    assert_eq!(visits.len(), 1, "the opening stay is a visit");
+    assert_eq!(visits[0].station, WHARF);
+    assert!(visits[0].until.is_some());
+    assert!(visits[0].bubbles().iter().any(|l| l.id == id));
+
+    // A person's line and a notice said in flight: both go to the log, counted new.
+    let cite = h.last_fact_id().unwrap();
+    let line = |channel, speaker: Option<NpcId>, text: &str| Command::Say {
+        line: Box::new(galaxy_contract::talk::TalkLine {
+            channel,
+            speaker,
+            place: Some(KETTLE),
+            text: text.to_owned(),
+            cites: vec![cite],
+            about: Vec::new(),
+            choices: Vec::new(),
+        }),
+    };
+    let before = p.s.talk.log_new();
+    p.s.submit(
+        CommandBatch::new(Cause::system("test", "news in flight"))
+            .with(line(Channel::DockTalk, Some(ODO), "The beans are up."))
+            .with(line(Channel::Chronicle, None, "A greenhouse ring lit up.")),
+    );
+    p.ticks(1);
+    assert_eq!(p.s.talk.log_new(), before + 2, "the icon counts both");
+    assert!(p.s.bubble().is_none(), "no box mid-flight");
+    let (w, h) = (p.s.world(), p.s.sim().history());
+    let entries = log::entries(w, &log::visits(w, h));
+    assert!(matches!(&entries[0], Entry::Notice(l) if l.line.text == "A greenhouse ring lit up."));
+    assert!(matches!(&entries[1], Entry::Said(l) if l.line.speaker == Some(ODO)));
+    assert!(matches!(entries.last(), Some(Entry::Visit(0))));
+    let mut ui_state = UiState::default();
+    ui_state.toggle_log(&mut p.s.talk);
+    assert!(ui_state.log_open);
+    assert_eq!(p.s.talk.log_new(), 0, "opened: nothing new");
+
+    // The record keeps it all.
+    let record = p.s.talk.record();
+    assert_eq!(TalkBook::from_record(&record).record(), record);
+
+    // Back at the Wharf, the welcome is shown first; a click moves past it.
+    p.dock_at(&WHARF);
+    assert_eq!(p.s.bubble().and_then(|b| b.talk), Some(id));
+    assert!(p.s.next_line());
+    assert!(!p.s.talk.queue(&WHARF).any(|t| t == id), "seen");
+    // Skip clears the rest of what waits here.
+    p.s.skip_talk();
+    assert!(p.s.bubble().is_none_or(|b| !b.advances()));
+}
+
+/// The log pins what the player has open (#47 Phase 2): the job from Ilse, her offer to
+/// carry plate while it's unanswered, then the plate itself once accepted.
+#[test]
+fn the_log_pins_jobs_open_offers_and_cargo_for_someone() {
+    use galaxy_app::ui::log;
+    let run = galaxy_app::harness::jump(&packs(), 1, false, 7).unwrap();
+    let mut p = Pilot::new(Session::with_game(run.game));
+    p.ticks(3);
+    assert_eq!(p.docked(), Some(WHARF));
+    let pins = |p: &Pilot| {
+        let (w, h) = (p.s.world(), p.s.sim().history());
+        log::pinned(w, h, &log::visits(w, h))
+    };
+    let ilse = "Ilse Marrow  ·  Lantern Wharf";
+    assert!(pins(&p).iter().any(|x| x.tag == "Job" && x.head == ilse));
+    assert!(
+        pins(&p).iter().any(|x| x.tag == "Offer" && x.head == ilse),
+        "{:?}",
+        pins(&p)
+    );
+    // Click to her question, then accept.
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let ask = p.s.bubble().expect("Ilse's offer");
+    assert_eq!(ask.line.speaker.as_ref(), Some(&ILSE));
+    let accept = ask
+        .choices
+        .iter()
+        .find(|(_, c)| c.text.starts_with("Accept"))
+        .map(|(_, c)| c.choice.clone())
+        .expect("an Accept answer");
+    assert!(p.s.reply(ILSE, accept));
+    p.ticks(4);
+    let pinned = pins(&p);
+    assert!(
+        !pinned.iter().any(|x| x.tag == "Offer" && x.head == ilse),
+        "answered: {pinned:?}"
+    );
+    let cargo = pinned
+        .iter()
+        .find(|x| x.tag == "Cargo")
+        .expect("the plate is pinned");
+    assert!(cargo.body.contains("Rook") && cargo.body.contains("Cinder Hook"));
+    // The confirmation of what came aboard waits as a bubble here.
+    let shown: Vec<_> = std::iter::from_fn(|| {
+        let b = p.s.bubble().filter(|b| b.advances())?;
+        p.s.next_line();
+        Some(b)
+    })
+    .take(20)
+    .collect();
+    assert!(
+        shown
+            .iter()
+            .any(|b| b.voice == galaxy_app::ui::talk::Voice::Confirmed),
+        "{shown:?}"
+    );
+}
+
+/// A line waiting for an answer never holds the rest hostage: asking what changed while
+/// Ilse's offer waits, a click sets the offer aside, the answer shows, and the offer
+/// comes back after it.
+#[test]
+fn a_waiting_offer_steps_aside_for_what_was_said_after_it() {
+    let run = galaxy_app::harness::jump(&packs(), 1, false, 7).unwrap();
+    let mut p = Pilot::new(Session::with_game(run.game));
+    p.ticks(3);
+    while p.s.bubble().is_some_and(|b| b.advances()) {
+        assert!(p.s.next_line());
+    }
+    let offer = p.s.bubble().expect("Ilse's offer");
+    assert!(!offer.choices.is_empty());
+    assert!(!p.s.next_line(), "alone, it stays");
+    assert!(p.s.ask_what_changed());
+    p.ticks(4);
+    let waiting = p.s.bubble().unwrap();
+    assert_eq!(waiting.talk, offer.talk, "oldest first");
+    assert!(waiting.more > 0 && waiting.clickable());
+    assert!(p.s.next_line(), "set aside");
+    let answer = p.s.bubble().unwrap();
+    assert_ne!(answer.talk, offer.talk, "the answer shows");
+    let mut back = false;
+    for _ in 0..10 {
+        if p.s.bubble().unwrap().talk == offer.talk {
+            back = true;
+            break;
+        }
+        assert!(p.s.next_line());
+    }
+    assert!(back, "the offer comes back after the rest");
+    assert!(!p.s.next_line(), "and waits for its answer");
 }

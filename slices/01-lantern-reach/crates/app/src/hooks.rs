@@ -4,15 +4,17 @@
 //! The screen asks these and draws whatever comes back; it draws nothing for `None` or
 //! an empty list ("text is important or absent").
 //!
-//! - The goal line is the newest active beat's goal ([`beats::hud_goal`]).
-//! - The talk panel shows what was said since the flagship last docked: dock talk and
-//!   chronicle entries from the world's talk log, each naming a person or a place and
-//!   citing a fact.
+//! - The goal banner lists every active beat's goal, newest first, each with who gave
+//!   it and where they are ([`goals`]). A goal nobody gave isn't shown: no objective
+//!   appears without a named source.
+//! - Talk at the dock ([`crate::ui::talk`]) and the ship log ([`crate::ui::log`]) read
+//!   the world's talk log: dock talk, chronicle entries and map notes, each naming a
+//!   person or a place and citing a fact.
 //! - "What changed?" ([`what_changed`]) is a dockmaster's answer: the lines the core
 //!   pack said when the player asked (a `choice.what_changed` reply), digest lines that
 //!   say plainly what a fact records, each citing it, and chronicle entries.
 //! - Open choices ([`open_choices`]) are the answers people at the dock are waiting
-//!   for; the dock shows them as buttons (keys 1 to 9) and the pick goes out as a
+//!   for; their bubbles show them as buttons (keys 1 to 9) and the pick goes out as a
 //!   `PlayerInput::replies` entry.
 //! - Station services ([`station_services`]) are the hullwright's, tender keeper's and
 //!   dockmaster's offers, from [`services::offers`].
@@ -20,14 +22,45 @@
 use std::collections::BTreeSet;
 
 use galaxy_contract::prelude::*;
-use galaxy_contract::talk::{Channel, SaidLine, TalkLine};
+use galaxy_contract::talk::{Channel, TalkLine};
 use galaxy_core::History;
 use galaxy_mind::TalkLines;
 use galaxy_progress::{beats, prestige, services};
 
-/// The one goal line at the top of the screen: the newest active beat's goal.
+/// The newest active goal's text (for the CLI's JSON and the goal marker).
 pub fn goal_line(world: &WorldState) -> Option<String> {
-    beats::hud_goal(world).map(|g| g.goal)
+    goals(world).into_iter().next().map(|g| g.goal)
+}
+
+/// One active goal on the banner: who gave it, and the goal itself.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Goal {
+    /// "Ilse Marrow  ·  Lantern Wharf": the giver, and their station when they have one.
+    pub source: String,
+    pub goal: String,
+}
+
+/// Every active goal with a named giver, newest first ([`beats::goal_lines`]).
+pub fn goals(world: &WorldState) -> Vec<Goal> {
+    beats::goal_lines(world)
+        .into_iter()
+        .filter_map(|g| {
+            let npc = world.npcs.get(g.giver.as_ref()?)?;
+            let place = npc
+                .location
+                .as_ref()
+                .and_then(|s| world.stations.get(s))
+                .map(|s| s.name.as_str());
+            let source = match place {
+                Some(p) => format!("{}  ·  {p}", npc.name),
+                None => npc.name.clone(),
+            };
+            Some(Goal {
+                source,
+                goal: g.goal,
+            })
+        })
+        .collect()
 }
 
 /// Where the goal line points, for the edge marker: the station it names (the longest
@@ -56,7 +89,7 @@ pub fn goal_place(world: &WorldState) -> Option<StationId> {
 }
 
 /// The tick of the flagship's most recent docking (0 before any).
-fn last_docking(world: &WorldState, history: &History) -> Tick {
+pub fn last_docking(world: &WorldState, history: &History) -> Tick {
     history
         .last(&HistoryQuery {
             kind: Some(FactKind::from_static("dock")),
@@ -64,30 +97,6 @@ fn last_docking(world: &WorldState, history: &History) -> Tick {
             ..HistoryQuery::default()
         })
         .map_or(Tick(0), |f| f.tick)
-}
-
-/// The latest lines for the talk panel, newest last: dock talk and chronicle entries
-/// said since the flagship last docked (so they stay up on the way to the next
-/// station), at most `limit`.
-pub fn talk_lines(world: &WorldState, history: &History, limit: usize) -> Vec<TalkLine> {
-    let since = last_docking(world, history);
-    let mut out: Vec<&SaidLine> = world
-        .talk
-        .lines
-        .values()
-        .filter(|l| l.tick >= since)
-        .filter(|l| matches!(l.line.channel, Channel::DockTalk | Channel::Chronicle))
-        .collect();
-    let skip = out.len().saturating_sub(limit);
-    out.drain(..skip);
-    out.into_iter().map(|l| l.line.clone()).collect()
-}
-
-/// The latest chronicle entries, newest last.
-pub fn chronicle(world: &WorldState, limit: usize) -> Vec<TalkLine> {
-    let all: Vec<&SaidLine> = world.talk.on(Channel::Chronicle).collect();
-    let skip = all.len().saturating_sub(limit);
-    all[skip..].iter().map(|l| l.line.clone()).collect()
 }
 
 /// The speaker's name for a line, if it has one.
@@ -110,11 +119,6 @@ pub fn place(world: &WorldState, line: &TalkLine) -> Option<String> {
             .get(s)
             .map_or_else(|| s.to_string(), |s| s.name.clone()),
     )
-}
-
-/// Whether `line` belongs in the talk panel.
-pub fn is_talk(line: &TalkLine) -> bool {
-    matches!(line.channel, Channel::DockTalk | Channel::Chronicle)
 }
 
 /// The NPC at `station` with `role`, if any.
@@ -160,6 +164,9 @@ pub struct OfferRow {
     /// bought now.
     pub blocked: Option<String>,
     pub prestige: bool,
+    /// Already the player's: a fitted upgrade or a tender built here. It shows as
+    /// "Fitted" (or "Yours") with no button.
+    pub owned: bool,
 }
 
 /// The station's services other than the market, with what each sells now.
@@ -198,25 +205,29 @@ pub fn station_services(
         });
     }
     // Each offer goes to its seller's service; a seller with none of the station's
-    // services (Tamsin, the tender keeper) gets a row of their own.
-    for o in offers {
-        let row = offer_row(world, history, &o);
+    // services (Tamsin, the tender keeper) gets a row of their own. What the player
+    // already has from here follows, marked as theirs, so a service never vanishes
+    // once its list is bought out.
+    let rows = offers
+        .iter()
+        .map(|o| (o.seller.clone(), offer_row(world, history, o)))
+        .chain(owned_rows(world, history, station));
+    for (seller, row) in rows {
         let slot = out
             .iter_mut()
-            .find(|e| e.keeper.is_some() && e.keeper == o.seller);
+            .find(|e| e.keeper.is_some() && e.keeper == seller);
         match slot {
             Some(e) => e.offers.push(row),
             None => {
-                let name = o
-                    .seller
+                let name = seller
                     .as_ref()
                     .and_then(|n| world.npcs.get(n))
                     .map_or("Workshop".to_owned(), |n| title_case(&n.role));
                 out.push(ServiceEntry {
                     service: Service::Hullwright,
                     name,
-                    keeper_name: o.seller.as_ref().map(|k| npc_name(world, k)),
-                    keeper: o.seller.clone(),
+                    keeper_name: seller.as_ref().map(|k| npc_name(world, k)),
+                    keeper: seller,
                     offers: vec![row],
                     can_ask: false,
                 });
@@ -224,6 +235,78 @@ pub fn station_services(
         }
     }
     out
+}
+
+/// What the player already has from `station`'s sellers: fitted upgrades and the
+/// tenders built here, with their sellers.
+fn owned_rows(
+    world: &WorldState,
+    history: &History,
+    station: &StationId,
+) -> Vec<(Option<NpcId>, OfferRow)> {
+    let rules = &world.progress.rules;
+    // A part in the hull's locker stays on its seller's list with a Refit button.
+    let ship = world.player.ship.clone();
+    let stored = rules
+        .upgrades
+        .values()
+        .filter(|u| {
+            u.station.as_ref() == Some(station)
+                && ship
+                    .as_ref()
+                    .is_some_and(|s| galaxy_contract::fit::locker(world, s).any(|p| p == &u.id))
+        })
+        .map(|u| {
+            let request = ServiceRequest::Refit {
+                upgrade: u.id.clone(),
+            };
+            let blocked = services::check(world, history, &request)
+                .err()
+                .map(|r| crate::trades::service_refusal(world, &request, &r));
+            let row = OfferRow {
+                request,
+                name: u.name.clone(),
+                effect: u.effect.clone(),
+                price: "in your locker".into(),
+                blocked,
+                prestige: false,
+                owned: false,
+            };
+            (u.seller.clone(), row)
+        });
+    let fitted = rules
+        .upgrades
+        .values()
+        .filter(|u| u.station.as_ref() == Some(station) && world.player.fittings.contains(&u.id))
+        .map(|u| {
+            let request = ServiceRequest::Fit {
+                upgrade: u.id.clone(),
+            };
+            (u.seller.clone(), owned_row(request, &u.name, &u.effect))
+        });
+    let built = rules
+        .crafts
+        .values()
+        .filter(|c| &c.station == station && world.ships.contains(&c.id))
+        .map(|c| {
+            let request = ServiceRequest::Build {
+                craft: c.id.clone(),
+            };
+            (c.seller.clone(), owned_row(request, &c.name, &c.effect))
+        });
+    fitted.chain(stored).chain(built).collect()
+}
+
+fn owned_row(request: ServiceRequest, name: &str, effect: &str) -> OfferRow {
+    OfferRow {
+        request,
+        name: name.to_owned(),
+        effect: effect.to_owned(),
+        price: String::new(),
+        blocked: None,
+        prestige: false,
+        owned: true,
+    }
 }
 
 /// `tender_keeper` -> "Tender keeper".
@@ -239,7 +322,7 @@ fn offer_row(world: &WorldState, history: &History, o: &services::Offer) -> Offe
     let price = if o.cost == 0 {
         "a gift".to_owned()
     } else {
-        format!("{} cr", show_credits(o.cost))
+        crate::trades::credits(o.cost)
     };
     let blocked = services::check(world, history, &o.request)
         .err()
@@ -251,6 +334,7 @@ fn offer_row(world: &WorldState, history: &History, o: &services::Offer) -> Offe
         effect: o.effect.clone(),
         price,
         blocked,
+        owned: false,
     }
 }
 
@@ -331,7 +415,7 @@ pub fn what_changed(
             continue;
         };
         let place = f.subjects.station.clone();
-        if !places.insert(place.clone()) {
+        if !nearby(world, station, place.as_ref()) || !places.insert(place.clone()) {
             continue;
         }
         answer_cites.insert(f.id);
@@ -362,6 +446,12 @@ pub fn what_changed(
         .filter(|l| previous_question.is_none_or(|q| l.tick > q.tick))
         .filter(|l| {
             let line_places = cited_places(history, &l.line);
+            if line_places
+                .iter()
+                .any(|p| !nearby(world, station, p.as_ref()))
+            {
+                return false;
+            }
             if l.line.cites.iter().any(|f| answer_cites.contains(f))
                 || line_places.iter().any(|p| places.contains(p))
             {
@@ -382,6 +472,13 @@ pub fn what_changed(
         lines: out,
         digest,
     }
+}
+
+/// "What changed?" tells what changed here or nearby: at `place` if it's `here` or a
+/// station in the same region, or a change with no place (#38).
+fn nearby(world: &WorldState, here: &StationId, place: Option<&StationId>) -> bool {
+    let region = |s: &StationId| world.stations.get(s).map(|s| &s.region);
+    place.is_none_or(|p| p == here || (region(p).is_some() && region(p) == region(here)))
 }
 
 /// A line is about its cited facts' stations, not necessarily where it was spoken.
@@ -492,13 +589,21 @@ pub fn digest(world: &WorldState, f: &Fact) -> Option<String> {
     if let FactPayload::Note(note) = &f.payload {
         // Station growth from the core pack or a game-master pack: its note is the
         // authored description ("Kettle Dock stage 1: a fogged glass dome").
-        return kind.ends_with("stage_built").then(|| note.clone());
+        // The hullwright's own lines ("Removed mining lens to the Wren's locker").
+        let fit = kind.starts_with("part_") || kind == "blueprint_found";
+        return (kind.ends_with("stage_built") || fit).then(|| note.clone());
     }
     let FactPayload::Event(event) = &f.payload else {
         return None;
     };
     let rules = &world.progress.rules;
     match event {
+        // A part's own `part_fitted` fact says it, with the price.
+        Event::UpgradeFitted { upgrade, .. }
+            if !galaxy_contract::fit::is_module(world, upgrade) =>
+        {
+            None
+        }
         Event::UpgradeFitted { upgrade, .. } => {
             let u = rules.upgrades.get(upgrade)?;
             // By first name, as people at the dock say it.

@@ -40,8 +40,19 @@
 //!   with the first step: one `pacing_backfill` system batch with the `pacing.toml`
 //!   tunables it lacks (at their authored values; saved ones stay), then one
 //!   `craft_backfill` batch per named trader it lacks.
-//! - **Quitting.** [`Game::finish`] shuts the mind down (booking every call still out),
-//!   then steps once so its batches apply; save after it.
+//! - **The live world layer and the call log.** With a key, the mind also asks the auto
+//!   router for small station flourishes on dockings (`galaxy_mind::live`). Every call
+//!   is logged in `<stem>.llm-log.sqlite` beside the save once [`Game::open_call_log`]
+//!   opens it (play does; headless runs make no calls and keep no log).
+//! - **The radio.** `data/radio.toml`'s channels ([`crate::radio`]): the radio system
+//!   runs last in the tick and records each channel's discovery once per save; with a
+//!   live model, the mind writes station channels' text bits as the flagship flies in.
+//! - **Music.** [`Game::music`] is the radio's [`MusicLibrary`]: placeholders only until
+//!   [`Game::open_music`] opens `<stem>.music/` beside the save (play does), which plays
+//!   cached tracks and, with a key, generates new ones in the background.
+//! - **Quitting.** [`Game::finish`] stops music generation (booking a call still out),
+//!   shuts the mind down (booking every call still out), then steps once so its batches
+//!   apply, and flushes the call log; save after it.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -51,8 +62,11 @@ use galaxy_contract::prelude::*;
 use galaxy_contract::talk::TalkLine;
 use galaxy_core::{Sim, SimState, System, TickReport};
 use galaxy_gm::{Bridge, BridgeOptions};
+use galaxy_mind::calllog::CallSink;
 use galaxy_mind::executor::{Done, Executor, Job};
-use galaxy_mind::{FakeMind, Inline, MindConfig, MindHost, OpenRouterMind, SpokenLine, Worker};
+use galaxy_mind::{
+    FakeMind, Inline, MindConfig, MindHost, MusicLibrary, OpenRouterMind, SpokenLine, Worker,
+};
 use galaxy_script::ScriptHost;
 
 /// Set on saves that install `gm-examples`. New games get it unless `--no-gm`.
@@ -169,10 +183,18 @@ pub struct Game {
     sim: Sim,
     scripts: ScriptHost,
     mind: Option<MindHost>,
+    /// Where every OpenRouter call is logged, once [`Game::open_call_log`] connects it.
+    call_log: CallSink,
+    /// The radio's music: placeholders until [`Game::open_music`].
+    music: MusicLibrary,
+    /// The mind calls OpenRouter (a live mode with a key).
+    calls_out: bool,
     hot_reload: bool,
     /// What a player or developer should know (warnings, skipped packs, the mind).
     notes: Vec<String>,
     reports: Vec<ValidationReport>,
+    /// The radio's channels, from the core pack.
+    radio: crate::radio::RadioData,
 }
 
 /// The cause of a line the mind decided on.
@@ -282,7 +304,10 @@ impl Game {
         }
         hook(&scripts, &sim);
         scripts.attach(&mut sim);
-        sim.add_system(Box::new(galaxy_progress::ProgressSystem));
+        sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
+        let radio = crate::radio::RadioData::load(&core_data(&opts.packs))
+            .and_then(|r| r.check(sim.world()).map(|()| r))?;
+        sim.add_system(Box::new(crate::radio::RadioSystem::new(&radio)));
         if opts.hot_reload
             && let Err(e) = scripts.watch()
         {
@@ -290,6 +315,8 @@ impl Game {
         }
 
         let data = core_data(&opts.packs);
+        let call_log = CallSink::new();
+        let mut calls_out = false;
         let mind = match &opts.mind {
             MindMode::Off => {
                 let mut config = MindConfig::load_dir(&data).map_err(|e| e.to_string())?;
@@ -303,6 +330,8 @@ impl Game {
                     _ => match OpenRouterMind::from_env(config.models.clone(), &config.limits) {
                         Ok(m) => {
                             notes.push("the fast-model layer is on (OpenRouter)".to_owned());
+                            calls_out = true;
+                            let m = m.with_live(config.live.clone()).with_log(call_log.clone());
                             Box::new(Worker::spawn(m, config.limits.max_in_flight.max(1)))
                         }
                         Err(_) => {
@@ -316,16 +345,25 @@ impl Game {
                         }
                     },
                 };
-                Some(MindHost::new(config, BoxedExec(exec), sim.history()))
+                let mut host = MindHost::new(config, BoxedExec(exec), sim.history());
+                // Live flourishes only with a live model: the fake never asks for one.
+                host.set_live(calls_out)
+                    .set_call_log(call_log.clone())
+                    .set_radio(radio.live_setup());
+                Some(host)
             }
         };
         Ok(Game {
             sim,
             scripts,
             mind,
+            call_log,
+            music: MusicLibrary::placeholders(),
+            calls_out,
             hot_reload: opts.hot_reload,
             notes,
             reports,
+            radio,
         })
     }
 
@@ -353,6 +391,45 @@ impl Game {
 
     pub fn sim(&self) -> &Sim {
         &self.sim
+    }
+
+    /// The radio's channels, as loaded and checked.
+    pub fn radio(&self) -> &crate::radio::RadioData {
+        &self.radio
+    }
+
+    /// Whether the mind calls OpenRouter (live mode with a key).
+    pub fn calls_out(&self) -> bool {
+        self.calls_out
+    }
+
+    /// Opens the call log at `path` (`galaxy_mind::calllog::path_for` the save) and
+    /// prunes it on its writer thread. Every call from then on is logged there.
+    pub fn open_call_log(&mut self, path: &Path) -> Result<(), String> {
+        let rules = self
+            .mind
+            .as_ref()
+            .map(|m| m.config().log.clone())
+            .unwrap_or_default();
+        self.call_log.open(path, &rules).map_err(|e| e.to_string())
+    }
+
+    /// Opens the radio's music beside the save at `save` (`<stem>.music/`): cached
+    /// tracks play, and with `OPENROUTER_API_KEY` new ones are generated in the
+    /// background within `[music]`'s caps, each call logged in the call log.
+    pub fn open_music(&mut self, save: &Path) {
+        let rules = self
+            .mind
+            .as_ref()
+            .map(|m| m.config().music.clone())
+            .unwrap_or_default();
+        self.music = MusicLibrary::open(save, &rules, self.call_log.clone());
+        self.notes.push(self.music.status().summary());
+    }
+
+    /// The radio's music library (a cheap clone shares it).
+    pub fn music(&self) -> &MusicLibrary {
+        &self.music
     }
 
     /// The sim, for code that works between ticks.
@@ -411,9 +488,14 @@ impl Game {
     /// (blocking at most its drain bound), then, if that left batches, one tick applies
     /// them, even while paused. Save afterwards.
     pub fn finish(&mut self) {
-        let Some(mind) = &mut self.mind else { return };
+        self.music.shutdown();
+        let Some(mind) = &mut self.mind else {
+            self.call_log.flush(Duration::from_secs(2));
+            return;
+        };
         let wait = mind.drain_bound().min(Duration::from_secs(30));
         let report = mind.shutdown(&mut self.sim, wait);
+        self.call_log.flush(Duration::from_secs(2));
         self.say(&report.lines);
         if report.batches == 0 && report.lines.is_empty() {
             return;

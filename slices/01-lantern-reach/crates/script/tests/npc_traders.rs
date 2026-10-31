@@ -100,7 +100,7 @@ impl Fleet {
         let report = scripts.load(&slice().join("packs/core"), sim.world(), sim.history());
         assert!(report.accepted(), "{report:#?}");
         scripts.attach(&mut sim);
-        sim.add_system(Box::new(galaxy_progress::ProgressSystem));
+        sim.add_system(Box::new(galaxy_progress::ProgressSystem::default()));
         let mut config = MindConfig::load_dir(&core_data()).unwrap();
         if default_only {
             config.budget.default.calls = 0;

@@ -21,6 +21,12 @@ struct VOut {
 fn vs_fx(v: VIn) -> VOut {
     var o: VOut;
     o.clip = g.view_proj * vec4<f32>(v.pos, 1.0);
+    // A beam runs from a nose to the surface it lands on. Depth-tested at one sample
+    // against that surface, a facet bulging towards the camera cut its end with a
+    // jagged edge, so beams draw over what they cross.
+    if v.params.x > 2.5 {
+        o.clip.z = 0.0;
+    }
     o.uv = v.uv;
     o.color = v.color;
     o.params = v.params;
