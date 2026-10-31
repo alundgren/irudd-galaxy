@@ -78,7 +78,8 @@ fn shared_root() -> &'static Path {
             Some(root) if root.is_absolute() => root,
             Some(root) => {
                 eprintln!(
-                    "note: GALAXY_TARGET_ROOT={} is not an absolute folder. It can move the                      shared build folder but not turn it off; using {}",
+                    "note: GALAXY_TARGET_ROOT={} is not an absolute folder. It can move the \
+                     shared build folder but not turn it off; using {}",
                     root.display(),
                     default.display()
                 );
