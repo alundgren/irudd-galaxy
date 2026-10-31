@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
+# The bin target's name is engine-only while the slice exists (see the workspace Cargo.toml).
+autobins = false
+
+[[bin]]
+name = "engine-xtask"
+path = "src/main.rs"
 
 [dependencies]
 directories.workspace = true

@@ -57,8 +57,14 @@ fn luau_asset() -> Option<(&'static str, &'static str)> {
     }
 }
 
-/// The binaries a build installs, by package (each package's binary has its name).
-const BINARIES: [&str; 3] = ["galaxy", "galaxy-gm", "galaxy-launcher"];
+/// The binaries a build makes: package, bin target and the name they are known by. The bin
+/// targets have engine-only names while the slice shares the build slots (see the
+/// workspace `Cargo.toml`); everything else uses the public name.
+const BINARIES: [(&str, &str, &str); 3] = [
+    ("galaxy", "engine-galaxy", "galaxy"),
+    ("galaxy-gm", "engine-galaxy-gm", "galaxy-gm"),
+    ("galaxy-launcher", "engine-launcher", "galaxy-launcher"),
+];
 
 const USAGE: &str = "usage: cargo xtask <check|cargo <args>|target-dir|build [--release]|\
                      run [--release] [--gm] -- <args>|install [--dev]|\
@@ -166,12 +172,12 @@ fn binary_command(task: &str, args: Vec<OsString>) -> ExitCode {
     }
 }
 
-/// Builds [`BINARIES`] and returns each one's executable, by name. The caller holds the
+/// Builds [`BINARIES`] and returns each one's executable, by public name. The caller holds the
 /// permit.
 fn build_binaries(release: bool) -> Result<std::collections::BTreeMap<String, PathBuf>, String> {
     let mut build = cargo();
     build.arg("build");
-    for package in BINARIES {
+    for (package, _, _) in BINARIES {
         build.args(["-p", package]);
     }
     if release {
@@ -193,10 +199,11 @@ fn build_binaries(release: bool) -> Result<std::collections::BTreeMap<String, Pa
             .filter_map(|message| {
                 let name = message["target"]["name"].as_str()?.to_owned();
                 let path = PathBuf::from(message["executable"].as_str()?);
-                BINARIES.contains(&name.as_str()).then_some((name, path))
+                let (_, _, public) = BINARIES.iter().find(|(_, bin, _)| *bin == name)?;
+                Some((public.to_string(), path))
             })
             .collect();
-    for name in BINARIES {
+    for (_, _, name) in BINARIES {
         if !executables.contains_key(name) {
             return Err(format!("cargo did not report the {name} executable"));
         }

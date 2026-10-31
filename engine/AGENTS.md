@@ -51,6 +51,12 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
 - **Dependencies** live in `[workspace.dependencies]` in `Cargo.toml`; crates use
   `dep.workspace = true`. Third-party code must be well known and MIT-compatible.
 - **Never fat LTO.** The release profile uses thin LTO.
+- **Bin targets are named `engine-*`** (`engine-galaxy`, `engine-galaxy-gm`,
+  `engine-launcher`, `engine-xtask`) while the slice shares the build slots. Cargo names
+  binaries without a hash, so a name the slice also uses would let one workspace silently
+  overwrite the other's program. `cargo xtask install` copies them as `galaxy` and
+  `galaxy-gm`. A new bin or example takes a name no slice bin or example uses. The names
+  go back once the slice is deleted.
 
 ## Releases and installs
 

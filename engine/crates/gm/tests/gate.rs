@@ -23,7 +23,7 @@ fn module(dir: &Path, min: &str) {
 }
 
 fn gm(cwd: &Path, args: &[&str]) -> (i32, Value) {
-    let out = Command::new(env!("CARGO_BIN_EXE_galaxy-gm"))
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy-gm"))
         .args(args)
         .current_dir(cwd)
         .env_remove("GALAXY_INSTALL_ROOT")
@@ -115,7 +115,7 @@ fn usage_and_input_errors_are_told_apart() {
 
 #[test]
 fn version_and_help_print_text() {
-    let out = Command::new(env!("CARGO_BIN_EXE_galaxy-gm"))
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy-gm"))
         .arg("--version")
         .output()
         .unwrap();

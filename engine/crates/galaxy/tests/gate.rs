@@ -23,7 +23,7 @@ fn module(dir: &Path, id: &str, min: &str) {
 }
 
 fn galaxy(cwd: &Path, args: &[&str]) -> (i32, Value) {
-    let out = Command::new(env!("CARGO_BIN_EXE_galaxy"))
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
         .args(args)
         .current_dir(cwd)
         .env_remove("GALAXY_INSTALL_ROOT")

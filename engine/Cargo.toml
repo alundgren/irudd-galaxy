@@ -11,6 +11,14 @@ edition = "2024"
 license = "MIT"
 publish = false
 
+# Binary target names. Cargo names binaries without a hash (`deps/<name>.exe`), and the
+# engine shares its build slots with the frozen slice, so an engine binary named like a
+# slice one (`galaxy`, `xtask`) would silently overwrite it, and the other workspace would
+# run the wrong program while thinking it is up to date. So every engine bin target has an
+# `engine-` name no slice bin or example uses: engine-galaxy, engine-galaxy-gm,
+# engine-launcher, engine-xtask. `cargo xtask install` copies them under their public
+# names (`galaxy`, `galaxy-gm`). The names go back once the slice is deleted.
+
 # Shared dependency versions. Add new ones here and use `dep.workspace = true` in crates.
 [workspace.dependencies]
 # Our crates
