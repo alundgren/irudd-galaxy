@@ -240,6 +240,30 @@ impl Clear {
             .iter()
             .any(|(a, b)| lo.x < b.x && a.x < hi.x && lo.y < b.y && a.y < hi.y)
     }
+
+    /// Whether a line from `a` to `b` (each raised its `z` off the plane) keeps `pad`
+    /// clear of every module and sign as the tilted camera shows it.
+    pub fn ok_line(&self, a: Vec3, b: Vec3, pad: f32) -> bool {
+        let shown = |p: Vec3| p.truncate() + G2::new(0.0, p.z * self.lean);
+        let (a, d) = (shown(a), shown(b) - shown(a));
+        !self.rects.iter().any(|(lo, hi)| {
+            let (lo, hi) = (*lo - G2::splat(pad), *hi + G2::splat(pad));
+            // Where the line enters and leaves the rectangle, as shares of its length.
+            let (mut t0, mut t1) = (0.0f32, 1.0f32);
+            for i in 0..2 {
+                if d[i].abs() < 1e-6 {
+                    if a[i] <= lo[i] || a[i] >= hi[i] {
+                        return false;
+                    }
+                } else {
+                    let (u, v) = ((lo[i] - a[i]) / d[i], (hi[i] - a[i]) / d[i]);
+                    t0 = t0.max(u.min(v));
+                    t1 = t1.min(u.max(v));
+                }
+            }
+            t0 < t1
+        })
+    }
 }
 
 /// What a figure is doing there.
@@ -289,6 +313,25 @@ pub struct Crane {
     pub reach: f32,
     /// What it carries (the ware just sold) and where that hangs.
     pub load: Option<(WareId, Vec3)>,
+    /// Where the hook's line ends: the load's top, or hanging short when idle.
+    pub hook: Vec3,
+}
+
+impl Crane {
+    /// Where the jib leaves the mast.
+    pub fn top(&self) -> Vec3 {
+        self.at + Vec3::Z * self.height * 0.97
+    }
+
+    /// The jib's end, where the hook's line hangs from.
+    pub fn tip(&self) -> Vec3 {
+        self.top() + Vec3::new(self.yaw.cos(), self.yaw.sin(), 0.0) * self.reach
+    }
+
+    /// The crane's moving lines, world units: the jib, then the hook's line.
+    pub fn lines(&self) -> [(Vec3, Vec3); 2] {
+        [(self.top(), self.tip()), (self.tip(), self.hook)]
+    }
 }
 
 /// A filler craft making up the theme's traffic.
@@ -1261,24 +1304,32 @@ fn walk_paths(world: &WorldState, site: &Site, spine: Spine) -> Vec<Vec<Vec3>> {
 
 /// The crane: between the market's yard and the player's berth, swinging the player's
 /// latest sale here from the berth to the yard over the ticks after it.
+///
+/// Never over a module or a sign: the mast stands where the jib, the hook and the load
+/// keep clear through the whole swing (and parked after it), swinging the long way
+/// round if the short way crosses one. A station with no such spot has no crane.
 fn crane(cx: &Ctx, yard: G2) -> Option<Crane> {
     let s = cx.site.s;
     let ship = cx.world.player.ship.as_ref()?;
     let berth = super::berth(cx.world, cx.site.st, ship).0;
     let height = CRANE_HEIGHT * s;
-    let mast = [0.3f32, 0.4, 0.2, 0.5]
+    // Between the yard and the berth first, then round the yard and round the berth
+    // (clear of the ship), the shortest way between them first.
+    let ring = |c: G2, r: f32| (0..16).map(move |i| polar(c, s, i as f32 * 22.5, r));
+    let mut round: Vec<G2> = [5.0f32, 6.5, 8.0, 10.0]
+        .into_iter()
+        .flat_map(|r| ring(yard, r))
+        .chain([6.0f32, 8.0, 10.0].into_iter().flat_map(|r| ring(berth, r)))
+        .collect();
+    let way = |p: &G2| p.distance(yard) + p.distance(berth);
+    round.sort_by(|a, b| way(a).total_cmp(&way(b)));
+    let plan = [0.3f32, 0.4, 0.2, 0.5]
         .into_iter()
         .map(|k| yard.lerp(berth, k))
-        .find(|p| cx.clear.ok(p.extend(0.0), height, 0.5 * s))?;
-    let reach_yard = mast.distance(yard).max(2.0 * s);
-    let to_yard = heading(yard - mast);
-    let mut out = Crane {
-        at: mast.extend(0.0),
-        yaw: to_yard,
-        height,
-        reach: reach_yard,
-        load: None,
-    };
+        .chain(round)
+        .filter(|p| cx.clear.ok(p.extend(0.0), height, 0.5 * s))
+        .flat_map(|mast| [false, true].map(|long| CranePlan::new(mast, berth, yard, s, long)))
+        .find(|plan| plan.clear(&cx.clear, cx.pad))?;
     let sale = cx.history.last(&HistoryQuery {
         kind: Some(FactKind::from_static("sell")),
         ship: Some(ship.clone()),
@@ -1287,39 +1338,117 @@ fn crane(cx: &Ctx, yard: G2) -> Option<Crane> {
         ..HistoryQuery::default()
     });
     let Some((sale, ware)) = sale.and_then(|f| Some((f, f.subjects.ware.clone()?))) else {
-        return Some(out);
+        return Some(plan.pose(None, None));
     };
     let k = cx.now.saturating_sub(sale.tick.0) as f32 / CARRY_TICKS as f32;
-    let to_berth = heading(berth - mast);
-    let reach_berth = mast.distance(berth).max(2.0 * s);
-    let turn = short_turn(to_yard - to_berth);
-    // Hoist off the ship, swing over, set down on the yard.
-    let deck = super::SHIP_HOVER;
-    let carry = (height * 0.7).max(deck + 2.0 * s);
-    let (yaw, reach, z) = if k < 0.15 {
-        let m = smooth(k / 0.15);
-        (to_berth, reach_berth, deck + (carry - deck) * m)
-    } else if k < 0.8 {
-        let m = smooth((k - 0.15) / 0.65);
-        (
-            to_berth + turn * m,
-            reach_berth + (reach_yard - reach_berth) * m,
-            carry,
-        )
-    } else {
-        let m = smooth((k - 0.8) / 0.2);
-        let rest = 2.0 * CRATE_SIZE * s;
-        (to_yard, reach_yard, carry + (rest - carry) * m)
-    };
-    out.yaw = yaw;
-    out.reach = reach;
-    let hang = (mast + G2::from_angle(yaw) * reach).extend(z.max(0.0));
-    // Never drawn over a module or a sign: a load whose way crosses one is only seen
-    // either side of it.
-    if cx.clear.ok(hang, CRATE_SIZE * s, 0.3 * s) {
-        out.load = Some((ware, hang));
+    Some(plan.pose(Some(k), Some(ware)))
+}
+
+/// Where a crane stands and how it swings a sale from the berth to the yard.
+struct CranePlan {
+    mast: G2,
+    /// World units per station unit.
+    s: f32,
+    to_berth: f32,
+    reach_berth: f32,
+    to_yard: f32,
+    reach_yard: f32,
+    /// The swing from the berth to the yard, radians (the short way or the long).
+    turn: f32,
+}
+
+impl CranePlan {
+    fn new(mast: G2, berth: G2, yard: G2, s: f32, long: bool) -> Self {
+        let (to_berth, to_yard) = (heading(berth - mast), heading(yard - mast));
+        let short = short_turn(to_yard - to_berth);
+        let turn = if long {
+            short - std::f32::consts::TAU.copysign(short)
+        } else {
+            short
+        };
+        Self {
+            mast,
+            s,
+            to_berth,
+            reach_berth: mast.distance(berth).max(2.0 * s),
+            to_yard,
+            reach_yard: mast.distance(yard).max(2.0 * s),
+            turn,
+        }
     }
-    Some(out)
+
+    /// The crane `k` of the way through carrying `ware` (parked without a sale): hoist
+    /// off the ship, swing over, set down on the yard.
+    fn pose(&self, k: Option<f32>, ware: Option<WareId>) -> Crane {
+        let s = self.s;
+        let height = CRANE_HEIGHT * s;
+        let deck = super::SHIP_HOVER;
+        let carry = (height * 0.7).max(deck + 2.0 * s);
+        let (yaw, reach, z) = match k {
+            None => (self.to_yard, self.reach_yard, None),
+            Some(k) if k < 0.15 => {
+                let m = smooth(k / 0.15);
+                (
+                    self.to_berth,
+                    self.reach_berth,
+                    Some(deck + (carry - deck) * m),
+                )
+            }
+            Some(k) if k < 0.8 => {
+                let m = smooth((k - 0.15) / 0.65);
+                (
+                    self.to_berth + self.turn * m,
+                    self.reach_berth + (self.reach_yard - self.reach_berth) * m,
+                    Some(carry),
+                )
+            }
+            Some(k) => {
+                let m = smooth((k - 0.8) / 0.2);
+                let rest = 2.0 * CRATE_SIZE * s;
+                (
+                    self.to_yard,
+                    self.reach_yard,
+                    Some(carry + (rest - carry) * m),
+                )
+            }
+        };
+        let mut out = Crane {
+            at: self.mast.extend(0.0),
+            yaw,
+            height,
+            reach,
+            load: None,
+            hook: Vec3::ZERO,
+        };
+        let tip = out.tip();
+        match (z, ware) {
+            (Some(z), Some(ware)) => {
+                let hang = tip.truncate().extend(z.max(0.0));
+                out.hook = hang + Vec3::Z * CRATE_SIZE * s;
+                out.load = Some((ware, hang));
+            }
+            _ => out.hook = tip - Vec3::Z * 2.0 * s,
+        }
+        out
+    }
+
+    /// Whether the jib, the hook and a load keep `pad` (and the jib's half width) clear
+    /// of every module and sign, parked and all through a carry.
+    fn clear(&self, clear: &Clear, pad: f32) -> bool {
+        // Fine enough that the tip moves less than the pad between checks.
+        const STEPS: u32 = 240;
+        let ware = || Some(WareId::from_static("ware.ice"));
+        std::iter::once(self.pose(None, None))
+            .chain((0..=STEPS).map(|i| self.pose(Some(i as f32 / STEPS as f32), ware())))
+            .all(|c| {
+                c.lines()
+                    .iter()
+                    .all(|(a, b)| clear.ok_line(*a, *b, pad + 0.5 * self.s))
+                    && c.load
+                        .as_ref()
+                        .is_none_or(|(_, at)| clear.ok(*at, CRATE_SIZE * self.s, pad))
+            })
+    }
 }
 
 /// The colours a theme paints with at a station: its faction's, or the default.

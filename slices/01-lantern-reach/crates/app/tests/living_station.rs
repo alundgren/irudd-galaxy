@@ -502,6 +502,165 @@ fn nothing_moving_covers_a_click_target_or_a_sign() {
     assert!(checked > 500, "{checked} movers checked");
 }
 
+/// The first of `avoid` that a world line `from..to`, `width` world units thick, crosses
+/// on the canvas.
+fn line_covers(
+    camera: &Camera,
+    viewport: G2,
+    avoid: &[Rect],
+    (from, to): (Vec3, Vec3),
+    width: f32,
+) -> Option<(G2, Rect)> {
+    let scale = ui::ui_scale(viewport);
+    let px = |p: Vec3| camera.world_to_screen(p, viewport).unwrap() / scale;
+    let half = (px(from + Vec3::X * width * 0.5) - px(from)).length();
+    (0..=64).find_map(|i| {
+        let p = px(from.lerp(to, i as f32 / 64.0));
+        avoid
+            .iter()
+            .find(|r| {
+                p.x + half > r.x
+                    && p.x - half < r.x + r.w
+                    && p.y + half > r.y
+                    && p.y - half < r.y + r.h
+            })
+            .map(|r| (p, *r))
+    })
+}
+
+/// Checks the crane's jib, hook line and load against every click target and sign, in
+/// every room's framing and window size, full and quiet. Returns whether it carried.
+fn crane_keeps_clear(s: &Session, station: &StationId, rooms: &[Option<StationPartId>]) -> bool {
+    let mut carrying = false;
+    for level in [LifeLevel::Full, LifeLevel::Quiet] {
+        let f = life_at(s, station, level, 0.0);
+        let Some(c) = &f.crane else {
+            continue;
+        };
+        carrying |= c.load.is_some();
+        for room in rooms {
+            let ui_state = UiState {
+                room: room.clone(),
+                ..UiState::default()
+            };
+            for viewport in [DESIGN, G2::new(1920.0, 1080.0), G2::new(960.0, 540.0)] {
+                let camera = rig_for(s, &ui_state, viewport).camera();
+                let avoid = keep_clear(s.world(), station, &camera, viewport);
+                let mut lines = c.lines().to_vec();
+                if let Some((_, at)) = &c.load {
+                    lines.push((*at, *at + Vec3::Z * render::kit::life::CRATE_SIZE * f.scale));
+                }
+                for (i, line) in lines.into_iter().enumerate() {
+                    let what = ["jib", "hook", "load"][i];
+                    if let Some((p, r)) = line_covers(&camera, viewport, &avoid, line, f.scale) {
+                        panic!(
+                            "{station} {room:?} {viewport} {level:?} tick {}: the crane's {what} at {p} covers {r:?}",
+                            s.world().meta.tick.0
+                        );
+                    }
+                }
+            }
+        }
+    }
+    carrying
+}
+
+#[test]
+fn the_crane_keeps_clear_of_the_observatory_market_after_selling_ice() {
+    // Seed 1, docked at the Observatory, 10 ice sold: 3.3 seconds on, the jib used to
+    // cross the middle of the Market's click target.
+    let station = StationId::from_static("station.glass_drift_observatory");
+    let mut s = session_with(|w| {
+        dock_at(w, &station);
+        let id = w.player.ship.clone().unwrap();
+        w.ships.get_mut(&id).unwrap().hold.cargo.insert(ICE, 10);
+    });
+    s.request_trade(TradeRequest {
+        ship: s.flagship().unwrap().id.clone(),
+        station: station.clone(),
+        ware: ICE,
+        side: TradeSide::Sell,
+        quantity: 10,
+        limit: None,
+    });
+    for _ in 0..99 {
+        s.tick(PlayerInput::default());
+    }
+    assert_eq!(s.world().meta.tick.0, 104);
+    assert_eq!(s.flagship().unwrap().hold.count(&ICE), 0, "sold");
+    assert!(
+        crane_keeps_clear(&s, &station, &[None]),
+        "the crane carries the sale"
+    );
+}
+
+#[test]
+fn the_crane_keeps_clear_through_its_whole_swing_at_every_station() {
+    let stations: Vec<StationId> = new_state().world.stations.keys().cloned().collect();
+    for station in stations {
+        // Docked there, selling ten of something its market buys.
+        let ware = new_state().world.markets.get(&station).and_then(|m| {
+            m.lines
+                .iter()
+                .find(|(_, l)| l.role == MarketRole::Buys)
+                .map(|(w, _)| w.clone())
+        });
+        let Some(ware) = ware else {
+            continue;
+        };
+        let mut s = session_with(|w| {
+            dock_at(w, &station);
+            let id = w.player.ship.clone().unwrap();
+            w.ships
+                .get_mut(&id)
+                .unwrap()
+                .hold
+                .cargo
+                .insert(ware.clone(), 10);
+        });
+        let id = s.flagship().unwrap().id.clone();
+        s.request_trade(TradeRequest {
+            ship: id,
+            station: station.clone(),
+            ware: ware.clone(),
+            side: TradeSide::Sell,
+            quantity: 10,
+            limit: None,
+        });
+        s.tick(PlayerInput::default());
+        assert_eq!(
+            s.flagship().unwrap().hold.count(&ware),
+            0,
+            "{station}: sold"
+        );
+        let rooms: Vec<Option<StationPartId>> = std::iter::once(None)
+            .chain(
+                ui::station::parts_here(s.world(), &station)
+                    .iter()
+                    .filter(|p| p.room != galaxy_contract::parts::RoomKind::Wharf)
+                    .map(|p| Some(p.id.clone())),
+            )
+            .collect();
+        assert!(
+            life_at(&s, &station, LifeLevel::Full, 0.0).crane.is_some(),
+            "{station}: its market has a crane"
+        );
+        // Every three ticks from the sale until well after the load is set down.
+        let mut carried = 0;
+        for _ in 0..70 {
+            carried += usize::from(crane_keeps_clear(&s, &station, &rooms));
+            for _ in 0..3 {
+                s.tick(PlayerInput::default());
+            }
+        }
+        // The carry takes six seconds (60 checks): the load is seen all the way.
+        assert!(
+            carried >= 59,
+            "{station}: carried for {carried} of 60 checks"
+        );
+    }
+}
+
 #[test]
 fn craft_glide_in_to_their_berth_and_out_again() {
     // Undocked inside the Wharf's ring, the flagship docks with Space.

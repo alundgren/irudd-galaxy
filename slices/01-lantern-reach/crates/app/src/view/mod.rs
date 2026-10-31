@@ -1225,7 +1225,7 @@ impl View {
             scene
                 .meshes
                 .push(MeshInstance::new(art.mast, place(c.at, 0.0)).with_material(props));
-            let top = c.at + Vec3::Z * c.height * 0.97;
+            let top = c.top();
             scene.meshes.push(
                 MeshInstance::new(
                     art.jib,
@@ -1235,26 +1235,18 @@ impl View {
                 )
                 .with_material(props),
             );
-            let tip = top + Vec3::new(c.yaw.cos(), c.yaw.sin(), 0.0) * c.reach;
-            if let Some((ware, at)) = &c.load {
-                let hook = *at + Vec3::Z * kit::life::CRATE_SIZE * s;
-                scene.lines.push(Line::path(
-                    vec![tip, hook],
-                    0.25 * s,
-                    palette::INK.with_alpha(0.7),
-                ));
-                if let Some(m) = art.stock.get(ware) {
-                    scene
-                        .meshes
-                        .push(MeshInstance::new(*m, place(*at, c.yaw)).with_material(props));
-                }
-            } else {
-                // An idle hook, hanging short.
-                scene.lines.push(Line::path(
-                    vec![tip, tip - Vec3::Z * 2.0 * s],
-                    0.25 * s,
-                    palette::INK.with_alpha(0.6),
-                ));
+            let [_, (tip, hook)] = c.lines();
+            scene.lines.push(Line::path(
+                vec![tip, hook],
+                0.25 * s,
+                palette::INK.with_alpha(if c.load.is_some() { 0.7 } else { 0.6 }),
+            ));
+            if let Some((ware, at)) = &c.load
+                && let Some(m) = art.stock.get(ware)
+            {
+                scene
+                    .meshes
+                    .push(MeshInstance::new(*m, place(*at, c.yaw)).with_material(props));
             }
         }
         for c in &f.craft {
