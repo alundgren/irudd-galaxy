@@ -337,6 +337,7 @@ impl MindHost {
             let mut opened = Vec::new();
             let mut docked_at = Vec::new();
             if self.resume {
+                self.resume = false;
                 // Live facts recorded but never said (a save between the two ticks).
                 for f in facts[..from].iter().rev().take(64) {
                     if LIVE_FACTS.contains(&f.kind.as_str())
