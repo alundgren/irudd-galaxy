@@ -9,14 +9,17 @@ use render::{Camera, Overlay, Rect, Scene};
 
 use crate::session::Session;
 use crate::ui::{self, Button, UiState};
-use crate::view::{CameraRig, TILT, View, g};
+use crate::view::{CameraRig, DOCK_TILT, TILT, View, g};
 
 /// Where the camera should be: what it looks at, and docked, how much it sees (`None`:
-/// the flight zoom from the data).
+/// the flight zoom from the data) and how far it tilts.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraGoal {
     pub center: G2,
     pub zoom: Option<f32>,
+    /// Degrees from straight down: [`TILT`] in flight and at the cradle (its own
+    /// framing), [`DOCK_TILT`] over the station and its rooms.
+    pub tilt: f32,
 }
 
 /// The share of the screen's height the whole station fills when docked.
@@ -92,6 +95,7 @@ pub fn camera_goal(
                 .get(&ship.id)
                 .map_or(g(ship.position), |p| g(p.position)),
             zoom: None,
+            tilt: TILT,
         });
     };
     let recipe = galaxy_core::parts::recipe_of(world, st);
@@ -107,11 +111,12 @@ pub fn camera_goal(
     let Some(part) = open_room(session, ui_state) else {
         // A little right of the middle: talk bubbles open on the left.
         let wpp = Camera::top_down(centre, zoom)
-            .with_tilt(TILT)
+            .with_tilt(DOCK_TILT)
             .world_per_pixel(viewport);
         return Some(CameraGoal {
             center: centre - G2::new(viewport.x * OVERVIEW_SHIFT * wpp, 0.0),
             zoom: Some(zoom),
+            tilt: DOCK_TILT,
         });
     };
     let canvas = ui::canvas(viewport);
@@ -123,6 +128,7 @@ pub fn camera_goal(
             return Some(CameraGoal {
                 center,
                 zoom: Some(zoom),
+                tilt: TILT,
             });
         }
     }
@@ -132,11 +138,12 @@ pub fn camera_goal(
     let free = ui::station::room_rect(world, &st.id, canvas).x * ui::ui_scale(viewport);
     let shift_px = viewport.x * 0.5 - free * 0.5;
     let wpp = Camera::top_down(at, zoom)
-        .with_tilt(TILT)
+        .with_tilt(DOCK_TILT)
         .world_per_pixel(viewport);
     Some(CameraGoal {
         center: at + G2::new(shift_px * wpp, 0.0),
         zoom: Some(zoom),
+        tilt: DOCK_TILT,
     })
 }
 
@@ -176,7 +183,7 @@ pub fn compose(
         s
     } else {
         let poses = session.poses(alpha);
-        let mut s = view.world_scene(world, &poses, rig, time, viewport);
+        let mut s = view.world_scene(world, Some(history), &poses, rig, time, viewport);
         let camera = rig.camera();
         ui::station_labels(&mut s.overlay, world, &camera, viewport);
         ui::edge_markers(
@@ -214,6 +221,7 @@ pub fn compose(
             );
         }
         view.draw_modules(&mut s, world, rig, hovered.as_ref());
+        view.draw_life(&mut s, world, history, rig, time);
         if ui_state.confirm.is_none()
             && let Some(spec) = cradle_spec(session, ui_state)
         {
@@ -269,7 +277,7 @@ pub fn compose(
     scene.overlay.panels.extend(panels.panels);
     scene.overlay.texts.extend(panels.texts);
     if session.is_paused() {
-        scene.overlay.paused = Some(ui::paused_card());
+        scene.overlay.paused = Some(crate::view::life::paused_card(view.life));
         // Nothing is clickable under the card.
         buttons.clear();
     }

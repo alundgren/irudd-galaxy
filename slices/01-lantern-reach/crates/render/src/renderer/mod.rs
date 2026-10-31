@@ -1365,9 +1365,8 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
 
 /// Lays out the pause card for a viewport in logical pixels.
 fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
-    let w = (logical.x * 0.86).min(560.0);
-    let h = 196.0;
-    let rect = Rect::new((logical.x - w) * 0.5, (logical.y - h) * 0.5, w, h);
+    let rect = card.rect(logical);
+    let w = rect.w;
     let cx = logical.x * 0.5;
     let veil = Panel {
         rect: Rect::new(-4.0, -4.0, logical.x + 8.0, logical.y + 8.0),
@@ -1398,7 +1397,25 @@ fn paused_card(card: &PausedCard, logical: Vec2) -> (Vec<Panel>, Vec<Text>) {
         .color(Color::hex(0x6b4f5f))
         .align(crate::scene::Align::Center)
         .wrap(w - 48.0);
-    (vec![veil, body, pill], vec![title, hint])
+    let mut panels = vec![veil, body, pill];
+    let mut texts = vec![title, hint];
+    // Settings: outlined buttons in black on the card's paper.
+    for (label, r) in card.toggles.iter().zip(card.toggle_rects(logical)) {
+        panels.push(Panel {
+            rect: r,
+            radius: 12.0,
+            border_px: 3.0,
+            shadow: false,
+            ..Panel::new(r)
+        });
+        texts.push(
+            Text::new(label.clone(), Vec2::new(r.x + r.w * 0.5, r.y + 9.0), 18.0)
+                .weight(700)
+                .color(Color::BLACK)
+                .align(crate::scene::Align::Center),
+        );
+    }
+    (panels, texts)
 }
 
 fn make_backdrop(

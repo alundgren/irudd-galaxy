@@ -101,6 +101,7 @@ pub fn shot(args: &ShotArgs) -> Result<Value, (u8, String)> {
     }
     if let Some(goal) = frame::camera_goal(&session, &ui_state, 1.0, renderer.logical_size()) {
         rig.center = goal.center;
+        rig.tilt = goal.tilt;
         if let (Some(zoom), None) = (goal.zoom, args.zoom) {
             rig.zoom = zoom;
         }

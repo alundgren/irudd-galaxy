@@ -41,11 +41,19 @@ stays), `--seed N` picks the new game's seed, `--save PATH` plays a particular f
 | **P** or **Esc** | Pause. The whole galaxy stops under the PAUSED card. |
 | **M** | The map: regions, lanes, who holds what, and the prices you've seen, dated by your dockings ("?" where you haven't been). |
 | **N** | Mute or unmute the sound (remembered between games). |
+| **Q** | Station life full or quiet (also a button on the PAUSED card; remembered between games). Quiet keeps what the numbers say (stock piles, lamps, your sale on the crane, a crowd for news) and stills the rest. |
 | **F3** | Small developer overlay: active beats and steps, activity counters, recent facts, mind spend and script health. |
 | **Mouse wheel**, **-** / **=** | Zoom. |
 | **Click** | Fly, mine or dock by clicking, once you've earned those controls (Act 2). Shift queues. Until then clicks do nothing. |
 
-Docking brings the camera in close on the station. Each of its parts is a module with
+Docking swoops the camera in close on the station and tilts it to a three-quarter view
+(undocking tilts back; a click finishes the move). The station shows what is going on in
+it: the economy's own craft come in to their berths and leave, stock piles by the market
+grow and shrink with its stock, the crane carries what you just sold from your berth to
+the stalls, a small crowd gathers at the office when news has landed since your last
+visit, the lamplighter lights one more lamp per station pulse, and workers stand at a
+part being built. Each faction builds and peoples its stations its own way
+(`packs/core/data/themes.toml`). Each of the station's parts is a module with
 a hanging sign: hover one and it lifts, outlined in orange, and its sign says who keeps
 it and what it offers; click it and the camera glides there and its room opens beside
 it, leaving the station in view. **Back**, **Esc** or a right-click returns to the whole

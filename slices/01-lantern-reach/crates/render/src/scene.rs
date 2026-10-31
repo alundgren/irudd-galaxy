@@ -400,6 +400,9 @@ impl Text {
 pub struct PausedCard {
     pub title: String,
     pub hint: String,
+    /// Settings shown as buttons on the card, one row each (`"Station life: Full"`).
+    /// The app hit-tests them with [`PausedCard::toggle_rects`].
+    pub toggles: Vec<String>,
 }
 
 impl Default for PausedCard {
@@ -407,7 +410,37 @@ impl Default for PausedCard {
         Self {
             title: "PAUSED".into(),
             hint: "Nothing moves until you're back. Press P to resume.".into(),
+            toggles: Vec::new(),
         }
+    }
+}
+
+/// The pause card's height without toggles, and what each toggle row adds.
+const CARD_H: f32 = 196.0;
+const TOGGLE_H: f32 = 52.0;
+
+impl PausedCard {
+    /// The card's rectangle on a viewport of `logical` pixels.
+    pub fn rect(&self, logical: Vec2) -> Rect {
+        let w = (logical.x * 0.86).min(560.0);
+        let h = CARD_H + TOGGLE_H * self.toggles.len() as f32;
+        Rect::new((logical.x - w) * 0.5, (logical.y - h) * 0.5, w, h)
+    }
+
+    /// Where each toggle's button sits, in the order of [`Self::toggles`].
+    pub fn toggle_rects(&self, logical: Vec2) -> Vec<Rect> {
+        let card = self.rect(logical);
+        let w = (card.w - 96.0).clamp(120.0, 340.0);
+        (0..self.toggles.len())
+            .map(|i| {
+                Rect::new(
+                    card.x + (card.w - w) * 0.5,
+                    card.y + CARD_H - 12.0 + TOGGLE_H * i as f32,
+                    w,
+                    40.0,
+                )
+            })
+            .collect()
     }
 }
 
