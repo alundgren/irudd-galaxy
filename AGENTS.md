@@ -30,6 +30,10 @@ changes with it.
   about is a number a test or bot reports from the first build, so drift shows early.
 - **Effort in proportion.** Review, hardening and polish scale with what a mistake costs
   in the folder's phase.
+- **Docs shrink as work lands.** Change lists, known-issue pages and notes list only what
+  is still open. The change that fixes an item deletes it from the doc in the same PR,
+  with no "done" markers or "fixed" sections. A doc that no longer has open items is
+  deleted.
 
 ## What blocks a merge
 
