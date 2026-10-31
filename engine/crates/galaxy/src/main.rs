@@ -36,7 +36,7 @@ fn run(args: &[String]) -> Result<Output, Failure> {
                     USAGE,
                 ));
             };
-            let dir = cli::current_dir()?.join(Path::new(&dir));
+            let dir = discover::resolve(&cli::current_dir()?, Path::new(dir));
             if !dir.is_dir() {
                 return Err(
                     Failure::bad_input(format!("{} is not a folder", dir.display()))

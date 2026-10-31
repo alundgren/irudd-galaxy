@@ -9,6 +9,11 @@ use std::path::{Path, PathBuf};
 
 use crate::manifest::{self, FILE};
 
+/// `path` against the working folder, with this OS's separators throughout.
+pub fn resolve(cwd: &Path, path: &Path) -> PathBuf {
+    cwd.join(path).components().collect()
+}
+
 /// `dir` itself if it holds a manifest, else its subfolders that do, sorted by name.
 pub fn modules_in(dir: &Path) -> Vec<PathBuf> {
     if dir.join(FILE).is_file() {
@@ -69,7 +74,7 @@ impl Tool {
 /// The module folders a command line names, best effort: the launcher uses this to pick
 /// a build, and the build itself reports anything wrong with the arguments.
 pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
-    let at = |path: &OsString| cwd.join(path);
+    let at = |path: &OsString| resolve(cwd, Path::new(path));
     let command = args.first().and_then(|a| a.to_str());
     match (tool, command) {
         (_, Some("doctor")) => modules_near(cwd),

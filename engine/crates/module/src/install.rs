@@ -189,7 +189,7 @@ fn not_installed(message: String, root: &Path) -> Failure {
         code::CANNOT_START,
         "not_installed",
         format!(
-            "{message} in {}. {}",
+            "{message} in {}. To install an engine: {}.",
             root.display(),
             crate::gate::HOW_TO_INSTALL
         ),

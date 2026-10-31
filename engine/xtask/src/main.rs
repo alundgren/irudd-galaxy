@@ -298,7 +298,7 @@ pub(crate) fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Runs git in the engine workspace and returns its trimmed output.
+/// Runs git in the engine workspace and returns its output without trailing whitespace.
 pub(crate) fn git(args: &[&str]) -> Result<String, String> {
     let out = Command::new("git")
         .args(args)
@@ -312,5 +312,5 @@ pub(crate) fn git(args: &[&str]) -> Result<String, String> {
             String::from_utf8_lossy(&out.stderr).trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+    Ok(String::from_utf8_lossy(&out.stdout).trim_end().to_owned())
 }

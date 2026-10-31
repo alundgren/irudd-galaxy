@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use galaxy_module::cli::{self, Output};
-use galaxy_module::discover::Tool;
+use galaxy_module::discover::{self, Tool};
 use galaxy_module::{Failure, gate, manifest};
 
 const USAGE: &str = "usage: galaxy-gm <command>
@@ -25,7 +25,7 @@ fn run(args: &[String]) -> Result<Output, Failure> {
     match args {
         [command, path] if command == "check" => {
             let cwd = cli::current_dir()?;
-            let dir = manifest::module_dir(&cwd.join(Path::new(path)));
+            let dir = manifest::module_dir(&discover::resolve(&cwd, Path::new(path)));
             let manifests = gate::open(&[dir])?;
             Err(cli::not_built(Tool::Gm, "check", &manifests))
         }
