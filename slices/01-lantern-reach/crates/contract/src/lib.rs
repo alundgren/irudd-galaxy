@@ -18,6 +18,7 @@ pub mod economy;
 pub mod events;
 pub mod fit;
 pub mod geom;
+pub mod happening;
 pub mod history;
 pub mod ids;
 pub mod input;

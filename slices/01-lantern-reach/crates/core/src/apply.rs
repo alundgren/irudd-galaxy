@@ -919,6 +919,29 @@ fn apply_with(
                 value: old.map(Box::new),
             })
         }
+        C::PutHappening { id, value } => {
+            if let Some(v) = value {
+                if &v.id != id {
+                    return Err(CommandError::Invalid(format!(
+                        "happening `{}` stored under `{id}`",
+                        v.id
+                    )));
+                }
+                if refs.check {
+                    crate::happenings::check(world, v).map_err(|e| {
+                        CommandError::Invalid(format!("happening {id}: {}", e.join("; ")))
+                    })?;
+                }
+            }
+            let old = match value {
+                Some(v) => world.happenings.insert(id.clone(), (**v).clone()),
+                None => world.happenings.remove(id),
+            };
+            invert(C::PutHappening {
+                id: id.clone(),
+                value: old.map(Box::new),
+            })
+        }
         C::PutMapOverlay { id, value } => {
             if let Some(v) = value
                 && (!v.radius.is_finite()

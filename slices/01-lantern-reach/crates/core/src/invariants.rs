@@ -68,7 +68,8 @@ impl Invariant for KeysMatchIds {
         keys_match(&w.factions, "faction")?;
         keys_match(&w.npcs, "npc")?;
         keys_match(&w.rumors, "rumor")?;
-        keys_match(&w.station_parts, "station part")
+        keys_match(&w.station_parts, "station part")?;
+        keys_match(&w.happenings, "happening")
     }
 }
 
@@ -134,6 +135,15 @@ impl Invariant for ReferencesResolve {
         for (id, p) in &w.station_parts {
             exists(&w.stations, &p.station, id)?;
             exists(&w.npcs, &p.keeper, id)?;
+        }
+        let mut running = std::collections::BTreeSet::new();
+        for (id, h) in &w.happenings {
+            exists(&w.stations, &h.station, id)?;
+            exists(&w.npcs, &h.line.speaker, id)?;
+            // The calm rule: at most one happening runs at a station at a time.
+            if h.is_active() && !running.insert(&h.station) {
+                return Err(format!("{id}: a second happening running at {}", h.station));
+            }
         }
         for (id, m) in &w.markets {
             exists(&w.stations, id, &"market")?;

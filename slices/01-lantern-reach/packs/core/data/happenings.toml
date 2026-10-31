@@ -1,0 +1,59 @@
+# Happenings (issue #47, 4.1): short pieces of visible life at a station, the "place"
+# half of a change. Each one waits for its cause facts, starts when the player docks at
+# its station with nothing else running there (one at a time per station; a new one
+# waits), has its speaker say its line, and runs for `lasts.dockings` counted dockings
+# there. Then it ends. Counted, never timed: tapping out of the ring and back in
+# doesn't burn a docking.
+#
+# - `show`: what the docked view draws while it runs, `<kind>:<value>` (kinds:
+#   banner_string, crowd, residents, lamps, prop, craft, sound). `crowd:<anchor>` names
+#   a part's anchor on the station's kit recipe.
+# - `cause.facts`: patterns a fact must match. `kind` matches whole or by its last
+#   segment (`stage_built` is `core.stage_built` and `gm.kettle_growth.stage_built`),
+#   plus any of `station`, `npc`, `faction`, `ware`, `other`, `amount`.
+# - `line`: what the speaker says when it starts, in the first person, with optional
+#   `choices` that a core script answers.
+#
+# A game-master pack writes more with `ctx.happenings:put`.
+# Schema: crates/contract/schemas/data-happenings.json
+
+# --- Kettle Dock's greenhouse (the gm-examples kettle_growth pack builds stages 2 and
+# 3 from the player's ice and plate). The second ring gives the next stage its stakes;
+# the orchard ring pays off with a crate from the first harvest. --------------------
+
+[[happening]]
+id = "happening.kettle.lamp_night"
+station = "station.kettle_dock"
+show = ["banner_string:lamps", "crowd:rim.north", "residents:+4"]
+lasts = { dockings = 3 }
+cause = { facts = [{ kind = "stage_built", station = "station.kettle_dock", amount = 2 }] }
+line = { id = "line.odo_fenn.lamp_night", speaker = "npc.odo_fenn", text = "We've strung lamps along the second ring tonight. Bring more ice and plate and the orchard ring goes up next. Its first harvest is yours." }
+
+# The payoff: Odo offers a crate of fresh rations (Accept / Not now). The core pack's
+# `harvest` script loads it only on Accept, with a receipt, and asks again at the next
+# docking while the harvest runs.
+[[happening]]
+id = "happening.kettle.first_harvest"
+station = "station.kettle_dock"
+show = ["banner_string:harvest", "crowd:rim.north", "residents:+6", "prop:crate_pile"]
+lasts = { dockings = 3 }
+cause = { facts = [{ kind = "stage_built", station = "station.kettle_dock", amount = 3 }] }
+
+[happening.line]
+id = "line.odo_fenn.first_harvest"
+speaker = "npc.odo_fenn"
+text = "First harvest's in from the orchard ring, and I kept a crate of fresh rations back for you. Will you take it?"
+choices = [
+    { id = "choice.harvest_take", text = "Accept: a crate of rations" },
+    { id = "choice.harvest_later", text = "Not now" },
+]
+
+# --- Lantern Wharf: the lamps go up at the Wharf too once Kettle's orchard is lit. -----
+
+[[happening]]
+id = "happening.wharf.lamp_night"
+station = "station.lantern_wharf"
+show = ["banner_string:lamps", "crowd:quay.west", "residents:+6"]
+lasts = { dockings = 2 }
+cause = { facts = [{ kind = "stage_built", station = "station.kettle_dock", amount = 3 }] }
+line = { id = "line.ilse_marrow.lamp_night", speaker = "npc.ilse_marrow", text = "Odo's orchard lamps are lit at Kettle, so we've strung ours along the pier tonight. Your ice built that orchard." }

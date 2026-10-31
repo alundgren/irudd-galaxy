@@ -229,6 +229,11 @@ pub const COMMAND_NEEDS: &[CommandNeeds] = &[
         "`ctx.parts:put`, `ctx.parts:remove` (only while the player is docked).",
     ),
     row(
+        "put_happening",
+        Needs::Uses(&[&["happenings.write"]]),
+        "`ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only).",
+    ),
+    row(
         "put_map_overlay",
         Needs::Uses(&[&["kit.write"]]),
         "`ctx.kit:overlay`.",
@@ -432,8 +437,14 @@ fn beat_only(route: Route, what: &str) -> Result<(), String> {
 
 /// Names in a pack's own namespace that report a checked change: only the hook that
 /// makes the change records them (`ctx.canon:open`, `ctx.mechanics:teach`), never
-/// `ctx.history:record`.
-pub const PROTECTED_FACTS: [&str; 2] = ["canon_opened", "mechanic_taught"];
+/// `ctx.history:record`. The happening runtime's `happening_started` and
+/// `happening_ended` are the engine's alone, so no pack forges one under its prefix.
+pub const PROTECTED_FACTS: [&str; 4] = [
+    "canon_opened",
+    "mechanic_taught",
+    "happening_started",
+    "happening_ended",
+];
 
 fn payload(
     cmd: &Command,

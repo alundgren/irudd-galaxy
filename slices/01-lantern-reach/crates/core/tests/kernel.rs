@@ -326,6 +326,21 @@ fn undo_records_invert_commands() {
                     .clone()
             })),
         },
+        Command::PutHappening {
+            id: "happening.wharf.lamp_night".parse().unwrap(),
+            value: Some(Box::new(galaxy_contract::happening::Happening {
+                lasts: galaxy_contract::happening::Lasts { dockings: 1 },
+                ..world
+                    .happenings
+                    .get("happening.wharf.lamp_night")
+                    .unwrap()
+                    .clone()
+            })),
+        },
+        Command::PutHappening {
+            id: "happening.kettle.lamp_night".parse().unwrap(),
+            value: None,
+        },
         Command::AdjustCargo {
             ship: PLAYER,
             ware: ICE,

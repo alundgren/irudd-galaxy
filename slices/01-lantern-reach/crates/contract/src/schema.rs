@@ -46,6 +46,7 @@ pub fn all() -> Vec<(&'static str, Schema)> {
         one::<LanesFile>("data-lanes"),
         one::<StationsFile>("data-stations"),
         one::<crate::parts::StationPartsFile>("data-station-parts"),
+        one::<crate::happening::HappeningsFile>("data-happenings"),
         one::<RocksFile>("data-rocks"),
         one::<NpcsFile>("data-npcs"),
         one::<EconomyRules>("data-economy"),

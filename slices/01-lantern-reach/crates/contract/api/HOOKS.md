@@ -65,6 +65,8 @@ and `ctx.store` (the script's declared stores).
 | `stations.write` | Stores | available | Set a station's stage and owner; attach and detach kit parts. |
 | `factions.read` | Stores | available | Read factions and the player's standing. |
 | `factions.write` | Stores | available | Adjust the player's standing. |
+| `happenings.read` | Stores | available | Read happenings at stations: upcoming, running and over. |
+| `happenings.write` | Stores | available | Write happenings: visible life at a station that starts when its cause facts exist and runs for a number of dockings. |
 | `npcs.read` | Stores | available | Read named people. |
 | `npcs.write` | Stores | available | Create, replace and move named people. |
 | `rumors.read` | Stores | available | Read rumors and their truth value. |
@@ -154,6 +156,14 @@ and `ctx.store` (the script's declared stores).
 - `ctx.parts:list(station: StationId) -> { StationPartId }` (`stations.read`): A station's part IDs, sorted.
 - `ctx.parts:put(part: StationPart, why: Cause) -> boolean` (`stations.write`): Adds or changes a station part at a calm moment, and its keeper says its `line`          citing `why` (needs `talk.write` too). Only while the player is docked:          otherwise nothing is written and it returns false. Checked: the anchor is free          on the station's recipe, the module is within the art bible's budget, the keeper          is at the station. `state = "closed"` puts a scaffold and a closed sign up.
 - `ctx.parts:remove(id: StationPartId, why: Cause) -> boolean` (`stations.write`): Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.
+
+### `ctx.happenings`
+
+- `ctx.happenings:get(id: HappeningId) -> Happening?` (`happenings.read`): A happening, with where it is in its run (`run.status`: upcoming, active, ended).
+- `ctx.happenings:list(station: StationId) -> { HappeningId }` (`happenings.read`): A station's happenings, upcoming, running and over, sorted by ID.
+- `ctx.happenings:active(station: StationId) -> HappeningId?` (`happenings.read`): The happening running at a station now, if any (at most one at a time).
+- `ctx.happenings:put(happening: Happening, why: Cause) -> ()` (`happenings.write`): Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.
+- `ctx.happenings:remove(id: HappeningId, why: Cause) -> ()` (`happenings.write`): Takes away a happening that hasn't started. One that is running or over stays.
 
 ### `ctx.factions`
 
@@ -387,6 +397,7 @@ beat precondition can be met by a forged fact.
 | `set_canon_status` | `canon.write` | `ctx.canon:open`. |
 | `put_station_recipe` | never | Recipes come with `found_station`. |
 | `put_station_part` | `stations.write` | `ctx.parts:put`, `ctx.parts:remove` (only while the player is docked). |
+| `put_happening` | `happenings.write` | `ctx.happenings:put`, `ctx.happenings:remove` (upcoming happenings only). |
 | `put_map_overlay` | `kit.write` | `ctx.kit:overlay`. |
 | `put_region` | `territory.write` | `ctx.territory:set_owner`. |
 | `put_lane` | never | Authored data. |

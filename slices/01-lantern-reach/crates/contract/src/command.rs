@@ -399,6 +399,12 @@ pub enum Command {
         id: StationPartId,
         value: Option<Box<crate::parts::StationPart>>,
     },
+    /// Adds, changes (`Some`) or removes (`None`) a happening
+    /// ([`crate::happening::Happening`]). Checked by `galaxy_core::happenings::check`.
+    PutHappening {
+        id: HappeningId,
+        value: Option<Box<crate::happening::Happening>>,
+    },
     PutMapOverlay {
         id: String,
         value: Option<Box<crate::live::MapOverlay>>,
@@ -653,6 +659,7 @@ impl Command {
             Command::SetCanonStatus { .. } => "set_canon_status",
             Command::PutStationRecipe { .. } => "put_station_recipe",
             Command::PutStationPart { .. } => "put_station_part",
+            Command::PutHappening { .. } => "put_happening",
             Command::PutMapOverlay { .. } => "put_map_overlay",
             Command::PutRegion { .. } => "put_region",
             Command::PutLane { .. } => "put_lane",

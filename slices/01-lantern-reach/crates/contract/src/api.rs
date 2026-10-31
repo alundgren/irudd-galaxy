@@ -151,6 +151,16 @@ pub const USES: &[UseDef] = &[
         Hook::Stores,
         "Adjust the player's standing.",
     ),
+    cap(
+        "happenings.read",
+        Hook::Stores,
+        "Read happenings at stations: upcoming, running and over.",
+    ),
+    cap(
+        "happenings.write",
+        Hook::Stores,
+        "Write happenings: visible life at a station that starts when its cause facts exist and runs for a number of dockings.",
+    ),
     cap("npcs.read", Hook::Stores, "Read named people."),
     cap(
         "npcs.write",
@@ -569,6 +579,41 @@ pub const FUNCTIONS: &[FnDef] = &[
         "stations.write",
         "(id: StationPartId, why: Cause) -> boolean",
         "Takes a station part away at a calm moment; its keeper says its          `rollback_line` citing `why` (needs `talk.write` too). False while the player          isn't docked.",
+    ),
+    f(
+        "happenings",
+        "get",
+        "happenings.read",
+        "(id: HappeningId) -> Happening?",
+        "A happening, with where it is in its run (`run.status`: upcoming, active, ended).",
+    ),
+    f(
+        "happenings",
+        "list",
+        "happenings.read",
+        "(station: StationId) -> { HappeningId }",
+        "A station's happenings, upcoming, running and over, sorted by ID.",
+    ),
+    f(
+        "happenings",
+        "active",
+        "happenings.read",
+        "(station: StationId) -> HappeningId?",
+        "The happening running at a station now, if any (at most one at a time).",
+    ),
+    f(
+        "happenings",
+        "put",
+        "happenings.write",
+        "(happening: Happening, why: Cause) -> ()",
+        "Writes a new or still-upcoming happening. It starts once every `cause.facts` entry          exists (a fact ID that must exist now, or a pattern: `kind` plus subjects or          `amount`) and the player is docked at its station with nothing else running          there; its speaker says `line.text` and it runs for `lasts.dockings` counted          dockings. Checked: the station exists, the speaker is there, the line is one          short first-person line, `lasts.dockings` is 1 to 12. Leave `run` and `by` out.",
+    ),
+    f(
+        "happenings",
+        "remove",
+        "happenings.write",
+        "(id: HappeningId, why: Cause) -> ()",
+        "Takes away a happening that hasn't started. One that is running or over stays.",
     ),
     f(
         "factions",
@@ -1141,6 +1186,7 @@ pub const NAMESPACES: &[(&str, &str)] = &[
     ("history", "HistoryApi"),
     ("stations", "StationsApi"),
     ("parts", "PartsApi"),
+    ("happenings", "HappeningsApi"),
     ("factions", "FactionsApi"),
     ("npcs", "NpcsApi"),
     ("rumors", "RumorsApi"),
@@ -1376,6 +1422,7 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
     let roots: Vec<(&str, Value)> = vec![
         ("Station", schema_value::<Station>()),
         ("StationPart", schema_value::<crate::parts::StationPart>()),
+        ("Happening", schema_value::<crate::happening::Happening>()),
         ("Faction", schema_value::<Faction>()),
         ("Npc", schema_value::<Npc>()),
         ("Rumor", schema_value::<Rumor>()),
@@ -1409,8 +1456,11 @@ pub fn luau_module(uses: Option<&[String]>) -> String {
 
     out.push_str("-- Records and payloads (generated from the contract's JSON Schemas)\n\n");
     let root_names: BTreeSet<&str> = roots.iter().map(|(n, _)| *n).collect();
+    // Types the hook arguments below write out by hand (a happening's line offers
+    // the same answers a `LineSpec` does).
+    const HAND_WRITTEN: [&str; 1] = ["TalkChoice"];
     for (name, def) in lu.defs.iter() {
-        if root_names.contains(name.as_str()) {
+        if root_names.contains(name.as_str()) || HAND_WRITTEN.contains(&name.as_str()) {
             continue;
         }
         let _ = writeln!(out, "export type {name} = {}", lu.ty(def));

@@ -1,0 +1,16 @@
+# A test pack for `ctx.happenings` (issue #47, 4.1): a game-master layer writes a
+# happening at the Wharf citing the docking that brought the player there.
+id = "gm.happening_probe"
+name = "Happening probe"
+version = "0.1.0"
+description = "Writes a happening with ctx.happenings:put in tests."
+uses = [
+    "events.dock",
+    "happenings.read",
+    "happenings.write",
+]
+
+[[script]]
+id = "probe"
+file = "scripts/probe.luau"
+handlers = ["on.dock"]

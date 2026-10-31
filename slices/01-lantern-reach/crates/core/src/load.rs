@@ -210,6 +210,33 @@ pub fn parts_backfill(dir: &Path, world: &WorldState) -> Result<Option<CommandBa
     Ok((!batch.commands.is_empty()).then_some(batch))
 }
 
+/// The cause name of [`happenings_backfill`]'s batch.
+pub const HAPPENINGS_BACKFILL: &str = "happenings_backfill";
+
+/// A batch that gives a world the authored happenings `dir`'s `happenings.toml` lists
+/// and the world lacks (a save made before them, or before a new one was authored),
+/// caused by the system [`HAPPENINGS_BACKFILL`]. They arrive upcoming. Ones whose
+/// station or speaker the world lacks are skipped. `None` when nothing is missing.
+pub fn happenings_backfill(
+    dir: &Path,
+    world: &WorldState,
+) -> Result<Option<CommandBatch>, DataError> {
+    let fresh = load_world(dir, world.meta.seed)?;
+    let mut batch = CommandBatch::new(Cause::system(
+        HAPPENINGS_BACKFILL,
+        "authored happenings a save made before them lacks",
+    ));
+    for h in fresh.happenings.values() {
+        if !world.happenings.contains(&h.id) && crate::happenings::check(world, h).is_ok() {
+            batch = batch.with(Command::PutHappening {
+                id: h.id.clone(),
+                value: Some(Box::new(h.clone())),
+            });
+        }
+    }
+    Ok((!batch.commands.is_empty()).then_some(batch))
+}
+
 /// The cause name of [`pacing_backfill`]'s batch.
 pub const PACING_BACKFILL: &str = "pacing_backfill";
 
@@ -256,6 +283,7 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
     let canon: galaxy_contract::canon::CanonFile = read(dir, "canon.toml")?;
     let craft: CraftFile = read(dir, "craft.toml")?;
     let station_parts: galaxy_contract::parts::StationPartsFile = read(dir, "station_parts.toml")?;
+    let happenings: galaxy_contract::happening::HappeningsFile = read(dir, "happenings.toml")?;
     let ranks = hulls.rank;
     let hull_fits = hulls.fit;
     let (standing, regard, deeds) = (factions.standing, factions.regard, factions.deed);
@@ -360,6 +388,33 @@ pub fn load_world(dir: &Path, seed: u64) -> Result<WorldState, DataError> {
                 world.station_parts.put(part);
             }
             Err(e) => errors.push(format!("station_parts.toml: {}: {}", part.id, e.join("; "))),
+        }
+    }
+    // Happenings: checked against the stations and people. Authored ones wait for
+    // patterns of facts; a fact ID only exists once a game is under way.
+    for h in happenings.happening {
+        if world.happenings.contains(&h.id) {
+            errors.push(format!("happenings.toml: duplicate id `{}`", h.id));
+            continue;
+        }
+        let mut problems = crate::happenings::check(&world, &h)
+            .err()
+            .unwrap_or_default();
+        if h.cause.facts.iter().any(|c| c.id.is_some()) {
+            problems
+                .push("authored happenings wait for fact patterns (`kind`), not fact IDs".into());
+        }
+        if !h.run.is_upcoming() || h.by.is_some() {
+            problems.push("leave `run` and `by` out: the runtime and the hooks write them".into());
+        }
+        if problems.is_empty() {
+            world.happenings.put(h);
+        } else {
+            errors.push(format!(
+                "happenings.toml: {}: {}",
+                h.id,
+                problems.join("; ")
+            ));
         }
     }
     crate::load_progress::build(
