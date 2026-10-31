@@ -2,7 +2,7 @@
 //! found through the real systems and `packs/core`, and checks the journey goes on.
 //! Headless, like `journey_core.rs`.
 
-mod common;
+use crate::common;
 
 use common::pilot::*;
 use galaxy_contract::history::FactDraft;

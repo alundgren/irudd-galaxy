@@ -1,0 +1,24 @@
+// One integration executable; keep scenarios and fixtures in their existing files.
+mod bad_packs;
+mod beats;
+mod capabilities;
+mod cargo_agency;
+mod common;
+mod contention;
+mod directions;
+mod happenings;
+mod hardening;
+mod journey;
+mod journey_core;
+mod journey_fixes;
+mod journey_gm;
+mod kettle;
+mod live_layers;
+mod names_before_use;
+mod npc_traders;
+mod portable_math;
+mod provenance;
+mod recheck_21;
+mod review_21;
+mod sandbox;
+mod talk_pick;

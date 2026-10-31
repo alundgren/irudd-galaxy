@@ -2,7 +2,7 @@
 //! hull's locker, Ready / Make / Friends, the read API, prestige, and a save made
 //! before the fit model. Headless, over the core pack's data.
 
-mod common;
+use crate::common;
 
 use common::*;
 use galaxy_contract::fit;

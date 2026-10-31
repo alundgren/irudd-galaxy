@@ -2,7 +2,7 @@
 //! position and field depletion (b10, b12), repeated standing deeds in one call, and a
 //! goal delivery that an undock earlier in the tick must reject.
 
-mod common;
+use crate::common;
 
 use std::path::{Path, PathBuf};
 

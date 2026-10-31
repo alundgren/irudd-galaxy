@@ -1,7 +1,7 @@
 //! The living market: the spec's worked examples, activity-driven recovery, atomic
 //! trades, scouting, levers and determinism. All headless.
 
-mod common;
+use crate::common;
 
 use common::*;
 use galaxy_contract::prelude::*;

@@ -5,7 +5,7 @@
 //! is listed below with the beat that introduces the name, so a new bare name in a line
 //! fails until someone checks the order. Headless.
 
-mod common;
+use crate::common;
 
 use std::collections::{BTreeMap, BTreeSet};
 

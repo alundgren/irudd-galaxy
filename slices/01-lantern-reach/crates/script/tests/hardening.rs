@@ -1,7 +1,7 @@
 //! The adversarial review of the script host (PR #18): each test reproduces one of the
 //! reviewer's scenarios and checks the host now holds. Headless.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

@@ -4,7 +4,7 @@
 //!   against the flat view with no life (`--nocapture` prints the numbers);
 //! - shots of every station docked, busy, written to `GALAXY_SHOT_DIR` when it's set.
 //!
-//! `cargo xtask cargo test --release -p galaxy-app --test living_station_gpu -- --ignored --nocapture`
+//! `cargo xtask cargo test --release -p galaxy-app --test integration living_station_gpu:: -- --ignored --nocapture`
 
 use std::path::PathBuf;
 use std::time::Instant;

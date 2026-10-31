@@ -1,7 +1,7 @@
 //! The deliberately bad packs are rejected with precise reports, and a script that
 //! loops forever at runtime is cut off, discarded and quarantined. Headless.
 
-mod common;
+use crate::common;
 
 use std::time::{Duration, Instant};
 

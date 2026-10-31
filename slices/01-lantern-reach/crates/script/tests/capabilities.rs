@@ -2,7 +2,7 @@
 //! (`galaxy_contract::needs`): the PR #31 re-check's three bypasses, each refused by
 //! `galaxy pack check` and again by the host at runtime.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

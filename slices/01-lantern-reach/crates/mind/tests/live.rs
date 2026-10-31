@@ -2,7 +2,7 @@
 //! `OPENROUTER_API_KEY` set:
 //!
 //! ```sh
-//! cargo test -p galaxy-mind --test live -- --ignored --nocapture
+//! cargo test -p galaxy-mind --test integration live:: -- --ignored --nocapture
 //! ```
 
 use std::path::Path;

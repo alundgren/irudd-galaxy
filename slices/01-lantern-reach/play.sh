@@ -11,5 +11,4 @@ if ! command -v cargo >/dev/null 2>&1; then
     echo "play.sh: cargo not found. Install Rust with rustup: https://rustup.rs" >&2
     exit 1
 fi
-cargo build --release -p galaxy-app
-exec ./target/release/galaxy play "$@"
+exec cargo xtask run --release -- play "$@"

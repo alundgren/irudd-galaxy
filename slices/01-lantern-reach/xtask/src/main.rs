@@ -7,10 +7,12 @@
 //! - `fetch-luau`: download the pinned `luau-analyze` into `tools/luau/` (git-ignored).
 //! - `cargo <args>`: run cargo with the target folder `check` uses (see [`target_dir`]).
 //! - `target-dir`: print that folder.
+//! - `build [--release]`: build the game with the workspace check's dependency features.
+//! - `run [--release] -- <args>`: build the same way, then run the game.
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 
 use sha2::{Digest, Sha256};
 
@@ -42,13 +44,14 @@ fn luau_asset() -> Option<(&'static str, &'static str)> {
 
 fn main() -> ExitCode {
     let task = std::env::args().nth(1).unwrap_or_default();
-    if matches!(task.as_str(), "check" | "cargo") && unshared() {
+    if matches!(task.as_str(), "check" | "cargo" | "build" | "run") && unshared() {
         eprintln!(
             "note: GALAXY_TARGET_ROOT is unset, so this worktree builds into its own target/ \
              and other worktrees on this branch start cold. See \"Builds\" in the root AGENTS.md."
         );
     }
     match task.as_str() {
+        "build" | "run" => game_command(&task, std::env::args_os().skip(2).collect()),
         "check" => {
             // Without the analyzer the typecheck tests skip; that's a warning, not a failure.
             if let Err(e) = fetch_luau() {
@@ -95,7 +98,74 @@ fn main() -> ExitCode {
             }
         },
         _ => {
-            eprintln!("usage: cargo xtask <check|contract|fetch-luau|cargo <args>|target-dir>");
+            eprintln!(
+                "usage: cargo xtask <build [--release]|run [--release] -- <args>|check|contract|fetch-luau|cargo <args>|target-dir>"
+            );
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Select xtask alongside the game so its ZIP dependency does not create a second
+/// memchr -> serde_json -> game dependency graph when switching to workspace tests.
+/// Cargo reports the executable path, including custom target folders; do not guess it.
+fn game_command(task: &str, mut args: Vec<std::ffi::OsString>) -> ExitCode {
+    let release = args.first().is_some_and(|arg| arg == "--release");
+    if release {
+        args.remove(0);
+    }
+    if args.first().is_some_and(|arg| arg == "--") {
+        args.remove(0);
+    }
+    if task == "build" && !args.is_empty() {
+        eprintln!("usage: cargo xtask build [--release]");
+        return ExitCode::FAILURE;
+    }
+    let mut build = cargo();
+    // Select both packages for feature resolution, but never rebuild the running
+    // xtask executable (Windows may lock it when the target folder is shared).
+    build.args([
+        "build",
+        "-p",
+        "galaxy-app",
+        "-p",
+        "xtask",
+        "--bin",
+        "galaxy",
+    ]);
+    if release {
+        build.arg("--release");
+    }
+    if task == "build" {
+        return match build.status() {
+            Ok(status) if status.success() => ExitCode::SUCCESS,
+            _ => ExitCode::FAILURE,
+        };
+    }
+    let output = match build
+        .arg("--message-format=json-render-diagnostics")
+        .stderr(Stdio::inherit())
+        .output()
+    {
+        Ok(output) if output.status.success() => output,
+        _ => return ExitCode::FAILURE,
+    };
+    let executable = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .find_map(|message| {
+            (message["reason"] == "compiler-artifact" && message["target"]["name"] == "galaxy")
+                .then(|| message["executable"].as_str().map(PathBuf::from))
+                .flatten()
+        });
+    let Some(executable) = executable else {
+        eprintln!("cargo did not report the galaxy executable");
+        return ExitCode::FAILURE;
+    };
+    match Command::new(executable).args(args).status() {
+        Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
+        Err(error) => {
+            eprintln!("could not start galaxy: {error}");
             ExitCode::FAILURE
         }
     }

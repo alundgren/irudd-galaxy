@@ -893,7 +893,7 @@ fn a_recorded_live_answer_replays_exactly() {
 
 /// One live call per flourish (banter, traffic, discount) through the real path: the
 /// host, OpenRouterMind over HTTP, the call log. Needs `OPENROUTER_API_KEY`.
-/// `cargo xtask cargo test -p galaxy-mind --test live_layer -- --ignored --nocapture`
+/// `cargo xtask cargo test -p galaxy-mind --test integration live_layer:: -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn live_flourishes_against_openrouter() {
@@ -958,7 +958,7 @@ fn live_flourishes_against_openrouter() {
 
 /// Writes a save with a live banter and a running discount at Lantern Wharf (mocked
 /// answers through the host), for a look with `galaxy shot`. Offline.
-/// `GALAXY_LIVE_SAVE=PATH cargo xtask cargo test -p galaxy-mind --test live_layer write_a_live_save -- --ignored`
+/// `GALAXY_LIVE_SAVE=PATH cargo xtask cargo test -p galaxy-mind --test integration live_layer::write_a_live_save -- --ignored`
 #[test]
 #[ignore]
 fn write_a_live_save() {

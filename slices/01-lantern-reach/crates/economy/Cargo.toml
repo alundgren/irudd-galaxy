@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-economy"
 description = "The living market: pricing and saturation, activity pulses, trades, scouting, the map model, market levers, telemetry and NPC trade choice."
 version.workspace = true
@@ -19,3 +20,7 @@ tempfile.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

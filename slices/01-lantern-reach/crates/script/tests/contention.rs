@@ -5,7 +5,7 @@
 //! times, before it is dropped with a `script_contention_dropped` fact. Script faults
 //! still quarantine.
 
-mod common;
+use crate::common;
 
 use std::path::Path;
 

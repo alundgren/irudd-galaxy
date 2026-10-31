@@ -8,7 +8,7 @@
 //! fixtures lack completion facts; the app harness earns actual checkpoint history.
 //! Long activity waits are shortened by lowering pacing tunables: pacing is data.
 
-mod common;
+use crate::common;
 
 use common::pilot::*;
 use galaxy_contract::prelude::*;

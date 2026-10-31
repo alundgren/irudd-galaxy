@@ -3,7 +3,7 @@
 //! pack, flown by input like a player would. b01 to b03 complete from what the ship
 //! and economy systems record, and the mining lens they unlock is bought at the Wharf.
 
-mod common;
+use crate::common;
 
 use common::{core_data, slice};
 use galaxy_contract::prelude::*;

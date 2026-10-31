@@ -1,7 +1,7 @@
 //! Regressions for the review of PR #16, one test per finding, each reproducing the
 //! reviewer's scenario.
 
-mod common;
+use crate::common;
 
 use common::*;
 use galaxy_contract::prelude::*;

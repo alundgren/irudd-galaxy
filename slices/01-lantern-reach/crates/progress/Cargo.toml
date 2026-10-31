@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-progress"
 description = "Beat runtime, faction standing and regard, pilot traits, hull ranks, hullwright prestige, station services and upgrades, and the native modifiers they add up to."
 version.workspace = true
@@ -19,3 +20,7 @@ galaxy-ship.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

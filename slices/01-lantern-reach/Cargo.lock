@@ -4281,6 +4281,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "galaxy-contract",
+ "serde_json",
  "sha2",
  "zip",
 ]

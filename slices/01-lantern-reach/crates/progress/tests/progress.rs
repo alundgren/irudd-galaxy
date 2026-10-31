@@ -1,7 +1,7 @@
 //! Standing, traits, hull ranks, prestige and station services, headless over the core
 //! pack's data.
 
-mod common;
+use crate::common;
 
 use common::*;
 use galaxy_contract::prelude::*;

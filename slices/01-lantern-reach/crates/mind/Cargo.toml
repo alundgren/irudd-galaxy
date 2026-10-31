@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "galaxy-mind"
 description = "The fast-model layer: typed NPC choices and short grounded lines on OpenRouter, behind a trait."
 version.workspace = true
@@ -21,3 +22,7 @@ ureq.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

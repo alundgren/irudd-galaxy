@@ -4,7 +4,7 @@
 //! reports a checked change (`canon_opened`, `mechanic_taught`, `market_base_changed`)
 //! only comes right after that change. No beat precondition can be met by a forgery.
 
-mod common;
+use crate::common;
 
 use std::collections::BTreeSet;
 use std::path::Path;
