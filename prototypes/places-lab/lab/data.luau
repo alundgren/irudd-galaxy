@@ -1,37 +1,8 @@
 -- Lantern Wharf as the lab plays it. Numbers are illustrative.
 local data = {}
 
-data.station = { name = "Lantern Wharf", faction = "Wharf Cooperative" }
-
--- Each module on the station: its room, its sign and any news on its key icon.
-data.rooms = {
-	{ id = "office", name = "Office", icon = "office", keeper = "Ilse Marrow", line = "Ilse keeps the berths" },
-	{
-		id = "market",
-		name = "Market",
-		icon = "market",
-		keeper = "Ilse Marrow",
-		line = "Ice and ore bought, plate sold",
-		news = { "new", "New", "Glassite is bought here now" },
-	},
-	{
-		id = "wharf",
-		name = "Cradle",
-		icon = "wharf",
-		keeper = "Orrin Vale",
-		line = "Orrin fits parts to your ship",
-		news = { "changed", "Changed", "Orrin has hold pods on the rack" },
-	},
-	{ id = "notices", name = "Notices", icon = "notices", keeper = "Ilse Marrow", line = "Two notes pinned" },
-	{
-		id = "canteen",
-		name = "Canteen",
-		icon = "canteen",
-		keeper = "Bel Ashby",
-		line = "Opens when Kettle Dock ships rations",
-		news = { "closed", "Closed", "The canteen frame is down for re-sealing" },
-	},
-}
+-- What the station sells and buys, the Wren and its parts. Places and people are in
+-- places.luau.
 
 data.wares = {
 	{ id = "glassite", name = "Glassite", side = "sell", price = 26 },
@@ -44,9 +15,9 @@ data.wares = {
 data.hull = { name = "the Wren", power = 4, free_mass = 3, speed = 72, turn = 180, hold = 20 }
 
 data.sockets = {
-	{ id = "nose", name = "Drill mount", side = "left" },
+	{ id = "nose", name = "Nose", side = "right" },
 	{ id = "utility", name = "Utility", side = "right" },
-	{ id = "belly", name = "Hold", side = "left" },
+	{ id = "belly", name = "Hold", side = "right" },
 	{ id = "tail", name = "Engine", side = "right" },
 }
 
@@ -101,12 +72,10 @@ data.parts = {
 -- What Orrin has on the rack, in order.
 data.rack = { "lens", "pods", "fins" }
 
--- Talk: one short line at a time.
+-- Talk: one short line at a time. `who` is a person in places.luau.
 data.talk = {
 	welcome = {
-		who = "Ilse Marrow",
-		place = "Dockmaster",
-		at = "office",
+		who = "ilse",
 		lines = {
 			"Welcome to Lantern Wharf. I'm Ilse; I keep the dock.",
 			"The Wren's yours now: small, round-nosed and honest.",
@@ -114,26 +83,42 @@ data.talk = {
 			"The pale rocks east of here are Rimewater ice.",
 		},
 		goal = { text = "Bring ice to Odo's greenhouse at Kettle Dock", from = "Ilse Marrow" },
+		-- A story moment: Pim finishes eating and takes a parcel to the market.
+		after = { person = "pim", place = "market", state = "work", spot = "crates" },
 	},
-	market = {
-		who = "Ilse Marrow",
-		place = "Market",
-		at = "market",
-		lines = { "Glassite pays well here. The lamp-glass works can't get enough of it." },
+	ilse = { who = "ilse", lines = { "Odo's still waiting on that ice. The pale rocks, east." } },
+	juno_first = {
+		who = "juno",
+		lines = {
+			"Glassite pays well here. The lamp-glass works can't get enough of it.",
+			"Sell what you've mined. Plate and rations are on the counter.",
+		},
 	},
-	wharf = {
-		who = "Orrin Vale",
-		place = "Hullwright",
-		at = "keeper",
-		lines = { "Set a part on a socket and I'll swing it in." },
+	juno = { who = "juno", lines = { "Ice is ten a block today. Bring me glassite and we'll talk." } },
+	orrin_first = {
+		who = "orrin",
+		lines = { "So you're the Wren's new keeper. Set a part on a socket and I'll swing it in." },
 	},
-	canteen = {
-		who = "Bel Ashby",
-		place = "Canteen",
-		at = "canteen",
-		lines = { "We've taken the frame down to re-seal it. Kettle Dock's rations will open us." },
-	},
+	orrin = { who = "orrin", lines = { "She's a good little hull. Mind the power when you fit things." } },
+	bel_first = { who = "bel", lines = { "Sit anywhere. The broth's on, and it's always on." } },
+	bel = { who = "bel", lines = { "Kelp and barley today. Same as yesterday, better than tomorrow." } },
+	pim_eating = { who = "pim", lines = { "Can't talk, eating. Then parcels. Always parcels." } },
+	pim_working = { who = "pim", lines = { "Parcel for Juno! Then back to the canteen. Then another parcel." } },
 }
+
+-- Who speaks first the first time you walk into a room.
+data.greet = { office = "welcome", market = "juno_first", cradle = "orrin_first", canteen = "bel_first" }
+
+-- What a person says when you go up to them, by what they are doing.
+function data.chat(who, person)
+	if who == "pim" then
+		return if person.state == "eat" then "pim_eating" else "pim_working"
+	end
+	return who
+end
+
+-- The canteen's broth.
+data.bowl = { name = "Kelp and barley broth", price = 6 }
 
 data.notices = {
 	"Lamp night at Kettle Dock once the greenhouse grows its next ring.",

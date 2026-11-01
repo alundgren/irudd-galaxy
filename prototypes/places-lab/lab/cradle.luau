@@ -1,4 +1,4 @@
--- Orrin's cradle: the Wren on the left with its sockets, the rack and the locker on the
+-- Orrin's cradle: the Wren in the bay with its sockets, the rack and the locker on the
 -- right. Drag a part onto a socket to fit it, or a fitted part to the locker. When a part
 -- is picked up this view runs once and gives every target its verdict; while the part is
 -- in hand the engine shows them without asking again.
@@ -59,12 +59,12 @@ local function budgets(state, ui)
 	})
 end
 
-return function(state, ui)
+return function(state, ui, world)
 	local ship = {}
 	for socket, part in pairs(state.fitted) do
 		ship[socket] = data.parts[part].look
 	end
-	local s = ui.screen({ scene = "cradle", back = "back", ship = ship })
+	local s = ui.screen({ back = "back", ship = ship })
 	local drag = state.drag
 
 	-- The sockets: drop targets on the ship.
@@ -120,7 +120,7 @@ return function(state, ui)
 		place = "right",
 		gap = 12,
 		align = "stretch",
-		ui.row({ gap = 12, common.back(ui), ui.column({ gap = 0, ui.title("Orrin's cradle"), ui.small("Orrin Vale fits parts to the Wren") }) }),
+		ui.row({ gap = 12, common.back(ui), ui.column({ gap = 0, ui.title(world.place.name), ui.small("Orrin Vale fits parts to the Wren") }) }),
 		common.status(state, ui),
 		budgets(state, ui),
 		ui.caption("ON ORRIN'S RACK · DRAG ONTO A SOCKET"),
@@ -169,6 +169,7 @@ return function(state, ui)
 	table.insert(panel, locker)
 	common.add(panel, common.receipt(state, ui))
 	table.insert(s, panel)
-	common.add(s, common.bubble(state, ui))
+	common.people(s, ui, world)
+	common.add(s, common.talk(state, ui))
 	return s
 end

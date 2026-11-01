@@ -87,7 +87,7 @@ impl Kind {
     /// The properties this kind takes, besides `kind`, `id` and its children.
     fn props(self) -> &'static [&'static str] {
         match self {
-            Kind::Screen => &["scene", "focus", "back", "ship"],
+            Kind::Screen => &["back", "ship"],
             Kind::Column | Kind::Row => &["gap", "pad", "align", "grow", "width", "place"],
             Kind::Panel => &["role", "pad", "gap", "width", "grow", "place", "align"],
             Kind::Text => &["text", "style", "grow", "align", "width"],

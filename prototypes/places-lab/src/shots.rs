@@ -1,7 +1,10 @@
-//! `ui-lab --shots <folder>`: a scripted run through every screen, headless at 1280x720,
-//! through the same pointer path as the window. Saves a PNG per step, prints what the lab
-//! measured, and fails on any rule break, script error or drag that ran the screen more
-//! than once.
+//! `places-lab --shots <folder>`: a scripted run, headless at 1280x720, through the same
+//! pointer path as the window: from the station into each room, talk to its person, do
+//! the room's thing, back, and round again. Saves a PNG per step and reports what a
+//! player would feel: how long each move takes, the clicks from the station to hearing
+//! each person, whether the speaker stayed on screen and uncovered while their line
+//! showed (a rule: the run fails if not), and frame time. Fails on any rule break or
+//! script error too.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -11,6 +14,7 @@ use render::Renderer;
 use render::glam::Vec2;
 
 use crate::app::App;
+use crate::combo::Combo;
 
 struct Shooter {
     r: Renderer,
@@ -19,6 +23,8 @@ struct Shooter {
     n: usize,
     failures: Vec<String>,
     frame_ms: Vec<f64>,
+    /// Each shot's draw on the GPU, read back.
+    render_ms: Vec<f64>,
     /// Hovers the sweeps tried.
     hovers: usize,
 }
@@ -46,11 +52,10 @@ impl Shooter {
         let scene = self.frame();
         self.n += 1;
         let path = self.out.join(format!("{:02}-{name}.png", self.n));
-        if let Err(e) = self
-            .r
-            .render_to_rgba(&scene)
-            .and_then(|img| img.save_png(&path))
-        {
+        let t = Instant::now();
+        let img = self.r.render_to_rgba(&scene);
+        self.render_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+        if let Err(e) = img.and_then(|img| img.save_png(&path)) {
             self.failures.push(format!("{name}: {e}"));
         }
         path
@@ -238,10 +243,60 @@ impl Shooter {
     }
 }
 
-fn shooter(dir: PathBuf, out: PathBuf) -> Result<Shooter, String> {
+impl Shooter {
+    /// Frames until the move's view has landed (and a few more for the screen).
+    fn arrive(&mut self) {
+        for _ in 0..600 {
+            if !self.app.busy() {
+                break;
+            }
+            self.frame();
+        }
+        self.settle(4);
+    }
+
+    /// A click that moves somewhere: waits for the move to land.
+    fn go(&mut self, id: &str) {
+        self.click(id);
+        self.arrive();
+    }
+
+    /// The talk on screen now, if any: who speaks.
+    fn speaker(&self) -> Option<String> {
+        self.app.line.as_ref().map(|l| l.who.clone())
+    }
+
+    /// From the station, as few clicks as a player needs to hear `who`: their room, and
+    /// them if they don't speak first. Returns the clicks and the seconds it took.
+    fn reach(&mut self, room_key: &str, who: &str) -> (u64, f32) {
+        let (c0, t0) = (self.app.measures.clicks, self.app.time);
+        self.go(room_key);
+        if self.speaker().as_deref() != Some(who) {
+            self.click(&format!("person_{who}"));
+        }
+        if self.speaker().as_deref() != Some(who) {
+            self.failures
+                .push(format!("{who} doesn't speak after {room_key} and a click on them"));
+        }
+        (self.app.measures.clicks - c0, self.app.time - t0)
+    }
+
+    /// Clicks through the talk on screen until it ends.
+    fn listen(&mut self) {
+        for _ in 0..12 {
+            if self.app.line.is_none() {
+                return;
+            }
+            self.click("bubble");
+        }
+        self.failures.push("a talk didn't end after 12 clicks".into());
+    }
+}
+
+fn shooter(dir: PathBuf, out: PathBuf, combo: Combo) -> Result<Shooter, String> {
     std::fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
     let mut r = Renderer::new_headless(1280, 720).map_err(|e| e.to_string())?;
-    let app = App::new(&mut r, dir);
+    let app = App::new(&mut r, dir, combo)?;
     let mut s = Shooter {
         r,
         app,
@@ -249,6 +304,7 @@ fn shooter(dir: PathBuf, out: PathBuf) -> Result<Shooter, String> {
         n: 0,
         failures: Vec::new(),
         frame_ms: Vec::new(),
+        render_ms: Vec::new(),
         hovers: 0,
     };
     s.app.show_stats = false;
@@ -256,22 +312,24 @@ fn shooter(dir: PathBuf, out: PathBuf) -> Result<Shooter, String> {
     Ok(s)
 }
 
-/// `ui-lab --look <folder> "<steps>"`: plays the steps headless and, at each `shot`,
+/// `places-lab --look <folder> "<steps>"`: plays the steps headless and, at each `shot`,
 /// saves a PNG and prints what is on screen as JSON, so an agent can see what a hover,
 /// click or drag does. Steps, split by `;`:
 ///
 /// - `hover W`, `click W`, `press W` (hold the button down), `release`, `leave`
 /// - `drag W V` (pick W up and hold it over V), `drop` (let go)
-/// - `back`, `wait N` (frames), `zoom STEPS [W]` (the wheel, toward W)
+/// - `back`, `wait N` (frames), `arrive` (wait for a move to land), `zoom STEPS [W]`
+/// - `go PLACE` (move there as a script would), `key N` (cycle choice N, 1-4),
+///   `combo SPEC` (pick variants: `cut,staged,bubble,still`)
 /// - `shot [NAME]` (a PNG and the JSON), `sweep` (hover everything here, report breaks)
 ///
 /// `W` is a widget id, a path from the JSON, or `x,y`. Without a final `shot`, one is
 /// taken at the end.
-pub fn look(dir: PathBuf, out: PathBuf, script: &str) -> ExitCode {
-    let mut s = match shooter(dir, out) {
+pub fn look(dir: PathBuf, out: PathBuf, script: &str, combo: Combo) -> ExitCode {
+    let mut s = match shooter(dir, out, combo) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("ui-lab: {e}");
+            eprintln!("places-lab: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -322,15 +380,35 @@ pub fn look(dir: PathBuf, out: PathBuf, script: &str) -> ExitCode {
             }
             ["back"] => {
                 s.app.back();
-                s.settle(30);
+                s.settle(4);
             }
             ["wait", n] => s.settle(n.parse().unwrap_or(30)),
+            ["arrive"] => s.arrive(),
+            ["go", place] => {
+                s.app.go(place);
+                s.settle(2);
+            }
+            ["key", n] => match n.parse::<usize>() {
+                Ok(n @ 1..=4) => {
+                    s.app.cycle(n - 1, false);
+                    s.settle(2);
+                }
+                _ => s.failures.push(format!("key {n}: choices are 1 to 4")),
+            },
+            ["combo", spec] => {
+                if let Err(e) = s.app.combo.set(spec) {
+                    s.failures.push(e);
+                }
+                s.app.cycle(0, false);
+                s.app.cycle(0, true);
+                s.settle(2);
+            }
             ["zoom", steps, rest @ ..] => {
                 let at = rest.first().map(|w| s.at(w));
                 s.app
                     .world
                     .zoom_at(steps.parse().unwrap_or(0.0), at, viewport);
-                s.settle(60);
+                s.settle(30);
             }
             ["shot", rest @ ..] if rest.len() <= 1 => {
                 let path = s.shoot(rest.first().copied().unwrap_or("shot"));
@@ -371,140 +449,101 @@ fn print_look(s: &Shooter, path: &std::path::Path) {
     );
 }
 
-pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
-    let mut s = match shooter(dir, out) {
+/// The station's rooms as the run visits them: the station key's id, the room, the
+/// person to hear, and a short name for the shots.
+const VISITS: [(&str, &str, &str); 4] = [
+    ("key_office_block", "office", "ilse"),
+    ("key_market_block", "market", "juno"),
+    ("key_wharf_arm", "cradle", "orrin"),
+    ("key_canteen_block", "canteen", "bel"),
+];
+
+pub fn run(dir: PathBuf, out: PathBuf, combo: Combo) -> ExitCode {
+    let mut s = match shooter(dir, out, combo) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("ui-lab: {e}");
+            eprintln!("places-lab: {e}");
             return ExitCode::FAILURE;
         }
     };
+    let spec = s.app.combo.spec();
+    println!("combination {spec}");
+    s.save("station");
+    s.hover("spot_office_block");
+    s.save("station-hover-office");
 
-    // Docked: the welcome, one line at a time; the goal appears after it.
-    s.settle(30);
-    s.save("docked-welcome");
-    // A hovered sign grows clear of the bubble, or in front of it, never mixed with it.
-    for spot in ["spot_canteen", "spot_office", "spot_wharf"] {
-        s.hover(spot);
-        s.save(&format!("hover-{}-during-talk", &spot[5..]));
+    // First visits: each room, its person, the room's thing, and back.
+    let mut first: Vec<(String, u64, f32)> = Vec::new();
+    for (key, room, who) in VISITS {
+        let (c0, t0) = (s.app.measures.clicks, s.app.time);
+        s.app.pointer_left();
+        s.click(key);
+        if room == "office" {
+            // Part way: what the move looks like.
+            s.settle(20);
+            s.shoot("on-the-way-to-office");
+        }
+        s.arrive();
+        if s.speaker().as_deref() != Some(who) {
+            s.click(&format!("person_{who}"));
+        }
+        first.push((who.into(), s.app.measures.clicks - c0, s.app.time - t0));
+        s.app.pointer_left();
+        s.save(&format!("{room}-talk"));
+        s.listen();
+        s.app.pointer_left();
+        match room {
+            "office" => s.save("office-after-welcome"),
+            "market" => {
+                s.click("sellall_ice");
+                s.click("buy1_rations");
+                s.app.pointer_left();
+                s.save("market-traded");
+                // Pim came here after Ilse's welcome.
+                let (c, t) = (s.app.measures.clicks, s.app.time);
+                s.click("person_pim");
+                first.push(("pim".into(), s.app.measures.clicks - c, s.app.time - t));
+                s.app.pointer_left();
+                s.save("market-pim-talks");
+                s.listen();
+            }
+            "cradle" => {
+                s.drag("rack_lens", "socket_nose", Some("cradle-drag-lens"), true);
+                s.app.pointer_left();
+                s.save("cradle-lens-fitted");
+            }
+            "canteen" => {
+                s.click("buy_bowl");
+                s.app.pointer_left();
+                s.save("canteen-bowl");
+            }
+            _ => {}
+        }
+        s.go("back");
+        if s.app.model.here().kind != crate::places::Kind::Station {
+            s.failures
+                .push(format!("Station from the {room} didn't lead back to the station"));
+        }
     }
-    s.click("bubble");
-    s.save("talk-second-line");
-    for _ in 0..3 {
-        s.click("bubble");
+    s.app.pointer_left();
+    s.save("station-after-rooms");
+
+    // Again: the people don't greet you twice; talking takes a click on them.
+    let mut again: Vec<(String, u64, f32)> = Vec::new();
+    for (key, room, who) in VISITS {
+        let (c, t) = s.reach(key, who);
+        again.push((who.into(), c, t));
+        if room == "cradle" {
+            s.app.pointer_left();
+            s.save("cradle-talk-again");
+        }
+        s.listen();
+        s.go("back");
     }
-    s.app.pointer_left();
-    s.save("goal-after-talk");
-    // The wheel's range at the station: the signs follow the scene with no screen runs.
-    let runs = s.app.host.stats.view_runs;
-    let viewport = s.r.logical_size();
-    for (steps, at, name) in [
-        (8.0, "spot_market", "zoomed-in-at-market"),
-        (-6.0, "spot_office", "zoomed-in-less"),
-        (-12.0, "spot_office", "zoomed-out"),
-    ] {
-        let p = s.at(at);
-        s.app.world.zoom_at(steps, Some(p), viewport);
-        s.settle(60);
-        s.save(name);
-    }
-    s.hover("spot_market");
-    s.save("zoomed-out-hover-market");
-    s.app.pointer_left();
-    s.app.world.set_wheel(1.0);
-    s.settle(60);
-    let zoom_runs = s.app.host.stats.view_runs - runs;
-    if zoom_runs != 0 {
-        s.failures
-            .push(format!("zooming ran the screen {zoom_runs} times"));
-    }
-    s.hover("spot_market");
-    s.save("hover-market-module");
-    s.hover("key_wharf");
-    s.save("key-ribbon-headline");
-
-    // The market.
-    s.click("key_market");
-    s.settle(40);
-    s.app.pointer_left();
-    s.save("market");
-    s.click("bubble");
-    s.click("sellall_ice");
-    s.app.pointer_left();
-    s.save("market-sold-ice");
-    s.click("buymax_plate");
-    s.hover("buy1_rations");
-    s.save("market-hold-full-resting-buy");
-
-    // The cradle.
-    s.app.back();
-    s.settle(30);
-    s.click("key_wharf");
-    s.settle(40);
-    s.app.pointer_left();
-    s.save("cradle");
-    s.click("bubble");
-    s.drag(
-        "locker_seam_lamp",
-        "socket_utility",
-        Some("drag-refused-power"),
-        true,
-    );
-    s.drag("rack_lens", "socket_nose", None, false);
-    s.drag("rack_lens", "socket_nose", Some("drag-lens-preview"), true);
-    s.app.pointer_left();
-    s.save("lens-fitted");
-    s.drag("rack_pods", "socket_belly", None, true);
-    s.app.pointer_left();
-    s.save("pods-fitted");
-
-    // Fill the bigger hold, then try to take the pods off.
-    s.app.back();
-    s.settle(30);
-    s.click("key_market");
-    s.settle(40);
-    s.click("buymax_rations");
-    s.app.back();
-    s.settle(30);
-    s.click("key_wharf");
-    s.settle(40);
-    s.drag(
-        "fitted_belly",
-        "locker",
-        Some("drag-pods-off-refused-cargo"),
-        true,
-    );
-    s.app.pointer_left();
-    s.save("cradle-after-refusal");
-
-    // The smaller rooms, and the log.
-    s.app.back();
-    s.settle(30);
-    s.click("key_notices");
-    s.settle(40);
-    s.app.pointer_left();
-    s.save("notices");
-    s.app.world.zoom_at(-12.0, None, viewport);
-    s.settle(60);
-    s.save("notices-zoomed-out");
-    s.app.world.set_wheel(1.0);
-    s.settle(60);
-    s.app.back();
-    s.settle(30);
-    s.click("key_canteen");
-    s.settle(40);
-    s.app.pointer_left();
-    s.save("canteen-closed");
-    s.click("bubble");
-    s.app.back();
-    s.settle(30);
-    s.click("log");
-    s.app.pointer_left();
-    s.save("log-open");
 
     // What the lab measured.
     let st = &s.app.host.stats;
-    let m = &s.app.measures;
+    let m = s.app.measures.clone();
     let mut f = s.frame_ms.clone();
     f.sort_by(|a, b| a.total_cmp(b));
     let p = |q: f64| {
@@ -512,22 +551,55 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
             .copied()
             .unwrap_or(0.0)
     };
+    println!("\nwhat a player feels, with {spec}:");
+    println!("  moves (the view's way from one place to the next):");
+    for (a, b, t) in &m.moves {
+        println!("    {a} -> {b}: {t:.2} s");
+    }
+    println!("  from the station to hearing each person, first visit:");
+    for (who, c, t) in &first {
+        let note = if who == "pim" {
+            " (already in the market, after Juno)"
+        } else {
+            ""
+        };
+        println!("    {who}: {c} clicks, {t:.2} s{note}");
+    }
+    println!("  and coming back to talk again:");
+    for (who, c, t) in &again {
+        println!("    {who}: {c} clicks, {t:.2} s");
+    }
     println!(
-        "screen runs {} (max {:.2} ms) for {} events and {} drags over {} frames; layout max {:.2} ms",
-        st.view_runs,
-        st.max_view_ms,
-        st.event_runs,
-        m.drags,
-        s.frame_ms.len(),
-        m.max_layout_ms
+        "  the speaker on screen and uncovered: {} of {} frames with a line{}",
+        m.line_frames - m.speaker_hidden,
+        m.line_frames,
+        if m.speaker_hidden == 0 { "" } else { " (FAIL)" }
     );
     println!(
-        "frame build (scene and UI, no GPU) median {:.2} ms, p95 {:.2} ms, max {:.2} ms",
+        "  frame build (scene and UI, CPU, no GPU): median {:.2} ms, p95 {:.2} ms, max {:.2} ms over {} frames",
         p(0.5),
         p(0.95),
-        p(1.0)
+        p(1.0),
+        s.frame_ms.len()
     );
-    println!("hovers swept: {}", s.hovers);
+    let mut g = s.render_ms.clone();
+    g.sort_by(|a, b| a.total_cmp(b));
+    println!(
+        "  a shot drawn on the GPU and read back: median {:.1} ms over {} shots ({})",
+        g.get(g.len() / 2).copied().unwrap_or(0.0),
+        g.len(),
+        s.r.adapter_info()
+    );
+    println!(
+        "screen runs {} (max {:.2} ms) for {} events; layout max {:.2} ms; hovers swept {}",
+        st.view_runs, st.max_view_ms, st.event_runs, m.max_layout_ms, s.hovers
+    );
+    if m.speaker_hidden > 0 {
+        s.failures.push(format!(
+            "the speaker was off screen or covered on {} frames",
+            m.speaker_hidden
+        ));
+    }
     println!("events: {}", s.app.events.join(" | "));
     if s.failures.is_empty() {
         println!("PASS");

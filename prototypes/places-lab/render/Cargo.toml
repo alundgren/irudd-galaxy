@@ -1,6 +1,6 @@
 [package]
-name = "lab-render"
-description = "The ui-lab's copy of the slice renderer."
+name = "places-lab-render"
+description = "The places-lab's copy of the slice renderer (via the ui-lab)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

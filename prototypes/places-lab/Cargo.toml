@@ -1,15 +1,15 @@
 [package]
-name = "ui-lab"
-description = "Throwaway prototype: screens as Luau functions returning widget trees."
+name = "places-lab"
+description = "Throwaway prototype: how a station becomes a place you are in."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# Not `ui-lab.exe` in a folder the slice or engine also builds into: no slice or engine
-# bin has this name.
+# Not `places-lab.exe` in a folder the slice, the engine or another lab also builds
+# into: no other bin has this name.
 [[bin]]
-name = "ui-lab"
+name = "places-lab"
 path = "src/main.rs"
 
 [dependencies]
@@ -34,7 +34,7 @@ publish = false
 
 # Versions and features match the slice's, so the shared build slots already hold them.
 [workspace.dependencies]
-render = { package = "lab-render", path = "render" }
+render = { package = "places-lab-render", path = "render" }
 galaxy-kit = { path = "../../slices/01-lantern-reach/crates/kit" }
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = { version = "0.34", features = ["serde", "bytemuck"] }

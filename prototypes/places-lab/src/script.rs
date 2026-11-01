@@ -1,8 +1,12 @@
-//! The Luau side: `lab/main.luau` returns `{ init, on, view }`.
+//! The Luau side: `lab/main.luau` returns `{ init, on, view }`, and `lab/places.luau`
+//! declares the station's places and people.
 //!
 //! - `init()` makes the state table.
-//! - `on[name](state, args)` handles an event (a click, a drop) and changes the state.
-//! - `view(state, ui)` returns the screen's widget tree.
+//! - `on[name](state, args, world)` handles an event (a click, a drop, an arrival) and
+//!   changes the state. `world.go(place)` moves the player and `world.move(person,
+//!   place, state, spot)` moves a person: the engine does both after the handler.
+//! - `view(state, ui, world)` returns the screen's widget tree. `world` is the place
+//!   model as it is now: `world.here`, `world.place`, `world.people`, ...
 //!
 //! The view runs only after an event or a reload, never per frame. Every call has a time
 //! budget, so a runaway loop stops with an error instead of freezing the window. Files
@@ -19,6 +23,18 @@ use serde_json::Value as Json;
 
 /// How long one call may run.
 const BUDGET: Duration = Duration::from_millis(200);
+
+/// What a handler asked the world to do.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Cmd {
+    Go(String),
+    Move {
+        person: String,
+        place: Option<String>,
+        state: Option<String>,
+        spot: Option<String>,
+    },
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
@@ -37,6 +53,9 @@ pub struct Host {
     ui: Option<RegistryKey>,
     used: Rc<RefCell<HashMap<String, RegistryKey>>>,
     deadline: Rc<Cell<Option<Instant>>>,
+    /// The place model as the scripts see it, set before each call.
+    world: Json,
+    cmds: Rc<RefCell<Vec<Cmd>>>,
     stamps: Vec<(PathBuf, Option<SystemTime>)>,
     last_poll: Instant,
     pub stats: Stats,
@@ -90,6 +109,8 @@ impl Host {
             ui: None,
             used: Rc::new(RefCell::new(HashMap::new())),
             deadline,
+            world: Json::Null,
+            cmds: Rc::new(RefCell::new(Vec::new())),
             last_poll: Instant::now(),
             stats: Stats::default(),
             error: None,
@@ -166,6 +187,67 @@ impl Host {
         Ok(())
     }
 
+    /// Sets the place model the next calls see.
+    pub fn set_world(&mut self, world: Json) {
+        self.world = world;
+    }
+
+    /// What the handlers asked the world to do since the last call.
+    pub fn take_cmds(&mut self) -> Vec<Cmd> {
+        std::mem::take(&mut *self.cmds.borrow_mut())
+    }
+
+    /// The `world` table: the model, plus `go` and `move`.
+    fn world_table(&self) -> mlua::Result<Value> {
+        let t = match self.lua.to_value(&self.world)? {
+            Value::Table(t) => t,
+            _ => self.lua.create_table()?,
+        };
+        let cmds = self.cmds.clone();
+        t.raw_set(
+            "go",
+            self.lua.create_function(move |_, place: String| {
+                cmds.borrow_mut().push(Cmd::Go(place));
+                Ok(())
+            })?,
+        )?;
+        let cmds = self.cmds.clone();
+        t.raw_set(
+            "move",
+            self.lua.create_function(
+                move |_,
+                      (person, place, state, spot): (
+                    String,
+                    Option<String>,
+                    Option<String>,
+                    Option<String>,
+                )| {
+                    cmds.borrow_mut().push(Cmd::Move {
+                        person,
+                        place,
+                        state,
+                        spot,
+                    });
+                    Ok(())
+                },
+            )?,
+        )?;
+        Ok(Value::Table(t))
+    }
+
+    /// The declaration `lab/places.luau` returns, as plain data.
+    pub fn places(&mut self) -> Result<Json, String> {
+        let src = std::fs::read_to_string(self.dir.join("places.luau"))
+            .map_err(|e| format!("places.luau: {e}"))?;
+        self.arm();
+        let v: mlua::Result<Value> = self.lua.load(&src).set_name("@places.luau").eval();
+        self.disarm();
+        let v = v.map_err(|e| format!("places.luau: {}", short(&e)))?;
+        self.lua
+            .from_value::<Json>(v)
+            .map_err(|e| format!("places.luau: {e}"))
+    }
+
     /// Starts again from `init()`.
     pub fn reset(&mut self) {
         self.state = None;
@@ -201,9 +283,11 @@ impl Host {
             let view: Function = lab.get("view")?;
             let state: Table = self.lua.registry_value(state)?;
             let ui: Table = self.lua.registry_value(ui)?;
-            view.call::<Value>((state, ui))
+            view.call::<Value>((state, ui, self.world_table()?))
         })();
         self.disarm();
+        // A view only looks; it can't move anyone.
+        self.cmds.borrow_mut().clear();
         let ms = t.elapsed().as_secs_f64() * 1000.0;
         self.stats.view_runs += 1;
         self.stats.last_view_ms = ms;
@@ -215,6 +299,17 @@ impl Host {
                 None
             }
         }
+    }
+
+    /// True if `on[name]` exists.
+    pub fn handles(&self, name: &str) -> bool {
+        let Some(lab) = self.lab.as_ref() else {
+            return false;
+        };
+        let lab: mlua::Result<Table> = self.lua.registry_value(lab);
+        lab.and_then(|l| l.get::<Table>("on"))
+            .and_then(|on| on.get::<Option<Function>>(name))
+            .is_ok_and(|f| f.is_some())
     }
 
     /// Sends an event to `on[name]`. A missing handler is an error the lab shows.
@@ -237,7 +332,7 @@ impl Host {
             } else {
                 self.lua.to_value(args)?
             };
-            f.call::<()>((state, args))
+            f.call::<()>((state, args, self.world_table()?))
         })();
         self.disarm();
         self.stats.event_runs += 1;
@@ -263,7 +358,7 @@ mod tests {
 
     #[test]
     fn a_changed_file_reloads_and_keeps_the_state() {
-        let dir = std::env::temp_dir().join(format!("ui-lab-reload-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("places-lab-reload-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let lab = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lab");
         std::fs::copy(lab.join("prelude.luau"), dir.join("prelude.luau")).unwrap();
@@ -300,7 +395,7 @@ mod tests {
 
     #[test]
     fn a_runaway_script_is_stopped() {
-        let dir = std::env::temp_dir().join(format!("ui-lab-runaway-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("places-lab-runaway-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let lab = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lab");
         std::fs::copy(lab.join("prelude.luau"), dir.join("prelude.luau")).unwrap();

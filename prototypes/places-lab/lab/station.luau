@@ -1,45 +1,56 @@
--- Docked: the whole station up close. Each module has its sign and opens its room; the
--- station key along the bottom does the same in one click, with news ribbons.
-local data = use("data")
+-- Docked: the whole station from outside. Each module has its sign and takes you to its
+-- room; the station key along the bottom does the same in one click.
 local common = use("common")
 
-local function key(state, ui)
+-- Who is in a module's room, by name.
+local function keepers(world, module)
+	local room = world.places[module].enter
+	local names = {}
+	for _, p in world.people do
+		if p.place == room then
+			table.insert(names, p.name)
+		end
+	end
+	table.sort(names)
+	return table.concat(names, ", ")
+end
+
+local function room_name(world, module)
+	local m = world.places[module]
+	return if m.enter then world.places[m.enter].name else m.name
+end
+
+local function key(world, ui)
 	local row = ui.row({ id = "key", gap = 10, place = "bottom" })
-	for _, r in data.rooms do
-		local news = r.news and not state.seen[r.id] and r.news
+	for _, id in world.modules do
+		local m = world.places[id]
 		table.insert(
 			row,
 			ui.tile({
-				id = "key_" .. r.id,
-				r.name,
-				icon = r.icon,
-				on = "open",
-				args = { room = r.id },
-				ribbon = news and { news[1], news[2] } or nil,
-				hint = if news then news[3] else `{r.keeper} · {r.line}`,
+				id = "key_" .. id,
+				room_name(world, id),
+				icon = m.enter or "office",
+				on = "go",
+				args = { place = id },
+				hint = `{keepers(world, id)} · {m.line}`,
 			})
 		)
 	end
 	return row
 end
 
-return function(state, ui)
-	local s = ui.screen({ scene = "station", back = "back" })
-	for _, r in data.rooms do
-		local closed = r.news and r.news[1] == "closed"
+return function(state, ui, world)
+	local s = ui.screen({ back = "back" })
+	for _, id in world.modules do
+		local m = world.places[id]
 		table.insert(
 			s,
 			ui.hotspot({
-				id = "spot_" .. r.id,
-				anchor = "module." .. r.id,
-				on = "open",
-				args = { room = r.id },
-				sign = {
-					title = r.name,
-					keeper = r.keeper,
-					line = r.line,
-					state = if closed then { "closed", "Closed" } else nil,
-				},
+				id = "spot_" .. id,
+				anchor = "place." .. id,
+				on = "go",
+				args = { place = id },
+				sign = { title = room_name(world, id), keeper = keepers(world, id), line = m.line },
 			})
 		)
 	end
@@ -49,31 +60,29 @@ return function(state, ui)
 		ui.column({
 			place = "top-left",
 			gap = 2,
-			ui.title(data.station.name),
-			ui.small(`{data.station.faction} · docked`),
+			ui.title(world.station.name),
+			ui.small(`{world.station.line} · docked`),
 		})
 	)
 	local status = common.status(state, ui)
 	status.place = "top-right"
 	table.insert(s, status)
-	-- The goal appears once the talk that gives it is over.
-	if state.goal and not state.talk then
-		table.insert(
-			s,
-			ui.panel({
-				id = "goal",
-				role = "goal",
-				place = "top",
-				ui.row({
-					gap = 10,
-					ui.icon("goal", 22),
-					ui.column({ gap = 0, ui.text(state.goal.text), ui.caption(`Goal from {state.goal.from}`) }),
-				}),
-			})
-		)
-	end
-	table.insert(s, key(state, ui))
+	local goal = state.goal
+		or { text = "Ilse Marrow is waiting for you in the dock office", from = "the dock" }
+	table.insert(
+		s,
+		ui.panel({
+			id = "goal",
+			role = "goal",
+			place = "top",
+			ui.row({
+				gap = 10,
+				ui.icon("goal", 22),
+				ui.column({ gap = 0, ui.text(goal.text), ui.caption(`Goal from {goal.from}`) }),
+			}),
+		})
+	)
+	table.insert(s, key(world, ui))
 	table.insert(s, common.log(state, ui))
-	common.add(s, common.bubble(state, ui))
 	return s
 end

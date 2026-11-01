@@ -1068,6 +1068,10 @@ impl<'a> Drawer<'a> {
                 r,
                 format!("socket label {label:?} runs off the screen"),
             );
+        } else if self.avoid.iter().any(|o| rules::overlaps(*o, r)) {
+            self.out
+                .problems
+                .at(&n.path, r, format!("socket label {label:?} is under a panel"));
         }
         self.work.push(ring);
         self.work.push(r);
@@ -1190,19 +1194,30 @@ impl<'a> Drawer<'a> {
         };
         let above = top - tail - h;
         let below = a.at.y + a.radius * 0.4 + tail;
+        let beside_y = a.at.y - h * 0.3;
         let candidates = [
             Rect::new(a.at.x - w * 0.5, above, w, h),
             Rect::new(a.at.x - w + 40.0, above, w, h),
             Rect::new(a.at.x - 40.0, above, w, h),
             Rect::new(a.at.x - w * 0.5, below, w, h),
-            Rect::new(a.at.x - w - a.radius, a.at.y - h * 0.5, w, h),
+            Rect::new(a.at.x - w - a.radius, beside_y, w, h),
+            Rect::new(a.at.x + a.radius, beside_y, w, h),
         ];
         let screen = Rect::new(4.0, 4.0, self.screen.x - 8.0, self.screen.y - 8.0);
         let fits = |r: &Rect, avoid: &[Rect]| {
             rules::contains(screen, *r) && !avoid.iter().any(|o| rules::overlaps(*o, *r))
         };
-        // Clear of the panels, the work in the scene, the other modules and their signs.
+        // Clear of the panels, the work in the scene, the other modules and their signs,
+        // and never over the speaker's own face (a person publishes `<anchor>.face`).
         let mut avoid = self.avoid.clone();
+        if let Some(f) = n
+            .anchor
+            .as_ref()
+            .and_then(|k| self.anchors.get(&format!("{k}.face")))
+        {
+            let r = f.radius * 1.1;
+            avoid.push(Rect::new(f.at.x - r, f.at.y - r, r * 2.0, r * 2.0));
+        }
         avoid.extend(self.work.iter().copied());
         avoid.extend(
             self.spots

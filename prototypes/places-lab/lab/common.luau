@@ -1,25 +1,67 @@
--- Pieces several screens share: the talk bubble, the status readout, the log, the back
--- button and the receipt.
+-- Pieces several screens share: the talk, the people in a room, the room's panel, the
+-- status readout, the log, the back button and the receipt.
 local data = use("data")
 local fit = use("fit")
 local common = {}
 
--- The current line as a bubble over its speaker, or nothing.
-function common.bubble(state, ui)
+-- The current line, said by its person. How it shows (a bubble, a portrait...) is the
+-- talk variant's choice, not the screen's.
+function common.talk(state, ui)
 	local t = state.talk
 	if not t then
 		return nil
 	end
 	local talk = data.talk[t.id]
-	return ui.bubble({
-		id = "bubble",
-		anchor = if talk.at == "keeper" then "keeper" else "module." .. talk.at,
-		speaker = talk.who,
-		place_name = talk.place,
+	local before = {}
+	for i = 1, t.line - 1 do
+		table.insert(before, talk.lines[i])
+	end
+	return ui.talk({
+		who = talk.who,
 		text = talk.lines[t.line],
 		more = t.line < #talk.lines,
+		before = before,
 		on = "talk_next",
 	})
+end
+
+-- Everyone in this room, each a hotspot on their figure: click to talk.
+function common.people(s, ui, world)
+	for _, id in world.people_here do
+		local p = world.people[id]
+		local first = string.split(p.name, " ")[1]
+		table.insert(
+			s,
+			ui.hotspot({
+				id = "person_" .. id,
+				anchor = "person." .. id,
+				on = "talk_to",
+				args = { who = id },
+				sign = { title = p.name, keeper = p.role, line = `Talk to {first}` },
+			})
+		)
+	end
+	return s
+end
+
+-- A room's panel on the right: the way back, its name, who keeps it, then `rest`.
+function common.room_panel(world, ui, subtitle, rest)
+	local panel = ui.panel({
+		id = "room",
+		role = "room",
+		place = "right",
+		gap = 12,
+		align = "stretch",
+		ui.row({
+			gap = 12,
+			common.back(ui),
+			ui.column({ gap = 0, grow = 1, ui.title(world.place.name), ui.small(subtitle) }),
+		}),
+	})
+	for _, w in rest do
+		table.insert(panel, w)
+	end
+	return panel
 end
 
 -- Credits and hold, as a quiet readout.

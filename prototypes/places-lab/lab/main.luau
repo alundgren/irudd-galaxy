@@ -1,5 +1,9 @@
 -- The lab's game side: the state, the events that change it, and the view that turns it
 -- into a screen. The engine calls `view` only after an event or a reload.
+--
+-- Where the player and the people are is the engine's (the place model): `world.here`,
+-- `world.people`. Handlers move them with `world.go(place)` and `world.move(person,
+-- place, state, spot)`; the engine hears of an arrival through `on.arrive`.
 local data = use("data")
 local fit = use("fit")
 
@@ -9,12 +13,11 @@ function lab.init()
 	return {
 		credits = 2000,
 		cargo = { ice = 14, iron = 6 },
-		room = nil, -- nil: the whole station
-		talk = { id = "welcome", line = 1 },
+		talk = nil, -- { id, line }: the talk going on
 		heard = {}, -- lines already said, for the log
 		said = {}, -- talks finished
+		greeted = {}, -- rooms whose person has spoken first already
 		goal = nil,
-		seen = {}, -- rooms visited: their news ribbons are read
 		receipt = nil,
 		log_open = false,
 		fitted = { nose = "long_drill" },
@@ -27,31 +30,33 @@ local function say(state, id)
 	state.talk = { id = id, line = 1 }
 end
 
--- Rooms --------------------------------------------------------------------------------
+-- Going places -------------------------------------------------------------------------
 
-function lab.on.open(state, args)
-	state.room = args.room
-	state.seen[args.room] = true
+function lab.on.go(state, args, world)
+	state.talk = nil
 	state.receipt = nil
 	state.log_open = false
-	if data.talk[args.room] and not state.said[args.room] then
-		say(state, args.room)
-	elseif state.talk and state.talk.id ~= "welcome" then
+	world.go(args.place)
+end
+
+function lab.on.back(state, _, world)
+	if state.drag then
+		state.drag = nil
+	elseif world.place.kind ~= "station" then
 		state.talk = nil
+		state.receipt = nil
+		world.go(world.station.id)
+	elseif state.log_open then
+		state.log_open = false
 	end
 end
 
-function lab.on.back(state)
-	if state.drag then
-		state.drag = nil
-	elseif state.room then
-		state.room = nil
-		state.receipt = nil
-		if state.talk and state.talk.id ~= "welcome" then
-			state.talk = nil
-		end
-	elseif state.log_open then
-		state.log_open = false
+-- The view has landed in a room: its person speaks first, once.
+function lab.on.arrive(state, args)
+	local greet = data.greet[args.place]
+	if greet and not state.greeted[args.place] then
+		state.greeted[args.place] = true
+		say(state, greet)
 	end
 end
 
@@ -61,13 +66,20 @@ end
 
 -- Talk ---------------------------------------------------------------------------------
 
-function lab.on.talk_next(state)
+function lab.on.talk_to(state, args, world)
+	local person = world.people[args.who]
+	if person and person.here then
+		say(state, data.chat(args.who, person))
+	end
+end
+
+function lab.on.talk_next(state, _, world)
 	local t = state.talk
 	if not t then
 		return
 	end
 	local talk = data.talk[t.id]
-	table.insert(state.heard, { who = talk.who, text = talk.lines[t.line] })
+	table.insert(state.heard, { who = world.people[talk.who].name, text = talk.lines[t.line] })
 	if t.line < #talk.lines then
 		t.line += 1
 		return
@@ -76,6 +88,10 @@ function lab.on.talk_next(state)
 	state.said[t.id] = true
 	if talk.goal then
 		state.goal = talk.goal
+	end
+	local m = talk.after
+	if m then
+		world.move(m.person, m.place, m.state, m.spot)
 	end
 end
 
@@ -113,6 +129,16 @@ function lab.on.buy(state, args)
 	state.cargo[w.id] = (state.cargo[w.id] or 0) + n
 	state.credits -= n * w.price
 	state.receipt = { text = `Bought {n} {string.lower(w.name)}`, amount = `-{n * w.price} cr`, state = "loss" }
+end
+
+-- Canteen ------------------------------------------------------------------------------
+
+function lab.on.buy_bowl(state)
+	if state.credits < data.bowl.price then
+		return
+	end
+	state.credits -= data.bowl.price
+	state.receipt = { text = "A bowl of broth. Warm hands.", amount = `-{data.bowl.price} cr`, state = "loss" }
 end
 
 -- Cradle -------------------------------------------------------------------------------
@@ -175,17 +201,16 @@ end
 
 -- View ---------------------------------------------------------------------------------
 
-local screens = {
+local rooms = {
 	market = use("market"),
-	wharf = use("cradle"),
+	cradle = use("cradle"),
 }
 
-function lab.view(state, ui)
-	local room = state.room and (screens[state.room] or use("room"))
-	if room then
-		return room(state, ui)
+function lab.view(state, ui, world)
+	if world.place.kind == "interior" then
+		return (rooms[world.here] or use("room"))(state, ui, world)
 	end
-	return use("station")(state, ui)
+	return use("station")(state, ui, world)
 end
 
 return lab

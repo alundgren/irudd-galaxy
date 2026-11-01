@@ -887,24 +887,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "lab-render"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "galaxy-kit",
- "glam",
- "glyphon",
- "log",
- "png",
- "pollster",
- "serde",
- "serde_json",
- "toml",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1544,6 +1526,35 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "places-lab"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "places-lab-render",
+ "pollster",
+ "serde_json",
+ "winit",
+]
+
+[[package]]
+name = "places-lab-render"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "galaxy-kit",
+ "glam",
+ "glyphon",
+ "log",
+ "png",
+ "pollster",
+ "serde",
+ "serde_json",
+ "toml",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "plain"
@@ -2309,17 +2320,6 @@ name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
-
-[[package]]
-name = "ui-lab"
-version = "0.1.0"
-dependencies = [
- "lab-render",
- "mlua",
- "pollster",
- "serde_json",
- "winit",
-]
 
 [[package]]
 name = "unicode-bidi"

@@ -21,8 +21,9 @@ local function make(kind, defaults)
 	end
 end
 
--- The root: `scene` ("station" or "cradle"), `focus` (a module the camera glides to),
--- `back` (the event for Esc and right-click), `ship` (the fit the cradle shows).
+-- The root: `back` (the event for Esc and right-click), `ship` (the fit the cradle
+-- shows). Which scene is behind it is not the screen's choice: the place model says
+-- where the player is and the variants show it.
 ui.screen = make("screen")
 
 -- Layout. `gap`, `pad`, `grow`, `width`, `align` ("start", "center", "end", "stretch").
@@ -71,7 +72,14 @@ function ui.icon(name, size)
 	return { kind = "icon", icon = name, size = size }
 end
 
--- Attached to the scene. `anchor` names a scene point ("module.market", "socket.nose").
+-- Talk: `who` (a person), `text`, `more`, `before` (the talk's earlier lines) and the
+-- event a click sends. Only at the top of a screen. The talk variant turns it into
+-- widgets (a bubble on the person, a portrait...).
+ui.talk = make("talk")
+
+-- Attached to the scene. `anchor` names a point the world publishes: "person.ilse"
+-- (over the head), "person.ilse.face", "place.market_block", "spot.door",
+-- "socket.nose".
 -- A bubble: `speaker`, `place_name`, `text`, `more`, and the event a click sends.
 ui.bubble = make("bubble")
 -- A clickable place in the scene with its sign `{ title, keeper, line, state }`.

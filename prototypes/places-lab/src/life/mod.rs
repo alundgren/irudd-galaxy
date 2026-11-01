@@ -1,0 +1,72 @@
+//! Choice 4: life. Key `4` cycles the variants.
+//!
+//! A life variant decides how people live in their places: what a story moment's move
+//! looks like (the Luau calls `world.move(person, place, state, spot)`), what happens
+//! as time passes and when the player arrives somewhere, how each figure stands, and
+//! anything it wants on the screen (what changed since you were last here).
+//!
+//! To add a variant: a new file here with a type that implements [`Life`], and one line
+//! in [`all`]. Nothing outside this folder needs to change.
+
+mod still;
+
+use render::Renderer;
+
+use crate::figures::Pose;
+use crate::places::{Person, Places};
+use crate::widgets::W;
+use crate::world::World;
+
+pub trait Life {
+    /// The variant's name, by technique: "still", "states", ...
+    fn name(&self) -> &'static str;
+    /// Once at start and after F5, for every variant (not only the picked one): upload
+    /// any meshes of its own.
+    fn setup(&mut self, _r: &mut Renderer, _world: &World, _model: &Places) {}
+    /// A story moment moves someone. The baseline moves them at once.
+    fn moved(
+        &mut self,
+        model: &mut Places,
+        person: &str,
+        place: Option<&str>,
+        state: Option<&str>,
+        spot: Option<&str>,
+    ) {
+        model.set_person(person, place, state, spot);
+    }
+    /// The player arrived in a place (the move's view has landed).
+    fn arrived(&mut self, _model: &mut Places, _place: &str) {}
+    /// Time passes.
+    fn step(&mut self, _model: &mut Places, _dt: f32) {}
+    /// How a figure stands now. `t` is seconds, offset per person.
+    fn pose(&self, who: &Person, t: f32, talking: bool) -> Pose {
+        idle(who, t, talking)
+    }
+    /// Widgets to add to the screen, when it runs.
+    fn widgets(&self, _model: &Places) -> Vec<W> {
+        Vec::new()
+    }
+}
+
+/// A little idle motion: breathing, a slow look round, a nod while talking; sitting
+/// lower while eating.
+pub fn idle(who: &Person, t: f32, talking: bool) -> Pose {
+    let mut p = Pose::still();
+    p.breathe = 1.0 + (t * 1.7).sin() * 0.012;
+    p.sway = (t * 0.6).sin() * 0.025;
+    p.head_turn = (t * 0.37).sin() * 0.35 + (t * 0.91).sin() * 0.1;
+    if talking {
+        p.head_nod = (t * 7.0).sin() * 0.07;
+        p.head_turn *= 0.3;
+        p.lift = ((t * 3.5).sin() * 0.5 + 0.5) * 0.03;
+    }
+    if who.state == "eat" {
+        p.lift -= 0.35;
+    }
+    p
+}
+
+/// Every variant, in the order the key cycles them. The first is the baseline.
+pub fn all() -> Vec<Box<dyn Life>> {
+    vec![Box::new(still::Still)]
+}

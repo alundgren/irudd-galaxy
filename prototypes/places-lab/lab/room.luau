@@ -1,45 +1,54 @@
--- The other rooms (office, notices, canteen): a small panel beside the module.
+-- The rooms without a screen of their own (the office, the canteen): the room's panel
+-- on the right, the people in it to talk to.
 local data = use("data")
 local common = use("common")
 
-return function(state, ui)
-	local room
-	for _, r in data.rooms do
-		if r.id == state.room then
-			room = r
-		end
+local function keepers(world)
+	local names = {}
+	for _, id in world.people_here do
+		local p = world.people[id]
+		table.insert(names, `{p.name}, {string.lower(p.role)}`)
 	end
-	local s = ui.screen({ scene = "station", focus = room.id, back = "back" })
-	local panel = ui.panel({
-		id = "room",
-		role = "room",
-		place = "right",
-		width = 420,
-		gap = 12,
-		align = "stretch",
-		ui.row({
-			gap = 12,
-			common.back(ui),
-			ui.column({ gap = 0, grow = 1, ui.title(room.name), ui.small(`{room.keeper} · {room.line}`) }),
-		}),
-	})
-	if room.id == "notices" then
+	return if #names > 0 then table.concat(names, " · ") else "Nobody in just now"
+end
+
+return function(state, ui, world)
+	local s = ui.screen({ back = "back" })
+	local rest = {}
+	if world.here == "office" then
+		table.insert(rest, ui.caption("THE BERTH BOOK"))
+		table.insert(rest, ui.text("Berth three: the Wren, yours."))
 		for _, n in data.notices do
-			table.insert(panel, ui.panel({ role = "sign", ui.text(n) }))
+			table.insert(rest, ui.panel({ role = "sign", ui.small(n) }))
 		end
-	elseif room.news and room.news[1] == "closed" then
-		table.insert(panel, ui.state("closed", "Closed for now"))
-		table.insert(panel, ui.text(room.news[3]))
-	else
-		table.insert(panel, ui.text("Ilse looks up from the berth book."))
+		if state.goal then
+			table.insert(
+				rest,
+				ui.panel({
+					role = "goal",
+					ui.row({ gap = 10, ui.icon("goal", 22), ui.text({ state.goal.text, grow = 1 }) }),
+				})
+			)
+		end
+	elseif world.here == "canteen" then
+		table.insert(rest, common.status(state, ui))
+		table.insert(
+			rest,
+			ui.row({
+				gap = 10,
+				ui.column({ gap = 0, grow = 1, ui.text(data.bowl.name), ui.small(`{data.bowl.price} cr a bowl`) }),
+				ui.button({
+					id = "buy_bowl",
+					"Buy a bowl",
+					on = "buy_bowl",
+					rest = if state.credits < data.bowl.price then `You need {data.bowl.price} cr` else nil,
+				}),
+			})
+		)
+		common.add(rest, common.receipt(state, ui))
 	end
-	table.insert(s, ui.hotspot({
-		anchor = "module." .. room.id,
-		on = "back",
-		selected = true,
-		sign = { title = room.name, keeper = room.keeper, line = "Back to the whole station" },
-	}))
-	table.insert(s, panel)
-	common.add(s, common.bubble(state, ui))
+	table.insert(s, common.room_panel(world, ui, keepers(world), rest))
+	common.people(s, ui, world)
+	common.add(s, common.talk(state, ui))
 	return s
 end

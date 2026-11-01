@@ -1,5 +1,5 @@
--- The market room, beside its module: wares with plain price labels, real verbs as
--- buttons, and buy buttons that rest (with the reason) while the hold is full.
+-- Juno's market: wares with plain price labels, real verbs as buttons, and buy buttons
+-- that rest (with the reason) while the hold is full.
 local data = use("data")
 local fit = use("fit")
 local common = use("common")
@@ -30,8 +30,8 @@ local function ware_row(state, ui, w, full)
 	})
 end
 
-return function(state, ui)
-	local s = ui.screen({ scene = "station", focus = "market", back = "back" })
+return function(state, ui, world)
+	local s = ui.screen({ back = "back" })
 	local full = fit.cargo_total(state) >= fit.stats(state.fitted).hold
 	local panel = ui.panel({
 		id = "room",
@@ -39,7 +39,7 @@ return function(state, ui)
 		place = "right",
 		gap = 12,
 		align = "stretch",
-		ui.row({ gap = 12, common.back(ui), ui.column({ gap = 0, ui.title("Market"), ui.small("Ilse Marrow keeps the stalls") }) }),
+		ui.row({ gap = 12, common.back(ui), ui.column({ gap = 0, ui.title(world.place.name), ui.small("Juno Pell keeps the stall") }) }),
 		common.status(state, ui),
 		ui.row({
 			gap = 8,
@@ -56,14 +56,8 @@ return function(state, ui)
 		table.insert(panel, ui.state("info", "Hold full: buy buttons rest until you sell"))
 	end
 	common.add(panel, common.receipt(state, ui))
-	table.insert(s, ui.hotspot({
-		id = "spot_market",
-		anchor = "module.market",
-		on = "back",
-		selected = true,
-		sign = { title = "Market", keeper = "Ilse Marrow", line = "Back to the whole station" },
-	}))
 	table.insert(s, panel)
-	common.add(s, common.bubble(state, ui))
+	common.people(s, ui, world)
+	common.add(s, common.talk(state, ui))
 	return s
 end
