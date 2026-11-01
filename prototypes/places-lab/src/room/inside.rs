@@ -56,7 +56,9 @@ fn look(set: &str, floor: Vec2) -> Look {
         // The cradle is wide and deep: its left part, Orrin and the Wren, from higher up
         // so the sockets stack up the screen with room for their labels. Its front cut
         // may leave the screen: the core stays in view instead.
-        "cradle" => (-hw - out - 1.2, 2.2, 0.0, -2.4, 38.0),
+        "cradle" => (-hw - out - 1.2, 3.0, 0.0, -2.4, 38.0),
+        // Juno's wide hat hides her face from higher up.
+        "market" => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 22.0),
         _ => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 34.0),
     };
     Look {
