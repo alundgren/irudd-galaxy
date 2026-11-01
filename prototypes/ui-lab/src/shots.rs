@@ -19,9 +19,13 @@ struct Shooter {
     n: usize,
     failures: Vec<String>,
     frame_ms: Vec<f64>,
+    /// Hovers the sweeps tried.
+    hovers: usize,
 }
 
 const DT: f32 = 1.0 / 60.0;
+/// Frames a hover rests for: long enough for a module's lift and a sign's growth.
+const HOVER_FRAMES: usize = 14;
 
 impl Shooter {
     fn frame(&mut self) -> render::Scene {
@@ -37,18 +41,25 @@ impl Shooter {
         }
     }
 
-    fn save(&mut self, name: &str) {
+    /// Draws this frame to a numbered PNG and returns its path.
+    fn shoot(&mut self, name: &str) -> PathBuf {
         let scene = self.frame();
         self.n += 1;
         let path = self.out.join(format!("{:02}-{name}.png", self.n));
-        match self
+        if let Err(e) = self
             .r
             .render_to_rgba(&scene)
             .and_then(|img| img.save_png(&path))
         {
-            Ok(()) => println!("shot {}", path.display()),
-            Err(e) => self.failures.push(format!("{name}: {e}")),
+            self.failures.push(format!("{name}: {e}"));
         }
+        path
+    }
+
+    /// A shot of this state, its rule breaks, and a sweep hovering everything on it.
+    fn save(&mut self, name: &str) {
+        let path = self.shoot(name);
+        println!("shot {}", path.display());
         let problems = self.app.problems();
         for p in &problems.0 {
             self.failures
@@ -57,10 +68,97 @@ impl Shooter {
         if let Some(e) = &self.app.host.error {
             self.failures.push(format!("{name}: script: {e}"));
         }
+        self.sweep(name);
     }
 
+    fn problem_set(&self) -> Vec<String> {
+        self.app
+            .problems()
+            .0
+            .iter()
+            .map(|p| format!("{}: {}", p.path, p.what))
+            .collect()
+    }
+
+    /// Hovers everything the pointer can act on in this state, one at a time, so a
+    /// hover nobody thought to script is still looked at. Each must be reachable, keep
+    /// its hover while the pointer rests (no flicker), break no rule and run no Luau.
+    /// A hover that breaks a rule is saved as a picture of its own.
+    fn sweep(&mut self, state: &str) {
+        if self.app.ix.drag.is_some() {
+            return;
+        }
+        let pointer = self.app.ix.pointer;
+        self.app.pointer_left();
+        self.settle(HOVER_FRAMES);
+        let base = self.problem_set();
+        let runs = self.app.host.stats.view_runs;
+        let (targets, unreachable) = self.app.targets();
+        for u in unreachable {
+            self.failures.push(format!(
+                "{state}: {u} can't be reached: something covers all of it"
+            ));
+        }
+        for t in targets {
+            let name = t.id.clone().unwrap_or_else(|| t.path.clone());
+            self.app.pointer_move(t.at);
+            let mut lost = 0;
+            for _ in 0..HOVER_FRAMES {
+                self.frame();
+                if self.app.ix.hover.as_deref() != Some(t.path.as_str()) {
+                    lost += 1;
+                }
+            }
+            self.hovers += 1;
+            if lost > 0 {
+                self.failures.push(format!(
+                    "{state}: hovering {name} doesn't hold: the pointer was over something else on {lost} of {HOVER_FRAMES} frames"
+                ));
+            }
+            let fresh: Vec<String> = self
+                .problem_set()
+                .into_iter()
+                .filter(|p| !base.contains(p))
+                .collect();
+            if !fresh.is_empty() {
+                let file: String = name
+                    .chars()
+                    .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                    .collect();
+                let path = self.shoot(&format!("{state}--hover-{file}"));
+                for p in fresh {
+                    self.failures.push(format!(
+                        "{state}: hovering {name}: rule: {p} (see {})",
+                        path.display()
+                    ));
+                }
+            }
+        }
+        let ran = self.app.host.stats.view_runs - runs;
+        if ran != 0 {
+            self.failures
+                .push(format!("{state}: hovering ran the screen {ran} times"));
+        }
+        match pointer {
+            Some(p) => self.app.pointer_move(p),
+            None => self.app.pointer_left(),
+        }
+        self.settle(HOVER_FRAMES);
+    }
+
+    /// A widget's place: an id, a path from `describe` (`screen/panel[1]/button[2]`),
+    /// or `x,y` in logical pixels.
     fn at(&mut self, id: &str) -> Vec2 {
-        match self.app.locate(id) {
+        if let Some((x, y)) = id.split_once(',')
+            && let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse())
+        {
+            return Vec2::new(x, y);
+        }
+        let by_path = || {
+            let (targets, _) = self.app.targets();
+            targets.into_iter().find(|t| t.path == id).map(|t| t.at)
+        };
+        match self.app.locate(id).or_else(by_path) {
             Some(p) => p,
             None => {
                 self.failures.push(format!("no widget {id:?} on screen"));
@@ -125,18 +223,9 @@ impl Shooter {
     }
 }
 
-pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
-    if let Err(e) = std::fs::create_dir_all(&out) {
-        eprintln!("ui-lab: {}: {e}", out.display());
-        return ExitCode::FAILURE;
-    }
-    let mut r = match Renderer::new_headless(1280, 720) {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("ui-lab: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
+fn shooter(dir: PathBuf, out: PathBuf) -> Result<Shooter, String> {
+    std::fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
+    let mut r = Renderer::new_headless(1280, 720).map_err(|e| e.to_string())?;
     let app = App::new(&mut r, dir);
     let mut s = Shooter {
         r,
@@ -145,12 +234,145 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
         n: 0,
         failures: Vec::new(),
         frame_ms: Vec::new(),
+        hovers: 0,
     };
     s.app.show_stats = false;
+    s.settle(30);
+    Ok(s)
+}
+
+/// `ui-lab --look <folder> "<steps>"`: plays the steps headless and, at each `shot`,
+/// saves a PNG and prints what is on screen as JSON, so an agent can see what a hover,
+/// click or drag does. Steps, split by `;`:
+///
+/// - `hover W`, `click W`, `press W` (hold the button down), `release`, `leave`
+/// - `drag W V` (pick W up and hold it over V), `drop` (let go)
+/// - `back`, `wait N` (frames), `zoom STEPS [W]` (the wheel, toward W)
+/// - `shot NAME` (a PNG and the JSON), `sweep` (hover everything here, report breaks)
+///
+/// `W` is a widget id, a path from the JSON, or `x,y`. Without a final `shot`, one is
+/// taken at the end.
+pub fn look(dir: PathBuf, out: PathBuf, script: &str) -> ExitCode {
+    let mut s = match shooter(dir, out) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("ui-lab: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let viewport = s.r.logical_size();
+    let steps: Vec<&str> = script
+        .split(';')
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let mut shot_last = false;
+    for step in steps {
+        let words: Vec<&str> = step.split_whitespace().collect();
+        shot_last = false;
+        match words.as_slice() {
+            ["hover", w] => {
+                let p = s.at(w);
+                s.app.pointer_move(p);
+                s.settle(HOVER_FRAMES);
+            }
+            ["click", w] => s.click(w),
+            ["press", w] => {
+                let p = s.at(w);
+                s.app.pointer_move(p);
+                s.frame();
+                s.app.pointer_down();
+                s.settle(2);
+            }
+            ["release"] | ["drop"] => {
+                s.app.pointer_up();
+                s.settle(2);
+            }
+            ["leave"] => {
+                s.app.pointer_left();
+                s.settle(2);
+            }
+            ["drag", w, v] => {
+                let a = s.at(w);
+                s.app.pointer_move(a);
+                s.frame();
+                s.app.pointer_down();
+                s.app.pointer_move(a + Vec2::new(8.0, 4.0));
+                s.settle(2);
+                let b = s.at(v);
+                for i in 1..=20 {
+                    s.app.pointer_move(a.lerp(b, i as f32 / 20.0));
+                    s.frame();
+                }
+            }
+            ["back"] => {
+                s.app.back();
+                s.settle(30);
+            }
+            ["wait", n] => s.settle(n.parse().unwrap_or(30)),
+            ["zoom", steps, rest @ ..] => {
+                let at = rest.first().map(|w| s.at(w));
+                s.app
+                    .world
+                    .zoom_at(steps.parse().unwrap_or(0.0), at, viewport);
+                s.settle(60);
+            }
+            ["shot", name] => {
+                let path = s.shoot(name);
+                print_look(&s, &path);
+                shot_last = true;
+            }
+            ["sweep"] => {
+                let before = s.hovers;
+                s.sweep("sweep");
+                println!(
+                    "{}",
+                    serde_json::json!({ "swept": s.hovers - before, "failures": s.failures })
+                );
+            }
+            _ => s.failures.push(format!("unknown step {step:?}")),
+        }
+    }
+    if !shot_last {
+        let path = s.shoot("last");
+        print_look(&s, &path);
+    }
+    if s.failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        for f in &s.failures {
+            eprintln!("FAIL {f}");
+        }
+        ExitCode::FAILURE
+    }
+}
+
+fn print_look(s: &Shooter, path: &std::path::Path) {
+    let mut v = s.app.describe();
+    v["shot"] = serde_json::json!(path.display().to_string());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&v).unwrap_or_else(|e| e.to_string())
+    );
+}
+
+pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
+    let mut s = match shooter(dir, out) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("ui-lab: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
 
     // Docked: the welcome, one line at a time; the goal appears after it.
     s.settle(30);
     s.save("docked-welcome");
+    // A hovered sign grows clear of the bubble, or in front of it, never mixed with it.
+    for spot in ["spot_canteen", "spot_office", "spot_wharf"] {
+        s.hover(spot);
+        s.save(&format!("hover-{}-during-talk", &spot[5..]));
+    }
     s.click("bubble");
     s.save("talk-second-line");
     for _ in 0..3 {
@@ -158,6 +380,29 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
     }
     s.app.pointer_left();
     s.save("goal-after-talk");
+    // The wheel's range at the station: the signs follow the scene with no screen runs.
+    let runs = s.app.host.stats.view_runs;
+    let viewport = s.r.logical_size();
+    for (steps, at, name) in [
+        (8.0, "spot_market", "zoomed-in-at-market"),
+        (-6.0, "spot_office", "zoomed-in-less"),
+        (-12.0, "spot_office", "zoomed-out"),
+    ] {
+        let p = s.at(at);
+        s.app.world.zoom_at(steps, Some(p), viewport);
+        s.settle(60);
+        s.save(name);
+    }
+    s.hover("spot_market");
+    s.save("zoomed-out-hover-market");
+    s.app.pointer_left();
+    s.app.world.set_wheel(1.0);
+    s.settle(60);
+    let zoom_runs = s.app.host.stats.view_runs - runs;
+    if zoom_runs != 0 {
+        s.failures
+            .push(format!("zooming ran the screen {zoom_runs} times"));
+    }
     s.hover("spot_market");
     s.save("hover-market-module");
     s.hover("key_wharf");
@@ -223,6 +468,11 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
     s.settle(40);
     s.app.pointer_left();
     s.save("notices");
+    s.app.world.zoom_at(-12.0, None, viewport);
+    s.settle(60);
+    s.save("notices-zoomed-out");
+    s.app.world.set_wheel(1.0);
+    s.settle(60);
     s.app.back();
     s.settle(30);
     s.click("key_canteen");
@@ -261,6 +511,7 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
         p(0.95),
         p(1.0)
     );
+    println!("hovers swept: {}", s.hovers);
     println!("events: {}", s.app.events.join(" | "));
     if s.failures.is_empty() {
         println!("PASS");

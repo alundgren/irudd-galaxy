@@ -103,6 +103,9 @@ pub struct Out {
     pub layers: [UiLayer; 3],
     pub hits: Vec<Hit>,
     pub problems: Problems,
+    /// Widgets floating over the scene this frame: their layer, place and name (signs,
+    /// pins, bubbles, socket labels, the hint).
+    pub floats: Vec<(usize, Rect, String)>,
 }
 
 pub struct Drawer<'a> {
@@ -116,12 +119,21 @@ pub struct Drawer<'a> {
     signs: HashMap<String, Rect>,
     /// Scene-attached work (socket rings and their labels): bubbles keep clear of it.
     work: Vec<Rect>,
+    /// Each hotspot's module body on screen, by anchor: other signs and bubbles keep
+    /// clear of it.
+    spots: Vec<(String, Rect)>,
+    /// This frame's bubbles: grown signs keep clear of them.
+    bubbles: Vec<Rect>,
+    /// Hovered or selected hotspots, drawn after the bubbles.
+    grown: Vec<(Node, Anchor, Sign, Rect)>,
     /// The widget being drawn, for rule reports.
     cur: String,
     pub out: Out,
 }
 
 const SKY_RING: f32 = 4.0;
+/// A folded sign's radius.
+const PIN: f32 = 8.0;
 
 /// A line of a sign: its text and font (size, weight).
 type SignLine = (String, (f32, u16));
@@ -142,11 +154,15 @@ impl<'a> Drawer<'a> {
             avoid,
             signs: HashMap::new(),
             work: Vec::new(),
+            spots: Vec::new(),
+            bubbles: Vec::new(),
+            grown: Vec::new(),
             cur: String::new(),
             out: Out {
                 layers: Default::default(),
                 hits: Vec::new(),
                 problems: Problems::default(),
+                floats: Vec::new(),
             },
         }
     }
@@ -195,8 +211,20 @@ impl<'a> Drawer<'a> {
     }
 
     /// The whole screen: scene-attached widgets first, then the placed layers, then
-    /// bubbles.
+    /// bubbles, then the hovered or selected signs.
     pub fn screen(&mut self, root: &Node) {
+        // Every module's own spot: signs keep clear of the others', so no sign hides a
+        // module and a folded pin is never under a sign.
+        for c in &root.children {
+            if c.kind == Kind::Hotspot
+                && let Some(k) = &c.anchor
+                && let Some(a) = self.anchors.get(k)
+            {
+                let half = (a.radius * 0.5).max(PIN);
+                let r = Rect::new(a.at.x - half, a.at.y - half, half * 2.0, half * 2.0);
+                self.spots.push((k.clone(), r));
+            }
+        }
         for c in &root.children {
             match c.kind {
                 Kind::Hotspot => self.hotspot(c),
@@ -216,6 +244,9 @@ impl<'a> Drawer<'a> {
             if c.kind == Kind::Bubble {
                 self.bubble(c);
             }
+        }
+        for (n, a, sign, small) in std::mem::take(&mut self.grown) {
+            self.grown_sign(&n, a, &sign, small);
         }
     }
 
@@ -780,52 +811,139 @@ impl<'a> Drawer<'a> {
         let fits = |r: &Rect, avoid: &[Rect]| {
             rules::contains(screen, *r) && !avoid.iter().any(|o| rules::overlaps(*o, *r))
         };
-        // The small sign hangs above the module, or below if a panel is in the way. Its
-        // place never moves on hover, so the hover area is steady.
+        // A module under a panel or off the screen has no sign: it can't be pointed at.
+        let seen = Rect::new(a.at.x - 1.0, a.at.y - 1.0, 2.0, 2.0);
+        if !rules::contains(screen, seen) || self.avoid.iter().any(|o| rules::overlaps(*o, seen)) {
+            return;
+        }
+        // The small sign hangs above the module, else below or beside it, clear of the
+        // panels and the signs already up. With no clear spot (zoomed far out, the modules
+        // crowd) it folds into a pin. Its place never moves on hover, so the hover area is
+        // steady.
         let (_, small, _) = self.sign_layout(&sign, false);
         let lift = a.radius * 0.35 + 10.0;
-        let above = Rect::new(
-            a.at.x - small.x * 0.5,
-            a.at.y - lift - small.y,
-            small.x,
-            small.y,
+        let reach = a.radius * 0.6 + 8.0;
+        let candidates = [
+            Rect::new(
+                a.at.x - small.x * 0.5,
+                a.at.y - lift - small.y,
+                small.x,
+                small.y,
+            ),
+            Rect::new(a.at.x - small.x * 0.5, a.at.y + lift, small.x, small.y),
+            Rect::new(a.at.x + reach, a.at.y - small.y * 0.5, small.x, small.y),
+            Rect::new(
+                a.at.x - reach - small.x,
+                a.at.y - small.y * 0.5,
+                small.x,
+                small.y,
+            ),
+        ];
+        let mut avoid = self.avoid.clone();
+        avoid.extend(self.signs.values().copied());
+        avoid.extend(
+            self.spots
+                .iter()
+                .filter(|(k, _)| n.anchor.as_ref() != Some(k))
+                .map(|(_, r)| *r),
         );
-        let below = Rect {
-            y: a.at.y + lift,
-            ..above
+        let spot = candidates.iter().copied().find(|c| fits(c, &avoid));
+        let pin = spot.is_none();
+        let small_r = match spot {
+            Some(r) => r,
+            None => Rect::new(a.at.x - PIN, a.at.y - PIN, PIN * 2.0, PIN * 2.0),
         };
-        let small_r = if fits(&above, &self.avoid) {
-            above
-        } else {
-            below
-        };
-        let small_r = self.clamp(small_r, &n.path);
         if let Some(anchor) = &n.anchor {
             self.signs.insert(anchor.clone(), small_r);
         }
-        let big = hovered || n.selected;
-        let (lines, size, title_w) = self.sign_layout(&sign, big);
-        // A hovered sign grows in front of the others: keeping its bottom edge, or moved
-        // aside or below when a panel is in the way.
-        let r = if big {
-            let bottom = small_r.y + small_r.h;
-            let x = a.at.x - size.x * 0.5;
-            let candidates = [
-                Rect::new(x, bottom - size.y, size.x, size.y),
-                Rect::new(a.at.x - size.x + 30.0, bottom - size.y, size.x, size.y),
-                Rect::new(a.at.x - 30.0, bottom - size.y, size.x, size.y),
-                Rect::new(x, small_r.y, size.x, size.y),
-            ];
-            let pick = candidates
-                .iter()
-                .copied()
-                .find(|c| fits(c, &self.avoid))
-                .unwrap_or(candidates[0]);
-            self.clamp(pick, &n.path)
+        match &n.on {
+            Some(on) => {
+                let act = Act::Click {
+                    on: on.clone(),
+                    args: n.args.clone(),
+                };
+                self.hit(Area::Circle(a.at, a.radius), n, act.clone());
+                self.hit(Area::Rect(small_r), n, act);
+            }
+            None => self.out.problems.add(&n.path, "a hotspot needs `on`"),
+        }
+        if hovered || n.selected {
+            // Grown signs are drawn after the bubbles, so they can keep clear of them.
+            self.grown.push((n.clone(), a, sign, small_r));
+        } else if pin {
+            self.float(0, small_r, &n.path, &format!("pin {:?}", sign.title));
+            let mut p = style::surface(Role::Sign, small_r).expect("sign has a surface");
+            p.radius = PIN;
+            p.border_px = 2.5;
+            self.panel(0, p);
         } else {
-            small_r
+            self.draw_sign(n, &sign, small_r, 0, false);
+        }
+    }
+
+    /// A hovered or selected sign grows: keeping its bottom edge, or moved aside or below
+    /// when a panel or a bubble is in the way. Hovered, it comes to the front layer.
+    fn grown_sign(&mut self, n: &Node, a: Anchor, sign: &Sign, small_r: Rect) {
+        self.cur = n.path.clone();
+        let screen = Rect::new(4.0, 4.0, self.screen.x - 8.0, self.screen.y - 8.0);
+        let mut must = self.avoid.clone();
+        must.extend(self.bubbles.iter().copied());
+        // Never over its own module: that is what the player is pointing at.
+        let body = self
+            .spots
+            .iter()
+            .find(|(k, _)| n.anchor.as_ref() == Some(k))
+            .map(|(_, r)| *r);
+        must.extend(body);
+        // Clear of the other signs too if it can be; covering one is the last resort.
+        let mut rather = must.clone();
+        rather.extend(
+            self.signs
+                .iter()
+                .filter(|(k, _)| n.anchor.as_ref() != Some(*k))
+                .map(|(_, r)| *r),
+        );
+        let fits = |r: &Rect, avoid: &[Rect]| {
+            rules::contains(screen, *r) && !avoid.iter().any(|o| rules::overlaps(*o, *r))
         };
-        let layer = if big { 1 } else { 0 };
+        let (_, size, _) = self.sign_layout(sign, true);
+        // A sign grows from where it hangs; a pin's sign opens beside the pin, not over
+        // the module.
+        let pin = small_r.w <= PIN * 2.0;
+        let (bottom, top) = if pin {
+            (small_r.y - 4.0, small_r.y + small_r.h + 4.0)
+        } else {
+            (small_r.y + small_r.h, small_r.y)
+        };
+        let x = a.at.x - size.x * 0.5;
+        // Beside the module, level with it: when the room above and below is taken.
+        let half = body.map_or(PIN, |b| b.w * 0.5) + 10.0;
+        let y = a.at.y - size.y * 0.5;
+        let candidates = [
+            Rect::new(x, bottom - size.y, size.x, size.y),
+            Rect::new(a.at.x - size.x + 30.0, bottom - size.y, size.x, size.y),
+            Rect::new(a.at.x - 30.0, bottom - size.y, size.x, size.y),
+            Rect::new(x, top, size.x, size.y),
+            Rect::new(a.at.x - size.x + 30.0, top, size.x, size.y),
+            Rect::new(a.at.x - 30.0, top, size.x, size.y),
+            Rect::new(a.at.x - half - size.x, y, size.x, size.y),
+            Rect::new(a.at.x + half, y, size.x, size.y),
+        ];
+        let pick = candidates
+            .iter()
+            .find(|c| fits(c, &rather))
+            .or_else(|| candidates.iter().find(|c| fits(c, &must)))
+            .copied()
+            .unwrap_or(candidates[0]);
+        let r = self.clamp(pick, &n.path);
+        let hovered = self.hovered(&n.path);
+        self.draw_sign(n, sign, r, if hovered { 2 } else { 1 }, true);
+    }
+
+    fn draw_sign(&mut self, n: &Node, sign: &Sign, r: Rect, layer: usize, big: bool) {
+        let hovered = self.hovered(&n.path);
+        let (lines, _, title_w) = self.sign_layout(sign, big);
+        self.float(layer, r, &n.path, &format!("sign {:?}", sign.title));
         let mut p = style::surface(Role::Sign, r).expect("sign has a surface");
         if hovered {
             p.border = safe::orange();
@@ -862,17 +980,20 @@ impl<'a> Drawer<'a> {
                 );
             }
         }
-        match &n.on {
-            Some(on) => {
-                let act = Act::Click {
-                    on: on.clone(),
-                    args: n.args.clone(),
-                };
-                self.hit(Area::Circle(a.at, a.radius), n, act.clone());
-                self.hit(Area::Rect(small_r), n, act);
+    }
+
+    /// Records a widget floating over the scene on `layer`. A layer draws all its panels
+    /// and then all its text, so two widgets overlapping on one layer mix: one's text over
+    /// the other's panel. That is a rule break.
+    fn float(&mut self, layer: usize, r: Rect, path: &str, what: &str) {
+        for (l, o, other) in &self.out.floats {
+            if *l == layer && rules::overlaps(*o, r) {
+                let msg = format!("{what} overlaps {other} on the same layer");
+                self.out.problems.at(path, r, msg);
+                break;
             }
-            None => self.out.problems.add(&n.path, "a hotspot needs `on`"),
         }
+        self.out.floats.push((layer, r, what.to_string()));
     }
 
     /// A drop target on a scene anchor (a socket): a ring, a label beside it, and the
@@ -951,6 +1072,7 @@ impl<'a> Drawer<'a> {
         self.work.push(ring);
         self.work.push(r);
         let layer = if reason.is_some() { 1 } else { 0 };
+        self.float(layer, r, &n.path, &format!("socket label {label:?}"));
         let fill = style::surface(Role::Status, r).expect("status").fill;
         self.panel(
             layer,
@@ -1079,9 +1201,15 @@ impl<'a> Drawer<'a> {
         let fits = |r: &Rect, avoid: &[Rect]| {
             rules::contains(screen, *r) && !avoid.iter().any(|o| rules::overlaps(*o, *r))
         };
-        // Clear of the panels, the work in the scene and the other signs.
+        // Clear of the panels, the work in the scene, the other modules and their signs.
         let mut avoid = self.avoid.clone();
         avoid.extend(self.work.iter().copied());
+        avoid.extend(
+            self.spots
+                .iter()
+                .filter(|(k, _)| n.anchor.as_ref() != Some(k))
+                .map(|(_, r)| *r),
+        );
         avoid.extend(
             self.signs
                 .iter()
@@ -1109,6 +1237,8 @@ impl<'a> Drawer<'a> {
             }
         };
         r = self.clamp(r, &n.path);
+        self.bubbles.push(r);
+        self.float(1, r, &n.path, &format!("{speaker}'s bubble"));
         let hovered = self.hovered(&n.path);
         let mut p = style::surface(Role::Speech, r).expect("speech");
         if hovered {
@@ -1312,7 +1442,8 @@ impl<'a> Drawer<'a> {
             } else {
                 p + Vec2::new(16.0, 22.0)
             };
-            self.callout(2, &hint, at, 320.0, None, "hint");
+            let r = self.callout(2, &hint, at, 320.0, None, "hint");
+            self.out.floats.push((2, r, format!("hint {hint:?}")));
         }
     }
 

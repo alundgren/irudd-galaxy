@@ -4,9 +4,9 @@
 game's screens, and feel right? What should change before the engine adopts it?
 
 **Short answer.** It covered all four screens with sixteen engine-owned widgets, and
-Luau never ran per frame, the cradle's drag included. The model holds, with seven
-changes for the engine (at the end). The feel is still to be judged: that is Andreas's
-call after playing the lab (`README.md`).
+Luau never ran per frame, the cradle's drag and the station zoom included. The model
+holds, with nine changes for the engine (at the end). The feel is still to be judged:
+that is the owner's call after playing the lab (`README.md`).
 
 ## What was built
 
@@ -32,15 +32,18 @@ used it.
 
 ## Did Luau stay off the per-frame path?
 
-Yes. From the scripted run (`--shots`), 767 frames through every room:
+Yes. From the scripted run (`--shots`), 4909 frames through every room, 218 of the
+hovers swept:
 
 | | |
 |---|---|
 | Screen runs | 32: one at load and one per event (31 events) |
 | Screen runs while a part was held | exactly 1 per drag (the pick-up), 0 while moving, for all 4 drags |
-| Slowest screen run | 0.4 ms |
-| Slowest layout | 1.0 ms |
-| Frame build, scene and UI (CPU, no GPU) | median 0.02 ms, p95 0.3 ms |
+| Screen runs while zooming the station in and out | 0 |
+| Screen runs while hovering (218 hovers, in every saved state) | 0 |
+| Slowest screen run | 0.6 ms |
+| Slowest layout | 0.9 ms |
+| Frame build, scene and UI (CPU, no GPU) | median 0.03 ms, p95 0.35 ms |
 
 The cradle needed one idea to make that work: **verdicts at pick-up**. Picking a part
 up is an event; the screen runs once and gives every drop target its verdict for this
@@ -73,6 +76,42 @@ by loosening a rule:
 - Orrin's bubble covering the drill mount he was talking about.
 - The canteen's header running past its panel (its text column couldn't wrap).
 - The open ship log overlapping the station key.
+
+The owner's first try found one the rules missed: hovering the canteen during Ilse's
+welcome grew its sign into her bubble, and the two mixed, the bubble's "more" marker over
+the sign's text. A draw layer draws all its panels and then all its text, so any two
+widgets overlapping on one layer interleave. The lab now draws grown signs after the
+bubbles and keeps them clear of them, puts a hovered sign on the front layer, and fails
+any two floating widgets (signs, pins, bubbles, socket labels) that overlap on one
+layer. The run hovers three signs during the welcome to keep it fixed.
+
+## Room on the station
+
+At the slice's spacing neighbouring modules sat roughly 110 px apart at 1280x720: a bubble or a
+hovered sign always covered a neighbour. The lab moves them out on long struts, on a
+wide ellipse that matches the screen, roughly 230 px apart, and draws them 1.4 times
+bigger. Placement also got stricter: bubbles and signs keep clear of every other
+module, and a hovered sign never covers its own module (it opens beside it when the
+room above is taken). For the core: lay a station out with roughly a bubble's width
+between modules, and frame the view to the band between the title and the key.
+
+## Zoom at the station
+
+The wheel zooms the station view from 2.5 times closer to 2.5 times farther, toward the
+pointer; zooming back out recentres. The screens didn't change and never ran: signs,
+bubbles and hit areas follow the anchors each frame. What it needed was all sign
+placement, engine side:
+
+- A module under a panel or off the screen gets no sign.
+- A sign keeps clear of every other module's point, the panels and the signs already up:
+  above, else below, else beside its module.
+- With no clear spot it folds into a pin, which opens into the full sign on hover. At
+  this range and 1280x720 no sign needed one, so pins are untried.
+
+Zoomed out, the rule caught signs piled on each other before this. Zoomed out at a
+single station there is little more to see: farther zoom pays off where there is more
+around, in flight. The slice already has that (its wheel zoom, and `Zoom` ship
+modifiers that upgrades can carry).
 
 ## What the widget set couldn't do well
 
@@ -112,8 +151,10 @@ Change before the engine adopts it:
    can stay a request from the screen; the ship's fit belongs to the world.
 3. **Anchored widgets need engine placement.** Bubbles, signs and socket labels each
    needed candidates (above, aside, below), sliding back on screen, and keeping clear of
-   panels, the work in the scene and other signs. Hit areas must not move on hover, or
-   hovering flickers. Screens can't do this; it is an engine service.
+   panels, the work in the scene, other signs, other modules and bubbles; crowded signs
+   fold into pins, hidden modules lose theirs. Hit areas must not move on hover, or
+   hovering flickers. Screens can't do this, and zoom makes it run every frame; it is an
+   engine service.
 4. **Add grid and scrolling list widgets** before the core builds screens with lists.
 5. **Module icons and a glyph check.** Either a symbol font or icons as shapes, and the
    missing-glyph check kept.
@@ -122,3 +163,14 @@ Change before the engine adopts it:
    at 1280x720 and fail on rule breaks, the way the lab's `--shots` does, with a Luau
    type file for the `ui` widgets so typos fail before running. Layout needs the font's
    shaper, which works without a GPU (the lab's tests use a stand-in).
+8. **Draw order per widget.** The renderer draws a layer's panels, then its text. The
+   engine's UI should give each floating widget its own place in the order (or a
+   layer each), so one in front of another covers it whole; until then, the overlap
+   rule stays.
+9. **Agents must see hovers.** The canteen bug passed every check because nobody scripted
+   that hover. The GM needs what the lab now has: `check` hovers everything reachable
+   in each recorded state (reachable, steady, no rule break, no Luau), and a `look`
+   command plays steps (hover, click, drag, zoom) and returns a picture with a text
+   description of the screen: what is hovered, what popped up where, every target with
+   its label and what it does. Text and picture together, so an agent that misreads an
+   image still gets the facts.

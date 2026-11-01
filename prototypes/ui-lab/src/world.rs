@@ -4,7 +4,8 @@
 
 use render::glam::{Mat4, Vec2, Vec3};
 use render::kit::{
-    self, Cradle, CradlePose, HullParams, LookId, ShipFitLook, Socket, SocketRing, StationRecipe,
+    self, Cradle, CradlePose, HullParams, LookId, Placement, ShipFitLook, Socket, SocketRing,
+    StationRecipe,
 };
 use render::{
     BackdropHandle, Camera, Glow, MAX_POINT_LIGHTS, Material, MeshHandle, MeshInstance, PointLight,
@@ -14,22 +15,29 @@ use serde_json::Value as Json;
 
 use crate::ui::draw::{Anchor, Anchors};
 
-const STATION_ID: &str = "station.lantern_wharf";
 /// How far a module's strut reaches back to the station's art, in recipe units.
 const CORE: f32 = 12.0;
 const MODULE_REACH: f32 = 5.0;
 const LIFT: f32 = 2.2;
 const LIFT_SCALE: f32 = 1.08;
 const TILT: f32 = 24.0;
+/// The wheel's range at the station: from 2.5 times closer to 2.5 times farther.
+const WHEEL_IN: f32 = 0.4;
+const WHEEL_OUT: f32 = 2.5;
 
-/// The station's modules: id, kit module kind, anchor and whether it is being built.
-const MODULES: [(&str, &str, &str, bool); 5] = [
-    ("office", "block", "quay.west", false),
-    ("market", "banner", "quay.north", false),
-    ("wharf", "docking_arm", "pier.south", false),
-    ("notices", "lamp_mast", "quay.northwest", false),
-    ("canteen", "dome", "pier.southwest", true),
+/// The station's modules: id, kit module kind, direction from the core (degrees
+/// counter-clockwise from east) and whether it is being built. Spread round the core
+/// with room between them for signs and bubbles, not on the slice's crowded quays.
+const MODULES: [(&str, &str, f32, bool); 5] = [
+    ("office", "block", 180.0, false),
+    ("market", "banner", 70.0, false),
+    ("wharf", "docking_arm", 290.0, false),
+    ("notices", "lamp_mast", 125.0, false),
+    ("canteen", "dome", 235.0, true),
 ];
+/// How far out the modules sit (east-west, north-south), and how big they are drawn.
+const SPREAD: Vec2 = Vec2::new(62.0, 25.0);
+const MODULE_SCALE: f32 = 1.4;
 
 struct Module {
     id: &'static str,
@@ -66,6 +74,14 @@ pub struct World {
     cam: Cam,
     goal: Cam,
     whole_zoom: f32,
+    whole_center: Vec2,
+    /// A room's close-up of its module.
+    focus_zoom: f32,
+    /// The mouse wheel's share of the station zoom (1: as framed).
+    wheel: f32,
+    /// Where zooming toward the pointer moved the framing.
+    pan: Vec2,
+    aspect: f32,
     pub time: f32,
     /// The module under the pointer: it lifts and gets an outline.
     pub hover: Option<String>,
@@ -99,13 +115,16 @@ impl World {
     pub fn new(r: &mut Renderer) -> World {
         let recipe = StationRecipe::lantern_wharf();
         let station = r.upload_mesh(&kit::station(&recipe));
-        let anchors = kit::anchors(STATION_ID, &recipe);
-        let modules = MODULES
+        let modules: Vec<Module> = MODULES
             .iter()
-            .filter_map(|&(id, kind, anchor, building)| {
-                let a = anchors.iter().find(|a| a.name == anchor)?;
+            .filter_map(|&(id, kind, bearing, building)| {
                 let part = kit::module_part(kind, 1)?;
-                let strut = (a.at.distance - CORE).clamp(3.0, 16.0);
+                // On a wide ellipse round the core, as wide as the screen is.
+                let b = bearing.to_radians();
+                let p = Vec2::new(SPREAD.x * b.cos(), SPREAD.y * b.sin());
+                let (angle, distance) = (p.y.atan2(p.x).to_degrees(), p.length());
+                // The strut is in the module's own (scaled) units, back to the core.
+                let strut = (distance - CORE) / MODULE_SCALE;
                 let mesh = kit::module(
                     &part,
                     recipe.palette,
@@ -113,21 +132,38 @@ impl World {
                     strut,
                     building,
                 );
+                let at = Placement {
+                    scale: MODULE_SCALE,
+                    ..Placement::polar(angle, distance)
+                };
                 Some(Module {
                     id,
                     mesh: r.upload_mesh(&mesh),
-                    at: a.at.matrix(),
+                    at: at.matrix(),
                     lift: 0.0,
                 })
             })
             .collect();
+        // The whole station framed in the band between the title and the key: the core
+        // and every module with room around it for its sign.
+        let core = recipe.footprint().max(10.0);
+        let (mut lo, mut hi) = (Vec2::splat(-core), Vec2::splat(core));
+        for m in &modules {
+            let p = Self::module_pos(m).truncate();
+            let reach = Vec2::splat(MODULE_REACH * MODULE_SCALE + 4.0);
+            lo = lo.min(p - reach);
+            hi = hi.max(p + reach);
+        }
+        let size = hi - lo;
+        let whole_zoom = size.y.max(size.x / (16.0 / 9.0)) / 0.74;
+        let whole_center = (lo + hi) * 0.5 - Vec2::new(0.0, whole_zoom * 0.03);
+        let focus_zoom = core * 2.7 * 0.62;
         let backdrop = r.upload_backdrop(&kit::backdrop(&kit::BackdropParams::default(), 7));
         let hull = HullParams::wren();
         let look = ShipFitLook::default();
         let ship = r.upload_mesh(&kit::fitted_hull(&hull, 1, &look));
-        let whole_zoom = recipe.footprint().max(10.0) * 2.7;
         let cam = Cam {
-            center: Vec2::new(0.0, -2.0),
+            center: whole_center,
             zoom: whole_zoom,
         };
         World {
@@ -144,6 +180,11 @@ impl World {
             cam,
             goal: cam,
             whole_zoom,
+            whole_center,
+            focus_zoom,
+            wheel: 1.0,
+            pan: Vec2::ZERO,
+            aspect: 16.0 / 9.0,
             time: 0.0,
             hover: None,
             focus: None,
@@ -172,34 +213,14 @@ impl World {
             _ => SceneKind::Station,
         };
         let changed_scene = kind != self.kind;
+        if changed_scene || self.focus.as_deref() != focus {
+            // A new framing starts centred.
+            self.pan = Vec2::ZERO;
+        }
         self.kind = kind;
         self.focus = focus.map(str::to_string);
-        let aspect = viewport.x / viewport.y.max(1.0);
-        self.goal = match kind {
-            SceneKind::Station => match focus.and_then(|f| self.modules.iter().find(|m| m.id == f))
-            {
-                // The module sits in the left part of the screen, beside its room panel.
-                Some(m) => {
-                    let zoom = self.whole_zoom * 0.62;
-                    let p = Self::module_pos(m).truncate();
-                    Cam {
-                        center: p + Vec2::new((0.5 - 0.27) * zoom * aspect, -2.0),
-                        zoom,
-                    }
-                }
-                None => Cam {
-                    center: Vec2::new(0.0, -2.0),
-                    zoom: self.whole_zoom,
-                },
-            },
-            SceneKind::Cradle => {
-                let zoom = 19.0;
-                Cam {
-                    center: Vec2::new((0.5 - 0.27) * zoom * aspect, 1.2),
-                    zoom,
-                }
-            }
-        };
+        self.aspect = viewport.x / viewport.y.max(1.0);
+        self.retarget();
         if changed_scene {
             self.cam = self.goal;
         }
@@ -217,6 +238,72 @@ impl World {
             r.update_mesh(self.ship, &kit::fitted_hull(&self.hull, 1, &self.look));
             self.settle = 1.0;
         }
+    }
+
+    /// Where the camera heads for the scene and focus, times the wheel's zoom.
+    fn retarget(&mut self) {
+        let aspect = self.aspect;
+        let focused = self
+            .focus
+            .as_deref()
+            .and_then(|f| self.modules.iter().find(|m| m.id == f));
+        let pan = self.pan;
+        self.goal = match self.kind {
+            SceneKind::Station => match focused {
+                // The module sits in the left part of the screen, beside its room panel.
+                Some(m) => {
+                    let zoom = self.focus_zoom * self.wheel;
+                    let p = Self::module_pos(m).truncate();
+                    Cam {
+                        center: p + Vec2::new((0.5 - 0.27) * zoom * aspect, -2.0) + pan,
+                        zoom,
+                    }
+                }
+                None => Cam {
+                    center: self.whole_center + pan,
+                    zoom: self.whole_zoom * self.wheel,
+                },
+            },
+            SceneKind::Cradle => {
+                let zoom = 19.0;
+                Cam {
+                    center: Vec2::new((0.5 - 0.27) * zoom * aspect, 1.2),
+                    zoom,
+                }
+            }
+        };
+    }
+
+    fn goal_camera(&self) -> Camera {
+        Camera::top_down(self.goal.center, self.goal.zoom).with_tilt(TILT)
+    }
+
+    /// The mouse wheel at the station: positive steps zoom in, toward the pointer, within
+    /// a range. Zoomed in you can look around a little; zooming back out recentres.
+    pub fn zoom_at(&mut self, steps: f32, at: Option<Vec2>, viewport: Vec2) {
+        if self.kind != SceneKind::Station {
+            return;
+        }
+        let before = self.goal_camera();
+        self.set_wheel(self.wheel * 0.88f32.powf(steps));
+        let after = self.goal_camera();
+        if let Some(p) = at
+            && let (Some(a), Some(b)) = (
+                before.screen_to_plane(p, viewport, 0.0),
+                after.screen_to_plane(p, viewport, 0.0),
+            )
+        {
+            self.pan += (a - b).truncate();
+        }
+        self.set_wheel(self.wheel);
+    }
+
+    /// Sets the wheel's zoom; the pan shrinks to what that zoom allows.
+    pub fn set_wheel(&mut self, wheel: f32) {
+        self.wheel = wheel.clamp(WHEEL_IN, WHEEL_OUT);
+        let room = ((1.0 - self.wheel) / (1.0 - WHEEL_IN)).clamp(0.0, 1.0);
+        self.pan = self.pan.clamp_length_max(self.whole_zoom * 0.5 * room);
+        self.retarget();
     }
 
     /// The ghost of the dragged part on the socket it would go to.
@@ -294,7 +381,7 @@ impl World {
                             format!("module.{}", m.id),
                             Anchor {
                                 at: s,
-                                radius: MODULE_REACH * 1.3 / px,
+                                radius: MODULE_REACH * MODULE_SCALE * 1.3 / px,
                             },
                         );
                     }

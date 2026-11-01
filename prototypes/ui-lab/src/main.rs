@@ -3,7 +3,9 @@
 //! findings carry over (see REPORT.md).
 //!
 //! `ui-lab` opens the window. `ui-lab --shots <folder>` plays a scripted run headless at
-//! 1280x720, saves a PNG per step and fails if any rule is broken.
+//! 1280x720, saves a PNG per step, hovers everything in every state it passes, and fails
+//! if any rule is broken. `ui-lab --look <folder> "<steps>"` plays steps headless and
+//! prints what is on screen at each shot (see `shots::look`).
 
 mod app;
 mod script;
@@ -20,7 +22,7 @@ use render::Renderer;
 use render::glam::Vec2;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
+use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
@@ -44,6 +46,13 @@ fn main() -> ExitCode {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("shots"));
         return shots::run(dir, out);
+    }
+    if let Some(i) = args.iter().position(|a| a == "--look") {
+        let (Some(out), Some(script)) = (args.get(i + 1), args.get(i + 2)) else {
+            eprintln!("usage: ui-lab --look <folder> \"hover spot_market; shot market\"");
+            return ExitCode::FAILURE;
+        };
+        return shots::look(dir, PathBuf::from(out), script);
     }
     let event_loop = match EventLoop::new() {
         Ok(e) => e,
@@ -136,6 +145,14 @@ impl ApplicationHandler for Lab {
                     .pointer_move(Vec2::new(position.x as f32, position.y as f32) / s);
             }
             WindowEvent::CursorLeft { .. } => r.app.pointer_left(),
+            WindowEvent::MouseWheel { delta, .. } => {
+                let steps = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y,
+                    MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
+                };
+                let viewport = r.renderer.logical_size();
+                r.app.world.zoom_at(steps, r.app.ix.pointer, viewport);
+            }
             WindowEvent::MouseInput { state, button, .. } => match (button, state) {
                 (MouseButton::Left, ElementState::Pressed) => r.app.pointer_down(),
                 (MouseButton::Left, ElementState::Released) => r.app.pointer_up(),

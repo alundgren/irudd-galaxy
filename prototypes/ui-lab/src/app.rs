@@ -9,9 +9,10 @@ use render::{Color, Panel, Rect, Renderer, Scene, Text, palette};
 use serde_json::Value as Json;
 
 use crate::script::Host;
-use crate::ui::draw::{Act, Dragging, Drawer, Hit, Ix};
+use crate::ui::draw::{Act, Area, Dragging, Drawer, Hit, Ix};
 use crate::ui::layout::Measure;
 use crate::ui::rules::Problems;
+use crate::ui::tree::Node;
 use crate::ui::{self, Built, style};
 use crate::world::World;
 
@@ -28,6 +29,74 @@ impl Measure for RMeasure<'_> {
 
     fn missing(&mut self, text: &str) -> Vec<char> {
         self.0.missing_glyphs(&Text::new(text, Vec2::ZERO, 16.0))
+    }
+}
+
+/// Something the pointer can act on, and a point where it is the top hit.
+#[derive(Clone, Debug)]
+pub struct Target {
+    pub path: String,
+    pub id: Option<String>,
+    pub label: String,
+    pub does: String,
+    pub hint: Option<String>,
+    pub at: Vec2,
+}
+
+/// Points to try inside an area: the centre first, then a spread.
+fn samples(area: Area) -> Vec<Vec2> {
+    match area {
+        Area::Rect(r) => {
+            let mut v = vec![r.center()];
+            for fy in [0.25, 0.5, 0.75] {
+                for fx in [0.15, 0.5, 0.85] {
+                    v.push(Vec2::new(r.x + r.w * fx, r.y + r.h * fy));
+                }
+            }
+            v
+        }
+        Area::Circle(c, rad) => {
+            let mut v = vec![c];
+            for (dx, dy) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] {
+                v.push(c + Vec2::new(dx, dy) * rad * 0.6);
+            }
+            v
+        }
+    }
+}
+
+/// A widget's words: its text, its sign's title, or its first texts inside.
+fn label(n: &Node) -> String {
+    if let Some(t) = &n.text {
+        return t.clone();
+    }
+    if let Some(s) = &n.sign {
+        return s.title.clone();
+    }
+    let mut words = Vec::new();
+    collect_texts(n, &mut words);
+    words.truncate(3);
+    words.join(" · ")
+}
+
+fn collect_texts(n: &Node, out: &mut Vec<String>) {
+    for c in &n.children {
+        if let Some(t) = &c.text {
+            out.push(t.clone());
+        }
+        collect_texts(c, out);
+    }
+}
+
+fn does(act: &Act) -> String {
+    match act {
+        Act::Click { on, args } if args.is_null() => format!("click: {on}"),
+        Act::Click { on, args } => format!("click: {on} {args}"),
+        Act::Drag { .. } => "drag".into(),
+        Act::Drop { ok: true, .. } => "drop: accepts what is held".into(),
+        Act::Drop { .. } => "drop: refuses what is held, or not a target".into(),
+        Act::Hint => "hover: hint".into(),
+        Act::Block => "surface".into(),
     }
 }
 
@@ -60,6 +129,7 @@ pub struct App {
     drag_runs_from: u64,
     hits: Vec<Hit>,
     frame_problems: Problems,
+    floats: Vec<(usize, Rect, String)>,
     pub show_stats: bool,
     pub measures: Measures,
     pub events: Vec<String>,
@@ -78,6 +148,7 @@ impl App {
             drag_runs_from: 0,
             hits: Vec::new(),
             frame_problems: Problems::default(),
+            floats: Vec::new(),
             show_stats: false,
             measures: Measures::default(),
             events: Vec::new(),
@@ -152,6 +223,7 @@ impl App {
         };
         self.hits = out.hits;
         self.frame_problems = out.problems;
+        self.floats = out.floats;
         self.refresh_hover();
         let mut scene = self.world.scene(viewport);
         let [base, mid, top] = out.layers;
@@ -385,6 +457,75 @@ impl App {
             y += r.measure_text(&t).y + 2.0;
             top.texts.push(t);
         }
+    }
+
+    /// Everything the pointer can act on now, each with a point where it is the top hit,
+    /// and the paths of those it can't reach anywhere (covered by something else).
+    pub fn targets(&self) -> (Vec<Target>, Vec<String>) {
+        let mut seen: Vec<&str> = Vec::new();
+        let mut out = Vec::new();
+        let mut unreachable = Vec::new();
+        for h in &self.hits {
+            if h.act == Act::Block || seen.contains(&h.path.as_str()) {
+                continue;
+            }
+            seen.push(&h.path);
+            let at = self
+                .hits
+                .iter()
+                .filter(|o| o.path == h.path)
+                .flat_map(|o| samples(o.area))
+                .find(|p| self.top_hit(*p).map(|t| t.path.as_str()) == Some(h.path.as_str()));
+            match at {
+                Some(at) => {
+                    let node = ui::draw::find_path(&self.built.root, &h.path);
+                    out.push(Target {
+                        path: h.path.clone(),
+                        id: node.and_then(|n| n.id.clone()),
+                        label: node.map(label).unwrap_or_default(),
+                        does: does(&h.act),
+                        hint: h.hint.clone(),
+                        at,
+                    });
+                }
+                None => unreachable.push(h.path.clone()),
+            }
+        }
+        (out, unreachable)
+    }
+
+    /// What is on screen now, as text an agent can read beside the picture.
+    pub fn describe(&self) -> Json {
+        let node = |path: &str| ui::draw::find_path(&self.built.root, path);
+        let who = |path: &str| {
+            let n = node(path);
+            serde_json::json!({
+                "path": path,
+                "id": n.and_then(|n| n.id.clone()),
+                "label": n.map(label).unwrap_or_default(),
+            })
+        };
+        let rect = |r: Rect| [r.x.round(), r.y.round(), r.w.round(), r.h.round()];
+        let (targets, unreachable) = self.targets();
+        serde_json::json!({
+            "pointer": self.ix.pointer.map(|p| [p.x.round(), p.y.round()]),
+            "hovered": self.ix.hover.as_deref().map(who),
+            "dragging": self.ix.drag.as_ref().map(|d| serde_json::json!({
+                "what": who(&d.path),
+                "over": d.over.as_deref().map(who),
+            })),
+            "shown": self.floats.iter().map(|(layer, r, what)| serde_json::json!({
+                "what": what, "layer": layer, "rect": rect(*r),
+            })).collect::<Vec<_>>(),
+            "targets": targets.iter().map(|t| serde_json::json!({
+                "id": t.id, "path": t.path, "label": t.label, "does": t.does,
+                "hint": t.hint, "at": [t.at.x.round(), t.at.y.round()],
+            })).collect::<Vec<_>>(),
+            "unreachable": unreachable,
+            "problems": self.problems().0.iter()
+                .map(|p| format!("{}: {}", p.path, p.what)).collect::<Vec<_>>(),
+            "script_error": self.host.error,
+        })
     }
 
     /// The centre of the widget with this id: its hit area, or its rectangle.
