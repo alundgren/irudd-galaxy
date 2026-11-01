@@ -64,7 +64,9 @@ pub(crate) fn shape(fs: &mut FontSystem, t: &Text, scale: f32) -> Shaped {
     }
     Shaped {
         buffer,
-        size: Vec2::new(wrap.unwrap_or(w), h),
+        // A single glyph can be wider than its wrap width. Keep that overflow visible
+        // to readability checks (and to alignment), rather than reporting only the box.
+        size: Vec2::new(wrap.unwrap_or(w).max(w), h),
         used: true,
     }
 }

@@ -142,3 +142,21 @@ fn missing_reads_and_query_membership_rebuild_a_hidden_screen() {
     assert_eq!(v.screens.boxes[0].widget.text, "Anchors: 1");
     assert_eq!(v.screens.calls(), 2);
 }
+
+#[test]
+fn a_wrap_width_narrower_than_one_glyph_is_unreadable() {
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+        return ui.text {text="W",width=1}
+    end}"#,
+    );
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    assert!(
+        v.screens
+            .problems
+            .iter()
+            .any(|p| p.contains("text is clipped")),
+        "{:?}",
+        v.screens.problems
+    );
+}
