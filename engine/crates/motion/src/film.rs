@@ -4,9 +4,15 @@
 //! A film is a folder:
 //!
 //! ```text
-//! film.json           the manifest: how it was shot, and one entry per frame
+//! film.json           how it was shot, the things in it and what changed (small)
+//! frames.jsonl        a frame a line: time, tick, camera and where every thing is
+//! lines.jsonl         a frame a line: every line and dot it drew
 //! frames/00000.png    each frame, lossless (none for a probes-only film)
 //! ```
+//!
+//! Split so an agent can read `film.json` whole and search the others a frame at a time;
+//! `galaxy-gm film show` prints them compactly. Format 1 films, with every frame inside
+//! `film.json`, still read.
 //!
 //! Each frame entry keeps when it was shown (presentation time, the tick, and `alpha`,
 //! how far it was drawn from the tick before toward that tick), the camera as a matrix,
@@ -22,8 +28,9 @@ use serde_json::Value;
 
 use crate::image::Image;
 
-/// The film format this engine writes and reads.
-pub const FORMAT: u32 = 1;
+/// The film format this engine writes. It reads this and format 1, where `film.json` held
+/// every frame.
+pub const FORMAT: u32 = 2;
 
 /// A film's manifest, `film.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -50,12 +57,86 @@ pub struct Manifest {
     pub frames: Vec<Frame>,
 }
 
+/// `film.json` in format 2: how the film was made, with a summary of its frames; the
+/// frames themselves are in `frames.jsonl` and their lines in `lines.jsonl`.
+#[derive(Serialize, Deserialize)]
+struct Header {
+    format: u32,
+    fps: u32,
+    ticks_per_second: u32,
+    width: u32,
+    height: u32,
+    scale: f32,
+    drawn: bool,
+    #[serde(default)]
+    adapter: Option<String>,
+    #[serde(default)]
+    source: Value,
+    frame_count: usize,
+    first: Value,
+    last: Value,
+    things: Vec<String>,
+    #[serde(default)]
+    changes: Vec<Change>,
+    files: Value,
+}
+
 impl Manifest {
-    /// Writes the film's manifest into its folder.
+    /// Writes the film's manifest into its folder: `film.json` (small: how it was made),
+    /// `frames.jsonl` (a frame a line: time, tick, camera and every thing) and
+    /// `lines.jsonl` (a frame a line: the lines and dots it drew).
     pub fn write(&self, dir: &Path) -> Result<(), String> {
-        let text = serde_json::to_string(self).map_err(|e| e.to_string())?;
-        let path = dir.join("film.json");
-        std::fs::write(&path, text).map_err(|e| format!("can't write {}: {e}", path.display()))
+        let mut frames = String::new();
+        let mut lines = String::new();
+        for f in &self.frames {
+            let mut v = serde_json::to_value(f).map_err(|e| e.to_string())?;
+            if let Value::Object(m) = &mut v {
+                m.remove("lines");
+            }
+            frames.push_str(&v.to_string());
+            frames.push('\n');
+            let drawn = serde_json::to_string(&f.lines).map_err(|e| e.to_string())?;
+            lines.push_str(&format!("{{\"frame\":{},\"lines\":{drawn}}}\n", f.index));
+        }
+        let ends = |f: Option<&Frame>| f.map_or(Value::Null, when);
+        let header = Header {
+            format: FORMAT,
+            fps: self.fps,
+            ticks_per_second: self.ticks_per_second,
+            width: self.width,
+            height: self.height,
+            scale: self.scale,
+            drawn: self.drawn,
+            adapter: self.adapter.clone(),
+            source: self.source.clone(),
+            frame_count: self.frames.len(),
+            first: ends(self.frames.first()),
+            last: ends(self.frames.last()),
+            things: self
+                .frames
+                .first()
+                .map(|f| f.things.keys().cloned().collect())
+                .unwrap_or_default(),
+            changes: self.changes.clone(),
+            files: serde_json::json!({
+                "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed)",
+                "lines.jsonl": "a frame a line: the lines it drew (kind, closed, alpha, width, points, phase, spacing, dots)",
+                "frames/": "the pictures, frames/00000.png on",
+                "motion/": "the motion tools' pictures",
+                "show": "galaxy-gm film show <film> prints the probes compactly",
+            }),
+        };
+        let header = serde_json::to_string_pretty(&header).map_err(|e| e.to_string())?;
+        for (name, text) in [
+            ("frames.jsonl", frames),
+            ("lines.jsonl", lines),
+            ("film.json", header),
+        ] {
+            let path = dir.join(name);
+            std::fs::write(&path, text)
+                .map_err(|e| format!("can't write {}: {e}", path.display()))?;
+        }
+        Ok(())
     }
 }
 
@@ -294,15 +375,34 @@ impl Film {
         })?;
         let raw: Value = serde_json::from_str(&text)
             .map_err(|e| format!("{} is not a film manifest: {e}", path.display()))?;
-        if raw["format"].as_u64() != Some(u64::from(FORMAT)) {
-            return Err(format!(
-                "{} is film format {}, and this engine reads format {FORMAT}; film it again",
-                path.display(),
-                raw["format"]
-            ));
-        }
-        let manifest: Manifest = serde_json::from_value(raw)
-            .map_err(|e| format!("{} is not a valid film manifest: {e}", path.display()))?;
+        let bad = |e: String| format!("{} is not a valid film manifest: {e}", path.display());
+        let manifest: Manifest = match raw["format"].as_u64() {
+            Some(1) => serde_json::from_value(raw).map_err(|e| bad(e.to_string()))?,
+            Some(2) => {
+                let h: Header = serde_json::from_value(raw).map_err(|e| bad(e.to_string()))?;
+                Manifest {
+                    format: h.format,
+                    fps: h.fps,
+                    ticks_per_second: h.ticks_per_second,
+                    width: h.width,
+                    height: h.height,
+                    scale: h.scale,
+                    drawn: h.drawn,
+                    adapter: h.adapter,
+                    source: h.source,
+                    changes: h.changes,
+                    frames: read_frames(dir)?,
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "{} is film format {}, and this engine reads formats 1 and {FORMAT}; film \
+                     it again",
+                    path.display(),
+                    raw["format"]
+                ));
+            }
+        };
         if manifest.frames.is_empty() {
             return Err(format!("{} has no frames", path.display()));
         }
@@ -386,6 +486,34 @@ impl Film {
             )),
         }
     }
+}
+
+/// `frames.jsonl` with each frame's lines from `lines.jsonl`.
+fn read_frames(dir: &Path) -> Result<Vec<Frame>, String> {
+    let read = |name: &str| {
+        let path = dir.join(name);
+        std::fs::read_to_string(&path).map_err(|e| format!("can't read {}: {e}", path.display()))
+    };
+    let (frames, lines) = (read("frames.jsonl")?, read("lines.jsonl")?);
+    let mut drawn: BTreeMap<u64, Value> = BTreeMap::new();
+    for (n, l) in lines.lines().filter(|l| !l.trim().is_empty()).enumerate() {
+        let mut v: Value =
+            serde_json::from_str(l).map_err(|e| format!("lines.jsonl line {}: {e}", n + 1))?;
+        let frame = v["frame"].as_u64().unwrap_or(n as u64);
+        drawn.insert(frame, v["lines"].take());
+    }
+    frames
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .enumerate()
+        .map(|(n, l)| {
+            let mut v: Value =
+                serde_json::from_str(l).map_err(|e| format!("frames.jsonl line {}: {e}", n + 1))?;
+            let index = v["index"].as_u64().unwrap_or(n as u64);
+            v["lines"] = drawn.remove(&index).unwrap_or(Value::Array(Vec::new()));
+            serde_json::from_value(v).map_err(|e| format!("frames.jsonl line {}: {e}", n + 1))
+        })
+        .collect()
 }
 
 /// A moment in a film, for reports: frame, time and tick.

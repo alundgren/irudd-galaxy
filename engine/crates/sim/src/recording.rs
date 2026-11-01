@@ -19,6 +19,10 @@
 //!
 //! The file is one JSON document. JSON keeps it readable for people and agents; module
 //! files are text today, and binary assets will need a different encoding when they come.
+//! It is laid out a record a line ([`Recording::to_text`]): the build, seed and end first,
+//! then each event on its own line, then the module files and the start world, so a
+//! search for `"type":"note"` finds every note. Recordings written compact, on one line,
+//! read the same.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -138,8 +142,53 @@ impl Recording {
     }
 
     pub fn write(&self, path: &Path) -> Result<(), String> {
-        let text = serde_json::to_string(self).map_err(|e| e.to_string())?;
-        crate::save::write_atomically(path, text.as_bytes())
+        crate::save::write_atomically(path, self.to_text()?.as_bytes())
+    }
+
+    /// The file's text: one JSON document laid out for reading and searching. The small
+    /// fields come first, then one event a line, then the module files and the start
+    /// world, each on a line of its own.
+    pub fn to_text(&self) -> Result<String, String> {
+        let j = |v: &dyn erased::Json| v.json();
+        let mut s = format!(
+            "{{
+\"format\": {},
+\"build\": {},
+\"seed\": {},
+\"end\": {},
+\"events\": [",
+            self.format,
+            j(&self.build)?,
+            self.seed,
+            j(&self.end)?
+        );
+        for (i, e) in self.events.iter().enumerate() {
+            s.push_str(if i == 0 {
+                "
+"
+            } else {
+                ",
+"
+            });
+            s.push_str(&j(e)?);
+        }
+        s.push_str(if self.events.is_empty() {
+            "],
+"
+        } else {
+            "
+],
+"
+        });
+        s.push_str(&format!(
+            "\"modules\": {},
+\"start\": {}
+}}
+",
+            j(&self.modules)?,
+            j(&self.start)?
+        ));
+        Ok(s)
     }
 
     pub fn read(path: &Path) -> Result<Recording, String> {
@@ -282,4 +331,17 @@ pub fn replay(rec: &Recording) -> Result<(Session, Replayed), String> {
 fn module_from(id: &str, files: &ModuleFiles) -> Result<Module, String> {
     Module::from_files(&Path::new("recording").join(id), files.clone())
         .map_err(|f| format!("the recorded module `{id}`: {}", f.message))
+}
+
+/// One JSON line of anything serializable, behind a trait object.
+mod erased {
+    pub trait Json {
+        fn json(&self) -> Result<String, String>;
+    }
+
+    impl<T: serde::Serialize> Json for T {
+        fn json(&self) -> Result<String, String> {
+            serde_json::to_string(self).map_err(|e| e.to_string())
+        }
+    }
 }

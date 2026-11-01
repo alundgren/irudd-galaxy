@@ -95,6 +95,146 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "notes",
+        synopsis: "[<recording | session folder | sessions folder>] [--all]",
+        answers: "What did the player note with F8? Each note's number, tick, time and text, \
+                  with the frame they saw, newest sessions first.",
+        about: "Without a path it reads the sessions folder every `galaxy play` records into \
+                (`galaxy doctor` names it; GALAXY_SESSIONS moves it). Sessions without notes \
+                are counted, not listed.",
+        args: &[
+            (
+                "[path]",
+                "a recording, a session folder, or a folder of sessions; the sessions \
+              folder by default",
+            ),
+            ("--all", "every note; 20 at most by default"),
+        ],
+        output: &[
+            (
+                "sessions",
+                "each session with notes, newest first: session (folder), \
+              recording, build, modules, ticks and seconds played, notes",
+            ),
+            (
+                "sessions.notes",
+                "note (its number, for audit and film --note), tick, t \
+              (seconds), text, seen (the frame shown), drawn_again (audit's picture, once \
+              audited)",
+            ),
+            ("more", "how many notes were left out, when capped"),
+            ("sessions_without_notes", "how many sessions have none"),
+        ],
+        writes: "",
+        example: "galaxy-gm notes",
+        next: "galaxy-gm audit <session> checks each note's world and draws it again; \
+               galaxy-gm film <session> --note <n> films the seconds round it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "recording",
+        synopsis: "<recording> [summary | inputs | orders | zooms] [--from <tick>] \
+                   [--to <tick>] [--all]",
+        answers: "What is in a recording, and what did the player do: its summary, every \
+                  input, every order given and arrival, every zoom, a line each.",
+        about: "orders replays the recording on this build to find each change of an \
+                entity's engine.steer (an order given, changed or dropped) and each arrival; \
+                `replay_identical` says whether the replay ended in the recorded world (if \
+                not, run it on the recording's build: galaxy-gm --build <name> ...).",
+        args: &[
+            ("<recording>", "a recording, or a session folder"),
+            ("[view]", "summary (the default), inputs, orders or zooms"),
+            (
+                "--from <tick>, --to <tick>",
+                "only rows between these ticks (30 a second)",
+            ),
+            ("--all", "every row; 40 at most by default"),
+        ],
+        output: &[
+            (
+                "summary",
+                "build, seed, modules and versions, ticks (start, end), seconds, \
+              counts of inputs, notes, zooms and hot-loads, inputs_by_name, end_hash",
+            ),
+            (
+                "rows",
+                "inputs: `tick 31 t 1.03 keyboard drift.order_dock down`; orders: \
+              `tick 31 t 1.03 order drift.ship: dock drift.berth` or `arrived ...`; zooms: \
+              the view height the wheel set",
+            ),
+            (
+                "count, more",
+                "how many rows there are, and how many were left out",
+            ),
+            (
+                "replay_identical",
+                "orders only: the replay ended in the recorded world",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm recording sessions/2026-11-01-142233-drift orders --from 300",
+        next: "galaxy-gm film <recording> --from <tick> --to <tick> films a moment; \
+               galaxy-gm notes <recording> lists its notes.",
+        topic: "replay",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "film show",
+        synopsis: "<film> [--thing <x,y>] [--from <t>] [--to <t>] [--every <n>] \
+                   [--fields <list>] [--lines] [--all]",
+        answers: "Where were things, frame by frame, in a film? Its probes as a table, a \
+                  frame a line, without reading film.json, frames.jsonl or lines.jsonl.",
+        about: "Also prints the film's summary: fps, size, things and its changes (inputs, \
+                orders, arrivals).",
+        args: &[
+            ("<film>", "a film folder"),
+            (
+                "--thing <x,y>",
+                "things to show, by ID or bare name; the followed one by \
+              default",
+            ),
+            (
+                "--from <t>, --to <t>",
+                "only frames between these times, seconds",
+            ),
+            ("--every <n>", "every nth frame"),
+            (
+                "--fields <list>",
+                "of x, y, angle, height, screen, on_screen; x,y,angle,screen \
+              by default",
+            ),
+            (
+                "--lines",
+                "the lines each frame drew instead: kind, points, dots, alpha, width",
+            ),
+            ("--all", "every row; 30 at most by default"),
+        ],
+        output: &[
+            ("columns", "what each row holds"),
+            (
+                "rows",
+                "a frame a line: frame, t (seconds), tick, alpha (how far between the \
+              tick before and this one), then each thing's fields",
+            ),
+            (
+                "units",
+                "x, y, height in world units, angle in radians counter-clockwise from \
+              +x, screen in pixels from the top left",
+            ),
+            (
+                "things, changes",
+                "every thing in the film; inputs, orders and arrivals",
+            ),
+            ("more", "rows left out"),
+        ],
+        writes: "",
+        example: "galaxy-gm film show films/dock --thing ship,berth --from 2 --to 3",
+        next: "galaxy-gm motion track <film> --thing <x> measures how it moves.",
+        topic: "motion",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "audit",
         synopsis: "<recording>",
         answers: "Replay a played session to each of its notes: is the world the one the \
@@ -176,8 +316,9 @@ pub static COMMANDS: &[Command] = &[
               world is the player's)",
             ),
         ],
-        writes: "the film folder (--out): film.json, frames/00000.png, and motion/ for the \
-                 tools' pictures",
+        writes: "the film folder (--out): film.json (how it was filmed, small), frames.jsonl \
+                 and lines.jsonl (probes, a frame a line; galaxy-gm film show reads them), \
+                 frames/00000.png, and motion/ for the tools' pictures",
         example: "galaxy-gm film sessions/2026-11-01-142233-drift/recording.json --note 1",
         next: "galaxy-gm motion flicker <folder> for pops and flicker, track for how a thing \
                moves, sheet to see frames; galaxy-gm motion --help lists all.",
@@ -275,6 +416,7 @@ pub static TOPICS: &[Topic] = &[
                 reaches the same world (audit draws the moment again into audit/0001.png), \
                 then film the seconds round it and measure what moved.",
         tasks: &[
+            ("List the player's notes", "gm notes"),
             ("Replay to each note and draw it again", "gm audit"),
             ("Film the seconds round a note", "gm film"),
         ],
@@ -291,6 +433,7 @@ pub static TOPICS: &[Topic] = &[
         tasks: &[
             ("Run a world headless and read its state", "game sim run"),
             ("Carry on from a save", "game sim load"),
+            ("What the player did: inputs, orders, zooms", "gm recording"),
             (
                 "Check a recording replays to the same world",
                 "game sim replay",
@@ -310,6 +453,7 @@ pub static TOPICS: &[Topic] = &[
         tasks: &[
             ("Film a scripted run", "game film"),
             ("Film a played session round a note", "gm film"),
+            ("Where things are, frame by frame", "gm film show"),
             (
                 "Does a thing follow smoothly, overshoot, settle?",
                 "gm motion track",

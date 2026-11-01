@@ -8,6 +8,7 @@
 mod audit;
 mod fields;
 mod film;
+mod sessions;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -95,12 +96,65 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             let path = discover::recording_file(&discover::resolve(&cwd, Path::new(path)));
             film::film(&path, &opts)
         }
+        "film show" => {
+            let (path, rest) = match args {
+                [path, rest @ ..] if !path.starts_with("--") => (path, rest),
+                _ => {
+                    return Err(usage(format!(
+                        "film show takes a film folder: {}",
+                        command.usage()
+                    )));
+                }
+            };
+            let opts = galaxy_motion::Opts::parse(rest).map_err(usage)?;
+            film::show(&discover::resolve(&cwd, Path::new(path)), &opts)
+        }
+        "notes" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("notes", sessions::NOTES_OPTIONS).map_err(usage)?;
+            let target = match positional.as_slice() {
+                [] => None,
+                [one] => Some(discover::resolve(&cwd, Path::new(one))),
+                _ => return Err(usage("notes takes at most one folder or recording".into())),
+            };
+            sessions::notes(target, opts.flag("all"))
+        }
+        "recording" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("recording", sessions::RECORDING_OPTIONS)
+                .map_err(usage)?;
+            let (path, view) = match positional.as_slice() {
+                [path] => (path, "summary"),
+                [path, view] => (path, view.as_str()),
+                _ => {
+                    return Err(usage(format!(
+                        "recording takes a recording and a view: {}",
+                        command.usage()
+                    )));
+                }
+            };
+            let tick = |name: &str| opts.count(name).map(|v| v.map(|v| v as u64)).map_err(usage);
+            let path = discover::recording_file(&discover::resolve(&cwd, Path::new(path)));
+            sessions::recording(&path, view, tick("from")?, tick("to")?, opts.flag("all"))
+        }
         "motion check" => film::check(command, args),
         tool => match tool.strip_prefix("motion ") {
             Some(tool) => film::motion(command, tool, args),
             None => unreachable!("galaxy-gm has help for `{tool}` but does not run it"),
         },
     }
+}
+
+/// Words before the first option, and the options after them.
+fn split_args(args: &[String]) -> Result<(Vec<String>, galaxy_motion::Opts), String> {
+    let at = args
+        .iter()
+        .position(|a| a.starts_with("--"))
+        .unwrap_or(args.len());
+    Ok((
+        args[..at].to_vec(),
+        galaxy_motion::Opts::parse(&args[at..])?,
+    ))
 }
 
 /// One thing `check` found wrong.
@@ -241,6 +295,14 @@ mod tests {
         assert_eq!(sorted(film.options()), sorted(film::FILM_OPTIONS.to_vec()));
         let check = help::find(Tool::Gm, "motion check").unwrap();
         assert_eq!(check.options(), film::CHECK_OPTIONS);
+        for (path, takes) in [
+            ("film show", film::SHOW_OPTIONS),
+            ("notes", sessions::NOTES_OPTIONS),
+            ("recording", sessions::RECORDING_OPTIONS),
+        ] {
+            let c = help::find(Tool::Gm, path).unwrap();
+            assert_eq!(sorted(c.options()), sorted(takes.to_vec()), "{path}");
+        }
         for c in help::of(Tool::Gm) {
             if let Some(tool) = c.path.strip_prefix("motion ") {
                 assert!(

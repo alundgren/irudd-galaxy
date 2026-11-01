@@ -247,8 +247,11 @@ pub fn overview(tool: Tool) -> String {
             &[
                 ("Start here", &["guide"]),
                 ("Modules", &["check", "types", "fields"]),
-                ("Played sessions and notes", &["audit", "film"]),
-                ("How motion looks", &["motion", "motion check"]),
+                (
+                    "Played sessions and notes",
+                    &["notes", "recording", "audit", "film"],
+                ),
+                ("How motion looks", &["film show", "motion", "motion check"]),
                 ("This install", &["doctor"]),
             ],
         ),
@@ -259,7 +262,7 @@ pub fn overview(tool: Tool) -> String {
         let rows: Vec<(String, &str)> = paths
             .iter()
             .map(|p| match find(tool, p) {
-                Some(c) => (format!("{} {}", c.path, short_synopsis(c)), c.answers),
+                Some(c) => (format!("{} {}", c.path, short_synopsis(c)), gist(c.answers)),
                 None if *p == "motion" => (
                     "motion <tool> <film>".to_owned(),
                     "Measure one thing about a film: track, dots, strip, sheet, flicker, flow, \
@@ -286,6 +289,14 @@ pub fn overview(tool: Tool) -> String {
     };
     let _ = write!(s, "{more}\n\n{EXIT_CODES}");
     wrap_long(&s)
+}
+
+/// The first sentence of `answers`, for the overview.
+fn gist(answers: &str) -> &str {
+    match answers.find(['?', '.']) {
+        Some(i) => &answers[..=i],
+        None => answers,
+    }
 }
 
 /// The synopsis up to its first option, for one-line listings.
@@ -556,12 +567,14 @@ static GAME: &[Command] = &[
             ("hash", "the world's hash at the last frame"),
             ("problems", "models or looks that could not be drawn"),
         ],
-        writes: "<out>/film.json (how it was filmed, and the probes of every frame) and \
+        writes: "<out>/film.json (how it was filmed, small), frames.jsonl (a frame a line: \
+                 where every thing is), lines.jsonl (a frame a line: the lines and dots drawn), \
                  frames/00000.png (lossless, one a frame; about 15 MB a second at 960x540). \
                  The motion tools put their pictures in <out>/motion/.",
         example: "galaxy film --modules game/modules --inputs route.toml --from 4 --to 94 \
                   --size 1280x720 --out films/route",
-        next: "A motion tool on the folder: galaxy-gm motion --help lists them.",
+        next: "galaxy-gm film show <folder> for the probes, or a motion tool: galaxy-gm motion \
+               --help lists them.",
         topic: "motion",
     },
     Command {
@@ -609,7 +622,8 @@ static GAME: &[Command] = &[
         ],
         writes: "--save and --record, if given",
         example: "galaxy sim run --modules game/modules --ticks 300 --state",
-        next: "galaxy sim replay <recording> checks a recording runs the same.",
+        next: "galaxy sim replay <recording> checks a recording runs the same; galaxy-gm \
+               recording <file> lists its inputs and orders.",
         topic: "replay",
     },
     Command {
@@ -673,7 +687,8 @@ static GAME: &[Command] = &[
         ],
         writes: "",
         example: "galaxy sim replay recording.json",
-        next: "galaxy-gm audit <recording> draws each noted moment again.",
+        next: "galaxy-gm audit <recording> draws each noted moment again; galaxy-gm \
+               recording <recording> inputs lists what the player did.",
         topic: "replay",
     },
     Command {

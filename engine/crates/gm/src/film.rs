@@ -331,3 +331,136 @@ pub fn check(command: &Command, args: &[String]) -> Result<Output, Failure> {
     }
     Err(failure)
 }
+
+/// The options `galaxy-gm film show` takes.
+pub const SHOW_OPTIONS: &[&str] = &["thing", "from", "to", "every", "fields", "lines", "all"];
+
+/// Rows `film show` prints when not told `--all`.
+const SHOW_ROWS: usize = 30;
+
+/// `galaxy-gm film show <film>`: the film's probes, a frame a line.
+pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
+    opts.only("film show", SHOW_OPTIONS)
+        .map_err(Failure::usage)?;
+    let bad = |e: String| Failure::bad_input(e).with("path", dir.display().to_string());
+    let film = galaxy_motion::Film::read(dir).map_err(bad)?;
+    let frames = film.frames();
+    let things: Vec<String> = match opts.text("thing") {
+        Some(list) => list
+            .split(',')
+            .map(|t| film.thing_id(t.trim()))
+            .collect::<Result<_, _>>()
+            .map_err(bad)?,
+        None => frames[0]
+            .things
+            .iter()
+            .filter(|(_, t)| t.followed)
+            .map(|(id, _)| id.clone())
+            .collect(),
+    };
+    const FIELDS: &[&str] = &["x", "y", "angle", "height", "screen", "on_screen"];
+    let fields: Vec<&str> = match opts.text("fields") {
+        Some(f) => f.split(',').map(str::trim).collect(),
+        None => vec!["x", "y", "angle", "screen"],
+    };
+    if let Some(f) = fields.iter().find(|f| !FIELDS.contains(f)) {
+        return Err(Failure::usage(format!(
+            "--fields takes {}, not `{f}`",
+            FIELDS.join(", ")
+        )));
+    }
+    let num = |name: &str| opts.number(name).map_err(Failure::usage);
+    let (from, to) = (num("from")?, num("to")?);
+    let every = opts
+        .count("every")
+        .map_err(Failure::usage)?
+        .unwrap_or(1)
+        .max(1);
+    let chosen: Vec<&galaxy_motion::film::Frame> = frames
+        .iter()
+        .filter(|f| {
+            from.is_none_or(|a| f.time >= a - 1e-4) && to.is_none_or(|b| f.time <= b + 1e-4)
+        })
+        .step_by(every)
+        .collect();
+    let mut columns = vec!["frame t tick alpha".to_owned()];
+    for id in &things {
+        for f in &fields {
+            columns.push(match *f {
+                "screen" => format!("{id}.screen_x {id}.screen_y"),
+                f => format!("{id}.{f}"),
+            });
+        }
+    }
+    let mut rows: Vec<String> = Vec::new();
+    for f in &chosen {
+        if opts.flag("lines") {
+            for (k, l) in f.lines.iter().enumerate() {
+                rows.push(format!(
+                    "frame {} t {:.3} tick {} line {k}: {}{} points {} dots {} alpha {:.2} width {:.2}",
+                    f.index,
+                    f.time,
+                    f.tick,
+                    l.kind,
+                    if l.closed { " closed" } else { "" },
+                    l.points.len(),
+                    l.dots.len(),
+                    l.alpha,
+                    l.width
+                ));
+            }
+            continue;
+        }
+        let mut row = format!("{} {:.3} {} {:.2}", f.index, f.time, f.tick, f.alpha);
+        for id in &things {
+            let t = f.things.get(id);
+            for field in &fields {
+                let v = match (t, *field) {
+                    (None, "screen") => "- -".to_owned(),
+                    (None, _) => "-".to_owned(),
+                    (Some(t), "x") => format!("{:.3}", t.x),
+                    (Some(t), "y") => format!("{:.3}", t.y),
+                    (Some(t), "angle") => format!("{:.4}", t.angle),
+                    (Some(t), "height") => format!("{:.3}", t.height),
+                    (Some(t), "on_screen") => t.on_screen.to_string(),
+                    (Some(t), _) => t
+                        .screen
+                        .map_or("- -".to_owned(), |s| format!("{:.1} {:.1}", s[0], s[1])),
+                };
+                row.push(' ');
+                row.push_str(&v);
+            }
+        }
+        rows.push(row);
+    }
+    let total = rows.len();
+    if !opts.flag("all") {
+        rows.truncate(SHOW_ROWS);
+    }
+    let m = &film.manifest;
+    let mut out = json!({
+        "ok": true,
+        "command": "film show",
+        "film": dir.display().to_string(),
+        "fps": m.fps,
+        "size": [m.width, m.height],
+        "drawn": m.drawn,
+        "frames": frames.len(),
+        "span": [galaxy_motion::film::when(&frames[0]), galaxy_motion::film::when(frames.last().expect("frames"))],
+        "things": frames[0].things.keys().collect::<Vec<_>>(),
+        "changes": m.changes.iter().take(20).map(|c| format!("tick {} t {:.3} {} {}", c.tick, c.t, c.kind, c.what)).collect::<Vec<_>>(),
+        "units": "t seconds; x, y, height world units; angle radians, counter-clockwise from +x; screen pixels from the top left",
+        "columns": if opts.flag("lines") { "frame t tick line: kind points dots alpha width".to_owned() } else { columns.join(" ") },
+        "rows": rows,
+    });
+    if total > SHOW_ROWS && !opts.flag("all") {
+        out["more"] = json!(format!(
+            "{} more row(s): use --from/--to (seconds), --every <n> or --all",
+            total - SHOW_ROWS
+        ));
+    }
+    if m.changes.len() > 20 {
+        out["more_changes"] = json!(m.changes.len() - 20);
+    }
+    Ok(Output::Json(out))
+}

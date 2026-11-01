@@ -50,8 +50,13 @@ How to work a motion question:
 
 ## Filming
 
-A film is a folder: `film.json` (the manifest) and `frames/00000.png` (lossless, one per
-frame), plus `motion/` where the tools put their pictures. Each tool names its picture
+A film is a folder: `film.json` (how it was filmed, the things in it and what changed;
+small enough to read whole), `frames.jsonl` (a frame a line: time, tick, camera and every
+thing's pose and screen position), `lines.jsonl` (a frame a line: every line and dot
+drawn) and `frames/00000.png` (lossless, one per frame), plus `motion/` where the tools
+put their pictures. `galaxy-gm film show <film>` prints the probes as a table, a frame a
+line, for the things and times asked. Films of format 1, with every frame inside
+`film.json`, still read. Each tool names its picture
 after its options (`motion/sheet-at-1.2,1.3-crop-ship.png`), so runs with other options
 keep theirs; `--image` puts it elsewhere.
 
@@ -64,7 +69,7 @@ keep theirs; `--image` puts it elsewhere.
 - **Warm-up.** Scenes are built for every frame from ten seconds before the first filmed
   one, so effects that build up over time are already under way; only filmed frames are
   drawn.
-- **Probes.** Each frame entry keeps its tick, `alpha`, time, the world's hash, the
+- **Probes.** Each frame keeps its tick, `alpha`, time, the world's hash, the
   camera as a matrix (so a tool can project any world point into that frame) and how many
   world units a pixel covers, the zoom, every drawn thing's interpolated pose and screen
   position, and every line the scene drew, with the centre of each dot of a dotted line

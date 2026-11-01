@@ -11,6 +11,7 @@
 //!
 //! `engine/docs/world-and-sim.md` and `engine/docs/saves-and-replay.md` explain the design.
 
+pub mod changes;
 pub mod collide;
 pub mod flight;
 pub mod recording;

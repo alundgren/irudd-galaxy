@@ -73,15 +73,22 @@ fn a_recording_is_filmed_round_its_note_with_the_zoom_the_player_had() {
     );
     let film = PathBuf::from(out["out"].as_str().unwrap());
     assert_eq!(film, tmp.path().join("films").join("note-0001"));
-    let manifest: Value =
+    // film.json is small: a header; the frames are a line each in frames.jsonl.
+    let header: Value =
         serde_json::from_str(&std::fs::read_to_string(film.join("film.json")).unwrap()).unwrap();
-    let frames = manifest["frames"].as_array().unwrap();
+    assert_eq!(header["frame_count"], 91);
+    assert!(header.get("frames").is_none());
+    let lines = std::fs::read_to_string(film.join("frames.jsonl")).unwrap();
+    assert_eq!(lines.lines().count(), 91);
+    let read = galaxy_motion::Film::read(&film).unwrap();
+    let frames = read.frames();
     assert_eq!(frames.len(), 91);
-    let at = |tick: u64| frames.iter().find(|f| f["tick"] == tick).unwrap();
+    assert!(frames.iter().any(|f| !f.lines.is_empty()));
+    let at = |tick: u64| frames.iter().find(|f| f.tick == tick).unwrap();
     // Two wheel moves on one tick keep where the wheel ended.
-    assert_eq!(at(19)["zoom"], Value::Null);
-    assert_eq!(at(20)["zoom"], 18.0);
-    assert!(at(20)["camera"]["per_pixel"].as_f64() < at(19)["camera"]["per_pixel"].as_f64());
+    assert_eq!(at(19).zoom, None);
+    assert_eq!(at(20).zoom, Some(18.0));
+    assert!(at(20).camera.per_pixel < at(19).camera.per_pixel);
     let (code, dots) = gm(&["motion", "dots", film.to_str().unwrap()]);
     assert_eq!(code, 0, "{dots}");
     assert!(

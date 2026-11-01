@@ -52,6 +52,16 @@ A recording is one JSON file that holds everything needed to run a session again
   (`galaxy-gm film`, `motion-tools.md`) applies them;
 - `end`: the last tick and the world's hash there.
 
+It is laid out a record a line: the format, build, seed and end first, then each event on
+a line of its own, then the module files and the start world, each on one long line. A
+search for `"type":"note"` finds every note. Recordings written compact on one line, as
+earlier builds did, read the same; the format number is unchanged.
+
+`galaxy-gm recording <recording>` reads one without scripts: `summary` (build, modules,
+ticks, counts of each kind of event), `inputs`, `orders` (it replays the recording and
+lists each change of an entity's `engine.steer` and each arrival) and `zooms`, a line
+each, capped at 40 unless `--all`, with `--from`/`--to` ticks.
+
 An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is
 a declared event kind and its `source` says where it came from, so flight controls and
 widget clicks fit the same shape later.
@@ -85,6 +95,10 @@ presentation time, the frame's size and scale, the player's zoom, how long the c
 been showing, and the camera. The frame itself goes to `notes/`. A bot run takes notes the
 same way from `[[note]]` entries in its `--inputs` file, on the first frame at or after
 their tick.
+
+**`galaxy-gm notes`** lists the notes of every session in the sessions folder, newest
+first (or of one session or recording): number, tick, time and text, the frame that was
+seen and, once audited, the frame drawn again. It shows 20 unless `--all`.
 
 **`galaxy-gm audit <recording>`** runs on the build that made the recording (the launcher
 picks it, as for replay). It replays from the start and, at each note, compares the
