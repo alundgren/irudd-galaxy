@@ -180,7 +180,7 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         let mut failure = Failure::new(
             code::REJECTED,
             "replay_diverged",
-            "the replayed world differs from the recording's at a note, so the film does not              show what the player saw; was it made by another build?",
+            "the replayed world differs from the recording's at a note, so the film does not show what the player saw; was it made by another build?",
         );
         if let Value::Object(fields) = out {
             failure.fields = fields;
