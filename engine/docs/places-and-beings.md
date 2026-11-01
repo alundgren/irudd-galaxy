@@ -112,7 +112,7 @@ poses are deliberately not engine concepts.
 Run from `engine/`, using a build that includes this feature:
 
 ```sh
-galaxy-gm test tests/modules/places/demo
+galaxy-gm check tests/modules/places/demo
 galaxy sim run --modules tests/modules/places --seed 7 --inputs tests/modules/places/inputs.toml --ticks 33 --save walk.db --record walk.json --state --all
 galaxy sim load walk.db --modules tests/modules/places --ticks 0
 galaxy sim replay walk.json
@@ -129,3 +129,6 @@ these states and one completion event. `crates/galaxy/tests/places.rs` runs the 
 entry points, compares save/load/replay hashes and fixes a cross-platform golden hash.
 `crates/sim/tests/places.rs` also checks authoring failures, rollback, capabilities,
 retargeting, cancellation, hot-load, zero-distance completion and same-place collision.
+
+Run the scenario assertions during engine development with
+`cargo xtask cargo test -p galaxy-sim --test places`.
