@@ -50,7 +50,8 @@ A recording is one JSON file that holds everything needed to run a session again
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
   `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
   from a played session the `camera`, a moment, and the `frame` file that was seen) and
-  zooms (`tick`, and the `view` height the wheel left; one a tick). Zooms are
+  zooms (`tick`, and the `view` height the wheel left; one a tick), and widget presentation
+  snapshots (`tick`, `state`: scroll offsets and an active drag). Both are
   presentation only: a replay of the world skips them, and a film of the session
   (`galaxy-gm film`, `motion-tools.md`) applies them;
 - `end`: the last tick and the world's hash there.

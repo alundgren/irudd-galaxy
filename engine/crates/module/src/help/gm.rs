@@ -732,7 +732,7 @@ pub static TOPICS: &[Topic] = &[
     },
     Topic {
         name: "screens",
-        title: "Screens, anchored widgets and recorded buttons",
+        title: "Screens, grids, scrolling and recorded gestures",
         about: "A manifest-listed Luau script returns screen = function(ctx, ui). Use \
                 ui.panel/text/button/list/row/column with children = { ... }; return nil to \
                 hide a screen. ctx.get/query track world reads, so Luau runs only when those \
@@ -741,27 +741,57 @@ pub static TOPICS: &[Topic] = &[
                 engine.anchor publisher follows a thing; anchor = publisher#name attaches a \
                 widget, including a button. Bot clicks use widget = a full diagnostic path \
                 or a unique id, or x/y logical pixels. Widget clicks resolve the current \
-                centre even when its anchor moves; missing, ambiguous or covered targets fail.",
+                centre even when its anchor moves; missing, ambiguous or covered targets fail. \
+                ui.grid uses columns; ui.scroll needs id and height and clips its children. \
+                ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
+                icon in icons.toml [icons], mapping local names to glyph strings. check reports \
+                missing icons and glyphs. ui.drag_source needs id, text and a string value; \
+                ui.drop_target needs id, text, on and accepts = { value = reason }: an empty \
+                reason allows it, a nonempty reason explains rejection, unlisted values are \
+                rejected. All verdicts show at pick-up; drop sends on with payload plus value. \
+                ui.scroll can have on/payload: a changed offset sends that event with offset. \
+                Scroll offsets and active drags stay view state, preserved by notes and films. \
+                Bot [[pointer]] takes tick, action = pickup/move/drop/scroll, widget = path/id, \
+                and delta = logical pixels for scroll (positive down). Use separate ticks to \
+                take a [[note]] mid-drag. Pointer gestures and clicks at one tick run gestures first.",
         tasks: &[("Screen API and types", "gm types")],
-        recipes: &[Recipe {
-            title: "Build a screen, attach a button, then check, click and replay it",
-            steps: &[
-                "Create example/manifest.toml with:\nid = 'example'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\nscripts = ['screen.luau']\nevents = ['activate', 'clicked']\nwrites = ['engine.position', 'engine.motion', 'engine.camera', 'engine.anchor']",
-                "Create example/start.toml with:\n[entities.camera]\n'engine.position' = {}\n'engine.camera' = { view = 60 }\n[entities.marker]\n'engine.position' = { x = 12 }\n'engine.motion' = { vx = 2 }\n'engine.anchor' = { name = 'label' }",
-                "Create example/screen.luau with:\nreturn {\n  screen = function(_, ui)\n    return ui.panel { width = 320, children = {\n      ui.text { text = 'Screen example' },\n      ui.button { id = 'continue', anchor = 'marker#label',\n        width = 220, text = 'Continue', on = 'activate' },\n    } }\n  end,\n  on = { activate = function(_, ctx) ctx.record('clicked', {}) end },\n}",
-                "galaxy-gm check example",
-                "galaxy shot --modules example --ticks 1 --out screen.png",
-                "Inspect screen.png. check and shot report readability problems by widget path, including overlaps between screens. Fix any findings before continuing.",
-                "galaxy-gm fields inputs",
-                "Write clicks.toml with:\n[[click]]\ntick = 20\nwidget = 'continue'\n[[note]]\ntick = 25\ntext = 'The anchored button was clicked.'",
-                "galaxy play --modules example --inputs clicks.toml --ticks 30",
-                "Use the session folder printed by play as <session> in the next commands. The click records the button event, not its lookup name or coordinates.",
-                "galaxy sim replay <session>/recording.json",
-                "galaxy-gm recording <session>/recording.json inputs",
-                "galaxy-gm audit <session>/recording.json",
-                "Read the replay hash and audit differences; inspect the note and audit pictures. For a named dev build, add --build <name> immediately after galaxy or galaxy-gm in every command.",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Build a screen, attach a button, then check, click and replay it",
+                steps: &[
+                    "Create example/manifest.toml with:\nid = 'example'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\nscripts = ['screen.luau']\nevents = ['activate', 'clicked']\nwrites = ['engine.position', 'engine.motion', 'engine.camera', 'engine.anchor']",
+                    "Create example/start.toml with:\n[entities.camera]\n'engine.position' = {}\n'engine.camera' = { view = 60 }\n[entities.marker]\n'engine.position' = { x = 12 }\n'engine.motion' = { vx = 2 }\n'engine.anchor' = { name = 'label' }",
+                    "Create example/screen.luau with:\nreturn {\n  screen = function(_, ui)\n    return ui.panel { width = 320, children = {\n      ui.text { text = 'Screen example' },\n      ui.button { id = 'continue', anchor = 'marker#label',\n        width = 220, text = 'Continue', on = 'activate' },\n    } }\n  end,\n  on = { activate = function(_, ctx) ctx.record('clicked', {}) end },\n}",
+                    "galaxy-gm check example",
+                    "galaxy shot --modules example --ticks 1 --out screen.png",
+                    "Inspect screen.png. check and shot report readability problems by widget path, including overlaps between screens. Fix any findings before continuing.",
+                    "galaxy-gm fields inputs",
+                    "Write clicks.toml with:\n[[click]]\ntick = 20\nwidget = 'continue'\n[[note]]\ntick = 25\ntext = 'The anchored button was clicked.'",
+                    "galaxy play --modules example --inputs clicks.toml --ticks 30",
+                    "Use the session folder printed by play as <session> in the next commands. The click records the button event, not its lookup name or coordinates.",
+                    "galaxy sim replay <session>/recording.json",
+                    "galaxy-gm recording <session>/recording.json inputs",
+                    "galaxy-gm audit <session>/recording.json",
+                    "Read the replay hash and audit differences; inspect the note and audit pictures. For a named dev build, add --build <name> immediately after galaxy or galaxy-gm in every command.",
+                ],
+            },
+            Recipe {
+                title: "Add scrolling and drag targets, then audit a mid-drag note",
+                steps: &[
+                    "In the example above, declare events place and scrolled in manifest.toml. Their handlers receive event.payload.value (a dropped string) or event.payload.offset (scroll pixels); record a clicked fact to observe them.",
+                    "Add icons.toml with:\n[icons]\ntoken = 'T'",
+                    "Inside the panel children, add ui.icon { icon = 'token' }, ui.delta { value = -12 }, and ui.grid { columns = 2, children = { ui.drag_source { id = 'token', text = 'Token', value = 'small' }, ui.drop_target { id = 'slot', text = 'Slot', on = 'place', accepts = { small = '', large = 'Too wide' } } } }.",
+                    "Add ui.scroll { id = 'entries', height = 160, on = 'scrolled', children = { ui.text { text = 'One', height = 80 }, ui.text { text = 'Two', height = 80 }, ui.text { text = 'Three', height = 80 } } }. Keep the panel within the viewport. All entries are checked even when clipped by scrolling.",
+                    "Write gestures.toml with:\n[[pointer]]\ntick = 10\naction = 'scroll'\nwidget = 'entries'\ndelta = 80\n[[note]]\ntick = 18\ntext = 'Scrolled'\n[[pointer]]\ntick = 30\naction = 'pickup'\nwidget = 'token'\n[[note]]\ntick = 40\ntext = 'Mid-drag'\n[[pointer]]\ntick = 55\naction = 'drop'\nwidget = 'slot'",
+                    "galaxy-gm check example",
+                    "galaxy play --modules example --inputs gestures.toml --ticks 70",
+                    "galaxy sim replay <session>/recording.json",
+                    "galaxy-gm audit <session>/recording.json",
+                    "galaxy-gm film <session>/recording.json --note 2 --before 0 --after 1",
+                    "Inspect the scrolled and mid-drag note, audit and film images. In live play, wheel over the list, hold the left button on the source, and release over a target. F8 freezes the displayed frame, including an active drag.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "style",

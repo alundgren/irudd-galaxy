@@ -152,7 +152,7 @@ export type ScreenCtx = {
 }
 --- Dimensions are logical pixels. Children flow down, or across a row. x/y place
 --- a child explicitly; anchor is publisher#name, projected and clamped to the view.
---- Only buttons take on/payload. Unknown properties are errors. Minimum text: 16px.
+--- Buttons, drop targets and scrolling lists take on/payload. Unknown properties are errors. Minimum text: 16px.
 --- children is a consecutive list of widgets. id names a widget for diagnostics and bot
 --- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
 export type Widget = {
@@ -160,10 +160,14 @@ export type Widget = {
     width: number?, height: number?, x: number?, y: number?,
     size: number?, pad: number?, gap: number?, anchor: string?,
     on: Id?, payload: Payload?,
+    columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
 }
 export type Ui = {
     text: (Widget) -> Widget, button: (Widget) -> Widget,
     list: (Widget) -> Widget, panel: (Widget) -> Widget,
     row: (Widget) -> Widget, column: (Widget) -> Widget,
+    grid: (Widget) -> Widget, scroll: (Widget) -> Widget,
+    delta: (Widget) -> Widget, icon: (Widget) -> Widget,
+    drag_source: (Widget) -> Widget, drop_target: (Widget) -> Widget,
 }
 "#;

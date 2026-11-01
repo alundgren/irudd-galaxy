@@ -1,4 +1,8 @@
 //! Widget layout, readability and hit testing. All dimensions are logical pixels.
+mod icons;
+mod interaction;
+pub use interaction::{Drag, Presentation};
+
 use std::collections::BTreeMap;
 
 use galaxy_api::Registry;
@@ -17,6 +21,8 @@ pub struct Boxed {
     pub rect: Rect,
     pub text: Option<Text>,
     pub children: Vec<Boxed>,
+    pub clip: Option<Rect>,
+    pub content_height: f32,
 }
 
 #[derive(Default)]
@@ -26,11 +32,17 @@ pub struct Screens {
     measure: TextMeasure,
     pub boxes: Vec<Boxed>,
     pub problems: Vec<String>,
+    pub presentation: Presentation,
+    pub presented: Presentation,
+    icons: BTreeMap<String, String>,
 }
 
 impl Screens {
     pub fn load(modules: &[&Module]) -> Self {
         let mut out = Self::default();
+        let (icons, problems) = icons::load(modules, &mut out.measure);
+        out.icons = icons;
+        out.load_problems.extend(problems);
         let registry = match Registry::new(modules) {
             Ok(r) => r,
             Err(e) => {
@@ -71,7 +83,9 @@ impl Screens {
             }
             self.problems.extend(screen.problems.clone());
             if let Some(tree) = &screen.tree {
-                let mut boxed = layout(tree, size.x - 40.0, &mut self.measure);
+                let mut tree = tree.clone();
+                icons::resolve(&mut tree, &self.icons, &mut self.problems);
+                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure);
                 place(
                     &mut boxed,
                     Vec2::splat(20.0),
@@ -85,10 +99,13 @@ impl Screens {
                     &mut self.measure,
                     &mut self.problems,
                 );
-                draw(&boxed, overlay, None);
+                present(&mut boxed, &mut self.presentation, None);
+                draw(&boxed, overlay, None, &self.presentation);
                 self.boxes.push(boxed);
             }
         }
+        self.draw_drag(overlay, size);
+        self.presented = self.presentation.clone();
         // Compare painted descendants, not just root bounds: columns have no surface,
         // and an anchored child can lie outside its root.
         let mut earlier: Vec<&Boxed> = Vec::new();
@@ -97,7 +114,7 @@ impl Screens {
             painted(root, &mut current);
             for b in &current {
                 for other in &earlier {
-                    if overlaps(b.rect, other.rect) {
+                    if visible_overlap(b, other) {
                         self.problems
                             .push(format!("{}: overlaps {}", b.widget.path, other.widget.path));
                     }
@@ -110,6 +127,9 @@ impl Screens {
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
+        if w.kind != "button" {
+            return None;
+        }
         w.on.as_ref().map(|name| Input {
             tick,
             source: "ui".into(),
@@ -144,7 +164,7 @@ impl Screens {
                         ));
                     }
                 };
-                if b.widget.on.is_none() {
+                if b.widget.kind != "button" {
                     return Err(format!("{}: widget is not a button", b.widget.path));
                 }
                 let point = b.rect.center();
@@ -169,6 +189,9 @@ impl Screens {
 
     fn hit(&self, point: Vec2) -> Option<&Widget> {
         fn hit(b: &Boxed, p: Vec2) -> Option<&Widget> {
+            if b.clip.is_some_and(|r| !point_in(r, p)) {
+                return None;
+            }
             for child in b.children.iter().rev() {
                 if let Some(w) = hit(child, p) {
                     return Some(w);
@@ -179,7 +202,7 @@ impl Screens {
                 && p.y >= r.y
                 && p.x < r.x + r.w
                 && p.y < r.y + r.h
-                && ["panel", "button", "text"].contains(&b.widget.kind.as_str()))
+                && painted_kind(&b.widget.kind))
             .then_some(&b.widget)
         }
         for b in self.boxes.iter().rev() {
@@ -201,10 +224,44 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
     let mut text = None;
     let mut children = Vec::new();
     let height;
-    if w.kind == "text" || w.kind == "button" {
-        let t = Text::new(&w.text, Vec2::splat(w.pad), w.size).wrap(inner);
-        height = measure.measure(&t, 1.0).y + 2.0 * w.pad;
+    if leaf(&w.kind) {
+        let labels = if w.kind == "delta" {
+            vec![format!("{:+}", w.delta)]
+        } else if w.kind == "drop_target" {
+            verdict_labels(w)
+        } else {
+            vec![w.text.clone()]
+        };
+        let mut measured: Vec<_> = labels
+            .into_iter()
+            .map(|label| {
+                let t = Text::new(label, Vec2::splat(w.pad), w.size).wrap(inner);
+                let h = measure.measure(&t, 1.0).y;
+                (t, h)
+            })
+            .collect();
+        measured.sort_by(|a, b| a.1.total_cmp(&b.1));
+        let (t, h) = measured.pop().expect("at least one label");
+        height = h + 2.0 * w.pad;
         text = Some(t);
+    } else if w.kind == "grid" {
+        let cell = ((inner - w.gap * (w.columns - 1) as f32) / w.columns as f32).max(1.0);
+        let mut y = w.pad;
+        for row in w.children.chunks(w.columns) {
+            let mut boxes: Vec<_> = row.iter().map(|c| layout(c, cell, measure)).collect();
+            let h = boxes.iter().map(|b| b.rect.h).fold(0.0, f32::max);
+            for (i, b) in boxes.iter_mut().enumerate() {
+                b.rect.x = w.pad + i as f32 * (cell + w.gap);
+                b.rect.y = y;
+            }
+            y += h + w.gap;
+            children.extend(boxes);
+        }
+        height = if children.is_empty() {
+            2.0 * w.pad
+        } else {
+            y - w.gap + w.pad
+        };
     } else {
         let row = w.kind == "row";
         let flowing = w
@@ -262,6 +319,8 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
         rect: Rect::new(0.0, 0.0, width, w.height.unwrap_or(height)),
         text,
         children,
+        clip: None,
+        content_height: height,
     }
 }
 
@@ -325,7 +384,9 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         if b.widget.size < 16.0 {
             problem("text is smaller than 16 logical pixels");
         }
-        if b.widget.text.trim().is_empty() {
+        if t.text.trim().is_empty()
+            || (b.widget.kind == "drop_target" && b.widget.text.trim().is_empty())
+        {
             problem("empty text or button label");
         }
         if !measure.missing(t, 1.0).is_empty() {
@@ -335,12 +396,52 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         if !contains(b.rect, Rect::new(t.pos.x, t.pos.y, size.x, size.y)) {
             problem("text is clipped by its widget");
         }
-        if b.widget.kind == "button" && (b.rect.h < 44.0 || b.rect.w < 44.0) {
+        if matches!(
+            b.widget.kind.as_str(),
+            "button" | "drag_source" | "drop_target"
+        ) && (b.rect.h < 44.0 || b.rect.w < 44.0)
+        {
             problem("button target is smaller than 44 pixels");
         }
     }
+    let parent = if b.widget.kind == "scroll" {
+        Rect::new(b.rect.x, b.rect.y, b.rect.w, b.content_height.max(b.rect.h))
+    } else {
+        b.rect
+    };
+    let child_viewport = if b.widget.kind == "scroll" {
+        parent
+    } else {
+        viewport
+    };
+    if b.widget.kind == "drop_target"
+        && let Some(base) = &b.text
+    {
+        for label in verdict_labels(&b.widget) {
+            let mut t = base.clone();
+            t.text = label;
+            let size = measure.measure(&t, 1.0);
+            if !contains(b.rect, Rect::new(t.pos.x, t.pos.y, size.x, size.y)) {
+                problems.push(format!("{}: drop verdict is clipped", b.widget.path));
+            }
+            if !measure.missing(&t, 1.0).is_empty() {
+                problems.push(format!(
+                    "{}: drop verdict has missing glyphs",
+                    b.widget.path
+                ));
+            }
+        }
+    }
     for (i, c) in b.children.iter().enumerate() {
-        if c.widget.anchor.is_none() && !contains(b.rect, c.rect) {
+        if b.widget.kind == "grid"
+            && (c.widget.anchor.is_some() || c.widget.x.is_some() || c.widget.y.is_some())
+        {
+            problems.push(format!(
+                "{}: grid cells must flow, without anchors or x/y",
+                c.widget.path
+            ));
+        }
+        if c.widget.anchor.is_none() && !contains(parent, c.rect) {
             problems.push(format!(
                 "{}: outside its parent {}",
                 c.widget.path, b.widget.path
@@ -351,12 +452,12 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
             }
         }
-        check(c, viewport, measure, problems);
+        check(c, child_viewport, measure, problems);
     }
 }
 
 fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
-    if ["panel", "button", "text"].contains(&b.widget.kind.as_str()) {
+    if painted_kind(&b.widget.kind) {
         out.push(b);
     }
     for child in &b.children {
@@ -364,13 +465,39 @@ fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
     }
 }
 
-fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>) {
-    let mut layer = UiLayer::default();
+fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Presentation) {
+    if b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
+        return;
+    }
+    let mut layer = UiLayer {
+        clip: b.clip,
+        ..Default::default()
+    };
     let mut backing = backing;
-    if b.widget.kind == "panel" || b.widget.kind == "button" {
+    if matches!(
+        b.widget.kind.as_str(),
+        "panel" | "button" | "scroll" | "drag_source" | "drop_target"
+    ) {
         let mut panel = Panel::new(b.rect);
         if b.widget.kind == "button" {
             panel.fill = Color::hex(0xffce75);
+        }
+        if b.widget.kind == "drag_source" {
+            panel.fill = Color::hex(0xffce75);
+        }
+        if b.widget.kind == "drop_target"
+            && let Some(drag) = &state.drag
+        {
+            panel.fill = if b
+                .widget
+                .accepts
+                .get(&drag.value)
+                .is_some_and(String::is_empty)
+            {
+                Color::hex(0xc6e8bd)
+            } else {
+                Color::hex(0xf6c4bc)
+            };
         }
         layer.panels.push(panel);
         backing = Some(b.rect);
@@ -383,12 +510,118 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>) {
         layer.panels.push(panel);
     }
     if let Some(t) = &b.text {
-        layer.texts.push(t.clone());
+        let mut t = t.clone();
+        if b.widget.kind == "delta" {
+            t.color = if b.widget.delta < 0.0 {
+                Color::hex(0x8b2020)
+            } else {
+                Color::hex(0x235426)
+            };
+        }
+        if b.widget.kind == "drop_target" {
+            t.text = match &state.drag {
+                None => b.widget.text.clone(),
+                Some(drag) => match b.widget.accepts.get(&drag.value) {
+                    Some(reason) if reason.is_empty() => format!("{}\nDrop here", b.widget.text),
+                    reason => format!(
+                        "{}\nCannot drop: {}",
+                        b.widget.text,
+                        reason.map(String::as_str).unwrap_or("Not accepted")
+                    ),
+                },
+            };
+        }
+        layer.texts.push(t);
     }
     if !layer.panels.is_empty() || !layer.texts.is_empty() {
         overlay.widgets.push(layer);
     }
     for child in &b.children {
-        draw(child, overlay, backing);
+        draw(child, overlay, backing, state);
     }
+    if b.widget.kind == "scroll" && b.content_height > b.rect.h {
+        let height = (b.rect.h * b.rect.h / b.content_height)
+            .max(18.0)
+            .min(b.rect.h);
+        let offset = state.scroll.get(&b.widget.path).copied().unwrap_or(0.0);
+        let y = b.rect.y + (b.rect.h - height) * offset / (b.content_height - b.rect.h);
+        let mut thumb = Panel::new(Rect::new(b.rect.x + b.rect.w - 6.0, y, 5.0, height));
+        thumb.fill = Color::hex(0x6d5943);
+        thumb.border_px = 0.0;
+        thumb.shadow = false;
+        overlay.widgets.push(UiLayer {
+            panels: vec![thumb],
+            clip: b.clip,
+            ..Default::default()
+        });
+    }
+}
+
+fn leaf(kind: &str) -> bool {
+    matches!(
+        kind,
+        "text" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
+    )
+}
+fn painted_kind(kind: &str) -> bool {
+    leaf(kind) || matches!(kind, "panel" | "scroll")
+}
+fn point_in(r: Rect, p: Vec2) -> bool {
+    p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h
+}
+fn intersection(a: Rect, b: Rect) -> Rect {
+    let x = a.x.max(b.x);
+    let y = a.y.max(b.y);
+    Rect::new(
+        x,
+        y,
+        (a.x + a.w).min(b.x + b.w).max(x) - x,
+        (a.y + a.h).min(b.y + b.h).max(y) - y,
+    )
+}
+fn visible_overlap(a: &Boxed, b: &Boxed) -> bool {
+    overlaps(
+        a.clip.map_or(a.rect, |r| intersection(r, a.rect)),
+        b.clip.map_or(b.rect, |r| intersection(r, b.rect)),
+    )
+}
+fn translate(b: &mut Boxed, dy: f32) {
+    b.rect.y += dy;
+    if let Some(t) = &mut b.text {
+        t.pos.y += dy;
+    }
+    for c in &mut b.children {
+        translate(c, dy);
+    }
+}
+fn present(b: &mut Boxed, state: &mut Presentation, clip: Option<Rect>) {
+    b.clip = clip;
+    let child_clip = if b.widget.kind == "scroll" {
+        let offset = state.scroll.entry(b.widget.path.clone()).or_default();
+        *offset = offset.clamp(0.0, (b.content_height - b.rect.h).max(0.0));
+        for child in &mut b.children {
+            translate(child, -*offset);
+        }
+        Some(clip.map_or(b.rect, |r| intersection(r, b.rect)))
+    } else {
+        clip
+    };
+    for child in &mut b.children {
+        present(child, state, child_clip);
+    }
+}
+
+fn verdict_labels(w: &Widget) -> Vec<String> {
+    let mut out = vec![
+        w.text.clone(),
+        format!("{}\nDrop here", w.text),
+        format!("{}\nCannot drop: Not accepted", w.text),
+    ];
+    out.extend(
+        w.accepts
+            .values()
+            .filter(|s| !s.is_empty())
+            .map(|r| format!("{}\nCannot drop: {}", w.text, r)),
+    );
+    out
 }

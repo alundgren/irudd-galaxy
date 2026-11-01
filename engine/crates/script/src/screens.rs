@@ -11,7 +11,20 @@ use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
 
-pub const KINDS: [&str; 6] = ["text", "button", "list", "panel", "row", "column"];
+pub const KINDS: [&str; 12] = [
+    "text",
+    "button",
+    "list",
+    "panel",
+    "row",
+    "column",
+    "grid",
+    "scroll",
+    "delta",
+    "icon",
+    "drag_source",
+    "drop_target",
+];
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Widget {
@@ -30,6 +43,10 @@ pub struct Widget {
     pub on: Option<String>,
     pub payload: Fields,
     pub children: Vec<Widget>,
+    pub columns: usize,
+    pub value: String,
+    pub delta: f64,
+    pub accepts: BTreeMap<String, String>,
 }
 
 #[derive(Default)]
@@ -204,7 +221,7 @@ fn read(
     };
     let kind: String = t
         .get("kind")
-        .map_err(|_| bad("use ui.text/button/list/panel/row/column"))?;
+        .map_err(|_| bad("use a ui widget constructor"))?;
     if !KINDS.contains(&kind.as_str()) {
         return Err(bad("unknown widget kind"));
     }
@@ -213,7 +230,7 @@ fn read(
             pair.map_err(|_| bad("properties must have names; put widgets in children"))?;
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
-            "on", "payload", "children",
+            "on", "payload", "children", "columns", "value", "accepts", "icon",
         ]
         .contains(&key.as_str())
         {
@@ -244,11 +261,13 @@ fn read(
                 .ok_or_else(|| bad("on must name one of this module's declared events"))
         })
         .transpose()?;
-    if kind == "button" && on.is_none() {
-        return Err(bad("button needs an on event"));
+    if matches!(kind.as_str(), "button" | "drop_target") && on.is_none() {
+        return Err(bad("button/drop_target needs an on event"));
     }
-    if kind != "button" && on.is_some() {
-        return Err(bad("only buttons have an on event"));
+    if !matches!(kind.as_str(), "button" | "drop_target" | "scroll") && on.is_some() {
+        return Err(bad(
+            "only buttons, drop targets and scrolls have an on event",
+        ));
     }
     let payload: Fields = match t.get::<Value>("payload")? {
         Value::Nil => Fields::new(),
@@ -309,8 +328,12 @@ fn read(
             )?);
         }
     }
-    if (kind == "text" || kind == "button") && !children.is_empty() {
-        return Err(bad("text and button have no children"));
+    if matches!(
+        kind.as_str(),
+        "text" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
+    ) && !children.is_empty()
+    {
+        return Err(bad("leaf widgets have no children"));
     }
     let anchor = string("anchor")?;
     let anchor = anchor
@@ -323,6 +346,56 @@ fn read(
             Ok::<_, mlua::Error>(format!("{entity}#{name}"))
         })
         .transpose()?;
+    let columns = num("columns")?.unwrap_or(2.0);
+    if columns.fract() != 0.0 || !(1.0..=64.0).contains(&columns) {
+        return Err(bad("columns must be an integer from 1 to 64"));
+    }
+    if matches!(kind.as_str(), "scroll" | "drag_source" | "drop_target")
+        && id.as_ref().is_none_or(|s| s.trim().is_empty())
+    {
+        return Err(bad("scroll and drag widgets need a nonempty id"));
+    }
+    if kind == "scroll" && num("height")?.is_none_or(|h| h < 44.0) {
+        return Err(bad("scroll needs a height of at least 44 pixels"));
+    }
+    let delta = if kind == "delta" {
+        let value: f64 = t
+            .get("value")
+            .map_err(|_| bad("delta value must be a finite number"))?;
+        if !value.is_finite() {
+            return Err(bad("delta value must be a finite number"));
+        }
+        value
+    } else {
+        0.0
+    };
+    let value = if kind == "drag_source" {
+        string("value")?
+            .filter(|s| !s.trim().is_empty())
+            .ok_or_else(|| bad("drag_source needs a nonempty value"))?
+    } else if kind == "icon" {
+        string("icon")?
+            .filter(|s| !s.trim().is_empty())
+            .ok_or_else(|| bad("icon needs a module icon name"))?
+    } else {
+        String::new()
+    };
+    let accepts = match t.get::<Value>("accepts")? {
+        Value::Nil => BTreeMap::new(),
+        Value::Table(t) => t
+            .pairs::<String, Value>()
+            .map(|p| {
+                let (key, value) = p?;
+                match value {
+                    Value::String(s) => Ok((key, s.to_str()?.to_string())),
+                    _ => Err(bad(
+                        "accepts maps source values to strings: empty allows, a reason denies",
+                    )),
+                }
+            })
+            .collect::<mlua::Result<_>>()?,
+        _ => return Err(bad("accepts must be a table")),
+    };
     Ok(Widget {
         kind: kind.clone(),
         id,
@@ -333,16 +406,25 @@ fn read(
         x: num("x")?,
         y: num("y")?,
         size: num("size")?.unwrap_or(20.0),
-        pad: num("pad")?.unwrap_or(if kind == "panel" || kind == "button" {
-            16.0
-        } else {
-            0.0
-        }),
+        pad: num("pad")?.unwrap_or(
+            if matches!(
+                kind.as_str(),
+                "panel" | "button" | "drag_source" | "drop_target"
+            ) {
+                16.0
+            } else {
+                0.0
+            },
+        ),
         gap: num("gap")?.unwrap_or(12.0),
         anchor,
         on,
         payload,
         children,
+        columns: columns as usize,
+        value,
+        delta,
+        accepts,
     })
 }
 

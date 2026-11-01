@@ -462,6 +462,8 @@ impl Text {
 pub struct UiLayer {
     pub panels: Vec<Panel>,
     pub texts: Vec<Text>,
+    /// Logical-pixel clip shared by panels and glyphs in this layer.
+    pub clip: Option<Rect>,
 }
 
 /// Screen-space UI. Panels draw first, then text; then each `upper` layer the same way.

@@ -285,3 +285,8 @@ widget's paint order. The fixed chrome layers remain for notes and diagnostic pa
 Named `engine.anchor` publishers project interpolated positions into this layout each
 frame. Left clicks hit-test the tree and record the chosen event as source `ui`; bot
 `[[click]]` entries use the same path. See `screens.md` for the API and readability rules.
+
+Screen widget layers can carry a logical-pixel clip rectangle. The overlay pass scales
+and intersects it with the physical viewport and applies the same scissor to panels
+and glyphs; empty clips draw nothing. Nested scrolling intersects ancestor clips before
+submitting layers. Headless layout and hit tests use those same logical rectangles.

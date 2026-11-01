@@ -55,6 +55,30 @@ use crate::session::{Input, Session};
 /// `galaxy-gm fields inputs` prints it; a test reads a file made of every example.
 pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
     (
+        "[[pointer]]",
+        "tick",
+        "10",
+        "galaxy play only: resolve a gesture before this tick",
+    ),
+    (
+        "[[pointer]]",
+        "action",
+        "\"scroll\"",
+        "pickup, move, drop or scroll; separate ticks allow notes during a drag",
+    ),
+    (
+        "[[pointer]]",
+        "widget",
+        "\"items\"",
+        "visible widget's unique id or full diagnostic path",
+    ),
+    (
+        "[[pointer]]",
+        "delta",
+        "80.0",
+        "scroll distance in logical pixels; positive scrolls down, default 0; ignored for drags",
+    ),
+    (
         "[[click]]",
         "tick",
         "10",
@@ -206,9 +230,22 @@ impl RawClick {
     }
 }
 
+/// A Rust-owned screen gesture, resolved against the displayed tree before its tick.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Pointer {
+    pub tick: u64,
+    pub action: String,
+    pub widget: String,
+    #[serde(default)]
+    pub delta: f32,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInputs {
+    #[serde(default)]
+    pointer: Vec<Pointer>,
     #[serde(default)]
     click: Vec<RawClick>,
     #[serde(default)]
@@ -245,6 +282,7 @@ fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Inpu
 /// An inputs file, read.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InputsFile {
+    pub pointers: Vec<Pointer>,
     pub clicks: Vec<Click>,
     pub inputs: Vec<Input>,
     pub notes: Vec<(u64, String)>,
@@ -262,7 +300,17 @@ impl InputsFile {
             toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
         let base = path.parent().unwrap_or(Path::new(""));
         let full = |name: &str| ids::is_full_id(name).then(|| name.to_owned());
+        for p in &raw.pointer {
+            if p.tick == 0
+                || !["pickup", "move", "drop", "scroll"].contains(&p.action.as_str())
+                || p.widget.trim().is_empty()
+                || !p.delta.is_finite()
+            {
+                return Err("pointer needs tick >= 1, action pickup/move/drop/scroll, a widget path/id and finite delta".into());
+            }
+        }
         Ok(InputsFile {
+            pointers: raw.pointer,
             clicks: raw
                 .click
                 .into_iter()
@@ -553,7 +601,7 @@ mod tests {
         let mut text = String::new();
         let mut last = "";
         for (entry, key, example, _) in INPUTS_KEYS {
-            if *key == "widget" {
+            if *entry == "[[click]]" && *key == "widget" {
                 continue; // Alternative to x/y, exercised as its own entry below.
             }
             if *entry != last {
@@ -564,7 +612,7 @@ mod tests {
         }
         let (_, _, widget, _) = INPUTS_KEYS
             .iter()
-            .find(|(_, key, _, _)| *key == "widget")
+            .find(|(entry, key, _, _)| *entry == "[[click]]" && *key == "widget")
             .unwrap();
         text.push_str(&format!("[[click]]\ntick = 20\nwidget = {widget}\n"));
         let dir = tempfile::tempdir().unwrap();

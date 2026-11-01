@@ -155,6 +155,8 @@ pub enum RecEvent {
     /// The player zoomed the view to `view` world units top to bottom, after `tick`.
     /// The world never sees it.
     Zoom { tick: u64, view: f32 },
+    /// Engine widget state after this tick; ignored by world replay.
+    Presentation { tick: u64, state: Value },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -321,7 +323,7 @@ impl<'a> Replay<'a> {
                     module,
                     files,
                 } => loads.entry(*tick).or_default().push((module, files)),
-                RecEvent::Note { .. } | RecEvent::Zoom { .. } => {}
+                RecEvent::Note { .. } | RecEvent::Zoom { .. } | RecEvent::Presentation { .. } => {}
             }
         }
         Ok(Replay {

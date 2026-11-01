@@ -161,8 +161,10 @@ pub fn camera_holder(world: &World) -> Option<(&str, CameraSpec)> {
 /// What a note keeps of how a moment was drawn, so the same frame can be drawn again from
 /// a replay: how far between ticks it was, the presentation time, the frame's size and
 /// scale, the player's zoom, and the camera it ended up with.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Moment {
+    #[serde(default)]
+    pub screens: screens::Presentation,
     pub alpha: f32,
     pub time: f32,
     /// The frame in physical pixels, and the window's scale factor.
@@ -577,6 +579,7 @@ impl View {
     pub fn moment(&self, alpha: f32, time: f32, size: (u32, u32), scale: f32) -> Option<Moment> {
         let camera = self.camera?;
         Some(Moment {
+            screens: self.screens.presented.clone(),
             alpha,
             time,
             width: size.0,
