@@ -120,7 +120,7 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         ),
     };
     let to = to.min(rec.end.tick);
-    let moment = chosen.and_then(|c| c.2);
+    let moment = chosen.and_then(|c| c.2.as_ref());
     let (width, height, scale) = match (opts.text("size"), moment) {
         (Some(s), _) => {
             let (w, h) = size(s).map_err(Failure::usage)?;
@@ -130,11 +130,16 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         (None, None) => (960, 540, 1.0),
     };
     let mut zooms = recorded_zooms(&rec);
-    if zooms.is_empty()
+    if !zooms.iter().any(|(_, z)| matches!(z, Zoom::View(_)))
         && let Some(z) = moment.and_then(|m| m.zoom)
     {
         // An older recording kept no wheel moves; the note's zoom is the best guess.
         zooms.push((0, Zoom::View(z)));
+    }
+    if let Some((tick, _, Some(moment))) = chosen {
+        // At the selected note's tick, use the frame it kept even if the pointer moved
+        // again before the next simulation tick.
+        zooms.push((*tick, Zoom::Presentation(moment.screens.clone())));
     }
     let out = match opts.text("out") {
         Some(o) => discover::resolve(&galaxy_module::cli::current_dir()?, Path::new(o)),

@@ -60,7 +60,7 @@ pub struct Scripted {
 impl Scripted {
     /// `session` with `script`'s inputs, each checked against it, and its hot-loads read.
     pub fn new(session: Session, script: &InputsFile) -> Result<Scripted, String> {
-        if !script.clicks.is_empty() {
+        if !script.clicks.is_empty() || !script.pointers.is_empty() {
             return Err("pointer clicks need galaxy play; film or replay its recording".into());
         }
         for input in &script.inputs {
@@ -175,18 +175,29 @@ pub fn recorded_zooms(rec: &Recording) -> Vec<(u64, Zoom)> {
         .iter()
         .filter_map(|e| match e {
             RecEvent::Zoom { tick, view } => Some((*tick, Zoom::View(*view))),
+            RecEvent::Presentation { tick, state } => serde_json::from_value(state.clone())
+                .ok()
+                .map(|s| (*tick, Zoom::Presentation(s))),
+            RecEvent::Note {
+                tick,
+                camera: Some(camera),
+                ..
+            } => serde_json::from_value::<crate::Moment>(camera.clone())
+                .ok()
+                .map(|m| (*tick, Zoom::Presentation(m.screens))),
             _ => None,
         })
         .collect()
 }
 
 /// A change of zoom, once its tick has run.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Zoom {
     /// Wheel steps, as from an inputs file (positive is closer).
     Steps(f32),
     /// A view height, as a recording keeps it.
     View(f32),
+    Presentation(crate::screens::Presentation),
 }
 
 /// How to film.
@@ -289,6 +300,7 @@ pub fn shoot(
                 match zooms.next().expect("peeked").1 {
                     Zoom::Steps(steps) => view.zoom(stepper.world(), steps),
                     Zoom::View(v) => view.eye.view = Some(v),
+                    Zoom::Presentation(s) => view.screens.presentation = s,
                 }
             }
             let world = stepper.world();

@@ -1543,6 +1543,23 @@ impl Renderer {
                 multiview_mask: None,
             });
             for (layer, &count) in panel_counts.iter().enumerate() {
+                let clip = layer
+                    .checked_sub(1)
+                    .and_then(|i| overlay.widgets.iter().chain(&overlay.upper).nth(i))
+                    .and_then(|l| l.clip);
+                let (w, h) = self.size;
+                let (x, y, right, bottom) = clip.map_or((0, 0, w, h), |r| {
+                    (
+                        (r.x * self.scale).ceil().clamp(0.0, w as f32) as u32,
+                        (r.y * self.scale).ceil().clamp(0.0, h as f32) as u32,
+                        ((r.x + r.w) * self.scale).floor().clamp(0.0, w as f32) as u32,
+                        ((r.y + r.h) * self.scale).floor().clamp(0.0, h as f32) as u32,
+                    )
+                });
+                if right <= x || bottom <= y {
+                    continue;
+                }
+                pass.set_scissor_rect(x, y, right - x, bottom - y);
                 if count > 0 {
                     pass.set_pipeline(&self.pipelines.panels);
                     pass.set_bind_group(0, &self.panels_bind[layer], &[]);

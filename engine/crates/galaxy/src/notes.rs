@@ -164,6 +164,7 @@ mod tests {
                 pixels: vec![0; 4],
             },
             moment: Moment {
+                screens: Default::default(),
                 alpha: 0.0,
                 time: 0.0,
                 width: 1,
