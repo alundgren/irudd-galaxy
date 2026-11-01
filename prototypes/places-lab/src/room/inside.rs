@@ -46,20 +46,25 @@ struct Look {
     y: f32,
     front: f32,
     down: f32,
+    /// Degrees to look further down than the core allows, lifting the room up the screen.
+    lift: f32,
 }
+
+const LIFT: f32 = 4.0;
 
 fn look(set: &str, floor: Vec2) -> Look {
     // The near corners are bigger in perspective: a margin keeps them on screen.
     let (hw, out) = (floor.x * 0.5, GAP + SKIN);
     let front = -floor.y * 0.5 - 0.2;
-    let (x0, x1, y, front, down) = match set {
+    let (x0, x1, y, front, down, lift) = match set {
         // The cradle is wide and deep: its left part, Orrin and the Wren, from higher up
         // so the sockets stack up the screen with room for their labels. Its front cut
         // may leave the screen: the core stays in view instead.
-        "cradle" => (-hw - out - 1.2, 3.0, 0.0, -2.4, 38.0),
+        // Lifted, so its lowest socket labels clear the band a talk card uses at the bottom.
+        "cradle" => (-hw - out - 1.2, 3.0, 0.0, -2.4, 38.0, LIFT),
         // Juno's wide hat hides her face from higher up.
-        "market" => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 22.0),
-        _ => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 34.0),
+        "market" => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 22.0, 0.0),
+        _ => (-hw - out - 2.0, hw + out + 1.0, 0.0, front, 34.0, 0.0),
     };
     Look {
         x0,
@@ -67,6 +72,7 @@ fn look(set: &str, floor: Vec2) -> Look {
         y,
         front,
         down,
+        lift,
     }
 }
 
@@ -168,7 +174,7 @@ fn camera(l: &Look, aspect: f32, at: Mat4, core: Vec3) -> Camera {
     let down = l.down.to_radians();
     let eye = Vec3::new(shift, l.y, 0.0) + Vec3::new(0.0, -down.cos(), down.sin()) * dist;
     let below = |y: f32, z: f32| (eye.z - z).atan2(y - eye.y).to_degrees();
-    let pitch = (below(core.y, core.z) + half - 5.0)
+    let pitch = (below(core.y, core.z) + half - 5.0 + l.lift)
         .max(below(l.front, -0.6) - half + 2.0)
         .to_radians();
     let target = eye + Vec3::new(0.0, pitch.cos(), -pitch.sin()) * dist;
