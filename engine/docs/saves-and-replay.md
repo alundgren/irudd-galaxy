@@ -88,7 +88,8 @@ picks it, as for replay). It replays from the start and, at each note, compares 
 world's hash with the note's; draws the moment again from the replay, between the same
 two ticks and with the same camera, into `audit/`; and compares that picture with the
 frame that was seen (mean difference per channel, and the share of pixels that differ).
-On the machine that played, the pictures are identical; on another GPU they should still
+On the machine that played, the pictures are identical (except a course caught in its
+fifth of a second fading out, which is drawn gone); on another GPU they should still
 visibly match. A world that differs exits 5 with kind `replay_diverged`.
 
 So a note says exactly where the player was and what they saw, and an agent can stand in

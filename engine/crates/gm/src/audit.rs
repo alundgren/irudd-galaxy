@@ -80,7 +80,9 @@ fn draw(
     r.resize(moment.width, moment.height);
     r.set_scale_factor(moment.scale);
     v.eye.view = moment.zoom;
-    v.courses.start_age = moment.course_age;
+    // Each note is drawn from its own moment only: no course carried over from drawing
+    // an earlier note, and the one it shows as old as it was.
+    v.courses = galaxy_view::course::Courses::starting_at(moment.course_age);
     let logical = Vec2::new(moment.width as f32, moment.height as f32) / moment.scale;
     let scene = v.scene(&replay.session.world, moment.alpha, logical, moment.time);
     r.render_to_rgba(&scene)
