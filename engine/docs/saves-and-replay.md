@@ -141,6 +141,11 @@ To see how the moments round a note *moved*, `galaxy-gm film <recording> --note 
 the seconds before and after it, frame by frame as the window drew them, for the motion
 tools (`motion-tools.md`).
 
+Audio is presentation only: recorded facts and place state drive sounds without any
+audio state in the world hash. `audio.toml` travels with module text; binary sound
+assets stay in the module folders and are unnecessary for headless replay. The
+[audio note](audio.md) explains offline mixing and its scripted-input command.
+
 ## Inputs files and scenario tests
 
 `--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]`, `[[hot_load]]` and

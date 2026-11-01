@@ -1,0 +1,9 @@
+[entities.first]
+"engine.place" = { width = 8, depth = 8 }
+[entities.second]
+"engine.place" = { width = 8, depth = 8 }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "audio.first" }
+"engine.position" = {}
+"engine.camera" = { view = 18, min_view = 10, max_view = 30 }

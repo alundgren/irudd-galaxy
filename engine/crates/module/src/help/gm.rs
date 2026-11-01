@@ -13,7 +13,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -27,7 +27,7 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, screens at 1280x720, and whether what its start state wears exists.",
+                  style, screens at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
                 and events. Screen functions run after engine.start; readability findings name widget paths. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
@@ -40,7 +40,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look or screen) and message",
+                "each problem: kind (schema, script, start, look, screen or sound) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
@@ -550,6 +550,20 @@ pub static COMMANDS: &[Command] = &[
 
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
+    Topic {
+        name: "audio",
+        title: "Module sound, music and place ambience",
+        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float and Ogg Vorbis, mono or stereo, are decoded before playback. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
+        tasks: &[
+            (
+                "Check sound declarations and decode every referenced file",
+                "gm check",
+            ),
+            ("Listen in the game", "game play"),
+            ("Render and measure a mix without a device", "game audio"),
+        ],
+        recipes: &[],
+    },
     Topic {
         name: "play",
         title: "Playing, and taking notes",

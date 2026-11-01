@@ -215,6 +215,8 @@ struct Running {
 
 struct App {
     session: Session,
+    audio: crate::audio::Cues,
+    audio_output: galaxy_audio::Output,
     options: Options,
     size: (u32, u32),
     running: Option<Running>,
@@ -286,6 +288,7 @@ impl App {
         if changed.is_empty() {
             return;
         }
+        let first_fact = self.session.world.facts.len();
         for id in changed {
             let result = Module::read(&self.dirs[&id])
                 .map_err(|f| f.message)
@@ -300,6 +303,23 @@ impl App {
             }
         }
         self.keys = bindings(self.session.modules());
+        self.audio = audio_scene(&self.session, first_fact);
+        self.audio_output.send(vec![
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Sound,
+                fade: 0.05,
+            },
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Music,
+                fade: 0.25,
+            },
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Ambience,
+                fade: 0.25,
+            },
+        ]);
+        self.audio_output
+            .send(self.audio.update(&self.session.world));
         if let Some(r) = &mut self.running {
             r.view.reload(Some(&mut r.renderer), self.session.modules());
         }
@@ -463,6 +483,8 @@ impl App {
                 event_loop.exit();
                 return;
             }
+            self.audio_output
+                .send(self.audio.update(&self.session.world));
         }
         let sim_ms = ms_since(sim_start);
         if self
@@ -734,7 +756,12 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     } else {
         None
     };
+    let mut audio = audio_scene(&session, 0);
+    let mut audio_output = galaxy_audio::Output::open();
+    audio_output.send(audio.update(&session.world));
     let mut app = App {
+        audio,
+        audio_output,
         keys: bindings(session.modules()),
         session,
         size: options.size.unwrap_or(DEFAULT_SIZE),
@@ -805,6 +832,14 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
     })))
+}
+
+fn audio_scene(session: &Session, first_fact: usize) -> crate::audio::Cues {
+    let bank = galaxy_audio::Bank::load(session.modules());
+    for problem in &bank.problems {
+        eprintln!("galaxy: sound: {problem}");
+    }
+    crate::audio::Cues::new(bank, first_fact)
 }
 
 /// `galaxy shot`.
@@ -963,6 +998,66 @@ fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_startup_runs_once_and_resume_and_hot_load_skip_old_cues() {
+        // Exercise the live scene setup without opening a window or device.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut module = Module::read(&root.join("tests/play/audio/demo")).unwrap();
+        module.files.0.insert(
+            "audio.toml".into(),
+            "[sounds.theme]\nfile = 'sounds/music.wav'\n\
+             [[events]]\nevent = 'engine.start'\nsound = 'theme'\nbus = 'music'\n\
+             [[events]]\nevent = 'engine.start'\nsound = 'theme'\n\
+             [[events]]\nevent = 'engine.hot_loaded'\nsound = 'theme'\n"
+                .into(),
+        );
+        let mut session = Session::new(vec![module.clone()], 1).unwrap();
+        let mut audio = audio_scene(&session, 0);
+        let actions = audio.update(&session.world);
+        assert_eq!(actions.len(), 2, "startup music and sound");
+        let mut mixer = galaxy_audio::Mixer::new(48_000);
+        for action in actions {
+            mixer.apply(action);
+        }
+        let mut pcm = [[0.0; 2]; 1600];
+        mixer.render(&mut pcm);
+        assert!(pcm.iter().flatten().any(|s| *s != 0.0));
+        assert!(audio.update(&session.world).is_empty());
+
+        // Even a save at tick zero contains historical startup facts.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("save.db");
+        save::write(
+            &path,
+            &session.world,
+            session.modules(),
+            &BuildStamp::current(),
+        )
+        .unwrap();
+        let (_, world) = save::read(&path).unwrap();
+        let mut resumed = Session::resume(vec![module.clone()], world).unwrap();
+        let mut resumed_audio = audio_scene(&resumed, resumed.world.facts.len());
+        assert!(resumed_audio.update(&resumed.world).is_empty());
+        resumed.step(&[]).unwrap();
+        assert!(resumed_audio.update(&resumed.world).is_empty());
+
+        session.step(&[]).unwrap();
+        assert!(audio.update(&session.world).is_empty());
+        let first_fact = session.world.facts.len();
+        session.hot_load(module).unwrap();
+        audio = audio_scene(&session, first_fact);
+        let actions = audio.update(&session.world);
+        assert_eq!(actions.len(), 1, "only the new hot-load cue");
+        assert!(matches!(
+            actions[0],
+            galaxy_audio::Action::Play {
+                bus: galaxy_audio::Bus::Sound,
+                ..
+            }
+        ));
+        assert!(audio.update(&session.world).is_empty());
+    }
 
     #[test]
     fn a_crop_stays_inside_the_picture_and_enlarges_in_blocks() {

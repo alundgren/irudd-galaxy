@@ -526,6 +526,46 @@ static GAME: &[Command] = &[
     },
     Command {
         tool: Tool::Game,
+        path: "audio",
+        synopsis: "--modules <dir> --out <file.wav> [options]",
+        answers: "Render a scripted session through the game's mixer without an audio device.",
+        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV or Ogg Vorbis files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
+        args: &[
+            ("--modules <dir>", "a module folder, or a folder of modules"),
+            ("--out <file.wav>", "new WAV file to create"),
+            ("--seed <n>", "world seed; 1 by default"),
+            (
+                "--ticks <n>",
+                "ticks to render, at 30 a second; 300 by default",
+            ),
+            (
+                "--inputs <file>",
+                "scripted event inputs, as listed by galaxy-gm fields inputs",
+            ),
+        ],
+        output: &[
+            ("wav, sample_rate, frames", "output file and its format"),
+            (
+                "peak, rms",
+                "linear sample levels before 16-bit quantization; 1 is full scale",
+            ),
+            (
+                "limited_samples",
+                "samples which reached the safety clamp; aim for zero",
+            ),
+            (
+                "stolen_voices, max_voices",
+                "voice-limit replacements and busiest tick's voice count",
+            ),
+            ("ticks, world_hash", "simulation result, unchanged by audio"),
+        ],
+        writes: "the new WAV file named by --out",
+        example: "galaxy audio --modules game/modules --ticks 300 --out mix.wav",
+        next: "Listen to the file, inspect peak and limited_samples, or use galaxy play for live output.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Game,
         path: "shot",
         synopsis: "--modules <dir> --out <file.png> [options]",
         answers: "Draw one frame of the modules headless, after some ticks: what does it look \
