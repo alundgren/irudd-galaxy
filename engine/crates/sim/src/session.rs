@@ -425,6 +425,30 @@ impl Session {
         }
     }
 
+    /// Records engine widget state without changing the simulation.
+    pub fn record_presentation(&mut self, state: serde_json::Value) {
+        if let Some(rec) = &mut self.recording {
+            if rec.events.iter().rev().find_map(|e| match e {
+                RecEvent::Presentation { state, .. } => Some(state),
+                _ => None,
+            }) == Some(&state)
+            {
+                return;
+            }
+            let tick = self.world.tick;
+            if let Some(RecEvent::Presentation {
+                tick: t,
+                state: old,
+            }) = rec.events.last_mut()
+                && *t == tick
+            {
+                *old = state;
+                return;
+            }
+            rec.events.push(RecEvent::Presentation { tick, state });
+        }
+    }
+
     /// Starts recording from the world as it is now.
     pub fn start_recording(&mut self, build: BuildStamp) {
         self.recording = Some(Recording::start(

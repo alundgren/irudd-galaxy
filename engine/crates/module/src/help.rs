@@ -473,7 +473,7 @@ static GAME: &[Command] = &[
         tool: Tool::Game,
         path: "play",
         synopsis: "--modules <dir> [options]",
-        answers: "Play the modules in a window. Esc quits, the wheel zooms, F8 takes a note.",
+        answers: "Play the modules in a window. Esc quits, the wheel scrolls a list or zooms, F8 takes a note.",
         about: "Every session records itself into a new folder under the sessions folder: \
                 recording.json (written at every note and when the window closes), save.db \
                 (the world at the end) and notes/0001.png (the frame shown at each note). F8 \
@@ -492,9 +492,10 @@ static GAME: &[Command] = &[
             ),
             (
                 "--inputs <file>",
-                "a bot: play these inputs, clicks, notes and zooms on their ticks \
+                "a bot: play these inputs, clicks, pointer gestures, notes and zooms on their ticks \
               through the window loop. [[click]] takes tick and either x/y logical pixels \
               or widget = a full path or unique id (follows moving anchors). \
+              [[pointer]] takes tick, action (pickup/move/drop/scroll), widget and optional delta in pixels. \
               `galaxy-gm fields inputs` lists the format; `galaxy-gm guide screens` gives a recipe",
             ),
             (

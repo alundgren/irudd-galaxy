@@ -33,6 +33,7 @@ fn the_test_modules_pass_check() {
         "tests/modules/tally",
         "tests/play/drift",
         "tests/play/screens",
+        "tests/play/rich-screens/rich",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);

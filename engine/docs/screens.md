@@ -83,11 +83,11 @@ anchor rather than silently discarding the widget.
 
 Left click hit-tests the displayed tree in logical pixels. The chosen button becomes an
 ordinary input with source `ui`, its event name and payload, applied on the next tick.
-The world changes only through that recorded event. There is no hover or pointer drawing
-in this increment. Open/closed screens are derived from recorded world components, so
+The world changes only through recorded events. Open/closed screens are derived from recorded world components, so
 audit and film reconstruct them from the embedded module files and replayed world. Anchor
 placement uses the note's existing camera, size and interpolation metadata. No screenshot
-or live VM state is used to reconstruct a screen.
+or live VM state is used to reconstruct a screen. Notes also keep the last drawn scroll
+offsets and active drag; audit restores them before layout.
 
 The bot takes `[[click]]` entries with `tick` and either `x`/`y` or `widget` in an inputs
 file. `widget` is a full diagnostic path or a unique `id`, including on a root button.
@@ -119,4 +119,91 @@ note. Headless tests exercise those contracts; GPU draw-order tests are explicit
 Pure functions were chosen over persistent UI VMs or imperative open/close commands so
 replays, hot loads and checking share the same result. A full immediate-mode Luau UI would
 run scripts per frame; storing every widget in the world would contaminate simulation
-history with layout. Neither is needed for this increment.
+history with layout. Neither is needed for these widgets.
+
+## Grids, scrolling and deltas
+
+`ui.grid { columns = 3, children = {...} }` lays out equal-width cells in rows, each row
+as tall as its tallest cell. Cells flow without anchors or x/y; explicit cell widths
+still obey containment and overlap checks. `ui.scroll { id, height, children, on?, payload? }`
+flows a vertical list in a fixed viewport. Rust clamps its offset, clips all descendant
+panels and glyphs using the same GPU scissor, clips hit testing, and paints a scroll thumb.
+The wheel over a list scrolls it; elsewhere it zooms the camera. Nested lists use the
+innermost one under the pointer. The full content is measured and checked headlessly,
+including entries currently outside the scrolling viewport. Viewport clipping is allowed;
+clipped text inside its own widget, unreadable cells and overlapping entries still fail.
+
+`ui.delta { value = -12 }` displays a signed number in dark loss red or gain green on
+paper. The sign carries the meaning as well as colour. Dimensions and the 16px minimum
+are the same as text. `ui.icon { icon = "token" }` resolves a local module name from:
+
+```toml
+# icons.toml
+[icons]
+token = "T"
+```
+
+Icons are module-owned glyph strings, embedded with the module in recordings. The GM
+checks all declared glyphs against the actual bundled font, including unused declarations,
+and reports any referenced icon missing from the catalogue. This uses existing text
+shaping and deterministic text assets rather than introducing a second image asset path.
+
+## Dragging and view state
+
+```lua
+ui.grid { columns = 2, children = {
+    ui.drag_source { id = "token", text = "Small token", value = "small" },
+    ui.drop_target { id = "slot", text = "Slot", on = "place",
+        accepts = { small = "", large = "Needs a wider slot" } },
+} }
+```
+
+A source has a string `value`; every target maps values to verdict strings in `accepts`.
+An empty string permits the drop, a nonempty string explains rejection, and an absent
+value means "Not accepted". Picking up immediately colours every target and shows its
+verdict in words. Layout reserves the largest measured verdict, so targets never move
+when picking up. All verdict labels receive glyph and readability checks. Rust draws a
+label beside the pointer. Release on an accepting target sends its `on` event with its
+`payload` plus `value`; release elsewhere or on a rejecting target cancels. A source
+removed or changed by state updates cannot complete its old drag. Targets use the
+current tree, and modules should validate world operations in their event handlers.
+
+Scrolling normally changes only presentation. An optional scroll `on` sends a recorded
+input with `payload` plus the new `offset` in logical pixels, only when the clamped offset
+changes. Thus a module that changes the world when scrolling replays that change exactly.
+Drops always use recorded inputs, just like clicks. Neither gesture invokes Luau per frame.
+
+`Screens::Presentation` keeps scroll offsets by full widget path, plus the source,
+value, label and pointer position of an active drag. Played frames record changed
+presentation snapshots separately from simulation inputs. World replay ignores those
+snapshots; film applies them on their recorded ticks. Notes keep their own exact last
+drawn snapshot in `Moment`, so a pointer move arriving before F8 cannot alter the note's
+redraw. Audit restores that snapshot. Filming around a selected note prioritises that
+snapshot at the note's tick. Older notes default to an unscrolled view with no drag.
+Hot loading resets widgets and their state. This keeps presentation out of world hashes
+and saves; storing only a drop would lose unfinished drags, while invoking Luau every
+pointer move would break the event-only screen contract.
+
+The bot uses `[[pointer]]` entries with `tick`, `action` (`pickup`, `move`, `drop`, `scroll`),
+`widget` (a unique ID or full path) and optional `delta` (scroll pixels, positive down).
+Separate pickup and drop ticks allow mid-drag notes. Targets must be visible at their
+centre and uncovered. Gestures run before clicks at the same tick; both run before world
+inputs. Headless sim/shot/film input runners refuse gestures; play them once and then
+replay or film the resulting recording. Help, `fields inputs`, `types` and `guide screens`
+cover this surface.
+
+From the repo root:
+
+```sh
+galaxy --build <name> play --modules engine/tests/play/rich-screens
+galaxy --build <name> play --modules engine/tests/play/rich-screens --inputs engine/tests/play/rich-screens-inputs.toml --ticks 80
+galaxy-gm --build <name> check engine/tests/play/rich-screens/rich
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+galaxy-gm --build <name> film <session>/recording.json --note 2 --before 0 --after 1
+```
+
+The generic module offers sixteen entries, two token sizes and two slots. The bot
+scrolls, notes the list, picks up the large token, notes its rejection at the narrow
+slot, and drops it into the wide slot. Headless tests compare rebuilt overlays at each
+note and world hashes after replay. GPU clipping tests are explicitly ignored.

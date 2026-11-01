@@ -80,6 +80,7 @@ fn draw(
     r.resize(moment.width, moment.height);
     r.set_scale_factor(moment.scale);
     v.eye.view = moment.zoom;
+    v.screens.presentation = moment.screens.clone();
     // Each note is drawn from its own moment only: no course carried over from drawing
     // an earlier note, and the one it shows as old as it was.
     v.courses = galaxy_view::course::Courses::starting_at(moment.course_age);
@@ -101,7 +102,7 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
     })?;
     // A renderer and view from the start, so the view knows the tick before each note
     // and draws between the two as the player saw it.
-    let first = notes.iter().find_map(|n| n.moment);
+    let first = notes.iter().find_map(|n| n.moment.as_ref());
     let mut renderer = match first {
         Some(m) => Some(
             Renderer::new_headless(m.width, m.height)

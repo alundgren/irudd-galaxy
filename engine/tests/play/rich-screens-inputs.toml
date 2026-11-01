@@ -1,0 +1,32 @@
+[[pointer]]
+tick = 10
+action = "scroll"
+widget = "entries"
+delta = 260
+
+[[note]]
+tick = 18
+text = "The list is scrolled; the first entries are clipped."
+
+[[pointer]]
+tick = 30
+action = "pickup"
+widget = "large"
+
+[[pointer]]
+tick = 40
+action = "move"
+widget = "narrow"
+
+[[note]]
+tick = 48
+text = "Mid-drag: narrow rejects this token and wide accepts it."
+
+[[pointer]]
+tick = 60
+action = "drop"
+widget = "wide"
+
+[[note]]
+tick = 68
+text = "The accepted drop changed the world once."

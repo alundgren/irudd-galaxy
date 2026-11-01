@@ -18,7 +18,7 @@ use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Renderer, RgbaImage};
-use galaxy_sim::scenario::{Click, InputsFile};
+use galaxy_sim::scenario::{Click, InputsFile, Pointer};
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
 use galaxy_sim::{BuildStamp, Input, Session, save};
@@ -225,6 +225,7 @@ struct App {
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
     scripted_clicks: BTreeMap<u64, Vec<Click>>,
+    scripted_pointers: BTreeMap<u64, Vec<Pointer>>,
     pointer: Vec2,
     /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
     /// frame at or after their tick.
@@ -442,6 +443,23 @@ impl App {
             let mut inputs = std::mem::take(&mut self.pending);
             let tick = self.session.world.tick + 1;
             inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
+            for pointer in self.scripted_pointers.remove(&tick).unwrap_or_default() {
+                r.view.scene(
+                    &self.session.world,
+                    1.0,
+                    r.renderer.logical_size(),
+                    self.last_time,
+                );
+                match r.view.screens.bot_pointer(&pointer) {
+                    Ok(Some(input)) => inputs.push(input),
+                    Ok(None) => {}
+                    Err(e) => {
+                        self.error = Some(Failure::runtime(format!("before tick {tick}: {e}")));
+                        event_loop.exit();
+                        return;
+                    }
+                }
+            }
             for click in self.scripted_clicks.remove(&tick).unwrap_or_default() {
                 r.view.scene(
                     &self.session.world,
@@ -494,6 +512,9 @@ impl App {
         let scene = r
             .view
             .scene(&self.session.world, self.last_alpha, logical, time);
+        self.session.record_presentation(
+            serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
+        );
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
         if let Err(e) = r.renderer.render(&scene) {
@@ -618,10 +639,11 @@ impl ApplicationHandler for App {
                 }
                 self.key(code, down);
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                if let Some(r) = &self.running {
+            WindowEvent::CursorMoved { position, .. } if self.note.is_none() => {
+                if let Some(r) = &mut self.running {
                     self.pointer =
                         Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
+                    r.view.screens.pointer_move(self.pointer);
                 }
             }
             WindowEvent::MouseInput {
@@ -629,11 +651,25 @@ impl ApplicationHandler for App {
                 button: winit::event::MouseButton::Left,
                 ..
             } if self.note.is_none() => {
-                if let Some(r) = &self.running
+                if let Some(r) = &mut self.running
                     && let Some(input) = r
                         .view
                         .screens
-                        .click(self.pointer, self.session.world.tick + 1)
+                        .pointer_down(self.pointer, self.session.world.tick + 1)
+                {
+                    self.pending.push(input);
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: winit::event::MouseButton::Left,
+                ..
+            } if self.note.is_none() => {
+                if let Some(r) = &mut self.running
+                    && let Some(input) = r
+                        .view
+                        .screens
+                        .pointer_up(self.pointer, self.session.world.tick + 1)
                 {
                     self.pending.push(input);
                 }
@@ -644,6 +680,16 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
                 };
                 if let Some(r) = &mut self.running {
+                    if let Some(input) = r.view.screens.scroll(
+                        self.pointer,
+                        -steps * 60.0,
+                        self.session.world.tick + 1,
+                    ) {
+                        if let Some(input) = input {
+                            self.pending.push(input);
+                        }
+                        return;
+                    }
                     r.view.zoom(&self.session.world, steps);
                     if let Some(view) = r.view.eye.view {
                         self.session.record_zoom(view);
@@ -659,6 +705,7 @@ impl ApplicationHandler for App {
 /// Inputs, notes and wheel steps by tick.
 #[derive(Default)]
 struct Script {
+    pointers: BTreeMap<u64, Vec<Pointer>>,
     clicks: BTreeMap<u64, Vec<Click>>,
     inputs: BTreeMap<u64, Vec<Input>>,
     notes: BTreeMap<u64, Vec<String>>,
@@ -693,7 +740,12 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for c in &script.clicks {
         clicks.entry(c.tick).or_default().push(c.clone());
     }
+    let mut pointers: BTreeMap<u64, Vec<Pointer>> = BTreeMap::new();
+    for p in &script.pointers {
+        pointers.entry(p.tick).or_default().push(p.clone());
+    }
     Ok(Script {
+        pointers,
         clicks,
         inputs: script.by_tick(),
         notes,
@@ -745,6 +797,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
+        scripted_pointers: script.pointers,
         pointer: Vec2::ZERO,
         scripted_notes: script.notes,
         scripted_zooms: script.zooms,
@@ -822,7 +875,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
     let script = scripted_inputs(&session, &options)?;
-    if !script.clicks.is_empty() {
+    if !script.clicks.is_empty() || !script.pointers.is_empty() {
         return Err(Failure::bad_input(
             "pointer clicks need galaxy play; film or replay its recording",
         ));
