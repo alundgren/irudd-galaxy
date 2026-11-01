@@ -1,9 +1,36 @@
 //! Render the exact presentation mixer offline, driven by an ordinary scripted session.
 use crate::sim::{bad_modules, load_modules, parse, usage};
-use galaxy_audio::{Bank, Mixer, Scene};
+use galaxy_audio::{Action, Bank, Mixer, Scene};
 use galaxy_module::{Failure, cli::Output};
 use galaxy_sim::{Session, scenario::InputsFile};
 use serde_json::json;
+
+/// The same fact cursor drives live and offline presentation. Start at zero for
+/// a fresh world, at the saved fact count on resume, or just before a hot-load.
+pub(crate) struct Cues {
+    scene: Scene,
+    next_fact: usize,
+}
+
+impl Cues {
+    pub(crate) fn new(bank: Bank, first_fact: usize) -> Self {
+        Self {
+            scene: Scene::new(bank),
+            next_fact: first_fact,
+        }
+    }
+
+    pub(crate) fn update(&mut self, world: &galaxy_sim::World) -> Vec<Action> {
+        let actions = self.scene.update(
+            world,
+            world.facts[self.next_fact..]
+                .iter()
+                .map(|f| f.kind.as_str()),
+        );
+        self.next_fact = world.facts.len();
+        actions
+    }
+}
 
 pub(crate) const OPTIONS: &[&str] = &["--modules", "--seed", "--ticks", "--inputs", "--out"];
 const RATE: u32 = 48_000;
@@ -22,7 +49,7 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
     if !bank.problems.is_empty() {
         return Err(Failure::bad_input(bank.problems.join("\n")));
     }
-    let mut scene = Scene::new(bank);
+    let mut scene = Cues::new(bank, 0);
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
     let script = options
         .inputs
@@ -61,7 +88,7 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
     )
     .map_err(|e| Failure::runtime(e.to_string()))?;
     let mut mixer = Mixer::new(RATE);
-    for action in scene.update(&session.world, []) {
+    for action in scene.update(&session.world) {
         mixer.apply(action);
     }
     let mut peak = 0.0_f32;
@@ -69,14 +96,10 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
     let mut samples = 0_u64;
     let mut max_voices = 0;
     for tick in 1..=ticks {
-        let first = session.world.facts.len();
         session
             .step(&inputs.remove(&tick).unwrap_or_default())
             .map_err(Failure::runtime)?;
-        for action in scene.update(
-            &session.world,
-            session.world.facts[first..].iter().map(|f| f.kind.as_str()),
-        ) {
+        for action in scene.update(&session.world) {
             mixer.apply(action);
         }
         max_voices = max_voices.max(mixer.voice_count());
