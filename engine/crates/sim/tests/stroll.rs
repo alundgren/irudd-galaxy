@@ -41,7 +41,7 @@ fn scripted(ticks: u64) -> Session {
             .unwrap();
         for (at, text) in &script.notes {
             if *at == session.world.tick {
-                session.note(text);
+                session.note(text, None, None);
             }
         }
     }

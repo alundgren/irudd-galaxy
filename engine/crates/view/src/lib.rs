@@ -155,6 +155,34 @@ pub fn camera_holder(world: &World) -> Option<(&str, CameraSpec)> {
     })
 }
 
+/// What a note keeps of how a moment was drawn, so the same frame can be drawn again from
+/// a replay: how far between ticks it was, the presentation time, the frame's size and
+/// scale, the player's zoom, and the camera it ended up with.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Moment {
+    pub alpha: f32,
+    pub time: f32,
+    /// The frame in physical pixels, and the window's scale factor.
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+    /// The view height the wheel zoomed to, if it did.
+    pub zoom: Option<f32>,
+    /// How long the course had been showing (it settles faint after a while).
+    #[serde(default)]
+    pub course_age: Option<f32>,
+    pub eye: [f32; 3],
+    pub target: [f32; 3],
+}
+
+impl Moment {
+    /// Whether another moment's camera is the same, within float noise.
+    pub fn same_camera(&self, other: &Moment) -> bool {
+        let near = |a: [f32; 3], b: [f32; 3]| (Vec3::from(a) - Vec3::from(b)).length() < 1e-3;
+        near(self.eye, other.eye) && near(self.target, other.target)
+    }
+}
+
 /// The player's own camera settings: not part of the world.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Eye {
@@ -178,7 +206,7 @@ pub struct View {
     missing: BTreeSet<String>,
     /// The camera of the last scene.
     pub camera: Option<Camera>,
-    courses: course::Courses,
+    pub courses: course::Courses,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -467,6 +495,23 @@ impl View {
                 .color(Color::BLACK)
                 .wrap(width - 24.0),
         );
+    }
+
+    /// The moment the last scene showed, drawn at `alpha` and `time` into a frame of
+    /// `width` x `height` physical pixels at `scale`.
+    pub fn moment(&self, alpha: f32, time: f32, size: (u32, u32), scale: f32) -> Option<Moment> {
+        let camera = self.camera?;
+        Some(Moment {
+            alpha,
+            time,
+            width: size.0,
+            height: size.1,
+            scale,
+            zoom: self.eye.view,
+            course_age: self.courses.age(time),
+            eye: camera.eye.to_array(),
+            target: camera.target.to_array(),
+        })
     }
 
     /// The camera of the last frame, as data for a note.

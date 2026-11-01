@@ -23,6 +23,6 @@ pub mod step;
 pub mod watch;
 pub mod world;
 
-pub use recording::{BuildStamp, Recording, replay};
+pub use recording::{BuildStamp, Recording, Replay, replay};
 pub use session::{Input, Session};
 pub use world::World;

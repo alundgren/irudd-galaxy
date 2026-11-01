@@ -164,9 +164,10 @@ It picks:
 
 1. `--build <name>` as the first argument: exactly that build. It is taken off the
    arguments.
-2. For `galaxy sim replay <recording>`: the build the recording names, if it names one (a
-   recording made by an installed build does), so a replay runs on the engine that made
-   it. If that build is not installed it exits 2 with kind `not_installed`.
+2. For `galaxy sim replay <recording>` and `galaxy-gm audit <recording>`: the build the
+   recording names, if it names one (a recording made by an installed build does), so a
+   replay runs on the engine that made it. If that build is not installed it exits 2 with
+   kind `not_installed`.
 3. Otherwise the newest non-dev build whose version is at least the highest
    `min_engine_version` of the modules the arguments name (the table above). If none is
    new enough, the newest one, whose own gate refuses with the message above.

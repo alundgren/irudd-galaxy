@@ -318,7 +318,7 @@ fn drive(
             .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
         for text in notes.get(&session.world.tick).into_iter().flatten() {
-            session.note(text);
+            session.note(text, None, None);
         }
     }
 

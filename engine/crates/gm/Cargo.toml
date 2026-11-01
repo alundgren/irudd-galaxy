@@ -15,6 +15,7 @@ path = "src/main.rs"
 [dependencies]
 galaxy-api.workspace = true
 galaxy-module.workspace = true
+galaxy-render.workspace = true
 galaxy-script.workspace = true
 galaxy-sim.workspace = true
 galaxy-view.workspace = true

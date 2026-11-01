@@ -195,7 +195,9 @@ real time:
   events as inputs on the next tick, from the source `keyboard`. Key repeat is ignored,
   and losing focus lets go of every held key, so none sticks down. Escape quits.
 - `--watch` hot-loads a changed module between ticks and reloads its models and style.
-- `--record` and `--save` write the session when the window closes; `--frames <n>` quits
+- Every session records itself into a session folder, and F8 takes a note with the frame
+  that was shown (`saves-and-replay.md`). `--record` and `--save` also write the
+  recording and the save to those paths when the window closes; `--frames <n>` quits
   after n frames.
 - **The bot**: `--inputs <file>` plays scripted inputs on their ticks through the same
   loop the keyboard feeds, and `--ticks <n>` quits when the world reaches tick n. A bot

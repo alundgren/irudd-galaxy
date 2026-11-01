@@ -84,7 +84,7 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
             .get(1)
             .map(|path| vec![manifest::module_dir(&at(path))])
             .unwrap_or_default(),
-        (Tool::Game, Some("play")) => modules_dir_arg(&args[1..])
+        (Tool::Game, Some("play" | "shot")) => modules_dir_arg(&args[1..])
             .map(|dir| modules_in(&at(&dir)))
             .unwrap_or_default(),
         (Tool::Game, Some("sim")) => modules_dir_arg(args.get(2..).unwrap_or_default())
@@ -94,15 +94,18 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
     }
 }
 
-/// The build a recording names, for `galaxy sim replay <recording>`: the launcher runs
-/// exactly that build. `None` for other commands, or a recording made by a build that was
+/// The build a recording names, for `galaxy sim replay <recording>` and `galaxy-gm audit
+/// <recording>`: the launcher runs exactly that build. `None` for other commands, or a
+/// recording made by a build that was
 /// not installed.
 pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<String> {
-    let command: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
-    if tool != Tool::Game || command != ["sim", "replay"] {
-        return None;
-    }
-    let path = resolve(cwd, Path::new(args.get(2)?));
+    let first: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
+    let at = match (tool, first.as_slice()) {
+        (Tool::Game, ["sim", "replay", ..]) => 2,
+        (Tool::Gm, ["audit", ..]) => 1,
+        _ => return None,
+    };
+    let path = resolve(cwd, Path::new(args.get(at)?));
     let text = std::fs::read_to_string(path).ok()?;
     let recording: serde_json::Value = serde_json::from_str(&text).ok()?;
     recording["build"]["name"].as_str().map(str::to_owned)
@@ -203,7 +206,15 @@ mod tests {
             Some("0.2.0-abc")
         );
         assert_eq!(
+            recording_build(Tool::Gm, &args(&["audit", "r.json"]), root).as_deref(),
+            Some("0.2.0-abc")
+        );
+        assert_eq!(
             recording_build(Tool::Gm, &args(&["sim", "replay", "r.json"]), root),
+            None
+        );
+        assert_eq!(
+            recording_build(Tool::Game, &args(&["audit", "r.json"]), root),
             None
         );
     }

@@ -6,9 +6,9 @@
 //! Which build:
 //! - `--build <name>` before the command: exactly that build folder (the only way to run a
 //!   `--dev` build).
-//! - `galaxy sim replay <recording>`: the build the recording names, if it names one (a
-//!   recording made by an installed build does), so a replay runs on the engine that made
-//!   it.
+//! - `galaxy sim replay <recording>` and `galaxy-gm audit <recording>`: the build the
+//!   recording names, if it names one (a recording made by an installed build does), so a
+//!   replay runs on the engine that made it.
 //! - Otherwise the newest non-dev build that is at least the highest minimum engine version
 //!   of the modules the arguments name (`check <path>`, `play --modules <dir>`, `doctor`:
 //!   the working folder). If none is new enough, the newest build, whose version gate

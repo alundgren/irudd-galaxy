@@ -12,6 +12,7 @@ galaxy-mesh.workspace = true
 galaxy-module.workspace = true
 galaxy-render.workspace = true
 galaxy-sim.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

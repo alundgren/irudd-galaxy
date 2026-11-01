@@ -57,6 +57,9 @@ struct Fading {
 /// The course over time: the order shown now, and one fading out.
 #[derive(Default)]
 pub struct Courses {
+    /// A course first seen from now on starts this many seconds old (an audit drawing a
+    /// note's moment again).
+    pub start_age: Option<f32>,
     shown: Option<Shown>,
     fading: Option<Fading>,
 }
@@ -69,6 +72,11 @@ fn strength(style: &Course, age: f32) -> f32 {
 }
 
 impl Courses {
+    /// How long the course shown now has been up, at `time`.
+    pub fn age(&self, time: f32) -> Option<f32> {
+        self.shown.as_ref().map(|s| time - s.since)
+    }
+
     /// Draws the course for this frame. `plan` is the order under way, if any; `arrived`
     /// says whether an order that just ended got where it was going. `per_pixel` is world
     /// units per logical pixel.
@@ -87,7 +95,11 @@ impl Courses {
                 if same {
                     self.shown.as_mut().expect("checked").plan = plan;
                 } else {
-                    self.shown = Some(Shown { plan, since: time });
+                    let age = self.start_age.unwrap_or(0.0);
+                    self.shown = Some(Shown {
+                        plan,
+                        since: time - age,
+                    });
                     self.fading = None;
                 }
             }

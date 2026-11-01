@@ -43,6 +43,25 @@ pub fn default_root() -> PathBuf {
         .join("engine")
 }
 
+/// Moves the folder played sessions are kept in to this absolute folder.
+pub const SESSIONS_VAR: &str = "GALAXY_SESSIONS";
+
+/// Where `galaxy play` keeps each session (its recording, save and notes):
+/// `GALAXY_SESSIONS` if it is an absolute folder, else `irudd-galaxy/sessions` in the
+/// per-user data folder, beside the install root's default.
+pub fn sessions_dir() -> PathBuf {
+    std::env::var_os(SESSIONS_VAR)
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| {
+            directories::BaseDirs::new()
+                .map(|d| d.data_local_dir().to_path_buf())
+                .unwrap_or_else(std::env::temp_dir)
+                .join("irudd-galaxy")
+                .join("sessions")
+        })
+}
+
 /// The install root: `GALAXY_INSTALL_ROOT` if it is an absolute folder, else the default.
 pub fn root() -> PathBuf {
     std::env::var_os(ROOT_VAR)

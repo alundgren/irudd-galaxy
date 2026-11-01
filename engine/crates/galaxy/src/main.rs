@@ -2,6 +2,7 @@
 //! frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
 //! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod notes;
 mod play;
 mod sim;
 
@@ -17,7 +18,8 @@ const USAGE: &str = "usage: galaxy <command>
   doctor                      the engine, its installed builds and launchers, and the
                               modules near the working folder
   play --modules <dir>        play the modules in <dir>, or the module <dir> is, in a
-                              window. Esc quits; the wheel zooms.
+                              window. Esc quits, the wheel zooms, F8 takes a note.
+                              Each session records itself into a session folder.
   shot --modules <dir> --out <file.png>
                               run the modules headless and draw one frame
   sim run --modules <dir>     run a new world from the modules' start states, headless

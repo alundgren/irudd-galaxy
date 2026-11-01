@@ -7,8 +7,8 @@
 //! - `modules`: the exact module files the session started with;
 //! - `seed` and `start`: the world it started from, whole;
 //! - `events`, in order: inputs (tick, source, name, payload), hot-loads (tick, module and
-//!   its exact new files) and notes (tick, text, and room for the camera and the frame
-//!   that was shown, which arrive with the renderer);
+//!   its exact new files) and notes (tick, text, the world's hash then, and from a played
+//!   session the camera and the frame that was shown);
 //! - `end`: the last tick and the world's hash there.
 //!
 //! [`replay`] runs it again from `start` with the recorded files, never the module folders,
@@ -70,6 +70,9 @@ pub enum RecEvent {
     Note {
         tick: u64,
         text: String,
+        /// The world's hash when the note was taken.
+        #[serde(default)]
+        hash: Option<String>,
         /// The camera when the note was taken (with the renderer; none headless).
         #[serde(default)]
         camera: Option<Value>,
@@ -171,28 +174,75 @@ pub struct Replayed {
     pub notes: Vec<NoteAt>,
 }
 
+/// A recording being run again, one tick at a time, with its own module files.
+pub struct Replay<'a> {
+    pub session: Session,
+    rec: &'a Recording,
+    inputs: BTreeMap<u64, Vec<Input>>,
+    loads: BTreeMap<u64, Vec<(&'a String, &'a ModuleFiles)>>,
+}
+
+impl<'a> Replay<'a> {
+    /// The recording's start, ready to step.
+    pub fn new(rec: &'a Recording) -> Result<Replay<'a>, String> {
+        let modules = rec
+            .modules
+            .iter()
+            .map(|(id, files)| module_from(id, files))
+            .collect::<Result<Vec<_>, _>>()?;
+        let session = Session::resume(modules, rec.start.clone())?;
+        let mut inputs: BTreeMap<u64, Vec<Input>> = BTreeMap::new();
+        let mut loads: BTreeMap<u64, Vec<(&String, &ModuleFiles)>> = BTreeMap::new();
+        for event in &rec.events {
+            match event {
+                RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
+                RecEvent::HotLoad {
+                    tick,
+                    module,
+                    files,
+                } => loads.entry(*tick).or_default().push((module, files)),
+                RecEvent::Note { .. } => {}
+            }
+        }
+        Ok(Replay {
+            session,
+            rec,
+            inputs,
+            loads,
+        })
+    }
+
+    /// The tick the recording ends on.
+    pub fn end(&self) -> u64 {
+        self.rec.end.tick
+    }
+
+    /// Runs the next tick, with its hot-loads and inputs. False once at the end.
+    pub fn step(&mut self) -> Result<bool, String> {
+        if self.session.world.tick >= self.rec.end.tick {
+            return Ok(false);
+        }
+        let tick = self.session.world.tick + 1;
+        for (id, files) in self.loads.get(&tick).into_iter().flatten() {
+            self.session
+                .hot_load(module_from(id, files)?)
+                .map_err(|e| format!("the hot-load of `{id}` before tick {tick} failed: {e}"))?;
+        }
+        self.session
+            .step(self.inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
+        Ok(true)
+    }
+}
+
 /// Runs a recording again from its start, with its own module files, and compares the end.
 pub fn replay(rec: &Recording) -> Result<(Session, Replayed), String> {
-    let modules = rec
-        .modules
-        .iter()
-        .map(|(id, files)| module_from(id, files))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut session = Session::resume(modules, rec.start.clone())?;
-    let mut inputs: BTreeMap<u64, Vec<Input>> = BTreeMap::new();
-    let mut loads: BTreeMap<u64, Vec<(&String, &ModuleFiles)>> = BTreeMap::new();
     let mut notes: BTreeMap<u64, Vec<&String>> = BTreeMap::new();
     for event in &rec.events {
-        match event {
-            RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
-            RecEvent::HotLoad {
-                tick,
-                module,
-                files,
-            } => loads.entry(*tick).or_default().push((module, files)),
-            RecEvent::Note { tick, text, .. } => notes.entry(*tick).or_default().push(text),
+        if let RecEvent::Note { tick, text, .. } = event {
+            notes.entry(*tick).or_default().push(text);
         }
     }
+    let mut run = Replay::new(rec)?;
     let mut seen = Vec::new();
     let mut note = |session: &Session| {
         for text in notes.get(&session.world.tick).into_iter().flatten() {
@@ -203,17 +253,11 @@ pub fn replay(rec: &Recording) -> Result<(Session, Replayed), String> {
             });
         }
     };
-    note(&session);
-    while session.world.tick < rec.end.tick {
-        let tick = session.world.tick + 1;
-        for (id, files) in loads.get(&tick).into_iter().flatten() {
-            session
-                .hot_load(module_from(id, files)?)
-                .map_err(|e| format!("the hot-load of `{id}` before tick {tick} failed: {e}"))?;
-        }
-        session.step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
-        note(&session);
+    note(&run.session);
+    while run.step()? {
+        note(&run.session);
     }
+    let session = run.session;
     let hash = session.world.hash();
     let replayed = Replayed {
         tick: session.world.tick,

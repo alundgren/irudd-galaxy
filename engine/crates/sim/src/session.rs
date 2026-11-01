@@ -388,15 +388,21 @@ impl Session {
         Ok(())
     }
 
-    /// Notes a remark on the current tick, in the recording.
-    pub fn note(&mut self, text: &str) {
-        if let Some(rec) = &mut self.recording {
-            rec.events.push(RecEvent::Note {
-                tick: self.world.tick,
-                text: text.to_owned(),
-                camera: None,
-                frame: None,
-            });
+    /// Notes a remark on the current tick, in the recording, with the world's hash, and
+    /// from a played session the camera and the frame that was shown.
+    pub fn note(&mut self, text: &str, camera: Option<Value>, frame: Option<Value>) {
+        if self.recording.is_some() {
+            let hash = self.world.hash();
+            let tick = self.world.tick;
+            if let Some(rec) = &mut self.recording {
+                rec.events.push(RecEvent::Note {
+                    tick,
+                    text: text.to_owned(),
+                    hash: Some(hash),
+                    camera,
+                    frame,
+                });
+            }
         }
     }
 

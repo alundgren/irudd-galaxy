@@ -752,6 +752,7 @@ version = "0.2.0"
 dependencies = [
  "galaxy-api",
  "galaxy-module",
+ "galaxy-render",
  "galaxy-script",
  "galaxy-sim",
  "galaxy-view",
@@ -849,6 +850,7 @@ dependencies = [
  "galaxy-module",
  "galaxy-render",
  "galaxy-sim",
+ "serde",
  "serde_json",
  "tempfile",
 ]

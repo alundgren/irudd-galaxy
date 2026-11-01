@@ -2,7 +2,8 @@
 //!
 //! `play` opens a window and runs the session in real time: the sim steps at its fixed
 //! rate, the view draws between the last two ticks every frame, keys a module binds
-//! become its events, and the wheel zooms the camera. `shot` runs the same session
+//! become its events, and the wheel zooms the camera. Every session records itself into
+//! a session folder, and F8 takes a note ([`crate::notes`]). `shot` runs the same session
 //! headless for some ticks and writes one frame as a PNG. Both report frame times.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,9 +26,10 @@ use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::window::{Window, WindowId};
 
+use crate::notes::{self, NoteBox};
 use crate::sim::{Options, bad_modules, load_modules, parse, usage};
 
 /// The window's size, and a shot's, unless `--size` says otherwise.
@@ -216,6 +218,9 @@ struct App {
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
+    /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
+    /// frame at or after their tick.
+    scripted_notes: BTreeMap<u64, Vec<String>>,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -224,6 +229,15 @@ struct App {
     times: Times,
     frames: u64,
     error: Option<Failure>,
+    /// The session folder: recording, save and note frames.
+    dir: PathBuf,
+    /// The note being written, while F8 has the game paused.
+    note: Option<NoteBox>,
+    /// Notes kept so far.
+    notes: usize,
+    /// How the last frame was drawn, so F8 can keep exactly that frame.
+    last_alpha: f32,
+    last_time: f32,
 }
 
 fn ms_since(start: Instant) -> f64 {
@@ -280,7 +294,131 @@ impl App {
         }
     }
 
+    /// F8: pauses on this tick and opens the note box over the frame that was shown.
+    fn open_note(&mut self) {
+        let Some(r) = &mut self.running else { return };
+        let logical = r.renderer.logical_size();
+        let scene = r.view.scene(
+            &self.session.world,
+            self.last_alpha,
+            logical,
+            self.last_time,
+        );
+        let frame = match r.renderer.render_to_rgba(&scene) {
+            Ok(frame) => frame,
+            Err(e) => {
+                eprintln!("galaxy: can't keep the frame for a note: {e}");
+                return;
+            }
+        };
+        let Some(moment) = r.view.moment(
+            self.last_alpha,
+            self.last_time,
+            r.renderer.size(),
+            r.renderer.scale_factor(),
+        ) else {
+            return;
+        };
+        self.release_all();
+        self.note = Some(NoteBox {
+            text: String::new(),
+            frame,
+            moment,
+        });
+    }
+
+    /// Enter: keeps the note in the recording, with its frame, and carries on.
+    fn keep_note(&mut self) {
+        let Some(note) = self.note.take() else { return };
+        self.pace.reset();
+        if note.text.trim().is_empty() {
+            return;
+        }
+        self.notes += 1;
+        let file = notes::frame_file(self.notes);
+        let path = self.dir.join(&file);
+        if let Err(e) = note.frame.save_png(&path) {
+            eprintln!(
+                "galaxy: can't save the note's frame to {}: {e}",
+                path.display()
+            );
+        }
+        let camera = serde_json::to_value(note.moment).ok();
+        let frame = json!({
+            "file": file,
+            "width": note.frame.width,
+            "height": note.frame.height,
+        });
+        self.session.note(note.text.trim(), camera, Some(frame));
+        self.write_recording();
+        eprintln!(
+            "galaxy: note {} kept at tick {}",
+            self.notes, self.session.world.tick
+        );
+    }
+
+    /// Writes the recording so far into the session folder.
+    fn write_recording(&self) {
+        if let Some(rec) = self.session.recording() {
+            let path = self.dir.join("recording.json");
+            if let Err(e) = rec.write(&path) {
+                eprintln!("galaxy: can't write {}: {e}", path.display());
+            }
+        }
+    }
+
+    /// A key while the note box is open.
+    fn note_key(&mut self, event: &winit::event::KeyEvent) {
+        if event.state != ElementState::Pressed {
+            return;
+        }
+        match &event.logical_key {
+            Key::Named(NamedKey::Enter) => self.keep_note(),
+            Key::Named(NamedKey::Escape) => {
+                self.note = None;
+                self.pace.reset();
+            }
+            Key::Named(NamedKey::Backspace) => {
+                if let Some(n) = &mut self.note {
+                    n.backspace();
+                }
+            }
+            _ => {
+                if let (Some(n), Some(text)) = (&mut self.note, &event.text) {
+                    n.type_text(text);
+                }
+            }
+        }
+    }
+
+    /// A frame while a note is being written: the world stands still.
+    fn note_frame(&mut self, event_loop: &ActiveEventLoop) {
+        self.last = Instant::now();
+        self.pace.reset();
+        let (Some(r), Some(note)) = (&mut self.running, &self.note) else {
+            return;
+        };
+        let logical = r.renderer.logical_size();
+        let mut scene = r.view.scene(
+            &self.session.world,
+            self.last_alpha,
+            logical,
+            self.last_time,
+        );
+        note.draw(&mut scene, logical);
+        if let Err(e) = r.renderer.render(&scene) {
+            self.error = Some(Failure::runtime(format!("drawing failed: {e}")));
+            event_loop.exit();
+            return;
+        }
+        r.window.request_redraw();
+    }
+
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
+        if self.note.is_some() {
+            self.note_frame(event_loop);
+            return;
+        }
         let now = Instant::now();
         let dt = (now - self.last).as_secs_f64();
         self.last = now;
@@ -310,10 +448,12 @@ impl App {
         }
         let logical = r.renderer.logical_size();
         let time = (now - self.started).as_secs_f32();
+        self.last_alpha = self.pace.alpha();
+        self.last_time = time;
         let scene_start = Instant::now();
         let scene = r
             .view
-            .scene(&self.session.world, self.pace.alpha(), logical, time);
+            .scene(&self.session.world, self.last_alpha, logical, time);
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
         if let Err(e) = r.renderer.render(&scene) {
@@ -323,6 +463,22 @@ impl App {
         }
         let draw_ms = ms_since(draw_start);
         self.frames += 1;
+        // Scripted notes: taken like F8 once their tick has been shown.
+        let due: Vec<u64> = self
+            .scripted_notes
+            .range(..=self.session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            for text in self.scripted_notes.remove(&tick).unwrap_or_default() {
+                self.open_note();
+                if let Some(n) = &mut self.note {
+                    n.type_text(&text);
+                }
+                self.keep_note();
+            }
+        }
+        let Some(r) = &mut self.running else { return };
         // The first frame's interval is the time since the window opened.
         if self.frames > 1 && self.times.interval.len() < 1_000_000 {
             self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
@@ -401,6 +557,10 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Focused(false) => self.release_all(),
             WindowEvent::KeyboardInput { event, .. } => {
+                if self.note.is_some() {
+                    self.note_key(&event);
+                    return;
+                }
                 if event.repeat {
                     return;
                 }
@@ -410,6 +570,10 @@ impl ApplicationHandler for App {
                 let down = event.state == ElementState::Pressed;
                 if code == KeyCode::Escape && down {
                     event_loop.exit();
+                    return;
+                }
+                if code == KeyCode::F8 && down {
+                    self.open_note();
                     return;
                 }
                 self.key(code, down);
@@ -429,13 +593,14 @@ impl ApplicationHandler for App {
     }
 }
 
-/// The inputs `--inputs` names, by tick, each checked against the session.
-fn scripted_inputs(
-    session: &Session,
-    options: &Options,
-) -> Result<BTreeMap<u64, Vec<Input>>, Failure> {
+/// Inputs and notes by tick.
+type Script = (BTreeMap<u64, Vec<Input>>, BTreeMap<u64, Vec<String>>);
+
+/// The inputs and notes `--inputs` names, by tick, each input checked against the
+/// session.
+fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failure> {
     let Some(path) = &options.inputs else {
-        return Ok(BTreeMap::new());
+        return Ok(Default::default());
     };
     let script = InputsFile::read(path)
         .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
@@ -447,7 +612,11 @@ fn scripted_inputs(
             ))
         })?;
     }
-    Ok(script.by_tick())
+    let mut notes: BTreeMap<u64, Vec<String>> = BTreeMap::new();
+    for (tick, text) in &script.notes {
+        notes.entry(*tick).or_default().push(text.clone());
+    }
+    Ok((script.by_tick(), notes))
 }
 
 /// `galaxy play`.
@@ -460,10 +629,17 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     }
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let scripted = scripted_inputs(&session, &options)?;
-    if options.record.is_some() {
-        session.start_recording(BuildStamp::current());
-    }
+    let (scripted, scripted_notes) = scripted_inputs(&session, &options)?;
+    session.start_recording(BuildStamp::current());
+    let ids: Vec<&str> = session.modules().map(Module::id).collect();
+    let root = galaxy_module::install::sessions_dir();
+    let dir = notes::session_dir(&root, &ids).map_err(|e| {
+        Failure::runtime(format!(
+            "can't make a session folder in {}: {e}",
+            root.display()
+        ))
+        .with("path", root.display().to_string())
+    })?;
     let dirs: BTreeMap<String, PathBuf> = session
         .modules()
         .map(|m| (m.id().to_owned(), m.manifest.dir.clone()))
@@ -486,6 +662,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         held: BTreeSet::new(),
         pending: Vec::new(),
         scripted,
+        scripted_notes,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -494,6 +671,11 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         times: Times::default(),
         frames: 0,
         error: None,
+        dir,
+        note: None,
+        notes: 0,
+        last_alpha: 0.0,
+        last_time: 0.0,
     };
     let event_loop =
         EventLoop::new().map_err(|e| Failure::runtime(format!("no window system: {e}")))?;
@@ -504,12 +686,17 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         return Err(e);
     }
     let build = BuildStamp::current();
-    if let Some(path) = &app.options.save {
+    let saves = [Some(app.dir.join("save.db")), app.options.save.clone()];
+    for path in saves.iter().flatten() {
         save::write(path, &app.session.world, app.session.modules(), &build)
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
-    if let Some(path) = &app.options.record {
-        let rec = app.session.recording().expect("recording was started");
+    let rec = app.session.recording().expect("recording was started");
+    let records = [
+        Some(app.dir.join("recording.json")),
+        app.options.record.clone(),
+    ];
+    for path in records.iter().flatten() {
         rec.write(path)
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
@@ -528,6 +715,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
         "log": app.session.log,
+        "session": app.dir.display().to_string(),
+        "notes": app.notes,
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
     })))
@@ -547,7 +736,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         .ok_or_else(|| usage("shot needs a file to write: --out <file.png>"))?;
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let inputs = scripted_inputs(&session, &options)?;
+    let (inputs, _) = scripted_inputs(&session, &options)?;
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;

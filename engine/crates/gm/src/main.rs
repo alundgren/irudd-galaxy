@@ -2,6 +2,8 @@
 //! module loads: manifest, start state, scripts, models and styles) and `types` (the Luau
 //! type file for scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod audit;
+
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -23,6 +25,9 @@ const USAGE: &str = "usage: galaxy-gm <command>
                         near the working folder
   check <module>        check a module folder: it loads (manifest, start state, scripts,
                         models and style), and what its start state wears exists
+  audit <recording>     replay a played session to each of its notes: check the world
+                        is identical and draw the moment again beside the recording
+                        (audit/0001.png), to compare with the frame that was seen
   types                 print the Luau type file for module scripts
   --version             print the version
   --help                print this";
@@ -41,6 +46,14 @@ fn run(args: &[String]) -> Result<Output, Failure> {
         }
         [command, ..] if command == "check" => Err(cli::usage_failure(
             "check takes one module folder: galaxy-gm check <module>",
+            USAGE,
+        )),
+        [command, path] if command == "audit" => {
+            let cwd = cli::current_dir()?;
+            audit::run(&discover::resolve(&cwd, Path::new(path)))
+        }
+        [command, ..] if command == "audit" => Err(cli::usage_failure(
+            "audit takes one recording: galaxy-gm audit <recording.json>",
             USAGE,
         )),
         [command] if command == "types" => Ok(Output::Text(
