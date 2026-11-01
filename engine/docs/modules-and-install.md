@@ -190,15 +190,21 @@ from the binaries. `galaxy --help` and `galaxy-gm --help` print a short overview
 `<command> --help` anywhere on a command line (or `help <command>`) prints that command's
 help: what it answers, its arguments with units and defaults, what each output field
 means, where it writes, one example and the usual next step. `galaxy-gm guide [topic]`
-goes from "what do you want to do" to the command, for both binaries. `galaxy-gm fields
-[topic]` lists the keys `style.toml`, `manifest.toml`, inputs files and motion check specs
-take, and the engine's components, with types, defaults and ranges.
+goes from "what do you want to do" to the command, for both binaries; a topic can end
+in recipes, questions that take several commands (pressing a key from the start and
+measuring the approach; ramming something and measuring overlap and bounce), with the
+exact command lines. `galaxy-gm fields [topic]` lists the keys `style.toml`,
+`manifest.toml`, inputs files and motion check specs take, and the engine's components,
+with types, defaults and ranges; `fields inputs --modules <dir>` also lists the inputs
+those modules take and the keys that send each. `galaxy-gm model <module> [<model>]` says
+what a model is made of without reading its glTF.
 
 The help is one table, `crates/module/src/help.rs` (with `help/gm.rs` and
 `help/motion.rs`), and both binaries dispatch through it: a command line is resolved to
 its table entry first, so a command without help can't run. Tests hold each entry's
-options to what its parser accepts, check every example runs a listed command with listed
-options, and that help never points at the repository's docs. The field references sit
+options to what its parser accepts, check every example and every command line in a
+recipe runs a listed command with listed options, and that help never points at the
+repository's docs. The field references sit
 beside their parsers (`style::KEYS`, `engine::FIELDS`, `manifest::FILE_KEYS`,
 `scenario::INPUTS_KEYS`, `check::SPEC_KEYS`); defaults come from the structs themselves,
 and tests parse a file made of every documented key, so the reference can't drift from

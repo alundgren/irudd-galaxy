@@ -785,7 +785,8 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
     let overlaps = runs(&present, |v| v < -OVERLAP);
     let contacts = runs(&present, |v| v <= CONTACT);
     let seconds = |r: &Run| (r.to - r.from + 1) as f32 * dt;
-    let overlap_time: f32 = overlaps.iter().map(seconds).sum();
+    // `+ 0.0`: an empty sum is -0.0.
+    let overlap_time: f32 = overlaps.iter().map(seconds).sum::<f32>() + 0.0;
     // Frames drawn on a tick show the sim's own state; frames between two ticks are
     // interpolated, and a thing sliding round a curved surface cuts the corner there.
     let on_tick = |i: usize| frames[i].alpha < 1e-3 || frames[i].alpha > 1.0 - 1e-3;
@@ -879,7 +880,11 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
         },
     });
     if let Some(r) = overlaps.first().or(contacts.first()) {
-        let (a, b) = (r.from.saturating_sub(3), (r.to + 3).min(frames.len() - 1));
+        // Its start, and half a second at most of a long run.
+        let (a, b) = (
+            r.from.saturating_sub(3),
+            (r.to.min(r.from + 30) + 3).min(frames.len() - 1),
+        );
         report["frames_round_it"] = json!(format!(
             "galaxy-gm film show {} --thing {id} --gap {other} --from {:.3} --to {:.3}",
             film.dir.display(),

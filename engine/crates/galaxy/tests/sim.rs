@@ -118,6 +118,7 @@ fn a_saved_run_carries_on_like_one_long_run() {
         "--ticks",
         "80",
         "--state",
+        "--all",
     ]);
     assert_eq!(code, 0, "{carried}");
     assert_eq!(carried["tick"], 200);
@@ -129,6 +130,24 @@ fn a_saved_run_carries_on_like_one_long_run() {
         w1["engine.position"]["height"].as_f64().unwrap() > 0.0,
         "{w1}"
     );
+    assert!(carried["state"]["facts"].is_array(), "{carried}");
+
+    // --state alone: a line an entity, the facts counted, and how to get the rest.
+    let (code, compact) = galaxy(&[&base[..], &["--ticks", "200", "--state"]].concat());
+    assert_eq!(code, 0, "{compact}");
+    let state = &compact["state"];
+    let line = state["entities"]["stroll.w1"].as_str().unwrap();
+    assert!(
+        line.starts_with("at (") && line.contains("engine.position"),
+        "{line}"
+    );
+    assert!(state["facts"]["count"].is_u64(), "{state}");
+    assert!(
+        state["compact"].as_str().unwrap().contains("--all"),
+        "{state}"
+    );
+    let (code, err) = galaxy(&[&base[..], &["--all"]].concat());
+    assert_eq!(code, 2, "{err}");
 }
 
 #[test]

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use galaxy_api::engine::{HOT_LOADED, SCRIPT_FAILED};
+use galaxy_api::engine::{HOT_LOADED, MODEL, MOTION, POSITION, SCRIPT_FAILED};
 use galaxy_module::cli::{self, Output};
 use galaxy_module::failure::code;
 use galaxy_module::module::Module;
@@ -48,6 +48,8 @@ pub(crate) struct Options {
     /// `--entity <id>` and `--component <name>`: what `--state` prints.
     pub entity: Option<String>,
     pub component: Option<String>,
+    /// `--all`: with `--state`, the whole world rather than a line an entity.
+    pub all: bool,
     /// `--crop <thing>`: a shot framed round one thing.
     pub crop: Option<String>,
     /// `--builds a,b`: film with two installed builds and compare.
@@ -71,7 +73,10 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
         if !allowed.contains(&flag) {
             return Err(usage(format!("unknown option `{flag}` here")));
         }
-        let switch = matches!(flag, "--realtime" | "--watch" | "--state" | "--probes-only");
+        let switch = matches!(
+            flag,
+            "--realtime" | "--watch" | "--state" | "--probes-only" | "--all"
+        );
         if switch {
             if inline.is_some() {
                 return Err(usage(format!("{flag} takes no value")));
@@ -80,6 +85,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--realtime" => options.realtime = true,
                 "--watch" => options.watch = true,
                 "--probes-only" => options.probes_only = true,
+                "--all" => options.all = true,
                 _ => options.state = true,
             }
             continue;
@@ -138,9 +144,10 @@ pub(crate) const RUN_OPTIONS: &[&str] = &[
     "--state",
     "--entity",
     "--component",
+    "--all",
 ];
 
-pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state", "--entity", "--component"];
+pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state", "--entity", "--component", "--all"];
 
 /// `galaxy sim run`.
 pub fn run(args: &[String]) -> Result<Output, Failure> {
@@ -397,19 +404,20 @@ fn drive(
     Ok(Output::Json(out))
 }
 
-/// `--entity` and `--component` choose what `--state` prints.
+/// `--entity`, `--component` and `--all` choose what `--state` prints.
 fn filters_need_state(options: &Options) -> Result<(), Failure> {
-    if (options.entity.is_some() || options.component.is_some()) && !options.state {
+    if (options.entity.is_some() || options.component.is_some() || options.all) && !options.state {
         return Err(usage(
-            "--entity and --component choose what --state prints; add --state",
+            "--entity, --component and --all choose what --state prints; add --state",
         ));
     }
     Ok(())
 }
 
-/// The world, for `--state`: entities with their components' fields, and the facts.
-/// With `--entity` or `--component`, only those entities and components, without the
-/// facts.
+/// The world, for `--state`: a line an entity (where it is, its speed, its model and its
+/// components) and the facts counted by kind. With `--entity` or `--component`, those
+/// entities' and components' fields, without the facts; with `--all`, every field, the
+/// facts and causes.
 fn state(session: &Session, options: &Options) -> Result<Value, Failure> {
     let world = &session.world;
     // A full ID, or a bare name one module has (`ship` for `drift.ship`).
@@ -475,9 +483,65 @@ fn state(session: &Session, options: &Options) -> Result<Value, Failure> {
             ),
         }));
     }
+    if options.all {
+        return Ok(json!({
+            "entities": entities,
+            "facts": world.facts,
+            "causes": world.causes,
+        }));
+    }
+    // A line an entity: where it is and how fast it goes, the model it wears, and its
+    // components by name.
+    let number = |c: Option<&galaxy_sim::world::Component>, k: &str| {
+        c.and_then(|c| c.fields.get(k)).and_then(Value::as_f64)
+    };
+    let summary: serde_json::Map<String, Value> = world
+        .entities
+        .iter()
+        .map(|(id, components)| {
+            let mut parts = Vec::new();
+            let at = components.get(POSITION);
+            if let (Some(x), Some(y)) = (number(at, "x"), number(at, "y")) {
+                parts.push(format!(
+                    "at ({x:.2}, {y:.2}) angle {:.2}",
+                    number(at, "angle").unwrap_or(0.0)
+                ));
+            }
+            let moving = components.get(MOTION);
+            if let (Some(vx), Some(vy)) = (number(moving, "vx"), number(moving, "vy")) {
+                parts.push(format!("speed {:.2}", (vx * vx + vy * vy).sqrt()));
+            }
+            if let Some(m) = components.get(MODEL) {
+                let text = |k: &str| m.fields.get(k).and_then(Value::as_str).unwrap_or("");
+                let mut worn = format!("wears {}", text("model"));
+                if let Some(s) = number(Some(m), "scale").filter(|s| *s != 1.0) {
+                    worn.push_str(&format!(" at scale {s}"));
+                }
+                if !text("look").is_empty() {
+                    worn.push_str(&format!(" with look {}", text("look")));
+                }
+                parts.push(worn);
+            }
+            let names: Vec<&str> = components.keys().map(String::as_str).collect();
+            let line = if parts.is_empty() {
+                names.join(", ")
+            } else {
+                format!("{}; {}", parts.join(", "), names.join(", "))
+            };
+            (id.clone(), Value::String(line))
+        })
+        .collect();
+    let mut kinds: std::collections::BTreeMap<&str, usize> = Default::default();
+    for f in &world.facts {
+        *kinds.entry(f.kind.as_str()).or_default() += 1;
+    }
     Ok(json!({
-        "entities": entities,
-        "facts": world.facts,
-        "causes": world.causes,
+        "entities": summary,
+        "facts": { "count": world.facts.len(), "kinds": kinds },
+        "causes": world.causes.len(),
+        "compact": "a line an entity: where it is, its speed, its model and its components. \
+                    --entity <id> for one entity's fields, --component <name> for one \
+                    component on every entity, --all for the whole world (every field, the \
+                    facts and causes)",
     }))
 }

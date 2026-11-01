@@ -1,6 +1,6 @@
 //! galaxy-gm's commands, and the guide's topics.
 
-use super::{Command, Topic};
+use super::{Command, Recipe, Topic};
 use crate::discover::Tool;
 
 pub static COMMANDS: &[Command] = &[
@@ -88,9 +88,10 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "--modules <dir>",
-                "components or style only. With components: also the components these \
+                "components, style or inputs. With components: also the components these \
               modules declare. With style: also their looks and models, and which things \
-              wear each (`worn`)",
+              wear each (`worn`). With inputs: the inputs they take and the keys that send \
+              each (`inputs`)",
             ),
         ],
         output: &[
@@ -561,6 +562,7 @@ pub static TOPICS: &[Topic] = &[
                 "game shot",
             ),
         ],
+        recipes: &[],
     },
     Topic {
         name: "notes",
@@ -575,6 +577,7 @@ pub static TOPICS: &[Topic] = &[
             ("Replay to each note and draw it again", "gm audit"),
             ("Film the seconds round a note", "gm film"),
         ],
+        recipes: &[],
     },
     Topic {
         name: "replay",
@@ -597,6 +600,7 @@ pub static TOPICS: &[Topic] = &[
                 "game sim replay",
             ),
         ],
+        recipes: &[],
     },
     Topic {
         name: "motion",
@@ -641,6 +645,42 @@ pub static TOPICS: &[Topic] = &[
             ),
             ("Keep a motion expectation as a test", "gm motion check"),
         ],
+        recipes: &[
+            Recipe {
+                title: "Press a key from the start and measure the approach to its target",
+                steps: &[
+                    "galaxy-gm fields inputs --modules game/modules",
+                    "Write keys.toml with the input from that list: [[input]] tick = 1, \
+                     name = \"<input>\", source = \"keyboard\", payload = { down = true }",
+                    "galaxy film --modules game/modules --inputs keys.toml --from 0 --to 300 \
+                     --probes-only --out films/approach",
+                    "galaxy-gm motion track films/approach --thing ship --to <target>",
+                    "Read approach (top speed, braking_from, stopped_at, arrived_at), gap \
+                     (closest, overshoot, rebound, settled_at) and surface (how near the \
+                     surfaces came: end, contact, overlap).",
+                ],
+            },
+            Recipe {
+                title: "Ram or bump something and measure overlap and bounce",
+                steps: &[
+                    "galaxy-gm fields inputs --modules game/modules",
+                    "Write ram.toml: hold the turn input from tick 1 until the nose points at \
+                     the thing (a turn rate of 180 degrees a second is 6 a tick; galaxy-gm \
+                     fields components --component flight), let go, and hold the thrust \
+                     input from that tick on",
+                    "galaxy film --modules game/modules --inputs ram.toml --from 0 --to 240 \
+                     --probes-only --out films/ram",
+                    "galaxy-gm motion track films/ram --thing ship --to <thing>",
+                    "Read surface.overlap (intervals, seconds, deepest, and whether on ticks or \
+                     only between them), surface.contact and gap.rebound (how far it bounced \
+                     back).",
+                    "galaxy-gm film show films/ram --thing ship --gap <thing> --from <t> --to <t>",
+                    "That is surface.frames_round_it: the gap frame by frame round the first \
+                     overlap. galaxy-gm motion track films/ram --thing <thing> says how far \
+                     the thing itself was pushed.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "modules",
@@ -658,6 +698,7 @@ pub static TOPICS: &[Topic] = &[
                 "gm model",
             ),
         ],
+        recipes: &[],
     },
     Topic {
         name: "style",
@@ -670,6 +711,7 @@ pub static TOPICS: &[Topic] = &[
             "Which keys and fields exist; which things wear a look",
             "gm fields",
         )],
+        recipes: &[],
     },
     Topic {
         name: "install",
@@ -684,5 +726,6 @@ pub static TOPICS: &[Topic] = &[
             ("Which engine galaxy runs", "game doctor"),
             ("The task list, or one topic", "gm guide"),
         ],
+        recipes: &[],
     },
 ];

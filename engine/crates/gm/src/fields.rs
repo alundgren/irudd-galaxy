@@ -32,7 +32,7 @@ const TOPICS: &[(&str, &str)] = &[
     ("manifest", "a module's manifest.toml"),
     (
         "inputs",
-        "an inputs file (--inputs): inputs, notes, hot-loads and zooms by tick",
+        "an inputs file (--inputs): inputs, notes, hot-loads and zooms by tick; with --modules, the inputs those modules take and the keys that send them",
     ),
     (
         "spec",
@@ -76,10 +76,11 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
             }
         }
     }
-    if modules.is_some() && !matches!(topic, Some("components" | "style")) {
+    if modules.is_some() && !matches!(topic, Some("components" | "style" | "inputs")) {
         return Err(Error::Usage(
-            "--modules goes with the components topic (their own components) or the style \
-             topic (their looks and models, and which things wear them)"
+            "--modules goes with the components topic (their own components), the style \
+             topic (their looks and models, and which things wear them) or the inputs \
+             topic (the inputs they take and their keys); manifest and spec don't take it"
                 .into(),
         ));
     }
@@ -96,7 +97,18 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
         Some("style") => style(modules)?,
         Some("components") => components(modules, component)?,
         Some("manifest") => keyed("manifest.toml", manifest::FILE_KEYS),
-        Some("inputs") => keyed("an inputs file", galaxy_sim::scenario::INPUTS_KEYS),
+        Some("inputs") => {
+            let mut v = keyed("an inputs file", galaxy_sim::scenario::INPUTS_KEYS);
+            if let Some(dir) = modules {
+                v["inputs"] = inputs(dir)?;
+                v["inputs_about"] = json!(
+                    "the inputs these modules take, as [[input]] name, with the keys that send \
+                     them (source = \"keyboard\", payload = { down = true } pressed, false let \
+                     go); scripts may send others"
+                );
+            }
+            v
+        }
         Some("spec") => {
             let mut v = keyed("a motion check spec", galaxy_motion::check::SPEC_KEYS);
             let tools: Map<String, Value> = galaxy_motion::TOOLS
@@ -245,6 +257,29 @@ fn components(modules: Option<&String>, only: Option<&String>) -> Result<Value, 
         "about": "A component is a type of data an entity can have, written in start.toml or by scripts. The engine's services act on engine.*; a module writes another module's components only if its manifest lists them in writes.",
         "components": all,
     }))
+}
+
+/// Each event the modules declare, as an input name, with the keys bound to it.
+fn inputs(dir: &str) -> Result<Value, Error> {
+    let mut out = Map::new();
+    for m in read_modules(dir)? {
+        for event in &m.manifest.events {
+            let keys: Vec<&str> = m
+                .manifest
+                .keys
+                .iter()
+                .filter(|(_, e)| *e == event)
+                .map(|(k, _)| k.as_str())
+                .collect();
+            let line = if keys.is_empty() {
+                "no key: sent by scripts or an inputs file".to_owned()
+            } else {
+                format!("keys {}", keys.join(", "))
+            };
+            out.insert(format!("{}.{event}", m.id()), json!(line));
+        }
+    }
+    Ok(Value::Object(out))
 }
 
 /// A file's keys by table: `"tick": "10: the tick it runs on ..."`.

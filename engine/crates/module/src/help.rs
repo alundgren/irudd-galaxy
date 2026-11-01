@@ -371,6 +371,16 @@ pub struct Topic {
     pub about: &'static str,
     /// What you may want to do, and the command (a table path) that does it.
     pub tasks: &'static [(&'static str, &'static str)],
+    /// Recipes: a question that takes several commands, and the steps, each a command
+    /// line (starting `galaxy` or `galaxy-gm`, checked against the table) or a line of
+    /// what to do or read.
+    pub recipes: &'static [Recipe],
+}
+
+/// A question that takes several commands, step by step.
+pub struct Recipe {
+    pub title: &'static str,
+    pub steps: &'static [&'static str],
 }
 
 pub use gm::TOPICS;
@@ -395,6 +405,17 @@ pub fn guide() -> String {
     }
     let names: Vec<&str> = TOPICS.iter().map(|t| t.name).collect();
     let _ = write!(s, "\nTopics: {}.", names.join(", "));
+    let recipes: Vec<String> = TOPICS
+        .iter()
+        .flat_map(|t| {
+            t.recipes
+                .iter()
+                .map(move |r| format!("{} (guide {})", r.title, t.name))
+        })
+        .collect();
+    if !recipes.is_empty() {
+        let _ = write!(s, "\nRecipes: {}.", recipes.join("; "));
+    }
     wrap_long(&s)
 }
 
@@ -410,6 +431,12 @@ pub fn guide_topic(name: &str) -> Option<String> {
             c.example,
             wrap(c.answers, 88).join("\n  ")
         );
+    }
+    for r in t.recipes {
+        let _ = write!(s, "\nRecipe: {}\n", r.title);
+        for (k, step) in r.steps.iter().enumerate() {
+            let _ = writeln!(s, "  {}. {}", k + 1, wrap(step, 86).join("\n     "));
+        }
     }
     let _ = write!(
         s,
@@ -640,7 +667,11 @@ static GAME: &[Command] = &[
                 "hot-load module folders when their files change (implies \
               --realtime)",
             ),
-            ("--state", "print the whole world when done"),
+            (
+                "--state",
+                "print the world when done: a line an entity (where it is, its speed, \
+              its model, its components) and the facts counted by kind",
+            ),
             (
                 "--entity <id>",
                 "with --state: only this entity, by ID or bare name (ship for \
@@ -650,6 +681,11 @@ static GAME: &[Command] = &[
                 "--component <name>",
                 "with --state: only this component, by full name or bare (position \
               for engine.position); the facts are left out",
+            ),
+            (
+                "--all",
+                "with --state: the whole world, every field of every entity, the facts \
+              and causes",
             ),
         ],
         output: &[
@@ -666,8 +702,9 @@ static GAME: &[Command] = &[
             ("log", "what scripts printed"),
             (
                 "state",
-                "with --state: every entity's components, the facts and causes; with \
-              --entity or --component, just those",
+                "with --state: a line an entity and the facts by kind; with --entity or \
+              --component, those entities' and components' fields; with --all, every \
+              field, the facts and causes",
             ),
         ],
         writes: "--save and --record, if given",
@@ -693,7 +730,10 @@ static GAME: &[Command] = &[
             ("--record <file>", "write a recording from the save on"),
             ("--realtime", "run at 30 ticks a second"),
             ("--watch", "hot-load module folders when their files change"),
-            ("--state", "print the whole world when done"),
+            (
+                "--state",
+                "print the world when done: a line an entity, and the facts by kind",
+            ),
             (
                 "--entity <id>",
                 "with --state: only this entity, by ID or bare name (ship for \
@@ -704,11 +744,19 @@ static GAME: &[Command] = &[
                 "with --state: only this component, by full name or bare (position \
               for engine.position); the facts are left out",
             ),
+            (
+                "--all",
+                "with --state: the whole world, every field of every entity, the facts \
+              and causes",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("script_failures, log", "as for sim run"),
-            ("state", "with --state: the whole world"),
+            (
+                "state",
+                "with --state: a line an entity; --entity, --component or --all for fields",
+            ),
         ],
         writes: "--save and --record, if given",
         example: "galaxy sim load save.db --modules game/modules --ticks 30 --state",
@@ -718,7 +766,7 @@ static GAME: &[Command] = &[
     Command {
         tool: Tool::Game,
         path: "sim replay",
-        synopsis: "<recording> [--state [--entity <id>] [--component <name>]]",
+        synopsis: "<recording> [--state [--entity <id>] [--component <name>] [--all]]",
         answers: "Run a recording again from its start with its own module files: does it \
                   end in the same world?",
         about: "Which build runs it: without --build, the launcher runs the build that made \
@@ -731,7 +779,10 @@ static GAME: &[Command] = &[
                 "<recording>",
                 "a recording file (a session's recording.json)",
             ),
-            ("--state", "print the whole world at the end"),
+            (
+                "--state",
+                "print the world at the end: a line an entity, and the facts by kind",
+            ),
             (
                 "--entity <id>",
                 "with --state: only this entity, by ID or bare name (ship for \
@@ -741,6 +792,11 @@ static GAME: &[Command] = &[
                 "--component <name>",
                 "with --state: only this component, by full name or bare (position \
               for engine.position); the facts are left out",
+            ),
+            (
+                "--all",
+                "with --state: the whole world, every field of every entity, the facts \
+              and causes",
             ),
         ],
         output: &[
@@ -759,7 +815,11 @@ static GAME: &[Command] = &[
               the recording's build when they differ)",
             ),
             ("notes", "each note's tick, text and the world's hash there"),
-            ("state", "with --state: the whole world at the end"),
+            (
+                "state",
+                "with --state: the world at the end, a line an entity; --entity, \
+              --component or --all for fields",
+            ),
         ],
         writes: "",
         example: "galaxy sim replay recording.json",
@@ -863,6 +923,38 @@ mod tests {
         }
         let g = guide();
         assert!(g.lines().count() < 80, "the guide stays short:\n{g}");
+    }
+
+    /// Every command line in a recipe runs a command in the table with options it takes.
+    #[test]
+    fn recipes_run_real_commands() {
+        let mut lines = 0;
+        for t in TOPICS {
+            for r in t.recipes {
+                for step in r.steps {
+                    let words: Vec<String> = step.split_whitespace().map(str::to_owned).collect();
+                    let tool = match words.first().map(String::as_str) {
+                        Some("galaxy") => Tool::Game,
+                        Some("galaxy-gm") => Tool::Gm,
+                        _ => continue,
+                    };
+                    lines += 1;
+                    let (c, _) = resolve(tool, &words[1..])
+                        .unwrap_or_else(|| panic!("{}: no command in `{step}`", r.title));
+                    let options = c.options();
+                    for w in &words {
+                        if let Some(o) = w.strip_prefix("--") {
+                            assert!(options.contains(&o), "{}: `{step}`: --{o}", r.title);
+                        }
+                    }
+                }
+            }
+            if !t.recipes.is_empty() {
+                let text = guide_topic(t.name).unwrap();
+                assert!(text.contains("Recipe: "), "{text}");
+            }
+        }
+        assert!(lines >= 4, "the recipes give their commands");
     }
 
     #[test]

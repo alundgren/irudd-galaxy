@@ -149,8 +149,8 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "surface.frames_round_it",
-                "the film show command that lists the gap frame by frame round the first \
-              overlap (else the first contact)",
+                "the film show command that lists the gap frame by frame round the start \
+              of the first overlap (else the first contact), half a second at most",
             ),
             (
                 "zooms",

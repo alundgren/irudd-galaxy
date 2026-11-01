@@ -18,7 +18,10 @@ galaxy sim run --modules tests/modules --watch --ticks 900   # edit a script mea
 ```
 
 Every command prints one JSON object: the tick, the world's hash, the modules, script
-failures, hot-loads, what scripts printed, and with `--state` the whole world.
+failures, hot-loads, what scripts printed, and with `--state` the world: a line an
+entity (where it is, its speed, the model it wears, its components by name) and the facts
+counted by kind, so it stays a screenful. `--entity <id>` and `--component <name>` print
+those fields in full; `--all` prints every field, the facts and causes.
 
 ## Saves
 
@@ -83,8 +86,8 @@ widget clicks fit the same shape later.
 module folders), starts from the recorded world, applies each input and hot-load on its
 tick, and compares the end hash with the recorded one. It reports the world's hash at
 every note, so an audit can jump to a noted moment. A different end exits 5 with kind
-`replay_diverged`. `--state` prints the world at the end; `--entity` and `--component`
-(also on `sim run` and `sim load`) keep just one entity or component.
+`replay_diverged`. `--state` prints the world at the end, as for `sim run`: a line an
+entity, `--entity` and `--component` for fields, `--all` for everything.
 
 **Which build.** The launcher runs a recording's own build for `sim replay` and `audit`
 when it is installed; `--build <name>` before the command runs another. `galaxy-gm film`
