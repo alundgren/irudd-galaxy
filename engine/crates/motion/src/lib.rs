@@ -86,6 +86,10 @@ fn kept(tool: &str) -> &'static [&'static str] {
     match tool {
         "track" => &[
             "thing",
+            "world.displacement",
+            "world.distance",
+            "world.speed_max",
+            "world.speed_max_at",
             "screen.judder",
             "camera.judder",
             "screen.offset_px.max",
@@ -99,9 +103,17 @@ fn kept(tool: &str) -> &'static [&'static str] {
             "gap.rebound",
             "gap.rebound_after",
             "gap.settled_at",
+            "surface",
             "approach",
         ],
-        "dots" => &["drift_px_per_frame", "moving_steps", "steps", "popped:3"],
+        "dots" => &[
+            "drift_px_per_frame",
+            "moving_steps",
+            "steps",
+            "lines:6",
+            "popped_unexplained",
+            "popped:3",
+        ],
         "strip" => &[
             "along",
             "drift_px_per_frame",

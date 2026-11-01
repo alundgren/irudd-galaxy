@@ -7,6 +7,7 @@
 //! film.json           how it was shot, the things in it and what changed (small)
 //! frames.jsonl        a frame a line: time, tick, camera and where every thing is
 //! lines.jsonl         a frame a line: every line and dot it drew
+//! outlines.json       each thing's outline on the plane, for gaps between surfaces
 //! frames/00000.png    each frame, lossless (none for a probes-only film)
 //! ```
 //!
@@ -59,6 +60,66 @@ pub struct Manifest {
     #[serde(default)]
     pub changes: Vec<Change>,
     pub frames: Vec<Frame>,
+    /// Each thing's outline on the plane, by entity ID (kept in `outlines.json`). Empty
+    /// in films from before outlines were kept.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub outlines: BTreeMap<String, Outline>,
+}
+
+/// A thing's outline on the sim plane, as collision sees it: how far it reaches from its
+/// centre in each of `base.len()` directions evenly round the circle from +x, in its own
+/// frame (facing +x), scale applied. `morphed` is the reach at morph weight 1, when the
+/// model morphs; a frame's thing says its weight.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Outline {
+    pub base: Vec<f32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morphed: Vec<f32>,
+}
+
+impl Outline {
+    /// The reach along world direction `k` when turned by `angle` and morphed by `morph`.
+    fn reach(&self, k: usize, angle: f32, morph: f32) -> f32 {
+        let n = self.base.len();
+        let step = std::f32::consts::TAU / n as f32;
+        let at = (k as f32 - angle / step).rem_euclid(n as f32);
+        let i = (at.floor() as usize) % n;
+        let j = (i + 1) % n;
+        let t = at - at.floor();
+        let m = morph.clamp(0.0, 1.0);
+        let mix = |q: usize| match self.morphed.get(q) {
+            Some(to) if m > 0.0 => self.base[q] + (to - self.base[q]) * m,
+            _ => self.base[q],
+        };
+        mix(i) + (mix(j) - mix(i)) * t
+    }
+}
+
+/// The gap between two things' outlines along the line between their centres, as
+/// collision measures it: how far `b`'s centre is from where it would just touch `a`.
+/// Negative when they overlap; none when they have outlines of different sampling.
+pub fn surface_gap(a: (&Outline, &Thing), b: (&Outline, &Thing)) -> Option<f32> {
+    let n = a.0.base.len();
+    if n < 8 || b.0.base.len() != n {
+        return None;
+    }
+    let (dx, dy) = (b.1.x - a.1.x, b.1.y - a.1.y);
+    let distance = (dx * dx + dy * dy).sqrt();
+    let angle = dy.atan2(dx);
+    let (ux, uy) = (angle.cos(), angle.sin());
+    let morph = |t: &Thing| t.morph.unwrap_or(0.0);
+    let touching = (0..n)
+        .filter_map(|k| {
+            let d = std::f32::consts::TAU * k as f32 / n as f32;
+            let along = ux * d.cos() + uy * d.sin();
+            (along > 1e-6).then(|| {
+                let ra = a.0.reach(k, a.1.angle, morph(a.1));
+                let rb = b.0.reach((k + n / 2) % n, b.1.angle, morph(b.1));
+                (ra + rb) / along
+            })
+        })
+        .fold(f32::INFINITY, f32::min);
+    touching.is_finite().then_some(distance - touching)
 }
 
 /// `film.json` in format 2: how the film was made, with a summary of its frames; the
@@ -128,12 +189,31 @@ impl Manifest {
             files: serde_json::json!({
                 "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed, reach)",
                 "lines.jsonl": "a frame a line: the lines it drew (kind, closed, alpha, width, points, phase, spacing, dots)",
+                "outlines.json": "each thing's outline on the plane: its reach in evenly spaced directions from +x in its own frame (base, and morphed for a model that morphs)",
                 "frames/": "the pictures, frames/00000.png on",
                 "motion/": "the motion tools' pictures",
                 "show": "galaxy-gm film show <film> prints the probes compactly",
             }),
         };
         let header = serde_json::to_string_pretty(&header).map_err(|e| e.to_string())?;
+        if !self.outlines.is_empty() {
+            let rounded: BTreeMap<&String, Value> = self
+                .outlines
+                .iter()
+                .map(|(id, o)| {
+                    let r = |v: &[f32]| v.iter().map(|x| round(*x, 3)).collect::<Vec<_>>();
+                    let mut v = serde_json::json!({ "base": r(&o.base) });
+                    if !o.morphed.is_empty() {
+                        v["morphed"] = serde_json::json!(r(&o.morphed));
+                    }
+                    (id, v)
+                })
+                .collect();
+            let text = serde_json::to_string(&rounded).map_err(|e| e.to_string())?;
+            let path = dir.join("outlines.json");
+            std::fs::write(&path, text)
+                .map_err(|e| format!("can't write {}: {e}", path.display()))?;
+        }
         for (name, text) in [
             ("frames.jsonl", frames),
             ("lines.jsonl", lines),
@@ -335,6 +415,9 @@ pub struct Thing {
     /// How far its model reaches from its centre on the plane, world units.
     #[serde(default)]
     pub reach: Option<f32>,
+    /// Its model's morph weight, when it has one above 0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morph: Option<f32>,
 }
 
 impl Thing {
@@ -403,6 +486,7 @@ impl Film {
                     builds: h.builds,
                     changes: h.changes,
                     frames: read_frames(dir)?,
+                    outlines: read_outlines(dir)?,
                 }
             }
             _ => {
@@ -515,6 +599,16 @@ impl Film {
     }
 }
 
+/// `outlines.json`, if the film has one.
+fn read_outlines(dir: &Path) -> Result<BTreeMap<String, Outline>, String> {
+    let path = dir.join("outlines.json");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|e| format!("{} is not a film's outlines: {e}", path.display())),
+        Err(_) => Ok(BTreeMap::new()),
+    }
+}
+
 /// `frames.jsonl` with each frame's lines from `lines.jsonl`.
 fn read_frames(dir: &Path) -> Result<Vec<Frame>, String> {
     let read = |name: &str| {
@@ -575,6 +669,49 @@ mod tests {
             view_proj: m,
             per_pixel: 0.0,
         }
+    }
+
+    #[test]
+    fn surfaces_are_measured_outline_to_outline() {
+        let at = |x: f32, angle: f32| Thing {
+            x,
+            y: 0.0,
+            height: 0.0,
+            angle,
+            screen: None,
+            on_screen: false,
+            followed: false,
+            reach: None,
+            morph: None,
+        };
+        let circle = |r: f32| Outline {
+            base: vec![r; 128],
+            morphed: Vec::new(),
+        };
+        let (a, b) = (circle(1.0), circle(2.0));
+        let gap = surface_gap((&a, &at(0.0, 0.0)), (&b, &at(5.0, 0.0))).unwrap();
+        assert!((gap - 2.0).abs() < 0.01, "{gap}");
+        let overlap = surface_gap((&a, &at(0.0, 0.0)), (&b, &at(2.5, 0.0))).unwrap();
+        assert!((overlap + 0.5).abs() < 0.01, "{overlap}");
+        // A long thing (reaching 3 along its own +x, 1 across) turned a quarter round
+        // reaches 1 towards +x.
+        let long = Outline {
+            base: (0..128)
+                .map(|k| {
+                    let t = std::f32::consts::TAU * k as f32 / 128.0;
+                    (3.0 * t.cos().abs()).max(t.sin().abs())
+                })
+                .collect(),
+            morphed: Vec::new(),
+        };
+        let facing = surface_gap((&long, &at(0.0, 0.0)), (&a, &at(6.0, 0.0))).unwrap();
+        let turned = surface_gap(
+            (&long, &at(0.0, std::f32::consts::FRAC_PI_2)),
+            (&a, &at(6.0, 0.0)),
+        )
+        .unwrap();
+        assert!((facing - 2.0).abs() < 0.05, "{facing}");
+        assert!((turned - 4.0).abs() < 0.05, "{turned}");
     }
 
     #[test]

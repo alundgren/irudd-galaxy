@@ -50,6 +50,8 @@ pub(crate) struct Options {
     pub component: Option<String>,
     /// `--crop <thing>`: a shot framed round one thing.
     pub crop: Option<String>,
+    /// `--builds a,b`: film with two installed builds and compare.
+    pub builds: Option<String>,
 }
 
 pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
@@ -106,6 +108,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--entity" => options.entity = Some(value),
             "--component" => options.component = Some(value),
             "--crop" => options.crop = Some(value),
+            "--builds" => options.builds = Some(value),
             "--size" => {
                 let size = value
                     .split_once('x')

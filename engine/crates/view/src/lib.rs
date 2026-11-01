@@ -10,6 +10,7 @@
 //! `engine/docs/renderer-and-style.md`.
 
 pub mod assets;
+pub mod builds;
 pub mod course;
 pub mod film;
 

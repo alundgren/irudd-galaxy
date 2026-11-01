@@ -86,13 +86,15 @@ every note, so an audit can jump to a noted moment. A different end exits 5 with
 `replay_diverged`. `--state` prints the world at the end; `--entity` and `--component`
 (also on `sim run` and `sim load`) keep just one entity or component.
 
-**Which build.** The launcher runs a recording's own build for `sim replay`, `audit` and
-`film` when it is installed; `--build <name>` before the command runs another. A replay,
-audit or film reports `builds`: the build that recorded the session, the one working on
-it now, whether they are the same, and a note. The world can replay identically on a
-newer build while it draws differently (a drawing defect fixed since), so a film or audit
-on another build says plainly that it may not show what the player saw, and gives the
-command that runs the recording's build.
+**Which build.** The launcher runs a recording's own build for `sim replay` and `audit`
+when it is installed; `--build <name>` before the command runs another. `galaxy-gm film`
+draws with the build that runs it, or with the recording's build when given
+`--as-recorded` (it runs that build's executable to draw, then brings the film up to its
+own format). A replay, audit or film reports `builds`: the build that recorded the
+session, the one working on it now, whether they are the same, and a note. The world can
+replay identically on a newer build while it draws differently (a drawing defect fixed
+since), so a film or audit on another build says plainly that it may not show what the
+player saw, and gives the command that uses the recording's build.
 
 ## Played sessions and F8 notes
 

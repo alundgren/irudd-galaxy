@@ -97,6 +97,11 @@ pub fn builds(recorded: &BuildStamp, this: &BuildStamp, act: &str, command: &str
         ),
         Some(false) => {
             let run = match &recorded.name {
+                // galaxy-gm films with another build itself.
+                Some(_) if act == "drew" => format!(
+                    "{command} --as-recorded (galaxy-gm runs the recording's build to draw it; \
+                     --builds recorded,this films both and compares them)"
+                ),
                 Some(name) => {
                     let (tool, rest) = command.split_once(' ').unwrap_or((command, ""));
                     format!(
@@ -441,7 +446,10 @@ mod tests {
             note.contains("may not look like what the player saw"),
             "{note}"
         );
-        assert!(note.contains("galaxy-gm --build a film <rec>"), "{note}");
+        assert!(
+            note.contains("galaxy-gm film <rec> --as-recorded"),
+            "{note}"
+        );
         assert!(note.contains("recorded by a, drawn by b"), "{note}");
         let b = builds(
             &stamp(None),

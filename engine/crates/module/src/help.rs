@@ -554,6 +554,9 @@ static GAME: &[Command] = &[
                 ticks and the frame is drawn between the last two, as `galaxy play` draws at \
                 that rate. Scenes are built from ten seconds before the first frame, so effects \
                 are under way. For a played session use `galaxy-gm film <recording>`.\n\
+                --builds a,b films the same run with two installed builds (an older one is \
+                asked only for what every build since films began takes; this build adds the \
+                rest) into <out>/<build> each, and compares them.\n\
                 Catching defects: thin lines breaking, one-frame pops and flicker show at 60 fps \
                 and at the size the player had (1280x720 or more); at 30 fps or 960x540 they can \
                 be missed.",
@@ -579,6 +582,11 @@ static GAME: &[Command] = &[
                 "--probes-only",
                 "no pictures and no GPU: where things are on screen only \
               (enough for track and dots)",
+            ),
+            (
+                "--builds <a,b>",
+                "film with two installed builds and compare: each `this`, a build's \
+              name, or a part only one has (its commit)",
             ),
         ],
         output: &[

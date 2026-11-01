@@ -48,6 +48,7 @@ fn thing(x: f32, y: f32) -> Thing {
         on_screen: true,
         followed: false,
         reach: None,
+        morph: None,
     }
 }
 
@@ -85,6 +86,7 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         builds: serde_json::Value::Null,
         changes: Vec::new(),
         frames,
+        outlines: BTreeMap::new(),
     };
     manifest.write(dir).unwrap();
 }

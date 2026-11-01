@@ -8,7 +8,8 @@
 //!   `--dev` build).
 //! - `galaxy sim replay <recording>` and `galaxy-gm audit <recording>`: the build the
 //!   recording names, if it names one (a recording made by an installed build does), so a
-//!   replay runs on the engine that made it.
+//!   replay runs on the engine that made it. (`galaxy-gm film` runs the newest build, which
+//!   draws with the recording's build itself when asked: `--as-recorded`.)
 //! - Otherwise the newest non-dev build that is at least the highest minimum engine version
 //!   of the modules the arguments name (`check <path>`, `play --modules <dir>`, `doctor`:
 //!   the working folder). If none is new enough, the newest build, whose version gate

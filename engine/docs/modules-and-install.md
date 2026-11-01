@@ -164,12 +164,14 @@ It picks:
 
 1. `--build <name>` as the first argument: exactly that build. It is taken off the
    arguments.
-2. For `galaxy sim replay <recording>`, `galaxy-gm audit <recording>` and `galaxy-gm film
-   <recording>` (a recording file or its session folder): the build the recording names,
-   if it names one (a recording made by an installed build does), so a replay runs on the
-   engine that made it. If that build is not installed it exits 2 with kind
-   `not_installed`. A command line asking for `--help` skips this: help is the chosen
-   build's.
+2. For `galaxy sim replay <recording>` and `galaxy-gm audit <recording>` (a recording
+   file or its session folder): the build the recording names, if it names one (a
+   recording made by an installed build does), so a replay runs on the engine that made
+   it. If that build is not installed it exits 2 with kind `not_installed`. A command
+   line asking for `--help` skips this: help is the chosen build's. `galaxy-gm film` is
+   not routed: older builds lack newer film options, so the newest build films and, with
+   `--as-recorded` or `--builds`, runs an older build's executable itself to draw
+   (`motion-tools.md`, "Filming with other builds").
 3. Otherwise the newest non-dev build whose version is at least the highest
    `min_engine_version` of the modules the arguments name (the table above). If none is
    new enough, the newest one, whose own gate refuses with the message above.

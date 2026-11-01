@@ -17,14 +17,15 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, sync_channel};
 use std::sync::{Arc, Mutex};
 
-use galaxy_api::engine::{CAMERA, HOT_LOADED, MODEL, POSITION, TICKS_PER_SECOND};
+use galaxy_api::engine::{BODY, CAMERA, HOT_LOADED, MODEL, POSITION, TICKS_PER_SECOND};
 use galaxy_module::module::Module;
-use galaxy_motion::film::{Cam, Change, FORMAT, Frame, LineProbe, Manifest, Thing};
+use galaxy_motion::film::{Cam, Change, FORMAT, Frame, LineProbe, Manifest, Outline, Thing};
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Camera, Line, LineStyle, Renderer, RgbaImage, Scene};
 use galaxy_sim::changes;
 use galaxy_sim::recording::RecEvent;
 use galaxy_sim::scenario::InputsFile;
+use galaxy_sim::shape::Shapes;
 use galaxy_sim::{BuildStamp, Input, Recording, Replay, Session, World};
 use serde_json::Value;
 
@@ -256,6 +257,7 @@ pub fn shoot(
     let mut frames = Vec::new();
     let mut changes = Vec::new();
     let mut hash: Option<(u64, String)> = None;
+    let mut kept_outlines = BTreeMap::new();
 
     let (tx, rx) = sync_channel::<(PathBuf, RgbaImage)>(8);
     let rx = Arc::new(Mutex::new(rx));
@@ -286,6 +288,9 @@ pub fn shoot(
             let scene = view.scene(world, alpha, logical, time);
             if k < first {
                 continue;
+            }
+            if k == first {
+                kept_outlines = outlines(world, stepper.modules());
             }
             let index = frames.len();
             let file = draw.then(|| format!("frames/{index:05}.png"));
@@ -347,6 +352,7 @@ pub fn shoot(
         builds: builds(&shoot.source),
         changes,
         frames,
+        outlines: kept_outlines,
     };
     manifest.write(&shoot.out)?;
     Ok(manifest)
@@ -468,6 +474,58 @@ fn things(
                     on_screen,
                     followed: followed.as_deref() == Some(id.as_str()),
                     reach: view.reach(world, id),
+                    morph: world
+                        .component(id, MODEL)
+                        .and_then(|m| m.fields.get("morph"))
+                        .and_then(Value::as_f64)
+                        .filter(|m| m.is_finite() && *m > 0.0)
+                        .map(|m| m as f32),
+                },
+            ))
+        })
+        .collect()
+}
+
+/// Every drawn thing's outline on the plane as collision sees it, in its own frame: a
+/// body's circle, else its model's profile, scaled.
+fn outlines(world: &World, modules: Vec<&Module>) -> BTreeMap<String, Outline> {
+    let shapes = Shapes::of(modules);
+    let number = |v: Option<&Value>| v.and_then(Value::as_f64).filter(|v| v.is_finite());
+    world
+        .entities
+        .iter()
+        .filter(|(_, c)| c.contains_key(POSITION) && c.contains_key(MODEL))
+        .filter_map(|(id, _)| {
+            let radius = world
+                .component(id, BODY)
+                .and_then(|b| number(b.fields.get("radius")))
+                .filter(|r| *r > 0.0);
+            if let Some(r) = radius {
+                let base = vec![r as f32; galaxy_sim::shape::DIRECTIONS];
+                return Some((
+                    id.clone(),
+                    Outline {
+                        base,
+                        morphed: Vec::new(),
+                    },
+                ));
+            }
+            let model = &world.component(id, MODEL)?.fields;
+            let profile = shapes.models.get(model.get("model")?.as_str()?)?;
+            let scale = number(model.get("scale"))
+                .filter(|s| *s > 0.0)
+                .unwrap_or(1.0);
+            let scaled = |r: &[f64]| r.iter().map(|v| (v * scale) as f32).collect::<Vec<_>>();
+            let morphed = if profile.morphed == profile.base {
+                Vec::new()
+            } else {
+                scaled(&profile.morphed)
+            };
+            Some((
+                id.clone(),
+                Outline {
+                    base: scaled(&profile.base),
+                    morphed,
                 },
             ))
         })

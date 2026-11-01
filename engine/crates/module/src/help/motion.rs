@@ -21,9 +21,9 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "motion track",
         synopsis: "<film> [--thing <x>] [--to <y>] [--tolerance <units>]",
-        answers: "How does one thing move: does the camera follow it smoothly, does it judder \
-                  (move on ticks, not frames), does it overshoot, bounce back and settle where \
-                  it should?",
+        answers: "How does one thing move: how far did it get and how fast, and when; does \
+                  the camera follow it smoothly, does it judder (move on ticks, not frames), \
+                  does it overshoot, bounce back and settle where it should?",
         about: "Reads the probes only, so a probes-only film works. Judder compares each \
                 frame's step with the mean of the steps either side: smooth motion, even \
                 speeding up, scores near 0; a thing drawn at its tick position at 60 fps steps \
@@ -60,8 +60,19 @@ pub static COMMANDS: &[Command] = &[
                 "the thing, and whether the camera follows it",
             ),
             ("span", "the first and last frame: frame, t (seconds), tick"),
-            ("world.distance", "how far it went, world units"),
-            ("world.speed_max, speed_end", "world units a second"),
+            (
+                "world.displacement",
+                "start to end in a straight line: units, from and to (x, y), \
+              between (the first and last frame it is in)",
+            ),
+            (
+                "world.distance",
+                "how far it went along its path, world units",
+            ),
+            (
+                "world.speed_max, speed_max_at, speed_end",
+                "its top speed (world units a second) and when, and its speed at the end",
+            ),
             (
                 "world.judder",
                 "unevenness of its world steps, per pixel (0 smooth, 1 or more \
@@ -112,6 +123,14 @@ pub static COMMANDS: &[Command] = &[
                 "gap.settled_at",
                 "when it came within tolerance of where it ends and stayed \
               for half a second; null if it never did",
+            ),
+            (
+                "surface",
+                "with --to: the gap between the two things' outlines (surface to \
+              surface, as collision measures it), world units: start, closest and \
+              closest_at, end and end_at (when it arrived, else the film's end), contact \
+              (each run of frames under contact_below: from, to, least; negative is \
+              overlap). Films from older builds keep no outlines and say so",
             ),
             (
                 "zooms",
@@ -182,11 +201,20 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "lines",
-                "per dotted line: px_per_frame, moving_steps, steps",
+                "per dotted line (a course's leg, followed by where it is drawn \
+              from, so a flight of several legs is measured leg by leg): px_per_frame, \
+              moving_steps, steps. The line that moves most, of those seen for a quarter \
+              second or more, decides drift_px_per_frame",
             ),
             (
                 "popped",
-                "frames where dots appeared or vanished instead of fading",
+                "frames where dots appeared or vanished instead of fading: frame, t, \
+              tick, dots, and `with`, the film's change (a leg finished, a new order) within \
+              a quarter second when the lines drawn changed there: expected",
+            ),
+            (
+                "popped_unexplained",
+                "frames of popping dots with no such change",
             ),
         ],
         writes: "<film>/motion/dots-<options>.png",
@@ -386,6 +414,14 @@ pub static COMMANDS: &[Command] = &[
               see), near (things whose reach is in or next to the box)",
             ),
             (
+                "events.closeup, events.changed",
+                "the three strongest: a picture of the frame before (moved into \
+              this frame's view), the frame it changed on and the changed pixels (warm \
+              brighter, blue darker), enlarged; changed says how many pixels, their centre \
+              and the thing nearest them. A tall thing shows a thin outline of change from \
+              the camera's move alone",
+            ),
+            (
                 "left_out",
                 "how many events --from/--to, --near and the cap left out; absent when \
               none",
@@ -405,10 +441,11 @@ pub static COMMANDS: &[Command] = &[
               (blue early, yellow late) and the events boxed with their times",
             ),
         ],
-        writes: "<film>/motion/flicker-<options>.png",
+        writes: "<film>/motion/flicker-<options>.png, and -event-1.png to -event-3.png \
+                 beside it",
         example: "galaxy-gm motion flicker films/note-0001",
-        next: "galaxy-gm motion sheet <film> --at <from t> --crop <x,y,w,h of box_px> to \
-               see the frames round an event.",
+        next: "Open an event's closeup first; galaxy-gm motion sheet <film> --at <from t> \
+               --crop <x,y,w,h of box_px> shows the frames round it.",
         topic: "motion",
     },
     Command {

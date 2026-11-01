@@ -6,6 +6,11 @@
 //! that is still in the world matches at zero distance; one that slides moves every dot by
 //! the same step along its line. A dot with no match within half a spacing popped in or
 //! out instead of fading.
+//!
+//! Each line (a leg of a course) is followed from frame to frame by where it is drawn
+//! from, so a flight of several legs is measured leg by leg. When the lines drawn change
+//! (a leg finished, a new order) on or round a change the film lists, dots that pop there
+//! are marked with that change: expected, not a fault of the pattern.
 
 use serde_json::{Value, json};
 
@@ -30,9 +35,12 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     let frames = film.frames();
     // Each line on its own: the leg being flown may slide while the legs after it stand
     // still, and a median over every dot would hide it. A line is known by where it is
-    // drawn from.
+    // drawn from, followed from frame to frame (the start can shift a little as it is
+    // drawn); a line whose start is new is a new leg.
     let mut lines: BTreeMap<String, Vec<Option<f32>>> = BTreeMap::new();
+    let mut starts: Vec<([f32; 2], String)> = Vec::new();
     let mut popped = Vec::new();
+    let mut set_changed = vec![false; frames.len()];
     let mut matched_total = 0usize;
     for i in 1..frames.len() {
         let (before, now) = (&frames[i - 1], &frames[i]);
@@ -75,14 +83,47 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 }
             }
             matched_total += steps.len();
-            let key = format!("the dotted line from ({:.1}, {:.1})", a[0], a[1]);
+            let near = starts
+                .iter()
+                .enumerate()
+                .map(|(k, (p, _))| (k, ((p[0] - a[0]).powi(2) + (p[1] - a[1]).powi(2)).sqrt()))
+                .filter(|(_, d)| *d <= spacing.max(0.5))
+                .min_by(|x, y| x.1.total_cmp(&y.1));
+            let key = match near {
+                Some((k, _)) => {
+                    starts[k].0 = [a[0], a[1]];
+                    starts[k].1.clone()
+                }
+                None => {
+                    let key = format!("the dotted line from ({:.1}, {:.1})", a[0], a[1]);
+                    starts.push(([a[0], a[1]], key.clone()));
+                    key
+                }
+            };
             let series = lines.entry(key).or_insert_with(|| vec![None; frames.len()]);
             series[i] = (!steps.is_empty()).then(|| median(&steps));
         }
+        let count = |f: &crate::film::Frame| f.lines.iter().filter(|l| l.kind == "dotted").count();
+        set_changed[i] = count(before) != count(now);
         if pops > 0 {
             popped.push((i, pops));
         }
     }
+    // Pops where the lines drawn changed round a change the film lists (a quarter second
+    // either side): a leg finishing or a new order, expected.
+    let changes = &film.manifest.changes;
+    let cause = |i: usize| {
+        let t = frames[i].time;
+        let changed = (i.saturating_sub(15)..(i + 16).min(frames.len())).any(|k| set_changed[k]);
+        changes
+            .iter()
+            .filter(|c| (c.t - t).abs() <= 0.25)
+            .min_by(|a, b| (a.t - t).abs().total_cmp(&(b.t - t).abs()))
+            .filter(|_| changed)
+            .map(|c| format!("{} {} at t={:.3}", c.kind, c.what, c.t))
+    };
+    let explained: Vec<Option<String>> = popped.iter().map(|(i, _)| cause(*i)).collect();
+    let unexplained = explained.iter().filter(|e| e.is_none()).count();
     // The line that moves most decides.
     let summary: Vec<(String, f32, usize, usize)> = lines
         .iter()
@@ -92,9 +133,14 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             (k.clone(), median(&values), moving, values.len())
         })
         .collect();
+    // Of lines seen for a quarter second or more, so a leg glimpsed for a frame or two
+    // doesn't decide.
+    let enough = (film.manifest.fps as usize / 4).max(3);
     let worst = summary
         .iter()
+        .filter(|l| l.3 >= enough)
         .max_by(|a, b| a.1.abs().total_cmp(&b.1.abs()).then(a.2.cmp(&b.2)))
+        .or_else(|| summary.iter().max_by_key(|l| l.3))
         .cloned();
     let fps = film.manifest.fps as f32;
     let (drift, moving_frames, steps) = worst.as_ref().map_or((0.0, 0, 0), |w| (w.1, w.2, w.3));
@@ -115,10 +161,15 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             d.abs() * fps,
         ),
     };
-    if !popped.is_empty() {
+    if unexplained > 0 {
         reading.push_str(&format!(
-            "; dots popped in or out without fading in {} frames",
-            popped.len()
+            "; dots popped in or out without fading in {unexplained} frames"
+        ));
+    }
+    if unexplained < popped.len() {
+        reading.push_str(&format!(
+            "; {} frame(s) of popping dots come with a change in the film (a leg finished or a new order: expected, though `sheet --at` shows whether the pattern jumps)",
+            popped.len() - unexplained
         ));
     }
     let times: Vec<f32> = frames.iter().map(|f| f.time).collect();
@@ -156,11 +207,15 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "drift_px_per_second": round(drift * fps, 1),
         "moving_steps": moving_frames,
         "steps": steps,
-        "popped": popped.iter().take(12).map(|(i, n)| {
+        "popped": popped.iter().zip(&explained).take(12).map(|((i, n), why)| {
             let mut m = when(&frames[*i]);
             m["dots"] = json!(n);
+            if let Some(why) = why {
+                m["with"] = json!(why);
+            }
             m
         }).collect::<Vec<_>>(),
+        "popped_unexplained": unexplained,
         "reading": reading,
         "image": out.display().to_string(),
     }))

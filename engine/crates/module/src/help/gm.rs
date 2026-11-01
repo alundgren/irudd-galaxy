@@ -231,7 +231,8 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "--from <t>, --to <t>",
-                "only frames between these times, seconds",
+                "only frames between these times, seconds; a time between two \
+              frames (or the same time twice) shows the nearest frame, and `snapped` says so",
             ),
             ("--every <n>", "every nth frame"),
             (
@@ -262,6 +263,10 @@ pub static COMMANDS: &[Command] = &[
                 "every thing in the film; inputs, orders and arrivals",
             ),
             ("more", "rows left out"),
+            (
+                "snapped",
+                "the time asked for had no frame: which frame is shown instead",
+            ),
         ],
         writes: "",
         example: "galaxy-gm film show films/dock --thing ship,berth --from 2 --to 3",
@@ -313,16 +318,22 @@ pub static COMMANDS: &[Command] = &[
         path: "film",
         synopsis: "<recording> (--note <n> | --from <tick> --to <tick>) [options]",
         answers: "Film a played session again round one of its notes (or between two ticks), \
-                  frame by frame as the window showed it, with the zoom the player had.",
-        about: "Which build draws: without --build, the launcher runs the build that \
-                made the recording (when it is installed), so the picture is what the player \
-                saw. `galaxy-gm --build <name> film ...` draws with that build instead: a \
-                drawing defect fixed or added since then shows differently. `builds` always \
-                says which build recorded the session and which drew this, and its note says \
-                plainly when they differ and how to see what the player saw. Every note inside the film is checked against the world's hash it kept, so a film of a different \
-                world exits 5 (replay_diverged) rather than pass for what the player saw. By \
-                default the film is at the note's own frame size, which is what catches thin \
-                lines breaking and one-frame flicker.",
+                  frame by frame as the window showed it; by this build, the recording's or two.",
+        about: "Which build draws: this one, unless told. --as-recorded draws with the build \
+                that recorded the session (installed builds sit side by side; galaxy-gm doctor \
+                lists them): this build runs that one's galaxy-gm to draw, then stamps the \
+                film with the build that drew it and adds what an older build doesn't record \
+                (the film's changes, things' reach, outlines for surface gaps) from its own \
+                replay of the same span, so every tool reads it. --builds a,b films the same \
+                span with two builds into <out>/<build> each and compares them (FLIP). \
+                Older builds will always lack newer commands and options: they are asked only \
+                for what every build since films began takes, and a build that predates films \
+                says so. `builds` says which build recorded the session and which drew this, \
+                and its note says plainly when they differ. Every note inside the film is \
+                checked against the world's hash it kept, so a film of a different world exits \
+                5 (replay_diverged) rather than pass for what the player saw. By default the \
+                film is at the note's own frame size (window scale included), which is what \
+                catches thin lines breaking and one-frame flicker.",
         args: &[
             ("<recording>", "a recording, or a session folder"),
             ("--note <n>", "the note to film round, counting from 1"),
@@ -346,6 +357,16 @@ pub static COMMANDS: &[Command] = &[
                 "--probes-only",
                 "no pictures and no GPU: positions on screen only",
             ),
+            (
+                "--as-recorded",
+                "draw with the build that recorded the session, as the player saw it",
+            ),
+            (
+                "--builds <a,b>",
+                "film with two builds and compare: each `recorded`, `this`, an installed \
+              build's name, or a part only one has (its commit); recorded,this shows what a \
+              fix changed",
+            ),
         ],
         output: &[
             ("out", "the film folder"),
@@ -365,6 +386,15 @@ pub static COMMANDS: &[Command] = &[
                 "builds",
                 "recorded, drawn, same, note: as for audit; every motion tool's report \
               repeats it",
+            ),
+            (
+                "drawn_by, added",
+                "with another build: which drew it, and what this build added",
+            ),
+            (
+                "films, compare",
+                "with --builds: each film (build, out) and where they differ: \
+              reading, visibly_different_frames, image",
             ),
         ],
         writes: "the film folder (--out): film.json (how it was filmed, small), frames.jsonl \
@@ -481,7 +511,7 @@ pub static TOPICS: &[Topic] = &[
         about: "A recording holds the build that made it, the exact module files, the world it \
                 started from, every input, hot-load, note and zoom by tick, and the hash it \
                 ended with. Replaying it on the same build gives the same world bit for bit; \
-                the launcher picks that build. Ticks are 30 a second; the world's hash says \
+                the launcher picks that build for replay and audit. Ticks are 30 a second; the world's hash says \
                 whether two worlds are the same. Inputs files script a run: [[input]] (tick, \
                 name, source, payload), [[note]], [[hot_load]] and [[zoom]].",
         tasks: &[
@@ -510,7 +540,17 @@ pub static TOPICS: &[Topic] = &[
         tasks: &[
             ("Film a scripted run", "game film"),
             ("Film a played session round a note", "gm film"),
+            (
+                "Film it as the player saw it (the recording's build), or on two builds \
+                 and compare: film --as-recorded, film --builds recorded,this",
+                "gm film",
+            ),
             ("Where things are, frame by frame", "gm film show"),
+            (
+                "How far and how fast did a thing move, and when? Film with --probes-only \
+                 (no GPU), then track --thing <x>: displacement, path, top speed with times",
+                "gm motion track",
+            ),
             (
                 "Does a thing follow smoothly, overshoot, settle?",
                 "gm motion track",
@@ -560,9 +600,10 @@ pub static TOPICS: &[Topic] = &[
         name: "install",
         title: "Builds and this install",
         about: "Builds install side by side. The launchers (galaxy, galaxy-gm) pick the newest \
-                build the modules allow, or the build a recording names for replay, audit and \
-                film; `--build <name>` first runs a named one, such as a dev build. A module's \
-                manifest names the oldest engine it runs on.",
+                build the modules allow, or the build a recording names for replay and audit; \
+                `--build <name>` first runs a named one, such as a dev build. film draws with \
+                another installed build itself (--as-recorded, --builds), so older builds \
+                need no newer options. A module's manifest names the oldest engine it runs on.",
         tasks: &[
             ("Which builds are installed", "gm doctor"),
             ("Which engine galaxy runs", "game doctor"),

@@ -94,10 +94,11 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
     }
 }
 
-/// The build a recording names, for `galaxy sim replay <recording>`, `galaxy-gm audit
-/// <recording>` and `galaxy-gm film <recording>`: the launcher runs exactly that build. `None` for other commands, or a
-/// recording made by a build that was
-/// not installed.
+/// The build a recording names, for `galaxy sim replay <recording>` and `galaxy-gm audit
+/// <recording>`: the launcher runs exactly that build. `None` for other commands, or a
+/// recording made by a build that was not installed. Not for `galaxy-gm film`: the newest
+/// build films, and runs the recording's build itself to draw when asked
+/// (`--as-recorded`), since older builds lack newer film options.
 pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<String> {
     // Help is this build's, whatever the recording.
     if args.iter().any(|a| a == "--help" || a == "-h") {
@@ -106,7 +107,7 @@ pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<Stri
     let first: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
     let at = match (tool, first.as_slice()) {
         (Tool::Game, ["sim", "replay", ..]) => 2,
-        (Tool::Gm, ["audit" | "film", ..]) => 1,
+        (Tool::Gm, ["audit", ..]) => 1,
         _ => return None,
     };
     let path = recording_file(&resolve(cwd, Path::new(args.get(at)?)));
@@ -223,8 +224,8 @@ mod tests {
             Some("0.2.0-abc")
         );
         assert_eq!(
-            recording_build(Tool::Gm, &args(&["film", "r.json", "--note", "1"]), root).as_deref(),
-            Some("0.2.0-abc")
+            recording_build(Tool::Gm, &args(&["film", "r.json", "--note", "1"]), root),
+            None
         );
         assert_eq!(
             recording_build(Tool::Gm, &args(&["sim", "replay", "r.json"]), root),

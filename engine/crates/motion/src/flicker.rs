@@ -3,9 +3,10 @@
 //! cells. Movement changes a cell a little on many frames running and is left alone. What
 //! is flagged:
 //!
-//! Pixels are compared as the mean brightness round them: edges re-drawn a fraction of a
-//! pixel apart as the camera moves (shimmer) move light between neighbours without
-//! changing the sum. A cell's change on a frame is the sum of what changed in it, and is
+//! Pixels are compared as the mean brightness round them, after a one-pixel smoothing:
+//! edges re-drawn a fraction of a pixel apart as the camera moves (shimmer) move light
+//! between neighbours without changing the sum, and a frame resampled into another's
+//! view is blurred no more than the frame it is compared with. A cell's change on a frame is the sum of what changed in it, and is
 //! judged against the usual change of it and its neighbours on the frames round it, so a
 //! busy place (a turning ship, drifting stars) needs a bigger jump to count than a quiet
 //! one, and something moving from one cell into the next is not a pop.
@@ -19,6 +20,10 @@
 //! coloured by how recently (blue long ago, yellow at the end), and the flagged cells
 //! boxed with their times. Fixed overlays need `--screen`, which compares pixels where
 //! they are instead of following the world.
+//!
+//! The strongest events also get a close-up each: the frame before (moved into the
+//! later frame's view), the frame it changed on, and what changed between them, enlarged
+//! in whole pixel blocks, with the thing nearest the changed pixels named.
 
 use serde_json::{Value, json};
 
@@ -55,6 +60,10 @@ pub const OPTIONS: &[&str] = &["grid", "screen", "half", "threshold", "from", "t
 
 /// Events listed with `--detail`; the compact report keeps the strongest few.
 const LISTED: usize = 30;
+/// The strongest events that get a close-up.
+const CLOSEUPS: usize = 3;
+/// A pixel the close-up marks as changed: its colour moved this much (0 to 1, luma).
+const SHOWN_CHANGE: f32 = 0.06;
 
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     opts.only("flicker", OPTIONS)?;
@@ -105,7 +114,11 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         (y as usize * rows / gh as usize) * cols + (x as usize * cols / gw as usize)
     };
     for i in 0..n {
-        let g = gray(&film.image(i)?, scale);
+        // Smoothed first: the frames before are resampled between pixels to move them into
+        // this one's view, which blurs them by an amount that depends on the fraction of a
+        // pixel the camera moved. Unsmoothed, a camera moving 4.5 px a frame makes every
+        // sharp edge look blurred, sharp, blurred: flicker that isn't on screen.
+        let g = gray(&film.image(i)?, scale).smoothed();
         if i >= 1 {
             let p1 = local(
                 &compensate(&grays[grays.len() - 1], &warp(i, i - 1), scale as f32),
@@ -288,20 +301,28 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         ));
         groups.truncate(LISTED);
     }
-    let listed: Vec<Value> = groups
-        .iter()
-        .map(|e| {
-            json!({
-                "kind": e.kind,
-                "from": when(&frames[e.from]),
-                "to": when(&frames[e.to]),
-                "box_px": e.bounds,
-                "cells": e.cells,
-                "change": round(e.change, 1),
-                "near": things_in(e.from, e.bounds, 8.0),
-            })
-        })
-        .collect();
+    let image_path = opts.image_path(&film.dir, "flicker")?;
+    let mut listed: Vec<Value> = Vec::new();
+    for (k, e) in groups.iter().enumerate() {
+        let mut v = json!({
+            "kind": e.kind,
+            "from": when(&frames[e.from]),
+            "to": when(&frames[e.to]),
+            "box_px": e.bounds,
+            "cells": e.cells,
+            "change": round(e.change, 1),
+            "near": things_in(e.from, e.bounds, 8.0),
+        });
+        if k < CLOSEUPS && e.from >= 1 {
+            let back = warp(e.from, e.from - 1);
+            let (img, what) = closeup(film, e.from, e.bounds, &back)?;
+            let path = sibling(&image_path, &format!("event-{}", k + 1));
+            img.save_png(&path)?;
+            v["changed"] = what;
+            v["closeup"] = json!(path.display().to_string());
+        }
+        listed.push(v);
+    }
     let changed_share: Vec<f32> = steps
         .iter()
         .flatten()
@@ -420,7 +441,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     {
         img.text(6, i64::from(h) + 4 + k as i64 * 10, line, 1, TEXT);
     }
-    let out = opts.image_path(&film.dir, "flicker")?;
+    let out = image_path;
     img.save_png(&out)?;
     let mut report = json!({
         "tool": "flicker",
@@ -443,6 +464,139 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         m.remove("left_out");
     }
     Ok(report)
+}
+
+/// `path` with `-<suffix>` before its extension: an event's close-up beside the picture.
+fn sibling(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
+    let stem = path
+        .file_stem()
+        .map_or("flicker".into(), |s| s.to_string_lossy().into_owned());
+    path.with_file_name(format!("{stem}-{suffix}.png"))
+}
+
+/// One event close up: the frame before moved into the view of the frame it changed on
+/// (`back` maps that frame's pixels into the one before), that frame, and what changed
+/// (warm: brighter now, blue: darker now) over the frame dimmed, enlarged in whole pixel
+/// blocks. Also says how many pixels changed, where, and the thing nearest them.
+fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, Value), String> {
+    let frames = film.frames();
+    let (w, h) = film.size();
+    let (after, before) = (film.image(at)?, film.image(at - 1)?);
+    const PAD: u32 = 12;
+    let x0 = b[0].saturating_sub(PAD);
+    let y0 = b[1].saturating_sub(PAD);
+    let x1 = (b[0] + b[2] + PAD).min(w);
+    let y1 = (b[1] + b[3] + PAD).min(h);
+    let (bw, bh) = (x1 - x0, y1 - y0);
+    let mut was = Image::new(bw, bh, [40, 40, 40, 255]);
+    let mut now = Image::new(bw, bh, [40, 40, 40, 255]);
+    let mut diff = Image::new(bw, bh, [0, 0, 0, 255]);
+    let (mut count, mut sx, mut sy, mut sum) = (0u32, 0.0f32, 0.0f32, 0.0f32);
+    let luma = |p: [f32; 4]| (0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]) / 255.0;
+    // The camera's move is exact on the ground plane only: a tall thing (a tower, a rim)
+    // slides a little against it. A shift of up to a few pixels that best lines the box
+    // up takes that out, so what is left is what changed.
+    let at_shift = |x: u32, y: u32, s: [f32; 2]| {
+        back.map(x as f32 + 0.5, y as f32 + 0.5)
+            .and_then(|[fx, fy]| before.sample(fx + s[0], fy + s[1]))
+    };
+    let mismatch = |s: [f32; 2]| {
+        let mut e = 0.0f32;
+        for j in (0..bh).step_by(2) {
+            for i in (0..bw).step_by(2) {
+                let (x, y) = (x0 + i, y0 + j);
+                let a = after.get(x, y);
+                let a = [f32::from(a[0]), f32::from(a[1]), f32::from(a[2]), 255.0];
+                e += at_shift(x, y, s).map_or(1.0, |p| (luma(a) - luma(p)).abs());
+            }
+        }
+        e
+    };
+    let mut shift = [0.0f32; 2];
+    let mut best = mismatch(shift);
+    for dy in -8..=8 {
+        for dx in -8..=8 {
+            let s = [dx as f32 * 0.5, dy as f32 * 0.5];
+            let e = mismatch(s);
+            if e < best * 0.999 {
+                (best, shift) = (e, s);
+            }
+        }
+    }
+    for j in 0..bh {
+        for i in 0..bw {
+            let (x, y) = (x0 + i, y0 + j);
+            let a = after.get(x, y);
+            now.set(i64::from(i), i64::from(j), a);
+            let dim = [a[0] / 4, a[1] / 4, a[2] / 4, 255];
+            diff.set(i64::from(i), i64::from(j), dim);
+            let Some(p) = at_shift(x, y, shift) else {
+                continue;
+            };
+            was.set(
+                i64::from(i),
+                i64::from(j),
+                [p[0] as u8, p[1] as u8, p[2] as u8, 255],
+            );
+            let af = [f32::from(a[0]), f32::from(a[1]), f32::from(a[2]), 255.0];
+            let d = luma(af) - luma(p);
+            let colour = (0..3).map(|k| (af[k] - p[k]).abs()).fold(0.0, f32::max) / 255.0;
+            if d.abs().max(colour * 0.5) >= SHOWN_CHANGE {
+                let c = if d >= 0.0 {
+                    [255, 200, 90, 255]
+                } else {
+                    [90, 160, 255, 255]
+                };
+                diff.blend(i64::from(i), i64::from(j), c, (0.4 + colour * 2.0).min(1.0));
+                count += 1;
+                let weight = colour;
+                sx += weight * x as f32;
+                sy += weight * y as f32;
+                sum += weight;
+            }
+        }
+    }
+    // Whole pixel blocks, so each panel is a few hundred pixels and every pixel stays sharp.
+    let k = 320u32.div_ceil(bw.max(bh).max(1)).clamp(1, 8);
+    let gap = 6;
+    let head = 14;
+    let mut out = Image::new(3 * bw * k + 2 * gap, bh * k + head, crate::image::PAPER);
+    let f = |i: usize| &frames[i];
+    let titles = [
+        format!("before t{:.3}", f(at - 1).time),
+        format!("after t{:.3} k{}", f(at).time, f(at).tick),
+        "changed: warm brighter, blue darker".to_owned(),
+    ];
+    for (n, (panel, title)) in [&was, &now, &diff].into_iter().zip(&titles).enumerate() {
+        let left = i64::from(n as u32 * (bw * k + gap));
+        out.blit(&panel.resized(bw * k, bh * k), left, i64::from(head));
+        out.text(left + 2, 3, title, 1, TEXT);
+    }
+    let centre = (sum > 0.0).then(|| [sx / sum, sy / sum]);
+    // The thing whose outline on screen is nearest the changed pixels' centre.
+    let nearest = centre.and_then(|c| {
+        let fr = f(at);
+        fr.things
+            .iter()
+            .filter_map(|(id, t)| {
+                let s = t.screen?;
+                let reach = t.reach.unwrap_or(0.0) / fr.camera.per_pixel.max(1e-9);
+                let d = ((s[0] - c[0]).powi(2) + (s[1] - c[1]).powi(2)).sqrt();
+                Some((id.clone(), d, (d - reach).max(0.0)))
+            })
+            .min_by(|a, b| a.2.total_cmp(&b.2).then(a.1.total_cmp(&b.1)))
+    });
+    let what = json!({
+        "pixels": count,
+        "aligned_px": [shift[0], shift[1]],
+        "centre_px": centre.map(|c| [c[0].round(), c[1].round()]),
+        "nearest": nearest.map(|(id, d, outside)| if outside > 0.0 {
+            format!("{id} ({outside:.0} px outside its reach)")
+        } else {
+            format!("{id} (within its reach, {d:.0} px from its centre)")
+        }),
+    });
+    Ok((out, what))
 }
 
 /// Settings that can hide what flicker looks for.

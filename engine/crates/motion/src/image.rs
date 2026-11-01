@@ -343,6 +343,40 @@ impl Gray {
         top + (bottom - top) * ty
     }
 
+    /// Smoothed with a binomial 1-4-6-4-1 kernel across and down (about a Gaussian of
+    /// one pixel). Resampling between pixels blurs by an amount that depends on where
+    /// the sample falls; a picture smoothed first barely changes when resampled, so two
+    /// frames moved by different fractions of a pixel still compare like for like.
+    pub fn smoothed(&self) -> Gray {
+        const K: [f32; 5] = [1.0 / 16.0, 4.0 / 16.0, 6.0 / 16.0, 4.0 / 16.0, 1.0 / 16.0];
+        let (w, h) = (self.width as i64, self.height as i64);
+        let pass = |src: &[f32], across: bool| -> Vec<f32> {
+            let mut out = vec![0.0; src.len()];
+            for y in 0..h {
+                for x in 0..w {
+                    let mut sum = 0.0;
+                    for (k, weight) in K.iter().enumerate() {
+                        let d = k as i64 - 2;
+                        let (sx, sy) = if across {
+                            ((x + d).clamp(0, w - 1), y)
+                        } else {
+                            (x, (y + d).clamp(0, h - 1))
+                        };
+                        sum += weight * src[(sy * w + sx) as usize];
+                    }
+                    out[(y * w + x) as usize] = sum;
+                }
+            }
+            out
+        };
+        let across = pass(&self.data, true);
+        Gray {
+            width: self.width,
+            height: self.height,
+            data: pass(&across, false),
+        }
+    }
+
     /// Half the size, each pixel the mean of four.
     pub fn half(&self) -> Gray {
         let (w, h) = ((self.width / 2).max(1), (self.height / 2).max(1));

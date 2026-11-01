@@ -21,9 +21,10 @@ galaxy-gm motion strip <folder> --along course   # does the course crawl?
 galaxy-gm motion check tests/play/films/course.toml
 ```
 
-The code: filming in `crates/view/src/film.rs` (shared by both binaries), `galaxy film`
-in `crates/galaxy/src/film.rs`, `galaxy-gm film` and `motion` in `crates/gm/src/film.rs`,
-and the tools in `crates/motion` (CPU only, no engine crates).
+The code: filming in `crates/view/src/film.rs` (shared by both binaries) and with other
+builds in `crates/view/src/builds.rs`, `galaxy film` in `crates/galaxy/src/film.rs`,
+`galaxy-gm film` and `motion` in `crates/gm/src/film.rs`, and the tools in
+`crates/motion` (CPU only, no engine crates).
 
 ## Which tool for which question
 
@@ -31,6 +32,8 @@ and the tools in `crates/motion` (CPU only, no engine crates).
 |---|---|---|---|
 | Does a pattern that should stand still crawl, jitter or pop along a path (a course, a lane, a border)? | `strip --along course` or `--along x,y;x,y` | pixels | `drift_px_per_frame`, `drifting` |
 | Do dotted lines' dots stay put in the world? Fast, and needs no GPU. | `dots` | probes | `drift_px_per_frame`, `lines` |
+| How far and how fast did a thing move, and when? (film `--probes-only`, no GPU) | `track --thing x` | probes | `world.displacement`, `world.speed_max_at` |
+| How close does it come to another's surface; do they touch? | `track --thing x --to y` | probes | `surface.closest`, `surface.contact` |
 | Does the camera follow smoothly? Does a thing judder (moves on ticks, not frames)? | `track [--thing x]` | probes | `screen.judder`, `camera.judder`, `flags` |
 | Does it stop where it should: overshoot, bounce back, settle? How does it brake? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `approach` |
 | What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
@@ -61,8 +64,9 @@ How to work a motion question:
 A film is a folder: `film.json` (how it was filmed, the things in it and what changed;
 small enough to read whole), `frames.jsonl` (a frame a line: time, tick, camera and every
 thing's pose and screen position), `lines.jsonl` (a frame a line: every line and dot
-drawn) and `frames/00000.png` (lossless, one per frame), plus `motion/` where the tools
-put their pictures. `galaxy-gm film show <film>` prints the probes as a table, a frame a
+drawn), `outlines.json` (each thing's outline on the plane, as collision sees it) and
+`frames/00000.png` (lossless, one per frame), plus `motion/` where the tools put their
+pictures. `galaxy-gm film show <film>` prints the probes as a table, a frame a
 line, for the things and times asked. Films of format 1, with every frame inside
 `film.json`, still read. Each tool names its picture
 after its options (`motion/sheet-at-1.2,1.3-crop-ship.png`), so runs with other options
@@ -83,7 +87,9 @@ keep theirs; `--image` puts it elsewhere.
   camera as a matrix (so a tool can project any world point into that frame) and how many
   world units a pixel covers, the zoom, every drawn thing's interpolated pose and screen
   position, and every line the scene drew, with the centre of each dot of a dotted line
-  as the renderer places it. `--probes-only` films without pictures and without a GPU.
+  as the renderer places it. `outlines.json` keeps each thing's outline as collision
+  measures it (its reach in 128 directions in its own frame: a body's circle, else its
+  model's convex footprint, scaled), so `track --to` measures surface to surface. `--probes-only` films without pictures and without a GPU.
 - **Changes.** The manifest's `changes` lists what changed in the world during the film,
   by tick: each input (`drift.order_dock down`), each order given, changed or dropped (an
   entity's `engine.steer` mode and target) and each arrival. `track` lists and marks
@@ -103,8 +109,24 @@ keep theirs; `--image` puts it elsewhere.
   are the same, and a note), and `galaxy-gm film`, `film show` and every tool's report
   repeat it. When they differ the note says so plainly, that the film may not look like
   what the player saw, and gives the command that films it with the recording's build.
-  `galaxy-gm --build <name> film ...` draws with a named build on purpose (to see whether
-  a fix holds); without `--build`, the launcher picks the recording's build.
+  `--as-recorded` draws with the recording's build; `--builds a,b` films with two
+  builds and compares them (below).
+- **Filming with other builds.** Installed builds sit side by side, and the build that
+  recorded a session is often older than the one with the newest tools, so the current
+  `galaxy-gm film` (and `galaxy film` for a scripted run) runs another build's executable
+  to draw. Older builds will always lack newer commands and options, so they are asked
+  only for what every build since films began takes (`film` with `--note`, `--before`,
+  `--after`, `--from`, `--to`, `--fps`, `--size`, `--out`, `--probes-only`). The current
+  build then brings the film up to its own format (`crates/view/src/builds.rs`): it writes
+  it as format 2, stamps `builds` with the build that drew it, and adds what the older
+  build didn't record (the film's changes, things' reach and morph, outlines) from a
+  probes-only replay of the same span on itself. The world is the same on both (the
+  hashes say so), so those probes are too; the pictures and camera stay the other
+  build's. `--builds a,b` (each `recorded`, `this`, a build's name or a part only one has,
+  such as its commit) films into `<out>/<build>` each and runs `compare`; any tool can then
+  be run on each, as with drift's tight circle: `tone` finds 6 hard steps on the build
+  the playtest was recorded on and none on the current one. The launcher doesn't route
+  `film` to the recording's build for this reason.
 - **Size.** 960x540 by default: a three-second film is roughly 50 MB of PNGs. Films go
   where `--out` says, outside the repository.
 
@@ -141,10 +163,20 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   flagged (`zoom_steps_set_aside`). With `--to`, `approach` tells how it came in: top
   speed, the last moment at it (`braking_from`), its speed when the gap was 75, 50, 25 and
   10% of the start, when it stopped (under 2% of the top speed), the turn it then made on
-  the spot, and when `engine.arrived` came.
+  the spot, and when `engine.arrived` came. Also with `--to`, `surface`: the gap between
+  the two outlines along the line between their centres, as collision measures it
+  (`crates/sim/src/shape.rs`), from `outlines.json` and each frame's pose: the closest,
+  the gap when it arrived (else at the end), and each run of frames in contact (under
+  0.05 units; negative is overlap). A mining ship holding at a rock comes to 0.005.
+  In the world, `displacement` is start to end in a straight line, `distance` the path,
+  and `speed_max_at` when the top speed came.
 - **`dots`** matches each fully visible dot with the nearest of the frame before, line by
-  line (the leg being flown can slide while later legs stand still). Pixels are at the
-  camera's scale, before the tilt shortens them on screen. Dots without a match popped.
+  line (the leg being flown can slide while later legs stand still). A line is followed
+  from frame to frame by where it is drawn from, so a flight of several legs is measured
+  leg by leg, and only a line seen for a quarter second or more decides. Pixels are at the
+  camera's scale, before the tilt shortens them on screen. Dots without a match popped;
+  where the lines drawn changed within a quarter second of a change the film lists (a leg
+  finished, a new order), the pops are marked `with` it, as expected.
 - **`strip`** is a kymograph: it samples a narrow band along a path fixed in the world,
   projected through each frame's camera, and stacks the samples, time down. Still things
   draw vertical stripes and sliding ones slanted stripes. The shift between rows comes
@@ -162,6 +194,11 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
 - **`flicker`** compares each frame with the one before (and before that), compensated,
   as the mean brightness round each pixel: edges re-drawn a fraction of a pixel apart
   move light between neighbours without changing the sum, so edge shimmer doesn't count.
+  Frames are smoothed by about a pixel first: moving a frame into another's view samples
+  between pixels, which blurs by an amount that depends on the fraction of a pixel the
+  camera moved. Unsmoothed, a camera moving 4.5 px a frame made every sharp edge blurred,
+  sharp, blurred, and the hub on drift's dock film showed 20 "flicker runs" that weren't
+  on screen; smoothed, 11, all inner ink.
   A cell's change is judged against the busiest of it and its neighbours on the frames
   round it: a **pop** is a jump far above that which stays, a **blip** is back the next
   frame, a **flicker** goes back and forth four frames or more. Something moving into a
@@ -172,8 +209,14 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   overlap in time stay apart, so events keep their place. Events are ranked strongest
   first; `--from`/`--to` (seconds) and `--near <thing>` (within its reach on screen, plus
   24 px) keep some, and `left_out` says how many they and the cap left out. The whole
-  film is read either way, so a cell's usual change is known at the edges of the span. The picture is a motion history: where things
-  changed, coloured by how recently, with the flagged cells boxed. It can only see what
+  film is read either way, so a cell's usual change is known at the edges of the span.
+  The picture is a motion history: where things changed, coloured by how recently, with
+  the flagged cells boxed. The three strongest events each get a close-up
+  (`closeup`): the frame before moved into the view of the frame it changed on, that
+  frame, and the changed pixels (warm brighter, blue darker) over it dimmed, enlarged in
+  whole pixel blocks; `changed` says how many pixels changed and which thing is nearest
+  them. The move is exact on the ground plane only, so a tall thing (a tower, a rim)
+  shows a thin outline of change even when nothing popped. It can only see what
   the film shows: below 60 fps or 1280x720 it adds `warnings`, as thin lines and
   one-frame events can fall between frames or pixels (a hub's broken inner ink line shows
   at 60 fps and the player's size, and was missed at 30 fps and 960x540).
@@ -237,9 +280,13 @@ purpose (never committed):
 | | `flicker` | 37 flicker runs, none near the ship | the same 37: the turning ship is a busy place it sets aside |
 
 On the engine as it is, `flicker` also finds real small things: the leg after a waypoint
-brightens at once when the ship reaches it, and the hub's inner ink line breaks and joins
-as the camera moves. Read such findings by their `change` (brightness times pixels): a
-few units is a detail, tens is plain to see.
+brightens at once when the ship reaches it, and the hub's inner ink breaks and joins as
+the camera moves (`flicker --near hub` on the dock film at 60 fps and 1280x720: 11
+flicker runs; with inner ink switched off, 1). Inner ink is found in a single-sample
+geometry buffer while colour is multisampled, so a crease or paint border a pixel wide
+steps from pixel to pixel as it moves. Dropping facets under a pixel (`too_small` in
+`mesh.wgsl`) plays no part: without it the count is the same. Read such findings by
+their `change` (brightness times pixels): a few units is a detail, tens is plain to see.
 
 ## Alternatives and why this design
 

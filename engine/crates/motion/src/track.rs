@@ -2,10 +2,13 @@
 //!
 //! - **On screen**: how far it sits from the centre (for the followed thing, the camera's
 //!   tracking error), its speed in pixels, and how unevenly it moves from frame to frame.
-//! - **In the world**: distance, speed, and the same unevenness.
+//! - **In the world**: how far it got (displacement, start to end) and how far it went
+//!   along its path, its top speed and when, and the same unevenness.
 //! - **The camera**: how unevenly the view itself moves, in pixels.
 //! - **A gap** (`--to <thing>`): the distance to another thing, how close it came, whether
-//!   it went past (overshoot) or bounced back, and when it settled.
+//!   it went past (overshoot) or bounced back, and when it settled; and between their
+//!   surfaces (outline to outline, as collision measures it), how close they came and
+//!   when they touched.
 //!
 //! Unevenness ("judder") compares each frame's step with the mean of the steps either
 //! side of it. Smooth motion, even accelerating, scores near 0. A thing that moves only on
@@ -15,7 +18,7 @@
 
 use serde_json::{Value, json};
 
-use crate::film::{Film, Frame, round, when};
+use crate::film::{Film, Frame, round, surface_gap, when};
 use crate::image::{ACCENT, CALM, FLAG, TEXT};
 use crate::opts::Opts;
 use crate::plot::{Panel, Series, chart_marked};
@@ -107,6 +110,21 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .collect();
     let screen_speed: Vec<f32> = steps(&screen).iter().flatten().map(|s| len(*s)).collect();
     let distance: f32 = steps(&world).iter().flatten().map(|s| len(*s)).sum();
+    // Where it started and ended in the film, and its top speed and when.
+    let ends = {
+        let mut present = world
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| p.map(|p| (i, p)));
+        let first = present.next();
+        let last = present.next_back().or(first);
+        first.zip(last)
+    };
+    let (peak_i, peak) = speeds
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| v.map(|v| (i, v)))
+        .fold((0, 0.0f32), |a, b| if b.1 > a.1 { b } else { a });
 
     // Flagged moments: a step far from its neighbours', on screen, in the world or of the
     // camera.
@@ -143,8 +161,15 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "frames": frames.len(),
         "span": [when(&frames[0]), when(frames.last().expect("frames"))],
         "world": {
+            "displacement": ends.map(|((i, a), (j, b))| json!({
+                "units": round(dist(a, b), 2),
+                "from": [round(a[0], 2), round(a[1], 2)],
+                "to": [round(b[0], 2), round(b[1], 2)],
+                "between": [when(&frames[i]), when(&frames[j])],
+            })),
             "distance": round(distance, 2),
-            "speed_max": round(speeds.iter().flatten().fold(0.0, |a: f32, b| a.max(*b)), 2),
+            "speed_max": round(peak, 2),
+            "speed_max_at": (peak > 0.0).then(|| when(&frames[peak_i])),
             "speed_end": speeds.last().copied().flatten().map(|v| round(v, 2)),
             "judder": world_u.score.map(|v| round(v, 3)),
         },
@@ -231,6 +256,20 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     if !zooms.is_empty() {
         report["zoom_steps_set_aside"] = json!(set_aside);
     }
+    if let Some(((i, a), (j, b))) = ends {
+        reading.push(format!(
+            "{id} moved {:.2} units from ({:.2}, {:.2}) at t={:.3} to ({:.2}, {:.2}) at t={:.3}, \
+             {distance:.2} along its path; top speed {peak:.2} units/s at t={:.3}",
+            dist(a, b),
+            a[0],
+            a[1],
+            frames[i].time,
+            b[0],
+            b[1],
+            frames[j].time,
+            frames[peak_i].time
+        ));
+    }
     reading.push(describe(&id, "on screen", screen_u.score, &screen_u));
     reading.push(describe("the camera", "", camera_u.score, &camera_u));
     if followed {
@@ -255,17 +294,38 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     if let Some(other) = &to {
         let tol = opts.number("tolerance")?;
         let gap = gap(film, &id, other, tol);
+        let surface = surface(film, &id, other);
+        let mut series = vec![Series {
+            name: "centres".into(),
+            values: gap.values.clone(),
+            color: FLAG,
+        }];
+        if let Some(sf) = &surface {
+            series.push(Series {
+                name: "surfaces".into(),
+                values: sf.values.clone(),
+                color: CALM,
+            });
+        }
         panels.push(Panel {
             title: format!("gap to {other} (world units)"),
-            series: vec![Series {
-                name: "gap".into(),
-                values: gap.values.clone(),
-                color: FLAG,
-            }],
+            series,
             zero: true,
             min_span: 1.0,
         });
         reading.push(gap.reading.clone());
+        match surface {
+            Some(sf) => {
+                reading.push(sf.reading);
+                report["surface"] = sf.report;
+            }
+            None => {
+                report["surface"] = json!(
+                    "this film keeps no outlines (filmed by an older build, or a thing has no \
+                     model): film it again for the gap between surfaces"
+                );
+            }
+        }
         if let Some(a) = approach(film, &id, other, &gap.values, &speeds) {
             reading.push(a.reading.clone());
             report["approach"] = a.report;
@@ -627,6 +687,105 @@ fn gap(film: &Film, id: &str, other: &str, tolerance: Option<f32>) -> Gap {
         }),
         reading,
     }
+}
+
+/// Below this gap between surfaces (world units) two things touch.
+const CONTACT: f32 = 0.05;
+
+struct Surface {
+    values: Vec<Option<f32>>,
+    report: Value,
+    reading: String,
+}
+
+/// The gap between `id`'s and `other`'s outlines, as collision measures it: the closest,
+/// the gap when `id` arrived (or at the end), and when they touched.
+fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
+    let outlines = &film.manifest.outlines;
+    let (oa, ob) = (outlines.get(id)?, outlines.get(other)?);
+    let frames = film.frames();
+    let values: Vec<Option<f32>> = frames
+        .iter()
+        .map(|f| surface_gap((oa, f.things.get(id)?), (ob, f.things.get(other)?)))
+        .collect();
+    let present: Vec<(usize, f32)> = values
+        .iter()
+        .enumerate()
+        .filter_map(|(i, v)| v.map(|v| (i, v)))
+        .collect();
+    let &(_, start) = present.first()?;
+    let (min_i, min) = present.iter().fold(
+        (0, f32::INFINITY),
+        |a, &(i, v)| if v < a.1 { (i, v) } else { a },
+    );
+    let arrived = film
+        .manifest
+        .changes
+        .iter()
+        .find(|c| c.kind == "arrived" && c.what.starts_with(&format!("{id}:")));
+    let arrival_i = arrived.and_then(|c| frames.iter().position(|f| f.tick >= c.tick));
+    let (end_i, end) = match arrival_i.and_then(|i| values[i].map(|v| (i, v))) {
+        Some(at) => at,
+        None => *present.last().expect("present"),
+    };
+    // Runs of frames in contact.
+    let mut contacts: Vec<(usize, usize, f32)> = Vec::new();
+    for &(i, v) in &present {
+        if v > CONTACT {
+            continue;
+        }
+        match contacts.last_mut() {
+            Some(run) if run.1 + 1 == i => {
+                run.1 = i;
+                run.2 = run.2.min(v);
+            }
+            _ => contacts.push((i, i, v)),
+        }
+    }
+    let at = |i: usize| format!("t={:.3}", frames[i].time);
+    let end_word = if arrival_i.is_some() {
+        "when it arrived"
+    } else {
+        "at the end"
+    };
+    let mut reading = format!(
+        "between surfaces: {start:.2} to {end:.2} {end_word} ({}), closest {min:.2} at {}",
+        at(end_i),
+        at(min_i)
+    );
+    match contacts.as_slice() {
+        [] => reading.push_str(", never touching"),
+        runs => {
+            let listed: Vec<String> = runs
+                .iter()
+                .take(3)
+                .map(|(a, b, _)| format!("{} to {}", at(*a), at(*b)))
+                .collect();
+            reading.push_str(&format!(
+                ", touching {} time(s): {}",
+                runs.len(),
+                listed.join(", ")
+            ));
+        }
+    }
+    Some(Surface {
+        values,
+        report: json!({
+            "start": round(start, 3),
+            "closest": round(min, 3),
+            "closest_at": when(&frames[min_i]),
+            "end": round(end, 3),
+            "end_at": when(&frames[end_i]),
+            "end_is": if arrival_i.is_some() { "arrival (engine.arrived)" } else { "the film's end" },
+            "contact": contacts.iter().take(8).map(|(a, b, d)| json!({
+                "from": when(&frames[*a]),
+                "to": when(&frames[*b]),
+                "least": round(*d, 3),
+            })).collect::<Vec<_>>(),
+            "contact_below": round(CONTACT, 3),
+        }),
+        reading,
+    })
 }
 
 fn stats(values: &[Option<f32>], frames: &[Frame]) -> Value {
