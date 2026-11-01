@@ -89,9 +89,11 @@ stars = 260
 [course]                  # the followed ship's order, for the whole scene
 show = true
 color = "#ffcf6b"
-width = 0.12              # world units
-dash = 0.8                # dash and gap, world units
-gap = 0.5
+dot = 5.0                 # dot size, logical pixels
+spacing = 16.0            # dot to dot, logical pixels
+ring = 2.0                # ring line width, logical pixels
+bright = 2.5              # seconds at full strength after an order
+faint = 0.35              # strength after that
 
 [looks.hull]              # a look; things wear it as `look = "<module>.hull"`
 outline_px = 3.5          # silhouette width, logical pixels (0 to 16)
@@ -161,12 +163,23 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   between `min_view` and `max_view`. Zoom is the player's, not the world's, so it is not
   an input and is not recorded.
 
-- **The course.** While the thing the camera follows has an order under way
-  (`engine.steer`, `flight-and-collision.md`), a dashed line runs from it to where it is
-  going, through the waypoints left on a route, and a ring marks where it ends, just
-  outside what the target wears. It goes when the order is done or set aside. The
-  `[course]` style colours it or turns it off. Only the followed thing shows one, so other
-  pilots' orders don't clutter the view.
+- **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
+  an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it
+  to where it is going, through the waypoints left on a route, and a ring marks where it
+  ends, just outside what the target wears. The leg being flown is brightest; later legs
+  are fainter with a small ring on each waypoint.
+  - **Still dots.** The dot pattern is measured from where the route stops, so the dots
+    stay put in the world and the ship flies over them; the dots nearest the ship fade
+    rather than pop. (Measured from the ship, the whole pattern slid along as it flew,
+    like a chain being reeled in, which pulled the eye.)
+  - **Calm over time.** Full strength for `bright` seconds after an order, then it
+    settles to `faint`. On arrival the ring closes in a little and fades, once; when the
+    player takes the controls the whole course fades in a fifth of a second, so it is
+    clear the order is gone. Nothing loops.
+  - **Crisp at any zoom.** Sizes are logical pixels; dots are drawn round in the shader
+    with a one-pixel soft edge and a thin ink rim that lifts them off the backdrop.
+  - Only the followed thing shows a course, so other pilots' orders don't clutter the
+    view; `[course]` recolours or hides it.
 
 Cameras for places other than flight (stations, interiors, moving between them) wait for
 the place model.

@@ -55,8 +55,8 @@ and it loses some speed while flying away from its nose (`slowdown`). When it ge
 the engine sets `done` and records `engine.arrived` (`entity`, `mode`, `target`), and the
 helm has the ship again: W flies straight off a dock. Touching the helm while an order is
 under way sets it aside (the engine clears `mode`): the player always has the controls.
-While the followed ship has an order, the view draws its course: a dashed line to where
-it is going and a ring round the end (`renderer-and-style.md`).
+While the followed ship has an order, the view draws its course: still dots to where it
+is going and a ring round the end (`renderer-and-style.md`).
 
 `arrive` and `hold` stop where the two outlines meet along the line between their
 centres, by the same test collision uses ([`touching`](../crates/sim/src/shape.rs)), plus

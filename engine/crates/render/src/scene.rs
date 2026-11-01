@@ -227,6 +227,10 @@ pub enum LineStyle {
     Dashed { dash: f32, gap: f32 },
     /// A bright additive beam with a hot core (mining beam, tractor).
     Beam,
+    /// Round dots as wide as the line, `spacing` apart (world units), each with a thin
+    /// ink rim. The last `fade` world units of the line fade out, so a dot cut short at
+    /// the end shrinks away instead of popping.
+    Dotted { spacing: f32, fade: f32 },
 }
 
 /// A ribbon through world-space points, facing the camera.
@@ -240,6 +244,10 @@ pub struct Line {
     pub closed: bool,
     /// Hand-drawn wobble amplitude in world units (0 for a ruler-straight line).
     pub wobble: f32,
+    /// Where along a dash or dot pattern the line's first point sits (world units). Two
+    /// lines that continue each other share one pattern when the second starts where the
+    /// first ended; a line drawn from a fixed end keeps its pattern still in the world.
+    pub phase: f32,
 }
 
 impl Line {
@@ -251,6 +259,7 @@ impl Line {
             style: LineStyle::Solid,
             closed: false,
             wobble: 0.0,
+            phase: 0.0,
         }
     }
 
@@ -278,6 +287,18 @@ impl Line {
 
     pub fn dashed(mut self, dash: f32, gap: f32) -> Self {
         self.style = LineStyle::Dashed { dash, gap };
+        self
+    }
+
+    /// Round dots `spacing` apart, fading out over the last `fade` world units.
+    pub fn dotted(mut self, spacing: f32, fade: f32) -> Self {
+        self.style = LineStyle::Dotted { spacing, fade };
+        self
+    }
+
+    /// Starts the dash or dot pattern `phase` world units in.
+    pub fn with_phase(mut self, phase: f32) -> Self {
+        self.phase = if phase.is_finite() { phase } else { 0.0 };
         self
     }
 

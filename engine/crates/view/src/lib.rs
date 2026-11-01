@@ -10,6 +10,7 @@
 //! `engine/docs/renderer-and-style.md`.
 
 pub mod assets;
+pub mod course;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -18,8 +19,8 @@ use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::module::Module;
 use galaxy_render::glam::{Mat4, Quat, Vec2, Vec3};
 use galaxy_render::{
-    BackdropHandle, Camera, Line, Material, MeshHandle, MeshInstance, Panel, Projection, Rect,
-    Renderer, Scene, Text, backdrop, defaults,
+    BackdropHandle, Camera, Material, MeshHandle, MeshInstance, Panel, Projection, Rect, Renderer,
+    Scene, Text, backdrop, defaults,
 };
 use galaxy_sim::World;
 use serde_json::{Map, Value, json};
@@ -177,6 +178,7 @@ pub struct View {
     missing: BTreeSet<String>,
     /// The camera of the last scene.
     pub camera: Option<Camera>,
+    courses: course::Courses,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -207,6 +209,7 @@ impl View {
             eye: Eye::default(),
             missing: BTreeSet::new(),
             camera: None,
+            courses: course::Courses::default(),
         };
         view.replace(renderer, assets);
         view
@@ -346,43 +349,51 @@ impl View {
                     .with_morph(number("morph", 0.0) as f32),
             );
         }
-        self.course(world, alpha, &mut scene);
+        let (plan, arrived) = self.plan(world, alpha);
+        let per_pixel = camera.world_per_pixel(logical);
+        self.courses.draw(
+            plan,
+            arrived,
+            &self.assets.course,
+            time,
+            per_pixel,
+            &mut scene,
+        );
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
     }
 
-    /// The followed thing's order, while it runs: a dashed line from it to where it is
-    /// going (through the waypoints left on a route) and a ring round where it ends.
-    fn course(&self, world: &World, alpha: f32, scene: &mut Scene) {
-        let style = self.assets.course;
-        if !style.show {
-            return;
-        }
+    /// The followed thing's order, while it runs, for [`course::Courses`]: where it is
+    /// going through the waypoints left, with a ring radius at each; and whether an order
+    /// that has stopped running got there.
+    fn plan(&self, world: &World, alpha: f32) -> (Option<course::Plan>, bool) {
         let Some((id, _)) = camera_holder(world) else {
-            return;
+            return (None, false);
         };
         let Some(order) = world.component(id, STEER).map(|c| &c.fields) else {
-            return;
+            return (None, false);
         };
         let text = |f: &Map<String, Value>, k: &str| {
             f.get(k).and_then(Value::as_str).unwrap_or("").to_owned()
         };
         let mode = text(order, "mode");
         let done = order.get("done").and_then(Value::as_bool).unwrap_or(false);
-        let Some(from) = self.pose(world, id, alpha) else {
-            return;
-        };
         if mode.is_empty() || done {
-            return;
+            return (None, done);
         }
+        let Some(from) = self.pose(world, id, alpha) else {
+            return (None, false);
+        };
         let lift = Vec3::Z * 0.1;
         let mut points = vec![from.point() + lift];
+        let mut rings = Vec::new();
         let mut target = text(order, "target");
-        let mut radius = 1.0;
-        if target.is_empty() {
+        let end = if target.is_empty() {
             let n = |k: &str| order.get(k).and_then(Value::as_f64).unwrap_or(0.0) as f32;
             points.push(Vec3::new(n("x"), n("y"), from.height) + lift);
+            rings.push(1.0);
+            format!("{}, {}", n("x"), n("y"))
         } else {
             // The target, then on a route each waypoint after it, at most a few dozen.
             for _ in 0..64 {
@@ -390,7 +401,7 @@ impl View {
                     break;
                 };
                 points.push(pose.point() + lift);
-                radius = self.ring_radius(world, &target);
+                rings.push(self.ring_radius(world, &target));
                 let next = (mode == "follow")
                     .then(|| world.component(&target, WAYPOINT))
                     .flatten()
@@ -401,23 +412,13 @@ impl View {
                     None => break,
                 }
             }
-        }
+            target
+        };
         if points.len() < 2 {
-            return;
+            return (None, false);
         }
-        let end = *points.last().expect("two or more");
-        // The line stops at the ring rather than running over the target.
-        let before = points[points.len() - 2];
-        let span = end - before;
-        if span.length() > radius {
-            *points.last_mut().expect("two or more") = end - span.normalize() * radius;
-        }
-        scene
-            .lines
-            .push(Line::path(points, style.width, style.color).dashed(style.dash, style.gap));
-        scene
-            .lines
-            .push(Line::circle(end, radius, style.width, style.color));
+        let key = format!("{id} {mode} {end}");
+        (Some(course::Plan { key, points, rings }), false)
     }
 
     /// A ring just outside what `entity` wears, or a small one for a bare point.

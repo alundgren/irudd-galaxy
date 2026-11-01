@@ -12,8 +12,9 @@ pub(crate) struct FxVertex {
     /// x: distance along the line (world units), y: across, -1..1.
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam). Dashed: y dash, z gap. Beam: y
-    /// width, z length.
+    /// x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam, 4 dotted). Dashed: y dash, z gap.
+    /// Beam: y width, z length. Dotted: everything in half-widths, so a dot is round:
+    /// `uv.x` is the distance along, y spacing, z fade length, w where the line ends.
     pub params: [f32; 4],
 }
 
@@ -21,6 +22,7 @@ const KIND_RIBBON: f32 = 0.0;
 const KIND_DASHED: f32 = 1.0;
 const KIND_GLOW: f32 = 2.0;
 const KIND_BEAM: f32 = 3.0;
+const KIND_DOTTED: f32 = 4.0;
 
 /// The direction the camera looks at `p` from.
 fn view_dir(camera: &Camera, p: Vec3) -> Vec3 {
@@ -138,10 +140,25 @@ fn line_strip(
         return;
     }
     let total: f32 = pts.windows(2).map(|w| (w[1] - w[0]).length()).sum();
-    let (kind, dash, gap) = match line.style {
-        LineStyle::Solid => (KIND_RIBBON, 0.0, 0.0),
-        LineStyle::Dashed { dash, gap } => (KIND_DASHED, dash.max(0.01), gap.max(0.0)),
-        LineStyle::Beam => (KIND_BEAM, line.width, total),
+    let (kind, dash, gap, end) = match line.style {
+        LineStyle::Solid => (KIND_RIBBON, 0.0, 0.0, 0.0),
+        LineStyle::Dashed { dash, gap } => (KIND_DASHED, dash.max(0.01), gap.max(0.0), 0.0),
+        LineStyle::Beam => (KIND_BEAM, line.width, total, 0.0),
+        LineStyle::Dotted { spacing, fade } => {
+            let half = line.width * 0.5;
+            (
+                KIND_DOTTED,
+                spacing.max(line.width) / half,
+                fade.max(0.0) / half,
+                (line.phase + total) / half,
+            )
+        }
+    };
+    // Dotted lines measure along in half-widths too.
+    let unit = if kind == KIND_DOTTED {
+        line.width * 0.5
+    } else {
+        1.0
     };
     let pts: Vec<Vec3> = match line.style {
         LineStyle::Beam => pts
@@ -154,7 +171,7 @@ fn line_strip(
     let n = pts.len();
     let closed = line.closed && n > 3;
     let base = verts.len() as u32;
-    let mut along = 0.0;
+    let mut along = line.phase;
     for i in 0..n {
         if i > 0 {
             along += (pts[i] - pts[i - 1]).length();
@@ -178,9 +195,9 @@ fn line_strip(
         for s in [-1.0f32, 1.0] {
             verts.push(FxVertex {
                 pos: (pts[i] + side * s * half * miter).into(),
-                uv: [along, s],
+                uv: [along / unit, s],
                 color: line.color.to_array(),
-                params: [kind, dash, gap, 0.0],
+                params: [kind, dash, gap, end],
             });
         }
     }
