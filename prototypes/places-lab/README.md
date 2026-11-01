@@ -109,7 +109,7 @@ work at once.
 | Key | Choice | Trait | Folder (owned by that choice's agent) | Baseline |
 |---|---|---|---|---|
 | 1 | Getting between places | `Travel`: `start`, `step`, `busy`, `finish`, `compose`, `overlay` | `src/travel/` (`mod.rs`, `cut.rs`) | `cut`: a title card |
-| 2 | What a room is | `Room`: `view`, `step` | `src/room/` (`mod.rs`, `staged.rs`) | `staged`: a staged 3D set, fixed camera |
+| 2 | What a room is | `Room`: `view`, `step`, `widgets` | `src/room/` (`mod.rs`, `staged.rs`, `layers.rs`, `inside.rs`) | `staged`: a staged 3D set, fixed camera. Also `layers`: painted flats in depth, like a toy theatre, with scene text; `inside`: the set in its module on the station, the hull cut away, the core beyond |
 | 3 | How people talk | `Talk`: `widgets` (when the screen runs), `frame` (each frame) | `src/talk/` (`mod.rs`, `bubble.rs`) | `bubble`: on the person |
 | 4 | Life | `Life`: `moved`, `arrived`, `step`, `pose`, `widgets` | `src/life/` (`mod.rs`, `still.rs`) | `still`: people stay put |
 
@@ -129,7 +129,6 @@ The baselines are in (the table above); these are next:
 | Choice | Variants |
 |---|---|
 | Getting between places | glide in and dissolve into the room · cutaway (the wall opens in place) · a threshold (doorway or short corridor) · honest menu over the dimmed station · walk (an avatar crosses the cutaway) |
-| What a room is | a flat staged scene in layers with text · the interior inside the station model |
 | How people talk | portrait with a name panel · the camera frames the speaker · a text column at the side |
 | Life | people in states who move at story moments · changes visible when you come back |
 
