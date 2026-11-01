@@ -7,8 +7,10 @@
 //! - `modules`: the exact module files the session started with;
 //! - `seed` and `start`: the world it started from, whole;
 //! - `events`, in order: inputs (tick, source, name, payload), hot-loads (tick, module and
-//!   its exact new files) and notes (tick, text, the world's hash then, and from a played
-//!   session the camera and the frame that was shown);
+//!   its exact new files), notes (tick, text, the world's hash then, and from a played
+//!   session the camera and the frame that was shown) and zooms (the view height the
+//!   player's wheel set, on the tick it was turned; presentation only, so a replay of the
+//!   world ignores them and a film of the session uses them);
 //! - `end`: the last tick and the world's hash there.
 //!
 //! [`replay`] runs it again from `start` with the recorded files, never the module folders,
@@ -80,6 +82,9 @@ pub enum RecEvent {
         #[serde(default)]
         frame: Option<Value>,
     },
+    /// The player zoomed the view to `view` world units top to bottom, after `tick`.
+    /// The world never sees it.
+    Zoom { tick: u64, view: f32 },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,7 +206,7 @@ impl<'a> Replay<'a> {
                     module,
                     files,
                 } => loads.entry(*tick).or_default().push((module, files)),
-                RecEvent::Note { .. } => {}
+                RecEvent::Note { .. } | RecEvent::Zoom { .. } => {}
             }
         }
         Ok(Replay {

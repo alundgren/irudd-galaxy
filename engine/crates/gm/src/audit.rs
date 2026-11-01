@@ -125,7 +125,7 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
                 .iter()
                 .any(|f| f.kind == HOT_LOADED);
             if let (true, Some(v), Some(r)) = (hot_loaded, &mut view, &mut renderer) {
-                v.reload(r, replay.session.modules());
+                v.reload(Some(r), replay.session.modules());
             }
         }
         let hash = replay.session.world.hash();

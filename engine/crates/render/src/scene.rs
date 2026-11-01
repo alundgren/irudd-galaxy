@@ -21,6 +21,20 @@ pub struct MeshHandle {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BackdropHandle(pub(crate) u32);
 
+impl MeshHandle {
+    /// A handle no renderer has, for scenes built without one (a film's probes). Drawing
+    /// it draws nothing.
+    pub const DETACHED: MeshHandle = MeshHandle {
+        index: u32::MAX,
+        generation: u32::MAX,
+    };
+}
+
+impl BackdropHandle {
+    /// A backdrop no renderer has, for scenes built without one.
+    pub const DETACHED: BackdropHandle = BackdropHandle(u32::MAX);
+}
+
 /// Everything drawn in one frame.
 #[derive(Clone, Debug)]
 pub struct Scene {

@@ -1,7 +1,8 @@
 //! `galaxy`: the game, which runs modules. `play` runs them in a window, `shot` draws one
-//! frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
+//! frame headless, `film` draws every frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
 //! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod film;
 mod notes;
 mod play;
 mod sim;
@@ -22,6 +23,10 @@ const USAGE: &str = "usage: galaxy <command>
                               Each session records itself into a session folder.
   shot --modules <dir> --out <file.png>
                               run the modules headless and draw one frame
+  film --modules <dir> --out <folder>
+                              run the modules headless and draw every frame on a fixed
+                              clock, with probes of where things are on screen, for
+                              galaxy-gm motion
   sim run --modules <dir>     run a new world from the modules' start states, headless
   sim load <save> --modules <dir>
                               load a save and carry on with the modules
@@ -49,7 +54,15 @@ play takes --seed, --save and --record as above, and:
 It prints frame times when it quits.
 
 shot takes --seed, --ticks (30 by default) and --inputs as above, and --size (in pixels,
-1280x720 by default).";
+1280x720 by default).
+
+film takes --seed and --inputs as above, and:
+  --from <tick>     the first tick filmed (0 by default)
+  --to <tick>       the last (90 ticks, three seconds, after --from by default)
+  --fps <n>         frames a second (60 by default)
+  --size <w>x<h>    in pixels (960x540 by default)
+  --probes-only     no pictures and no GPU: where things are on screen only
+Inputs files may turn the wheel: [[zoom]] tick = <n>, steps = <wheel steps>.";
 
 fn main() -> ExitCode {
     cli::main(Tool::Game, USAGE, run)
@@ -59,6 +72,7 @@ fn run(args: &[String]) -> Result<Output, Failure> {
     match args {
         [command, rest @ ..] if command == "play" => play::play(rest),
         [command, rest @ ..] if command == "shot" => play::shot(rest),
+        [command, rest @ ..] if command == "film" => film::film(rest),
         [command, rest @ ..] if command == "sim" => sim::run(rest),
         [command, ..] => Err(cli::usage_failure(
             format!("unknown command `{command}`"),

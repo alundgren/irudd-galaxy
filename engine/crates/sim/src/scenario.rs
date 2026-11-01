@@ -17,6 +17,10 @@
 //! [[hot_load]]
 //! tick = 150                # loaded just before tick 150 runs
 //! from = "changed/example"  # a module folder, relative to this file
+//!
+//! [[zoom]]
+//! tick = 200                # the wheel, turned once tick 200 has run
+//! steps = 2.0               # positive is closer; presentation only, not a sim input
 //! ```
 //!
 //! A scenario test is a module's `tests/<name>.toml`: a `seed`, a number of `ticks`, the
@@ -74,6 +78,13 @@ struct RawLoad {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawZoom {
+    tick: u64,
+    steps: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawInputs {
     #[serde(default)]
     input: Vec<RawInput>,
@@ -81,6 +92,8 @@ struct RawInputs {
     note: Vec<RawNote>,
     #[serde(default)]
     hot_load: Vec<RawLoad>,
+    #[serde(default)]
+    zoom: Vec<RawZoom>,
 }
 
 fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Input, String> {
@@ -111,6 +124,8 @@ pub struct InputsFile {
     pub notes: Vec<(u64, String)>,
     /// Module folders to hot-load, by tick.
     pub hot_loads: Vec<(u64, PathBuf)>,
+    /// Wheel steps by tick: how the view zooms, which the sim never sees.
+    pub zooms: Vec<(u64, f32)>,
 }
 
 impl InputsFile {
@@ -139,6 +154,21 @@ impl InputsFile {
                 .into_iter()
                 .map(|l| (l.tick, base.join(l.from)))
                 .collect(),
+            zooms: raw
+                .zoom
+                .into_iter()
+                .map(|z| {
+                    if z.steps.is_finite() {
+                        Ok((z.tick, z.steps))
+                    } else {
+                        Err(format!(
+                            "{}: zoom on tick {}: steps must be a number",
+                            path.display(),
+                            z.tick
+                        ))
+                    }
+                })
+                .collect::<Result<_, _>>()?,
         })
     }
 

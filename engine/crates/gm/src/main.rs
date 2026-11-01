@@ -1,8 +1,10 @@
 //! `galaxy-gm`: the GM, which builds and checks modules. So far: `doctor`, `check` (the
-//! module loads: manifest, start state, scripts, models and styles) and `types` (the Luau
-//! type file for scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
+//! module loads: manifest, start state, scripts, models and styles), `audit` (a played
+//! session's notes drawn again), `film` and `motion` (how motion looks, measured) and
+//! `types` (the Luau type file for scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audit;
+mod film;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -28,6 +30,24 @@ const USAGE: &str = "usage: galaxy-gm <command>
   audit <recording>     replay a played session to each of its notes: check the world
                         is identical and draw the moment again beside the recording
                         (audit/0001.png), to compare with the frame that was seen
+  film <recording>      film a played session again, frame by frame on a fixed clock as
+                        the window showed it, with probes of where things are on screen:
+                        --note <n> [--before 3] [--after 1] (seconds round a note), or
+                        --from <tick> --to <tick>; --fps 60, --size <w>x<h>, --out <folder>,
+                        --probes-only (no GPU). Scripted sessions: `galaxy film`.
+  motion <tool> <film>  answer one question about how motion looks, with numbers,
+                        timestamps and one picture (engine/docs/motion-tools.md):
+                          track [--thing x] [--to y]   follow, judder, overshoot, settling
+                          dots                         dotted lines stay put (probes only)
+                          strip [--along course|x,y;x,y] [--screen x,y;x,y]
+                                                       crawl, jitter, popping on a path
+                          sheet [--count n] [--at t,t] [--crop x] [--onion x]
+                                                       frames side by side; an onion skin
+                          flicker [--screen]           pops, blips and flicker
+                          flow [--along course]        motion without a named thing
+                          compare <other film> [--vdp] where two films differ (FLIP,
+                                                       ColorVideoVDP)
+  motion check <spec>   film a spec and hold the tools to its expectations
   types                 print the Luau type file for module scripts
   --version             print the version
   --help                print this";
@@ -54,6 +74,17 @@ fn run(args: &[String]) -> Result<Output, Failure> {
         }
         [command, ..] if command == "audit" => Err(cli::usage_failure(
             "audit takes one recording: galaxy-gm audit <recording.json>",
+            USAGE,
+        )),
+        [command, rest @ ..] if command == "motion" => film::motion(rest, USAGE),
+        [command, path, rest @ ..] if command == "film" => {
+            let cwd = cli::current_dir()?;
+            let opts =
+                galaxy_motion::Opts::parse(rest).map_err(|e| cli::usage_failure(e, USAGE))?;
+            film::film(&discover::resolve(&cwd, Path::new(path)), &opts)
+        }
+        [command] if command == "film" => Err(cli::usage_failure(
+            "film takes a recording: galaxy-gm film <recording.json> --note <n>",
             USAGE,
         )),
         [command] if command == "types" => Ok(Output::Text(

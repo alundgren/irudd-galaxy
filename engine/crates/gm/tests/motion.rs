@@ -1,0 +1,188 @@
+//! `galaxy-gm film` and `galaxy-gm motion` on the drift test module, headless: films with
+//! probes only need no GPU. Films with pictures are behind `#[ignore]`.
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use galaxy_module::module::Module;
+use galaxy_sim::scenario::InputsFile;
+use galaxy_sim::{BuildStamp, Session};
+use serde_json::Value;
+
+fn play() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play")
+}
+
+fn gm(args: &[&str]) -> (i32, Value) {
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy-gm"))
+        .args(args)
+        .env_remove("GALAXY_INSTALL_ROOT")
+        .output()
+        .unwrap();
+    let json = serde_json::from_slice(&out.stdout).unwrap_or(Value::Null);
+    (out.status.code().unwrap(), json)
+}
+
+/// Drift flying its route for 60 ticks, the wheel turned on tick 20 and a note on 40.
+fn record(dir: &Path) -> PathBuf {
+    let drift = Module::read(&play().join("drift")).unwrap();
+    let mut session = Session::new(vec![drift], 1).unwrap();
+    let script = InputsFile::read(&play().join("films/inputs/route.toml")).unwrap();
+    let inputs = script.by_tick();
+    session.start_recording(BuildStamp::current());
+    for tick in 1..=60 {
+        session
+            .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
+            .unwrap();
+        if tick == 20 {
+            session.record_zoom(24.0);
+            session.record_zoom(18.0);
+        }
+        if tick == 40 {
+            session.note("look at the course", None, None);
+        }
+    }
+    let path = dir.join("recording.json");
+    session.recording().unwrap().write(&path).unwrap();
+    path
+}
+
+#[test]
+fn a_recording_is_filmed_round_its_note_with_the_zoom_the_player_had() {
+    let tmp = tempfile::tempdir().unwrap();
+    let rec = record(tmp.path());
+    let (code, out) = gm(&[
+        "film",
+        rec.to_str().unwrap(),
+        "--note",
+        "1",
+        "--before",
+        "1",
+        "--after",
+        "0.5",
+        "--probes-only",
+    ]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(out["drawn"], false);
+    // From a second before the note (tick 10) to half a second after (tick 55), at 60 fps.
+    assert_eq!(out["from"]["tick"], 10);
+    assert_eq!(out["to"]["tick"], 55);
+    let film = PathBuf::from(out["out"].as_str().unwrap());
+    assert_eq!(film, tmp.path().join("films").join("note-0001"));
+    let manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(film.join("film.json")).unwrap()).unwrap();
+    let frames = manifest["frames"].as_array().unwrap();
+    assert_eq!(frames.len(), 91);
+    let at = |tick: u64| frames.iter().find(|f| f["tick"] == tick).unwrap();
+    // Two wheel moves on one tick keep where the wheel ended.
+    assert_eq!(at(19)["zoom"], Value::Null);
+    assert_eq!(at(20)["zoom"], 18.0);
+    assert!(at(20)["camera"]["per_pixel"].as_f64() < at(19)["camera"]["per_pixel"].as_f64());
+    let (code, dots) = gm(&["motion", "dots", film.to_str().unwrap()]);
+    assert_eq!(code, 0, "{dots}");
+    assert!(
+        dots["drift_px_per_frame"].as_f64().unwrap().abs() < 0.01,
+        "{dots}"
+    );
+}
+
+#[test]
+fn a_note_that_is_not_there_is_bad_input() {
+    let tmp = tempfile::tempdir().unwrap();
+    let rec = record(tmp.path());
+    let (code, out) = gm(&[
+        "film",
+        rec.to_str().unwrap(),
+        "--note",
+        "2",
+        "--probes-only",
+    ]);
+    assert_eq!(
+        (code, out["kind"].as_str()),
+        (4, Some("bad_input")),
+        "{out}"
+    );
+    let (code, out) = gm(&["film", rec.to_str().unwrap(), "--nope", "1"]);
+    assert_eq!((code, out["kind"].as_str()), (2, Some("usage")), "{out}");
+}
+
+#[test]
+fn the_dock_check_holds_without_a_gpu() {
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = play().join("films/dock.toml");
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("dock").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+    let lines = out["expectations"].as_array().unwrap();
+    assert_eq!(lines.len(), 3);
+    assert!(lines.iter().all(|l| l["pass"] == true), "{out}");
+}
+
+#[test]
+fn a_check_that_does_not_hold_exits_5_and_says_which() {
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = tmp.path().join("strict.toml");
+    let drift = play().join("drift");
+    std::fs::write(
+        &spec,
+        format!(
+            "modules = '{}'\ninputs = '{}'\nfrom = 0\nto = 60\nprobes_only = true\n\
+             [[expect]]\ntool = 'track'\nto = 'berth'\nvalue = 'gap.end'\nat_most = 0.5\n\
+             [[expect]]\ntool = 'track'\nvalue = 'camera.judder'\nat_most = 0.1\n",
+            drift.display(),
+            play().join("films/inputs/dock.toml").display()
+        ),
+    )
+    .unwrap();
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("f").to_str().unwrap(),
+    ]);
+    assert_eq!(
+        (code, out["kind"].as_str()),
+        (5, Some("motion_expectations")),
+        "{out}"
+    );
+    let lines = out["expectations"].as_array().unwrap();
+    // Two seconds in, the ship is still on its way to the berth.
+    assert_eq!(lines[0]["pass"], false, "{out}");
+    assert!(lines[0]["got"].as_f64().unwrap() > 0.5);
+    assert_eq!(lines[1]["pass"], true, "{out}");
+}
+
+#[test]
+fn an_unknown_tool_or_option_is_named() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (code, out) = gm(&["motion", "nope", tmp.path().to_str().unwrap()]);
+    assert_eq!(code, 4, "{out}");
+    assert!(
+        out["error"].as_str().unwrap().contains("not a film"),
+        "{out}"
+    );
+    let (code, out) = gm(&["motion"]);
+    assert_eq!((code, out["kind"].as_str()), (2, Some("usage")), "{out}");
+}
+
+#[test]
+#[ignore = "needs a GPU: films the course and holds strip, flow, dots and track to it"]
+fn the_course_check_holds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = play().join("films/course.toml");
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("course").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(out["expectations"].as_array().unwrap().len(), 4);
+}

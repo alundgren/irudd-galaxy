@@ -1,0 +1,19 @@
+[package]
+name = "galaxy-motion"
+description = "Films and the tools that read them: how motion looks on screen, as numbers, timestamps and one small picture"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+png.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

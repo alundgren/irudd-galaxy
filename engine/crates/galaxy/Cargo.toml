@@ -23,6 +23,7 @@ winit.workspace = true
 
 [dev-dependencies]
 galaxy-mesh.workspace = true
+galaxy-motion.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 

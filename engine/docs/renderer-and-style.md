@@ -161,7 +161,9 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   the world units it shows from the bottom of the screen to the top, and `fov` above 0
   makes it a perspective camera with the same framing at the target. The wheel zooms
   between `min_view` and `max_view`. Zoom is the player's, not the world's, so it is not
-  an input and is not recorded.
+  a sim input: the world never sees it. A played session's recording keeps it beside the
+  inputs as presentation only, so a film of the session shows the zoom the player had,
+  and an inputs file can turn the wheel with `[[zoom]]` (`saves-and-replay.md`).
 
 - **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
   an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it
@@ -210,11 +212,14 @@ max, skipping the first ten frames. Times from a software renderer or a virtual 
 are for information only; the 60 fps target is for the owner's PC.
 
 `shot` runs the same session headless for `--ticks` (30 by default) with optional
-`--inputs`, draws the last tick at `--size` pixels and writes a PNG. It reports the camera,
+`--inputs`, draws the last tick at `--size` pixels and writes a PNG. It draws one still
+moment (`alpha` 1, time 0), so it can't show motion; `galaxy film` draws every frame on a
+fixed clock for that (`motion-tools.md`). It reports the camera,
 the models drawn and the scene build time. It needs a GPU (or a software one such as
 lavapipe or WARP); tests that render are `#[ignore]`d so the check stays headless.
 
-**Why the window loop lives in the game binary and the view in a library.** The GM will
-draw too (screenshots at a recording's notes, `look`), so everything between the world
-and the renderer is a library both binaries share; only the window and keyboard are the
-game's.
+**Why the window loop lives in the game binary and the view in a library.** The GM draws
+too (a recording's notes again, films of it), so everything between the world and the
+renderer is a library both binaries share; only the window and keyboard are the game's.
+A view can also be made with no renderer (`View::detached`): it builds the same scenes,
+whose meshes draw nothing, so a film's probes need no GPU.

@@ -45,8 +45,11 @@ A recording is one JSON file that holds everything needed to run a session again
 - `modules`: the exact files of every module at the start;
 - `seed` and `start`: the whole world the session started from;
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
-  `module` and its exact new files) and notes (`tick`, `text`, the world's `hash` then,
-  and from a played session the `camera`, a moment, and the `frame` file that was seen);
+  `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
+  from a played session the `camera`, a moment, and the `frame` file that was seen) and
+  zooms (`tick`, and the `view` height the wheel left; one a tick). Zooms are
+  presentation only: a replay of the world skips them, and a film of the session
+  (`galaxy-gm film`, `motion-tools.md`) applies them;
 - `end`: the last tick and the world's hash there.
 
 An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is
@@ -95,11 +98,18 @@ visibly match. A world that differs exits 5 with kind `replay_diverged`.
 So a note says exactly where the player was and what they saw, and an agent can stand in
 the same moment, look at the state, and try a fix against it.
 
+To see how the moments round a note *moved*, `galaxy-gm film <recording> --note <n>` films
+the seconds before and after it, frame by frame as the window drew them, for the motion
+tools (`motion-tools.md`).
+
 ## Inputs files and scenario tests
 
-`--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]` and `[[hot_load]]` entries
-by tick (`crates/sim/src/scenario.rs` shows the format; `tests/sessions/stroll.toml` is an
-example). A hot-load names a module folder; it is read when the run starts.
+`--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]`, `[[hot_load]]` and
+`[[zoom]]` entries by tick (`crates/sim/src/scenario.rs` shows the format;
+`tests/sessions/stroll.toml` is an example). A hot-load names a module folder; it is read
+when the run starts. A zoom turns the wheel `steps` once its tick has run; it is for the
+view only (`play`, `shot` and `film` use it, `sim run` has nothing to zoom), and `play`
+records it like the player's own wheel.
 
 A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs, and
 `[[expect]]` entries on component fields or fact counts, checked after their tick. The

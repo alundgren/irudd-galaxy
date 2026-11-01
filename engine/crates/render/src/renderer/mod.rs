@@ -87,13 +87,17 @@ impl RgbaImage {
 
     /// Encodes the image as a PNG file in memory.
     pub fn encode_png(&self) -> Result<Vec<u8>, RenderError> {
+        self.encode_png_with(png::Compression::High)
+    }
+
+    fn encode_png_with(&self, compression: png::Compression) -> Result<Vec<u8>, RenderError> {
         let mut out = Vec::new();
         {
             let mut enc = png::Encoder::new(&mut out, self.width, self.height);
             enc.set_color(png::ColorType::Rgba);
             enc.set_depth(png::BitDepth::Eight);
             enc.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
-            enc.set_compression(png::Compression::High);
+            enc.set_compression(compression);
             let mut w = enc
                 .write_header()
                 .map_err(|e| RenderError::Png(e.to_string()))?;
@@ -170,6 +174,13 @@ impl RgbaImage {
 
     pub fn save_png(&self, path: impl AsRef<Path>) -> Result<(), RenderError> {
         std::fs::write(path, self.encode_png()?)?;
+        Ok(())
+    }
+
+    /// Writes a PNG quickly, larger on disk: for the many frames of a film. Still
+    /// lossless.
+    pub fn save_png_fast(&self, path: impl AsRef<Path>) -> Result<(), RenderError> {
+        std::fs::write(path, self.encode_png_with(png::Compression::Fast)?)?;
         Ok(())
     }
 }

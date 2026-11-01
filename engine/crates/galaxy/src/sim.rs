@@ -37,6 +37,13 @@ pub(crate) struct Options {
     pub size: Option<(u32, u32)>,
     /// `--frames <n>`: stop after this many frames.
     pub frames: Option<u64>,
+    /// `--from <tick>` and `--to <tick>`: what a film covers.
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    /// `--fps <n>`: a film's frames a second.
+    pub fps: Option<u64>,
+    /// `--probes-only`: a film without pictures.
+    pub probes_only: bool,
 }
 
 pub(crate) fn usage(message: impl Into<String>) -> Failure {
@@ -60,7 +67,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
         if !allowed.contains(&flag) {
             return Err(usage(format!("unknown option `{flag}` here")));
         }
-        let switch = matches!(flag, "--realtime" | "--watch" | "--state");
+        let switch = matches!(flag, "--realtime" | "--watch" | "--state" | "--probes-only");
         if switch {
             if inline.is_some() {
                 return Err(usage(format!("{flag} takes no value")));
@@ -68,6 +75,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             match flag {
                 "--realtime" => options.realtime = true,
                 "--watch" => options.watch = true,
+                "--probes-only" => options.probes_only = true,
                 _ => options.state = true,
             }
             continue;
@@ -90,6 +98,9 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--record" => options.record = Some(path(&value)),
             "--out" => options.out = Some(path(&value)),
             "--frames" => options.frames = Some(number(&value)?),
+            "--from" => options.from = Some(number(&value)?),
+            "--to" => options.to = Some(number(&value)?),
+            "--fps" => options.fps = Some(number(&value)?),
             "--size" => {
                 let size = value
                     .split_once('x')

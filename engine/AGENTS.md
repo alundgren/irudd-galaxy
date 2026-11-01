@@ -24,6 +24,11 @@ cargo xtask target-dir                # the leased slot builds go to
 cargo xtask loc --base origin/main    # code lines per crate, and the change since main
 ```
 
+**Seeing motion.** One screenshot can't show how something moves. `galaxy film` (or
+`galaxy-gm film` for a played session) films it frame by frame, and `galaxy-gm motion`
+answers questions about the film; `docs/motion-tools.md` says which tool fits which
+question.
+
 This xtask is a copy of the slice's. It uses the same shared folder, slots and build
 permit, so engine and slice builds queue for each other. Never plain `cargo build` or
 `cargo test`, never cold or uncached builds, no build measurements.
@@ -45,7 +50,7 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   it works, the alternatives and why this design. A PR that changes a system updates its
   note. Current notes: `docs/world-and-sim.md`, `docs/saves-and-replay.md`,
   `docs/script-host.md`, `docs/modules-and-install.md`, `docs/renderer-and-style.md`,
-  `docs/flight-and-collision.md`, `docs/exit-codes.md`.
+  `docs/flight-and-collision.md`, `docs/motion-tools.md`, `docs/exit-codes.md`.
 - **Exit codes and error kinds** are one table for both binaries, kept in
   `crates/module/src/failure.rs` and `docs/exit-codes.md` together.
 - **Determinism.** The simulation is deterministic: fixed tick, seeded randomness,

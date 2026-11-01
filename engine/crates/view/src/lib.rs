@@ -11,6 +11,7 @@
 
 pub mod assets;
 pub mod course;
+pub mod film;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -223,9 +224,28 @@ impl View {
         modules: impl IntoIterator<Item = &'a Module>,
         seed: u64,
     ) -> View {
+        View::build(Some(renderer), modules, seed)
+    }
+
+    /// A view with no renderer: it builds the same scenes, but they draw nothing. For a
+    /// film's probes, which need where things are on screen and not the pixels.
+    pub fn detached<'a>(modules: impl IntoIterator<Item = &'a Module>, seed: u64) -> View {
+        View::build(None, modules, seed)
+    }
+
+    fn build<'a>(
+        mut renderer: Option<&mut Renderer>,
+        modules: impl IntoIterator<Item = &'a Module>,
+        seed: u64,
+    ) -> View {
         let assets = Assets::load(modules);
-        let placeholder = renderer.upload_mesh(&placeholder());
-        let sky = renderer.upload_backdrop(&backdrop(&assets.sky.params(), seed));
+        let (placeholder, sky) = match renderer.as_deref_mut() {
+            Some(r) => (
+                r.upload_mesh(&placeholder()),
+                r.upload_backdrop(&backdrop(&assets.sky.params(), seed)),
+            ),
+            None => (MeshHandle::DETACHED, BackdropHandle::DETACHED),
+        };
         let mut view = View {
             assets: Assets::default(),
             handles: BTreeMap::new(),
@@ -243,25 +263,34 @@ impl View {
         view
     }
 
-    /// Loads the modules' models and styles again (after a hot-load).
+    /// Loads the modules' models and styles again (after a hot-load). A detached view
+    /// passes no renderer.
     pub fn reload<'a>(
         &mut self,
-        renderer: &mut Renderer,
+        renderer: Option<&mut Renderer>,
         modules: impl IntoIterator<Item = &'a Module>,
     ) {
         let assets = Assets::load(modules);
         self.replace(renderer, assets);
     }
 
-    fn replace(&mut self, renderer: &mut Renderer, assets: Assets) {
+    fn replace(&mut self, mut renderer: Option<&mut Renderer>, assets: Assets) {
         for (_, handle) in std::mem::take(&mut self.handles) {
-            renderer.remove_mesh(handle);
+            if let Some(r) = renderer.as_deref_mut() {
+                r.remove_mesh(handle);
+            }
         }
-        renderer.remove_backdrop(self.sky);
-        self.sky = renderer.upload_backdrop(&backdrop(&assets.sky.params(), self.seed));
+        if let Some(r) = renderer.as_deref_mut() {
+            r.remove_backdrop(self.sky);
+            self.sky = r.upload_backdrop(&backdrop(&assets.sky.params(), self.seed));
+        }
         self.reach.clear();
         for (id, mesh) in &assets.models {
-            self.handles.insert(id.clone(), renderer.upload_mesh(mesh));
+            let handle = match renderer.as_deref_mut() {
+                Some(r) => r.upload_mesh(mesh),
+                None => MeshHandle::DETACHED,
+            };
+            self.handles.insert(id.clone(), handle);
             let reach = mesh
                 .vertices
                 .iter()

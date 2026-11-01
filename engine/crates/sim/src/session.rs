@@ -406,6 +406,22 @@ impl Session {
         }
     }
 
+    /// Notes in the recording that the player zoomed the view to `view` on this tick.
+    /// Presentation only: the world is not touched.
+    pub fn record_zoom(&mut self, view: f32) {
+        let tick = self.world.tick;
+        if let Some(rec) = &mut self.recording {
+            // Many wheel events on one tick keep only where the wheel ended.
+            if let Some(RecEvent::Zoom { tick: t, view: v }) = rec.events.last_mut()
+                && *t == tick
+            {
+                *v = view;
+                return;
+            }
+            rec.events.push(RecEvent::Zoom { tick, view });
+        }
+    }
+
     /// Starts recording from the world as it is now.
     pub fn start_recording(&mut self, build: BuildStamp) {
         self.recording = Some(Recording::start(

@@ -1,0 +1,7 @@
+# Drift flies its route: key 3 at tick 1 orders the ship along w1, w2, w3. The course
+# shows the whole way; the first leg is long and straight, for the strip tool.
+[[input]]
+tick = 1
+name = "drift.order_route"
+source = "keyboard"
+payload = { down = true }

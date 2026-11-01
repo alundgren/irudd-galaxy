@@ -3,8 +3,10 @@
 //! `play` opens a window and runs the session in real time: the sim steps at its fixed
 //! rate, the view draws between the last two ticks every frame, keys a module binds
 //! become its events, and the wheel zooms the camera. Every session records itself into
-//! a session folder, and F8 takes a note ([`crate::notes`]). `shot` runs the same session
-//! headless for some ticks and writes one frame as a PNG. Both report frame times.
+//! a session folder, and F8 takes a note ([`crate::notes`]); wheel zoom is recorded too,
+//! as presentation only. `shot` runs the same session headless for some ticks and writes
+//! one frame as a PNG; `galaxy film` ([`crate::film`]) writes every frame. Both report
+//! frame times.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -221,6 +223,9 @@ struct App {
     /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
     /// frame at or after their tick.
     scripted_notes: BTreeMap<u64, Vec<String>>,
+    /// Scripted wheel steps by tick (`[[zoom]]` in `--inputs`), turned once their tick
+    /// has run.
+    scripted_zooms: BTreeMap<u64, Vec<f32>>,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -290,7 +295,7 @@ impl App {
         }
         self.keys = bindings(self.session.modules());
         if let Some(r) = &mut self.running {
-            r.view.reload(&mut r.renderer, self.session.modules());
+            r.view.reload(Some(&mut r.renderer), self.session.modules());
         }
     }
 
@@ -446,6 +451,19 @@ impl App {
             event_loop.exit();
             return;
         }
+        let due: Vec<u64> = self
+            .scripted_zooms
+            .range(..=self.session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            for steps in self.scripted_zooms.remove(&tick).unwrap_or_default() {
+                r.view.zoom(&self.session.world, steps);
+                if let Some(view) = r.view.eye.view {
+                    self.session.record_zoom(view);
+                }
+            }
+        }
         let logical = r.renderer.logical_size();
         let time = (now - self.started).as_secs_f32();
         self.last_alpha = self.pace.alpha();
@@ -585,6 +603,9 @@ impl ApplicationHandler for App {
                 };
                 if let Some(r) = &mut self.running {
                     r.view.zoom(&self.session.world, steps);
+                    if let Some(view) = r.view.eye.view {
+                        self.session.record_zoom(view);
+                    }
                 }
             }
             WindowEvent::RedrawRequested => self.frame(event_loop),
@@ -593,10 +614,15 @@ impl ApplicationHandler for App {
     }
 }
 
-/// Inputs and notes by tick.
-type Script = (BTreeMap<u64, Vec<Input>>, BTreeMap<u64, Vec<String>>);
+/// Inputs, notes and wheel steps by tick.
+#[derive(Default)]
+struct Script {
+    inputs: BTreeMap<u64, Vec<Input>>,
+    notes: BTreeMap<u64, Vec<String>>,
+    zooms: BTreeMap<u64, Vec<f32>>,
+}
 
-/// The inputs and notes `--inputs` names, by tick, each input checked against the
+/// The inputs, notes and zooms `--inputs` names, by tick, each input checked against the
 /// session.
 fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failure> {
     let Some(path) = &options.inputs else {
@@ -616,7 +642,15 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for (tick, text) in &script.notes {
         notes.entry(*tick).or_default().push(text.clone());
     }
-    Ok((script.by_tick(), notes))
+    let mut zooms: BTreeMap<u64, Vec<f32>> = BTreeMap::new();
+    for (tick, steps) in &script.zooms {
+        zooms.entry(*tick).or_default().push(*steps);
+    }
+    Ok(Script {
+        inputs: script.by_tick(),
+        notes,
+        zooms,
+    })
 }
 
 /// `galaxy play`.
@@ -629,7 +663,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     }
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let (scripted, scripted_notes) = scripted_inputs(&session, &options)?;
+    let script = scripted_inputs(&session, &options)?;
     session.start_recording(BuildStamp::current());
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
     let root = galaxy_module::install::sessions_dir();
@@ -661,8 +695,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pace: FixedStep::default(),
         held: BTreeSet::new(),
         pending: Vec::new(),
-        scripted,
-        scripted_notes,
+        scripted: script.inputs,
+        scripted_notes: script.notes,
+        scripted_zooms: script.zooms,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -736,7 +771,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         .ok_or_else(|| usage("shot needs a file to write: --out <file.png>"))?;
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let (inputs, _) = scripted_inputs(&session, &options)?;
+    let script = scripted_inputs(&session, &options)?;
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
@@ -746,8 +781,15 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         view.before_step(&session.world);
         let tick = session.world.tick + 1;
         session
-            .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
+            .step(script.inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
+    }
+    for steps in script
+        .zooms
+        .range(..=session.world.tick)
+        .flat_map(|(_, s)| s)
+    {
+        view.zoom(&session.world, *steps);
     }
     let started = Instant::now();
     let scene = view.scene(&session.world, 1.0, Vec2::new(w as f32, h as f32), 0.0);
