@@ -120,6 +120,33 @@ fn floor(surfaces: &[Surface], place: &str, layer: i64, x: f64, y: f64) -> f64 {
 }
 
 /// Sets each position's height to the floor under it.
+pub fn floor_height(world: &World, place: &str, layer: i64, x: f64, y: f64) -> f64 {
+    world
+        .entities
+        .iter()
+        .filter_map(|(id, c)| {
+            let f = &c.get(SURFACE)?.fields;
+            if crate::places::place_of(world, id) != place || int(f, "layer") != layer {
+                return None;
+            }
+            if x < number(f, "min_x")
+                || x > number(f, "max_x")
+                || y < number(f, "min_y")
+                || y > number(f, "max_y")
+            {
+                return None;
+            }
+            Some(
+                number(f, "height")
+                    + number(f, "rise_x") * (x - number(f, "min_x"))
+                    + number(f, "rise_y") * (y - number(f, "min_y")),
+            )
+        })
+        .reduce(f64::max)
+        .unwrap_or(0.0)
+}
+
+/// Sets each position's height to the floor under it.
 pub fn ground(world: &mut World) {
     let surfaces: Vec<Surface> = world
         .entities

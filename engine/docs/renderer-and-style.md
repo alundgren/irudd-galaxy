@@ -285,3 +285,17 @@ widget's paint order. The fixed chrome layers remain for notes and diagnostic pa
 Named `engine.anchor` publishers project interpolated positions into this layout each
 frame. Left clicks hit-test the tree and record the chosen event as source `ui`; bot
 `[[click]]` entries use the same path. See `screens.md` for the API and readability rules.
+
+## Posed room cameras
+
+A place with `engine.room` uses the named camera node in its glTF set. `CameraSpec::posed`
+uses the node's inherited position, glTF -Z direction and +Y up, converted to world axes,
+with `engine.room.fov` (default 40 degrees), a 0.1 near plane and 5000 far plane. The
+camera is a pose, independent of mesh geometry. The follow camera remains the fallback
+for places without a room. Wheel zoom does not override an authored room pose.
+
+Named empty glTF nodes also supply floor spots and model-part anchors. Room visibility,
+anchor projection and the cut are rebuilt from world data in Rust; no per-frame script
+calls are added. `galaxy-gm check` projects beings against the authored camera and room
+panel at 1280x720. [Rooms and travel](rooms-and-travel.md) explains the component and
+marker contract, replay reconstruction and alternatives.

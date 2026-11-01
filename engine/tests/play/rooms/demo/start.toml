@@ -1,0 +1,63 @@
+[entities.state]
+visits = { count = 0 }
+[entities.station]
+"engine.place" = { parent = "", arrival = "rooms.station_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Station" }
+"engine.model" = { model = "rooms.station" }
+[entities.station_entry]
+"engine.spot" = { place = "rooms.station", name = "entry" }
+[entities.station_left]
+"engine.spot" = { place = "rooms.station", name = "left" }
+[entities.station_right]
+"engine.spot" = { place = "rooms.station", name = "right" }
+[entities.room_a]
+"engine.place" = { parent = "rooms.station", arrival = "rooms.room_a_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Room A" }
+"engine.model" = { model = "rooms.room_a" }
+[entities.room_a_entry]
+"engine.spot" = { place = "rooms.room_a", name = "entry" }
+[entities.room_a_left]
+"engine.spot" = { place = "rooms.room_a", name = "left" }
+[entities.room_a_right]
+"engine.spot" = { place = "rooms.room_a", name = "right" }
+[entities.room_b]
+"engine.place" = { parent = "rooms.station", arrival = "rooms.room_b_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Room B" }
+"engine.model" = { model = "rooms.room_b" }
+[entities.room_b_entry]
+"engine.spot" = { place = "rooms.room_b", name = "entry" }
+[entities.room_b_left]
+"engine.spot" = { place = "rooms.room_b", name = "left" }
+[entities.room_b_right]
+"engine.spot" = { place = "rooms.room_b", name = "right" }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "rooms.station", spot = "rooms.station_entry" }
+"engine.position" = {}
+[entities.first]
+"engine.being" = { player = false }
+"engine.location" = { place = "rooms.room_a", spot = "rooms.room_a_left" }
+"engine.position" = {}
+"engine.model" = { model = "rooms.being" }
+[entities.second]
+"engine.being" = { player = false }
+"engine.location" = { place = "rooms.room_a", spot = "rooms.room_a_right" }
+"engine.position" = {}
+"engine.model" = { model = "rooms.being" }
+[entities.third]
+"engine.being" = { player = false }
+"engine.location" = { place = "rooms.room_b", spot = "rooms.room_b_left" }
+"engine.position" = {}
+"engine.model" = { model = "rooms.being" }
+
+[entities.station_to_room_a]
+"engine.door" = { from = "rooms.station", to = "rooms.room_a", arrival = "rooms.room_a_entry" }
+
+[entities.room_a_to_station]
+"engine.door" = { from = "rooms.room_a", to = "rooms.station", arrival = "rooms.station_entry" }
+
+[entities.station_to_room_b]
+"engine.door" = { from = "rooms.station", to = "rooms.room_b", arrival = "rooms.room_b_entry" }
+
+[entities.room_b_to_station]
+"engine.door" = { from = "rooms.room_b", to = "rooms.station", arrival = "rooms.station_entry" }

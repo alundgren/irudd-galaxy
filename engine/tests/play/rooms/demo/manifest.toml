@@ -1,0 +1,8 @@
+id = "rooms"
+version = "0.1.0"
+min_engine_version = "0.3.0"
+scripts = ["scripts/main.luau"]
+events = ["go"]
+writes = ["engine.place", "engine.door", "engine.room", "engine.spot", "engine.location", "engine.being", "engine.position", "engine.model", "engine.camera"]
+[components.visits]
+count = "int"

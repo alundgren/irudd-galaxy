@@ -16,12 +16,14 @@ pub mod collide;
 pub mod flight;
 pub mod places;
 pub mod recording;
+pub mod rooms;
 pub mod save;
 pub mod scenario;
 pub mod services;
 pub mod session;
 pub mod shape;
 pub mod step;
+pub mod travel;
 pub mod watch;
 pub mod world;
 
