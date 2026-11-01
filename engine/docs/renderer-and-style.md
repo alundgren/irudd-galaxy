@@ -131,7 +131,7 @@ these passes:
    A flat face has one light level, so a hard band step switches a whole face at once:
    a ship turning at 180° a second flipped half its hull from lit to shadow within a
    frame. Each face therefore eases between bands over `band_fade_degrees` of turn
-   (25° by default, about five frames at full turn). Filmed on a ship flying a tight
+   (25° by default, about eight frames at full turn and 60 fps). Filmed on a ship flying a tight
    circle (`galaxy-gm motion`), the biggest one-frame brightness jump fell from 4.9 to
    1.5. The default sun is high (about 64°), so a ship's top stays lit through turns
    and only steep sides go to shadow; a lower sun shows more form on rocks but makes
