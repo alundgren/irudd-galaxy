@@ -16,6 +16,7 @@ mod bytecode;
 pub mod host;
 pub mod iteration;
 pub mod meter;
+pub mod screens;
 pub mod vm;
 
 pub use host::{Event, Outcome, ScriptSet, Target};

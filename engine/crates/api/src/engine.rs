@@ -74,6 +74,8 @@ pub const FLIGHT: &str = "engine.flight";
 pub const HELM: &str = "engine.helm";
 pub const STEER: &str = "engine.steer";
 pub const WAYPOINT: &str = "engine.waypoint";
+pub const ANCHOR: &str = "engine.anchor";
+
 pub const BODY: &str = "engine.body";
 
 /// The engine's event kinds (in the `engine` namespace).
@@ -93,6 +95,19 @@ pub const SCRIPT_FAILED: &str = "engine.script_failed";
 /// name), field, meaning. `galaxy-gm fields components` prints it beside each field's type
 /// and default from [`components`]; a test keeps the two in step.
 pub const FIELDS: &[(&str, &str, &str)] = &[
+    (
+        "anchor",
+        "name",
+        "published name; widgets address publisher ID and this name",
+    ),
+    (
+        "anchor",
+        "target",
+        "entity followed; empty means the publisher itself",
+    ),
+    ("anchor", "x", "local x offset in world units"),
+    ("anchor", "y", "local y offset in world units"),
+    ("anchor", "height", "height offset in world units"),
     ("position", "x", "world units"),
     ("position", "y", "world units"),
     (
@@ -271,6 +286,16 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
     let mut model = fields(&[("model", Text), ("look", Text), ("morph", Number)]);
     model.extend(numbers(&[("scale", 1.0)]));
     vec![
+        (
+            "anchor",
+            fields(&[
+                ("name", Text),
+                ("target", Id),
+                ("x", Number),
+                ("y", Number),
+                ("height", Number),
+            ]),
+        ),
         (
             "position",
             fields(&[

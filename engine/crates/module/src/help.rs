@@ -492,7 +492,7 @@ static GAME: &[Command] = &[
             ),
             (
                 "--inputs <file>",
-                "a bot: play these inputs, notes and zooms on their ticks \
+                "a bot: play these inputs, clicks, notes and zooms on their ticks \
               through the window loop (`galaxy-gm fields inputs` lists the format)",
             ),
             (
@@ -511,7 +511,7 @@ static GAME: &[Command] = &[
                 "frame_time",
                 "frame times in milliseconds: median, p95, worst",
             ),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
             ("hot_load_failures", "hot-loads --watch refused, with why"),
             ("log", "what scripts printed"),
         ],
@@ -562,7 +562,7 @@ static GAME: &[Command] = &[
                 "the camera: eye, target, view height in world units",
             ),
             ("models_drawn", "how many models the scene drew"),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
             ("log", "what scripts printed"),
         ],
         writes: "--out",
@@ -631,7 +631,7 @@ static GAME: &[Command] = &[
               side by side (path, top speed, arrival, end) and whether it is the same; and \
               where the pictures differ",
             ),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
         ],
         writes: "<out>/film.json (how it was filmed, small), frames.jsonl (a frame a line: \
                  where every thing is), lines.jsonl (a frame a line: the lines and dots drawn), \

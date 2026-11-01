@@ -16,6 +16,7 @@ return {
         pressed = function(event, ctx) ... end,   -- this module's own event kind
     },
     cadence = function(ctx) ... end,             -- once per second of game time
+    screen = function(ctx, ui) ... end,          -- pure widget tree, on changed reads
 }
 ```
 
@@ -37,6 +38,14 @@ one batch with the handler as the cause; if it fails, none apply and the engine 
 The API is declared once, in `api.rs`. The host binds exactly those names (a test checks
 it), and `galaxy-gm types` prints the Luau type file made from the same declaration, which
 every install ships as `galaxy.d.luau`.
+
+## Screen functions
+
+`screen` uses a separate read-only context (`module`, `get`, `query`) and the six `ui`
+constructors. Its reads invalidate the cached tree when their data changes. It has no
+simulation writes, random stream or tick access, and shares the fresh VM and budgets.
+Returning nil hides the screen. `screens.md` describes layout, anchors, clicks and replay.
+`galaxy-gm types` includes `ScreenCtx`, `Ui`, `Widget` and the optional script function.
 
 ## The sandbox
 

@@ -60,6 +60,9 @@ pub struct Scripted {
 impl Scripted {
     /// `session` with `script`'s inputs, each checked against it, and its hot-loads read.
     pub fn new(session: Session, script: &InputsFile) -> Result<Scripted, String> {
+        if !script.clicks.is_empty() {
+            return Err("pointer clicks need galaxy play; film or replay its recording".into());
+        }
         for input in &script.inputs {
             session
                 .check_input(input)

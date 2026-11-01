@@ -180,3 +180,14 @@ recording stores the new files, so the replay loads exactly what the session did
 - **A binary recording format.** Smaller and faster, but opaque. JSON is readable by
   people and agents, and recordings are small while modules are text. Binary assets will
   need a different encoding when they arrive.
+
+## Screens in notes and films
+
+Button clicks record ordinary event inputs with source `ui`, including the button's
+payload. Replaying applies the chosen event without hit-testing a new viewport. Screen
+functions are pure reads of the replayed world; their open state must be module state,
+changed by recorded events. A fresh audit or film view therefore rebuilds the same trees
+from the embedded scripts and current components. Named anchors use the recorded camera,
+frame size and interpolation fraction, like model poses. No additional presentation
+record is needed in Screens I: it has no hover, scroll or transient pointer rendering.
+See `screens.md` for the bot click and note example.

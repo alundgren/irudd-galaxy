@@ -27,9 +27,9 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, and whether what its start state wears exists.",
+                  style, screens at 1280x720, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -40,7 +40,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start or look) and message",
+                "each problem: kind (schema, script, start, look or screen) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
@@ -709,7 +709,14 @@ pub static TOPICS: &[Topic] = &[
                 components it declares, what it writes, keys), start.toml (its entities), \
                 scripts/*.luau, models/*.gltf and style.toml. IDs are `<module>.<name>`. \
                 Scripts run on events and once a second, never per frame; the engine's \
-                services fly, move and collide things.",
+                services fly, move and collide things. An entry script may also return screen = \
+                function(ctx, ui), returning ui.panel/text/button/list/row/column tables with \
+                children. Screen ctx.get/query are read-only and tracked: Luau rebuilds only \
+                when their data changes. Return nil to hide it. Buttons use on and payload; \
+                clicks record that event with source ui. Dimensions are logical pixels, text \
+                at least 16px. anchor = publisher#name follows an engine.anchor. check lays \
+                out screens at 1280x720 and names problems by widget path. Bot [[click]] \
+                entries (tick, x, y) use galaxy play; then replay, audit or film the recording.",
         tasks: &[
             ("Check a module loads", "gm check"),
             ("What scripts can call", "gm types"),

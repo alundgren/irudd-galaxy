@@ -14,6 +14,7 @@ mod renderer;
 mod rng;
 pub mod scene;
 pub mod style;
+pub mod text;
 
 pub use backdrop::{Backdrop, BackdropParams, backdrop};
 pub use camera::{Camera, Projection};

@@ -418,8 +418,8 @@ pub struct Renderer {
     fx_vertices: Growable,
     fx_indices: Growable,
     screen: wgpu::Buffer,
-    panels: [Growable; text::LAYERS],
-    panels_bind: [wgpu::BindGroup; text::LAYERS],
+    panels: Vec<Growable>,
+    panels_bind: Vec<wgpu::BindGroup>,
     fallback_sky: GpuBackdrop,
     meshes: Vec<MeshSlot>,
     backdrops: Vec<Option<GpuBackdrop>>,
@@ -664,10 +664,8 @@ impl Renderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let panels: [Growable; text::LAYERS] =
-            std::array::from_fn(|_| Growable::new(&device, "panels", storage, 4096));
-        let panels_bind =
-            std::array::from_fn(|i| bind(&device, &layouts.ui, &[&screen, &panels[i].buf]));
+        let panels = Vec::new();
+        let panels_bind = Vec::new();
         let fallback_sky = make_backdrop(
             &device,
             &layouts.sky,
@@ -1257,14 +1255,35 @@ impl Renderer {
         let sky_instances = sky_blobs * sky_gpu.counts[0] as u32 * sky_gpu.counts[1] as u32;
 
         // Overlay: layer 0, then each upper layer above it.
-        let up = &scene.overlay.upper;
-        let panel_layers: [&[Panel]; text::LAYERS] = [
-            &scene.overlay.panels,
-            &up[0].panels,
-            &up[1].panels,
-            &up[2].panels,
-        ];
-        let mut panel_counts = [0u32; text::LAYERS];
+        let overlay = &scene.overlay;
+        let panel_layers: Vec<&[Panel]> = std::iter::once(overlay.panels.as_slice())
+            .chain(
+                overlay
+                    .widgets
+                    .iter()
+                    .chain(&overlay.upper)
+                    .map(|l| l.panels.as_slice()),
+            )
+            .collect();
+        let text_layers: Vec<&[Text]> = std::iter::once(overlay.texts.as_slice())
+            .chain(
+                overlay
+                    .widgets
+                    .iter()
+                    .chain(&overlay.upper)
+                    .map(|l| l.texts.as_slice()),
+            )
+            .collect();
+        while self.panels.len() < panel_layers.len() {
+            let buffer = Growable::new(&self.device, "panels", wgpu::BufferUsages::STORAGE, 4096);
+            self.panels_bind.push(bind(
+                &self.device,
+                &self.layouts.ui,
+                &[&self.screen, &buffer.buf],
+            ));
+            self.panels.push(buffer);
+        }
+        let mut panel_counts = vec![0u32; panel_layers.len()];
         for (i, panels) in panel_layers.iter().enumerate() {
             let data: Vec<PanelGpu> = panels.iter().map(|p| panel_gpu(p, self.scale)).collect();
             panel_counts[i] = data.len() as u32;
@@ -1287,12 +1306,7 @@ impl Renderer {
                 &self.queue,
                 self.size,
                 self.scale,
-                [
-                    &scene.overlay.texts,
-                    &up[0].texts,
-                    &up[1].texts,
-                    &up[2].texts,
-                ],
+                &text_layers,
             )
             .map_err(|e| RenderError::Text(e.to_string()))?;
 

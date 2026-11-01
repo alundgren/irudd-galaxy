@@ -864,6 +864,7 @@ dependencies = [
  "galaxy-module",
  "galaxy-motion",
  "galaxy-render",
+ "galaxy-script",
  "galaxy-sim",
  "serde",
  "serde_json",

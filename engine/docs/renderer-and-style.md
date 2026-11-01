@@ -274,3 +274,14 @@ too (a recording's notes again, films of it), so everything between the world an
 renderer is a library both binaries share; only the window and keyboard are the game's.
 A view can also be made with no renderer (`View::detached`): it builds the same scenes,
 whose meshes draw nothing, so a film's probes need no GPU.
+
+## Module screens
+
+`View` builds module widget trees through the read-only screen host. Rust lays out text
+with the headless shaper in `galaxy-render::text`, the same font/metrics as GPU drawing.
+`Overlay.widgets` holds ordered panel/text layers between the base and the three engine
+chrome layers. GPU storage and glyphon renderers grow with the stream, preserving every
+widget's paint order. The fixed chrome layers remain for notes and diagnostic panels.
+Named `engine.anchor` publishers project interpolated positions into this layout each
+frame. Left clicks hit-test the tree and record the chosen event as source `ui`; bot
+`[[click]]` entries use the same path. See `screens.md` for the API and readability rules.

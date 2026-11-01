@@ -55,6 +55,19 @@ use crate::session::{Input, Session};
 /// `galaxy-gm fields inputs` prints it; a test reads a file made of every example.
 pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
     (
+        "[[click]]",
+        "tick",
+        "10",
+        "galaxy play only: click just before this tick (starts at 1)",
+    ),
+    (
+        "[[click]]",
+        "x",
+        "100.0",
+        "logical pixels from the left; hit tests the screen and records its event with source ui",
+    ),
+    ("[[click]]", "y", "200.0", "logical pixels from the top"),
+    (
         "[[input]]",
         "tick",
         "10",
@@ -148,9 +161,20 @@ struct RawZoom {
     steps: f32,
 }
 
+/// A bot pointer click. The view resolves it before the tick; recordings keep its event.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Click {
+    pub tick: u64,
+    pub x: f32,
+    pub y: f32,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInputs {
+    #[serde(default)]
+    click: Vec<Click>,
     #[serde(default)]
     input: Vec<RawInput>,
     #[serde(default)]
@@ -185,6 +209,7 @@ fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Inpu
 /// An inputs file, read.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InputsFile {
+    pub clicks: Vec<Click>,
     pub inputs: Vec<Input>,
     pub notes: Vec<(u64, String)>,
     /// Module folders to hot-load, by tick.
@@ -201,7 +226,15 @@ impl InputsFile {
             toml::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
         let base = path.parent().unwrap_or(Path::new(""));
         let full = |name: &str| ids::is_full_id(name).then(|| name.to_owned());
+        for c in &raw.click {
+            if c.tick == 0 || !c.x.is_finite() || !c.y.is_finite() {
+                return Err(
+                    "click needs a tick starting at 1 and finite x/y logical pixels".into(),
+                );
+            }
+        }
         Ok(InputsFile {
+            clicks: raw.click,
             inputs: raw
                 .input
                 .into_iter()

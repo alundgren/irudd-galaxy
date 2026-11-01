@@ -99,3 +99,38 @@ fn inner_ink_keeps_fractional_coverage_and_single_sample_fallback() {
         assert_eq!(ui.pixel(16, 32), [255, 255, 255, 255]);
     }
 }
+
+#[test]
+#[ignore = "requires a GPU"]
+fn widget_layers_cover_earlier_text_beyond_the_old_four_layer_limit() {
+    use crate::{Text, UiLayer};
+    let mut renderer = Renderer::new_headless(96, 96).unwrap();
+    let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 96.0));
+    for _ in 0..12 {
+        scene.overlay.widgets.push(UiLayer {
+            texts: vec![Text::new("INK", Vec2::new(10.0, 10.0), 30.0)],
+            ..Default::default()
+        });
+    }
+    scene.overlay.widgets.push(UiLayer {
+        panels: vec![Panel {
+            fill: Color::WHITE,
+            border_px: 0.0,
+            radius: 0.0,
+            shadow: false,
+            ..Panel::new(Rect::new(0.0, 0.0, 96.0, 96.0))
+        }],
+        ..Default::default()
+    });
+    let covered = renderer.render_to_rgba(&scene).unwrap();
+    assert_eq!(covered.pixel(20, 20), [255, 255, 255, 255]);
+    for layer in &mut scene.overlay.widgets {
+        layer.texts.clear();
+    }
+    let plain = renderer.render_to_rgba(&scene).unwrap();
+    for y in 4..90 {
+        for x in 4..90 {
+            assert_eq!(covered.pixel(x, y), plain.pixel(x, y));
+        }
+    }
+}
