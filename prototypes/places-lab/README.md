@@ -2,7 +2,7 @@
 
 A throwaway prototype, like `prototypes/ui-lab`, that settles one question before the
 engine builds scenes, cameras and talk: **how does a station become a place you are in?**
-Only the findings carry over, in a REPORT.md at the end.
+Only the findings carry over: [REPORT.md](REPORT.md) has them and the owner's pick.
 
 The ui-lab's verdict ("Where the player is" in `prototypes/ui-lab/REPORT.md`): a speech
 bubble hangs off a building, not a person; opening the cradle cuts to another scene and
@@ -176,7 +176,3 @@ see). `lab/life.luau` adds the variant's marks to the signs the screens already 
 
 Variants are named by technique. Don't copy any game's layout, screens or look.
 
-## Order
-
-1. **Play and report:** the owner plays the combinations and leaves F8 notes; the report
-   says what the engine's place model, cameras and talk should be.
