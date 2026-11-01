@@ -56,6 +56,19 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
             _ => None,
         })
         .collect();
+    // The world's hash at each note, to check the film shows the world the player had.
+    let kept: Vec<(u64, String)> = rec
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            RecEvent::Note {
+                tick,
+                hash: Some(h),
+                ..
+            } => Some((*tick, h.clone())),
+            _ => None,
+        })
+        .collect();
     let bad = |e: String| Failure::bad_input(e).with("path", path.display().to_string());
     let note = opts.count("note").map_err(bad)?;
     let chosen = match note {
@@ -140,8 +153,17 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
     let manifest = run_shoot(&mut replay, &shoot, opts.flag("probes-only"))?;
     let first = &manifest.frames[0];
     let last = manifest.frames.last().expect("a film has frames");
-    Ok(Output::Json(json!({
-        "ok": true,
+    // Every note inside the film: is the replayed world the one the note kept?
+    let checked: Vec<Value> = kept
+        .iter()
+        .filter_map(|(tick, hash)| {
+            let f = manifest.frames.iter().find(|f| f.tick == *tick)?;
+            Some(json!({ "tick": tick, "identical": f.hash == *hash }))
+        })
+        .collect();
+    let diverged = checked.iter().any(|c| c["identical"] == false);
+    let out = json!({
+        "ok": !diverged,
         "command": "film",
         "out": shoot.out.display().to_string(),
         "frames": manifest.frames.len(),
@@ -151,9 +173,23 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         "from": { "t": first.time, "tick": first.tick },
         "to": { "t": last.time, "tick": last.tick },
         "adapter": manifest.adapter,
+        "notes_checked": checked,
         "next": "galaxy-gm motion <tool> <folder>: track, dots, strip, sheet, flicker, flow, compare",
-    })))
+    });
+    if diverged {
+        let mut failure = Failure::new(
+            code::REJECTED,
+            "replay_diverged",
+            "the replayed world differs from the recording's at a note, so the film does not              show what the player saw; was it made by another build?",
+        );
+        if let Value::Object(fields) = out {
+            failure.fields = fields;
+        }
+        return Err(failure);
+    }
+    Ok(Output::Json(out))
 }
+
 fn size(s: &str) -> Result<(u32, u32), String> {
     s.split_once('x')
         .and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))

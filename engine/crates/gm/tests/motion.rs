@@ -67,6 +67,10 @@ fn a_recording_is_filmed_round_its_note_with_the_zoom_the_player_had() {
     // From a second before the note (tick 10) to half a second after (tick 55), at 60 fps.
     assert_eq!(out["from"]["tick"], 10);
     assert_eq!(out["to"]["tick"], 55);
+    assert_eq!(
+        out["notes_checked"],
+        serde_json::json!([{ "tick": 40, "identical": true }])
+    );
     let film = PathBuf::from(out["out"].as_str().unwrap());
     assert_eq!(film, tmp.path().join("films").join("note-0001"));
     let manifest: Value =
@@ -84,6 +88,34 @@ fn a_recording_is_filmed_round_its_note_with_the_zoom_the_player_had() {
         dots["drift_px_per_frame"].as_f64().unwrap().abs() < 0.01,
         "{dots}"
     );
+}
+
+#[test]
+fn a_film_of_a_different_world_is_refused() {
+    let tmp = tempfile::tempdir().unwrap();
+    let rec = record(tmp.path());
+    let mut json: Value = serde_json::from_str(&std::fs::read_to_string(&rec).unwrap()).unwrap();
+    let note = json["events"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|e| e["type"] == "note")
+        .unwrap();
+    note["hash"] = Value::from("not the world");
+    std::fs::write(&rec, json.to_string()).unwrap();
+    let (code, out) = gm(&[
+        "film",
+        rec.to_str().unwrap(),
+        "--note",
+        "1",
+        "--probes-only",
+    ]);
+    assert_eq!(
+        (code, out["kind"].as_str()),
+        (5, Some("replay_diverged")),
+        "{out}"
+    );
+    assert_eq!(out["notes_checked"][0]["identical"], false, "{out}");
 }
 
 #[test]

@@ -164,7 +164,8 @@ It picks:
 
 1. `--build <name>` as the first argument: exactly that build. It is taken off the
    arguments.
-2. For `galaxy sim replay <recording>` and `galaxy-gm audit <recording>`: the build the
+2. For `galaxy sim replay <recording>`, `galaxy-gm audit <recording>` and `galaxy-gm film
+   <recording>`: the build the
    recording names, if it names one (a recording made by an installed build does), so a
    replay runs on the engine that made it. If that build is not installed it exits 2 with
    kind `not_installed`.

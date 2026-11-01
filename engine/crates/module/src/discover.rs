@@ -94,15 +94,15 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
     }
 }
 
-/// The build a recording names, for `galaxy sim replay <recording>` and `galaxy-gm audit
-/// <recording>`: the launcher runs exactly that build. `None` for other commands, or a
+/// The build a recording names, for `galaxy sim replay <recording>`, `galaxy-gm audit
+/// <recording>` and `galaxy-gm film <recording>`: the launcher runs exactly that build. `None` for other commands, or a
 /// recording made by a build that was
 /// not installed.
 pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<String> {
     let first: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
     let at = match (tool, first.as_slice()) {
         (Tool::Game, ["sim", "replay", ..]) => 2,
-        (Tool::Gm, ["audit", ..]) => 1,
+        (Tool::Gm, ["audit" | "film", ..]) => 1,
         _ => return None,
     };
     let path = resolve(cwd, Path::new(args.get(at)?));
@@ -207,6 +207,10 @@ mod tests {
         );
         assert_eq!(
             recording_build(Tool::Gm, &args(&["audit", "r.json"]), root).as_deref(),
+            Some("0.2.0-abc")
+        );
+        assert_eq!(
+            recording_build(Tool::Gm, &args(&["film", "r.json", "--note", "1"]), root).as_deref(),
             Some("0.2.0-abc")
         );
         assert_eq!(

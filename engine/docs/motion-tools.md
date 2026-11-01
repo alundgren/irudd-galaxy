@@ -73,7 +73,9 @@ frame), plus `motion/` where the tools put their pictures.
 - **From a playtest.** `galaxy-gm film <recording> --note <n>` films three seconds before
   a note and one after (`--before`, `--after`), at the note's frame size, into
   `films/note-0001` beside the recording; or `--from`/`--to` ticks. The launcher runs the
-  build that made the recording, as for `audit`.
+  build that made the recording, as for `audit`, and the world at every note inside the
+  film is checked against the hash the note kept: a film of a different world exits 5
+  (`replay_diverged`) rather than pass for what the player saw.
 - **Size.** 960x540 by default: a three-second film is roughly 50 MB of PNGs. Films go
   where `--out` says, outside the repository.
 
