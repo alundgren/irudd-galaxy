@@ -310,10 +310,13 @@ mod tests {
 
     #[test]
     fn the_course_can_be_hidden_or_recoloured() {
-        let s = Style::parse("[course]
+        let s = Style::parse(
+            "[course]
 show = false
 color = \"#3fa7a0\"
-").unwrap();
+",
+        )
+        .unwrap();
         let course = s.course.unwrap();
         assert!(!course.show);
         assert_eq!(course.color.to_hex(), "#3fa7a0");
