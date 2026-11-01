@@ -332,6 +332,13 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         },
     }
     findings.extend(looks(&module, &all));
+    findings.extend(
+        galaxy_audio::Bank::load(&all)
+            .problems
+            .into_iter()
+            .filter(|p| p.starts_with(&format!("{}:", module.id())))
+            .map(|p| finding("sound", p)),
+    );
 
     let ok = findings.is_empty();
     let count = findings.len();

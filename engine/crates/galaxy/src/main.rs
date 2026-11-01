@@ -3,6 +3,7 @@
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through.
 //! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod audio;
 mod film;
 mod notes;
 mod play;
@@ -28,6 +29,7 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
     let _ = CURRENT.set(command);
     match command.path {
         "play" => play::play(args),
+        "audio" => audio::render(args),
         "shot" => play::shot(args),
         "film" => film::film(args),
         "sim run" => sim::run(args),
@@ -78,7 +80,8 @@ mod tests {
             .copied()
             .filter(|o| *o != "--seed")
             .collect();
-        let table: [(&str, &[&str]); 6] = [
+        let table: [(&str, &[&str]); 7] = [
+            ("audio", audio::OPTIONS),
             ("play", play::PLAY_OPTIONS),
             ("shot", play::SHOT_OPTIONS),
             ("film", film::OPTIONS),
@@ -99,6 +102,7 @@ mod tests {
             paths,
             [
                 "play",
+                "audio",
                 "shot",
                 "film",
                 "sim run",

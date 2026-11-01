@@ -215,6 +215,8 @@ struct Running {
 
 struct App {
     session: Session,
+    audio: galaxy_audio::Scene,
+    audio_output: galaxy_audio::Output,
     options: Options,
     size: (u32, u32),
     running: Option<Running>,
@@ -300,6 +302,23 @@ impl App {
             }
         }
         self.keys = bindings(self.session.modules());
+        self.audio = audio_scene(&self.session);
+        self.audio_output.send(vec![
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Sound,
+                fade: 0.05,
+            },
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Music,
+                fade: 0.25,
+            },
+            galaxy_audio::Action::Stop {
+                bus: galaxy_audio::Bus::Ambience,
+                fade: 0.25,
+            },
+        ]);
+        self.audio_output
+            .send(self.audio.update(&self.session.world, []));
         if let Some(r) = &mut self.running {
             r.view.reload(Some(&mut r.renderer), self.session.modules());
         }
@@ -458,11 +477,20 @@ impl App {
                     }
                 }
             }
+            let first_fact = self.session.world.facts.len();
             if let Err(e) = self.session.step(&inputs) {
                 self.error = Some(Failure::runtime(e));
                 event_loop.exit();
                 return;
             }
+            self.audio_output.send(
+                self.audio.update(
+                    &self.session.world,
+                    self.session.world.facts[first_fact..]
+                        .iter()
+                        .map(|f| f.kind.as_str()),
+                ),
+            );
         }
         let sim_ms = ms_since(sim_start);
         if self
@@ -734,7 +762,12 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     } else {
         None
     };
+    let mut audio = audio_scene(&session);
+    let mut audio_output = galaxy_audio::Output::open();
+    audio_output.send(audio.update(&session.world, []));
     let mut app = App {
+        audio,
+        audio_output,
         keys: bindings(session.modules()),
         session,
         size: options.size.unwrap_or(DEFAULT_SIZE),
@@ -805,6 +838,14 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
     })))
+}
+
+fn audio_scene(session: &Session) -> galaxy_audio::Scene {
+    let bank = galaxy_audio::Bank::load(session.modules());
+    for problem in &bank.problems {
+        eprintln!("galaxy: sound: {problem}");
+    }
+    galaxy_audio::Scene::new(bank)
 }
 
 /// `galaxy shot`.

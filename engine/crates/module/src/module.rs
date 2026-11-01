@@ -13,6 +13,8 @@
 //!   tests/*.toml      scenario tests
 //!   style.toml        optional: how the module wants things drawn (galaxy-render's style)
 //!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
+//!   audio.toml        optional event cues and place ambience (engine/docs/audio.md)
+//!   sounds/*          WAV or Ogg files; decoded separately, not stored in recordings
 //! ```
 //!
 //! `start.toml`:
@@ -37,8 +39,8 @@ use crate::{ids, version};
 pub const START_FILE: &str = "start.toml";
 
 /// File extensions the engine reads from a module: data, scripts and models (`.gltf`, text
-/// with embedded buffers). Other files (notes, later sound) are not part of what it runs,
-/// records or hashes yet.
+/// with embedded buffers). Binary sounds are presentation assets read separately;
+/// they are not stored in recordings or module text hashes.
 pub const EXTENSIONS: [&str; 3] = ["toml", "luau", "gltf"];
 
 /// Largest module file the engine reads.
