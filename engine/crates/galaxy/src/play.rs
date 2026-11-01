@@ -288,6 +288,7 @@ impl App {
         if changed.is_empty() {
             return;
         }
+        let first_fact = self.session.world.facts.len();
         for id in changed {
             let result = Module::read(&self.dirs[&id])
                 .map_err(|f| f.message)
@@ -317,8 +318,14 @@ impl App {
                 fade: 0.25,
             },
         ]);
-        self.audio_output
-            .send(self.audio.update(&self.session.world, []));
+        self.audio_output.send(
+            self.audio.update(
+                &self.session.world,
+                self.session.world.facts[first_fact..]
+                    .iter()
+                    .map(|f| f.kind.as_str()),
+            ),
+        );
         if let Some(r) = &mut self.running {
             r.view.reload(Some(&mut r.renderer), self.session.modules());
         }

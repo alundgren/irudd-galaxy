@@ -88,3 +88,29 @@ fn missing_corrupt_and_misdeclared_assets_are_findings() {
         assert!(bank.problems.iter().any(|p| p.contains(name)));
     }
 }
+
+#[test]
+fn hot_loaded_events_can_start_music_without_waiting_for_a_sim_step() {
+    let mut module = module();
+    module
+        .files
+        .0
+        .get_mut("audio.toml")
+        .unwrap()
+        .push_str("\n[[events]]\nevent='engine.hot_loaded'\nsound='music'\nbus='music'\n");
+    let mut session = Session::new(vec![module.clone()], 7).unwrap();
+    let first = session.world.facts.len();
+    session.hot_load(module).unwrap();
+    let mut scene = Scene::new(Bank::load(session.modules()));
+    let actions = scene.update(
+        &session.world,
+        session.world.facts[first..].iter().map(|f| f.kind.as_str()),
+    );
+    assert!(actions.iter().any(|a| matches!(
+        a,
+        galaxy_audio::Action::Play {
+            bus: galaxy_audio::Bus::Music,
+            ..
+        }
+    )));
+}
