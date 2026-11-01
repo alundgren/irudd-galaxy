@@ -129,7 +129,7 @@ fn shot(shown: &Shown, hull: &HullParams, face: Vec3, viewport: Vec2) -> Option<
             .map(|i| 1.0 - i as f32 * 0.05)
             .find(|&e| {
                 let boxes = hung(shown, hull, &blend(&base, &close, e), viewport);
-                fits(&boxes, &wide, screen, region)
+                fits(&boxes, &wide, screen, region) && no_worse(&boxes, &wide, region)
             })
             .unwrap_or(0.0);
         if best.is_none_or(|(_, e)| most > e + 0.01) {
@@ -137,6 +137,22 @@ fn shot(shown: &Shown, hull: &HullParams, face: Vec3, viewport: Vec2) -> Option<
         }
     }
     best
+}
+
+/// Things already partly outside `region` in the wide shot (a socket label near the room
+/// panel) may not stick out further when the camera pushes in.
+fn no_worse(boxes: &[Rect], wide: &[Rect], region: Rect) -> bool {
+    let out = |r: &Rect| {
+        (region.x - r.x).max(0.0)
+            + (r.x + r.w - region.x - region.w).max(0.0)
+            + (region.y - r.y).max(0.0)
+            + (r.y + r.h - region.y - region.h).max(0.0)
+    };
+    // Far off screen (behind the camera) is not a thing to keep in view.
+    boxes
+        .iter()
+        .zip(wide)
+        .all(|(b, w)| w.x < -1.0e3 || out(b) <= out(w) + 0.5)
 }
 
 /// The room's camera close on `face`: the same direction, nearer level, a longer lens,
