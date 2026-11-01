@@ -54,6 +54,11 @@ fn thing(x: f32, y: f32) -> Thing {
 
 /// Writes a film of `n` frames at 60 fps into `dir`.
 fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
+    film_at(dir, n, 60, shot);
+}
+
+/// Writes a film of `n` frames at `fps` into `dir`, the sim at 30 ticks a second.
+fn film_at(dir: &Path, n: usize, fps: u32, shot: impl Fn(usize) -> Shot) {
     std::fs::create_dir_all(dir.join("frames")).unwrap();
     let mut frames = Vec::new();
     for i in 0..n {
@@ -63,9 +68,13 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         frames.push(Frame {
             index: i,
             file: Some(file),
-            time: i as f32 / 60.0,
-            tick: i as u64 / 2,
-            alpha: if i % 2 == 0 { 0.0 } else { 0.5 },
+            time: i as f32 / fps as f32,
+            tick: (i as u64 * 30) / u64::from(fps),
+            alpha: if (i as u64 * 30).is_multiple_of(u64::from(fps)) {
+                0.0
+            } else {
+                0.5
+            },
             hash: "same".into(),
             camera: camera(),
             zoom: None,
@@ -75,7 +84,7 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
     }
     let manifest = Manifest {
         format: FORMAT,
-        fps: 60,
+        fps,
         ticks_per_second: 30,
         width: W,
         height: H,
@@ -287,6 +296,23 @@ fn compare_finds_the_frames_and_place_that_differ() {
     assert!(
         b[0].as_u64().unwrap() >= 240 && b[1].as_u64().unwrap() <= 40,
         "{diff}"
+    );
+}
+
+#[test]
+fn compare_pairs_frames_shown_at_the_same_time() {
+    // One moving pattern filmed at 60 and at 30 fps: the same at every shared moment.
+    let tmp = tempfile::tempdir().unwrap();
+    let (a, b) = (tmp.path().join("a"), tmp.path().join("b"));
+    film(&a, 24, |i| dotted(i as f32));
+    film_at(&b, 12, 30, |i| dotted(2.0 * i as f32));
+    let r = tool("compare", &a, &["--with", b.to_str().unwrap()]);
+    assert_eq!(f(&r, "frames"), 12.0, "{r}");
+    assert_eq!(f(&r, "flip.visibly_different_frames"), 0.0, "{r}");
+    assert_eq!(f(&r, "same_world_frames"), 12.0, "{r}");
+    assert!(
+        r["paired_by_time"].as_str().unwrap().contains("12 without"),
+        "{r}"
     );
 }
 

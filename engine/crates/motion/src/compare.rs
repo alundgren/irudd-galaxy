@@ -58,7 +58,21 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     if let Some(why) = unlike {
         return behaviour_only(film, &other, other_dir, &why);
     }
-    let n = film.frames().len().min(other.frames().len());
+    // Frames are paired by presentation time, not by index: two films at different frame
+    // rates or starts would otherwise compare different moments.
+    let matched = pair_by_time(film, &other);
+    if matched.is_empty() {
+        return Err(format!(
+            "the films share no presentation times ({} fps from t={:.3}, {} fps from t={:.3}); \
+             film both over one span at one --fps",
+            film.manifest.fps,
+            film.frames().first().map_or(0.0, |f| f.time),
+            other.manifest.fps,
+            other.frames().first().map_or(0.0, |f| f.time),
+        ));
+    }
+    let unpaired = film.frames().len().max(other.frames().len()) - matched.len();
+    let n = matched.len();
     let half = opts.flag("half");
     let ppd = opts.number("ppd")?.unwrap_or(PIXELS_PER_DEGREE) / if half { 2.0 } else { 1.0 };
     let (w, h) = film.size();
@@ -73,11 +87,11 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     std::thread::scope(|scope| -> Result<(), String> {
         let mut handles = Vec::new();
         for (c, slot) in results.chunks_mut(chunk.max(1)).enumerate() {
-            let (film, other) = (&film, &other);
+            let (film, other, matched) = (&film, &other, &matched);
             handles.push(scope.spawn(move || -> Result<(), String> {
                 for (k, out) in slot.iter_mut().enumerate() {
-                    let i = c * chunk + k;
-                    let (mut a, mut b) = (film.image(i)?, other.image(i)?);
+                    let (ia, ib) = matched[c * chunk + k];
+                    let (mut a, mut b) = (film.image(ia)?, other.image(ib)?);
                     if half {
                         a = a.resized(cw, ch);
                         b = b.resized(cw, ch);
@@ -98,10 +112,12 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .into_iter()
         .map(|p| p.expect("every pair scored"))
         .collect();
-    let frames = film.frames();
+    // `frames[i]` is the first film's frame of pair `i`.
+    let frames: Vec<_> = matched.iter().map(|(a, _)| &film.frames()[*a]).collect();
     let means: Vec<f32> = pairs.iter().map(|p| p.mean).collect();
-    let same_world = (0..n)
-        .filter(|&i| frames[i].hash == other.frames()[i].hash)
+    let same_world = matched
+        .iter()
+        .filter(|(a, b)| film.frames()[*a].hash == other.frames()[*b].hash)
         .count();
     let plain: Vec<usize> = pairs.iter().map(|p| p.plain).collect();
     let visible = plain.iter().filter(|p| **p >= VISIBLE).count();
@@ -117,7 +133,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .take(5)
         .filter(|&&i| plain[i] > 0 || means[i] > 0.0)
         .map(|&i| {
-            let mut m = when(&frames[i]);
+            let mut m = when(frames[i]);
             m["mean"] = json!(round(means[i], 4));
             m["pixels_differing"] = json!(plain[i] * if half { 4 } else { 1 });
             m["box_px"] = json!(
@@ -194,7 +210,10 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         img.text(6, 4 + k as i64 * 10, line, 1, TEXT);
     }
     // Scored again rather than kept: a map for every frame would be hundreds of MB.
-    let (mut a, mut b) = (film.image(worst)?, other.image(worst)?);
+    let (mut a, mut b) = (
+        film.image(matched[worst].0)?,
+        other.image(matched[worst].1)?,
+    );
     if half {
         a = a.resized(cw, ch);
         b = b.resized(cw, ch);
@@ -251,6 +270,14 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "tool": "compare",
         "with": other_dir,
         "frames": n,
+        "paired_by_time": if unpaired == 0 {
+            json!("every frame has its partner at the same presentation time")
+        } else {
+            json!(format!(
+                "{n} frames paired at the same presentation time; {unpaired} without a partner \
+                 (different --fps or spans) left out"
+            ))
+        },
         "same_world_frames": same_world,
         "flip": {
             "mean": round(means.iter().sum::<f32>() / n.max(1) as f32, 4),
@@ -286,9 +313,11 @@ fn behaviour_only(film: &Film, other: &Film, other_dir: &str, why: &str) -> Resu
              second has, so how it moves can't be either"
         )
     })?;
-    let n = film.frames().len().min(other.frames().len());
-    let same_world = (0..n)
-        .filter(|&i| film.frames()[i].hash == other.frames()[i].hash)
+    let matched = pair_by_time(film, other);
+    let n = matched.len();
+    let same_world = matched
+        .iter()
+        .filter(|(a, b)| film.frames()[*a].hash == other.frames()[*b].hash)
         .count();
     Ok(json!({
         "tool": "compare",
@@ -461,4 +490,23 @@ impl Pair {
             }),
         }
     }
+}
+
+/// The frames of `a` and `b` shown at the same presentation time, as index pairs in time
+/// order: within a quarter of the finer film's frame step.
+fn pair_by_time(a: &Film, b: &Film) -> Vec<(usize, usize)> {
+    let step = 1.0 / a.manifest.fps.max(b.manifest.fps).max(1) as f32;
+    let (fa, fb) = (a.frames(), b.frames());
+    let mut out = Vec::new();
+    let mut j = 0;
+    for (i, f) in fa.iter().enumerate() {
+        while j < fb.len() && fb[j].time < f.time - step * 0.25 {
+            j += 1;
+        }
+        if j < fb.len() && (fb[j].time - f.time).abs() <= step * 0.25 {
+            out.push((i, j));
+            j += 1;
+        }
+    }
+    out
 }

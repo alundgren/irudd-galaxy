@@ -105,8 +105,9 @@ keep theirs; `--image` puts it elsewhere.
   a note and one after (`--before`, `--after`), at the note's frame size, into
   `films/note-0001` beside the recording; or `--from`/`--to` ticks. The launcher runs the
   build that made the recording, as for `audit`, and the world at every note inside the
-  film is checked against the hash the note kept: a film of a different world exits 5
-  (`replay_diverged`) rather than pass for what the player saw.
+  film is checked against the hash the note kept, on the note's own tick whatever the
+  `--fps`: a film of a different world exits 5 (`replay_diverged`) rather than pass for
+  what the player saw, and so does `--builds` when either build's film does.
 - **Which build drew it.** The world can replay identically on a newer build while it
   draws differently: a drawing defect fixed since shows as fixed. So `film.json` keeps
   `builds` (the build that recorded the session, the one that drew the film, whether they
@@ -286,7 +287,9 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   implementation of NVIDIA's published LDR-FLIP: colour differences filtered by what the
   eye resolves at the viewing distance, raised where edges or points differ). A frame
   differs visibly when 16 or more pixels score 0.5 or more; a mean over the frame would
-  hide a small thing that changed. The picture is the worst frame's error map and a
+  hide a small thing that changed. Frames are paired by presentation time, so films at
+  different `--fps` or spans compare the moments they share (`paired_by_time` says how
+  many had no partner); films with no moment in common are refused. The picture is the worst frame's error map and a
   distogram (time down, across the screen left to right). FLIP compares stills: run per
   frame it says where and when two films differ, not whether motion looks right, and a
   difference is not a defect (the approved film may carry the flaw). When both films

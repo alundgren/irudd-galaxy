@@ -110,19 +110,34 @@ fn a_film_of_a_different_world_is_refused() {
         .unwrap();
     note["hash"] = Value::from("not the world");
     std::fs::write(&rec, json.to_string()).unwrap();
-    let (code, out) = gm(&[
-        "film",
-        rec.to_str().unwrap(),
-        "--note",
-        "1",
-        "--probes-only",
-    ]);
-    assert_eq!(
-        (code, out["kind"].as_str()),
-        (5, Some("replay_diverged")),
-        "{out}"
-    );
-    assert_eq!(out["notes_checked"][0]["identical"], false, "{out}");
+    // At the default rate; at one frame a second, where no frame lands on the note's tick;
+    // and filmed on two builds to compare them: each is refused.
+    let variants: [&[&str]; 3] = [&[], &["--fps", "1"], &["--builds", "this,this"]];
+    for (k, extra) in variants.iter().enumerate() {
+        let dir = tmp.path().join(format!("film-{k}"));
+        let mut args = vec![
+            "film",
+            rec.to_str().unwrap(),
+            "--note",
+            "1",
+            "--probes-only",
+            "--out",
+            dir.to_str().unwrap(),
+        ];
+        args.extend_from_slice(extra);
+        let (code, out) = gm(&args);
+        assert_eq!(
+            (code, out["kind"].as_str()),
+            (5, Some("replay_diverged")),
+            "{extra:?}: {out}"
+        );
+        let checked = if extra.contains(&"--builds") {
+            &out["films"][0]["notes_checked"]
+        } else {
+            &out["notes_checked"]
+        };
+        assert_eq!(checked[0]["identical"], false, "{extra:?}: {out}");
+    }
 }
 
 #[test]

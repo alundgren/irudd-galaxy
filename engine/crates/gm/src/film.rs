@@ -294,15 +294,34 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
     };
     let first = &manifest.frames[0];
     let last = manifest.frames.last().expect("a film has frames");
-    // Every note inside the film: is the replayed world the one the note kept?
-    let checked: Vec<Value> = plan
+    // Every note inside the film: is the replayed world the one the note kept? Checked on
+    // the note's own tick, which a frame need not land on at a low --fps; a film drawn by
+    // another build is also held to its own frame on that tick, where it has one.
+    let mut inside: Vec<&(u64, String)> = plan
         .kept
         .iter()
-        .filter_map(|(tick, hash)| {
-            let f = manifest.frames.iter().find(|f| f.tick == *tick)?;
-            Some(json!({ "tick": tick, "identical": f.hash == *hash }))
-        })
+        .filter(|(tick, _)| (first.tick..=last.tick).contains(tick))
         .collect();
+    inside.sort_by_key(|(tick, _)| *tick);
+    let mut checked = Vec::new();
+    if !inside.is_empty() {
+        let mut replay = Replay::new(plan.rec)
+            .map_err(|e| bad(format!("the recording can't run on this engine: {e}")))?;
+        for (tick, hash) in inside {
+            while replay.session.world.tick < *tick {
+                if !replay.step().map_err(Failure::runtime)? {
+                    break;
+                }
+            }
+            let mut identical = replay.session.world.hash() == *hash;
+            if matches!(drawer, Drawer::Other(_))
+                && let Some(f) = manifest.frames.iter().find(|f| f.tick == *tick)
+            {
+                identical &= f.hash == *hash;
+            }
+            checked.push(json!({ "tick": tick, "identical": identical }));
+        }
+    }
     let diverged = checked.iter().any(|c| c["identical"] == false);
     let mut report = json!({
         "ok": !diverged,

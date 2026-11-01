@@ -284,8 +284,15 @@ pub fn film_on_each(
             .get(1)
             .map_or(String::new(), |f| f.1.display().to_string())
     );
-    Ok(json!({
-        "ok": true,
+    // A film whose replayed world differs from the recording's at a note fails the whole
+    // comparison, as it fails a film of one build.
+    let diverged: Vec<&String> = films
+        .iter()
+        .filter(|(_, _, report)| report["ok"] == false)
+        .map(|(name, ..)| name)
+        .collect();
+    let report = json!({
+        "ok": diverged.is_empty(),
         "command": "film --builds",
         "builds": names,
         "films": films.iter().map(|(name, dir, report)| json!({
@@ -293,6 +300,7 @@ pub fn film_on_each(
             "out": dir.display().to_string(),
             "frames": report["frames"],
             "added": report.get("added"),
+            "notes_checked": report.get("notes_checked"),
             "builds": report["builds"]["note"],
         })).collect::<Vec<_>>(),
         "behaviour": if behaviour.is_null() {
@@ -306,7 +314,27 @@ pub fn film_on_each(
             compare
         },
         "next": next,
-    }))
+    });
+    if diverged.is_empty() {
+        return Ok(report);
+    }
+    let mut failure = Failure::new(
+        code::REJECTED,
+        "replay_diverged",
+        format!(
+            "on {}, the replayed world differs from the recording's at a note, so that film \
+             does not show what the player saw; was it made by another build?",
+            diverged
+                .iter()
+                .map(|n| n.as_str())
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+    );
+    if let Value::Object(fields) = report {
+        failure.fields = fields;
+    }
+    Err(failure)
 }
 
 #[cfg(test)]
