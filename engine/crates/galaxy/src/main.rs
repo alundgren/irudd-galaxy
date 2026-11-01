@@ -41,7 +41,9 @@ sim replay takes --state too.
 play takes --seed, --save and --record as above, and:
   --watch           hot-load module folders when their files change, models included
   --size <w>x<h>    the window's size in logical pixels (1280x720 by default)
-  --frames <n>      quit after this many frames (for scripted runs)
+  --frames <n>      quit after this many frames
+  --inputs <file>   play these inputs on their ticks through the window loop (the bot)
+  --ticks <n>       quit once the world reaches tick n
 It prints frame times when it quits.
 
 shot takes --seed, --ticks (30 by default) and --inputs as above, and --size (in pixels,

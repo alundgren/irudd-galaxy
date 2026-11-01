@@ -169,7 +169,10 @@ real time:
   and losing focus lets go of every held key, so none sticks down. Escape quits.
 - `--watch` hot-loads a changed module between ticks and reloads its models and style.
 - `--record` and `--save` write the session when the window closes; `--frames <n>` quits
-  after n frames, for scripted windowed runs.
+  after n frames.
+- **The bot**: `--inputs <file>` plays scripted inputs on their ticks through the same
+  loop the keyboard feeds, and `--ticks <n>` quits when the world reaches tick n. A bot
+  run is a real play session, window and all, so its frame times are the player's.
 
 When it quits it prints **frame times**, the numbers to watch for drift: `interval_ms`
 (frame to frame, what the player feels), `sim_ms`, `scene_ms` and `draw_ms` (handing the

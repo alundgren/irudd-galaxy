@@ -12,7 +12,7 @@ use std::process::Command;
 use serde_json::Value;
 
 /// The world hash after the scripted stroll session (450 ticks, seed 7).
-const GOLDEN: &str = "fcafff6b10808c863c06c0cec19b312381072e726f4fde6831b5c6ae2ea35ab7";
+const GOLDEN: &str = "192594704e3d0234af754b608f715da094f8eea3564fcc8f5b19eb10b8352499";
 
 fn engine() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

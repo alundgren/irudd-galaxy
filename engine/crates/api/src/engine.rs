@@ -25,6 +25,28 @@
 //!   between `min_view` and `max_view`, and `fov` above 0 makes it a perspective camera
 //!   with that vertical field of view (degrees).
 //!
+//! Flight and collision (`engine/docs/flight-and-collision.md`):
+//!
+//! - `engine.flight { speed, accel, brake, turn, inertia, boost, stop_time, slowdown }`:
+//!   how a thing flies. Top speed (units per second), thrust and braking (units per
+//!   second squared), turn rate (degrees per second), inertia (0 stops at once, 1 coasts
+//!   for ever), the boost factor, how long letting go of thrust takes to stop (seconds, 0
+//!   for no auto-brake), and the share of speed an order loses flying away from the nose.
+//! - `engine.helm { turn, thrust, brake, boost, stopping }`: the hands on the controls.
+//!   `turn` -1 to 1 (positive turns left, counter-clockwise), `thrust` -1 to 1 along the
+//!   nose. `stopping` is the engine's: auto-brake ticks left.
+//! - `engine.steer { mode, target, x, y, range, done }`: an order the flight service flies
+//!   instead of the helm. `mode` is `arrive` (stop within `range` of the target's
+//!   outline, or of the point `x`, `y` when `target` is empty), `hold` (the same, then
+//!   face the target), `dock` (stop on the target's point, facing its way) or `follow`
+//!   (pass each `engine.waypoint` in turn from `target`, stopping at the last); empty is
+//!   no order. The engine sets `done` and records `engine.arrived` when it gets there.
+//! - `engine.waypoint { next }`: a point on a route; `next` is the following one.
+//! - `engine.body { radius, mass, fixed, drag }`: makes a thing solid. Its outline is a
+//!   circle of `radius`, or with radius 0 its model's footprint. Overlaps push apart by
+//!   `mass`; a `fixed` body, or one with no `engine.motion`, never moves. Things that
+//!   don't fly lose `drag` of their speed per second after a push.
+//!
 //! Scripts move things between layers (a ladder, a ramp's top) by patching `layer`, with
 //! the `engine.position` capability.
 
@@ -48,16 +70,23 @@ pub const MOTION: &str = "engine.motion";
 pub const SURFACE: &str = "engine.surface";
 pub const MODEL: &str = "engine.model";
 pub const CAMERA: &str = "engine.camera";
+pub const FLIGHT: &str = "engine.flight";
+pub const HELM: &str = "engine.helm";
+pub const STEER: &str = "engine.steer";
+pub const WAYPOINT: &str = "engine.waypoint";
+pub const BODY: &str = "engine.body";
 
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
 /// - `hot_loaded`: a module was hot-loaded (`module`, `version`).
 /// - `script_failed`: a handler call was aborted and its writes discarded (`module`,
 ///   `script`, `handler`, `code`, `error`).
-pub const EVENTS: [&str; 3] = ["start", "hot_loaded", "script_failed"];
+/// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
+pub const EVENTS: [&str; 4] = ["start", "hot_loaded", "script_failed", "arrived"];
 
 pub const START: &str = "engine.start";
 pub const HOT_LOADED: &str = "engine.hot_loaded";
+pub const ARRIVED: &str = "engine.arrived";
 pub const SCRIPT_FAILED: &str = "engine.script_failed";
 
 fn field(ty: FieldType) -> FieldDecl {
@@ -88,7 +117,7 @@ fn numbers(list: &[(&str, f64)]) -> BTreeMap<String, FieldDecl> {
 
 /// The engine's component types, by local name.
 pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
-    use FieldType::{Int, Number, Text};
+    use FieldType::{Bool, Id, Int, Number, Text};
     let mut model = fields(&[("model", Text), ("look", Text), ("morph", Number)]);
     model.extend(numbers(&[("scale", 1.0)]));
     vec![
@@ -117,6 +146,46 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             ]),
         ),
         ("model", model),
+        (
+            "flight",
+            numbers(&[
+                ("speed", 14.0),
+                ("accel", 21.0),
+                ("brake", 16.0),
+                ("turn", 180.0),
+                ("inertia", 0.4),
+                ("boost", 2.0),
+                ("stop_time", 1.0),
+                ("slowdown", 0.5),
+            ]),
+        ),
+        (
+            "helm",
+            fields(&[
+                ("turn", Number),
+                ("thrust", Number),
+                ("brake", Bool),
+                ("boost", Bool),
+                ("stopping", Int),
+            ]),
+        ),
+        (
+            "steer",
+            fields(&[
+                ("mode", Text),
+                ("target", Id),
+                ("x", Number),
+                ("y", Number),
+                ("range", Number),
+                ("done", Bool),
+            ]),
+        ),
+        ("waypoint", fields(&[("next", Id)])),
+        ("body", {
+            let mut body = fields(&[("radius", Number), ("fixed", Bool)]);
+            body.extend(numbers(&[("mass", 1.0), ("drag", 1.5)]));
+            body
+        }),
         (
             "camera",
             numbers(&[

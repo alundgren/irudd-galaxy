@@ -45,7 +45,7 @@ permit, so engine and slice builds queue for each other. Never plain `cargo buil
   it works, the alternatives and why this design. A PR that changes a system updates its
   note. Current notes: `docs/world-and-sim.md`, `docs/saves-and-replay.md`,
   `docs/script-host.md`, `docs/modules-and-install.md`, `docs/renderer-and-style.md`,
-  `docs/exit-codes.md`.
+  `docs/flight-and-collision.md`, `docs/exit-codes.md`.
 - **Exit codes and error kinds** are one table for both binaries, kept in
   `crates/module/src/failure.rs` and `docs/exit-codes.md` together.
 - **Determinism.** The simulation is deterministic: fixed tick, seeded randomness,

@@ -11,11 +11,14 @@
 //!
 //! `engine/docs/world-and-sim.md` and `engine/docs/saves-and-replay.md` explain the design.
 
+pub mod collide;
+pub mod flight;
 pub mod recording;
 pub mod save;
 pub mod scenario;
 pub mod services;
 pub mod session;
+pub mod shape;
 pub mod step;
 pub mod watch;
 pub mod world;
