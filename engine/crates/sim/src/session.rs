@@ -5,11 +5,12 @@
 //!
 //! 1. the tick number goes up by one;
 //! 2. each input for this tick records its event (cause: the input);
-//! 3. engine services run: motion, then ground ([`crate::services`]);
-//! 4. events: every fact not handled yet (those recorded on the previous tick, and this
-//!    tick's inputs), in sequence order, runs the handlers for its kind: modules in ID
-//!    order, scripts in manifest order. Facts recorded now are events next tick, so one
-//!    tick never chains without end;
+//! 3. events: every fact not handled yet (those recorded during the previous tick, and
+//!    this tick's inputs), in sequence order, runs the handlers for its kind: modules in
+//!    ID order, scripts in manifest order. Facts recorded now are events next tick, so one
+//!    tick never chains without end. Inputs are handled before the services, so a key
+//!    acts on the tick it arrives;
+//! 4. engine services run: flight, motion, collide, then ground ([`crate::services`]);
 //! 5. on every [`CADENCE_TICKS`]th tick, each script's `cadence` handler runs, in the same
 //!    order.
 //!
@@ -32,6 +33,7 @@ use serde_json::{Value, json};
 
 use crate::recording::{BuildStamp, RecEvent, Recording};
 use crate::services;
+use crate::shape::Shapes;
 use crate::world::World;
 
 /// An input: something from outside the sim (a key, a click, a scenario step) on a tick.
@@ -67,6 +69,8 @@ pub struct Session {
     pub world: World,
     modules: BTreeMap<String, Loaded>,
     registry: Registry,
+    /// Solid outlines of the modules' models, for collision and steering.
+    shapes: Shapes,
     pub log: Vec<LogLine>,
     recording: Option<Recording>,
 }
@@ -119,6 +123,7 @@ impl Session {
         world.record(cause, START, Fields::new());
         Ok(Session {
             world,
+            shapes: Shapes::of(modules.values().map(|l| &l.module)),
             modules,
             registry,
             log: Vec::new(),
@@ -139,6 +144,7 @@ impl Session {
         })?;
         Ok(Session {
             world,
+            shapes: Shapes::of(modules.values().map(|l| &l.module)),
             modules,
             registry,
             log: Vec::new(),
@@ -192,9 +198,11 @@ impl Session {
                 rec.events.push(RecEvent::Input(input));
             }
         }
-        services::motion(&mut self.world);
-        services::ground(&mut self.world);
         self.dispatch_events();
+        crate::flight::flight(&mut self.world, &self.shapes);
+        services::motion(&mut self.world);
+        crate::collide::collide(&mut self.world, &self.shapes);
+        services::ground(&mut self.world);
         if tick.is_multiple_of(CADENCE_TICKS) {
             self.run_cadence();
         }
@@ -367,6 +375,7 @@ impl Session {
             unreachable!()
         };
         self.world.record(cause, HOT_LOADED, payload);
+        self.shapes = Shapes::of(modules.values().map(|l| &l.module));
         self.modules = modules;
         self.registry = registry;
         if let Some(rec) = &mut self.recording {

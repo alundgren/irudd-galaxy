@@ -124,7 +124,7 @@ fn handlers_read_and_write_through_ctx() {
         [
             r#"{"op":"patch","entity":"aa.one","component":"aa.bell","fields":{"rings":5}}"#,
             r#"{"op":"put","entity":"aa.two","component":"aa.bell","fields":{"note":"new","rings":0}}"#,
-            r#"{"op":"put","entity":"aa.one","component":"engine.position","fields":{"height":0.0,"layer":1,"x":1.5,"y":0.0}}"#,
+            r#"{"op":"put","entity":"aa.one","component":"engine.position","fields":{"angle":0.0,"height":0.0,"layer":1,"x":1.5,"y":0.0}}"#,
             r#"{"op":"record","kind":"aa.rang","payload":{"at":7,"list":[1,2]}}"#,
             r#"{"op":"remove","entity":"aa.one"}"#,
         ]

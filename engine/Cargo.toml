@@ -23,14 +23,25 @@ publish = false
 [workspace.dependencies]
 # Our crates
 galaxy-api = { path = "crates/api" }
+galaxy-mesh = { path = "crates/mesh" }
 galaxy-module = { path = "crates/module" }
+galaxy-render = { path = "crates/render" }
 galaxy-script = { path = "crates/script" }
 galaxy-sim = { path = "crates/sim" }
+galaxy-view = { path = "crates/view" }
 
 # Third party (all MIT or MIT/Apache-2.0). Versions and features match the slice's, so
 # the shared build slots reuse what is already compiled.
+# Embedded buffers in .gltf model files.
+base64 = "0.22.1"
 blake3 = "1.8.7"
+bytemuck = { version = "1.25", features = ["derive"] }
 directories = "6.0"
+glam = { version = "0.34", features = ["serde", "bytemuck"] }
+# glTF parsing for models; buffers are decoded by us, so no image or file loading.
+gltf = { version = "1.4", default-features = false, features = ["utils", "names", "extras"] }
+# Text shaping and drawing on wgpu (cosmic-text underneath).
+glyphon = "0.12"
 # Pure-Rust float maths for the sim, so replays match on every OS (std's sin, cos, atan2
 # and hypot call the platform's C library, which rounds differently on each).
 libm = "0.2.16"
@@ -38,6 +49,10 @@ libm = "0.2.16"
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
 # Watches module folders for hot-loading.
 notify = "8.2.1"
+# The logging facade wgpu already logs through.
+log = "0.4.34"
+png = "0.18"
+pollster = "1.0"
 rand_core = "0.10.1"
 rand_pcg = { version = "0.10.2", features = ["serde"] }
 rusqlite = { version = "0.41.1", features = ["bundled"] }
@@ -46,6 +61,8 @@ serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 toml = "1.1.8"
+wgpu = "30.0"
+winit = "0.30.13"
 zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [workspace.lints.rust]

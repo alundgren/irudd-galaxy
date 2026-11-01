@@ -15,10 +15,14 @@ path = "src/main.rs"
 [dependencies]
 galaxy-api.workspace = true
 galaxy-module.workspace = true
+galaxy-render.workspace = true
 galaxy-sim.workspace = true
+galaxy-view.workspace = true
 serde_json.workspace = true
+winit.workspace = true
 
 [dev-dependencies]
+galaxy-mesh.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 

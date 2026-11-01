@@ -48,7 +48,68 @@ pub struct Manifest {
     pub writes: Vec<String>,
     /// Component types it declares, by local name.
     pub components: BTreeMap<String, ComponentDecl>,
+    /// Keys it listens to, by key name ([`KEYS`]), each with the local event kind the
+    /// engine records when the key goes down (`down = true`) or up (`down = false`).
+    pub keys: BTreeMap<String, String>,
 }
+
+/// Key names a module may bind. They name the key's place on the keyboard, not the
+/// letter printed on it, so `w` is the key above `s` on every layout. F8 (notes) and
+/// Escape belong to the engine.
+pub const KEYS: [&str; 52] = [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "up",
+    "down",
+    "left",
+    "right",
+    "space",
+    "enter",
+    "tab",
+    "backspace",
+    "shift",
+    "ctrl",
+    "alt",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+];
 
 /// A component type a module declares: its fields, by name.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -180,6 +241,8 @@ struct Raw {
     writes: Vec<String>,
     #[serde(default)]
     components: BTreeMap<String, BTreeMap<String, toml::Value>>,
+    #[serde(default)]
+    keys: BTreeMap<String, String>,
 }
 
 /// The module folder a path names: the folder itself, or the folder of a `manifest.toml`.
@@ -306,6 +369,26 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
             ));
         }
     }
+    for (key, event) in &raw.keys {
+        if !KEYS.contains(&key.as_str()) {
+            return Err(invalid(
+                dir,
+                format!(
+                    "keys: `{key}` is not a key name; use one of {}",
+                    KEYS.join(", ")
+                ),
+            ));
+        }
+        if !raw.events.contains(event) {
+            return Err(invalid(
+                dir,
+                format!(
+                    "keys.{key}: `{event}` is not one of this module's events; list it in \
+                     `events`"
+                ),
+            ));
+        }
+    }
     let mut components = BTreeMap::new();
     for (name, fields) in raw.components {
         if !ids::valid_field(&name) {
@@ -348,6 +431,7 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
         events: raw.events,
         writes: raw.writes,
         components,
+        keys: raw.keys,
     })
 }
 
@@ -475,6 +559,8 @@ mod tests {
                 "id = \"demo\"\n{head}[components.c]\nf = {{ type = \"int\", default = 1.5 }}\n"
             ),
             format!("id = \"demo\"\n{head}[components.c]\nf = {{ type = \"int\", min = 1 }}\n"),
+            format!("id = \"demo\"\n{head}events = [\"go\"]\n[keys]\nf8 = \"go\"\n"),
+            format!("id = \"demo\"\n{head}events = [\"go\"]\n[keys]\nw = \"stop\"\n"),
         ] {
             let dir = module(&text);
             assert_eq!(load(dir.path()).unwrap_err().kind, "bad_input", "{text}");
@@ -490,9 +576,11 @@ mod tests {
              scripts = [\"scripts/main.luau\"]\nevents = [\"opened\"]\n\
              writes = [\"engine.position\"]\n\
              [components.door]\nopen = \"bool\"\npushes = { type = \"int\", default = 2 }\n\
-             weight = { type = \"number\", default = 3 }\n",
+             weight = { type = \"number\", default = 3 }\n\
+             [keys]\nw = \"opened\"\n",
         );
         let m = load(dir.path()).unwrap();
+        assert_eq!(m.keys["w"], "opened");
         assert_eq!(m.scripts, ["scripts/main.luau"]);
         assert_eq!(m.events, ["opened"]);
         assert_eq!(m.writes, ["engine.position"]);

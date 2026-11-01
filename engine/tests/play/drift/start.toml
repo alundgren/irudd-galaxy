@@ -1,0 +1,67 @@
+# The ship starts in open space, facing +x. Rocks are solid and can be pushed (they
+# have a motion); the hub and the beacon are fixed. The berth is a dock point just off the
+# hub's rim, clear of its outline (a ship can't dock inside something solid); the route
+# runs w1 to w3. Sizes are in world units; the camera shows 36 of them.
+[entities.ship]
+keys = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.flight" = {}
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 1.0 }
+"engine.model" = { model = "drift.ship", look = "drift.hull" }
+"engine.camera" = { tilt = 30.0, view = 36.0 }
+
+[entities.beacon]
+"engine.position" = { x = 26.0, y = -6.5 }
+"engine.model" = { model = "drift.beacon", look = "drift.prop" }
+"engine.body" = { fixed = true }
+
+[entities.hub]
+"engine.position" = { x = -24.0, y = -18.0 }
+"engine.model" = { model = "drift.hub", look = "drift.hull" }
+"engine.body" = { fixed = true }
+
+[entities.berth]
+"engine.position" = { x = -24.0, y = -6.0, angle = 1.5707963267948966 }
+"engine.model" = { model = "drift.pad", look = "drift.prop" }
+
+[entities.rock1]
+"engine.position" = { x = -14.0, y = 9.0, angle = 0.4 }
+"engine.motion" = {}
+"engine.body" = { mass = 8.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.6 }
+
+[entities.rock2]
+"engine.position" = { x = -6.0, y = 16.0, angle = 2.1 }
+"engine.motion" = {}
+"engine.body" = { mass = 2.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.0 }
+
+[entities.rock3]
+"engine.position" = { x = 10.0, y = 12.0, angle = 4.0 }
+"engine.motion" = {}
+"engine.body" = { mass = 12.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 2.2, morph = 0.5 }
+
+[entities.rock4]
+"engine.position" = { x = -20.0, y = 2.0, angle = 1.0 }
+"engine.motion" = {}
+"engine.body" = { mass = 4.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.3 }
+
+[entities.w1]
+"engine.position" = { x = 0.0, y = 24.0 }
+"engine.waypoint" = { next = "drift.w2" }
+"engine.model" = { model = "drift.pad", look = "drift.prop", scale = 0.5 }
+
+[entities.w2]
+"engine.position" = { x = 24.0, y = 24.0 }
+"engine.waypoint" = { next = "drift.w3" }
+"engine.model" = { model = "drift.pad", look = "drift.prop", scale = 0.5 }
+
+[entities.w3]
+"engine.position" = { x = 30.0, y = 6.0 }
+"engine.waypoint" = {}
+"engine.model" = { model = "drift.pad", look = "drift.prop", scale = 0.5 }

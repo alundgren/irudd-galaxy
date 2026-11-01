@@ -54,20 +54,6 @@ fn play_refuses_when_any_module_needs_a_newer_engine() {
 }
 
 #[test]
-fn play_passes_the_gate_then_says_it_is_not_built() {
-    let tmp = tempfile::tempdir().unwrap();
-    module(&tmp.path().join("modules/a"), "a", ENGINE);
-    module(&tmp.path().join("modules/b"), "b", "0.0.1");
-    let (code, json) = galaxy(tmp.path(), &["play", "--modules", "modules"]);
-    assert_eq!(
-        (code, json["kind"].as_str()),
-        (1, Some("not_built")),
-        "{json}"
-    );
-    assert_eq!(json["modules"].as_array().unwrap().len(), 2);
-}
-
-#[test]
 fn usage_and_input_errors_are_told_apart() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(tmp.path().join("empty")).unwrap();

@@ -26,9 +26,16 @@ The engine owns only the component types its own services act on:
 
 | Type | Fields | Who writes it |
 |---|---|---|
-| `engine.position` | `x`, `y`, `layer`, `height` | modules place things and change `layer`; the motion service moves `x`, `y`; the ground service sets `height` |
+| `engine.position` | `x`, `y`, `layer`, `height`, `angle` | modules place and turn things and change `layer`; the motion service moves `x`, `y`; the ground service sets `height` |
 | `engine.motion` | `vx`, `vy` (units per second) | modules |
 | `engine.surface` | `layer`, a rectangle, `height`, `rise_x`, `rise_y` | modules |
+| `engine.model` | `model`, `look`, `scale`, `morph` | modules; the view draws it (`renderer-and-style.md`) |
+| `engine.camera` | `tilt`, `view`, `min_view`, `max_view`, `fov` | modules; the camera follows the thing that has it |
+| `engine.flight` | `speed`, `accel`, `brake`, `turn`, `inertia`, `boost`, `stop_time`, `slowdown` | modules; the flight service reads it (`flight-and-collision.md`) |
+| `engine.helm` | `turn`, `thrust`, `brake`, `boost`, `stopping` | modules set the hands; the flight service keeps `stopping` |
+| `engine.steer` | `mode`, `target`, `x`, `y`, `range`, `done` | modules give orders; the flight service sets `done`, moves `target` along a route and clears `mode` when the helm takes over |
+| `engine.waypoint` | `next` | modules |
+| `engine.body` | `radius`, `mass`, `fixed`, `drag` | modules; the collide service moves `x`, `y` and `vx`, `vy` to push things apart |
 
 ## 2.5D
 
@@ -74,10 +81,12 @@ The sim runs at a fixed 30 ticks per second of game time and reads no clock. Eac
 
 1. the tick number goes up;
 2. this tick's inputs record their events;
-3. engine services run: motion, then ground;
-4. every fact not handled yet runs its handlers, in sequence order: modules in ID order,
-   scripts in manifest order. A handler's writes apply as soon as it returns, so the next
-   handler sees them. Facts recorded now wait for the next tick;
+3. every fact not handled yet (those recorded during the last tick, and this tick's
+   inputs) runs its handlers, in sequence order: modules in ID order, scripts in manifest
+   order. A handler's writes apply as soon as it returns, so the next handler sees them.
+   Facts recorded now wait for the next tick. Inputs are handled before the services, so
+   a key acts on the tick it arrives;
+4. engine services run: flight, motion, collide, then ground (`flight-and-collision.md`);
 5. every 30th tick (once a second), each script's `cadence` handler runs.
 
 Per-frame work runs in Rust services, never in Luau: scripts run only on events and the

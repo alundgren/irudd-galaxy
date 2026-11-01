@@ -17,6 +17,7 @@ galaxy-api.workspace = true
 galaxy-module.workspace = true
 galaxy-script.workspace = true
 galaxy-sim.workspace = true
+galaxy-view.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
