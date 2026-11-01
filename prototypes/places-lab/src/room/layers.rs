@@ -296,7 +296,9 @@ impl Room for Layers {
         let aspect = stage.aspect();
         let fov = 2.0 * (fr.height(aspect) * 0.5 / BACK).atan().to_degrees();
         let target = Vec3::new(fr.left + fr.width * 0.5, 0.0, fr.aim(aspect));
-        let sway = (stage.world.time * 0.3).sin() * 0.7;
+        // Less in the cradle: its bubble, the scene text and the Wren's labels are tight.
+        let amp = if place.set.as_deref() == Some("cradle") { 0.2 } else { 0.7 };
+        let sway = (stage.world.time * 0.3).sin() * amp;
         let p = fr.pitch.to_radians();
         let eye = target + Vec3::new(sway, -BACK * p.cos(), BACK * p.sin());
         let mut shown = Shown::new(Scene::new(Camera::perspective(eye, target, fov)), &place.id);

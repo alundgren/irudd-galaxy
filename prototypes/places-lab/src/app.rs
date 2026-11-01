@@ -926,12 +926,23 @@ impl App {
                 continue;
             }
             seen.push(&h.path);
-            let at = self
+            let reach =
+                |p: Vec2| self.top_hit(p).map(|t| t.path.as_str()) == Some(h.path.as_str());
+            let points: Vec<Vec2> = self
                 .hits
                 .iter()
                 .filter(|o| o.path == h.path)
                 .flat_map(|o| samples(o.area))
-                .find(|p| self.top_hit(*p).map(|t| t.path.as_str()) == Some(h.path.as_str()));
+                .filter(|p| reach(*p))
+                .collect();
+            // Prefer a point with room round it, so a neighbour that moves a little (a
+            // speaker's bubble as they nod) doesn't take the hover from a resting pointer.
+            let roomy = |p: &&Vec2| {
+                [(8.0, 0.0), (-8.0, 0.0), (0.0, 8.0), (0.0, -8.0)]
+                    .iter()
+                    .all(|&(x, y)| reach(**p + Vec2::new(x, y)))
+            };
+            let at = points.iter().find(roomy).or(points.first()).copied();
             match at {
                 Some(at) => {
                     let node = ui::draw::find_path(&self.built.root, &h.path);
