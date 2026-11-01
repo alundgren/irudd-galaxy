@@ -53,8 +53,14 @@ pub fn chart(title: &str, times: &[f32], panels: &[Panel], flags: &[f32], width:
         if !lo.is_finite() {
             (lo, hi) = (0.0, 1.0);
         }
-        if hi - lo < 1e-6 {
-            hi = lo + 1.0;
+        // At least one unit tall, so float noise on a flat curve stays flat instead of
+        // being stretched into spikes.
+        if hi - lo < 1.0 {
+            let mid = (hi + lo) / 2.0;
+            (lo, hi) = (mid - 0.5, mid + 0.5);
+            if panel.zero && lo > 0.0 {
+                (lo, hi) = (0.0, 1.0);
+            }
         }
         let pad = (hi - lo) * 0.06;
         let (lo, hi) = (lo - pad, hi + pad);
