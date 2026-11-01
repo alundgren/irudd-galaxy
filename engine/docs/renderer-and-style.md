@@ -146,17 +146,51 @@ these passes:
 3. **Silhouette**: the inverted hull. Back faces are drawn again, pushed out in screen
    space along the outline normal by the look's `outline_px`, in ink. Thinner on small
    parts, gone below about a pixel.
-4. **Geometry buffer**: normals, paint and depth for every pixel, then the **inner ink**
-   pass draws lines where neighbouring pixels disagree: a crease sharper than
-   `crease_degrees`, a paint border stronger than `color_edge`, or a depth step bigger
-   than `depth_step` (scaled by distance).
+4. **Geometry buffer**: normals, paint and depth at the same four sample positions as
+   colour, then the **inner ink** pass draws each sample where neighbours disagree:
+   a crease sharper than `crease_degrees`, a paint border stronger than `color_edge`,
+   or a depth step bigger than `depth_step` (scaled by distance).
 5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera) and soft
-   additive glows.
-6. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
+   additive glows, depth-tested against the geometry samples, over inner ink.
+6. **Resolve**: average the finished colour samples into the world raster, including ink.
+7. **Downsample**: the world raster is twice the output width and height. Average each
+   2x2 group in linear colour into one output pixel, giving sixteen coverage samples
+   per pixel with MSAA x4. Nothing outside that pixel's footprint is mixed in.
+8. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
    screen system builds on this.
 
 Text uses glyphon (cosmic-text shaping) with one bundled font (Fredoka, SIL OFL), so a
-shot looks the same on every machine. MSAA x4 where the GPU allows it.
+shot looks the same on every machine. MSAA x4 where all the colour, geometry and depth
+formats support it; otherwise those passes share the same single-sample fallback.
+
+**Why ink before resolve.** A single-sample geometry buffer made inner lines jump a
+whole pixel as the camera moved, even though the surrounding colour was antialiased.
+The ink shader now reads the matching sample in each neighbouring pixel and blends
+into that colour sample. Geometry interpolates depth, normal and paint at the sample
+position too, so the plane test does not compare pixel-centre depths at covered edges.
+Only the final colour is resolved. Resolving geometry first would blend unrelated
+normals, packed depth bytes and paint at boundaries, inventing creases and surfaces.
+Sample coverage keeps the existing crease, paint, depth and feature-size rules.
+Effects remain in front of ink and use the same depth coverage.
+
+**Why a denser world raster too.** Four samples removed the repeated inner-ink flicker,
+but a long silhouette could still pop as its coverage changed; disabling inner ink
+did not remove it. Drawing the world at twice each dimension adds subpixel coverage
+to colour, silhouettes, geometry, ink and effects together. The box downsample keeps
+flat faces flat and strokes sharp. A spatial edge filter was tried, but softened
+strokes while still leaving a small flicker run. Temporal accumulation would need
+history and disocclusion handling. Neither is needed for this path.
+
+All style sizing still uses the output viewport: silhouette width, feature-size fades,
+subpixel feature culling and hatch spacing keep their native-pixel meaning. Only the
+ink stencil offsets scale with the denser raster. The overlay is drawn after the
+downsample at native resolution. Resize rebuilds both sets of targets and bindings.
+If doubling would exceed the device's texture dimension limit, the world raster uses
+native dimensions and the final pass copies it. Without MSAA the denser raster still
+provides four coverage samples per output pixel. The denser raster costs four times
+the world target storage and raster work; frame pacing is checked with the real bot
+window, not inferred from offline film speed. This changes presentation only, with no
+world or replay state.
 
 **Why inverted hull plus a post pass.** The hull gives a clean, width-controlled
 silhouette that reads at any zoom; the post pass finds inner edges a hull can't (creases,

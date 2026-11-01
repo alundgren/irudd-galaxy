@@ -332,13 +332,8 @@ purpose (never committed):
 | | `flicker` | 37 flicker runs, none near the ship | the same 37: the turning ship is a busy place it sets aside |
 
 On the engine as it is, `flicker` also finds real small things: the leg after a waypoint
-brightens at once when the ship reaches it, and the hub's inner ink breaks and joins as
-the camera moves (`flicker --near hub` on the dock film at 60 fps and 1280x720: 11
-flicker runs; with inner ink switched off, 1). Inner ink is found in a single-sample
-geometry buffer while colour is multisampled, so a crease or paint border a pixel wide
-steps from pixel to pixel as it moves. Dropping facets under a pixel (`too_small` in
-`mesh.wgsl`) plays no part: without it the count is the same. Read such findings by
-their `change` (brightness times pixels): a few units is a detail, tens is plain to see.
+brightens at once when the ship reaches it. Read such findings by their `change`
+(brightness times pixels): a few units is a detail, tens is plain to see.
 
 ## Alternatives and why this design
 

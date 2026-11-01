@@ -257,6 +257,21 @@ fn the_course_check_holds() {
     assert_eq!(out["expectations"].as_array().unwrap().len(), 4);
 }
 
+#[test]
+#[ignore = "needs a GPU: films docking at 1280x720 and checks inner-ink flicker"]
+fn the_ink_check_holds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = play().join("films/ink.toml");
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("ink").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+}
+
 /// A copy of drift with `[light]` added to its style, for a defect put back on purpose.
 fn drift_with_light(dir: &Path, light: &str) -> PathBuf {
     let from = play().join("drift");
