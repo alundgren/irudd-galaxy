@@ -1,0 +1,64 @@
+[package]
+name = "places-lab"
+description = "Throwaway prototype: how a station becomes a place you are in."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Not `places-lab.exe` in a folder the slice, the engine or another lab also builds
+# into: no other bin has this name.
+[[bin]]
+name = "places-lab"
+path = "src/main.rs"
+
+[dependencies]
+render.workspace = true
+mlua.workspace = true
+pollster.workspace = true
+serde_json.workspace = true
+winit.workspace = true
+
+[lints]
+workspace = true
+
+[workspace]
+resolver = "3"
+members = [".", "render"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Versions and features match the slice's, so the shared build slots already hold them.
+[workspace.dependencies]
+render = { package = "places-lab-render", path = "render" }
+galaxy-kit = { path = "../../slices/01-lantern-reach/crates/kit" }
+bytemuck = { version = "1.25", features = ["derive"] }
+glam = { version = "0.34", features = ["serde", "bytemuck"] }
+glyphon = "0.12"
+libm = "0.2.16"
+log = "0.4.34"
+mlua = { version = "0.12.2", features = ["luau", "serialize"] }
+png = "0.18"
+pollster = "1.0"
+schemars = "1.2.3"
+serde = { version = "1.0.229", features = ["derive", "rc"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+toml = "1.1.8"
+wgpu = "30.0"
+winit = "0.30.13"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+# The slice's profiles: our code lightly optimised, dependencies optimised once.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
