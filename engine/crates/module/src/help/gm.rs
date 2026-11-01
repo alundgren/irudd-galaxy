@@ -708,6 +708,9 @@ pub static TOPICS: &[Topic] = &[
         about: "A module is a folder with manifest.toml (id, versions, scripts, the events and \
                 components it declares, what it writes, keys), start.toml (its entities), \
                 scripts/*.luau, models/*.gltf and style.toml. IDs are `<module>.<name>`. \
+                Places, beings, doors, spots and clocks are world components. Scripts use \
+                ctx.move, ctx.walk and ctx.advance_clock; types lists their signatures, \
+                fields components lists their stored fields. Walking runs in Rust. \
                 Scripts run on events and once a second, never per frame; the engine's \
                 services fly, move and collide things. An entry script may also return screen = \
                 function(ctx, ui), returning ui.panel/text/button/list/row/column tables with \

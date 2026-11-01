@@ -59,6 +59,9 @@ pub fn motion(world: &mut World) {
         .iter()
         .filter_map(|(entity, components)| {
             components.get(POSITION)?;
+            if crate::places::walking(world, entity) {
+                return None;
+            }
             let motion = &components.get(MOTION)?.fields;
             let (vx, vy) = (number(motion, "vx"), number(motion, "vy"));
             (vx != 0.0 || vy != 0.0).then(|| (entity.clone(), vx, vy))
@@ -86,6 +89,7 @@ pub fn motion(world: &mut World) {
 
 /// A walkable rectangle on a layer.
 struct Surface {
+    place: String,
     layer: i64,
     min_x: f64,
     min_y: f64,
@@ -106,10 +110,10 @@ impl Surface {
 }
 
 /// The floor height under (`x`, `y`) on `layer`.
-fn floor(surfaces: &[Surface], layer: i64, x: f64, y: f64) -> f64 {
+fn floor(surfaces: &[Surface], place: &str, layer: i64, x: f64, y: f64) -> f64 {
     surfaces
         .iter()
-        .filter(|s| s.layer == layer)
+        .filter(|s| s.place == place && s.layer == layer)
         .filter_map(|s| s.height_at(x, y))
         .reduce(f64::max)
         .unwrap_or(0.0)
@@ -119,11 +123,12 @@ fn floor(surfaces: &[Surface], layer: i64, x: f64, y: f64) -> f64 {
 pub fn ground(world: &mut World) {
     let surfaces: Vec<Surface> = world
         .entities
-        .values()
-        .filter_map(|c| c.get(SURFACE))
-        .map(|s| {
+        .iter()
+        .filter_map(|(id, c)| c.get(SURFACE).map(|s| (id, s)))
+        .map(|(id, s)| {
             let f = &s.fields;
             Surface {
+                place: crate::places::place_of(world, id).to_owned(),
                 layer: int(f, "layer"),
                 min_x: number(f, "min_x"),
                 min_y: number(f, "min_y"),
@@ -140,7 +145,13 @@ pub fn ground(world: &mut World) {
         .iter()
         .filter_map(|(entity, components)| {
             let p = &components.get(POSITION)?.fields;
-            let height = floor(&surfaces, int(p, "layer"), number(p, "x"), number(p, "y"));
+            let height = floor(
+                &surfaces,
+                crate::places::place_of(world, entity),
+                int(p, "layer"),
+                number(p, "x"),
+                number(p, "y"),
+            );
             (p.get("height").and_then(Value::as_f64) != Some(height))
                 .then(|| (entity.clone(), height))
         })
@@ -169,6 +180,7 @@ mod tests {
     #[test]
     fn the_highest_surface_on_the_layer_is_the_floor() {
         let ramp = Surface {
+            place: String::new(),
             layer: 0,
             min_x: 10.0,
             min_y: 0.0,
@@ -179,6 +191,7 @@ mod tests {
             rise_y: 0.0,
         };
         let deck = Surface {
+            place: String::new(),
             layer: 1,
             min_x: 20.0,
             min_y: 0.0,
@@ -189,6 +202,7 @@ mod tests {
             rise_y: 0.0,
         };
         let shelf = Surface {
+            place: String::new(),
             layer: 0,
             min_x: 14.0,
             min_y: 0.0,
@@ -199,11 +213,11 @@ mod tests {
             rise_y: 0.0,
         };
         let all = [ramp, deck, shelf];
-        assert_eq!(floor(&all, 0, 5.0, 1.0), 0.0);
-        assert_eq!(floor(&all, 0, 12.5, 1.0), 0.5);
-        assert_eq!(floor(&all, 0, 15.0, 1.0), 1.5);
-        assert_eq!(floor(&all, 0, 20.0, 1.0), 2.0);
-        assert_eq!(floor(&all, 1, 30.0, 1.0), 2.0);
-        assert_eq!(floor(&all, 1, 12.0, 1.0), 0.0);
+        assert_eq!(floor(&all, "", 0, 5.0, 1.0), 0.0);
+        assert_eq!(floor(&all, "", 0, 12.5, 1.0), 0.5);
+        assert_eq!(floor(&all, "", 0, 15.0, 1.0), 1.5);
+        assert_eq!(floor(&all, "", 0, 20.0, 1.0), 2.0);
+        assert_eq!(floor(&all, "", 1, 30.0, 1.0), 2.0);
+        assert_eq!(floor(&all, "", 1, 12.0, 1.0), 0.0);
     }
 }

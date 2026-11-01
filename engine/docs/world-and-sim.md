@@ -37,6 +37,11 @@ The engine owns only the component types its own services act on:
 | `engine.waypoint` | `next` | modules |
 | `engine.body` | `radius`, `mass`, `fixed`, `drag` | modules; the collide service moves `x`, `y` and `vx`, `vy` to push things apart |
 
+Places, spots, doors, locations, beings, walks and clocks are also ordinary engine
+components; [places-and-beings.md](places-and-beings.md) describes their fields and
+commands. A player is a being marked `player`, with a location like any other being.
+Place kinds and being state names stay module content.
+
 ## 2.5D
 
 The world is a flat 2D simulation with height and floor layers, drawn later as 3D models.
@@ -44,7 +49,7 @@ There is no vertical physics. A thing stands on a floor layer (0 the ground, 1 a
 above it, and so on). `engine.surface` rectangles describe the floors: a flat deck has no
 rise, a ramp or hill side has some. Each tick the ground service sets every position's
 `height` to the highest surface on its layer under its point, or 0 where there is none.
-Going up a ramp lifts you; stepping onto a deck or climbing a ladder is a script patching
+Only surfaces in the same place as the entity contribute height. Going up a ramp lifts you; stepping onto a deck or climbing a ladder is a script patching
 `layer`, which the module needs the `engine.position` capability for.
 
 ## IDs and capabilities
@@ -62,17 +67,21 @@ mistakes, not attackers.
 
 ## One command set
 
-Every change goes through four commands, in a batch with one cause:
+World writes go through commands, in a batch with one cause:
 
 - `put` sets a whole component (missing fields get their defaults) and creates the entity
   if it is new;
 - `patch` changes some fields of an existing component;
 - `remove` removes one component, or the whole entity;
-- `record` records a fact.
+- `record` records a fact;
+- `move`, `walk` and `advance_clock` expand to component writes in order, with the
+  same cause and capability checks. Their state is saved like any other components.
 
 `World::apply` checks each command against the registry (the schema and the actor's
 capabilities) and against the world (a patch needs the component), and applies the batch
-whole or undoes it. Scripts, start states and inputs all go through it. Engine services,
+whole or undoes it. Place references and cycles are checked on the complete batch;
+module start states are checked together after loading. Scripts, start states and inputs
+all go through it. Engine services,
 which run every tick, change their component fields directly under their own cause.
 
 ## The tick
@@ -86,7 +95,7 @@ The sim runs at a fixed 30 ticks per second of game time and reads no clock. Eac
    order. A handler's writes apply as soon as it returns, so the next handler sees them.
    Facts recorded now wait for the next tick. Inputs are handled before the services, so
    a key acts on the tick it arrives;
-4. engine services run: flight, motion, collide, then ground (`flight-and-collision.md`);
+4. engine services run: flight, motion, walking, collide, then ground (`flight-and-collision.md`);
 5. every 30th tick (once a second), each script's `cadence` handler runs.
 
 Per-frame work runs in Rust services, never in Luau: scripts run only on events and the

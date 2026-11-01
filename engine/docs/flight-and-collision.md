@@ -92,12 +92,12 @@ replays collide identically.
 
 **Each tick, after motion:**
 
-1. Bodies are swept along x; pairs whose spans meet are tested.
+1. Bodies are swept along x; pairs in the same place whose spans meet are tested.
 2. Two outlines overlap when, along every sampled direction, their reaches add up to more
    than the gap between their centres. The direction with the least overlap is where
    they push apart (separating axes on the sampled outlines).
 3. The overlap is split by mass: a light thing moves more than a heavy one. A `fixed`
-   body, or one without `engine.motion`, never moves. Their velocities lose what was
+   body, an active walker, or one without `engine.motion`, never moves. Their velocities lose what was
    carrying them into each other, with a little bounce (0.2), so a ship slides along a
    rock instead of sticking, and a rock it rams drifts off.
 4. Four passes settle a pile-up.
@@ -122,3 +122,8 @@ against a fixed body keeps every direction that leads away from it.
   visible gaps beside a rock's flat faces.
 - **Orders as Luau.** Steering is per-tick work; scripts give orders on events and hear
   `engine.arrived`, and the engine flies.
+
+`engine.location.place` isolates coordinate spaces: bodies in different places never
+collide, even across a parent/child relationship. Missing or empty location keeps the
+original shared plane. Active walks run before collision and are kinematic straight
+segments; see `places-and-beings.md`. Ground lookup is likewise local to each place.

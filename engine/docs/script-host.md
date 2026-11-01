@@ -22,13 +22,14 @@ return {
 
 Handlers run on events (facts recorded on the previous tick, and inputs on this one) and
 on the slow cadence. Nothing runs every frame: per-frame work (motion, the floor height,
-later flight and collision) is engine services in Rust. A script may `require("./name")`
+flight, walking and collision) is engine services in Rust. A script may `require("./name")`
 the module's other `.luau` files.
 
 ## ctx
 
 A handler reads and writes the world only through `ctx`: `get`, `has`, `query`, `put`,
-`patch`, `remove`, `record`, `random`, `random_int`, plus `tick` and `module`. Reads see
+`patch`, `remove`, `record`, `move`, `walk`, `advance_clock`, `random`, `random_int`,
+plus `tick` and `module`. Reads see
 the world as it was when the call started. Writes are buffered as commands and checked
 when they are made, against the component schemas and the module's capabilities, so a
 mistake fails at the line that made it. When the handler returns, its commands apply as
@@ -46,6 +47,12 @@ constructors. Its reads invalidate the cached tree when their data changes. It h
 simulation writes, random stream or tick access, and shares the fresh VM and budgets.
 Returning nil hides the screen. `screens.md` describes layout, anchors, clicks and replay.
 `galaxy-gm types` includes `ScreenCtx`, `Ui`, `Widget` and the optional script function.
+
+Place commands are bound in `place_api.rs`. They apply in command order: a walk after
+a move uses the new place, and consecutive clock advances add up. Their expansions pass
+the same capability checks as ordinary writes; world-dependent errors roll back the
+whole handler. Walks advance in Rust, not on a script cadence. See
+[places-and-beings.md](places-and-beings.md) for the API and state model.
 
 ## The sandbox
 

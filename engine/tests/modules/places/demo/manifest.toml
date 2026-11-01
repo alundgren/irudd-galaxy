@@ -1,0 +1,10 @@
+# Isolated from the original stroll/tally module set and its golden recording.
+id = "places"
+version = "0.1.0"
+min_engine_version = "0.3.0"
+scripts = ["scripts/places.luau"]
+events = ["move", "walk"]
+writes = ["engine.place", "engine.spot", "engine.door", "engine.location", "engine.being", "engine.walk", "engine.clock", "engine.position", "engine.motion", "engine.surface", "engine.body"]
+
+[components.description]
+kind = "text"

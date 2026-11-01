@@ -194,3 +194,17 @@ from the embedded scripts and current components. Named anchors use the recorded
 frame size and interpolation fraction, like model poses. No additional presentation
 record is needed in Screens I: it has no hover, scroll or transient pointer rendering.
 See `screens.md` for the bot click and note example.
+
+## Places, clocks and in-progress walks
+
+Places, beings, the player location, spots, doors and clocks use normal component rows;
+the SQLite and recording format numbers stay unchanged. An active `engine.walk` stores
+its place, original and destination coordinates, spots, start tick, speed and completion
+state. Loading or starting a recording halfway through it needs no camera or hidden
+script state: the Rust walking service resumes from those fields. The game clock is a
+separate recorded integer and advances only through module commands.
+
+Resume validates place references and active walk requirements after schema conformance.
+Malformed content is refused rather than silently losing a being or walk. The dedicated
+place scenario and executable tests compare a mid-walk save, its resumed endpoint and
+replays with a direct run on both Windows and Linux; see `places-and-beings.md`.

@@ -1,12 +1,13 @@
 //! The one command set every change to the world goes through, and the cause each change
 //! carries.
 //!
-//! There are four commands: `put` a component on an entity (creating the entity if it is
+//! The primitive commands are: `put` a component on an entity (creating the entity if it is
 //! new), `patch` some fields of a component, `remove` a component or a whole entity, and
 //! `record` a fact. A recorded fact goes into the world's history and is also an event:
 //! handlers for its kind run on the next tick. Commands always travel in a [`Batch`] with
 //! one [`Cause`]; the batch applies whole or not at all, and everything it changes
-//! remembers that cause.
+//! remembers that cause. Place moves, walks and clock advances are high-level commands
+//! expanded into checked primitive writes by the world.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -37,6 +38,22 @@ pub enum Command {
     },
     /// Records a fact of a declared kind; it is an event on the next tick.
     Record { kind: String, payload: Fields },
+    /// Moves a located entity immediately; an omitted spot uses the place's arrival.
+    Move {
+        entity: String,
+        place: String,
+        spot: Option<String>,
+        state: Option<String>,
+    },
+    /// Starts a straight walk to a spot in the entity's current place.
+    Walk {
+        entity: String,
+        spot: String,
+        speed: f64,
+        state: Option<String>,
+    },
+    /// Advances one explicitly named world clock, in module-defined units.
+    AdvanceClock { entity: String, amount: i64 },
 }
 
 impl Command {
@@ -46,6 +63,9 @@ impl Command {
             Command::Patch { .. } => "patch",
             Command::Remove { .. } => "remove",
             Command::Record { .. } => "record",
+            Command::Move { .. } => "move",
+            Command::Walk { .. } => "walk",
+            Command::AdvanceClock { .. } => "advance_clock",
         }
     }
 }

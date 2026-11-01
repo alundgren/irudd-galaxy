@@ -1,0 +1,59 @@
+# Place kinds are content. All references are ordinary entity IDs.
+[entities.station]
+"engine.place" = { width = 100.0, depth = 100.0 }
+description = { kind = "station" }
+[entities.block_a]
+"engine.place" = { parent = "places.station", enter = "places.room_a" }
+description = { kind = "module" }
+[entities.block_b]
+"engine.place" = { parent = "places.station", enter = "places.room_b" }
+description = { kind = "module" }
+[entities.room_a]
+"engine.place" = { parent = "places.block_a", arrival = "places.a_door", width = 30.0, depth = 10.0 }
+description = { kind = "room" }
+[entities.room_b]
+"engine.place" = { parent = "places.block_b", arrival = "places.b_door", width = 30.0, depth = 10.0 }
+description = { kind = "room" }
+[entities.a_door]
+"engine.spot" = { place = "places.room_a", name = "door", x = 0.0, y = 0.0 }
+[entities.a_table]
+"engine.spot" = { place = "places.room_a", name = "table", x = 3.0, y = 0.0 }
+[entities.b_door]
+"engine.spot" = { place = "places.room_b", name = "door", x = 0.0, y = 0.0 }
+[entities.b_table]
+"engine.spot" = { place = "places.room_b", name = "table", x = 3.0, y = 0.0 }
+[entities.a_to_b]
+"engine.door" = { from = "places.room_a", to = "places.room_b", spot = "places.a_door", arrival = "places.b_door" }
+[entities.b_to_a]
+"engine.door" = { from = "places.room_b", to = "places.room_a", spot = "places.b_door", arrival = "places.a_door" }
+[entities.player]
+"engine.location" = { place = "places.station" }
+"engine.being" = { state = "visiting", home = "places.room_a", player = true }
+"engine.position" = {}
+[entities.visitor]
+"engine.location" = { place = "places.room_a", spot = "places.a_table" }
+"engine.being" = { state = "resting", home = "places.room_a" }
+"engine.position" = { x = 3.0 }
+[entities.host]
+"engine.location" = { place = "places.room_b", spot = "places.b_table" }
+"engine.being" = { state = "working", home = "places.room_b" }
+"engine.position" = { x = 3.0 }
+[entities.clock]
+"engine.clock" = {}
+# At exactly the same coordinates, on different floors in different places.
+[entities.probe_a]
+"engine.location" = { place = "places.room_a" }
+"engine.position" = { x = 20.0 }
+"engine.motion" = {}
+"engine.body" = { radius = 1.0 }
+[entities.probe_b]
+"engine.location" = { place = "places.room_b" }
+"engine.position" = { x = 20.0 }
+"engine.motion" = {}
+"engine.body" = { radius = 1.0 }
+[entities.floor_a]
+"engine.location" = { place = "places.room_a" }
+"engine.surface" = { min_x = -30.0, max_x = 30.0, min_y = -10.0, max_y = 10.0, height = 2.0 }
+[entities.floor_b]
+"engine.location" = { place = "places.room_b" }
+"engine.surface" = { min_x = -30.0, max_x = 30.0, min_y = -10.0, max_y = 10.0, height = 5.0 }
