@@ -109,7 +109,7 @@ pub fn builds(recorded: &BuildStamp, this: &BuildStamp, act: &str, command: &str
                     .to_owned(),
             };
             format!(
-                "DIFFERENT BUILDS: recorded by {r}, {act} by {t}. A defect fixed or added \
+                "DIFFERENT BUILDS: recorded by {r}, {key} by {t}. A defect fixed or added \
                  between them shows differently, so this may not look like what the player \
                  saw. To see what the player saw: {run}"
             )
@@ -442,6 +442,7 @@ mod tests {
             "{note}"
         );
         assert!(note.contains("galaxy-gm --build a film <rec>"), "{note}");
+        assert!(note.contains("recorded by a, drawn by b"), "{note}");
         let b = builds(
             &stamp(None),
             &stamp(Some("b")),
