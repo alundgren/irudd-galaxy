@@ -9,7 +9,8 @@
 //! depth_step = 0.55           # smallest depth break that gets a line, world units
 //!
 //! [light]                     # for the whole scene
-//! sun_direction = [-0.62, 0.48, 0.52]
+//! sun_direction = [-0.35, 0.27, 0.90]
+//! band_fade_degrees = 25.0   # a face fades between tone bands over this much turn
 //! sun = "#fff1dc"
 //! ambient = "#2c2240"
 //! rim = "#ffb36b"
@@ -69,6 +70,9 @@ impl Style {
         let style: Style = toml::from_str(text).map_err(|e| e.to_string())?;
         if let Some(ink) = &style.ink {
             ink.check().map_err(|e| format!("[ink] {e}"))?;
+        }
+        if let Some(light) = &style.light {
+            light.check().map_err(|e| format!("[light] {e}"))?;
         }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
@@ -139,6 +143,9 @@ pub struct Light {
     pub ambient: Color,
     pub rim: Color,
     pub rim_strength: f32,
+    /// How far a flat face turns, in degrees, while it fades from one tone band to the
+    /// next. Small is a hard cel step; a turning ship then flips whole faces in a frame.
+    pub band_fade_degrees: f32,
 }
 
 impl Default for Light {
@@ -150,17 +157,29 @@ impl Default for Light {
             ambient: l.ambient,
             rim: l.rim.with_alpha(1.0),
             rim_strength: l.rim.a,
+            band_fade_degrees: l.band_fade_degrees,
         }
     }
 }
 
 impl Light {
+    fn check(&self) -> Result<(), String> {
+        if !(self.band_fade_degrees.is_finite() && (0.0..=90.0).contains(&self.band_fade_degrees)) {
+            return Err(format!(
+                "band_fade_degrees is {}; it is 0 to 90",
+                self.band_fade_degrees
+            ));
+        }
+        Ok(())
+    }
+
     pub fn lights(&self) -> Lights {
         Lights {
             sun_direction: Vec3::from(self.sun_direction).normalize_or(Vec3::Z),
             sun_color: self.sun,
             ambient: self.ambient,
             rim: self.rim.with_alpha(self.rim_strength.clamp(0.0, 1.0)),
+            band_fade_degrees: self.band_fade_degrees,
             points: Vec::new(),
         }
     }
@@ -347,5 +366,16 @@ color = \"#3fa7a0\"
                 .unwrap_err()
                 .contains("width")
         );
+        assert!(
+            Style::parse("[light]\nband_fade_degrees = 120.0")
+                .unwrap_err()
+                .contains("[light] band_fade_degrees")
+        );
+    }
+
+    #[test]
+    fn the_band_fade_reaches_the_lights() {
+        let s = Style::parse("[light]\nband_fade_degrees = 10.0").unwrap();
+        assert_eq!(s.light.unwrap().lights().band_fade_degrees, 10.0);
     }
 }

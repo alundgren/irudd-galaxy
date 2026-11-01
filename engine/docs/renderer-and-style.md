@@ -72,7 +72,8 @@ color_edge = 0.22         # a paint border this strong gets a line
 depth_step = 0.55         # a depth break this big gets a line (world units)
 
 [light]                   # for the whole scene
-sun_direction = [-0.62, 0.48, 0.52]
+sun_direction = [-0.35, 0.27, 0.90]   # towards the sun; high, so tops stay lit as ships turn
+band_fade_degrees = 25.0  # a face fades between tone bands over this much turn (0 to 90)
 sun = "#fff1dc"
 ambient = "#2c2240"
 rim = "#ffb36b"
@@ -126,6 +127,16 @@ these passes:
    flat bands (shadow, mid, highlight). The shadow band gets sketched hatching, a rim
    light catches edges turned away, glow ignores light. Instances of the same mesh are
    drawn together.
+
+   A flat face has one light level, so a hard band step switches a whole face at once:
+   a ship turning at 180° a second flipped half its hull from lit to shadow within a
+   frame. Each face therefore eases between bands over `band_fade_degrees` of turn
+   (25° by default, about five frames at full turn). Filmed on a ship flying a tight
+   circle (`galaxy-gm motion`), the biggest one-frame brightness jump fell from 4.9 to
+   1.5. The default sun is high (about 64°), so a ship's top stays lit through turns
+   and only steep sides go to shadow; a lower sun shows more form on rocks but makes
+   turning ships flip more. Smooth light normals were tried too: as calm, but the
+   faceted look is the style.
 3. **Silhouette**: the inverted hull. Back faces are drawn again, pushed out in screen
    space along the outline normal by the look's `outline_px`, in ink. Thinner on small
    parts, gone below about a pixel.

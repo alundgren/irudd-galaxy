@@ -1090,7 +1090,14 @@ impl Renderer {
             sun_color: lights.sun_color.to_array(),
             ambient: lights.ambient.to_array(),
             rim: lights.rim.to_array(),
-            counts: [n_points as f32, 0.0, 0.0, 0.0],
+            // y: the tone bands' fade width in half-Lambert units. Near the terminator
+            // half-Lambert changes by about half a radian's worth per radian of turn.
+            counts: [
+                n_points as f32,
+                0.5 * lights.band_fade_degrees.clamp(0.0, 90.0).to_radians(),
+                0.0,
+                0.0,
+            ],
             points,
         };
         self.queue

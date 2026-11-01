@@ -87,16 +87,20 @@ pub struct Lights {
     pub ambient: Color,
     /// Edge light on surfaces turned away from the camera; alpha is its strength.
     pub rim: Color,
+    /// How far a flat face turns, in degrees, while it fades between tone bands.
+    pub band_fade_degrees: f32,
     pub points: Vec<PointLight>,
 }
 
 impl Default for Lights {
     fn default() -> Self {
         Self {
-            sun_direction: Vec3::new(-0.62, 0.48, 0.52).normalize(),
+            // High, so a ship's top stays lit as it turns; only steep sides go to shadow.
+            sun_direction: Vec3::new(-0.35, 0.27, 0.90).normalize(),
             sun_color: Color::hex(0xfff1dc),
             ambient: Color::hex(0x2c2240),
             rim: Color::hex(0xffb36b).with_alpha(0.55),
+            band_fade_degrees: 25.0,
             points: Vec::new(),
         }
     }
