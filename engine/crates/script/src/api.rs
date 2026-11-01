@@ -15,7 +15,7 @@ pub const CTX: &[Member] = &[
     Member {
         name: "move",
         ty: "(entity: Id, place: Id, spot: Id?, state: string?) -> ()",
-        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Writes apply in call order after the handler returns.",
+        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Moving the player starts travel; play records engine.place_arrived when it lands. Writes apply in call order after the handler returns.",
     },
     Member {
         name: "walk",
@@ -151,7 +151,7 @@ export type ScreenCtx = {
     query: (component: Id) -> {Id},
 }
 --- Dimensions are logical pixels. Children flow down, or across a row. x/y place
---- a child explicitly; anchor is publisher#name, projected and clamped to the view.
+--- a child explicitly; anchor is publisher#name or a place.<id>, spot.<name>, being.<id>[.<part>] publisher, projected and clamped to the view.
 --- Only buttons take on/payload. Unknown properties are errors. Minimum text: 16px.
 --- children is a consecutive list of widgets. id names a widget for diagnostics and bot
 --- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.

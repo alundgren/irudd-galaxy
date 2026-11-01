@@ -449,7 +449,10 @@ impl App {
                     r.renderer.logical_size(),
                     self.last_time,
                 );
-                match r.view.screens.bot_click(&click) {
+                match galaxy_sim::travel::arrival(&self.session.world, true)
+                    .map(Ok)
+                    .unwrap_or_else(|| r.view.screens.bot_click(&click))
+                {
                     Ok(input) => inputs.push(input),
                     Err(e) => {
                         self.error = Some(Failure::runtime(format!("before tick {tick}: {e}")));
@@ -457,6 +460,22 @@ impl App {
                         return;
                     }
                 }
+            }
+            let mut landing = false;
+            inputs.retain(|i| {
+                if i.name != galaxy_api::engine::PLACE_ARRIVED {
+                    return true;
+                }
+                let first = !landing;
+                landing = true;
+                first
+            });
+            if !inputs
+                .iter()
+                .any(|i| i.name == galaxy_api::engine::PLACE_ARRIVED)
+                && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, false)
+            {
+                inputs.push(input);
             }
             if let Err(e) = self.session.step(&inputs) {
                 self.error = Some(Failure::runtime(e));
@@ -630,10 +649,12 @@ impl ApplicationHandler for App {
                 ..
             } if self.note.is_none() => {
                 if let Some(r) = &self.running
-                    && let Some(input) = r
-                        .view
-                        .screens
-                        .click(self.pointer, self.session.world.tick + 1)
+                    && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, true)
+                        .or_else(|| {
+                            r.view
+                                .screens
+                                .click(self.pointer, self.session.world.tick + 1)
+                        })
                 {
                     self.pending.push(input);
                 }

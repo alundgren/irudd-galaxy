@@ -13,7 +13,9 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod rooms;
 pub mod screens;
+pub mod travel;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -95,6 +97,20 @@ impl Default for CameraSpec {
 }
 
 impl CameraSpec {
+    /// An authored room camera. glTF node orientation determines forward and up.
+    pub fn posed(node: &galaxy_mesh::gltf::NamedNode, fov: f32) -> Camera {
+        Camera {
+            eye: node.position,
+            target: node.position + node.forward,
+            up: node.up,
+            projection: Projection::Perspective {
+                fov_y: fov.to_radians(),
+                near: 0.1,
+                far: 5000.0,
+            },
+        }
+    }
+
     fn of(fields: &Map<String, Value>) -> CameraSpec {
         let d = CameraSpec::default();
         let n = |k: &str, or: f32| {
@@ -205,6 +221,7 @@ pub struct View {
     seed: u64,
     /// Poses at the tick before the world's current one.
     previous: BTreeMap<String, Pose>,
+    previous_places: BTreeMap<String, String>,
     pub eye: Eye,
     /// Model and look IDs things asked for that no module has, once each.
     missing: BTreeSet<String>,
@@ -260,6 +277,7 @@ impl View {
             sky,
             seed,
             previous: BTreeMap::new(),
+            previous_places: BTreeMap::new(),
             eye: Eye::default(),
             missing: BTreeSet::new(),
             camera: None,
@@ -313,6 +331,16 @@ impl View {
     /// Remembers where everything is, before the sim steps. Call it once before each tick
     /// so [`View::scene`] can draw between the last two.
     pub fn before_step(&mut self, world: &World) {
+        self.previous_places = world
+            .entities
+            .keys()
+            .map(|id| {
+                (
+                    id.clone(),
+                    galaxy_sim::places::place_of(world, id).to_owned(),
+                )
+            })
+            .collect();
         self.previous = world
             .entities
             .iter()
@@ -322,7 +350,24 @@ impl View {
 
     /// Where `entity` is drawn, `alpha` of the way from the last tick to this one.
     pub fn pose(&self, world: &World, entity: &str, alpha: f32) -> Option<Pose> {
+        if world.component(entity, galaxy_api::engine::PLACE).is_some()
+            && world.component(entity, POSITION).is_none()
+        {
+            return Some(Pose {
+                x: 0.0,
+                y: 0.0,
+                height: 0.0,
+                angle: 0.0,
+            });
+        }
         let now = Pose::of(&world.component(entity, POSITION)?.fields);
+        if self
+            .previous_places
+            .get(entity)
+            .is_some_and(|p| p != galaxy_sim::places::place_of(world, entity))
+        {
+            return Some(now);
+        }
         Some(match self.previous.get(entity) {
             Some(before) => before.lerp(now, alpha.clamp(0.0, 1.0)),
             None => now,
@@ -339,6 +384,11 @@ impl View {
 
     /// The camera for this frame.
     pub fn frame_camera(&self, world: &World, alpha: f32) -> Camera {
+        if let Some(place) = travel::place(world, alpha)
+            && let Some(camera) = self.room_camera(world, place)
+        {
+            return camera;
+        }
         let (target, spec) = match camera_holder(world) {
             Some((id, spec)) => (
                 self.pose(world, id, alpha)
@@ -358,6 +408,8 @@ impl View {
     /// The scene for this frame: `alpha` of the way between the last two ticks, at
     /// `logical` pixels, `time` seconds into the session (for shader shimmer only).
     pub fn scene(&mut self, world: &World, alpha: f32, logical: Vec2, time: f32) -> Scene {
+        let shown = rooms::screen_world(world, travel::place(world, alpha));
+        let world = &*shown;
         let camera = self.frame_camera(world, alpha);
         let mut scene = Scene::new(camera);
         scene.time = time;
@@ -365,7 +417,11 @@ impl View {
         scene.lights = self.assets.light.lights();
         scene.backdrop = Some(self.sky);
         scene.clear_color = self.assets.sky.bottom;
+        let place = travel::place(world, alpha);
         for (id, components) in &world.entities {
+            if !rooms::visible(world, id, place) {
+                continue;
+            }
             let Some(model) = components.get(MODEL) else {
                 continue;
             };
@@ -445,8 +501,12 @@ impl View {
                 }
             }
         }
+        self.place_anchors(world, alpha, logical, camera, &mut anchors);
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
+        if let Some(cut) = travel::Cut::step(world, alpha) {
+            cut.overlay(world, logical, &mut scene);
+        }
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene

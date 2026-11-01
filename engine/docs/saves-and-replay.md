@@ -208,3 +208,10 @@ Resume validates place references and active walk requirements after schema conf
 Malformed content is refused rather than silently losing a being or walk. The dedicated
 place scenario and executable tests compare a mid-walk save, its resumed endpoint and
 replays with a direct run on both Windows and Linux; see `places-and-beings.md`.
+
+Room travel stores its endpoints and start tick in `engine.travel`. Play submits the
+declared `engine.place_arrived` input when the cut lands, including an early click;
+replay consumes that exact input. F8 and film rebuild the cut from the world tick and
+existing interpolation metadata. Room markers are imported into the initial world;
+saves keep them as ordinary spot and position components. Existing room-less recordings
+and save format 1 remain compatible. See [Rooms and travel](rooms-and-travel.md).

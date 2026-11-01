@@ -119,6 +119,7 @@ impl Session {
                 .apply(&batch, &registry)
                 .map_err(|e| format!("{id}: start.toml: {e}"))?;
         }
+        crate::rooms::hydrate(&mut world, modules.values().map(|l| &l.module), &registry)?;
         let cause = world.service_cause("start");
         world.record(cause, START, Fields::new());
         crate::places::validate(&world)?;
@@ -176,6 +177,7 @@ impl Session {
 
     /// Runs one tick with these inputs (their `tick` is ignored: they happen now).
     pub fn step(&mut self, inputs: &[Input]) -> Result<(), String> {
+        let before = crate::travel::position(&self.world);
         self.world.tick += 1;
         let tick = self.world.tick;
         for input in inputs {
@@ -183,15 +185,20 @@ impl Session {
                 tick,
                 ..input.clone()
             };
+            let mut commands = Vec::new();
+            if let Some(finish) = crate::travel::finish(&self.world, &input)? {
+                commands.push(finish);
+            }
+            commands.push(Command::Record {
+                kind: input.name.clone(),
+                payload: input.payload.clone(),
+            });
             let batch = Batch {
                 cause: Cause::Input {
                     source: input.source.clone(),
                     name: input.name.clone(),
                 },
-                commands: vec![Command::Record {
-                    kind: input.name.clone(),
-                    payload: input.payload.clone(),
-                }],
+                commands,
             };
             self.world
                 .apply(&batch, &self.registry)
@@ -209,6 +216,7 @@ impl Session {
         if tick.is_multiple_of(CADENCE_TICKS) {
             self.run_cadence();
         }
+        crate::travel::start(&mut self.world, before, &self.registry)?;
         Ok(())
     }
 

@@ -51,7 +51,8 @@ omitted, local origin on layer 0 if neither exists). It creates a position if ne
 preserves facing, cancels a walk and zeros motion and steering when those exist. It
 leaves state unchanged when omitted. A door describes connectivity; it is not an access
 restriction on this story-move operation. Scripts decide which door a player may use.
-No cut, camera transition or presentation-arrival event is implied by a move.
+For a player with `engine.travel`, changing place starts the shared travel presentation;
+play records `engine.place_arrived` when it lands. See [Rooms and travel](rooms-and-travel.md).
 
 `walk(entity, spot, speed, state?)` starts a straight segment from the current position
 to a spot in the same place and floor layer. Speed must be finite and positive, in world
@@ -104,8 +105,8 @@ Arrays of spots and doors would require new field types. Small entities reuse sc
 capability, query and save machinery. Locations are separate from beings so surfaces
 and solid objects can share the same room isolation without inventing extra being kinds.
 Presentation-owned walks would be lost when switching views; recorded segments let
-any later presentation reconstruct them. The prototype's cut, room kinds, routines and
-poses are deliberately not engine concepts.
+any later presentation reconstruct them. Room kinds, routines and being states remain module concepts. The generic room and
+travel presentation is described in [Rooms and travel](rooms-and-travel.md).
 
 ## Headless proof
 
