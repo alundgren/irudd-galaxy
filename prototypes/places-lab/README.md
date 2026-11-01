@@ -109,8 +109,8 @@ work at once.
 | Key | Choice | Trait | Folder (owned by that choice's agent) | Baseline |
 |---|---|---|---|---|
 | 1 | Getting between places | `Travel`: `start`, `step`, `busy`, `finish`, `compose`, `overlay` | `src/travel/` (`mod.rs`, `shared.rs`, one file per variant) | `cut`: a title card |
-| 2 | What a room is | `Room`: `view`, `step` | `src/room/` (`mod.rs`, `staged.rs`) | `staged`: a staged 3D set, fixed camera |
-| 3 | How people talk | `Talk`: `widgets` (when the screen runs), `frame` (each frame) | `src/talk/` (`mod.rs`, `bubble.rs`) | `bubble`: on the person |
+| 2 | What a room is | `Room`: `view`, `step`, `widgets` | `src/room/` (`mod.rs`, `staged.rs`, `layers.rs`, `inside.rs`) | `staged`: a staged 3D set, fixed camera. Also `layers`: painted flats in depth, like a toy theatre, with scene text; `inside`: the set in its module on the station, the hull cut away, the core beyond |
+| 3 | How people talk | `Talk`: `widgets` (when the screen runs), `frame` (each frame) | `src/talk/` (`mod.rs`, `bubble.rs`, `portrait.rs`, `framing.rs`, `column.rs`) | `bubble`: on the person |
 | 4 | Life | `Life`: `moved`, `arrived`, `step`, `pose`, `widgets` | `src/life/` (`mod.rs`, `still.rs`) | `still`: people stay put |
 
 Every trait also has `setup(renderer, world, model)` to upload meshes of its own. A
@@ -151,14 +151,20 @@ shows (it dims and raises that view's meshes). `cutaway` builds the move from th
 set standing in its module and lands on the room variant's own view, so with a room
 variant other than `staged` the last frame cuts from the set to that view.
 
+The talk variants, after `bubble`:
+
+| Variant | What it does |
+|---|---|
+| `portrait` | A bust of the speaker on a card at the bottom left (a small copy of their own figure, just in front of the camera, so it is the same cel-and-ink model), with their name and line beside it. Their figure stays in the room. |
+| `framing` | The camera cuts in close on the speaker's face on a longer lens and eases back when the talk ends; the line is a caption at the bottom. It pushes in only as far as keeps what the room hangs on the scene usable, so in the cradle it stays wide. |
+| `column` | The talk runs as a column down the left, newest at the bottom, each line with its speaker's name. The speaker's ink turns amber with a ring at their feet. The room moves up or over, smaller if it must, so no face, sign or socket is under the column. |
+
 ## The variants still to build
 
 The baselines are in (the table above); these are next:
 
 | Choice | Variants |
 |---|---|
-| What a room is | a flat staged scene in layers with text · the interior inside the station model |
-| How people talk | portrait with a name panel · the camera frames the speaker · a text column at the side |
 | Life | people in states who move at story moments · changes visible when you come back |
 
 Variants are named by technique. Don't copy any game's layout, screens or look.

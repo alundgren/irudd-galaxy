@@ -9,6 +9,8 @@
 //! To add a variant: a new file here with a type that implements [`Room`], and one line
 //! in [`all`]. Nothing outside this folder needs to change.
 
+mod inside;
+mod layers;
 mod staged;
 
 use render::Renderer;
@@ -37,5 +39,9 @@ pub trait Room {
 
 /// Every variant, in the order the key cycles them. The first is the baseline.
 pub fn all() -> Vec<Box<dyn Room>> {
-    vec![Box::new(staged::Staged)]
+    vec![
+        Box::new(staged::Staged),
+        Box::new(layers::Layers::default()),
+        Box::new(inside::Inside::default()),
+    ]
 }
