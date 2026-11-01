@@ -173,8 +173,12 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
         "ok": !diverged,
         "command": "audit",
         "recording": path.display().to_string(),
-        "recorded_build": rec.build,
-        "this_build": BuildStamp::current(),
+        "builds": galaxy_sim::recording::builds(
+            &rec.build,
+            &BuildStamp::current(),
+            "drew",
+            &format!("galaxy-gm audit {}", path.display()),
+        ),
         "notes": report,
     });
     if diverged {

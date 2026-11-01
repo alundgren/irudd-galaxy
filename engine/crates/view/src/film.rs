@@ -25,7 +25,7 @@ use galaxy_render::{Camera, Line, LineStyle, Renderer, RgbaImage, Scene};
 use galaxy_sim::changes;
 use galaxy_sim::recording::RecEvent;
 use galaxy_sim::scenario::InputsFile;
-use galaxy_sim::{Input, Recording, Replay, Session, World};
+use galaxy_sim::{BuildStamp, Input, Recording, Replay, Session, World};
 use serde_json::Value;
 
 use crate::{View, camera_holder};
@@ -344,11 +344,34 @@ pub fn shoot(
         drawn: draw,
         adapter: renderer.as_deref().map(Renderer::adapter_info),
         source: shoot.source.clone(),
+        builds: builds(&shoot.source),
         changes,
         frames,
     };
     manifest.write(&shoot.out)?;
     Ok(manifest)
+}
+
+/// Which build draws this film, next to the one that recorded the session if it is one.
+fn builds(source: &Value) -> Value {
+    let this = BuildStamp::current();
+    match serde_json::from_value::<BuildStamp>(source["recorded_build"].clone()) {
+        Ok(recorded) => {
+            let note = source["note"]["number"]
+                .as_u64()
+                .map_or(String::new(), |n| format!(" --note {n}"));
+            let command = source["recording"]
+                .as_str()
+                .map_or("galaxy-gm film <recording>".to_owned(), |r| {
+                    format!("galaxy-gm film {r}{note}")
+                });
+            galaxy_sim::recording::builds(&recorded, &this, "drew", &command)
+        }
+        Err(_) => serde_json::json!({
+            "drawn": this.label(),
+            "note": format!("drawn by {} from the modules as they are now", this.label()),
+        }),
+    }
 }
 
 /// Makes the film folder ready: new, or an old film's, whose frames are cleared.

@@ -135,7 +135,14 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             };
             let tick = |name: &str| opts.count(name).map(|v| v.map(|v| v as u64)).map_err(usage);
             let path = discover::recording_file(&discover::resolve(&cwd, Path::new(path)));
-            sessions::recording(&path, view, tick("from")?, tick("to")?, opts.flag("all"))
+            sessions::recording(
+                &path,
+                view,
+                tick("from")?,
+                tick("to")?,
+                opts.text("name"),
+                opts.flag("all"),
+            )
         }
         "motion check" => film::check(command, args),
         tool => match tool.strip_prefix("motion ") {
@@ -209,6 +216,56 @@ fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
     out
 }
 
+/// Which things wear each look and each model in the modules' start states:
+/// `{looks: {look: [entity]}, models: {model: [entity]}}`, with every look and model a
+/// module has, worn or not (an empty list).
+pub(crate) fn worn(all: &[Module]) -> Value {
+    use std::collections::BTreeMap;
+    let assets = Assets::load(all);
+    let mut looks: BTreeMap<String, Vec<String>> = assets
+        .looks
+        .keys()
+        .map(|k| (k.clone(), Vec::new()))
+        .collect();
+    let mut models: BTreeMap<String, Vec<String>> = assets
+        .models
+        .keys()
+        .map(|k| (k.clone(), Vec::new()))
+        .collect();
+    for module in all {
+        for (entity, components) in &module.start {
+            let Some(fields) = components.get(MODEL) else {
+                continue;
+            };
+            let text = |k: &str| fields.get(k).and_then(Value::as_str).unwrap_or("");
+            if !text("model").is_empty() {
+                models
+                    .entry(text("model").to_owned())
+                    .or_default()
+                    .push(entity.clone());
+            }
+            if !text("look").is_empty() {
+                looks
+                    .entry(text("look").to_owned())
+                    .or_default()
+                    .push(entity.clone());
+            }
+        }
+    }
+    json!({ "looks": looks, "models": models })
+}
+
+/// Of [`worn`], the looks and models module `id` has.
+fn own(mut worn: Value, id: &str) -> Value {
+    let prefix = format!("{id}.");
+    for kind in ["looks", "models"] {
+        if let Some(m) = worn[kind].as_object_mut() {
+            m.retain(|k, _| k.starts_with(&prefix));
+        }
+    }
+    worn
+}
+
 /// Checks the module at `dir`, with the modules beside it loaded too (a module may write
 /// or handle another's types and events).
 fn check(dir: &Path) -> Result<Output, Failure> {
@@ -254,6 +311,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         "context_modules": context.iter().map(Module::id).collect::<Vec<_>>(),
         "notes": notes,
         "findings": findings,
+        "worn": own(worn(&all), module.id()),
     });
     if ok {
         return Ok(Output::Json(out));
@@ -282,11 +340,17 @@ mod tests {
     /// motion tool has help.
     #[test]
     fn help_lists_the_options_each_command_takes() {
+        // Every summary that lists the tools takes them from the table, in this order.
+        assert_eq!(help::motion_tools(), galaxy_motion::TOOLS);
+        let overview = help::overview(Tool::Gm);
+        let words: Vec<&str> = overview.split_whitespace().collect();
+        assert!(words.join(" ").contains(&galaxy_motion::TOOLS.join(", ")));
         for tool in galaxy_motion::TOOLS {
             let c = help::find(Tool::Gm, &format!("motion {tool}"))
                 .unwrap_or_else(|| panic!("no help for motion {tool}"));
             let mut takes: Vec<&str> = galaxy_motion::options(tool).unwrap().to_vec();
             takes.push("image");
+            takes.push("detail");
             // compare's second film comes bare on the command line.
             takes.retain(|o| *o != "with");
             assert_eq!(sorted(c.options()), sorted(takes), "motion {tool}");
@@ -296,6 +360,7 @@ mod tests {
         let check = help::find(Tool::Gm, "motion check").unwrap();
         assert_eq!(check.options(), film::CHECK_OPTIONS);
         for (path, takes) in [
+            ("fields", fields::OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),

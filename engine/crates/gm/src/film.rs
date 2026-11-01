@@ -174,7 +174,8 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         "to": { "t": last.time, "tick": last.tick },
         "adapter": manifest.adapter,
         "notes_checked": checked,
-        "next": "galaxy-gm motion <tool> <folder>: track, dots, strip, sheet, flicker, flow, compare",
+        "builds": manifest.builds,
+        "next": format!("galaxy-gm motion <tool> <folder>: {}", galaxy_motion::TOOLS.join(", ")),
     });
     if diverged {
         let mut failure = Failure::new(
@@ -445,6 +446,7 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
         "fps": m.fps,
         "size": [m.width, m.height],
         "drawn": m.drawn,
+        "builds": film.builds(),
         "frames": frames.len(),
         "span": [galaxy_motion::film::when(&frames[0]), galaxy_motion::film::when(frames.last().expect("frames"))],
         "things": frames[0].things.keys().collect::<Vec<_>>(),

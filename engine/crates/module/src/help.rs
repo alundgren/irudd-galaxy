@@ -259,19 +259,25 @@ pub fn overview(tool: Tool) -> String {
     let mut s = format!("{intro}\n");
     for (group, paths) in groups {
         let _ = write!(s, "\n{group}:\n");
-        let rows: Vec<(String, &str)> = paths
+        let rows: Vec<(String, String)> = paths
             .iter()
             .map(|p| match find(tool, p) {
-                Some(c) => (format!("{} {}", c.path, short_synopsis(c)), gist(c.answers)),
+                Some(c) => (
+                    format!("{} {}", c.path, short_synopsis(c)),
+                    gist(c.answers).to_owned(),
+                ),
                 None if *p == "motion" => (
                     "motion <tool> <film>".to_owned(),
-                    "Measure one thing about a film: track, dots, strip, sheet, flicker, flow, \
-                     compare. `galaxy-gm motion --help` lists them.",
+                    format!(
+                        "Measure one thing about a film: {}. `galaxy-gm motion --help` lists \
+                         them.",
+                        motion_tools().join(", ")
+                    ),
                 ),
                 None => unreachable!("the overview names commands in the table: {p}"),
             })
             .collect();
-        let pairs: Vec<(&str, &str)> = rows.iter().map(|(a, b)| (a.as_str(), *b)).collect();
+        let pairs: Vec<(&str, &str)> = rows.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
         table(&mut s, &pairs);
     }
     let more = match tool {
@@ -289,6 +295,15 @@ pub fn overview(tool: Tool) -> String {
     };
     let _ = write!(s, "{more}\n\n{EXIT_CODES}");
     wrap_long(&s)
+}
+
+/// The motion tools the table has help for, in its order (`check` aside).
+pub fn motion_tools() -> Vec<&'static str> {
+    motion::COMMANDS
+        .iter()
+        .filter_map(|c| c.path.strip_prefix("motion "))
+        .filter(|t| *t != "check")
+        .collect()
 }
 
 /// The first sentence of `answers`, for the overview.
@@ -602,6 +617,16 @@ static GAME: &[Command] = &[
               --realtime)",
             ),
             ("--state", "print the whole world when done"),
+            (
+                "--entity <id>",
+                "with --state: only this entity, by ID or bare name (ship for \
+              drift.ship); the facts are left out",
+            ),
+            (
+                "--component <name>",
+                "with --state: only this component, by full name or bare (position \
+              for engine.position); the facts are left out",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
@@ -617,11 +642,13 @@ static GAME: &[Command] = &[
             ("log", "what scripts printed"),
             (
                 "state",
-                "with --state: every entity's components, the facts and causes",
+                "with --state: every entity's components, the facts and causes; with \
+              --entity or --component, just those",
             ),
         ],
         writes: "--save and --record, if given",
-        example: "galaxy sim run --modules game/modules --ticks 300 --state",
+        example: "galaxy sim run --modules game/modules --ticks 300 --state --entity ship \
+                  --component position",
         next: "galaxy sim replay <recording> checks a recording runs the same; galaxy-gm \
                recording <file> lists its inputs and orders.",
         topic: "replay",
@@ -643,6 +670,16 @@ static GAME: &[Command] = &[
             ("--realtime", "run at 30 ticks a second"),
             ("--watch", "hot-load module folders when their files change"),
             ("--state", "print the whole world when done"),
+            (
+                "--entity <id>",
+                "with --state: only this entity, by ID or bare name (ship for \
+              drift.ship); the facts are left out",
+            ),
+            (
+                "--component <name>",
+                "with --state: only this component, by full name or bare (position \
+              for engine.position); the facts are left out",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
@@ -657,17 +694,30 @@ static GAME: &[Command] = &[
     Command {
         tool: Tool::Game,
         path: "sim replay",
-        synopsis: "<recording> [--state]",
+        synopsis: "<recording> [--state [--entity <id>] [--component <name>]]",
         answers: "Run a recording again from its start with its own module files: does it \
                   end in the same world?",
-        about: "The launcher runs the build that made the recording. A different end exits 5 \
-                with kind replay_diverged.",
+        about: "Which build runs it: without --build, the launcher runs the build that made \
+                the recording (when it is installed); `galaxy --build <name> sim replay ...` \
+                runs that one instead. `builds` says which recorded it and which replayed it, \
+                and whether they are the same. A different end exits 5 with kind \
+                replay_diverged.",
         args: &[
             (
                 "<recording>",
                 "a recording file (a session's recording.json)",
             ),
             ("--state", "print the whole world at the end"),
+            (
+                "--entity <id>",
+                "with --state: only this entity, by ID or bare name (ship for \
+              drift.ship); the facts are left out",
+            ),
+            (
+                "--component <name>",
+                "with --state: only this component, by full name or bare (position \
+              for engine.position); the facts are left out",
+            ),
         ],
         output: &[
             (
@@ -679,8 +729,10 @@ static GAME: &[Command] = &[
                 "where it ended, and both hashes",
             ),
             (
-                "recorded_build, this_build",
-                "which builds made and replayed it",
+                "builds",
+                "recorded (the build that made it), replayed (this one), same (true, \
+              false, or null when it can't be told), note (what that means, and how to run \
+              the recording's build when they differ)",
             ),
             ("notes", "each note's tick, text and the world's hash there"),
             ("state", "with --state: the whole world at the end"),

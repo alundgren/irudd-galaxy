@@ -51,10 +51,14 @@ pub fn options(tool: &str) -> Option<&'static [&'static str]> {
     })
 }
 
-/// Runs `tool` on the film in `dir`.
+/// Runs `tool` on the film in `dir`: its compact report (the reading, the few numbers
+/// that decide it, with times, and the picture), or with `--detail` all of it. Either way
+/// it says which build drew the film (`builds`).
 pub fn run(tool: &str, dir: &Path, opts: &Opts) -> Result<Value, String> {
     let film = Film::read(dir)?;
-    match tool {
+    let detail = opts.flag("detail");
+    let opts = &opts.without("detail");
+    let mut report = match tool {
         "track" => track::run(&film, opts),
         "dots" => dots::run(&film, opts),
         "strip" => strip::run(&film, opts),
@@ -67,5 +71,152 @@ pub fn run(tool: &str, dir: &Path, opts: &Opts) -> Result<Value, String> {
             "no motion tool `{other}`; the tools are {}",
             TOOLS.join(", ")
         )),
+    }?;
+    report["builds"] = film.builds();
+    if detail {
+        Ok(report)
+    } else {
+        Ok(compact(tool, &report))
+    }
+}
+
+/// What each tool's compact report keeps: dotted paths into the full one, and for lists
+/// how many entries (`flags:3`). The reading, builds, warnings and picture always stay.
+fn kept(tool: &str) -> &'static [&'static str] {
+    match tool {
+        "track" => &[
+            "thing",
+            "screen.judder",
+            "camera.judder",
+            "screen.offset_px.max",
+            "screen.offset_px.max_at",
+            "zooms:4",
+            "flagged",
+            "flags:3",
+            "gap.closest",
+            "gap.closest_at",
+            "gap.overshoot",
+            "gap.rebound",
+            "gap.rebound_after",
+            "gap.settled_at",
+            "approach",
+        ],
+        "dots" => &["drift_px_per_frame", "moving_steps", "steps", "popped:3"],
+        "strip" => &[
+            "along",
+            "drift_px_per_frame",
+            "moving_steps",
+            "steps",
+            "confidence",
+            "drifting:3",
+            "pops:3",
+        ],
+        "sheet" => &[
+            "frames:12",
+            "poses:12",
+            "gaps_between_poses",
+            "crop",
+            "onion",
+        ],
+        "flicker" => &["pops", "blips", "flicker_runs", "events:5", "left_out"],
+        "tone" => &[
+            "thing",
+            "hard_steps",
+            "steps:5",
+            "prominence.max",
+            "prominence.max_at",
+            "change.max",
+        ],
+        "flow" => &["moving:5", "along"],
+        "compare" => &[
+            "with",
+            "flip.visibly_different_frames",
+            "flip.worst_frames:3",
+            "colorvideovdp",
+        ],
+        _ => &[],
+    }
+}
+
+/// The compact form of `tool`'s report: [`kept`]'s fields, moments as one line each
+/// (`t 2.633 (frame 158, tick 79)`), and `detail` naming what `--detail` adds.
+fn compact(tool: &str, full: &Value) -> Value {
+    let mut out = serde_json::Map::new();
+    out.insert("tool".into(), full["tool"].clone());
+    let mut cut = Vec::new();
+    for key in ["reading", "builds", "warnings"] {
+        if let Some(v) = full.get(key).filter(|v| !is_empty(v)) {
+            out.insert(key.into(), v.clone());
+        }
+    }
+    for spec in kept(tool) {
+        let (path, limit) = match spec.split_once(':') {
+            Some((p, n)) => (p, n.parse::<usize>().ok()),
+            None => (*spec, None),
+        };
+        let Some(mut v) = path
+            .split('.')
+            .try_fold(full, |v, k| v.get(k))
+            .cloned()
+            .filter(|v| !is_empty(v))
+        else {
+            continue;
+        };
+        if let (Some(n), Value::Array(items)) = (limit, &mut v)
+            && items.len() > n
+        {
+            cut.push(format!("{} more {path}", items.len() - n));
+            items.truncate(n);
+        }
+        insert(&mut out, path, moments(v));
+    }
+    out.insert("image".into(), full["image"].clone());
+    let mut detail = String::from("--detail for every field");
+    if !cut.is_empty() {
+        detail = format!("{detail}, and the {}", cut.join(", "));
+    }
+    out.insert("detail".into(), Value::String(detail));
+    Value::Object(out)
+}
+
+fn is_empty(v: &Value) -> bool {
+    match v {
+        Value::Null => true,
+        Value::Array(a) => a.is_empty(),
+        _ => false,
+    }
+}
+
+/// `v` at a dotted `path` in `out`, making the objects on the way.
+fn insert(out: &mut serde_json::Map<String, Value>, path: &str, v: Value) {
+    match path.split_once('.') {
+        None => {
+            out.insert(path.into(), v);
+        }
+        Some((head, rest)) => {
+            let entry = out
+                .entry(head.to_owned())
+                .or_insert_with(|| Value::Object(serde_json::Map::new()));
+            if let Value::Object(m) = entry {
+                insert(m, rest, v);
+            }
+        }
+    }
+}
+
+/// Every moment (`{frame, t, tick}`, maybe with more) as one short line.
+fn moments(v: Value) -> Value {
+    match v {
+        Value::Object(m)
+            if m.len() == 3 && ["frame", "t", "tick"].iter().all(|k| m.contains_key(*k)) =>
+        {
+            Value::String(format!(
+                "t {} (frame {}, tick {})",
+                m["t"], m["frame"], m["tick"]
+            ))
+        }
+        Value::Object(m) => Value::Object(m.into_iter().map(|(k, v)| (k, moments(v))).collect()),
+        Value::Array(a) => Value::Array(a.into_iter().map(moments).collect()),
+        other => other,
     }
 }

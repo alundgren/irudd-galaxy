@@ -7,6 +7,13 @@ Each tool answers with a sentence (`reading`), a few numbers, the times of suspi
 moments and one small picture. Full frames are there for a closer look, not as the first
 thing to read.
 
+**Small by default.** A tool's report is compact: the reading, which build drew the film
+(`builds`), the few numbers that decide the question with their times (a moment is one
+line, `t 2.633 (frame 158, tick 79)`), the picture, and `detail`, naming what was left
+out. `--detail` gives the whole report; `motion check` always reads the whole report, so
+any value in it can be an expectation. Both binaries print JSON with whatever fits on a
+line kept on it (a box, a moment), so a report is a screenful, not hundreds of lines.
+
 ```sh
 galaxy film --modules tests/play/drift --inputs tests/play/films/inputs/route.toml \
     --from 4 --to 34 --out <folder>             # 61 frames at 60 fps, with probes
@@ -25,10 +32,10 @@ and the tools in `crates/motion` (CPU only, no engine crates).
 | Does a pattern that should stand still crawl, jitter or pop along a path (a course, a lane, a border)? | `strip --along course` or `--along x,y;x,y` | pixels | `drift_px_per_frame`, `drifting` |
 | Do dotted lines' dots stay put in the world? Fast, and needs no GPU. | `dots` | probes | `drift_px_per_frame`, `lines` |
 | Does the camera follow smoothly? Does a thing judder (moves on ticks, not frames)? | `track [--thing x]` | probes | `screen.judder`, `camera.judder`, `flags` |
-| Does it stop where it should: overshoot, bounce back, settle? How close does it get? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `gap.settled_at` |
+| Does it stop where it should: overshoot, bounce back, settle? How does it brake? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `approach` |
 | What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
 | How does it slow down, speed up, overshoot, bounce, as one picture? | `sheet --onion x` | pixels | the picture, `gaps_between_poses` |
-| Does anything pop in or out, show for one frame, or flicker? | `flicker` (`--screen` for overlays) | pixels | `events`, the picture |
+| Does anything pop in or out, show for one frame, or flicker? | `flicker [--from t] [--to t] [--near x]` (`--screen` for overlays) | pixels | `events`, the picture |
 | Does a turning thing's shading ease, or do whole faces flip between light and shadow? | `tone [--thing x]` | pixels | `hard_steps`, `prominence.max` |
 | Is something moving that has no name, or crawling where it should be still? | `flow` (`--along course` too) | pixels | `moving`, `along` |
 | What changed against an approved film (another build, before a change)? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, the picture |
@@ -88,6 +95,14 @@ keep theirs; `--image` puts it elsewhere.
   build that made the recording, as for `audit`, and the world at every note inside the
   film is checked against the hash the note kept: a film of a different world exits 5
   (`replay_diverged`) rather than pass for what the player saw.
+- **Which build drew it.** The world can replay identically on a newer build while it
+  draws differently: a drawing defect fixed since shows as fixed. So `film.json` keeps
+  `builds` (the build that recorded the session, the one that drew the film, whether they
+  are the same, and a note), and `galaxy-gm film`, `film show` and every tool's report
+  repeat it. When they differ the note says so plainly, that the film may not look like
+  what the player saw, and gives the command that films it with the recording's build.
+  `galaxy-gm --build <name> film ...` draws with a named build on purpose (to see whether
+  a fix holds); without `--build`, the launcher picks the recording's build.
 - **Size.** 960x540 by default: a three-second film is roughly 50 MB of PNGs. Films go
   where `--out` says, outside the repository.
 
@@ -117,6 +132,14 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   an input or order falls between the closest moment and the furthest rebound, the
   reading says so and `gap.rebound_after` names it. The chart marks the film's changes
   in blue. Collisions legitimately jump; they show as single flags, not as judder.
+  The camera's step is where the frame before's target lands in this frame, measured at
+  the centre, so a zoom doesn't sweep it. Zooms (the player's wheel) are found from the
+  camera's scale changing, a run of them a quarter second apart as one, listed in `zooms`
+  and marked on the chart; camera and screen steps on a zoom's frames are set aside, not
+  flagged (`zoom_steps_set_aside`). With `--to`, `approach` tells how it came in: top
+  speed, the last moment at it (`braking_from`), its speed when the gap was 75, 50, 25 and
+  10% of the start, when it stopped (under 2% of the top speed), the turn it then made on
+  the spot, and when `engine.arrived` came.
 - **`dots`** matches each fully visible dot with the nearest of the frame before, line by
   line (the leg being flown can slide while later legs stand still). Pixels are at the
   camera's scale, before the tilt shortens them on screen. Dots without a match popped.
@@ -141,7 +164,12 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   round it: a **pop** is a jump far above that which stays, a **blip** is back the next
   frame, a **flicker** goes back and forth four frames or more. Something moving into a
   quiet cell is not a pop (its neighbour was busy); a sudden change right beside a moving
-  thing can be missed for the same reason. The picture is a motion history: where things
+  thing can be missed for the same reason. Flagged cells that touch (eight ways) on
+  frames that overlap or touch are one event, as strong as their changes together: one
+  line breaking across a cell edge is one event, not four. Events are ranked strongest
+  first; `--from`/`--to` (seconds) and `--near <thing>` (within its reach on screen, plus
+  24 px) keep some, and `left_out` says how many they and the cap left out. The whole
+  film is read either way, so a cell's usual change is known at the edges of the span. The picture is a motion history: where things
   changed, coloured by how recently, with the flagged cells boxed. It can only see what
   the film shows: below 60 fps or 1280x720 it adds `warnings`, as thin lines and
   one-frame events can fall between frames or pixels (a hub's broken inner ink line shows

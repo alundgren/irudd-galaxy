@@ -45,6 +45,11 @@ pub(crate) struct Options {
     pub fps: Option<u64>,
     /// `--probes-only`: a film without pictures.
     pub probes_only: bool,
+    /// `--entity <id>` and `--component <name>`: what `--state` prints.
+    pub entity: Option<String>,
+    pub component: Option<String>,
+    /// `--crop <thing>`: a shot framed round one thing.
+    pub crop: Option<String>,
 }
 
 pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
@@ -98,6 +103,9 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--from" => options.from = Some(number(&value)?),
             "--to" => options.to = Some(number(&value)?),
             "--fps" => options.fps = Some(number(&value)?),
+            "--entity" => options.entity = Some(value),
+            "--component" => options.component = Some(value),
+            "--crop" => options.crop = Some(value),
             "--size" => {
                 let size = value
                     .split_once('x')
@@ -125,9 +133,11 @@ pub(crate) const RUN_OPTIONS: &[&str] = &[
     "--realtime",
     "--watch",
     "--state",
+    "--entity",
+    "--component",
 ];
 
-pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state"];
+pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state", "--entity", "--component"];
 
 /// `galaxy sim run`.
 pub fn run(args: &[String]) -> Result<Output, Failure> {
@@ -176,6 +186,7 @@ pub fn load(args: &[String]) -> Result<Output, Failure> {
 /// `galaxy sim replay`.
 pub fn replay(args: &[String]) -> Result<Output, Failure> {
     let (positional, options) = parse(args, REPLAY_OPTIONS)?;
+    filters_need_state(&options)?;
     let [path] = positional.as_slice() else {
         return Err(usage(
             "sim replay takes one recording: galaxy sim replay <recording>",
@@ -196,12 +207,16 @@ pub fn replay(args: &[String]) -> Result<Output, Failure> {
         "tick": report.tick,
         "hash": report.hash,
         "recorded_hash": report.recorded_hash,
-        "recorded_build": rec.build,
-        "this_build": this,
+        "builds": galaxy_sim::recording::builds(
+            &rec.build,
+            &this,
+            "replayed",
+            &format!("galaxy sim replay {}", path.display()),
+        ),
         "notes": report.notes,
     });
     if options.state {
-        out["state"] = state(&session);
+        out["state"] = state(&session, &options)?;
     }
     if !report.identical {
         let mut failure = Failure::new(
@@ -247,6 +262,7 @@ fn drive(
     default_ticks: u64,
     command: &str,
 ) -> Result<Output, Failure> {
+    filters_need_state(options)?;
     let script = match &options.inputs {
         Some(path) => InputsFile::read(path)
             .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?,
@@ -373,28 +389,92 @@ fn drive(
         "recorded": options.record.as_ref().map(|p| p.display().to_string()),
     });
     if options.state {
-        out["state"] = state(&session);
+        out["state"] = state(&session, options)?;
     }
     Ok(Output::Json(out))
 }
 
+/// `--entity` and `--component` choose what `--state` prints.
+fn filters_need_state(options: &Options) -> Result<(), Failure> {
+    if (options.entity.is_some() || options.component.is_some()) && !options.state {
+        return Err(usage(
+            "--entity and --component choose what --state prints; add --state",
+        ));
+    }
+    Ok(())
+}
+
 /// The world, for `--state`: entities with their components' fields, and the facts.
-fn state(session: &Session) -> Value {
-    let entities: serde_json::Map<String, Value> = session
-        .world
+/// With `--entity` or `--component`, only those entities and components, without the
+/// facts.
+fn state(session: &Session, options: &Options) -> Result<Value, Failure> {
+    let world = &session.world;
+    // A full ID, or a bare name one module has (`ship` for `drift.ship`).
+    let pick = |want: &str, names: Vec<&String>, what: &str| -> Result<String, Failure> {
+        if names.iter().any(|n| *n == want) {
+            return Ok(want.to_owned());
+        }
+        let suffix = format!(".{want}");
+        let found: Vec<&&String> = names.iter().filter(|n| n.ends_with(&suffix)).collect();
+        match found.as_slice() {
+            [one] => Ok((**one).clone()),
+            [] => Err(usage(format!(
+                "no {what} `{want}` in the world; there are {}",
+                names
+                    .iter()
+                    .map(|n| n.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))),
+            many => Err(usage(format!(
+                "`{want}` could be {}; write the full ID",
+                many.iter()
+                    .map(|n| n.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" or ")
+            ))),
+        }
+    };
+    let entity = options
+        .entity
+        .as_deref()
+        .map(|e| pick(e, world.entities.keys().collect(), "entity"))
+        .transpose()?;
+    let component = match options.component.as_deref() {
+        None => None,
+        Some(c) => {
+            let mut names: Vec<&String> =
+                world.entities.values().flat_map(|cs| cs.keys()).collect();
+            names.sort();
+            names.dedup();
+            Some(pick(c, names, "component")?)
+        }
+    };
+    let entities: serde_json::Map<String, Value> = world
         .entities
         .iter()
-        .map(|(id, components)| {
+        .filter(|(id, _)| entity.as_ref().is_none_or(|e| e == *id))
+        .filter_map(|(id, components)| {
             let components: serde_json::Map<String, Value> = components
                 .iter()
+                .filter(|(name, _)| component.as_ref().is_none_or(|c| c == *name))
                 .map(|(name, c)| (name.clone(), Value::Object(c.fields.clone())))
                 .collect();
-            (id.clone(), Value::Object(components))
+            (!components.is_empty()).then(|| (id.clone(), Value::Object(components)))
         })
         .collect();
-    json!({
+    if entity.is_some() || component.is_some() {
+        return Ok(json!({
+            "entities": entities,
+            "facts": format!(
+                "{} fact(s) left out with --entity/--component; --state alone prints them",
+                world.facts.len()
+            ),
+        }));
+    }
+    Ok(json!({
         "entities": entities,
-        "facts": session.world.facts,
-        "causes": session.world.causes,
-    })
+        "facts": world.facts,
+        "causes": world.causes,
+    }))
 }

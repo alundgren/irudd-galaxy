@@ -44,7 +44,11 @@ impl Opts {
     /// `name` and the options as a file name: `sheet-at-1.2,1.3-crop-ship`.
     pub fn file_name(&self, name: &str) -> String {
         let mut out = name.to_owned();
-        for (k, v) in self.values.iter().filter(|(k, _)| *k != "image") {
+        for (k, v) in self
+            .values
+            .iter()
+            .filter(|(k, _)| *k != "image" && *k != "detail")
+        {
             let v = if k == "with" {
                 Path::new(v)
                     .file_name()
@@ -71,6 +75,13 @@ impl Opts {
             .collect();
         clean.truncate(96);
         clean
+    }
+
+    /// These options without `name`.
+    pub fn without(&self, name: &str) -> Opts {
+        let mut o = self.clone();
+        o.values.remove(name);
+        o
     }
 
     pub fn set(&mut self, name: &str, value: impl Into<String>) {

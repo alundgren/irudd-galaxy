@@ -58,9 +58,20 @@ search for `"type":"note"` finds every note. Recordings written compact on one l
 earlier builds did, read the same; the format number is unchanged.
 
 `galaxy-gm recording <recording>` reads one without scripts: `summary` (build, modules,
-ticks, counts of each kind of event), `inputs`, `orders` (it replays the recording and
-lists each change of an entity's `engine.steer` and each arrival) and `zooms`, a line
-each, capped at 40 unless `--all`, with `--from`/`--to` ticks.
+ticks, counts of each kind of event), `timeline`, `inputs` (`--name` keeps the inputs
+whose name contains a text), `orders` (it replays the recording and lists each change of
+an entity's `engine.steer` and each arrival) and `zooms`, a line each, capped at 40
+unless `--all`, with `--from`/`--to` ticks.
+
+`timeline` answers "what did the player do?" in one list, with times as `m:ss.s` and the
+tick. It replays the recording and tells an order the player gave from one that changed
+by itself: an order that changes on a tick an input came is the player's, named with that
+input (a mine key reads `order drift.ship: hold drift.rock4 (from drift.order_mine
+down)`); one that changes with no input is `auto` (a waypoint step, a script), and a run
+of those for one thing is one line. Each player order is marked `superseded at ...
+before arriving` or `arrived at ...`. Arrivals, notes and zoom bursts (wheel clicks
+within a second of each other) take a line each, and other keys a line a run (inputs
+within two seconds of each other).
 
 An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is
 a declared event kind and its `source` says where it came from, so flight controls and
@@ -72,7 +83,16 @@ widget clicks fit the same shape later.
 module folders), starts from the recorded world, applies each input and hot-load on its
 tick, and compares the end hash with the recorded one. It reports the world's hash at
 every note, so an audit can jump to a noted moment. A different end exits 5 with kind
-`replay_diverged`.
+`replay_diverged`. `--state` prints the world at the end; `--entity` and `--component`
+(also on `sim run` and `sim load`) keep just one entity or component.
+
+**Which build.** The launcher runs a recording's own build for `sim replay`, `audit` and
+`film` when it is installed; `--build <name>` before the command runs another. A replay,
+audit or film reports `builds`: the build that recorded the session, the one working on
+it now, whether they are the same, and a note. The world can replay identically on a
+newer build while it draws differently (a drawing defect fixed since), so a film or audit
+on another build says plainly that it may not show what the player saw, and gives the
+command that runs the recording's build.
 
 ## Played sessions and F8 notes
 

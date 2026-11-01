@@ -51,6 +51,10 @@ pub struct Manifest {
     /// What was filmed: modules and inputs, or a recording and a note.
     #[serde(default)]
     pub source: Value,
+    /// Which build drew the film and, for a played session, which recorded it:
+    /// `{recorded, drawn, same, note}`. Null in films from before builds were kept.
+    #[serde(default)]
+    pub builds: Value,
     /// Inputs, orders and arrivals in the world while it was filmed, in tick order.
     #[serde(default)]
     pub changes: Vec<Change>,
@@ -72,6 +76,8 @@ struct Header {
     adapter: Option<String>,
     #[serde(default)]
     source: Value,
+    #[serde(default)]
+    builds: Value,
     frame_count: usize,
     first: Value,
     last: Value,
@@ -109,6 +115,7 @@ impl Manifest {
             drawn: self.drawn,
             adapter: self.adapter.clone(),
             source: self.source.clone(),
+            builds: self.builds.clone(),
             frame_count: self.frames.len(),
             first: ends(self.frames.first()),
             last: ends(self.frames.last()),
@@ -393,6 +400,7 @@ impl Film {
                     drawn: h.drawn,
                     adapter: h.adapter,
                     source: h.source,
+                    builds: h.builds,
                     changes: h.changes,
                     frames: read_frames(dir)?,
                 }
@@ -413,6 +421,22 @@ impl Film {
             dir: dir.to_path_buf(),
             manifest,
         })
+    }
+
+    /// Which build drew the film, next to the one that recorded the session, for every
+    /// tool's report.
+    pub fn builds(&self) -> Value {
+        match &self.manifest.builds {
+            Value::Null => {
+                let recorded = self.manifest.source["recorded_build"]["name"].as_str();
+                serde_json::json!({
+                    "recorded": recorded,
+                    "drawn": null,
+                    "note": "this film does not say which build drew it (filmed by an older build); film it again to know whether it shows what the player saw",
+                })
+            }
+            b => b.clone(),
+        }
     }
 
     pub fn frames(&self) -> &[Frame] {

@@ -9,6 +9,13 @@ const IMAGE: (&str, &str) = (
      options so runs with other options keep theirs",
 );
 
+const DETAIL: (&str, &str) = (
+    "--detail",
+    "every field listed below; without it the report is compact: the reading, which build \
+     drew the film (builds), the few numbers that decide it with their times, the picture, \
+     and `detail` naming what was left out",
+);
+
 pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
@@ -24,7 +31,12 @@ pub static COMMANDS: &[Command] = &[
                 With --to, the gap to the other thing: overshoot is how far it went past the \
                 other thing along the way it came, rebound how far the gap opened again after \
                 its closest. A new input or order in the film (`changes`) can explain a \
-                rebound: the reading says when one comes after the closest point.",
+                rebound: the reading says when one comes after the closest point.\n\
+                Zooms (the player's wheel) are found from the camera's scale, listed in \
+                `zooms` and marked on the chart; the camera and screen steps they make are not \
+                flagged. With --to, `approach` says how it came in: top speed, when braking \
+                began, its speed as the gap closed, when it stopped, whether it then turned on \
+                the spot, and when engine.arrived came.",
         args: &[
             ("<film>", "a film folder"),
             (
@@ -39,6 +51,7 @@ pub static COMMANDS: &[Command] = &[
               world units; 2% of the starting gap (at least 0.25) by default",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence"),
@@ -101,6 +114,39 @@ pub static COMMANDS: &[Command] = &[
               for half a second; null if it never did",
             ),
             (
+                "zooms",
+                "each zoom: in or out, from and to t, and how many times closer",
+            ),
+            (
+                "zoom_steps_set_aside",
+                "camera and screen steps a zoom made, not counted as flags",
+            ),
+            (
+                "approach.top_speed",
+                "with --to: its top speed before the closest point, units a second, and when",
+            ),
+            (
+                "approach.braking_from",
+                "the last moment it was still at top speed",
+            ),
+            (
+                "approach.speeds",
+                "its speed when the gap was 75, 50, 25 and 10% of the start",
+            ),
+            (
+                "approach.stopped_at",
+                "when its speed fell under 2% of the top (at least 0.05 units a second)",
+            ),
+            (
+                "approach.turned_after_stop",
+                "radians it turned on the spot after stopping, and until when (a dock \
+              turns to the berth's heading before it arrives)",
+            ),
+            (
+                "approach.arrived_at",
+                "when its engine.arrived came: t, tick",
+            ),
+            (
                 "image",
                 "a chart over time: offset or screen position, speed, step \
               unevenness and the gap; red marks are flags, blue marks inputs and orders",
@@ -121,7 +167,7 @@ pub static COMMANDS: &[Command] = &[
         about: "Reads the probes only; needs no GPU. Each fully visible dot is matched with \
                 the nearest dot of the frame before. Pixels are at the camera's scale, before \
                 the tilt shortens them on screen.",
-        args: &[("<film>", "a film folder"), IMAGE],
+        args: &[("<film>", "a film folder"), IMAGE, DETAIL],
         output: &[
             ("reading", "one sentence"),
             (
@@ -183,6 +229,7 @@ pub static COMMANDS: &[Command] = &[
               period by default",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence"),
@@ -258,6 +305,7 @@ pub static COMMANDS: &[Command] = &[
                 "poses in the onion skin, 2 to 12; 5 by default",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence, naming the frames folder"),
@@ -281,9 +329,9 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "motion flicker",
-        synopsis: "<film> [--screen]",
+        synopsis: "<film> [--from <t>] [--to <t>] [--near <thing>] [--screen]",
         answers: "Does anything pop in or out, show for one frame, or flicker? Whole-picture \
-                  sudden changes, with where and when.",
+                  sudden changes, with where and when, strongest first.",
         about: "Each frame is compared with the one before (and before that), moved into its \
                 view so the camera's follow cancels out (`compensated`), on a grid of cells, as \
                 the mean brightness round each pixel, so edge shimmer doesn't count. A cell's \
@@ -291,7 +339,10 @@ pub static COMMANDS: &[Command] = &[
                 round it. A pop jumps and stays; a blip is back the next frame; a flicker goes \
                 back and forth four frames or more. Things moving fast or turning are busy \
                 cells, so a change on a turning thing can be missed: `motion tone` measures \
-                a turning thing's light and shadow.\n\
+                a turning thing's light and shadow. Flagged cells next to each other on \
+                overlapping frames are one event (one line breaking across a cell edge), as \
+                strong as their changes together; events are listed strongest first, and \
+                `left_out` says how many the filters and the cap left out.\n\
                 It sees what the film shows: film at 60 fps and the player's size, or thin \
                 lines and one-frame events can be missed (`warnings` says so).",
         args: &[
@@ -307,17 +358,37 @@ pub static COMMANDS: &[Command] = &[
               default",
             ),
             ("--half", "work at half size, faster, misses thin lines"),
+            (
+                "--from <t>, --to <t>",
+                "only events starting between these times, seconds (the whole film \
+              is still read, to judge each cell and count what was left out)",
+            ),
+            (
+                "--near <thing>",
+                "only events within the thing's reach on screen (plus 24 px), by ID or \
+              bare name",
+            ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
-            ("reading", "one sentence, naming the strongest event"),
-            ("pops, blips, flicker_runs", "how many of each"),
+            (
+                "reading",
+                "one sentence: how many of each, the span of their times, the strongest",
+            ),
+            ("pops, blips, flicker_runs", "how many events of each kind"),
             (
                 "events",
-                "the 16 strongest: kind, from and to (frame, t, tick), box_px (the \
-              cell: x, y, width, height in pixels from the top left), change (brightness 0 to \
-              1 times pixels changed: a few units is a detail, tens is plain to see), near \
-              (things whose centre is in or next to the cell)",
+                "strongest first (5 compact, 30 with --detail): kind, from and to \
+              (frame, t, tick), box_px (round its cells: x, y, width, height in pixels from \
+              the top left), cells (how many grid cells it spans), change (brightness 0 to 1 \
+              times pixels changed, over its cells: a few units is a detail, tens is plain to \
+              see), near (things whose reach is in or next to the box)",
+            ),
+            (
+                "left_out",
+                "how many events --from/--to, --near and the cap left out; absent when \
+              none",
             ),
             (
                 "changed_share",
@@ -367,6 +438,7 @@ pub static COMMANDS: &[Command] = &[
               3 px by default (48 if the film doesn't know it)",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence"),
@@ -447,6 +519,7 @@ pub static COMMANDS: &[Command] = &[
                 "only points in this box, pixels from the top left",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence"),
@@ -495,6 +568,7 @@ pub static COMMANDS: &[Command] = &[
               length) by default",
             ),
             IMAGE,
+            DETAIL,
         ],
         output: &[
             ("reading", "one sentence"),

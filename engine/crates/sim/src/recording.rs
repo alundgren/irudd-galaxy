@@ -59,6 +59,67 @@ impl BuildStamp {
             name: installed.map(|(_, b)| b.name),
         }
     }
+
+    /// Its installed name, or its version when it was not an installed build.
+    pub fn label(&self) -> String {
+        match &self.name {
+            Some(n) => n.clone(),
+            None => format!("{} (not an installed build)", self.version),
+        }
+    }
+
+    /// Whether `self` and `other` are the same build: none when either was not an
+    /// installed build, so it can't be told.
+    pub fn same_as(&self, other: &BuildStamp) -> Option<bool> {
+        match (&self.name, &other.name) {
+            (Some(a), Some(b)) => Some(a == b),
+            _ if self.version != other.version => Some(false),
+            _ => None,
+        }
+    }
+}
+
+/// Which build recorded a session and which one is working on it now (`act`: `drew`,
+/// `replayed`), with what that means and, when they differ, how to use the recording's
+/// (`command` is the command line that would, without `--build`):
+/// `{recorded, drawn, same, note}` (the second key named after `act`).
+pub fn builds(recorded: &BuildStamp, this: &BuildStamp, act: &str, command: &str) -> Value {
+    let (r, t) = (recorded.label(), this.label());
+    let same = recorded.same_as(this);
+    let key = match act {
+        "drew" => "drawn",
+        "replayed" => "replayed",
+        other => other,
+    };
+    let note = match same {
+        Some(true) => format!(
+            "{t} {act} it, the build that recorded the session: this is what the player saw"
+        ),
+        Some(false) => {
+            let run = match &recorded.name {
+                Some(name) => {
+                    let (tool, rest) = command.split_once(' ').unwrap_or((command, ""));
+                    format!(
+                        "{tool} --build {name} {rest} (or leave out --build: the launcher runs \
+                         the recording's build when it is installed; galaxy doctor lists them)"
+                    )
+                }
+                None => "the recording's build was not an installed build, so it can't be \
+                         run again by name"
+                    .to_owned(),
+            };
+            format!(
+                "DIFFERENT BUILDS: recorded by {r}, {act} by {t}. A defect fixed or added \
+                 between them shows differently, so this may not look like what the player \
+                 saw. To see what the player saw: {run}"
+            )
+        }
+        None => format!(
+            "can't tell whether {t} is the build that recorded it ({r}): one of them was not \
+             an installed build"
+        ),
+    };
+    serde_json::json!({ "recorded": r, key: t, "same": same, "note": note })
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -343,5 +404,51 @@ mod erased {
         fn json(&self) -> Result<String, String> {
             serde_json::to_string(self).map_err(|e| e.to_string())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stamp(name: Option<&str>) -> BuildStamp {
+        BuildStamp {
+            version: "0.2.0".into(),
+            commit: None,
+            name: name.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn builds_say_whether_this_is_what_the_player_saw() {
+        let b = builds(
+            &stamp(Some("a")),
+            &stamp(Some("a")),
+            "drew",
+            "galaxy-gm film <rec>",
+        );
+        assert_eq!(b["same"], true);
+        assert_eq!(b["drawn"], "a");
+        let b = builds(
+            &stamp(Some("a")),
+            &stamp(Some("b")),
+            "drew",
+            "galaxy-gm film <rec>",
+        );
+        assert_eq!(b["same"], false);
+        let note = b["note"].as_str().unwrap();
+        assert!(
+            note.contains("may not look like what the player saw"),
+            "{note}"
+        );
+        assert!(note.contains("galaxy-gm --build a film <rec>"), "{note}");
+        let b = builds(
+            &stamp(None),
+            &stamp(Some("b")),
+            "replayed",
+            "galaxy sim replay <rec>",
+        );
+        assert_eq!(b["same"], Value::Null);
+        assert!(b.get("replayed").is_some());
     }
 }

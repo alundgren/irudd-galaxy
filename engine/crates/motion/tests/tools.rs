@@ -82,6 +82,7 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         drawn: true,
         adapter: None,
         source: Value::Null,
+        builds: serde_json::Value::Null,
         changes: Vec::new(),
         frames,
     };
@@ -118,7 +119,19 @@ fn dotted(offset: f32) -> Shot {
     }
 }
 
+/// A tool's full report (`--detail`).
 fn tool(name: &str, dir: &Path, args: &[&str]) -> Value {
+    let mut args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    args.push("--detail".into());
+    compact_tool(
+        name,
+        dir,
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
+    )
+}
+
+/// A tool's report as the command line gives it.
+fn compact_tool(name: &str, dir: &Path, args: &[&str]) -> Value {
     let opts = Opts::parse(&args.iter().map(|a| a.to_string()).collect::<Vec<_>>()).unwrap();
     run(name, dir, &opts).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
@@ -205,6 +218,46 @@ fn flicker_flags_a_blip_and_a_flicker_and_leaves_steady_motion_alone() {
             .any(|e| e["kind"] == "flicker" && e["box_px"][0].as_u64().unwrap() >= 240),
         "{b}"
     );
+    // The square on frame 10 sits across a cell edge: one event, not one a cell.
+    let at_10: Vec<&Value> = events.iter().filter(|e| e["from"]["frame"] == 10).collect();
+    assert_eq!(at_10.len(), 1, "{b}");
+    // Strongest first.
+    let changes: Vec<f64> = events
+        .iter()
+        .map(|e| e["change"].as_f64().unwrap())
+        .collect();
+    assert!(changes.windows(2).all(|w| w[0] >= w[1]), "{changes:?}");
+
+    // --from/--to keep the events in the span and say how many they left out.
+    let late = tool("flicker", &broken, &["--from", "0.3", "--to", "0.6"]);
+    let late_events = late["events"].as_array().unwrap();
+    assert!(!late_events.is_empty(), "{late}");
+    assert!(
+        late_events.iter().all(|e| {
+            let t = e["from"]["t"].as_f64().unwrap();
+            (0.3 - 1e-3..=0.6 + 1e-3).contains(&t)
+        }),
+        "{late}"
+    );
+    assert!(
+        late["left_out"]
+            .as_str()
+            .unwrap()
+            .contains("outside --from/--to"),
+        "{late}"
+    );
+
+    // Compact by default: the strongest few, moments on one line, and what --detail adds.
+    let c = compact_tool("flicker", &broken, &[]);
+    assert!(c["reading"].is_string() && c["image"].is_string(), "{c}");
+    assert!(c["events"].as_array().unwrap().len() <= 5, "{c}");
+    assert!(
+        c["events"][0]["from"].as_str().unwrap().starts_with("t "),
+        "{c}"
+    );
+    assert!(c.get("changed_share").is_none(), "{c}");
+    assert!(c["detail"].as_str().unwrap().contains("--detail"), "{c}");
+    assert!(c["builds"]["note"].is_string(), "{c}");
 }
 
 #[test]
@@ -386,4 +439,50 @@ fn a_tool_that_needs_pixels_says_so_on_a_probes_only_film() {
             .unwrap_err()
             .contains("track, dots")
     );
+}
+
+#[test]
+fn track_marks_zooms_and_does_not_flag_the_steps_they_make() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("zoom");
+    // The camera follows the ship, 2 units a frame along x, while the player zooms in,
+    // twice as close over frames 10 to 20; the ship stays at the centre throughout.
+    film(&dir, 40, |i| {
+        let mut image = Image::new(W, H, BG);
+        image.dot(160.0, 90.0, 4.0, DOT);
+        let mut things = BTreeMap::new();
+        let mut ship = thing(160.0, 90.0);
+        ship.x = 160.0 + 2.0 * i as f32;
+        ship.followed = true;
+        things.insert("t.ship".to_owned(), ship);
+        Shot {
+            image,
+            things,
+            lines: Vec::new(),
+        }
+    });
+    let path = dir.join("frames.jsonl");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let mut out = String::new();
+    for (i, line) in text.lines().enumerate() {
+        let mut v: Value = serde_json::from_str(line).unwrap();
+        let k = 1.0 + (i.clamp(10, 20) - 10) as f32 / 10.0;
+        let cx = 160.0 + 2.0 * i as f32;
+        let m = &mut v["camera"]["view_proj"];
+        m[0] = Value::from(2.0 * k / W as f32);
+        m[5] = Value::from(2.0 * k / H as f32);
+        m[12] = Value::from(-cx * 2.0 * k / W as f32);
+        m[13] = Value::from(-90.0 * 2.0 * k / H as f32);
+        v["camera"]["per_pixel"] = Value::from(1.0 / k);
+        v["camera"]["target"] = serde_json::json!([cx, 90.0, 0.0]);
+        out.push_str(&v.to_string());
+        out.push('\n');
+    }
+    std::fs::write(&path, out).unwrap();
+    let r = tool("track", &dir, &[]);
+    let zooms = r["zooms"].as_array().unwrap();
+    assert_eq!(zooms.len(), 1, "{r}");
+    assert!(zooms[0].as_str().unwrap().starts_with("zoom in"), "{r}");
+    assert_eq!(f(&r, "flagged"), 0.0, "{r}");
+    assert!(r["reading"].as_str().unwrap().contains("zoomed"), "{r}");
 }

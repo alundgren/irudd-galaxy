@@ -23,11 +23,11 @@ impl From<Failure> for Error {
 const TOPICS: &[(&str, &str)] = &[
     (
         "style",
-        "a module's style.toml: ink, light, sky, course and looks",
+        "a module's style.toml: ink, light, sky, course and looks; with --modules, their looks and models and which things wear each",
     ),
     (
         "components",
-        "the engine's components (engine.position, engine.flight, ...): fields, types, defaults; with --modules, the modules' own too",
+        "the engine's components (engine.position, engine.flight, ...): fields, types, defaults; --component <name> for one; with --modules, the modules' own too",
     ),
     ("manifest", "a module's manifest.toml"),
     (
@@ -40,9 +40,13 @@ const TOPICS: &[(&str, &str)] = &[
     ),
 ];
 
+/// The options `fields` takes.
+pub const OPTIONS: &[&str] = &["modules", "component"];
+
 pub fn run(args: &[String]) -> Result<Output, Error> {
     let mut topic = None;
     let mut modules = None;
+    let mut component = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -52,8 +56,17 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
                         .ok_or_else(|| Error::Usage("--modules needs a folder".into()))?,
                 )
             }
+            "--component" => {
+                component = Some(
+                    it.next()
+                        .ok_or_else(|| Error::Usage("--component needs a name".into()))?,
+                )
+            }
             o if o.starts_with("--") => {
-                return Err(Error::Usage(format!("fields has no option {o}")));
+                return Err(Error::Usage(format!(
+                    "fields has no option {o}; it takes --{}",
+                    OPTIONS.join(" and --")
+                )));
             }
             t if topic.is_none() => topic = Some(t),
             t => {
@@ -63,9 +76,16 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
             }
         }
     }
-    if modules.is_some() && topic != Some("components") {
+    if modules.is_some() && !matches!(topic, Some("components" | "style")) {
         return Err(Error::Usage(
-            "--modules goes with the components topic".into(),
+            "--modules goes with the components topic (their own components) or the style \
+             topic (their looks and models, and which things wear them)"
+                .into(),
+        ));
+    }
+    if component.is_some() && topic != Some("components") {
+        return Err(Error::Usage(
+            "--component goes with the components topic".into(),
         ));
     }
     let out = match topic {
@@ -73,8 +93,8 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
             "topics": TOPICS.iter().map(|(t, about)| (t.to_string(), json!(about))).collect::<Map<_, _>>(),
             "next": "galaxy-gm fields <topic>",
         }),
-        Some("style") => style(),
-        Some("components") => components(modules)?,
+        Some("style") => style(modules)?,
+        Some("components") => components(modules, component)?,
         Some("manifest") => keyed("manifest.toml", manifest::FILE_KEYS),
         Some("inputs") => keyed("an inputs file", galaxy_sim::scenario::INPUTS_KEYS),
         Some("spec") => {
@@ -101,7 +121,7 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
 }
 
 /// `"inner_px": "0 to 8; default 2.0: inner line width, logical pixels"`, a line a key.
-fn style() -> Value {
+fn style(modules: Option<&String>) -> Result<Value, Error> {
     let mut tables = Map::new();
     for (table, keys) in galaxy_render::style::defaults() {
         let mut rows = Map::new();
@@ -119,15 +139,40 @@ fn style() -> Value {
         }
         tables.insert(table.to_owned(), Value::Object(rows));
     }
-    json!({
+    let mut out = json!({
         "topic": "style.toml",
         "about": "Every key is optional. ink, light, sky and course are scene-wide and may come from one module only; [looks.<name>] is a look models wear as look = \"<module>.<name>\".",
         "tables": tables,
-    })
+    });
+    if let Some(dir) = modules {
+        let all = read_modules(dir)?;
+        out["worn"] = crate::worn(&all);
+        out["worn_about"] = json!(
+            "each look and model the modules have, and the things whose start state wears it (a change to one changes them all; scripts may give others the same look later)"
+        );
+    }
+    Ok(out)
 }
 
-/// The engine's components, and with `--modules` the modules' own.
-fn components(modules: Option<&String>) -> Result<Value, Error> {
+/// The modules in `dir`.
+fn read_modules(dir: &str) -> Result<Vec<Module>, Error> {
+    let dir = discover::resolve(&cli::current_dir()?, Path::new(dir));
+    let dirs = discover::modules_in(&dir);
+    if dirs.is_empty() {
+        return Err(Error::Failure(
+            Failure::bad_input(format!("no modules in {}", dir.display()))
+                .with("path", dir.display().to_string()),
+        ));
+    }
+    Ok(dirs
+        .iter()
+        .map(|d| Module::read(d))
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+/// The engine's components, and with `--modules` the modules' own; with `--component`
+/// only the one it names (`flight` for `engine.flight`).
+fn components(modules: Option<&String>, only: Option<&String>) -> Result<Value, Error> {
     let mut all = Map::new();
     for (name, fields) in galaxy_api::engine::components() {
         let mut rows = Map::new();
@@ -148,16 +193,7 @@ fn components(modules: Option<&String>) -> Result<Value, Error> {
         all.insert(format!("engine.{name}"), Value::Object(rows));
     }
     if let Some(dir) = modules {
-        let dir = discover::resolve(&cli::current_dir()?, Path::new(dir));
-        let dirs = discover::modules_in(&dir);
-        if dirs.is_empty() {
-            return Err(Error::Failure(
-                Failure::bad_input(format!("no modules in {}", dir.display()))
-                    .with("path", dir.display().to_string()),
-            ));
-        }
-        for d in dirs {
-            let m = Module::read(&d)?;
+        for m in read_modules(dir)? {
             for (name, decl) in &m.manifest.components {
                 let rows: Map<String, Value> = decl
                     .fields
@@ -170,6 +206,37 @@ fn components(modules: Option<&String>) -> Result<Value, Error> {
                     })
                     .collect();
                 all.insert(format!("{}.{name}", m.id()), Value::Object(rows));
+            }
+        }
+    }
+    if let Some(want) = only {
+        let suffix = format!(".{want}");
+        let found: Vec<String> = all
+            .keys()
+            .filter(|k| *k == want || k.ends_with(&suffix))
+            .cloned()
+            .collect();
+        match found.as_slice() {
+            [one] => {
+                let one = one.clone();
+                all.retain(|k, _| *k == one);
+            }
+            [] => {
+                return Err(Error::Usage(format!(
+                    "no component `{want}`; there are {}{}",
+                    all.keys().cloned().collect::<Vec<_>>().join(", "),
+                    if modules.is_none() {
+                        " (--modules <dir> adds the modules' own)"
+                    } else {
+                        ""
+                    }
+                )));
+            }
+            many => {
+                return Err(Error::Usage(format!(
+                    "`{want}` could be {}; write the full name",
+                    many.join(" or ")
+                )));
             }
         }
     }

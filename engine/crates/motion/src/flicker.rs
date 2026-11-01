@@ -51,7 +51,10 @@ struct Step {
 }
 
 /// The options `flicker` takes, besides `--image`.
-pub const OPTIONS: &[&str] = &["grid", "screen", "half", "threshold"];
+pub const OPTIONS: &[&str] = &["grid", "screen", "half", "threshold", "from", "to", "near"];
+
+/// Events listed with `--detail`; the compact report keeps the strongest few.
+const LISTED: usize = 30;
 
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     opts.only("flicker", OPTIONS)?;
@@ -72,6 +75,21 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             .filter(|&(a, b): &(usize, usize)| (1..=64).contains(&a) && (1..=64).contains(&b))
             .ok_or_else(|| format!("--grid takes columns x rows, such as 16x9, not `{g}`"))?,
     };
+    let n = frames.len();
+    let from_t = opts.number("from")?;
+    let to_t = opts.number("to")?;
+    // The frames events are reported for. The whole film is read, so a cell's usual
+    // change is known at the edges and the events outside can be counted.
+    let first = from_t.map_or(0, |t| film.frame_at(t).max(1));
+    let last = to_t.map_or(n - 1, |t| film.frame_at(t));
+    if last < first {
+        return Err(format!(
+            "--from and --to leave no frames: the film runs from t={:.3} to t={:.3}",
+            frames[0].time,
+            frames[n - 1].time
+        ));
+    }
+    let near = opts.text("near").map(|t| film.thing_id(t)).transpose()?;
     let warp = |to: usize, from: usize| {
         if screen {
             Warp::identity(w, h)
@@ -86,7 +104,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     let cell_of = |x: u32, y: u32| {
         (y as usize * rows / gh as usize) * cols + (x as usize * cols / gw as usize)
     };
-    for i in 0..frames.len() {
+    for i in 0..n {
         let g = gray(&film.image(i)?, scale);
         if i >= 1 {
             let p1 = local(
@@ -141,7 +159,6 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     // Per cell, over time. A cell's usual change is the busiest of it and its neighbours
     // on the frames round it, so a thing moving into a quiet cell (its neighbour was
     // changing a moment before) is not a pop.
-    let n = frames.len();
     let busiest: Vec<Vec<f32>> = steps
         .iter()
         .map(|s| {
@@ -213,12 +230,9 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             i += 1;
         }
     }
-    let total = events.len();
-    let count = |k: &str| events.iter().filter(|e| e.kind == k).count();
-    let (pops, blips, flickers) = (count("pop"), count("blip"), count("flicker"));
-    events.sort_by(|a, b| b.change.total_cmp(&a.change));
-    events.truncate(16);
-    events.sort_by_key(|e| (e.from, e.cell));
+    // One visual change shows in several cells at once (a line breaking across a cell
+    // edge) and over a few frames: neighbouring cells flagged on overlapping frames are one
+    // event, as strong as their changes together.
     let cell_box = |c: usize| {
         let (cx, cy) = (c % cols, c / cols);
         let (x0, y0) = (cx as u32 * w / cols as u32, cy as u32 * h / rows as u32);
@@ -228,32 +242,63 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         );
         [x0, y0, x1 - x0, y1 - y0]
     };
-    let things_in = |frame: usize, b: [u32; 4]| -> Vec<String> {
+    let found = events.len();
+    let mut groups = group(&events, cols, &cell_box);
+    let mut left_out = Vec::new();
+    let before = groups.len();
+    groups.retain(|g| (first..=last).contains(&g.from));
+    if groups.len() < before {
+        left_out.push(format!("{} outside --from/--to", before - groups.len()));
+    }
+    let things_in = |frame: usize, b: [u32; 4], pad: f32| -> Vec<String> {
         frames[frame]
             .things
             .iter()
             .filter(|(_, t)| {
-                t.screen.is_some_and(|s| {
-                    s[0] >= b[0] as f32 - 8.0
-                        && s[0] <= (b[0] + b[2]) as f32 + 8.0
-                        && s[1] >= b[1] as f32 - 8.0
-                        && s[1] <= (b[1] + b[3]) as f32 + 8.0
-                })
+                let Some(s) = t.screen else { return false };
+                let reach = t.reach.unwrap_or(0.0) / frames[frame].camera.per_pixel.max(1e-9);
+                let (dx, dy) = (
+                    (b[0] as f32 - s[0])
+                        .max(s[0] - (b[0] + b[2]) as f32)
+                        .max(0.0),
+                    (b[1] as f32 - s[1])
+                        .max(s[1] - (b[1] + b[3]) as f32)
+                        .max(0.0),
+                );
+                (dx * dx + dy * dy).sqrt() <= reach.min(400.0) + pad
             })
             .map(|(id, _)| id.clone())
             .collect()
     };
-    let listed: Vec<Value> = events
+    if let Some(id) = &near {
+        let before = groups.len();
+        groups.retain(|g| things_in(g.from, g.bounds, 24.0).contains(id));
+        if groups.len() < before {
+            left_out.push(format!("{} not near {id}", before - groups.len()));
+        }
+    }
+    groups.sort_by(|a, b| b.change.total_cmp(&a.change));
+    let count = |k: &str| groups.iter().filter(|e| e.kind == k).count();
+    let (pops, blips, flickers) = (count("pop"), count("blip"), count("flicker"));
+    let total = groups.len();
+    if total > LISTED {
+        left_out.push(format!(
+            "{} weaker past the {LISTED} strongest",
+            total - LISTED
+        ));
+        groups.truncate(LISTED);
+    }
+    let listed: Vec<Value> = groups
         .iter()
         .map(|e| {
-            let b = cell_box(e.cell);
             json!({
                 "kind": e.kind,
                 "from": when(&frames[e.from]),
                 "to": when(&frames[e.to]),
-                "box_px": b,
+                "box_px": e.bounds,
+                "cells": e.cells,
                 "change": round(e.change, 1),
-                "near": things_in(e.from, b),
+                "near": things_in(e.from, e.bounds, 8.0),
             })
         })
         .collect();
@@ -262,9 +307,16 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .flatten()
         .map(|s| s.mask.count() as f32 / s.mask.len.max(1) as f32)
         .collect();
+    let span = format!(
+        "t={:.3} to t={:.3}{}",
+        frames[first].time,
+        frames[last].time,
+        near.as_ref()
+            .map_or(String::new(), |id| format!(", near {id}"))
+    );
     let reading = if total == 0 {
         format!(
-            "no pops, blips or flicker: changes build and fade over several frames (median {:.2}% of the picture changes a frame)",
+            "no pops, blips or flicker from {span}: changes build and fade over several frames (median {:.2}% of the picture changes a frame)",
             median(&changed_share) * 100.0
         )
     } else {
@@ -278,21 +330,30 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         if flickers > 0 {
             parts.push(format!("{flickers} flicker run(s)"));
         }
-        let first = events
-            .iter()
-            .max_by(|a, b| a.change.total_cmp(&b.change))
-            .map(|e| {
-                let near = things_in(e.from, cell_box(e.cell));
-                format!(
-                    "; the strongest a {} at t={:.3} in box {:?} near {near:?} (change {:.1})",
-                    e.kind,
-                    frames[e.from].time,
-                    cell_box(e.cell),
-                    e.change
-                )
-            })
-            .unwrap_or_default();
-        format!("{}{first}", parts.join(", "))
+        let times: Vec<f32> = groups.iter().map(|g| frames[g.from].time).collect();
+        let strongest = &groups[0];
+        format!(
+            "{} from {span}, at times from t={:.3} to t={:.3}; the strongest a {} at t={:.3} in box {:?} near {:?} (change {:.1})",
+            parts.join(", "),
+            times.iter().copied().fold(f32::INFINITY, f32::min),
+            times.iter().copied().fold(0.0, f32::max),
+            strongest.kind,
+            frames[strongest.from].time,
+            strongest.bounds,
+            things_in(strongest.from, strongest.bounds, 8.0),
+            strongest.change
+        )
+    };
+    let left_out = if left_out.is_empty() {
+        Value::Null
+    } else {
+        json!(format!(
+            "{} of {} event(s) listed ({} flagged cells grouped): {}",
+            listed.len(),
+            listed.len() + left_out_count(&left_out),
+            found,
+            left_out.join(", ")
+        ))
     };
 
     // The motion history over the last frame.
@@ -329,8 +390,8 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             }
         }
     }
-    for e in &events {
-        let b = cell_box(e.cell);
+    for e in &groups {
+        let b = e.bounds;
         let to_last = warp(e.from, last);
         let centre = [(b[0] + b[2] / 2) as f32, (b[1] + b[3] / 2) as f32];
         let Some(c) = to_last
@@ -370,6 +431,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "blips": blips,
         "flicker_runs": flickers,
         "events": listed,
+        "left_out": left_out,
         "warnings": warnings(film, scale),
         "changed_share": { "median": round(median(&changed_share), 4), "max": round(changed_share.iter().fold(0.0, |a: f32, b| a.max(*b)), 4) },
         "reading": reading,
@@ -455,4 +517,78 @@ struct Event {
     to: usize,
     /// Brightness times pixels.
     change: f32,
+}
+
+/// Flagged cells that are one visual change: neighbours (eight-way) flagged on frames
+/// that overlap or touch.
+struct Group {
+    kind: &'static str,
+    from: usize,
+    to: usize,
+    /// The box round its cells, pixels: x, y, w, h.
+    bounds: [u32; 4],
+    cells: usize,
+    /// Its cells' changes together.
+    change: f32,
+}
+
+fn group(events: &[Event], cols: usize, cell_box: &dyn Fn(usize) -> [u32; 4]) -> Vec<Group> {
+    let n = events.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn root(p: &mut [usize], mut i: usize) -> usize {
+        while p[i] != i {
+            p[i] = p[p[i]];
+            i = p[i];
+        }
+        i
+    }
+    for a in 0..n {
+        for b in a + 1..n {
+            let (ea, eb) = (&events[a], &events[b]);
+            let (ax, ay) = ((ea.cell % cols) as i64, (ea.cell / cols) as i64);
+            let (bx, by) = ((eb.cell % cols) as i64, (eb.cell / cols) as i64);
+            let touching = (ax - bx).abs() <= 1 && (ay - by).abs() <= 1;
+            let overlap = ea.from <= eb.to + 1 && eb.from <= ea.to + 1;
+            if touching && overlap {
+                let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
+                parent[ra] = rb;
+            }
+        }
+    }
+    let mut by_root: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+    for i in 0..n {
+        let r = root(&mut parent, i);
+        by_root.entry(r).or_default().push(i);
+    }
+    by_root
+        .values()
+        .map(|members| {
+            let strongest = members
+                .iter()
+                .map(|&i| &events[i])
+                .max_by(|a, b| a.change.total_cmp(&b.change))
+                .expect("a group has members");
+            let boxes: Vec<[u32; 4]> = members.iter().map(|&i| cell_box(events[i].cell)).collect();
+            let x0 = boxes.iter().map(|b| b[0]).min().unwrap_or(0);
+            let y0 = boxes.iter().map(|b| b[1]).min().unwrap_or(0);
+            let x1 = boxes.iter().map(|b| b[0] + b[2]).max().unwrap_or(0);
+            let y1 = boxes.iter().map(|b| b[1] + b[3]).max().unwrap_or(0);
+            Group {
+                kind: strongest.kind,
+                from: members.iter().map(|&i| events[i].from).min().unwrap_or(0),
+                to: members.iter().map(|&i| events[i].to).max().unwrap_or(0),
+                bounds: [x0, y0, x1 - x0, y1 - y0],
+                cells: members.len(),
+                change: members.iter().map(|&i| events[i].change).sum(),
+            }
+        })
+        .collect()
+}
+
+/// How many events the `left_out` reasons count.
+fn left_out_count(reasons: &[String]) -> usize {
+    reasons
+        .iter()
+        .filter_map(|r| r.split_whitespace().next()?.parse::<usize>().ok())
+        .sum()
 }

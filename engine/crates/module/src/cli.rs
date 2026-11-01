@@ -117,10 +117,78 @@ pub fn command_usage(command: &help::Command, message: impl Into<String>) -> Fai
 }
 
 pub fn print_json(value: &Value) {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(value).expect("JSON values serialize")
-    );
+    println!("{}", json_text(value));
+}
+
+/// Columns a JSON line may take before its value is spread over several lines.
+const JSON_WIDTH: usize = 100;
+
+/// `value` as JSON laid out for reading in few lines: indented like pretty JSON, but any
+/// array or object that fits on its line (a box `[x, y, w, h]`, a moment
+/// `{"frame": 3, "t": 0.05, "tick": 1}`) stays on it.
+pub fn json_text(value: &Value) -> String {
+    let mut out = String::new();
+    write_json(&mut out, value, 0, 0);
+    out
+}
+
+/// One line: `{"a": 1, "b": [1, 2]}`, spaced after colons and commas.
+fn json_line(value: &Value) -> String {
+    match value {
+        Value::Array(items) => {
+            let inner: Vec<String> = items.iter().map(json_line).collect();
+            format!("[{}]", inner.join(", "))
+        }
+        Value::Object(map) => {
+            let inner: Vec<String> = map
+                .iter()
+                .map(|(k, v)| format!("{}: {}", Value::String(k.clone()), json_line(v)))
+                .collect();
+            format!("{{{}}}", inner.join(", "))
+        }
+        scalar => scalar.to_string(),
+    }
+}
+
+/// Writes `value` at `indent` spaces, where `used` columns of its line are already taken
+/// (by its key).
+fn write_json(out: &mut String, value: &Value, indent: usize, used: usize) {
+    let line = json_line(value);
+    let empty = match value {
+        Value::Array(a) => a.is_empty(),
+        Value::Object(m) => m.is_empty(),
+        _ => true,
+    };
+    if empty || indent + used + line.len() <= JSON_WIDTH {
+        out.push_str(&line);
+        return;
+    }
+    let pad = " ".repeat(indent + 2);
+    match value {
+        Value::Array(items) => {
+            out.push_str("[\n");
+            for (i, v) in items.iter().enumerate() {
+                out.push_str(&pad);
+                write_json(out, v, indent + 2, 0);
+                out.push_str(if i + 1 < items.len() { ",\n" } else { "\n" });
+            }
+            out.push_str(&" ".repeat(indent));
+            out.push(']');
+        }
+        Value::Object(map) => {
+            out.push_str("{\n");
+            for (i, (k, v)) in map.iter().enumerate() {
+                let key = format!("{}: ", Value::String(k.clone()));
+                out.push_str(&pad);
+                out.push_str(&key);
+                write_json(out, v, indent + 2, key.len());
+                out.push_str(if i + 1 < map.len() { ",\n" } else { "\n" });
+            }
+            out.push_str(&" ".repeat(indent));
+            out.push('}');
+        }
+        _ => unreachable!("scalars fit"),
+    }
 }
 
 pub fn current_dir() -> Result<std::path::PathBuf, Failure> {
@@ -183,4 +251,31 @@ pub fn modules_json(manifests: &[Manifest]) -> Vec<Value> {
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_text_keeps_what_fits_on_a_line_and_reads_back() {
+        let v = json!({
+            "box": [1, 2, 3, 4],
+            "at": { "frame": 3, "t": 0.05, "tick": 1 },
+            "rows": (0..30).map(|i| format!("row {i} with some words in it")).collect::<Vec<_>>(),
+            "empty": [],
+        });
+        let text = json_text(&v);
+        assert!(text.contains("\"box\": [1, 2, 3, 4]"), "{text}");
+        assert!(
+            text.contains("\"at\": {\"frame\": 3, \"t\": 0.05, \"tick\": 1}"),
+            "{text}"
+        );
+        assert!(
+            text.contains("\n    \"row 0 with some words in it\",\n"),
+            "{text}"
+        );
+        let back: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(back, v);
+    }
 }

@@ -43,6 +43,11 @@ pub static COMMANDS: &[Command] = &[
                 "each problem: kind (schema, script, start or look) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
+            (
+                "worn.looks, worn.models",
+                "each look and model the module has, and the things (from every \
+              module's start state) that wear it: restyling one look changes all of them",
+            ),
         ],
         writes: "",
         example: "galaxy-gm check game/modules/core",
@@ -67,7 +72,8 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "fields",
-        synopsis: "[style | components | manifest | inputs | spec] [--modules <dir>]",
+        synopsis: "[style | components | manifest | inputs | spec] [--component <name>] \
+                   [--modules <dir>]",
         answers: "Which keys and fields exist, with their types, defaults and ranges: \
                   style.toml, the engine's components (and a module's own), manifest.toml, \
                   inputs files and motion check specs.",
@@ -76,8 +82,15 @@ pub static COMMANDS: &[Command] = &[
         args: &[
             ("[topic]", "style, components, manifest, inputs or spec"),
             (
+                "--component <name>",
+                "components only: just this one, by full name or bare (flight for \
+              engine.flight)",
+            ),
+            (
                 "--modules <dir>",
-                "with components: also the components these modules declare",
+                "components or style only. With components: also the components these \
+              modules declare. With style: also their looks and models, and which things \
+              wear each (`worn`)",
             ),
         ],
         output: &[
@@ -86,6 +99,11 @@ pub static COMMANDS: &[Command] = &[
                 "tables or components",
                 "each table (or component) and its fields: name, type, \
               default, range or values, and what it does",
+            ),
+            (
+                "worn.looks, worn.models",
+                "style with --modules: each look and model, and the things whose start \
+              state wears it",
             ),
         ],
         writes: "",
@@ -134,20 +152,34 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "recording",
-        synopsis: "<recording> [summary | inputs | orders | zooms] [--from <tick>] \
-                   [--to <tick>] [--all]",
-        answers: "What is in a recording, and what did the player do: its summary, every \
-                  input, every order given and arrival, every zoom, a line each.",
-        about: "orders replays the recording on this build to find each change of an \
-                entity's engine.steer (an order given, changed or dropped) and each arrival; \
-                `replay_identical` says whether the replay ended in the recorded world (if \
-                not, run it on the recording's build: galaxy-gm --build <name> ...).",
+        synopsis: "<recording> [summary | timeline | inputs | orders | zooms] \
+                   [--from <tick>] [--to <tick>] [--name <text>] [--all]",
+        answers: "What is in a recording, and what did the player do: its summary, one \
+                  timeline of the session, or every input, order and arrival, or zoom, a line \
+                  each.",
+        about: "timeline answers \"what did the player do?\" in one list, times as m:ss.s with \
+                the tick: the orders the player gave (an order changed on a tick an input \
+                came, with that input), each marked superseded or arrived; orders that changed \
+                with no input (waypoint steps, scripts), a run of them a line; arrivals; \
+                notes; zoom bursts, a line each; and other keys, a run of them a line.\n\
+                timeline and orders replay the recording on this build to find each change of \
+                an entity's engine.steer (an order given, changed or dropped) and each \
+                arrival; `replay_identical` says whether the replay ended in the recorded \
+                world (if not, run it on the recording's build: galaxy-gm --build <name> ...).",
         args: &[
             ("<recording>", "a recording, or a session folder"),
-            ("[view]", "summary (the default), inputs, orders or zooms"),
+            (
+                "[view]",
+                "summary (the default), timeline, inputs, orders or zooms",
+            ),
             (
                 "--from <tick>, --to <tick>",
                 "only rows between these ticks (30 a second)",
+            ),
+            (
+                "--name <text>",
+                "inputs only: just the inputs whose name contains this (order for \
+              drift.order_dock); several, comma-separated",
             ),
             ("--all", "every row; 40 at most by default"),
         ],
@@ -159,7 +191,9 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "rows",
-                "inputs: `tick 31 t 1.03 keyboard drift.order_dock down`; orders: \
+                "timeline: `0:01.0 (tick 31) order drift.ship: dock drift.berth (from \
+              drift.order_dock down); arrived at 0:04.3`; inputs: \
+              `tick 31 t 1.03 keyboard drift.order_dock down`; orders: \
               `tick 31 t 1.03 order drift.ship: dock drift.berth` or `arrived ...`; zooms: \
               the view height the wheel set",
             ),
@@ -169,11 +203,12 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "replay_identical",
-                "orders only: the replay ended in the recorded world",
+                "timeline and orders: the replay ended in the recorded world",
             ),
+            ("legend", "timeline: what each kind of line means"),
         ],
         writes: "",
-        example: "galaxy-gm recording sessions/2026-11-01-142233-drift orders --from 300",
+        example: "galaxy-gm recording sessions/2026-11-01-142233-drift timeline --from 300",
         next: "galaxy-gm film <recording> --from <tick> --to <tick> films a moment; \
                galaxy-gm notes <recording> lists its notes.",
         topic: "replay",
@@ -239,8 +274,12 @@ pub static COMMANDS: &[Command] = &[
         synopsis: "<recording>",
         answers: "Replay a played session to each of its notes: is the world the one the \
                   player had, and does the moment draw the same again?",
-        about: "The launcher runs the build that made the recording. At each note it compares \
-                the world's hash with the note's and draws the moment again, between the same \
+        about: "Which build draws: without --build, the launcher runs the build that \
+                made the recording (when it is installed), so the picture is what the player \
+                saw. `galaxy-gm --build <name> audit ...` draws with that build instead: a \
+                drawing defect fixed or added since then shows differently. `builds` always \
+                says which build recorded the session and which drew this, and its note says \
+                plainly when they differ and how to see what the player saw. At each note it compares the world's hash with the note's and draws the moment again, between the same \
                 two ticks with the same camera, beside the frame that was seen. Pictures are \
                 identical on the machine that played and should visibly match on another GPU. \
                 A world that differs exits 5 with kind replay_diverged.",
@@ -257,8 +296,10 @@ pub static COMMANDS: &[Command] = &[
               channel, 0 to 255) and pixels_differing (the share of pixels, 0 to 1)",
             ),
             (
-                "recorded_build, this_build",
-                "which builds made and replayed it",
+                "builds",
+                "recorded (the build that made the session), drawn (this build), same \
+              (true, false, or null when it can't be told), note (what that means; when they \
+              differ, how to run the recording's build)",
             ),
         ],
         writes: "<session>/audit/0001.png, one a note",
@@ -273,8 +314,12 @@ pub static COMMANDS: &[Command] = &[
         synopsis: "<recording> (--note <n> | --from <tick> --to <tick>) [options]",
         answers: "Film a played session again round one of its notes (or between two ticks), \
                   frame by frame as the window showed it, with the zoom the player had.",
-        about: "The launcher runs the build that made the recording. Every note inside the \
-                film is checked against the world's hash it kept, so a film of a different \
+        about: "Which build draws: without --build, the launcher runs the build that \
+                made the recording (when it is installed), so the picture is what the player \
+                saw. `galaxy-gm --build <name> film ...` draws with that build instead: a \
+                drawing defect fixed or added since then shows differently. `builds` always \
+                says which build recorded the session and which drew this, and its note says \
+                plainly when they differ and how to see what the player saw. Every note inside the film is checked against the world's hash it kept, so a film of a different \
                 world exits 5 (replay_diverged) rather than pass for what the player saw. By \
                 default the film is at the note's own frame size, which is what catches thin \
                 lines breaking and one-frame flicker.",
@@ -313,7 +358,13 @@ pub static COMMANDS: &[Command] = &[
             (
                 "notes_checked",
                 "each note inside the film: tick, identical (the replayed \
-              world is the player's)",
+              world is the player's). The world can be identical on another build while \
+              the picture differs: read builds too",
+            ),
+            (
+                "builds",
+                "recorded, drawn, same, note: as for audit; every motion tool's report \
+              repeats it",
             ),
         ],
         writes: "the film folder (--out): film.json (how it was filmed, small), frames.jsonl \

@@ -68,12 +68,26 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .iter()
         .map(|f| at(f).and_then(|t| t.screen))
         .collect();
-    // The camera's step in pixels: where a fixed world point, the first frame's target,
-    // goes on screen.
-    let anchor = frames[0].camera.target;
-    let camera: Vec<Option<[f32; 2]>> = frames
-        .iter()
-        .map(|f| f.camera.project(anchor, w, h))
+    // The camera's path in pixels: each step is where the frame before's target lands in
+    // this frame (it sat at the centre). Measured at the centre, a zoom doesn't move it,
+    // unlike a far point that a zoom sweeps across the screen.
+    let mut camera: Vec<Option<[f32; 2]>> = vec![Some([0.0, 0.0])];
+    for k in 1..frames.len() {
+        let prev = camera[k - 1];
+        let before = frames[k - 1]
+            .camera
+            .project(frames[k - 1].camera.target, w, h);
+        let now = frames[k].camera.project(frames[k - 1].camera.target, w, h);
+        camera.push(match (prev, before, now) {
+            (Some(p), Some(b), Some(n)) => Some([p[0] + b[0] - n[0], p[1] + b[1] - n[1]]),
+            _ => None,
+        });
+    }
+    let zooms = zoom_bursts(frames);
+    // Frames a zoom moves the view on, and the frames either side: steps there are the
+    // player's wheel, not a fault.
+    let zooming: Vec<bool> = (0..frames.len())
+        .map(|i| zooms.iter().any(|z| i + 1 >= z.from && i <= z.to + 1))
         .collect();
     let per_pixel = frames[0].camera.per_pixel.max(1e-9);
 
@@ -97,6 +111,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     // Flagged moments: a step far from its neighbours', on screen, in the world or of the
     // camera.
     let mut flags = Vec::new();
+    let mut set_aside = 0;
     for (name, u) in [
         ("screen", &screen_u),
         ("world", &world_u),
@@ -108,7 +123,11 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             if let Some(r) = r
                 && *r > floor
             {
-                flags.push((i, name, *r));
+                if zooming[i] && name != "world" {
+                    set_aside += 1;
+                } else {
+                    flags.push((i, name, *r));
+                }
             }
         }
     }
@@ -140,6 +159,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             "judder": camera_u.score.map(|v| round(v, 3)),
         },
         "changes": changes_json(film),
+        "zooms": zooms.iter().map(|z| z.describe(frames)).collect::<Vec<_>>(),
         "flagged": flag_count,
         "flags": flags.iter().map(|(i, name, r)| {
             let mut m = when(&frames[*i]);
@@ -208,12 +228,27 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         min_span: 1.0,
     });
 
+    if !zooms.is_empty() {
+        report["zoom_steps_set_aside"] = json!(set_aside);
+    }
     reading.push(describe(&id, "on screen", screen_u.score, &screen_u));
     reading.push(describe("the camera", "", camera_u.score, &camera_u));
     if followed {
         let max = offsets.iter().flatten().fold(0.0, |a: f32, b| a.max(*b));
         reading.push(format!(
             "the camera keeps it within {max:.1} px of the centre"
+        ));
+    }
+    if !zooms.is_empty() {
+        reading.push(format!(
+            "the player zoomed {} time(s) ({}); steps a zoom makes are not flagged",
+            zooms.len(),
+            zooms
+                .iter()
+                .take(3)
+                .map(|z| z.describe(frames))
+                .collect::<Vec<_>>()
+                .join("; ")
         ));
     }
 
@@ -231,16 +266,26 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             min_span: 1.0,
         });
         reading.push(gap.reading.clone());
+        if let Some(a) = approach(film, &id, other, &gap.values, &speeds) {
+            reading.push(a.reading.clone());
+            report["approach"] = a.report;
+        }
         report["gap"] = gap.report;
     }
     let flag_times: Vec<f32> = flags.iter().map(|(i, _, _)| frames[*i].time).collect();
-    let marks: Vec<(f32, String)> = film
+    let mut marks: Vec<(f32, String)> = film
         .manifest
         .changes
         .iter()
         .take(MAX_CHANGES)
         .map(|c| (c.t, c.what.clone()))
         .collect();
+    marks.extend(
+        zooms
+            .iter()
+            .take(MAX_CHANGES)
+            .map(|z| (frames[z.from].time, z.word().to_owned())),
+    );
     let img = chart_marked(
         &format!("track {id}"),
         &times,
@@ -254,6 +299,166 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     report["reading"] = json!(reading.join("; "));
     report["image"] = json!(path.display().to_string());
     Ok(report)
+}
+
+/// A run of frames where the player's wheel changed the view.
+struct ZoomBurst {
+    from: usize,
+    to: usize,
+    /// World units a pixel covers before and after.
+    before: f32,
+    after: f32,
+}
+
+impl ZoomBurst {
+    fn word(&self) -> &'static str {
+        if self.after < self.before {
+            "zoom in"
+        } else {
+            "zoom out"
+        }
+    }
+
+    fn describe(&self, frames: &[Frame]) -> String {
+        format!(
+            "{} from t={:.3} to t={:.3}, {:.2}x",
+            self.word(),
+            frames[self.from].time,
+            frames[self.to].time,
+            self.before / self.after.max(1e-9)
+        )
+    }
+}
+
+/// The zooms in a film: frames whose scale changed from the frame before, a run of them
+/// (gaps of up to a quarter second, as the wheel turns in clicks) as one.
+fn zoom_bursts(frames: &[Frame]) -> Vec<ZoomBurst> {
+    let mut out: Vec<ZoomBurst> = Vec::new();
+    for k in 1..frames.len() {
+        let (a, b) = (frames[k - 1].camera.per_pixel, frames[k].camera.per_pixel);
+        if a <= 0.0 || ((b / a) - 1.0).abs() < 0.002 {
+            continue;
+        }
+        match out.last_mut() {
+            Some(z) if frames[k].time - frames[z.to].time <= 0.25 => {
+                z.to = k;
+                z.after = b;
+            }
+            _ => out.push(ZoomBurst {
+                from: k,
+                to: k,
+                before: a,
+                after: b,
+            }),
+        }
+    }
+    out
+}
+
+struct Approach {
+    report: Value,
+    reading: String,
+}
+
+/// How `id` came in to `other`: its top speed, when it began to brake, its speed as the
+/// gap closed, when it stopped, whether it then turned on the spot, and when it arrived.
+fn approach(
+    film: &Film,
+    id: &str,
+    other: &str,
+    gap: &[Option<f32>],
+    speeds: &[Option<f32>],
+) -> Option<Approach> {
+    let frames = film.frames();
+    let present: Vec<(usize, f32)> = gap
+        .iter()
+        .enumerate()
+        .filter_map(|(i, g)| g.map(|g| (i, g)))
+        .collect();
+    let &(_, start) = present.first()?;
+    let (closest_i, _) = present
+        .iter()
+        .copied()
+        .fold((0, f32::INFINITY), |a, b| if b.1 < a.1 { b } else { a });
+    let speed = |i: usize| speeds.get(i).copied().flatten().unwrap_or(0.0);
+    let (peak_i, peak) = (0..=closest_i)
+        .map(|i| (i, speed(i)))
+        .fold((0, 0.0f32), |a, b| if b.1 > a.1 { b } else { a });
+    if peak <= 0.0 {
+        return None;
+    }
+    let braking = (peak_i..=closest_i)
+        .rev()
+        .find(|&i| speed(i) >= 0.98 * peak)
+        .unwrap_or(peak_i);
+    let still = (0.02 * peak).max(0.05);
+    let stopped = (braking..frames.len()).find(|&i| speed(i) < still && i > 0);
+    let at = |i: usize| format!("t={:.3}", frames[i].time);
+    let mut points = Vec::new();
+    for share in [0.75f32, 0.5, 0.25, 0.1] {
+        if let Some(&(i, g)) = present.iter().find(|(_, g)| *g <= share * start) {
+            points.push(format!(
+                "gap {g:.2} ({:.0}%) at {}: {:.2} units/s",
+                share * 100.0,
+                at(i),
+                speed(i)
+            ));
+        }
+    }
+    let angle = |i: usize| frames[i].things.get(id).map(|t| t.angle);
+    let arrived = film
+        .manifest
+        .changes
+        .iter()
+        .find(|c| c.kind == "arrived" && c.what.starts_with(&format!("{id}:")));
+    let turned = stopped.and_then(|s| {
+        let end = arrived.map_or(frames.len() - 1, |c| {
+            frames
+                .iter()
+                .position(|f| f.tick >= c.tick)
+                .unwrap_or(frames.len() - 1)
+        });
+        let (a, b) = (angle(s)?, angle(end)?);
+        let mut d = (b - a) % std::f32::consts::TAU;
+        if d > std::f32::consts::PI {
+            d -= std::f32::consts::TAU;
+        } else if d < -std::f32::consts::PI {
+            d += std::f32::consts::TAU;
+        }
+        (d.abs() > 0.05).then_some((d.abs(), end))
+    });
+    let mut reading = format!(
+        "approach to {other}: top speed {peak:.2} units/s at {}, braking from {}",
+        at(peak_i),
+        at(braking)
+    );
+    match stopped {
+        Some(i) => reading.push_str(&format!(", stopped at {}", at(i))),
+        None => reading.push_str(", still moving at the end"),
+    }
+    if let Some((rad, end)) = turned {
+        reading.push_str(&format!(
+            ", then turned {rad:.2} rad on the spot until {}",
+            at(end)
+        ));
+    }
+    if let Some(c) = arrived {
+        reading.push_str(&format!(" (engine.arrived at t={:.3})", c.t));
+    }
+    Some(Approach {
+        report: json!({
+            "top_speed": { "units_per_s": round(peak, 2), "at": when(&frames[peak_i]) },
+            "braking_from": when(&frames[braking]),
+            "speeds": points,
+            "stopped_at": stopped.map(|i| when(&frames[i])),
+            "turned_after_stop": turned.map(|(rad, end)| json!({
+                "radians": round(rad, 2),
+                "until": when(&frames[end]),
+            })),
+            "arrived_at": arrived.map(|c| json!({ "t": round(c.t, 3), "tick": c.tick })),
+        }),
+        reading,
+    })
 }
 
 fn describe(what: &str, place: &str, score: Option<f32>, u: &Unevenness) -> String {

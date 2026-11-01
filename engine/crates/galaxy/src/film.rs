@@ -106,6 +106,7 @@ pub fn film(args: &[String]) -> Result<Output, Failure> {
         "hash": last.hash,
         "adapter": manifest.adapter,
         "problems": view.problems(),
-        "next": "galaxy-gm motion <tool> <folder>: track, strip, sheet, flicker, flow, compare",
+        "builds": manifest.builds,
+        "next": format!("galaxy-gm motion <tool> <folder>: {}", galaxy_motion::TOOLS.join(", ")),
     })))
 }

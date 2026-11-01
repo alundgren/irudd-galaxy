@@ -258,6 +258,8 @@ pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, bool) {
     let mut all = true;
     for e in &spec.expects {
         let mut opts = e.opts.clone();
+        // Expectations may name any value of the full report.
+        opts.set("detail", "true");
         if opts.text("image").is_none() {
             opts.set(
                 "image",
