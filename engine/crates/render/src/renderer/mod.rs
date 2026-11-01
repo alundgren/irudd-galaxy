@@ -1,6 +1,8 @@
 //! The wgpu renderer: a window or an offscreen target, and one `Scene` per frame.
 
 mod fx;
+#[cfg(test)]
+mod tests;
 mod text;
 
 use crate::backdrop::Backdrop;
@@ -374,8 +376,8 @@ struct Layouts {
     ink: wgpu::BindGroupLayout,
 }
 
-/// Normal and paint targets for the inner-ink pass. Sample count 1, even when the
-/// colour target is multisampled: the ink pass reads them with textureLoad.
+/// Normal, paint and depth targets with the colour target's sample coverage.
+/// Ink reads individual samples; resolving encoded geometry would invent surfaces.
 struct GeomTargets {
     geom: wgpu::TextureView,
     albedo: wgpu::TextureView,
@@ -432,14 +434,14 @@ fn uniform_entry(binding: u32, vis: wgpu::ShaderStages) -> wgpu::BindGroupLayout
     }
 }
 
-fn texture_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+fn texture_entry(binding: u32, samples: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::FRAGMENT,
         ty: wgpu::BindingType::Texture {
             sample_type: wgpu::TextureSampleType::Float { filterable: false },
             view_dimension: wgpu::TextureViewDimension::D2,
-            multisampled: false,
+            multisampled: samples > 1,
         },
         count: None,
     }
@@ -600,7 +602,11 @@ impl Renderer {
                     .flags
                     .sample_count_supported(MSAA)
             };
-            if ok(format) && ok(DEPTH_FORMAT) {
+            if ok(format)
+                && ok(DEPTH_FORMAT)
+                && ok(GEOM_FORMAT)
+                && ok(wgpu::TextureFormat::Rgba8Unorm)
+            {
                 MSAA
             } else {
                 1
@@ -627,8 +633,8 @@ impl Renderer {
             ui: layout(&[uniform_entry(0, vis), storage_entry(1, vis)]),
             ink: layout(&[
                 uniform_entry(0, wgpu::ShaderStages::FRAGMENT),
-                texture_entry(1),
-                texture_entry(2),
+                texture_entry(1, samples),
+                texture_entry(2, samples),
             ]),
         };
         let pipelines = create_pipelines(&device, &layouts, format, samples);
@@ -666,7 +672,7 @@ impl Renderer {
         );
         let text = TextSystem::new(&device, &queue, format, 1);
         let (msaa, depth) = create_targets(&device, format, samples, size);
-        let geom_targets = create_geom_targets(&device, size);
+        let geom_targets = create_geom_targets(&device, size, samples);
         let ink_uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("ink"),
             contents: bytemuck::bytes_of(&InkGpu {
@@ -770,7 +776,7 @@ impl Renderer {
         let (msaa, depth) = create_targets(&self.device, self.format, self.samples, self.size);
         self.msaa = msaa;
         self.depth = depth;
-        let geom = create_geom_targets(&self.device, self.size);
+        let geom = create_geom_targets(&self.device, self.size, self.samples);
         self.ink_bind = ink_bind_group(
             &self.device,
             &self.layouts.ink,
@@ -1266,17 +1272,17 @@ impl Renderer {
                 label: Some("frame"),
             });
         let clear = scene.clear_color;
+        let (world_target, resolve) = match &self.msaa {
+            Some(msaa) => (msaa, Some(target)),
+            None => (target, None),
+        };
         {
-            let (view, resolve) = match &self.msaa {
-                Some(msaa) => (msaa, Some(target)),
-                None => (target, None),
-            };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("world"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view,
+                    view: world_target,
                     depth_slice: None,
-                    resolve_target: resolve,
+                    resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: clear.r as f64,
@@ -1284,11 +1290,7 @@ impl Renderer {
                             b: clear.b as f64,
                             a: 1.0,
                         }),
-                        store: if resolve.is_some() {
-                            wgpu::StoreOp::Discard
-                        } else {
-                            wgpu::StoreOp::Store
-                        },
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
@@ -1331,9 +1333,8 @@ impl Renderer {
                 }
             }
         }
-        // Inner ink, then lines and glows. Ink is composited onto the resolved
-        // colour before effects, and effects depth-test against the geom depth,
-        // so a beam or glow in front of a crease stays visible.
+        // Keep sample coverage through geometry, ink and effects. Resolve only
+        // the finished colour, never the encoded normals, depth or paint.
         if !runs.is_empty() || !fxi.is_empty() {
             let clear_geom = wgpu::Operations {
                 load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -1392,7 +1393,7 @@ impl Renderer {
                 let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("ink"),
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: target,
+                        view: world_target,
                         depth_slice: None,
                         resolve_target: None,
                         ops: wgpu::Operations {
@@ -1414,7 +1415,7 @@ impl Renderer {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("effects"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: target,
+                    view: world_target,
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
@@ -1439,6 +1440,25 @@ impl Renderer {
             pass.set_vertex_buffer(0, self.fx_vertices.buf.slice(..));
             pass.set_index_buffer(self.fx_indices.buf.slice(..), wgpu::IndexFormat::Uint32);
             pass.draw_indexed(0..fxi.len() as u32, 0, 0..1);
+        }
+        if let Some(resolve) = resolve {
+            // Also resolve empty scenes, which still contain the sky/clear colour.
+            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("resolve world"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: world_target,
+                    depth_slice: None,
+                    resolve_target: Some(resolve),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Discard,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1568,7 +1588,7 @@ fn create_targets(
     (msaa, make(DEPTH_FORMAT, "depth"))
 }
 
-fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
+fn create_geom_targets(device: &wgpu::Device, size: (u32, u32), samples: u32) -> GeomTargets {
     let extent = wgpu::Extent3d {
         width: size.0,
         height: size.1,
@@ -1580,7 +1600,7 @@ fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
                 label: Some(label),
                 size: extent,
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: samples,
                 dimension: wgpu::TextureDimension::D2,
                 format,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
@@ -1597,7 +1617,7 @@ fn create_geom_targets(device: &wgpu::Device, size: (u32, u32)) -> GeomTargets {
                 label: Some("geom depth"),
                 size: extent,
                 mip_level_count: 1,
-                sample_count: 1,
+                sample_count: samples,
                 dimension: wgpu::TextureDimension::D2,
                 format: DEPTH_FORMAT,
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -1634,6 +1654,22 @@ fn ink_bind_group(
     })
 }
 
+fn ink_shader_source(samples: u32) -> String {
+    let source = include_str!("../shaders/ink.wgsl");
+    if samples > 1 {
+        source.into()
+    } else {
+        // The last textureLoad argument is the sample for MSAA, mip 0 otherwise.
+        // Keep the edge detector shared with adapters without multisampling.
+        format!(
+            "const sample: u32 = 0u;\n{}",
+            source
+                .replace("texture_multisampled_2d", "texture_2d")
+                .replace(", @builtin(sample_index) sample: u32", "")
+        )
+    }
+}
+
 fn create_pipelines(
     device: &wgpu::Device,
     layouts: &Layouts,
@@ -1660,7 +1696,7 @@ fn create_pipelines(
         include_str!("../shaders/backdrop.wgsl").into(),
     );
     let ui_src = module("ui.wgsl", include_str!("../shaders/ui.wgsl").into());
-    let ink_src = module("ink.wgsl", include_str!("../shaders/ink.wgsl").into());
+    let ink_src = module("ink.wgsl", ink_shader_source(samples));
 
     let pl = |layouts: &[Option<&wgpu::BindGroupLayout>]| {
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -1790,13 +1826,13 @@ fn create_pipelines(
             label: "geom",
             layout: &mesh_layout,
             module: &mesh_src,
-            vs: "vs_main",
+            vs: "vs_geom",
             fs: "fs_geom",
             buffers: &[Some(vertex_layout)],
             cull: Some(wgpu::Face::Back),
             depth: depth(true, less),
             blend: None,
-            samples: 1,
+            samples,
             formats: &geom_formats,
         }),
         ink: make(Spec {
@@ -1809,7 +1845,7 @@ fn create_pipelines(
             cull: None,
             depth: None,
             blend: premul,
-            samples: 1,
+            samples,
             formats: &surface,
         }),
         fx: make(Spec {
@@ -1820,12 +1856,11 @@ fn create_pipelines(
             fs: "fs_fx",
             buffers: &[Some(fx_vertex_layout)],
             cull: None,
-            // Single-sampled: effects are drawn after the MSAA resolve, on top of
-            // inner ink, depth-tested against the geom buffer (beams aren't: see
-            // `vs_fx`).
+            // Effects cover inner ink and share the geometry's sample depth
+            // (beams aren't depth-tested: see `vs_fx`). Resolve afterwards.
             depth: depth(false, wgpu::CompareFunction::LessEqual),
             blend: premul,
-            samples: 1,
+            samples,
             formats: &surface,
         }),
         gradient: make(Spec {

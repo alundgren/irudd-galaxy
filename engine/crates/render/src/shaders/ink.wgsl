@@ -1,4 +1,4 @@
-// Inner ink. The mesh pass has already stored, per pixel, an octahedral normal,
+// Inner ink. The mesh pass has already stored, per sample, an octahedral normal,
 // a 16-bit view depth and the unlit paint. Paint alpha is the facet's minor
 // axis in pixels (48 saturates); 0 is no surface. This pass draws a line where
 // neighbouring samples disagree by more than the art bible's crease angle, where
@@ -21,8 +21,8 @@ struct Ink {
 };
 
 @group(0) @binding(0) var<uniform> ink: Ink;
-@group(0) @binding(1) var geom_tex: texture_2d<f32>;
-@group(0) @binding(2) var albedo_tex: texture_2d<f32>;
+@group(0) @binding(1) var geom_tex: texture_multisampled_2d<f32>;
+@group(0) @binding(2) var albedo_tex: texture_multisampled_2d<f32>;
 
 struct VOut {
     @builtin(position) clip: vec4<f32>,
@@ -60,22 +60,23 @@ fn inside(q: vec2<i32>, dim: vec2<u32>) -> bool {
     return q.x >= 0 && q.y >= 0 && u32(q.x) < dim.x && u32(q.y) < dim.y;
 }
 
-@fragment
-fn fs_ink(in: VOut) -> @location(0) vec4<f32> {
+fn ink_edge(p: vec2<i32>, sample: u32) -> f32 {
     let dim = textureDimensions(geom_tex);
-    let p = vec2<i32>(in.clip.xy);
-    let a0 = textureLoad(albedo_tex, p, 0);
+    if !inside(p, dim) {
+        return 0.0;
+    }
+    let a0 = textureLoad(albedo_tex, p, sample);
     // 0 is the clear colour. A surface stores at least 1/255.
     if a0.a < 0.5 / 255.0 {
-        discard;
+        return 0.0;
     }
-    let g0 = textureLoad(geom_tex, p, 0);
+    let g0 = textureLoad(geom_tex, p, sample);
     let n0 = oct_decode(g0.xy);
     let d0 = unpack_depth(g0);
     // No inner line on a feature smaller than a few pixels.
     let px0 = a0.a * 48.0;
     if px0 < 3.0 {
-        discard;
+        return 0.0;
     }
     let radius = max(ink.params.w * clamp(px0 / 20.0, 0.55, 1.0), 1.0);
     var edge = 0.0;
@@ -92,7 +93,7 @@ fn fs_ink(in: VOut) -> @location(0) vec4<f32> {
         if !inside(q, dim) {
             continue;
         }
-        let a1 = textureLoad(albedo_tex, q, 0);
+        let a1 = textureLoad(albedo_tex, q, sample);
         // A missing neighbour is the silhouette. The hull outline owns that.
         if a1.a < 0.5 / 255.0 {
             continue;
@@ -102,7 +103,7 @@ fn fs_ink(in: VOut) -> @location(0) vec4<f32> {
         if fade < 0.04 {
             continue;
         }
-        let g1 = textureLoad(geom_tex, q, 0);
+        let g1 = textureLoad(geom_tex, q, sample);
         let n1 = oct_decode(g1.xy);
         let agree = clamp(dot(n0, n1), -1.0, 1.0);
         let d1 = unpack_depth(g1);
@@ -114,9 +115,9 @@ fn fs_ink(in: VOut) -> @location(0) vec4<f32> {
         var depth_break = false;
         let qm = p - o;
         if inside(qm, dim) {
-            let am = textureLoad(albedo_tex, qm, 0);
+            let am = textureLoad(albedo_tex, qm, sample);
             if am.a >= 0.5 / 255.0 {
-                let dm = unpack_depth(textureLoad(geom_tex, qm, 0));
+                let dm = unpack_depth(textureLoad(geom_tex, qm, sample));
                 let second = abs(d1 + dm - 2.0 * d0);
                 let limit = max(ink.params.z * max(d0, 1.0) / 400.0, 0.08);
                 depth_break = second > limit && d0 <= d1;
@@ -136,9 +137,28 @@ fn fs_ink(in: VOut) -> @location(0) vec4<f32> {
         }
         edge = max(edge, fade);
     }
-    if edge < 0.04 {
+    return edge;
+}
+
+@fragment
+fn fs_ink(in: VOut, @builtin(sample_index) sample: u32) -> @location(0) vec4<f32> {
+    let p = vec2<i32>(in.clip.xy);
+    if textureLoad(albedo_tex, p, sample).a * 48.0 < 3.0 {
         discard;
     }
+    // Reconstruct only the ink coverage with a one-pixel tent. Four coverage
+    // samples still change in quarter-pixel steps; this small footprint keeps
+    // those changes from joining into a visible pop along a long crease.
+    // Paint, lighting, silhouettes and the overlay are never filtered here.
+    let edge = ink_edge(p, sample) * 0.25
+        + (ink_edge(p + vec2<i32>(1, 0), sample)
+        + ink_edge(p - vec2<i32>(1, 0), sample)
+        + ink_edge(p + vec2<i32>(0, 1), sample)
+        + ink_edge(p - vec2<i32>(0, 1), sample)) * 0.125
+        + (ink_edge(p + vec2<i32>(1, 1), sample)
+        + ink_edge(p + vec2<i32>(1, -1), sample)
+        + ink_edge(p + vec2<i32>(-1, 1), sample)
+        + ink_edge(p - vec2<i32>(1, 1), sample)) * 0.0625;
     // Linear ink, premultiplied. The sRGB target encodes it.
     // Alpha fades with feature size so a medium crease is a tint, not a fill.
     let col = ink.color.rgb;

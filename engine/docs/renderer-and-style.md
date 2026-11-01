@@ -146,17 +146,35 @@ these passes:
 3. **Silhouette**: the inverted hull. Back faces are drawn again, pushed out in screen
    space along the outline normal by the look's `outline_px`, in ink. Thinner on small
    parts, gone below about a pixel.
-4. **Geometry buffer**: normals, paint and depth for every pixel, then the **inner ink**
-   pass draws lines where neighbouring pixels disagree: a crease sharper than
-   `crease_degrees`, a paint border stronger than `color_edge`, or a depth step bigger
-   than `depth_step` (scaled by distance).
+4. **Geometry buffer**: normals, paint and depth at the same four sample positions as
+   colour, then the **inner ink** pass draws each sample where neighbours disagree:
+   a crease sharper than `crease_degrees`, a paint border stronger than `color_edge`,
+   or a depth step bigger than `depth_step` (scaled by distance).
 5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera) and soft
-   additive glows.
-6. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
+   additive glows, depth-tested against the geometry samples, over inner ink.
+6. **Resolve**: average the finished colour samples into pixels, including ink coverage.
+7. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
    screen system builds on this.
 
 Text uses glyphon (cosmic-text shaping) with one bundled font (Fredoka, SIL OFL), so a
-shot looks the same on every machine. MSAA x4 where the GPU allows it.
+shot looks the same on every machine. MSAA x4 where all the colour, geometry and depth
+formats support it; otherwise those passes share the same single-sample fallback.
+
+**Why ink before resolve.** A single-sample geometry buffer made inner lines jump a
+whole pixel as the camera moved, even though the surrounding colour was antialiased.
+The ink shader now reads the matching sample in each neighbouring pixel and blends
+into that colour sample. Geometry interpolates depth, normal and paint at the sample
+position too, so the plane test does not compare pixel-centre depths at covered edges.
+A one-pixel tent reconstructs just the ink coverage (a quarter of the centre, an eighth
+of each cardinal neighbour and a sixteenth of each diagonal). Four samples alone still
+move coverage in quarter steps; the tent softens those residual pops along long creases
+without filtering cel paint, lighting or text. Only the final colour is resolved. Resolving geometry first
+would blend unrelated normals, packed depth bytes and paint at boundaries, inventing
+creases and surfaces. A blur of the final picture would soften the cel faces and text;
+temporal accumulation would need history and disocclusion handling. Sample coverage
+keeps the existing crease, paint, depth and feature-size rules without either. Effects
+remain in front of ink and use the same depth coverage; the overlay stays at native
+resolution. This changes presentation only, with no world or replay state.
 
 **Why inverted hull plus a post pass.** The hull gives a clean, width-controlled
 silhouette that reads at any zoom; the post pass finds inner edges a hull can't (creases,

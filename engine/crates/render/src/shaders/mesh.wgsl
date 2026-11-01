@@ -125,8 +125,7 @@ fn too_small(world: vec3<f32>, span: vec2<f32>, model: mat4x4<f32>) -> bool {
     return feature_px(world, span.y * s.y) < 1.0;
 }
 
-@vertex
-fn vs_main(v: VIn) -> VOut {
+fn mesh_vertex(v: VIn) -> VOut {
     let inst = instances[v.ii];
     let m = morphed(v, inst.morph.x);
     let world = inst.model * vec4<f32>(m.pos, 1.0);
@@ -151,6 +150,11 @@ fn vs_main(v: VIn) -> VOut {
     }
     o.clip = g.view_proj * world;
     return o;
+}
+
+@vertex
+fn vs_main(v: VIn) -> VOut {
+    return mesh_vertex(v);
 }
 
 @fragment
@@ -275,6 +279,32 @@ struct GeomOut {
     @location(1) albedo: vec4<f32>,
 };
 
+// Coverage alone is not enough for the plane test: view depth must describe
+// each covered sample, rather than repeating the pixel centre on a sloped face.
+struct GeomIn {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) @interpolate(perspective, sample) world: vec3<f32>,
+    @location(1) @interpolate(perspective, sample) normal: vec3<f32>,
+    @location(2) @interpolate(perspective, sample) color: vec4<f32>,
+    @location(3) @interpolate(flat) ii: u32,
+    @location(4) @interpolate(flat) span: vec2<f32>,
+    @location(5) @interpolate(flat) facet: f32,
+};
+
+@vertex
+fn vs_geom(v: VIn) -> GeomIn {
+    let main = mesh_vertex(v);
+    var o: GeomIn;
+    o.clip = main.clip;
+    o.world = main.world;
+    o.normal = main.normal;
+    o.color = main.color;
+    o.ii = main.ii;
+    o.span = main.span;
+    o.facet = main.facet;
+    return o;
+}
+
 fn sign_nz(v: vec2<f32>) -> vec2<f32> {
     return vec2<f32>(select(-1.0, 1.0, v.x >= 0.0), select(-1.0, 1.0, v.y >= 0.0));
 }
@@ -289,7 +319,7 @@ fn oct_encode(n: vec3<f32>) -> vec2<f32> {
 }
 
 @fragment
-fn fs_geom(in: VOut) -> GeomOut {
+fn fs_geom(in: GeomIn) -> GeomOut {
     let inst = instances[in.ii];
     let oct = oct_encode(normalize(in.normal));
     let fwd = g.camera_fwd.xyz;

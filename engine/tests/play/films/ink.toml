@@ -1,0 +1,15 @@
+# The dock film used to find 11 flicker runs near the hub with single-sample
+# inner ink. The remaining run is on the separate berth, not the hub model.
+# GPU-only: galaxy-gm motion check tests/play/films/ink.toml
+modules = "../drift"
+inputs = "inputs/dock.toml"
+from = 0
+to = 180
+fps = 60
+size = "1280x720"
+
+[[expect]]
+tool = "flicker"
+near = "hub"
+value = "flicker_runs"
+at_most = 1
