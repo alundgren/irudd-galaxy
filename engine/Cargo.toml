@@ -6,7 +6,7 @@ members = ["crates/*", "xtask"]
 # module's `min_engine_version` is compared with it. A release bumps it (see
 # docs/modules-and-install.md).
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 publish = false
