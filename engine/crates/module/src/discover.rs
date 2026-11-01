@@ -84,7 +84,7 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
             .get(1)
             .map(|path| vec![manifest::module_dir(&at(path))])
             .unwrap_or_default(),
-        (Tool::Game, Some("play" | "shot")) => modules_dir_arg(&args[1..])
+        (Tool::Game, Some("play" | "shot" | "audio")) => modules_dir_arg(&args[1..])
             .map(|dir| modules_in(&at(&dir)))
             .unwrap_or_default(),
         (Tool::Game, Some("sim")) => modules_dir_arg(args.get(2..).unwrap_or_default())

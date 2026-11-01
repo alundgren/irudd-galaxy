@@ -1,0 +1,32 @@
+crossfade = 1.0
+
+[sounds.low]
+file = "sounds/low.wav"
+volume = 0.5
+[sounds.high]
+file = "sounds/high.wav"
+volume = 0.5
+[sounds.ping]
+file = "sounds/ping.wav"
+volume = 0.7
+[sounds.music]
+file = "sounds/music.wav"
+volume = 0.3
+
+[places]
+first = "low"
+second = "high"
+
+[[events]]
+event = "tone"
+sound = "ping"
+[[events]]
+event = "music_start"
+sound = "music"
+bus = "music"
+fade = 0.5
+[[events]]
+event = "music_stop"
+bus = "music"
+stop = true
+fade = 0.5

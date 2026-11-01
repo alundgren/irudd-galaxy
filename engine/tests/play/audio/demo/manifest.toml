@@ -1,0 +1,12 @@
+id = "audio"
+version = "0.1.0"
+min_engine_version = "0.3.0"
+scripts = ["scripts/audio.luau"]
+events = ["tap", "tone", "change", "music", "music_start", "stop", "music_stop"]
+writes = ["engine.place", "engine.location", "engine.being", "engine.position", "engine.camera"]
+
+[keys]
+space = "tap"
+enter = "change"
+m = "music"
+s = "stop"

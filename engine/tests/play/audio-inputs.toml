@@ -1,0 +1,25 @@
+[[input]]
+tick = 31
+name = "audio.tap"
+[[input]]
+tick = 61
+name = "audio.change"
+[[input]]
+tick = 121
+name = "audio.tap"
+[[input]]
+tick = 151
+name = "audio.music"
+[[input]]
+tick = 211
+name = "audio.stop"
+[[input]]
+tick = 241
+name = "audio.change"
+
+[[note]]
+tick = 95
+text = "High ambience after the one-second place crossfade."
+[[note]]
+tick = 275
+text = "Back to the low ambience; music has stopped."
