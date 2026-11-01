@@ -39,14 +39,14 @@ pub struct Routine {
 }
 
 /// Lantern Wharf's day, twelve steps round. Where people eat says who they are: Juno eats
-/// at her stall and never leaves the till, Orrin takes his lunch at the stool nearest
-/// Bel's counter, to talk to her, Bel eats last at the window table, Pim eats with his
-/// satchel on.
+/// at her stall and never leaves the till, Orrin takes his lunch at the window table,
+/// half turned to Bel at her counter, Bel eats last, standing at her own end of the
+/// counter, Pim eats sitting down with his satchel on.
 ///
 /// Going round the rooms in order (office, market, cradle, canteen: one step each), each
 /// round shows something new where you are: first Pim turning up at the market and Orrin
-/// coming in for lunch; then Ilse at the window, Juno eating at the stall and Bel sitting
-/// down to eat; then Pim at the office with a parcel, Juno counting stock and Orrin
+/// coming in for lunch; then Ilse at the window, Juno eating at the stall and Bel stopping
+/// to eat; then Pim at the office with a parcel, Juno counting stock and Orrin
 /// leaving the cradle for lunch.
 pub const DAY: &[Routine] = &[
     Routine {
@@ -83,7 +83,7 @@ pub const DAY: &[Routine] = &[
         who: "bel",
         acts: &[
             (8, act("canteen", "counter", "work")),
-            (1, act("canteen", "nook", "eat")),
+            (1, act("canteen", "nook", "snack")),
             (3, act("canteen", "counter", "work")),
         ],
         after_story: false,
@@ -225,7 +225,7 @@ pub fn act_pose(who: &Person, t: f32, talking: bool) -> Pose {
             p.head_nod = 0.18 + spoon * 0.22;
             p.head_turn *= 0.4;
         }
-        // Orrin's lunch, on the stool nearest the counter, half turned to it and to Bel.
+        // Orrin's lunch at the window table, half turned to the counter and Bel.
         "lunch" => {
             p.turn = -1.1;
             p.head_nod = 0.18 + spoon * 0.22;

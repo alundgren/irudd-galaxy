@@ -70,8 +70,8 @@ return {
 				door = { 3.6, 0.4 },
 				-- Ilse's break: looking out of the porthole.
 				window = { -2.9, 1.7 },
-				-- A visitor at the desk (Pim with a parcel), left of it in the open.
-				parcel = { -2.6, 0.5 },
+				-- A visitor at the desk (Pim with a parcel), at its front left corner.
+				parcel = { -2.0, 0.15 },
 				-- Where something new for the player stands (the Wren's pennant).
 				flag = { 1.3, 1.9 },
 			},
@@ -106,7 +106,7 @@ return {
 				bench = { -4.9, -0.6 },
 				door = { -6.6, -1.8 },
 				-- The crate the last part came in.
-				boxes = { -4.6, -2.5 },
+				boxes = { -3.6, -3.4 },
 			},
 		},
 		{
@@ -121,10 +121,10 @@ return {
 				counter = { -2.0, 2.45 },
 				table = { 1.75, 0.6 },
 				door = { 4.1, 1.2 },
-				-- Orrin's lunch: the stool nearest Bel's counter.
-				stool = { 0.05, 0.6 },
-				-- Bel eats last, at the far stool of the window table.
-				nook = { 3.35, -0.9 },
+				-- Orrin's lunch: the near stool of the window table.
+				stool = { 1.65, -0.9 },
+				-- Bel eats last, standing at her end of the counter.
+				nook = { -2.9, 2.45 },
 				-- A mug for the player, at the end of the counter.
 				mug = { -0.7, 1.7 },
 			},

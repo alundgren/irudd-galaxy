@@ -140,7 +140,7 @@ local by_state = {
 	ilse = { ["break"] = "ilse_window" },
 	juno = { count = "juno_count", snack = "juno_snack" },
 	orrin = { lunch = "orrin_lunch" },
-	bel = { eat = "bel_eat" },
+	bel = { snack = "bel_eat" },
 	pim = { eat = "pim_eating", visit = "pim_visit" },
 }
 

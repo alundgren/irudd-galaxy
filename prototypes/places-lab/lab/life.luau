@@ -160,7 +160,7 @@ local function returning(s, state, ui, world)
 					anchor = "spot." .. d.spot,
 					on = "look",
 					args = { detail = d.id },
-					sign = { title = what.name, keeper = "New since you were here", line = "Ask about it", state = { "new", "New" } },
+					sign = { title = what.name, state = { "new", "New" } },
 				})
 			)
 		end
