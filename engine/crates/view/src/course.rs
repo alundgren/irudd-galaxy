@@ -57,6 +57,9 @@ struct Fading {
 /// The course over time: the order shown now, and one fading out.
 #[derive(Default)]
 pub struct Courses {
+    /// A course first seen from now on starts this many seconds old (an audit drawing a
+    /// note's moment again).
+    pub start_age: Option<f32>,
     shown: Option<Shown>,
     fading: Option<Fading>,
 }
@@ -69,6 +72,19 @@ fn strength(style: &Course, age: f32) -> f32 {
 }
 
 impl Courses {
+    /// No course shown yet; the first one seen starts `age` seconds old.
+    pub fn starting_at(age: Option<f32>) -> Courses {
+        Courses {
+            start_age: age,
+            ..Courses::default()
+        }
+    }
+
+    /// How long the course shown now has been up, at `time`.
+    pub fn age(&self, time: f32) -> Option<f32> {
+        self.shown.as_ref().map(|s| time - s.since)
+    }
+
     /// Draws the course for this frame. `plan` is the order under way, if any; `arrived`
     /// says whether an order that just ended got where it was going. `per_pixel` is world
     /// units per logical pixel.
@@ -87,7 +103,11 @@ impl Courses {
                 if same {
                     self.shown.as_mut().expect("checked").plan = plan;
                 } else {
-                    self.shown = Some(Shown { plan, since: time });
+                    let age = self.start_age.unwrap_or(0.0);
+                    self.shown = Some(Shown {
+                        plan,
+                        since: time - age,
+                    });
                     self.fading = None;
                 }
             }
@@ -277,6 +297,20 @@ mod tests {
         // The leg near the ship starts at the same place in the pattern either way.
         let near = |s: &Scene| s.lines.iter().filter(|l| !l.closed).nth(1).unwrap().phase;
         assert_eq!(near(&a), near(&b));
+    }
+
+    #[test]
+    fn a_course_drawn_again_for_a_note_is_as_old_as_it_was() {
+        let style = Course::default();
+        let mut c = Courses::starting_at(Some(style.bright + SETTLE + 1.0));
+        let mut s = scene();
+        c.draw(Some(plan("a")), false, &style, 50.0, 0.05, &mut s);
+        let ring = s.lines.iter().rev().find(|l| l.closed).unwrap();
+        assert!(
+            (ring.color.a - style.faint).abs() < 1e-6,
+            "{}",
+            ring.color.a
+        );
     }
 
     #[test]

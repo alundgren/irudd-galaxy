@@ -42,7 +42,8 @@ text. Messages from the build tools (`cargo xtask`) go to stderr.
 | `not_installed` | 2 | Launcher only: no installed build to run, or the build named with `--build` is not installed. | `install_root`, `install`, `builds` |
 | `bad_input` | 4 | A module folder, its manifest, start state or scripts are missing or invalid; a save, recording or inputs file can't be read or doesn't fit the modules; a path is not a folder. | `path` (sometimes) |
 | `findings` | 5 | `galaxy-gm check` found problems in the module. | `module`, `findings` (each with `kind`: `schema`, `script`, `start` or `look`, and `message`) |
-| `replay_diverged` | 5 | `galaxy sim replay` ended on a different world than the recording did. | `tick`, `hash`, `recorded_hash`, `recorded_build`, `this_build` |
+| `replay_diverged` | 5 | `galaxy sim replay` ended on a different world than the recording did, or `galaxy-gm audit` or `galaxy-gm film` found a note whose world differs. | replay: `tick`, `hash`, `recorded_hash`, `builds`; audit: `notes`, `builds`; film: `out`, `notes_checked`, `builds` |
+| `motion_expectations` | 5 | `galaxy-gm motion check` filmed its spec and a tool's value was out of bounds. | `spec`, `film`, `runs` (each tool run once for the same options: its `reading` and `image`), `expectations` (each with `run`, `tool`, `value`, the bounds, `got`, `pass`) |
 | `runtime` | 1 | Anything else that failed after starting: I/O, a build the launcher could not start. | `path` (sometimes) |
 
 The table lives in code in `crates/module/src/failure.rs`; a new kind is added there and

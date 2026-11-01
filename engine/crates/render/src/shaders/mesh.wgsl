@@ -102,6 +102,13 @@ fn aa_width(x: f32) -> f32 {
     return max(min(fwidth(x), 0.05), BAND_SOFT);
 }
 
+// The same for the sun's tone bands, never under the style's band fade: a flat face
+// has one light level, so a turning ship would otherwise switch a whole face from
+// lit to shadow within a frame. The fade spreads that over `band_fade_degrees` of turn.
+fn band_width(x: f32) -> f32 {
+    return max(min(fwidth(x), 0.05), max(g.counts.y, BAND_SOFT));
+}
+
 // A hard step at `edge`, anti-aliased over `w`.
 fn band(edge: f32, x: f32, w: f32) -> f32 {
     if w <= 1e-5 {
@@ -156,9 +163,10 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
     let shadow_rgb = mix(inst.shadow.rgb, vec3<f32>(dot(inst.shadow.rgb, vec3<f32>(0.2126, 0.7152, 0.0722))), bite);
 
     // Half-Lambert from the key light, quantised into tone bands. Each band edge is
-    // a hard step, smoothed over one pixel so a curved terminator doesn't crawl.
+    // a step, smoothed over one pixel so a curved terminator doesn't crawl, and over
+    // the style's band fade so a turning face eases between bands.
     let light = dot(n, normalize(g.sun_dir.xyz)) * 0.5 + 0.5;
-    let light_w = aa_width(light);
+    let light_w = band_width(light);
     var tone = vec3<f32>(1.0);
     var shadowed = 0.0;
     if inst.shadow.w > 2.5 {

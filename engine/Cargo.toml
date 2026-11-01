@@ -25,6 +25,7 @@ publish = false
 galaxy-api = { path = "crates/api" }
 galaxy-mesh = { path = "crates/mesh" }
 galaxy-module = { path = "crates/module" }
+galaxy-motion = { path = "crates/motion" }
 galaxy-render = { path = "crates/render" }
 galaxy-script = { path = "crates/script" }
 galaxy-sim = { path = "crates/sim" }

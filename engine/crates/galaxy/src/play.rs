@@ -2,8 +2,11 @@
 //!
 //! `play` opens a window and runs the session in real time: the sim steps at its fixed
 //! rate, the view draws between the last two ticks every frame, keys a module binds
-//! become its events, and the wheel zooms the camera. `shot` runs the same session
-//! headless for some ticks and writes one frame as a PNG. Both report frame times.
+//! become its events, and the wheel zooms the camera. Every session records itself into
+//! a session folder, and F8 takes a note ([`crate::notes`]); wheel zoom is recorded too,
+//! as presentation only. `shot` runs the same session headless for some ticks and writes
+//! one frame as a PNG; `galaxy film` ([`crate::film`]) writes every frame. Both report
+//! frame times.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -13,8 +16,8 @@ use std::time::Instant;
 use galaxy_module::Failure;
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
-use galaxy_render::Renderer;
 use galaxy_render::glam::Vec2;
+use galaxy_render::{Renderer, RgbaImage};
 use galaxy_sim::scenario::InputsFile;
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
@@ -25,9 +28,10 @@ use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
 use winit::window::{Window, WindowId};
 
+use crate::notes::{self, NoteBox};
 use crate::sim::{Options, bad_modules, load_modules, parse, usage};
 
 /// The window's size, and a shot's, unless `--size` says otherwise.
@@ -35,7 +39,7 @@ const DEFAULT_SIZE: (u32, u32) = (1280, 720);
 /// Ticks `shot` runs when not told: one second.
 const SHOT_TICKS: u64 = 30;
 
-const PLAY_OPTIONS: &[&str] = &[
+pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--record",
@@ -46,14 +50,18 @@ const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
 ];
-const SHOT_OPTIONS: &[&str] = &[
+pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--ticks",
     "--inputs",
     "--size",
     "--out",
+    "--crop",
 ];
+
+/// A cropped shot is enlarged until its longer side is at least this many pixels.
+const CROP_SIDE: u32 = 512;
 
 /// Keys on the keyboard by their manifest key name (`galaxy_module::manifest::KEYS`).
 const KEY_CODES: [(KeyCode, &str); 56] = [
@@ -216,6 +224,12 @@ struct App {
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
+    /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
+    /// frame at or after their tick.
+    scripted_notes: BTreeMap<u64, Vec<String>>,
+    /// Scripted wheel steps by tick (`[[zoom]]` in `--inputs`), turned once their tick
+    /// has run.
+    scripted_zooms: BTreeMap<u64, Vec<f32>>,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -224,6 +238,15 @@ struct App {
     times: Times,
     frames: u64,
     error: Option<Failure>,
+    /// The session folder: recording, save and note frames.
+    dir: PathBuf,
+    /// The note being written, while F8 has the game paused.
+    note: Option<NoteBox>,
+    /// Notes kept so far.
+    notes: usize,
+    /// How the last frame was drawn, so F8 can keep exactly that frame.
+    last_alpha: f32,
+    last_time: f32,
 }
 
 fn ms_since(start: Instant) -> f64 {
@@ -276,11 +299,135 @@ impl App {
         }
         self.keys = bindings(self.session.modules());
         if let Some(r) = &mut self.running {
-            r.view.reload(&mut r.renderer, self.session.modules());
+            r.view.reload(Some(&mut r.renderer), self.session.modules());
         }
     }
 
+    /// F8: pauses on this tick and opens the note box over the frame that was shown.
+    fn open_note(&mut self) {
+        let Some(r) = &mut self.running else { return };
+        let logical = r.renderer.logical_size();
+        let scene = r.view.scene(
+            &self.session.world,
+            self.last_alpha,
+            logical,
+            self.last_time,
+        );
+        let frame = match r.renderer.render_to_rgba(&scene) {
+            Ok(frame) => frame,
+            Err(e) => {
+                eprintln!("galaxy: can't keep the frame for a note: {e}");
+                return;
+            }
+        };
+        let Some(moment) = r.view.moment(
+            self.last_alpha,
+            self.last_time,
+            r.renderer.size(),
+            r.renderer.scale_factor(),
+        ) else {
+            return;
+        };
+        self.release_all();
+        self.note = Some(NoteBox {
+            text: String::new(),
+            frame,
+            moment,
+        });
+    }
+
+    /// Enter: keeps the note in the recording, with its frame, and carries on.
+    fn keep_note(&mut self) {
+        let Some(note) = self.note.take() else { return };
+        self.pace.reset();
+        if note.text.trim().is_empty() {
+            return;
+        }
+        self.notes += 1;
+        let file = notes::frame_file(self.notes);
+        let path = self.dir.join(&file);
+        if let Err(e) = note.frame.save_png(&path) {
+            eprintln!(
+                "galaxy: can't save the note's frame to {}: {e}",
+                path.display()
+            );
+        }
+        let camera = serde_json::to_value(note.moment).ok();
+        let frame = json!({
+            "file": file,
+            "width": note.frame.width,
+            "height": note.frame.height,
+        });
+        self.session.note(note.text.trim(), camera, Some(frame));
+        self.write_recording();
+        eprintln!(
+            "galaxy: note {} kept at tick {}",
+            self.notes, self.session.world.tick
+        );
+    }
+
+    /// Writes the recording so far into the session folder.
+    fn write_recording(&self) {
+        if let Some(rec) = self.session.recording() {
+            let path = self.dir.join("recording.json");
+            if let Err(e) = rec.write(&path) {
+                eprintln!("galaxy: can't write {}: {e}", path.display());
+            }
+        }
+    }
+
+    /// A key while the note box is open.
+    fn note_key(&mut self, event: &winit::event::KeyEvent) {
+        if event.state != ElementState::Pressed {
+            return;
+        }
+        match &event.logical_key {
+            Key::Named(NamedKey::Enter) => self.keep_note(),
+            Key::Named(NamedKey::Escape) => {
+                self.note = None;
+                self.pace.reset();
+            }
+            Key::Named(NamedKey::Backspace) => {
+                if let Some(n) = &mut self.note {
+                    n.backspace();
+                }
+            }
+            _ => {
+                if let (Some(n), Some(text)) = (&mut self.note, &event.text) {
+                    n.type_text(text);
+                }
+            }
+        }
+    }
+
+    /// A frame while a note is being written: the world stands still.
+    fn note_frame(&mut self, event_loop: &ActiveEventLoop) {
+        self.last = Instant::now();
+        self.pace.reset();
+        let (Some(r), Some(note)) = (&mut self.running, &self.note) else {
+            return;
+        };
+        let logical = r.renderer.logical_size();
+        let mut scene = r.view.scene(
+            &self.session.world,
+            self.last_alpha,
+            logical,
+            self.last_time,
+        );
+        note.draw(&mut scene, logical);
+        if let Err(e) = r.renderer.render(&scene) {
+            self.error = Some(Failure::runtime(format!("drawing failed: {e}")));
+            event_loop.exit();
+            return;
+        }
+        r.window.request_redraw();
+    }
+
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
+        if self.note.is_some() {
+            self.note_frame(event_loop);
+            return;
+        }
         let now = Instant::now();
         let dt = (now - self.last).as_secs_f64();
         self.last = now;
@@ -308,12 +455,27 @@ impl App {
             event_loop.exit();
             return;
         }
+        let due: Vec<u64> = self
+            .scripted_zooms
+            .range(..=self.session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            for steps in self.scripted_zooms.remove(&tick).unwrap_or_default() {
+                r.view.zoom(&self.session.world, steps);
+                if let Some(view) = r.view.eye.view {
+                    self.session.record_zoom(view);
+                }
+            }
+        }
         let logical = r.renderer.logical_size();
         let time = (now - self.started).as_secs_f32();
+        self.last_alpha = self.pace.alpha();
+        self.last_time = time;
         let scene_start = Instant::now();
         let scene = r
             .view
-            .scene(&self.session.world, self.pace.alpha(), logical, time);
+            .scene(&self.session.world, self.last_alpha, logical, time);
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
         if let Err(e) = r.renderer.render(&scene) {
@@ -323,6 +485,22 @@ impl App {
         }
         let draw_ms = ms_since(draw_start);
         self.frames += 1;
+        // Scripted notes: taken like F8 once their tick has been shown.
+        let due: Vec<u64> = self
+            .scripted_notes
+            .range(..=self.session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            for text in self.scripted_notes.remove(&tick).unwrap_or_default() {
+                self.open_note();
+                if let Some(n) = &mut self.note {
+                    n.type_text(&text);
+                }
+                self.keep_note();
+            }
+        }
+        let Some(r) = &mut self.running else { return };
         // The first frame's interval is the time since the window opened.
         if self.frames > 1 && self.times.interval.len() < 1_000_000 {
             self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
@@ -401,6 +579,10 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Focused(false) => self.release_all(),
             WindowEvent::KeyboardInput { event, .. } => {
+                if self.note.is_some() {
+                    self.note_key(&event);
+                    return;
+                }
                 if event.repeat {
                     return;
                 }
@@ -412,6 +594,10 @@ impl ApplicationHandler for App {
                     event_loop.exit();
                     return;
                 }
+                if code == KeyCode::F8 && down {
+                    self.open_note();
+                    return;
+                }
                 self.key(code, down);
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -421,6 +607,9 @@ impl ApplicationHandler for App {
                 };
                 if let Some(r) = &mut self.running {
                     r.view.zoom(&self.session.world, steps);
+                    if let Some(view) = r.view.eye.view {
+                        self.session.record_zoom(view);
+                    }
                 }
             }
             WindowEvent::RedrawRequested => self.frame(event_loop),
@@ -429,13 +618,19 @@ impl ApplicationHandler for App {
     }
 }
 
-/// The inputs `--inputs` names, by tick, each checked against the session.
-fn scripted_inputs(
-    session: &Session,
-    options: &Options,
-) -> Result<BTreeMap<u64, Vec<Input>>, Failure> {
+/// Inputs, notes and wheel steps by tick.
+#[derive(Default)]
+struct Script {
+    inputs: BTreeMap<u64, Vec<Input>>,
+    notes: BTreeMap<u64, Vec<String>>,
+    zooms: BTreeMap<u64, Vec<f32>>,
+}
+
+/// The inputs, notes and zooms `--inputs` names, by tick, each input checked against the
+/// session.
+fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failure> {
     let Some(path) = &options.inputs else {
-        return Ok(BTreeMap::new());
+        return Ok(Default::default());
     };
     let script = InputsFile::read(path)
         .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
@@ -447,7 +642,19 @@ fn scripted_inputs(
             ))
         })?;
     }
-    Ok(script.by_tick())
+    let mut notes: BTreeMap<u64, Vec<String>> = BTreeMap::new();
+    for (tick, text) in &script.notes {
+        notes.entry(*tick).or_default().push(text.clone());
+    }
+    let mut zooms: BTreeMap<u64, Vec<f32>> = BTreeMap::new();
+    for (tick, steps) in &script.zooms {
+        zooms.entry(*tick).or_default().push(*steps);
+    }
+    Ok(Script {
+        inputs: script.by_tick(),
+        notes,
+        zooms,
+    })
 }
 
 /// `galaxy play`.
@@ -460,10 +667,17 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     }
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let scripted = scripted_inputs(&session, &options)?;
-    if options.record.is_some() {
-        session.start_recording(BuildStamp::current());
-    }
+    let script = scripted_inputs(&session, &options)?;
+    session.start_recording(BuildStamp::current());
+    let ids: Vec<&str> = session.modules().map(Module::id).collect();
+    let root = galaxy_module::install::sessions_dir();
+    let dir = notes::session_dir(&root, &ids).map_err(|e| {
+        Failure::runtime(format!(
+            "can't make a session folder in {}: {e}",
+            root.display()
+        ))
+        .with("path", root.display().to_string())
+    })?;
     let dirs: BTreeMap<String, PathBuf> = session
         .modules()
         .map(|m| (m.id().to_owned(), m.manifest.dir.clone()))
@@ -485,7 +699,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pace: FixedStep::default(),
         held: BTreeSet::new(),
         pending: Vec::new(),
-        scripted,
+        scripted: script.inputs,
+        scripted_notes: script.notes,
+        scripted_zooms: script.zooms,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -494,6 +710,11 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         times: Times::default(),
         frames: 0,
         error: None,
+        dir,
+        note: None,
+        notes: 0,
+        last_alpha: 0.0,
+        last_time: 0.0,
     };
     let event_loop =
         EventLoop::new().map_err(|e| Failure::runtime(format!("no window system: {e}")))?;
@@ -504,12 +725,17 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         return Err(e);
     }
     let build = BuildStamp::current();
-    if let Some(path) = &app.options.save {
+    let saves = [Some(app.dir.join("save.db")), app.options.save.clone()];
+    for path in saves.iter().flatten() {
         save::write(path, &app.session.world, app.session.modules(), &build)
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
-    if let Some(path) = &app.options.record {
-        let rec = app.session.recording().expect("recording was started");
+    let rec = app.session.recording().expect("recording was started");
+    let records = [
+        Some(app.dir.join("recording.json")),
+        app.options.record.clone(),
+    ];
+    for path in records.iter().flatten() {
         rec.write(path)
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
@@ -528,6 +754,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
         "log": app.session.log,
+        "session": app.dir.display().to_string(),
+        "notes": app.notes,
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
     })))
@@ -547,7 +775,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         .ok_or_else(|| usage("shot needs a file to write: --out <file.png>"))?;
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let inputs = scripted_inputs(&session, &options)?;
+    let script = scripted_inputs(&session, &options)?;
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
@@ -557,19 +785,65 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         view.before_step(&session.world);
         let tick = session.world.tick + 1;
         session
-            .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
+            .step(script.inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
+    }
+    for steps in script
+        .zooms
+        .range(..=session.world.tick)
+        .flat_map(|(_, s)| s)
+    {
+        view.zoom(&session.world, *steps);
     }
     let started = Instant::now();
     let scene = view.scene(&session.world, 1.0, Vec2::new(w as f32, h as f32), 0.0);
     let build_ms = ms_since(started);
-    let image = renderer
+    let mut image = renderer
         .render_to_rgba(&scene)
         .map_err(|e| Failure::runtime(format!("drawing failed: {e}")))?;
+    let crop = match &options.crop {
+        None => None,
+        Some(want) => {
+            let logical = Vec2::new(w as f32, h as f32);
+            let id = thing_id(&session.world, want)?;
+            let pose = view
+                .pose(&session.world, &id, 1.0)
+                .ok_or_else(|| usage(format!("`{id}` is not drawn: it has no engine.position")))?;
+            let centre = scene
+                .camera
+                .world_to_screen(pose.point(), logical)
+                .filter(|c| c.x >= 0.0 && c.y >= 0.0 && c.x < w as f32 && c.y < h as f32)
+                .ok_or_else(|| {
+                    Failure::bad_input(format!(
+                        "`{id}` is off the screen at tick {}; zoom out (--inputs with \
+                         [[zoom]]) or shoot another tick",
+                        session.world.tick
+                    ))
+                })?;
+            let per_px = scene.camera.world_per_pixel(logical).max(1e-6);
+            let reach = view.reach(&session.world, &id).unwrap_or(1.0) / per_px;
+            let half = (reach * 1.4).clamp(24.0, w.max(h) as f32 / 2.0);
+            let (cropped, rect, factor) = crop_round(&image, centre.x, centre.y, half);
+            image = cropped;
+            let cut = centre.x < reach
+                || centre.y < reach
+                || centre.x + reach > w as f32
+                || centre.y + reach > h as f32;
+            let mut c = json!({ "thing": id, "box_px": rect, "enlarged": factor });
+            if cut {
+                c["note"] = json!(
+                    "the thing reaches past the frame's edge, so part of it is cut off; \
+                     zoom out or shoot another tick"
+                );
+            }
+            Some(c)
+        }
+    };
     image
         .save_png(&out)
         .map_err(|e| Failure::runtime(e.to_string()).with("path", out.display().to_string()))?;
     Ok(Output::Json(json!({
+        "crop": crop,
         "ok": true,
         "command": "shot",
         "out": out.display().to_string(),
@@ -585,9 +859,81 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     })))
 }
 
+/// The entity `want` names: its full ID, or a bare name one module has (`ship`).
+fn thing_id(world: &galaxy_sim::World, want: &str) -> Result<String, Failure> {
+    if world.entities.contains_key(want) {
+        return Ok(want.to_owned());
+    }
+    let suffix = format!(".{want}");
+    let found: Vec<&String> = world
+        .entities
+        .keys()
+        .filter(|k| k.ends_with(&suffix))
+        .collect();
+    match found.as_slice() {
+        [one] => Ok((*one).clone()),
+        [] => Err(usage(format!("--crop: no thing `{want}` in the world"))),
+        many => Err(usage(format!(
+            "--crop: `{want}` could be {}; write the full ID",
+            many.iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" or ")
+        ))),
+    }
+}
+
+/// The square of `half` pixels round (`cx`, `cy`), kept inside the picture and enlarged
+/// by a whole factor (each pixel a block, nothing smoothed) until its longer side is
+/// [`CROP_SIDE`]: the picture, the box `[x, y, w, h]` and the factor.
+fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u32; 4], u32) {
+    let side = ((half * 2.0).round() as u32).clamp(8, image.width.min(image.height));
+    let x0 = ((cx - side as f32 / 2.0).round().max(0.0) as u32).min(image.width - side);
+    let y0 = ((cy - side as f32 / 2.0).round().max(0.0) as u32).min(image.height - side);
+    let factor = CROP_SIDE.div_ceil(side).clamp(1, 16);
+    let out_side = side * factor;
+    let mut pixels = Vec::with_capacity((out_side * out_side * 4) as usize);
+    for y in 0..out_side {
+        for x in 0..out_side {
+            pixels.extend_from_slice(&image.pixel(x0 + x / factor, y0 + y / factor));
+        }
+    }
+    (
+        RgbaImage {
+            width: out_side,
+            height: out_side,
+            pixels,
+        },
+        [x0, y0, side, side],
+        factor,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_crop_stays_inside_the_picture_and_enlarges_in_blocks() {
+        let mut pixels = Vec::new();
+        for y in 0..100u32 {
+            for x in 0..200u32 {
+                pixels.extend_from_slice(&[x as u8, y as u8, 0, 255]);
+            }
+        }
+        let image = RgbaImage {
+            width: 200,
+            height: 100,
+            pixels,
+        };
+        let (out, rect, factor) = crop_round(&image, 195.0, 5.0, 20.0);
+        assert_eq!(rect, [160, 0, 40, 40]);
+        assert_eq!(factor, 13);
+        assert_eq!(out.width, 520);
+        assert_eq!(out.pixel(0, 0), [160, 0, 0, 255]);
+        assert_eq!(out.pixel(13, 0), [161, 0, 0, 255]);
+        assert_eq!(out.pixel(519, 519), [199, 39, 0, 255]);
+    }
 
     #[test]
     fn every_key_a_module_may_bind_is_on_the_keyboard() {

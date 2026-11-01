@@ -87,13 +87,17 @@ impl RgbaImage {
 
     /// Encodes the image as a PNG file in memory.
     pub fn encode_png(&self) -> Result<Vec<u8>, RenderError> {
+        self.encode_png_with(png::Compression::High)
+    }
+
+    fn encode_png_with(&self, compression: png::Compression) -> Result<Vec<u8>, RenderError> {
         let mut out = Vec::new();
         {
             let mut enc = png::Encoder::new(&mut out, self.width, self.height);
             enc.set_color(png::ColorType::Rgba);
             enc.set_depth(png::BitDepth::Eight);
             enc.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
-            enc.set_compression(png::Compression::High);
+            enc.set_compression(compression);
             let mut w = enc
                 .write_header()
                 .map_err(|e| RenderError::Png(e.to_string()))?;
@@ -103,9 +107,112 @@ impl RgbaImage {
         Ok(out)
     }
 
+    /// Reads an 8-bit RGBA or RGB PNG.
+    pub fn load_png(path: impl AsRef<Path>) -> Result<RgbaImage, RenderError> {
+        let file = std::fs::File::open(path)?;
+        let decoder = png::Decoder::new(std::io::BufReader::new(file));
+        let mut reader = decoder
+            .read_info()
+            .map_err(|e| RenderError::Png(e.to_string()))?;
+        let size = reader
+            .output_buffer_size()
+            .ok_or_else(|| RenderError::Png("the image is too large".into()))?;
+        let mut buf = vec![0; size];
+        let info = reader
+            .next_frame(&mut buf)
+            .map_err(|e| RenderError::Png(e.to_string()))?;
+        let data = &buf[..info.buffer_size()];
+        let pixels = match (info.color_type, info.bit_depth) {
+            (png::ColorType::Rgba, png::BitDepth::Eight) => data.to_vec(),
+            (png::ColorType::Rgb, png::BitDepth::Eight) => data
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .flat_map(|p| [p[0], p[1], p[2], 255])
+                .collect(),
+            other => {
+                return Err(RenderError::Png(format!(
+                    "unsupported PNG layout {other:?}"
+                )));
+            }
+        };
+        Ok(RgbaImage {
+            width: info.width,
+            height: info.height,
+            pixels,
+        })
+    }
+
+    /// How far this image is from `other` of the same size: the mean difference per
+    /// channel (0 to 255), and the share of pixels where any channel differs by more
+    /// than 16. `None` when the sizes differ.
+    pub fn difference(&self, other: &RgbaImage) -> Option<(f64, f64)> {
+        if (self.width, self.height) != (other.width, other.height) {
+            return None;
+        }
+        let mut total = 0u64;
+        let mut differing = 0u64;
+        for (a, b) in self
+            .pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(other.pixels.as_chunks::<4>().0)
+        {
+            let d: Vec<u64> = (0..3).map(|i| u64::from(a[i].abs_diff(b[i]))).collect();
+            total += d.iter().sum::<u64>();
+            if d.iter().any(|&c| c > 16) {
+                differing += 1;
+            }
+        }
+        let n = u64::from(self.width) * u64::from(self.height);
+        Some((
+            total as f64 / (n.max(1) * 3) as f64,
+            differing as f64 / n.max(1) as f64,
+        ))
+    }
+
     pub fn save_png(&self, path: impl AsRef<Path>) -> Result<(), RenderError> {
         std::fs::write(path, self.encode_png()?)?;
         Ok(())
+    }
+
+    /// Writes a PNG quickly, larger on disk: for the many frames of a film. Still
+    /// lossless.
+    pub fn save_png_fast(&self, path: impl AsRef<Path>) -> Result<(), RenderError> {
+        std::fs::write(path, self.encode_png_with(png::Compression::Fast)?)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod image_tests {
+    use super::RgbaImage;
+
+    #[test]
+    fn a_png_round_trips_and_differences_are_measured() {
+        let a = RgbaImage {
+            width: 2,
+            height: 1,
+            pixels: vec![10, 20, 30, 255, 200, 100, 0, 255],
+        };
+        let tmp = std::env::temp_dir().join(format!("galaxy-image-{}.png", std::process::id()));
+        a.save_png(&tmp).unwrap();
+        let back = RgbaImage::load_png(&tmp).unwrap();
+        let _ = std::fs::remove_file(&tmp);
+        assert_eq!(back, a);
+        assert_eq!(a.difference(&back), Some((0.0, 0.0)));
+        let mut b = a.clone();
+        b.pixels[4] = 230;
+        let (mean, share) = a.difference(&b).unwrap();
+        assert!((mean - 5.0).abs() < 1e-9, "{mean}");
+        assert_eq!(share, 0.5);
+        let small = RgbaImage {
+            width: 1,
+            height: 1,
+            pixels: vec![0; 4],
+        };
+        assert_eq!(a.difference(&small), None);
     }
 }
 
@@ -983,7 +1090,14 @@ impl Renderer {
             sun_color: lights.sun_color.to_array(),
             ambient: lights.ambient.to_array(),
             rim: lights.rim.to_array(),
-            counts: [n_points as f32, 0.0, 0.0, 0.0],
+            // y: the tone bands' fade width in half-Lambert units. Near the terminator
+            // half-Lambert changes by about half a radian's worth per radian of turn.
+            counts: [
+                n_points as f32,
+                0.5 * lights.band_fade_degrees.clamp(0.0, 90.0).to_radians(),
+                0.0,
+                0.0,
+            ],
             points,
         };
         self.queue

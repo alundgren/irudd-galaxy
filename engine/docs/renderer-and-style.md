@@ -45,6 +45,12 @@ What the engine works out at load, so modellers and generators never supply it:
   triangle). The shader thins ink on parts and facets only a few pixels across, so a
   distant thing stays coloured instead of turning solid ink.
 
+`galaxy-gm model <module> [<model>]` says what a model is without reading its glTF: each
+part (node) by name with its triangles, size and place in the model's own frame, its glow,
+bite and morph; the outline collision uses (how far it reaches front, left, back and
+right); and the things whose start state wears it (`galaxy_mesh::gltf::read_parts` keeps
+which vertices each node became).
+
 `galaxy_mesh::gltf::write` writes the same format from meshes, one node per part. The
 test models are made that way (`crates/galaxy/tests/drift.rs`, `make_the_models`), and
 the GM's model generator will be too.
@@ -72,7 +78,8 @@ color_edge = 0.22         # a paint border this strong gets a line
 depth_step = 0.55         # a depth break this big gets a line (world units)
 
 [light]                   # for the whole scene
-sun_direction = [-0.62, 0.48, 0.52]
+sun_direction = [-0.35, 0.27, 0.90]   # towards the sun; high, so tops stay lit as ships turn
+band_fade_degrees = 25.0  # a face fades between tone bands over this much turn (0 to 90)
 sun = "#fff1dc"
 ambient = "#2c2240"
 rim = "#ffb36b"
@@ -126,6 +133,16 @@ these passes:
    flat bands (shadow, mid, highlight). The shadow band gets sketched hatching, a rim
    light catches edges turned away, glow ignores light. Instances of the same mesh are
    drawn together.
+
+   A flat face has one light level, so a hard band step switches a whole face at once:
+   a ship turning at 180° a second flipped half its hull from lit to shadow within a
+   frame. Each face therefore eases between bands over `band_fade_degrees` of turn
+   (25° by default, about eight frames at full turn and 60 fps). Filmed on a ship flying a tight
+   circle (`galaxy-gm motion`), the biggest one-frame brightness jump fell from 4.9 to
+   1.5. The default sun is high (about 64°), so a ship's top stays lit through turns
+   and only steep sides go to shadow; a lower sun shows more form on rocks but makes
+   turning ships flip more. Smooth light normals were tried too: as calm, but the
+   faceted look is the style.
 3. **Silhouette**: the inverted hull. Back faces are drawn again, pushed out in screen
    space along the outline normal by the look's `outline_px`, in ink. Thinner on small
    parts, gone below about a pixel.
@@ -161,7 +178,9 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   the world units it shows from the bottom of the screen to the top, and `fov` above 0
   makes it a perspective camera with the same framing at the target. The wheel zooms
   between `min_view` and `max_view`. Zoom is the player's, not the world's, so it is not
-  an input and is not recorded.
+  a sim input: the world never sees it. A played session's recording keeps it beside the
+  inputs as presentation only, so a film of the session shows the zoom the player had,
+  and an inputs file can turn the wheel with `[[zoom]]` (`saves-and-replay.md`).
 
 - **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
   an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it
@@ -195,7 +214,9 @@ real time:
   events as inputs on the next tick, from the source `keyboard`. Key repeat is ignored,
   and losing focus lets go of every held key, so none sticks down. Escape quits.
 - `--watch` hot-loads a changed module between ticks and reloads its models and style.
-- `--record` and `--save` write the session when the window closes; `--frames <n>` quits
+- Every session records itself into a session folder, and F8 takes a note with the frame
+  that was shown (`saves-and-replay.md`). `--record` and `--save` also write the
+  recording and the save to those paths when the window closes; `--frames <n>` quits
   after n frames.
 - **The bot**: `--inputs <file>` plays scripted inputs on their ticks through the same
   loop the keyboard feeds, and `--ticks <n>` quits when the world reaches tick n. A bot
@@ -208,11 +229,14 @@ max, skipping the first ten frames. Times from a software renderer or a virtual 
 are for information only; the 60 fps target is for the owner's PC.
 
 `shot` runs the same session headless for `--ticks` (30 by default) with optional
-`--inputs`, draws the last tick at `--size` pixels and writes a PNG. It reports the camera,
+`--inputs`, draws the last tick at `--size` pixels and writes a PNG. It draws one still
+moment (`alpha` 1, time 0), so it can't show motion; `galaxy film` draws every frame on a
+fixed clock for that (`motion-tools.md`). It reports the camera,
 the models drawn and the scene build time. It needs a GPU (or a software one such as
 lavapipe or WARP); tests that render are `#[ignore]`d so the check stays headless.
 
-**Why the window loop lives in the game binary and the view in a library.** The GM will
-draw too (screenshots at a recording's notes, `look`), so everything between the world
-and the renderer is a library both binaries share; only the window and keyboard are the
-game's.
+**Why the window loop lives in the game binary and the view in a library.** The GM draws
+too (a recording's notes again, films of it), so everything between the world and the
+renderer is a library both binaries share; only the window and keyboard are the game's.
+A view can also be made with no renderer (`View::detached`): it builds the same scenes,
+whose meshes draw nothing, so a film's probes need no GPU.

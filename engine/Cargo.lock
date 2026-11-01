@@ -725,6 +725,7 @@ dependencies = [
  "galaxy-api",
  "galaxy-mesh",
  "galaxy-module",
+ "galaxy-motion",
  "galaxy-render",
  "galaxy-sim",
  "galaxy-view",
@@ -751,7 +752,10 @@ name = "galaxy-gm"
 version = "0.2.0"
 dependencies = [
  "galaxy-api",
+ "galaxy-mesh",
  "galaxy-module",
+ "galaxy-motion",
+ "galaxy-render",
  "galaxy-script",
  "galaxy-sim",
  "galaxy-view",
@@ -789,6 +793,17 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
+name = "galaxy-motion"
+version = "0.2.0"
+dependencies = [
+ "png",
+ "serde",
+ "serde_json",
  "tempfile",
  "toml",
 ]
@@ -847,8 +862,10 @@ dependencies = [
  "galaxy-api",
  "galaxy-mesh",
  "galaxy-module",
+ "galaxy-motion",
  "galaxy-render",
  "galaxy-sim",
+ "serde",
  "serde_json",
  "tempfile",
 ]

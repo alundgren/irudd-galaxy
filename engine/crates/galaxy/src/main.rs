@@ -1,68 +1,47 @@
 //! `galaxy`: the game, which runs modules. `play` runs them in a window, `shot` draws one
-//! frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
+//! frame headless, `film` draws every frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
+//! Each command's help is in `galaxy_module::help`, which dispatch goes through.
 //! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod film;
+mod notes;
 mod play;
 mod sim;
 
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::OnceLock;
 
 use galaxy_module::Failure;
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
+use galaxy_module::help;
 
-const USAGE: &str = "usage: galaxy <command>
-
-  doctor                      the engine, its installed builds and launchers, and the
-                              modules near the working folder
-  play --modules <dir>        play the modules in <dir>, or the module <dir> is, in a
-                              window. Esc quits; the wheel zooms.
-  shot --modules <dir> --out <file.png>
-                              run the modules headless and draw one frame
-  sim run --modules <dir>     run a new world from the modules' start states, headless
-  sim load <save> --modules <dir>
-                              load a save and carry on with the modules
-  sim replay <recording>      run a recording again and compare the world it ends with
-  --version                   print the version
-  --help                      print this
-
-sim run and sim load take:
-  --seed <n>        the world's seed (run only; 1 by default)
-  --ticks <n>       ticks to run (30 a second; run: 300 by default, load: 0)
-  --inputs <file>   inputs, notes and hot-loads by tick (engine/docs/saves-and-replay.md)
-  --save <file>     write a save when done
-  --record <file>   write a recording of the run
-  --realtime        run at 30 ticks a second instead of as fast as possible
-  --watch           hot-load module folders when their files change (implies --realtime)
-  --state           print the whole world when done
-sim replay takes --state too.
-
-play takes --seed, --save and --record as above, and:
-  --watch           hot-load module folders when their files change, models included
-  --size <w>x<h>    the window's size in logical pixels (1280x720 by default)
-  --frames <n>      quit after this many frames
-  --inputs <file>   play these inputs on their ticks through the window loop (the bot)
-  --ticks <n>       quit once the world reaches tick n
-It prints frame times when it quits.
-
-shot takes --seed, --ticks (30 by default) and --inputs as above, and --size (in pixels,
-1280x720 by default).";
+/// The command being run, for usage errors.
+static CURRENT: OnceLock<&'static help::Command> = OnceLock::new();
 
 fn main() -> ExitCode {
-    cli::main(Tool::Game, USAGE, run)
+    cli::main(Tool::Game, run)
 }
 
-fn run(args: &[String]) -> Result<Output, Failure> {
-    match args {
-        [command, rest @ ..] if command == "play" => play::play(rest),
-        [command, rest @ ..] if command == "shot" => play::shot(rest),
-        [command, rest @ ..] if command == "sim" => sim::run(rest),
-        [command, ..] => Err(cli::usage_failure(
-            format!("unknown command `{command}`"),
-            USAGE,
-        )),
-        [] => unreachable!("cli::main handles an empty command line"),
+fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failure> {
+    let _ = CURRENT.set(command);
+    match command.path {
+        "play" => play::play(args),
+        "shot" => play::shot(args),
+        "film" => film::film(args),
+        "sim run" => sim::run(args),
+        "sim load" => sim::load(args),
+        "sim replay" => sim::replay(args),
+        other => unreachable!("galaxy has help for `{other}` but does not run it"),
+    }
+}
+
+/// Exit 2, kind `usage`, for the command being run.
+pub(crate) fn usage(message: impl Into<String>) -> Failure {
+    match CURRENT.get() {
+        Some(c) => cli::command_usage(c, message),
+        None => Failure::usage(message),
     }
 }
 
@@ -85,4 +64,48 @@ fn module_dirs(dir: &str) -> Result<Vec<std::path::PathBuf>, Failure> {
         .with("path", dir.display().to_string()));
     }
     Ok(modules)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every option a command's parser takes is in its help, and the other way round.
+    #[test]
+    fn help_lists_the_options_each_command_takes() {
+        let load: Vec<&str> = sim::RUN_OPTIONS
+            .iter()
+            .copied()
+            .filter(|o| *o != "--seed")
+            .collect();
+        let table: [(&str, &[&str]); 6] = [
+            ("play", play::PLAY_OPTIONS),
+            ("shot", play::SHOT_OPTIONS),
+            ("film", film::OPTIONS),
+            ("sim run", sim::RUN_OPTIONS),
+            ("sim load", &load),
+            ("sim replay", sim::REPLAY_OPTIONS),
+        ];
+        for (path, takes) in table {
+            let c = help::find(Tool::Game, path).expect("help");
+            let mut documented = c.options();
+            documented.sort_unstable();
+            let mut takes: Vec<&str> = takes.iter().map(|o| &o[2..]).collect();
+            takes.sort_unstable();
+            assert_eq!(documented, takes, "galaxy {path}");
+        }
+        let paths: Vec<&str> = help::of(Tool::Game).map(|c| c.path).collect();
+        assert_eq!(
+            paths,
+            [
+                "play",
+                "shot",
+                "film",
+                "sim run",
+                "sim load",
+                "sim replay",
+                "doctor"
+            ]
+        );
+    }
 }

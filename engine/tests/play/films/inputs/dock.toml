@@ -1,0 +1,7 @@
+# Drift docks: key 1 at tick 1 orders the ship to the berth beside the hub. It flies
+# there, slows and stops on the berth; the arrival ring closes and fades.
+[[input]]
+tick = 1
+name = "drift.order_dock"
+source = "keyboard"
+payload = { down = true }

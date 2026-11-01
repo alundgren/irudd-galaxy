@@ -65,6 +65,14 @@ any side the ship stops at the target's drawn surface. The ship's own outline is
 measured nose toward the target, as it will be at the end, so a ship that starts facing
 away doesn't swing its nose into the rock as it turns.
 
+An order that must face a way (`hold`, `dock`) turns only once the ship has stopped on
+its point: while it is still moving the nose points the way it goes. So a dock arrives
+after the turn, not when the ship first sits on the berth. On drift's scripted dock
+(`tests/play/films/inputs/dock.toml`) the ship stops on the berth at about 2.62 s, then
+turns 1.8 radians to the berth's heading at its turn rate (180 degrees a second), and
+`engine.arrived` comes at 3.30 s. `galaxy-gm motion track <film> --to berth` shows it
+under `approach` (`stopped_at`, `turned_after_stop`, `arrived_at`).
+
 A dock point must be clear of solid outlines; a ship can't stop inside something solid.
 Where a ship docks and what docking shows (stations, places, interiors) is the module's
 and, later, the place model's: the engine only flies there.

@@ -1,0 +1,13 @@
+# Drift flies a tight circle: thrust and turn left held from tick 1, so the ship turns at
+# its full rate the whole time and every face swings through the light.
+[[input]]
+tick = 1
+name = "drift.thrust_ahead"
+source = "keyboard"
+payload = { down = true }
+
+[[input]]
+tick = 1
+name = "drift.turn_left"
+source = "keyboard"
+payload = { down = true }

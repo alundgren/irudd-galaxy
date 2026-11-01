@@ -9,7 +9,8 @@
 //! depth_step = 0.55           # smallest depth break that gets a line, world units
 //!
 //! [light]                     # for the whole scene
-//! sun_direction = [-0.62, 0.48, 0.52]
+//! sun_direction = [-0.35, 0.27, 0.90]
+//! band_fade_degrees = 25.0   # a face fades between tone bands over this much turn
 //! sun = "#fff1dc"
 //! ambient = "#2c2240"
 //! rim = "#ffb36b"
@@ -47,7 +48,7 @@ use std::collections::BTreeMap;
 
 use galaxy_mesh::Color;
 use glam::Vec3;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::backdrop::BackdropParams;
 use crate::defaults;
@@ -70,6 +71,9 @@ impl Style {
         if let Some(ink) = &style.ink {
             ink.check().map_err(|e| format!("[ink] {e}"))?;
         }
+        if let Some(light) = &style.light {
+            light.check().map_err(|e| format!("[light] {e}"))?;
+        }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
         }
@@ -77,8 +81,167 @@ impl Style {
     }
 }
 
+/// Every key `style.toml` takes: its table (`looks.<name>` for a look), the key, the
+/// values it takes (empty for a colour or a switch) and what it does. `galaxy-gm fields
+/// style` prints it with each key's default from [`defaults`]; a test keeps it to the
+/// structs.
+pub const KEYS: &[(&str, &str, &str, &str)] = &[
+    (
+        "ink",
+        "color",
+        "",
+        "the ink of inner lines, outlines and text",
+    ),
+    (
+        "ink",
+        "inner_px",
+        "0 to 8",
+        "inner line width, logical pixels",
+    ),
+    (
+        "ink",
+        "crease_degrees",
+        "0 to 180",
+        "edges sharper than this get an inner line",
+    ),
+    (
+        "ink",
+        "color_edge",
+        "0 to 2",
+        "how different two paints must be (linear colour distance) for a line between them",
+    ),
+    (
+        "ink",
+        "depth_step",
+        "0 to 1000",
+        "the smallest jump in depth that gets a line, world units",
+    ),
+    (
+        "light",
+        "sun_direction",
+        "[x, y, z]",
+        "towards the sun; z is up, normalised",
+    ),
+    ("light", "sun", "", "the sun's colour"),
+    (
+        "light",
+        "ambient",
+        "",
+        "flat fill added to every lit surface",
+    ),
+    (
+        "light",
+        "rim",
+        "",
+        "edge light on surfaces turned away from the camera",
+    ),
+    (
+        "light",
+        "rim_strength",
+        "0 to 1",
+        "how strong the rim light is",
+    ),
+    (
+        "light",
+        "band_fade_degrees",
+        "0 to 90",
+        "how far a flat face turns while it fades from one tone band to the next; 0 is a hard step, which flips whole faces of a turning thing in one frame",
+    ),
+    (
+        "sky",
+        "top",
+        "",
+        "the backdrop's colour at the top of the screen",
+    ),
+    ("sky", "bottom", "", "at the bottom"),
+    ("sky", "clouds", "[colours]", "the colours of nebula clouds"),
+    ("sky", "cloud_alpha", "0 to 1", "how strong clouds are"),
+    ("sky", "cloud_count", "0 to 64", "how many clouds"),
+    ("sky", "stars", "0 to 4000", "how many stars"),
+    (
+        "course",
+        "show",
+        "true or false",
+        "draw the followed thing's order: dots to where it goes and a ring at the end",
+    ),
+    ("course", "color", "", "the course's colour"),
+    ("course", "dot", "logical pixels", "dot size"),
+    ("course", "spacing", "logical pixels", "dot to dot"),
+    (
+        "course",
+        "ring",
+        "logical pixels",
+        "the end ring's line width",
+    ),
+    (
+        "course",
+        "bright",
+        "seconds",
+        "how long the course stays at full strength after an order",
+    ),
+    ("course", "faint", "0 to 1", "its strength after that"),
+    (
+        "looks.<name>",
+        "outline_px",
+        "0 to 16",
+        "silhouette width, logical pixels",
+    ),
+    (
+        "looks.<name>",
+        "hatch",
+        "0 to 1",
+        "hatching in the shadow band",
+    ),
+    (
+        "looks.<name>",
+        "shadow",
+        "",
+        "multiplies the paint in shadow",
+    ),
+    (
+        "looks.<name>",
+        "highlight",
+        "",
+        "multiplies the paint in the highlight band",
+    ),
+    ("looks.<name>", "bands", "2 or 3", "tone bands"),
+];
+
+/// Each table's keys with their defaults, as TOML text (`"#2a1a2e"`, `2.0`), from the
+/// structs' own defaults.
+pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
+    fn table<T: Serialize>(name: &'static str, value: &T) -> (&'static str, Vec<(String, String)>) {
+        let keys = match toml::Value::try_from(value) {
+            Ok(toml::Value::Table(t)) => t.into_iter().map(|(k, v)| (k, short(&v))).collect(),
+            _ => Vec::new(),
+        };
+        (name, keys)
+    }
+    /// TOML text with floats at the precision they were stored in (`0.35`, not
+    /// `0.3499999940395355`).
+    fn short(v: &toml::Value) -> String {
+        match v {
+            toml::Value::Float(f) => {
+                let s = (*f as f32).to_string();
+                if s.contains('.') { s } else { format!("{s}.0") }
+            }
+            toml::Value::Array(a) => {
+                format!("[{}]", a.iter().map(short).collect::<Vec<_>>().join(", "))
+            }
+            other => other.to_string(),
+        }
+    }
+    vec![
+        table("ink", &Ink::default()),
+        table("light", &Light::default()),
+        table("sky", &Sky::default()),
+        table("course", &Course::default()),
+        table("looks.<name>", &Look::default()),
+    ]
+}
+
 /// The inner ink.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Ink {
     pub color: Color,
@@ -131,7 +294,7 @@ impl Ink {
 }
 
 /// The scene's light.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Light {
     pub sun_direction: [f32; 3],
@@ -139,6 +302,9 @@ pub struct Light {
     pub ambient: Color,
     pub rim: Color,
     pub rim_strength: f32,
+    /// How far a flat face turns, in degrees, while it fades from one tone band to the
+    /// next. Small is a hard cel step; a turning ship then flips whole faces in a frame.
+    pub band_fade_degrees: f32,
 }
 
 impl Default for Light {
@@ -150,24 +316,36 @@ impl Default for Light {
             ambient: l.ambient,
             rim: l.rim.with_alpha(1.0),
             rim_strength: l.rim.a,
+            band_fade_degrees: l.band_fade_degrees,
         }
     }
 }
 
 impl Light {
+    fn check(&self) -> Result<(), String> {
+        if !(self.band_fade_degrees.is_finite() && (0.0..=90.0).contains(&self.band_fade_degrees)) {
+            return Err(format!(
+                "band_fade_degrees is {}; it is 0 to 90",
+                self.band_fade_degrees
+            ));
+        }
+        Ok(())
+    }
+
     pub fn lights(&self) -> Lights {
         Lights {
             sun_direction: Vec3::from(self.sun_direction).normalize_or(Vec3::Z),
             sun_color: self.sun,
             ambient: self.ambient,
             rim: self.rim.with_alpha(self.rim_strength.clamp(0.0, 1.0)),
+            band_fade_degrees: self.band_fade_degrees,
             points: Vec::new(),
         }
     }
 }
 
 /// The backdrop behind everything.
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Sky {
     pub top: Color,
@@ -209,7 +387,7 @@ impl Sky {
 /// How the followed thing's order is shown: round dots from it to where it is going,
 /// through the waypoints left on a route, and a ring round where it ends. Sizes are in
 /// logical pixels so the course reads the same at any zoom.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Course {
     pub show: bool,
@@ -236,7 +414,7 @@ impl Default for Course {
 }
 
 /// How a model is shaded and inked.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Look {
     pub outline_px: f32,
@@ -347,5 +525,63 @@ color = \"#3fa7a0\"
                 .unwrap_err()
                 .contains("width")
         );
+        assert!(
+            Style::parse("[light]\nband_fade_degrees = 120.0")
+                .unwrap_err()
+                .contains("[light] band_fade_degrees")
+        );
+    }
+
+    #[test]
+    fn every_key_is_described_and_its_range_is_accepted() {
+        for (table, keys) in defaults() {
+            assert!(!keys.is_empty(), "{table}");
+            for (key, default) in &keys {
+                let doc = KEYS.iter().find(|k| k.0 == table && k.1 == key);
+                assert!(doc.is_some(), "style key [{table}] {key} is not in KEYS");
+                let header = table.replace("<name>", "a");
+                assert!(
+                    Style::parse(&format!(
+                        "[{header}]
+{key} = {default}"
+                    ))
+                    .is_ok(),
+                    "[{table}] {key} = {default}"
+                );
+            }
+        }
+        for (table, key, range, _) in KEYS {
+            assert!(
+                defaults()
+                    .iter()
+                    .any(|(t, keys)| t == table && keys.iter().any(|(k, _)| k == key)),
+                "KEYS names [{table}] {key}, which style.toml doesn't take"
+            );
+            // "lo to hi": both ends are accepted.
+            if let Some((lo, hi)) = range.split_once(" to ") {
+                let header = table.replace("<name>", "a");
+                for end in [lo, hi] {
+                    let value = if key.ends_with("count") || *key == "stars" {
+                        end.to_owned()
+                    } else {
+                        format!("{end}.0")
+                    };
+                    assert!(
+                        Style::parse(&format!(
+                            "[{header}]
+{key} = {value}"
+                        ))
+                        .is_ok(),
+                        "[{table}] {key} = {value}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_band_fade_reaches_the_lights() {
+        let s = Style::parse("[light]\nband_fade_degrees = 10.0").unwrap();
+        assert_eq!(s.light.unwrap().lights().band_fade_degrees, 10.0);
     }
 }

@@ -1,0 +1,37 @@
+# The course stays still in the world while the ship flies over it: `galaxy-gm motion
+# check tests/play/films/course.toml`. The first leg, to w1, is long and straight. Before
+# the course was measured from the route's end, its dots crawled along it at the ship's
+# speed (about 2.7 px a frame here), like a chain being reeled in.
+modules = "../drift"
+inputs = "inputs/route.toml"
+from = 4
+to = 34
+
+# The pixels along the leg, frame after frame.
+[[expect]]
+tool = "strip"
+along = "course"
+value = "drift_px_per_frame"
+at_least = -0.1
+at_most = 0.1
+
+# Optical flow along the leg, a second way to see it.
+[[expect]]
+tool = "flow"
+along = "course"
+value = "along.px_per_frame"
+at_least = -0.2
+at_most = 0.2
+
+# The dots themselves, from the probes.
+[[expect]]
+tool = "dots"
+value = "drift_px_per_frame"
+at_least = -0.05
+at_most = 0.05
+
+# Following the ship, the camera moves smoothly between ticks.
+[[expect]]
+tool = "track"
+value = "camera.judder"
+at_most = 0.1

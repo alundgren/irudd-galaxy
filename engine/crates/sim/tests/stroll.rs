@@ -41,7 +41,7 @@ fn scripted(ticks: u64) -> Session {
             .unwrap();
         for (at, text) in &script.notes {
             if *at == session.world.tick {
-                session.note(text);
+                session.note(text, None, None);
             }
         }
     }
@@ -155,6 +155,14 @@ fn a_recording_replays_to_the_same_world_twice() {
     rec.write(&path).unwrap();
     let read = Recording::read(&path).unwrap();
     assert_eq!(read, rec);
+    // A line a record: each event on its own line, so a search finds them.
+    let text = std::fs::read_to_string(&path).unwrap();
+    let events = text.lines().filter(|l| l.starts_with("{\"type\":")).count();
+    assert_eq!(events, rec.events.len());
+    assert!(text.lines().any(|l| l.starts_with("{\"type\":\"note\"")));
+    // One written compact, on a line, as earlier builds did, reads the same.
+    std::fs::write(&path, serde_json::to_string(&rec).unwrap()).unwrap();
+    assert_eq!(Recording::read(&path).unwrap(), rec);
     for _ in 0..2 {
         let (replayed, report) = replay(&read).unwrap();
         assert!(report.identical, "{report:?}");

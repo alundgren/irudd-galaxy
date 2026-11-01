@@ -17,7 +17,7 @@ struct Globals {
     sun_color: vec4<f32>,
     ambient: vec4<f32>,
     rim: vec4<f32>,
-    // x: point light count.
+    // x: point light count, y: the tone bands' fade width (half-Lambert units).
     counts: vec4<f32>,
     points: array<PointLight, 8>,
 };

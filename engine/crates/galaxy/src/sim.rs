@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use galaxy_api::engine::{HOT_LOADED, SCRIPT_FAILED};
+use galaxy_api::engine::{HOT_LOADED, MODEL, MOTION, POSITION, SCRIPT_FAILED};
 use galaxy_module::cli::{self, Output};
 use galaxy_module::failure::code;
 use galaxy_module::module::Module;
@@ -12,10 +12,11 @@ use galaxy_module::{Failure, discover, gate};
 use galaxy_sim::scenario::InputsFile;
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
-use galaxy_sim::{BuildStamp, Recording, Session, replay, save};
+use galaxy_sim::{BuildStamp, Recording, Session, save};
 use serde_json::{Value, json};
 
-use crate::{USAGE, module_dirs};
+use crate::module_dirs;
+pub(crate) use crate::usage;
 
 /// Ticks `sim run` runs when not told.
 const DEFAULT_TICKS: u64 = 300;
@@ -37,10 +38,22 @@ pub(crate) struct Options {
     pub size: Option<(u32, u32)>,
     /// `--frames <n>`: stop after this many frames.
     pub frames: Option<u64>,
-}
-
-pub(crate) fn usage(message: impl Into<String>) -> Failure {
-    cli::usage_failure(message, USAGE)
+    /// `--from <tick>` and `--to <tick>`: what a film covers.
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    /// `--fps <n>`: a film's frames a second.
+    pub fps: Option<u64>,
+    /// `--probes-only`: a film without pictures.
+    pub probes_only: bool,
+    /// `--entity <id>` and `--component <name>`: what `--state` prints.
+    pub entity: Option<String>,
+    pub component: Option<String>,
+    /// `--all`: with `--state`, the whole world rather than a line an entity.
+    pub all: bool,
+    /// `--crop <thing>`: a shot framed round one thing.
+    pub crop: Option<String>,
+    /// `--builds a,b`: film with two installed builds and compare.
+    pub builds: Option<String>,
 }
 
 pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
@@ -60,7 +73,10 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
         if !allowed.contains(&flag) {
             return Err(usage(format!("unknown option `{flag}` here")));
         }
-        let switch = matches!(flag, "--realtime" | "--watch" | "--state");
+        let switch = matches!(
+            flag,
+            "--realtime" | "--watch" | "--state" | "--probes-only" | "--all"
+        );
         if switch {
             if inline.is_some() {
                 return Err(usage(format!("{flag} takes no value")));
@@ -68,6 +84,8 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             match flag {
                 "--realtime" => options.realtime = true,
                 "--watch" => options.watch = true,
+                "--probes-only" => options.probes_only = true,
+                "--all" => options.all = true,
                 _ => options.state = true,
             }
             continue;
@@ -90,6 +108,13 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--record" => options.record = Some(path(&value)),
             "--out" => options.out = Some(path(&value)),
             "--frames" => options.frames = Some(number(&value)?),
+            "--from" => options.from = Some(number(&value)?),
+            "--to" => options.to = Some(number(&value)?),
+            "--fps" => options.fps = Some(number(&value)?),
+            "--entity" => options.entity = Some(value),
+            "--component" => options.component = Some(value),
+            "--crop" => options.crop = Some(value),
+            "--builds" => options.builds = Some(value),
             "--size" => {
                 let size = value
                     .split_once('x')
@@ -107,7 +132,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
     Ok((positional, options))
 }
 
-const RUN_OPTIONS: &[&str] = &[
+pub(crate) const RUN_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--ticks",
@@ -117,103 +142,112 @@ const RUN_OPTIONS: &[&str] = &[
     "--realtime",
     "--watch",
     "--state",
+    "--entity",
+    "--component",
+    "--all",
 ];
 
+pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state", "--entity", "--component", "--all"];
+
+/// `galaxy sim run`.
 pub fn run(args: &[String]) -> Result<Output, Failure> {
-    match args.first().map(String::as_str) {
-        Some("run") => {
-            let (positional, options) = parse(&args[1..], RUN_OPTIONS)?;
-            if !positional.is_empty() {
-                return Err(usage(
-                    "sim run takes options only: galaxy sim run --modules <dir>",
-                ));
-            }
-            let modules = load_modules(&options)?;
-            let session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-            drive(session, &options, DEFAULT_TICKS, "run")
-        }
-        Some("load") => {
-            let allowed: Vec<&str> = RUN_OPTIONS
-                .iter()
-                .copied()
-                .filter(|o| *o != "--seed")
-                .collect();
-            let (positional, options) = parse(&args[1..], &allowed)?;
-            let [save_path] = positional.as_slice() else {
-                return Err(usage(
-                    "sim load takes one save: galaxy sim load <save> --modules <dir>",
-                ));
-            };
-            let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
-            let modules = load_modules(&options)?;
-            let (info, world) = save::read(&save_path)
-                .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
-            let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
-            let mut loaded: Vec<&str> = modules.iter().map(Module::id).collect();
-            loaded.sort_unstable();
-            if saved != loaded {
-                return Err(Failure::bad_input(format!(
-                    "the save was made with the modules {saved:?}; load it with the same \
-                     modules (these are {loaded:?})"
-                ))
-                .with("saved_modules", json!(info.modules)));
-            }
-            let session = Session::resume(modules, world).map_err(bad_modules)?;
-            drive(session, &options, 0, "load")
-        }
-        Some("replay") => {
-            let (positional, options) = parse(&args[1..], &["--state"])?;
-            let [path] = positional.as_slice() else {
-                return Err(usage(
-                    "sim replay takes one recording: galaxy sim replay <recording>",
-                ));
-            };
-            let path = discover::resolve(&cli::current_dir()?, Path::new(path));
-            let rec = Recording::read(&path)
-                .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
-            let (session, report) = replay(&rec).map_err(|e| {
-                Failure::bad_input(format!("the recording can't run on this engine: {e}"))
-                    .with("path", path.display().to_string())
-            })?;
-            let this = BuildStamp::current();
-            let mut out = json!({
-                "ok": report.identical,
-                "command": "replay",
-                "identical": report.identical,
-                "tick": report.tick,
-                "hash": report.hash,
-                "recorded_hash": report.recorded_hash,
-                "recorded_build": rec.build,
-                "this_build": this,
-                "notes": report.notes,
-            });
-            if options.state {
-                out["state"] = state(&session);
-            }
-            if !report.identical {
-                let mut failure = Failure::new(
-                    code::REJECTED,
-                    "replay_diverged",
-                    format!(
-                        "the replay ended with a different world than the recording (tick {}). \
-                         Was it made by another build? It names {}",
-                        report.tick,
-                        rec.build
-                            .name
-                            .as_deref()
-                            .unwrap_or("a build that was not installed")
-                    ),
-                );
-                if let Value::Object(fields) = out {
-                    failure.fields = fields;
-                }
-                return Err(failure);
-            }
-            Ok(Output::Json(out))
-        }
-        Some(other) => Err(usage(format!("unknown sim command `{other}`"))),
-        None => Err(usage("sim needs a command: run, load or replay")),
+    let (positional, options) = parse(args, RUN_OPTIONS)?;
+    if !positional.is_empty() {
+        return Err(usage(
+            "sim run takes options only: galaxy sim run --modules <dir>",
+        ));
     }
+    let modules = load_modules(&options)?;
+    let session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
+    drive(session, &options, DEFAULT_TICKS, "run")
+}
+
+/// `galaxy sim load`.
+pub fn load(args: &[String]) -> Result<Output, Failure> {
+    let allowed: Vec<&str> = RUN_OPTIONS
+        .iter()
+        .copied()
+        .filter(|o| *o != "--seed")
+        .collect();
+    let (positional, options) = parse(args, &allowed)?;
+    let [save_path] = positional.as_slice() else {
+        return Err(usage(
+            "sim load takes one save: galaxy sim load <save> --modules <dir>",
+        ));
+    };
+    let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
+    let modules = load_modules(&options)?;
+    let (info, world) = save::read(&save_path)
+        .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
+    let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
+    let mut loaded: Vec<&str> = modules.iter().map(Module::id).collect();
+    loaded.sort_unstable();
+    if saved != loaded {
+        return Err(Failure::bad_input(format!(
+            "the save was made with the modules {saved:?}; load it with the same \
+             modules (these are {loaded:?})"
+        ))
+        .with("saved_modules", json!(info.modules)));
+    }
+    let session = Session::resume(modules, world).map_err(bad_modules)?;
+    drive(session, &options, 0, "load")
+}
+
+/// `galaxy sim replay`.
+pub fn replay(args: &[String]) -> Result<Output, Failure> {
+    let (positional, options) = parse(args, REPLAY_OPTIONS)?;
+    filters_need_state(&options)?;
+    let [path] = positional.as_slice() else {
+        return Err(usage(
+            "sim replay takes one recording: galaxy sim replay <recording>",
+        ));
+    };
+    let path = discover::recording_file(&discover::resolve(&cli::current_dir()?, Path::new(path)));
+    let rec = Recording::read(&path)
+        .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
+    let (session, report) = galaxy_sim::replay(&rec).map_err(|e| {
+        Failure::bad_input(format!("the recording can't run on this engine: {e}"))
+            .with("path", path.display().to_string())
+    })?;
+    let this = BuildStamp::current();
+    let mut out = json!({
+        "ok": report.identical,
+        "command": "replay",
+        "identical": report.identical,
+        "tick": report.tick,
+        "hash": report.hash,
+        "recorded_hash": report.recorded_hash,
+        "builds": galaxy_sim::recording::builds(
+            &rec.build,
+            &this,
+            "replayed",
+            &format!("galaxy sim replay {}", path.display()),
+        ),
+        "notes": report.notes,
+    });
+    if options.state {
+        out["state"] = state(&session, &options)?;
+    }
+    if !report.identical {
+        let mut failure = Failure::new(
+            code::REJECTED,
+            "replay_diverged",
+            format!(
+                "the replay ended with a different world than the recording (tick {}). \
+                 Was it made by another build? It names {}",
+                report.tick,
+                rec.build
+                    .name
+                    .as_deref()
+                    .unwrap_or("a build that was not installed")
+            ),
+        );
+        if let Value::Object(fields) = out {
+            failure.fields = fields;
+        }
+        return Err(failure);
+    }
+    Ok(Output::Json(out))
 }
 
 pub(crate) fn bad_modules(message: String) -> Failure {
@@ -238,6 +272,7 @@ fn drive(
     default_ticks: u64,
     command: &str,
 ) -> Result<Output, Failure> {
+    filters_need_state(options)?;
     let script = match &options.inputs {
         Some(path) => InputsFile::read(path)
             .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?,
@@ -318,7 +353,7 @@ fn drive(
             .step(inputs.get(&tick).map_or(&[][..], Vec::as_slice))
             .map_err(Failure::runtime)?;
         for text in notes.get(&session.world.tick).into_iter().flatten() {
-            session.note(text);
+            session.note(text, None, None);
         }
     }
 
@@ -364,28 +399,149 @@ fn drive(
         "recorded": options.record.as_ref().map(|p| p.display().to_string()),
     });
     if options.state {
-        out["state"] = state(&session);
+        out["state"] = state(&session, options)?;
     }
     Ok(Output::Json(out))
 }
 
-/// The world, for `--state`: entities with their components' fields, and the facts.
-fn state(session: &Session) -> Value {
-    let entities: serde_json::Map<String, Value> = session
-        .world
+/// `--entity`, `--component` and `--all` choose what `--state` prints.
+fn filters_need_state(options: &Options) -> Result<(), Failure> {
+    if (options.entity.is_some() || options.component.is_some() || options.all) && !options.state {
+        return Err(usage(
+            "--entity, --component and --all choose what --state prints; add --state",
+        ));
+    }
+    Ok(())
+}
+
+/// The world, for `--state`: a line an entity (where it is, its speed, its model and its
+/// components) and the facts counted by kind. With `--entity` or `--component`, those
+/// entities' and components' fields, without the facts; with `--all`, every field, the
+/// facts and causes.
+fn state(session: &Session, options: &Options) -> Result<Value, Failure> {
+    let world = &session.world;
+    // A full ID, or a bare name one module has (`ship` for `drift.ship`).
+    let pick = |want: &str, names: Vec<&String>, what: &str| -> Result<String, Failure> {
+        if names.iter().any(|n| *n == want) {
+            return Ok(want.to_owned());
+        }
+        let suffix = format!(".{want}");
+        let found: Vec<&&String> = names.iter().filter(|n| n.ends_with(&suffix)).collect();
+        match found.as_slice() {
+            [one] => Ok((**one).clone()),
+            [] => Err(usage(format!(
+                "no {what} `{want}` in the world; there are {}",
+                names
+                    .iter()
+                    .map(|n| n.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))),
+            many => Err(usage(format!(
+                "`{want}` could be {}; write the full ID",
+                many.iter()
+                    .map(|n| n.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" or ")
+            ))),
+        }
+    };
+    let entity = options
+        .entity
+        .as_deref()
+        .map(|e| pick(e, world.entities.keys().collect(), "entity"))
+        .transpose()?;
+    let component = match options.component.as_deref() {
+        None => None,
+        Some(c) => {
+            let mut names: Vec<&String> =
+                world.entities.values().flat_map(|cs| cs.keys()).collect();
+            names.sort();
+            names.dedup();
+            Some(pick(c, names, "component")?)
+        }
+    };
+    let entities: serde_json::Map<String, Value> = world
+        .entities
+        .iter()
+        .filter(|(id, _)| entity.as_ref().is_none_or(|e| e == *id))
+        .filter_map(|(id, components)| {
+            let components: serde_json::Map<String, Value> = components
+                .iter()
+                .filter(|(name, _)| component.as_ref().is_none_or(|c| c == *name))
+                .map(|(name, c)| (name.clone(), Value::Object(c.fields.clone())))
+                .collect();
+            (!components.is_empty()).then(|| (id.clone(), Value::Object(components)))
+        })
+        .collect();
+    if entity.is_some() || component.is_some() {
+        return Ok(json!({
+            "entities": entities,
+            "facts": format!(
+                "{} fact(s) left out with --entity/--component; --state alone prints them",
+                world.facts.len()
+            ),
+        }));
+    }
+    if options.all {
+        return Ok(json!({
+            "entities": entities,
+            "facts": world.facts,
+            "causes": world.causes,
+        }));
+    }
+    // A line an entity: where it is and how fast it goes, the model it wears, and its
+    // components by name.
+    let number = |c: Option<&galaxy_sim::world::Component>, k: &str| {
+        c.and_then(|c| c.fields.get(k)).and_then(Value::as_f64)
+    };
+    let summary: serde_json::Map<String, Value> = world
         .entities
         .iter()
         .map(|(id, components)| {
-            let components: serde_json::Map<String, Value> = components
-                .iter()
-                .map(|(name, c)| (name.clone(), Value::Object(c.fields.clone())))
-                .collect();
-            (id.clone(), Value::Object(components))
+            let mut parts = Vec::new();
+            let at = components.get(POSITION);
+            if let (Some(x), Some(y)) = (number(at, "x"), number(at, "y")) {
+                parts.push(format!(
+                    "at ({x:.2}, {y:.2}) angle {:.2}",
+                    number(at, "angle").unwrap_or(0.0)
+                ));
+            }
+            let moving = components.get(MOTION);
+            if let (Some(vx), Some(vy)) = (number(moving, "vx"), number(moving, "vy")) {
+                parts.push(format!("speed {:.2}", (vx * vx + vy * vy).sqrt()));
+            }
+            if let Some(m) = components.get(MODEL) {
+                let text = |k: &str| m.fields.get(k).and_then(Value::as_str).unwrap_or("");
+                let mut worn = format!("wears {}", text("model"));
+                if let Some(s) = number(Some(m), "scale").filter(|s| *s != 1.0) {
+                    worn.push_str(&format!(" at scale {s}"));
+                }
+                if !text("look").is_empty() {
+                    worn.push_str(&format!(" with look {}", text("look")));
+                }
+                parts.push(worn);
+            }
+            let names: Vec<&str> = components.keys().map(String::as_str).collect();
+            let line = if parts.is_empty() {
+                names.join(", ")
+            } else {
+                format!("{}; {}", parts.join(", "), names.join(", "))
+            };
+            (id.clone(), Value::String(line))
         })
         .collect();
-    json!({
-        "entities": entities,
-        "facts": session.world.facts,
-        "causes": session.world.causes,
-    })
+    let mut kinds: std::collections::BTreeMap<&str, usize> = Default::default();
+    for f in &world.facts {
+        *kinds.entry(f.kind.as_str()).or_default() += 1;
+    }
+    Ok(json!({
+        "entities": summary,
+        "facts": { "count": world.facts.len(), "kinds": kinds },
+        "causes": world.causes.len(),
+        "compact": "a line an entity: where it is, its speed, its model and its components. \
+                    --entity <id> for one entity's fields, --component <name> for one \
+                    component on every entity, --all for the whole world (every field, the \
+                    facts and causes)",
+    }))
 }

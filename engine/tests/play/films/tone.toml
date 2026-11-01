@@ -1,0 +1,15 @@
+# A turning ship's faces ease between light and shadow instead of flipping in one frame:
+# `galaxy-gm motion check tests/play/films/tone.toml`. With `[light] band_fade_degrees = 0`
+# (the hard cel step a playtest found) the ship flips faces about every 0.75 s here and
+# `tone` finds 4 or 5 hard steps, each 7 to 10 times the change round it; at the default 25
+# degrees it finds none, the most any frame stands out being about 3 times.
+modules = "../drift"
+inputs = "inputs/circle.toml"
+from = 30
+to = 150
+
+[[expect]]
+tool = "tone"
+thing = "ship"
+value = "hard_steps"
+at_most = 0

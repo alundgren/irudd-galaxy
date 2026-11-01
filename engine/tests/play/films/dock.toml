@@ -1,0 +1,25 @@
+# Docking stops on the berth without going past it, and the camera follows smoothly:
+# `galaxy-gm motion check tests/play/films/dock.toml`. Probes only, so
+# it needs no GPU and runs in the engine's headless tests.
+modules = "../drift"
+inputs = "inputs/dock.toml"
+from = 0
+to = 180
+probes_only = true
+
+[[expect]]
+tool = "track"
+to = "berth"
+value = "gap.overshoot"
+at_most = 0.1
+
+[[expect]]
+tool = "track"
+to = "berth"
+value = "gap.end"
+at_most = 0.1
+
+[[expect]]
+tool = "track"
+value = "camera.judder"
+at_most = 0.1

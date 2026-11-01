@@ -62,6 +62,123 @@ fn a_shot_draws_the_module() {
     assert_eq!(&bytes[1..4], b"PNG");
 }
 
+fn film(args: &[&str], out: &Path) -> Value {
+    let o = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
+        .args(["film", "--modules"])
+        .arg(drift())
+        .args(args)
+        .arg("--out")
+        .arg(out)
+        .env_remove("GALAXY_INSTALL_ROOT")
+        .output()
+        .unwrap();
+    serde_json::from_slice(&o.stdout).unwrap()
+}
+
+fn inputs(name: &str) -> String {
+    drift()
+        .join("../films/inputs")
+        .join(name)
+        .display()
+        .to_string()
+}
+
+#[test]
+fn a_probes_only_film_needs_no_gpu_and_the_course_stays_still() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("leg");
+    let json = film(
+        &[
+            "--inputs",
+            &inputs("route.toml"),
+            "--from",
+            "4",
+            "--to",
+            "34",
+            "--probes-only",
+        ],
+        &out,
+    );
+    assert_eq!(json["ok"], true, "{json}");
+    assert_eq!(
+        (json["frames"].as_u64(), json["drawn"].as_bool()),
+        (Some(61), Some(false))
+    );
+    let film = galaxy_motion::Film::read(&out).unwrap();
+    // Frames land on ticks and half way between, as the window draws them at 60 fps.
+    let f = film.frames();
+    assert_eq!(
+        (f[0].tick, f[0].alpha, f[1].tick, f[1].alpha),
+        (4, 0.0, 4, 0.5)
+    );
+    assert!(f[0].things["drift.ship"].followed);
+    let dots = galaxy_motion::run("dots", &out, &galaxy_motion::Opts::new()).unwrap();
+    assert!(
+        dots["drift_px_per_frame"].as_f64().unwrap().abs() < 0.01,
+        "{dots}"
+    );
+    assert_eq!(dots["steps"], 60, "{dots}");
+}
+
+#[test]
+fn the_wheel_in_an_inputs_file_zooms_the_film() {
+    let tmp = tempfile::tempdir().unwrap();
+    let script = tmp.path().join("zoom.toml");
+    std::fs::write(
+        &script,
+        "[[zoom]]
+tick = 10
+steps = 3.0
+",
+    )
+    .unwrap();
+    let out = tmp.path().join("f");
+    let json = film(
+        &[
+            "--inputs",
+            script.to_str().unwrap(),
+            "--to",
+            "20",
+            "--probes-only",
+        ],
+        &out,
+    );
+    assert_eq!(json["ok"], true, "{json}");
+    let film = galaxy_motion::Film::read(&out).unwrap();
+    let at = |tick: u64| film.frames().iter().find(|f| f.tick == tick).unwrap();
+    assert_eq!(at(9).zoom, None);
+    let closer = at(10).camera.per_pixel / at(9).camera.per_pixel;
+    assert!((closer - 0.88f32.powi(3)).abs() < 1e-3, "{closer}");
+}
+
+#[test]
+#[ignore = "needs a GPU: films the course and reads its pixels"]
+fn a_film_draws_every_frame_and_the_course_stays_still_in_its_pixels() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("leg");
+    let json = film(
+        &[
+            "--inputs",
+            &inputs("route.toml"),
+            "--from",
+            "4",
+            "--to",
+            "34",
+            "--size",
+            "640x360",
+        ],
+        &out,
+    );
+    assert_eq!(json["ok"], true, "{json}");
+    assert!(out.join("frames/00060.png").is_file());
+    let strip = galaxy_motion::run("strip", &out, &galaxy_motion::Opts::new()).unwrap();
+    assert!(
+        strip["drift_px_per_frame"].as_f64().unwrap().abs() < 0.1,
+        "{strip}"
+    );
+    assert!(strip["confidence"].as_f64().unwrap() > 0.8, "{strip}");
+}
+
 // --- The models' maker. Run it on purpose, then commit what it wrote:
 //     cargo xtask cargo test -p galaxy --test drift -- --ignored make_the_models
 

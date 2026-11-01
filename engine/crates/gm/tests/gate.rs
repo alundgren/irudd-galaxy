@@ -120,3 +120,40 @@ fn version_and_help_print_text() {
     let text = String::from_utf8(out.stdout).unwrap();
     assert!(text.starts_with(&format!("galaxy-gm {ENGINE}")), "{text}");
 }
+
+#[test]
+fn every_command_has_help_that_never_points_at_the_repository() {
+    let run = |exe: &str, args: &[&str]| {
+        let out = Command::new(exe).args(args).output().unwrap();
+        assert!(out.status.success(), "{args:?}");
+        String::from_utf8(out.stdout).unwrap()
+    };
+    let gm = env!("CARGO_BIN_EXE_engine-galaxy-gm");
+    for (args, starts) in [
+        (&["film", "--help"][..], "galaxy-gm film <recording>"),
+        (
+            &["film", "rec.json", "--note", "1", "--help"],
+            "galaxy-gm film <recording>",
+        ),
+        (
+            &["motion", "flicker", "--help"],
+            "galaxy-gm motion flicker <film>",
+        ),
+        (&["motion", "--help"], "galaxy-gm motion <tool>"),
+        (&["help", "motion", "track"], "galaxy-gm motion track"),
+        (&["guide", "--help"], "galaxy-gm guide"),
+    ] {
+        let text = run(gm, args);
+        assert!(text.starts_with(starts), "{args:?}:\n{text}");
+    }
+    for text in [
+        run(gm, &["--help"]),
+        run(gm, &["guide"]),
+        run(gm, &["guide", "motion"]),
+    ] {
+        assert!(
+            !text.contains("engine/docs") && !text.contains(".md"),
+            "{text}"
+        );
+    }
+}
