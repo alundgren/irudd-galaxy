@@ -115,6 +115,24 @@ fn rooms_travel_arrival_save_replay_and_fresh_views_agree() {
 }
 
 #[test]
+fn natural_arrival_finishes_the_fade_without_a_last_tick_jump() {
+    let mut s = Session::new(vec![module()], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    for widget in ["enter_a", "leave"] {
+        click(&mut s, &mut v, widget);
+        assert_eq!(Cut::step(&s.world, 0.0).unwrap().opacity(), 0.0);
+        for _ in 0..29 {
+            s.step(&[]).unwrap();
+        }
+        assert!(Cut::step(&s.world, 0.999).unwrap().opacity() < 0.001);
+        assert_eq!(Cut::step(&s.world, 1.0).unwrap().opacity(), 0.0);
+        let arrived = travel::arrival(&s.world, false).unwrap();
+        s.step(&[arrived]).unwrap();
+        assert!(Cut::step(&s.world, 0.0).is_none());
+    }
+}
+
+#[test]
 fn framing_checks_every_room_even_when_the_player_starts_elsewhere() {
     let s = Session::new(vec![module()], 1).unwrap();
     let mut bad = s.world.clone();

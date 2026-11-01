@@ -17,8 +17,9 @@ impl<'a> Cut<'a> {
         if t["active"] != true {
             return None;
         }
-        let elapsed = ((world.tick as f64 - 1.0 + alpha as f64 - t["start_tick"].as_f64()?)
-            .max(0.0)
+        // Trips start on an input boundary, not the previous-pose interpolation tick.
+        // Finish the fade before the arrival input clears the trip at start + 30.
+        let elapsed = ((world.tick as f64 + alpha as f64 - t["start_tick"].as_f64()?).max(0.0)
             / TICKS_PER_SECOND as f64) as f32;
         Some(Self {
             from: t["from"].as_str()?,

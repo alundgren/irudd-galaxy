@@ -52,7 +52,7 @@ a new trip with those endpoints; another move replaces the trip. The world locat
 changes immediately, including when scripts change it directly. Non-player moves do
 not take over the player's view.
 
-The view's cut is derived from that saved trip and `(tick - 1 + alpha)`, not accumulated
+The view's cut is derived from that saved trip and `(tick + alpha)`, not accumulated
 frame time. Start, step, busy and finish use one path for all place changes. The first
 presentation fades out for 0.18 s, holds a title card for 0.60 s, then fades in for
 0.22 s. Leaving for an ancestor swaps the two fades: the same journey played backward.
