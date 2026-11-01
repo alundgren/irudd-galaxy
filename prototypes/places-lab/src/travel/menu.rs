@@ -47,6 +47,9 @@ fn basis(cam: &Camera) -> Mat3 {
 /// far as its people allow.
 fn room_camera(stage: &Stage, room: &str, rest: &Camera, back: f32) -> Camera {
     let mut cam = shared::pulled_back(rest, back);
+    if !stands_back(stage) {
+        return cam;
+    }
     let width = shared::view_height(&cam) * stage.aspect();
     let right = basis(&cam).x_axis;
     let most = (0.5 - ACROSS) * width;
@@ -70,7 +73,17 @@ fn room_camera(stage: &Stage, room: &str, rest: &Camera, back: f32) -> Camera {
     cam
 }
 
+/// Only the staged set is stood back and moved: it places people where the place model
+/// says. Other room variants place them their own way, so they keep their own framing
+/// and the dimmed station shows wherever they leave room.
+fn stands_back(stage: &Stage) -> bool {
+    stage.room.name() == "staged"
+}
+
 fn open_back(stage: &Stage, room: &str) -> f32 {
+    if !stands_back(stage) {
+        return 1.0;
+    }
     let wide = stage.place(room).map(|p| p.floor.x).unwrap_or(WIDE);
     (BACK * WIDE / wide.max(WIDE)).max(1.0)
 }
