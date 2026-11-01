@@ -380,6 +380,10 @@ impl App {
     /// Esc or right-click: drops a held part where it was, else the screen's `back`.
     pub fn back(&mut self) {
         if let Some(drag) = self.ix.drag.take() {
+            // The button may still be down: forget the press too, or moving would pick
+            // the part up again.
+            self.press = None;
+            self.ix.pressed = None;
             let mut d = drag;
             d.over = None;
             self.end_drag(d);

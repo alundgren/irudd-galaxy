@@ -32,13 +32,13 @@ used it.
 
 ## Did Luau stay off the per-frame path?
 
-Yes. From the scripted run (`--shots`), 4909 frames through every room, 218 of the
+Yes. From the scripted run (`--shots`), 4965 frames through every room, 218 of the
 hovers swept:
 
 | | |
 |---|---|
-| Screen runs | 32: one at load and one per event (31 events) |
-| Screen runs while a part was held | exactly 1 per drag (the pick-up), 0 while moving, for all 4 drags |
+| Screen runs | 34: one at load and one per event (33 events) |
+| Screen runs while a part was held | exactly 1 per drag (the pick-up), 0 while moving, for all 5 drags (one cancelled with Esc) |
 | Screen runs while zooming the station in and out | 0 |
 | Screen runs while hovering (218 hovers, in every saved state) | 0 |
 | Slowest screen run | 0.6 ms |

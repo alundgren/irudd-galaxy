@@ -210,7 +210,22 @@ impl Shooter {
         if let_go {
             self.app.pointer_up();
         } else {
+            // Esc with the button still held: moving on and letting go over the target
+            // must not pick the part up again or fit it.
             self.app.back();
+            let events = self.app.events.len();
+            self.app.pointer_move(b + Vec2::new(30.0, 30.0));
+            self.frame();
+            self.app.pointer_move(b);
+            self.frame();
+            self.app.pointer_up();
+            self.frame();
+            let after: Vec<String> = self.app.events[events..].to_vec();
+            if self.app.ix.drag.is_some() || !after.is_empty() {
+                self.failures.push(format!(
+                    "after Esc, moving and letting go with the button held still acted on {from}: {after:?}"
+                ));
+            }
         }
         let held = self.app.measures.runs_last_drag;
         println!("drag {from} -> {to}: screen runs while held {held} (moving: {moved})");
@@ -248,7 +263,7 @@ fn shooter(dir: PathBuf, out: PathBuf) -> Result<Shooter, String> {
 /// - `hover W`, `click W`, `press W` (hold the button down), `release`, `leave`
 /// - `drag W V` (pick W up and hold it over V), `drop` (let go)
 /// - `back`, `wait N` (frames), `zoom STEPS [W]` (the wheel, toward W)
-/// - `shot NAME` (a PNG and the JSON), `sweep` (hover everything here, report breaks)
+/// - `shot [NAME]` (a PNG and the JSON), `sweep` (hover everything here, report breaks)
 ///
 /// `W` is a widget id, a path from the JSON, or `x,y`. Without a final `shot`, one is
 /// taken at the end.
@@ -317,8 +332,8 @@ pub fn look(dir: PathBuf, out: PathBuf, script: &str) -> ExitCode {
                     .zoom_at(steps.parse().unwrap_or(0.0), at, viewport);
                 s.settle(60);
             }
-            ["shot", name] => {
-                let path = s.shoot(name);
+            ["shot", rest @ ..] if rest.len() <= 1 => {
+                let path = s.shoot(rest.first().copied().unwrap_or("shot"));
                 print_look(&s, &path);
                 shot_last = true;
             }
@@ -435,6 +450,7 @@ pub fn run(dir: PathBuf, out: PathBuf) -> ExitCode {
         Some("drag-refused-power"),
         true,
     );
+    s.drag("rack_lens", "socket_nose", None, false);
     s.drag("rack_lens", "socket_nose", Some("drag-lens-preview"), true);
     s.app.pointer_left();
     s.save("lens-fitted");

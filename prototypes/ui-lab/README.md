@@ -39,7 +39,7 @@ cargo xtask cargo run -- --look looks "click key_market; hover buy1_rations; sho
 ```
 
 Steps: `hover W`, `click W`, `press W`, `release`, `leave`, `drag W V` (hold W over V),
-`drop`, `back`, `wait N`, `zoom STEPS [W]`, `shot NAME`, `sweep` (hover everything here).
+`drop`, `back`, `wait N`, `zoom STEPS [W]`, `shot [NAME]`, `sweep` (hover everything here).
 `W` is a widget id, a path from the JSON, or `x,y`.
 
 `cargo xtask` here is the engine's xtask (`.cargo/config.toml`), so the lab builds in the
