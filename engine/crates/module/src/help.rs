@@ -492,8 +492,10 @@ static GAME: &[Command] = &[
             ),
             (
                 "--inputs <file>",
-                "a bot: play these inputs, notes and zooms on their ticks \
-              through the window loop (`galaxy-gm fields inputs` lists the format)",
+                "a bot: play these inputs, clicks, notes and zooms on their ticks \
+              through the window loop. [[click]] takes tick and either x/y logical pixels \
+              or widget = a full path or unique id (follows moving anchors). \
+              `galaxy-gm fields inputs` lists the format; `galaxy-gm guide screens` gives a recipe",
             ),
             (
                 "--ticks <n>",
@@ -511,7 +513,7 @@ static GAME: &[Command] = &[
                 "frame_time",
                 "frame times in milliseconds: median, p95, worst",
             ),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
             ("hot_load_failures", "hot-loads --watch refused, with why"),
             ("log", "what scripts printed"),
         ],
@@ -562,7 +564,7 @@ static GAME: &[Command] = &[
                 "the camera: eye, target, view height in world units",
             ),
             ("models_drawn", "how many models the scene drew"),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
             ("log", "what scripts printed"),
         ],
         writes: "--out",
@@ -631,7 +633,7 @@ static GAME: &[Command] = &[
               side by side (path, top speed, arrival, end) and whether it is the same; and \
               where the pictures differ",
             ),
-            ("problems", "models or looks that could not be drawn"),
+            ("problems", "model, look or screen readability problems"),
         ],
         writes: "<out>/film.json (how it was filmed, small), frames.jsonl (a frame a line: \
                  where every thing is), lines.jsonl (a frame a line: the lines and dots drawn), \
@@ -923,6 +925,25 @@ mod tests {
         }
         let g = guide();
         assert!(g.lines().count() < 80, "the guide stays short:\n{g}");
+    }
+
+    #[test]
+    fn screens_guide_covers_authoring_and_the_playtest_loop() {
+        let text = guide_topic("screens").expect("screens guide topic");
+        for required in [
+            "ui.button",
+            "engine.anchor",
+            "galaxy-gm check",
+            "galaxy shot",
+            "widget",
+            "galaxy play",
+            "galaxy sim replay",
+            "galaxy-gm audit",
+        ] {
+            assert!(text.contains(required), "missing {required}");
+        }
+        assert!(for_args(Tool::Gm, &["guide".into()]).contains("screens"));
+        assert!(for_args(Tool::Game, &["play".into()]).contains("widget"));
     }
 
     /// Every command line in a recipe runs a command in the table with options it takes.

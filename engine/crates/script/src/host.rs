@@ -43,6 +43,7 @@ pub struct LoadedScript {
     /// Event kinds it handles, as full IDs.
     pub events: BTreeSet<String>,
     pub cadence: bool,
+    pub screen: bool,
 }
 
 /// What a call is for.
@@ -129,10 +130,13 @@ impl ScriptSet {
         let mut problems = Vec::new();
         let mut events = BTreeSet::new();
         let mut cadence = false;
+        let mut screen = false;
         for pair in def.pairs::<Value, Value>() {
             let Ok((key, value)) = pair else { continue };
             let key = key.to_string().unwrap_or_default();
             match (key.as_str(), value) {
+                ("screen", Value::Function(_)) => screen = true,
+                ("screen", _) => problems.push(at("`screen` must be a function(ctx, ui)".into())),
                 ("cadence", Value::Function(_)) => cadence = true,
                 ("cadence", _) => problems.push(at("`cadence` must be a function(ctx)".into())),
                 ("on", Value::Table(on)) => {
@@ -159,7 +163,7 @@ impl ScriptSet {
                 }
                 ("on", _) => problems.push(at("`on` must be a table of handlers".into())),
                 (other, _) => problems.push(at(format!(
-                    "unknown key `{other}`; a script has `on` and `cadence`"
+                    "unknown key `{other}`; a script has `on`, `cadence` and `screen`"
                 ))),
             }
         }
@@ -168,6 +172,7 @@ impl ScriptSet {
                 file: file.to_owned(),
                 events,
                 cadence,
+                screen,
             })
         } else {
             Err(problems)
@@ -549,7 +554,7 @@ fn json_to_lua(lua: &Lua, value: &Json) -> mlua::Result<Value> {
     })
 }
 
-fn object_to_lua(lua: &Lua, map: &Fields) -> mlua::Result<Table> {
+pub(crate) fn object_to_lua(lua: &Lua, map: &Fields) -> mlua::Result<Table> {
     let t = lua.create_table_with_capacity(0, map.len())?;
     for (k, v) in map {
         // An `id` field with no entity reads as "", so the field is still there.

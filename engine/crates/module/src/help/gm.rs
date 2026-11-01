@@ -13,7 +13,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -27,9 +27,9 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, and whether what its start state wears exists.",
+                  style, screens at 1280x720, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -40,7 +40,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start or look) and message",
+                "each problem: kind (schema, script, start, look or screen) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
@@ -709,7 +709,14 @@ pub static TOPICS: &[Topic] = &[
                 components it declares, what it writes, keys), start.toml (its entities), \
                 scripts/*.luau, models/*.gltf and style.toml. IDs are `<module>.<name>`. \
                 Scripts run on events and once a second, never per frame; the engine's \
-                services fly, move and collide things.",
+                services fly, move and collide things. An entry script may also return screen = \
+                function(ctx, ui), returning ui.panel/text/button/list/row/column tables with \
+                children. Screen ctx.get/query are read-only and tracked: Luau rebuilds only \
+                when their data changes. Return nil to hide it. Buttons use on and payload; \
+                clicks record that event with source ui. Dimensions are logical pixels, text \
+                at least 16px. anchor = publisher#name follows an engine.anchor. check lays \
+                out screens at 1280x720 and names problems by widget path. Bot [[click]] \
+                entries (tick and either x/y or widget path/id) use galaxy play; then replay, audit or film the recording.",
         tasks: &[
             ("Check a module loads", "gm check"),
             ("What scripts can call", "gm types"),
@@ -719,6 +726,39 @@ pub static TOPICS: &[Topic] = &[
             ),
         ],
         recipes: &[],
+    },
+    Topic {
+        name: "screens",
+        title: "Screens, anchored widgets and recorded buttons",
+        about: "A manifest-listed Luau script returns screen = function(ctx, ui). Use \
+                ui.panel/text/button/list/row/column with children = { ... }; return nil to \
+                hide a screen. ctx.get/query track world reads, so Luau runs only when those \
+                change. The engine supplies contrasting paper behind unbacked text. A button's \
+                on names a declared event; its payload and source ui are recorded. An \
+                engine.anchor publisher follows a thing; anchor = publisher#name attaches a \
+                widget, including a button. Bot clicks use widget = a full diagnostic path \
+                or a unique id, or x/y logical pixels. Widget clicks resolve the current \
+                centre even when its anchor moves; missing, ambiguous or covered targets fail.",
+        tasks: &[("Screen API and types", "gm types")],
+        recipes: &[Recipe {
+            title: "Build a screen, attach a button, then check, click and replay it",
+            steps: &[
+                "Create example/manifest.toml with:\nid = 'example'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\nscripts = ['screen.luau']\nevents = ['activate', 'clicked']\nwrites = ['engine.position', 'engine.motion', 'engine.camera', 'engine.anchor']",
+                "Create example/start.toml with:\n[entities.camera]\n'engine.position' = {}\n'engine.camera' = { view = 60 }\n[entities.marker]\n'engine.position' = { x = 12 }\n'engine.motion' = { vx = 2 }\n'engine.anchor' = { name = 'label' }",
+                "Create example/screen.luau with:\nreturn {\n  screen = function(_, ui)\n    return ui.panel { width = 320, children = {\n      ui.text { text = 'Screen example' },\n      ui.button { id = 'continue', anchor = 'marker#label',\n        width = 220, text = 'Continue', on = 'activate' },\n    } }\n  end,\n  on = { activate = function(_, ctx) ctx.record('clicked', {}) end },\n}",
+                "galaxy-gm check example",
+                "galaxy shot --modules example --ticks 1 --out screen.png",
+                "Inspect screen.png. check and shot report readability problems by widget path, including overlaps between screens. Fix any findings before continuing.",
+                "galaxy-gm fields inputs",
+                "Write clicks.toml with:\n[[click]]\ntick = 20\nwidget = 'continue'\n[[note]]\ntick = 25\ntext = 'The anchored button was clicked.'",
+                "galaxy play --modules example --inputs clicks.toml --ticks 30",
+                "Use the session folder printed by play as <session> in the next commands. The click records the button event, not its lookup name or coordinates.",
+                "galaxy sim replay <session>/recording.json",
+                "galaxy-gm recording <session>/recording.json inputs",
+                "galaxy-gm audit <session>/recording.json",
+                "Read the replay hash and audit differences; inspect the note and audit pictures. For a named dev build, add --build <name> immediately after galaxy or galaxy-gm in every command.",
+            ],
+        }],
     },
     Topic {
         name: "style",

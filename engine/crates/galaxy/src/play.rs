@@ -18,7 +18,7 @@ use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Renderer, RgbaImage};
-use galaxy_sim::scenario::InputsFile;
+use galaxy_sim::scenario::{Click, InputsFile};
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
 use galaxy_sim::{BuildStamp, Input, Session, save};
@@ -224,6 +224,8 @@ struct App {
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
+    scripted_clicks: BTreeMap<u64, Vec<Click>>,
+    pointer: Vec2,
     /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
     /// frame at or after their tick.
     scripted_notes: BTreeMap<u64, Vec<String>>,
@@ -440,6 +442,22 @@ impl App {
             let mut inputs = std::mem::take(&mut self.pending);
             let tick = self.session.world.tick + 1;
             inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
+            for click in self.scripted_clicks.remove(&tick).unwrap_or_default() {
+                r.view.scene(
+                    &self.session.world,
+                    1.0,
+                    r.renderer.logical_size(),
+                    self.last_time,
+                );
+                match r.view.screens.bot_click(&click) {
+                    Ok(input) => inputs.push(input),
+                    Err(e) => {
+                        self.error = Some(Failure::runtime(format!("before tick {tick}: {e}")));
+                        event_loop.exit();
+                        return;
+                    }
+                }
+            }
             if let Err(e) = self.session.step(&inputs) {
                 self.error = Some(Failure::runtime(e));
                 event_loop.exit();
@@ -600,7 +618,27 @@ impl ApplicationHandler for App {
                 }
                 self.key(code, down);
             }
-            WindowEvent::MouseWheel { delta, .. } => {
+            WindowEvent::CursorMoved { position, .. } => {
+                if let Some(r) = &self.running {
+                    self.pointer =
+                        Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
+                }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: winit::event::MouseButton::Left,
+                ..
+            } if self.note.is_none() => {
+                if let Some(r) = &self.running
+                    && let Some(input) = r
+                        .view
+                        .screens
+                        .click(self.pointer, self.session.world.tick + 1)
+                {
+                    self.pending.push(input);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } if self.note.is_none() => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
@@ -621,6 +659,7 @@ impl ApplicationHandler for App {
 /// Inputs, notes and wheel steps by tick.
 #[derive(Default)]
 struct Script {
+    clicks: BTreeMap<u64, Vec<Click>>,
     inputs: BTreeMap<u64, Vec<Input>>,
     notes: BTreeMap<u64, Vec<String>>,
     zooms: BTreeMap<u64, Vec<f32>>,
@@ -650,7 +689,12 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for (tick, steps) in &script.zooms {
         zooms.entry(*tick).or_default().push(*steps);
     }
+    let mut clicks: BTreeMap<u64, Vec<Click>> = BTreeMap::new();
+    for c in &script.clicks {
+        clicks.entry(c.tick).or_default().push(c.clone());
+    }
     Ok(Script {
+        clicks,
         inputs: script.by_tick(),
         notes,
         zooms,
@@ -700,6 +744,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         held: BTreeSet::new(),
         pending: Vec::new(),
         scripted: script.inputs,
+        scripted_clicks: script.clicks,
+        pointer: Vec2::ZERO,
         scripted_notes: script.notes,
         scripted_zooms: script.zooms,
         watcher,
@@ -776,6 +822,11 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
     let script = scripted_inputs(&session, &options)?;
+    if !script.clicks.is_empty() {
+        return Err(Failure::bad_input(
+            "pointer clicks need galaxy play; film or replay its recording",
+        ));
+    }
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;

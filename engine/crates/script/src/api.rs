@@ -108,8 +108,10 @@ pub fn luau_types(engine: &str) -> String {
             member.doc, member.name, member.ty
         ));
     }
+    out.push_str("}\n");
+    out.push_str(SCREEN_TYPES);
     out.push_str(
-        "}\n\
+        "\n\
          \n\
          --- What a script file returns. `on` handlers run when an event of their kind\n\
          --- happens; `cadence` runs on the slow cadence (once per second of game time).\n\
@@ -117,9 +119,36 @@ pub fn luau_types(engine: &str) -> String {
          export type Script = {\n\
          \ton: { [Id]: (event: Event, ctx: Ctx) -> () }?,\n\
          \tcadence: ((ctx: Ctx) -> ())?,\n\
+         \tscreen: ((ctx: ScreenCtx, ui: Ui) -> Widget?)?,\n\
          }\n\
          \n\
          return {}\n",
     );
     out
 }
+
+/// Types for the pure presentation API, separate from writable event contexts.
+const SCREEN_TYPES: &str = r#"
+--- Reads are tracked. Rebuild only when their values change; nil hides the screen.
+export type ScreenCtx = {
+    module: string,
+    get: (entity: Id, component: Id) -> Fields?,
+    query: (component: Id) -> {Id},
+}
+--- Dimensions are logical pixels. Children flow down, or across a row. x/y place
+--- a child explicitly; anchor is publisher#name, projected and clamped to the view.
+--- Only buttons take on/payload. Unknown properties are errors. Minimum text: 16px.
+--- children is a consecutive list of widgets. id names a widget for diagnostics and bot
+--- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
+export type Widget = {
+    kind: string?, id: string?, text: string?, children: {Widget}?,
+    width: number?, height: number?, x: number?, y: number?,
+    size: number?, pad: number?, gap: number?, anchor: string?,
+    on: Id?, payload: Payload?,
+}
+export type Ui = {
+    text: (Widget) -> Widget, button: (Widget) -> Widget,
+    list: (Widget) -> Widget, panel: (Widget) -> Widget,
+    row: (Widget) -> Widget, column: (Widget) -> Widget,
+}
+"#;

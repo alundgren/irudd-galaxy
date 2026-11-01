@@ -469,5 +469,7 @@ pub struct UiLayer {
 pub struct Overlay {
     pub panels: Vec<Panel>,
     pub texts: Vec<Text>,
+    /// Ordered widgets, after the base layer and before engine chrome (`upper`).
+    pub widgets: Vec<UiLayer>,
     pub upper: [UiLayer; 3],
 }

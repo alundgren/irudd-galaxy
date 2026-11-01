@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod screens;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -195,6 +196,7 @@ pub struct Eye {
 /// Models on a renderer, the style, and what the last frame drew.
 pub struct View {
     pub assets: Assets,
+    pub screens: screens::Screens,
     handles: BTreeMap<String, MeshHandle>,
     /// How far each model reaches from its centre on the plane, for rings round it.
     reach: BTreeMap<String, f32>,
@@ -239,6 +241,8 @@ impl View {
         modules: impl IntoIterator<Item = &'a Module>,
         seed: u64,
     ) -> View {
+        let modules: Vec<_> = modules.into_iter().collect();
+        let screens = screens::Screens::load(&modules);
         let assets = Assets::load(modules);
         let (placeholder, sky) = match renderer.as_deref_mut() {
             Some(r) => (
@@ -249,6 +253,7 @@ impl View {
         };
         let mut view = View {
             assets: Assets::default(),
+            screens,
             handles: BTreeMap::new(),
             reach: BTreeMap::new(),
             placeholder,
@@ -271,6 +276,8 @@ impl View {
         renderer: Option<&mut Renderer>,
         modules: impl IntoIterator<Item = &'a Module>,
     ) {
+        let modules: Vec<_> = modules.into_iter().collect();
+        self.screens = screens::Screens::load(&modules);
         let assets = Assets::load(modules);
         self.replace(renderer, assets);
     }
@@ -417,6 +424,29 @@ impl View {
             per_pixel,
             &mut scene,
         );
+        let mut anchors = BTreeMap::new();
+        for (id, components) in &world.entities {
+            let Some(anchor) = components.get(galaxy_api::engine::ANCHOR) else {
+                continue;
+            };
+            let f = &anchor.fields;
+            let name = f.get("name").and_then(Value::as_str).unwrap_or("");
+            let target = f
+                .get("target")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(id);
+            if let Some(pose) = self.pose(world, target, alpha) {
+                let n = |k: &str| f.get(k).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+                let offset =
+                    Quat::from_rotation_z(pose.angle) * Vec3::new(n("x"), n("y"), n("height"));
+                if let Some(point) = camera.world_to_screen(pose.point() + offset, logical) {
+                    anchors.insert(format!("{id}#{name}"), point);
+                }
+            }
+        }
+        self.screens
+            .draw(world, logical, &anchors, &mut scene.overlay);
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
@@ -511,6 +541,7 @@ impl View {
     /// What is wrong with the modules' models and styles, as text.
     pub fn problems(&self) -> Vec<String> {
         let mut all = self.assets.problems.clone();
+        all.extend(self.screens.problems.clone());
         all.extend(self.assets.conflicts.iter().map(assets::Conflict::message));
         all.extend(
             self.missing

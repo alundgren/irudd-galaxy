@@ -307,11 +307,28 @@ fn check(dir: &Path) -> Result<Output, Failure> {
             Err(problems) => {
                 findings.extend(problems.iter().map(|p| finding("script", p.to_string())))
             }
-            Ok(_) => {
-                if let Err(e) = Session::new(all.clone(), 1) {
-                    findings.push(finding("start", e));
+            Ok(_) => match Session::new(all.clone(), 1) {
+                Err(e) => findings.push(finding("start", e)),
+                Ok(mut session) => {
+                    if let Err(e) = session.step(&[]) {
+                        findings.push(finding("start", e));
+                    }
+                    let mut view = galaxy_view::View::detached(session.modules(), 1);
+                    view.scene(
+                        &session.world,
+                        1.0,
+                        galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                        0.0,
+                    );
+                    findings.extend(
+                        view.screens
+                            .problems
+                            .iter()
+                            .filter(|p| p.starts_with(&format!("{}:", module.id())))
+                            .map(|p| finding("screen", p.clone())),
+                    );
                 }
-            }
+            },
         },
     }
     findings.extend(looks(&module, &all));

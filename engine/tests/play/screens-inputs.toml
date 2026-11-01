@@ -1,0 +1,17 @@
+[[click]]
+tick = 15
+widget = "increment"
+[[note]]
+tick = 25
+text = "Screen open after a recorded click; the label follows the moving marker."
+[[click]]
+tick = 35
+widget = "hide"
+[[input]]
+tick = 45
+name = "screens.toggle"
+source = "keyboard"
+payload = { down = true }
+[[note]]
+tick = 55
+text = "Screen reopened from recorded state."

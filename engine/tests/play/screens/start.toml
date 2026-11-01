@@ -1,0 +1,10 @@
+[entities.state]
+counter = { value = 0, open = true }
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60 }
+[entities.marker]
+"engine.position" = { x = -8, y = 0 }
+"engine.motion" = { vx = 2, vy = 0 }
+"engine.model" = { model = "screens.marker", scale = 1 }
+"engine.anchor" = { name = "label", height = 3 }

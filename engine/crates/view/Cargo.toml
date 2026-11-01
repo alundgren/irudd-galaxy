@@ -13,6 +13,7 @@ galaxy-module.workspace = true
 galaxy-motion.workspace = true
 galaxy-render.workspace = true
 galaxy-sim.workspace = true
+galaxy-script.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

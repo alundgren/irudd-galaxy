@@ -55,6 +55,25 @@ use crate::session::{Input, Session};
 /// `galaxy-gm fields inputs` prints it; a test reads a file made of every example.
 pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
     (
+        "[[click]]",
+        "tick",
+        "10",
+        "galaxy play only: click just before this tick (starts at 1)",
+    ),
+    (
+        "[[click]]",
+        "x",
+        "100.0",
+        "logical pixels from the left; hit tests the screen and records its event with source ui",
+    ),
+    ("[[click]]", "y", "200.0", "logical pixels from the top"),
+    (
+        "[[click]]",
+        "widget",
+        "\"continue\"",
+        "instead of x/y: a visible button's full widget path or unique id; resolves its centre on that tick, including moving anchors; missing, ambiguous or covered targets fail",
+    ),
+    (
         "[[input]]",
         "tick",
         "10",
@@ -148,9 +167,50 @@ struct RawZoom {
     steps: f32,
 }
 
+/// A bot pointer click. The view resolves it before the tick; recordings keep its event.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Click {
+    pub tick: u64,
+    pub target: ClickTarget,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ClickTarget {
+    Point { x: f32, y: f32 },
+    Widget(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawClick {
+    tick: u64,
+    x: Option<f32>,
+    y: Option<f32>,
+    widget: Option<String>,
+}
+
+impl RawClick {
+    fn read(self) -> Result<Click, String> {
+        if self.tick == 0 {
+            return Err("click tick must start at 1".into());
+        }
+        let target = match (self.x, self.y, self.widget) {
+            (Some(x), Some(y), None) if x.is_finite() && y.is_finite() => ClickTarget::Point { x, y },
+            (None, None, Some(widget)) if !widget.trim().is_empty() => ClickTarget::Widget(widget),
+            _ => return Err("click needs either finite x and y logical pixels or a nonempty widget path/id (not both)".into()),
+        };
+        Ok(Click {
+            tick: self.tick,
+            target,
+        })
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInputs {
+    #[serde(default)]
+    click: Vec<RawClick>,
     #[serde(default)]
     input: Vec<RawInput>,
     #[serde(default)]
@@ -185,6 +245,7 @@ fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Inpu
 /// An inputs file, read.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InputsFile {
+    pub clicks: Vec<Click>,
     pub inputs: Vec<Input>,
     pub notes: Vec<(u64, String)>,
     /// Module folders to hot-load, by tick.
@@ -202,6 +263,11 @@ impl InputsFile {
         let base = path.parent().unwrap_or(Path::new(""));
         let full = |name: &str| ids::is_full_id(name).then(|| name.to_owned());
         Ok(InputsFile {
+            clicks: raw
+                .click
+                .into_iter()
+                .map(RawClick::read)
+                .collect::<Result<_, _>>()?,
             inputs: raw
                 .input
                 .into_iter()
@@ -455,20 +521,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn inputs_accept_widget_clicks() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inputs.toml");
+        for widget in ["continue", "test:screen.luau/screen/continue[1]"] {
+            std::fs::write(&path, format!("[[click]]\ntick=10\nwidget='{widget}'\n")).unwrap();
+            assert!(InputsFile::read(&path).is_ok(), "{widget}");
+        }
+    }
+
+    #[test]
+    fn clicks_require_one_complete_target_and_a_valid_tick() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inputs.toml");
+        for fields in [
+            "tick=0\nwidget='ok'",
+            "tick=1\nwidget=''",
+            "tick=1",
+            "tick=1\nx=10",
+            "tick=1\nx=10\ny=20\nwidget='ok'",
+            "tick=1\nx=nan\ny=20",
+            "tick=1\nwidget=42",
+        ] {
+            std::fs::write(&path, format!("[[click]]\n{fields}\n")).unwrap();
+            assert!(InputsFile::read(&path).is_err(), "{fields}");
+        }
+    }
+
+    #[test]
     fn an_inputs_file_of_every_documented_key_reads() {
         let mut text = String::new();
         let mut last = "";
         for (entry, key, example, _) in INPUTS_KEYS {
+            if *key == "widget" {
+                continue; // Alternative to x/y, exercised as its own entry below.
+            }
             if *entry != last {
                 text.push_str(&format!("{entry}\n"));
                 last = entry;
             }
             text.push_str(&format!("{key} = {example}\n"));
         }
+        let (_, _, widget, _) = INPUTS_KEYS
+            .iter()
+            .find(|(_, key, _, _)| *key == "widget")
+            .unwrap();
+        text.push_str(&format!("[[click]]\ntick = 20\nwidget = {widget}\n"));
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("inputs.toml");
         std::fs::write(&path, &text).unwrap();
         let read = InputsFile::read(&path).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        assert_eq!(read.clicks.len(), 2);
         assert_eq!(
             (
                 read.inputs.len(),

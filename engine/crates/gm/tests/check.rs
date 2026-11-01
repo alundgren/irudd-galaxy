@@ -32,6 +32,7 @@ fn the_test_modules_pass_check() {
         "tests/modules/stroll",
         "tests/modules/tally",
         "tests/play/drift",
+        "tests/play/screens",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);
@@ -165,4 +166,22 @@ fn types_print() {
     let (code, types) = gm(&engine(), &["types"]);
     assert_eq!(code, 0);
     assert!(types.contains("export type Ctx"), "{types}");
+}
+
+#[test]
+fn screen_check_is_headless_and_reports_widget_paths() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/screens-unreadable"]);
+    assert_eq!(code, 5, "{out}");
+    let report = json(&out);
+    let findings = report["findings"].as_array().unwrap();
+    assert!(
+        findings
+            .iter()
+            .any(|p| p["kind"] == "screen" && p["message"].as_str().unwrap().contains("/tiny[1]"))
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|p| p["message"].as_str().unwrap().contains("/outside[2]"))
+    );
 }
