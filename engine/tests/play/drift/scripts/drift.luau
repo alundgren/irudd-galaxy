@@ -7,7 +7,6 @@ local AXES = {
 	["drift.thrust_back"] = "back",
 	["drift.turn_left"] = "left",
 	["drift.turn_right"] = "right",
-	["drift.brake"] = "brake",
 	["drift.boost"] = "boost",
 }
 
@@ -27,7 +26,6 @@ local function flight_key(event, ctx)
 			ctx.patch(id, "engine.helm", {
 				thrust = on("ahead") - on("back"),
 				turn = on("left") - on("right"),
-				brake = keys.brake > 0,
 				boost = keys.boost > 0,
 			})
 		end
@@ -72,7 +70,6 @@ return {
 		thrust_back = flight_key,
 		turn_left = flight_key,
 		turn_right = flight_key,
-		brake = flight_key,
 		boost = flight_key,
 		order_dock = order("dock", "drift.berth", 0),
 		order_mine = mine,

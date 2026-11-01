@@ -6,7 +6,7 @@ How things fly, take orders and bump into each other. The code is in `crates/sim
 sets the controls and gives orders, on events.
 
 ```sh
-galaxy play --modules tests/play/drift      # W/S thrust, A/D turn, Space brake, Shift boost
+galaxy play --modules tests/play/drift      # W/S thrust, A/D turn, Shift boost
                                             # 1 dock, 2 mine the nearest rock, 3 fly the route
 ```
 
