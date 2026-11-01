@@ -1,0 +1,7 @@
+[[input]]
+tick = 2
+name = "places.move"
+
+[[input]]
+tick = 3
+name = "places.walk"

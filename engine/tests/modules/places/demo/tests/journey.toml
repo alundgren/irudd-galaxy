@@ -1,0 +1,158 @@
+seed = 7
+ticks = 95
+
+[[input]]
+tick = 2
+name = "places.move"
+
+[[input]]
+tick = 3
+name = "places.walk"
+
+[[expect]]
+tick = 2
+entity = "visitor"
+component = "engine.location"
+field = "place"
+equals = "places.room_b"
+
+[[expect]]
+tick = 2
+entity = "visitor"
+component = "engine.being"
+field = "state"
+equals = "visiting"
+
+[[expect]]
+tick = 2
+entity = "player"
+component = "engine.location"
+field = "place"
+equals = "places.room_a"
+
+[[expect]]
+tick = 2
+entity = "clock"
+component = "engine.clock"
+field = "value"
+equals = 5
+
+[[expect]]
+tick = 3
+entity = "visitor"
+component = "engine.walk"
+field = "active"
+equals = true
+
+[[expect]]
+tick = 3
+entity = "visitor"
+component = "engine.walk"
+field = "start_tick"
+equals = 3
+
+[[expect]]
+tick = 48
+entity = "visitor"
+component = "engine.position"
+field = "x"
+equals = 1.5
+
+[[expect]]
+tick = 92
+entity = "visitor"
+component = "engine.walk"
+field = "active"
+equals = true
+
+[[expect]]
+tick = 93
+entity = "visitor"
+component = "engine.walk"
+field = "active"
+equals = false
+
+[[expect]]
+tick = 95
+entity = "visitor"
+component = "engine.location"
+field = "spot"
+equals = "places.b_table"
+
+[[expect]]
+tick = 95
+entity = "visitor"
+component = "engine.being"
+field = "state"
+equals = "resting"
+
+[[expect]]
+tick = 95
+entity = "visitor"
+component = "engine.position"
+field = "x"
+equals = 3.0
+
+[[expect]]
+tick = 95
+entity = "visitor"
+component = "engine.position"
+field = "height"
+equals = 5.0
+
+[[expect]]
+tick = 95
+entity = "probe_a"
+component = "engine.position"
+field = "x"
+equals = 20.0
+
+[[expect]]
+tick = 95
+entity = "probe_b"
+component = "engine.position"
+field = "x"
+equals = 20.0
+
+[[expect]]
+tick = 95
+entity = "probe_a"
+component = "engine.position"
+field = "y"
+equals = 0.0
+
+[[expect]]
+tick = 95
+entity = "probe_b"
+component = "engine.position"
+field = "y"
+equals = 0.0
+
+[[expect]]
+tick = 95
+entity = "probe_a"
+component = "engine.position"
+field = "height"
+equals = 2.0
+
+[[expect]]
+tick = 95
+entity = "probe_b"
+component = "engine.position"
+field = "height"
+equals = 5.0
+
+[[expect]]
+tick = 95
+entity = "clock"
+component = "engine.clock"
+field = "value"
+equals = 5
+
+[[expect]]
+facts = "engine.walk_finished"
+equals = 1
+
+[[expect]]
+facts = "engine.script_failed"
+equals = 0

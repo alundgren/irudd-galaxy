@@ -13,6 +13,21 @@ pub struct Member {
 /// Everything `ctx` holds, in the order the type file lists it.
 pub const CTX: &[Member] = &[
     Member {
+        name: "move",
+        ty: "(entity: Id, place: Id, spot: Id?, state: string?) -> ()",
+        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Writes apply in call order after the handler returns.",
+    },
+    Member {
+        name: "walk",
+        ty: "(entity: Id, spot: Id, speed: number, state: string?) -> ()",
+        doc: "Starts a recorded straight walk in the same place and floor layer, in world units per second. Rust advances it; state is applied on completion. Replaces an existing walk from the current position.",
+    },
+    Member {
+        name: "advance_clock",
+        ty: "(entity: Id, amount: number) -> ()",
+        doc: "Advances this engine.clock by a nonnegative whole amount in module-defined units. No automatic clock advancement.",
+    },
+    Member {
         name: "tick",
         ty: "number",
         doc: "The tick being run.",

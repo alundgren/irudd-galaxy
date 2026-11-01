@@ -82,6 +82,7 @@ pub fn outline_facing(
 
 struct Body {
     entity: String,
+    place: String,
     outline: Outline,
     bound: f64,
     x: f64,
@@ -111,11 +112,12 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let mass = number(&body.fields, "mass");
-        let inverse_mass = if fixed || motion.is_none() || mass <= 0.0 {
-            0.0
-        } else {
-            1.0 / mass
-        };
+        let inverse_mass =
+            if fixed || motion.is_none() || mass <= 0.0 || crate::places::walking(world, entity) {
+                0.0
+            } else {
+                1.0 / mass
+            };
         let drag = if components.contains_key(FLIGHT) {
             0.0
         } else {
@@ -123,6 +125,7 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
         };
         bodies.push(Body {
             entity: entity.clone(),
+            place: crate::places::place_of(world, entity).to_owned(),
             bound: outline.bound(),
             outline,
             x: number(&pos.fields, "x"),
@@ -152,6 +155,9 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
                     break;
                 }
                 let (a, b) = (&bodies[i], &bodies[j]);
+                if a.place != b.place {
+                    continue;
+                }
                 let total = a.inverse_mass + b.inverse_mass;
                 if total == 0.0 {
                     continue;

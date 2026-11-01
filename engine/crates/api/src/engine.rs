@@ -47,6 +47,9 @@
 //!   `mass`; a `fixed` body, or one with no `engine.motion`, never moves. Things that
 //!   don't fly lose `drag` of their speed per second after a push.
 //!
+//! Places, locations, beings, spots, doors, walks and clocks are described in
+//! `engine/docs/places-and-beings.md`. They use ordinary components and entity IDs.
+//!
 //! Scripts move things between layers (a ladder, a ramp's top) by patching `layer`, with
 //! the `engine.position` capability.
 
@@ -77,6 +80,14 @@ pub const WAYPOINT: &str = "engine.waypoint";
 pub const ANCHOR: &str = "engine.anchor";
 
 pub const BODY: &str = "engine.body";
+pub const PLACE: &str = "engine.place";
+pub const SPOT: &str = "engine.spot";
+pub const DOOR: &str = "engine.door";
+pub const LOCATION: &str = "engine.location";
+pub const BEING: &str = "engine.being";
+pub const WALK: &str = "engine.walk";
+pub const CLOCK: &str = "engine.clock";
+pub const WALK_FINISHED: &str = "engine.walk_finished";
 
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
@@ -84,7 +95,14 @@ pub const BODY: &str = "engine.body";
 /// - `script_failed`: a handler call was aborted and its writes discarded (`module`,
 ///   `script`, `handler`, `code`, `error`).
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
-pub const EVENTS: [&str; 4] = ["start", "hot_loaded", "script_failed", "arrived"];
+/// - `walk_finished`: a recorded walk completed (`entity`, `place`, `spot`).
+pub const EVENTS: [&str; 5] = [
+    "start",
+    "hot_loaded",
+    "script_failed",
+    "arrived",
+    "walk_finished",
+];
 
 pub const START: &str = "engine.start";
 pub const HOT_LOADED: &str = "engine.hot_loaded";
@@ -108,6 +126,78 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     ("anchor", "x", "local x offset in world units"),
     ("anchor", "y", "local y offset in world units"),
     ("anchor", "height", "height offset in world units"),
+    ("place", "parent", "parent place; empty for a root"),
+    (
+        "place",
+        "enter",
+        "place entered by default; empty to enter this place",
+    ),
+    ("place", "arrival", "default arrival spot in this place"),
+    (
+        "place",
+        "width",
+        "floor width in world units; 0 for unspecified",
+    ),
+    (
+        "place",
+        "depth",
+        "floor depth in world units; 0 for unspecified",
+    ),
+    ("spot", "place", "the place containing this named spot"),
+    ("spot", "name", "spot name, unique within its place"),
+    ("spot", "x", "local floor x in world units"),
+    ("spot", "y", "local floor y in world units"),
+    ("spot", "layer", "floor layer at this spot"),
+    ("door", "from", "source place of this directed connection"),
+    ("door", "to", "destination place"),
+    ("door", "spot", "optional door spot in the source place"),
+    (
+        "door",
+        "arrival",
+        "optional arrival spot in the destination place",
+    ),
+    (
+        "location",
+        "place",
+        "containing place; empty for the original shared plane",
+    ),
+    (
+        "location",
+        "spot",
+        "named spot occupied; empty between spots",
+    ),
+    ("being", "state", "module-defined state"),
+    ("being", "home", "home place; empty if none"),
+    (
+        "being",
+        "player",
+        "marks the player being; at most one in the world",
+    ),
+    ("walk", "active", "whether the walk is in progress"),
+    ("walk", "place", "place in which the walk runs"),
+    (
+        "walk",
+        "from",
+        "source spot, or empty when starting between spots",
+    ),
+    ("walk", "to", "destination spot"),
+    ("walk", "from_x", "saved starting x"),
+    ("walk", "from_y", "saved starting y"),
+    ("walk", "to_x", "saved destination x"),
+    ("walk", "to_y", "saved destination y"),
+    ("walk", "layer", "floor layer of the walk"),
+    ("walk", "start_tick", "sim tick when the walk started"),
+    ("walk", "speed", "world units per second"),
+    (
+        "walk",
+        "state",
+        "being state on completion; set by walk from the current state if omitted",
+    ),
+    (
+        "clock",
+        "value",
+        "recorded clock in module-defined units; advanced only by scripts",
+    ),
     ("position", "x", "world units"),
     ("position", "y", "world units"),
     (
@@ -296,6 +386,53 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
                 ("height", Number),
             ]),
         ),
+        (
+            "place",
+            fields(&[
+                ("parent", Id),
+                ("enter", Id),
+                ("arrival", Id),
+                ("width", Number),
+                ("depth", Number),
+            ]),
+        ),
+        (
+            "spot",
+            fields(&[
+                ("place", Id),
+                ("name", Text),
+                ("x", Number),
+                ("y", Number),
+                ("layer", Int),
+            ]),
+        ),
+        (
+            "door",
+            fields(&[("from", Id), ("to", Id), ("spot", Id), ("arrival", Id)]),
+        ),
+        ("location", fields(&[("place", Id), ("spot", Id)])),
+        (
+            "being",
+            fields(&[("state", Text), ("home", Id), ("player", Bool)]),
+        ),
+        (
+            "walk",
+            fields(&[
+                ("active", Bool),
+                ("place", Id),
+                ("from", Id),
+                ("to", Id),
+                ("from_x", Number),
+                ("from_y", Number),
+                ("to_x", Number),
+                ("to_y", Number),
+                ("layer", Int),
+                ("start_tick", Int),
+                ("speed", Number),
+                ("state", Text),
+            ]),
+        ),
+        ("clock", fields(&[("value", Int)])),
         (
             "position",
             fields(&[

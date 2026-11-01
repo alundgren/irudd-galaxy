@@ -10,7 +10,7 @@
 //!    ID order, scripts in manifest order. Facts recorded now are events next tick, so one
 //!    tick never chains without end. Inputs are handled before the services, so a key
 //!    acts on the tick it arrives;
-//! 4. engine services run: flight, motion, collide, then ground ([`crate::services`]);
+//! 4. engine services run: flight, motion, walking, collide, then ground ([`crate::services`]);
 //! 5. on every [`CADENCE_TICKS`]th tick, each script's `cadence` handler runs, in the same
 //!    order.
 //!
@@ -121,6 +121,7 @@ impl Session {
         }
         let cause = world.service_cause("start");
         world.record(cause, START, Fields::new());
+        crate::places::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -142,6 +143,7 @@ impl Session {
                 service: "load".into(),
             })
         })?;
+        crate::places::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -201,6 +203,7 @@ impl Session {
         self.dispatch_events();
         crate::flight::flight(&mut self.world, &self.shapes);
         services::motion(&mut self.world);
+        crate::places::advance_walks(&mut self.world);
         crate::collide::collide(&mut self.world, &self.shapes);
         services::ground(&mut self.world);
         if tick.is_multiple_of(CADENCE_TICKS) {

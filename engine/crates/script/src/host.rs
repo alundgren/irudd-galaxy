@@ -36,6 +36,9 @@ use serde_json::Value as Json;
 use crate::meter::{self, RECORDS_PER_STEP};
 use crate::vm::{Abort, Code, LIMITS, Limits, Location, Vm, script_location, whole_number};
 
+#[path = "place_api.rs"]
+mod place_api;
+
 /// One entry script and the handlers it defines.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LoadedScript {
@@ -453,6 +456,7 @@ fn build_ctx<'scope, 'env: 'scope>(
             Ok((i128::from(lo) + n as i128) as f64)
         })?,
     )?;
+    place_api::bind(lua, scope, env, &ctx)?;
     ctx.set_readonly(true);
     Ok(ctx)
 }

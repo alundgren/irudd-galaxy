@@ -14,6 +14,7 @@
 pub mod changes;
 pub mod collide;
 pub mod flight;
+pub mod places;
 pub mod recording;
 pub mod save;
 pub mod scenario;

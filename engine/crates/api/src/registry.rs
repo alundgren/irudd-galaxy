@@ -123,6 +123,46 @@ impl Registry {
     /// types. Whether the entity and component exist is the world's to check.
     pub fn check(&self, actor: Actor<'_>, command: &Command) -> Result<Command, String> {
         match command {
+            Command::Move {
+                entity,
+                place,
+                spot,
+                state,
+            } => {
+                self.check_write(actor, entity, engine::LOCATION)?;
+                self.check_write(actor, entity, engine::POSITION)?;
+                if state.is_some() {
+                    self.check_write(actor, entity, engine::BEING)?;
+                }
+                if !ids::is_full_id(place) || spot.as_ref().is_some_and(|s| !ids::is_full_id(s)) {
+                    return Err("move needs place and spot entity IDs".into());
+                }
+                Ok(command.clone())
+            }
+            Command::Walk {
+                entity,
+                spot,
+                speed,
+                state,
+            } => {
+                for component in [engine::LOCATION, engine::POSITION, engine::WALK] {
+                    self.check_write(actor, entity, component)?;
+                }
+                if state.is_some() {
+                    self.check_write(actor, entity, engine::BEING)?;
+                }
+                if !ids::is_full_id(spot) || !speed.is_finite() || *speed <= 0.0 {
+                    return Err("walk needs a spot entity ID and a finite positive speed".into());
+                }
+                Ok(command.clone())
+            }
+            Command::AdvanceClock { entity, amount } => {
+                self.check_write(actor, entity, engine::CLOCK)?;
+                if *amount < 0 {
+                    return Err("advance_clock amount must be nonnegative".into());
+                }
+                Ok(command.clone())
+            }
             Command::Put {
                 entity,
                 component,

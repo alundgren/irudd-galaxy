@@ -145,6 +145,13 @@ impl World {
                 self.apply_one(actor, registry, command, cause, &mut undo)
                     .map_err(|e| format!("command {} ({}): {e}", i + 1, command.op()))
             });
+        let result = result.and_then(|()| {
+            if matches!(batch.cause, Cause::Start { .. }) {
+                Ok(())
+            } else {
+                crate::places::validate(self)
+            }
+        });
         if let Err(e) = result {
             self.undo(undo);
             return Err(e);
@@ -164,6 +171,13 @@ impl World {
         let command = registry.check(actor, command)?;
         let tick = self.tick;
         match command {
+            command @ (Command::Move { .. }
+            | Command::Walk { .. }
+            | Command::AdvanceClock { .. }) => {
+                for expanded in crate::places::expand(self, &command)? {
+                    self.apply_one(actor, registry, &expanded, cause, undo)?;
+                }
+            }
             Command::Put {
                 entity,
                 component,
