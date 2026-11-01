@@ -110,9 +110,15 @@ fn a_film_of_a_different_world_is_refused() {
         .unwrap();
     note["hash"] = Value::from("not the world");
     std::fs::write(&rec, json.to_string()).unwrap();
-    // At the default rate; at one frame a second, where no frame lands on the note's tick;
-    // and filmed on two builds to compare them: each is refused.
-    let variants: [&[&str]; 3] = [&[], &["--fps", "1"], &["--builds", "this,this"]];
+    // At the default rate; at one frame a second, where no frame lands on the note's tick,
+    // also with the film ending on the note; and filmed on two builds to compare them: each
+    // is refused.
+    let variants: [&[&str]; 4] = [
+        &[],
+        &["--fps", "1"],
+        &["--fps", "1", "--after", "0"],
+        &["--builds", "this,this"],
+    ];
     for (k, extra) in variants.iter().enumerate() {
         let dir = tmp.path().join(format!("film-{k}"));
         let mut args = vec![

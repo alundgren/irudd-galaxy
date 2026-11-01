@@ -294,13 +294,14 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
     };
     let first = &manifest.frames[0];
     let last = manifest.frames.last().expect("a film has frames");
-    // Every note inside the film: is the replayed world the one the note kept? Checked on
-    // the note's own tick, which a frame need not land on at a low --fps; a film drawn by
+    // Every note inside the filmed span (the ticks asked for, not just those a frame lands
+    // on): is the replayed world the one the note kept? Checked on the note's own tick, which
+    // a frame need not land on at a low --fps; a film drawn by
     // another build is also held to its own frame on that tick, where it has one.
     let mut inside: Vec<&(u64, String)> = plan
         .kept
         .iter()
-        .filter(|(tick, _)| (first.tick..=last.tick).contains(tick))
+        .filter(|(tick, _)| (plan.from..=plan.to).contains(tick))
         .collect();
     inside.sort_by_key(|(tick, _)| *tick);
     let mut checked = Vec::new();

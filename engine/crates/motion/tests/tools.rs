@@ -59,6 +59,19 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
 
 /// Writes a film of `n` frames at `fps` into `dir`, the sim at 30 ticks a second.
 fn film_at(dir: &Path, n: usize, fps: u32, shot: impl Fn(usize) -> Shot) {
+    film_from(dir, n, fps, 0.0, true, shot);
+}
+
+/// Writes a film of `n` frames at `fps` from `start` seconds into `dir`; `drawn` false
+/// marks it probes only.
+fn film_from(
+    dir: &Path,
+    n: usize,
+    fps: u32,
+    start: f32,
+    drawn: bool,
+    shot: impl Fn(usize) -> Shot,
+) {
     std::fs::create_dir_all(dir.join("frames")).unwrap();
     let mut frames = Vec::new();
     for i in 0..n {
@@ -68,7 +81,7 @@ fn film_at(dir: &Path, n: usize, fps: u32, shot: impl Fn(usize) -> Shot) {
         frames.push(Frame {
             index: i,
             file: Some(file),
-            time: i as f32 / fps as f32,
+            time: start + i as f32 / fps as f32,
             tick: (i as u64 * 30) / u64::from(fps),
             alpha: if (i as u64 * 30).is_multiple_of(u64::from(fps)) {
                 0.0
@@ -89,7 +102,7 @@ fn film_at(dir: &Path, n: usize, fps: u32, shot: impl Fn(usize) -> Shot) {
         width: W,
         height: H,
         scale: 1.0,
-        drawn: true,
+        drawn,
         adapter: None,
         source: Value::Null,
         builds: serde_json::Value::Null,
@@ -144,6 +157,11 @@ fn tool(name: &str, dir: &Path, args: &[&str]) -> Value {
 }
 
 /// A tool's report as the command line gives it.
+fn tool_err(name: &str, dir: &Path, args: &[&str]) -> String {
+    let opts = Opts::parse(&args.iter().map(|a| (*a).to_owned()).collect::<Vec<_>>()).unwrap();
+    run(name, dir, &opts).unwrap_err()
+}
+
 fn compact_tool(name: &str, dir: &Path, args: &[&str]) -> Value {
     let opts = Opts::parse(&args.iter().map(|a| a.to_string()).collect::<Vec<_>>()).unwrap();
     run(name, dir, &opts).unwrap_or_else(|e| panic!("{name}: {e}"))
@@ -314,6 +332,11 @@ fn compare_pairs_frames_shown_at_the_same_time() {
         r["paired_by_time"].as_str().unwrap().contains("12 without"),
         "{r}"
     );
+    // Films that show no moment in common are refused, probes-only ones too.
+    let later = tmp.path().join("later");
+    film_from(&later, 12, 30, 10.0, false, |i| dotted(2.0 * i as f32));
+    let refused = tool_err("compare", &a, &["--with", later.to_str().unwrap()]);
+    assert!(refused.contains("share no presentation times"), "{refused}");
 }
 
 #[test]

@@ -62,14 +62,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     // rates or starts would otherwise compare different moments.
     let matched = pair_by_time(film, &other);
     if matched.is_empty() {
-        return Err(format!(
-            "the films share no presentation times ({} fps from t={:.3}, {} fps from t={:.3}); \
-             film both over one span at one --fps",
-            film.manifest.fps,
-            film.frames().first().map_or(0.0, |f| f.time),
-            other.manifest.fps,
-            other.frames().first().map_or(0.0, |f| f.time),
-        ));
+        return Err(no_shared_moment(film, &other));
     }
     let unpaired = film.frames().len().max(other.frames().len()) - matched.len();
     let n = matched.len();
@@ -307,13 +300,16 @@ fn name(f: &Film) -> String {
 /// The report when pixels can't be compared (`why`): how the followed thing moved in
 /// each, and whether the worlds are the same.
 fn behaviour_only(film: &Film, other: &Film, other_dir: &str, why: &str) -> Result<Value, String> {
+    let matched = pair_by_time(film, other);
+    if matched.is_empty() {
+        return Err(no_shared_moment(film, other));
+    }
     let moved = behaviour([film, other], [&name(film), &name(other)]).ok_or_else(|| {
         format!(
             "{why}, so pixels can't be compared, and the first film follows no thing the \
              second has, so how it moves can't be either"
         )
     })?;
-    let matched = pair_by_time(film, other);
     let n = matched.len();
     let same_world = matched
         .iter()
@@ -509,4 +505,16 @@ fn pair_by_time(a: &Film, b: &Film) -> Vec<(usize, usize)> {
         }
     }
     out
+}
+
+/// Why two films can't be compared: they show no moment in common.
+fn no_shared_moment(a: &Film, b: &Film) -> String {
+    format!(
+        "the films share no presentation times ({} fps from t={:.3}, {} fps from t={:.3}); \
+         film both over one span at one --fps",
+        a.manifest.fps,
+        a.frames().first().map_or(0.0, |f| f.time),
+        b.manifest.fps,
+        b.frames().first().map_or(0.0, |f| f.time),
+    )
 }
