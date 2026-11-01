@@ -251,25 +251,37 @@ pub fn lookup<'a>(report: &'a Value, path: &str) -> Option<&'a Value> {
         })
 }
 
-/// Runs every expectation on the film in `dir`. Returns one line each and whether all
-/// held.
-pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, bool) {
+/// Runs every expectation on the film in `dir`, each tool once for the same options.
+/// Returns the runs (each tool's reading and picture, once), a short line for each
+/// expectation naming the run it read, and whether all held.
+pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, Vec<Value>, bool) {
+    let mut runs: Vec<(&Expect, Result<Value, String>)> = Vec::new();
     let mut lines = Vec::new();
     let mut all = true;
     for e in &spec.expects {
-        let mut opts = e.opts.clone();
-        // Expectations may name any value of the full report.
-        opts.set("detail", "true");
-        if opts.text("image").is_none() {
-            opts.set(
-                "image",
-                dir.join("motion")
-                    .join(format!("{}-{}.png", e.tool, lines.len() + 1))
-                    .display()
-                    .to_string(),
-            );
-        }
-        let mut line = json!({ "tool": e.tool, "value": e.value });
+        let k = match runs
+            .iter()
+            .position(|(r, _)| r.tool == e.tool && r.opts == e.opts)
+        {
+            Some(k) => k,
+            None => {
+                let mut opts = e.opts.clone();
+                // Expectations may name any value of the full report.
+                opts.set("detail", "true");
+                if opts.text("image").is_none() {
+                    opts.set(
+                        "image",
+                        dir.join("motion")
+                            .join(format!("{}-{}.png", e.tool, runs.len() + 1))
+                            .display()
+                            .to_string(),
+                    );
+                }
+                runs.push((e, crate::run(&e.tool, dir, &opts)));
+                runs.len() - 1
+            }
+        };
+        let mut line = json!({ "run": k + 1, "tool": e.tool, "value": e.value });
         if let Some(v) = e.at_least {
             line["at_least"] = json!(v);
         }
@@ -279,13 +291,13 @@ pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, bool) {
         if let Some(v) = &e.equals {
             line["equals"] = v.clone();
         }
-        match crate::run(&e.tool, dir, &opts) {
-            Err(err) => {
+        match &runs[k].1 {
+            Err(_) => {
                 line["pass"] = json!(false);
-                line["error"] = json!(err);
+                line["got"] = json!(format!("the {} run failed (run {})", e.tool, k + 1));
             }
             Ok(report) => {
-                let got = lookup(&report, &e.value).cloned();
+                let got = lookup(report, &e.value).cloned();
                 let pass = match &got {
                     None => false,
                     Some(g) => {
@@ -300,14 +312,27 @@ pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, bool) {
                 line["got"] = got
                     .unwrap_or_else(|| json!(format!("no `{}` in the {} report", e.value, e.tool)));
                 line["pass"] = json!(pass);
-                line["reading"] = report["reading"].clone();
-                line["image"] = report["image"].clone();
             }
         }
         all &= line["pass"] == json!(true);
         lines.push(line);
     }
-    (lines, all)
+    let runs = runs
+        .iter()
+        .enumerate()
+        .map(|(k, (e, report))| {
+            let mut v = json!({ "run": k + 1, "tool": e.tool, "options": e.opts.describe() });
+            match report {
+                Ok(r) => {
+                    v["reading"] = r["reading"].clone();
+                    v["image"] = r["image"].clone();
+                }
+                Err(err) => v["error"] = json!(err),
+            }
+            v
+        })
+        .collect();
+    (runs, lines, all)
 }
 
 #[cfg(test)]

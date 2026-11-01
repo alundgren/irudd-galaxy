@@ -5,7 +5,7 @@
 //! Older builds lack newer commands and options, and always will. So the other build is
 //! asked only for what every build since films began takes (`film` with `--from`, `--to`,
 //! `--note`, `--before`, `--after`, `--fps`, `--size`, `--out` and `--probes-only`), and
-//! what it doesn't record (which build drew it, the film's changes, things' reach and
+//! what it doesn't record (which build drew it, the film's changes and orders, things' reach and
 //! outlines) is added afterwards from a probes-only film of the same span made by this
 //! build: the world is the same on both, so its probes are too. The pictures and the
 //! camera stay the other build's own.
@@ -150,7 +150,7 @@ pub fn run(build: &Build, tool: &str, args: &[String]) -> Result<Value, Failure>
 
 /// Brings the film in `dir`, drawn by `drawn`, up to this engine's format: `builds` says
 /// which build drew it, and what the other build didn't record is taken from `probes`, a
-/// probes-only film of the same span by this build (changes, outlines, things' reach and
+/// probes-only film of the same span by this build (changes, orders, outlines, things' reach and
 /// morph). Returns what it added, and whether the two worlds were the same at every frame.
 pub fn adopt(
     dir: &Path,
@@ -172,6 +172,10 @@ pub fn adopt(
         if m.changes.is_empty() && !p.changes.is_empty() {
             m.changes = p.changes.clone();
             added.push("changes".to_owned());
+        }
+        if m.orders.is_empty() && !p.orders.is_empty() {
+            m.orders = p.orders.clone();
+            added.push("orders".to_owned());
         }
         if m.outlines.is_empty() && !p.outlines.is_empty() {
             m.outlines = p.outlines.clone();
@@ -375,6 +379,7 @@ mod tests {
             source: Value::Null,
             builds: Value::Null,
             changes: Vec::new(),
+            orders: Default::default(),
             frames: vec![frame(reach)],
             outlines: Default::default(),
             parts: Default::default(),

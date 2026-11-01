@@ -261,6 +261,7 @@ pub fn shoot(
     let mut hash: Option<(u64, String)> = None;
     let mut kept_outlines = BTreeMap::new();
     let mut kept_parts = Parts::default();
+    let mut kept_orders = BTreeMap::new();
 
     let (tx, rx) = sync_channel::<(PathBuf, RgbaImage)>(8);
     let rx = Arc::new(Mutex::new(rx));
@@ -295,6 +296,10 @@ pub fn shoot(
             if k == first {
                 kept_outlines = outlines(world, stepper.modules());
                 kept_parts = parts(world, stepper.modules());
+                kept_orders = changes::orders(world)
+                    .into_iter()
+                    .filter(|(_, o)| !o.is_empty())
+                    .collect();
             }
             let index = frames.len();
             let file = draw.then(|| format!("frames/{index:05}.png"));
@@ -355,6 +360,7 @@ pub fn shoot(
         source: shoot.source.clone(),
         builds: builds(&shoot.source),
         changes,
+        orders: kept_orders,
         frames,
         outlines: kept_outlines,
         parts: kept_parts,

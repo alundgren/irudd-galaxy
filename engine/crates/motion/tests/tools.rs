@@ -85,6 +85,7 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         source: Value::Null,
         builds: serde_json::Value::Null,
         changes: Vec::new(),
+        orders: BTreeMap::new(),
         frames,
         outlines: BTreeMap::new(),
         parts: Default::default(),
@@ -493,13 +494,19 @@ fn track_marks_zooms_and_does_not_flag_the_steps_they_make() {
 /// A ship of radius 4 rams a fixed hub of radius 10 at x = 200: it sinks in by up to
 /// `depth` on frames 20 to 25, rests touching from 26 to 31, then backs off.
 fn ram(dir: &Path, depth: f32) {
-    film(dir, 50, |i| {
-        let gap = match i {
-            0..20 => 20.0 - i as f32,
-            20..26 => -depth * (1.0 - ((i as f32 - 22.0) / 4.0).abs()).max(0.2),
-            26..32 => 0.01,
-            _ => 0.01 + (i - 31) as f32,
-        };
+    rammed(dir, 50, |i| match i {
+        0..20 => 20.0 - i as f32,
+        20..26 => -depth * (1.0 - ((i as f32 - 22.0) / 4.0).abs()).max(0.2),
+        26..32 => 0.01,
+        _ => 0.01 + (i - 31) as f32,
+    });
+}
+
+/// A ship of radius 4 and a fixed hub of radius 10 at x = 200, `gap(i)` apart (surface to
+/// surface) on frame `i` of `n`.
+fn rammed(dir: &Path, n: usize, gap: impl Fn(usize) -> f32) {
+    film(dir, n, |i| {
+        let gap = gap(i);
         let mut image = Image::new(W, H, BG);
         image.dot(186.0 - gap, 90.0, 4.0, DOT);
         let mut things = BTreeMap::new();
@@ -559,6 +566,130 @@ fn track_tells_overlap_from_contact_and_keeps_a_shallow_one() {
 }
 
 #[test]
+fn track_names_an_overlap_with_its_own_target_and_the_bounce_at_first_contact() {
+    let tmp = tempfile::tempdir().unwrap();
+    // Ordered to dock at the hub from the start: the overlap is with its own target.
+    let dir = tmp.path().join("dock");
+    ram(&dir, 0.5);
+    let mut m = galaxy_motion::Film::read(&dir).unwrap().manifest;
+    m.orders.insert("t.ship".into(), "dock t.hub".into());
+    m.write(&dir).unwrap();
+    let r = compact_tool("track", &dir, &["--thing", "ship", "--to", "hub"]);
+    assert_eq!(r["surface"]["order_target"], "dock t.hub", "{r}");
+    assert_eq!(f(&r, "surface.overlap.with_order_target"), 1.0, "{r}");
+    let reading = r["reading"].as_str().unwrap();
+    assert!(
+        reading.contains("target of t.ship's own order"),
+        "{reading}"
+    );
+    // An order given during the film to go elsewhere: not its target any more.
+    m.changes.push(galaxy_motion::film::Change {
+        tick: 2,
+        t: 4.0 / 60.0,
+        kind: "order".into(),
+        what: "t.ship: move 0.0,0.0".into(),
+    });
+    m.write(&dir).unwrap();
+    let r = tool("track", &dir, &["--thing", "ship", "--to", "hub"]);
+    assert_eq!(f(&r, "surface.overlap.with_order_target"), 0.0, "{r}");
+
+    // Touches on frame 20, bounces 0.15 off by frame 23, touches again from 26, then
+    // flies off 30 units under held thrust: the bounce is 0.15, the rebound far more.
+    let bump = tmp.path().join("bump");
+    rammed(&bump, 60, |i| match i {
+        0..20 => 20.0 - i as f32,
+        20..=23 => 0.05 * (i - 20) as f32,
+        24..=25 => 0.15 - 0.04 * (i - 23) as f32,
+        26..=35 => 0.0,
+        _ => (i - 35) as f32 * 1.25,
+    });
+    let r = compact_tool("track", &bump, &["--thing", "ship", "--to", "hub"]);
+    let fc = &r["surface"]["first_contact"];
+    assert!((f(fc, "bounce") - 0.15).abs() < 1e-3, "{r}");
+    assert!(
+        fc["contact_again_at"]
+            .as_str()
+            .unwrap()
+            .contains("frame 26"),
+        "{r}"
+    );
+    assert!(f(&r, "gap.rebound") > 20.0, "{r}");
+    let reading = r["reading"].as_str().unwrap();
+    assert!(reading.contains("bounced off to 0.15"), "{reading}");
+    assert!(
+        reading.contains("surface.first_contact.bounce"),
+        "{reading}"
+    );
+}
+
+#[test]
+fn flicker_tells_events_on_a_things_model_from_those_only_near_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("near");
+    // A hub wearing a 24-unit square at (100, 90); a small patch on it shows on frame 8,
+    // and a longer bar beside it, off its model, on frame 16.
+    film(&dir, 26, |i| {
+        let mut image = Image::new(W, H, BG);
+        if i == 8 {
+            image.fill_rect(95, 85, 10, 10, [255, 255, 255, 255]);
+        }
+        if i == 16 {
+            image.fill_rect(124, 88, 40, 4, [255, 255, 255, 255]);
+        }
+        let mut hub = thing(100.0, 90.0);
+        hub.reach = Some(17.0);
+        Shot {
+            image,
+            things: [("t.hub".to_owned(), hub)].into(),
+            lines: Vec::new(),
+        }
+    });
+    let mut m = galaxy_motion::Film::read(&dir).unwrap().manifest;
+    let s = 12.0;
+    m.parts.models.insert(
+        "square".into(),
+        vec![galaxy_motion::film::PartMesh {
+            name: "deck".into(),
+            triangles: vec![
+                -s, -s, 0.0, s, -s, 0.0, s, s, 0.0, -s, -s, 0.0, s, s, 0.0, -s, s, 0.0,
+            ],
+        }],
+    );
+    m.parts.things.insert(
+        "t.hub".into(),
+        galaxy_motion::film::Worn {
+            model: "square".into(),
+            scale: 1.0,
+        },
+    );
+    m.write(&dir).unwrap();
+    let r = tool("flicker", &dir, &["--near", "hub"]);
+    let events = r["events"].as_array().unwrap();
+    assert_eq!(events.len(), 2, "{r}");
+    assert_eq!(
+        events[0]["from"]["frame"], 8,
+        "the one on the model first: {r}"
+    );
+    assert!(
+        events[0]["on"].as_str().unwrap().starts_with("on t.hub"),
+        "{r}"
+    );
+    assert!(
+        events[1]["on"].as_str().unwrap().starts_with("only near"),
+        "{r}"
+    );
+    assert_eq!(r["near_split"]["on_model"], 1, "{r}");
+    assert_eq!(r["near_split"]["only_near"], 1, "{r}");
+    // --event 2 is the bar alone, without the list or the other close-ups.
+    let one = compact_tool("flicker", &dir, &["--near", "hub", "--event", "2"]);
+    assert!(one.get("events").is_none(), "{one}");
+    assert_eq!(one["chosen"]["n"], 2, "{one}");
+    let reading = one["reading"].as_str().unwrap();
+    assert!(reading.starts_with("event 2: "), "{reading}");
+    assert!(reading.contains("only near t.hub"), "{reading}");
+}
+
+#[test]
 fn compare_puts_how_the_followed_thing_moved_side_by_side() {
     let tmp = tempfile::tempdir().unwrap();
     let (a, b) = (tmp.path().join("a"), tmp.path().join("b"));
@@ -578,6 +709,18 @@ fn compare_puts_how_the_followed_thing_moved_side_by_side() {
             .contains("moves differently"),
         "{diff}"
     );
+    // Probes-only films (a module before and after a change): behaviour, no pixels.
+    let path = c.join("film.json");
+    let mut m: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    m["drawn"] = Value::Bool(false);
+    std::fs::write(&path, m.to_string()).unwrap();
+    let probes = compact_tool("compare", &a, &["--with", c.to_str().unwrap()]);
+    assert_eq!(probes["behaviour"]["same"], false, "{probes}");
+    assert!(
+        probes["pixels"].as_str().unwrap().contains("probes only"),
+        "{probes}"
+    );
+    assert!(probes.get("image").is_none(), "{probes}");
 }
 
 #[test]
@@ -608,6 +751,7 @@ fn flicker_makes_a_close_up_of_any_event_or_moment_asked_for() {
     }
     let last = events.len().to_string();
     let one = tool("flicker", &dir, &["--event", &last]);
+    assert!(one["events"].as_array().unwrap().is_empty(), "{one}");
     let chosen = &one["chosen"];
     assert_eq!(chosen["n"].as_u64().unwrap().to_string(), last, "{one}");
     assert!(

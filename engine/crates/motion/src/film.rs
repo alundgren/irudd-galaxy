@@ -60,6 +60,10 @@ pub struct Manifest {
     /// Inputs, orders and arrivals in the world while it was filmed, in tick order.
     #[serde(default)]
     pub changes: Vec<Change>,
+    /// Every thing's order (`engine.steer`, as `mode target`) when the first frame was
+    /// filmed; orders given later are in `changes`. Empty in films from before it was kept.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub orders: BTreeMap<String, String>,
     pub frames: Vec<Frame>,
     /// Each thing's outline on the plane, by entity ID (kept in `outlines.json`). Empty
     /// in films from before outlines were kept.
@@ -180,6 +184,8 @@ struct Header {
     things: Vec<String>,
     #[serde(default)]
     changes: Vec<Change>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    orders: BTreeMap<String, String>,
     files: Value,
 }
 
@@ -221,6 +227,7 @@ impl Manifest {
                 .map(|f| f.things.keys().cloned().collect())
                 .unwrap_or_default(),
             changes: self.changes.clone(),
+            orders: self.orders.clone(),
             files: serde_json::json!({
                 "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed, reach)",
                 "lines.jsonl": "a frame a line: the lines it drew (kind, closed, alpha, width, points, phase, spacing, dots)",
@@ -533,6 +540,7 @@ impl Film {
                     source: h.source,
                     builds: h.builds,
                     changes: h.changes,
+                    orders: h.orders,
                     frames: read_frames(dir)?,
                     outlines: read_outlines(dir)?,
                     parts: read_parts(dir)?,

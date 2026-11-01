@@ -42,7 +42,7 @@ builds in `crates/view/src/builds.rs`, `galaxy film` in `crates/galaxy/src/film.
 | Does anything pop in or out, show for one frame, or flicker? | `flicker [--from t] [--to t] [--near x]` (`--screen` for overlays) | pixels | `events`, the picture |
 | Does a turning thing's shading ease, or do whole faces flip between light and shadow? | `tone [--thing x]` | pixels | `hard_steps`, `prominence.max` |
 | Is something moving that has no name, or crawling where it should be still? | `flow` (`--along course` too) | pixels | `moving`, `along` |
-| What changed against an approved film (another build, before a change)? Does the followed thing behave differently? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, `behaviour`, the picture |
+| What changed against an approved film (another build, before a module change)? Does the followed thing behave differently? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, `behaviour`, the picture |
 | Should this keep holding, as a test? | `check <spec>` | either | `expectations` |
 
 How to work a motion question:
@@ -95,7 +95,9 @@ keep theirs; `--image` puts it elsewhere.
 - **Changes.** The manifest's `changes` lists what changed in the world during the film,
   by tick: each input (`drift.order_dock down`), each order given, changed or dropped (an
   entity's `engine.steer` mode and target) and each arrival. `track` lists and marks
-  them, so a gap that opens again because of a new order isn't read as a bounce.
+  them, so a gap that opens again because of a new order isn't read as a bounce. `orders`
+  keeps every thing's order when the first frame was filmed, so a tool knows what each
+  was ordered to from the start.
 - **Zoom** is the player's, not the world's. An inputs file turns the wheel with
   `[[zoom]] tick, steps`; a played session's recording keeps the player's wheel
   (`saves-and-replay.md`), so a film of it has the zoom the player had.
@@ -177,7 +179,15 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   across as the thing slides round a curved surface (ramming drift's hub: 8 one-frame
   overlaps, deepest -0.0155, all between ticks). A mining ship holding at a rock comes to
   0.005, within contact range with no overlap. `frames_round_it` is the `film show
-  --gap` command that lists the gap frame by frame round the first one.
+  --gap` command that lists the gap frame by frame round the first one. When the other
+  thing is the target of the thing's own order (from `orders` and the changes; an
+  arrival there keeps it), `order_target` names the order, each overlap run then says
+  `ordered_to_it` and the reading says so: a ship docking onto its pad overlaps it by
+  design. `first_contact` is the first run within contact range and its `bounce`: how
+  far the surfaces came apart right after it, up to their first peak and before touching
+  again (`contact_again_at`). `gap.rebound` counts all the centres' opening after the
+  closest moment; under held thrust that includes flying off round the other thing
+  later, so the bounce is the number for "did it bounce".
   In the world, `displacement` is start to end in a straight line, `distance` the path,
   and `speed_max_at` when the top speed came.
 - **`dots`** matches each fully visible dot with the nearest of the frame before, line by
@@ -218,11 +228,15 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   together: one line breaking across a cell edge is one event, not four. Runs that only
   overlap in time stay apart, so events keep their place. Events are ranked strongest
   first; `--from`/`--to` (seconds) and `--near <thing>` (within its reach on screen, plus
-  24 px) keep some, and `left_out` says how many they and the cap left out. The whole
+  24 px) keep some, and `left_out` says how many they and the cap left out. With `--near`,
+  events with a third or more of their changed pixels on the thing's model (from the
+  part map below) are listed first, and each says whether it is `on` the model or only
+  near it: a course line crossing near a hub is not the hub's. The whole
   film is read either way, so a cell's usual change is known at the edges of the span.
   The picture is a motion history: where things changed, coloured by how recently, with
   the flagged cells boxed. The three strongest events each get a close-up
-  (`closeup`), and `--event <n>` (each event's `n`) or `--at <t>` (the event starting
+  (`closeup`), and `--event <n>` (each event's `n`; then the report is that event alone)
+  or `--at <t>` (the event starting
   there, else with `--near` the box round that thing) makes one for any other: the frame
   before moved into the view of the frame it changed on, that frame, and the changed
   pixels (warm brighter, blue darker) over it dimmed, enlarged in whole pixel blocks
@@ -279,12 +293,16 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   follow the same thing, `behaviour` sets how it moved in each side by side (path length,
   top speed and when, arrival, where it ended) and says whether it is the same, so one
   command answers "does it behave differently" as well as "does it look different";
-  `film --builds` reports it too, probes-only films included. `--vdp` adds
+  `film --builds` reports it too. Any two films get `behaviour`: when one is probes only
+  or the sizes differ, pixels are skipped and `pixels` says why, so a module before and
+  after a change can be filmed `--probes-only` twice and compared. `--vdp` adds
   ColorVideoVDP, a model of how the eye sees differences in video over space and time:
   its score is in JOD, where 10 is no visible difference.
 - **`check <spec>`** films what a spec says and runs its expectations: each names a tool,
   a value in its report (`gap.overshoot`, dotted) and bounds; any other key is the tool's
-  option. It exits 5 (`motion_expectations`) when one does not hold. The format is in
+  option. Each tool runs once for the same options: `runs` gives its reading and picture
+  once, and `expectations` a short line each (`run`, the value, bounds, `got`, `pass`).
+  It exits 5 (`motion_expectations`) when one does not hold. The format is in
   `crates/motion/src/check.rs` (`galaxy-gm fields spec` lists it); `tests/play/films/`
   has three. Without `--out` the film goes to `galaxy-motion-check/<spec>` in the OS temp
   folder, and the report's `film` says where.

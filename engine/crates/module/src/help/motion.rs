@@ -112,7 +112,9 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "gap.rebound",
-                "how far the gap opened again after its closest",
+                "how far the centres' gap opened again after its closest, all of it: under \
+              held thrust that includes flying off later; the bounce at first contact is \
+              surface.first_contact",
             ),
             (
                 "gap.rebound_after",
@@ -139,7 +141,23 @@ pub static COMMANDS: &[Command] = &[
               many runs of frames), seconds (all of them together), deepest and deepest_at, \
               frames_on_ticks and frames_between_ticks (frames drawn on a tick show the sim's \
               own state; between two ticks the drawn path is interpolated and can cut into a \
-              curved surface the thing slides round), and runs (each: from, to, frames, seconds, deepest, deepest_at)",
+              curved surface the thing slides round), with_order_target (how many came while \
+              the other thing was its own order's target) and runs (each: from, to, frames, \
+              seconds, deepest, deepest_at, and ordered_to_it, the order, when it aimed at the \
+              other thing)",
+            ),
+            (
+                "surface.order_target",
+                "its order (`mode target`) when that targets the other thing, from the orders \
+              when filming began and those given since; null if it never did. Docking onto a \
+              pad or holding at a rock can overlap its target by design",
+            ),
+            (
+                "surface.first_contact",
+                "the first time within contact range: at, bounce (how far the surfaces came \
+              apart right after it, before touching again: the bounce, apart from later moves) \
+              and bounce_at, and contact_again_at (null if not again); bounce 0 when it stayed \
+              in contact",
             ),
             (
                 "surface.contact",
@@ -415,12 +433,13 @@ pub static COMMANDS: &[Command] = &[
             (
                 "--near <thing>",
                 "only events within the thing's reach on screen (plus 24 px), by ID or \
-              bare name",
+              bare name; those on its model (a third or more of the changed pixels) are listed \
+              first, then those only near it",
             ),
             (
                 "--event <n>",
-                "also a close-up of event n (its `n`, counting strongest first), not \
-              only the three strongest: `chosen`",
+                "just event n (its `n`, as listed with the same --from, --to and --near) \
+              and its close-up: `chosen`, without the list",
             ),
             (
                 "--at <t>",
@@ -444,8 +463,15 @@ pub static COMMANDS: &[Command] = &[
               the top left), cells (how many grid cells it spans), change (brightness 0 to 1 \
               times pixels changed, over its cells: a few units is a detail, tens is plain to \
               see), near (things whose reach is in or next to the box), n (its number \
-              for --event)",
+              for --event); with --near, on: on that thing's model or only near it, with the \
+              share of changed pixels on it",
             ),
+            (
+                "near_split",
+                "with --near: on_model and only_near, how many events of each (films from \
+              older builds keep no parts and can't tell)",
+            ),
+            ("events_listed", "how many events the filters kept"),
             (
                 "events.looks_like",
                 "what kind of change it is, from its difference mask once lined up: \
@@ -472,7 +498,8 @@ pub static COMMANDS: &[Command] = &[
             (
                 "chosen",
                 "with --event or --at: that event (or, with --at and --near and no event \
-              there, the moment round the thing) with its closeup and changed",
+              there, the moment round the thing) with its closeup and changed; events and \
+              the other close-ups are left out, and the reading is about it",
             ),
             (
                 "left_out",
@@ -639,8 +666,12 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "motion compare",
         synopsis: "<film> <other film> [--vdp]",
-        answers: "What changed against an approved film: another build, or before a change?",
-        about: "Scores each pair of frames with FLIP (colour differences filtered by what the \
+        answers: "What changed against an approved film: another build, or before a change \
+                  to a module? Does the followed thing behave differently?",
+        about: "When both films follow the same thing, `behaviour` puts how it moved in each \
+                side by side; that works for any two films, probes-only ones and different \
+                sizes included, which skip the pixels (`pixels` says why). Scores each pair of \
+                frames with FLIP (colour differences filtered by what the \
                 eye resolves, raised where edges differ). A frame differs visibly when 16 or \
                 more pixels score 0.5 or more. A difference says where to look, not which film \
                 is right. --vdp adds ColorVideoVDP, a model of seeing differences in video, in \
@@ -649,7 +680,8 @@ pub static COMMANDS: &[Command] = &[
         args: &[
             (
                 "<film>, <other film>",
-                "two films of the same moments at one size",
+                "two films of the same moments; pixels are compared when both have them, \
+              at one size",
             ),
             ("--vdp", "also score with ColorVideoVDP"),
             ("--half", "compare at half size, faster"),
@@ -663,6 +695,11 @@ pub static COMMANDS: &[Command] = &[
         ],
         output: &[
             ("reading", "one sentence"),
+            (
+                "pixels",
+                "why pixels were not compared (a film is probes only, or the sizes \
+              differ); absent when they were",
+            ),
             (
                 "flip.visibly_different_frames",
                 "how many frames differ visibly",

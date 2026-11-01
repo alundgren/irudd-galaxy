@@ -39,16 +39,24 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .text("with")
         .ok_or("compare needs the second film: galaxy-gm motion compare <film> <other film>")?;
     let other = Film::read(Path::new(other_dir))?;
-    film.need_pictures("compare")?;
-    other.need_pictures("compare")?;
-    if film.size() != other.size() {
-        return Err(format!(
-            "the films are different sizes ({}x{} and {}x{}); film them at one --size",
+    // Without pictures in both at one size, how the followed thing moves is still
+    // compared: two probes-only films of a module before and after a change, say.
+    let unlike = if !film.manifest.drawn || !other.manifest.drawn {
+        Some("a film is probes only".to_owned())
+    } else if film.size() != other.size() {
+        Some(format!(
+            "the films are different sizes ({}x{} and {}x{}; film them at one --size to \
+             compare pixels)",
             film.size().0,
             film.size().1,
             other.size().0,
             other.size().1
-        ));
+        ))
+    } else {
+        None
+    };
+    if let Some(why) = unlike {
+        return behaviour_only(film, &other, other_dir, &why);
     }
     let n = film.frames().len().min(other.frames().len());
     let half = opts.flag("half");
@@ -139,11 +147,6 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 .collect()
         })
         .unwrap_or_default();
-    let name = |f: &Film| {
-        f.dir
-            .file_name()
-            .map_or("film".to_owned(), |n| n.to_string_lossy().into_owned())
-    };
     let moved = behaviour([film, &other], [&name(film), &name(&other)]);
     let mut reading = if visible == 0 {
         format!(
@@ -265,6 +268,41 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         report["colorvideovdp"] = crate::vdp::run(film, &other);
     }
     Ok(report)
+}
+
+/// A film's name: its folder's.
+fn name(f: &Film) -> String {
+    f.dir
+        .file_name()
+        .map_or("film".to_owned(), |n| n.to_string_lossy().into_owned())
+}
+
+/// The report when pixels can't be compared (`why`): how the followed thing moved in
+/// each, and whether the worlds are the same.
+fn behaviour_only(film: &Film, other: &Film, other_dir: &str, why: &str) -> Result<Value, String> {
+    let moved = behaviour([film, other], [&name(film), &name(other)]).ok_or_else(|| {
+        format!(
+            "{why}, so pixels can't be compared, and the first film follows no thing the \
+             second has, so how it moves can't be either"
+        )
+    })?;
+    let n = film.frames().len().min(other.frames().len());
+    let same_world = (0..n)
+        .filter(|&i| film.frames()[i].hash == other.frames()[i].hash)
+        .count();
+    Ok(json!({
+        "tool": "compare",
+        "with": other_dir,
+        "frames": n,
+        "same_world_frames": same_world,
+        "pixels": format!("not compared: {why}"),
+        "behaviour": moved,
+        "reading": format!(
+            "{}; the worlds are the same in {same_world} of {n} frames; pixels not compared: {why}",
+            moved["reading"].as_str().unwrap_or("")
+        ),
+        "image": null,
+    }))
 }
 
 /// How the thing both films follow moves in each, side by side: its path length, top

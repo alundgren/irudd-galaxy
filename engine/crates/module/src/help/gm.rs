@@ -503,9 +503,14 @@ pub static COMMANDS: &[Command] = &[
             ("ok", "every expectation held"),
             ("film", "the film folder it made"),
             (
+                "runs",
+                "each tool run once for the same options: run (its number), tool, \
+              options, its reading and picture (or the error)",
+            ),
+            (
                 "expectations",
-                "one line each: tool, value, the bounds, got (the value \
-              measured), pass, the tool's reading and picture",
+                "one short line each: run (the run it read), tool, value, the bounds, got \
+              (the value measured), pass",
             ),
         ],
         writes: "the film (--out) and each tool's picture in <film>/motion/",
@@ -640,7 +645,7 @@ pub static TOPICS: &[Topic] = &[
             ("Does a turning thing's shading flip?", "gm motion tone"),
             ("Is something moving that has no name?", "gm motion flow"),
             (
-                "What changed against an approved film?",
+                "What changed against an approved film, or before a module edit?",
                 "gm motion compare",
             ),
             ("Keep a motion expectation as a test", "gm motion check"),
@@ -678,6 +683,21 @@ pub static TOPICS: &[Topic] = &[
                     "That is surface.frames_round_it: the gap frame by frame round the first \
                      overlap. galaxy-gm motion track films/ram --thing <thing> says how far \
                      the thing itself was pushed.",
+                ],
+            },
+            Recipe {
+                title: "Compare a module change: film before and after, then compare",
+                steps: &[
+                    "galaxy film --modules game/modules --inputs keys.toml --from 0 --to 300 \
+                     --probes-only --out films/before",
+                    "Make the change to the module, then film the same inputs and ticks again",
+                    "galaxy film --modules game/modules --inputs keys.toml --from 0 --to 300 \
+                     --probes-only --out films/after",
+                    "galaxy-gm motion compare films/before films/after",
+                    "Read behaviour: the followed thing's path, top speed, arrival and end in \
+                     each, side by side. For one thing in detail, run the same track on both:",
+                    "galaxy-gm motion track films/after --thing ship --to <target>",
+                    "Film without --probes-only (at one --size) to compare pixels too.",
                 ],
             },
         ],

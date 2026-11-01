@@ -77,6 +77,22 @@ impl Opts {
         clean
     }
 
+    /// The options as typed, without --image and --detail: `--along course --half`.
+    pub fn describe(&self) -> String {
+        self.values
+            .iter()
+            .filter(|(k, _)| *k != "image" && *k != "detail")
+            .map(|(k, v)| {
+                if v == "true" {
+                    format!("--{k}")
+                } else {
+                    format!("--{k} {v}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
     /// These options without `name`.
     pub fn without(&self, name: &str) -> Opts {
         let mut o = self.clone();

@@ -29,6 +29,8 @@
 //! mask, and which model parts (glTF nodes, from the film's `parts.json`, drawn as their
 //! triangles) lie under it.
 
+use std::collections::BTreeMap;
+
 use serde_json::{Value, json};
 
 use crate::film::{Film, round, when};
@@ -78,6 +80,9 @@ const LISTED: usize = 30;
 const CLOSEUPS: usize = 3;
 /// A pixel the close-up marks as changed: its colour moved this much (0 to 1, luma).
 const SHOWN_CHANGE: f32 = 0.06;
+/// With --near, an event is on the thing's model when at least this share of its changed
+/// pixels lie on it.
+const ON_MODEL: f32 = 1.0 / 3.0;
 
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     opts.only("flicker", OPTIONS)?;
@@ -316,8 +321,33 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         groups.truncate(LISTED);
     }
     let image_path = opts.image_path(&film.dir, "flicker")?;
-    // `--event n`: a close-up of the nth event listed; `--at t`: of the strongest event
-    // starting on the frame nearest t (near --near), or else of --near's box there.
+    // Every listed event's close-up, made once: what the change looks like, which parts
+    // lie under it and, with --near, whether it lies on that thing's model.
+    let mut closeups: Vec<Option<Closeup>> = Vec::with_capacity(groups.len());
+    for e in &groups {
+        closeups.push(if e.from >= 1 {
+            Some(closeup(film, e.from, e.bounds, &warp(e.from, e.from - 1))?)
+        } else {
+            None
+        });
+    }
+    // With --near, events whose changed pixels lie on the thing's model come first, then
+    // those only near it (a line passing by), each strongest first.
+    let on_share = |c: &Option<Closeup>| {
+        let id = near.as_ref()?;
+        c.as_ref().map(|c| c.on.get(id).copied().unwrap_or(0.0))
+    };
+    let is_on = |c: &Option<Closeup>| on_share(c).is_some_and(|s| s >= ON_MODEL);
+    let mut split = None;
+    if near.is_some() && !film.manifest.parts.is_empty() {
+        let mut both: Vec<(Group, Option<Closeup>)> = groups.into_iter().zip(closeups).collect();
+        both.sort_by_key(|(_, c)| !is_on(c));
+        (groups, closeups) = both.into_iter().unzip();
+        let on = closeups.iter().filter(|c| is_on(c)).count();
+        split = Some((on, groups.len() - on));
+    }
+    // `--event n`: the nth event listed and its close-up alone; `--at t`: the strongest
+    // event starting on the frame nearest t (near --near), or else --near's box there.
     let event = opts.count("event")?;
     if let Some(n) = event
         && (n == 0 || n > groups.len())
@@ -329,9 +359,10 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     }
     let at = opts.number("at")?.map(|t| film.frame_at(t).max(1));
     let at_event = at.and_then(|f| groups.iter().position(|g| g.from.abs_diff(f) <= 1));
+    let picking = event.is_some() || at.is_some();
     let mut listed: Vec<Value> = Vec::new();
     let mut chosen: Option<Value> = None;
-    for (k, e) in groups.iter().enumerate() {
+    for (k, (e, c)) in groups.iter().zip(closeups).enumerate() {
         let mut v = json!({
             "n": k + 1,
             "kind": e.kind,
@@ -342,14 +373,20 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             "change": round(e.change, 1),
             "near": things_in(e.from, e.bounds, 8.0),
         });
-        if e.from >= 1 {
-            let c = closeup(film, e.from, e.bounds, &warp(e.from, e.from - 1))?;
+        if let (Some(id), Some(s)) = (near.as_ref().filter(|_| split.is_some()), on_share(&c)) {
+            v["on"] = json!(if s >= ON_MODEL {
+                format!("on {id}'s model ({:.0}% of the changed pixels)", s * 100.0)
+            } else {
+                format!("only near {id}, not on its model ({:.0}%)", s * 100.0)
+            });
+        }
+        if let Some(c) = c {
             v["looks_like"] = c.what["looks_like"]["says"].clone();
             if c.what["parts"].as_array().is_some_and(|p| !p.is_empty()) {
                 v["parts"] = c.what["parts"].clone();
             }
             let wanted = event == Some(k + 1) || (event.is_none() && at_event == Some(k));
-            if k < CLOSEUPS || wanted {
+            if wanted || (!picking && k < CLOSEUPS) {
                 let path = sibling(&image_path, &format!("event-{}", k + 1));
                 c.image.save_png(&path)?;
                 v["changed"] = c.what;
@@ -407,7 +444,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         near.as_ref()
             .map_or(String::new(), |id| format!(", near {id}"))
     );
-    let reading = if total == 0 {
+    let mut reading = if total == 0 {
         format!(
             "no pops, blips or flicker from {span}: changes build and fade over several frames (median {:.2}% of the picture changes a frame)",
             median(&changed_share) * 100.0
@@ -437,6 +474,55 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             strongest.change
         )
     };
+    match (&near, split) {
+        (Some(id), Some((on, off))) if total > 0 => reading.push_str(&format!(
+            "; on {id}'s model (a third or more of the changed pixels on it): {on}, listed \
+             first; only near it: {off}"
+        )),
+        (Some(id), None) if total > 0 => reading.push_str(&format!(
+            "; this film keeps no model parts, so events on {id} can't be told from those \
+             only near it"
+        )),
+        _ => {}
+    }
+    // With --event or --at, the report is that event and its close-up alone.
+    if let Some(c) = &chosen {
+        let says = |k: &str| c[k].as_str().map(str::to_owned);
+        let what = match c["n"].as_u64() {
+            Some(n) => format!(
+                "event {n}: a {} from t={} to t={} in box {} near {} (change {})",
+                c["kind"].as_str().unwrap_or("change"),
+                c["from"]["t"],
+                c["to"]["t"],
+                c["box_px"],
+                c["near"],
+                c["change"]
+            ),
+            None => format!(
+                "the moment at t={}{}",
+                c["at"]["t"],
+                near.as_ref()
+                    .map_or(String::new(), |id| format!(" round {id}"))
+            ),
+        };
+        let mut line = vec![what];
+        line.extend(says("on"));
+        line.extend(says("looks_like"));
+        if let Some(p) = c["changed"]["parts"].as_array().filter(|p| !p.is_empty()) {
+            let p: Vec<&str> = p.iter().filter_map(Value::as_str).collect();
+            line.push(format!("parts {}", p.join(", ")));
+        }
+        reading = format!(
+            "{} (one of {} event(s) from {span}; without --event and --at, the list)",
+            line.join("; "),
+            listed.len()
+        );
+    }
+    let events_listed = listed.len();
+    if chosen.is_some() {
+        listed.clear();
+        left_out.clear();
+    }
     let left_out = if left_out.is_empty() {
         Value::Null
     } else {
@@ -524,6 +610,8 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "blips": blips,
         "flicker_runs": flickers,
         "events": listed,
+        "events_listed": events_listed,
+        "near_split": split.map(|(on, off)| json!({ "on_model": on, "only_near": off })),
         "chosen": chosen,
         "left_out": left_out,
         "warnings": warnings(film, scale),
@@ -532,7 +620,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "image": out.display().to_string(),
     });
     if let Some(m) = report.as_object_mut() {
-        for key in ["left_out", "chosen"] {
+        for key in ["left_out", "chosen", "near_split"] {
             if m[key].is_null() {
                 m.remove(key);
             }
@@ -553,6 +641,8 @@ fn sibling(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 struct Closeup {
     image: Image,
     what: Value,
+    /// Each thing's share of the changed pixels on its model (0 to 1).
+    on: BTreeMap<String, f32>,
 }
 
 /// One event close up: the frame before moved into the view of the frame it changed on
@@ -680,6 +770,7 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<Closeup, 
             })
             .min_by(|a, b| a.2.total_cmp(&b.2).then(a.1.total_cmp(&b.1)))
     });
+    let (parts, on) = parts_under(film, at, x0, y0, bw, &changed);
     let what = json!({
         "pixels": count,
         "aligned_px": [shift[0], shift[1]],
@@ -690,9 +781,13 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<Closeup, 
             format!("{id} (within its reach, {d:.0} px from its centre)")
         }),
         "looks_like": looks_like(&was_l, &now_l, &changed, bw as usize, bh as usize),
-        "parts": parts_under(film, at, x0, y0, bw, &changed),
+        "parts": parts,
     });
-    Ok(Closeup { image: out, what })
+    Ok(Closeup {
+        image: out,
+        what,
+        on,
+    })
 }
 
 /// What kind of change the close-up's difference mask is, from two simple measures:
@@ -861,10 +956,17 @@ fn part_map(film: &Film, at: usize, x0: u32, y0: u32, bw: u32, bh: u32) -> PartM
 /// Which parts of which things' models lie under the changed pixels of a close-up box:
 /// each changed pixel counts for the part nearest the camera within two pixels of it, as
 /// a part's ink outline lies just outside it, over what is behind. Strongest first, as
-/// `thing/part share%`, with what lies on no model.
-fn parts_under(film: &Film, at: usize, x0: u32, y0: u32, bw: u32, changed: &[bool]) -> Vec<String> {
+/// `thing/part share%`, with what lies on no model; and each thing's share of them.
+fn parts_under(
+    film: &Film,
+    at: usize,
+    x0: u32,
+    y0: u32,
+    bw: u32,
+    changed: &[bool],
+) -> (Vec<String>, BTreeMap<String, f32>) {
     if film.manifest.parts.is_empty() {
-        return Vec::new();
+        return (Vec::new(), BTreeMap::new());
     }
     let bh = changed.len() as u32 / bw.max(1);
     let (ids, depth, names) = part_map(film, at, x0, y0, bw, bh);
@@ -904,11 +1006,20 @@ fn parts_under(film: &Film, at: usize, x0: u32, y0: u32, bw: u32, changed: &[boo
             (name, *n)
         })
         .collect();
+    let share = |n: usize| n as f32 / total.max(1) as f32;
+    let mut things: BTreeMap<String, f32> = BTreeMap::new();
+    for (name, n) in &out {
+        if let Some((thing, _)) = name.split_once('/') {
+            *things.entry(thing.to_owned()).or_default() += share(*n);
+        }
+    }
     out.sort_by_key(|b| std::cmp::Reverse(b.1));
-    out.iter()
+    let listed = out
+        .iter()
         .take(4)
-        .map(|(name, n)| format!("{name} {:.0}%", 100.0 * *n as f32 / total.max(1) as f32))
-        .collect()
+        .map(|(name, n)| format!("{name} {:.0}%", 100.0 * share(*n)))
+        .collect();
+    (listed, things)
 }
 
 /// Settings that can hide what flicker looks for.

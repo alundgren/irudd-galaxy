@@ -316,7 +316,22 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         reading.push(gap.reading.clone());
         match surface {
             Some(sf) => {
-                reading.push(sf.reading);
+                let mut text = sf.reading;
+                // The centre gap's rebound counts all its opening after the closest moment,
+                // a later flight away included; the bounce at first contact is apart.
+                if let (Some(r), Some(b)) = (
+                    gap.report["rebound"].as_f64(),
+                    sf.report["first_contact"]["bounce"].as_f64(),
+                ) && r > gap.report["tolerance"].as_f64().unwrap_or(0.0)
+                    && r > 1.5 * b + 0.01
+                {
+                    text.push_str(&format!(
+                        "; gap.rebound ({r:.3}) is all the centres drew apart after their \
+                         closest, later moves included: the bounce at first contact is \
+                         surface.first_contact.bounce ({b})"
+                    ));
+                }
+                reading.push(text);
                 report["surface"] = sf.report;
             }
             None => {
@@ -832,6 +847,64 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
             at(d.least_at)
         )),
     }
+    // The overlaps while `other` is what its own order aims at (docking onto a pad,
+    // holding at a rock): settling onto or over it can be by design.
+    let ordered = ordered_to(film, id, other);
+    let order = ordered.iter().flatten().next().cloned();
+    let with_target = overlaps
+        .iter()
+        .filter(|r| ordered[r.least_at].is_some())
+        .count();
+    if let Some(o) = &order
+        && with_target > 0
+    {
+        if with_target == overlaps.len() {
+            reading.push_str(&format!(
+                "; {other} is the target of {id}'s own order (`{o}`) through every overlap: \
+                 settling onto or over what it was ordered to can be by design"
+            ));
+        } else {
+            reading.push_str(&format!(
+                "; {with_target} of {} overlaps came while {other} was the target of its \
+                 order (`{o}`), the others not",
+                overlaps.len()
+            ));
+        }
+    }
+    // The first contact, and how far it came off before touching again: a bounce, apart
+    // from where it went later.
+    let first_contact = contacts.first().map(|first| {
+        let again = contacts.get(1).map(|r| r.from);
+        let mut peak: Option<(usize, f32)> = None;
+        for &(i, v) in present
+            .iter()
+            .filter(|(i, _)| *i > first.to && again.is_none_or(|a| *i < a))
+        {
+            match peak {
+                Some((_, p)) if v < p - (0.01 * p.abs()).max(1e-4) => break,
+                Some((_, p)) if v <= p => {}
+                _ => peak = Some((i, v)),
+            }
+        }
+        (first.from, peak, again)
+    });
+    if let Some((from, peak, again)) = first_contact {
+        reading.push_str(&format!("; first contact at {}", at(from)));
+        match (peak, again) {
+            (None, _) => reading.push_str(", in contact from then to the end"),
+            (Some((i, v)), Some(a)) => reading.push_str(&format!(
+                ", bounced off to {} at {}, in contact again at {}",
+                fine(v),
+                at(i),
+                at(a)
+            )),
+            (Some((i, v)), None) => reading.push_str(&format!(
+                ", came off to {} at {}, not in contact again",
+                fine(v),
+                at(i)
+            )),
+        }
+    }
     if !overlap_frames.is_empty() && on_ticks == 0 {
         reading.push_str(
             "; only on frames drawn between ticks: the sim's own state never overlaps, the \
@@ -850,7 +923,19 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
         v
     };
     let listed = |all: &[Run], least: &str| {
-        let mut list: Vec<Value> = all.iter().take(RUNS).map(|r| run_json(r, least)).collect();
+        let mut list: Vec<Value> = all
+            .iter()
+            .take(RUNS)
+            .map(|r| {
+                let mut v = run_json(r, least);
+                if least == "deepest"
+                    && let Some(o) = &ordered[r.least_at]
+                {
+                    v["ordered_to_it"] = json!(o);
+                }
+                v
+            })
+            .collect();
         if all.len() > RUNS {
             list.push(json!(format!("{} more", all.len() - RUNS)));
         }
@@ -871,8 +956,16 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
             "deepest_at": deepest.map(|r| when(&frames[r.least_at])),
             "frames_on_ticks": on_ticks,
             "frames_between_ticks": overlap_frames.len() - on_ticks,
+            "with_order_target": order.as_ref().map(|_| with_target),
             "runs": listed(&overlaps, "deepest"),
         },
+        "order_target": order,
+        "first_contact": first_contact.map(|(from, peak, again)| json!({
+            "at": when(&frames[from]),
+            "bounce": peak.map_or(0.0, |p| fine(p.1)),
+            "bounce_at": peak.map(|p| when(&frames[p.0])),
+            "contact_again_at": again.map(|a| when(&frames[a])),
+        })),
         "contact": {
             "within": round(CONTACT, 3),
             "intervals": contacts.len(),
@@ -897,6 +990,41 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
         report,
         reading,
     })
+}
+
+/// At each frame, `id`'s order when it aims at `other` (`dock <other>`), else none: from
+/// the orders when filming began and those given since. An arrival at `other` keeps it,
+/// as an order dropped on arriving leaves the thing where it was sent.
+fn ordered_to(film: &Film, id: &str, other: &str) -> Vec<Option<String>> {
+    let prefix = format!("{id}: ");
+    let aims = |order: &str| order.split_whitespace().nth(1) == Some(other);
+    let mut now = film.manifest.orders.get(id).filter(|o| aims(o)).cloned();
+    let mut changes = film
+        .manifest
+        .changes
+        .iter()
+        .filter(|c| c.what.starts_with(&prefix))
+        .peekable();
+    film.frames()
+        .iter()
+        .map(|f| {
+            while let Some(&c) = changes.peek() {
+                if c.tick > f.tick {
+                    break;
+                }
+                let order = &c.what[prefix.len()..];
+                match c.kind.as_str() {
+                    "order" => now = aims(order).then(|| order.to_owned()),
+                    "arrived" if aims(order) => {
+                        now = now.take().or_else(|| Some(order.to_owned()));
+                    }
+                    _ => {}
+                }
+                changes.next();
+            }
+            now.clone()
+        })
+        .collect()
 }
 
 fn stats(values: &[Option<f32>], frames: &[Frame]) -> Value {

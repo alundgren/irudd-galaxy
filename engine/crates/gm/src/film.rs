@@ -450,13 +450,14 @@ pub fn check(command: &Command, args: &[String]) -> Result<Output, Failure> {
         source: json!({ "spec": spec_path.display().to_string() }),
     };
     run_shoot(&mut scripted, &shoot, spec.probes_only)?;
-    let (lines, passed) = evaluate(&spec, &out);
+    let (runs, lines, passed) = evaluate(&spec, &out);
     let failed = lines.iter().filter(|l| l["pass"] != json!(true)).count();
     let report = json!({
         "ok": passed,
         "command": "motion check",
         "spec": spec_path.display().to_string(),
         "film": out.display().to_string(),
+        "runs": runs,
         "expectations": lines,
     });
     if passed {

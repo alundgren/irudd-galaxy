@@ -113,7 +113,10 @@ fn kept(tool: &str) -> &'static [&'static str] {
             "surface.overlap.deepest_at",
             "surface.overlap.frames_on_ticks",
             "surface.overlap.frames_between_ticks",
+            "surface.overlap.with_order_target",
             "surface.overlap.runs:4",
+            "surface.order_target",
+            "surface.first_contact",
             "surface.contact.within",
             "surface.contact.intervals",
             "surface.contact.runs:3",
@@ -148,6 +151,7 @@ fn kept(tool: &str) -> &'static [&'static str] {
             "pops",
             "blips",
             "flicker_runs",
+            "near_split",
             "chosen",
             "events:5",
             "left_out",
@@ -163,6 +167,8 @@ fn kept(tool: &str) -> &'static [&'static str] {
         "flow" => &["moving:5", "along"],
         "compare" => &[
             "with",
+            "pixels",
+            "same_world_frames",
             "flip.visibly_different_frames",
             "flip.worst_frames:3",
             "behaviour",
@@ -204,7 +210,9 @@ fn compact(tool: &str, full: &Value) -> Value {
         }
         insert(&mut out, path, moments(v));
     }
-    out.insert("image".into(), full["image"].clone());
+    if !full["image"].is_null() {
+        out.insert("image".into(), full["image"].clone());
+    }
     let mut detail = String::from("--detail for every field");
     if !cut.is_empty() {
         detail = format!("{detail}, and the {}", cut.join(", "));
