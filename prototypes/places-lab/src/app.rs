@@ -220,7 +220,7 @@ impl App {
 
     fn rebuild(&mut self, r: &mut Renderer) {
         self.dirty = false;
-        self.host.set_world(self.model.snapshot());
+        self.host.set_world(self.world_json());
         let Some(value) = self.host.view() else {
             return;
         };
@@ -573,8 +573,18 @@ impl App {
         self.ix.hover = hit.map(|h| h.path);
     }
 
+    /// The model as the Luau sees it, with the life variant's own part as `world.life`.
+    fn world_json(&self) -> Json {
+        let mut w = self.model.snapshot();
+        let life = self.combo.life().world(&self.model);
+        if !life.is_null() {
+            w["life"] = life;
+        }
+        w
+    }
+
     pub fn send(&mut self, on: &str, args: &Json) {
-        self.host.set_world(self.model.snapshot());
+        self.host.set_world(self.world_json());
         self.host.event(on, args);
         self.events.push(format!("{on} {args}"));
         self.dirty = true;
@@ -595,6 +605,7 @@ impl App {
                 ),
             }
         }
+        self.combo.life_mut().event(&mut self.model, on, args);
     }
 
     /// Moves the player; the travel variant shows the way.
@@ -732,6 +743,10 @@ impl App {
 
     /// Keys 1-4: the next variant of a choice (Shift: the previous one).
     pub fn cycle(&mut self, choice: usize, back: bool) {
+        if choice == 3 {
+            // The life variant going finishes what it has under way.
+            self.combo.life_mut().leave(&mut self.model);
+        }
         self.combo.cycle(choice, back);
         self.dirty = true;
     }

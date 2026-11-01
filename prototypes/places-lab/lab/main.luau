@@ -6,6 +6,7 @@
 -- place, state, spot)`; the engine hears of an arrival through `on.arrive`.
 local data = use("data")
 local fit = use("fit")
+local life = use("life")
 
 local lab = { on = {} }
 
@@ -22,6 +23,7 @@ function lab.init()
 		fitted = { nose = "long_drill" },
 		locker = { "seam_lamp" },
 		drag = nil, -- the part in hand: { part, from }
+		news = {}, -- by person: { talk, ready }, something to tell the player when they're back
 	}
 end
 
@@ -29,9 +31,33 @@ local function say(state, id)
 	state.talk = { id = id, line = 1 }
 end
 
+-- Someone has something to tell the player about what they did, once they come back.
+local function tell(state, who, talk)
+	if data.talk[talk] then
+		state.news[who] = { talk = talk, ready = false }
+	end
+end
+
+-- The player has gone: what people had to tell them is ready for when they're back.
+local function away(state)
+	for _, n in state.news do
+		n.ready = true
+	end
+end
+
+-- A life variant that brings news (`world.life.news`): the line `who` has ready.
+local function news(state, world, who)
+	local n = state.news[who]
+	if world.life and world.life.news and n and n.ready then
+		return n.talk
+	end
+	return nil
+end
+
 -- Going places -------------------------------------------------------------------------
 
 function lab.on.go(state, args, world)
+	away(state)
 	state.talk = nil
 	state.receipt = nil
 	state.log_open = false
@@ -42,6 +68,7 @@ function lab.on.back(state, _, world)
 	if state.drag then
 		state.drag = nil
 	elseif world.place.kind ~= "station" then
+		away(state)
 		state.talk = nil
 		state.receipt = nil
 		world.go(world.station.id)
@@ -51,11 +78,23 @@ function lab.on.back(state, _, world)
 end
 
 -- The view has landed in a room: its person speaks first, until that talk has been
--- heard to the end (leaving halfway starts it again next time).
-function lab.on.arrive(state, args)
+-- heard to the end (leaving halfway starts it again next time), if they are in. Later,
+-- whoever here has something to tell the player says it (when the life variant brings
+-- news).
+function lab.on.arrive(state, args, world)
 	local greet = data.greet[args.place]
 	if greet and not state.said[greet] then
-		say(state, greet)
+		if world.people[data.talk[greet].who].here then
+			say(state, greet)
+		end
+		return
+	end
+	for _, id in world.people_here do
+		local n = news(state, world, id)
+		if n then
+			say(state, n)
+			return
+		end
 	end
 end
 
@@ -68,7 +107,16 @@ end
 function lab.on.talk_to(state, args, world)
 	local person = world.people[args.who]
 	if person and person.here then
-		say(state, data.chat(args.who, person))
+		say(state, news(state, world, args.who) or data.chat(args.who, person))
+	end
+end
+
+-- Something new in the room: the person it belongs to says what it is.
+function lab.on.look(state, args, world)
+	local d = data.details[args.detail]
+	local talk = d and data.talk[d.talk]
+	if talk and world.people[talk.who] and world.people[talk.who].here then
+		say(state, d.talk)
 	end
 end
 
@@ -85,6 +133,14 @@ function lab.on.talk_next(state, _, world)
 	end
 	state.talk = nil
 	state.said[t.id] = true
+	for who, n in state.news do
+		if n.talk == t.id then
+			state.news[who] = nil
+		end
+	end
+	if t.id == "welcome" then
+		tell(state, "ilse", "ilse_board")
+	end
 	if talk.goal then
 		state.goal = talk.goal
 	end
@@ -114,6 +170,7 @@ function lab.on.sell(state, args)
 	end
 	state.cargo[w.id] = have - n
 	state.credits += n * w.price
+	tell(state, "juno", `juno_sold_{w.id}`)
 	state.receipt = { text = `Sold {n} {string.lower(w.name)}`, amount = `+{n * w.price} cr`, state = "gain" }
 end
 
@@ -137,6 +194,7 @@ function lab.on.buy_bowl(state)
 		return
 	end
 	state.credits -= data.bowl.price
+	tell(state, "bel", "bel_bowl")
 	state.receipt = { text = "A bowl of broth. Warm hands.", amount = `-{data.bowl.price} cr`, state = "loss" }
 end
 
@@ -176,6 +234,7 @@ function lab.on.fit(state, args)
 		state.fitted[args.from] = nil
 	end
 	state.fitted[args.socket] = args.part
+	tell(state, "orrin", `orrin_{args.part}`)
 	local note = nil
 	if replaced then
 		table.insert(state.locker, replaced)
@@ -206,10 +265,13 @@ local rooms = {
 }
 
 function lab.view(state, ui, world)
+	local s
 	if world.place.kind == "interior" then
-		return (rooms[world.here] or use("room"))(state, ui, world)
+		s = (rooms[world.here] or use("room"))(state, ui, world)
+	else
+		s = use("station")(state, ui, world)
 	end
-	return use("station")(state, ui, world)
+	return life.mark(s, state, ui, world)
 end
 
 return lab

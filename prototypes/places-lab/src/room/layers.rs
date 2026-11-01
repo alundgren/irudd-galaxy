@@ -386,6 +386,13 @@ fn cast(stage: &Stage, place: &Place, shown: &mut Shown) {
             radius: 0.16,
         });
     }
+    // What the life variant adds to the room (a crate, a mug), as `Stage::set` draws it.
+    for (mesh, m) in stage.life.props(stage.model, &place.id) {
+        shown
+            .scene
+            .meshes
+            .push(MeshInstance::new(mesh, m).with_material(mat));
+    }
     for (name, p) in &place.spots {
         shown.points.push(Point {
             name: format!("spot.{name}"),

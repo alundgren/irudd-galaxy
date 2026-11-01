@@ -63,6 +63,14 @@ impl Shooter {
 
     /// A shot of this state, its rule breaks, and a sweep hovering everything on it.
     fn save(&mut self, name: &str) {
+        // Someone the player can see is on the move (a life variant's walk): let them
+        // get where they are going, so the shot and its sweep see a settled room.
+        for _ in 0..1200 {
+            if !self.app.combo.life().settling(&self.app.model) {
+                break;
+            }
+            self.frame();
+        }
         let path = self.shoot(name);
         println!("shot {}", path.display());
         let problems = self.app.problems();
