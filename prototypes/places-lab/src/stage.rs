@@ -249,6 +249,11 @@ impl Stage<'_> {
                 radius: 0.16 * scale,
             });
         }
+        for (mesh, m) in self.life.props(self.model, id) {
+            scene
+                .meshes
+                .push(MeshInstance::new(mesh, at * m).with_material(people_mat));
+        }
         for (name, p) in &place.spots {
             shown.points.push(Point {
                 name: format!("spot.{name}"),

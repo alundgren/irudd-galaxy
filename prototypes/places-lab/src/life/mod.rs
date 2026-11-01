@@ -10,7 +10,9 @@
 
 mod still;
 
-use render::Renderer;
+use render::{MeshHandle, Renderer};
+use render::glam::Mat4;
+use serde_json::Value as Json;
 
 use crate::figures::Pose;
 use crate::places::{Person, Places};
@@ -45,6 +47,22 @@ pub trait Life {
     /// Widgets to add to the screen, when it runs.
     fn widgets(&self, _model: &Places) -> Vec<W> {
         Vec::new()
+    }
+    /// What the Luau sees of the variant, as `world.life` (null: nothing).
+    fn world(&self, _model: &Places) -> Json {
+        Json::Null
+    }
+    /// The player did something: an event the screen sent (`sell`, `fit`, ...), after
+    /// the Luau handled it.
+    fn event(&mut self, _model: &mut Places, _on: &str, _args: &Json) {}
+    /// Things the variant adds to a room's set: meshes and where they stand, set space.
+    fn props(&self, _model: &Places, _place: &str) -> Vec<(MeshHandle, Mat4)> {
+        Vec::new()
+    }
+    /// Someone is on the move where the player can see: the scripted run waits for it
+    /// to finish before a shot.
+    fn settling(&self, _model: &Places) -> bool {
+        false
     }
 }
 
