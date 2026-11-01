@@ -41,6 +41,38 @@ impl Opts {
         Ok(Opts { values })
     }
 
+    /// `name` and the options as a file name: `sheet-at-1.2,1.3-crop-ship`.
+    pub fn file_name(&self, name: &str) -> String {
+        let mut out = name.to_owned();
+        for (k, v) in self.values.iter().filter(|(k, _)| *k != "image") {
+            let v = if k == "with" {
+                Path::new(v)
+                    .file_name()
+                    .map_or_else(|| v.clone(), |n| n.to_string_lossy().into_owned())
+            } else {
+                v.clone()
+            };
+            out.push('-');
+            out.push_str(k);
+            if v != "true" {
+                out.push('-');
+                out.push_str(&v);
+            }
+        }
+        let mut clean: String = out
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ',') {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        clean.truncate(96);
+        clean
+    }
+
     pub fn set(&mut self, name: &str, value: impl Into<String>) {
         self.values.insert(name.to_owned(), value.into());
     }
@@ -137,11 +169,14 @@ impl Opts {
         }
     }
 
-    /// Where the tool's picture goes: `--image`, or `<film>/motion/<name>.png`.
+    /// Where the tool's picture goes: `--image`, or `<film>/motion/<name>-<options>.png`,
+    /// named after the options so a run with other options doesn't replace it.
     pub fn image_path(&self, film: &Path, name: &str) -> Result<PathBuf, String> {
         let path = match self.text("image") {
             Some(p) => PathBuf::from(p),
-            None => film.join("motion").join(format!("{name}.png")),
+            None => film
+                .join("motion")
+                .join(format!("{}.png", self.file_name(name))),
         };
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             std::fs::create_dir_all(dir)
@@ -169,6 +204,18 @@ mod tests {
         assert!(o.only("sheet", &["along", "onion", "at"]).is_err());
         assert!(o.only("sheet", &["along", "onion", "at", "size"]).is_ok());
         assert!(Opts::parse(&args("course")).is_err());
+    }
+
+    #[test]
+    fn pictures_are_named_after_their_options() {
+        let o = Opts::parse(&args("--at 1.2,1.3 --crop drift.ship --onion")).unwrap();
+        assert_eq!(
+            o.file_name("sheet"),
+            "sheet-at-1.2,1.3-crop-drift.ship-onion"
+        );
+        assert_eq!(Opts::new().file_name("flicker"), "flicker");
+        let o = Opts::parse(&args("--along 0,0;10,4")).unwrap();
+        assert_eq!(o.file_name("strip"), "strip-along-0,0_10,4");
     }
 
     #[test]

@@ -51,6 +51,71 @@ use serde_json::Value;
 
 use crate::session::{Input, Session};
 
+/// Every key an inputs file takes: its entry, the key, an example as TOML and what it does.
+/// `galaxy-gm fields inputs` prints it; a test reads a file made of every example.
+pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
+    (
+        "[[input]]",
+        "tick",
+        "10",
+        "the tick it runs on; ticks start at 1, 30 a second",
+    ),
+    (
+        "[[input]]",
+        "name",
+        "\"example.opened\"",
+        "a declared event kind, as a full ID (`<module>.<kind>`)",
+    ),
+    (
+        "[[input]]",
+        "source",
+        "\"keyboard\"",
+        "where it came from; \"script\" by default",
+    ),
+    (
+        "[[input]]",
+        "payload",
+        "{ down = true }",
+        "the event's fields; a key's event has down = true when pressed, false when let go",
+    ),
+    (
+        "[[note]]",
+        "tick",
+        "90",
+        "a note on the world after this tick, kept in the recording like an F8 note",
+    ),
+    (
+        "[[note]]",
+        "text",
+        "\"the door should be open\"",
+        "the note's text",
+    ),
+    (
+        "[[hot_load]]",
+        "tick",
+        "150",
+        "a module is hot-loaded just before this tick",
+    ),
+    (
+        "[[hot_load]]",
+        "from",
+        "\"changed/example\"",
+        "the module folder, relative to the inputs file",
+    ),
+    (
+        "[[zoom]]",
+        "tick",
+        "200",
+        "the wheel turns once this tick has run (view only; the sim never sees it)",
+    ),
+    (
+        "[[zoom]]",
+        "steps",
+        "2.0",
+        "wheel steps; positive is closer",
+    ),
+];
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawInput {
@@ -383,4 +448,35 @@ fn expectation(
         return Ok(Some(format!("{what} is {value}, expected at most {max}")));
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_inputs_file_of_every_documented_key_reads() {
+        let mut text = String::new();
+        let mut last = "";
+        for (entry, key, example, _) in INPUTS_KEYS {
+            if *entry != last {
+                text.push_str(&format!("{entry}\n"));
+                last = entry;
+            }
+            text.push_str(&format!("{key} = {example}\n"));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inputs.toml");
+        std::fs::write(&path, &text).unwrap();
+        let read = InputsFile::read(&path).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        assert_eq!(
+            (
+                read.inputs.len(),
+                read.notes.len(),
+                read.hot_loads.len(),
+                read.zooms.len()
+            ),
+            (1, 1, 1, 1)
+        );
+    }
 }

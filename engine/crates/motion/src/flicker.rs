@@ -50,8 +50,11 @@ struct Step {
     mask: Bits,
 }
 
+/// The options `flicker` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &["grid", "screen", "half", "threshold"];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("flicker", &["grid", "screen", "half", "threshold"])?;
+    opts.only("flicker", OPTIONS)?;
     film.need_pictures("flicker")?;
     let frames = film.frames();
     let (w, h) = film.size();
@@ -367,10 +370,32 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "blips": blips,
         "flicker_runs": flickers,
         "events": listed,
+        "warnings": warnings(film, scale),
         "changed_share": { "median": round(median(&changed_share), 4), "max": round(changed_share.iter().fold(0.0, |a: f32, b| a.max(*b)), 4) },
         "reading": reading,
         "image": out.display().to_string(),
     }))
+}
+
+/// Settings that can hide what flicker looks for.
+pub(crate) fn warnings(film: &Film, scale: u32) -> Vec<String> {
+    let mut out = Vec::new();
+    let fps = film.manifest.fps;
+    if fps < 60 {
+        out.push(format!(
+            "filmed at {fps} fps: the window draws at 60 or more, so a frame shown between two of these is never seen; film at 60"
+        ));
+    }
+    let (w, h) = film.size();
+    if w < 1280 || h < 720 {
+        out.push(format!(
+            "filmed at {w}x{h}: thin lines (an ink line is about 2 px) can vanish or merge at this size; film at the player's size, 1280x720 or more"
+        ));
+    }
+    if scale > 1 {
+        out.push("--half: thin lines are lost at half size".to_owned());
+    }
+    out
 }
 
 /// Each pixel as the mean of the nine round it (NaN where any is unseen). An edge drawn a

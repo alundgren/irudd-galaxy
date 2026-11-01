@@ -165,10 +165,11 @@ It picks:
 1. `--build <name>` as the first argument: exactly that build. It is taken off the
    arguments.
 2. For `galaxy sim replay <recording>`, `galaxy-gm audit <recording>` and `galaxy-gm film
-   <recording>`: the build the
-   recording names, if it names one (a recording made by an installed build does), so a
-   replay runs on the engine that made it. If that build is not installed it exits 2 with
-   kind `not_installed`.
+   <recording>` (a recording file or its session folder): the build the recording names,
+   if it names one (a recording made by an installed build does), so a replay runs on the
+   engine that made it. If that build is not installed it exits 2 with kind
+   `not_installed`. A command line asking for `--help` skips this: help is the chosen
+   build's.
 3. Otherwise the newest non-dev build whose version is at least the highest
    `min_engine_version` of the modules the arguments name (the table above). If none is
    new enough, the newest one, whose own gate refuses with the message above.
@@ -178,6 +179,30 @@ Installing copies the launchers in unless the installed launchers come from a ne
 version, so installing an older build never replaces newer launchers. A `--dev` install
 only adds launchers when there are none. On Windows a running launcher can't be
 overwritten, so the old file is renamed aside and removed on a later install.
+
+## Help, the guide and field references
+
+A GM may run where there is no repository: pointed at a live game, or started on a
+schedule to handle the player's notes. So what an agent needs to use the binaries comes
+from the binaries. `galaxy --help` and `galaxy-gm --help` print a short overview by task;
+`<command> --help` anywhere on a command line (or `help <command>`) prints that command's
+help: what it answers, its arguments with units and defaults, what each output field
+means, where it writes, one example and the usual next step. `galaxy-gm guide [topic]`
+goes from "what do you want to do" to the command, for both binaries. `galaxy-gm fields
+[topic]` lists the keys `style.toml`, `manifest.toml`, inputs files and motion check specs
+take, and the engine's components, with types, defaults and ranges.
+
+The help is one table, `crates/module/src/help.rs` (with `help/gm.rs` and
+`help/motion.rs`), and both binaries dispatch through it: a command line is resolved to
+its table entry first, so a command without help can't run. Tests hold each entry's
+options to what its parser accepts, check every example runs a listed command with listed
+options, and that help never points at the repository's docs. The field references sit
+beside their parsers (`style::KEYS`, `engine::FIELDS`, `manifest::FILE_KEYS`,
+`scenario::INPUTS_KEYS`, `check::SPEC_KEYS`); defaults come from the structs themselves,
+and tests parse a file made of every documented key, so the reference can't drift from
+what the build accepts.
+
+Repo docs like this one stay for builders: how a system works and why.
 
 ## Checking on Linux from Windows
 

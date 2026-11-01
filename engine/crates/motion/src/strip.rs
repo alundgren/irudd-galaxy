@@ -27,8 +27,11 @@ const TRUST: f32 = 0.5;
 /// A shift smaller than this (px a frame) is still.
 const STILL: f32 = 0.1;
 
+/// The options `strip` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &["along", "screen", "max-shift", "width"];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("strip", &["along", "screen", "max-shift", "width"])?;
+    opts.only("strip", OPTIONS)?;
     film.need_pictures("strip")?;
     let frames = film.frames();
     let (w, h) = film.size();

@@ -39,7 +39,7 @@ const DEFAULT_SIZE: (u32, u32) = (1280, 720);
 /// Ticks `shot` runs when not told: one second.
 const SHOT_TICKS: u64 = 30;
 
-const PLAY_OPTIONS: &[&str] = &[
+pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--record",
@@ -50,7 +50,7 @@ const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
 ];
-const SHOT_OPTIONS: &[&str] = &[
+pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--ticks",

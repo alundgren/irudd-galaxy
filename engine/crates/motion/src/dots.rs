@@ -22,8 +22,11 @@ const SOLID: f32 = 0.95;
 /// Below this many pixels a frame, a dot is still.
 const STILL: f32 = 0.05;
 
+/// The options `dots` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &[];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("dots", &[])?;
+    opts.only("dots", OPTIONS)?;
     let frames = film.frames();
     // Each line on its own: the leg being flown may slide while the legs after it stand
     // still, and a median over every dot would hide it. A line is known by where it is

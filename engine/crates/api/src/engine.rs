@@ -89,6 +89,156 @@ pub const HOT_LOADED: &str = "engine.hot_loaded";
 pub const ARRIVED: &str = "engine.arrived";
 pub const SCRIPT_FAILED: &str = "engine.script_failed";
 
+/// What each field of the engine's components means, with its unit: component (local
+/// name), field, meaning. `galaxy-gm fields components` prints it beside each field's type
+/// and default from [`components`]; a test keeps the two in step.
+pub const FIELDS: &[(&str, &str, &str)] = &[
+    ("position", "x", "world units"),
+    ("position", "y", "world units"),
+    (
+        "position",
+        "layer",
+        "floor layer it stands on: 0 the ground, 1 a deck above, ...",
+    ),
+    (
+        "position",
+        "height",
+        "height of the floor under it, world units; the engine sets it",
+    ),
+    (
+        "position",
+        "angle",
+        "which way it faces, radians, counter-clockwise, 0 facing +x",
+    ),
+    ("motion", "vx", "velocity, world units a second"),
+    ("motion", "vy", "velocity, world units a second"),
+    (
+        "surface",
+        "layer",
+        "the floor layer this walkable rectangle is on",
+    ),
+    ("surface", "min_x", "world units"),
+    ("surface", "min_y", "world units"),
+    ("surface", "max_x", "world units"),
+    ("surface", "max_y", "world units"),
+    ("surface", "height", "height at (min_x, min_y), world units"),
+    ("surface", "rise_x", "height gained a world unit along x"),
+    ("surface", "rise_y", "height gained a world unit along y"),
+    (
+        "model",
+        "model",
+        "a model ID: `<module>.<name>` is models/<name>.gltf in that module",
+    ),
+    (
+        "model",
+        "look",
+        "a look from a style.toml (`<module>.<name>`), or empty for the default",
+    ),
+    ("model", "scale", "its size, times the model's"),
+    (
+        "model",
+        "morph",
+        "how far it is drawn towards its morph target, 0 to 1",
+    ),
+    (
+        "camera",
+        "tilt",
+        "leans the camera back from straight down, degrees",
+    ),
+    (
+        "camera",
+        "view",
+        "world units shown from the bottom of the screen to the top",
+    ),
+    (
+        "camera",
+        "min_view",
+        "the wheel zooms between min_view and max_view",
+    ),
+    (
+        "camera",
+        "max_view",
+        "the wheel zooms between min_view and max_view",
+    ),
+    (
+        "camera",
+        "fov",
+        "above 0, a perspective camera with this vertical field of view, degrees",
+    ),
+    ("flight", "speed", "top speed, world units a second"),
+    ("flight", "accel", "thrust, world units a second squared"),
+    ("flight", "brake", "braking, world units a second squared"),
+    ("flight", "turn", "turn rate, degrees a second"),
+    ("flight", "inertia", "0 stops at once, 1 coasts for ever"),
+    (
+        "flight",
+        "boost",
+        "top speed and thrust times this while boosting",
+    ),
+    (
+        "flight",
+        "stop_time",
+        "seconds letting go of thrust takes to stop; 0 for no auto-brake",
+    ),
+    (
+        "flight",
+        "slowdown",
+        "the share of speed an order loses flying away from the nose",
+    ),
+    (
+        "helm",
+        "turn",
+        "-1 to 1; positive turns left (counter-clockwise)",
+    ),
+    ("helm", "thrust", "-1 to 1 along the nose"),
+    ("helm", "brake", "braking"),
+    ("helm", "boost", "boosting"),
+    ("helm", "stopping", "the engine's: auto-brake ticks left"),
+    (
+        "steer",
+        "mode",
+        "arrive, hold, dock or follow; empty is no order",
+    ),
+    (
+        "steer",
+        "target",
+        "the entity to fly to (or the first waypoint, for follow)",
+    ),
+    (
+        "steer",
+        "x",
+        "a point to fly to when target is empty, world units",
+    ),
+    (
+        "steer",
+        "y",
+        "a point to fly to when target is empty, world units",
+    ),
+    (
+        "steer",
+        "range",
+        "arrive and hold stop this far from the target's outline, world units",
+    ),
+    (
+        "steer",
+        "done",
+        "the engine sets it, and records engine.arrived, when it gets there",
+    ),
+    ("waypoint", "next", "the following waypoint on the route"),
+    (
+        "body",
+        "radius",
+        "its outline is a circle this big, world units; 0 uses the model's footprint",
+    ),
+    ("body", "mass", "overlaps push apart by mass"),
+    ("body", "fixed", "never moves"),
+    (
+        "body",
+        "drag",
+        "share of speed lost a second after a push, for things that don't fly",
+    ),
+];
+
 fn field(ty: FieldType) -> FieldDecl {
     FieldDecl {
         ty,
@@ -197,4 +347,29 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             ]),
         ),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_engine_field_is_described() {
+        let all = components();
+        for (component, fields) in &all {
+            for field in fields.keys() {
+                assert!(
+                    FIELDS.iter().any(|f| f.0 == *component && f.1 == field),
+                    "engine.{component}.{field} is not in FIELDS"
+                );
+            }
+        }
+        for (component, field, _) in FIELDS {
+            assert!(
+                all.iter()
+                    .any(|(c, f)| c == component && f.contains_key(*field)),
+                "FIELDS names engine.{component}.{field}, which doesn't exist"
+            );
+        }
+    }
 }

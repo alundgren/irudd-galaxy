@@ -17,30 +17,36 @@ use crate::image::{FLAG, Image, PAPER, TEXT, time_color};
 use crate::opts::Opts;
 use crate::strip::wrap;
 
+/// The options `sheet` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &[
+    "count",
+    "at",
+    "crop",
+    "crop-size",
+    "onion",
+    "poses",
+    "columns",
+];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only(
-        "sheet",
-        &[
-            "count",
-            "at",
-            "crop",
-            "crop-size",
-            "onion",
-            "poses",
-            "columns",
-        ],
-    )?;
+    opts.only("sheet", OPTIONS)?;
     film.need_pictures("sheet")?;
     if let Some(thing) = opts.text("onion") {
         return onion(film, opts, &film.thing_id(thing)?);
     }
     let frames = film.frames();
-    let count = opts.count("count")?.unwrap_or(12).clamp(1, 60);
+    // --at alone shows just those frames; --count (12 when neither is given) spreads
+    // frames evenly, and the two together show both.
+    let at = opts.numbers("at")?;
+    let count = match (&at, opts.count("count")?) {
+        (Some(_), None) => 0,
+        (_, c) => c.unwrap_or(12).clamp(1, 60),
+    };
     let mut chosen: Vec<(usize, bool)> = spread(frames.len(), count)
         .into_iter()
         .map(|i| (i, false))
         .collect();
-    for t in opts.numbers("at")?.unwrap_or_default() {
+    for t in at.unwrap_or_default() {
         let i = film.frame_at(t);
         match chosen.iter_mut().find(|c| c.0 == i) {
             Some(c) => c.1 = true,
@@ -48,11 +54,26 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         }
     }
     chosen.sort_by_key(|c| c.0);
-    let crop = opts.text("crop").map(|t| film.thing_id(t)).transpose()?;
     let crop_size = opts.count("crop-size")?.unwrap_or(256).clamp(32, 1024) as u32;
+    // --crop names a thing, or is a box x,y,w,h in pixels.
+    let crop = match opts.text("crop") {
+        None => None,
+        Some(t) if t.contains(',') => {
+            let r = opts.rect("crop")?.expect("set");
+            let clamp = |v: f32| v.round().clamp(1.0, 2048.0) as u32;
+            Some(Crop::Box(
+                r[0].round() as i64,
+                r[1].round() as i64,
+                clamp(r[2]),
+                clamp(r[3]),
+            ))
+        }
+        Some(t) => Some(Crop::Thing(film.thing_id(t)?)),
+    };
     let (w, h) = film.size();
-    let (cell_w, cell_h) = match crop {
-        Some(_) => (crop_size, crop_size),
+    let (cell_w, cell_h) = match &crop {
+        Some(Crop::Thing(_)) => (crop_size, crop_size),
+        Some(Crop::Box(_, _, bw, bh)) => (*bw, *bh),
         None => {
             let cw = w.min(320);
             (cw, (h as f32 * cw as f32 / w as f32).round() as u32)
@@ -68,7 +89,10 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         PAPER,
     );
     let title = match &crop {
-        Some(t) => format!("sheet: {} frames round {t}", chosen.len()),
+        Some(Crop::Thing(t)) => format!("sheet: {} frames round {t}", chosen.len()),
+        Some(Crop::Box(x, y, bw, bh)) => {
+            format!("sheet: {} frames, box {x},{y} {bw}x{bh}", chosen.len())
+        }
         None => format!("sheet: {} frames", chosen.len()),
     };
     sheet.text(6, 5, &title, 1, TEXT);
@@ -77,7 +101,8 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         let frame = &frames[i];
         let img = film.image(i)?;
         let cell = match &crop {
-            Some(id) => {
+            Some(Crop::Box(x, y, bw, bh)) => img.crop(*x, *y, *bw, *bh, PAPER),
+            Some(Crop::Thing(id)) => {
                 let at = frame
                     .things
                     .get(id)
@@ -118,10 +143,19 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     Ok(json!({
         "tool": "sheet",
         "frames": listed,
-        "crop": crop,
+        "crop": crop.as_ref().map(|c| match c {
+            Crop::Thing(t) => json!(t),
+            Crop::Box(x, y, bw, bh) => json!([x, y, bw, bh]),
+        }),
         "image": out.display().to_string(),
         "reading": format!("{} frames from t={:.3} to t={:.3}; full frames are in {}", chosen.len(), frames[chosen[0].0].time, frames[chosen[chosen.len() - 1].0].time, film.dir.join("frames").display()),
     }))
+}
+
+/// What `--crop` cuts round: a thing, or a fixed box `x, y, w, h` in pixels.
+enum Crop {
+    Thing(String),
+    Box(i64, i64, u32, u32),
 }
 
 /// `count` frame indices spread evenly over `n` frames, first and last included.
@@ -305,7 +339,7 @@ fn onion(film: &Film, opts: &Opts, id: &str) -> Result<Value, String> {
     for (k, line) in wrap(&title, ow as usize / 6).iter().take(2).enumerate() {
         out.text(8, i64::from(oh) + 4 + k as i64 * 10, line, 1, TEXT);
     }
-    let image = opts.image_path(&film.dir, "onion")?;
+    let image = opts.image_path(&film.dir, "sheet")?;
     out.save_png(&image)?;
     Ok(json!({
         "tool": "sheet",

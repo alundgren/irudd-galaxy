@@ -194,6 +194,16 @@ fn a_check_that_does_not_hold_exits_5_and_says_which() {
 fn an_unknown_tool_or_option_is_named() {
     let tmp = tempfile::tempdir().unwrap();
     let (code, out) = gm(&["motion", "nope", tmp.path().to_str().unwrap()]);
+    assert_eq!(code, 2, "{out}");
+    assert!(
+        out["error"]
+            .as_str()
+            .unwrap()
+            .contains("no command `motion nope`"),
+        "{out}"
+    );
+    assert!(out["usage"].as_str().unwrap().contains("motion flicker"));
+    let (code, out) = gm(&["motion", "track", tmp.path().to_str().unwrap()]);
     assert_eq!(code, 4, "{out}");
     assert!(
         out["error"].as_str().unwrap().contains("not a film"),

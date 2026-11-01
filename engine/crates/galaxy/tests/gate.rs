@@ -84,3 +84,25 @@ fn usage_and_input_errors_are_told_apart() {
         );
     }
 }
+
+#[test]
+fn every_command_has_help() {
+    for (args, starts) in [
+        (
+            &["sim", "replay", "--help"][..],
+            "galaxy sim replay <recording>",
+        ),
+        (&["sim", "--help"], "galaxy sim <command>"),
+        (&["play", "--help"], "galaxy play --modules"),
+        (&["help", "film"], "galaxy film --modules"),
+        (&["--help"], "galaxy: the game"),
+    ] {
+        let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{args:?}");
+        let text = String::from_utf8(out.stdout).unwrap();
+        assert!(text.starts_with(starts), "{args:?}:\n{text}");
+    }
+}

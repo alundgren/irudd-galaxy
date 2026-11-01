@@ -19,7 +19,7 @@ const DEFAULT_SIZE: (u32, u32) = (960, 540);
 /// Ticks a film covers when `--to` is not given: three seconds.
 const DEFAULT_LENGTH: u64 = 90;
 
-const OPTIONS: &[&str] = &[
+pub(crate) const OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--inputs",

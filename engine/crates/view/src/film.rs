@@ -17,9 +17,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, sync_channel};
 use std::sync::{Arc, Mutex};
 
-use galaxy_api::engine::{CAMERA, HOT_LOADED, MODEL, POSITION, TICKS_PER_SECOND};
+use galaxy_api::engine::{ARRIVED, CAMERA, HOT_LOADED, MODEL, POSITION, STEER, TICKS_PER_SECOND};
 use galaxy_module::module::Module;
-use galaxy_motion::film::{Cam, FORMAT, Frame, LineProbe, Manifest, Thing};
+use galaxy_motion::film::{Cam, Change, FORMAT, Frame, LineProbe, Manifest, Thing};
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Camera, Line, LineStyle, Renderer, RgbaImage, Scene};
 use galaxy_sim::recording::RecEvent;
@@ -42,6 +42,8 @@ pub trait Stepper {
     /// loads their models again.
     fn step(&mut self) -> Result<bool, String>;
     fn modules(&self) -> Vec<&Module>;
+    /// The inputs the next step to `tick` applies.
+    fn inputs(&self, tick: u64) -> &[Input];
 }
 
 /// A session run from an inputs file: its inputs and hot-loads on their ticks.
@@ -97,6 +99,10 @@ impl Stepper for Scripted {
     fn modules(&self) -> Vec<&Module> {
         self.session.modules().collect()
     }
+
+    fn inputs(&self, tick: u64) -> &[Input] {
+        self.inputs.get(&tick).map_or(&[][..], Vec::as_slice)
+    }
 }
 
 impl Stepper for Replay<'_> {
@@ -120,6 +126,89 @@ impl Stepper for Replay<'_> {
     fn modules(&self) -> Vec<&Module> {
         self.session.modules().collect()
     }
+
+    fn inputs(&self, tick: u64) -> &[Input] {
+        self.inputs_at(tick)
+    }
+}
+
+/// Every entity's order (`engine.steer`), as `mode target` (or `mode x,y`), empty for
+/// none.
+fn orders(world: &World) -> BTreeMap<String, String> {
+    world
+        .entities
+        .iter()
+        .filter_map(|(id, c)| {
+            let f = &c.get(STEER)?.fields;
+            let text = |k: &str| f.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
+            let mode = text("mode");
+            let target = text("target");
+            let order = match (mode.is_empty(), target.is_empty()) {
+                (true, _) => String::new(),
+                (false, false) => format!("{mode} {target}"),
+                (false, true) => {
+                    let n = |k: &str| f.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+                    format!("{mode} {:.1},{:.1}", n("x"), n("y"))
+                }
+            };
+            Some((id.clone(), order))
+        })
+        .collect()
+}
+
+/// An input as one short line: `drift.order_dock down`.
+fn describe(input: &Input) -> String {
+    match input.payload.get("down").and_then(Value::as_bool) {
+        Some(true) if input.payload.len() == 1 => format!("{} down", input.name),
+        Some(false) if input.payload.len() == 1 => format!("{} up", input.name),
+        _ if input.payload.is_empty() => input.name.clone(),
+        _ => format!("{} {}", input.name, Value::Object(input.payload.clone())),
+    }
+}
+
+/// Runs `stepper`'s next tick, keeping what changed in `changes` when the tick is one
+/// the film shows. True when modules were hot-loaded.
+fn step_noting(
+    stepper: &mut dyn Stepper,
+    filmed: std::ops::RangeInclusive<u64>,
+    changes: &mut Vec<Change>,
+) -> Result<bool, String> {
+    let tick = stepper.world().tick + 1;
+    if !filmed.contains(&tick) {
+        return stepper.step();
+    }
+    let t = tick as f32 / TICKS_PER_SECOND as f32;
+    let at = |kind: &str, what: String| Change {
+        tick,
+        t,
+        kind: kind.into(),
+        what,
+    };
+    for input in stepper.inputs(tick) {
+        changes.push(at("input", describe(input)));
+    }
+    let before = orders(stepper.world());
+    let facts = stepper.world().facts.len();
+    let hot = stepper.step()?;
+    let world = stepper.world();
+    for (id, order) in orders(world) {
+        if before.get(&id).map_or("", String::as_str) != order {
+            let order = if order.is_empty() {
+                "no order".to_owned()
+            } else {
+                order
+            };
+            changes.push(at("order", format!("{id}: {order}")));
+        }
+    }
+    for f in world.facts.iter().skip(facts).filter(|f| f.kind == ARRIVED) {
+        let text = |k: &str| f.payload.get(k).and_then(Value::as_str).unwrap_or("");
+        changes.push(at(
+            "arrived",
+            format!("{}: {} {}", text("entity"), text("mode"), text("target")),
+        ));
+    }
+    Ok(hot)
 }
 
 /// The zooms a recording kept, for filming it as the player saw it.
@@ -213,6 +302,7 @@ pub fn shoot(
     zooms.sort_by_key(|z| z.0);
     let mut zooms = zooms.into_iter().peekable();
     let mut frames = Vec::new();
+    let mut changes = Vec::new();
     let mut hash: Option<(u64, String)> = None;
 
     let (tx, rx) = sync_channel::<(PathBuf, RgbaImage)>(8);
@@ -229,7 +319,7 @@ pub fn shoot(
             let (tick, alpha, time) = schedule(k, fps);
             while stepper.world().tick < tick {
                 view.before_step(stepper.world());
-                if stepper.step()? {
+                if step_noting(stepper, shoot.from..=shoot.to, &mut changes)? {
                     view.reload(renderer.as_deref_mut(), stepper.modules());
                 }
             }
@@ -302,11 +392,10 @@ pub fn shoot(
         drawn: draw,
         adapter: renderer.as_deref().map(Renderer::adapter_info),
         source: shoot.source.clone(),
+        changes,
         frames,
     };
-    let text = serde_json::to_string(&manifest).map_err(|e| e.to_string())?;
-    let path = shoot.out.join("film.json");
-    std::fs::write(&path, text).map_err(|e| format!("can't write {}: {e}", path.display()))?;
+    manifest.write(&shoot.out)?;
     Ok(manifest)
 }
 

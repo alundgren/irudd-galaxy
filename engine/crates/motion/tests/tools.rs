@@ -81,13 +81,10 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         drawn: true,
         adapter: None,
         source: Value::Null,
+        changes: Vec::new(),
         frames,
     };
-    std::fs::write(
-        dir.join("film.json"),
-        serde_json::to_string(&manifest).unwrap(),
-    )
-    .unwrap();
+    manifest.write(dir).unwrap();
 }
 
 /// Dots 16 px apart along y = 90 (screen y 90), the pattern `offset` px along.

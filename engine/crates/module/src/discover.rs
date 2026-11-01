@@ -99,16 +99,29 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
 /// recording made by a build that was
 /// not installed.
 pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<String> {
+    // Help is this build's, whatever the recording.
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        return None;
+    }
     let first: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
     let at = match (tool, first.as_slice()) {
         (Tool::Game, ["sim", "replay", ..]) => 2,
         (Tool::Gm, ["audit" | "film", ..]) => 1,
         _ => return None,
     };
-    let path = resolve(cwd, Path::new(args.get(at)?));
+    let path = recording_file(&resolve(cwd, Path::new(args.get(at)?)));
     let text = std::fs::read_to_string(path).ok()?;
     let recording: serde_json::Value = serde_json::from_str(&text).ok()?;
     recording["build"]["name"].as_str().map(str::to_owned)
+}
+
+/// A recording named by its file or by its session folder (`<folder>/recording.json`).
+pub fn recording_file(path: &Path) -> PathBuf {
+    if path.is_dir() {
+        path.join("recording.json")
+    } else {
+        path.to_path_buf()
+    }
 }
 
 /// The value of `--modules <dir>` or `--modules=<dir>`.

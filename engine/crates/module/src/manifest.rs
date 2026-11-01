@@ -33,6 +33,55 @@ use crate::version::Version;
 /// The manifest's file name in a module folder.
 pub const FILE: &str = "manifest.toml";
 
+/// Every key `manifest.toml` takes: its table, the key (`<...>` is a name you choose), an
+/// example value as TOML and what it does. `galaxy-gm fields manifest` prints it; a test
+/// parses a manifest made of every example.
+pub const FILE_KEYS: &[(&str, &str, &str, &str)] = &[
+    (
+        "",
+        "id",
+        "\"example\"",
+        "the module's ID: lowercase letters, digits and _; its things are `<id>.<name>`",
+    ),
+    ("", "version", "\"0.1.0\"", "the module's version"),
+    (
+        "",
+        "min_engine_version",
+        "\"0.2.0\"",
+        "the oldest engine it runs on; newer modules are refused by older engines",
+    ),
+    (
+        "",
+        "scripts",
+        "[\"scripts/main.luau\"]",
+        "entry scripts, run on events and once a second, never per frame",
+    ),
+    (
+        "",
+        "events",
+        "[\"opened\"]",
+        "event kinds it records or takes as input, as `<id>.<kind>`",
+    ),
+    (
+        "",
+        "writes",
+        "[\"engine.position\"]",
+        "other modules' component types its scripts may write (`galaxy-gm fields components`)",
+    ),
+    (
+        "components.<name>",
+        "<field>",
+        "\"bool\"",
+        "declares the component type `<id>.<name>` and its fields: number, int, bool, text or id (an entity), or { type = \"int\", default = 0 }",
+    ),
+    (
+        "keys",
+        "<key>",
+        "\"opened\"",
+        "binds a key to one of its events, which then fires with { down = true } and { down = false }. Keys: a-z, 0-9, up, down, left, right, space, enter, tab, backspace, shift, ctrl, alt, f1-f5 (F8 and Esc are the engine's)",
+    ),
+];
+
 /// A module's manifest.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Manifest {
@@ -505,6 +554,37 @@ pub fn toml_to_json(value: &toml::Value) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_manifest_of_every_documented_key_parses() {
+        let mut top = String::new();
+        let mut tables = String::new();
+        for (table, key, example, _) in FILE_KEYS {
+            let key = key.replace("<field>", "open").replace("<key>", "w");
+            if table.is_empty() {
+                top.push_str(&format!(
+                    "{key} = {example}
+"
+                ));
+            } else {
+                let table = table.replace("<name>", "door");
+                tables.push_str(&format!(
+                    "[{table}]
+{key} = {example}
+"
+                ));
+            }
+        }
+        let text = format!("{top}{tables}");
+        let m = parse(Path::new("example"), &text).unwrap_or_else(|f| {
+            panic!(
+                "{}
+{text}",
+                f.message
+            )
+        });
+        assert_eq!(m.keys["w"], "opened");
+    }
 
     fn module(text: &str) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();

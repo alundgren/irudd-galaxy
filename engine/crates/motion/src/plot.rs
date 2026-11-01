@@ -3,6 +3,9 @@
 
 use crate::image::{FLAG, GRID, Image, PAPER, Rgba, TEXT};
 
+/// Inputs and orders on a chart.
+const MARK: Rgba = [96, 160, 255, 200];
+
 /// One curve.
 pub struct Series {
     pub name: String,
@@ -23,8 +26,21 @@ const LEFT: u32 = 64;
 const TOP: u32 = 22;
 
 /// A chart of `panels` over `times` (seconds), `width` pixels wide, with each time in
-/// `flags` marked.
+/// `flags` marked in red.
 pub fn chart(title: &str, times: &[f32], panels: &[Panel], flags: &[f32], width: u32) -> Image {
+    chart_marked(title, times, panels, flags, &[], width)
+}
+
+/// The same, with each of `marks` (a time and a short label: an input or an order) drawn
+/// as a blue line through every panel and labelled above the first.
+pub fn chart_marked(
+    title: &str,
+    times: &[f32],
+    panels: &[Panel],
+    flags: &[f32],
+    marks: &[(f32, String)],
+    width: u32,
+) -> Image {
     let height = TOP + panels.len() as u32 * (PANEL_H + 20) + 24;
     let mut img = Image::new(width, height, PAPER);
     img.text(6, 6, title, 1, TEXT);
@@ -78,6 +94,15 @@ pub fn chart(title: &str, times: &[f32], panels: &[Panel], flags: &[f32], width:
         }
         img.text(4, i64::from(top), &short(hi), 1, TEXT);
         img.text(4, i64::from(top + PANEL_H) - 8, &short(lo), 1, TEXT);
+        for (k, (t, label)) in marks.iter().enumerate() {
+            let x = x_of(*t);
+            img.line(x, top as f32, x, (top + PANEL_H) as f32, MARK);
+            if p == 0 {
+                // Staggered, so marks close together stay readable.
+                let y = i64::from(top) + 2 + (k as i64 % 4) * 9;
+                img.text(x as i64 + 2, y, label, 1, MARK);
+            }
+        }
         for &t in flags {
             let x = x_of(t);
             img.line(

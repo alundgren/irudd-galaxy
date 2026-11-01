@@ -44,7 +44,32 @@ pub struct Manifest {
     /// What was filmed: modules and inputs, or a recording and a note.
     #[serde(default)]
     pub source: Value,
+    /// Inputs, orders and arrivals in the world while it was filmed, in tick order.
+    #[serde(default)]
+    pub changes: Vec<Change>,
     pub frames: Vec<Frame>,
+}
+
+impl Manifest {
+    /// Writes the film's manifest into its folder.
+    pub fn write(&self, dir: &Path) -> Result<(), String> {
+        let text = serde_json::to_string(self).map_err(|e| e.to_string())?;
+        let path = dir.join("film.json");
+        std::fs::write(&path, text).map_err(|e| format!("can't write {}: {e}", path.display()))
+    }
+}
+
+/// Something that changed in the world during a film: an input (a key, a click), an
+/// order (`engine.steer` given, changed or dropped) or an arrival.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Change {
+    pub tick: u64,
+    /// Presentation seconds when the tick is shown.
+    pub t: f32,
+    /// `input`, `order` or `arrived`.
+    pub kind: String,
+    /// What: `drift.order_dock down`, `drift.ship: dock drift.berth`.
+    pub what: String,
 }
 
 /// One frame.

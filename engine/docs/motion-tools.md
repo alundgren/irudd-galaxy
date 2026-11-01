@@ -26,7 +26,7 @@ and the tools in `crates/motion` (CPU only, no engine crates).
 | Do dotted lines' dots stay put in the world? Fast, and needs no GPU. | `dots` | probes | `drift_px_per_frame`, `lines` |
 | Does the camera follow smoothly? Does a thing judder (moves on ticks, not frames)? | `track [--thing x]` | probes | `screen.judder`, `camera.judder`, `flags` |
 | Does it stop where it should: overshoot, bounce back, settle? How close does it get? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `gap.settled_at` |
-| What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x]` | pixels | the picture |
+| What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
 | How does it slow down, speed up, overshoot, bounce, as one picture? | `sheet --onion x` | pixels | the picture, `gaps_between_poses` |
 | Does anything pop in or out, show for one frame, or flicker? | `flicker` (`--screen` for overlays) | pixels | `events`, the picture |
 | Is something moving that has no name, or crawling where it should be still? | `flow` (`--along course` too) | pixels | `moving`, `along` |
@@ -42,7 +42,7 @@ How to work a motion question:
 2. **Ask the tool that fits** and read its `reading`. The numbers say how much; the
    timestamps say when; `near` says which things were close by.
 3. **Look at its one picture.** Then, if something is flagged, `sheet --at <times>`
-   (with `--crop <thing>` for detail) shows those frames beside even-spaced ones.
+   (with `--crop <thing>` or `--crop x,y,w,h` for detail) shows just those frames.
 4. **For an unfamiliar defect**, start with `sheet` (6 to 12 frames) and `flicker`, then
    read the frames round what they flag. All frames are kept in `frames/`.
 5. **When it is fixed, keep it fixed**: a `check` spec with the bound that separated the
@@ -51,7 +51,9 @@ How to work a motion question:
 ## Filming
 
 A film is a folder: `film.json` (the manifest) and `frames/00000.png` (lossless, one per
-frame), plus `motion/` where the tools put their pictures.
+frame), plus `motion/` where the tools put their pictures. Each tool names its picture
+after its options (`motion/sheet-at-1.2,1.3-crop-ship.png`), so runs with other options
+keep theirs; `--image` puts it elsewhere.
 
 - **The clock.** Frame `k` is shown at `k / fps` seconds (60 by default). By then the sim
   has run `floor(k * 30 / fps)` ticks, and the frame is drawn that far between the last
@@ -67,6 +69,10 @@ frame), plus `motion/` where the tools put their pictures.
   world units a pixel covers, the zoom, every drawn thing's interpolated pose and screen
   position, and every line the scene drew, with the centre of each dot of a dotted line
   as the renderer places it. `--probes-only` films without pictures and without a GPU.
+- **Changes.** The manifest's `changes` lists what changed in the world during the film,
+  by tick: each input (`drift.order_dock down`), each order given, changed or dropped (an
+  entity's `engine.steer` mode and target) and each arrival. `track` lists and marks
+  them, so a gap that opens again because of a new order isn't read as a bounce.
 - **Zoom** is the player's, not the world's. An inputs file turns the wheel with
   `[[zoom]] tick, steps`; a played session's recording keeps the player's wheel
   (`saves-and-replay.md`), so a film of it has the zoom the player had.
@@ -101,8 +107,10 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   0; a thing drawn at its tick position at 60 fps steps 0, 2, 0, 2 and scores about 1 or
   more. With `--to`, the gap to another thing: the closest, `overshoot` (how far past it
   along the way it came), `rebound` (how far it came back after its closest) and
-  `settled_at` (within the tolerance of where it ends for at least half a second).
-  Collisions legitimately jump; they show as single flags, not as judder.
+  `settled_at` (within the tolerance of where it ends for at least half a second). When
+  an input or order falls between the closest moment and the furthest rebound, the
+  reading says so and `gap.rebound_after` names it. The chart marks the film's changes
+  in blue. Collisions legitimately jump; they show as single flags, not as judder.
 - **`dots`** matches each fully visible dot with the nearest of the frame before, line by
   line (the leg being flown can slide while later legs stand still). Pixels are at the
   camera's scale, before the tilt shortens them on screen. Dots without a match popped.
@@ -114,8 +122,9 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   just inside its far end to short of where the ship gets to, so neither the ring nor the
   ship passes over it. A periodic pattern can only be followed up to half its period a
   frame; faster, it aliases (the report warns when steps get close).
-- **`sheet`** lays frames side by side with their time and tick, even-spaced plus any
-  `--at`; `--crop` cuts round a thing at full size. `--onion` draws a few poses over each
+- **`sheet`** lays frames side by side with their time and tick: `--at` alone shows just
+  those frames, `--count` spreads frames evenly, and both together show both. `--crop`
+  cuts round a thing, or a box `x,y,w,h`, at full size. `--onion` draws a few poses over each
   other in a window fixed in the world, blue (early) to red (late), with the path: even
   spacing is steady speed, shrinking spacing is slowing, a pose past the target is an
   overshoot.
@@ -127,7 +136,10 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   frame, a **flicker** goes back and forth four frames or more. Something moving into a
   quiet cell is not a pop (its neighbour was busy); a sudden change right beside a moving
   thing can be missed for the same reason. The picture is a motion history: where things
-  changed, coloured by how recently, with the flagged cells boxed.
+  changed, coloured by how recently, with the flagged cells boxed. It can only see what
+  the film shows: below 60 fps or 1280x720 it adds `warnings`, as thin lines and
+  one-frame events can fall between frames or pixels (a hub's broken inner ink line shows
+  at 60 fps and the player's size, and was missed at 30 fps and 960x540).
 - **`flow`** is pyramidal Lucas–Kanade optical flow on a grid of textured points, between
   compensated frames: at each point, the small shift that best explains how the picture
   round it changed, found coarse to fine. Points still in the world or moving with the

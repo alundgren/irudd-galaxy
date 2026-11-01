@@ -1,0 +1,367 @@
+//! galaxy-gm's commands, and the guide's topics.
+
+use super::{Command, Topic};
+use crate::discover::Tool;
+
+pub static COMMANDS: &[Command] = &[
+    Command {
+        tool: Tool::Gm,
+        path: "guide",
+        synopsis: "[topic]",
+        answers: "What do you want to do, and which command does it? For both galaxy and \
+                  galaxy-gm, with an example each.",
+        about: "",
+        args: &[(
+            "[topic]",
+            "play, notes, replay, motion, modules, style or install; without one, every task \
+             in a line each",
+        )],
+        output: &[],
+        writes: "",
+        example: "galaxy-gm guide notes",
+        next: "Run the command it names; `<command> --help` for its options.",
+        topic: "install",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "check",
+        synopsis: "<module>",
+        answers: "Does this module load: manifest, start state, scripts, models and style, and \
+                  does what its start state wears exist?",
+        about: "The modules beside it are loaded too, since a module may use another's types \
+                and events. Findings exit 5 with kind findings.",
+        args: &[("<module>", "a module folder (with a manifest.toml)")],
+        output: &[
+            ("ok", "no findings"),
+            ("module, version", "the module checked"),
+            (
+                "context_modules",
+                "the modules beside it that were loaded with it",
+            ),
+            (
+                "findings",
+                "each problem: kind (schema, script, start or look) and message",
+            ),
+            ("notes", "modules beside it that could not be read, skipped"),
+        ],
+        writes: "",
+        example: "galaxy-gm check game/modules/core",
+        next: "Fix each finding; galaxy-gm fields lists the keys style.toml, manifest.toml and \
+               the engine's components take, and galaxy-gm types the script API.",
+        topic: "modules",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "types",
+        synopsis: "",
+        answers: "What can a module's Luau scripts call? Prints the type file (plain text) \
+                  for luau-analyze and for reading.",
+        about: "",
+        args: &[],
+        output: &[],
+        writes: "",
+        example: "galaxy-gm types",
+        next: "galaxy-gm check <module> runs the scripts' type check.",
+        topic: "modules",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "fields",
+        synopsis: "[style | components | manifest | inputs | spec] [--modules <dir>]",
+        answers: "Which keys and fields exist, with their types, defaults and ranges: \
+                  style.toml, the engine's components (and a module's own), manifest.toml, \
+                  inputs files and motion check specs.",
+        about: "Generated from the engine's own definitions, so it is what this build \
+                accepts. Without a topic, a one-line summary of each.",
+        args: &[
+            ("[topic]", "style, components, manifest, inputs or spec"),
+            (
+                "--modules <dir>",
+                "with components: also the components these modules declare",
+            ),
+        ],
+        output: &[
+            ("topic", "which file or thing the fields belong to"),
+            (
+                "tables or components",
+                "each table (or component) and its fields: name, type, \
+              default, range or values, and what it does",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm fields style",
+        next: "Edit the file, then galaxy-gm check <module>.",
+        topic: "style",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audit",
+        synopsis: "<recording>",
+        answers: "Replay a played session to each of its notes: is the world the one the \
+                  player had, and does the moment draw the same again?",
+        about: "The launcher runs the build that made the recording. At each note it compares \
+                the world's hash with the note's and draws the moment again, between the same \
+                two ticks with the same camera, beside the frame that was seen. Pictures are \
+                identical on the machine that played and should visibly match on another GPU. \
+                A world that differs exits 5 with kind replay_diverged.",
+        args: &[(
+            "<recording>",
+            "a recording, or a session folder (its recording.json is used)",
+        )],
+        output: &[
+            (
+                "notes",
+                "one entry a note: note (its number), tick, text, identical (the world \
+              matches the note's), seen (the frame the player saw, notes/0001.png), drawn \
+              (the moment drawn again, audit/0001.png), camera_matches, mean_difference (per \
+              channel, 0 to 255) and pixels_differing (the share of pixels, 0 to 1)",
+            ),
+            (
+                "recorded_build, this_build",
+                "which builds made and replayed it",
+            ),
+        ],
+        writes: "<session>/audit/0001.png, one a note",
+        example: "galaxy-gm audit sessions/2026-11-01-142233-drift/recording.json",
+        next: "Open notes/0001.png and audit/0001.png; galaxy-gm film <recording> --note 1 \
+               films the seconds round it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "film",
+        synopsis: "<recording> (--note <n> | --from <tick> --to <tick>) [options]",
+        answers: "Film a played session again round one of its notes (or between two ticks), \
+                  frame by frame as the window showed it, with the zoom the player had.",
+        about: "The launcher runs the build that made the recording. Every note inside the \
+                film is checked against the world's hash it kept, so a film of a different \
+                world exits 5 (replay_diverged) rather than pass for what the player saw. By \
+                default the film is at the note's own frame size, which is what catches thin \
+                lines breaking and one-frame flicker.",
+        args: &[
+            ("<recording>", "a recording, or a session folder"),
+            ("--note <n>", "the note to film round, counting from 1"),
+            ("--before <s>", "seconds before the note; 3 by default"),
+            ("--after <s>", "seconds after the note; 1 by default"),
+            (
+                "--from <tick>, --to <tick>",
+                "ticks to film instead of a note (30 a second)",
+            ),
+            ("--fps <n>", "frames a second, 1 to 240; 60 by default"),
+            (
+                "--size <w>x<h>",
+                "pixels; the note's frame size by default, else 960x540",
+            ),
+            (
+                "--out <folder>",
+                "where the film goes; films/note-0001 (or \
+              films/ticks-<from>-<to>) beside the recording by default",
+            ),
+            (
+                "--probes-only",
+                "no pictures and no GPU: positions on screen only",
+            ),
+        ],
+        output: &[
+            ("out", "the film folder"),
+            ("frames, fps, size, drawn", "how it was filmed"),
+            (
+                "from, to",
+                "the first and last frame: t (seconds since the session started) \
+              and tick",
+            ),
+            (
+                "notes_checked",
+                "each note inside the film: tick, identical (the replayed \
+              world is the player's)",
+            ),
+        ],
+        writes: "the film folder (--out): film.json, frames/00000.png, and motion/ for the \
+                 tools' pictures",
+        example: "galaxy-gm film sessions/2026-11-01-142233-drift/recording.json --note 1",
+        next: "galaxy-gm motion flicker <folder> for pops and flicker, track for how a thing \
+               moves, sheet to see frames; galaxy-gm motion --help lists all.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "motion check",
+        synopsis: "<spec> [--out <folder>]",
+        answers: "Do the motion expectations in this spec still hold? Films what the spec says \
+                  and runs each tool against its bounds.",
+        about: "A spec is a TOML file: what to film (modules, inputs, ticks, size) and \
+                [[expect]] entries, each a tool, a value from its report (dotted, such as \
+                gap.overshoot) and bounds (at_least, at_most or equals); any other key is an \
+                option for the tool. `galaxy-gm fields spec` lists the keys. Expectations that \
+                don't hold exit 5 with kind motion_expectations.",
+        args: &[
+            (
+                "<spec>",
+                "a spec file; its modules and inputs are relative to it",
+            ),
+            (
+                "--out <folder>",
+                "where the film goes; by default galaxy-motion-check/<spec \
+              name> in the OS temp folder (the report's `film` says where)",
+            ),
+        ],
+        output: &[
+            ("ok", "every expectation held"),
+            ("film", "the film folder it made"),
+            (
+                "expectations",
+                "one line each: tool, value, the bounds, got (the value \
+              measured), pass, the tool's reading and picture",
+            ),
+        ],
+        writes: "the film (--out) and each tool's picture in <film>/motion/",
+        example: "galaxy-gm motion check course.toml --out films/course",
+        next: "When one fails, run that tool on the film for the whole report and picture.",
+        topic: "motion",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "doctor",
+        synopsis: "",
+        answers: "Which engine is this, which builds and launchers are installed, and which \
+                  modules are near the working folder?",
+        about: "",
+        args: &[],
+        output: &[
+            ("engine, build", "this engine's version and installed build"),
+            (
+                "installed_builds",
+                "each installed build: name, version, dev",
+            ),
+            (
+                "launchers",
+                "the launcher folder, which build made it, whether it is on PATH",
+            ),
+            (
+                "modules",
+                "modules near the working folder, with their minimum engine",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm doctor",
+        next: "galaxy-gm --build <name> <command> runs a named build, such as a dev build.",
+        topic: "install",
+    },
+];
+
+/// The guide. Tasks name commands as `gm <path>` or `game <path>`.
+pub static TOPICS: &[Topic] = &[
+    Topic {
+        name: "play",
+        title: "Playing, and taking notes",
+        about: "`galaxy play` runs modules in a window. Every session records itself into a \
+                folder of its own under the sessions folder: recording.json (everything \
+                needed to run it again), save.db (the world at the end) and notes/0001.png. \
+                F8 pauses and opens a note box over the frame on screen; Enter keeps the note \
+                with its tick, the world's hash and the camera. A bot plays an inputs file \
+                through the same window loop (--inputs), and its [[note]] entries are taken \
+                like F8 notes.",
+        tasks: &[
+            ("Play the game", "game play"),
+            ("Draw one frame headless", "game shot"),
+        ],
+    },
+    Topic {
+        name: "notes",
+        title: "The player's F8 notes",
+        about: "A note is text the player typed, the tick it was on (30 ticks a second), the \
+                world's hash then, and the frame that was on screen (notes/0001.png in the \
+                session folder). To act on one: read it, see the frame, check the replay \
+                reaches the same world (audit draws the moment again into audit/0001.png), \
+                then film the seconds round it and measure what moved.",
+        tasks: &[
+            ("Replay to each note and draw it again", "gm audit"),
+            ("Film the seconds round a note", "gm film"),
+        ],
+    },
+    Topic {
+        name: "replay",
+        title: "Recordings, replays and the world's state",
+        about: "A recording holds the build that made it, the exact module files, the world it \
+                started from, every input, hot-load, note and zoom by tick, and the hash it \
+                ended with. Replaying it on the same build gives the same world bit for bit; \
+                the launcher picks that build. Ticks are 30 a second; the world's hash says \
+                whether two worlds are the same. Inputs files script a run: [[input]] (tick, \
+                name, source, payload), [[note]], [[hot_load]] and [[zoom]].",
+        tasks: &[
+            ("Run a world headless and read its state", "game sim run"),
+            ("Carry on from a save", "game sim load"),
+            (
+                "Check a recording replays to the same world",
+                "game sim replay",
+            ),
+        ],
+    },
+    Topic {
+        name: "motion",
+        title: "How motion looks",
+        about: "A screenshot can't show how something moves. Film a short span frame by frame \
+                as the window would draw it (60 fps, at the player's size: thin lines \
+                breaking and one-frame pops are missed at 30 fps or small sizes), then ask one \
+                question per tool. Each answers with a `reading` sentence, a few numbers, the \
+                times (t, in seconds; tick) of suspicious moments and one picture. Probes-only \
+                films need no GPU and serve track and dots. When a defect is fixed, keep it \
+                fixed with a motion check spec.",
+        tasks: &[
+            ("Film a scripted run", "game film"),
+            ("Film a played session round a note", "gm film"),
+            (
+                "Does a thing follow smoothly, overshoot, settle?",
+                "gm motion track",
+            ),
+            ("Do dotted lines stay put? (no GPU)", "gm motion dots"),
+            ("Does a pattern crawl along a path?", "gm motion strip"),
+            (
+                "See frames side by side, or an onion skin",
+                "gm motion sheet",
+            ),
+            ("Does anything pop, blip or flicker?", "gm motion flicker"),
+            ("Is something moving that has no name?", "gm motion flow"),
+            (
+                "What changed against an approved film?",
+                "gm motion compare",
+            ),
+            ("Keep a motion expectation as a test", "gm motion check"),
+        ],
+    },
+    Topic {
+        name: "modules",
+        title: "Modules: checking them and what scripts can use",
+        about: "A module is a folder with manifest.toml (id, versions, scripts, the events and \
+                components it declares, what it writes, keys), start.toml (its entities), \
+                scripts/*.luau, models/*.gltf and style.toml. IDs are `<module>.<name>`. \
+                Scripts run on events and once a second, never per frame; the engine's \
+                services fly, move and collide things.",
+        tasks: &[
+            ("Check a module loads", "gm check"),
+            ("What scripts can call", "gm types"),
+        ],
+    },
+    Topic {
+        name: "style",
+        title: "How the world is drawn, and the keys files take",
+        about: "style.toml sets the scene-wide ink, light, sky and course (from one module \
+                only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
+                key is optional. Check a change with galaxy shot (a still) or a film and a \
+                motion tool (for anything that turns or moves).",
+        tasks: &[("Which keys and fields exist, with defaults", "gm fields")],
+    },
+    Topic {
+        name: "install",
+        title: "Builds and this install",
+        about: "Builds install side by side. The launchers (galaxy, galaxy-gm) pick the newest \
+                build the modules allow, or the build a recording names for replay, audit and \
+                film; `--build <name>` first runs a named one, such as a dev build. A module's \
+                manifest names the oldest engine it runs on.",
+        tasks: &[
+            ("Which builds are installed", "gm doctor"),
+            ("Which engine galaxy runs", "game doctor"),
+            ("The task list, or one topic", "gm guide"),
+        ],
+    },
+];

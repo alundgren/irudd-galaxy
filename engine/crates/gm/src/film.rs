@@ -7,6 +7,7 @@ use std::path::Path;
 
 use galaxy_module::cli::Output;
 use galaxy_module::failure::code;
+use galaxy_module::help::Command;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover, gate};
 use galaxy_motion::Opts;
@@ -22,22 +23,21 @@ use serde_json::{Value, json};
 const TICKS_PER_SECOND: f32 = 30.0;
 
 /// `galaxy-gm film <recording> [options]`.
+/// The options `galaxy-gm film` takes.
+pub const FILM_OPTIONS: &[&str] = &[
+    "note",
+    "before",
+    "after",
+    "from",
+    "to",
+    "fps",
+    "size",
+    "out",
+    "probes-only",
+];
+
 pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
-    opts.only(
-        "film",
-        &[
-            "note",
-            "before",
-            "after",
-            "from",
-            "to",
-            "fps",
-            "size",
-            "out",
-            "probes-only",
-        ],
-    )
-    .map_err(Failure::usage)?;
+    opts.only("film", FILM_OPTIONS).map_err(Failure::usage)?;
     let rec = Recording::read(path)
         .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
     let notes: Vec<(u64, String, Option<Moment>)> = rec
@@ -219,41 +219,52 @@ fn run_shoot(
         .map_err(|e| Failure::runtime(e).with("path", shoot.out.display().to_string()))
 }
 
-/// `galaxy-gm motion <tool> <film> [options]`, and `motion check <spec>`.
-pub fn motion(args: &[String], usage: &str) -> Result<Output, Failure> {
+/// `galaxy-gm motion <tool> <film> [options]`.
+pub fn motion(command: &Command, tool: &str, args: &[String]) -> Result<Output, Failure> {
     let cwd = galaxy_module::cli::current_dir()?;
-    let (tool, target, rest) = match args {
-        [tool, target, rest @ ..] => (tool.as_str(), target, rest),
+    let usage = |m: String| galaxy_module::cli::command_usage(command, m);
+    let (target, rest) = match args {
+        [target, rest @ ..] if !target.starts_with("--") => (target, rest),
         _ => {
-            return Err(galaxy_module::cli::usage_failure(
-                format!(
-                    "motion takes a tool and a film: galaxy-gm motion <tool> <film>; the tools are {}, and check <spec>",
-                    galaxy_motion::TOOLS.join(", ")
-                ),
-                usage,
-            ));
+            return Err(usage(format!(
+                "{} takes a film folder first: {}",
+                command.path,
+                command.usage()
+            )));
         }
     };
     let target = discover::resolve(&cwd, Path::new(target));
-    // `compare <film> <other film>`: the second film may come bare.
+    // `compare <film> <other film>`: the second film comes bare.
     let mut rest = rest.to_vec();
     if tool == "compare" && rest.first().is_some_and(|a| !a.starts_with("--")) {
         let other = discover::resolve(&cwd, Path::new(&rest.remove(0)));
         rest.insert(0, other.display().to_string());
         rest.insert(0, "--with".into());
     }
-    let opts = Opts::parse(&rest).map_err(|e| galaxy_module::cli::usage_failure(e, usage))?;
-    if tool == "check" {
-        return check(&target, &opts);
-    }
+    let opts = Opts::parse(&rest).map_err(usage)?;
     galaxy_motion::run(tool, &target, &opts)
         .map(Output::Json)
         .map_err(|e| Failure::bad_input(e).with("path", target.display().to_string()))
 }
 
+/// The options `motion check` takes.
+pub const CHECK_OPTIONS: &[&str] = &["out"];
+
 /// `motion check <spec>`: films what the spec says and holds each tool to it.
-fn check(spec_path: &Path, opts: &Opts) -> Result<Output, Failure> {
-    opts.only("check", &["out"]).map_err(Failure::usage)?;
+pub fn check(command: &Command, args: &[String]) -> Result<Output, Failure> {
+    let usage = |m: String| galaxy_module::cli::command_usage(command, m);
+    let (spec_path, rest) = match args {
+        [spec, rest @ ..] if !spec.starts_with("--") => (spec, rest),
+        _ => {
+            return Err(usage(format!(
+                "motion check takes a spec: {}",
+                command.usage()
+            )));
+        }
+    };
+    let spec_path = &discover::resolve(&galaxy_module::cli::current_dir()?, Path::new(spec_path));
+    let opts = Opts::parse(rest).map_err(usage)?;
+    opts.only("check", CHECK_OPTIONS).map_err(usage)?;
     let bad = |e: String| Failure::bad_input(e).with("path", spec_path.display().to_string());
     let spec = Spec::read(spec_path).map_err(bad)?;
     let dirs = discover::modules_in(&spec.modules);

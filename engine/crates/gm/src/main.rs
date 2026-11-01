@@ -1,9 +1,12 @@
 //! `galaxy-gm`: the GM, which builds and checks modules. So far: `doctor`, `check` (the
 //! module loads: manifest, start state, scripts, models and styles), `audit` (a played
 //! session's notes drawn again), `film` and `motion` (how motion looks, measured) and
-//! `types` (the Luau type file for scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
+//! `types` (the Luau type file for scripts), `fields` (the keys files take) and `guide`.
+//! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
+//! codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audit;
+mod fields;
 mod film;
 
 use std::path::Path;
@@ -14,6 +17,7 @@ use galaxy_api::engine::MODEL;
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
 use galaxy_module::failure::code;
+use galaxy_module::help;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, gate, manifest, version};
 use galaxy_script::ScriptSet;
@@ -21,82 +25,81 @@ use galaxy_sim::Session;
 use galaxy_view::Assets;
 use serde_json::{Value, json};
 
-const USAGE: &str = "usage: galaxy-gm <command>
-
-  doctor                the engine, its installed builds and launchers, and the modules
-                        near the working folder
-  check <module>        check a module folder: it loads (manifest, start state, scripts,
-                        models and style), and what its start state wears exists
-  audit <recording>     replay a played session to each of its notes: check the world
-                        is identical and draw the moment again beside the recording
-                        (audit/0001.png), to compare with the frame that was seen
-  film <recording>      film a played session again, frame by frame on a fixed clock as
-                        the window showed it, with probes of where things are on screen:
-                        --note <n> [--before 3] [--after 1] (seconds round a note), or
-                        --from <tick> --to <tick>; --fps 60, --size <w>x<h>, --out <folder>,
-                        --probes-only (no GPU). Scripted sessions: `galaxy film`.
-  motion <tool> <film>  answer one question about how motion looks, with numbers,
-                        timestamps and one picture (engine/docs/motion-tools.md):
-                          track [--thing x] [--to y]   follow, judder, overshoot, settling
-                          dots                         dotted lines stay put (probes only)
-                          strip [--along course|x,y;x,y] [--screen x,y;x,y]
-                                                       crawl, jitter, popping on a path
-                          sheet [--count n] [--at t,t] [--crop x] [--onion x]
-                                                       frames side by side; an onion skin
-                          flicker [--screen]           pops, blips and flicker
-                          flow [--along course]        motion without a named thing
-                          compare <other film> [--vdp] where two films differ (FLIP,
-                                                       ColorVideoVDP)
-  motion check <spec>   film a spec and hold the tools to its expectations
-  types                 print the Luau type file for module scripts
-  --version             print the version
-  --help                print this";
-
 fn main() -> ExitCode {
-    cli::main(Tool::Gm, USAGE, run)
+    cli::main(Tool::Gm, run)
 }
 
-fn run(args: &[String]) -> Result<Output, Failure> {
-    match args {
-        [command, path] if command == "check" => {
-            let cwd = cli::current_dir()?;
+fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failure> {
+    let usage = |message: String| cli::command_usage(command, message);
+    let cwd = cli::current_dir()?;
+    let one = |what: &str| -> Result<&String, Failure> {
+        match args {
+            [one] if !one.starts_with("--") => Ok(one),
+            _ => Err(usage(format!(
+                "{} takes {what}: {}",
+                command.path,
+                command.usage()
+            ))),
+        }
+    };
+    match command.path {
+        "guide" => match args {
+            [] => Ok(Output::Text(help::guide())),
+            [topic] => help::guide_topic(topic).map(Output::Text).ok_or_else(|| {
+                let names: Vec<&str> = help::TOPICS.iter().map(|t| t.name).collect();
+                usage(format!(
+                    "no guide topic `{topic}`; the topics are {}",
+                    names.join(", ")
+                ))
+            }),
+            _ => Err(usage("guide takes at most one topic".into())),
+        },
+        "check" => {
+            let path = one("one module folder")?;
             let dir = manifest::module_dir(&discover::resolve(&cwd, Path::new(path)));
             gate::open(std::slice::from_ref(&dir))?;
             check(&dir)
         }
-        [command, ..] if command == "check" => Err(cli::usage_failure(
-            "check takes one module folder: galaxy-gm check <module>",
-            USAGE,
-        )),
-        [command, path] if command == "audit" => {
-            let cwd = cli::current_dir()?;
-            audit::run(&discover::resolve(&cwd, Path::new(path)))
+        "types" => {
+            if !args.is_empty() {
+                return Err(usage("types takes no arguments".into()));
+            }
+            Ok(Output::Text(
+                galaxy_script::api::luau_types(&version::engine().to_string())
+                    .trim_end()
+                    .to_owned(),
+            ))
         }
-        [command, ..] if command == "audit" => Err(cli::usage_failure(
-            "audit takes one recording: galaxy-gm audit <recording.json>",
-            USAGE,
-        )),
-        [command, rest @ ..] if command == "motion" => film::motion(rest, USAGE),
-        [command, path, rest @ ..] if command == "film" => {
-            let cwd = cli::current_dir()?;
-            let opts =
-                galaxy_motion::Opts::parse(rest).map_err(|e| cli::usage_failure(e, USAGE))?;
-            film::film(&discover::resolve(&cwd, Path::new(path)), &opts)
+        "fields" => fields::run(args).map_err(|e| match e {
+            fields::Error::Usage(m) => usage(m),
+            fields::Error::Failure(f) => f,
+        }),
+        "audit" => {
+            let path = one("one recording")?;
+            audit::run(&discover::recording_file(&discover::resolve(
+                &cwd,
+                Path::new(path),
+            )))
         }
-        [command] if command == "film" => Err(cli::usage_failure(
-            "film takes a recording: galaxy-gm film <recording.json> --note <n>",
-            USAGE,
-        )),
-        [command] if command == "types" => Ok(Output::Text(
-            galaxy_script::api::luau_types(&version::engine().to_string())
-                .trim_end()
-                .to_owned(),
-        )),
-        [command, ..] => Err(cli::usage_failure(
-            format!("unknown command `{command}`"),
-            USAGE,
-        )),
-        [] => unreachable!("cli::main handles an empty command line"),
+        "film" => {
+            let (path, rest) = match args {
+                [path, rest @ ..] if !path.starts_with("--") => (path, rest),
+                _ => {
+                    return Err(usage(
+                        "film takes a recording first: galaxy-gm film <recording.json> --note <n>"
+                            .into(),
+                    ));
+                }
+            };
+            let opts = galaxy_motion::Opts::parse(rest).map_err(usage)?;
+            let path = discover::recording_file(&discover::resolve(&cwd, Path::new(path)));
+            film::film(&path, &opts)
+        }
+        "motion check" => film::check(command, args),
+        tool => match tool.strip_prefix("motion ") {
+            Some(tool) => film::motion(command, tool, args),
+            None => unreachable!("galaxy-gm has help for `{tool}` but does not run it"),
+        },
     }
 }
 
@@ -210,4 +213,61 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         failure.fields = fields;
     }
     Err(failure)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sorted(mut v: Vec<&str>) -> Vec<&str> {
+        v.sort_unstable();
+        v
+    }
+
+    /// Every option a command takes is in its help, and the other way round, and every
+    /// motion tool has help.
+    #[test]
+    fn help_lists_the_options_each_command_takes() {
+        for tool in galaxy_motion::TOOLS {
+            let c = help::find(Tool::Gm, &format!("motion {tool}"))
+                .unwrap_or_else(|| panic!("no help for motion {tool}"));
+            let mut takes: Vec<&str> = galaxy_motion::options(tool).unwrap().to_vec();
+            takes.push("image");
+            // compare's second film comes bare on the command line.
+            takes.retain(|o| *o != "with");
+            assert_eq!(sorted(c.options()), sorted(takes), "motion {tool}");
+        }
+        let film = help::find(Tool::Gm, "film").unwrap();
+        assert_eq!(sorted(film.options()), sorted(film::FILM_OPTIONS.to_vec()));
+        let check = help::find(Tool::Gm, "motion check").unwrap();
+        assert_eq!(check.options(), film::CHECK_OPTIONS);
+        for c in help::of(Tool::Gm) {
+            if let Some(tool) = c.path.strip_prefix("motion ") {
+                assert!(
+                    tool == "check" || galaxy_motion::TOOLS.contains(&tool),
+                    "help for motion {tool}, which doesn't exist"
+                );
+            }
+        }
+    }
+
+    /// Every command in the table is one `run` knows: a bad option is a usage error, not
+    /// a panic.
+    #[test]
+    fn every_command_in_the_help_runs() {
+        for c in help::of(Tool::Gm).filter(|c| c.path != "doctor") {
+            let args = vec!["--no-such-option".to_owned()];
+            match run(c, &args) {
+                Err(f) => assert!(
+                    f.kind == "usage" || f.kind == "bad_input",
+                    "{}: {} {}",
+                    c.path,
+                    f.kind,
+                    f.message
+                ),
+                Ok(_) if c.path == "guide" || c.path == "types" => {}
+                Ok(_) => panic!("{} took --no-such-option", c.path),
+            }
+        }
+    }
 }

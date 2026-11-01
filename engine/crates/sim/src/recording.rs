@@ -217,6 +217,11 @@ impl<'a> Replay<'a> {
         })
     }
 
+    /// The inputs recorded for `tick`.
+    pub fn inputs_at(&self, tick: u64) -> &[Input] {
+        self.inputs.get(&tick).map_or(&[][..], Vec::as_slice)
+    }
+
     /// The tick the recording ends on.
     pub fn end(&self) -> u64 {
         self.rec.end.tick

@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use crate::discover::{self, Tool};
 use crate::failure::{Failure, code};
 use crate::manifest::Manifest;
-use crate::{gate, install, version};
+use crate::{gate, help, install, version};
 
 /// What a successful command prints.
 pub enum Output {
@@ -20,12 +20,13 @@ pub enum Output {
     Text(String),
 }
 
-/// Runs a binary's command line: handles `--help`, `--version` and `doctor`, passes the
-/// rest to `command`, prints the result and returns the exit code.
+/// Runs a binary's command line: handles `--help` (anywhere), `help <command>`,
+/// `--version` and `doctor`, resolves the command through the help table and passes it
+/// and the arguments after its name to `command`; prints the result and returns the exit
+/// code.
 pub fn main(
     tool: Tool,
-    usage: &str,
-    command: impl FnOnce(&[String]) -> Result<Output, Failure>,
+    command: impl FnOnce(&'static help::Command, &[String]) -> Result<Output, Failure>,
 ) -> ExitCode {
     let args: Result<Vec<String>, OsString> = std::env::args_os()
         .skip(1)
@@ -34,16 +35,9 @@ pub fn main(
     let result = match args {
         Err(arg) => Err(usage_failure(
             format!("argument {} is not valid text", arg.to_string_lossy()),
-            usage,
+            &format!("{} --help", tool.name()),
         )),
-        Ok(args) => match args.first().map(String::as_str) {
-            None => Err(usage_failure("no command given", usage)),
-            Some("--help" | "-h" | "help") => Ok(Output::Text(usage.to_owned())),
-            Some("--version" | "-V") => Ok(Output::Text(version_line(tool))),
-            Some("doctor") if args.len() == 1 => current_dir().and_then(|cwd| doctor(tool, &cwd)),
-            Some("doctor") => Err(usage_failure("doctor takes no arguments", usage)),
-            Some(_) => command(&args),
-        },
+        Ok(args) => dispatch(tool, &args, command),
     };
     match result {
         Ok(Output::Json(value)) => {
@@ -58,9 +52,68 @@ pub fn main(
     }
 }
 
+fn dispatch(
+    tool: Tool,
+    args: &[String],
+    command: impl FnOnce(&'static help::Command, &[String]) -> Result<Output, Failure>,
+) -> Result<Output, Failure> {
+    if help::asked(args) {
+        return Ok(Output::Text(help::for_args(tool, args)));
+    }
+    let name = tool.name();
+    match args.first().map(String::as_str) {
+        None => {
+            return Err(usage_failure(
+                format!("no command given; `{name} --help` lists them"),
+                &help::overview(tool),
+            ));
+        }
+        Some("--version" | "-V") => return Ok(Output::Text(version_line(tool))),
+        Some(_) => {}
+    }
+    match help::resolve(tool, args) {
+        Some((c, n)) if c.path == "doctor" => {
+            if n < args.len() {
+                return Err(command_usage(c, "doctor takes no arguments"));
+            }
+            current_dir().and_then(|cwd| doctor(tool, &cwd))
+        }
+        Some((c, n)) => command(c, &args[n..]),
+        None => {
+            let first = &args[0];
+            match help::group(tool, first) {
+                Some(list) => {
+                    let message = match args.get(1).filter(|a| !a.starts_with("--")) {
+                        Some(second) => format!(
+                            "no command `{first} {second}`; `{name} {first} --help` lists them"
+                        ),
+                        None => format!(
+                            "`{first}` needs a command after it; `{name} {first} --help` lists them"
+                        ),
+                    };
+                    Err(usage_failure(message, &list))
+                }
+                None => Err(usage_failure(
+                    format!("unknown command `{first}`; `{name} --help` lists them"),
+                    &help::overview(tool),
+                )),
+            }
+        }
+    }
+}
+
 /// Exit 2, kind `usage`, with the usage text.
 pub fn usage_failure(message: impl Into<String>, usage: &str) -> Failure {
     Failure::usage(message).with("usage", usage)
+}
+
+/// Exit 2, kind `usage`, for a mistake in `command`'s arguments: its synopsis and where
+/// its help is.
+pub fn command_usage(command: &help::Command, message: impl Into<String>) -> Failure {
+    Failure::usage(message).with("usage", command.usage()).with(
+        "help",
+        format!("{} {} --help", command.tool.name(), command.path),
+    )
 }
 
 pub fn print_json(value: &Value) {

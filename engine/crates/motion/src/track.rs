@@ -18,14 +18,34 @@ use serde_json::{Value, json};
 use crate::film::{Film, Frame, round, when};
 use crate::image::{ACCENT, CALM, FLAG, TEXT};
 use crate::opts::Opts;
-use crate::plot::{Panel, Series, chart};
+use crate::plot::{Panel, Series, chart_marked};
+
+/// Inputs and orders listed and marked at most.
+const MAX_CHANGES: usize = 12;
+
+/// The film's inputs, orders and arrivals, capped.
+fn changes_json(film: &Film) -> Value {
+    let all = &film.manifest.changes;
+    let mut list: Vec<Value> = all
+        .iter()
+        .take(MAX_CHANGES)
+        .map(|c| json!({ "t": round(c.t, 3), "tick": c.tick, "kind": c.kind, "what": c.what }))
+        .collect();
+    if all.len() > MAX_CHANGES {
+        list.push(json!(format!("{} more", all.len() - MAX_CHANGES)));
+    }
+    Value::Array(list)
+}
 
 /// Unevenness below this reads as smooth; above `JUDDERS`, as judder.
 const SMOOTH: f32 = 0.1;
 const JUDDERS: f32 = 0.4;
 
+/// The options `track` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &["thing", "to", "tolerance"];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("track", &["thing", "to", "tolerance"])?;
+    opts.only("track", OPTIONS)?;
     let frames = film.frames();
     let id = match opts.text("thing") {
         Some(t) => film.thing_id(t)?,
@@ -119,6 +139,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             "speed_px_per_frame": round(median(&steps(&camera).iter().flatten().map(|s| len(*s)).collect::<Vec<_>>()), 2),
             "judder": camera_u.score.map(|v| round(v, 3)),
         },
+        "changes": changes_json(film),
         "flagged": flag_count,
         "flags": flags.iter().map(|(i, name, r)| {
             let mut m = when(&frames[*i]);
@@ -208,7 +229,21 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         report["gap"] = gap.report;
     }
     let flag_times: Vec<f32> = flags.iter().map(|(i, _, _)| frames[*i].time).collect();
-    let img = chart(&format!("track {id}"), &times, &panels, &flag_times, 720);
+    let marks: Vec<(f32, String)> = film
+        .manifest
+        .changes
+        .iter()
+        .take(MAX_CHANGES)
+        .map(|c| (c.t, c.what.clone()))
+        .collect();
+    let img = chart_marked(
+        &format!("track {id}"),
+        &times,
+        &panels,
+        &flag_times,
+        &marks,
+        720,
+    );
     let path = opts.image_path(&film.dir, "track")?;
     img.save_png(&path)?;
     report["reading"] = json!(reading.join("; "));
@@ -325,11 +360,16 @@ fn gap(film: &Film, id: &str, other: &str, tolerance: Option<f32>) -> Gap {
         .flatten()
         .map(|(a, b)| -((a[0] - b[0]) * u[0] + (a[1] - b[1]) * u[1]))
         .fold(0.0f32, f32::max);
-    let rebound = present
+    let (rebound_i, rebound) = present
         .iter()
         .filter(|(i, _)| *i > min_i)
-        .map(|(_, v)| v - min)
-        .fold(0.0f32, f32::max);
+        .map(|&(i, v)| (i, v - min))
+        .fold((min_i, 0.0f32), |a, b| if b.1 > a.1 { b } else { a });
+    // An input or order between the closest moment and the furthest rebound: the gap may
+    // open because of it, not because the thing overshot.
+    let cause = film.manifest.changes.iter().find(|c| {
+        c.kind != "arrived" && c.tick > frames[min_i].tick && c.tick <= frames[rebound_i].tick
+    });
     // Settled: within the tolerance of where it ends for the last half second at least.
     let run = present
         .iter()
@@ -347,7 +387,13 @@ fn gap(film: &Film, id: &str, other: &str, tolerance: Option<f32>) -> Gap {
         reading.push_str(&format!(", overshooting by {overshoot:.2}"));
     }
     if rebound > tol {
-        reading.push_str(&format!(", bouncing back {rebound:.2} after its closest"));
+        match cause {
+            Some(c) => reading.push_str(&format!(
+                ", opening again by {rebound:.2} after its closest, after {} `{}` at t={:.3}: that, not a bounce, may be why",
+                c.kind, c.what, c.t
+            )),
+            None => reading.push_str(&format!(", bouncing back {rebound:.2} after its closest")),
+        }
     }
     match &settled_at {
         Some(w) => reading.push_str(&format!(", settled within {tol:.2} from t={}", w["t"])),
@@ -363,6 +409,9 @@ fn gap(film: &Film, id: &str, other: &str, tolerance: Option<f32>) -> Gap {
             "closest_at": when(&frames[min_i]),
             "overshoot": round(overshoot + 0.0, 3),
             "rebound": round(rebound, 3),
+            "rebound_after": cause.filter(|_| rebound > tol).map(|c| json!({
+                "t": round(c.t, 3), "tick": c.tick, "kind": c.kind, "what": c.what,
+            })),
             "tolerance": round(tol, 3),
             "settled_at": settled_at,
         }),

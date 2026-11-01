@@ -12,10 +12,11 @@ use galaxy_module::{Failure, discover, gate};
 use galaxy_sim::scenario::InputsFile;
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
-use galaxy_sim::{BuildStamp, Recording, Session, replay, save};
+use galaxy_sim::{BuildStamp, Recording, Session, save};
 use serde_json::{Value, json};
 
-use crate::{USAGE, module_dirs};
+use crate::module_dirs;
+pub(crate) use crate::usage;
 
 /// Ticks `sim run` runs when not told.
 const DEFAULT_TICKS: u64 = 300;
@@ -44,10 +45,6 @@ pub(crate) struct Options {
     pub fps: Option<u64>,
     /// `--probes-only`: a film without pictures.
     pub probes_only: bool,
-}
-
-pub(crate) fn usage(message: impl Into<String>) -> Failure {
-    cli::usage_failure(message, USAGE)
 }
 
 pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
@@ -118,7 +115,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
     Ok((positional, options))
 }
 
-const RUN_OPTIONS: &[&str] = &[
+pub(crate) const RUN_OPTIONS: &[&str] = &[
     "--modules",
     "--seed",
     "--ticks",
@@ -130,101 +127,102 @@ const RUN_OPTIONS: &[&str] = &[
     "--state",
 ];
 
+pub(crate) const REPLAY_OPTIONS: &[&str] = &["--state"];
+
+/// `galaxy sim run`.
 pub fn run(args: &[String]) -> Result<Output, Failure> {
-    match args.first().map(String::as_str) {
-        Some("run") => {
-            let (positional, options) = parse(&args[1..], RUN_OPTIONS)?;
-            if !positional.is_empty() {
-                return Err(usage(
-                    "sim run takes options only: galaxy sim run --modules <dir>",
-                ));
-            }
-            let modules = load_modules(&options)?;
-            let session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-            drive(session, &options, DEFAULT_TICKS, "run")
-        }
-        Some("load") => {
-            let allowed: Vec<&str> = RUN_OPTIONS
-                .iter()
-                .copied()
-                .filter(|o| *o != "--seed")
-                .collect();
-            let (positional, options) = parse(&args[1..], &allowed)?;
-            let [save_path] = positional.as_slice() else {
-                return Err(usage(
-                    "sim load takes one save: galaxy sim load <save> --modules <dir>",
-                ));
-            };
-            let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
-            let modules = load_modules(&options)?;
-            let (info, world) = save::read(&save_path)
-                .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
-            let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
-            let mut loaded: Vec<&str> = modules.iter().map(Module::id).collect();
-            loaded.sort_unstable();
-            if saved != loaded {
-                return Err(Failure::bad_input(format!(
-                    "the save was made with the modules {saved:?}; load it with the same \
-                     modules (these are {loaded:?})"
-                ))
-                .with("saved_modules", json!(info.modules)));
-            }
-            let session = Session::resume(modules, world).map_err(bad_modules)?;
-            drive(session, &options, 0, "load")
-        }
-        Some("replay") => {
-            let (positional, options) = parse(&args[1..], &["--state"])?;
-            let [path] = positional.as_slice() else {
-                return Err(usage(
-                    "sim replay takes one recording: galaxy sim replay <recording>",
-                ));
-            };
-            let path = discover::resolve(&cli::current_dir()?, Path::new(path));
-            let rec = Recording::read(&path)
-                .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
-            let (session, report) = replay(&rec).map_err(|e| {
-                Failure::bad_input(format!("the recording can't run on this engine: {e}"))
-                    .with("path", path.display().to_string())
-            })?;
-            let this = BuildStamp::current();
-            let mut out = json!({
-                "ok": report.identical,
-                "command": "replay",
-                "identical": report.identical,
-                "tick": report.tick,
-                "hash": report.hash,
-                "recorded_hash": report.recorded_hash,
-                "recorded_build": rec.build,
-                "this_build": this,
-                "notes": report.notes,
-            });
-            if options.state {
-                out["state"] = state(&session);
-            }
-            if !report.identical {
-                let mut failure = Failure::new(
-                    code::REJECTED,
-                    "replay_diverged",
-                    format!(
-                        "the replay ended with a different world than the recording (tick {}). \
-                         Was it made by another build? It names {}",
-                        report.tick,
-                        rec.build
-                            .name
-                            .as_deref()
-                            .unwrap_or("a build that was not installed")
-                    ),
-                );
-                if let Value::Object(fields) = out {
-                    failure.fields = fields;
-                }
-                return Err(failure);
-            }
-            Ok(Output::Json(out))
-        }
-        Some(other) => Err(usage(format!("unknown sim command `{other}`"))),
-        None => Err(usage("sim needs a command: run, load or replay")),
+    let (positional, options) = parse(args, RUN_OPTIONS)?;
+    if !positional.is_empty() {
+        return Err(usage(
+            "sim run takes options only: galaxy sim run --modules <dir>",
+        ));
     }
+    let modules = load_modules(&options)?;
+    let session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
+    drive(session, &options, DEFAULT_TICKS, "run")
+}
+
+/// `galaxy sim load`.
+pub fn load(args: &[String]) -> Result<Output, Failure> {
+    let allowed: Vec<&str> = RUN_OPTIONS
+        .iter()
+        .copied()
+        .filter(|o| *o != "--seed")
+        .collect();
+    let (positional, options) = parse(args, &allowed)?;
+    let [save_path] = positional.as_slice() else {
+        return Err(usage(
+            "sim load takes one save: galaxy sim load <save> --modules <dir>",
+        ));
+    };
+    let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
+    let modules = load_modules(&options)?;
+    let (info, world) = save::read(&save_path)
+        .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
+    let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
+    let mut loaded: Vec<&str> = modules.iter().map(Module::id).collect();
+    loaded.sort_unstable();
+    if saved != loaded {
+        return Err(Failure::bad_input(format!(
+            "the save was made with the modules {saved:?}; load it with the same \
+             modules (these are {loaded:?})"
+        ))
+        .with("saved_modules", json!(info.modules)));
+    }
+    let session = Session::resume(modules, world).map_err(bad_modules)?;
+    drive(session, &options, 0, "load")
+}
+
+/// `galaxy sim replay`.
+pub fn replay(args: &[String]) -> Result<Output, Failure> {
+    let (positional, options) = parse(args, REPLAY_OPTIONS)?;
+    let [path] = positional.as_slice() else {
+        return Err(usage(
+            "sim replay takes one recording: galaxy sim replay <recording>",
+        ));
+    };
+    let path = discover::recording_file(&discover::resolve(&cli::current_dir()?, Path::new(path)));
+    let rec = Recording::read(&path)
+        .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
+    let (session, report) = galaxy_sim::replay(&rec).map_err(|e| {
+        Failure::bad_input(format!("the recording can't run on this engine: {e}"))
+            .with("path", path.display().to_string())
+    })?;
+    let this = BuildStamp::current();
+    let mut out = json!({
+        "ok": report.identical,
+        "command": "replay",
+        "identical": report.identical,
+        "tick": report.tick,
+        "hash": report.hash,
+        "recorded_hash": report.recorded_hash,
+        "recorded_build": rec.build,
+        "this_build": this,
+        "notes": report.notes,
+    });
+    if options.state {
+        out["state"] = state(&session);
+    }
+    if !report.identical {
+        let mut failure = Failure::new(
+            code::REJECTED,
+            "replay_diverged",
+            format!(
+                "the replay ended with a different world than the recording (tick {}). \
+                 Was it made by another build? It names {}",
+                report.tick,
+                rec.build
+                    .name
+                    .as_deref()
+                    .unwrap_or("a build that was not installed")
+            ),
+        );
+        if let Value::Object(fields) = out {
+            failure.fields = fields;
+        }
+        return Err(failure);
+    }
+    Ok(Output::Json(out))
 }
 
 pub(crate) fn bad_modules(message: String) -> Failure {

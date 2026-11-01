@@ -7,7 +7,8 @@
 //! - [`gate`]: the engine version gate, which refuses modules that need a newer engine;
 //! - [`discover`]: which modules a command is about;
 //! - [`install`]: the layout of installed builds and launchers, and picking a build;
-//! - [`failure`] and [`cli`]: exit codes, the JSON error object and the shared commands.
+//! - [`failure`] and [`cli`]: exit codes, the JSON error object and the shared commands;
+//! - [`help`]: the help both binaries print and the GM's guide, one table of commands.
 //!
 //! `engine/docs/modules-and-install.md` and `engine/docs/exit-codes.md` explain them.
 
@@ -15,6 +16,7 @@ pub mod cli;
 pub mod discover;
 pub mod failure;
 pub mod gate;
+pub mod help;
 pub mod ids;
 pub mod install;
 pub mod manifest;

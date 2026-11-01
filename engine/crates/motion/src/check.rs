@@ -27,6 +27,65 @@ use serde_json::{Value, json};
 
 use crate::Opts;
 
+/// Every key a spec takes: its place, the key, an example as TOML and what it does.
+/// `galaxy-gm fields spec` prints it; a test reads a spec made of every example.
+pub const SPEC_KEYS: &[(&str, &str, &str, &str)] = &[
+    (
+        "",
+        "modules",
+        "\"../drift\"",
+        "a module folder or a folder of modules, relative to the spec",
+    ),
+    (
+        "",
+        "inputs",
+        "\"inputs/route.toml\"",
+        "an inputs file, relative to the spec (optional)",
+    ),
+    ("", "seed", "1", "the world's seed; 1 by default"),
+    ("", "from", "4", "the first tick filmed (30 a second)"),
+    ("", "to", "34", "the last tick filmed"),
+    ("", "fps", "60", "frames a second; 60 by default"),
+    (
+        "",
+        "size",
+        "\"1280x720\"",
+        "frame size in pixels; 960x540 by default",
+    ),
+    (
+        "",
+        "probes_only",
+        "false",
+        "true films without a GPU: track and dots only",
+    ),
+    ("[[expect]]", "tool", "\"track\"", "the motion tool to run"),
+    (
+        "[[expect]]",
+        "value",
+        "\"gap.overshoot\"",
+        "a value in the tool's report, dotted for nested ones (events.0.kind for a list)",
+    ),
+    (
+        "[[expect]]",
+        "at_least",
+        "0.0",
+        "the value is at least this",
+    ),
+    ("[[expect]]", "at_most", "0.1", "the value is at most this"),
+    (
+        "[[expect]]",
+        "equals",
+        "0",
+        "the value is exactly this (a number, text or true/false)",
+    ),
+    (
+        "[[expect]]",
+        "<option>",
+        "\"berth\"",
+        "any other key is one of the tool's options without its -- (to = \"berth\" for --to berth)",
+    ),
+];
+
 /// What to film.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Spec {
@@ -252,6 +311,37 @@ pub fn evaluate(spec: &Spec, dir: &Path) -> (Vec<Value>, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_spec_of_every_documented_key_reads() {
+        let mut text = String::new();
+        let mut last = "";
+        for (place, key, example, _) in SPEC_KEYS {
+            if *place != last {
+                text.push_str(&format!(
+                    "{place}
+"
+                ));
+                last = place;
+            }
+            let key = key.replace("<option>", "to");
+            text.push_str(&format!(
+                "{key} = {example}
+"
+            ));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("spec.toml");
+        std::fs::write(&path, &text).unwrap();
+        let spec = Spec::read(&path).unwrap_or_else(|e| {
+            panic!(
+                "{e}
+{text}"
+            )
+        });
+        assert_eq!(spec.expects[0].opts.text("to"), Some("berth"));
+        assert_eq!(spec.size, (1280, 720));
+    }
 
     #[test]
     fn a_spec_reads_with_tool_options() {

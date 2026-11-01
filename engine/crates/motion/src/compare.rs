@@ -26,8 +26,11 @@ const PLAIN: f32 = 0.5;
 const VISIBLE: usize = 16;
 const BINS: usize = 64;
 
+/// The options `compare` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &["with", "half", "vdp", "ppd"];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("compare", &["with", "half", "vdp", "ppd"])?;
+    opts.only("compare", OPTIONS)?;
     let other_dir = opts
         .text("with")
         .ok_or("compare needs the second film: galaxy-gm motion compare <film> <other film>")?;

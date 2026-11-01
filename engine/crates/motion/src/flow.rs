@@ -30,8 +30,11 @@ const MOVING: f32 = 0.3;
 /// ... in a steady direction (mean vector over mean length).
 const COHERENT: f32 = 0.6;
 
+/// The options `flow` takes, besides `--image`.
+pub const OPTIONS: &[&str] = &["along", "region", "screen", "step"];
+
 pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
-    opts.only("flow", &["along", "grid", "region", "screen", "step"])?;
+    opts.only("flow", OPTIONS)?;
     film.need_pictures("flow")?;
     let frames = film.frames();
     let (w, h) = film.size();

@@ -35,6 +35,20 @@ pub const TOOLS: &[&str] = &[
     "track", "dots", "strip", "sheet", "flicker", "flow", "compare",
 ];
 
+/// The options `tool` takes, besides `--image`; none for a tool that doesn't exist.
+pub fn options(tool: &str) -> Option<&'static [&'static str]> {
+    Some(match tool {
+        "track" => track::OPTIONS,
+        "dots" => dots::OPTIONS,
+        "strip" => strip::OPTIONS,
+        "sheet" => sheet::OPTIONS,
+        "flicker" => flicker::OPTIONS,
+        "flow" => flow::OPTIONS,
+        "compare" => compare::OPTIONS,
+        _ => return None,
+    })
+}
+
 /// Runs `tool` on the film in `dir`.
 pub fn run(tool: &str, dir: &Path, opts: &Opts) -> Result<Value, String> {
     let film = Film::read(dir)?;
