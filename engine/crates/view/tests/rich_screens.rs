@@ -121,6 +121,21 @@ fn scroll_clips_hit_tests_and_drag_verdicts_do_not_call_luau() {
             .any(|t| t.text.contains("Cannot drop: Needs a wider slot"))
     );
     assert_eq!(before, find(&v.screens.boxes[0], "wide").unwrap().rect);
+    v.screens
+        .bot_pointer(&gesture("move", "narrow", 0.0))
+        .unwrap();
+    let scene = draw(&mut v, &s);
+    let preview = scene.overlay.widgets.last().unwrap().panels[0].rect;
+    for id in ["narrow", "wide"] {
+        let target = find(&v.screens.boxes[0], id).unwrap().rect;
+        assert!(
+            preview.x >= target.x + target.w
+                || target.x >= preview.x + preview.w
+                || preview.y >= target.y + target.h
+                || target.y >= preview.y + preview.h,
+            "drag preview covers {id}'s verdict"
+        );
+    }
     assert!(
         v.screens
             .bot_pointer(&gesture("drop", "narrow", 0.0))
