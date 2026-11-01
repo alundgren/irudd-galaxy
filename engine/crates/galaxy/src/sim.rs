@@ -21,23 +21,29 @@ use crate::{USAGE, module_dirs};
 const DEFAULT_TICKS: u64 = 300;
 
 #[derive(Default)]
-struct Options {
-    modules: Option<String>,
-    seed: Option<u64>,
-    ticks: Option<u64>,
-    inputs: Option<PathBuf>,
-    save: Option<PathBuf>,
-    record: Option<PathBuf>,
-    realtime: bool,
-    watch: bool,
-    state: bool,
+pub(crate) struct Options {
+    pub modules: Option<String>,
+    pub seed: Option<u64>,
+    pub ticks: Option<u64>,
+    pub inputs: Option<PathBuf>,
+    pub save: Option<PathBuf>,
+    pub record: Option<PathBuf>,
+    pub realtime: bool,
+    pub watch: bool,
+    pub state: bool,
+    /// `--out`: where a picture goes.
+    pub out: Option<PathBuf>,
+    /// `--size WxH`: the window or picture size in pixels.
+    pub size: Option<(u32, u32)>,
+    /// `--frames <n>`: stop after this many frames.
+    pub frames: Option<u64>,
 }
 
-fn usage(message: impl Into<String>) -> Failure {
+pub(crate) fn usage(message: impl Into<String>) -> Failure {
     cli::usage_failure(message, USAGE)
 }
 
-fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
+pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Failure> {
     let cwd = cli::current_dir()?;
     let mut options = Options::default();
     let mut positional = Vec::new();
@@ -82,6 +88,19 @@ fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, Options), Fa
             "--inputs" => options.inputs = Some(path(&value)),
             "--save" => options.save = Some(path(&value)),
             "--record" => options.record = Some(path(&value)),
+            "--out" => options.out = Some(path(&value)),
+            "--frames" => options.frames = Some(number(&value)?),
+            "--size" => {
+                let size = value
+                    .split_once('x')
+                    .and_then(|(w, h)| Some((w.parse::<u32>().ok()?, h.parse::<u32>().ok()?)))
+                    .filter(|&(w, h)| (64..=8192).contains(&w) && (64..=8192).contains(&h));
+                options.size = Some(size.ok_or_else(|| {
+                    usage(format!(
+                        "--size takes width x height in pixels, such as 1280x720, not `{value}`"
+                    ))
+                })?);
+            }
             _ => unreachable!("checked against `allowed`"),
         }
     }
@@ -197,12 +216,12 @@ pub fn run(args: &[String]) -> Result<Output, Failure> {
     }
 }
 
-fn bad_modules(message: String) -> Failure {
+pub(crate) fn bad_modules(message: String) -> Failure {
     Failure::bad_input(message)
 }
 
 /// The modules `--modules` names, through the version gate, read into memory.
-fn load_modules(options: &Options) -> Result<Vec<Module>, Failure> {
+pub(crate) fn load_modules(options: &Options) -> Result<Vec<Module>, Failure> {
     let dir = options
         .modules
         .as_deref()

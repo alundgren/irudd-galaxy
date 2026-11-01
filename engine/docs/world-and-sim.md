@@ -26,9 +26,11 @@ The engine owns only the component types its own services act on:
 
 | Type | Fields | Who writes it |
 |---|---|---|
-| `engine.position` | `x`, `y`, `layer`, `height` | modules place things and change `layer`; the motion service moves `x`, `y`; the ground service sets `height` |
+| `engine.position` | `x`, `y`, `layer`, `height`, `angle` | modules place and turn things and change `layer`; the motion service moves `x`, `y`; the ground service sets `height` |
 | `engine.motion` | `vx`, `vy` (units per second) | modules |
 | `engine.surface` | `layer`, a rectangle, `height`, `rise_x`, `rise_y` | modules |
+| `engine.model` | `model`, `look`, `scale`, `morph` | modules; the view draws it (`renderer-and-style.md`) |
+| `engine.camera` | `tilt`, `view`, `min_view`, `max_view`, `fov` | modules; the camera follows the thing that has it |
 
 ## 2.5D
 

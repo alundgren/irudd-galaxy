@@ -10,8 +10,7 @@ use serde_json::{Map, Value};
 pub mod code {
     /// The command did what it was asked.
     pub const OK: u8 = 0;
-    /// The command started but failed: I/O, a crash it caught, or a command that is not
-    /// built yet.
+    /// The command started but failed: I/O, a crash it caught, no window or GPU.
     pub const RUNTIME: u8 = 1;
     /// The command could not start: bad usage, an engine too old for the modules, or no
     /// installed build to run.

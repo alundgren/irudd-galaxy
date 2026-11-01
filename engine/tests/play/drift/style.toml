@@ -1,0 +1,13 @@
+# How drift is drawn. The scene-wide tables are left at the engine's defaults; the looks
+# set silhouette weight and hatching per kind of thing.
+[looks.hull]
+outline_px = 3.5
+hatch = 0.25
+
+[looks.rock]
+outline_px = 3.0
+hatch = 0.85
+
+[looks.prop]
+outline_px = 2.5
+hatch = 0.12

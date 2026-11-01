@@ -131,20 +131,3 @@ pub fn modules_json(manifests: &[Manifest]) -> Vec<Value> {
         })
         .collect()
 }
-
-/// Exit 1, kind `not_built`: the modules passed the gate but the command is a stub.
-pub fn not_built(tool: Tool, command: &str, manifests: &[Manifest]) -> Failure {
-    let engine = version::engine();
-    Failure::new(
-        code::RUNTIME,
-        "not_built",
-        format!(
-            "`{} {command}` is not built yet in engine {engine}. The modules passed the engine \
-             version gate.",
-            tool.name()
-        ),
-    )
-    .with("command", command)
-    .with("engine", engine.to_string())
-    .with("modules", modules_json(manifests))
-}

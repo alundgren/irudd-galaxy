@@ -11,6 +11,8 @@
 //!   start.toml        optional: the entities a new world starts with
 //!   scripts/*.luau    scripts (the manifest lists the entry scripts)
 //!   tests/*.toml      scenario tests
+//!   style.toml        optional: how the module wants things drawn (galaxy-render's style)
+//!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
 //! ```
 //!
 //! `start.toml`:
@@ -34,9 +36,10 @@ use crate::{ids, version};
 /// The start file in a module folder.
 pub const START_FILE: &str = "start.toml";
 
-/// File extensions the engine reads from a module. Other files (notes, later assets) are
-/// not part of what it runs, records or hashes yet.
-pub const EXTENSIONS: [&str; 2] = ["toml", "luau"];
+/// File extensions the engine reads from a module: data, scripts and models (`.gltf`, text
+/// with embedded buffers). Other files (notes, later sound) are not part of what it runs,
+/// records or hashes yet.
+pub const EXTENSIONS: [&str; 3] = ["toml", "luau", "gltf"];
 
 /// Largest module file the engine reads.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
@@ -47,7 +50,7 @@ pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 pub struct ModuleFiles(pub BTreeMap<String, String>);
 
 impl ModuleFiles {
-    /// Reads the module folder's `.toml` and `.luau` files, skipping names that start
+    /// Reads the module folder's files with the [`EXTENSIONS`], skipping names that start
     /// with `.`.
     pub fn read(dir: &Path) -> Result<ModuleFiles, Failure> {
         let mut files = BTreeMap::new();

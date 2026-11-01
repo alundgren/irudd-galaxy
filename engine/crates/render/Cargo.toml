@@ -1,0 +1,26 @@
+[package]
+name = "galaxy-render"
+description = "The renderer: glTF models in the cel and ink style on wgpu, cameras, lines, glows, backdrop and screen text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bytemuck.workspace = true
+galaxy-mesh.workspace = true
+glam.workspace = true
+glyphon.workspace = true
+log.workspace = true
+png.workspace = true
+pollster.workspace = true
+serde.workspace = true
+toml.workspace = true
+wgpu.workspace = true
+winit.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -6,7 +6,7 @@ agent can tell what happened without reading the message.
 | Code | Meaning |
 |---|---|
 | 0 | OK: the command did what it was asked. |
-| 1 | Runtime failure: the command started but failed (I/O, a command that is not built yet). |
+| 1 | Runtime failure: the command started but failed (I/O, no window or GPU, a drawing failure). |
 | 2 | Cannot start: bad usage, an engine too old for the modules, or no installed build to run. |
 | 4 | Bad input: a missing or invalid module, manifest, save, recording, inputs file or path. |
 | 5 | Rejected: the input was read and judged, and turned down (a check with findings, a replay that ended differently). |
@@ -43,7 +43,6 @@ text. Messages from the build tools (`cargo xtask`) go to stderr.
 | `bad_input` | 4 | A module folder, its manifest, start state or scripts are missing or invalid; a save, recording or inputs file can't be read or doesn't fit the modules; a path is not a folder. | `path` (sometimes) |
 | `findings` | 5 | `galaxy-gm check` found problems in the module. | `module`, `findings` (each with `kind`: `schema`, `script` or `start`, and `message`) |
 | `replay_diverged` | 5 | `galaxy sim replay` ended on a different world than the recording did. | `tick`, `hash`, `recorded_hash`, `recorded_build`, `this_build` |
-| `not_built` | 1 | The command exists in the plan but not yet in this engine. It still ran the version gate first, and the modules passed. | `command`, `engine`, `modules` |
 | `runtime` | 1 | Anything else that failed after starting: I/O, a build the launcher could not start. | `path` (sometimes) |
 
 The table lives in code in `crates/module/src/failure.rs`; a new kind is added there and

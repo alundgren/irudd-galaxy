@@ -28,14 +28,72 @@ fn json(text: &str) -> Value {
 
 #[test]
 fn the_test_modules_pass_check() {
-    for module in ["stroll", "tally"] {
-        let (code, out) = gm(&engine(), &["check", &format!("tests/modules/{module}")]);
+    for module in [
+        "tests/modules/stroll",
+        "tests/modules/tally",
+        "tests/play/drift",
+    ] {
+        let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);
         assert_eq!(code, 0, "{out}");
-        assert_eq!(out["module"], module);
+        assert!(module.ends_with(out["module"].as_str().unwrap()), "{out}");
     }
     let (_, out) = gm(&engine(), &["check", "tests/modules/stroll"]);
-    assert_eq!(json(&out)["context_modules"][0], "tally");
+    assert_eq!(json(&out)["context_modules"], serde_json::json!(["tally"]));
+}
+
+#[test]
+fn missing_models_and_looks_and_broken_models_are_findings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("shapes");
+    std::fs::create_dir_all(dir.join("models")).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        format!(
+            "id = \"shapes\"
+version = \"0.1.0\"
+min_engine_version = \"{}\"
+             writes = [\"engine.position\", \"engine.model\"]
+",
+            env!("CARGO_PKG_VERSION")
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("start.toml"),
+        "[entities.a]
+\"engine.position\" = {}
+         \"engine.model\" = { model = \"shapes.cube\", look = \"shapes.shiny\" }
+",
+    )
+    .unwrap();
+    std::fs::write(dir.join("models/broken.gltf"), "{").unwrap();
+    std::fs::write(
+        dir.join("style.toml"),
+        "[looks.dull]
+hatch = 0.5
+",
+    )
+    .unwrap();
+    let (code, out) = gm(tmp.path(), &["check", "shapes"]);
+    let out = json(&out);
+    assert_eq!(code, 5, "{out}");
+    let messages: Vec<&str> = out["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["message"].as_str().unwrap())
+        .collect();
+    assert_eq!(messages.len(), 3, "{messages:?}");
+    assert!(messages[0].contains("models/broken.gltf"), "{messages:?}");
+    assert!(
+        messages[1].contains("the model `shapes.cube`"),
+        "{messages:?}"
+    );
+    assert!(
+        messages[2].contains("the look `shapes.shiny`"),
+        "{messages:?}"
+    );
 }
 
 #[test]

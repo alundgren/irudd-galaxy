@@ -1,0 +1,21 @@
+[package]
+name = "galaxy-view"
+description = "The world as the player sees it: modules' models and styles, the camera, and a scene for the renderer each frame"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+galaxy-api.workspace = true
+galaxy-mesh.workspace = true
+galaxy-module.workspace = true
+galaxy-render.workspace = true
+galaxy-sim.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

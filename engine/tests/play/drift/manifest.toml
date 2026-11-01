@@ -1,0 +1,27 @@
+# A generic test module for the engine on screen: a ship you steer with the arrow keys or
+# WASD, rocks, a beacon and a deck, drawn as glTF models in the cel and ink style. The
+# camera follows the ship. Steering here is a stand-in: keys set the ship's velocity
+# directly, until the engine's flight model lands.
+id = "drift"
+version = "0.1.0"
+min_engine_version = "0.2.0"
+scripts = ["scripts/drift.luau"]
+events = ["steer_up", "steer_down", "steer_left", "steer_right"]
+writes = ["engine.position", "engine.motion", "engine.surface", "engine.model", "engine.camera"]
+
+[components.helm]
+up = "bool"
+down = "bool"
+left = "bool"
+right = "bool"
+speed = { type = "number", default = 14 }
+
+[keys]
+up = "steer_up"
+w = "steer_up"
+down = "steer_down"
+s = "steer_down"
+left = "steer_left"
+a = "steer_left"
+right = "steer_right"
+d = "steer_right"

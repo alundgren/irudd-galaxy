@@ -1,0 +1,19 @@
+[package]
+name = "galaxy-mesh"
+description = "Meshes and the model contract: glTF in and out, outline normals and part spans, no GPU"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
+gltf.workspace = true
+libm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

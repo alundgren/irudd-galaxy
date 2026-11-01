@@ -40,6 +40,9 @@ writes = ["engine.position"]      # other modules' or the engine's component typ
 [components.door]                 # a component type, example.door
 open = "bool"                     # a field and its type
 pushes = { type = "int", default = 0 }
+
+[keys]                            # keys it listens to while playing
+space = "pressed"                 # key name = one of its event kinds
 ```
 
 Field types are `number`, `int`, `bool`, `text` and `id` (an entity ID, or `""` for
@@ -48,12 +51,21 @@ names is `<module>.<name>` to everyone else (`world-and-sim.md`). Versions are
 `MAJOR.MINOR.PATCH` (`MAJOR.MINOR` means `.0`), compared number by number. Unknown fields
 are an error, so typos are caught.
 
+A key in `[keys]` sends its event when it goes down (payload `down = true`) and when it
+goes up (`down = false`), as an input from the source `keyboard`, so it is recorded and
+replays like any input. Key names say where the key is, not what is printed on it (`w` is
+the key above `s` on every layout): `a` to `z`, `0` to `9`, `up`, `down`, `left`, `right`,
+`space`, `enter`, `tab`, `backspace`, `shift`, `ctrl`, `alt` and `f1` to `f5`. Escape
+quits and F8 is kept for notes; they belong to the engine.
+
 Beside the manifest:
 
 ```text
 start.toml         optional: the entities a new world starts with
 scripts/*.luau     scripts
 tests/*.toml       scenario tests (saves-and-replay.md)
+style.toml         optional: looks, ink, light and sky (renderer-and-style.md)
+models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
 ```
 
 `start.toml` lists entities by name with their components:
@@ -66,10 +78,11 @@ door = { open = false }                # this module's component type
 
 ## The module loader
 
-`crates/module/src/module.rs` reads a module folder into memory once: its `.toml` and
-`.luau` files (names starting with `.` are skipped), with line endings made `\n`. The
-engine runs, records and hashes only that copy, so a recording can store exactly the files
-a session ran. Other files (notes, later assets) are not read yet.
+`crates/module/src/module.rs` reads a module folder into memory once: its `.toml`,
+`.luau` and `.gltf` files (names starting with `.` are skipped), with line endings made
+`\n`. The engine runs, records and hashes only that copy, so a recording can store exactly
+the files a session ran, models included. Other files (notes, later sound) are not read
+yet.
 
 ## The version gate
 
@@ -89,12 +102,13 @@ Which modules a command is about:
 | Command | Modules |
 |---|---|
 | `galaxy-gm check <path>` | the module at `<path>` (the folder or its `manifest.toml`) |
-| `galaxy play --modules <dir>`, `galaxy sim run --modules <dir>`, `galaxy sim load <save> --modules <dir>` | `<dir>` if it is a module, else every module folder in it |
+| `galaxy play --modules <dir>`, `galaxy shot --modules <dir>`, `galaxy sim run --modules <dir>`, `galaxy sim load <save> --modules <dir>` | `<dir>` if it is a module, else every module folder in it |
 | `doctor` (both binaries) | walking up from the working folder: the first folder that is a module, holds modules, or holds `game/modules` |
 
-`play` is not built yet: after the gate passes it exits 1 with kind `not_built`. `check`
-loads the module with the modules beside it (manifest, schemas, scripts, start state);
-findings exit 5 with kind `findings`. `doctor`
+`play` and `shot` are in `renderer-and-style.md`. `check` loads the module with the
+modules beside it (manifest, schemas, scripts, start state, models and style) and checks
+that every model and look its start state wears exists; findings exit 5 with kind
+`findings`. `doctor`
 reports this engine, the installed builds, the launchers and the modules it found. The
 `sim` commands are in `saves-and-replay.md`.
 

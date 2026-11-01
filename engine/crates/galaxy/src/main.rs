@@ -1,23 +1,25 @@
-//! `galaxy`: the game, which runs modules. Headless so far: `sim run`, `sim load` and
-//! `sim replay` run modules without a window; `play` runs the engine version gate on its
-//! modules, then says it is not built yet. Exit codes and error kinds:
-//! `engine/docs/exit-codes.md`.
+//! `galaxy`: the game, which runs modules. `play` runs them in a window, `shot` draws one
+//! frame headless, and `sim run`, `sim load` and `sim replay` run them without drawing.
+//! Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod play;
 mod sim;
 
 use std::path::Path;
 use std::process::ExitCode;
 
+use galaxy_module::Failure;
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
-use galaxy_module::{Failure, gate};
 
 const USAGE: &str = "usage: galaxy <command>
 
   doctor                      the engine, its installed builds and launchers, and the
                               modules near the working folder
-  play --modules <dir>        play the modules in <dir>, or the module <dir> is (not built
-                              yet: runs the engine version gate)
+  play --modules <dir>        play the modules in <dir>, or the module <dir> is, in a
+                              window. Esc quits; the wheel zooms.
+  shot --modules <dir> --out <file.png>
+                              run the modules headless and draw one frame
   sim run --modules <dir>     run a new world from the modules' start states, headless
   sim load <save> --modules <dir>
                               load a save and carry on with the modules
@@ -34,7 +36,16 @@ sim run and sim load take:
   --realtime        run at 30 ticks a second instead of as fast as possible
   --watch           hot-load module folders when their files change (implies --realtime)
   --state           print the whole world when done
-sim replay takes --state too.";
+sim replay takes --state too.
+
+play takes --seed, --save and --record as above, and:
+  --watch           hot-load module folders when their files change, models included
+  --size <w>x<h>    the window's size in logical pixels (1280x720 by default)
+  --frames <n>      quit after this many frames (for scripted runs)
+It prints frame times when it quits.
+
+shot takes --seed, --ticks (30 by default) and --inputs as above, and --size (in pixels,
+1280x720 by default).";
 
 fn main() -> ExitCode {
     cli::main(Tool::Game, USAGE, run)
@@ -42,21 +53,8 @@ fn main() -> ExitCode {
 
 fn run(args: &[String]) -> Result<Output, Failure> {
     match args {
-        [command, rest @ ..] if command == "play" => {
-            let dir = match rest {
-                [flag, dir] if flag == "--modules" => Some(dir.as_str()),
-                [flag] => flag.strip_prefix("--modules="),
-                _ => None,
-            };
-            let Some(dir) = dir.filter(|d| !d.is_empty()) else {
-                return Err(cli::usage_failure(
-                    "play needs one modules folder: galaxy play --modules <dir>",
-                    USAGE,
-                ));
-            };
-            let manifests = gate::open(&module_dirs(dir)?)?;
-            Err(cli::not_built(Tool::Game, "play", &manifests))
-        }
+        [command, rest @ ..] if command == "play" => play::play(rest),
+        [command, rest @ ..] if command == "shot" => play::shot(rest),
         [command, rest @ ..] if command == "sim" => sim::run(rest),
         [command, ..] => Err(cli::usage_failure(
             format!("unknown command `{command}`"),

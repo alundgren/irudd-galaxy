@@ -1,11 +1,12 @@
 //! `galaxy-gm`: the GM, which builds and checks modules. So far: `doctor`, `check` (the
-//! module loads: manifest, start state and scripts) and `types` (the Luau type file for
-//! scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
+//! module loads: manifest, start state, scripts, models and styles) and `types` (the Luau
+//! type file for scripts). Exit codes and error kinds: `engine/docs/exit-codes.md`.
 
 use std::path::Path;
 use std::process::ExitCode;
 
 use galaxy_api::Registry;
+use galaxy_api::engine::MODEL;
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
 use galaxy_module::failure::code;
@@ -13,13 +14,15 @@ use galaxy_module::module::Module;
 use galaxy_module::{Failure, gate, manifest, version};
 use galaxy_script::ScriptSet;
 use galaxy_sim::Session;
+use galaxy_view::Assets;
 use serde_json::{Value, json};
 
 const USAGE: &str = "usage: galaxy-gm <command>
 
   doctor                the engine, its installed builds and launchers, and the modules
                         near the working folder
-  check <module>        check a module folder: it loads (manifest, start state, scripts)
+  check <module>        check a module folder: it loads (manifest, start state, scripts,
+                        models and style), and what its start state wears exists
   types                 print the Luau type file for module scripts
   --version             print the version
   --help                print this";
@@ -58,6 +61,44 @@ fn finding(kind: &str, message: impl Into<String>) -> Value {
     json!({ "kind": kind, "message": message.into() })
 }
 
+/// What `module` brings for the eye: its models and style read, and every model and look
+/// its start state wears is one some module has.
+fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
+    let assets = Assets::load(all);
+    let own = format!("{}: ", module.id());
+    let mut out: Vec<Value> = assets
+        .problems
+        .iter()
+        .filter(|p| p.starts_with(&own) || (p.starts_with('[') && p.contains(module.id())))
+        .map(|p| finding("look", p.clone()))
+        .collect();
+    for (entity, components) in &module.start {
+        let Some(fields) = components.get(MODEL) else {
+            continue;
+        };
+        let text = |k: &str| fields.get(k).and_then(Value::as_str).unwrap_or("");
+        let model = text("model");
+        if !assets.models.contains_key(model) {
+            out.push(finding(
+                "look",
+                format!(
+                    "start.toml: {entity} wears the model `{model}`, which no module has                      (`<module>.<name>` is models/<name>.gltf in that module)"
+                ),
+            ));
+        }
+        let look = text("look");
+        if !look.is_empty() && !assets.looks.contains_key(look) {
+            out.push(finding(
+                "look",
+                format!(
+                    "start.toml: {entity} wears the look `{look}`, which no module's                      style.toml has"
+                ),
+            ));
+        }
+    }
+    out
+}
+
 /// Checks the module at `dir`, with the modules beside it loaded too (a module may write
 /// or handle another's types and events).
 fn check(dir: &Path) -> Result<Output, Failure> {
@@ -86,12 +127,13 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                 findings.extend(problems.iter().map(|p| finding("script", p.to_string())))
             }
             Ok(_) => {
-                if let Err(e) = Session::new(all, 1) {
+                if let Err(e) = Session::new(all.clone(), 1) {
                     findings.push(finding("start", e));
                 }
             }
         },
     }
+    findings.extend(looks(&module, &all));
 
     let ok = findings.is_empty();
     let count = findings.len();

@@ -1,0 +1,33 @@
+# The ship starts beside the deck, facing +x, with rocks scattered around and a beacon on
+# the deck. Sizes are in world units; the camera shows 36 of them top to bottom.
+[entities.ship]
+helm = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.model" = { model = "drift.ship", look = "drift.hull" }
+"engine.camera" = { tilt = 30.0, view = 36.0 }
+
+[entities.deck]
+"engine.surface" = { layer = 0, min_x = 14.0, min_y = -14.0, max_x = 30.0, max_y = -4.0, height = 1.0 }
+"engine.position" = { x = 22.0, y = -9.0 }
+"engine.model" = { model = "drift.deck", look = "drift.hull" }
+
+[entities.beacon]
+"engine.position" = { x = 26.0, y = -6.5, height = 1.0 }
+"engine.model" = { model = "drift.beacon", look = "drift.prop" }
+
+[entities.rock1]
+"engine.position" = { x = -14.0, y = 9.0, angle = 0.4 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.6 }
+
+[entities.rock2]
+"engine.position" = { x = -6.0, y = 16.0, angle = 2.1 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.0 }
+
+[entities.rock3]
+"engine.position" = { x = 10.0, y = 12.0, angle = 4.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 2.2, morph = 0.5 }
+
+[entities.rock4]
+"engine.position" = { x = -20.0, y = -10.0, angle = 1.0 }
+"engine.model" = { model = "drift.rock", look = "drift.rock", scale = 1.3 }
