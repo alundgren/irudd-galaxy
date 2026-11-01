@@ -41,6 +41,9 @@ pub trait Life {
     }
     /// The player arrived in a place (the move's view has landed).
     fn arrived(&mut self, _model: &mut Places, _place: &str) {}
+    /// Key 4 is switching away from this variant: finish what is under way (walks land,
+    /// story moves held back happen), so the next variant starts from a settled model.
+    fn leave(&mut self, _model: &mut Places) {}
     /// Time passes.
     fn step(&mut self, _model: &mut Places, _dt: f32) {}
     /// How a figure stands now. `t` is seconds, offset per person.

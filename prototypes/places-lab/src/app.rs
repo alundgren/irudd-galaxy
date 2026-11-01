@@ -743,6 +743,10 @@ impl App {
 
     /// Keys 1-4: the next variant of a choice (Shift: the previous one).
     pub fn cycle(&mut self, choice: usize, back: bool) {
+        if choice == 3 {
+            // The life variant going finishes what it has under way.
+            self.combo.life_mut().leave(&mut self.model);
+        }
         self.combo.cycle(choice, back);
         self.dirty = true;
     }

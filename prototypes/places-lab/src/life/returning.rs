@@ -219,6 +219,12 @@ impl Life for Return {
         );
     }
 
+    fn leave(&mut self, model: &mut Places) {
+        for (who, to) in std::mem::take(&mut self.pending) {
+            day::put(model, &who, &to);
+        }
+    }
+
     fn moved(
         &mut self,
         model: &mut Places,

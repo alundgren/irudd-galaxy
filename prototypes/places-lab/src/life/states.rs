@@ -268,6 +268,13 @@ impl Life for States {
         self.landed = true;
     }
 
+    fn leave(&mut self, model: &mut Places) {
+        self.finish_all(model);
+        for (who, to, _) in std::mem::take(&mut self.pending) {
+            day::put(model, &who, &to);
+        }
+    }
+
     fn step(&mut self, model: &mut Places, dt: f32) {
         let talking = self.talking.take();
         let moved = self.clock.borrow_mut().tick(model);
