@@ -86,8 +86,14 @@ protects output [-1, 1]; offline `limited_samples` reveals mixes that hit it. Au
 should lower clip volumes until that count is zero rather than rely on the clamp.
 
 The CPAL callback owns the mixer and consumes a bounded queue of prepared action
-batches. It never takes a simulation lock, decodes files or calls scripts. Frame
-mixing allocates nothing. The callback translates stereo floats to the device's
+batches. It never takes a simulation lock, decodes files or calls scripts. Before
+queueing a clip, the game thread retains one PCM reference per distinct buffer.
+Every send, including empty ticks, reclaims buffers whose only remaining owner is
+that retained reference. Queued actions and active voices therefore keep retired
+banks' samples alive across hot-load fades; ending or stealing a voice cannot free
+PCM in the callback. The stream and queue are dropped before these retained owners.
+Frame mixing allocates nothing, and sample buffers are allocated and freed outside
+the callback. The callback translates stereo floats to the device's
 sample format, averages for mono, and silences channels above stereo. Missing devices,
 unsupported output configurations, stream creation/start failures and stream errors
 are notes, never simulation failures. A full queue drops cues with a note rather than
@@ -95,10 +101,13 @@ stall the game. Tests never open a device; the missing-device path is injected.
 
 ## Presentation and replay
 
-After each fixed tick, live play passes only the newly appended fact kinds and a
-read-only world view to the audio scene. Initial ambience is selected before the first
-tick. No mixer position, gain or voice is in the world, save or hash. The session's
-existing event facts and place state are all that drive it. Pausing for an F8 note
+Live play and offline rendering share a fact cursor and pass only newly appended
+fact kinds and a read-only world view to the audio scene. A fresh session starts
+the cursor at zero, so facts already present, including `engine.start`, play once
+before the first tick alongside initial ambience. For a resumed world the cursor
+starts after its saved facts; a hot-load starts just before its new facts. Neither
+replays historical cues. No mixer position, gain or voice is in the world, save or
+hash. The session's existing event facts and place state are all that drive it. Pausing for an F8 note
 leaves looping presentation audio running. `--watch` reloads banks outside the audio
 callback, fades old voices out and selects the current ambience again; music starts
 again on the next matching event.

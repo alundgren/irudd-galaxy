@@ -20,6 +20,40 @@ fn run(args: &[&str]) -> (i32, Value) {
 }
 
 #[test]
+fn startup_music_plays_without_an_injected_event() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("manifest.toml"),
+        "id = 'startup'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\n",
+    )
+    .unwrap();
+    std::fs::copy(
+        engine().join("tests/play/audio/demo/sounds/music.wav"),
+        dir.path().join("theme.wav"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("audio.toml"),
+        "[sounds.theme]\nfile = 'theme.wav'\n\
+         [[events]]\nevent = 'engine.start'\nsound = 'theme'\nbus = 'music'\n",
+    )
+    .unwrap();
+    let wav = dir.path().join("startup.wav");
+    let (code, mix) = run(&[
+        "audio",
+        "--modules",
+        dir.path().to_str().unwrap(),
+        "--ticks",
+        "60",
+        "--out",
+        wav.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{mix}");
+    assert_eq!(mix["max_voices"], 1, "startup must play exactly once");
+    assert!(mix["peak"].as_f64().unwrap() > 0.1, "{mix}");
+}
+
+#[test]
 fn audio_renders_a_clean_wav_and_does_not_overwrite_files() {
     let dir = tempfile::tempdir().unwrap();
     let wav = dir.path().join("mix.wav");
