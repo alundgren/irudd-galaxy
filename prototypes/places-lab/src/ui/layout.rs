@@ -378,9 +378,10 @@ fn place_width(place: &str, screen: Vec2) -> f32 {
 pub fn place_screen(cx: &mut Ctx, root: &mut Node, screen: Vec2) -> Vec<Rect> {
     root.rect = Rect::new(0.0, 0.0, screen.x, screen.y);
     let mut placed: Vec<(String, Rect)> = Vec::new();
-    // Bottom layers first, so side panels can stop above them.
+    // Bottom layers first, so side panels can stop above the ones under them: each
+    // bottom layer's left, right and top.
     let order: Vec<usize> = (0..root.children.len()).collect();
-    let mut bottom_top = screen.y - MARGIN;
+    let mut bottoms: Vec<(f32, f32, f32)> = Vec::new();
     for &i in &order {
         if anchored(&root.children[i]) {
             continue;
@@ -391,7 +392,12 @@ pub fn place_screen(cx: &mut Ctx, root: &mut Node, screen: Vec2) -> Vec<Rect> {
             let c = &mut root.children[i];
             let max_w = c.width.unwrap_or(place_width(&p, screen));
             let s = measure(cx, c, max_w);
-            bottom_top = bottom_top.min(screen.y - MARGIN - s.y);
+            let x = match p.as_str() {
+                "bottom-left" => MARGIN,
+                "bottom-right" => screen.x - MARGIN - s.x,
+                _ => (screen.x - s.x) * 0.5,
+            };
+            bottoms.push((x, x + s.x, screen.y - MARGIN - s.y));
         }
     }
     for i in order {
@@ -409,7 +415,6 @@ pub fn place_screen(cx: &mut Ctx, root: &mut Node, screen: Vec2) -> Vec<Rect> {
         let max_w = c.width.unwrap_or(place_width(&place, screen));
         let s = measure(cx, c, max_w);
         let (w, h) = (s.x, s.y);
-        let side_h = (bottom_top - 12.0 - MARGIN).max(0.0);
         let r = match place.as_str() {
             "top" => Rect::new((screen.x - w) * 0.5, MARGIN, w, h),
             "top-left" => Rect::new(MARGIN, MARGIN, w, h),
@@ -426,6 +431,12 @@ pub fn place_screen(cx: &mut Ctx, root: &mut Node, screen: Vec2) -> Vec<Rect> {
                 continue;
             }
         };
+        // A side panel ends above the bottom layers beneath it.
+        let bottom_top = bottoms
+            .iter()
+            .filter(|(x0, x1, _)| *x0 < r.x + r.w && *x1 > r.x)
+            .fold(screen.y - MARGIN, |t, b| t.min(b.2));
+        let side_h = (bottom_top - 12.0 - MARGIN).max(0.0);
         if matches!(place.as_str(), "right" | "left") && h > side_h + 0.5 {
             cx.problems.at(
                 &c.path,
