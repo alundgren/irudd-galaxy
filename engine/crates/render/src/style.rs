@@ -23,6 +23,15 @@
 //! cloud_count = 16
 //! stars = 260
 //!
+//! [course]                  # the followed ship's order: dots and a ring
+//! show = true
+//! color = "#ffcf6b"
+//! dot = 5.0                 # dot size, logical pixels
+//! spacing = 16.0            # dot to dot, logical pixels
+//! ring = 2.0                # ring line width, logical pixels
+//! bright = 2.5              # seconds at full strength after an order
+//! faint = 0.35              # strength after that (0 to 1)
+//!
 //! [looks.hull]                # a look a model can wear: `look = "<module>.hull"`
 //! outline_px = 4.0            # silhouette width in logical pixels
 //! hatch = 0.35                # hatching in the shadow band, 0..1
@@ -31,8 +40,8 @@
 //! bands = 3                   # tone bands, 2 or 3
 //! ```
 //!
-//! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`) may come from one
-//! module only; looks are each module's own, named by full ID.
+//! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`, `course`) may
+//! come from one module only; looks are each module's own, named by full ID.
 
 use std::collections::BTreeMap;
 
@@ -51,6 +60,7 @@ pub struct Style {
     pub ink: Option<Ink>,
     pub light: Option<Light>,
     pub sky: Option<Sky>,
+    pub course: Option<Course>,
     pub looks: BTreeMap<String, Look>,
 }
 
@@ -196,6 +206,35 @@ impl Sky {
     }
 }
 
+/// How the followed thing's order is shown: round dots from it to where it is going,
+/// through the waypoints left on a route, and a ring round where it ends. Sizes are in
+/// logical pixels so the course reads the same at any zoom.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Course {
+    pub show: bool,
+    pub color: Color,
+    pub dot: f32,
+    pub spacing: f32,
+    pub ring: f32,
+    pub bright: f32,
+    pub faint: f32,
+}
+
+impl Default for Course {
+    fn default() -> Self {
+        Self {
+            show: true,
+            color: Color::hex(0xffcf6b),
+            dot: 5.0,
+            spacing: 16.0,
+            ring: 2.0,
+            bright: 2.5,
+            faint: 0.35,
+        }
+    }
+}
+
 /// How a model is shaded and inked.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -274,6 +313,21 @@ mod tests {
         let hull = s.looks["hull"];
         assert_eq!((hull.outline_px, hull.bands), (5.0, 2));
         assert_eq!(hull.material(&Ink::default()).outline_px, 5.0);
+    }
+
+    #[test]
+    fn the_course_can_be_hidden_or_recoloured() {
+        let s = Style::parse(
+            "[course]
+show = false
+color = \"#3fa7a0\"
+",
+        )
+        .unwrap();
+        let course = s.course.unwrap();
+        assert!(!course.show);
+        assert_eq!(course.color.to_hex(), "#3fa7a0");
+        assert_eq!(course.spacing, Course::default().spacing);
     }
 
     #[test]

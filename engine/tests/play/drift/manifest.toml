@@ -1,27 +1,41 @@
-# A generic test module for the engine on screen: a ship you steer with the arrow keys or
-# WASD, rocks, a beacon and a deck, drawn as glTF models in the cel and ink style. The
-# camera follows the ship. Steering here is a stand-in: keys set the ship's velocity
-# directly, until the engine's flight model lands.
+# A generic test module for the engine on screen: a ship flown with the keys (W/S or the
+# arrows thrust, S slows and then reverses, A/D turn, Shift boosts), solid rocks it bumps and pushes,
+# a fixed hub with a berth to dock at and a route of waypoints, drawn as glTF models in
+# the cel and ink style. The camera follows the ship. Number keys give orders: 1 docks at
+# the berth, 2 mines the nearest rock (holds at its surface), 3 flies the route, 0 drops
+# the order.
 id = "drift"
 version = "0.1.0"
 min_engine_version = "0.2.0"
 scripts = ["scripts/drift.luau"]
-events = ["steer_up", "steer_down", "steer_left", "steer_right"]
-writes = ["engine.position", "engine.motion", "engine.surface", "engine.model", "engine.camera"]
+events = [
+    "thrust_ahead", "thrust_back", "turn_left", "turn_right", "boost",
+    "order_dock", "order_mine", "order_route", "order_none",
+]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera",
+    "engine.flight", "engine.helm", "engine.steer", "engine.waypoint", "engine.body",
+]
 
-[components.helm]
-up = "bool"
-down = "bool"
-left = "bool"
-right = "bool"
-speed = { type = "number", default = 14 }
+# Which flight keys are held, so two keys for one way (W and Up) don't fight.
+[components.keys]
+ahead = "int"
+back = "int"
+left = "int"
+right = "int"
+boost = "int"
 
 [keys]
-up = "steer_up"
-w = "steer_up"
-down = "steer_down"
-s = "steer_down"
-left = "steer_left"
-a = "steer_left"
-right = "steer_right"
-d = "steer_right"
+w = "thrust_ahead"
+up = "thrust_ahead"
+s = "thrust_back"
+down = "thrust_back"
+a = "turn_left"
+left = "turn_left"
+d = "turn_right"
+right = "turn_right"
+shift = "boost"
+1 = "order_dock"
+2 = "order_mine"
+3 = "order_route"
+0 = "order_none"

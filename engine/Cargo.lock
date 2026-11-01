@@ -828,8 +828,10 @@ version = "0.2.0"
 dependencies = [
  "blake3",
  "galaxy-api",
+ "galaxy-mesh",
  "galaxy-module",
  "galaxy-script",
+ "libm",
  "notify",
  "rusqlite",
  "serde",

@@ -1,5 +1,6 @@
-//! The `drift` test module (`engine/tests/play/drift`): its models read, its keys steer
-//! the ship headless, and the program that made its models.
+//! The `drift` test module (`engine/tests/play/drift`): its models read, a shot draws it,
+//! and the program that made its models. Flight on it is tested in
+//! `crates/sim/tests/flight.rs`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -13,7 +14,7 @@ fn drift() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/drift")
 }
 
-const MODELS: [&str; 4] = ["ship", "rock", "beacon", "deck"];
+const MODELS: [&str; 5] = ["ship", "rock", "beacon", "hub", "pad"];
 
 #[test]
 fn the_committed_models_read_and_are_well_formed() {
@@ -40,44 +41,6 @@ fn the_committed_models_read_and_are_well_formed() {
 }
 
 #[test]
-fn keys_steer_the_ship() {
-    let tmp = tempfile::tempdir().unwrap();
-    let inputs = tmp.path().join("inputs.toml");
-    std::fs::write(
-        &inputs,
-        "[[input]]\ntick = 1\nname = \"drift.steer_right\"\npayload = { down = true }\n\
-         [[input]]\ntick = 1\nname = \"drift.steer_up\"\npayload = { down = true }\n\
-         [[input]]\ntick = 31\nname = \"drift.steer_up\"\npayload = { down = false }\n",
-    )
-    .unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy"))
-        .args(["sim", "run", "--modules"])
-        .arg(drift())
-        .arg("--inputs")
-        .arg(&inputs)
-        .args(["--ticks", "60", "--state"])
-        .env_remove("GALAXY_INSTALL_ROOT")
-        .output()
-        .unwrap();
-    let json: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(json["ok"], true, "{json}");
-    assert_eq!(json["script_failures"], serde_json::json!([]), "{json}");
-    let ship = &json["state"]["entities"]["drift.ship"];
-    let at = &ship["engine.position"];
-    let (x, y) = (at["x"].as_f64().unwrap(), at["y"].as_f64().unwrap());
-    // Thirty ticks up and right at 14 per second, then thirty right.
-    let diagonal = 14.0 / 2f64.sqrt();
-    assert!((y - diagonal * 30.0 / 30.0).abs() < 0.6, "y {y}");
-    assert!((x - (diagonal + 14.0) * 30.0 / 30.0).abs() < 0.6, "x {x}");
-    assert!(
-        at["angle"].as_f64().unwrap().abs() < 1e-9,
-        "facing right again"
-    );
-    assert_eq!(ship["drift.helm"]["right"], true);
-    assert_eq!(ship["drift.helm"]["up"], false);
-}
-
-#[test]
 #[ignore = "needs a GPU: galaxy shot draws the test module"]
 fn a_shot_draws_the_module() {
     let tmp = tempfile::tempdir().unwrap();
@@ -93,7 +56,7 @@ fn a_shot_draws_the_module() {
         .unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["ok"], true, "{json}");
-    assert_eq!(json["models_drawn"], 7, "{json}");
+    assert_eq!(json["models_drawn"], 11, "{json}");
     assert_eq!(json["problems"], serde_json::json!([]), "{json}");
     let bytes = std::fs::read(&png).unwrap();
     assert_eq!(&bytes[1..4], b"PNG");
@@ -223,22 +186,51 @@ fn beacon() -> Vec<(&'static str, MeshData)> {
     vec![("post", post.build()), ("lamp", lamp.build())]
 }
 
-/// A deck 16 by 10 and 1 high, its top at the model's z = 0: the deck entity stands on its
-/// own surface, so the ground service puts it at the surface's height and the top lines up.
-fn deck() -> Vec<(&'static str, MeshData)> {
-    let mut slab = MeshBuilder::new();
-    paint(&mut slab, 0x8fbf7a, 0.0);
-    slab.with(Mat4::from_translation(Vec3::new(0.0, 0.0, -0.5)), |b| {
-        b.cuboid(Vec3::new(16.0, 10.0, 1.0));
+/// A round hub about 14 across: a squat drum with a ring round it and three towers.
+fn hub() -> Vec<(&'static str, MeshData)> {
+    let mut drum = MeshBuilder::new();
+    paint(&mut drum, 0xefdcb4, 0.0);
+    drum.with(Mat4::from_translation(Vec3::new(0.0, 0.0, -1.5)), |b| {
+        b.lathe(
+            &[(0.0, 0.0), (6.0, 0.0), (6.4, 1.2), (5.6, 3.0), (0.0, 3.4)],
+            16,
+            0.0,
+        );
     });
-    let mut rail = MeshBuilder::new();
-    paint(&mut rail, 0xc98f4a, 0.0);
-    for y in [-4.8, 4.8] {
-        rail.with(Mat4::from_translation(Vec3::new(0.0, y, 0.2)), |b| {
-            b.cuboid(Vec3::new(16.0, 0.3, 0.4));
+    let mut ring = MeshBuilder::new();
+    paint(&mut ring, 0xd9774b, 0.0);
+    ring.torus(7.0, 0.7, 0.5, 20, 6);
+    let mut towers = MeshBuilder::new();
+    paint(&mut towers, 0x3fa7a0, 0.0);
+    let mut lamps = MeshBuilder::new();
+    paint(&mut lamps, 0xffe29a, 1.0);
+    for (x, y) in [(2.5, 1.0), (-2.0, 2.2), (-0.5, -2.6)] {
+        towers.with(Mat4::from_translation(Vec3::new(x, y, 1.5)), |b| {
+            b.frustum(0.9, 0.6, 3.0, 6);
+        });
+        lamps.with(Mat4::from_translation(Vec3::new(x, y, 4.75)), |b| {
+            b.cuboid(Vec3::new(0.7, 0.7, 0.5));
         });
     }
-    vec![("slab", slab.build()), ("rails", rail.build())]
+    vec![
+        ("drum", drum.build()),
+        ("ring", ring.build()),
+        ("towers", towers.build()),
+        ("lamps", lamps.build()),
+    ]
+}
+
+/// A flat landing pad with a glowing rim, three units across.
+fn pad() -> Vec<(&'static str, MeshData)> {
+    let mut plate = MeshBuilder::new();
+    paint(&mut plate, 0xc98f4a, 0.0);
+    plate.frustum(1.5, 1.3, 0.15, 6);
+    let mut rim = MeshBuilder::new();
+    paint(&mut rim, 0xffcf6b, 1.0);
+    rim.with(Mat4::from_translation(Vec3::new(0.0, 0.0, 0.15)), |b| {
+        b.frustum(1.3, 1.1, 0.08, 6);
+    });
+    vec![("plate", plate.build()), ("rim", rim.build())]
 }
 
 /// Makes a model's parts, each with its node name.
@@ -247,11 +239,12 @@ type Maker = fn() -> Vec<(&'static str, MeshData)>;
 #[test]
 #[ignore = "writes the drift models; run on purpose and commit the result"]
 fn make_the_models() {
-    let makers: [(&str, Maker); 4] = [
+    let makers: [(&str, Maker); 5] = [
         ("ship", ship),
         ("rock", rock),
         ("beacon", beacon),
-        ("deck", deck),
+        ("hub", hub),
+        ("pad", pad),
     ];
     for (name, make) in makers {
         let parts = make();

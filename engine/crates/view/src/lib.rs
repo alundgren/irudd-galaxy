@@ -10,10 +10,11 @@
 //! `engine/docs/renderer-and-style.md`.
 
 pub mod assets;
+pub mod course;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use galaxy_api::engine::{CAMERA, MODEL, POSITION};
+use galaxy_api::engine::{CAMERA, MODEL, POSITION, STEER, WAYPOINT};
 use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::module::Module;
 use galaxy_render::glam::{Mat4, Quat, Vec2, Vec3};
@@ -165,6 +166,8 @@ pub struct Eye {
 pub struct View {
     pub assets: Assets,
     handles: BTreeMap<String, MeshHandle>,
+    /// How far each model reaches from its centre on the plane, for rings round it.
+    reach: BTreeMap<String, f32>,
     placeholder: MeshHandle,
     sky: BackdropHandle,
     seed: u64,
@@ -175,6 +178,7 @@ pub struct View {
     missing: BTreeSet<String>,
     /// The camera of the last scene.
     pub camera: Option<Camera>,
+    courses: course::Courses,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -197,6 +201,7 @@ impl View {
         let mut view = View {
             assets: Assets::default(),
             handles: BTreeMap::new(),
+            reach: BTreeMap::new(),
             placeholder,
             sky,
             seed,
@@ -204,6 +209,7 @@ impl View {
             eye: Eye::default(),
             missing: BTreeSet::new(),
             camera: None,
+            courses: course::Courses::default(),
         };
         view.replace(renderer, assets);
         view
@@ -225,8 +231,15 @@ impl View {
         }
         renderer.remove_backdrop(self.sky);
         self.sky = renderer.upload_backdrop(&backdrop(&assets.sky.params(), self.seed));
+        self.reach.clear();
         for (id, mesh) in &assets.models {
             self.handles.insert(id.clone(), renderer.upload_mesh(mesh));
+            let reach = mesh
+                .vertices
+                .iter()
+                .map(|v| v.position[0].hypot(v.position[1]))
+                .fold(0.0, f32::max);
+            self.reach.insert(id.clone(), reach);
         }
         self.missing.clear();
         self.assets = assets;
@@ -336,9 +349,91 @@ impl View {
                     .with_morph(number("morph", 0.0) as f32),
             );
         }
+        let (plan, arrived) = self.plan(world, alpha);
+        let per_pixel = camera.world_per_pixel(logical);
+        self.courses.draw(
+            plan,
+            arrived,
+            &self.assets.course,
+            time,
+            per_pixel,
+            &mut scene,
+        );
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
+    }
+
+    /// The followed thing's order, while it runs, for [`course::Courses`]: where it is
+    /// going through the waypoints left, with a ring radius at each; and whether an order
+    /// that has stopped running got there.
+    fn plan(&self, world: &World, alpha: f32) -> (Option<course::Plan>, bool) {
+        let Some((id, _)) = camera_holder(world) else {
+            return (None, false);
+        };
+        let Some(order) = world.component(id, STEER).map(|c| &c.fields) else {
+            return (None, false);
+        };
+        let text = |f: &Map<String, Value>, k: &str| {
+            f.get(k).and_then(Value::as_str).unwrap_or("").to_owned()
+        };
+        let mode = text(order, "mode");
+        let done = order.get("done").and_then(Value::as_bool).unwrap_or(false);
+        if mode.is_empty() || done {
+            return (None, done);
+        }
+        let Some(from) = self.pose(world, id, alpha) else {
+            return (None, false);
+        };
+        let lift = Vec3::Z * 0.1;
+        let mut points = vec![from.point() + lift];
+        let mut rings = Vec::new();
+        let mut target = text(order, "target");
+        let end = if target.is_empty() {
+            let n = |k: &str| order.get(k).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+            points.push(Vec3::new(n("x"), n("y"), from.height) + lift);
+            rings.push(1.0);
+            format!("{}, {}", n("x"), n("y"))
+        } else {
+            // The target, then on a route each waypoint after it, at most a few dozen.
+            for _ in 0..64 {
+                let Some(pose) = self.pose(world, &target, alpha) else {
+                    break;
+                };
+                points.push(pose.point() + lift);
+                rings.push(self.ring_radius(world, &target));
+                let next = (mode == "follow")
+                    .then(|| world.component(&target, WAYPOINT))
+                    .flatten()
+                    .map(|w| text(&w.fields, "next"))
+                    .filter(|n| !n.is_empty() && world.entities.contains_key(n));
+                match next {
+                    Some(n) => target = n,
+                    None => break,
+                }
+            }
+            target
+        };
+        if points.len() < 2 {
+            return (None, false);
+        }
+        let key = format!("{id} {mode} {end}");
+        (Some(course::Plan { key, points, rings }), false)
+    }
+
+    /// A ring just outside what `entity` wears, or a small one for a bare point.
+    fn ring_radius(&self, world: &World, entity: &str) -> f32 {
+        let Some(model) = world.component(entity, MODEL).map(|c| &c.fields) else {
+            return 1.0;
+        };
+        let id = model.get("model").and_then(Value::as_str).unwrap_or("");
+        let scale = model.get("scale").and_then(Value::as_f64).unwrap_or(1.0) as f32;
+        let scale = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
+        self.reach.get(id).map_or(1.0, |r| r * scale + 0.8)
     }
 
     /// What is wrong with the modules' models and styles, as text.

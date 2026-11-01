@@ -5,8 +5,9 @@ struct VIn {
     @location(0) pos: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) color: vec4<f32>,
-    // x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam). Dashed: y dash, z gap.
-    // Beam: y width, z length (world units).
+    // x: kind (0 ribbon, 1 dashed, 2 glow, 3 beam, 4 dotted). Dashed: y dash, z gap.
+    // Beam: y width, z length (world units). Dotted, all in half-widths (uv.x too):
+    // y spacing, z fade length, w where the line ends.
     @location(3) params: vec4<f32>,
 };
 
@@ -24,7 +25,7 @@ fn vs_fx(v: VIn) -> VOut {
     // A beam runs from a nose to the surface it lands on. Depth-tested at one sample
     // against that surface, a facet bulging towards the camera cut its end with a
     // jagged edge, so beams draw over what they cross.
-    if v.params.x > 2.5 {
+    if v.params.x > 2.5 && v.params.x < 3.5 {
         o.clip.z = 0.0;
     }
     o.uv = v.uv;
@@ -40,6 +41,22 @@ fn fs_fx(in: VOut) -> @location(0) vec4<f32> {
     // Derivatives first, in uniform control flow.
     let aa = max(fwidth(in.uv.y), 1e-4);
     let aax = max(fwidth(in.uv.x), 1e-4);
+    // Dotted: the distance from the nearest dot's centre, in half-widths.
+    let spacing = max(in.params.y, 2.0);
+    let t = in.uv.x - floor(in.uv.x / spacing) * spacing - spacing * 0.5;
+    let dot = length(vec2<f32>(t, in.uv.y));
+    let aad = max(fwidth(dot), 1e-4);
+    if kind > 3.5 {
+        // Round dots with a thin ink rim, smoothed over a pixel; fading out over the
+        // last stretch of the line.
+        var alpha = 1.0 - smoothstep(1.0 - aad, 1.0 + aad * 0.5, dot);
+        let rim = smoothstep(0.62 - aad, 0.62 + aad, dot);
+        let rgb = mix(c.rgb, INK, rim * 0.7);
+        let left = in.params.w - in.uv.x;
+        alpha *= smoothstep(0.0, max(in.params.z, 1e-3), left);
+        alpha *= c.a;
+        return vec4<f32>(rgb * alpha, alpha);
+    }
     if kind > 2.5 {
         // Beam: hot white core, coloured falloff, a slow shimmer along its length
         // measured in beam widths (world units alias to stripes when zoomed out), and

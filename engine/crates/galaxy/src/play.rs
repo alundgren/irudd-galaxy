@@ -43,6 +43,8 @@ const PLAY_OPTIONS: &[&str] = &[
     "--watch",
     "--size",
     "--frames",
+    "--inputs",
+    "--ticks",
 ];
 const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -212,6 +214,8 @@ struct App {
     keys: BTreeMap<String, Vec<String>>,
     held: BTreeSet<&'static str>,
     pending: Vec<Input>,
+    /// Scripted inputs by tick (`--inputs`): the bot.
+    scripted: BTreeMap<u64, Vec<Input>>,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
@@ -286,7 +290,9 @@ impl App {
         let sim_start = Instant::now();
         for _ in 0..ticks {
             r.view.before_step(&self.session.world);
-            let inputs = std::mem::take(&mut self.pending);
+            let mut inputs = std::mem::take(&mut self.pending);
+            let tick = self.session.world.tick + 1;
+            inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
             if let Err(e) = self.session.step(&inputs) {
                 self.error = Some(Failure::runtime(e));
                 event_loop.exit();
@@ -294,6 +300,14 @@ impl App {
             }
         }
         let sim_ms = ms_since(sim_start);
+        if self
+            .options
+            .ticks
+            .is_some_and(|end| self.session.world.tick >= end)
+        {
+            event_loop.exit();
+            return;
+        }
         let logical = r.renderer.logical_size();
         let time = (now - self.started).as_secs_f32();
         let scene_start = Instant::now();
@@ -415,6 +429,27 @@ impl ApplicationHandler for App {
     }
 }
 
+/// The inputs `--inputs` names, by tick, each checked against the session.
+fn scripted_inputs(
+    session: &Session,
+    options: &Options,
+) -> Result<BTreeMap<u64, Vec<Input>>, Failure> {
+    let Some(path) = &options.inputs else {
+        return Ok(BTreeMap::new());
+    };
+    let script = InputsFile::read(path)
+        .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?;
+    for input in &script.inputs {
+        session.check_input(input).map_err(|e| {
+            Failure::bad_input(format!(
+                "input `{}` on tick {}: {e}",
+                input.name, input.tick
+            ))
+        })?;
+    }
+    Ok(script.by_tick())
+}
+
 /// `galaxy play`.
 pub fn play(args: &[String]) -> Result<Output, Failure> {
     let (positional, options) = parse(args, PLAY_OPTIONS)?;
@@ -425,6 +460,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     }
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
+    let scripted = scripted_inputs(&session, &options)?;
     if options.record.is_some() {
         session.start_recording(BuildStamp::current());
     }
@@ -449,6 +485,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pace: FixedStep::default(),
         held: BTreeSet::new(),
         pending: Vec::new(),
+        scripted,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
@@ -510,20 +547,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
         .ok_or_else(|| usage("shot needs a file to write: --out <file.png>"))?;
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
-    let script = match &options.inputs {
-        Some(path) => InputsFile::read(path)
-            .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?,
-        None => InputsFile::default(),
-    };
-    for input in &script.inputs {
-        session.check_input(input).map_err(|e| {
-            Failure::bad_input(format!(
-                "input `{}` on tick {}: {e}",
-                input.name, input.tick
-            ))
-        })?;
-    }
-    let inputs = script.by_tick();
+    let inputs = scripted_inputs(&session, &options)?;
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;

@@ -1,10 +1,14 @@
 //! Engine services: the per-tick work that runs in Rust, never in Luau.
 //!
+//! - **flight** ([`crate::flight`]): things with `engine.flight` turn and set their
+//!   velocity from the helm or an order.
 //! - **motion**: everything with an `engine.position` and an `engine.motion` moves by its
 //!   velocity each tick.
 //! - **ground**: everything with an `engine.position` gets the height of the floor under
 //!   it on its layer: the highest `engine.surface` on that layer that covers its point, or
 //!   0 where none does.
+//! - **collide** ([`crate::collide`]): solid things pushed apart, after motion and
+//!   before ground.
 //!
 //! Each service changes components directly with its own cause, and only when a value
 //! actually changes, so the cause on a component says who last moved it.
@@ -13,6 +17,32 @@ use galaxy_api::engine::{MOTION, POSITION, SURFACE, TICK_SECONDS};
 use serde_json::Value;
 
 use crate::world::World;
+
+/// Sets one field of an existing component for an engine service, only when it changes,
+/// with the service's cause, so the cause on a component says who last changed it.
+pub(crate) fn set(
+    world: &mut World,
+    entity: &str,
+    component: &str,
+    field: &str,
+    value: Value,
+    cause: u64,
+) {
+    let tick = world.tick;
+    let Some(c) = world
+        .entities
+        .get_mut(entity)
+        .and_then(|c| c.get_mut(component))
+    else {
+        return;
+    };
+    if c.fields.get(field) == Some(&value) {
+        return;
+    }
+    c.fields.insert(field.to_owned(), value);
+    c.cause = cause;
+    c.tick = tick;
+}
 
 fn number(fields: &serde_json::Map<String, Value>, name: &str) -> f64 {
     fields.get(name).and_then(Value::as_f64).unwrap_or(0.0)

@@ -86,6 +86,15 @@ cloud_alpha = 0.2
 cloud_count = 16
 stars = 260
 
+[course]                  # the followed ship's order, for the whole scene
+show = true
+color = "#ffcf6b"
+dot = 5.0                 # dot size, logical pixels
+spacing = 16.0            # dot to dot, logical pixels
+ring = 2.0                # ring line width, logical pixels
+bright = 2.5              # seconds at full strength after an order
+faint = 0.35              # strength after that
+
 [looks.hull]              # a look; things wear it as `look = "<module>.hull"`
 outline_px = 3.5          # silhouette width, logical pixels (0 to 16)
 hatch = 0.25              # hatching in the shadow band (0 to 1)
@@ -95,7 +104,7 @@ bands = 3                 # 2 or 3 tone bands
 ```
 
 Looks belong to their module and are named by full ID. The scene-wide tables (`ink`,
-`light`, `sky`) describe one scene, so one module sets each; when two do, the last one in
+`light`, `sky`, `course`) describe one scene, so one module sets each; when two do, the last one in
 module order is used and `galaxy-gm check` reports it. A broken style file, a broken model,
 or a thing wearing a model or look no module has is a finding in `galaxy-gm check` and
 shows in a panel at the top left while playing (a missing model draws as a small box).
@@ -154,6 +163,24 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   between `min_view` and `max_view`. Zoom is the player's, not the world's, so it is not
   an input and is not recorded.
 
+- **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
+  an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it
+  to where it is going, through the waypoints left on a route, and a ring marks where it
+  ends, just outside what the target wears. The leg being flown is brightest; later legs
+  are fainter with a small ring on each waypoint.
+  - **Still dots.** The dot pattern is measured from where the route stops, so the dots
+    stay put in the world and the ship flies over them; the dots nearest the ship fade
+    rather than pop. (Measured from the ship, the whole pattern slid along as it flew,
+    like a chain being reeled in, which pulled the eye.)
+  - **Calm over time.** Full strength for `bright` seconds after an order, then it
+    settles to `faint`. On arrival the ring closes in a little and fades, once; when the
+    player takes the controls the whole course fades in a fifth of a second, so it is
+    clear the order is gone. Nothing loops.
+  - **Crisp at any zoom.** Sizes are logical pixels; dots are drawn round in the shader
+    with a one-pixel soft edge and a thin ink rim that lifts them off the backdrop.
+  - Only the followed thing shows a course, so other pilots' orders don't clutter the
+    view; `[course]` recolours or hides it.
+
 Cameras for places other than flight (stations, interiors, moving between them) wait for
 the place model.
 
@@ -169,7 +196,10 @@ real time:
   and losing focus lets go of every held key, so none sticks down. Escape quits.
 - `--watch` hot-loads a changed module between ticks and reloads its models and style.
 - `--record` and `--save` write the session when the window closes; `--frames <n>` quits
-  after n frames, for scripted windowed runs.
+  after n frames.
+- **The bot**: `--inputs <file>` plays scripted inputs on their ticks through the same
+  loop the keyboard feeds, and `--ticks <n>` quits when the world reaches tick n. A bot
+  run is a real play session, window and all, so its frame times are the player's.
 
 When it quits it prints **frame times**, the numbers to watch for drift: `interval_ms`
 (frame to frame, what the player feels), `sim_ms`, `scene_ms` and `draw_ms` (handing the
