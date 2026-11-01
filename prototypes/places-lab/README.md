@@ -144,8 +144,9 @@ right of the room, dimmed, under the room's screen. In the office and the cantee
 station is plainly there behind the screen. In the market (Pim stands at the left) and
 the cradle (14 m wide, so it isn't stood back at all, or its socket labels collide) the
 room covers most of the screen and the station shows only at the edges. With another
-room variant, `menu` keeps that variant's own framing: `layers` fills the screen, and
-`inside` already shows the station round the room.
+room variant, `menu` keeps that variant's own framing and draws no window or dimmed
+station (it can only place the window round the staged set): `layers` fills the screen,
+and `inside` already shows the station round the room.
 
 **`glide`, `cutaway` and the room variant.** `glide` lands on whatever the room variant
 shows (it dims and raises that view's meshes). `cutaway` builds the move from the room's

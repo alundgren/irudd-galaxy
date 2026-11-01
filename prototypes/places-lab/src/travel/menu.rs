@@ -156,6 +156,11 @@ fn window(stage: &Stage, room: &str, cam: &Camera) -> Option<Rect> {
 
 /// The station dimmed round the room's window, and a frame round it.
 fn dim(stage: &Stage, room: &str, k: f32, layer: &mut UiLayer) {
+    // The window is worked out from the staged set's place on screen; other room
+    // variants put the room elsewhere, so they get no window rather than a wrong one.
+    if !stands_back(stage) {
+        return;
+    }
     let v = stage.viewport;
     let rest = stage.view(room).scene.camera;
     let back = FAR + (open_back(stage, room) - FAR) * smooth(k);
