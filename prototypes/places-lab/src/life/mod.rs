@@ -8,6 +8,9 @@
 //! To add a variant: a new file here with a type that implements [`Life`], and one line
 //! in [`all`]. Nothing outside this folder needs to change.
 
+mod day;
+mod returning;
+mod states;
 mod still;
 
 use render::{MeshHandle, Renderer};
@@ -86,5 +89,10 @@ pub fn idle(who: &Person, t: f32, talking: bool) -> Pose {
 
 /// Every variant, in the order the key cycles them. The first is the baseline.
 pub fn all() -> Vec<Box<dyn Life>> {
-    vec![Box::new(still::Still)]
+    let clock = day::Shared::default();
+    vec![
+        Box::new(still::Still),
+        Box::new(states::States::new(clock.clone())),
+        Box::new(returning::Return::new(clock)),
+    ]
 }

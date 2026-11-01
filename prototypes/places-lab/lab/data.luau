@@ -104,18 +104,79 @@ data.talk = {
 	bel = { who = "bel", lines = { "Kelp and barley today. Same as yesterday, better than tomorrow." } },
 	pim_eating = { who = "pim", lines = { "Can't talk, eating. Then parcels. Always parcels." } },
 	pim_working = { who = "pim", lines = { "Parcel for Juno! Then back to the canteen. Then another parcel." } },
+
+	-- What people say while they're about their day (the `states` and `return` life
+	-- variants move them through it; `data.chat` picks by what they're doing).
+	ilse_window = { who = "ilse", lines = { "I watch every ship in. Thirty years and I still do." } },
+	juno_count = { who = "juno", lines = { "Forty-one jars of lamp oil. It was forty-two this morning." } },
+	juno_snack = { who = "juno", lines = { "Mouth full, hands free. Sell me something." } },
+	orrin_lunch = { who = "orrin", lines = { "Bel's broth and ten minutes off my feet. The Wren'll keep." } },
+	bel_eat = { who = "bel", lines = { "Cook eats last. That's the rule, and I made it." } },
+	pim_visit = { who = "pim", lines = { "Berth papers for Ilse. Sign here. No, there." } },
+
+	-- Something to tell the player when they come back, because of what they did (the
+	-- `return` variant says it as they come in).
+	ilse_board = { who = "ilse", lines = { "You're on the board now: berth three, the Wren. Pim ran the card over." } },
+	juno_sold_ice = { who = "juno", lines = { "Your ice went out on the Kettle run. Odo's greenhouse drinks it by the block." } },
+	juno_sold_iron = { who = "juno", lines = { "The foundry took your ore. They grumbled at the grade, then paid." } },
+	juno_sold_glassite = { who = "juno", lines = { "Your glassite's already lamp glass. Look up in the market hall tonight." } },
+	orrin_lens = { who = "orrin", lines = { "How's the lens? It runs warm the first few rocks, then settles." } },
+	orrin_pods = { who = "orrin", lines = { "Pods ride low. You'll feel her lean in the turns." } },
+	orrin_fins = { who = "orrin", lines = { "Fins bedding in? She'll want to spin now. Let her." } },
+	bel_bowl = { who = "bel", lines = { "There's a mug with your name on it. Well, your ship's. Same thing here." } },
+
+	-- What the people in charge of a room say about something new in it.
+	mug_look = { who = "bel", lines = { "Every regular gets a mug on my counter. You came back, so you're a regular." } },
+	pennant_look = { who = "ilse", lines = { "Every ship with a berth flies its pennant here. The Wren's is new." } },
+	crate_look = { who = "orrin", lines = { "Your part came in that. I keep the crates. Never know." } },
+	pile_look = { who = "juno", lines = { "That's yours, what you sold me. Goes out on the next run." } },
 }
 
 -- Who speaks first the first time you walk into a room.
 data.greet = { office = "welcome", market = "juno_first", cradle = "orrin_first", canteen = "bel_first" }
 
 -- What a person says when you go up to them, by what they are doing.
+local by_state = {
+	ilse = { ["break"] = "ilse_window" },
+	juno = { count = "juno_count", snack = "juno_snack" },
+	orrin = { lunch = "orrin_lunch" },
+	bel = { eat = "bel_eat" },
+	pim = { eat = "pim_eating", visit = "pim_visit" },
+}
+
 function data.chat(who, person)
+	local s = by_state[who] and by_state[who][person.state]
+	if s then
+		return s
+	end
 	if who == "pim" then
-		return if person.state == "eat" then "pim_eating" else "pim_working"
+		return "pim_working"
 	end
 	return who
 end
+
+-- What someone is doing, said on their sign: by state.
+data.doing = {
+	["break"] = "On a break",
+	visit = "Visiting",
+	count = "Counting stock",
+	snack = "Eating",
+	lunch = "At lunch",
+	eat = "Eating",
+}
+
+-- Things that appear in a room because of what the player did (the `return` variant):
+-- what to call them, and who in the room says what about them.
+data.details = {
+	pennant = { name = "The Wren's pennant", talk = "pennant_look" },
+	mug = { name = "A mug for you", talk = "mug_look" },
+	sold_ice = { name = "Your ice", talk = "pile_look" },
+	sold_iron = { name = "Your ore", talk = "pile_look" },
+	sold_glassite = { name = "Your glassite", talk = "pile_look" },
+	crate_lens = { name = "The lens's crate", talk = "crate_look" },
+	crate_pods = { name = "The pods' crate", talk = "crate_look" },
+	crate_fins = { name = "The fins' crate", talk = "crate_look" },
+}
 
 -- The canteen's broth.
 data.bowl = { name = "Kelp and barley broth", price = 6 }

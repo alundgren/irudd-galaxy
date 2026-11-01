@@ -55,7 +55,7 @@ shared build folders and waits for the build permit like everything else. Tests:
 | Go places | Click a module or a key icon at the bottom. Esc, right-click or Station takes you back out. A click during a move lands it. |
 | Talk | The first time you walk into a room its person speaks; click the line for the next. Click anyone in a room to talk to them. |
 | Rooms | Ilse's dock office, Juno's market (sell and buy), Orrin's cradle (drag a part from the rack onto a socket), Bel's canteen (buy a bowl). |
-| Life | After Ilse's welcome, Pim finishes eating in the canteen and takes a parcel to the market. |
+| Life | After Ilse's welcome, Pim finishes eating in the canteen and takes a parcel to the market. With `states` or `return` (key 4) people also have a day: the station's clock moves one step each time you go into a room. Go round the rooms in order to see each round change. |
 | 1 2 3 4 | Cycle the variant of each choice: getting between places, what a room is, how people talk, life. Shift goes back. The combination is in the bottom right corner. |
 | F8 | Write a note: the shot is taken as you press it; type in the window, Enter saves, Esc drops it. Notes go to `notes/notes.md` here (not in git), tagged with the combination, the place and the time, the shot beside them. |
 | F3 | The combination, where you are, the last move's time, clicks, screen runs, frame time, and how often the speaker was hidden. |
@@ -111,7 +111,7 @@ work at once.
 | 1 | Getting between places | `Travel`: `start`, `step`, `busy`, `finish`, `compose`, `overlay` | `src/travel/` (`mod.rs`, `cut.rs`) | `cut`: a title card |
 | 2 | What a room is | `Room`: `view`, `step` | `src/room/` (`mod.rs`, `staged.rs`) | `staged`: a staged 3D set, fixed camera |
 | 3 | How people talk | `Talk`: `widgets` (when the screen runs), `frame` (each frame) | `src/talk/` (`mod.rs`, `bubble.rs`) | `bubble`: on the person |
-| 4 | Life | `Life`: `moved`, `arrived`, `step`, `pose`, `widgets` | `src/life/` (`mod.rs`, `still.rs`) | `still`: people stay put |
+| 4 | Life | `Life`: `moved`, `arrived`, `step`, `pose`, `widgets`, `world`, `event`, `props`, `settling` | `src/life/` (`mod.rs`, `still.rs`, `day.rs`, `states.rs`, `returning.rs`), `lab/life.luau` | `still`: people stay put |
 
 Every trait also has `setup(renderer, world, model)` to upload meshes of its own. A
 variant adds widgets with `src/widgets.rs` (`W::new("panel").set("role", "speech")...`),
@@ -122,6 +122,19 @@ is shared: change it in an integration pass, not from a variant.
 Whatever a talk variant does, the speaker's face must stay on screen and uncovered while
 their line shows: the lab checks it every frame.
 
+### Life
+
+| Variant | What it does |
+|---|---|
+| `still` | People stay where the content put them; a story moment moves them at once, unseen. |
+| `states` | People do things in their places, and you see it. Each has a day of acts (`src/life/day.rs`: at work, eating, on a break, visiting, away at lunch), each with a spot and a pose. When the day or a story moment moves someone in the room you walk into, you watch them get up and walk: to another spot, out of the door, or in through it. A story moment out of sight waits up to three room visits for you to come and see it (Pim leaving the canteen after Ilse's welcome). On the station, a module's sign names who is there who doesn't belong (`Canteen · Orrin`); in a room, signs say what people are doing. Someone walking has no sign. |
+| `return` | The station moves on behind your back, never in front of you. The same day runs, story moments wait for you to leave, and what you did leaves a detail in the room (your ice stacked in the market, the lens's crate in the cradle, a mug on Bel's counter, the Wren's pennant in the office). Each room is remembered as you left it. On the station, rooms that changed while you were elsewhere carry a `Changed` mark (hover: what changed). Coming in, people here now or doing something else are marked, the room's panel says who went where, and what is new can be clicked (its person says what it is). Whoever has something to say about what you did says it as you come in (Orrin about the part you fitted, Bel about the bowl, Juno about what you sold, Ilse about the berth). |
+
+The life variants share hooks outside `src/life/`: `world.life` (what the Luau sees of
+the variant), `event` (what the player did), `props` (meshes a variant adds to a room's
+set) and `settling` (the scripted run waits while someone walks where the player can
+see). `lab/life.luau` adds the variant's marks to the signs the screens already have.
+
 ## The variants still to build
 
 The baselines are in (the table above); these are next:
@@ -131,7 +144,6 @@ The baselines are in (the table above); these are next:
 | Getting between places | glide in and dissolve into the room · cutaway (the wall opens in place) · a threshold (doorway or short corridor) · honest menu over the dimmed station · walk (an avatar crosses the cutaway) |
 | What a room is | a flat staged scene in layers with text · the interior inside the station model |
 | How people talk | portrait with a name panel · the camera frames the speaker · a text column at the side |
-| Life | people in states who move at story moments · changes visible when you come back |
 
 Variants are named by technique. Don't copy any game's layout, screens or look.
 
