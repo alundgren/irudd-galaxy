@@ -334,7 +334,7 @@ fn ramming_a_rock_pushes_it_and_the_fixed_hub_stops_the_ship_without_trapping_it
 
 /// The world hash after the flight session below. The same on every OS: flight and
 /// collision use plain arithmetic and `libm` only. Change it only on purpose.
-const GOLDEN: &str = "98e571a1ec7a0bbdecf5775dda53dc9918732f3f1590a5d94b1e916355f8395c";
+const GOLDEN: &str = "f99624b4fdd9c578ca123c721594b4314493ff29acb9137494a45ea2a78bf38d";
 
 #[test]
 fn the_same_inputs_give_the_same_world() {

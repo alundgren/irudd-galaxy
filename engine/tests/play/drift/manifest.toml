@@ -1,9 +1,9 @@
 # A generic test module for the engine on screen: a ship flown with the keys (W/S or the
 # arrows thrust, A/D turn, Space brakes, Shift boosts), solid rocks it bumps and pushes,
-# a fixed hub with a berth to dock at, a route of waypoints and a deck, drawn as glTF
-# models in the cel and ink style. The camera follows the ship. Number keys give orders:
-# 1 docks at the berth, 2 mines the nearest big rock (holds at its surface), 3 flies the
-# route, 0 drops the order.
+# a fixed hub with a berth to dock at and a route of waypoints, drawn as glTF models in
+# the cel and ink style. The camera follows the ship. Number keys give orders: 1 docks at
+# the berth, 2 mines the nearest rock (holds at its surface), 3 flies the route, 0 drops
+# the order.
 id = "drift"
 version = "0.1.0"
 min_engine_version = "0.2.0"
@@ -13,7 +13,7 @@ events = [
     "order_dock", "order_mine", "order_route", "order_none",
 ]
 writes = [
-    "engine.position", "engine.motion", "engine.surface", "engine.model", "engine.camera",
+    "engine.position", "engine.motion", "engine.model", "engine.camera",
     "engine.flight", "engine.helm", "engine.steer", "engine.waypoint", "engine.body",
 ]
 

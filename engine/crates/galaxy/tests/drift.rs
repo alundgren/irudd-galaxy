@@ -14,7 +14,7 @@ fn drift() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/drift")
 }
 
-const MODELS: [&str; 6] = ["ship", "rock", "beacon", "deck", "hub", "pad"];
+const MODELS: [&str; 5] = ["ship", "rock", "beacon", "hub", "pad"];
 
 #[test]
 fn the_committed_models_read_and_are_well_formed() {
@@ -56,7 +56,7 @@ fn a_shot_draws_the_module() {
         .unwrap();
     let json: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json["ok"], true, "{json}");
-    assert_eq!(json["models_drawn"], 7, "{json}");
+    assert_eq!(json["models_drawn"], 11, "{json}");
     assert_eq!(json["problems"], serde_json::json!([]), "{json}");
     let bytes = std::fs::read(&png).unwrap();
     assert_eq!(&bytes[1..4], b"PNG");
@@ -186,24 +186,6 @@ fn beacon() -> Vec<(&'static str, MeshData)> {
     vec![("post", post.build()), ("lamp", lamp.build())]
 }
 
-/// A deck 16 by 10 and 1 high, its top at the model's z = 0: the deck entity stands on its
-/// own surface, so the ground service puts it at the surface's height and the top lines up.
-fn deck() -> Vec<(&'static str, MeshData)> {
-    let mut slab = MeshBuilder::new();
-    paint(&mut slab, 0x8fbf7a, 0.0);
-    slab.with(Mat4::from_translation(Vec3::new(0.0, 0.0, -0.5)), |b| {
-        b.cuboid(Vec3::new(16.0, 10.0, 1.0));
-    });
-    let mut rail = MeshBuilder::new();
-    paint(&mut rail, 0xc98f4a, 0.0);
-    for y in [-4.8, 4.8] {
-        rail.with(Mat4::from_translation(Vec3::new(0.0, y, 0.2)), |b| {
-            b.cuboid(Vec3::new(16.0, 0.3, 0.4));
-        });
-    }
-    vec![("slab", slab.build()), ("rails", rail.build())]
-}
-
 /// A round hub about 14 across: a squat drum with a ring round it and three towers.
 fn hub() -> Vec<(&'static str, MeshData)> {
     let mut drum = MeshBuilder::new();
@@ -257,11 +239,10 @@ type Maker = fn() -> Vec<(&'static str, MeshData)>;
 #[test]
 #[ignore = "writes the drift models; run on purpose and commit the result"]
 fn make_the_models() {
-    let makers: [(&str, Maker); 6] = [
+    let makers: [(&str, Maker); 5] = [
         ("ship", ship),
         ("rock", rock),
         ("beacon", beacon),
-        ("deck", deck),
         ("hub", hub),
         ("pad", pad),
     ];
