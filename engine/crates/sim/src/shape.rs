@@ -17,7 +17,7 @@ use std::sync::OnceLock;
 use galaxy_module::module::Module;
 
 /// Directions a shape is sampled in, evenly round the circle starting at +x.
-pub const DIRECTIONS: usize = 32;
+pub const DIRECTIONS: usize = 128;
 
 /// The unit vectors of the sampled directions.
 pub fn directions() -> &'static [(f64, f64); DIRECTIONS] {
@@ -170,20 +170,22 @@ pub fn gap(a: &Outline, pa: (f64, f64), b: &Outline, pb: (f64, f64)) -> f64 {
     distance - touching(a, b, libm::atan2(dy, dx))
 }
 
-/// How far apart two centres are when the outlines just touch along direction `angle`
-/// (from `a` towards `b`).
+/// How far apart two centres are when `b`, placed from `a` along direction `angle`, just
+/// touches it: the nearest point on that line where [`overlap`] finds them apart. Along
+/// a sampled direction `k` they separate once the gap's share along it (`t` times the
+/// cosine between the two) passes their combined reach, so they first come apart at the
+/// least of those distances.
 pub fn touching(a: &Outline, b: &Outline, angle: f64) -> f64 {
-    let step = std::f64::consts::TAU / DIRECTIONS as f64;
-    let at = (angle / step).rem_euclid(DIRECTIONS as f64);
-    let i = at.floor() as usize % DIRECTIONS;
-    let j = (i + 1) % DIRECTIONS;
-    let t = at - at.floor();
+    let (ux, uy) = (libm::cos(angle), libm::sin(angle));
     let half = DIRECTIONS / 2;
-    let along = |o: &Outline, k: usize| o.reach[k];
-    let ra = along(a, i) + (along(a, j) - along(a, i)) * t;
-    let rb = along(b, (i + half) % DIRECTIONS)
-        + (along(b, (j + half) % DIRECTIONS) - along(b, (i + half) % DIRECTIONS)) * t;
-    ra + rb
+    directions()
+        .iter()
+        .enumerate()
+        .filter_map(|(k, &(nx, ny))| {
+            let along = ux * nx + uy * ny;
+            (along > 1e-6).then(|| (a.reach[k] + b.reach[(k + half) % DIRECTIONS]) / along)
+        })
+        .fold(f64::INFINITY, f64::min)
 }
 
 #[cfg(test)]
@@ -199,6 +201,29 @@ mod tests {
         assert!((depth - 0.5).abs() < 1e-9, "{depth}");
         assert!((nx - 1.0).abs() < 1e-9 && ny.abs() < 1e-9);
         assert!((gap(&a, (0.0, 0.0), &b, (3.5, 0.0)) - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn at_the_touching_distance_overlap_finds_them_just_apart() {
+        let mut lumpy = [0.0; DIRECTIONS];
+        for (k, r) in lumpy.iter_mut().enumerate() {
+            *r = 1.5 + 0.4 * ((k * 7) % 5) as f64 / 5.0;
+        }
+        let a = Outline { reach: lumpy };
+        let b = Outline::circle(2.0);
+        for i in 0..200 {
+            let angle = std::f64::consts::TAU * f64::from(i) / 200.0 + 0.01;
+            let t = touching(&a, &b, angle);
+            let at = |d: f64| (d * libm::cos(angle), d * libm::sin(angle));
+            assert!(
+                overlap(&a, (0.0, 0.0), &b, at(t + 1e-9)).is_none(),
+                "{angle}"
+            );
+            assert!(
+                overlap(&a, (0.0, 0.0), &b, at(t - 1e-6)).is_some(),
+                "{angle}"
+            );
+        }
     }
 
     #[test]

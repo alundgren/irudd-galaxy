@@ -35,6 +35,17 @@ fn number(f: &Map<String, Value>, k: &str) -> f64 {
 
 /// The outline of `entity` where it is now, if it has a body.
 pub fn outline(world: &World, shapes: &Shapes, entity: &str) -> Option<Outline> {
+    outline_facing(world, shapes, entity, None)
+}
+
+/// The outline of `entity` turned to `angle` (its own angle when `None`), if it has a
+/// body.
+pub fn outline_facing(
+    world: &World,
+    shapes: &Shapes,
+    entity: &str,
+    angle: Option<f64>,
+) -> Option<Outline> {
     let body = &world.component(entity, BODY)?.fields;
     let radius = number(body, "radius");
     if radius > 0.0 {
@@ -47,9 +58,11 @@ pub fn outline(world: &World, shapes: &Shapes, entity: &str) -> Option<Outline> 
         .and_then(|id| shapes.models.get(id));
     match (model, profile) {
         (Some(m), Some(profile)) => {
-            let angle = world
-                .component(entity, POSITION)
-                .map_or(0.0, |p| number(&p.fields, "angle"));
+            let angle = angle.unwrap_or_else(|| {
+                world
+                    .component(entity, POSITION)
+                    .map_or(0.0, |p| number(&p.fields, "angle"))
+            });
             let scale = m.get("scale").and_then(Value::as_f64).unwrap_or(1.0);
             let scale = if scale.is_finite() && scale > 0.0 {
                 scale

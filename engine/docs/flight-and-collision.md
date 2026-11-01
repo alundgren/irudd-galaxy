@@ -56,6 +56,13 @@ the engine sets `done` and records `engine.arrived` (`entity`, `mode`, `target`)
 helm has the ship again: W flies straight off a dock. Touching the helm while an order is
 under way sets it aside (the engine clears `mode`): the player always has the controls.
 
+`arrive` and `hold` stop where the two outlines meet along the line between their
+centres, by the same test collision uses ([`touching`](../crates/sim/src/shape.rs)), plus
+`range`: so arriving never counts as overlapping, the target is never pushed, and from
+any side the ship stops at the target's drawn surface. The ship's own outline is
+measured nose toward the target, as it will be at the end, so a ship that starts facing
+away doesn't swing its nose into the rock as it turns.
+
 A dock point must be clear of solid outlines; a ship can't stop inside something solid.
 Where a ship docks and what docking shows (stations, places, interiors) is the module's
 and, later, the place model's: the engine only flies there.
@@ -66,7 +73,7 @@ and, later, the place model's: the engine only flies there.
 stations bump and push, and nothing takes damage.
 
 **Outlines.** A body's outline is a circle of `radius`, or, with radius 0, the footprint of
-its model: how far the model reaches in each of 32 directions on the sim plane (its
+its model: how far the model reaches in each of 128 directions on the sim plane (its
 support function), turned with the thing, scaled and morphed like the drawing. That traces
 the model's convex outline as drawn, so a mining ship touches the rock where the rock is
 drawn, and a rock mined smaller (morph) gets smaller to bump into too. The profiles are
@@ -99,7 +106,9 @@ against a fixed body keeps every direction that leads away from it.
   its surface on one side and sink in on the other. The change list asks for no visible
   gap.
 - **Exact convex polygons.** Exact SAT needs the hull's edges and is fiddly with morphing;
-  sampled reaches morph by interpolation and cost the same for every shape. 32 directions
-  keep the error under half a percent of a thing's size.
+  sampled reaches morph by interpolation and cost the same for every shape. Sampled
+  outlines stand slightly proud of long flat edges (where two neighbouring sample lines
+  meet beyond the edge), by about 1% of the edge's length at 128 directions; 32 left
+  visible gaps beside a rock's flat faces.
 - **Orders as Luau.** Steering is per-tick work; scripts give orders on events and hear
   `engine.arrived`, and the engine flies.

@@ -1,18 +1,21 @@
 //! Flight, orders and collision on the `drift` test module (`engine/tests/play/drift`),
 //! headless.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use galaxy_api::engine::{ARRIVED, BODY, MOTION, POSITION, SCRIPT_FAILED, STEER};
+use galaxy_api::engine::{ARRIVED, BODY, MODEL, MOTION, POSITION, SCRIPT_FAILED, STEER};
 use galaxy_module::module::Module;
 use galaxy_sim::collide::outline;
-use galaxy_sim::shape::{Shapes, gap, overlap};
+use galaxy_sim::shape::{Shapes, overlap};
 use galaxy_sim::{Input, Session, World};
 use serde_json::{Map, Value};
 
+fn drift_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/drift")
+}
+
 fn drift() -> Session {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/drift");
-    Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap()
+    Session::new(vec![Module::read(&drift_dir()).unwrap()], 1).unwrap()
 }
 
 fn key(event: &str, down: bool) -> Input {
@@ -107,8 +110,8 @@ fn keys_fly_the_ship_and_it_turns_half_a_circle_a_second() {
         number(w, "drift.ship", MOTION, "vy").abs() < 1e-9,
         "straight along the nose"
     );
-    // A key's handler sets the helm after the tick's flight, so the helm acts from the
-    // next tick until the tick after the key goes up: fifteen ticks.
+    // Inputs are handled before the tick's flight, so the helm turns on the tick the key
+    // goes down and stops on the tick it goes up: fifteen ticks.
     run(
         &mut s,
         &[key("thrust_ahead", false), key("turn_left", true)],
@@ -145,27 +148,134 @@ fn it_docks_on_the_berth_facing_its_way() {
     assert!((x2 - x).abs() < 1e-6 && y2 > y + 2.0, "{x2} {y2}");
 }
 
+/// Where a thing's model is drawn on the sim plane: its vertices turned, scaled, morphed
+/// and placed like the drawing.
+fn footprint(world: &World, entity: &str) -> Vec<(f64, f64)> {
+    let model = &world.component(entity, MODEL).unwrap().fields;
+    let id = model["model"].as_str().unwrap();
+    let name = id.strip_prefix("drift.").unwrap();
+    let path = drift_dir().join(format!("models/{name}.gltf"));
+    let mesh = galaxy_mesh::gltf::read(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let scale = model["scale"].as_f64().unwrap();
+    let morph = model["morph"].as_f64().unwrap();
+    let angle = number(world, entity, POSITION, "angle");
+    let (x, y) = at(world, entity);
+    let (c, s) = (angle.cos(), angle.sin());
+    mesh.vertices
+        .iter()
+        .map(|v| {
+            let mix = |a: f32, b: f32| f64::from(a) + (f64::from(b) - f64::from(a)) * morph;
+            let px = mix(v.position[0], v.morph_position[0]) * scale;
+            let py = mix(v.position[1], v.morph_position[1]) * scale;
+            (x + px * c - py * s, y + px * s + py * c)
+        })
+        .collect()
+}
+
+/// The true distance between two drawn footprints (their convex outlines): the widest
+/// gap along any direction, negative when they overlap.
+fn drawn_gap(a: &[(f64, f64)], b: &[(f64, f64)]) -> f64 {
+    (0..3600)
+        .map(|i| {
+            let t = std::f64::consts::TAU * f64::from(i) / 3600.0;
+            let (ux, uy) = (t.cos(), t.sin());
+            let far_a = a
+                .iter()
+                .map(|p| p.0 * ux + p.1 * uy)
+                .fold(f64::MIN, f64::max);
+            let near_b = b
+                .iter()
+                .map(|p| p.0 * ux + p.1 * uy)
+                .fold(f64::MAX, f64::min);
+            near_b - far_a
+        })
+        .fold(f64::MIN, f64::max)
+}
+
 #[test]
-fn mining_holds_at_the_rock_s_drawn_surface() {
-    let mut s = drift();
-    run(&mut s, &[key("order_mine", true)], 600);
-    let order = &s.world.component("drift.ship", STEER).unwrap().fields;
-    let rock = order["target"].as_str().unwrap().to_owned();
-    assert_eq!(arrivals(&s.world), [("hold".into(), rock.clone())]);
-    let shapes = Shapes::of(s.modules());
-    let g = gap(
-        &outline(&s.world, &shapes, "drift.ship").unwrap(),
-        at(&s.world, "drift.ship"),
-        &outline(&s.world, &shapes, &rock).unwrap(),
-        at(&s.world, &rock),
+fn mining_holds_at_the_rock_s_drawn_surface_from_any_side() {
+    for side in 0..8 {
+        let mut s = drift();
+        // Start nine units off rock3, on side `side` of eight.
+        let a = std::f64::consts::TAU * f64::from(side) / 8.0 + 0.2;
+        let (rx, ry) = at(&s.world, "drift.rock3");
+        let ship = s.world.entities.get_mut("drift.ship").unwrap();
+        let pos = &mut ship.get_mut(POSITION).unwrap().fields;
+        pos.insert("x".into(), Value::from(rx + 9.0 * a.cos()));
+        pos.insert("y".into(), Value::from(ry + 9.0 * a.sin()));
+        let order = &mut ship.get_mut(STEER).unwrap().fields;
+        order.insert("mode".into(), Value::from("hold"));
+        order.insert("target".into(), Value::from("drift.rock3"));
+        run(&mut s, &[], 600);
+        assert_eq!(
+            arrivals(&s.world),
+            [("hold".into(), "drift.rock3".into())],
+            "side {side}"
+        );
+        let g = drawn_gap(
+            &footprint(&s.world, "drift.ship"),
+            &footprint(&s.world, "drift.rock3"),
+        );
+        assert!(
+            (-0.02..0.1).contains(&g),
+            "side {side}: the drawn gap between ship and rock is {g}"
+        );
+        // Facing the rock.
+        let (sx, sy) = at(&s.world, "drift.ship");
+        let (rx2, ry2) = at(&s.world, "drift.rock3");
+        let toward = libm::atan2(ry2 - sy, rx2 - sx);
+        let angle = number(&s.world, "drift.ship", POSITION, "angle");
+        let off = galaxy_sim::flight::wrap(angle - toward);
+        assert!(off.abs() < 0.05, "side {side}: {angle} vs {toward}");
+        // Holding pushed nothing.
+        let moved = (rx2 - rx).abs() + (ry2 - ry).abs();
+        assert!(moved < 0.01, "side {side}: the rock moved {moved}");
+    }
+}
+
+#[test]
+fn a_hold_reaches_a_big_round_body_without_shoving_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("big");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        format!(
+            "id = \"big\"\nversion = \"0.1.0\"\nmin_engine_version = \"{}\"\n\
+             writes = [\"engine.position\", \"engine.motion\", \"engine.flight\", \
+             \"engine.steer\", \"engine.body\"]\n",
+            env!("CARGO_PKG_VERSION")
+        ),
+    )
+    .unwrap();
+    // The rock's bearing from the ship lies halfway between two sampled directions.
+    std::fs::write(
+        dir.join("start.toml"),
+        "[entities.ship]\n\
+         \"engine.position\" = {}\n\"engine.motion\" = {}\n\"engine.flight\" = {}\n\
+         \"engine.body\" = { radius = 1.0 }\n\
+         \"engine.steer\" = { mode = \"hold\", target = \"big.rock\" }\n\
+         [entities.rock]\n\
+         \"engine.position\" = { x = 39.808, y = 3.921 }\n\"engine.motion\" = {}\n\
+         \"engine.body\" = { radius = 12.0, mass = 8.0 }\n",
+    )
+    .unwrap();
+    let mut s = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+    for _ in 0..900 {
+        s.step(&[]).unwrap();
+    }
+    assert_eq!(arrivals(&s.world), [("hold".into(), "big.rock".into())]);
+    let (x, y) = at(&s.world, "big.rock");
+    assert!(
+        (x - 39.808).abs() < 1e-9 && (y - 3.921).abs() < 1e-9,
+        "shoved to {x} {y}"
     );
-    assert!(g.abs() < 0.1, "a gap of {g} between the ship and {rock}");
-    // Facing the rock.
-    let (sx, sy) = at(&s.world, "drift.ship");
-    let (rx, ry) = at(&s.world, &rock);
-    let toward = libm::atan2(ry - sy, rx - sx);
-    let angle = number(&s.world, "drift.ship", POSITION, "angle");
-    assert!((angle - toward).abs() < 0.05, "{angle} vs {toward}");
+    let (sx, sy) = at(&s.world, "big.ship");
+    let apart = ((x - sx).powi(2) + (y - sy).powi(2)).sqrt();
+    assert!(
+        (apart - 13.0).abs() < 0.1,
+        "{apart} apart, for radii 1 and 12"
+    );
 }
 
 #[test]
@@ -224,7 +334,7 @@ fn ramming_a_rock_pushes_it_and_the_fixed_hub_stops_the_ship_without_trapping_it
 
 /// The world hash after the flight session below. The same on every OS: flight and
 /// collision use plain arithmetic and `libm` only. Change it only on purpose.
-const GOLDEN: &str = "f58a51e47ec1ba2bdae8e44cd25e19650157eb0403af12934520130476459f4b";
+const GOLDEN: &str = "98e571a1ec7a0bbdecf5775dda53dc9918732f3f1590a5d94b1e916355f8395c";
 
 #[test]
 fn the_same_inputs_give_the_same_world() {

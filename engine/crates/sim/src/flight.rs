@@ -21,7 +21,7 @@ use std::f64::consts::{PI, TAU};
 use galaxy_api::engine::{ARRIVED, FLIGHT, HELM, MOTION, POSITION, STEER, TICK_SECONDS, WAYPOINT};
 use serde_json::{Map, Value};
 
-use crate::collide::outline;
+use crate::collide::{outline, outline_facing};
 use crate::services::set;
 use crate::shape::{Shapes, touching};
 use crate::world::World;
@@ -345,12 +345,18 @@ fn goal(
             let (ox, oy) = (tx - m.x, ty - m.y);
             let dist = length(ox, oy);
             let toward = libm::atan2(oy, ox);
-            // Stop where the outlines are `range` apart along the line between centres.
-            let apart = match (target.is_empty(), outline(world, shapes, entity)) {
+            // Stop where the outlines are `range` apart along the line between centres,
+            // measuring this thing as it will be at the end: nose toward the target (an
+            // order flies nose first, and a hold turns to face it).
+            let apart = match (
+                target.is_empty(),
+                outline_facing(world, shapes, entity, Some(toward)),
+            ) {
                 (false, Some(own)) => {
                     let theirs = outline(world, shapes, target)
                         .unwrap_or_else(|| crate::shape::Outline::circle(0.0));
-                    touching(&own, &theirs, toward) + range
+                    // A hair beyond touching, so arriving never counts as overlapping.
+                    touching(&own, &theirs, toward) + range + 1e-6
                 }
                 _ => range,
             };
