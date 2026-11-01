@@ -15,6 +15,7 @@
 mod bubble;
 
 use render::Renderer;
+use render::glam::Vec2;
 use serde_json::Value as Json;
 
 use crate::places::Places;
@@ -50,8 +51,8 @@ pub trait Talk {
     /// The widgets that show this line, when the screen runs (not per frame).
     fn widgets(&self, line: &Line) -> Vec<W>;
     /// Each frame, while in a place: may change the view, for instance its camera, with
-    /// the line being said if there is one.
-    fn frame(&mut self, _shown: &mut Shown, _line: Option<&Line>, _dt: f32) {}
+    /// the line being said if there is one. `viewport` is the screen in logical pixels.
+    fn frame(&mut self, _shown: &mut Shown, _line: Option<&Line>, _viewport: Vec2, _dt: f32) {}
 }
 
 /// Every variant, in the order the key cycles them. The first is the baseline.
