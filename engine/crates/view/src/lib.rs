@@ -478,6 +478,20 @@ impl View {
         (Some(course::Plan { key, points, rings }), false)
     }
 
+    /// How far what `entity` wears reaches from its centre on the plane, world units
+    /// (scale included); none without a model.
+    pub fn reach(&self, world: &World, entity: &str) -> Option<f32> {
+        let model = &world.component(entity, MODEL)?.fields;
+        let id = model.get("model").and_then(Value::as_str).unwrap_or("");
+        let scale = model.get("scale").and_then(Value::as_f64).unwrap_or(1.0) as f32;
+        let scale = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
+        self.reach.get(id).map(|r| r * scale)
+    }
+
     /// A ring just outside what `entity` wears, or a small one for a bare point.
     fn ring_radius(&self, world: &World, entity: &str) -> f32 {
         let Some(model) = world.component(entity, MODEL).map(|c| &c.fields) else {

@@ -465,6 +465,7 @@ pub static TOPICS: &[Topic] = &[
                 "gm motion sheet",
             ),
             ("Does anything pop, blip or flicker?", "gm motion flicker"),
+            ("Does a turning thing's shading flip?", "gm motion tone"),
             ("Is something moving that has no name?", "gm motion flow"),
             (
                 "What changed against an approved film?",

@@ -119,7 +119,7 @@ impl Manifest {
                 .unwrap_or_default(),
             changes: self.changes.clone(),
             files: serde_json::json!({
-                "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed)",
+                "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed, reach)",
                 "lines.jsonl": "a frame a line: the lines it drew (kind, closed, alpha, width, points, phase, spacing, dots)",
                 "frames/": "the pictures, frames/00000.png on",
                 "motion/": "the motion tools' pictures",
@@ -325,6 +325,9 @@ pub struct Thing {
     /// The thing the camera follows.
     #[serde(default)]
     pub followed: bool,
+    /// How far its model reaches from its centre on the plane, world units.
+    #[serde(default)]
+    pub reach: Option<f32>,
 }
 
 impl Thing {

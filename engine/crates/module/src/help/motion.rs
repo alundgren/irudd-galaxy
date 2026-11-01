@@ -290,7 +290,8 @@ pub static COMMANDS: &[Command] = &[
                 change is judged against the busiest of it and its neighbours on the frames \
                 round it. A pop jumps and stays; a blip is back the next frame; a flicker goes \
                 back and forth four frames or more. Things moving fast or turning are busy \
-                cells, so a change on a turning thing can be missed.\n\
+                cells, so a change on a turning thing can be missed: `motion tone` measures \
+                a turning thing's light and shadow.\n\
                 It sees what the film shows: film at 60 fps and the player's size, or thin \
                 lines and one-frame events can be missed (`warnings` says so).",
         args: &[
@@ -337,6 +338,86 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm motion flicker films/note-0001",
         next: "galaxy-gm motion sheet <film> --at <from t> --crop <x,y,w,h of box_px> to \
                see the frames round an event.",
+        topic: "motion",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "motion tone",
+        synopsis: "<film> [--thing <x>] [--radius <px>]",
+        answers: "Do a thing's light and shadow change smoothly as it turns, or do whole \
+                  faces flip between light and shadow in one frame?",
+        about: "Each frame takes the pixels inside the thing's faces: in a disc round it, not \
+                the sky's colour (taken at the disc's rim), and flat (edges and ink lines move \
+                as it turns). Their brightness histogram ignores where pixels are, so turning \
+                barely changes it; a face changing tone shifts it. A face easing over several \
+                frames spreads that shift; a hard step puts it in one frame, far above the \
+                frames round it. A hard step is a frame whose change is at least 0.01 and 5 \
+                times the mean change of the 14 frames round it; a step over two frames in \
+                a row counts once. flicker can't see this: a turning thing is a busy place it \
+                sets aside. Film the thing turning, at 60 fps.",
+        args: &[
+            ("<film>", "a film folder with pictures"),
+            (
+                "--thing <x>",
+                "the thing, by ID or bare name; the followed one by default",
+            ),
+            (
+                "--radius <px>",
+                "the disc's radius in pixels; the thing's reach on screen plus \
+              3 px by default (48 if the film doesn't know it)",
+            ),
+            IMAGE,
+        ],
+        output: &[
+            ("reading", "one sentence"),
+            (
+                "hard_steps",
+                "how many times faces flip tone in one frame; 0 is smooth",
+            ),
+            (
+                "steps",
+                "the 12 largest: frame, t, tick, change, prominence",
+            ),
+            (
+                "change.median, max, max_at",
+                "how far the faces' tones shift a frame (mean \
+              brightness shift, 0 to 1), and when the most",
+            ),
+            (
+                "change.prominence_at_max",
+                "that change over the usual change round it",
+            ),
+            (
+                "prominence.max, max_at",
+                "the most any clear change (0.01 or more) stands out \
+              from the frames round it; 5 or more is a hard step",
+            ),
+            (
+                "bands",
+                "the least and most of the faces in each band (dark, mid, light: the \
+              thirds of what they show over the film), 0 to 1; a flat face crosses a band \
+              edge in one frame even when it fades, so bands are for the picture only",
+            ),
+            (
+                "band_edges",
+                "the brightness (0 to 1) where mid and light begin",
+            ),
+            (
+                "brightness",
+                "the faces' mean brightness, and its largest change a frame",
+            ),
+            ("radius_px", "the disc measured"),
+            (
+                "image",
+                "the share in each band and the tone change over time; red marks are \
+              hard steps, blue inputs and orders",
+            ),
+        ],
+        writes: "<film>/motion/tone-<options>.png",
+        example: "galaxy-gm motion tone films/circle --thing ship",
+        next: "galaxy-gm motion sheet <film> --at <step t> --crop <thing> to see the face \
+               flip; band_fade_degrees in style.toml's [light] sets how far a face turns \
+               while it fades between bands.",
         topic: "motion",
     },
     Command {

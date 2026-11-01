@@ -444,6 +444,7 @@ fn things(
                     screen: screen.map(|p| p.to_array()),
                     on_screen,
                     followed: followed.as_deref() == Some(id.as_str()),
+                    reach: view.reach(world, id),
                 },
             ))
         })

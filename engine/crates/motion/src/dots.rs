@@ -140,6 +140,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 })
                 .collect(),
             zero: true,
+            min_span: 1.0,
         }],
         &flags,
         720,

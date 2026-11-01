@@ -19,6 +19,9 @@ pub struct Panel {
     pub series: Vec<Series>,
     /// Keep zero on the scale.
     pub zero: bool,
+    /// The scale is at least this tall, so float noise on a flat curve stays flat
+    /// instead of being stretched into spikes.
+    pub min_span: f32,
 }
 
 const PANEL_H: u32 = 110;
@@ -69,13 +72,13 @@ pub fn chart_marked(
         if !lo.is_finite() {
             (lo, hi) = (0.0, 1.0);
         }
-        // At least one unit tall, so float noise on a flat curve stays flat instead of
-        // being stretched into spikes.
-        if hi - lo < 1.0 {
-            let mid = (hi + lo) / 2.0;
-            (lo, hi) = (mid - 0.5, mid + 0.5);
-            if panel.zero && lo > 0.0 {
-                (lo, hi) = (0.0, 1.0);
+        if hi - lo < panel.min_span {
+            if panel.zero && lo >= 0.0 {
+                hi = lo + panel.min_span;
+            } else {
+                let mid = (hi + lo) / 2.0;
+                let half = panel.min_span / 2.0;
+                (lo, hi) = (mid - half, mid + half);
             }
         }
         let pad = (hi - lo) * 0.06;

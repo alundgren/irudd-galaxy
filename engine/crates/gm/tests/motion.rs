@@ -235,3 +235,76 @@ fn the_course_check_holds() {
     assert_eq!(code, 0, "{out}");
     assert_eq!(out["expectations"].as_array().unwrap().len(), 4);
 }
+
+/// A copy of drift with `[light]` added to its style, for a defect put back on purpose.
+fn drift_with_light(dir: &Path, light: &str) -> PathBuf {
+    let from = play().join("drift");
+    let to = dir.join("drift");
+    for entry in walk(&from) {
+        let target = to.join(entry.strip_prefix(&from).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&entry, &target).unwrap();
+    }
+    let style = to.join("style.toml");
+    let text = std::fs::read_to_string(&style).unwrap();
+    std::fs::write(&style, format!("{text}\n[light]\n{light}\n")).unwrap();
+    to
+}
+
+fn walk(dir: &Path) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(walk(&p));
+        } else {
+            out.push(p);
+        }
+    }
+    out
+}
+
+#[test]
+#[ignore = "needs a GPU: films drift turning, with the default band fade and with a hard step"]
+fn the_tone_check_holds_and_finds_a_hard_band_step() {
+    let tmp = tempfile::tempdir().unwrap();
+    let spec = play().join("films/tone.toml");
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("smooth").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+    // The same spec against a copy of drift whose faces step between bands.
+    let hard = drift_with_light(tmp.path(), "band_fade_degrees = 0");
+    let text = std::fs::read_to_string(&spec)
+        .unwrap()
+        .replace(
+            "modules = \"../drift\"",
+            &format!("modules = {:?}", hard.display().to_string()),
+        )
+        .replace(
+            "inputs = \"inputs/circle.toml\"",
+            &format!(
+                "inputs = {:?}",
+                play()
+                    .join("films/inputs/circle.toml")
+                    .display()
+                    .to_string()
+            ),
+        );
+    let hard_spec = tmp.path().join("tone-hard.toml");
+    std::fs::write(&hard_spec, text).unwrap();
+    let (code, out) = gm(&[
+        "motion",
+        "check",
+        hard_spec.to_str().unwrap(),
+        "--out",
+        tmp.path().join("hard").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 5, "{out}");
+    let got = out["expectations"][0]["got"].as_u64().unwrap();
+    assert!(got >= 3, "{out}");
+}

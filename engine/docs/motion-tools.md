@@ -29,6 +29,7 @@ and the tools in `crates/motion` (CPU only, no engine crates).
 | What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
 | How does it slow down, speed up, overshoot, bounce, as one picture? | `sheet --onion x` | pixels | the picture, `gaps_between_poses` |
 | Does anything pop in or out, show for one frame, or flicker? | `flicker` (`--screen` for overlays) | pixels | `events`, the picture |
+| Does a turning thing's shading ease, or do whole faces flip between light and shadow? | `tone [--thing x]` | pixels | `hard_steps`, `prominence.max` |
 | Is something moving that has no name, or crawling where it should be still? | `flow` (`--along course` too) | pixels | `moving`, `along` |
 | What changed against an approved film (another build, before a change)? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, the picture |
 | Should this keep holding, as a test? | `check <spec>` | either | `expectations` |
@@ -145,6 +146,20 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   the film shows: below 60 fps or 1280x720 it adds `warnings`, as thin lines and
   one-frame events can fall between frames or pixels (a hub's broken inner ink line shows
   at 60 fps and the player's size, and was missed at 30 fps and 960x540).
+- **`tone`** follows one thing's shading, which `flicker` sets aside because a turning
+  thing is a busy place. Each frame it takes the pixels inside the thing's faces: in a
+  disc of the thing's reach (from the probes), not the sky's colour (the median of a ring
+  just outside the disc) and flat (no neighbour more than 0.03 brighter or darker: edges
+  and ink lines move as it turns). Their brightness histogram ignores where pixels are,
+  so turning barely changes it, while a face changing tone shifts it. `change` is the
+  earth mover's distance between one frame's histogram and the last's: the mean
+  brightness shift of the faces. A face easing over eight frames spreads the shift over
+  them; a hard cel step puts it in one frame. So a step is a frame whose change is clear
+  (0.01 or more) and five times the mean change of the frames round it (eight either
+  side, leaving out the next ones, as a step can land on two frames). Band shares (the
+  dark, middle and light thirds) are drawn but not used to find steps: a flat face
+  crosses any band edge in one frame even while it fades. A thing that is mostly
+  background colour, or smaller than a few dozen flat pixels, can't be measured.
 - **`flow`** is pyramidal Lucas–Kanade optical flow on a grid of textured points, between
   compensated frames: at each point, the small shift that best explains how the picture
   round it changed, found coarse to fine. Points still in the world or moving with the
@@ -165,7 +180,9 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
 - **`check <spec>`** films what a spec says and runs its expectations: each names a tool,
   a value in its report (`gap.overshoot`, dotted) and bounds; any other key is the tool's
   option. It exits 5 (`motion_expectations`) when one does not hold. The format is in
-  `crates/motion/src/check.rs`; `tests/play/films/` has two.
+  `crates/motion/src/check.rs` (`galaxy-gm fields spec` lists it); `tests/play/films/`
+  has three. Without `--out` the film goes to `galaxy-motion-check/<spec>` in the OS temp
+  folder, and the report's `film` says where.
 
 ## What they caught on drift
 
@@ -184,6 +201,9 @@ purpose (never committed):
 | Course snaps faint instead of settling | `flicker` | no event at 2.55 s | pops along the course at 2.55 s |
 | Course drawn on every other frame | `flicker` | none | 50 flicker runs |
 | The two course defects | `check course.toml`, `check dock.toml` | pass | exit 5, naming the values out of bounds |
+| Faces step between tone bands (`[light] band_fade_degrees = 0`), ship in a tight circle | `tone` | 0 hard steps; at most 3.1 times the change round it | 4 to 5 hard steps, 7 to 10 times, about every 0.75 s; same at 960x540 and 1280x720 |
+| | `check tone.toml` | pass | exit 5 |
+| | `flicker` | 37 flicker runs, none near the ship | the same 37: the turning ship is a busy place it sets aside |
 
 On the engine as it is, `flicker` also finds real small things: the leg after a waypoint
 brightens at once when the ship reaches it, and the hub's inner ink line breaks and joins

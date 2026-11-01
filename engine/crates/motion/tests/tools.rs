@@ -47,6 +47,7 @@ fn thing(x: f32, y: f32) -> Thing {
         screen: Some([x, H as f32 - y]),
         on_screen: true,
         followed: false,
+        reach: None,
     }
 }
 
@@ -277,6 +278,61 @@ fn track_sees_judder_and_overshoot() {
         o["reading"].as_str().unwrap().contains("overshooting"),
         "{o}"
     );
+}
+
+/// A thing of four flat faces at the centre; the fourth's brightness on frame `i` is
+/// `face(i)`.
+fn faces(face: impl Fn(usize) -> u8) -> impl Fn(usize) -> Shot {
+    move |i| {
+        let mut image = Image::new(W, H, BG);
+        let b = face(i);
+        let colours: [Rgba; 4] = [
+            [200, 120, 60, 255],
+            [240, 220, 180, 255],
+            [120, 90, 150, 255],
+            [b, b, b, 255],
+        ];
+        for (k, c) in colours.iter().enumerate() {
+            let (x, y) = (142 + (k as i64 % 2) * 20, 72 + (k as i64 / 2) * 20);
+            image.fill_rect(x, y, 16, 16, *c);
+        }
+        let mut t = thing(160.0, 90.0);
+        t.reach = Some(22.0);
+        t.followed = true;
+        Shot {
+            image,
+            things: BTreeMap::from([("m.ship".to_owned(), t)]),
+            lines: Vec::new(),
+        }
+    }
+}
+
+#[test]
+fn tone_finds_a_face_that_flips_and_not_one_that_eases() {
+    let tmp = tempfile::tempdir().unwrap();
+    // The fourth face goes from shadow to light and back: over eight frames, or at once.
+    let eased = |i: usize| {
+        let up =
+            (i.saturating_sub(20).min(8) as f32 / 8.0) - (i.saturating_sub(50).min(8) as f32 / 8.0);
+        (90.0 + 130.0 * up) as u8
+    };
+    let stepped = |i: usize| if (24..54).contains(&i) { 220 } else { 90 };
+    let (smooth, hard) = (tmp.path().join("smooth"), tmp.path().join("hard"));
+    film(&smooth, 80, faces(eased));
+    film(&hard, 80, faces(stepped));
+    let s = tool("tone", &smooth, &[]);
+    assert_eq!(f(&s, "hard_steps"), 0.0, "{s}");
+    let h = tool("tone", &hard, &[]);
+    assert_eq!(f(&h, "hard_steps"), 2.0, "{h}");
+    let steps: Vec<u64> = h["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["frame"].as_u64().unwrap())
+        .collect();
+    assert_eq!(steps, [24, 54], "{h}");
+    // The sky round the thing and the gaps between its faces are not the thing.
+    assert!(f(&h, "change.max") > 0.1, "{h}");
 }
 
 #[test]

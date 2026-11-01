@@ -19,6 +19,7 @@ pub mod opts;
 mod plot;
 pub mod sheet;
 pub mod strip;
+pub mod tone;
 pub mod track;
 pub mod vdp;
 pub mod warp;
@@ -32,7 +33,7 @@ pub use opts::Opts;
 
 /// The tools, in the order an agent usually reaches for them.
 pub const TOOLS: &[&str] = &[
-    "track", "dots", "strip", "sheet", "flicker", "flow", "compare",
+    "track", "dots", "strip", "sheet", "flicker", "tone", "flow", "compare",
 ];
 
 /// The options `tool` takes, besides `--image`; none for a tool that doesn't exist.
@@ -43,6 +44,7 @@ pub fn options(tool: &str) -> Option<&'static [&'static str]> {
         "strip" => strip::OPTIONS,
         "sheet" => sheet::OPTIONS,
         "flicker" => flicker::OPTIONS,
+        "tone" => tone::OPTIONS,
         "flow" => flow::OPTIONS,
         "compare" => compare::OPTIONS,
         _ => return None,
@@ -58,6 +60,7 @@ pub fn run(tool: &str, dir: &Path, opts: &Opts) -> Result<Value, String> {
         "strip" => strip::run(&film, opts),
         "sheet" => sheet::run(&film, opts),
         "flicker" => flicker::run(&film, opts),
+        "tone" => tone::run(&film, opts),
         "flow" => flow::run(&film, opts),
         "compare" => compare::run(&film, opts),
         other => Err(format!(

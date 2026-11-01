@@ -159,6 +159,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 color: ACCENT,
             }],
             zero: true,
+            min_span: 1.0,
         });
     } else {
         panels.push(Panel {
@@ -176,6 +177,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 },
             ],
             zero: false,
+            min_span: 1.0,
         });
     }
     panels.push(Panel {
@@ -186,6 +188,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             color: CALM,
         }],
         zero: true,
+        min_span: 1.0,
     });
     panels.push(Panel {
         title: "step unevenness (px): each step against its neighbours'".into(),
@@ -202,6 +205,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             },
         ],
         zero: true,
+        min_span: 1.0,
     });
 
     reading.push(describe(&id, "on screen", screen_u.score, &screen_u));
@@ -224,6 +228,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 color: FLAG,
             }],
             zero: true,
+            min_span: 1.0,
         });
         reading.push(gap.reading.clone());
         report["gap"] = gap.report;
