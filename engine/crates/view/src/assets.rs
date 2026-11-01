@@ -22,16 +22,41 @@ pub struct Assets {
     pub ink: Ink,
     pub light: Light,
     pub sky: Sky,
-    /// What could not be read, each with its module and file.
+    /// What could not be read, each starting `<module>: <file>: `.
     pub problems: Vec<String>,
+    /// Scene-wide tables set by more than one module.
+    pub conflicts: Vec<Conflict>,
+}
+
+/// A scene-wide style table (`ink`, `light`, `sky`) that more than one module sets.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Conflict {
+    pub table: &'static str,
+    /// The modules that set it, in ID order; the last one is used.
+    pub modules: Vec<String>,
+}
+
+impl Conflict {
+    pub fn message(&self) -> String {
+        let table = self.table;
+        format!(
+            "[{table}] is set by {}; one module sets the whole scene's {table}, and the last \
+             one ({}) is used",
+            self.modules.join(", "),
+            self.modules.last().map_or("", String::as_str)
+        )
+    }
 }
 
 impl Assets {
-    /// Reads every module's models and style. A file that doesn't parse is left out and
-    /// listed in [`Assets::problems`]; the rest still loads.
+    /// Reads every module's models and style, in module ID order whatever order they come
+    /// in. A file that doesn't parse is left out and listed in [`Assets::problems`]; the
+    /// rest still loads.
     pub fn load<'a>(modules: impl IntoIterator<Item = &'a Module>) -> Assets {
+        let mut modules: Vec<&Module> = modules.into_iter().collect();
+        modules.sort_by(|a, b| a.id().cmp(b.id()));
         let mut out = Assets::default();
-        let mut scene_wide: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+        let mut scene_wide: BTreeMap<&'static str, Vec<String>> = BTreeMap::new();
         for module in modules {
             let id = module.id();
             for (path, text) in &module.files.0 {
@@ -74,16 +99,11 @@ impl Assets {
                 out.looks.insert(format!("{id}.{name}"), look);
             }
         }
-        for (table, ids) in scene_wide {
-            if ids.len() > 1 {
-                out.problems.push(format!(
-                    "[{table}] is set by {}; one module sets the whole scene's {table}, and \
-                     the last one ({}) is used",
-                    ids.join(", "),
-                    ids.last().expect("more than one")
-                ));
-            }
-        }
+        out.conflicts = scene_wide
+            .into_iter()
+            .filter(|(_, ids)| ids.len() > 1)
+            .map(|(table, modules)| Conflict { table, modules })
+            .collect();
         out
     }
 }
@@ -166,8 +186,16 @@ mod tests {
     fn two_modules_setting_the_sky_is_a_problem() {
         let a = module("aa", &[("style.toml", "[sky]\nstars = 3\n")]);
         let b = module("bb", &[("style.toml", "[sky]\nstars = 4\n")]);
-        let assets = Assets::load([&a, &b]);
-        assert_eq!(assets.sky.stars, 4);
-        assert!(assets.problems[0].contains("[sky] is set by aa, bb"));
+        let assets = Assets::load([&b, &a]);
+        assert_eq!(
+            assets.sky.stars, 4,
+            "module ID order, whatever the order given"
+        );
+        assert_eq!(assets.conflicts[0].modules, ["aa", "bb"]);
+        assert!(
+            assets.conflicts[0]
+                .message()
+                .contains("[sky] is set by aa, bb; one module sets the whole scene's sky, and the last one (bb) is used")
+        );
     }
 }

@@ -344,6 +344,7 @@ impl View {
     /// What is wrong with the modules' models and styles, as text.
     pub fn problems(&self) -> Vec<String> {
         let mut all = self.assets.problems.clone();
+        all.extend(self.assets.conflicts.iter().map(assets::Conflict::message));
         all.extend(
             self.missing
                 .iter()

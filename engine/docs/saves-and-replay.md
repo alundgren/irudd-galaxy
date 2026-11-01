@@ -46,7 +46,7 @@ A recording is one JSON file that holds everything needed to run a session again
 - `seed` and `start`: the whole world the session started from;
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
   `module` and its exact new files) and notes (`tick`, `text`, and `camera` and `frame`,
-  which stay empty until the renderer exists);
+  which stay empty until F8 notes land);
 - `end`: the last tick and the world's hash there.
 
 An input is anything from outside the sim: a key, a click, a scenario step. Its `name` is

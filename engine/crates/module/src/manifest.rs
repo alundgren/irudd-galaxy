@@ -383,7 +383,8 @@ pub fn parse(dir: &Path, text: &str) -> Result<Manifest, Failure> {
             return Err(invalid(
                 dir,
                 format!(
-                    "keys.{key}: `{event}` is not one of this module's events; list it in                      `events`"
+                    "keys.{key}: `{event}` is not one of this module's events; list it in \
+                     `events`"
                 ),
             ));
         }

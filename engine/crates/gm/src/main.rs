@@ -69,9 +69,16 @@ fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
     let mut out: Vec<Value> = assets
         .problems
         .iter()
-        .filter(|p| p.starts_with(&own) || (p.starts_with('[') && p.contains(module.id())))
+        .filter(|p| p.starts_with(&own))
         .map(|p| finding("look", p.clone()))
         .collect();
+    out.extend(
+        assets
+            .conflicts
+            .iter()
+            .filter(|c| c.modules.iter().any(|m| m == module.id()))
+            .map(|c| finding("look", c.message())),
+    );
     for (entity, components) in &module.start {
         let Some(fields) = components.get(MODEL) else {
             continue;
@@ -82,7 +89,8 @@ fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
             out.push(finding(
                 "look",
                 format!(
-                    "start.toml: {entity} wears the model `{model}`, which no module has                      (`<module>.<name>` is models/<name>.gltf in that module)"
+                    "start.toml: {entity} wears the model `{model}`, which no module has \
+                     (`<module>.<name>` is models/<name>.gltf in that module)"
                 ),
             ));
         }
@@ -91,7 +99,8 @@ fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
             out.push(finding(
                 "look",
                 format!(
-                    "start.toml: {entity} wears the look `{look}`, which no module's                      style.toml has"
+                    "start.toml: {entity} wears the look `{look}`, which no module's \
+                     style.toml has"
                 ),
             ));
         }
