@@ -13,13 +13,13 @@ pub mod assets;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use galaxy_api::engine::{CAMERA, MODEL, POSITION};
+use galaxy_api::engine::{CAMERA, MODEL, POSITION, STEER, WAYPOINT};
 use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::module::Module;
 use galaxy_render::glam::{Mat4, Quat, Vec2, Vec3};
 use galaxy_render::{
-    BackdropHandle, Camera, Material, MeshHandle, MeshInstance, Panel, Projection, Rect, Renderer,
-    Scene, Text, backdrop, defaults,
+    BackdropHandle, Camera, Line, Material, MeshHandle, MeshInstance, Panel, Projection, Rect,
+    Renderer, Scene, Text, backdrop, defaults,
 };
 use galaxy_sim::World;
 use serde_json::{Map, Value, json};
@@ -165,6 +165,8 @@ pub struct Eye {
 pub struct View {
     pub assets: Assets,
     handles: BTreeMap<String, MeshHandle>,
+    /// How far each model reaches from its centre on the plane, for rings round it.
+    reach: BTreeMap<String, f32>,
     placeholder: MeshHandle,
     sky: BackdropHandle,
     seed: u64,
@@ -197,6 +199,7 @@ impl View {
         let mut view = View {
             assets: Assets::default(),
             handles: BTreeMap::new(),
+            reach: BTreeMap::new(),
             placeholder,
             sky,
             seed,
@@ -225,8 +228,15 @@ impl View {
         }
         renderer.remove_backdrop(self.sky);
         self.sky = renderer.upload_backdrop(&backdrop(&assets.sky.params(), self.seed));
+        self.reach.clear();
         for (id, mesh) in &assets.models {
             self.handles.insert(id.clone(), renderer.upload_mesh(mesh));
+            let reach = mesh
+                .vertices
+                .iter()
+                .map(|v| v.position[0].hypot(v.position[1]))
+                .fold(0.0, f32::max);
+            self.reach.insert(id.clone(), reach);
         }
         self.missing.clear();
         self.assets = assets;
@@ -336,9 +346,93 @@ impl View {
                     .with_morph(number("morph", 0.0) as f32),
             );
         }
+        self.course(world, alpha, &mut scene);
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
+    }
+
+    /// The followed thing's order, while it runs: a dashed line from it to where it is
+    /// going (through the waypoints left on a route) and a ring round where it ends.
+    fn course(&self, world: &World, alpha: f32, scene: &mut Scene) {
+        let style = self.assets.course;
+        if !style.show {
+            return;
+        }
+        let Some((id, _)) = camera_holder(world) else {
+            return;
+        };
+        let Some(order) = world.component(id, STEER).map(|c| &c.fields) else {
+            return;
+        };
+        let text = |f: &Map<String, Value>, k: &str| {
+            f.get(k).and_then(Value::as_str).unwrap_or("").to_owned()
+        };
+        let mode = text(order, "mode");
+        let done = order.get("done").and_then(Value::as_bool).unwrap_or(false);
+        let Some(from) = self.pose(world, id, alpha) else {
+            return;
+        };
+        if mode.is_empty() || done {
+            return;
+        }
+        let lift = Vec3::Z * 0.1;
+        let mut points = vec![from.point() + lift];
+        let mut target = text(order, "target");
+        let mut radius = 1.0;
+        if target.is_empty() {
+            let n = |k: &str| order.get(k).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+            points.push(Vec3::new(n("x"), n("y"), from.height) + lift);
+        } else {
+            // The target, then on a route each waypoint after it, at most a few dozen.
+            for _ in 0..64 {
+                let Some(pose) = self.pose(world, &target, alpha) else {
+                    break;
+                };
+                points.push(pose.point() + lift);
+                radius = self.ring_radius(world, &target);
+                let next = (mode == "follow")
+                    .then(|| world.component(&target, WAYPOINT))
+                    .flatten()
+                    .map(|w| text(&w.fields, "next"))
+                    .filter(|n| !n.is_empty() && world.entities.contains_key(n));
+                match next {
+                    Some(n) => target = n,
+                    None => break,
+                }
+            }
+        }
+        if points.len() < 2 {
+            return;
+        }
+        let end = *points.last().expect("two or more");
+        // The line stops at the ring rather than running over the target.
+        let before = points[points.len() - 2];
+        let span = end - before;
+        if span.length() > radius {
+            *points.last_mut().expect("two or more") = end - span.normalize() * radius;
+        }
+        scene
+            .lines
+            .push(Line::path(points, style.width, style.color).dashed(style.dash, style.gap));
+        scene
+            .lines
+            .push(Line::circle(end, radius, style.width, style.color));
+    }
+
+    /// A ring just outside what `entity` wears, or a small one for a bare point.
+    fn ring_radius(&self, world: &World, entity: &str) -> f32 {
+        let Some(model) = world.component(entity, MODEL).map(|c| &c.fields) else {
+            return 1.0;
+        };
+        let id = model.get("model").and_then(Value::as_str).unwrap_or("");
+        let scale = model.get("scale").and_then(Value::as_f64).unwrap_or(1.0) as f32;
+        let scale = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
+        self.reach.get(id).map_or(1.0, |r| r * scale + 0.8)
     }
 
     /// What is wrong with the modules' models and styles, as text.

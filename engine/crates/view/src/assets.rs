@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use galaxy_mesh::MeshData;
 use galaxy_module::module::Module;
-use galaxy_render::style::{Ink, Light, Look, Sky, Style};
+use galaxy_render::style::{Course, Ink, Light, Look, Sky, Style};
 
 /// The folder models live in, inside a module.
 pub const MODELS: &str = "models/";
@@ -22,13 +22,15 @@ pub struct Assets {
     pub ink: Ink,
     pub light: Light,
     pub sky: Sky,
+    pub course: Course,
     /// What could not be read, each starting `<module>: <file>: `.
     pub problems: Vec<String>,
     /// Scene-wide tables set by more than one module.
     pub conflicts: Vec<Conflict>,
 }
 
-/// A scene-wide style table (`ink`, `light`, `sky`) that more than one module sets.
+/// A scene-wide style table (`ink`, `light`, `sky`, `course`) that more than one module
+/// sets.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Conflict {
     pub table: &'static str,
@@ -94,6 +96,10 @@ impl Assets {
             if let Some(sky) = style.sky {
                 out.sky = sky;
                 scene_wide.entry("sky").or_default().push(id.to_owned());
+            }
+            if let Some(course) = style.course {
+                out.course = course;
+                scene_wide.entry("course").or_default().push(id.to_owned());
             }
             for (name, look) in style.looks {
                 out.looks.insert(format!("{id}.{name}"), look);

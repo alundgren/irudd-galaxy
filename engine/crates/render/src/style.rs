@@ -23,6 +23,13 @@
 //! cloud_count = 16
 //! stars = 260
 //!
+//! [course]                  # the followed ship's order: a dashed line and a ring
+//! show = true
+//! color = "#ffcf6b"
+//! width = 0.12              # world units
+//! dash = 0.8                # dash and gap lengths, world units
+//! gap = 0.5
+//!
 //! [looks.hull]                # a look a model can wear: `look = "<module>.hull"`
 //! outline_px = 4.0            # silhouette width in logical pixels
 //! hatch = 0.35                # hatching in the shadow band, 0..1
@@ -31,8 +38,8 @@
 //! bands = 3                   # tone bands, 2 or 3
 //! ```
 //!
-//! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`) may come from one
-//! module only; looks are each module's own, named by full ID.
+//! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`, `course`) may
+//! come from one module only; looks are each module's own, named by full ID.
 
 use std::collections::BTreeMap;
 
@@ -51,6 +58,7 @@ pub struct Style {
     pub ink: Option<Ink>,
     pub light: Option<Light>,
     pub sky: Option<Sky>,
+    pub course: Option<Course>,
     pub looks: BTreeMap<String, Look>,
 }
 
@@ -196,6 +204,30 @@ impl Sky {
     }
 }
 
+/// How the followed thing's order is shown: a dashed line from it to where it is going,
+/// through the waypoints left on a route, and a ring round where it ends.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Course {
+    pub show: bool,
+    pub color: Color,
+    pub width: f32,
+    pub dash: f32,
+    pub gap: f32,
+}
+
+impl Default for Course {
+    fn default() -> Self {
+        Self {
+            show: true,
+            color: Color::hex(0xffcf6b),
+            width: 0.12,
+            dash: 0.8,
+            gap: 0.5,
+        }
+    }
+}
+
 /// How a model is shaded and inked.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -274,6 +306,18 @@ mod tests {
         let hull = s.looks["hull"];
         assert_eq!((hull.outline_px, hull.bands), (5.0, 2));
         assert_eq!(hull.material(&Ink::default()).outline_px, 5.0);
+    }
+
+    #[test]
+    fn the_course_can_be_hidden_or_recoloured() {
+        let s = Style::parse("[course]
+show = false
+color = \"#3fa7a0\"
+").unwrap();
+        let course = s.course.unwrap();
+        assert!(!course.show);
+        assert_eq!(course.color.to_hex(), "#3fa7a0");
+        assert_eq!(course.dash, Course::default().dash);
     }
 
     #[test]

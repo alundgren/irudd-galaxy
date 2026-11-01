@@ -86,6 +86,13 @@ cloud_alpha = 0.2
 cloud_count = 16
 stars = 260
 
+[course]                  # the followed ship's order, for the whole scene
+show = true
+color = "#ffcf6b"
+width = 0.12              # world units
+dash = 0.8                # dash and gap, world units
+gap = 0.5
+
 [looks.hull]              # a look; things wear it as `look = "<module>.hull"`
 outline_px = 3.5          # silhouette width, logical pixels (0 to 16)
 hatch = 0.25              # hatching in the shadow band (0 to 1)
@@ -95,7 +102,7 @@ bands = 3                 # 2 or 3 tone bands
 ```
 
 Looks belong to their module and are named by full ID. The scene-wide tables (`ink`,
-`light`, `sky`) describe one scene, so one module sets each; when two do, the last one in
+`light`, `sky`, `course`) describe one scene, so one module sets each; when two do, the last one in
 module order is used and `galaxy-gm check` reports it. A broken style file, a broken model,
 or a thing wearing a model or look no module has is a finding in `galaxy-gm check` and
 shows in a panel at the top left while playing (a missing model draws as a small box).
@@ -153,6 +160,13 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   makes it a perspective camera with the same framing at the target. The wheel zooms
   between `min_view` and `max_view`. Zoom is the player's, not the world's, so it is not
   an input and is not recorded.
+
+- **The course.** While the thing the camera follows has an order under way
+  (`engine.steer`, `flight-and-collision.md`), a dashed line runs from it to where it is
+  going, through the waypoints left on a route, and a ring marks where it ends, just
+  outside what the target wears. It goes when the order is done or set aside. The
+  `[course]` style colours it or turns it off. Only the followed thing shows one, so other
+  pilots' orders don't clutter the view.
 
 Cameras for places other than flight (stations, interiors, moving between them) wait for
 the place model.
