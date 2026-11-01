@@ -339,8 +339,8 @@ pub static COMMANDS: &[Command] = &[
                 round it. A pop jumps and stays; a blip is back the next frame; a flicker goes \
                 back and forth four frames or more. Things moving fast or turning are busy \
                 cells, so a change on a turning thing can be missed: `motion tone` measures \
-                a turning thing's light and shadow. Flagged cells next to each other on \
-                overlapping frames are one event (one line breaking across a cell edge), as \
+                a turning thing's light and shadow. Flagged cells next to each other that \
+                start on the same frame (or the next) are one event (one line breaking across a cell edge), as \
                 strong as their changes together; events are listed strongest first, and \
                 `left_out` says how many the filters and the cap left out.\n\
                 It sees what the film shows: film at 60 fps and the player's size, or thin \

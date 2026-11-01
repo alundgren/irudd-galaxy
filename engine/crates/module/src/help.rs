@@ -516,9 +516,19 @@ static GAME: &[Command] = &[
                 "inputs and zooms by tick (`galaxy-gm fields inputs`)",
             ),
             ("--size <w>x<h>", "in pixels; 1280x720 by default"),
+            (
+                "--crop <thing>",
+                "write only the square round this thing (by ID or bare name), enlarged in \
+              whole pixel blocks to at least 512 px, for a before and after of one thing",
+            ),
         ],
         output: &[
             ("out", "the picture"),
+            (
+                "crop",
+                "with --crop: the thing, box_px (x, y, w, h in the full frame), how many \
+              times it was enlarged, and a note when the thing reaches past the frame",
+            ),
             ("tick, hash", "the tick drawn and the world's hash"),
             (
                 "camera",

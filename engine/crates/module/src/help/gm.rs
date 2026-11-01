@@ -455,7 +455,10 @@ pub static TOPICS: &[Topic] = &[
                 like F8 notes.",
         tasks: &[
             ("Play the game", "game play"),
-            ("Draw one frame headless", "game shot"),
+            (
+                "Draw one frame headless, or one thing (--crop)",
+                "game shot",
+            ),
         ],
     },
     Topic {
@@ -484,7 +487,10 @@ pub static TOPICS: &[Topic] = &[
         tasks: &[
             ("Run a world headless and read its state", "game sim run"),
             ("Carry on from a save", "game sim load"),
-            ("What the player did: inputs, orders, zooms", "gm recording"),
+            (
+                "What the player did, in order: the timeline",
+                "gm recording",
+            ),
             (
                 "Check a recording replays to the same world",
                 "game sim replay",
@@ -545,7 +551,10 @@ pub static TOPICS: &[Topic] = &[
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
                 key is optional. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
-        tasks: &[("Which keys and fields exist, with defaults", "gm fields")],
+        tasks: &[(
+            "Which keys and fields exist; which things wear a look",
+            "gm fields",
+        )],
     },
     Topic {
         name: "install",

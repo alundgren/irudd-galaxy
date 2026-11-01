@@ -422,7 +422,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
     }
     let out = opts.image_path(&film.dir, "flicker")?;
     img.save_png(&out)?;
-    Ok(json!({
+    let mut report = json!({
         "tool": "flicker",
         "frames": n,
         "compensated": !screen,
@@ -436,7 +436,13 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "changed_share": { "median": round(median(&changed_share), 4), "max": round(changed_share.iter().fold(0.0, |a: f32, b| a.max(*b)), 4) },
         "reading": reading,
         "image": out.display().to_string(),
-    }))
+    });
+    if let Some(m) = report.as_object_mut()
+        && m["left_out"].is_null()
+    {
+        m.remove("left_out");
+    }
+    Ok(report)
 }
 
 /// Settings that can hide what flicker looks for.
@@ -519,8 +525,8 @@ struct Event {
     change: f32,
 }
 
-/// Flagged cells that are one visual change: neighbours (eight-way) flagged on frames
-/// that overlap or touch.
+/// Flagged cells that are one visual change: neighbours (eight-way) whose change starts
+/// on the same frame or the next.
 struct Group {
     kind: &'static str,
     from: usize,
@@ -548,7 +554,9 @@ fn group(events: &[Event], cols: usize, cell_box: &dyn Fn(usize) -> [u32; 4]) ->
             let (ax, ay) = ((ea.cell % cols) as i64, (ea.cell / cols) as i64);
             let (bx, by) = ((eb.cell % cols) as i64, (eb.cell / cols) as i64);
             let touching = (ax - bx).abs() <= 1 && (ay - by).abs() <= 1;
-            let overlap = ea.from <= eb.to + 1 && eb.from <= ea.to + 1;
+            // One change starts in all its cells at once (within a frame); runs that merely
+            // overlap in time are separate things.
+            let overlap = ea.from.abs_diff(eb.from) <= 1;
             if touching && overlap {
                 let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
                 parent[ra] = rb;

@@ -16,8 +16,8 @@ use std::time::Instant;
 use galaxy_module::Failure;
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
-use galaxy_render::Renderer;
 use galaxy_render::glam::Vec2;
+use galaxy_render::{Renderer, RgbaImage};
 use galaxy_sim::scenario::InputsFile;
 use galaxy_sim::step::FixedStep;
 use galaxy_sim::watch::ModuleWatcher;
@@ -57,7 +57,11 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--inputs",
     "--size",
     "--out",
+    "--crop",
 ];
+
+/// A cropped shot is enlarged until its longer side is at least this many pixels.
+const CROP_SIDE: u32 = 512;
 
 /// Keys on the keyboard by their manifest key name (`galaxy_module::manifest::KEYS`).
 const KEY_CODES: [(KeyCode, &str); 56] = [
@@ -794,13 +798,52 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let started = Instant::now();
     let scene = view.scene(&session.world, 1.0, Vec2::new(w as f32, h as f32), 0.0);
     let build_ms = ms_since(started);
-    let image = renderer
+    let mut image = renderer
         .render_to_rgba(&scene)
         .map_err(|e| Failure::runtime(format!("drawing failed: {e}")))?;
+    let crop = match &options.crop {
+        None => None,
+        Some(want) => {
+            let logical = Vec2::new(w as f32, h as f32);
+            let id = thing_id(&session.world, want)?;
+            let pose = view
+                .pose(&session.world, &id, 1.0)
+                .ok_or_else(|| usage(format!("`{id}` is not drawn: it has no engine.position")))?;
+            let centre = scene
+                .camera
+                .world_to_screen(pose.point(), logical)
+                .filter(|c| c.x >= 0.0 && c.y >= 0.0 && c.x < w as f32 && c.y < h as f32)
+                .ok_or_else(|| {
+                    Failure::bad_input(format!(
+                        "`{id}` is off the screen at tick {}; zoom out (--inputs with \
+                         [[zoom]]) or shoot another tick",
+                        session.world.tick
+                    ))
+                })?;
+            let per_px = scene.camera.world_per_pixel(logical).max(1e-6);
+            let reach = view.reach(&session.world, &id).unwrap_or(1.0) / per_px;
+            let half = (reach * 1.4).clamp(24.0, w.max(h) as f32 / 2.0);
+            let (cropped, rect, factor) = crop_round(&image, centre.x, centre.y, half);
+            image = cropped;
+            let cut = centre.x < reach
+                || centre.y < reach
+                || centre.x + reach > w as f32
+                || centre.y + reach > h as f32;
+            let mut c = json!({ "thing": id, "box_px": rect, "enlarged": factor });
+            if cut {
+                c["note"] = json!(
+                    "the thing reaches past the frame's edge, so part of it is cut off; \
+                     zoom out or shoot another tick"
+                );
+            }
+            Some(c)
+        }
+    };
     image
         .save_png(&out)
         .map_err(|e| Failure::runtime(e.to_string()).with("path", out.display().to_string()))?;
     Ok(Output::Json(json!({
+        "crop": crop,
         "ok": true,
         "command": "shot",
         "out": out.display().to_string(),
@@ -816,9 +859,81 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     })))
 }
 
+/// The entity `want` names: its full ID, or a bare name one module has (`ship`).
+fn thing_id(world: &galaxy_sim::World, want: &str) -> Result<String, Failure> {
+    if world.entities.contains_key(want) {
+        return Ok(want.to_owned());
+    }
+    let suffix = format!(".{want}");
+    let found: Vec<&String> = world
+        .entities
+        .keys()
+        .filter(|k| k.ends_with(&suffix))
+        .collect();
+    match found.as_slice() {
+        [one] => Ok((*one).clone()),
+        [] => Err(usage(format!("--crop: no thing `{want}` in the world"))),
+        many => Err(usage(format!(
+            "--crop: `{want}` could be {}; write the full ID",
+            many.iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" or ")
+        ))),
+    }
+}
+
+/// The square of `half` pixels round (`cx`, `cy`), kept inside the picture and enlarged
+/// by a whole factor (each pixel a block, nothing smoothed) until its longer side is
+/// [`CROP_SIDE`]: the picture, the box `[x, y, w, h]` and the factor.
+fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u32; 4], u32) {
+    let side = ((half * 2.0).round() as u32).clamp(8, image.width.min(image.height));
+    let x0 = ((cx - side as f32 / 2.0).round().max(0.0) as u32).min(image.width - side);
+    let y0 = ((cy - side as f32 / 2.0).round().max(0.0) as u32).min(image.height - side);
+    let factor = CROP_SIDE.div_ceil(side).clamp(1, 16);
+    let out_side = side * factor;
+    let mut pixels = Vec::with_capacity((out_side * out_side * 4) as usize);
+    for y in 0..out_side {
+        for x in 0..out_side {
+            pixels.extend_from_slice(&image.pixel(x0 + x / factor, y0 + y / factor));
+        }
+    }
+    (
+        RgbaImage {
+            width: out_side,
+            height: out_side,
+            pixels,
+        },
+        [x0, y0, side, side],
+        factor,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_crop_stays_inside_the_picture_and_enlarges_in_blocks() {
+        let mut pixels = Vec::new();
+        for y in 0..100u32 {
+            for x in 0..200u32 {
+                pixels.extend_from_slice(&[x as u8, y as u8, 0, 255]);
+            }
+        }
+        let image = RgbaImage {
+            width: 200,
+            height: 100,
+            pixels,
+        };
+        let (out, rect, factor) = crop_round(&image, 195.0, 5.0, 20.0);
+        assert_eq!(rect, [160, 0, 40, 40]);
+        assert_eq!(factor, 13);
+        assert_eq!(out.width, 520);
+        assert_eq!(out.pixel(0, 0), [160, 0, 0, 255]);
+        assert_eq!(out.pixel(13, 0), [161, 0, 0, 255]);
+        assert_eq!(out.pixel(519, 519), [199, 39, 0, 255]);
+    }
 
     #[test]
     fn every_key_a_module_may_bind_is_on_the_keyboard() {

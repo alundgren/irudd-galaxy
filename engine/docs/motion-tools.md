@@ -73,7 +73,9 @@ keep theirs; `--image` puts it elsewhere.
   two (`alpha`), with that presentation time, exactly as `galaxy play` draws at that
   frame rate. So interpolation, the camera's follow and timed effects (the course
   settling, a ring closing) are filmed as the player sees them. `galaxy shot` draws one
-  still moment (`alpha` 1, time 0) and can't show any of that.
+  still moment (`alpha` 1, time 0) and can't show any of that. `galaxy shot --crop <thing>`
+  writes just the square round one thing, enlarged in whole pixel blocks, for a before and
+  after of one thing.
 - **Warm-up.** Scenes are built for every frame from ten seconds before the first filmed
   one, so effects that build up over time are already under way; only filmed frames are
   drawn.
@@ -164,9 +166,10 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   round it: a **pop** is a jump far above that which stays, a **blip** is back the next
   frame, a **flicker** goes back and forth four frames or more. Something moving into a
   quiet cell is not a pop (its neighbour was busy); a sudden change right beside a moving
-  thing can be missed for the same reason. Flagged cells that touch (eight ways) on
-  frames that overlap or touch are one event, as strong as their changes together: one
-  line breaking across a cell edge is one event, not four. Events are ranked strongest
+  thing can be missed for the same reason. Flagged cells that touch (eight ways) and
+  start changing on the same frame or the next are one event, as strong as their changes
+  together: one line breaking across a cell edge is one event, not four. Runs that only
+  overlap in time stay apart, so events keep their place. Events are ranked strongest
   first; `--from`/`--to` (seconds) and `--near <thing>` (within its reach on screen, plus
   24 px) keep some, and `left_out` says how many they and the cap left out. The whole
   film is read either way, so a cell's usual change is known at the edges of the span. The picture is a motion history: where things
