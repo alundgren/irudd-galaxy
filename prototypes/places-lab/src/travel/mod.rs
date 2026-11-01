@@ -8,6 +8,12 @@
 //! line in [`all`]. Nothing outside this folder needs to change.
 
 mod cut;
+mod cutaway;
+mod glide;
+mod menu;
+mod shared;
+mod threshold;
+mod walk;
 
 use render::{Renderer, UiLayer};
 
@@ -43,5 +49,12 @@ pub trait Travel {
 
 /// Every variant, in the order the key cycles them. The first is the baseline.
 pub fn all() -> Vec<Box<dyn Travel>> {
-    vec![Box::new(cut::Cut::default())]
+    vec![
+        Box::new(cut::Cut::default()),
+        Box::new(glide::Glide::default()),
+        Box::new(cutaway::Cutaway::default()),
+        Box::new(threshold::Threshold::default()),
+        Box::new(menu::Menu::default()),
+        Box::new(walk::Walk::default()),
+    ]
 }
