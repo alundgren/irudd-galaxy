@@ -5,8 +5,28 @@ game's screens, and feel right? What should change before the engine adopts it?
 
 **Short answer.** It covered all four screens with sixteen engine-owned widgets, and
 Luau never ran per frame, the cradle's drag and the station zoom included. The model
-holds, with nine changes for the engine (at the end). The feel is still to be judged:
-that is the owner's call after playing the lab (`README.md`).
+holds, with nine changes for the engine (at the end). The owner played it: how the
+screens look is to be iterated while building the core, but two things feel wrong at a
+level the screen model doesn't reach (below, "Where the player is").
+
+## Where the player is
+
+The owner's verdict after playing: the screens work, but the station doesn't feel like
+a place you are in.
+
+- **Talk.** A bubble is a label hanging off a building, not a person speaking. It stays
+  on that building wherever you click, though clicking a module stands for walking over
+  to it.
+- **Rooms.** Opening the cradle cuts to a different scene; opening the office nudges the
+  station view. Neither reads as going somewhere, and they don't match each other.
+
+Both come from one gap: the lab has no notion of where the player is. Screens can only
+attach to what the world publishes, and the world here has buildings and sockets, not
+places and people. The engine needs a place model: where the player is, places that
+nest (station, module, interior), people as beings in places, and a view that moves
+between places rather than cutting. Modules supply which places and people a station
+has. Leave room for real walking later. This wants research and its own lab before the
+engine builds screens on top of it.
 
 ## What was built
 
