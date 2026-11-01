@@ -222,6 +222,10 @@ fn ramming_a_rock_pushes_it_and_the_fixed_hub_stops_the_ship_without_trapping_it
     assert!(moved > 2.0, "backed off {moved}");
 }
 
+/// The world hash after the flight session below. The same on every OS: flight and
+/// collision use plain arithmetic and `libm` only. Change it only on purpose.
+const GOLDEN: &str = "f58a51e47ec1ba2bdae8e44cd25e19650157eb0403af12934520130476459f4b";
+
 #[test]
 fn the_same_inputs_give_the_same_world() {
     let play = || {
@@ -235,5 +239,10 @@ fn the_same_inputs_give_the_same_world() {
         run(&mut s, &[key("order_mine", true)], 300);
         s.world.hash()
     };
-    assert_eq!(play(), play());
+    let hash = play();
+    assert_eq!(hash, play());
+    assert_eq!(
+        hash, GOLDEN,
+        "the flight session's world changed; if on purpose, update GOLDEN"
+    );
 }
