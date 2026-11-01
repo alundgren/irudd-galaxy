@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "galaxy-api",
  "galaxy-mesh",
@@ -736,7 +736,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-api"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake3",
  "galaxy-module",
@@ -749,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-gm"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "galaxy-api",
  "galaxy-mesh",
@@ -765,7 +765,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-launcher"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "galaxy-module",
  "serde_json",
@@ -774,7 +774,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-mesh"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64",
  "bytemuck",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-module"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "directories",
  "serde",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-motion"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "png",
  "serde",
@@ -810,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-render"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bytemuck",
  "galaxy-mesh",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-script"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "galaxy-api",
  "galaxy-module",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-sim"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake3",
  "galaxy-api",
@@ -857,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-view"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "galaxy-api",
  "galaxy-mesh",
@@ -3540,7 +3540,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "directories",
  "galaxy-module",
