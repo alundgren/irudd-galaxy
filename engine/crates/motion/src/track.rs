@@ -7,8 +7,8 @@
 //! - **The camera**: how unevenly the view itself moves, in pixels.
 //! - **A gap** (`--to <thing>`): the distance to another thing, how close it came, whether
 //!   it went past (overshoot) or bounced back, and when it settled; and between their
-//!   surfaces (outline to outline, as collision measures it), how close they came and
-//!   when they touched.
+//!   surfaces (outline to outline, as collision measures it), how close they came, each
+//!   overlap (the gap below 0, with its deepest) and each run within contact range.
 //!
 //! Unevenness ("judder") compares each frame's step with the mean of the steps either
 //! side of it. Smooth motion, even accelerating, scores near 0. A thing that moves only on
@@ -320,10 +320,10 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 report["surface"] = sf.report;
             }
             None => {
-                report["surface"] = json!(
+                report["surface"] = json!({ "missing":
                     "this film keeps no outlines (filmed by an older build, or a thing has no \
                      model): film it again for the gap between surfaces"
-                );
+                });
             }
         }
         if let Some(a) = approach(film, &id, other, &gap.values, &speeds) {
@@ -689,8 +689,16 @@ fn gap(film: &Film, id: &str, other: &str, tolerance: Option<f32>) -> Gap {
     }
 }
 
-/// Below this gap between surfaces (world units) two things touch.
-const CONTACT: f32 = 0.05;
+/// Within this gap between surfaces (world units) two things are in contact range: at
+/// rest against each other, or about to touch. Below 0 they overlap.
+pub const CONTACT: f32 = 0.05;
+
+/// A gap must be below minus this (world units) to overlap: a thing resting against or
+/// sliding along another sits at 0, give or take rounding (about a millionth).
+pub const OVERLAP: f32 = 1e-4;
+
+/// Runs listed in a report at most.
+const RUNS: usize = 8;
 
 struct Surface {
     values: Vec<Option<f32>>,
@@ -698,8 +706,53 @@ struct Surface {
     reading: String,
 }
 
+/// A run of frames, first to last, and the least gap in it with its frame.
+#[derive(Clone, Copy)]
+struct Run {
+    from: usize,
+    to: usize,
+    least: f32,
+    least_at: usize,
+}
+
+/// Runs of consecutive frames whose gap passes `inside`.
+fn runs(present: &[(usize, f32)], inside: impl Fn(f32) -> bool) -> Vec<Run> {
+    let mut out: Vec<Run> = Vec::new();
+    for &(i, v) in present {
+        if !inside(v) {
+            continue;
+        }
+        match out.last_mut() {
+            Some(run) if run.to + 1 == i => {
+                run.to = i;
+                if v < run.least {
+                    (run.least, run.least_at) = (v, i);
+                }
+            }
+            _ => out.push(Run {
+                from: i,
+                to: i,
+                least: v,
+                least_at: i,
+            }),
+        }
+    }
+    out
+}
+
+/// A gap in world units, with enough digits that a shallow overlap doesn't read as 0:
+/// three decimals, or three significant figures below 0.1.
+pub fn fine(v: f32) -> f64 {
+    if v == 0.0 || !v.is_finite() || v.abs() >= 0.1 {
+        return round(v, 3);
+    }
+    let places = (2 - v.abs().log10().floor() as i32).clamp(3, 8);
+    round(v, places)
+}
+
 /// The gap between `id`'s and `other`'s outlines, as collision measures it: the closest,
-/// the gap when `id` arrived (or at the end), and when they touched.
+/// the gap when `id` arrived (or at the end), each overlap (gap below 0) and each run
+/// within contact range.
 fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
     let outlines = &film.manifest.outlines;
     let (oa, ob) = (outlines.get(id)?, outlines.get(other)?);
@@ -728,62 +781,115 @@ fn surface(film: &Film, id: &str, other: &str) -> Option<Surface> {
         Some(at) => at,
         None => *present.last().expect("present"),
     };
-    // Runs of frames in contact.
-    let mut contacts: Vec<(usize, usize, f32)> = Vec::new();
-    for &(i, v) in &present {
-        if v > CONTACT {
-            continue;
-        }
-        match contacts.last_mut() {
-            Some(run) if run.1 + 1 == i => {
-                run.1 = i;
-                run.2 = run.2.min(v);
-            }
-            _ => contacts.push((i, i, v)),
-        }
-    }
+    let dt = film.dt();
+    let overlaps = runs(&present, |v| v < -OVERLAP);
+    let contacts = runs(&present, |v| v <= CONTACT);
+    let seconds = |r: &Run| (r.to - r.from + 1) as f32 * dt;
+    let overlap_time: f32 = overlaps.iter().map(seconds).sum();
+    // Frames drawn on a tick show the sim's own state; frames between two ticks are
+    // interpolated, and a thing sliding round a curved surface cuts the corner there.
+    let on_tick = |i: usize| frames[i].alpha < 1e-3 || frames[i].alpha > 1.0 - 1e-3;
+    let overlap_frames: Vec<usize> = overlaps.iter().flat_map(|r| r.from..=r.to).collect();
+    let on_ticks = overlap_frames.iter().filter(|&&i| on_tick(i)).count();
     let at = |i: usize| format!("t={:.3}", frames[i].time);
+    let spans = |runs: &[Run]| {
+        runs.iter()
+            .take(3)
+            .map(|r| format!("{} to {}", at(r.from), at(r.to)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     let end_word = if arrival_i.is_some() {
         "when it arrived"
     } else {
         "at the end"
     };
     let mut reading = format!(
-        "between surfaces: {start:.2} to {end:.2} {end_word} ({}), closest {min:.2} at {}",
+        "between surfaces: {} to {} {end_word} ({}), closest {} at {}",
+        fine(start),
+        fine(end),
         at(end_i),
+        fine(min),
         at(min_i)
     );
-    match contacts.as_slice() {
-        [] => reading.push_str(", never touching"),
-        runs => {
-            let listed: Vec<String> = runs
-                .iter()
-                .take(3)
-                .map(|(a, b, _)| format!("{} to {}", at(*a), at(*b)))
-                .collect();
-            reading.push_str(&format!(
-                ", touching {} time(s): {}",
-                runs.len(),
-                listed.join(", ")
-            ));
+    let deepest = overlaps.iter().min_by(|a, b| a.least.total_cmp(&b.least));
+    match (deepest, contacts.is_empty()) {
+        (None, true) => reading.push_str(&format!(
+            ", never within contact range (under {CONTACT}), no overlap"
+        )),
+        (None, false) => reading.push_str(&format!(
+            ", within contact range (under {CONTACT}) {} time(s), no overlap: {}",
+            contacts.len(),
+            spans(&contacts)
+        )),
+        (Some(d), _) => reading.push_str(&format!(
+            ", overlapping (gap below -{OVERLAP}) {} time(s), {overlap_time:.3} s in all: {}; \
+             deepest {} at {}",
+            overlaps.len(),
+            spans(&overlaps),
+            fine(d.least),
+            at(d.least_at)
+        )),
+    }
+    if !overlap_frames.is_empty() && on_ticks == 0 {
+        reading.push_str(
+            "; only on frames drawn between ticks: the sim's own state never overlaps, the \
+             drawn path cuts across between two ticks (sliding round a curved surface)",
+        );
+    }
+    let run_json = |r: &Run, least: &str| {
+        let mut v = json!({
+            "from": when(&frames[r.from]),
+            "to": when(&frames[r.to]),
+            "frames": r.to - r.from + 1,
+            "seconds": round(seconds(r), 3),
+        });
+        v[least] = json!(fine(r.least));
+        v[format!("{least}_at")] = when(&frames[r.least_at]);
+        v
+    };
+    let listed = |all: &[Run], least: &str| {
+        let mut list: Vec<Value> = all.iter().take(RUNS).map(|r| run_json(r, least)).collect();
+        if all.len() > RUNS {
+            list.push(json!(format!("{} more", all.len() - RUNS)));
         }
+        list
+    };
+    let mut report = json!({
+        "start": fine(start),
+        "closest": fine(min),
+        "closest_at": when(&frames[min_i]),
+        "end": fine(end),
+        "end_at": when(&frames[end_i]),
+        "end_is": if arrival_i.is_some() { "arrival (engine.arrived)" } else { "the film's end" },
+        "overlap": {
+            "below": -f64::from(OVERLAP),
+            "intervals": overlaps.len(),
+            "seconds": round(overlap_time, 3),
+            "deepest": deepest.map(|r| fine(r.least)),
+            "deepest_at": deepest.map(|r| when(&frames[r.least_at])),
+            "frames_on_ticks": on_ticks,
+            "frames_between_ticks": overlap_frames.len() - on_ticks,
+            "runs": listed(&overlaps, "deepest"),
+        },
+        "contact": {
+            "within": round(CONTACT, 3),
+            "intervals": contacts.len(),
+            "runs": listed(&contacts, "least"),
+        },
+    });
+    if let Some(r) = overlaps.first().or(contacts.first()) {
+        let (a, b) = (r.from.saturating_sub(3), (r.to + 3).min(frames.len() - 1));
+        report["frames_round_it"] = json!(format!(
+            "galaxy-gm film show {} --thing {id} --gap {other} --from {:.3} --to {:.3}",
+            film.dir.display(),
+            frames[a].time,
+            frames[b].time
+        ));
     }
     Some(Surface {
         values,
-        report: json!({
-            "start": round(start, 3),
-            "closest": round(min, 3),
-            "closest_at": when(&frames[min_i]),
-            "end": round(end, 3),
-            "end_at": when(&frames[end_i]),
-            "end_is": if arrival_i.is_some() { "arrival (engine.arrived)" } else { "the film's end" },
-            "contact": contacts.iter().take(8).map(|(a, b, d)| json!({
-                "from": when(&frames[*a]),
-                "to": when(&frames[*b]),
-                "least": round(*d, 3),
-            })).collect::<Vec<_>>(),
-            "contact_below": round(CONTACT, 3),
-        }),
+        report,
         reading,
     })
 }

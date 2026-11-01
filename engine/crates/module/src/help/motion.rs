@@ -127,10 +127,30 @@ pub static COMMANDS: &[Command] = &[
             (
                 "surface",
                 "with --to: the gap between the two things' outlines (surface to \
-              surface, as collision measures it), world units: start, closest and \
-              closest_at, end and end_at (when it arrived, else the film's end), contact \
-              (each run of frames under contact_below: from, to, least; negative is \
-              overlap). Films from older builds keep no outlines and say so",
+              surface, as collision measures it), world units, three significant figures \
+              below 0.1 so a shallow overlap doesn't read as 0: start, closest and \
+              closest_at, end and end_at (when it arrived, else the film's end). Films from \
+              older builds keep no outlines and say so (`missing`)",
+            ),
+            (
+                "surface.overlap",
+                "the gap below `below` (-0.0001; a thing resting against another sits at \
+              0 give or take rounding), the things sinking into each other: intervals (how \
+              many runs of frames), seconds (all of them together), deepest and deepest_at, \
+              frames_on_ticks and frames_between_ticks (frames drawn on a tick show the sim's \
+              own state; between two ticks the drawn path is interpolated and can cut into a \
+              curved surface the thing slides round), and runs (each: from, to, frames, seconds, deepest, deepest_at)",
+            ),
+            (
+                "surface.contact",
+                "within contact range, the gap up to `within` (0.05), overlapping or \
+              not: intervals and runs (from, to, frames, seconds, least, least_at). Contact \
+              with no overlap is resting against or skimming the other thing",
+            ),
+            (
+                "surface.frames_round_it",
+                "the film show command that lists the gap frame by frame round the first \
+              overlap (else the first contact)",
             ),
             (
                 "zooms",
@@ -626,6 +646,12 @@ pub static COMMANDS: &[Command] = &[
             (
                 "same_world_frames",
                 "frames whose worlds have the same hash",
+            ),
+            (
+                "behaviour",
+                "when both films follow the same thing: thing, same (it moves the same \
+              in both), films (each: path length, top speed and when, when it arrived, where \
+              it ended) and a reading; does it behave differently, not only look different",
             ),
             (
                 "colorvideovdp",

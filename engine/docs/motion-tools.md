@@ -33,7 +33,8 @@ builds in `crates/view/src/builds.rs`, `galaxy film` in `crates/galaxy/src/film.
 | Does a pattern that should stand still crawl, jitter or pop along a path (a course, a lane, a border)? | `strip --along course` or `--along x,y;x,y` | pixels | `drift_px_per_frame`, `drifting` |
 | Do dotted lines' dots stay put in the world? Fast, and needs no GPU. | `dots` | probes | `drift_px_per_frame`, `lines` |
 | How far and how fast did a thing move, and when? (film `--probes-only`, no GPU) | `track --thing x` | probes | `world.displacement`, `world.speed_max_at` |
-| How close does it come to another's surface; do they touch? | `track --thing x --to y` | probes | `surface.closest`, `surface.contact` |
+| How close does it come to another's surface; does it sink in, how deep, how long? | `track --thing x --to y` | probes | `surface.overlap`, `surface.contact` |
+| The gap frame by frame round a moment | `film show --thing x --gap y --from t --to t` | probes | the `gap_to` column |
 | Does the camera follow smoothly? Does a thing judder (moves on ticks, not frames)? | `track [--thing x]` | probes | `screen.judder`, `camera.judder`, `flags` |
 | Does it stop where it should: overshoot, bounce back, settle? How does it brake? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `approach` |
 | What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
@@ -41,7 +42,7 @@ builds in `crates/view/src/builds.rs`, `galaxy film` in `crates/galaxy/src/film.
 | Does anything pop in or out, show for one frame, or flicker? | `flicker [--from t] [--to t] [--near x]` (`--screen` for overlays) | pixels | `events`, the picture |
 | Does a turning thing's shading ease, or do whole faces flip between light and shadow? | `tone [--thing x]` | pixels | `hard_steps`, `prominence.max` |
 | Is something moving that has no name, or crawling where it should be still? | `flow` (`--along course` too) | pixels | `moving`, `along` |
-| What changed against an approved film (another build, before a change)? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, the picture |
+| What changed against an approved film (another build, before a change)? Does the followed thing behave differently? | `compare <other film>` (`--vdp` for ColorVideoVDP) | pixels | `flip.worst_frames`, `behaviour`, the picture |
 | Should this keep holding, as a test? | `check <spec>` | either | `expectations` |
 
 How to work a motion question:
@@ -67,7 +68,7 @@ thing's pose and screen position), `lines.jsonl` (a frame a line: every line and
 drawn), `outlines.json` (each thing's outline on the plane, as collision sees it) and
 `frames/00000.png` (lossless, one per frame), plus `motion/` where the tools put their
 pictures. `galaxy-gm film show <film>` prints the probes as a table, a frame a
-line, for the things and times asked. Films of format 1, with every frame inside
+line, for the things and times asked; `--gap <y>` adds each thing's gap to y's surface. Films of format 1, with every frame inside
 `film.json`, still read. Each tool names its picture
 after its options (`motion/sheet-at-1.2,1.3-crop-ship.png`), so runs with other options
 keep theirs; `--image` puts it elsewhere.
@@ -166,8 +167,16 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   the spot, and when `engine.arrived` came. Also with `--to`, `surface`: the gap between
   the two outlines along the line between their centres, as collision measures it
   (`crates/sim/src/shape.rs`), from `outlines.json` and each frame's pose: the closest,
-  the gap when it arrived (else at the end), and each run of frames in contact (under
-  0.05 units; negative is overlap). A mining ship holding at a rock comes to 0.005.
+  the gap when it arrived (else at the end), each **overlap** (a run of frames with the
+  gap below -0.0001: a thing resting against or sliding along another sits at 0, give or
+  take a millionth of rounding) with its deepest, the total time and how many, and each
+  run **within contact range** (gap up to 0.05, overlapping or not). Gaps under 0.1 keep
+  three significant figures, so a shallow overlap doesn't round to 0. Overlaps on frames
+  drawn on a tick are the sim's own; on frames between ticks only, the drawn path cuts
+  across as the thing slides round a curved surface (ramming drift's hub: 8 one-frame
+  overlaps, deepest -0.0155, all between ticks). A mining ship holding at a rock comes to
+  0.005, within contact range with no overlap. `frames_round_it` is the `film show
+  --gap` command that lists the gap frame by frame round the first one.
   In the world, `displacement` is start to end in a straight line, `distance` the path,
   and `speed_max_at` when the top speed came.
 - **`dots`** matches each fully visible dot with the nearest of the frame before, line by
@@ -248,7 +257,11 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   hide a small thing that changed. The picture is the worst frame's error map and a
   distogram (time down, across the screen left to right). FLIP compares stills: run per
   frame it says where and when two films differ, not whether motion looks right, and a
-  difference is not a defect (the approved film may carry the flaw). `--vdp` adds
+  difference is not a defect (the approved film may carry the flaw). When both films
+  follow the same thing, `behaviour` sets how it moved in each side by side (path length,
+  top speed and when, arrival, where it ended) and says whether it is the same, so one
+  command answers "does it behave differently" as well as "does it look different";
+  `film --builds` reports it too, probes-only films included. `--vdp` adds
   ColorVideoVDP, a model of how the eye sees differences in video over space and time:
   its score is in JOD, where 10 is no visible difference.
 - **`check <spec>`** films what a spec says and runs its expectations: each names a tool,

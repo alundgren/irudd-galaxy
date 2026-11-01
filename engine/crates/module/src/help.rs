@@ -598,6 +598,12 @@ static GAME: &[Command] = &[
             ("from, to", "the first and last frame: t (seconds) and tick"),
             ("drawn", "false for a probes-only film"),
             ("hash", "the world's hash at the last frame"),
+            (
+                "films, behaviour, compare",
+                "with --builds: each film; how the followed thing moved on each build, \
+              side by side (path, top speed, arrival, end) and whether it is the same; and \
+              where the pictures differ",
+            ),
             ("problems", "models or looks that could not be drawn"),
         ],
         writes: "<out>/film.json (how it was filmed, small), frames.jsonl (a frame a line: \

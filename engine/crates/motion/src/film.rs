@@ -201,7 +201,7 @@ impl Manifest {
                 .outlines
                 .iter()
                 .map(|(id, o)| {
-                    let r = |v: &[f32]| v.iter().map(|x| round(*x, 3)).collect::<Vec<_>>();
+                    let r = |v: &[f32]| v.iter().map(|x| round(*x, 5)).collect::<Vec<_>>();
                     let mut v = serde_json::json!({ "base": r(&o.base) });
                     if !o.morphed.is_empty() {
                         v["morphed"] = serde_json::json!(r(&o.morphed));

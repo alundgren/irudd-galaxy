@@ -477,7 +477,9 @@ pub fn check(command: &Command, args: &[String]) -> Result<Output, Failure> {
 }
 
 /// The options `galaxy-gm film show` takes.
-pub const SHOW_OPTIONS: &[&str] = &["thing", "from", "to", "every", "fields", "lines", "all"];
+pub const SHOW_OPTIONS: &[&str] = &[
+    "thing", "from", "to", "every", "fields", "gap", "lines", "all",
+];
 
 /// Rows `film show` prints when not told `--all`.
 const SHOW_ROWS: usize = 30;
@@ -513,6 +515,20 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
             FIELDS.join(", ")
         )));
     }
+    // `--gap <y>`: each shown thing's gap to y's surface, outline to outline.
+    let gap = match opts.text("gap") {
+        None => None,
+        Some(y) => {
+            let y = film.thing_id(y.trim()).map_err(bad)?;
+            let Some(oy) = film.manifest.outlines.get(&y) else {
+                return Err(bad(format!(
+                    "this film keeps no outline for {y} (filmed by an older build, or it has no \
+                     model): film it again for gaps between surfaces"
+                )));
+            };
+            Some((y, oy))
+        }
+    };
     let num = |name: &str| opts.number(name).map_err(Failure::usage);
     let (from, to) = (num("from")?, num("to")?);
     let every = opts
@@ -551,6 +567,11 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
                 "screen" => format!("{id}.screen_x {id}.screen_y"),
                 f => format!("{id}.{f}"),
             });
+        }
+        if let Some((y, _)) = &gap
+            && y != id
+        {
+            columns.push(format!("{id}.gap_to_{y}"));
         }
     }
     let mut rows: Vec<String> = Vec::new();
@@ -591,6 +612,17 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
                 row.push(' ');
                 row.push_str(&v);
             }
+            if let Some((y, oy)) = &gap
+                && y != id
+            {
+                let g = t.zip(film.manifest.outlines.get(id)).and_then(|(t, o)| {
+                    galaxy_motion::film::surface_gap((o, t), (oy, f.things.get(y)?))
+                });
+                row.push(' ');
+                row.push_str(&g.map_or("-".to_owned(), |g| {
+                    galaxy_motion::track::fine(g).to_string()
+                }));
+            }
         }
         rows.push(row);
     }
@@ -611,7 +643,7 @@ pub fn show(dir: &Path, opts: &Opts) -> Result<Output, Failure> {
         "span": [galaxy_motion::film::when(&frames[0]), galaxy_motion::film::when(frames.last().expect("frames"))],
         "things": frames[0].things.keys().collect::<Vec<_>>(),
         "changes": m.changes.iter().take(20).map(|c| format!("tick {} t {:.3} {} {}", c.tick, c.t, c.kind, c.what)).collect::<Vec<_>>(),
-        "units": "t seconds; x, y, height world units; angle radians, counter-clockwise from +x; screen pixels from the top left",
+        "units": "t seconds; x, y, height world units; angle radians, counter-clockwise from +x; screen pixels from the top left; gap_to world units between surfaces, as collision measures them (below 0 overlaps, up to 0.05 is contact range)",
         "columns": if opts.flag("lines") { "frame t tick line: kind points dots alpha width".to_owned() } else { columns.join(" ") },
         "rows": rows,
     });

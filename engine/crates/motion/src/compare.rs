@@ -4,6 +4,10 @@
 //! most; the picture shows the worst frame's error map beside a distogram (time down,
 //! across the screen left to right, brighter where the films differ).
 //!
+//! When both films follow the same thing, `behaviour` puts how it moved in each side by
+//! side (path, top speed, arrival, end), so one command says whether it behaves
+//! differently as well as whether it looks different.
+//!
 //! A difference says where to look, not that the new film is wrong: the approved film may
 //! carry the flaw. With `--vdp`, ColorVideoVDP ([`crate::vdp`]) also scores the pair as
 //! video, with a model of how the eye sees change over time.
@@ -135,7 +139,13 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
                 .collect()
         })
         .unwrap_or_default();
-    let reading = if visible == 0 {
+    let name = |f: &Film| {
+        f.dir
+            .file_name()
+            .map_or("film".to_owned(), |n| n.to_string_lossy().into_owned())
+    };
+    let moved = behaviour([film, &other], [&name(film), &name(&other)]);
+    let mut reading = if visible == 0 {
         format!(
             "the films look the same: no frame has {VISIBLE} pixels with FLIP {PLAIN} or more (the most differing frame, t={:.3}, has {} and a mean of {:.4})",
             frames[worst].time, plain[worst], means[worst]
@@ -157,6 +167,10 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             }
         )
     };
+
+    if let Some(m) = &moved {
+        reading = format!("{reading}; {}", m["reading"].as_str().unwrap_or(""));
+    }
 
     // The picture: the worst frame's error map, and the distogram.
     let map_w = 480u32;
@@ -244,10 +258,123 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "reading": reading,
         "image": out.display().to_string(),
     });
+    if let Some(m) = moved {
+        report["behaviour"] = m;
+    }
     if opts.flag("vdp") {
         report["colorvideovdp"] = crate::vdp::run(film, &other);
     }
     Ok(report)
+}
+
+/// How the thing both films follow moves in each, side by side: its path length, top
+/// speed and when, when it arrived and where it ended. None when the first film follows
+/// nothing or the second doesn't have it. `names` label the films.
+pub fn behaviour(films: [&Film; 2], names: [&str; 2]) -> Option<Value> {
+    let id = films[0].frames()[0]
+        .things
+        .iter()
+        .find(|(_, t)| t.followed)
+        .map(|(id, _)| id.clone())?;
+    films[1].frames()[0].things.get(&id)?;
+    struct Moved {
+        path: f32,
+        top: f32,
+        top_t: f32,
+        arrived: Option<(f32, u64)>,
+        end: [f32; 2],
+    }
+    let measure = |film: &Film| -> Option<Moved> {
+        let frames = film.frames();
+        let at: Vec<[f32; 2]> = frames
+            .iter()
+            .filter_map(|f| f.things.get(&id).map(|t| [t.x, t.y]))
+            .collect();
+        let end = *at.last()?;
+        let (mut path, mut top, mut top_t) = (0.0f32, 0.0f32, frames[0].time);
+        for (k, w) in frames.windows(2).enumerate() {
+            let (Some(a), Some(b)) = (w[0].things.get(&id), w[1].things.get(&id)) else {
+                continue;
+            };
+            let step = ((b.x - a.x).powi(2) + (b.y - a.y).powi(2)).sqrt();
+            path += step;
+            let speed = step / (w[1].time - w[0].time).max(1e-6);
+            if speed > top {
+                (top, top_t) = (speed, frames[k + 1].time);
+            }
+        }
+        let arrived = film
+            .manifest
+            .changes
+            .iter()
+            .find(|c| c.kind == "arrived" && c.what.starts_with(&format!("{id}:")))
+            .map(|c| (c.t, c.tick));
+        Some(Moved {
+            path,
+            top,
+            top_t,
+            arrived,
+            end,
+        })
+    };
+    let (a, b) = (measure(films[0])?, measure(films[1])?);
+    let row = |name: &str, m: &Moved| {
+        format!(
+            "{name}: path {:.3}, top speed {:.3} at t {:.3}, {}, ends at ({:.3}, {:.3})",
+            m.path,
+            m.top,
+            m.top_t,
+            m.arrived
+                .map_or("never arrived".to_owned(), |(t, tick)| format!(
+                    "arrived t {t:.3} (tick {tick})"
+                )),
+            m.end[0],
+            m.end[1]
+        )
+    };
+    let close = |x: f32, y: f32| (x - y).abs() <= 1e-3 * x.abs().max(y.abs()).max(1.0);
+    let same = close(a.path, b.path)
+        && close(a.top, b.top)
+        && a.arrived.map(|x| x.1) == b.arrived.map(|x| x.1)
+        && close(a.end[0], b.end[0])
+        && close(a.end[1], b.end[1]);
+    let reading = if same {
+        format!(
+            "{id} moves the same in both (path {:.3}, top speed {:.3}{})",
+            a.path,
+            a.top,
+            a.arrived
+                .map_or(String::new(), |(t, _)| format!(", arrived t {t:.3}"))
+        )
+    } else {
+        let mut d = Vec::new();
+        if !close(a.path, b.path) {
+            d.push(format!("path {:.3} against {:.3}", a.path, b.path));
+        }
+        if !close(a.top, b.top) {
+            d.push(format!("top speed {:.3} against {:.3}", a.top, b.top));
+        }
+        if a.arrived.map(|x| x.1) != b.arrived.map(|x| x.1) {
+            let w = |m: &Moved| {
+                m.arrived
+                    .map_or("never".to_owned(), |(t, _)| format!("t {t:.3}"))
+            };
+            d.push(format!("arrived {} against {}", w(&a), w(&b)));
+        }
+        if !close(a.end[0], b.end[0]) || !close(a.end[1], b.end[1]) {
+            d.push(format!(
+                "ends at ({:.3}, {:.3}) against ({:.3}, {:.3})",
+                a.end[0], a.end[1], b.end[0], b.end[1]
+            ));
+        }
+        format!("{id} moves differently: {}", d.join(", "))
+    };
+    Some(json!({
+        "thing": id,
+        "same": same,
+        "films": [row(names[0], &a), row(names[1], &b)],
+        "reading": reading,
+    }))
 }
 
 /// One pair of frames, scored.

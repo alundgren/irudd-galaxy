@@ -488,3 +488,93 @@ fn track_marks_zooms_and_does_not_flag_the_steps_they_make() {
     assert_eq!(f(&r, "flagged"), 0.0, "{r}");
     assert!(r["reading"].as_str().unwrap().contains("zoomed"), "{r}");
 }
+
+/// A ship of radius 4 rams a fixed hub of radius 10 at x = 200: it sinks in by up to
+/// `depth` on frames 20 to 25, rests touching from 26 to 31, then backs off.
+fn ram(dir: &Path, depth: f32) {
+    film(dir, 50, |i| {
+        let gap = match i {
+            0..20 => 20.0 - i as f32,
+            20..26 => -depth * (1.0 - ((i as f32 - 22.0) / 4.0).abs()).max(0.2),
+            26..32 => 0.01,
+            _ => 0.01 + (i - 31) as f32,
+        };
+        let mut image = Image::new(W, H, BG);
+        image.dot(186.0 - gap, 90.0, 4.0, DOT);
+        let mut things = BTreeMap::new();
+        let mut ship = thing(186.0 - gap, 90.0);
+        ship.followed = true;
+        things.insert("t.ship".to_owned(), ship);
+        things.insert("t.hub".to_owned(), thing(200.0, 90.0));
+        Shot {
+            image,
+            things,
+            lines: Vec::new(),
+        }
+    });
+    let mut f = galaxy_motion::Film::read(dir).unwrap();
+    let circle = |r: f32| galaxy_motion::film::Outline {
+        base: vec![r; 128],
+        morphed: Vec::new(),
+    };
+    f.manifest.outlines.insert("t.ship".into(), circle(4.0));
+    f.manifest.outlines.insert("t.hub".into(), circle(10.0));
+    f.manifest.write(dir).unwrap();
+}
+
+#[test]
+fn track_tells_overlap_from_contact_and_keeps_a_shallow_one() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("ram");
+    ram(&dir, 0.0123);
+    let r = tool("track", &dir, &["--thing", "ship", "--to", "hub"]);
+    let s = &r["surface"];
+    assert_eq!(f(s, "overlap.intervals"), 1.0, "{r}");
+    assert!((f(s, "overlap.deepest") + 0.0123).abs() < 2e-4, "{r}");
+    assert_eq!(s["overlap"]["runs"][0]["from"]["frame"], 20, "{r}");
+    assert_eq!(s["overlap"]["runs"][0]["to"]["frame"], 25, "{r}");
+    assert!((f(s, "overlap.seconds") - 0.1).abs() < 1e-3, "{r}");
+    // Contact range holds the overlap and the rest after it: one run.
+    assert_eq!(f(s, "contact.intervals"), 1.0, "{r}");
+    assert_eq!(s["contact"]["runs"][0]["to"]["frame"], 31, "{r}");
+    assert!(
+        s["frames_round_it"]
+            .as_str()
+            .unwrap()
+            .contains("--gap t.hub")
+    );
+    let reading = r["reading"].as_str().unwrap();
+    assert!(
+        reading.contains("overlapping (gap below -0.0001) 1 time(s)"),
+        "{reading}"
+    );
+
+    // Resting against it without sinking in: contact range, no overlap, said plainly.
+    let rest = tmp.path().join("rest");
+    ram(&rest, -0.02);
+    let r = compact_tool("track", &rest, &["--thing", "ship", "--to", "hub"]);
+    assert_eq!(f(&r, "surface.overlap.intervals"), 0.0, "{r}");
+    assert!(r["reading"].as_str().unwrap().contains("no overlap"), "{r}");
+}
+
+#[test]
+fn compare_puts_how_the_followed_thing_moved_side_by_side() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (a, b) = (tmp.path().join("a"), tmp.path().join("b"));
+    ram(&a, 0.0123);
+    ram(&b, 0.0123);
+    let same = tool("compare", &a, &["--with", b.to_str().unwrap()]);
+    assert_eq!(same["behaviour"]["same"], true, "{same}");
+    assert_eq!(same["behaviour"]["films"].as_array().unwrap().len(), 2);
+    let c = tmp.path().join("c");
+    ram(&c, 2.0);
+    let diff = compact_tool("compare", &a, &["--with", c.to_str().unwrap()]);
+    assert_eq!(diff["behaviour"]["same"], false, "{diff}");
+    assert!(
+        diff["reading"]
+            .as_str()
+            .unwrap()
+            .contains("moves differently"),
+        "{diff}"
+    );
+}

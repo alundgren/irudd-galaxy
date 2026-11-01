@@ -240,6 +240,16 @@ pub fn film_on_each(
         films.push((d.name(), dir, report));
     }
     let mut compare = Value::Null;
+    let mut behaviour = Value::Null;
+    if films.len() == 2 {
+        let read = |dir: &Path| {
+            galaxy_motion::Film::read(dir)
+                .map_err(|e| Failure::runtime(e).with("path", dir.display().to_string()))
+        };
+        let (a, b) = (read(&films[0].1)?, read(&films[1].1)?);
+        behaviour = galaxy_motion::compare::behaviour([&a, &b], [&films[0].0, &films[1].0])
+            .unwrap_or(Value::Null);
+    }
     if drawn && films.len() == 2 {
         let opts =
             galaxy_motion::Opts::parse(&["--with".to_owned(), films[1].1.display().to_string()])
@@ -277,6 +287,11 @@ pub fn film_on_each(
             "added": report.get("added"),
             "builds": report["builds"]["note"],
         })).collect::<Vec<_>>(),
+        "behaviour": if behaviour.is_null() {
+            json!("the films follow no thing in common; run track --thing <x> on each")
+        } else {
+            behaviour
+        },
         "compare": if compare.is_null() {
             json!("probes-only films have no pictures to compare; run track or dots on each")
         } else {

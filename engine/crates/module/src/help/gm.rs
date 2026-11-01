@@ -217,7 +217,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "film show",
         synopsis: "<film> [--thing <x,y>] [--from <t>] [--to <t>] [--every <n>] \
-                   [--fields <list>] [--lines] [--all]",
+                   [--fields <list>] [--gap <thing>] [--lines] [--all]",
         answers: "Where were things, frame by frame, in a film? Its probes as a table, a \
                   frame a line, without reading film.json, frames.jsonl or lines.jsonl.",
         about: "Also prints the film's summary: fps, size, things and its changes (inputs, \
@@ -239,6 +239,12 @@ pub static COMMANDS: &[Command] = &[
                 "--fields <list>",
                 "of x, y, angle, height, screen, on_screen; x,y,angle,screen \
               by default",
+            ),
+            (
+                "--gap <thing>",
+                "add each shown thing's gap to this thing's surface, outline to outline \
+              as collision measures it (`<x>.gap_to_<thing>`, world units: below 0 \
+              overlaps), to look at the frames round an overlap `track --to` found",
             ),
             (
                 "--lines",
@@ -269,7 +275,7 @@ pub static COMMANDS: &[Command] = &[
             ),
         ],
         writes: "",
-        example: "galaxy-gm film show films/dock --thing ship,berth --from 2 --to 3",
+        example: "galaxy-gm film show films/ram --thing ship --gap hub --from 2 --to 2.5",
         next: "galaxy-gm motion track <film> --thing <x> measures how it moves.",
         topic: "motion",
     },
@@ -395,6 +401,11 @@ pub static COMMANDS: &[Command] = &[
                 "films, compare",
                 "with --builds: each film (build, out) and where they differ: \
               reading, visibly_different_frames, image",
+            ),
+            (
+                "behaviour",
+                "with --builds: how the followed thing moved on each build, side by \
+              side (path, top speed, arrival, end) and whether it is the same",
             ),
         ],
         writes: "the film folder (--out): film.json (how it was filmed, small), frames.jsonl \
