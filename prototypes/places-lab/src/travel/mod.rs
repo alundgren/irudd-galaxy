@@ -36,6 +36,9 @@ pub trait Travel {
     }
     /// Drawn over the screen and the scene (a title card, a fade).
     fn overlay(&self, _stage: &Stage, _layer: &mut UiLayer) {}
+    /// Panels drawn over the scene but under the screen (a dimmed station behind a
+    /// menu). Only panels: text here would draw over the screen's panels.
+    fn underlay(&self, _stage: &Stage, _layer: &mut UiLayer) {}
 }
 
 /// Every variant, in the order the key cycles them. The first is the baseline.

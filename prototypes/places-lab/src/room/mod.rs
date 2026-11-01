@@ -15,6 +15,7 @@ use render::Renderer;
 
 use crate::places::{Place, Places};
 use crate::stage::{Shown, Stage};
+use crate::widgets::W;
 use crate::world::World;
 
 pub trait Room {
@@ -27,6 +28,11 @@ pub trait Room {
     fn step(&mut self, _dt: f32, _model: &Places) {}
     /// The view of an interior while you are in it.
     fn view(&self, stage: &Stage, place: &Place) -> Shown;
+    /// Widgets of the room's own (scene text, captions), added under the screen's when
+    /// it runs, while the player is in `place`.
+    fn widgets(&self, _place: &Place, _model: &Places) -> Vec<W> {
+        Vec::new()
+    }
 }
 
 /// Every variant, in the order the key cycles them. The first is the baseline.

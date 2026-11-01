@@ -7,12 +7,12 @@ use std::time::Instant;
 
 use mlua::{LuaSerdeExt, Table, Value};
 use render::glam::Vec2;
-use render::{Align, Color, Panel, Rect, Renderer, RgbaImage, Scene, Text, palette};
+use render::{Align, Color, Panel, Rect, Renderer, RgbaImage, Scene, Text, UiLayer, palette};
 use serde_json::{Value as Json, json};
 
 use crate::combo::Combo;
 use crate::notes::{self, Draft};
-use crate::places::Places;
+use crate::places::{Kind, Places};
 use crate::script::{Cmd, Host};
 use crate::stage::Stage;
 use crate::talk::Line;
@@ -273,6 +273,13 @@ impl App {
                 }
             }
             let mut extra: Vec<Vec<Table>> = vec![Vec::new(); children.len() + 1];
+            // The room's own widgets first, so the screen's draw over them.
+            let here = self.model.here();
+            if here.kind == Kind::Interior {
+                for w in self.combo.room().widgets(here, &self.model) {
+                    extra[0].push(w.to_lua(lua)?);
+                }
+            }
             for (at, line) in &talk_lines {
                 for w in self.combo.talk().widgets(line) {
                     extra[*at].push(w.to_lua(lua)?);
@@ -430,7 +437,21 @@ impl App {
             self.floats = out.floats;
             self.refresh_hover();
             let [base, mid, top] = out.layers;
-            scene.overlay.panels = base.panels;
+            // The travel variant's underlay goes beneath the screen's panels.
+            let mut under = UiLayer::default();
+            {
+                let stage = Stage {
+                    world: &self.world,
+                    model: &self.model,
+                    room: self.combo.room(),
+                    life: self.combo.life(),
+                    viewport,
+                    speaking: None,
+                };
+                self.combo.travel().underlay(&stage, &mut under);
+            }
+            under.panels.extend(base.panels);
+            scene.overlay.panels = under.panels;
             scene.overlay.texts = base.texts;
             scene.overlay.upper = [mid, top];
             self.check_speaker(viewport);

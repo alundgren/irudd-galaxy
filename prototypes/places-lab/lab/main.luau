@@ -16,7 +16,6 @@ function lab.init()
 		talk = nil, -- { id, line }: the talk going on
 		heard = {}, -- lines already said, for the log
 		said = {}, -- talks finished
-		greeted = {}, -- rooms whose person has spoken first already
 		goal = nil,
 		receipt = nil,
 		log_open = false,
@@ -51,11 +50,11 @@ function lab.on.back(state, _, world)
 	end
 end
 
--- The view has landed in a room: its person speaks first, once.
+-- The view has landed in a room: its person speaks first, until that talk has been
+-- heard to the end (leaving halfway starts it again next time).
 function lab.on.arrive(state, args)
 	local greet = data.greet[args.place]
-	if greet and not state.greeted[args.place] then
-		state.greeted[args.place] = true
+	if greet and not state.said[greet] then
 		say(state, greet)
 	end
 end
