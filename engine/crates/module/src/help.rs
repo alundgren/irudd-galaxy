@@ -493,7 +493,9 @@ static GAME: &[Command] = &[
             (
                 "--inputs <file>",
                 "a bot: play these inputs, clicks, notes and zooms on their ticks \
-              through the window loop (`galaxy-gm fields inputs` lists the format)",
+              through the window loop. [[click]] takes tick and either x/y logical pixels \
+              or widget = a full path or unique id (follows moving anchors). \
+              `galaxy-gm fields inputs` lists the format; `galaxy-gm guide screens` gives a recipe",
             ),
             (
                 "--ticks <n>",
@@ -923,6 +925,25 @@ mod tests {
         }
         let g = guide();
         assert!(g.lines().count() < 80, "the guide stays short:\n{g}");
+    }
+
+    #[test]
+    fn screens_guide_covers_authoring_and_the_playtest_loop() {
+        let text = guide_topic("screens").expect("screens guide topic");
+        for required in [
+            "ui.button",
+            "engine.anchor",
+            "galaxy-gm check",
+            "galaxy shot",
+            "widget",
+            "galaxy play",
+            "galaxy sim replay",
+            "galaxy-gm audit",
+        ] {
+            assert!(text.contains(required), "missing {required}");
+        }
+        assert!(for_args(Tool::Gm, &["guide".into()]).contains("screens"));
+        assert!(for_args(Tool::Game, &["play".into()]).contains("widget"));
     }
 
     /// Every command line in a recipe runs a command in the table with options it takes.

@@ -1,14 +1,12 @@
 [[click]]
 tick = 15
-x = 100
-y = 245
+widget = "increment"
 [[note]]
 tick = 25
 text = "Screen open after a recorded click; the label follows the moving marker."
 [[click]]
 tick = 35
-x = 270
-y = 245
+widget = "hide"
 [[input]]
 tick = 45
 name = "screens.toggle"

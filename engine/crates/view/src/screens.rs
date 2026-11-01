@@ -8,6 +8,7 @@ use galaxy_script::{
     ScriptSet,
     screens::{Screen, Widget},
 };
+use galaxy_sim::scenario::{Click, ClickTarget};
 use galaxy_sim::{Input, World};
 
 #[derive(Clone, Debug)]
@@ -84,14 +85,89 @@ impl Screens {
                     &mut self.measure,
                     &mut self.problems,
                 );
-                draw(&boxed, overlay);
+                draw(&boxed, overlay, None);
                 self.boxes.push(boxed);
             }
+        }
+        // Compare painted descendants, not just root bounds: columns have no surface,
+        // and an anchored child can lie outside its root.
+        let mut earlier: Vec<&Boxed> = Vec::new();
+        for root in &self.boxes {
+            let mut current = Vec::new();
+            painted(root, &mut current);
+            for b in &current {
+                for other in &earlier {
+                    if overlaps(b.rect, other.rect) {
+                        self.problems
+                            .push(format!("{}: overlaps {}", b.widget.path, other.widget.path));
+                    }
+                }
+            }
+            earlier.extend(current);
         }
     }
 
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
+        let w = self.hit(point)?;
+        w.on.as_ref().map(|name| Input {
+            tick,
+            source: "ui".into(),
+            name: name.clone(),
+            payload: w.payload.clone(),
+        })
+    }
+
+    /// Resolve bot targets against the current layout, then use ordinary pointer hit testing.
+    pub fn bot_click(&self, click: &Click) -> Result<Input, String> {
+        let point = match &click.target {
+            ClickTarget::Point { x, y } => Vec2::new(*x, *y),
+            ClickTarget::Widget(name) => {
+                let mut widgets = Vec::new();
+                for root in &self.boxes {
+                    painted(root, &mut widgets);
+                }
+                let matches: Vec<_> = widgets
+                    .into_iter()
+                    .filter(|b| b.widget.path == *name || b.widget.id.as_deref() == Some(name))
+                    .collect();
+                let b = match matches.as_slice() {
+                    [] => {
+                        return Err(format!(
+                            "widget `{name}` is missing from the current screen"
+                        ));
+                    }
+                    [b] => *b,
+                    _ => {
+                        return Err(format!(
+                            "widget `{name}` is ambiguous; use a full widget path"
+                        ));
+                    }
+                };
+                if b.widget.on.is_none() {
+                    return Err(format!("{}: widget is not a button", b.widget.path));
+                }
+                let point = b.rect.center();
+                if let Some(cover) = self.hit(point)
+                    && cover.path != b.widget.path
+                {
+                    return Err(format!(
+                        "{}: widget centre is covered by {}",
+                        b.widget.path, cover.path
+                    ));
+                }
+                point
+            }
+        };
+        self.click(point, click.tick).ok_or_else(|| {
+            format!(
+                "click at {},{} before tick {} hit no button",
+                point.x, point.y, click.tick
+            )
+        })
+    }
+
+    fn hit(&self, point: Vec2) -> Option<&Widget> {
         fn hit(b: &Boxed, p: Vec2) -> Option<&Widget> {
             for child in b.children.iter().rev() {
                 if let Some(w) = hit(child, p) {
@@ -108,12 +184,7 @@ impl Screens {
         }
         for b in self.boxes.iter().rev() {
             if let Some(w) = hit(b, point) {
-                return w.on.as_ref().map(|name| Input {
-                    tick,
-                    source: "ui".into(),
-                    name: name.clone(),
-                    payload: w.payload.clone(),
-                });
+                return Some(w);
             }
         }
         None
@@ -284,13 +355,31 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
     }
 }
 
-fn draw(b: &Boxed, overlay: &mut Overlay) {
+fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+    if ["panel", "button", "text"].contains(&b.widget.kind.as_str()) {
+        out.push(b);
+    }
+    for child in &b.children {
+        painted(child, out);
+    }
+}
+
+fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>) {
     let mut layer = UiLayer::default();
+    let mut backing = backing;
     if b.widget.kind == "panel" || b.widget.kind == "button" {
         let mut panel = Panel::new(b.rect);
         if b.widget.kind == "button" {
             panel.fill = Color::hex(0xffce75);
         }
+        layer.panels.push(panel);
+        backing = Some(b.rect);
+    } else if b.text.is_some() && backing.is_none_or(|r| !contains(r, b.rect)) {
+        // A flat paper surface covers every glyph, including text with zero padding.
+        let mut panel = Panel::new(b.rect);
+        panel.radius = 0.0;
+        panel.border_px = 0.0;
+        panel.shadow = false;
         layer.panels.push(panel);
     }
     if let Some(t) = &b.text {
@@ -300,6 +389,6 @@ fn draw(b: &Boxed, overlay: &mut Overlay) {
         overlay.widgets.push(layer);
     }
     for child in &b.children {
-        draw(child, overlay);
+        draw(child, overlay, backing);
     }
 }

@@ -16,6 +16,7 @@ pub const KINDS: [&str; 6] = ["text", "button", "list", "panel", "row", "column"
 #[derive(Clone, Debug, PartialEq)]
 pub struct Widget {
     pub kind: String,
+    pub id: Option<String>,
     pub path: String,
     pub text: String,
     pub width: Option<f32>,
@@ -220,9 +221,12 @@ fn read(
         }
     }
     let num = |key: &str| -> mlua::Result<Option<f32>> {
-        let n: Option<f32> = t
-            .get(key)
-            .map_err(|_| bad(&format!("{key} must be a number")))?;
+        let n = match t.get::<Value>(key)? {
+            Value::Nil => None,
+            Value::Integer(n) => Some(n as f32),
+            Value::Number(n) => Some(n as f32),
+            _ => return Err(bad(&format!("{key} must be a number"))),
+        };
         if n.is_some_and(|n| {
             !n.is_finite() || n.abs() > 100_000.0 || (key != "x" && key != "y" && n < 0.0)
         }) {
@@ -230,7 +234,9 @@ fn read(
         }
         Ok(n)
     };
-    let on: Option<String> = t.get("on")?;
+    let string = |key: &str| string_field(&t, key).map_err(|e| bad(&e.to_string()));
+    let id = string("id")?;
+    let on = string("on")?;
     let on = on
         .map(|on| {
             ids::qualify_type(module, &on)
@@ -262,11 +268,31 @@ fn read(
             .map_err(|e| bad(&e))?;
     }
     let mut children = Vec::new();
-    if let Some(list) = t.get::<Option<Table>>("children")? {
+    let list = match t.get::<Value>("children")? {
+        Value::Nil => None,
+        Value::Table(list) => Some(list),
+        _ => return Err(bad("children must be a list of widgets")),
+    };
+    if let Some(list) = list {
+        let len = list.raw_len();
+        let mut entries = 0;
+        for pair in list.clone().pairs::<Value, Value>() {
+            let (key, _) = pair?;
+            if !matches!(key, Value::Integer(n) if n >= 1 && (n as usize) <= len) {
+                return Err(bad(
+                    "children must be a list of widgets with consecutive indices starting at 1; use children = { ui.text {...}, ... }",
+                ));
+            }
+            entries += 1;
+        }
+        if entries != len {
+            return Err(bad("children must be a list of widgets without gaps"));
+        }
         for (i, child) in list.sequence_values::<Value>().enumerate() {
             let child = child?;
             let label = if let Value::Table(t) = &child {
-                t.get::<Option<String>>("id")?
+                string_field(t, "id")
+                    .map_err(|e| bad(&format!("children[{}]: {e}", i + 1)))?
                     .or(t.get::<Option<String>>("kind")?)
                     .unwrap_or_else(|| "widget".into())
             } else {
@@ -286,7 +312,7 @@ fn read(
     if (kind == "text" || kind == "button") && !children.is_empty() {
         return Err(bad("text and button have no children"));
     }
-    let anchor: Option<String> = t.get("anchor")?;
+    let anchor = string("anchor")?;
     let anchor = anchor
         .map(|a| {
             let (entity, name) = a
@@ -299,8 +325,9 @@ fn read(
         .transpose()?;
     Ok(Widget {
         kind: kind.clone(),
+        id,
         path: path.into(),
-        text: t.get::<Option<String>>("text")?.unwrap_or_default(),
+        text: string("text")?.unwrap_or_default(),
         width: num("width")?,
         height: num("height")?,
         x: num("x")?,
@@ -317,6 +344,14 @@ fn read(
         payload,
         children,
     })
+}
+
+fn string_field(t: &Table, key: &str) -> mlua::Result<Option<String>> {
+    match t.get::<Value>(key)? {
+        Value::Nil => Ok(None),
+        Value::String(s) => s.to_str().map(|s| Some(s.to_string())),
+        _ => Err(mlua::Error::runtime(format!("{key} must be a string"))),
+    }
 }
 
 fn entity_id(module: &str, name: &str, registry: &Registry) -> Option<String> {

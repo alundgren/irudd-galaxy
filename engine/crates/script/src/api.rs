@@ -138,6 +138,8 @@ export type ScreenCtx = {
 --- Dimensions are logical pixels. Children flow down, or across a row. x/y place
 --- a child explicitly; anchor is publisher#name, projected and clamped to the view.
 --- Only buttons take on/payload. Unknown properties are errors. Minimum text: 16px.
+--- children is a consecutive list of widgets. id names a widget for diagnostics and bot
+--- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
 export type Widget = {
     kind: string?, id: string?, text: string?, children: {Widget}?,
     width: number?, height: number?, x: number?, y: number?,

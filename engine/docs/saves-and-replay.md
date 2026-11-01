@@ -184,7 +184,10 @@ recording stores the new files, so the replay loads exactly what the session did
 ## Screens in notes and films
 
 Button clicks record ordinary event inputs with source `ui`, including the button's
-payload. Replaying applies the chosen event without hit-testing a new viewport. Screen
+payload. Replaying applies the chosen event without hit-testing a new viewport. Bot
+inputs can name a widget by full path or unique id; the view resolves its current
+centre before the tick and records the same event as a pointer click. No selector or
+coordinate is added to the recording format. Screen
 functions are pure reads of the replayed world; their open state must be module state,
 changed by recorded events. A fresh audit or film view therefore rebuilds the same trees
 from the embedded scripts and current components. Named anchors use the recorded camera,

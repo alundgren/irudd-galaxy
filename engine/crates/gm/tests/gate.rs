@@ -78,6 +78,48 @@ fn check_passes_the_gate_then_checks_the_module() {
 }
 
 #[test]
+fn check_reports_cross_screen_overlap_and_malformed_children() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("demo");
+    module(&dir, ENGINE);
+    let manifest = format!(
+        "id='demo'\nversion='0.1.0'\nmin_engine_version='{ENGINE}'\nscripts=['first.luau','second.luau']\nevents=['click']\n"
+    );
+    std::fs::write(dir.join("manifest.toml"), manifest).unwrap();
+    std::fs::write(
+        dir.join("first.luau"),
+        r#"return {screen=function(_,ui)
+        return ui.button{width=280,text="Continue",on="click"} end}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("second.luau"),
+        r#"return {screen=function(_,ui)
+        return ui.panel{width=280,height=80,children={ui.text{text="Other screen"}}} end}"#,
+    )
+    .unwrap();
+    let (code, json) = gm(tmp.path(), &["check", "demo"]);
+    assert_eq!(code, 5, "{json}");
+    let text = json.to_string();
+    assert!(
+        text.contains("first.luau/screen") && text.contains("second.luau/screen"),
+        "{text}"
+    );
+    std::fs::write(
+        dir.join("second.luau"),
+        r#"return {screen=function(_,ui)
+        return ui.panel{children=ui.button{text="Continue",on="click"}} end}"#,
+    )
+    .unwrap();
+    let (code, json) = gm(tmp.path(), &["check", "demo"]);
+    assert_eq!(code, 5, "{json}");
+    assert!(
+        json.to_string().contains("children must be a list"),
+        "{json}"
+    );
+}
+
+#[test]
 fn usage_and_input_errors_are_told_apart() {
     let tmp = tempfile::tempdir().unwrap();
     for args in [
@@ -150,6 +192,7 @@ fn every_command_has_help_that_never_points_at_the_repository() {
         run(gm, &["--help"]),
         run(gm, &["guide"]),
         run(gm, &["guide", "motion"]),
+        run(gm, &["guide", "screens"]),
     ] {
         assert!(
             !text.contains("engine/docs") && !text.contains(".md"),

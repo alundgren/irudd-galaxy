@@ -39,7 +39,9 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
 
 - `text` and `button` have `text`; buttons also require a declared local `on` event and
   optional JSON `payload`. `panel`, `list` and `column` flow children down; `row` flows
-  them across. `children` is a list of widget tables. `id` labels diagnostic paths.
+  them across. `children` is a consecutive list of widget tables, starting at 1; a lone
+  widget, named entries or gaps fail with a `children` error instead of dropping content.
+  Malformed fields report their names. `id` labels diagnostic paths and bot targets.
 - `width`, `height`, `pad`, `gap`, `size`, `x` and `y` are logical pixels. Available width
   is inherited; row children share the width left after fixed widths and gaps. Height
   comes from content unless explicit. Defaults: 20px text, 12px gaps, 16px padding on
@@ -47,9 +49,12 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
 - Text is shaped and wrapped headlessly by `galaxy_render::text::TextMeasure` with the
   same bundled Fredoka font and metrics as glyphon drawing. Colours are engine-owned:
   dark ink on paper, or a warm button surface. Screens cannot choose low-contrast colours.
+  Text outside a containing panel gets its own flat paper surface, including root text,
+  columns and labels anchored away from their parent. Authors need no extra wrapper.
 - Readability findings name the module, script and widget path. They cover text below
   16px, missing glyphs, empty labels, text outside its box, small button targets (44px),
-  widgets outside the viewport or parent, sibling overlaps, and missing anchors.
+  widgets outside the viewport or parent, sibling overlaps, overlaps of painted widgets
+  from separate screens, and missing anchors. Overlap findings name both widget paths.
   Unknown properties and undeclared button events fail parsing at their widget path.
 - `galaxy-gm check` runs the module's screens after the first tick at 1280x720, without a
   GPU. This checks the initial state; branches opened later are also checked while playing.
@@ -84,10 +89,16 @@ audit and film reconstruct them from the embedded module files and replayed worl
 placement uses the note's existing camera, size and interpolation metadata. No screenshot
 or live VM state is used to reconstruct a screen.
 
-The bot takes `[[click]]` entries with `tick`, `x` and `y` in an inputs file. It lays out
-the current world before that tick and uses the same hit test; a missed button fails the
-run. Use `galaxy play` for pointer instructions, then replay or film its recording. Other
+The bot takes `[[click]]` entries with `tick` and either `x`/`y` or `widget` in an inputs
+file. `widget` is a full diagnostic path or a unique `id`, including on a root button.
+It lays out the current world before that tick, resolves the widget's current centre
+(including moving anchors), and uses the same hit test. Missing or ambiguous names,
+non-buttons and covered centres fail the run. Recordings still contain the normal `ui`
+event and payload; replay does not repeat the lookup. Use `galaxy play` for pointer
+instructions, then replay or film its recording. Other
 headless input runners refuse pointer instructions because they do not have a viewport.
+`galaxy-gm guide screens` gives a complete standalone authoring and playtest recipe;
+`galaxy-gm fields inputs` lists both click forms.
 
 From the repository root, with a dev build installed:
 

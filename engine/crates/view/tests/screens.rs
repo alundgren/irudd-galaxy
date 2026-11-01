@@ -3,6 +3,7 @@ use galaxy_render::glam::Vec2;
 use galaxy_sim::{
     Session,
     recording::{BuildStamp, Replay},
+    scenario::{Click, ClickTarget, InputsFile},
 };
 use galaxy_view::View;
 use std::path::Path;
@@ -62,6 +63,263 @@ fn screen(code: &str) -> (Session, View) {
     let session = Session::new(vec![module], 1).unwrap();
     let view = View::detached(session.modules(), 1);
     (session, view)
+}
+
+#[test]
+fn separate_screens_report_covered_controls_with_both_paths() {
+    for wrapper in ["ui.panel", "ui.column"] {
+        let (s, _) = screen(
+            r#"return {screen=function(_,ui)
+            return ui.button {width=280,text="Continue",on="click"}
+        end}"#,
+        );
+        let mut module = s.modules().next().unwrap().clone();
+        let manifest = module.files.0.get_mut("manifest.toml").unwrap();
+        *manifest = manifest.replace("['screen.luau']", "['screen.luau', 'other.luau']");
+        module.files.0.insert(
+            "other.luau".into(),
+            format!(
+                r#"return {{screen=function(_,ui)
+            return {wrapper} {{width=280,height=80,children={{ui.text{{text="Other screen"}}}}}}
+        end}}"#
+            ),
+        );
+        let module = Module::from_files(Path::new("test"), module.files).unwrap();
+        let s = Session::new(vec![module], 1).unwrap();
+        let mut v = View::detached(s.modules(), 1);
+        v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+        assert!(
+            v.screens
+                .problems
+                .iter()
+                .any(|p| p.contains("test:screen.luau/screen")
+                    && p.contains("test:other.luau/screen")
+                    && p.contains("overlaps")),
+            "{:?}",
+            v.screens.problems
+        );
+    }
+}
+
+#[test]
+fn malformed_widget_fields_name_the_field_instead_of_dropping_content() {
+    for (field, value) in [
+        ("children", r#"ui.button {text="Continue",on="click"}"#),
+        ("children", r#"{first=ui.text{text="Lost"}}"#),
+        (
+            "children",
+            r#"{[1]=ui.text{text="One"},[3]=ui.text{text="Lost"}}"#,
+        ),
+        ("children", "42"),
+        ("text", "{}"),
+        ("id", "{}"),
+        ("anchor", "{}"),
+        ("on", "{}"),
+        ("payload", "42"),
+        ("width", "{}"),
+        ("text", "42"),
+    ] {
+        let (s, mut v) = screen(&format!(
+            "return {{screen=function(_,ui) return ui.panel {{{field}={value}}} end}}"
+        ));
+        v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+        assert!(
+            v.screens.problems.iter().any(|p| p.contains(field)),
+            "{field}={value}: {:?}",
+            v.screens.problems
+        );
+        assert!(v.screens.boxes.is_empty());
+    }
+}
+
+#[test]
+fn guide_bot_clicks_a_moving_widget_by_name_and_path_and_replays() {
+    let topic = galaxy_module::help::TOPICS
+        .iter()
+        .find(|t| t.name == "screens")
+        .unwrap();
+    let mut files = ModuleFiles::default();
+    let dir = tempfile::tempdir().unwrap();
+    for step in topic.recipes[0].steps {
+        // Exercise the text authors actually see, including the guide's line wrapping.
+        let step = galaxy_module::help::wrap(step, 86).join("\n");
+        if let Some(rest) = step.strip_prefix("Create example/") {
+            let (file, text) = rest.split_once(" with:\n").unwrap();
+            files.0.insert(file.into(), text.into());
+        }
+        if let Some(text) = step.strip_prefix("Write clicks.toml with:\n") {
+            std::fs::write(dir.path().join("clicks.toml"), text).unwrap();
+        }
+    }
+    let script = InputsFile::read(&dir.path().join("clicks.toml")).unwrap();
+    let module = Module::from_files(Path::new("example"), files).unwrap();
+    let mut s = Session::new(vec![module], 1).unwrap();
+    s.start_recording(BuildStamp::current());
+    let mut v = View::detached(s.modules(), 1);
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    let old_point = v.screens.boxes[0].children[1].rect.center();
+    for tick in 1..=200 {
+        v.before_step(&s.world);
+        v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+        let mut inputs = Vec::new();
+        if tick == 20 {
+            let click = v.screens.bot_click(&script.clicks[0]).unwrap();
+            assert_eq!(click.source, "ui");
+            assert_eq!(click.name, "example.activate");
+            inputs.push(click);
+        }
+        if tick == 200 {
+            let b = &v.screens.boxes[0].children[1];
+            assert_ne!(b.rect.center(), old_point);
+            assert!(
+                v.screens.click(old_point, tick).is_none(),
+                "old coordinates miss the moving button"
+            );
+            let click = v
+                .screens
+                .bot_click(&Click {
+                    tick,
+                    target: ClickTarget::Widget(b.widget.path.clone()),
+                })
+                .unwrap();
+            assert_eq!(click, v.screens.click(b.rect.center(), tick).unwrap());
+            inputs.push(click);
+        }
+        assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+        s.step(&inputs).unwrap();
+    }
+    assert_eq!(v.screens.calls(), 1, "anchor moves without re-running Luau");
+    assert_eq!(
+        s.world
+            .facts
+            .iter()
+            .filter(|f| f.kind == "example.clicked")
+            .count(),
+        2
+    );
+    let recording = s.recording().unwrap();
+    let mut replay = Replay::new(&recording).unwrap();
+    while replay.step().unwrap() {}
+    assert_eq!(replay.session.world.hash(), s.world.hash());
+    let mut rebuilt = View::detached(replay.session.modules(), 1);
+    assert_eq!(
+        rebuilt
+            .scene(&replay.session.world, 1.0, Vec2::new(1280.0, 720.0), 0.0)
+            .overlay,
+        v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0)
+            .overlay,
+    );
+}
+
+#[test]
+fn widget_targets_handle_root_ids_ambiguity_missing_and_covered_buttons() {
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+        return ui.button{id="root",text="Continue",on="click"}
+    end}"#,
+    );
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    let named = |name: &str| Click {
+        tick: 1,
+        target: ClickTarget::Widget(name.into()),
+    };
+    assert!(v.screens.bot_click(&named("root")).is_ok());
+    let point = v.screens.boxes[0].rect.center();
+    assert_eq!(
+        v.screens.bot_click(&named("root")).unwrap(),
+        v.screens
+            .bot_click(&Click {
+                tick: 1,
+                target: ClickTarget::Point {
+                    x: point.x,
+                    y: point.y
+                },
+            })
+            .unwrap()
+    );
+    assert!(
+        v.screens
+            .bot_click(&named("absent"))
+            .unwrap_err()
+            .contains("missing")
+    );
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+        return ui.column{children={
+            ui.button{id="same",text="One",on="click"},
+            ui.button{id="same",text="Two",on="click"},
+            ui.panel{id="cover",x=0,y=0,height=60},
+        }}
+    end}"#,
+    );
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    assert!(
+        v.screens
+            .bot_click(&named("same"))
+            .unwrap_err()
+            .contains("ambiguous")
+    );
+    assert!(
+        v.screens
+            .bot_click(&named("test:screen.luau/screen/same[2]"))
+            .is_ok()
+    );
+    let error = v
+        .screens
+        .bot_click(&named("test:screen.luau/screen/same[1]"))
+        .unwrap_err();
+    assert!(
+        error.contains("same[1]") && error.contains("cover[3]"),
+        "{error}"
+    );
+    assert!(
+        v.screens
+            .bot_click(&named("cover"))
+            .unwrap_err()
+            .contains("not a button")
+    );
+}
+
+#[test]
+fn unbacked_text_gets_paper_but_text_inside_a_panel_reuses_it() {
+    for root in [
+        r#"ui.text{text="Read this important message."}"#,
+        r#"ui.column{children={ui.text{text="Read this important message."}}}"#,
+        r#"ui.panel{width=200,children={ui.text{x=240,text="Read this important message."}}}"#,
+    ] {
+        let (s, mut v) = screen(&format!(
+            "return {{screen=function(_,ui) return {root} end}}"
+        ));
+        let scene = v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+        let label = scene
+            .overlay
+            .widgets
+            .iter()
+            .find(|l| !l.texts.is_empty())
+            .unwrap();
+        assert_eq!(
+            label.panels.len(),
+            1,
+            "unbacked text needs a surface: {root}"
+        );
+        assert_eq!(label.panels[0].fill, galaxy_render::defaults::PAPER);
+        assert_eq!(label.texts[0].color, galaxy_render::defaults::INK);
+    }
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+        return ui.panel{children={ui.column{children={ui.text{text="Backed"}}}}}
+    end}"#,
+    );
+    let scene = v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    assert_eq!(
+        scene
+            .overlay
+            .widgets
+            .iter()
+            .map(|l| l.panels.len())
+            .sum::<usize>(),
+        1
+    );
 }
 
 #[test]
