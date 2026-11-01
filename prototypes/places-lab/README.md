@@ -108,7 +108,7 @@ work at once.
 
 | Key | Choice | Trait | Folder (owned by that choice's agent) | Baseline |
 |---|---|---|---|---|
-| 1 | Getting between places | `Travel`: `start`, `step`, `busy`, `finish`, `compose`, `overlay` | `src/travel/` (`mod.rs`, `cut.rs`) | `cut`: a title card |
+| 1 | Getting between places | `Travel`: `start`, `step`, `busy`, `finish`, `compose`, `overlay` | `src/travel/` (`mod.rs`, `shared.rs`, one file per variant) | `cut`: a title card |
 | 2 | What a room is | `Room`: `view`, `step` | `src/room/` (`mod.rs`, `staged.rs`) | `staged`: a staged 3D set, fixed camera |
 | 3 | How people talk | `Talk`: `widgets` (when the screen runs), `frame` (each frame) | `src/talk/` (`mod.rs`, `bubble.rs`) | `bubble`: on the person |
 | 4 | Life | `Life`: `moved`, `arrived`, `step`, `pose`, `widgets` | `src/life/` (`mod.rs`, `still.rs`) | `still`: people stay put |
@@ -122,13 +122,41 @@ is shared: change it in an integration pass, not from a variant.
 Whatever a talk variant does, the speaker's face must stay on screen and uncovered while
 their line shows: the lab checks it every frame.
 
+## Getting between places (key 1)
+
+Key 1 cycles these, in this order. Each goes both ways with the same grammar (coming out
+is going in, played backward), all four rooms match, and a click during a move lands it.
+Times are from `--shots` with `--combo <variant>,staged,bubble,still`.
+
+| Variant | What it does | Move time |
+|---|---|---|
+| `cut` | The baseline: a dip to a title card naming the place. | 1.02 s |
+| `glide` | The camera flies at the module while the station falls away into the dark, far parts first; then the room's set comes up into the light layer by layer (the set, then its people) as the camera settles. Out: the room's people sink first, then the set, and the station rises back round the module as the camera pulls out. | 1.27 s |
+| `cutaway` | The room stands inside its module, part of the same object. The camera comes close over the module, its shell folds down and sinks into its floor, and there is the room with its people; the camera settles down into the room's own view. Out: the camera rises, the shell closes over the room, the camera pulls back. | 1.52 s |
+| `threshold` | One short corridor between any two places: you walk down it to a door with the place's name over it, it slides open on the place's light (lamplight for rooms, starlight for the station) and you step through. The same corridor every time. | 1.27 s |
+| `menu` | The honest menu: you never leave the station's view. The room opens as a framed window over the station, which stays as you left it, dimmed round the window and behind the room's screen (`Travel::underlay`). | 0.35 s |
+| `walk` | The player is a figure standing at the hub. The camera comes down over the station, the figure walks along the deck and the module's strut to its door and goes in, then a short dip into the room. Out: the dip, the figure steps out of the door and walks back to the hub. The figure is larger than life and walks at a brisk, sped-up pace (24 station units a second). | office 2.90 s in, 2.82 s out; canteen 1.95 / 1.88 s; market 1.72 / 1.63 s; cradle 1.53 / 1.45 s |
+
+**`menu` with the `staged` room.** The staged set still draws: `menu` shows the room as
+the room variant shows it, with its camera stood back (1.3 times for rooms up to 9 m
+wide) and moved left as far as its people allow, so the station shows behind and to the
+right of the room, dimmed, under the room's screen. In the office and the canteen the
+station is plainly there behind the screen. In the market (Pim stands at the left) and
+the cradle (14 m wide, so it isn't stood back at all, or its socket labels collide) the
+room covers most of the screen and the station shows only at the edges. With another
+room variant, `menu` stands that variant's camera back the same way.
+
+**`glide`, `cutaway` and the room variant.** `glide` lands on whatever the room variant
+shows (it dims and raises that view's meshes). `cutaway` builds the move from the room's
+set standing in its module and lands on the room variant's own view, so with a room
+variant other than `staged` the last frame cuts from the set to that view.
+
 ## The variants still to build
 
 The baselines are in (the table above); these are next:
 
 | Choice | Variants |
 |---|---|
-| Getting between places | glide in and dissolve into the room · cutaway (the wall opens in place) · a threshold (doorway or short corridor) · honest menu over the dimmed station · walk (an avatar crosses the cutaway) |
 | What a room is | a flat staged scene in layers with text · the interior inside the station model |
 | How people talk | portrait with a name panel · the camera frames the speaker · a text column at the side |
 | Life | people in states who move at story moments · changes visible when you come back |
