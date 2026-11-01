@@ -405,7 +405,9 @@ impl App {
             self.combo.travel().compose(&stage)
         };
         let line = if busy { None } else { self.line.clone() };
-        self.combo.talk_mut().frame(&mut shown, line.as_ref(), dt);
+        self.combo
+            .talk_mut()
+            .frame(&mut shown, line.as_ref(), viewport, dt);
         self.anchors = shown.anchors(&self.world.hull, viewport);
         // The ghost part on the socket the dragged part is over.
         let ghost = self.ghost();
