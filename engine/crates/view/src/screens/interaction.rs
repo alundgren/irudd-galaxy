@@ -184,10 +184,44 @@ impl Screens {
             self.problems
                 .push(format!("{}: drag label exceeds the viewport", drag.source));
         }
-        let p = (Vec2::from(drag.point) + Vec2::splat(18.0)).clamp(
-            Vec2::splat(8.0),
-            (size - Vec2::new(width + 8.0, height + 8.0)).max(Vec2::splat(8.0)),
-        );
+        // A preview must not hide the verdict the player is trying to read. Prefer
+        // beside the pointer, then an edge with space, using the same clipped boxes.
+        let point = Vec2::from(drag.point);
+        let limit = (size - Vec2::new(width + 8.0, height + 8.0)).max(Vec2::splat(8.0));
+        let candidates = [
+            point + Vec2::splat(18.0),
+            point - Vec2::new(width + 18.0, height + 18.0),
+            point + Vec2::new(18.0, -height - 18.0),
+            point + Vec2::new(-width - 18.0, 18.0),
+            Vec2::new(point.x + 18.0, limit.y),
+            Vec2::new(point.x + 18.0, 8.0),
+            Vec2::new(limit.x, limit.y),
+            Vec2::new(8.0, limit.y),
+        ];
+        let boxes = self.all();
+        let cost = |p: Vec2| -> f32 {
+            let rect = Rect::new(p.x, p.y, width, height);
+            boxes
+                .iter()
+                .filter(|b| leaf(&b.widget.kind))
+                .map(|b| {
+                    let visible = b.clip.map_or(b.rect, |clip| intersection(clip, b.rect));
+                    let overlap = intersection(rect, visible);
+                    overlap.w
+                        * overlap.h
+                        * if b.widget.kind == "drop_target" {
+                            100.0
+                        } else {
+                            1.0
+                        }
+                })
+                .sum()
+        };
+        let p = candidates
+            .into_iter()
+            .map(|p| p.clamp(Vec2::splat(8.0), limit))
+            .min_by(|a, b| cost(*a).total_cmp(&cost(*b)))
+            .expect("preview candidates");
         text.pos = p + Vec2::splat(12.0);
         overlay.widgets.push(UiLayer {
             panels: vec![Panel::new(Rect::new(p.x, p.y, width, height))],

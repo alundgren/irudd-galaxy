@@ -27,8 +27,9 @@ pub(super) fn load(
         };
         for (name, value) in table {
             let id = format!("{}.{}", module.id(), name);
+            let path = format!("{}:icons.toml/{name}", module.id());
             let Some(glyph) = value.as_str().filter(|s| !s.trim().is_empty()) else {
-                problems.push(format!("{id}: icon must be a nonempty glyph string"));
+                problems.push(format!("{path}: icon must be a nonempty glyph string"));
                 continue;
             };
             if !measure
@@ -36,7 +37,7 @@ pub(super) fn load(
                 .is_empty()
             {
                 problems.push(format!(
-                    "{id}: icon has glyphs the bundled font cannot draw"
+                    "{path}: icon has glyphs the bundled font cannot draw"
                 ));
             }
             icons.insert(id, glyph.into());

@@ -163,7 +163,8 @@ An empty string permits the drop, a nonempty string explains rejection, and an a
 value means "Not accepted". Picking up immediately colours every target and shows its
 verdict in words. Layout reserves the largest measured verdict, so targets never move
 when picking up. All verdict labels receive glyph and readability checks. Rust draws a
-label beside the pointer. Release on an accepting target sends its `on` event with its
+label beside the pointer, moving it into spare viewport space when it would cover a
+verdict. Release on an accepting target sends its `on` event with its
 `payload` plus `value`; release elsewhere or on a rejecting target cancels. A source
 removed or changed by state updates cannot complete its old drag. Targets use the
 current tree, and modules should validate world operations in their event handlers.

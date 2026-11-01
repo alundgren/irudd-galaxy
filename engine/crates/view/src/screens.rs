@@ -384,7 +384,9 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         if b.widget.size < 16.0 {
             problem("text is smaller than 16 logical pixels");
         }
-        if t.text.trim().is_empty() {
+        if t.text.trim().is_empty()
+            || (b.widget.kind == "drop_target" && b.widget.text.trim().is_empty())
+        {
             problem("empty text or button label");
         }
         if !measure.missing(t, 1.0).is_empty() {
