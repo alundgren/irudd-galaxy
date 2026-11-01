@@ -246,7 +246,7 @@ pub fn overview(tool: Tool) -> String {
              on stdout, except --help, guide and types.",
             &[
                 ("Start here", &["guide"]),
-                ("Modules", &["check", "types", "fields"]),
+                ("Modules", &["check", "types", "fields", "model"]),
                 (
                     "Played sessions and notes",
                     &["notes", "recording", "audit", "film"],

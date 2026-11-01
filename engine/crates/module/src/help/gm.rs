@@ -26,8 +26,8 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "check",
         synopsis: "<module>",
-        answers: "Does this module load: manifest, start state, scripts, models and style, and \
-                  does what its start state wears exist?",
+        answers: "Does this module load? Its manifest, start state, scripts, models and \
+                  style, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
                 and events. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
@@ -74,7 +74,7 @@ pub static COMMANDS: &[Command] = &[
         path: "fields",
         synopsis: "[style | components | manifest | inputs | spec] [--component <name>] \
                    [--modules <dir>]",
-        answers: "Which keys and fields exist, with their types, defaults and ranges: \
+        answers: "Which keys and fields exist, with their types, defaults and ranges? For \
                   style.toml, the engine's components (and a module's own), manifest.toml, \
                   inputs files and motion check specs.",
         about: "Generated from the engine's own definitions, so it is what this build \
@@ -110,6 +110,66 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm fields style",
         next: "Edit the file, then galaxy-gm check <module>.",
         topic: "style",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "model",
+        synopsis: "<module> [<model>]",
+        answers: "What is a model made of? Its parts (glTF nodes) with sizes and places, \
+                  its outline as collision sees it, its morph target, and which parts glow or \
+                  carry a bite, without reading the glTF file.",
+        about: "Sizes are world units at scale 1, in the model's own frame: x its front (where \
+                its thing heads), y its left, z up; a thing's engine.model scale multiplies \
+                them. The outline is the model's convex footprint on the plane, which \
+                collision uses unless the thing's engine.body has a radius. Without a model, \
+                every model the module has, a line each, with the things that wear it.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "[model]",
+                "a model, by name (hub for models/hub.gltf) or ID (drift.hub)",
+            ),
+        ],
+        output: &[
+            (
+                "models",
+                "without a model: each one's file, parts, triangles, size and who wears it",
+            ),
+            (
+                "size, triangles, radius",
+                "the box round the model (size at its centre), its triangles, and how far \
+              it reaches from its origin in 3D",
+            ),
+            (
+                "parts",
+                "a line a part (glTF node): name, triangles, size at its centre, and its \
+              glow, bite and morph when it has them; thin parts are marked",
+            ),
+            (
+                "outline.reach",
+                "collision's footprint: how far it reaches from its centre front, left, \
+              back and right, the most and the least",
+            ),
+            (
+                "morph",
+                "the parts the morph target moves and how far, and the outline at morph 1; \
+              or none",
+            ),
+            (
+                "glow, bite",
+                "the parts that glow or carry a bite, and how much",
+            ),
+            (
+                "worn_by",
+                "the things whose start state (in this module and those beside it) wears \
+              it, with their scale",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm model game/modules/core hub",
+        next: "galaxy-gm motion flicker names these parts under changed pixels; galaxy shot \
+               --crop <thing> draws one thing close up.",
+        topic: "modules",
     },
     Command {
         tool: Tool::Gm,
@@ -154,7 +214,7 @@ pub static COMMANDS: &[Command] = &[
         path: "recording",
         synopsis: "<recording> [summary | timeline | inputs | orders | zooms] \
                    [--from <tick>] [--to <tick>] [--name <text>] [--all]",
-        answers: "What is in a recording, and what did the player do: its summary, one \
+        answers: "What is in a recording, and what did the player do? Its summary, one \
                   timeline of the session, or every input, order and arrival, or zoom, a line \
                   each.",
         about: "timeline answers \"what did the player do?\" in one list, times as m:ss.s with \
@@ -593,6 +653,10 @@ pub static TOPICS: &[Topic] = &[
         tasks: &[
             ("Check a module loads", "gm check"),
             ("What scripts can call", "gm types"),
+            (
+                "What a model is made of: parts, outline, morph, glow",
+                "gm model",
+            ),
         ],
     },
     Topic {

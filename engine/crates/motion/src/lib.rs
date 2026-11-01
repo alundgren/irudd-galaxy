@@ -144,7 +144,14 @@ fn kept(tool: &str) -> &'static [&'static str] {
             "crop",
             "onion",
         ],
-        "flicker" => &["pops", "blips", "flicker_runs", "events:5", "left_out"],
+        "flicker" => &[
+            "pops",
+            "blips",
+            "flicker_runs",
+            "chosen",
+            "events:5",
+            "left_out",
+        ],
         "tone" => &[
             "thing",
             "hard_steps",

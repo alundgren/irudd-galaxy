@@ -19,7 +19,9 @@ use std::sync::{Arc, Mutex};
 
 use galaxy_api::engine::{BODY, CAMERA, HOT_LOADED, MODEL, POSITION, TICKS_PER_SECOND};
 use galaxy_module::module::Module;
-use galaxy_motion::film::{Cam, Change, FORMAT, Frame, LineProbe, Manifest, Outline, Thing};
+use galaxy_motion::film::{
+    Cam, Change, FORMAT, Frame, LineProbe, Manifest, Outline, PartMesh, Parts, Thing, Worn,
+};
 use galaxy_render::glam::Vec2;
 use galaxy_render::{Camera, Line, LineStyle, Renderer, RgbaImage, Scene};
 use galaxy_sim::changes;
@@ -258,6 +260,7 @@ pub fn shoot(
     let mut changes = Vec::new();
     let mut hash: Option<(u64, String)> = None;
     let mut kept_outlines = BTreeMap::new();
+    let mut kept_parts = Parts::default();
 
     let (tx, rx) = sync_channel::<(PathBuf, RgbaImage)>(8);
     let rx = Arc::new(Mutex::new(rx));
@@ -291,6 +294,7 @@ pub fn shoot(
             }
             if k == first {
                 kept_outlines = outlines(world, stepper.modules());
+                kept_parts = parts(world, stepper.modules());
             }
             let index = frames.len();
             let file = draw.then(|| format!("frames/{index:05}.png"));
@@ -353,6 +357,7 @@ pub fn shoot(
         changes,
         frames,
         outlines: kept_outlines,
+        parts: kept_parts,
     };
     manifest.write(&shoot.out)?;
     Ok(manifest)
@@ -530,6 +535,64 @@ fn outlines(world: &World, modules: Vec<&Module>) -> BTreeMap<String, Outline> {
             ))
         })
         .collect()
+}
+
+/// The parts (glTF nodes) of every model a drawn thing wears, as triangles, and which
+/// model and scale each thing wears, so the motion tools can name the part under a pixel.
+fn parts(world: &World, modules: Vec<&Module>) -> Parts {
+    let mut out = Parts::default();
+    let mut models: BTreeMap<String, Vec<PartMesh>> = BTreeMap::new();
+    for module in &modules {
+        for (path, text) in &module.files.0 {
+            let Some(name) = path
+                .strip_prefix("models/")
+                .and_then(|p| p.strip_suffix(".gltf"))
+            else {
+                continue;
+            };
+            if let Ok((mesh, ranges)) = galaxy_mesh::gltf::read_parts(text) {
+                let parts = ranges
+                    .iter()
+                    .map(|r| PartMesh {
+                        name: r.name.clone(),
+                        triangles: mesh.vertices[r.vertices.clone()]
+                            .iter()
+                            .flat_map(|v| v.position)
+                            .collect(),
+                    })
+                    .collect();
+                models.insert(format!("{}.{name}", module.id()), parts);
+            }
+        }
+    }
+    for (id, c) in &world.entities {
+        let Some(model) = c.get(MODEL).filter(|_| c.contains_key(POSITION)) else {
+            continue;
+        };
+        let Some(name) = model.fields.get("model").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(parts) = models.get(name) else {
+            continue;
+        };
+        let scale = model
+            .fields
+            .get("scale")
+            .and_then(Value::as_f64)
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .unwrap_or(1.0) as f32;
+        out.models
+            .entry(name.to_owned())
+            .or_insert_with(|| parts.clone());
+        out.things.insert(
+            id.clone(),
+            Worn {
+                model: name.to_owned(),
+                scale,
+            },
+        );
+    }
+    out
 }
 
 fn scene_lines(scene: &Scene) -> Vec<LineProbe> {

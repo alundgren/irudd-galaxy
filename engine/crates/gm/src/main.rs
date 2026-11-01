@@ -1,13 +1,15 @@
 //! `galaxy-gm`: the GM, which builds and checks modules. So far: `doctor`, `check` (the
 //! module loads: manifest, start state, scripts, models and styles), `audit` (a played
 //! session's notes drawn again), `film` and `motion` (how motion looks, measured) and
-//! `types` (the Luau type file for scripts), `fields` (the keys files take) and `guide`.
+//! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
+//! model's parts, outline and morph) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audit;
 mod fields;
 mod film;
+mod model;
 mod sessions;
 
 use std::path::Path;
@@ -75,6 +77,18 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             fields::Error::Usage(m) => usage(m),
             fields::Error::Failure(f) => f,
         }),
+        "model" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("model", model::OPTIONS).map_err(usage)?;
+            match positional.as_slice() {
+                [dir] => model::run(&discover::resolve(&cwd, Path::new(dir)), None),
+                [dir, name] => model::run(&discover::resolve(&cwd, Path::new(dir)), Some(name)),
+                _ => Err(usage(format!(
+                    "model takes a module folder and maybe a model: {}",
+                    command.usage()
+                ))),
+            }
+        }
         "audit" => {
             let path = one("one recording")?;
             audit::run(&discover::recording_file(&discover::resolve(
@@ -361,6 +375,7 @@ mod tests {
         assert_eq!(check.options(), film::CHECK_OPTIONS);
         for (path, takes) in [
             ("fields", fields::OPTIONS),
+            ("model", model::OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),

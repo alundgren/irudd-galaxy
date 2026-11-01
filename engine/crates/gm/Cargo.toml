@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 galaxy-api.workspace = true
+galaxy-mesh.workspace = true
 galaxy-module.workspace = true
 galaxy-motion.workspace = true
 galaxy-render.workspace = true

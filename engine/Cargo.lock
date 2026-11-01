@@ -752,6 +752,7 @@ name = "galaxy-gm"
 version = "0.2.0"
 dependencies = [
  "galaxy-api",
+ "galaxy-mesh",
  "galaxy-module",
  "galaxy-motion",
  "galaxy-render",

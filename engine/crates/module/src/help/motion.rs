@@ -377,7 +377,8 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "motion flicker",
-        synopsis: "<film> [--from <t>] [--to <t>] [--near <thing>] [--screen]",
+        synopsis: "<film> [--from <t>] [--to <t>] [--near <thing>] [--event <n> | --at <t>] \
+                   [--screen]",
         answers: "Does anything pop in or out, show for one frame, or flicker? Whole-picture \
                   sudden changes, with where and when, strongest first.",
         about: "Each frame is compared with the one before (and before that), moved into its \
@@ -416,6 +417,17 @@ pub static COMMANDS: &[Command] = &[
                 "only events within the thing's reach on screen (plus 24 px), by ID or \
               bare name",
             ),
+            (
+                "--event <n>",
+                "also a close-up of event n (its `n`, counting strongest first), not \
+              only the three strongest: `chosen`",
+            ),
+            (
+                "--at <t>",
+                "a close-up of the frame nearest t, seconds: of the strongest event \
+              starting there, else (with --near) of the box round that thing, so any moment \
+              can be looked at closely: `chosen`",
+            ),
             IMAGE,
             DETAIL,
         ],
@@ -431,15 +443,36 @@ pub static COMMANDS: &[Command] = &[
               (frame, t, tick), box_px (round its cells: x, y, width, height in pixels from \
               the top left), cells (how many grid cells it spans), change (brightness 0 to 1 \
               times pixels changed, over its cells: a few units is a detail, tens is plain to \
-              see), near (things whose reach is in or next to the box)",
+              see), near (things whose reach is in or next to the box), n (its number \
+              for --event)",
+            ),
+            (
+                "events.looks_like",
+                "what kind of change it is, from its difference mask once lined up: \
+              edges stepping (outlines move a pixel or two, nothing appears), a thin line \
+              appearing or breaking, or an area appearing, vanishing or changing tone",
+            ),
+            (
+                "events.parts",
+                "the model parts (glTF nodes) under the changed pixels, as `thing/part \
+              share%`: each pixel counts for the part nearest the camera within two pixels \
+              (an ink outline lies just outside its part), or `on no model` (lines, sky). \
+              Films from older builds keep no parts",
             ),
             (
                 "events.closeup, events.changed",
                 "the three strongest: a picture of the frame before (moved into \
               this frame's view), the frame it changed on and the changed pixels (warm \
-              brighter, blue darker), enlarged; changed says how many pixels, their centre \
-              and the thing nearest them. A tall thing shows a thin outline of change from \
+              brighter, blue darker), enlarged in whole pixel blocks; changed says how many \
+              pixels, their centre, the thing nearest them, looks_like with its measures \
+              (core_share: changed pixels in a filled patch; edge_share: changed pixels at an \
+              edge in both frames) and parts. A tall thing shows a thin outline of change from \
               the camera's move alone",
+            ),
+            (
+                "chosen",
+                "with --event or --at: that event (or, with --at and --near and no event \
+              there, the moment round the thing) with its closeup and changed",
             ),
             (
                 "left_out",
@@ -462,10 +495,11 @@ pub static COMMANDS: &[Command] = &[
             ),
         ],
         writes: "<film>/motion/flicker-<options>.png, and -event-1.png to -event-3.png \
-                 beside it",
+                 beside it (and -event-<n>.png or -closeup.png for --event or --at)",
         example: "galaxy-gm motion flicker films/note-0001",
-        next: "Open an event's closeup first; galaxy-gm motion sheet <film> --at <from t> \
-               --crop <x,y,w,h of box_px> shows the frames round it.",
+        next: "Open an event's closeup first; --event <n> for another event's, --at <t> \
+               --near <thing> for any moment's; galaxy-gm model <module> <model> lists a \
+               model's parts.",
         topic: "motion",
     },
     Command {

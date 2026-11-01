@@ -46,6 +46,69 @@ fn to_gltf(p: Vec3) -> Vec3 {
 
 /// Reads a model from `.gltf` text.
 pub fn read(text: &str) -> Result<MeshData, String> {
+    read_parts(text).map(|(mesh, _)| mesh)
+}
+
+/// One part of a model as read: the node's name and its vertices in the mesh.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartRange {
+    /// The node's name, else its mesh's, else `node <index>`.
+    pub name: String,
+    pub vertices: std::ops::Range<usize>,
+}
+
+/// What one part of a model is, for reading by eye: its size and place in the model's
+/// own frame (world axes: +x its front, +y its left, +z up; before the thing's scale),
+/// its triangles, and the most glow, bite and morph any vertex of it has.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PartInfo {
+    pub name: String,
+    pub triangles: usize,
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+    pub glow: f32,
+    pub bite: f32,
+    /// The furthest a vertex moves at morph weight 1.
+    pub morph: f32,
+}
+
+impl PartInfo {
+    /// Each part of `mesh`, from the ranges [`read_parts`] gave.
+    pub fn of(mesh: &MeshData, parts: &[PartRange]) -> Vec<PartInfo> {
+        parts
+            .iter()
+            .map(|p| {
+                let vs = &mesh.vertices[p.vertices.clone()];
+                let mut min = [f32::MAX; 3];
+                let mut max = [f32::MIN; 3];
+                let (mut glow, mut bite, mut morph) = (0.0f32, 0.0f32, 0.0f32);
+                for v in vs {
+                    for k in 0..3 {
+                        min[k] = min[k].min(v.position[k]);
+                        max[k] = max[k].max(v.position[k]);
+                    }
+                    glow = glow.max(v.color[3]);
+                    bite = bite.max(v.bite[0]).max(v.bite[1]);
+                    let d = Vec3::from(v.morph_position) - Vec3::from(v.position);
+                    morph = morph.max(d.length());
+                }
+                PartInfo {
+                    name: p.name.clone(),
+                    triangles: vs.len() / 3,
+                    min,
+                    max,
+                    glow,
+                    bite,
+                    morph,
+                }
+            })
+            .collect()
+    }
+}
+
+/// Reads a model from `.gltf` text, with the vertices each part (a node with a mesh)
+/// became, in reading order.
+pub fn read_parts(text: &str) -> Result<(MeshData, Vec<PartRange>), String> {
     let doc = Gltf::from_slice(text.as_bytes()).map_err(|e| format!("not a glTF file: {e}"))?;
     let mut buffers = Vec::new();
     for buffer in doc.buffers() {
@@ -79,12 +142,24 @@ pub fn read(text: &str) -> Result<MeshData, String> {
         .or_else(|| doc.scenes().next())
         .ok_or("the model has no scene")?;
     let mut out = MeshData::default();
+    let mut parts = Vec::new();
     let mut stack: Vec<(gltf::Node, Mat4)> = scene.nodes().map(|n| (n, Mat4::IDENTITY)).collect();
     while let Some((node, parent)) = stack.pop() {
         let transform = parent * Mat4::from_cols_array_2d(&node.transform().matrix());
         if let Some(mesh) = node.mesh() {
+            let start = out.vertices.len();
             read_part(&mesh, transform, &buffers, &mut out)
                 .map_err(|e| format!("node {}: {e}", node.name().unwrap_or("(unnamed)")))?;
+            if out.vertices.len() > start {
+                let name = node
+                    .name()
+                    .or(mesh.name())
+                    .map_or_else(|| format!("node {}", node.index()), str::to_owned);
+                parts.push(PartRange {
+                    name,
+                    vertices: start..out.vertices.len(),
+                });
+            }
         }
         stack.extend(node.children().map(|c| (c, transform)));
     }
@@ -92,7 +167,7 @@ pub fn read(text: &str) -> Result<MeshData, String> {
         return Err("the model has no triangles".into());
     }
     compute_outline_normals(&mut out);
-    Ok(out)
+    Ok((out, parts))
 }
 
 /// Reads one node's mesh as one part, appending to `out`.
@@ -467,6 +542,17 @@ mod tests {
         assert_eq!(hull_v.color[3], 0.0);
         assert!((lamp_v.span[0] - 0.2).abs() < 1e-4, "{:?}", lamp_v.span);
         assert!((hull_v.span[1] - 4.0).abs() < 1e-4, "{:?}", hull_v.span);
+
+        // Each part by its node's name, with its size, place and glow.
+        let (mesh, ranges) = read_parts(&text).unwrap();
+        let mut parts = PartInfo::of(&mesh, &ranges);
+        parts.sort_by(|a, b| a.name.cmp(&b.name));
+        assert_eq!(parts[0].name, "hull");
+        assert_eq!(parts[0].triangles, hull.triangle_count());
+        assert!((parts[0].max[0] - parts[0].min[0] - 4.0).abs() < 1e-4);
+        assert_eq!((parts[0].glow, parts[1].glow), (0.0, 1.0));
+        assert_eq!(parts[1].name, "lamp");
+        assert!((parts[1].min[0] - 2.4).abs() < 1e-4, "{:?}", parts[1]);
     }
 
     #[test]

@@ -45,6 +45,12 @@ What the engine works out at load, so modellers and generators never supply it:
   triangle). The shader thins ink on parts and facets only a few pixels across, so a
   distant thing stays coloured instead of turning solid ink.
 
+`galaxy-gm model <module> [<model>]` says what a model is without reading its glTF: each
+part (node) by name with its triangles, size and place in the model's own frame, its glow,
+bite and morph; the outline collision uses (how far it reaches front, left, back and
+right); and the things whose start state wears it (`galaxy_mesh::gltf::read_parts` keeps
+which vertices each node became).
+
 `galaxy_mesh::gltf::write` writes the same format from meshes, one node per part. The
 test models are made that way (`crates/galaxy/tests/drift.rs`, `make_the_models`), and
 the GM's model generator will be too.

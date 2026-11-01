@@ -87,6 +87,7 @@ fn film(dir: &Path, n: usize, shot: impl Fn(usize) -> Shot) {
         changes: Vec::new(),
         frames,
         outlines: BTreeMap::new(),
+        parts: Default::default(),
     };
     manifest.write(dir).unwrap();
 }
@@ -577,4 +578,58 @@ fn compare_puts_how_the_followed_thing_moved_side_by_side() {
             .contains("moves differently"),
         "{diff}"
     );
+}
+
+#[test]
+fn flicker_makes_a_close_up_of_any_event_or_moment_asked_for() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("f");
+    film(&dir, 30, |i| {
+        let mut image = Image::new(W, H, BG);
+        // A square shown on frame 8 only, and a bar on frames 18 to 29.
+        if i == 8 {
+            image.fill_rect(40, 40, 16, 16, [255, 255, 255, 255]);
+        }
+        if i >= 18 {
+            image.fill_rect(200, 100, 30, 12, [255, 255, 255, 255]);
+        }
+        Shot {
+            image,
+            things: BTreeMap::new(),
+            lines: Vec::new(),
+        }
+    });
+    let all = tool("flicker", &dir, &[]);
+    let events = all["events"].as_array().unwrap();
+    assert!(events.len() >= 2, "{all}");
+    for (k, e) in events.iter().enumerate() {
+        assert_eq!(e["n"].as_u64().unwrap() as usize, k + 1, "{all}");
+        assert!(e["looks_like"].is_string(), "{all}");
+    }
+    let last = events.len().to_string();
+    let one = tool("flicker", &dir, &["--event", &last]);
+    let chosen = &one["chosen"];
+    assert_eq!(chosen["n"].as_u64().unwrap().to_string(), last, "{one}");
+    assert!(
+        Path::new(chosen["closeup"].as_str().unwrap()).is_file(),
+        "{one}"
+    );
+    assert!(chosen["changed"]["looks_like"]["kind"].is_string(), "{one}");
+    // The square appearing is an area, not edges stepping.
+    let square = events
+        .iter()
+        .find(|e| e["from"]["frame"] == 8)
+        .unwrap_or_else(|| panic!("{all}"));
+    assert!(
+        square["looks_like"].as_str().unwrap().contains("area"),
+        "{square}"
+    );
+    // --at picks the event starting there; with nothing there it needs --near.
+    let at = tool("flicker", &dir, &["--at", "0.3"]);
+    assert_eq!(at["chosen"]["from"]["frame"], 18, "{at}");
+    let opts = Opts::parse(&["--at".to_owned(), "0.2".to_owned()]).unwrap();
+    let err = run("flicker", &dir, &opts).unwrap_err();
+    assert!(err.contains("--near"), "{err}");
+    let opts = Opts::parse(&["--event".to_owned(), "99".to_owned()]).unwrap();
+    assert!(run("flicker", &dir, &opts).unwrap_err().contains("--event"));
 }

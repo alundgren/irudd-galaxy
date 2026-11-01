@@ -65,7 +65,8 @@ How to work a motion question:
 A film is a folder: `film.json` (how it was filmed, the things in it and what changed;
 small enough to read whole), `frames.jsonl` (a frame a line: time, tick, camera and every
 thing's pose and screen position), `lines.jsonl` (a frame a line: every line and dot
-drawn), `outlines.json` (each thing's outline on the plane, as collision sees it) and
+drawn), `outlines.json` (each thing's outline on the plane, as collision sees it), `parts.json`
+(the models' parts as triangles, and which model each thing wears) and
 `frames/00000.png` (lossless, one per frame), plus `motion/` where the tools put their
 pictures. `galaxy-gm film show <film>` prints the probes as a table, a frame a
 line, for the things and times asked; `--gap <y>` adds each thing's gap to y's surface. Films of format 1, with every frame inside
@@ -221,11 +222,28 @@ the camera's step (parallax); `flow` fits that share and sets it aside.
   film is read either way, so a cell's usual change is known at the edges of the span.
   The picture is a motion history: where things changed, coloured by how recently, with
   the flagged cells boxed. The three strongest events each get a close-up
-  (`closeup`): the frame before moved into the view of the frame it changed on, that
-  frame, and the changed pixels (warm brighter, blue darker) over it dimmed, enlarged in
-  whole pixel blocks; `changed` says how many pixels changed and which thing is nearest
-  them. The move is exact on the ground plane only, so a tall thing (a tower, a rim)
-  shows a thin outline of change even when nothing popped. It can only see what
+  (`closeup`), and `--event <n>` (each event's `n`) or `--at <t>` (the event starting
+  there, else with `--near` the box round that thing) makes one for any other: the frame
+  before moved into the view of the frame it changed on, that frame, and the changed
+  pixels (warm brighter, blue darker) over it dimmed, enlarged in whole pixel blocks
+  (nearest neighbour); `changed` says how many pixels changed and which thing is nearest
+  them. The move is exact on the ground plane only, so the close-up first lines the box
+  up by a shift of up to four pixels: a tall thing (a tower, a rim) slides a little
+  against the camera's move.
+  Every listed event says what its change **looks like**, from its difference mask once
+  lined up: `core_share` is the share of changed pixels whose eight neighbours changed
+  too (a filled patch has a core, a band a pixel or two wide has none) and `edge_share`
+  the share within two pixels of an edge in both frames (an outline that stepped is an
+  edge before and after; a line that appeared is one only after). A core of 30% or more
+  is an area appearing, vanishing or changing tone; else 60% or more at edges in both is
+  edges stepping; else a thin line appearing or breaking. And it says which model
+  **parts** (glTF nodes) lie under it: the film's `parts.json` keeps every model's parts
+  as triangles and which model and scale each thing wears, so the tool draws the parts
+  into a small part map of the box (nearest the camera wins) and gives each changed
+  pixel to the part nearest the camera within two pixels, as a part's ink outline lies
+  just outside it, over what is behind. On drift's dock film the hub's events read as
+  edges stepping on its towers, drum and ring; the course appearing reads as a thin line
+  on no model. `galaxy-gm model <module> <model>` lists a model's parts with their sizes. It can only see what
   the film shows: below 60 fps or 1280x720 it adds `warnings`, as thin lines and
   one-frame events can fall between frames or pixels (a hub's broken inner ink line shows
   at 60 fps and the player's size, and was missed at 30 fps and 960x540).

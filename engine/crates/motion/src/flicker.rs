@@ -21,9 +21,13 @@
 //! boxed with their times. Fixed overlays need `--screen`, which compares pixels where
 //! they are instead of following the world.
 //!
-//! The strongest events also get a close-up each: the frame before (moved into the
-//! later frame's view), the frame it changed on, and what changed between them, enlarged
-//! in whole pixel blocks, with the thing nearest the changed pixels named.
+//! The strongest events also get a close-up each (`--event n` or `--at t` any other):
+//! the frame before (moved into the later frame's view), the frame it changed on, and
+//! what changed between them, enlarged in whole pixel blocks, with the thing nearest the
+//! changed pixels named. Every listed event says what its change looks like (edges
+//! stepping, a thin line appearing or breaking, an area changing) from its difference
+//! mask, and which model parts (glTF nodes, from the film's `parts.json`, drawn as their
+//! triangles) lie under it.
 
 use serde_json::{Value, json};
 
@@ -56,7 +60,17 @@ struct Step {
 }
 
 /// The options `flicker` takes, besides `--image`.
-pub const OPTIONS: &[&str] = &["grid", "screen", "half", "threshold", "from", "to", "near"];
+pub const OPTIONS: &[&str] = &[
+    "grid",
+    "screen",
+    "half",
+    "threshold",
+    "from",
+    "to",
+    "near",
+    "event",
+    "at",
+];
 
 /// Events listed with `--detail`; the compact report keeps the strongest few.
 const LISTED: usize = 30;
@@ -302,9 +316,24 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         groups.truncate(LISTED);
     }
     let image_path = opts.image_path(&film.dir, "flicker")?;
+    // `--event n`: a close-up of the nth event listed; `--at t`: of the strongest event
+    // starting on the frame nearest t (near --near), or else of --near's box there.
+    let event = opts.count("event")?;
+    if let Some(n) = event
+        && (n == 0 || n > groups.len())
+    {
+        return Err(format!(
+            "--event counts from 1, and {} event(s) are listed here (each event's `n`)",
+            groups.len()
+        ));
+    }
+    let at = opts.number("at")?.map(|t| film.frame_at(t).max(1));
+    let at_event = at.and_then(|f| groups.iter().position(|g| g.from.abs_diff(f) <= 1));
     let mut listed: Vec<Value> = Vec::new();
+    let mut chosen: Option<Value> = None;
     for (k, e) in groups.iter().enumerate() {
         let mut v = json!({
+            "n": k + 1,
             "kind": e.kind,
             "from": when(&frames[e.from]),
             "to": when(&frames[e.to]),
@@ -313,15 +342,58 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             "change": round(e.change, 1),
             "near": things_in(e.from, e.bounds, 8.0),
         });
-        if k < CLOSEUPS && e.from >= 1 {
-            let back = warp(e.from, e.from - 1);
-            let (img, what) = closeup(film, e.from, e.bounds, &back)?;
-            let path = sibling(&image_path, &format!("event-{}", k + 1));
-            img.save_png(&path)?;
-            v["changed"] = what;
-            v["closeup"] = json!(path.display().to_string());
+        if e.from >= 1 {
+            let c = closeup(film, e.from, e.bounds, &warp(e.from, e.from - 1))?;
+            v["looks_like"] = c.what["looks_like"]["says"].clone();
+            if c.what["parts"].as_array().is_some_and(|p| !p.is_empty()) {
+                v["parts"] = c.what["parts"].clone();
+            }
+            let wanted = event == Some(k + 1) || (event.is_none() && at_event == Some(k));
+            if k < CLOSEUPS || wanted {
+                let path = sibling(&image_path, &format!("event-{}", k + 1));
+                c.image.save_png(&path)?;
+                v["changed"] = c.what;
+                v["closeup"] = json!(path.display().to_string());
+            }
+            if wanted {
+                chosen = Some(v.clone());
+            }
         }
         listed.push(v);
+    }
+    if chosen.is_none()
+        && event.is_none()
+        && let Some(f) = at
+    {
+        let Some(id) = &near else {
+            return Err(format!(
+                "no event starts at t={:.3}; add --near <thing> for a close-up of that thing \
+                 there, or pick an event by its n with --event",
+                frames[f].time
+            ));
+        };
+        let t = frames[f]
+            .things
+            .get(id)
+            .and_then(|t| t.screen.map(|s| (s, t.reach.unwrap_or(0.0))))
+            .ok_or_else(|| format!("{id} is not on screen at t={:.3}", frames[f].time))?;
+        let r = (t.1 / frames[f].camera.per_pixel.max(1e-9)).clamp(16.0, 200.0) + 8.0;
+        let x0 = (t.0[0] - r).clamp(0.0, w as f32 - 1.0) as u32;
+        let y0 = (t.0[1] - r).clamp(0.0, h as f32 - 1.0) as u32;
+        let x1 = ((t.0[0] + r).max(0.0) as u32).clamp(x0 + 1, w);
+        let y1 = ((t.0[1] + r).max(0.0) as u32).clamp(y0 + 1, h);
+        let b = [x0, y0, x1 - x0, y1 - y0];
+        let c = closeup(film, f, b, &warp(f, f - 1))?;
+        let path = sibling(&image_path, "closeup");
+        c.image.save_png(&path)?;
+        chosen = Some(json!({
+            "event": null,
+            "at": when(&frames[f]),
+            "box_px": b,
+            "looks_like": c.what["looks_like"]["says"].clone(),
+            "changed": c.what,
+            "closeup": path.display().to_string(),
+        }));
     }
     let changed_share: Vec<f32> = steps
         .iter()
@@ -452,16 +524,19 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         "blips": blips,
         "flicker_runs": flickers,
         "events": listed,
+        "chosen": chosen,
         "left_out": left_out,
         "warnings": warnings(film, scale),
         "changed_share": { "median": round(median(&changed_share), 4), "max": round(changed_share.iter().fold(0.0, |a: f32, b| a.max(*b)), 4) },
         "reading": reading,
         "image": out.display().to_string(),
     });
-    if let Some(m) = report.as_object_mut()
-        && m["left_out"].is_null()
-    {
-        m.remove("left_out");
+    if let Some(m) = report.as_object_mut() {
+        for key in ["left_out", "chosen"] {
+            if m[key].is_null() {
+                m.remove(key);
+            }
+        }
     }
     Ok(report)
 }
@@ -474,11 +549,19 @@ fn sibling(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
     path.with_file_name(format!("{stem}-{suffix}.png"))
 }
 
+/// An event's close-up: the picture and what it shows.
+struct Closeup {
+    image: Image,
+    what: Value,
+}
+
 /// One event close up: the frame before moved into the view of the frame it changed on
 /// (`back` maps that frame's pixels into the one before), that frame, and what changed
 /// (warm: brighter now, blue: darker now) over the frame dimmed, enlarged in whole pixel
-/// blocks. Also says how many pixels changed, where, and the thing nearest them.
-fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, Value), String> {
+/// blocks (nearest neighbour). Also says how many pixels changed, where, the thing
+/// nearest them, what kind of change it looks like and which parts of which models lie
+/// under it.
+fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<Closeup, String> {
     let frames = film.frames();
     let (w, h) = film.size();
     let (after, before) = (film.image(at)?, film.image(at - 1)?);
@@ -496,8 +579,12 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
     // The camera's move is exact on the ground plane only: a tall thing (a tower, a rim)
     // slides a little against it. A shift of up to a few pixels that best lines the box
     // up takes that out, so what is left is what changed.
+    let mapped: Vec<Option<[f32; 2]>> = (0..bh)
+        .flat_map(|j| (0..bw).map(move |i| (i, j)))
+        .map(|(i, j)| back.map((x0 + i) as f32 + 0.5, (y0 + j) as f32 + 0.5))
+        .collect();
     let at_shift = |x: u32, y: u32, s: [f32; 2]| {
-        back.map(x as f32 + 0.5, y as f32 + 0.5)
+        mapped[((y - y0) * bw + (x - x0)) as usize]
             .and_then(|[fx, fy]| before.sample(fx + s[0], fy + s[1]))
     };
     let mismatch = |s: [f32; 2]| {
@@ -523,24 +610,30 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
             }
         }
     }
+    let n = (bw * bh) as usize;
+    let (mut was_l, mut now_l) = (vec![f32::NAN; n], vec![0.0f32; n]);
+    let mut changed = vec![false; n];
     for j in 0..bh {
         for i in 0..bw {
             let (x, y) = (x0 + i, y0 + j);
+            let k = (j * bw + i) as usize;
             let a = after.get(x, y);
             now.set(i64::from(i), i64::from(j), a);
             let dim = [a[0] / 4, a[1] / 4, a[2] / 4, 255];
             diff.set(i64::from(i), i64::from(j), dim);
+            let af = [f32::from(a[0]), f32::from(a[1]), f32::from(a[2]), 255.0];
+            now_l[k] = luma(af);
             let Some(p) = at_shift(x, y, shift) else {
                 continue;
             };
+            was_l[k] = luma(p);
             was.set(
                 i64::from(i),
                 i64::from(j),
                 [p[0] as u8, p[1] as u8, p[2] as u8, 255],
             );
-            let af = [f32::from(a[0]), f32::from(a[1]), f32::from(a[2]), 255.0];
             let d = luma(af) - luma(p);
-            let colour = (0..3).map(|k| (af[k] - p[k]).abs()).fold(0.0, f32::max) / 255.0;
+            let colour = (0..3).map(|c| (af[c] - p[c]).abs()).fold(0.0, f32::max) / 255.0;
             if d.abs().max(colour * 0.5) >= SHOWN_CHANGE {
                 let c = if d >= 0.0 {
                     [255, 200, 90, 255]
@@ -548,6 +641,7 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
                     [90, 160, 255, 255]
                 };
                 diff.blend(i64::from(i), i64::from(j), c, (0.4 + colour * 2.0).min(1.0));
+                changed[k] = true;
                 count += 1;
                 let weight = colour;
                 sx += weight * x as f32;
@@ -557,7 +651,7 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
         }
     }
     // Whole pixel blocks, so each panel is a few hundred pixels and every pixel stays sharp.
-    let k = 320u32.div_ceil(bw.max(bh).max(1)).clamp(1, 8);
+    let k = 320u32.div_ceil(bw.max(bh).max(1)).clamp(2, 12);
     let gap = 6;
     let head = 14;
     let mut out = Image::new(3 * bw * k + 2 * gap, bh * k + head, crate::image::PAPER);
@@ -569,7 +663,7 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
     ];
     for (n, (panel, title)) in [&was, &now, &diff].into_iter().zip(&titles).enumerate() {
         let left = i64::from(n as u32 * (bw * k + gap));
-        out.blit(&panel.resized(bw * k, bh * k), left, i64::from(head));
+        out.blit(&panel.enlarged(k), left, i64::from(head));
         out.text(left + 2, 3, title, 1, TEXT);
     }
     let centre = (sum > 0.0).then(|| [sx / sum, sy / sum]);
@@ -595,8 +689,226 @@ fn closeup(film: &Film, at: usize, b: [u32; 4], back: &Warp) -> Result<(Image, V
         } else {
             format!("{id} (within its reach, {d:.0} px from its centre)")
         }),
+        "looks_like": looks_like(&was_l, &now_l, &changed, bw as usize, bh as usize),
+        "parts": parts_under(film, at, x0, y0, bw, &changed),
     });
-    Ok((out, what))
+    Ok(Closeup { image: out, what })
+}
+
+/// What kind of change the close-up's difference mask is, from two simple measures:
+/// `core_share`, the changed pixels whose eight neighbours all changed too (a filled
+/// area has a core; a band one or two pixels wide has none), and `edge_share`, the
+/// changed pixels within two pixels of an edge in both frames (an outline that stepped
+/// is an edge before and after; a line that appeared is an edge only after).
+fn looks_like(was: &[f32], now: &[f32], changed: &[bool], w: usize, h: usize) -> Value {
+    let total = changed.iter().filter(|c| **c).count();
+    if total == 0 {
+        return json!({
+            "kind": "none",
+            "says": "nothing changed once the box is lined up: the camera's move alone (a tall thing slides against it)",
+        });
+    }
+    let edges = |img: &[f32]| {
+        let at = |x: usize, y: usize| img[y * w + x];
+        let mut e = vec![false; w * h];
+        for y in 1..h.saturating_sub(1) {
+            for x in 1..w.saturating_sub(1) {
+                let g = (at(x + 1, y) - at(x - 1, y))
+                    .abs()
+                    .max((at(x, y + 1) - at(x, y - 1)).abs());
+                e[y * w + x] = g / 2.0 > 0.04;
+            }
+        }
+        // Within two pixels of an edge.
+        let mut near = vec![false; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                if !e[y * w + x] {
+                    continue;
+                }
+                for ny in y.saturating_sub(2)..(y + 3).min(h) {
+                    for nx in x.saturating_sub(2)..(x + 3).min(w) {
+                        near[ny * w + nx] = true;
+                    }
+                }
+            }
+        }
+        near
+    };
+    let (eb, ea) = (edges(was), edges(now));
+    let (mut core, mut both, mut only_after, mut only_before) = (0, 0, 0, 0);
+    for y in 0..h {
+        for x in 0..w {
+            let k = y * w + x;
+            if !changed[k] {
+                continue;
+            }
+            let full = (y >= 1 && y + 1 < h && x >= 1 && x + 1 < w)
+                && (y - 1..=y + 1).all(|ny| (x - 1..=x + 1).all(|nx| changed[ny * w + nx]));
+            core += usize::from(full);
+            match (eb[k], ea[k]) {
+                (true, true) => both += 1,
+                (false, true) => only_after += 1,
+                (true, false) => only_before += 1,
+                _ => {}
+            }
+        }
+    }
+    let share = |n: usize| n as f32 / total as f32;
+    let (core_share, edge_share) = (share(core), share(both));
+    let (kind, says) = if core_share >= 0.3 {
+        (
+            "area",
+            "an area appears, vanishes or changes tone (the changed pixels fill a patch)",
+        )
+    } else if edge_share >= 0.6 {
+        (
+            "edges",
+            "edges step: outlines move by a pixel or two, nothing appears or vanishes",
+        )
+    } else if only_after >= only_before {
+        (
+            "line",
+            "a thin line appears or joins (an edge now where there was none)",
+        )
+    } else {
+        (
+            "line",
+            "a thin line vanishes or breaks (an edge before, none now)",
+        )
+    };
+    json!({
+        "kind": kind,
+        "says": says,
+        "core_share": round(core_share, 2),
+        "edge_share": round(edge_share, 2),
+    })
+}
+
+/// Which model part each pixel of the box `x0, y0, bw, bh` of frame `at` shows: every
+/// thing's parts drawn as their triangles, the nearest to the camera winning. Indexes
+/// into the names (`thing/part`), -1 where no model is drawn, and the distance from the
+/// camera of what each pixel shows.
+type PartMap = (Vec<i32>, Vec<f32>, Vec<String>);
+
+fn part_map(film: &Film, at: usize, x0: u32, y0: u32, bw: u32, bh: u32) -> PartMap {
+    let frame = &film.frames()[at];
+    let (w, h) = film.size();
+    let n = (bw * bh) as usize;
+    let (mut ids, mut depth) = (vec![-1i32; n], vec![f32::INFINITY; n]);
+    let mut names = Vec::new();
+    let eye = frame.camera.eye;
+    for (thing, worn) in &film.manifest.parts.things {
+        let (Some(t), Some(parts)) = (
+            frame.things.get(thing),
+            film.manifest.parts.models.get(&worn.model),
+        ) else {
+            continue;
+        };
+        let (s, c) = t.angle.sin_cos();
+        let place = |p: &[f32]| {
+            let (x, y, z) = (p[0] * worn.scale, p[1] * worn.scale, p[2] * worn.scale);
+            let world = [t.x + x * c - y * s, t.y + x * s + y * c, t.height + z];
+            let d = (0..3)
+                .map(|k| (world[k] - eye[k]).powi(2))
+                .sum::<f32>()
+                .sqrt();
+            frame
+                .camera
+                .project(world, w, h)
+                .map(|p| [p[0] - x0 as f32, p[1] - y0 as f32, d])
+        };
+        for part in parts {
+            let id = names.len() as i32;
+            names.push(format!("{thing}/{}", part.name));
+            for tri in part.triangles.as_chunks::<9>().0 {
+                let (Some(a), Some(b), Some(q)) =
+                    (place(&tri[0..3]), place(&tri[3..6]), place(&tri[6..9]))
+                else {
+                    continue;
+                };
+                let edge = |u: [f32; 3], v: [f32; 3], p: [f32; 2]| {
+                    (v[0] - u[0]) * (p[1] - u[1]) - (v[1] - u[1]) * (p[0] - u[0])
+                };
+                let area = edge(a, b, [q[0], q[1]]);
+                if area.abs() < 1e-6 {
+                    continue;
+                }
+                let lo = |k: usize| a[k].min(b[k]).min(q[k]).floor().max(0.0) as u32;
+                let hi =
+                    |k: usize, max: u32| (a[k].max(b[k]).max(q[k]).ceil().max(0.0) as u32).min(max);
+                for py in lo(1)..hi(1, bh) {
+                    for px in lo(0)..hi(0, bw) {
+                        let p = [px as f32 + 0.5, py as f32 + 0.5];
+                        let (wa, wb) = (edge(b, q, p) / area, edge(q, a, p) / area);
+                        let wq = 1.0 - wa - wb;
+                        if wa < 0.0 || wb < 0.0 || wq < 0.0 {
+                            continue;
+                        }
+                        let z = wa * a[2] + wb * b[2] + wq * q[2];
+                        let k = (py * bw + px) as usize;
+                        if z < depth[k] {
+                            (depth[k], ids[k]) = (z, id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (ids, depth, names)
+}
+
+/// Which parts of which things' models lie under the changed pixels of a close-up box:
+/// each changed pixel counts for the part nearest the camera within two pixels of it, as
+/// a part's ink outline lies just outside it, over what is behind. Strongest first, as
+/// `thing/part share%`, with what lies on no model.
+fn parts_under(film: &Film, at: usize, x0: u32, y0: u32, bw: u32, changed: &[bool]) -> Vec<String> {
+    if film.manifest.parts.is_empty() {
+        return Vec::new();
+    }
+    let bh = changed.len() as u32 / bw.max(1);
+    let (ids, depth, names) = part_map(film, at, x0, y0, bw, bh);
+    let mut tally = vec![0usize; names.len() + 1];
+    let mut total = 0usize;
+    for (k, _) in changed.iter().enumerate().filter(|(_, c)| **c) {
+        total += 1;
+        let (x, y) = ((k as u32 % bw) as i64, (k as u32 / bw) as i64);
+        let (mut found, mut nearest) = (-1, f32::INFINITY);
+        for dy in -2..=2i64 {
+            for dx in -2..=2i64 {
+                let (nx, ny) = (x + dx, y + dy);
+                if nx >= 0 && ny >= 0 && nx < i64::from(bw) && ny < i64::from(bh) {
+                    let n = (ny * i64::from(bw) + nx) as usize;
+                    if ids[n] >= 0 && depth[n] < nearest {
+                        (found, nearest) = (ids[n], depth[n]);
+                    }
+                }
+            }
+        }
+        let slot = if found >= 0 {
+            found as usize
+        } else {
+            names.len()
+        };
+        tally[slot] += 1;
+    }
+    let mut out: Vec<(String, usize)> = tally
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| **n > 0)
+        .map(|(i, n)| {
+            let name = names
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| "on no model".to_owned());
+            (name, *n)
+        })
+        .collect();
+    out.sort_by_key(|b| std::cmp::Reverse(b.1));
+    out.iter()
+        .take(4)
+        .map(|(name, n)| format!("{name} {:.0}%", 100.0 * *n as f32 / total.max(1) as f32))
+        .collect()
 }
 
 /// Settings that can hide what flicker looks for.
@@ -753,4 +1065,43 @@ fn left_out_count(reasons: &[String]) -> usize {
         .iter()
         .filter_map(|r| r.split_whitespace().next()?.parse::<usize>().ok())
         .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 20 x 20 frame, black, with what `paint` lights.
+    fn frame(paint: impl Fn(usize, usize) -> bool) -> Vec<f32> {
+        (0..400)
+            .map(|k| if paint(k % 20, k / 20) { 1.0 } else { 0.0 })
+            .collect()
+    }
+
+    fn kind(was: &[f32], now: &[f32]) -> String {
+        let changed: Vec<bool> = was
+            .iter()
+            .zip(now)
+            .map(|(a, b)| (a - b).abs() > 0.1)
+            .collect();
+        looks_like(was, now, &changed, 20, 20)["kind"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[test]
+    fn a_change_says_whether_edges_stepped_a_line_came_or_an_area_did() {
+        // An edge moving one pixel to the right.
+        let a = frame(|x, _| x < 10);
+        let b = frame(|x, _| x < 11);
+        assert_eq!(kind(&a, &b), "edges");
+        // A one-pixel line appearing across a flat field.
+        let line = frame(|_, y| y == 10);
+        assert_eq!(kind(&frame(|_, _| false), &line), "line");
+        // A filled square appearing.
+        let square = frame(|x, y| (5..15).contains(&x) && (5..15).contains(&y));
+        assert_eq!(kind(&frame(|_, _| false), &square), "area");
+        assert_eq!(kind(&a, &a), "none");
+    }
 }

@@ -177,6 +177,10 @@ pub fn adopt(
             m.outlines = p.outlines.clone();
             added.push("outlines".to_owned());
         }
+        if m.parts.is_empty() && !p.parts.is_empty() {
+            m.parts = p.parts.clone();
+            added.push("parts".to_owned());
+        }
         let mut reach = false;
         let mut same = true;
         for (f, q) in m.frames.iter_mut().zip(&p.frames) {
@@ -373,6 +377,7 @@ mod tests {
             changes: Vec::new(),
             frames: vec![frame(reach)],
             outlines: Default::default(),
+            parts: Default::default(),
         };
         // An older build wrote format 1: every frame inside film.json, no builds.
         let old = manifest(None);

@@ -8,6 +8,7 @@
 //! frames.jsonl        a frame a line: time, tick, camera and where every thing is
 //! lines.jsonl         a frame a line: every line and dot it drew
 //! outlines.json       each thing's outline on the plane, for gaps between surfaces
+//! parts.json          the models' parts as triangles, to name what changed pixels show
 //! frames/00000.png    each frame, lossless (none for a probes-only film)
 //! ```
 //!
@@ -64,6 +65,40 @@ pub struct Manifest {
     /// in films from before outlines were kept.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub outlines: BTreeMap<String, Outline>,
+    /// Each thing's model parts (kept in `parts.json`). Empty in films from before parts
+    /// were kept.
+    #[serde(default, skip_serializing_if = "Parts::is_empty")]
+    pub parts: Parts,
+}
+
+/// The parts of the models things wear (kept in `parts.json`), so a tool can name the
+/// part under a pixel: each model's parts (glTF nodes) as triangles in its own frame (+x
+/// its front, +y its left, +z up, world units at scale 1), and which model each thing
+/// wears at what scale.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Parts {
+    pub models: BTreeMap<String, Vec<PartMesh>>,
+    pub things: BTreeMap<String, Worn>,
+}
+
+impl Parts {
+    pub fn is_empty(&self) -> bool {
+        self.things.is_empty()
+    }
+}
+
+/// One part of a model: its name and its triangles, nine numbers each (three corners).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PartMesh {
+    pub name: String,
+    pub triangles: Vec<f32>,
+}
+
+/// The model a thing wears, and its scale.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Worn {
+    pub model: String,
+    pub scale: f32,
 }
 
 /// A thing's outline on the sim plane, as collision sees it: how far it reaches from its
@@ -190,6 +225,7 @@ impl Manifest {
                 "frames.jsonl": "a frame a line: index, file, time (s), tick, alpha, hash, camera, zoom, things (x, y, height, angle, screen, on_screen, followed, reach)",
                 "lines.jsonl": "a frame a line: the lines it drew (kind, closed, alpha, width, points, phase, spacing, dots)",
                 "outlines.json": "each thing's outline on the plane: its reach in evenly spaced directions from +x in its own frame (base, and morphed for a model that morphs)",
+                "parts.json": "models: each model's parts (glTF nodes) as triangles in its own frame, nine numbers a triangle; things: which model each thing wears and its scale",
                 "frames/": "the pictures, frames/00000.png on",
                 "motion/": "the motion tools' pictures",
                 "show": "galaxy-gm film show <film> prints the probes compactly",
@@ -211,6 +247,18 @@ impl Manifest {
                 .collect();
             let text = serde_json::to_string(&rounded).map_err(|e| e.to_string())?;
             let path = dir.join("outlines.json");
+            std::fs::write(&path, text)
+                .map_err(|e| format!("can't write {}: {e}", path.display()))?;
+        }
+        if !self.parts.is_empty() {
+            let mut parts = self.parts.clone();
+            for p in parts.models.values_mut().flatten() {
+                for v in &mut p.triangles {
+                    *v = round(*v, 3) as f32;
+                }
+            }
+            let text = serde_json::to_string(&parts).map_err(|e| e.to_string())?;
+            let path = dir.join("parts.json");
             std::fs::write(&path, text)
                 .map_err(|e| format!("can't write {}: {e}", path.display()))?;
         }
@@ -487,6 +535,7 @@ impl Film {
                     changes: h.changes,
                     frames: read_frames(dir)?,
                     outlines: read_outlines(dir)?,
+                    parts: read_parts(dir)?,
                 }
             }
             _ => {
@@ -606,6 +655,16 @@ fn read_outlines(dir: &Path) -> Result<BTreeMap<String, Outline>, String> {
         Ok(text) => serde_json::from_str(&text)
             .map_err(|e| format!("{} is not a film's outlines: {e}", path.display())),
         Err(_) => Ok(BTreeMap::new()),
+    }
+}
+
+/// `parts.json`, if the film has one.
+fn read_parts(dir: &Path) -> Result<Parts, String> {
+    let path = dir.join("parts.json");
+    match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|e| format!("{} is not a film's parts: {e}", path.display())),
+        Err(_) => Ok(Parts::default()),
     }
 }
 

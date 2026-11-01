@@ -171,6 +171,19 @@ impl Image {
         out
     }
 
+    /// The image `k` times larger, each pixel a `k` x `k` block (nearest neighbour), so
+    /// single pixels stay sharp and countable.
+    pub fn enlarged(&self, k: u32) -> Image {
+        let k = k.max(1);
+        let mut out = Image::new(self.width * k, self.height * k, BLACK);
+        for j in 0..out.height {
+            for i in 0..out.width {
+                out.set(i64::from(i), i64::from(j), self.get(i / k, j / k));
+            }
+        }
+        out
+    }
+
     /// Copies `other` in with its top left at `(x, y)`.
     pub fn blit(&mut self, other: &Image, x: i64, y: i64) {
         for j in 0..other.height {
