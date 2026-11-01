@@ -254,6 +254,7 @@ struct InstanceGpu {
 struct InkGpu {
     params: [f32; 4],
     color: [f32; 4],
+    raster: [f32; 4],
 }
 
 #[repr(C)]
@@ -366,6 +367,7 @@ struct Pipelines {
     gradient: wgpu::RenderPipeline,
     blobs: wgpu::RenderPipeline,
     panels: wgpu::RenderPipeline,
+    antialias: wgpu::RenderPipeline,
 }
 
 struct Layouts {
@@ -374,6 +376,7 @@ struct Layouts {
     sky: wgpu::BindGroupLayout,
     ui: wgpu::BindGroupLayout,
     ink: wgpu::BindGroupLayout,
+    antialias: wgpu::BindGroupLayout,
 }
 
 /// Normal, paint and depth targets with the colour target's sample coverage.
@@ -397,6 +400,8 @@ pub struct Renderer {
     size: (u32, u32),
     scale: f32,
     msaa: Option<wgpu::TextureView>,
+    world_color: wgpu::TextureView,
+    antialias_bind: wgpu::BindGroup,
     depth: wgpu::TextureView,
     geom: wgpu::TextureView,
     albedo: wgpu::TextureView,
@@ -636,6 +641,10 @@ impl Renderer {
                 texture_entry(1, samples),
                 texture_entry(2, samples),
             ]),
+            antialias: layout(&[
+                texture_entry(0, 1),
+                uniform_entry(1, wgpu::ShaderStages::FRAGMENT),
+            ]),
         };
         let pipelines = create_pipelines(&device, &layouts, format, samples);
 
@@ -671,13 +680,17 @@ impl Renderer {
             },
         );
         let text = TextSystem::new(&device, &queue, format, 1);
-        let (msaa, depth) = create_targets(&device, format, samples, size);
-        let geom_targets = create_geom_targets(&device, size, samples);
+        let raster_size = world_size(size, device.limits().max_texture_dimension_2d);
+        let (msaa, depth) = create_targets(&device, format, samples, raster_size);
+        let (world_color, antialias_bind) =
+            create_world_color(&device, &layouts.antialias, &screen, format, raster_size);
+        let geom_targets = create_geom_targets(&device, raster_size, samples);
         let ink_uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("ink"),
             contents: bytemuck::bytes_of(&InkGpu {
                 params: Ink::default().uniforms(),
                 color: Ink::default().color.to_array(),
+                raster: [raster_size.0 as f32 / size.0 as f32, 0.0, 0.0, 0.0],
             }),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -706,6 +719,8 @@ impl Renderer {
             size,
             scale,
             msaa,
+            world_color,
+            antialias_bind,
             depth,
             geom: geom_targets.geom,
             albedo: geom_targets.albedo,
@@ -773,10 +788,18 @@ impl Renderer {
             config.height = height;
             surface.configure(&self.device, config);
         }
-        let (msaa, depth) = create_targets(&self.device, self.format, self.samples, self.size);
+        let raster_size = world_size(self.size, self.device.limits().max_texture_dimension_2d);
+        let (msaa, depth) = create_targets(&self.device, self.format, self.samples, raster_size);
         self.msaa = msaa;
         self.depth = depth;
-        let geom = create_geom_targets(&self.device, self.size, self.samples);
+        (self.world_color, self.antialias_bind) = create_world_color(
+            &self.device,
+            &self.layouts.antialias,
+            &self.screen,
+            self.format,
+            raster_size,
+        );
+        let geom = create_geom_targets(&self.device, raster_size, self.samples);
         self.ink_bind = ink_bind_group(
             &self.device,
             &self.layouts.ink,
@@ -1062,7 +1085,7 @@ impl Renderer {
             .expect("just created")
     }
 
-    /// Uploads per-frame data and records both passes.
+    /// Uploads per-frame data and records the world and overlay passes.
     fn encode(
         &mut self,
         scene: &Scene,
@@ -1116,6 +1139,13 @@ impl Renderer {
             bytemuck::bytes_of(&InkGpu {
                 params: ink,
                 color: scene.ink.color.to_array(),
+                raster: [
+                    world_size(self.size, self.device.limits().max_texture_dimension_2d).0 as f32
+                        / w as f32,
+                    0.0,
+                    0.0,
+                    0.0,
+                ],
             }),
         );
 
@@ -1273,8 +1303,8 @@ impl Renderer {
             });
         let clear = scene.clear_color;
         let (world_target, resolve) = match &self.msaa {
-            Some(msaa) => (msaa, Some(target)),
-            None => (target, None),
+            Some(msaa) => (msaa, Some(&self.world_color)),
+            None => (&self.world_color, None),
         };
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -1462,6 +1492,27 @@ impl Renderer {
         }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("downsample world"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.pipelines.antialias);
+            pass.set_bind_group(0, &self.antialias_bind, &[]);
+            pass.draw(0..3, 0..1);
+        }
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("overlay"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: target,
@@ -1588,6 +1639,55 @@ fn create_targets(
     (msaa, make(DEPTH_FORMAT, "depth"))
 }
 
+// Keep the public/output size native; only world attachments use this denser raster.
+fn world_size(size: (u32, u32), limit: u32) -> (u32, u32) {
+    let scale = if size.0 <= limit / 2 && size.1 <= limit / 2 {
+        2
+    } else {
+        1
+    };
+    (size.0 * scale, size.1 * scale)
+}
+
+fn create_world_color(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    screen: &wgpu::Buffer,
+    format: wgpu::TextureFormat,
+    size: (u32, u32),
+) -> (wgpu::TextureView, wgpu::BindGroup) {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("resolved world colour"),
+        size: wgpu::Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("downsample world"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: screen.as_entire_binding(),
+            },
+        ],
+    });
+    (view, bind)
+}
+
 fn create_geom_targets(device: &wgpu::Device, size: (u32, u32), samples: u32) -> GeomTargets {
     let extent = wgpu::Extent3d {
         width: size.0,
@@ -1697,6 +1797,10 @@ fn create_pipelines(
     );
     let ui_src = module("ui.wgsl", include_str!("../shaders/ui.wgsl").into());
     let ink_src = module("ink.wgsl", ink_shader_source(samples));
+    let antialias_src = module(
+        "antialias.wgsl",
+        include_str!("../shaders/antialias.wgsl").into(),
+    );
 
     let pl = |layouts: &[Option<&wgpu::BindGroupLayout>]| {
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -1710,6 +1814,7 @@ fn create_pipelines(
     let sky_layout = pl(&[Some(&layouts.sky)]);
     let ui_layout = pl(&[Some(&layouts.ui)]);
     let ink_layout = pl(&[Some(&layouts.ink)]);
+    let antialias_layout = pl(&[Some(&layouts.antialias)]);
 
     let vertex_layout = wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<Vertex>() as u64,
@@ -1796,6 +1901,19 @@ fn create_pipelines(
     let geom_formats = [GEOM_FORMAT, wgpu::TextureFormat::Rgba8Unorm];
     let less = wgpu::CompareFunction::Less;
     Pipelines {
+        antialias: make(Spec {
+            label: "downsample world",
+            layout: &antialias_layout,
+            module: &antialias_src,
+            vs: "vs_antialias",
+            fs: "fs_antialias",
+            buffers: &[],
+            cull: None,
+            depth: None,
+            blend: None,
+            samples: 1,
+            formats: &surface,
+        }),
         mesh: make(Spec {
             label: "mesh",
             layout: &mesh_layout,

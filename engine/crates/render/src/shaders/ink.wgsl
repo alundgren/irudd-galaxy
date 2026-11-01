@@ -18,6 +18,8 @@ struct Ink {
     params: vec4<f32>,
     // The inner ink's linear colour.
     color: vec4<f32>,
+    // x: world raster pixels per output pixel. Feature sizes stay in output pixels.
+    raster: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> ink: Ink;
@@ -85,7 +87,7 @@ fn ink_edge(p: vec2<i32>, sample: u32) -> f32 {
         let o = vec2<i32>(
             i32(round(cos(ang) * radius)),
             i32(round(sin(ang) * radius)),
-        );
+        ) * i32(ink.raster.x);
         if o.x == 0 && o.y == 0 {
             continue;
         }
@@ -146,19 +148,7 @@ fn fs_ink(in: VOut, @builtin(sample_index) sample: u32) -> @location(0) vec4<f32
     if textureLoad(albedo_tex, p, sample).a * 48.0 < 3.0 {
         discard;
     }
-    // Reconstruct only the ink coverage with a one-pixel tent. Four coverage
-    // samples still change in quarter-pixel steps; this small footprint keeps
-    // those changes from joining into a visible pop along a long crease.
-    // Paint, lighting, silhouettes and the overlay are never filtered here.
-    let edge = ink_edge(p, sample) * 0.25
-        + (ink_edge(p + vec2<i32>(1, 0), sample)
-        + ink_edge(p - vec2<i32>(1, 0), sample)
-        + ink_edge(p + vec2<i32>(0, 1), sample)
-        + ink_edge(p - vec2<i32>(0, 1), sample)) * 0.125
-        + (ink_edge(p + vec2<i32>(1, 1), sample)
-        + ink_edge(p + vec2<i32>(1, -1), sample)
-        + ink_edge(p + vec2<i32>(-1, 1), sample)
-        + ink_edge(p - vec2<i32>(1, 1), sample)) * 0.0625;
+    let edge = ink_edge(p, sample);
     // Linear ink, premultiplied. The sRGB target encodes it.
     // Alpha fades with feature size so a medium crease is a tint, not a fill.
     let col = ink.color.rgb;

@@ -1,6 +1,15 @@
 use super::*;
-use crate::{Camera, Color, Glow, MeshBuilder, MeshInstance};
+use crate::{Camera, Color, Glow, MeshBuilder, MeshInstance, Rect};
 use glam::Vec3;
+
+#[test]
+fn world_raster_respects_texture_limits_without_changing_aspect() {
+    assert_eq!(world_size((1280, 720), 8192), (2560, 1440));
+    assert_eq!(world_size((1279, 719), 8192), (2558, 1438));
+    assert_eq!(world_size((4096, 4096), 8192), (8192, 8192));
+    assert_eq!(world_size((4097, 720), 8192), (4097, 720));
+    assert_eq!(world_size((720, 4097), 8192), (720, 4097));
+}
 
 #[test]
 #[ignore = "requires a GPU with 4x MSAA"]
@@ -50,6 +59,7 @@ fn inner_ink_keeps_fractional_coverage_and_single_sample_fallback() {
         for shift in [0.0, 0.5, 1.0] {
             scene.meshes[0].transform = Mat4::from_translation(Vec3::new(shift, 0.0, 0.0));
             let image = renderer.render_to_rgba(&scene).unwrap();
+            assert_eq!(image.pixel(16, 32), [255, 255, 255, 255]);
             // Inside the white face: only ink changes here, never paint.
             reds.push(u32::from(image.pixel(31, 32)[0]));
         }
@@ -75,5 +85,17 @@ fn inner_ink_keeps_fractional_coverage_and_single_sample_fallback() {
             clear.pixels,
             renderer.render_to_rgba(&empty).unwrap().pixels
         );
+        // World antialiasing must not wash out the flat cel faces or filter UI.
+        assert_eq!(clear.pixel(0, 0), clear.pixel(32, 32));
+        empty.clear_color = Color::hex(0x000000);
+        let mut panel = Panel::new(Rect::new(16.0, 16.0, 32.0, 32.0));
+        panel.fill = Color::WHITE;
+        panel.border_px = 0.0;
+        panel.radius = 0.0;
+        panel.shadow = false;
+        empty.overlay.panels.push(panel);
+        let ui = renderer.render_to_rgba(&empty).unwrap();
+        assert_eq!(ui.pixel(15, 32), [0, 0, 0, 255]);
+        assert_eq!(ui.pixel(16, 32), [255, 255, 255, 255]);
     }
 }

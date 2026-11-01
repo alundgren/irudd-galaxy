@@ -11,7 +11,8 @@ struct Globals {
     camera_pos: vec4<f32>,
     // xyz: camera forward, w: 1 for orthographic.
     camera_fwd: vec4<f32>,
-    // x, y: viewport in physical pixels, z: UI scale factor.
+    // x, y: output viewport in physical pixels (the world raster may be denser),
+    // z: UI scale factor. Style and feature sizes keep their output-pixel meaning.
     viewport: vec4<f32>,
     sun_dir: vec4<f32>,
     sun_color: vec4<f32>,
