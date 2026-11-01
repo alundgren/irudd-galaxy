@@ -76,19 +76,21 @@ impl Talk for Column {
                     .child(W::text(said.as_str()).set("style", "small")),
             );
         }
-        vec![col.child(
-            W::new("panel")
-                .set("role", "speech")
-                .set("pad", 12)
-                .set("gap", 6)
-                .child(name_row(line))
-                .child(W::text(line.text.as_str()))
-                .child(
-                    W::new("row")
-                        .child(W::new("spacer").set("grow", 1))
-                        .child(next_button(line)),
-                ),
-        )]
+        vec![
+            col.child(
+                W::new("panel")
+                    .set("role", "speech")
+                    .set("pad", 12)
+                    .set("gap", 6)
+                    .child(name_row(line))
+                    .child(W::text(line.text.as_str()))
+                    .child(
+                        W::new("row")
+                            .child(W::new("spacer").set("grow", 1))
+                            .child(next_button(line)),
+                    ),
+            ),
+        ]
     }
 
     fn frame(&mut self, shown: &mut Shown, line: Option<&Line>, viewport: Vec2, dt: f32) {
@@ -158,7 +160,9 @@ impl Column {
 /// text's length, as the layout isn't known here.
 fn height(line: &Line) -> f32 {
     let lines = |text: &str, px_per_char: f32, room: f32| {
-        (text.chars().count() as f32 * px_per_char / room).ceil().max(1.0)
+        (text.chars().count() as f32 * px_per_char / room)
+            .ceil()
+            .max(1.0)
     };
     let skip = line.before.len().saturating_sub(KEEP);
     let earlier: f32 = line.before[skip..]
