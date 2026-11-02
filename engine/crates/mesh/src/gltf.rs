@@ -56,6 +56,8 @@ pub struct NamedNode {
     pub position: Vec3,
     pub forward: Vec3,
     pub up: Vec3,
+    /// Whether the node draws a mesh (a part) rather than only marking a place.
+    pub mesh: bool,
 }
 
 pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
@@ -78,6 +80,7 @@ pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
                 position: to_world(transform.transform_point3(Vec3::ZERO)),
                 forward: to_world(transform.transform_vector3(-Vec3::Z)).normalize_or(-Vec3::X),
                 up: to_world(transform.transform_vector3(Vec3::Y)).normalize_or(Vec3::Z),
+                mesh: node.mesh().is_some(),
             };
             if !marker.position.is_finite() {
                 return Err(format!("node `{name}` has a non-finite pose"));

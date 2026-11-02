@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use galaxy_api::engine::MODEL;
-use galaxy_mesh::gltf::{PartInfo, PartRange, read_nodes, read_parts};
+use galaxy_mesh::gltf::{PartInfo, read_nodes, read_parts};
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover};
@@ -171,7 +171,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         let mut list = Map::new();
         for (path, text, id) in &models {
             let line = match read_parts(text).and_then(|r| {
-                let m = markers(text, &r.1)?;
+                let m = markers(text)?;
                 Ok((r, m))
             }) {
                 Ok(((mesh, ranges), marks)) => {
@@ -216,7 +216,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         )));
     };
     let (mesh, ranges) = read_parts(text).map_err(|e| bad(format!("{path} does not read: {e}")))?;
-    let marks = markers(text, &ranges).map_err(|e| bad(format!("{path} does not read: {e}")))?;
+    let marks = markers(text).map_err(|e| bad(format!("{path} does not read: {e}")))?;
     let parts = PartInfo::of(&mesh, &ranges);
     let all = whole(&parts);
     let profile = Profile::of(&mesh);
@@ -295,13 +295,14 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
     })))
 }
 
-/// The model's markers: named nodes that are not parts, with where they are, which way
-/// they face and their up, as rooms and spots read them.
-fn markers(text: &str, parts: &[PartRange]) -> Result<Map<String, Value>, String> {
+/// The model's markers: named nodes without a mesh, with where they are, which way
+/// they face and their up, as rooms and spots read them. A part's display name can come
+/// from its mesh, so markers are told apart by the node itself, not by part names.
+fn markers(text: &str) -> Result<Map<String, Value>, String> {
     let v = |p: [f32; 3]| json!(p.map(r2));
     Ok(read_nodes(text)?
         .into_iter()
-        .filter(|(name, _)| !parts.iter().any(|p| p.name == *name))
+        .filter(|(_, n)| !n.mesh)
         .map(|(name, n)| {
             let m = json!({
                 "at": v(n.position.to_array()),
@@ -505,6 +506,32 @@ mod tests {
                 .any(|p| p.as_str().unwrap().starts_with("camera:")),
             "{out}"
         );
+    }
+
+    #[test]
+    fn a_mesh_named_like_a_marker_does_not_hide_the_marker() {
+        // An unnamed mesh node shows as a part named after its mesh; here that mesh is
+        // called `camera`, beside the room's own empty `camera` node.
+        let rooms = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/rooms/demo");
+        let dir = std::env::temp_dir().join(format!("gm-model-markers-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        copy_dir(&rooms, &dir);
+        let path = dir.join("models/room_a.gltf");
+        let mut gltf: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        gltf["nodes"][0].as_object_mut().unwrap().remove("name");
+        gltf["meshes"][0]["name"] = json!("camera");
+        std::fs::write(&path, gltf.to_string()).unwrap();
+        let out = json(run(&dir, Some("room_a")).unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
+        let names: Vec<&str> = out["markers"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert!(names.contains(&"camera"), "{out}");
+        assert!(names.contains(&"spot.entry"), "{out}");
     }
 
     #[test]
