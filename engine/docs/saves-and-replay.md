@@ -50,7 +50,8 @@ A recording is one JSON file that holds everything needed to run a session again
 - `events`, in order: inputs (`tick`, `source`, `name`, `payload`), hot-loads (`tick`,
   `module` and its exact new files), notes (`tick`, `text`, the world's `hash` then, and
   from a played session the `camera`, a moment, and the `frame` file that was seen) and
-  zooms (`tick`, and the `view` height the wheel left; one a tick). Zooms are
+  zooms (`tick`, and the `view` height the wheel left; one a tick), and widget presentation
+  snapshots (`tick`, `state`: scroll offsets and an active drag). Both are
   presentation only: a replay of the world skips them, and a film of the session
   (`galaxy-gm film`, `motion-tools.md`) applies them;
 - `end`: the last tick and the world's hash there.
@@ -111,6 +112,13 @@ Every `galaxy play` records itself into a folder of its own under the sessions f
   notes/0001.png      the frame that was shown when each note was taken
   audit/0001.png      the same moment drawn again by galaxy-gm audit
 ```
+
+The note editor wraps text inside a clipped viewport and scrolls to keep the end caret
+visible while typing or deleting. Wheel and Page Up/Down scroll through the full note;
+End returns to the caret. A separate 32px track and minimum 44px thumb also support
+dragging and track clicks, without covering the note text. The editor
+uses the same headless font measurement as drawing. This editing view is not part of
+the saved note image: F8 preserves the game frame before opening the editor.
 
 **F8** pauses the game on the tick it is on and opens a note box over the frame that was
 on screen. Enter keeps the note, Esc drops it; the game carries on from the same tick

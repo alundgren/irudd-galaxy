@@ -33,6 +33,7 @@ fn the_test_modules_pass_check() {
         "tests/modules/tally",
         "tests/play/drift",
         "tests/play/screens",
+        "tests/play/rich-screens/rich",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);
@@ -41,6 +42,50 @@ fn the_test_modules_pass_check() {
     }
     let (_, out) = gm(&engine(), &["check", "tests/modules/stroll"]);
     assert_eq!(json(&out)["context_modules"], serde_json::json!(["tally"]));
+}
+
+#[test]
+fn check_reports_unused_missing_glyphs_missing_icons_and_unreadable_grids() {
+    for (catalogue, widget, expected) in [
+        (
+            "[icons]\nunused='\u{10ffff}'",
+            "ui.text{text='Readable'}",
+            "font cannot draw",
+        ),
+        (
+            "[icons]\nunused=42",
+            "ui.text{text='Readable'}",
+            "glyph string",
+        ),
+        ("[icons]", "ui.icon{icon='absent'}", "missing module icon"),
+        (
+            "[icons]",
+            "ui.grid{width=10,columns=2,children={ui.text{text='Wide'},ui.text{text='W'}}}",
+            "clipped",
+        ),
+        (
+            "[icons]",
+            "ui.drop_target{id='target',on='drop',text='',accepts={small=''}}",
+            "empty text",
+        ),
+    ] {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("example");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("manifest.toml"), "id='example'\nversion='0.1.0'\nmin_engine_version='0.3.0'\nscripts=['screen.luau']\nevents=['drop']").unwrap();
+        std::fs::write(dir.join("icons.toml"), catalogue).unwrap();
+        std::fs::write(
+            dir.join("screen.luau"),
+            format!("return {{screen=function(_,ui) return {widget} end}}"),
+        )
+        .unwrap();
+        let (code, out) = gm(tmp.path(), &["check", "example"]);
+        assert_eq!(code, 5, "{out}");
+        assert!(
+            messages(&json(&out)).iter().any(|m| m.contains(expected)),
+            "{out}"
+        );
+    }
 }
 
 /// A module folder `dir/<id>` with these files beside its manifest.

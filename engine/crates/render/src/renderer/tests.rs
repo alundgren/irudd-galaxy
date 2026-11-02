@@ -3,6 +3,49 @@ use crate::{Camera, Color, Glow, MeshBuilder, MeshInstance, Rect};
 use glam::Vec3;
 
 #[test]
+#[ignore = "requires a GPU"]
+fn widget_scissor_clips_panels_and_glyphs_at_two_scales() {
+    use crate::{Text, UiLayer};
+    for scale in [1.0, 2.0] {
+        let mut renderer = Renderer::new_headless(128, 128).unwrap();
+        renderer.set_scale_factor(scale);
+        let mut scene = Scene::new(Camera::top_down(Vec2::ZERO, 64.0));
+        scene.overlay.panels.push(Panel {
+            fill: Color::WHITE,
+            border_px: 0.0,
+            radius: 0.0,
+            shadow: false,
+            ..Panel::new(Rect::new(0.0, 0.0, 128.0, 128.0))
+        });
+        let before = renderer.render_to_rgba(&scene).unwrap();
+        scene.overlay.widgets.push(UiLayer {
+            panels: vec![Panel {
+                fill: Color::hex(0xe00000),
+                ..Panel::new(Rect::new(0.0, 0.0, 100.0, 100.0))
+            }],
+            texts: vec![Text::new("WIDE TEXT", Vec2::new(0.0, 10.0), 30.0)],
+            clip: Some(Rect::new(16.0, 16.0, 20.0, 20.0)),
+        });
+        let after = renderer.render_to_rgba(&scene).unwrap();
+        let mut changed = false;
+        for y in 0..128 {
+            for x in 0..128 {
+                let inside = x as f32 >= 16.0 * scale
+                    && (x as f32) < 36.0 * scale
+                    && y as f32 >= 16.0 * scale
+                    && (y as f32) < 36.0 * scale;
+                if !inside {
+                    assert_eq!(before.pixel(x, y), after.pixel(x, y));
+                } else {
+                    changed |= before.pixel(x, y) != after.pixel(x, y);
+                }
+            }
+        }
+        assert!(changed);
+    }
+}
+
+#[test]
 fn world_raster_respects_texture_limits_without_changing_aspect() {
     assert_eq!(world_size((1280, 720), 8192), (2560, 1440));
     assert_eq!(world_size((1279, 719), 8192), (2558, 1438));

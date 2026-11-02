@@ -150,7 +150,7 @@ fn film_here(options: &Options, out: &Path, probes_only: bool) -> Result<Value, 
             .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?,
         None => InputsFile::default(),
     };
-    if !script.clicks.is_empty() {
+    if !script.clicks.is_empty() || !script.pointers.is_empty() {
         return Err(Failure::bad_input(
             "pointer clicks need galaxy play; film or replay its recording",
         ));

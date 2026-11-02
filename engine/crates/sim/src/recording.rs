@@ -155,6 +155,8 @@ pub enum RecEvent {
     /// The player zoomed the view to `view` world units top to bottom, after `tick`.
     /// The world never sees it.
     Zoom { tick: u64, view: f32 },
+    /// Engine widget state after this tick; ignored by world replay.
+    Presentation { tick: u64, state: Value },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -271,6 +273,16 @@ impl Recording {
                 format.map_or_else(|| "unknown".to_owned(), |f| f.to_string())
             ));
         }
+        if raw["events"].as_array().into_iter().flatten().any(|event| {
+            let state = if event["type"] == "presentation" {
+                event.get("state")
+            } else {
+                event.get("camera").and_then(|c| c.get("screens"))
+            };
+            state.is_some_and(|s| s["version"] != 1)
+        }) {
+            return Err("this recording uses an older screen presentation format; replay it with the build that made it".into());
+        }
         serde_json::from_value(raw)
             .map_err(|e| format!("{} is not a valid recording: {e}", path.display()))
     }
@@ -321,7 +333,7 @@ impl<'a> Replay<'a> {
                     module,
                     files,
                 } => loads.entry(*tick).or_default().push((module, files)),
-                RecEvent::Note { .. } | RecEvent::Zoom { .. } => {}
+                RecEvent::Note { .. } | RecEvent::Zoom { .. } | RecEvent::Presentation { .. } => {}
             }
         }
         Ok(Replay {
