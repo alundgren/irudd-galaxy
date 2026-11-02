@@ -302,8 +302,14 @@ fn unbacked_text_gets_paper_but_text_inside_a_panel_reuses_it() {
             1,
             "unbacked text needs a surface: {root}"
         );
-        assert_eq!(label.panels[0].fill, galaxy_render::defaults::PAPER);
-        assert_eq!(label.texts[0].color, galaxy_render::defaults::INK);
+        assert_eq!(
+            label.panels[0].fill,
+            galaxy_render::screen_style::ScreenStyle::default().paper
+        );
+        assert_eq!(
+            label.texts[0].color,
+            galaxy_render::screen_style::ScreenStyle::default().text
+        );
     }
     let (s, mut v) = screen(
         r#"return {screen=function(_,ui)

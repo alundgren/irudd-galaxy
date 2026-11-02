@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 
 use galaxy_api::Registry;
 use galaxy_module::module::Module;
-use galaxy_render::{Color, Overlay, Panel, Rect, Text, UiLayer, glam::Vec2, text::TextMeasure};
+use galaxy_render::{
+    Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
+};
 use galaxy_script::{
     ScriptSet,
     screens::{Screen, Widget},
@@ -24,6 +26,7 @@ pub struct Boxed {
     pub children: Vec<Boxed>,
     pub clip: Option<Rect>,
     pub content_height: f32,
+    pub style: ScreenStyle,
 }
 
 #[derive(Default)]
@@ -37,6 +40,7 @@ pub struct Screens {
     pub presented: Presentation,
     icons: BTreeMap<String, String>,
     pub clock: f32,
+    pub style: ScreenStyle,
 }
 
 impl Screens {
@@ -87,7 +91,7 @@ impl Screens {
             if let Some(tree) = &screen.tree {
                 let mut tree = tree.clone();
                 icons::resolve(&mut tree, &self.icons, &mut self.problems);
-                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure);
+                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
                 place(
                     &mut boxed,
                     Vec2::splat(20.0),
@@ -109,7 +113,7 @@ impl Screens {
             .into_iter()
             .chain(crate::talk::widgets(world))
         {
-            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure);
+            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
             check(
                 &boxed,
@@ -121,7 +125,7 @@ impl Screens {
         }
         self.finish_motion();
         for boxed in &self.boxes {
-            draw(boxed, overlay, None, &self.presentation);
+            draw(boxed, overlay, None, &self.presentation, &self.style);
         }
         self.draw_drag(overlay);
         self.presented = self.presentation.clone();
@@ -237,8 +241,16 @@ impl Screens {
     }
 }
 
-fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
+fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenStyle) -> Boxed {
     let mut padded = w.clone();
+    if !w.explicit_pad
+        && matches!(
+            w.kind.as_str(),
+            "panel" | "button" | "bubble" | "drag_source" | "drop_target"
+        )
+    {
+        padded.pad = style.frame_padding;
+    }
     if w.kind == "scroll" {
         padded.pad = w.pad.max(12.0);
     }
@@ -247,7 +259,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
     let inner = (width
         - 2.0 * w.pad
         - if w.kind == "scroll" {
-            scrolling::LANE + 8.0
+            style.handle_width + 8.0
         } else {
             0.0
         })
@@ -276,7 +288,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
         let mut t = t;
         let mut y = w.pad;
         for child in &w.children {
-            let mut b = layout(child, inner, measure);
+            let mut b = layout(child, inner, measure, style);
             b.rect.x = w.pad;
             b.rect.y = y;
             y += b.rect.h + w.gap;
@@ -289,7 +301,10 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
         let cell = ((inner - w.gap * (w.columns - 1) as f32) / w.columns as f32).max(1.0);
         let mut y = w.pad;
         for row in w.children.chunks(w.columns) {
-            let mut boxes: Vec<_> = row.iter().map(|c| layout(c, cell, measure)).collect();
+            let mut boxes: Vec<_> = row
+                .iter()
+                .map(|c| layout(c, cell, measure, style))
+                .collect();
             let h = boxes.iter().map(|b| b.rect.h).fold(0.0, f32::max);
             for (i, b) in boxes.iter_mut().enumerate() {
                 b.rect.x = w.pad + i as f32 * (cell + w.gap);
@@ -330,7 +345,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
         let mut cursor = 0.0f32;
         let mut cross = 0.0f32;
         for child in &w.children {
-            let mut b = layout(child, share, measure);
+            let mut b = layout(child, share, measure, style);
             let detached = child.anchor.is_some() || child.x.is_some() || child.y.is_some();
             let p = if detached {
                 Vec2::ZERO
@@ -362,6 +377,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
         children,
         clip: None,
         content_height: height,
+        style: *style,
     }
 }
 
@@ -440,10 +456,22 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         if matches!(
             b.widget.kind.as_str(),
             "button" | "bubble" | "drag_source" | "drop_target"
-        ) && (b.rect.h < 44.0 || b.rect.w < 44.0)
+        ) && (b.rect.h < b.style.target_min || b.rect.w < b.style.target_min)
         {
-            problem("button target is smaller than 44 pixels");
+            problem(&format!(
+                "target is smaller than [screen] target_min ({} pixels)",
+                b.style.target_min
+            ));
         }
+    }
+    if b.widget.kind == "scroll"
+        && b.content_height > b.rect.h
+        && scrolling::viewport(b).h < b.style.handle_min
+    {
+        problems.push(format!(
+            "{}: scroll viewport is smaller than [screen] handle_min ({} pixels)",
+            b.widget.path, b.style.handle_min
+        ));
     }
     let parent = if b.widget.kind == "scroll" {
         Rect::new(b.rect.x, b.rect.y, b.rect.w, b.content_height.max(b.rect.h))
@@ -506,7 +534,13 @@ fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
     }
 }
 
-fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Presentation) {
+fn draw(
+    b: &Boxed,
+    overlay: &mut Overlay,
+    backing: Option<Rect>,
+    state: &Presentation,
+    style: &ScreenStyle,
+) {
     if b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
         return;
     }
@@ -520,17 +554,25 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
         b.widget.kind.as_str(),
         "panel" | "button" | "bubble" | "scroll" | "drag_source" | "drop_target"
     ) {
-        let mut panel = Panel::new(b.rect);
+        let mut panel = style.surface(
+            b.rect,
+            if b.widget.kind == "bubble" {
+                style.bubble
+            } else {
+                style.panel
+            },
+        );
+        panel.radius = panel.radius.min(b.widget.pad * 2.0);
         if b.widget.kind == "button" {
-            panel.fill = Color::hex(0xffce75);
+            panel.fill = style.button;
         }
         if b.widget.kind == "drag_source" {
-            panel.fill = Color::hex(0xffce75);
+            panel.fill = style.button;
             if lifted {
-                panel.fill = Color::hex(0xe4dccb);
+                panel.fill = style.socket;
                 panel.shadow = false;
-                panel.dash = 6.0;
-                panel.border_px = 1.0;
+                panel.dash = style.socket_dash;
+                panel.border_px = style.border_px;
             }
         }
         if b.widget.kind == "drop_target"
@@ -542,19 +584,25 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
                 .get(&drag.value)
                 .is_some_and(String::is_empty)
             {
-                Color::hex(0xe1ebd4)
+                style.accept
             } else {
-                Color::hex(0xf1ddd5)
+                style.refuse
             };
         }
         if b.widget.kind == "drop_target" && state.drag.is_some() {
-            panel.border_px = 2.0;
+            panel.border_px = style.hint_border_px;
         }
+        panel.border_px = panel.border_px.min(b.widget.pad);
         layer.panels.push(panel);
         backing = Some(b.rect);
     } else if b.text.is_some() && backing.is_none_or(|r| !contains(r, b.rect)) {
         // A flat paper surface covers every glyph, including text with zero padding.
-        let mut panel = Panel::new(b.rect);
+        let fill = if b.widget.kind == "sign" {
+            style.sign
+        } else {
+            style.paper
+        };
+        let mut panel = style.surface(b.rect, fill);
         panel.radius = 0.0;
         panel.border_px = 0.0;
         panel.shadow = false;
@@ -562,11 +610,12 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
     }
     if let Some(t) = &b.text {
         let mut t = t.clone();
+        t.color = style.text;
         if b.widget.kind == "delta" {
             t.color = if b.widget.delta < 0.0 {
-                Color::hex(0x8b2020)
+                style.loss
             } else {
-                Color::hex(0x235426)
+                style.gain
             };
         }
         if b.widget.kind == "drop_target" {
@@ -590,7 +639,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
         overlay.widgets.push(layer);
     }
     for child in &b.children {
-        draw(child, overlay, backing, state);
+        draw(child, overlay, backing, state, style);
     }
     scrolling::draw(b, overlay, state);
 }
@@ -598,7 +647,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
 fn leaf(kind: &str) -> bool {
     matches!(
         kind,
-        "text" | "button" | "bubble" | "delta" | "icon" | "drag_source" | "drop_target"
+        "text" | "sign" | "button" | "bubble" | "delta" | "icon" | "drag_source" | "drop_target"
     )
 }
 fn painted_kind(kind: &str) -> bool {

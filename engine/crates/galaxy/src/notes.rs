@@ -240,6 +240,7 @@ mod tests {
             },
             editor: Default::default(),
             moment: Moment {
+                screen_style: None,
                 screens: Default::default(),
                 alpha: 0.0,
                 time: 0.0,

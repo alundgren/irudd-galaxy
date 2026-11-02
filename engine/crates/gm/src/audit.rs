@@ -16,7 +16,6 @@
 
 use std::path::{Path, PathBuf};
 
-use galaxy_api::engine::HOT_LOADED;
 use galaxy_module::Failure;
 use galaxy_module::cli::Output;
 use galaxy_module::failure::code;
@@ -113,11 +112,8 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
             if let Some(v) = &mut view {
                 v.before_step(&replay.session.world);
             }
-            let facts = replay.session.world.facts.len();
             replay.step().map_err(Failure::runtime)?;
-            let hot_loaded = replay.session.world.facts[facts..]
-                .iter()
-                .any(|f| f.kind == HOT_LOADED);
+            let hot_loaded = replay.modules_changed;
             if let (true, Some(v), Some(r)) = (hot_loaded, &mut view, &mut renderer) {
                 v.reload(Some(r), replay.session.modules());
             }

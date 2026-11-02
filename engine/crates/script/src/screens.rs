@@ -38,6 +38,7 @@ pub struct Widget {
     pub y: Option<f32>,
     pub size: f32,
     pub pad: f32,
+    pub explicit_pad: bool,
     pub gap: f32,
     pub anchor: Option<String>,
     pub on: Option<String>,
@@ -425,6 +426,7 @@ fn read(
                 0.0
             },
         ),
+        explicit_pad: num("pad")?.is_some(),
         gap: num("gap")?.unwrap_or(12.0),
         anchor,
         on,

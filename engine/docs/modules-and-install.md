@@ -64,7 +64,7 @@ Beside the manifest:
 start.toml         optional: the entities a new world starts with
 scripts/*.luau     scripts
 tests/*.toml       scenario tests (saves-and-replay.md)
-style.toml         optional: looks, ink, light and sky (renderer-and-style.md)
+style.toml         optional: looks, ink, light, sky, course and screen (renderer-and-style.md)
 models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
 audio.toml        optional: event sounds, music and place ambience (audio.md)
 sounds/*          WAV or Ogg Vorbis presentation assets
@@ -86,6 +86,13 @@ door = { open = false }                # this module's component type
 Binary sound files are decoded separately by presentation audio and checked by the GM.
 They are not embedded in recordings or module text hashes; headless replay needs no
 sound files or audio device. See [audio](audio.md).
+
+The optional `[screen]` table in `style.toml` styles widgets, bubbles and signs.
+It follows world-style order: modules sorted by ID, last whole table wins, conflicts
+reported by check. Missing keys/table use neutral defaults; unreadable colours and
+too-small targets or handles are findings naming the style field. See [screens](screens.md).
+Style files are embedded for audit/film and watched. A style-only hot-load is recorded
+as presentation only, without changing the world or emitting a sim event.
 
 ## The version gate
 

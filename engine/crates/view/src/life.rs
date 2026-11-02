@@ -57,7 +57,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 name.into()
             };
             Some(Widget {
-                kind: "text".into(),
+                kind: "sign".into(),
                 id: Some(format!("life.{id}")),
                 path: format!("{id}/sign"),
                 text: label,
@@ -67,6 +67,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 y: Some(-12.0),
                 size: 18.0,
                 pad: 8.0,
+                explicit_pad: true,
                 gap: 0.0,
                 anchor: Some(format!("being.{id}")),
                 on: None,

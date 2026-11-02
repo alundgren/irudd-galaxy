@@ -41,9 +41,8 @@ save or recording format, and old worlds without talk retain their existing hash
 
 The view derives an internal `bubble` widget from the active line. It uses the screens'
 text measurement, wrapping, anchor placement, viewport clamp, readability checks,
-ordered paint layers and hit testing. Its paint is the same neutral panel surface as
-screens; no talk-specific palette, font, game look or style file is introduced. The later
-screen-style item can change this same paint path. Width and offsets are module-owned
+ordered paint layers and hit testing. Its paint uses the bubble surface of the module's `[screen]` style, with a neutral
+default. No separate talk renderer or game look is introduced. Width and offsets are module-owned
 presentation geometry. The line and Continue/Done affordance form one click target.
 
 Anchors follow the same interpolated pose as the figure. A bubble has no private timer,

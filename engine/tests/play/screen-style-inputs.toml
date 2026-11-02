@@ -1,0 +1,101 @@
+[[pointer]]
+tick = 5
+action = "pickup"
+widget = "entries::thumb"
+
+[[pointer]]
+tick = 12
+action = "move"
+widget = "entries::track-end"
+
+[[pointer]]
+tick = 18
+action = "drop"
+widget = "entries::track-end"
+
+[[pointer]]
+tick = 30
+action = "pickup"
+widget = "large"
+
+[[pointer]]
+tick = 36
+action = "move"
+widget = "small"
+
+[[pointer]]
+tick = 42
+action = "move"
+widget = "narrow"
+
+[[pointer]]
+tick = 50
+action = "drop"
+widget = "narrow"
+
+[[pointer]]
+tick = 65
+action = "pickup"
+widget = "large"
+
+[[pointer]]
+tick = 72
+action = "move"
+widget = "small"
+
+[[pointer]]
+tick = 80
+action = "move"
+widget = "wide"
+
+[[pointer]]
+tick = 87
+action = "drop"
+widget = "wide"
+
+[[pointer]]
+tick = 102
+action = "pickup"
+widget = "large"
+
+[[pointer]]
+tick = 110
+action = "move"
+widget = "narrow"
+
+[[pointer]]
+tick = 118
+action = "drop"
+widget = "narrow"
+
+[[note]]
+tick = 20
+text = "The dragged thumb is at the bottom."
+
+[[note]]
+tick = 46
+text = "Held over a refusing slot; home is empty."
+
+[[note]]
+tick = 53
+text = "Returning after refusal."
+
+[[note]]
+tick = 90
+text = "Settling into the accepting slot after the script rebuilt."
+
+[[note]]
+tick = 98
+text = "Placed in the slot."
+
+[[note]]
+tick = 113
+text = "Picked up again from the slot."
+
+[[note]]
+tick = 122
+text = "Returning to the occupied slot."
+
+[[note]]
+tick = 130
+text = "Settled back in the slot."

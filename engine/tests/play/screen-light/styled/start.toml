@@ -1,0 +1,14 @@
+[entities.state]
+state = {}
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60, tilt = 0 }
+[entities.marker]
+"engine.position" = { x = 36, y = -12 }
+"engine.motion" = { vx = 0, vy = 1 }
+"engine.model" = { model = "styled.marker", scale = 1 }
+"engine.anchor" = { name = "label", height = 3 }
+[entities.talk]
+"engine.talk" = { speaker = "styled.marker", first = "styled.line", anchor = "styled.marker#label", width = 280, active = true, current = "styled.line" }
+[entities.line]
+"engine.talk_line" = { text = "This bubble uses the same module style." }

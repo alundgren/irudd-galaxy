@@ -892,9 +892,9 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "style",
         title: "How the world is drawn, and the keys files take",
-        about: "style.toml sets the scene-wide ink, light, sky and course (from one module \
+        about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
-                key is optional. Check a change with galaxy shot (a still) or a film and a \
+                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash and hint_border_px. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

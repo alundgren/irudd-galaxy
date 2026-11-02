@@ -183,6 +183,9 @@ pub fn camera_holder(world: &World) -> Option<(&str, CameraSpec)> {
 pub struct Moment {
     #[serde(default)]
     pub screens: screens::Presentation,
+    /// Exact effective screen paint, even across a style reload on this same tick.
+    #[serde(default)]
+    pub screen_style: Option<galaxy_render::screen_style::ScreenStyle>,
     pub alpha: f32,
     pub time: f32,
     /// The frame in physical pixels, and the window's scale factor.
@@ -331,6 +334,7 @@ impl View {
             self.reach.insert(id.clone(), reach);
         }
         self.missing.clear();
+        self.screens.style = assets.screen;
         self.assets = assets;
     }
 
@@ -404,6 +408,8 @@ impl View {
     /// Rebuild an F8 moment without disturbing a film's continuing presentation.
     pub fn note_scene(&mut self, world: &World, moment: &Moment) -> Scene {
         let eye = self.eye;
+        let screen_style = self.screens.style;
+        self.screens.style = moment.screen_style.unwrap_or(screen_style);
         let screens = std::mem::replace(&mut self.screens.presentation, moment.screens.clone());
         let courses = std::mem::replace(
             &mut self.courses,
@@ -418,6 +424,7 @@ impl View {
         );
         self.eye = eye;
         self.screens.presentation = screens;
+        self.screens.style = screen_style;
         self.courses = courses;
         scene
     }
@@ -691,6 +698,7 @@ impl View {
         let camera = self.camera?;
         Some(Moment {
             screens: self.screens.presented.clone(),
+            screen_style: Some(self.screens.style),
             alpha,
             time,
             width: size.0,

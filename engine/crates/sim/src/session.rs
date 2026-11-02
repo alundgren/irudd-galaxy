@@ -375,6 +375,61 @@ impl Session {
     /// still fit (new fields get their defaults). On failure nothing changes. The engine
     /// records an `engine.hot_loaded` fact, an event on the next tick.
     pub fn hot_load(&mut self, module: Module) -> Result<(), String> {
+        let style_only = self.modules.get(module.id()).is_some_and(|old| {
+            old.module.files.get("style.toml") != module.files.get("style.toml")
+                && old
+                    .module
+                    .files
+                    .0
+                    .iter()
+                    .filter(|(p, _)| p.as_str() != "style.toml")
+                    .eq(module
+                        .files
+                        .0
+                        .iter()
+                        .filter(|(p, _)| p.as_str() != "style.toml"))
+        });
+        if style_only {
+            return self.hot_load_style(module);
+        }
+        self.hot_load_world(module)
+    }
+
+    /// Style files are presentation assets: replacing one must not emit a sim event.
+    pub(crate) fn hot_load_style(&mut self, module: Module) -> Result<(), String> {
+        let id = module.id().to_owned();
+        let loaded = self
+            .modules
+            .get_mut(&id)
+            .ok_or("style module is not running")?;
+        if !loaded
+            .module
+            .files
+            .0
+            .iter()
+            .filter(|(p, _)| p.as_str() != "style.toml")
+            .eq(module
+                .files
+                .0
+                .iter()
+                .filter(|(p, _)| p.as_str() != "style.toml"))
+        {
+            return Err("a presentation-only hot-load may change only style.toml".into());
+        }
+        loaded.module = module.clone();
+        if let Some(rec) = &mut self.recording {
+            rec.events.push(RecEvent::HotLoad {
+                tick: self.world.tick,
+                module: id,
+                files: module.files,
+                presentation_only: true,
+            });
+        }
+        Ok(())
+    }
+
+    // Old recordings retain their original hot-load event semantics.
+    pub(crate) fn hot_load_world(&mut self, module: Module) -> Result<(), String> {
         let id = module.id().to_owned();
         if !self.modules.contains_key(&id) {
             return Err(format!(
@@ -417,6 +472,7 @@ impl Session {
                 tick: self.world.tick + 1,
                 module: id,
                 files: module.files,
+                presentation_only: false,
             });
         }
         Ok(())

@@ -44,11 +44,11 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
   Malformed fields report their names. `id` labels diagnostic paths and bot targets.
 - `width`, `height`, `pad`, `gap`, `size`, `x` and `y` are logical pixels. Available width
   is inherited; row children share the width left after fixed widths and gaps. Height
-  comes from content unless explicit. Defaults: 20px text, 12px gaps, 16px padding on
-  panels/buttons. `x` or `y` makes a child explicitly placed instead of flowing.
+  comes from content unless explicit. Defaults: 20px text, 12px gaps, and the style's frame padding
+  on panels/buttons (16px in the neutral default). `x` or `y` makes a child explicitly placed instead of flowing.
 - Text is shaped and wrapped headlessly by `galaxy_render::text::TextMeasure` with the
-  same bundled Fredoka font and metrics as glyphon drawing. Colours are engine-owned:
-  dark ink on paper, or a warm button surface. Screens cannot choose low-contrast colours.
+  same bundled Fredoka font and metrics as glyphon drawing. The module owns colours
+  through `[screen]` in `style.toml`; invalid contrast is refused before drawing.
   Text outside a containing panel gets its own flat paper surface, including root text,
   columns and labels anchored away from their parent. Authors need no extra wrapper.
 - Readability findings name the module, script and widget path. They cover text below
@@ -130,9 +130,9 @@ as tall as its tallest cell. Cells flow without anchors or x/y; explicit cell wi
 still obey containment and overlap checks. `ui.scroll { id, height, children, on?, payload? }`
 flows a vertical list in a fixed viewport. Rust clamps its offset, clips all descendant
 panels and glyphs using the same GPU scissor, and clips hit testing. A minimum 12px inner
-padding keeps rows clear of the frame. A separate 32px lane plus an 8px gap holds the
-scroll track; none of its grab area covers content. The thumb is at least 44px tall
-(or the track height when shorter). Dragging preserves the grab point, captures the
+padding keeps rows clear of the frame. A separate lane (`handle_width`, default 32px) plus an 8px gap holds the
+scroll track; none of its grab area covers content. The thumb is at least `handle_min` (default 44px) tall;
+a shorter track is a readability finding. Dragging preserves the grab point, captures the
 pointer outside the track and releases on mouse-up. Clicking the track centres the
 thumb there. Both routes emit the same offset event as wheel scrolling.
 The wheel over a list scrolls it; elsewhere it zooms the camera. Nested lists use the
@@ -140,8 +140,8 @@ innermost one under the pointer. The full content is measured and checked headle
 including entries currently outside the scrolling viewport. Viewport clipping is allowed;
 clipped text inside its own widget, unreadable cells and overlapping entries still fail.
 
-`ui.delta { value = -12 }` displays a signed number in dark loss red or gain green on
-paper. The sign carries the meaning as well as colour. Dimensions and the 16px minimum
+`ui.delta { value = -12 }` displays a signed number in the style's loss or gain colour on
+the containing surface or paper. The sign carries the meaning as well as colour. Dimensions and the 16px minimum
 are the same as text. `ui.icon { icon = "token" }` resolves a local module name from:
 
 ```toml
@@ -244,13 +244,97 @@ state-driven placement, return motion, scroll events, replay hashes and rebuilt 
 
 The talk service supplies an internal bubble widget from recorded world components.
 It uses this same measurement, layout, anchor, clipping, ordered paint and hit-testing
-path, with the neutral panel surface. No separate talk look is encoded. Module-owned
+path, with the screen style's bubble surface. No separate talk look is encoded. Module-owned
 width and offsets affect its geometry. A whole bubble is a click target; its input
 includes the current line so stale or duplicate advances are recorded no-ops. Speaker picking runs only when no
 painted widget covers the pointer. See [Talk](talk.md) for focus checks combining screen
 surfaces, room geometry and each authored line.
 
-Life signs are ordinary anchored text widgets with the same neutral surface. Resting
+Life signs are internal anchored text widgets with the screen style's sign surface. Resting
 signs show name and activity; moving signs show the name, which joins the bubble while
 speaking. Directories use ordinary screen queries over life, being and location fields.
 No separate sign paint or game look is introduced. See [Places and beings](places-and-beings.md).
+
+## Module-owned screen style
+
+`[screen]` in `style.toml` supplies the whole scene's screen look, including all
+scripts, talk bubbles and life signs. As with `[sky]` and `[course]`, modules are
+sorted by ID; the last one supplying this table wins, and `galaxy-gm check` reports
+multiple suppliers. Tables do not merge field by field. Omitted keys use the neutral
+engine default, and modules without a table work unchanged. This lets a style-only
+module dress shared screen content without adding paint to its Luau trees.
+
+`galaxy-gm fields style` is the complete field/range/default reference; `guide style`
+explains authoring. For example:
+
+```toml
+[screen]
+panel = "#eeeeee"
+button = "#dddddd"
+text = "#202020"
+radius = 8.0
+frame_padding = 16.0
+handle_width = 32.0
+handle_min = 44.0
+```
+
+The colour fields are `paper`, `panel`, `button`, `text`, `gain`, `loss`, `border`,
+`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `track`, `handle` and
+`handle_active`. Surface and text colours must be opaque: the arbitrary world behind
+them cannot undermine contrast. Linear-sRGB luminance checks every text/gain/loss
+against every possible text-bearing surface at 4.5:1, including nested deltas and
+both drag verdicts. Both handle states must contrast with the track at 3:1. Failures
+name `[screen]` and both fields. An invalid table never reaches painting; playing
+shows its diagnostic and uses the last valid supplier or the neutral default.
+
+Sizes are logical pixels: `radius` and `handle_radius` (0-24), `border_px` and
+`hint_border_px` (0-4), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
+(24-48), `handle_min` (44-80) and `socket_dash` (0-16; zero is solid). Non-finite or
+out-of-range values fail check. `target_min` is a checked floor for actual targets,
+not a resizer. A scrolling viewport must fit the minimum handle. Explicit widget
+`pad` overrides default frame padding; scroll content retains its minimum 12px inset.
+Corners and borders are capped by the widget padding to keep paint out of its text.
+Standalone text and signs have a flat opaque backing covering every glyph. Screen
+surfaces have no renderer-owned tinted shadow.
+
+The engine still measures and places the tree, clips and hit-tests it, captures the
+pointer, reserves verdict space, and performs the same 240ms drop/return animation.
+Changing sizing fields changes spacing through those same rules; changing paint
+alone leaves every box and gesture unchanged. No style field enters world state.
+`--watch` reloads it through the normal asset path. A style-only reload records the
+new files with `presentation_only`, without a hot-loaded simulation fact; older
+recordings retain their original hot-load semantics. Audit and film use those embedded
+files, including changes during a session, rather than today's module folder. Each
+note also keeps its effective screen style, so notes on either side of a reload
+within the same simulation tick retain the exact paint they showed.
+
+From the repository root, these two modules have identical files except their style:
+
+```sh
+galaxy --build <name> play --modules engine/tests/play/screen-light
+galaxy --build <name> play --modules engine/tests/play/screen-dark
+# Repeat for each module:
+galaxy --build <name> play --modules engine/tests/play/screen-light --inputs engine/tests/play/screen-style-inputs.toml --ticks 140
+galaxy-gm --build <name> check engine/tests/play/screen-light/styled
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+galaxy-gm --build <name> film <session>/recording.json --from 1 --to 134 --out <film>
+galaxy-gm --build <name> motion track <film> --thing styled.marker
+galaxy-gm --build <name> motion sheet <film> --count 12
+galaxy-gm --build <name> motion strip <film> --screen "300,240;900,240"
+galaxy-gm --build <name> motion flow <film> --screen --region 300,150,600,400
+galaxy-gm --build <name> motion flicker <film> --screen
+```
+
+Drag the scroll handle, drop a large token on the refusing narrow slot, then on the
+accepting wide slot, and pick it up there again. The moving marker's bubble uses the
+same style. The bot leaves eight notes covering the drag, hints and both settling
+paths. Matching geometry settings make both runs' boxes, inputs, presentation snapshots
+and world hashes identical while their paint differs. Existing screen fixtures use
+the neutral default. Headless tests reconstruct all notes and exercise style reload,
+invalid contrast/sizing and module order. GPU tests remain opt-in.
+
+A table in the existing style asset avoids a second loader, watch path or recording
+store. Per-widget colours would duplicate the look in every script and make whole-theme
+contrast checks impossible without enumerating runtime branches. Skin scripts or
+module-owned motion would move frame work into Luau and change the shared behaviour.

@@ -50,6 +50,7 @@ pub fn widgets(world: &World) -> Vec<Widget> {
                 y: Some(f["y"].as_f64().unwrap_or(-12.0) as f32),
                 size: 20.0,
                 pad: 16.0,
+                explicit_pad: false,
                 gap: 12.0,
                 anchor: Some(talk::anchor(f)),
                 on: Some(TALK_NEXT.into()),

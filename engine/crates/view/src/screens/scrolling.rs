@@ -2,8 +2,6 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
-pub(super) const LANE: f32 = 32.0;
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ScrollGrab {
     pub path: String,
@@ -15,7 +13,7 @@ pub(super) fn viewport(b: &Boxed) -> Rect {
     Rect::new(
         b.rect.x + p,
         b.rect.y + p,
-        (b.rect.w - 2.0 * p - LANE - 8.0).max(0.0),
+        (b.rect.w - 2.0 * p - b.style.handle_width - 8.0).max(0.0),
         (b.rect.h - 2.0 * p).max(0.0),
     )
 }
@@ -25,36 +23,36 @@ pub(super) fn geometry(b: &Boxed, state: &Presentation) -> Option<(Rect, Rect)> 
         return None;
     }
     let v = viewport(b);
-    let track = Rect::new(v.x + v.w + 8.0, v.y, LANE, v.h);
+    let track = Rect::new(v.x + v.w + 8.0, v.y, b.style.handle_width, v.h);
     let h = (v.h * v.h / (b.content_height - 2.0 * b.widget.pad))
-        .max(44.0)
+        .max(b.style.handle_min)
         .min(v.h);
     let offset = state.scroll.get(&b.widget.path).copied().unwrap_or(0.0);
     let y = track.y + (track.h - h) * offset / (b.content_height - b.rect.h);
-    Some((track, Rect::new(track.x, y, LANE, h)))
+    Some((track, Rect::new(track.x, y, b.style.handle_width, h)))
 }
 
 pub(super) fn draw(b: &Boxed, overlay: &mut Overlay, state: &Presentation) {
     let Some((track, thumb)) = geometry(b, state) else {
         return;
     };
-    let mut rail = Panel::new(track);
-    rail.fill = Color::hex(0xe4dccb);
+    let style = &b.style;
+    let mut rail = style.surface(track, style.track);
+    rail.radius = style.handle_radius;
     rail.border_px = 0.0;
     rail.shadow = false;
-    let mut handle = Panel::new(thumb);
-    handle.fill = Color::hex(
-        if state
-            .scroll_grab
-            .as_ref()
-            .is_some_and(|g| g.path == b.widget.path)
-        {
-            0x8b7052
-        } else {
-            0xb69b78
-        },
-    );
-    handle.border_px = 1.0;
+    let mut handle = style.surface(thumb, style.handle);
+    handle.radius = style.handle_radius;
+    handle.fill = if state
+        .scroll_grab
+        .as_ref()
+        .is_some_and(|g| g.path == b.widget.path)
+    {
+        style.handle_active
+    } else {
+        style.handle
+    };
+    handle.border_px = style.border_px;
     handle.shadow = false;
     overlay.widgets.push(UiLayer {
         panels: vec![rail, handle],

@@ -62,12 +62,16 @@ pub struct Style {
     pub light: Option<Light>,
     pub sky: Option<Sky>,
     pub course: Option<Course>,
+    pub screen: Option<crate::screen_style::ScreenStyle>,
     pub looks: BTreeMap<String, Look>,
 }
 
 impl Style {
     pub fn parse(text: &str) -> Result<Style, String> {
         let style: Style = toml::from_str(text).map_err(|e| e.to_string())?;
+        if let Some(screen) = &style.screen {
+            screen.check()?;
+        }
         if let Some(ink) = &style.ink {
             ink.check().map_err(|e| format!("[ink] {e}"))?;
         }
@@ -86,6 +90,156 @@ impl Style {
 /// style` prints it with each key's default from [`defaults`]; a test keeps it to the
 /// structs.
 pub const KEYS: &[(&str, &str, &str, &str)] = &[
+    (
+        "screen",
+        "paper",
+        "opaque colour",
+        "paper colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "panel",
+        "opaque colour",
+        "panel colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "button",
+        "opaque colour",
+        "button colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "text",
+        "opaque colour",
+        "text colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "gain",
+        "opaque colour",
+        "gain colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "loss",
+        "opaque colour",
+        "loss colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "border",
+        "opaque colour",
+        "border colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "bubble",
+        "opaque colour",
+        "bubble colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "sign",
+        "opaque colour",
+        "sign colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "held",
+        "opaque colour",
+        "held colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "socket",
+        "opaque colour",
+        "socket colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "accept",
+        "opaque colour",
+        "accept colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "refuse",
+        "opaque colour",
+        "refuse colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "track",
+        "opaque colour",
+        "track colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "handle",
+        "opaque colour",
+        "handle colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "handle_active",
+        "opaque colour",
+        "handle active colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+    ),
+    (
+        "screen",
+        "radius",
+        "0 to 24",
+        "corner rounding, logical pixels",
+    ),
+    (
+        "screen",
+        "border_px",
+        "0 to 4",
+        "frame width, logical pixels",
+    ),
+    (
+        "screen",
+        "frame_padding",
+        "12 to 32",
+        "default panel and target padding; explicit widget pad wins, logical pixels",
+    ),
+    (
+        "screen",
+        "target_min",
+        "44 to 64",
+        "minimum target size, logical pixels",
+    ),
+    (
+        "screen",
+        "handle_width",
+        "24 to 48",
+        "scroll lane and handle width, logical pixels",
+    ),
+    (
+        "screen",
+        "handle_min",
+        "44 to 80",
+        "minimum handle height, logical pixels",
+    ),
+    (
+        "screen",
+        "handle_radius",
+        "0 to 24",
+        "handle corner rounding, logical pixels",
+    ),
+    (
+        "screen",
+        "socket_dash",
+        "0 to 16",
+        "empty socket dash period, logical pixels",
+    ),
+    (
+        "screen",
+        "hint_border_px",
+        "0 to 4",
+        "drop hint frame width, logical pixels",
+    ),
     (
         "ink",
         "color",
@@ -236,6 +390,7 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
         table("light", &Light::default()),
         table("sky", &Sky::default()),
         table("course", &Course::default()),
+        table("screen", &crate::screen_style::ScreenStyle::default()),
         table("looks.<name>", &Look::default()),
     ]
 }

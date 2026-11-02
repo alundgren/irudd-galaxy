@@ -247,3 +247,13 @@ regenerates it from the recorded input and script. No storage format changes.
 Audit and `film --note` share the exact-moment scene path. A drawn note film exports
 `note.png` at the note's original physical size, scale and fractional tick, alongside
 its regularly sampled motion frames.
+
+A hot-load whose only changed file is `style.toml` carries `presentation_only = true`
+in its recorded hot-load event. It replaces the embedded style without a world cause
+or `engine.hot_loaded` fact, so changing screen paint cannot change the simulation.
+Events without this flag retain the original world-hot-load semantics.
+Replay keeps both kinds in one acceptance-ordered queue: world reloads run before
+their recorded tick, and style reloads can run after theirs, but never pass an earlier
+world reload. A style snapshot made after a code edit therefore sees that code when
+replayed, even when both edits arrived between the same two ticks. Audit and film use
+this same queue, including its notification to rebuild the view's module assets.

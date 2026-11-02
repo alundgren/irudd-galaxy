@@ -25,6 +25,7 @@ pub struct Assets {
     pub light: Light,
     pub sky: Sky,
     pub course: Course,
+    pub screen: galaxy_render::screen_style::ScreenStyle,
     /// What could not be read, each starting `<module>: <file>: `.
     pub problems: Vec<String>,
     /// Scene-wide tables set by more than one module.
@@ -106,6 +107,10 @@ impl Assets {
             if let Some(course) = style.course {
                 out.course = course;
                 scene_wide.entry("course").or_default().push(id.to_owned());
+            }
+            if let Some(screen) = style.screen {
+                out.screen = screen;
+                scene_wide.entry("screen").or_default().push(id.to_owned());
             }
             for (name, look) in style.looks {
                 out.looks.insert(format!("{id}.{name}"), look);
