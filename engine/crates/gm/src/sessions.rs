@@ -13,6 +13,8 @@ use galaxy_sim::recording::RecEvent;
 use galaxy_sim::{Recording, Replay, changes};
 use serde_json::{Value, json};
 
+mod handled;
+
 /// Notes listed when not told `--all`.
 const NOTES_SHOWN: usize = 20;
 /// Rows `recording` lists when not told `--all`.
@@ -20,10 +22,116 @@ const ROWS_SHOWN: usize = 40;
 
 /// The options each command takes.
 pub const NOTES_OPTIONS: &[&str] = &["all"];
+pub const INBOX_OPTIONS: &[&str] = &["all", "handled"];
+pub const HANDLE_OPTIONS: &[&str] = &["note", "reason", "change"];
+pub const UNHANDLE_OPTIONS: &[&str] = &["note"];
 pub const RECORDING_OPTIONS: &[&str] = &["from", "to", "all", "name"];
 
 /// The views `recording` has.
 pub const VIEWS: &[&str] = &["summary", "timeline", "inputs", "orders", "zooms"];
+
+/// All notes, or the inbox's unhandled/handled view.
+#[derive(Clone, Copy, PartialEq)]
+enum NotesView {
+    All,
+    Unhandled,
+    Handled,
+}
+
+/// Notes share session discovery; options with text values must never become flags.
+pub fn run_notes(
+    command: &'static galaxy_module::help::Command,
+    args: &[String],
+    cwd: &Path,
+) -> Result<Output, Failure> {
+    let usage = |message| galaxy_module::cli::command_usage(command, message);
+    let known = match command.path {
+        "notes" => NOTES_OPTIONS,
+        "notes inbox" => INBOX_OPTIONS,
+        "notes handle" => HANDLE_OPTIONS,
+        "notes unhandle" => UNHANDLE_OPTIONS,
+        _ => unreachable!(),
+    };
+    let mut positional = Vec::new();
+    let mut options = BTreeMap::new();
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        if let Some(option) = arg.strip_prefix("--") {
+            let (name, inline) = option
+                .split_once('=')
+                .map_or((option, None), |(n, v)| (n, Some(v)));
+            if !known.contains(&name) || options.contains_key(name) {
+                return Err(usage(format!("unknown or repeated option --{name}")));
+            }
+            let value = if matches!(name, "all" | "handled") {
+                if inline.is_some() {
+                    return Err(usage(format!("--{name} takes no value")));
+                }
+                "true"
+            } else {
+                inline
+                    .or_else(|| args.next().map(String::as_str))
+                    .filter(|v| !v.starts_with("--") && !v.trim().is_empty())
+                    .ok_or_else(|| usage(format!("--{name} needs a nonempty value")))?
+            };
+            options.insert(name, value);
+        } else {
+            positional.push(arg);
+        }
+    }
+    let target = match positional.as_slice() {
+        [] => None,
+        [one] => Some(galaxy_module::discover::resolve(cwd, Path::new(one))),
+        _ => return Err(usage("takes at most one folder or recording".to_owned())),
+    };
+    if matches!(command.path, "notes" | "notes inbox") {
+        let view = if command.path == "notes" {
+            NotesView::All
+        } else if options.contains_key("handled") {
+            NotesView::Handled
+        } else {
+            NotesView::Unhandled
+        };
+        return notes(target, options.contains_key("all"), view);
+    }
+    let target = target.ok_or_else(|| usage("needs a recording or session folder".to_owned()))?;
+    let note = options
+        .get("note")
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .ok_or_else(|| usage("--note needs a positive note number".to_owned()))?;
+    let reason = if command.path == "notes handle" {
+        Some(
+            *options
+                .get("reason")
+                .ok_or_else(|| usage("needs --reason <text>".to_owned()))?,
+        )
+    } else {
+        None
+    };
+    let path = galaxy_module::discover::recording_file(&target);
+    let rec = read(&path)?;
+    let event = rec
+        .events
+        .iter()
+        .filter(|e| matches!(e, RecEvent::Note { .. }))
+        .nth(note - 1)
+        .ok_or_else(|| Failure::bad_input(format!("the recording has no note {note}")))?;
+    let change = options.get("change").copied();
+    let mark = match reason {
+        Some(reason) => Some(handled::write(&path, note, event, reason, change)?),
+        None => {
+            handled::remove(&path, note)?;
+            None
+        }
+    };
+    Ok(Output::Json(json!({
+        "ok": true, "command": command.path, "recording": path.display().to_string(),
+        "note": note, "handled": reason.is_some(), "reason": reason, "change": change,
+        "mark": mark.map(|p| p.display().to_string()),
+        "next": "galaxy-gm notes inbox; --handled lists answered notes",
+    })))
+}
 
 fn seconds(tick: u64) -> f64 {
     (tick as f64 / f64::from(TICKS_PER_SECOND) * 100.0).round() / 100.0
@@ -36,19 +144,24 @@ fn read(path: &Path) -> Result<Recording, Failure> {
 }
 
 /// One session's notes, as JSON lines.
-fn session_notes(rec: &Recording, dir: &Path) -> Vec<Value> {
+fn session_notes(rec: &Recording, path: &Path) -> Result<Vec<Value>, Failure> {
+    let dir = path.parent().unwrap_or(Path::new("."));
     rec.events
         .iter()
         .filter_map(|e| match e {
             RecEvent::Note {
                 tick, text, frame, ..
-            } => Some((tick, text, frame)),
+            } => Some((e, tick, text, frame)),
             _ => None,
         })
         .enumerate()
-        .map(|(i, (tick, text, frame))| {
+        .map(|(i, (event, tick, text, frame))| {
             let n = i + 1;
             let mut v = json!({ "note": n, "tick": tick, "t": seconds(*tick), "text": text });
+            v["handled"] = match handled::read(path, n, event)? {
+                Some(mark) => json!({ "reason": mark.reason, "change": mark.change }),
+                None => Value::Null,
+            };
             if let Some(f) = frame.as_ref().and_then(|f| f["file"].as_str()) {
                 let path: PathBuf = f.split('/').fold(dir.to_path_buf(), |p, part| p.join(part));
                 v["seen"] = json!(path.display().to_string());
@@ -57,13 +170,14 @@ fn session_notes(rec: &Recording, dir: &Path) -> Vec<Value> {
             if drawn.is_file() {
                 v["drawn_again"] = json!(drawn.display().to_string());
             }
-            v
+            Ok(v)
         })
         .collect()
 }
 
 /// `galaxy-gm notes [<recording | session folder | sessions folder>] [--all]`.
-pub fn notes(target: Option<PathBuf>, all: bool) -> Result<Output, Failure> {
+fn notes(target: Option<PathBuf>, all: bool, view: NotesView) -> Result<Output, Failure> {
+    let default = target.is_none();
     let target = target.unwrap_or_else(galaxy_module::install::sessions_dir);
     // One recording, or one session folder.
     let single = if target.is_file() {
@@ -75,6 +189,14 @@ pub fn notes(target: Option<PathBuf>, all: bool) -> Result<Output, Failure> {
     };
     let sessions: Vec<PathBuf> = match &single {
         Some(rec) => vec![rec.clone()],
+        // Before the first play there is no sessions folder yet.
+        None if default
+            && !target
+                .try_exists()
+                .map_err(|e| Failure::runtime(e.to_string()))? =>
+        {
+            Vec::new()
+        }
         None => {
             if !target.is_dir() {
                 return Err(Failure::bad_input(format!(
@@ -110,10 +232,18 @@ pub fn notes(target: Option<PathBuf>, all: bool) -> Result<Output, Failure> {
             }
             Err(f) => return Err(f),
         };
-        let notes = session_notes(&rec, dir);
+        let mut notes = session_notes(&rec, path)?;
         if notes.is_empty() && single.is_none() {
             without += 1;
             continue;
+        }
+        if view != NotesView::All {
+            notes.retain(|n| n["handled"].is_null() == (view == NotesView::Unhandled));
+            // Session order is newest first; within it, later notes come first too.
+            notes.reverse();
+            if notes.is_empty() {
+                continue;
+            }
         }
         if !all && shown >= NOTES_SHOWN {
             hidden_notes += notes.len();
@@ -141,10 +271,11 @@ pub fn notes(target: Option<PathBuf>, all: bool) -> Result<Output, Failure> {
     }
     let mut out = json!({
         "ok": true,
-        "command": "notes",
+        "command": if view == NotesView::All { "notes" } else { "notes inbox" },
+        "view": match view { NotesView::All => "all", NotesView::Unhandled => "unhandled", NotesView::Handled => "handled" },
         "from": target.display().to_string(),
         "sessions": listed,
-        "next": "galaxy-gm audit <session> checks each note's world and draws it again; galaxy-gm film <session> --note <n> films the seconds round one",
+        "next": "galaxy-gm audit <session>; galaxy-gm film <session> --note <n>; after answering it: galaxy-gm notes handle <session> --note <n> --reason <text> [--change <reference>]",
     });
     if hidden_notes > 0 {
         out["more"] = json!(format!(

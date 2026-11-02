@@ -707,11 +707,12 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "notes",
         synopsis: "[<recording | session folder | sessions folder>] [--all]",
-        answers: "What did the player note with F8? Each note's number, tick, time and text, \
-                  with the frame they saw, newest sessions first.",
+        answers: "Read F8 notes; notes inbox lists those still to answer. \
+                  Each note has its number, tick, time, text and frame, newest sessions first.",
         about: "Without a path it reads the sessions folder every `galaxy play` records into \
                 (`galaxy doctor` names it; GALAXY_SESSIONS moves it). Sessions without notes \
-                are counted, not listed.",
+                are counted, not listed. This history includes handled notes; \
+                `notes inbox` excludes them.",
         args: &[
             (
                 "[path]",
@@ -730,7 +731,7 @@ pub static COMMANDS: &[Command] = &[
                 "sessions.notes",
                 "note (its number, for audit and film --note), tick, t \
               (seconds), text, seen (the frame shown), drawn_again (audit's picture, once \
-              audited)",
+              audited), handled (null or reason and change reference)",
             ),
             ("more", "how many notes were left out, when capped"),
             ("sessions_without_notes", "how many sessions have none"),
@@ -739,6 +740,118 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm notes",
         next: "galaxy-gm audit <session> checks each note's world and draws it again; \
                galaxy-gm film <session> --note <n> films the seconds round it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes inbox",
+        synopsis: "[<path>] [--handled] [--all]",
+        answers: "List unanswered F8 notes across sessions, newest first.",
+        about: "Uses the same folders and note numbers as notes, audit and film. \
+                With no path, reads the played sessions folder (GALAXY_SESSIONS moves it). \
+                --handled shows answered notes instead. The cap applies after filtering. \
+                A fresh install with no sessions returns an empty inbox.",
+        args: &[
+            (
+                "[path]",
+                "a recording, session folder or sessions folder; played sessions by default",
+            ),
+            (
+                "--handled",
+                "list only handled notes, with the reason and change reference",
+            ),
+            ("--all", "every matching note; 20 at most by default"),
+        ],
+        output: &[
+            (
+                "sessions",
+                "newest sessions first: session, recording, build, modules, ticks, seconds and notes",
+            ),
+            (
+                "sessions.notes",
+                "newest notes first: note (number for audit/film), tick, t (seconds), text, seen (frame if recorded), drawn_again (if audited), handled (null or reason and change)",
+            ),
+            (
+                "view, more",
+                "unhandled or handled; more says how many matching notes were capped",
+            ),
+            (
+                "unreadable, sessions_without_notes",
+                "recordings that could not be read, and count of sessions without any notes, when present",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm notes inbox",
+        next: "Read the frame, audit or film the moment, then notes handle <session> --note <n> --reason <text>.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes handle",
+        synopsis: "<recording | session folder> --note <n> --reason <text> [--change <reference>]",
+        answers: "Mark a note handled with the change that answered it.",
+        about: "The reason is required; the change reference can name a commit, PR or module version. \
+                Repeating the command replaces this note's receipt. Receipts live with the session, \
+                outside installed builds, and survive new sessions and reinstalls. A receipt is \
+                matched to the original note; replacing the recording cannot hide a different note.",
+        args: &[
+            (
+                "<recording | session folder>",
+                "the recording or session printed by notes inbox",
+            ),
+            (
+                "--note <n>",
+                "the note number, counting from 1, as printed by notes",
+            ),
+            (
+                "--reason <text>",
+                "nonempty explanation of the change that answered the note",
+            ),
+            (
+                "--change <reference>",
+                "optional nonempty commit, PR or module version; stored as text",
+            ),
+        ],
+        output: &[
+            (
+                "recording, note, handled",
+                "the recording, note number and true",
+            ),
+            (
+                "reason, change, mark",
+                "the explanation, optional reference and receipt file",
+            ),
+        ],
+        writes: "<recording filename>.handled/<note padded to 4 digits>.json beside the recording, \
+                 for example <session>/recording.json.handled/0001.json; atomically replaced",
+        example: "galaxy-gm notes handle <session> --note 1 --reason \"Adjusted the panel spacing\" --change <commit>",
+        next: "notes inbox no longer lists it; notes inbox --handled shows the answer; notes unhandle reopens it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes unhandle",
+        synopsis: "<recording | session folder> --note <n>",
+        answers: "Reopen a handled note in the inbox.",
+        about: "Removes the receipt, leaving the recording and frame untouched. \
+                A note already unhandled succeeds too; a nonexistent note is bad input (exit 4).",
+        args: &[
+            (
+                "<recording | session folder>",
+                "a recording or session folder",
+            ),
+            ("--note <n>", "the note number, counting from 1"),
+        ],
+        output: &[
+            (
+                "recording, note, handled",
+                "the recording, note number and false",
+            ),
+            ("reason, change, mark", "null after reopening"),
+        ],
+        writes: "removes this note's file from <recording filename>.handled/ beside the recording",
+        example: "galaxy-gm notes unhandle <session> --note 1",
+        next: "galaxy-gm notes inbox lists it again.",
         topic: "notes",
     },
     Command {
@@ -1357,11 +1470,17 @@ pub static TOPICS: &[Topic] = &[
                 world's hash then, and the frame that was on screen (notes/0001.png in the \
                 session folder). To act on one: read it, see the frame, check the replay \
                 reaches the same world (audit draws the moment again into audit/0001.png), \
-                then film the seconds round it and measure what moved.",
+                then film the seconds round it and measure what moved. Start with notes inbox. \
+                After answering a note, handle it with a reason and optional change reference; \
+                --handled lists answers, and unhandle reopens a note. Receipts sit beside each \
+                recording in recording.json.handled/, so new sessions and engine reinstalls keep them.",
         tasks: &[
-            ("List the player's notes", "gm notes"),
-            ("Replay to each note and draw it again", "gm audit"),
-            ("Film the seconds round a note", "gm film"),
+            ("Read all notes", "gm notes"),
+            ("Find unanswered notes", "gm notes inbox"),
+            ("Record an answer", "gm notes handle"),
+            ("Reopen a note", "gm notes unhandle"),
+            ("Replay and redraw notes", "gm audit"),
+            ("Film round a note", "gm film"),
         ],
         recipes: &[],
     },
