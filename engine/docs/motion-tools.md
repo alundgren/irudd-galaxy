@@ -106,8 +106,10 @@ keep theirs; `--image` puts it elsewhere.
   `films/note-0001` beside the recording; or `--from`/`--to` ticks. The launcher runs the
   build that made the recording, as for `audit`, and the world at every note inside the
   film is checked against the hash the note kept, on the note's own tick whatever the
-  `--fps`: a film of a different world exits 5 (`replay_diverged`) rather than pass for
-  what the player saw, and so does `--builds` when either build's film does.
+  `--fps`. A film to the recording's last tick is also checked against the world the
+  recording ended on (`end_checked`), a live load just before the end included. A film of
+  a different world exits 5 (`replay_diverged`) rather than pass for what the player saw,
+  and so does `--builds` when either build's film does.
   With `--note`, a drawn film also exports `note.png` (`note_frame` in the report)
   using the original note's physical size, scale, fractional tick and presentation
   state. Compare that image with the F8 image for an exact redraw; the numbered

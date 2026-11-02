@@ -215,7 +215,7 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         let mut failure = Failure::new(
             code::REJECTED,
             "replay_diverged",
-            "the replayed world differs from the recording's at a note, so the film does not show what the player saw; was it made by another build?",
+            "the replayed world differs from the recording's at a note or at its end, so the film does not show what the player saw; was it made by another build?",
         );
         if let Value::Object(fields) = out {
             failure.fields = fields;
@@ -226,7 +226,7 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
 }
 
 /// Films `plan` into `out`, drawn by `drawer`: its report, and whether the world differs
-/// from the recording's at a note.
+/// from the recording's at a note or at its end.
 fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), Failure> {
     let bad = |e: String| Failure::bad_input(e).with("path", plan.path.display().to_string());
     let here = |out: &Path, probes_only: bool| {
@@ -332,7 +332,11 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
             checked.push(json!({ "tick": tick, "identical": identical }));
         }
     }
-    let diverged = checked.iter().any(|c| c["identical"] == false);
+    // A film to the recording's last tick ends on the world the recording ended on.
+    let end = (last.tick == plan.rec.end.tick)
+        .then(|| json!({ "tick": last.tick, "identical": last.hash == plan.rec.end.hash }));
+    let diverged = checked.iter().any(|c| c["identical"] == false)
+        || end.as_ref().is_some_and(|e| e["identical"] == false);
     let mut report = json!({
         "ok": !diverged,
         "command": "film",
@@ -345,6 +349,7 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
         "to": { "t": last.time, "tick": last.tick },
         "adapter": manifest.adapter,
         "notes_checked": checked,
+        "end_checked": end,
         "note_frame": if plan.exact_note.is_some() && manifest.drawn && out.join("note.png").is_file() { Some(out.join("note.png").display().to_string()) } else { None },
         "builds": manifest.builds,
         "next": format!("galaxy-gm motion <tool> <folder>: {}", galaxy_motion::TOOLS.join(", ")),

@@ -868,8 +868,9 @@ pub static COMMANDS: &[Command] = &[
                 for what every build since films began takes, and a build that predates films \
                 says so. `builds` says which build recorded the session and which drew this, \
                 and its note says plainly when they differ. Every note inside the film is \
-                checked against the world's hash it kept, so a film of a different world exits \
-                5 (replay_diverged) rather than pass for what the player saw. By default the \
+                checked against the world's hash it kept, and a film to the recording's last \
+                tick against the world it ended on (a live load just before the end included), \
+                so a film of a different world exits 5 (replay_diverged) rather than pass for what the player saw. By default the \
                 film is at the note's own frame size (window scale included), which is what \
                 catches thin lines breaking and one-frame flicker.",
         args: &[
@@ -919,6 +920,11 @@ pub static COMMANDS: &[Command] = &[
                 "each note inside the film: tick, identical (the replayed \
               world is the player's). The world can be identical on another build while \
               the picture differs: read builds too",
+            ),
+            (
+                "end_checked",
+                "when the film ends on the recording's last tick: tick, identical \
+              (the film ends on the world the recording ended on); null otherwise",
             ),
             (
                 "builds",
