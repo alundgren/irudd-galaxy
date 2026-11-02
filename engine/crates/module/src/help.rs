@@ -245,7 +245,10 @@ pub fn overview(tool: Tool) -> String {
              running games, and films motion. Commands print one JSON object.",
             &[
                 ("Start here", &["guide"]),
-                ("Modules", &["check", "test", "types", "fields", "model"]),
+                (
+                    "Modules",
+                    &["check", "test", "types", "fields", "model", "music"],
+                ),
                 (
                     "Played sessions and notes",
                     &[

@@ -112,6 +112,7 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                     command.usage()
                 ))),
             }
+        }
         "music" => {
             let (positional, opts) = split_args(args).map_err(usage)?;
             let [dir] = positional.as_slice() else {
