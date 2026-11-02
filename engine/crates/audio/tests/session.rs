@@ -76,7 +76,7 @@ fn missing_corrupt_and_misdeclared_assets_are_findings() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("manifest.toml"),
-        "id='demo'\nversion='0.1.0'\nmin_engine_version='0.3.0'\n",
+        "id='demo'\nversion='0.1.0'\nmin_engine_version='0.4.0'\n",
     )
     .unwrap();
     std::fs::write(dir.path().join("broken.wav"), b"not audio").unwrap();

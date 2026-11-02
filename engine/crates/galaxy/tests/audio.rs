@@ -24,7 +24,7 @@ fn startup_music_plays_without_an_injected_event() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join("manifest.toml"),
-        "id = 'startup'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\n",
+        "id = 'startup'\nversion = '0.1.0'\nmin_engine_version = '0.4.0'\n",
     )
     .unwrap();
     std::fs::copy(

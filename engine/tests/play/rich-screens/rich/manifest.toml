@@ -1,6 +1,6 @@
 id = "rich"
 version = "0.1.0"
-min_engine_version = "0.3.0"
+min_engine_version = "0.4.0"
 scripts = ["screen.luau"]
 events = ["choose", "place", "scrolled"]
 
