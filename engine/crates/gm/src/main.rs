@@ -2,7 +2,8 @@
 //! module loads: manifest, start state, scripts, models and styles), `audit` (a played
 //! session's notes drawn again), `film` and `motion` (how motion looks, measured) and
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
-//! model's parts, outline and morph) and `guide`.
+//! model's parts, outline and morph), `test` (a module's tests and scenario runs),
+//! `what-if` (a recorded session on changed modules) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
@@ -12,6 +13,8 @@ mod film;
 mod look;
 mod model;
 mod sessions;
+mod test;
+mod what_if;
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -166,6 +169,32 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                 tick("from")?,
                 tick("to")?,
                 opts.text("name"),
+                opts.flag("all"),
+            )
+        }
+        "test" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("test", test::OPTIONS).map_err(usage)?;
+            let [path] = positional.as_slice() else {
+                return Err(usage(format!(
+                    "test takes one module folder: {}",
+                    command.usage()
+                )));
+            };
+            test::run(&discover::resolve(&cwd, Path::new(path)), opts.text("only"))
+        }
+        "what-if" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("what-if", what_if::OPTIONS).map_err(usage)?;
+            let ([path], Some(modules)) = (positional.as_slice(), opts.text("modules")) else {
+                return Err(usage(format!(
+                    "what-if takes a recording and --modules <dir>: {}",
+                    command.usage()
+                )));
+            };
+            what_if::run(
+                &discover::recording_file(&discover::resolve(&cwd, Path::new(path))),
+                &discover::resolve(&cwd, Path::new(modules)),
                 opts.flag("all"),
             )
         }
@@ -453,6 +482,8 @@ mod tests {
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),
+            ("test", test::OPTIONS),
+            ("what-if", what_if::OPTIONS),
         ] {
             let c = help::find(Tool::Gm, path).unwrap();
             assert_eq!(sorted(c.options()), sorted(takes.to_vec()), "{path}");

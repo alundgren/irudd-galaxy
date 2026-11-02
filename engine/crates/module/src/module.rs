@@ -10,7 +10,7 @@
 //!   manifest.toml     id, versions, scripts, events, writes, components (crate::manifest)
 //!   start.toml        optional: the entities a new world starts with
 //!   scripts/*.luau    scripts (the manifest lists the entry scripts)
-//!   tests/*.toml      scenario tests
+//!   tests/*.luau      Luau tests; tests/*.toml scenario runs (galaxy-gm test)
 //!   style.toml        optional: how the module wants things drawn (galaxy-render's style)
 //!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
 //!   audio.toml        optional event cues and place ambience (engine/docs/audio.md)

@@ -7,7 +7,8 @@
 //! - [`iteration`]: generic `for` loops routed through the checked traversal, confirmed on
 //!   the compiled bytecode (`bytecode`);
 //! - [`api`]: the `ctx` API, declared once, and the Luau type file made from it;
-//! - [`host`]: a module's scripts loaded and called.
+//! - [`host`]: a module's scripts loaded and called;
+//! - [`testrun`]: a module's own Luau tests (`tests/*.luau`), for `galaxy-gm test`.
 //!
 //! `engine/docs/script-host.md` explains the design.
 
@@ -17,6 +18,7 @@ pub mod host;
 pub mod iteration;
 pub mod meter;
 pub mod screens;
+pub mod testrun;
 pub mod vm;
 
 pub use host::{Event, Outcome, ScriptSet, Target};

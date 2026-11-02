@@ -28,9 +28,10 @@
 //! height = 600
 //! ```
 //!
-//! A scenario test is a module's `tests/<name>.toml`: a `seed`, a number of `ticks`, the
-//! same `[[input]]` entries (a plain name is the module's own event kind), and
-//! `[[expect]]` entries checked after their `tick` (the last one by default):
+//! A scenario test is a module's `tests/<name>.toml`, which `galaxy-gm test` runs: a
+//! `seed`, a number of `ticks`, the same `[[input]]` entries (a plain name is the module's
+//! own event kind), and `[[expect]]` entries checked after their `tick` (the last one by
+//! default):
 //!
 //! ```toml
 //! [[expect]]

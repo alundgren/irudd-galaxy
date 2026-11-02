@@ -166,7 +166,7 @@ pub fn notes(target: Option<PathBuf>, all: bool) -> Result<Output, Failure> {
 }
 
 /// `m:ss.s` for a tick: `1:05.3`.
-fn clock(tick: u64) -> String {
+pub(crate) fn clock(tick: u64) -> String {
     let tenths = (tick as f64 / f64::from(TICKS_PER_SECOND) * 10.0).round() as u64;
     format!("{}:{:02}.{}", tenths / 600, tenths / 10 % 60, tenths % 10)
 }

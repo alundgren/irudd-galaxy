@@ -1,0 +1,28 @@
+# Two bumps. The facts pass; the count fails, since each bump adds two.
+seed = 1
+ticks = 20
+
+[[input]]
+tick = 5
+name = "bump"
+
+[[input]]
+tick = 10
+name = "bump"
+
+[[expect]]
+facts = "bump"
+equals = 2
+
+[[expect]]
+tick = 7
+entity = "board"
+component = "count"
+field = "n"
+equals = 1
+
+[[expect]]
+entity = "board"
+component = "count"
+field = "n"
+equals = 2

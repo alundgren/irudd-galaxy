@@ -241,15 +241,15 @@ pub fn overview(tool: Tool) -> String {
             ],
         ),
         Tool::Gm => (
-            "galaxy-gm: the GM. It checks modules, reads played sessions and their F8 notes, \
-             films them and measures how motion looks. Every command prints one JSON object \
-             on stdout, except --help, guide and types.",
+            "galaxy-gm: the GM. It checks and tests modules, reads played sessions and F8 \
+             notes, films and measures motion. Commands print one JSON object, except help, \
+             guide and types.",
             &[
                 ("Start here", &["guide"]),
-                ("Modules", &["check", "types", "fields", "model"]),
+                ("Modules", &["check", "test", "types", "fields", "model"]),
                 (
                     "Played sessions and notes",
-                    &["notes", "recording", "audit", "film", "look"],
+                    &["notes", "recording", "audit", "film", "look", "what-if"],
                 ),
                 ("How motion looks", &["film show", "motion", "motion check"]),
                 ("This install", &["doctor"]),
@@ -287,10 +287,9 @@ pub fn overview(tool: Tool) -> String {
              version; galaxy-gm --build <name> ... runs a named installed build."
         }
         Tool::Gm => {
-            "\nMore: galaxy-gm <command> --help (or galaxy-gm help <command>) for its \
-             arguments, output and an example; galaxy-gm guide <topic> walks through a task. \
-             --version prints the version; galaxy-gm --build <name> ... runs a named \
-             installed build."
+            "\nMore: galaxy-gm <command> --help for its arguments, output and an example; \
+             galaxy-gm guide <topic> walks through a task. galaxy-gm --build <name> ... runs \
+             an installed build."
         }
     };
     let _ = write!(s, "{more}\n\n{EXIT_CODES}");
@@ -1000,6 +999,24 @@ mod tests {
         }
         assert!(for_args(Tool::Gm, &["guide".into()]).contains("screens"));
         assert!(for_args(Tool::Game, &["play".into()]).contains("widget"));
+    }
+
+    #[test]
+    fn tests_guide_covers_both_formats_and_both_commands() {
+        let text = guide_topic("tests").expect("tests guide topic");
+        for required in [
+            "tests/<name>.luau",
+            "tests/<name>.toml",
+            "[[expect]]",
+            "galaxy-gm test",
+            "galaxy-gm what-if",
+            "--record",
+        ] {
+            assert!(text.contains(required), "missing {required}: {text}");
+        }
+        let g = guide();
+        assert!(g.contains("galaxy-gm test <module>"), "{g}");
+        assert!(g.contains("galaxy-gm what-if <recording>"), "{g}");
     }
 
     /// Every command line in a recipe runs a command in the table with options it takes.

@@ -17,7 +17,8 @@ pub mod code {
     pub const CANNOT_START: u8 = 2;
     /// The input is wrong: a missing or invalid module or manifest.
     pub const BAD_INPUT: u8 = 4;
-    /// The input was read and judged, and rejected (a check with findings).
+    /// The input was read and judged, and rejected (a check with findings, a failing
+    /// module test).
     pub const REJECTED: u8 = 5;
 }
 

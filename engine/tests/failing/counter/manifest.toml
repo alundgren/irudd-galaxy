@@ -1,0 +1,10 @@
+# A generic test module whose tests fail on purpose, for `galaxy-gm test`: scripts/sums
+# adds two a bump where its tests expect one.
+id = "counter"
+version = "0.1.0"
+min_engine_version = "0.2.0"
+scripts = ["scripts/counter.luau"]
+events = ["bump"]
+
+[components.count]
+n = "int"

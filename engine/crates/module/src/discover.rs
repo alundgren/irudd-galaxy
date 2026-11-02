@@ -1,6 +1,8 @@
 //! Which modules a command is about.
 //!
-//! - `galaxy-gm check <path>`: the module at `<path>` (a folder or its `manifest.toml`).
+//! - `galaxy-gm check <path>` and `galaxy-gm test <path>`: the module at `<path>` (a folder
+//!   or its `manifest.toml`).
+//! - `galaxy-gm what-if <recording> --modules <dir>`: the changed modules, as for `play`.
 //! - `galaxy play --modules <dir>`, `galaxy sim run --modules <dir>` and
 //!   `galaxy sim load <save> --modules <dir>`: `<dir>` if it is a module, else every module
 //!   folder in it.
@@ -80,9 +82,12 @@ pub fn modules_for(tool: Tool, args: &[OsString], cwd: &Path) -> Vec<PathBuf> {
     let command = args.first().and_then(|a| a.to_str());
     match (tool, command) {
         (_, Some("doctor")) => modules_near(cwd),
-        (Tool::Gm, Some("check")) => args
+        (Tool::Gm, Some("check" | "test")) => args
             .get(1)
             .map(|path| vec![manifest::module_dir(&at(path))])
+            .unwrap_or_default(),
+        (Tool::Gm, Some("what-if")) => modules_dir_arg(&args[1..])
+            .map(|dir| modules_in(&at(&dir)))
             .unwrap_or_default(),
         (Tool::Game, Some("play" | "shot" | "audio")) => modules_dir_arg(&args[1..])
             .map(|dir| modules_in(&at(&dir)))

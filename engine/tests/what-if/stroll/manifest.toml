@@ -1,0 +1,14 @@
+# The stroll test module with one script value changed (rules.STEP is 2), for
+# `galaxy-gm what-if`: a session recorded with tests/modules first differs when the
+# walkers count their first steps.
+id = "stroll"
+version = "0.1.0"
+min_engine_version = "0.2.0"
+scripts = ["scripts/stroll.luau"]
+events = ["started", "turn", "climbed", "paced"]
+writes = ["engine.position", "engine.motion", "engine.surface"]
+
+[components.walker]
+steps = "int"
+climbs = "int"
+pace = { type = "number", default = 1 }
