@@ -80,11 +80,12 @@ fn missing_corrupt_and_misdeclared_assets_are_findings() {
     )
     .unwrap();
     std::fs::write(dir.path().join("broken.wav"), b"not audio").unwrap();
-    std::fs::write(dir.path().join("audio.toml"), "[sounds.missing]\nfile='missing.wav'\n[sounds.broken]\nfile='broken.wav'\n[sounds.escape]\nfile='../other.wav'\n").unwrap();
+    std::fs::write(dir.path().join("audio.toml"), "[sounds.missing]\nfile='missing.wav'\n[sounds.broken]\nfile='broken.wav'\n[sounds.escape]\nfile='../other.wav'\n[sounds.seam]\nfile='seam.wav'\nloop_crossfade=-1\n").unwrap();
     let module = Module::read(dir.path()).unwrap();
     let bank = Bank::load([&module]);
-    assert_eq!(bank.problems.len(), 3, "{:?}", bank.problems);
-    for name in ["missing", "broken", "escape"] {
+    assert_eq!(bank.problems.len(), 4, "{:?}", bank.problems);
+    assert!(bank.problems.iter().any(|p| p.contains("loop_crossfade")));
+    for name in ["missing", "broken", "escape", "seam"] {
         assert!(bank.problems.iter().any(|p| p.contains(name)));
     }
 }

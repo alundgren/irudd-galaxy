@@ -58,3 +58,37 @@ fn wav_float_stereo_and_integer_depths_decode() {
     writer.finalize().unwrap();
     assert_eq!(Clip::read(&path).unwrap().frames(), 1);
 }
+
+#[test]
+fn mp3_decodes_to_the_tone_it_was_made_from() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/audio/demo/sounds");
+    let clip = Clip::read(&dir.join("high.mp3")).unwrap();
+    assert_eq!(clip.sample_rate(), 16000);
+    // Untagged MP3 keeps the encoder's delay and final-frame padding: at most a few
+    // frames of 576 samples beyond the 1600 authored.
+    assert!(
+        (1600..=1600 + 4 * 576).contains(&clip.frames()),
+        "{}",
+        clip.frames()
+    );
+    let mut mixer = Mixer::new(16000);
+    mixer.apply(Action::Play {
+        clip,
+        bus: Bus::Sound,
+        volume: 1.0,
+        fade: 0.005,
+    });
+    let mut frames = [[0.0; 2]; 1600];
+    mixer.render(&mut frames);
+    assert!(frames.iter().flatten().all(|s| s.is_finite()));
+    let peak = frames.iter().flatten().fold(0.0_f32, |a, b| a.max(b.abs()));
+    assert!(peak > 0.1 && peak < 0.3, "{peak}");
+}
+
+#[test]
+fn a_broken_mp3_is_an_error_not_silence() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("broken.mp3");
+    std::fs::write(&path, b"ID3 this is not audio").unwrap();
+    assert!(Clip::read(&path).is_err());
+}

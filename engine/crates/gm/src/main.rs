@@ -4,7 +4,7 @@
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
 //! model's parts, outline and morph), `model make` (models from recipes), `test` (a
 //! module's tests and scenario runs), `what-if` (a recorded session on changed
-//! modules) and `guide`.
+//! modules), `music` (generated through OpenRouter at build time) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
@@ -14,6 +14,8 @@ mod film;
 mod live;
 mod look;
 mod model;
+mod music;
+mod openrouter;
 mod sessions;
 mod test;
 mod what_if;
@@ -110,6 +112,30 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                     command.usage()
                 ))),
             }
+        }
+        "music" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            let [dir] = positional.as_slice() else {
+                return Err(usage(format!(
+                    "music takes one module folder: {}",
+                    command.usage()
+                )));
+            };
+            let dir = manifest::module_dir(&discover::resolve(&cwd, Path::new(dir)));
+            gate::open(std::slice::from_ref(&dir))?;
+            music::run(
+                &dir,
+                &opts,
+                openrouter::ApiKey::from_env(),
+                &mut openrouter::Https::new(music::TIMEOUT),
+            )
+            .map_err(|f| {
+                if f.kind == "usage" {
+                    usage(f.message)
+                } else {
+                    f
+                }
+            })
         }
         "look" => {
             let (positional, opts) = split_args(args).map_err(usage)?;
@@ -502,6 +528,7 @@ mod tests {
             ("fields", fields::OPTIONS),
             ("model", model::OPTIONS),
             ("model make", model::MAKE_OPTIONS),
+            ("music", music::OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),

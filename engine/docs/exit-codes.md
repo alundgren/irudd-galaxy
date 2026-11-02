@@ -49,6 +49,8 @@ text. Messages from the build tools (`cargo xtask`) go to stderr.
 | `several_games` | 2 | `galaxy-gm live`: several games run and none is clearly meant; `--game <pid or session>` picks one. | `games` |
 | `live_protocol` | 2 | `galaxy-gm live`: the running game speaks another live protocol; names the build to run. | |
 | `hot_load_refused` | 5 | `galaxy-gm live load`: a module's scripts don't load or the world doesn't fit it (nothing of that module changed), or an F8 note is open in the game (nothing loaded). | `loaded`, `failed` (each `module`, `error`), `unchanged`, `tick`, `hash` |
+| `no_key` | 2 | `galaxy-gm music` needs `OPENROUTER_API_KEY` in the environment and it is unset or blank. Nothing was called or written. | `env` |
+| `openrouter` | 1 | `galaxy-gm music`'s call failed: refused (an HTTP error, or an error inside the stream), no answer, or an answer without playable audio. Nothing was written. | `status` (HTTP status or null), `model`, `written`; without audio also `answer` (its shape), `generation_id`, `cost_usd` |
 | `runtime` | 1 | Anything else that failed after starting: I/O, a build the launcher could not start. | `path` (sometimes) |
 
 The table lives in code in `crates/module/src/failure.rs`; a new kind is added there and
