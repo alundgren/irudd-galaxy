@@ -6,10 +6,11 @@ stations, enter its ore exchange, sell, and launch again. Lantern Dock pays
 small, finite field (36 ore), without a progression tree or a timed objective.
 
 Use installed engine/GM 0.5.0 or newer. This version was authored and verified
-with `0.5.0-fe9f0c5f13ed`. No engine build is needed.
+with `0.5.0-cb0acdf66fef`, including windowed save loading and declared rendered
+bot tests. No engine build is needed.
 
 ```sh
-galaxy play --modules game/modules/core
+galaxy play --modules game/modules
 ```
 
 | Control | Action |
@@ -55,14 +56,12 @@ Each station has a landing-deck room and a separate market room, linked by doors
 
 ## Verify
 
-The installed GM loads sibling modules automatically. Quiet Garden is a separate
-game with its own player and scene style, so checking the repository's sibling
-set reports conflicts. Copy **only** this `core` folder to an otherwise empty
-parent outside the checkout, then run (replace `isolated/core` with that copy):
+Check and test the shipped module collection in place. Standalone examples live
+under `game/examples/`, outside that collection:
 
 ```sh
-galaxy-gm check isolated/core
-galaxy-gm test isolated/core
+galaxy-gm check game/modules/core
+galaxy-gm test game/modules/core
 ```
 
 There are three Luau rule tests and five scenarios: both complete station trips,
@@ -70,9 +69,11 @@ collision under held thrust, refused out-of-place actions, and repeat trips
 through depletion with an empty-sale check. The repeating trip then mines a
 different rock. `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
 headless routes; `play.inputs` uses real screen clicks and takes six notes.
+`play.bot.toml` declares that 840-tick route at 1280x720 physical pixels. The GM
+test report includes its frame times, dimensions and deterministic replay result.
 
 ```sh
-galaxy play --modules game/modules/core --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720
+galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720 --physical-size
 galaxy sim replay SESSION/recording.json
 galaxy-gm audit SESSION/recording.json
 galaxy-gm film SESSION/recording.json --from 20 --to 45 --size 1280x720 --out flight-film
@@ -87,11 +88,26 @@ the exact head's check/test results and the bot's frame-time report.
 
 ### Save/load verification
 
-Play saves at session end and `--save FILE` also writes a chosen file. The current
-engine can resume it with `galaxy sim load`, but **cannot reopen a save in the
-window**. A generic play-load feature is requested in the PR; this module does
-not emulate persistence. The complete human save-and-resume journey is pending
-that installed feature.
+Play saves at session end and `--save FILE` also writes a chosen file. Reopen
+that save in the window with `galaxy play --modules game/modules --load SAVE`.
+For a manual journey, quit in the market with cargo, resume its session's
+`save.db`, press Enter to sell, B to return to the deck and U to launch.
+
+This bot journey saves in the market before selling, resumes in the window,
+sells six ore for 72 credits, returns to space and replays the resumed session.
+Use an existing external folder in place of `evidence`:
+
+```sh
+galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 650 --size 1280x720 --physical-size --save evidence/market.db
+galaxy play --modules game/modules --load evidence/market.db --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720 --physical-size --record evidence/resumed-window.json --save evidence/finished.db
+galaxy sim replay evidence/resumed-window.json
+galaxy sim load evidence/finished.db --modules game/modules --ticks 0 --state
+```
+
+Bot input ticks and play's `--ticks` are absolute world ticks, including when
+resuming. The saved tick-650 world has six cargo, zero credits and zero station
+stock; tick 840 has an empty hold, 72 credits and six station stock. Compare its
+hash with an uninterrupted seed-1 `play.inputs` run ending at tick 840.
 
 These commands verify continuity across a mid-mining save. Run from the repo
 root with an external working folder in place of `evidence`:

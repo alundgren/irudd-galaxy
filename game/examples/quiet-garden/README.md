@@ -10,15 +10,15 @@ installed manifest identifier rules. Requires engine 0.5.0 or newer.
 Run from the repository root:
 
 ```text
-galaxy-gm check game/modules/quiet-garden
-galaxy-gm test game/modules/quiet-garden
-galaxy play --modules game/modules/quiet-garden
+galaxy-gm check game/examples/quiet-garden
+galaxy-gm test game/examples/quiet-garden
+galaxy play --modules game/examples/quiet-garden
 ```
 
 To replay the three-second click journey and take three screenshots:
 
 ```text
-galaxy play --modules game/modules/quiet-garden --inputs game/modules/quiet-garden/tests/play.inputs --ticks 90
+galaxy play --modules game/examples/quiet-garden --inputs game/examples/quiet-garden/tests/play.inputs --ticks 90
 ```
 
 Set `GALAXY_SESSIONS` to a folder outside the checkout to choose where the session
@@ -28,4 +28,4 @@ from the `tests/*.toml` headless scenarios.
 
 The tests cover growth, excess watering, the single bloom fact and planting again.
 Recipes are the source for the included models; remake them with
-`galaxy-gm model make game/modules/quiet-garden` after editing a recipe.
+`galaxy-gm model make game/examples/quiet-garden` after editing a recipe.
