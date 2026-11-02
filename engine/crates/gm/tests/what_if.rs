@@ -148,6 +148,132 @@ fn a_changed_start_default_differs_at_the_start() {
     );
 }
 
+/// A session recorded after loading a save: 60 ticks of the stroll modules, saved, then
+/// resumed and recorded for 60 more, from tick 60 to 120.
+fn record_resumed(dir: &Path) -> PathBuf {
+    let modules = || -> Vec<Module> {
+        ["stroll", "tally"]
+            .iter()
+            .map(|id| Module::read(&engine().join("tests/modules").join(id)).unwrap())
+            .collect()
+    };
+    let mut session = Session::new(modules(), 7).unwrap();
+    for _ in 0..60 {
+        session.step(&[]).unwrap();
+    }
+    let mut session = Session::resume(modules(), session.world.clone()).unwrap();
+    session.start_recording(BuildStamp::current());
+    for _ in 0..60 {
+        session.step(&[]).unwrap();
+    }
+    let path = dir.join("resumed.json");
+    session.recording().unwrap().write(&path).unwrap();
+    path
+}
+
+#[test]
+fn a_session_from_a_save_differs_at_its_own_start_tick() {
+    let tmp = tempfile::tempdir().unwrap();
+    let rec = record_resumed(tmp.path());
+    // The new walker.boosts default reaches the resumed world when it loads, at tick 60.
+    let (code, out) = what_if(&rec, "tests/hot-load/stroll", &[]);
+    assert_eq!(code, 0, "{out}");
+    assert!(
+        out["start"].as_str().unwrap().starts_with("resumed"),
+        "{out}"
+    );
+    assert_eq!(
+        (out["from"].clone(), out["tick"].clone()),
+        (json!(60), json!(60)),
+        "{out}"
+    );
+    assert_eq!(out["time"], "0:02.0", "{out}");
+    assert!(
+        out["report"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("first difference at the start (tick 60)"),
+        "{out}"
+    );
+    let note = out["baseline"]["note"].as_str().unwrap();
+    assert!(note.contains("from tick 60 to tick 60"), "{note}");
+
+    let (code, out) = what_if(&rec, "tests/modules", &[]);
+    assert_eq!((code, out["differs"].clone()), (0, json!(false)), "{out}");
+    let last = out["report"].as_array().unwrap().last().unwrap();
+    assert!(
+        last.as_str().unwrap().contains("every tick, 60 to 120"),
+        "{out}"
+    );
+}
+
+/// A module whose cadence records two facts, in the order given.
+fn ordered(dir: &Path, first: u32, second: u32) -> PathBuf {
+    let root = dir.join(format!("ordered-{first}{second}"));
+    std::fs::create_dir_all(root.join("scripts")).unwrap();
+    std::fs::write(
+        root.join("manifest.toml"),
+        "id = \"ordered\"\nversion = \"0.1.0\"\nmin_engine_version = \"0.2.0\"\n\
+         scripts = [\"scripts/events.luau\"]\nevents = [\"value\"]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("scripts/events.luau"),
+        format!(
+            "return {{ cadence = function(ctx)\n    ctx.record(\"value\", {{ n = {first} }})\n    \
+             ctx.record(\"value\", {{ n = {second} }})\nend }}\n"
+        ),
+    )
+    .unwrap();
+    root
+}
+
+#[test]
+fn facts_in_another_order_say_where_the_order_differs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut session =
+        Session::new(vec![Module::read(&ordered(tmp.path(), 1, 2)).unwrap()], 0).unwrap();
+    session.start_recording(BuildStamp::current());
+    for _ in 0..31 {
+        session.step(&[]).unwrap();
+    }
+    let rec = tmp.path().join("order.json");
+    session.recording().unwrap().write(&rec).unwrap();
+    let swapped = ordered(tmp.path(), 2, 1);
+
+    let (code, out) = what_if(&rec, swapped.to_str().unwrap(), &["--all"]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(
+        (out["differs"].clone(), out["tick"].clone()),
+        (json!(true), json!(30)),
+        "{out}"
+    );
+    let facts = out["differences"]["facts"].as_array().unwrap();
+    assert_eq!(facts.len(), 1, "{out}");
+    let f = &facts[0];
+    assert_eq!(
+        (f["differs"].as_str(), f["position"].as_u64()),
+        (Some("order"), Some(0)),
+        "{out}"
+    );
+    assert_eq!(f["recorded"]["payload"], json!({ "n": 1 }), "{out}");
+    assert_eq!(f["changed"]["payload"], json!({ "n": 2 }), "{out}");
+    assert_eq!(f["changed"]["kind"], "ordered.value", "{out}");
+    let report: Vec<&str> = out["report"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert!(report[0].contains("1 in facts"), "{report:?}");
+    assert!(
+        report.contains(
+            &"facts: the same facts in another order; fact 1 this tick: recorded ordered.value {\"n\":1}, changed ordered.value {\"n\":2}"
+        ),
+        "{report:?}"
+    );
+}
+
 #[test]
 fn bad_command_lines_are_refused() {
     let tmp = tempfile::tempdir().unwrap();

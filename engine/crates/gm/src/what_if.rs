@@ -107,11 +107,13 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
         }
     };
 
+    // The tick the recording starts on: 0 for a fresh session, later for one from a save.
+    let first = base.session.world.tick;
     let mut found: Option<(u64, Option<String>)> = None;
     let (mut facts, mut causes) = (0, 0);
     check_baseline(&base.session.world);
     if !same_world(&base.session.world, &run.session.world, 0, 0) {
-        found = Some((0, None));
+        found = Some((first, None));
     }
     while found.is_none() {
         facts = base.session.world.facts.len();
@@ -140,6 +142,7 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
         "start": start,
         "skipped_hot_loads": skipped,
         "build": { "recorded": rec.build.label(), "this": BuildStamp::current().label() },
+        "from": first,
     });
     let mut report = Vec::new();
     if changed.is_empty() && added.is_empty() {
@@ -153,8 +156,9 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
             out["differs"] = false.into();
             out["ticks"] = rec.end.tick.into();
             report.push(format!(
-                "no difference: the world is the same on every tick, 0 to {} ({})",
+                "no difference: the world is the same on every tick, {first} to {} ({} to {})",
                 rec.end.tick,
+                clock(first),
                 clock(rec.end.tick)
             ));
         }
@@ -168,8 +172,8 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
                 .map(|i| format!("{} ({})", i.name, i.source))
                 .collect();
             out["inputs"] = json!(inputs);
-            let when = if tick == 0 {
-                "at the start (tick 0)".to_owned()
+            let when = if tick == first {
+                format!("at the start (tick {tick})")
             } else {
                 format!("after tick {tick} ({})", clock(tick))
             };
@@ -239,7 +243,8 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
             "matches_recording": true,
             "note": format!(
                 "the replay of the recording on this build matched every recorded hash (notes, \
-                 end) it reached; it ran to tick {reached}, where the comparison stopped"
+                 end) it reached; it ran from tick {first} to tick {reached}, where the \
+                 comparison stopped"
             ),
         }),
     };
@@ -351,10 +356,27 @@ fn diff(a: &World, b: &World, facts: usize, causes: usize) -> Diff {
         }
         None => true,
     });
+    let same_set = left.is_empty() && right.is_empty();
     for (list, in_a) in [(left, true), (right, false)] {
         for (kind, payload) in list {
             facts_diff.push(json!({ "kind": kind, "payload": payload, "only_in": side(in_a) }));
         }
+    }
+    // Both runs recorded the same facts this tick, but not as the same sequence: another
+    // order (which decides the order they're handled in next tick) or other causes.
+    let (fa, fb) = (
+        a.facts.get(facts..).unwrap_or(&[]),
+        b.facts.get(facts..).unwrap_or(&[]),
+    );
+    if same_set && let Some(i) = (0..fa.len().min(fb.len())).find(|&i| fa[i] != fb[i]) {
+        let order = fa[i].kind != fb[i].kind || fa[i].payload != fb[i].payload;
+        let fact = |f: &galaxy_sim::world::Fact| json!({ "kind": f.kind, "payload": f.payload, "cause": f.cause });
+        facts_diff.push(json!({
+            "differs": if order { "order" } else { "cause" },
+            "position": i,
+            "recorded": fact(&fa[i]),
+            "changed": fact(&fb[i]),
+        }));
     }
     let mut other = quiet;
     if a.rng != b.rng {
@@ -425,12 +447,31 @@ impl Diff {
             })
             .collect();
         out.extend(self.facts.iter().map(|f| {
-            format!(
-                "fact {} {} only in the {} run",
-                f["kind"].as_str().unwrap_or(""),
-                short(&f["payload"]),
-                f["only_in"].as_str().unwrap_or("")
-            )
+            let fact = |f: &Value| {
+                let kind = f["kind"].as_str().unwrap_or("");
+                format!("{kind} {}", short(&f["payload"]))
+            };
+            match f["differs"].as_str() {
+                Some("order") => format!(
+                    "facts: the same facts in another order; fact {} this tick: \
+                     recorded {}, changed {}",
+                    f["position"].as_u64().unwrap_or(0) + 1,
+                    fact(&f["recorded"]),
+                    fact(&f["changed"])
+                ),
+                Some(_) => format!(
+                    "facts: fact {} this tick ({}) has cause {} recorded, {} changed",
+                    f["position"].as_u64().unwrap_or(0) + 1,
+                    fact(&f["recorded"]),
+                    f["recorded"]["cause"],
+                    f["changed"]["cause"]
+                ),
+                None => format!(
+                    "fact {} only in the {} run",
+                    fact(f),
+                    f["only_in"].as_str().unwrap_or("")
+                ),
+            }
         }));
         out.extend(self.other.iter().map(|o| format!("also differs: {o}")));
         out

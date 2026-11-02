@@ -66,8 +66,10 @@ at a time: the recording as it was, and the recording with the given modules' fi
 place of the recorded ones (modules it didn't have are added). After each tick it compares
 the two worlds and stops at the first that differs. There it lists what differs: entities
 or components only one run has, each field with its recorded and changed value, and the
-facts recorded that tick by only one run; then anything else (random streams that were
-drawn a different number of times, the causes). `report` says it in a few lines:
+facts recorded that tick by only one run, or, when both recorded the same facts in another
+order (the order they're handled in next tick), the first position where they disagree;
+then anything else (random streams that were drawn a different number of times, the
+causes). `report` says it in a few lines:
 
 ```text
 first difference after tick 30 (0:01.0): 2 in entities and components, 0 in facts
@@ -81,7 +83,8 @@ Details that decide the answer:
   changed modules' start states with the recorded seed, so a changed start value or a new
   field default shows as a difference at tick 0. A session that started from a save resumes
   that world with the changed modules, as `sim load` would (new fields get defaults; a
-  change that would lose data is refused with exit 4).
+  change that would lose data is refused with exit 4), so a new default shows at the tick
+  the recording starts on. `from` is that tick, and the comparison runs from it.
 - **Hot-loads.** Recorded hot-loads of a changed module are skipped and listed: the changed
   files are used throughout. Hot-loads of other modules apply as recorded.
 - **Builds.** Both runs are this build, so a difference comes from the module change alone.
