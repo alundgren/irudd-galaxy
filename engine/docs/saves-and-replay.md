@@ -85,7 +85,11 @@ widget clicks fit the same shape later.
 
 `galaxy sim replay <recording>` builds the modules from the recorded files (never the
 module folders), starts from the recorded world, applies each input and hot-load on its
-tick, and compares the end hash with the recorded one. It reports the world's hash at
+tick, and compares the end hash with the recorded one. A world hot-load made after the last
+tick ran (recorded for the tick that never came, as when the recording is written right
+after a load or the window closes before the next tick) is applied at the end, since the
+recorded end already holds it: after a note on the last tick (taken before the load), and
+before a film draws the last tick (`Replay::finish`, which every reader shares). It reports the world's hash at
 every note, so an audit can jump to a noted moment. A different end exits 5 with kind
 `replay_diverged`. `--state` prints the world at the end, as for `sim run`: a line an
 entity, `--entity` and `--component` for fields, `--all` for everything.
@@ -111,6 +115,7 @@ Every `galaxy play` records itself into a folder of its own under the sessions f
   save.db             the world when the window closed
   notes/0001.png      the frame that was shown when each note was taken
   audit/0001.png      the same moment drawn again by galaxy-gm audit
+  shots/tick-88.png   what the window showed when galaxy-gm live shot asked
 ```
 
 The note editor wraps text inside a clipped viewport and scrolls to keep the end caret
@@ -185,7 +190,8 @@ differs: both are in [tests-and-what-if.md](tests-and-what-if.md).
 ## Hot-loading
 
 A changed module can replace the running one between two ticks, from `--watch` (a file in
-a module folder changed) or an inputs file. The engine rebuilds the schemas and every
+a module folder changed), an inputs file, or `galaxy-gm live load` while `play` runs
+(`live-socket.md`). The engine rebuilds the schemas and every
 module's scripts, checks the world still fits (as for a save: new fields get defaults, a
 change that would lose data is refused and nothing changes), swaps them in, and records an
 `engine.hot_loaded` fact with a `hot_load` cause naming the module, its version and its

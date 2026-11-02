@@ -6,9 +6,288 @@ use crate::discover::Tool;
 pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
+        path: "live status",
+        synopsis: "[--game <pid|session>]",
+        answers: "What is the running game doing: its build, modules, tick, world hash, the \
+                  player's place and the frame rate?",
+        about: "Reads never change the world: the hash a read reports is the hash the session \
+                records. Without a running game it exits 2 with kind no_game; with several \
+                and none clearly meant, kind several_games and the list.",
+        args: &[(
+            "--game <pid|session>",
+            "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+        )],
+        output: &[
+            (
+                "game",
+                "the game read: pid, session, build and why it was chosen",
+            ),
+            (
+                "modules",
+                "each running module: id, version and the folder it was loaded from",
+            ),
+            (
+                "tick, seconds, hash",
+                "the world's tick (30 a second), the same in seconds, and \
+              its hash",
+            ),
+            (
+                "place",
+                "the player being and the place it is in; null without one",
+            ),
+            (
+                "fps, frames",
+                "frames a second over about the last second, and frames drawn",
+            ),
+            (
+                "window",
+                "logical size and scale; null before the window opens",
+            ),
+            (
+                "paused, paused_why",
+                "true while an F8 note is open: the world waits",
+            ),
+            ("entities, facts, hot_loads", "counts so far"),
+            (
+                "session_dir, notes, watching_folders",
+                "the session folder, notes kept, and \
+              whether play runs with --watch",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm live status",
+        next: "galaxy-gm live state for the world, live history for what just happened.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live state",
+        synopsis: "[--entity <id>] [--component <name>] [--all] [--game <pid|session>]",
+        answers: "What is in the running game's world: a line an entity, or one entity's or \
+                  component's fields?",
+        about: "The same read as galaxy sim run --state, on the world as it is now. An ID may \
+                be bare (walker for demo.walker) when one module has it.",
+        args: &[
+            (
+                "--entity <id>",
+                "only this entity, every component's fields",
+            ),
+            (
+                "--component <name>",
+                "only this component, on every entity that has it",
+            ),
+            ("--all", "every entity's fields, every fact and every cause"),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            ("tick, hash", "when it was read"),
+            (
+                "state.entities",
+                "a line each (where it is, speed, model, components), or with \
+              --entity/--component their fields",
+            ),
+            (
+                "state.facts",
+                "facts counted by kind (or all of them with --all)",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm live state --entity walker",
+        next: "galaxy-gm live watch to see a value change over ticks.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live history",
+        synopsis: "[--last <n>] [--since <tick>] [--kind <text>] [--inputs] [--game <pid|session>]",
+        answers: "What just happened in the running game: the latest facts (inputs among them), \
+                  who made each, and what scripts printed?",
+        about: "A fact is an event something recorded: a key or click (made by an input), a \
+                script's ctx.record, an engine service. Oldest first.",
+        args: &[
+            (
+                "--last <n>",
+                "the latest n matching facts, 1 to 500; 20 by default",
+            ),
+            ("--since <tick>", "only facts from this tick on"),
+            ("--kind <text>", "only facts whose kind contains this text"),
+            (
+                "--inputs",
+                "only facts inputs made: keys, clicks, bot steps",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            ("tick", "the world's tick now"),
+            (
+                "matching, shown",
+                "how many facts match, and how many are shown",
+            ),
+            (
+                "facts",
+                "each: seq, tick, kind, by (input from keyboard, script <module> <file> \
+              on <event>, engine <service>, start of <module>, hot-load of <module>) and \
+              payload",
+            ),
+            (
+                "log",
+                "lines scripts printed since the first fact shown: tick, module, text",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm live history --inputs --last 10",
+        next: "galaxy-gm live state --entity <id> for what a fact changed.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live watch",
+        synopsis: "--entity <id> --component <name> [--field <name>] [--ticks <n>] [--every <n>] [--game <pid|session>]",
+        answers: "How does a value in the running game change over the next ticks?",
+        about: "Samples now and after each tick the game runs, then prints them all at once \
+                when the ticks have passed (about ticks / 30 seconds). A paused game (an open \
+                F8 note) holds the watch; the command gives up after twice real time.",
+        args: &[
+            ("--entity <id>", "the entity; required"),
+            ("--component <name>", "its component; required"),
+            (
+                "--field <name>",
+                "one field of it; the whole component without",
+            ),
+            (
+                "--ticks <n>",
+                "how many ticks to watch, up to 9000; 30 (one second) by default",
+            ),
+            (
+                "--every <n>",
+                "sample every n ticks; 1 by default; at most 1000 samples",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            ("entity, component, field", "what was watched"),
+            ("from_tick, to_tick", "the first and last tick sampled"),
+            (
+                "samples",
+                "each tick and value (null once the component is gone)",
+            ),
+            (
+                "first, last, changes",
+                "the first and last value, and how often it changed \
+              between samples",
+            ),
+            (
+                "range",
+                "min and max when every value is a number; else null",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm live watch --entity walker --component engine.position --field x --ticks 60",
+        next: "If it moves wrongly, galaxy-gm live history shows what moved it; film it with \
+               galaxy-gm film <session>/recording.json after closing the game.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live shot",
+        synopsis: "[--out <file.png>] [--game <pid|session>]",
+        answers: "What does the running game's window show right now? Writes it as a PNG.",
+        about: "The frame is drawn again at the moment the window last drew, at the window's \
+                size and scale, without the F8 note box.",
+        args: &[
+            (
+                "--out <file.png>",
+                "where the picture goes; shots/tick-<n>.png in the game's \
+              session folder by default",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            ("out", "the picture's path"),
+            ("size", "its width and height in pixels"),
+            ("tick, hash", "the world when it was drawn"),
+        ],
+        writes: "the PNG at --out, or <session>/shots/tick-<n>.png",
+        example: "galaxy-gm live shot --out now.png",
+        next: "Look at the picture; galaxy-gm live state says where things are.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "live load",
+        synopsis: "[<module>] [--game <pid|session>]",
+        answers: "Load changed modules into the running game without restarting it.",
+        about: "Without a folder it reloads each running module whose files changed in the \
+                folder it was loaded from; with a module folder (or a folder of modules) it \
+                loads those, changed or not (a module folder elsewhere replaces the running \
+                module of its ID). It is a hot-load like play --watch: between two ticks, \
+                checked first (the scripts load, the world still fits; else nothing changes \
+                and it exits 5 with kind hot_load_refused), recorded with the new files, so \
+                the session still replays, audits and films. Scripts keep no state, so the \
+                world carries on; a changed start.toml does not move things already placed. \
+                A style.toml-only change is presentation only. While an F8 note is open it \
+                is refused (kind hot_load_refused): keep or drop the note, then load.",
+        args: &[
+            (
+                "<module>",
+                "a module folder or a folder of modules; the running ones by default",
+            ),
+            (
+                "--game <pid|session>",
+                "which running game, by its pid or session folder name; needed only when \
+             several run and none is clearly meant (the error lists them)",
+            ),
+        ],
+        output: &[
+            (
+                "loaded",
+                "each module loaded: module, version, dir and presentation_only",
+            ),
+            (
+                "unchanged",
+                "running modules whose files had not changed (skipped)",
+            ),
+            (
+                "failed",
+                "each module refused: module and error; nothing of it changed",
+            ),
+            (
+                "tick, hash",
+                "the world after the load; the load runs before the next tick",
+            ),
+            (
+                "recording",
+                "the session's recording, written with the load in it",
+            ),
+        ],
+        writes: "the session's recording.json",
+        example: "galaxy-gm live load",
+        next: "galaxy-gm live watch or live state to see the change take; galaxy sim replay \
+               <session>/recording.json after closing the game proves it replays.",
+        topic: "live",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "look",
         synopsis: "<recording> (--note <n> | --tick <n>) [--point <x,y>] [--size <w>x<h>]",
-        answers: "What is under a point of a recorded frame, and is its hover readable?",
+        answers: "What is under a point of a recorded frame; is its hover readable?",
         about: "Replays embedded modules headlessly. Points and rectangles use logical pixels. Notes use their exact recorded frame; tick mode uses alpha 1 and the requested viewport.",
         args: &[
             ("<recording>", "recording.json or its session folder"),
@@ -50,7 +329,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, tests, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
+            "play, live, notes, replay, tests, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -576,8 +855,8 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "film",
         synopsis: "<recording> (--note <n> | --from <tick> --to <tick>) [options]",
-        answers: "Film a played session again round one of its notes (or between two ticks), \
-                  frame by frame as the window showed it; by this build, the recording's or two.",
+        answers: "Film a played session round a note or between two ticks, frame by frame \
+                  as the window showed it.",
         about: "Which build draws: this one, unless told. --as-recorded draws with the build \
                 that recorded the session (installed builds sit side by side; galaxy-gm doctor \
                 lists them): this build runs that one's galaxy-gm to draw, then stamps the \
@@ -589,8 +868,9 @@ pub static COMMANDS: &[Command] = &[
                 for what every build since films began takes, and a build that predates films \
                 says so. `builds` says which build recorded the session and which drew this, \
                 and its note says plainly when they differ. Every note inside the film is \
-                checked against the world's hash it kept, so a film of a different world exits \
-                5 (replay_diverged) rather than pass for what the player saw. By default the \
+                checked against the world's hash it kept, and a film to the recording's last \
+                tick against the world it ended on (a live load just before the end included), \
+                so a film of a different world exits 5 (replay_diverged) rather than pass for what the player saw. By default the \
                 film is at the note's own frame size (window scale included), which is what \
                 catches thin lines breaking and one-frame flicker.",
         args: &[
@@ -640,6 +920,11 @@ pub static COMMANDS: &[Command] = &[
                 "each note inside the film: tick, identical (the replayed \
               world is the player's). The world can be identical on another build while \
               the picture differs: read builds too",
+            ),
+            (
+                "end_checked",
+                "when the film ends on the recording's last tick: tick, identical \
+              (the film ends on the world the recording ended on); null otherwise",
             ),
             (
                 "builds",
@@ -714,8 +999,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "doctor",
         synopsis: "",
-        answers: "Which engine is this, which builds and launchers are installed, and which \
-                  modules are near the working folder?",
+        answers: "Which engine and builds are installed, and which modules are nearby?",
         about: "",
         args: &[],
         output: &[
@@ -777,6 +1061,40 @@ pub static TOPICS: &[Topic] = &[
                 "Copy the module, change a value in one of its scripts, then:",
                 "galaxy-gm what-if session.json --modules <changed module>",
                 "Read report: the first tick that differs, and the fields and facts that differ there.",
+            ],
+        }],
+    },
+    Topic {
+        name: "live",
+        title: "Reading and changing a running game",
+        about: "galaxy play serves a live socket while it runs (local only: a named pipe on \
+                Windows, a Unix socket elsewhere, open to this user, with a token; --no-live \
+                turns it off). galaxy-gm live reads the game through it: status, state, \
+                history, watch, shot. Reads never change the world or its hash. live load \
+                hot-loads changed modules between two ticks and records it like play --watch, \
+                so the session still replays. Each command picks the one running game, or the \
+                one running the modules it loads, or the one playing modules in the working \
+                folder; otherwise it lists them (kind several_games) and --game <pid or \
+                session> picks one. With no game running, kind no_game.",
+        tasks: &[
+            ("Tick, place, frame rate", "gm live status"),
+            ("Where things are, their fields", "gm live state"),
+            ("What just happened", "gm live history"),
+            ("A value over ticks", "gm live watch"),
+            ("What the window shows", "gm live shot"),
+            ("Load changed modules without restarting", "gm live load"),
+        ],
+        recipes: &[Recipe {
+            title: "Edit a running game",
+            steps: &[
+                "galaxy play --modules <modules>",
+                "galaxy-gm live status",
+                "galaxy-gm live state --entity <being>",
+                "Edit the module's script (a different spot to walk to), then:",
+                "galaxy-gm live load",
+                "galaxy-gm live watch --entity <being> --component engine.position --field x --ticks 90",
+                "galaxy-gm live shot --out now.png",
+                "Close the window, then: galaxy sim replay <session>/recording.json",
             ],
         }],
     },

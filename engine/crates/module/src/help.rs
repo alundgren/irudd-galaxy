@@ -241,15 +241,22 @@ pub fn overview(tool: Tool) -> String {
             ],
         ),
         Tool::Gm => (
-            "galaxy-gm: the GM. It checks and tests modules, reads played sessions and F8 \
-             notes, films and measures motion. Commands print one JSON object, except help, \
-             guide and types.",
+            "galaxy-gm: the GM. It checks and tests modules, reads sessions, notes and \
+             running games, and films motion. Commands print one JSON object.",
             &[
                 ("Start here", &["guide"]),
                 ("Modules", &["check", "test", "types", "fields", "model"]),
                 (
                     "Played sessions and notes",
-                    &["notes", "recording", "audit", "film", "look", "what-if"],
+                    &[
+                        "notes",
+                        "recording",
+                        "audit",
+                        "film",
+                        "look",
+                        "what-if",
+                        "live",
+                    ],
                 ),
                 ("How motion looks", &["film show", "motion", "motion check"]),
                 ("This install", &["doctor"]),
@@ -273,6 +280,10 @@ pub fn overview(tool: Tool) -> String {
                          them.",
                         motion_tools().join(", ")
                     ),
+                ),
+                None if *p == "live" => (
+                    "live <command>".to_owned(),
+                    "Read or hot-load a running galaxy play: `galaxy-gm live --help`.".to_owned(),
                 ),
                 None => unreachable!("the overview names commands in the table: {p}"),
             })
@@ -404,16 +415,17 @@ pub fn guide() -> String {
     }
     let names: Vec<&str> = TOPICS.iter().map(|t| t.name).collect();
     let _ = write!(s, "\nTopics: {}.", names.join(", "));
-    let recipes: Vec<String> = TOPICS
+    let with: Vec<&str> = TOPICS
         .iter()
-        .flat_map(|t| {
-            t.recipes
-                .iter()
-                .map(move |r| format!("{} (guide {})", r.title, t.name))
-        })
+        .filter(|t| !t.recipes.is_empty())
+        .map(|t| t.name)
         .collect();
-    if !recipes.is_empty() {
-        let _ = write!(s, "\nRecipes: {}.", recipes.join("; "));
+    if !with.is_empty() {
+        let _ = write!(
+            s,
+            "\nStep-by-step recipes: galaxy-gm guide {}.",
+            with.join(" | ")
+        );
     }
     wrap_long(&s)
 }
@@ -504,11 +516,21 @@ static GAME: &[Command] = &[
             ("--frames <n>", "quit after this many frames"),
             ("--save <file>", "also write the world here when it quits"),
             ("--record <file>", "also write the recording here"),
+            (
+                "--no-live",
+                "don't serve the live socket galaxy-gm live reads and hot-loads through \
+                 (served by default, locally and to this user only)",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("session", "the session folder"),
             ("notes", "how many notes were taken"),
+            (
+                "live",
+                "served (true or false), the pid galaxy-gm live --game takes, or why it was \
+                 not served",
+            ),
             (
                 "frame_time",
                 "fps and frames, then interval_ms (frame to frame), sim_ms, scene_ms and \

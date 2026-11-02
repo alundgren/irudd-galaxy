@@ -362,6 +362,7 @@ impl<'a> Replay<'a> {
     /// Runs the next tick, with its hot-loads and inputs. False once at the end.
     pub fn step(&mut self) -> Result<bool, String> {
         if self.session.world.tick >= self.rec.end.tick {
+            self.finish()?;
             return Ok(false);
         }
         let tick = self.session.world.tick + 1;
@@ -371,6 +372,20 @@ impl<'a> Replay<'a> {
             .step(self.inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
         self.apply_loads(false)?;
         Ok(true)
+    }
+
+    /// At the recording's last tick, applies a world hot-load made after that tick ran.
+    /// It is recorded for the tick that never came, but the recorded end already holds it
+    /// (a recording written just after a load, or a window closed before the next tick).
+    /// Every reader that shows or compares the end calls it, after checking a note on the
+    /// last tick (taken before the load). True when modules changed; before the end it
+    /// does nothing.
+    pub fn finish(&mut self) -> Result<bool, String> {
+        self.modules_changed = false;
+        if self.session.world.tick >= self.rec.end.tick {
+            self.apply_loads(true)?;
+        }
+        Ok(self.modules_changed)
     }
 
     fn apply_loads(&mut self, before_step: bool) -> Result<(), String> {

@@ -284,8 +284,8 @@ pub fn film_on_each(
             .get(1)
             .map_or(String::new(), |f| f.1.display().to_string())
     );
-    // A film whose replayed world differs from the recording's at a note fails the whole
-    // comparison, as it fails a film of one build.
+    // A film whose replayed world differs from the recording's at a note or at its end
+    // fails the whole comparison, as it fails a film of one build.
     let diverged: Vec<&String> = films
         .iter()
         .filter(|(_, _, report)| report["ok"] == false)
@@ -301,6 +301,7 @@ pub fn film_on_each(
             "frames": report["frames"],
             "added": report.get("added"),
             "notes_checked": report.get("notes_checked"),
+            "end_checked": report.get("end_checked"),
             "builds": report["builds"]["note"],
         })).collect::<Vec<_>>(),
         "behaviour": if behaviour.is_null() {

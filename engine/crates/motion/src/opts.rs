@@ -118,6 +118,11 @@ impl Opts {
         Ok(())
     }
 
+    /// The options given, by name.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.values.keys().map(String::as_str)
+    }
+
     pub fn text(&self, name: &str) -> Option<&str> {
         self.values.get(name).map(String::as_str)
     }

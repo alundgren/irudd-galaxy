@@ -146,6 +146,89 @@ fn a_film_of_a_different_world_is_refused() {
     }
 }
 
+/// A session ending right after a live load, written before another tick ran (as
+/// `galaxy-gm live load` writes it): the world load is recorded for tick 61, a tick that
+/// never came, and the recorded end already holds it. The note on tick 60 came before it.
+#[test]
+fn a_film_to_the_end_of_a_session_written_right_after_a_live_load_shows_the_load() {
+    let tmp = tempfile::tempdir().unwrap();
+    let drift = Module::read(&play().join("drift")).unwrap();
+    let mut session = Session::new(vec![drift.clone()], 1).unwrap();
+    session.start_recording(BuildStamp::current());
+    for _ in 1..=60 {
+        session.step(&[]).unwrap();
+    }
+    session.note("before the load", None, None);
+    let before = session.world.hash();
+    let mut files = drift.files.clone();
+    files
+        .0
+        .get_mut("scripts/drift.luau")
+        .unwrap()
+        .push_str("\n-- edited while playing\n");
+    session
+        .hot_load(Module::from_files(&play().join("drift"), files).unwrap())
+        .unwrap();
+    assert_ne!(session.world.hash(), before);
+    let rec = session.recording().unwrap();
+    assert_eq!(rec.end.tick, 60);
+    let path = tmp.path().join("recording.json");
+    rec.write(&path).unwrap();
+
+    // Replay, audit and film agree: the note sees the world before the load, the end the
+    // world after it.
+    let (_, replayed) = galaxy_sim::replay(&rec).unwrap();
+    assert!(replayed.identical);
+    assert_eq!(replayed.notes[0].hash, before);
+    let (code, audit) = gm(&["audit", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{audit}");
+    let film = tmp.path().join("film");
+    let film_args = |out: &Path| {
+        [
+            "film",
+            path.to_str().unwrap(),
+            "--from",
+            "30",
+            "--to",
+            "60",
+            "--fps",
+            "30",
+            "--probes-only",
+            "--out",
+            out.to_str().unwrap(),
+        ]
+        .map(str::to_owned)
+    };
+    let args = film_args(&film);
+    let (code, out) = gm(&args.each_ref().map(String::as_str));
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(
+        out["notes_checked"],
+        serde_json::json!([{ "tick": 60, "identical": true }])
+    );
+    assert_eq!(
+        out["end_checked"],
+        serde_json::json!({ "tick": 60, "identical": true })
+    );
+    let read = galaxy_motion::Film::read(&film).unwrap();
+    let frames = read.frames();
+    let last = frames.last().unwrap();
+    assert_eq!((last.tick, &last.hash), (60, &rec.end.hash));
+
+    // A film that ends on another world than the recording's is refused.
+    let mut json: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    json["end"]["hash"] = Value::from("not the world");
+    std::fs::write(&path, json.to_string()).unwrap();
+    let args = film_args(&tmp.path().join("other"));
+    let (code, out) = gm(&args.each_ref().map(String::as_str));
+    assert_eq!(
+        (code, out["kind"].as_str()),
+        (5, Some("replay_diverged")),
+        "{out}"
+    );
+    assert_eq!(out["end_checked"]["identical"], false, "{out}");
+}
+
 #[test]
 fn a_note_that_is_not_there_is_bad_input() {
     let tmp = tempfile::tempdir().unwrap();

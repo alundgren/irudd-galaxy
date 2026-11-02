@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use galaxy_api::engine::{HOT_LOADED, MODEL, MOTION, POSITION, SCRIPT_FAILED};
+use galaxy_api::engine::{HOT_LOADED, SCRIPT_FAILED};
 use galaxy_module::cli::{self, Output};
 use galaxy_module::failure::code;
 use galaxy_module::module::Module;
@@ -31,6 +31,8 @@ pub(crate) struct Options {
     pub record: Option<PathBuf>,
     pub realtime: bool,
     pub watch: bool,
+    /// `--no-live`: play without serving the live socket.
+    pub no_live: bool,
     pub state: bool,
     /// `--out`: where a picture goes.
     pub out: Option<PathBuf>,
@@ -75,7 +77,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
         }
         let switch = matches!(
             flag,
-            "--realtime" | "--watch" | "--state" | "--probes-only" | "--all"
+            "--realtime" | "--watch" | "--state" | "--probes-only" | "--all" | "--no-live"
         );
         if switch {
             if inline.is_some() {
@@ -86,6 +88,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--watch" => options.watch = true,
                 "--probes-only" => options.probes_only = true,
                 "--all" => options.all = true,
+                "--no-live" => options.no_live = true,
                 _ => options.state = true,
             }
             continue;
@@ -419,134 +422,16 @@ fn filters_need_state(options: &Options) -> Result<(), Failure> {
     Ok(())
 }
 
-/// The world, for `--state`: a line an entity (where it is, its speed, its model and its
-/// components) and the facts counted by kind. With `--entity` or `--component`, those
-/// entities' and components' fields, without the facts; with `--all`, every field, the
-/// facts and causes.
+/// The world, for `--state` (`galaxy_live::reads::state`, which `galaxy-gm live state`
+/// prints too).
 fn state(session: &Session, options: &Options) -> Result<Value, Failure> {
-    let world = &session.world;
-    // A full ID, or a bare name one module has (`ship` for `drift.ship`).
-    let pick = |want: &str, names: Vec<&String>, what: &str| -> Result<String, Failure> {
-        if names.iter().any(|n| *n == want) {
-            return Ok(want.to_owned());
-        }
-        let suffix = format!(".{want}");
-        let found: Vec<&&String> = names.iter().filter(|n| n.ends_with(&suffix)).collect();
-        match found.as_slice() {
-            [one] => Ok((**one).clone()),
-            [] => Err(usage(format!(
-                "no {what} `{want}` in the world; there are {}",
-                names
-                    .iter()
-                    .map(|n| n.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ))),
-            many => Err(usage(format!(
-                "`{want}` could be {}; write the full ID",
-                many.iter()
-                    .map(|n| n.as_str())
-                    .collect::<Vec<_>>()
-                    .join(" or ")
-            ))),
-        }
-    };
-    let entity = options
-        .entity
-        .as_deref()
-        .map(|e| pick(e, world.entities.keys().collect(), "entity"))
-        .transpose()?;
-    let component = match options.component.as_deref() {
-        None => None,
-        Some(c) => {
-            let mut names: Vec<&String> =
-                world.entities.values().flat_map(|cs| cs.keys()).collect();
-            names.sort();
-            names.dedup();
-            Some(pick(c, names, "component")?)
-        }
-    };
-    let entities: serde_json::Map<String, Value> = world
-        .entities
-        .iter()
-        .filter(|(id, _)| entity.as_ref().is_none_or(|e| e == *id))
-        .filter_map(|(id, components)| {
-            let components: serde_json::Map<String, Value> = components
-                .iter()
-                .filter(|(name, _)| component.as_ref().is_none_or(|c| c == *name))
-                .map(|(name, c)| (name.clone(), Value::Object(c.fields.clone())))
-                .collect();
-            (!components.is_empty()).then(|| (id.clone(), Value::Object(components)))
-        })
-        .collect();
-    if entity.is_some() || component.is_some() {
-        return Ok(json!({
-            "entities": entities,
-            "facts": format!(
-                "{} fact(s) left out with --entity/--component; --state alone prints them",
-                world.facts.len()
-            ),
-        }));
-    }
-    if options.all {
-        return Ok(json!({
-            "entities": entities,
-            "facts": world.facts,
-            "causes": world.causes,
-        }));
-    }
-    // A line an entity: where it is and how fast it goes, the model it wears, and its
-    // components by name.
-    let number = |c: Option<&galaxy_sim::world::Component>, k: &str| {
-        c.and_then(|c| c.fields.get(k)).and_then(Value::as_f64)
-    };
-    let summary: serde_json::Map<String, Value> = world
-        .entities
-        .iter()
-        .map(|(id, components)| {
-            let mut parts = Vec::new();
-            let at = components.get(POSITION);
-            if let (Some(x), Some(y)) = (number(at, "x"), number(at, "y")) {
-                parts.push(format!(
-                    "at ({x:.2}, {y:.2}) angle {:.2}",
-                    number(at, "angle").unwrap_or(0.0)
-                ));
-            }
-            let moving = components.get(MOTION);
-            if let (Some(vx), Some(vy)) = (number(moving, "vx"), number(moving, "vy")) {
-                parts.push(format!("speed {:.2}", (vx * vx + vy * vy).sqrt()));
-            }
-            if let Some(m) = components.get(MODEL) {
-                let text = |k: &str| m.fields.get(k).and_then(Value::as_str).unwrap_or("");
-                let mut worn = format!("wears {}", text("model"));
-                if let Some(s) = number(Some(m), "scale").filter(|s| *s != 1.0) {
-                    worn.push_str(&format!(" at scale {s}"));
-                }
-                if !text("look").is_empty() {
-                    worn.push_str(&format!(" with look {}", text("look")));
-                }
-                parts.push(worn);
-            }
-            let names: Vec<&str> = components.keys().map(String::as_str).collect();
-            let line = if parts.is_empty() {
-                names.join(", ")
-            } else {
-                format!("{}; {}", parts.join(", "), names.join(", "))
-            };
-            (id.clone(), Value::String(line))
-        })
-        .collect();
-    let mut kinds: std::collections::BTreeMap<&str, usize> = Default::default();
-    for f in &world.facts {
-        *kinds.entry(f.kind.as_str()).or_default() += 1;
-    }
-    Ok(json!({
-        "entities": summary,
-        "facts": { "count": world.facts.len(), "kinds": kinds },
-        "causes": world.causes.len(),
-        "compact": "a line an entity: where it is, its speed, its model and its components. \
-                    --entity <id> for one entity's fields, --component <name> for one \
-                    component on every entity, --all for the whole world (every field, the \
-                    facts and causes)",
-    }))
+    galaxy_live::reads::state(
+        &session.world,
+        &galaxy_live::reads::StateQuery {
+            entity: options.entity.clone(),
+            component: options.component.clone(),
+            all: options.all,
+        },
+    )
+    .map_err(usage)
 }

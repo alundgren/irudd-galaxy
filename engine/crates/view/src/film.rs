@@ -45,6 +45,11 @@ pub trait Stepper {
     /// Runs the next tick. True when modules were hot-loaded before it, so the view
     /// loads their models again.
     fn step(&mut self) -> Result<bool, String>;
+    /// On a recording's last tick, applies what was loaded after it ([`Replay::finish`]).
+    /// True when modules were hot-loaded.
+    fn finish(&mut self) -> Result<bool, String> {
+        Ok(false)
+    }
     fn modules(&self) -> Vec<&Module>;
     /// The inputs the next step to `tick` applies.
     fn inputs(&self, tick: u64) -> &[Input];
@@ -125,6 +130,10 @@ impl Stepper for Replay<'_> {
             ));
         }
         Ok(self.modules_changed)
+    }
+
+    fn finish(&mut self) -> Result<bool, String> {
+        Replay::finish(self)
     }
 
     fn modules(&self) -> Vec<&Module> {
@@ -308,6 +317,11 @@ pub fn shoot(
                     shoot,
                     &mut note_drawn,
                 )?;
+            }
+            // The recording's end is drawn as it ended: with a load made after its last
+            // tick (the note on that tick, exported above, was taken before it).
+            if stepper.finish()? {
+                view.reload(renderer.as_deref_mut(), stepper.modules());
             }
             let now = stepper.world().tick;
             while zooms.peek().is_some_and(|z| z.0 <= now) {
