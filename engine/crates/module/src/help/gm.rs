@@ -342,8 +342,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "test",
         synopsis: "<module> [--only <text>]",
-        answers: "Do this module's tests pass? Runs its Luau tests (tests/*.luau) and its \
-                  scenario runs (tests/*.toml) and reports each pass or failure with what failed.",
+        answers: "Run Luau tests, scenarios and declared rendered bots; report each result.",
         about: "A Luau test file returns a table of named functions; one passes if it returns \
                 without an error (assert(cond, \"why\") fails it). Tests run in the scripts' \
                 sandbox and budgets, require(\"../scripts/name\") sees the module's files, and \
@@ -351,7 +350,10 @@ pub static COMMANDS: &[Command] = &[
                 [[input]] entries as in an inputs file (a plain name is the module's own event) \
                 and [[expect]] entries on component fields or fact counts after a tick; script \
                 failures during it fail it too. The modules beside it are loaded, as for check. \
-                Any failure exits 5 with kind tests_failed and the same fields.",
+                tests/*.bot.toml explicitly opens a window: inputs (module-relative file), ticks, \
+                size = [1280, 720] (physical pixels), optional seed (default 1). No resize or hot_load. \
+                It runs the matching galaxy play and replays its recording. Missing GPU/window is \
+                status unavailable, never a pass. Any failure exits 5 with kind tests_failed.",
         args: &[
             ("<module>", "a module folder (with a manifest.toml)"),
             (
@@ -367,8 +369,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "passed, failed",
-                "how many tests and scenario runs passed and failed (a scenario counts once, \
-                 however many of its expectations fail)",
+                "how many tests, scenarios and bots passed and failed (each run counts once)",
             ),
             (
                 "failures",
@@ -384,14 +385,18 @@ pub static COMMANDS: &[Command] = &[
                 "each scenario run: file, passed, ticks, the world's hash at the end, failures",
             ),
             (
+                "bots",
+                "file, passed, status, requested_size, size, frames, frame_time (fps and interval_ms median/p95/p99/max), replay.identical, session; failure explains any unavailable or failed run",
+            ),
+            (
                 "notes",
                 "modules beside it that could not be read; no tests found",
             ),
         ],
-        writes: "",
+        writes: "declared bots keep a play session with recording, save and note pictures",
         example: "galaxy-gm test game/modules/core",
         next: "Fix the module or the test; galaxy-gm fields inputs lists the inputs a \
-               scenario can send, galaxy-gm guide tests shows both formats.",
+               scenario can send, galaxy-gm guide tests shows all formats.",
         topic: "tests",
     },
     Command {
@@ -1308,7 +1313,13 @@ pub static TOPICS: &[Topic] = &[
                 and [[expect]] entries checked after their tick (the last by default): entity \
                 (the module's own name, or a full ID), component and field with equals, \
                 at_least or at_most (absent = true without a field), or facts = \"<event>\" \
-                with a count. galaxy-gm test runs both. galaxy-gm what-if \
+                with a count. tests/<name>.bot.toml declares a rendered run: inputs = \
+                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 (one key per line). \
+                Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
+                galaxy-gm test opens a window only for declared bots; --only filters their file names. \
+                bots reports physical size, frames, fps, interval_ms median/p95/p99/max and replay.identical. \
+                Missing GPU/window reports status unavailable and exits 5, never a pass. \
+                galaxy-gm what-if \
                 runs a recorded session (galaxy play, or galaxy sim run --record) again on \
                 changed modules and names the first tick where the world differs and the \
                 entities, fields and facts that differ.",
@@ -1453,7 +1464,11 @@ pub static TOPICS: &[Topic] = &[
                 F8 pauses and opens a note box over the frame on screen; Enter keeps the note \
                 with its tick, the world's hash and the camera. A bot plays an inputs file \
                 through the same window loop (--inputs), and its [[note]] entries are taken \
-                like F8 notes.",
+                like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
+                use the saving build and unchanged module files. --ticks and inputs use absolute \
+                world ticks, including on resume. The new recording embeds the saved start world, \
+                so replay, F8, audit and film work as usual. --physical-size makes --size physical \
+                pixels (otherwise logical); the report always gives physical size.",
         tasks: &[
             ("Play the game", "game play"),
             (

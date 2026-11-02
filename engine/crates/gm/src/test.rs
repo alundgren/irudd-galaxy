@@ -57,6 +57,7 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
         .0
         .iter()
         .filter(|(path, _)| path.starts_with("tests/") && path.ends_with(".toml"))
+        .filter(|(path, _)| !path.ends_with(".bot.toml"))
         .filter(|(path, _)| keep(path, ""))
         .map(|(path, text)| {
             match scenario::run_scenario(&all, module.id(), path, text) {
@@ -79,13 +80,34 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
             }
         })
         .collect();
+    let bots: Vec<Value> = module
+        .files
+        .0
+        .iter()
+        .filter(|(path, _)| {
+            path.starts_with("tests/") && path.ends_with(".bot.toml") && keep(path, "")
+        })
+        .map(|(path, text)| {
+            let root = if context.is_empty() {
+                dir.as_path()
+            } else {
+                dir.parent().unwrap_or(&dir)
+            };
+            let report = crate::bot::run(&module, root, path, text);
+            if let Some(error) = report["failure"].as_str() {
+                failures.push(format!("{path}: {error}"));
+            }
+            report
+        })
+        .collect();
     let failed = tests
         .iter()
         .chain(&scenarios)
+        .chain(&bots)
         .filter(|t| t["passed"] != true)
         .count();
-    let passed = tests.len() + scenarios.len() - failed;
-    if tests.is_empty() && scenarios.is_empty() {
+    let passed = tests.len() + scenarios.len() + bots.len() - failed;
+    if tests.is_empty() && scenarios.is_empty() && bots.is_empty() {
         notes.push(match only {
             Some(o) => format!("no test's file or name contains `{o}`"),
             None => "the module has no tests: add tests/<name>.luau (Luau tests) or \
@@ -105,6 +127,7 @@ pub fn run(dir: &Path, only: Option<&str>) -> Result<Output, Failure> {
         "failures": failures,
         "tests": tests,
         "scenarios": scenarios,
+        "bots": bots,
     });
     if ok {
         return Ok(Output::Json(out));

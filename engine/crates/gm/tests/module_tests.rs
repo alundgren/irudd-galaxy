@@ -127,3 +127,57 @@ fn bad_command_lines_and_modules_are_refused() {
         "{out}"
     );
 }
+
+#[test]
+fn malformed_bot_is_reported_once_without_opening_a_window() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("sample");
+    std::fs::create_dir_all(dir.join("tests")).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        "id = 'sample'\nversion = '0.1.0'\nmin_engine_version = '0.1.0'",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("tests/run.bot.toml"),
+        "inputs = 'missing.inputs'\nticks = 0\nsize = [1280, 720]",
+    )
+    .unwrap();
+    let (code, report) = gm(&["test", dir.to_str().unwrap()]);
+    assert_eq!(code, 5, "{report}");
+    assert_eq!(report["failed"], 1);
+    assert_eq!(report["scenarios"].as_array().unwrap().len(), 0);
+    assert_eq!(report["bots"][0]["status"], "failed");
+    let (code, report) = gm(&["test", dir.to_str().unwrap(), "--only", "nothing"]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["bots"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+#[ignore = "opens a GPU window; build the matching galaxy binary first"]
+fn declared_bot_reports_physical_size_timing_and_replay() {
+    let temp = tempfile::tempdir().unwrap();
+    let dir = temp.path().join("sample");
+    std::fs::create_dir_all(dir.join("tests")).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        "id = 'sample'\nversion = '0.1.0'\nmin_engine_version = '0.1.0'",
+    )
+    .unwrap();
+    std::fs::write(dir.join("tests/run.inputs"), "").unwrap();
+    std::fs::write(
+        dir.join("tests/run.bot.toml"),
+        "inputs = 'tests/run.inputs'\nticks = 60\nsize = [1280, 720]",
+    )
+    .unwrap();
+    let (code, report) = gm(&["test", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{report}");
+    let bot = &report["bots"][0];
+    assert_eq!(bot["size"], serde_json::json!([1280, 720]));
+    assert_eq!(bot["replay"]["identical"], true);
+    assert!(bot["frames"].as_u64().unwrap() > 10);
+    assert!(bot["frame_time"]["fps"].as_f64().unwrap() > 0.0);
+    for key in ["median", "p95", "p99", "max"] {
+        assert!(bot["frame_time"]["interval_ms"][key].as_f64().unwrap() > 0.0);
+    }
+}
