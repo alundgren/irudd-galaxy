@@ -24,7 +24,7 @@
 //! search for `"type":"note"` finds every note. Recordings written compact, on one line,
 //! read the same.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::Path;
 
 use galaxy_module::module::{Module, ModuleFiles};
@@ -313,8 +313,9 @@ pub struct Replay<'a> {
     pub session: Session,
     rec: &'a Recording,
     inputs: BTreeMap<u64, Vec<Input>>,
-    loads: BTreeMap<u64, Vec<(&'a String, &'a ModuleFiles)>>,
-    styles: BTreeMap<u64, Vec<(&'a String, &'a ModuleFiles)>>,
+    // Keep file snapshots in acceptance order. A style snapshot can contain code
+    // from an earlier world reload whose recorded tick is one greater than its own.
+    loads: VecDeque<&'a RecEvent>,
     /// The last step replaced module assets, including presentation-only styles.
     pub modules_changed: bool,
 }
@@ -329,24 +330,11 @@ impl<'a> Replay<'a> {
             .collect::<Result<Vec<_>, _>>()?;
         let session = Session::resume(modules, rec.start.clone())?;
         let mut inputs: BTreeMap<u64, Vec<Input>> = BTreeMap::new();
-        let mut loads: BTreeMap<u64, Vec<(&String, &ModuleFiles)>> = BTreeMap::new();
-        let mut styles: BTreeMap<u64, Vec<(&String, &ModuleFiles)>> = BTreeMap::new();
+        let mut loads = VecDeque::new();
         for event in &rec.events {
             match event {
                 RecEvent::Input(input) => inputs.entry(input.tick).or_default().push(input.clone()),
-                RecEvent::HotLoad {
-                    tick,
-                    module,
-                    files,
-                    presentation_only,
-                } => {
-                    let target = if *presentation_only {
-                        &mut styles
-                    } else {
-                        &mut loads
-                    };
-                    target.entry(*tick).or_default().push((module, files));
-                }
+                RecEvent::HotLoad { .. } => loads.push_back(event),
                 RecEvent::Note { .. } | RecEvent::Zoom { .. } | RecEvent::Presentation { .. } => {}
             }
         }
@@ -355,10 +343,9 @@ impl<'a> Replay<'a> {
             rec,
             inputs,
             loads,
-            styles,
             modules_changed: false,
         };
-        replay.apply_styles()?;
+        replay.apply_loads(false)?;
         Ok(replay)
     }
 
@@ -378,23 +365,35 @@ impl<'a> Replay<'a> {
             return Ok(false);
         }
         let tick = self.session.world.tick + 1;
-        self.modules_changed = self.loads.contains_key(&tick);
-        for (id, files) in self.loads.get(&tick).into_iter().flatten() {
-            let module = module_from(id, files)?;
-            let result = self.session.hot_load_world(module);
-            result.map_err(|e| format!("the hot-load of `{id}` before tick {tick} failed: {e}"))?;
-        }
+        self.modules_changed = false;
+        self.apply_loads(true)?;
         self.session
             .step(self.inputs.get(&tick).map_or(&[][..], Vec::as_slice))?;
-        self.apply_styles()?;
+        self.apply_loads(false)?;
         Ok(true)
     }
 
-    fn apply_styles(&mut self) -> Result<(), String> {
-        let tick = self.session.world.tick;
-        self.modules_changed |= self.styles.contains_key(&tick);
-        for (id, files) in self.styles.get(&tick).into_iter().flatten() {
-            self.session.hot_load_style(module_from(id, files)?)?;
+    fn apply_loads(&mut self, before_step: bool) -> Result<(), String> {
+        while let Some(RecEvent::HotLoad {
+            tick,
+            module: id,
+            files,
+            presentation_only,
+        }) = self.loads.front().copied()
+        {
+            let due = self.session.world.tick + u64::from(before_step && !presentation_only);
+            if *tick > due {
+                break;
+            }
+            let module = module_from(id, files)?;
+            let result = if *presentation_only {
+                self.session.hot_load_style(module)
+            } else {
+                self.session.hot_load_world(module)
+            };
+            result.map_err(|e| format!("the hot-load of `{id}` at tick {tick} failed: {e}"))?;
+            self.loads.pop_front();
+            self.modules_changed = true;
         }
         Ok(())
     }

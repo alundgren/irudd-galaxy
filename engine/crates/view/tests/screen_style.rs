@@ -148,6 +148,99 @@ fn reload_changes_paint_without_simulation_changes_and_replays_style_at_same_tic
 }
 
 #[test]
+fn mixed_world_and_style_reloads_replay_in_acceptance_order() {
+    // Both pair orders, longer interleavings, and boundaries at the start and
+    // between later ticks. Full snapshots carry all earlier code/style edits.
+    for order in [
+        [false, true, false, true],
+        [true, false, true, false],
+        [false, false, true, true],
+        [true, true, false, false],
+    ] {
+        for boundaries in [[0, 0, 0, 0], [1, 1, 1, 1], [1, 1, 2, 2], [0, 1, 2, 3]] {
+            let mut current = module("screen-light");
+            let mut session = Session::new(vec![current.clone()], 1).unwrap();
+            session.start_recording(BuildStamp::current());
+            let mut view = View::detached(session.modules(), 1);
+            let mut notes = vec![];
+            for tick in 0..=4 {
+                for (i, style_only) in order.iter().enumerate() {
+                    if boundaries[i] != tick {
+                        continue;
+                    }
+                    if *style_only {
+                        // Alternating actual paint as well as distinct file snapshots.
+                        let look = if i % 2 == 0 {
+                            "screen-light"
+                        } else {
+                            "screen-dark"
+                        };
+                        let paint = module(look).files.get("style.toml").unwrap().to_owned();
+                        current
+                            .files
+                            .0
+                            .insert("style.toml".into(), format!("{paint}\n# edit {i}\n"));
+                    } else {
+                        current
+                            .files
+                            .0
+                            .get_mut("screen.luau")
+                            .unwrap()
+                            .push_str(&format!("\n-- code edit {i}\n"));
+                    }
+                    let hash = session.world.hash();
+                    session.hot_load(current.clone()).unwrap();
+                    assert_eq!(hash == session.world.hash(), *style_only);
+                    view.reload(None, session.modules());
+                }
+                view.before_step(&session.world);
+                session.step(&[]).unwrap();
+                let overlay = view
+                    .scene(&session.world, 1.0, Vec2::new(1280.0, 720.0), 0.0)
+                    .overlay;
+                let moment = view.moment(1.0, 0.0, (1280, 720), 1.0).unwrap();
+                session.note(
+                    "after tick",
+                    Some(serde_json::to_value(&moment).unwrap()),
+                    None,
+                );
+                notes.push((session.world.hash(), moment, overlay));
+            }
+            let rec = session.recording().unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("recording.json");
+            rec.write(&path).unwrap();
+            let rec = galaxy_sim::Recording::read(&path).unwrap();
+            let (_, report) = galaxy_sim::replay(&rec).unwrap();
+            assert!(
+                report.identical,
+                "order {order:?}, boundaries {boundaries:?}"
+            );
+            let mut replay = Replay::new(&rec).unwrap();
+            let mut rebuilt = View::detached(replay.session.modules(), 1);
+            for (hash, moment, overlay) in notes {
+                // The shared Replay + View paths used by audit and film.
+                rebuilt.before_step(&replay.session.world);
+                assert!(replay.step().unwrap());
+                if replay.modules_changed {
+                    rebuilt.reload(None, replay.session.modules());
+                }
+                assert_eq!(replay.session.world.hash(), hash);
+                assert_eq!(
+                    rebuilt.note_scene(&replay.session.world, &moment).overlay,
+                    overlay
+                );
+            }
+            assert!(!replay.step().unwrap());
+            assert_eq!(
+                replay.session.modules().next().unwrap().files,
+                current.files
+            );
+        }
+    }
+}
+
+#[test]
 fn invalid_styles_name_fields_and_multiple_modules_use_id_order() {
     for (setting, field) in [
         ("text = '#eeeeee'", "text"),
