@@ -1,0 +1,35 @@
+# A generic test module for the model generator: every model here is made from a recipe
+# in recipes/ by `galaxy-gm model make tests/play/yard`, and the files in models/ are
+# what it makes (a test checks they are, byte for byte, on every OS). A station, a hull
+# with a fitted part used twice, the part on its own, and two rocks from one recipe.
+# Fly the hull with W/A/S/D (Shift boosts); M mines the rocks a step (their morph), and
+# the wheel zooms.
+id = "yard"
+version = "0.1.0"
+min_engine_version = "0.4.0"
+scripts = ["scripts/yard.luau"]
+events = ["thrust_ahead", "thrust_back", "turn_left", "turn_right", "boost", "mine"]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera",
+    "engine.flight", "engine.helm", "engine.body",
+]
+
+# Which flight keys are held, so two keys for one way (W and Up) don't fight.
+[components.keys]
+ahead = "int"
+back = "int"
+left = "int"
+right = "int"
+boost = "int"
+
+[keys]
+w = "thrust_ahead"
+up = "thrust_ahead"
+s = "thrust_back"
+down = "thrust_back"
+a = "turn_left"
+left = "turn_left"
+d = "turn_right"
+right = "turn_right"
+shift = "boost"
+m = "mine"

@@ -2,8 +2,9 @@
 //! module loads: manifest, start state, scripts, models and styles), `audit` (a played
 //! session's notes drawn again), `film` and `motion` (how motion looks, measured) and
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
-//! model's parts, outline and morph), `test` (a module's tests and scenario runs),
-//! `what-if` (a recorded session on changed modules) and `guide`.
+//! model's parts, outline and morph), `model make` (models from recipes), `test` (a
+//! module's tests and scenario runs), `what-if` (a recorded session on changed
+//! modules) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
@@ -90,6 +91,22 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                 [dir, name] => model::run(&discover::resolve(&cwd, Path::new(dir)), Some(name)),
                 _ => Err(usage(format!(
                     "model takes a module folder and maybe a model: {}",
+                    command.usage()
+                ))),
+            }
+        }
+        "model make" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            opts.only("model make", model::MAKE_OPTIONS)
+                .map_err(usage)?;
+            let check = opts.flag("check");
+            match positional.as_slice() {
+                [dir] => model::make(&discover::resolve(&cwd, Path::new(dir)), None, check),
+                [dir, name] => {
+                    model::make(&discover::resolve(&cwd, Path::new(dir)), Some(name), check)
+                }
+                _ => Err(usage(format!(
+                    "model make takes a module folder and maybe a recipe: {}",
                     command.usage()
                 ))),
             }
@@ -484,6 +501,7 @@ mod tests {
             ("look", look::OPTIONS),
             ("fields", fields::OPTIONS),
             ("model", model::OPTIONS),
+            ("model make", model::MAKE_OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),

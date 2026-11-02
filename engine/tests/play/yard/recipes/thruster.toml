@@ -1,0 +1,21 @@
+about = "a fitted part: an engine pod with its bell, used twice by the skiff and shown on its own"
+
+[palette]
+lights = "#ffb36b"
+
+[[part]]
+name = "pod"
+shape = "cylinder"
+radius = 0.35
+height = 0.9
+taper = 0.8
+sides = 8
+pitch = 90.0
+at = [0.9, 0.0, 0.0]
+paint = "trim"
+
+[[part]]
+name = "bell"
+shape = "nozzle"
+radius = 0.32
+paint = "accent"

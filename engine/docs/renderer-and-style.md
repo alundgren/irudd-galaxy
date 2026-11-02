@@ -51,9 +51,11 @@ bite and morph; the outline collision uses (how far it reaches front, left, back
 right); and the things whose start state wears it (`galaxy_mesh::gltf::read_parts` keeps
 which vertices each node became).
 
-`galaxy_mesh::gltf::write` writes the same format from meshes, one node per part. The
-test models are made that way (`crates/galaxy/tests/drift.rs`, `make_the_models`), and
-the GM's model generator will be too.
+`galaxy_mesh::gltf::write` writes the same format from meshes, one node per part, and
+`write_nodes` adds empty named nodes (markers such as a room's `camera` and `spot.<name>`).
+The drift test models are made that way (`crates/galaxy/tests/drift.rs`,
+`make_the_models`), and so is the GM's model generator, which makes a module's models from
+recipes in its data (`model-generator.md`).
 
 **Why glTF text with embedded buffers.** glTF is the open interchange format every tool
 exports, so a model can come from a generator or from Blender. Keeping it one text file

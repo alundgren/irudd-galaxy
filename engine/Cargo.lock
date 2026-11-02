@@ -906,6 +906,7 @@ dependencies = [
  "galaxy-mesh",
  "galaxy-module",
  "galaxy-motion",
+ "galaxy-recipe",
  "galaxy-render",
  "galaxy-script",
  "galaxy-sim",
@@ -972,6 +973,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "toml",
+]
+
+[[package]]
+name = "galaxy-recipe"
+version = "0.4.0"
+dependencies = [
+ "galaxy-mesh",
+ "galaxy-module",
+ "glam",
+ "libm",
+ "sha2",
  "toml",
 ]
 
@@ -1092,6 +1105,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc148d4ddd3930c52f9e5ae79b89805c6f07e9ff417e7b083e0348cea60a5aba"
 dependencies = [
  "bytemuck",
+ "libm",
  "serde_core",
 ]
 

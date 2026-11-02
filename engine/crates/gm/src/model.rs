@@ -16,6 +16,124 @@ use serde_json::{Map, Value, json};
 /// The options `model` takes.
 pub const OPTIONS: &[&str] = &[];
 
+/// The options `model make` takes.
+pub const MAKE_OPTIONS: &[&str] = &["check"];
+
+/// `galaxy-gm model make <module> [<recipe>] [--check]`: makes `models/<name>.gltf` from
+/// each `recipes/<name>.toml` (or one), all or nothing: a bad recipe is refused, naming
+/// its field, and nothing is written. With `check`, writes nothing and refuses when a
+/// model is not what its recipe makes.
+pub fn make(dir: &Path, only: Option<&str>, check: bool) -> Result<Output, Failure> {
+    let module = Module::read(dir)?;
+    let files = &module.files.0;
+    let mut names = galaxy_recipe::names(files);
+    if names.is_empty() {
+        return Err(Failure::bad_input(format!(
+            "{} has no recipes (recipes/<name>.toml makes models/<name>.gltf); \
+             galaxy-gm guide models shows one",
+            module.id()
+        ))
+        .with("path", dir.display().to_string()));
+    }
+    if let Some(one) = only {
+        let one = one
+            .strip_prefix(&format!("{}.", module.id()))
+            .unwrap_or(one);
+        if !names.iter().any(|n| n == one) {
+            return Err(Failure::bad_input(format!(
+                "{} has no recipe `{one}`; it has {}",
+                module.id(),
+                names.join(", ")
+            ))
+            .with("path", dir.display().to_string()));
+        }
+        names = vec![one.to_owned()];
+    }
+    let mut made = Vec::new();
+    for name in &names {
+        let m = galaxy_recipe::make(files, name).map_err(|p| {
+            Failure::bad_input(format!("refused: {p}"))
+                .with("path", dir.display().to_string())
+                .with("recipe", p.file.clone())
+                .with("field", p.field.clone())
+        })?;
+        made.push(m);
+    }
+    let mut rows = Vec::new();
+    let mut stale = Vec::new();
+    for m in &made {
+        let path = dir.join(&m.file);
+        let old = std::fs::read_to_string(&path)
+            .ok()
+            .map(|t| t.replace("\r\n", "\n"));
+        let status = match (&old, check) {
+            (Some(t), _) if *t == m.text => "unchanged",
+            (None, true) => "missing",
+            (Some(_), true) => "stale",
+            (_, false) => "written",
+        };
+        if matches!(status, "missing" | "stale") {
+            stale.push(m.file.clone());
+        }
+        let (lo, hi) = m.bounds;
+        rows.push(json!({
+            "recipe": m.recipe,
+            "model": format!("{}.{}", module.id(), m.name),
+            "file": m.file,
+            "status": status,
+            "parts": m.parts,
+            "markers": m.markers,
+            "triangles": m.triangles,
+            "size": place(lo.to_array(), hi.to_array()),
+            "sha256": m.sha256,
+        }));
+    }
+    if !check {
+        for m in &made {
+            let path = dir.join(&m.file);
+            let same =
+                std::fs::read_to_string(&path).is_ok_and(|t| t.replace("\r\n", "\n") == m.text);
+            if same {
+                continue;
+            }
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    Failure::runtime(format!("can't make {}: {e}", parent.display()))
+                })?;
+            }
+            std::fs::write(&path, &m.text)
+                .map_err(|e| Failure::runtime(format!("can't write {}: {e}", path.display())))?;
+        }
+    }
+    let out = json!({
+        "ok": stale.is_empty(),
+        "command": "model make",
+        "module": module.id(),
+        "made": rows,
+        "units": "size x by y by z at (centre), world units at scale 1: x the model's front, y its left, z up",
+        "next": format!(
+            "galaxy-gm model {} <model> for one model's parts; galaxy shot --modules <folder> or galaxy play to see it",
+            dir.display()
+        ),
+    });
+    if stale.is_empty() {
+        return Ok(Output::Json(out));
+    }
+    let mut failure = Failure::new(
+        galaxy_module::failure::code::REJECTED,
+        "findings",
+        format!(
+            "{} model(s) are not what their recipes make: {}; run galaxy-gm model make without --check",
+            stale.len(),
+            stale.join(", ")
+        ),
+    );
+    if let Value::Object(fields) = out {
+        failure.fields = fields;
+    }
+    Err(failure)
+}
+
 /// Two decimals, for sizes and places.
 fn r2(v: f32) -> f64 {
     (f64::from(v) * 100.0).round() / 100.0
@@ -231,6 +349,107 @@ mod tests {
             Output::Json(v) => v,
             _ => panic!("model prints JSON"),
         }
+    }
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let path = entry.unwrap().path();
+            let dest = to.join(path.file_name().unwrap());
+            if path.is_dir() {
+                copy_dir(&path, &dest);
+            } else {
+                std::fs::copy(&path, &dest).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn make_writes_models_checks_them_and_refuses_a_bad_recipe_whole() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("yard");
+        copy_dir(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/yard"),
+            &dir,
+        );
+        let statuses = |v: &Value| -> Vec<String> {
+            v["made"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|m| m["status"].as_str().unwrap().to_owned())
+                .collect()
+        };
+        // The committed models are what the recipes make.
+        let out = json(make(&dir, None, true).unwrap());
+        assert!(statuses(&out).iter().all(|s| s == "unchanged"), "{out}");
+
+        // A changed recipe makes its model stale; making writes it, and only it.
+        let rock = dir.join("recipes/rock.toml");
+        let text = std::fs::read_to_string(&rock)
+            .unwrap()
+            .replace("seed = 11", "seed = 12");
+        std::fs::write(&rock, text).unwrap();
+        let Err(stale) = make(&dir, None, true) else {
+            panic!("a stale model passes --check");
+        };
+        assert_eq!((stale.code, stale.kind), (5, "findings"));
+        assert!(
+            stale.message.contains("models/rock.gltf"),
+            "{}",
+            stale.message
+        );
+        let out = json(make(&dir, Some("rock"), false).unwrap());
+        assert_eq!(statuses(&out), ["written"]);
+        // The pale rock uses the rock, so it is stale too until it is made.
+        let Err(stale) = make(&dir, None, true) else {
+            panic!("a recipe using a changed one passes --check");
+        };
+        assert!(
+            stale.message.contains("models/rock_pale.gltf"),
+            "{}",
+            stale.message
+        );
+        let out = json(make(&dir, None, false).unwrap());
+        assert_eq!(
+            statuses(&out),
+            [
+                "unchanged",
+                "unchanged",
+                "written",
+                "unchanged",
+                "unchanged"
+            ]
+        );
+        assert!(
+            json(make(&dir, None, true).unwrap())["ok"]
+                .as_bool()
+                .unwrap()
+        );
+        let made = json(run(&dir, Some("rock")).unwrap());
+        assert!(made["morph"]["parts"].is_array(), "{made}");
+
+        // A bad recipe is refused with its field, and nothing is written.
+        std::fs::remove_file(dir.join("models/outpost.gltf")).unwrap();
+        let skiff = dir.join("recipes/skiff.toml");
+        let text = std::fs::read_to_string(&skiff)
+            .unwrap()
+            .replace("span = 1.8", "span = -1.8");
+        std::fs::write(&skiff, text).unwrap();
+        let Err(bad) = make(&dir, None, false) else {
+            panic!("a bad recipe is made");
+        };
+        assert_eq!((bad.code, bad.kind), (4, "bad_input"));
+        assert_eq!(bad.fields["field"], "part[1].span");
+        assert_eq!(bad.fields["recipe"], "recipes/skiff.toml");
+        assert!(
+            !dir.join("models/outpost.gltf").exists(),
+            "nothing is written"
+        );
+        let Err(none) = make(&dir, Some("nope"), false) else {
+            panic!("an unknown recipe is made");
+        };
+        assert!(none.message.contains("outpost"), "{}", none.message);
     }
 
     #[test]

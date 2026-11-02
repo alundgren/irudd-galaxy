@@ -38,6 +38,10 @@ const TOPICS: &[(&str, &str)] = &[
         "spec",
         "a motion check spec: what to film and the expectations",
     ),
+    (
+        "recipe",
+        "a model recipe (recipes/<name>.toml, made by galaxy-gm model make): its keys, [[part]] and [[marker]] keys, and every shape with its keys and paints",
+    ),
 ];
 
 /// The options `fields` takes.
@@ -109,6 +113,7 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
             }
             v
         }
+        Some("recipe") => recipe(),
         Some("spec") => {
             let mut v = keyed("a motion check spec", galaxy_motion::check::SPEC_KEYS);
             let tools: Map<String, Value> = galaxy_motion::TOOLS
@@ -293,4 +298,56 @@ fn keyed(topic: &str, keys: &[(&str, &str, &str, &str)]) -> Value {
         entry[*key] = json!(format!("{about}. Example: {key} = {example}"));
     }
     json!({ "topic": topic, "tables": tables })
+}
+
+/// `galaxy-gm fields recipe`: a recipe's keys, its parts' and markers', and each shape's.
+fn recipe() -> Value {
+    let rows = |keys: &[(&str, &str, &str)]| -> Map<String, Value> {
+        keys.iter()
+            .map(|(k, example, about)| {
+                (
+                    k.to_string(),
+                    json!(format!("{about}. Example: {k} = {example}")),
+                )
+            })
+            .collect()
+    };
+    let shapes: Map<String, Value> = galaxy_recipe::shapes::SHAPES
+        .iter()
+        .map(|s| {
+            let keys: Map<String, Value> = s
+                .params
+                .iter()
+                .map(|p| (p.key.to_owned(), json!(p.describe())))
+                .collect();
+            (
+                s.name.to_owned(),
+                json!({ "about": s.about, "paints": s.paints, "keys": keys }),
+            )
+        })
+        .collect();
+    let paints: Map<String, Value> = galaxy_recipe::shapes::PAINTS
+        .iter()
+        .map(|(k, about)| (k.to_string(), json!(about)))
+        .collect();
+    json!({
+        "topic": "a model recipe, recipes/<name>.toml (it makes models/<name>.gltf)",
+        "tables": {
+            "top level": rows(galaxy_recipe::TOP_KEYS),
+            "[[part]]": rows(galaxy_recipe::PART_KEYS),
+            "[[marker]]": rows(galaxy_recipe::MARKER_KEYS),
+        },
+        "palette": "recipes/palette.toml: slot = \"#rrggbb\" lines (slot names lowercase letters, digits and _); a recipe's [palette] table adds or replaces slots",
+        "paints": paints,
+        "shapes": shapes,
+        "limits": format!(
+            "at most {} parts, {} markers and {} copies a part; {} triangles a model; recipes use each other at most {} deep",
+            galaxy_recipe::MAX_PARTS,
+            galaxy_recipe::MAX_MARKERS,
+            galaxy_recipe::MAX_COPIES,
+            galaxy_recipe::MAX_TRIANGLES,
+            galaxy_recipe::MAX_DEPTH
+        ),
+        "next": "write recipes/<name>.toml, then galaxy-gm model make <module>",
+    })
 }

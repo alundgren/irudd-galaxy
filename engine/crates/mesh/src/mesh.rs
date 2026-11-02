@@ -407,7 +407,7 @@ impl MeshBuilder {
         let segments = segments.max(3);
         let ring = |r: f32, z: f32, i: u32| {
             let a = phase + i as f32 / segments as f32 * std::f32::consts::TAU;
-            Vec3::new(r * a.cos(), r * a.sin(), z)
+            Vec3::new(r * libm::cosf(a), r * libm::sinf(a), z)
         };
         for w in profile.windows(2) {
             let ((r0, z0), (r1, z1)) = (w[0], w[1]);
@@ -489,8 +489,12 @@ impl MeshBuilder {
         let p = |i: u32, j: u32| {
             let a = i as f32 / segments as f32 * tau;
             let b = j as f32 / sides as f32 * tau + tau / (2.0 * sides as f32);
-            let r = radius + 0.5 * tube_width * b.cos();
-            Vec3::new(r * a.cos(), r * a.sin(), 0.5 * tube_height * b.sin())
+            let r = radius + 0.5 * tube_width * libm::cosf(b);
+            Vec3::new(
+                r * libm::cosf(a),
+                r * libm::sinf(a),
+                0.5 * tube_height * libm::sinf(b),
+            )
         };
         for i in 0..segments {
             for j in 0..sides {

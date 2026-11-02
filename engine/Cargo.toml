@@ -27,6 +27,7 @@ galaxy-audio = { path = "crates/audio" }
 galaxy-live = { path = "crates/live" }
 galaxy-mesh = { path = "crates/mesh" }
 galaxy-module = { path = "crates/module" }
+galaxy-recipe = { path = "crates/recipe" }
 galaxy-motion = { path = "crates/motion" }
 galaxy-render = { path = "crates/render" }
 galaxy-script = { path = "crates/script" }
@@ -46,7 +47,9 @@ lewton = "0.10.2"
 directories = "6.0"
 # The live socket's session token, from the OS.
 getrandom = "0.3.4"
-glam = { version = "0.34", features = ["serde", "bytemuck"] }
+# libm: glam's own trigonometry (rotations, angles) is portable too, so generated models
+# and the sim give the same bits on every OS.
+glam = { version = "0.34", features = ["serde", "bytemuck", "libm"] }
 # glTF parsing for models; buffers are decoded by us, so no image or file loading.
 gltf = { version = "1.4", default-features = false, features = ["utils", "names", "extras"] }
 # Text shaping and drawing on wgpu (cosmic-text underneath).

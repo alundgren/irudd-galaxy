@@ -1,0 +1,33 @@
+# The hull starts beside the station, facing it; the rocks lie further on and the fitted
+# part stands on its own between them. Sizes are in world units; the camera shows 60.
+[entities.ship]
+keys = {}
+"engine.position" = { x = 0.0, y = -18.0, angle = 3.14159 }
+"engine.motion" = {}
+"engine.flight" = {}
+"engine.helm" = {}
+"engine.body" = { mass = 1.0 }
+"engine.model" = { model = "yard.skiff", look = "yard.hull" }
+"engine.camera" = { tilt = 35.0, view = 60.0 }
+
+[entities.outpost]
+"engine.position" = { x = -16.0, y = 0.0 }
+"engine.model" = { model = "yard.outpost", look = "yard.hull" }
+"engine.body" = { fixed = true }
+
+[entities.thruster]
+"engine.position" = { x = 6.0, y = -4.0, angle = 0.6 }
+"engine.model" = { model = "yard.thruster", look = "yard.prop", scale = 2.0 }
+"engine.body" = { fixed = true }
+
+[entities.rock]
+"engine.position" = { x = 14.0, y = 8.0, angle = 0.4 }
+"engine.motion" = {}
+"engine.body" = { mass = 8.0 }
+"engine.model" = { model = "yard.rock", look = "yard.rock" }
+
+[entities.rock_pale]
+"engine.position" = { x = 22.0, y = -6.0, angle = 2.1 }
+"engine.motion" = {}
+"engine.body" = { mass = 4.0 }
+"engine.model" = { model = "yard.rock_pale", look = "yard.rock" }

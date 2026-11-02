@@ -18,6 +18,7 @@ galaxy-audio.workspace = true
 galaxy-live.workspace = true
 galaxy-mesh.workspace = true
 galaxy-module.workspace = true
+galaxy-recipe.workspace = true
 galaxy-motion.workspace = true
 galaxy-render.workspace = true
 galaxy-script.workspace = true
