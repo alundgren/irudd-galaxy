@@ -281,9 +281,10 @@ real time:
   targets. On Windows, winit 0.30 puts the window in the wrong place when the scale
   changes mid-drag (it overrides the rectangle Windows suggests, then a faulty monitor
   check pushes it back across the edge, so it grows sideways and fights the pointer).
-  `crates/galaxy/src/window_scale.rs` hooks the window's messages and puts winit's own
-  move during `WM_DPICHANGED` on the suggested rectangle, which keeps the logical size
-  and the pointer's grip on the title bar. The rule is plain Rust, tested on every OS;
+  `crates/galaxy/src/window_scale.rs` hooks the window's messages and moves winit's own
+  `SetWindowPos` during `WM_DPICHANGED` to the top-left corner Windows suggests, which
+  keeps the pointer's grip on the title bar, at winit's size, which keeps the logical
+  size exact (Windows' suggested size scales the frame too and came out 2 px narrow). The rule is plain Rust, tested on every OS;
   only the hook is Windows code. It can go when winit ships its fix (after 0.30).
 - **Problems while playing.** The problems panel shows what is wrong with what is on
   screen right now: screen readability, and a speaker whose focus is covered or off

@@ -10,9 +10,12 @@
 //!
 //! The fix keeps winit's handling (it updates its scale and sends `ScaleFactorChanged`,
 //! which the renderer follows) and corrects only where winit puts the window: while
-//! winit handles `WM_DPICHANGED`, its own `SetWindowPos` is rewritten to the rectangle
-//! Windows suggested. [`ScaleMove`] is that rule, kept free of Windows types so it is
-//! tested on every platform; the Windows-only part is a message hook on the window.
+//! winit handles `WM_DPICHANGED`, its own `SetWindowPos` is moved to the top-left corner
+//! Windows suggested. winit's size is kept: it keeps the client area's logical size
+//! exact, while Windows scales the whole outer rectangle, frame included, which left a
+//! 1280x720 window 1278x719 after a move from 125% to 100%. [`ScaleMove`] is that rule,
+//! kept free of Windows types so it is tested on every platform; the Windows-only part
+//! is a message hook on the window.
 //! Other platforms need nothing: macOS, X11 and Wayland keep the logical size
 //! themselves, and the renderer follows `ScaleFactorChanged` there too.
 
@@ -53,16 +56,28 @@ impl ScaleMove {
         self.suggested.pop();
     }
 
-    /// The move to make instead of `requested`: during a scale change, any move or
-    /// resize goes to the suggested rectangle exactly. Outside one, or for a change that
-    /// neither moves nor sizes the window (a style change), nothing changes.
+    /// The move to make instead of `requested`: during a scale change, a move or resize
+    /// goes to the suggested top-left corner, at the size requested (winit's, which keeps
+    /// the logical size), or the suggested size if the request had none. Outside a scale
+    /// change, or for a change that neither moves nor sizes the window (a style change),
+    /// nothing changes.
     pub fn correct(&self, requested: Move) -> Option<Move> {
         let suggested = *self.suggested.last()?;
         if !requested.moves && !requested.sizes {
             return None;
         }
+        let (width, height) = if requested.sizes {
+            (requested.rect.width, requested.rect.height)
+        } else {
+            (suggested.width, suggested.height)
+        };
         Some(Move {
-            rect: suggested,
+            rect: Rect {
+                x: suggested.x,
+                y: suggested.y,
+                width,
+                height,
+            },
             moves: true,
             sizes: true,
         })
@@ -207,18 +222,31 @@ mod tests {
     }
 
     #[test]
-    fn during_a_scale_change_the_window_goes_where_windows_suggested() {
+    fn during_a_scale_change_the_window_goes_where_windows_suggested_at_winits_size() {
         let mut s = ScaleMove::default();
         s.begin(SUGGESTED);
         let m = s.correct(winit_move()).unwrap();
-        assert_eq!(m.rect, SUGGESTED);
+        // Windows' corner, so the window isn't pushed back across the edge; winit's
+        // size, which keeps the client area's logical size exact.
+        let expected = Rect {
+            x: 1700,
+            y: 200,
+            width: 1934,
+            height: 1124,
+        };
+        assert_eq!(m.rect, expected);
         assert!(m.moves && m.sizes);
-        // A move that only resized (or only moved) still lands on the whole rectangle.
+        // A resize alone still lands on the corner; a move alone takes Windows' size.
         let only_size = Move {
             moves: false,
             ..winit_move()
         };
-        assert_eq!(s.correct(only_size).unwrap().rect, SUGGESTED);
+        assert_eq!(s.correct(only_size).unwrap().rect, expected);
+        let only_move = Move {
+            sizes: false,
+            ..winit_move()
+        };
+        assert_eq!(s.correct(only_move).unwrap().rect, SUGGESTED);
         s.end();
         assert_eq!(
             s.correct(winit_move()),
@@ -251,9 +279,9 @@ mod tests {
             height: 751,
         };
         s.begin(inner);
-        assert_eq!(s.correct(winit_move()).unwrap().rect, inner);
+        assert_eq!(s.correct(winit_move()).unwrap().rect.x, inner.x);
         s.end();
-        assert_eq!(s.correct(winit_move()).unwrap().rect, SUGGESTED);
+        assert_eq!(s.correct(winit_move()).unwrap().rect.x, SUGGESTED.x);
         s.end();
         assert_eq!(s.correct(winit_move()), None);
         s.end(); // An unmatched end is harmless.
