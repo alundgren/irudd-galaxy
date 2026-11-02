@@ -212,7 +212,7 @@ impl View {
             out["widget"] = json!("engine.travel");
             return out;
         }
-        let widget = self.screens.hit(point).cloned();
+        let widget = self.screens.hover_hit(point).cloned();
         let mut label = None;
         let mut origin = point;
         if let Some(w) = widget {

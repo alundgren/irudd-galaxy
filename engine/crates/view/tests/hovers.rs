@@ -1,6 +1,9 @@
 use galaxy_module::module::{Module, ModuleFiles};
 use galaxy_render::glam::Vec2;
-use galaxy_sim::{BuildStamp, Replay, Session, scenario::InputsFile};
+use galaxy_sim::{
+    BuildStamp, Replay, Session,
+    scenario::{Click, ClickTarget, InputsFile},
+};
 use galaxy_view::View;
 use std::path::Path;
 
@@ -204,4 +207,62 @@ fn container_hovers_and_empty_model_nodes_are_reachable() {
             .values()
             .any(|v| v["hover"]["text"] == "Empty node label")
     );
+}
+
+#[test]
+fn transparent_container_hover_preserves_widget_and_speaker_clicks() {
+    let mut speaker_inputs = Vec::new();
+    let mut widget_inputs = Vec::new();
+    for hover in ["", "hover='Scene help',"] {
+        let mut module =
+            Module::read(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/life/demo"))
+                .unwrap();
+        module.files.0.insert(
+            "scripts/main.luau".into(),
+            format!(
+                "return {{screen=function(_,ui) return ui.column{{width=1240,height=680,{hover}children={{}}}} end}}"
+            ),
+        );
+        let s = Session::new(vec![module], 1).unwrap();
+        let mut v = View::detached(s.modules(), 1);
+        v.scene(&s.world, 1.0, size(), 0.0);
+        speaker_inputs.push(
+            v.bot_talk_click(
+                &s.world,
+                &Click {
+                    tick: 2,
+                    target: ClickTarget::Widget("speaker.life.walker".into()),
+                },
+            )
+            .unwrap(),
+        );
+        if !hover.is_empty() {
+            assert_eq!(
+                v.look(&s.world, 1.0, size(), Vec2::new(40.0, 110.0))["hover"]["text"],
+                "Scene help"
+            );
+        }
+
+        let (s, mut v) = screen(&format!(
+            "return ui.column{{width=300,height=200,children={{
+                ui.button{{id='button',x=0,y=0,width=200,height=100,text='Click',on='click'}},
+                ui.column{{x=0,y=0,width=300,height=200,{hover}children={{}}}}
+            }}}}"
+        ));
+        v.scene(&s.world, 1.0, size(), 0.0);
+        widget_inputs.push(
+            v.screens
+                .bot_click(&Click {
+                    tick: 2,
+                    target: ClickTarget::Widget("button".into()),
+                })
+                .unwrap(),
+        );
+        assert_eq!(
+            v.screens.click(Vec2::new(100.0, 70.0), 2).as_ref(),
+            widget_inputs.last()
+        );
+    }
+    assert_eq!(speaker_inputs[0], speaker_inputs[1]);
+    assert_eq!(widget_inputs[0], widget_inputs[1]);
 }

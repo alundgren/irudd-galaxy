@@ -187,7 +187,7 @@ impl View {
                         || p.y < 0.0
                         || p.x >= size.x
                         || p.y >= size.y
-                        || self.screens.hit(p).is_some()
+                        || self.screens.hover_hit(p).is_some()
                     {
                         continue;
                     }

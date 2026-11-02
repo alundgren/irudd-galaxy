@@ -214,12 +214,20 @@ impl Screens {
     }
 
     pub(crate) fn hit(&self, point: Vec2) -> Option<&Widget> {
-        fn hit(b: &Boxed, p: Vec2) -> Option<&Widget> {
+        self.hit_surface(point, false)
+    }
+
+    pub(crate) fn hover_hit(&self, point: Vec2) -> Option<&Widget> {
+        self.hit_surface(point, true)
+    }
+
+    fn hit_surface(&self, point: Vec2, include_hovers: bool) -> Option<&Widget> {
+        fn hit(b: &Boxed, p: Vec2, include_hovers: bool) -> Option<&Widget> {
             if b.clip.is_some_and(|r| !point_in(r, p)) {
                 return None;
             }
             for child in b.children.iter().rev() {
-                if let Some(w) = hit(child, p) {
+                if let Some(w) = hit(child, p, include_hovers) {
                     return Some(w);
                 }
             }
@@ -228,11 +236,11 @@ impl Screens {
                 && p.y >= r.y
                 && p.x < r.x + r.w
                 && p.y < r.y + r.h
-                && (painted_kind(&b.widget.kind) || b.widget.hover.is_some()))
+                && (painted_kind(&b.widget.kind) || (include_hovers && b.widget.hover.is_some())))
             .then_some(&b.widget)
         }
         for b in self.boxes.iter().rev() {
-            if let Some(w) = hit(b, point) {
+            if let Some(w) = hit(b, point, include_hovers) {
                 return Some(w);
             }
         }

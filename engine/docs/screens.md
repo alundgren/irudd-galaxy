@@ -93,6 +93,7 @@ offsets and active drag; audit restores them before layout.
 
 The bot takes `[[click]]` entries with `tick` and either `x`/`y` or `widget` in an inputs
 file. `widget` is a full diagnostic path or a unique `id`, including on a root button.
+It also accepts `point:x,y`, equivalent to the finite logical-pixel `x`/`y` fields.
 It lays out the current world before that tick, resolves the widget's current centre
 (including moving anchors), and uses the same hit test. Missing or ambiguous names,
 non-buttons and covered centres fail the run. Recordings still contain the normal `ui`
@@ -361,7 +362,9 @@ The engine owns the 320px maximum width, wrapping and placement. It tries positi
 around the target and nearby readable widgets, keeps an 8px viewport margin, and
 avoids text, controls, signs and speech bubbles. Empty panel paper is usable space.
 If no candidate fits, the report names covered widgets; empty labels, missing glyphs
-and viewport overflow are also findings. Tooltips do not intercept input.
+and viewport overflow are also findings. Tooltips do not intercept input. Hover picking
+also includes unpainted containers with labels; input hit testing only includes painted
+surfaces, so adding a container hover cannot cover a button or speaker.
 
 `check` collects a `hovers` array from every staged scene: initial screens, rooms,
 talk lines and life poses. Entries name the place, active talk line, widget, entity,

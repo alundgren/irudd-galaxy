@@ -251,7 +251,19 @@ impl RawClick {
         }
         let target = match (self.x, self.y, self.widget) {
             (Some(x), Some(y), None) if x.is_finite() && y.is_finite() => ClickTarget::Point { x, y },
-            (None, None, Some(widget)) if !widget.trim().is_empty() => ClickTarget::Widget(widget),
+            (None, None, Some(widget)) if !widget.trim().is_empty() => {
+                if let Some(point) = widget.strip_prefix("point:") {
+                    let (x, y) = point.split_once(',').ok_or("point target needs x,y")?;
+                    let x: f32 = x.parse().map_err(|_| "invalid point x")?;
+                    let y: f32 = y.parse().map_err(|_| "invalid point y")?;
+                    if !x.is_finite() || !y.is_finite() {
+                        return Err("point must be finite".into());
+                    }
+                    ClickTarget::Point { x, y }
+                } else {
+                    ClickTarget::Widget(widget)
+                }
+            }
             _ => return Err("click needs either finite x and y logical pixels or a nonempty widget path/id (not both)".into()),
         };
         Ok(Click {
@@ -628,6 +640,36 @@ mod tests {
         for widget in ["continue", "test:screen.luau/screen/continue[1]"] {
             std::fs::write(&path, format!("[[click]]\ntick=10\nwidget='{widget}'\n")).unwrap();
             assert!(InputsFile::read(&path).is_ok(), "{widget}");
+        }
+    }
+
+    #[test]
+    fn click_point_widget_is_equivalent_to_coordinates() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inputs.toml");
+        std::fs::write(
+            &path,
+            "[[click]]\ntick=2\nwidget='point:1110,275'\n[[click]]\ntick=2\nx=1110\ny=275\n",
+        )
+        .unwrap();
+        let clicks = InputsFile::read(&path).unwrap().clicks;
+        assert_eq!(clicks[0], clicks[1]);
+        assert_eq!(
+            clicks[0].target,
+            ClickTarget::Point {
+                x: 1110.0,
+                y: 275.0
+            }
+        );
+        for target in [
+            "point:",
+            "point:10",
+            "point:10,20,30",
+            "point:nan,20",
+            "point:10,inf",
+        ] {
+            std::fs::write(&path, format!("[[click]]\ntick=2\nwidget='{target}'\n")).unwrap();
+            assert!(InputsFile::read(&path).is_err(), "{target}");
         }
     }
 
