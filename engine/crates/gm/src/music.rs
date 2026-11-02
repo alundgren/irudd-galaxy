@@ -303,6 +303,8 @@ fn make(
     let old = existing.as_deref().and_then(|file| old_clip(dir, file));
     let volume = match (ask.volume, old) {
         (Some(volume), _) => volume,
+        // A muted sound stays muted: there is no loudness to keep.
+        (None, Some(_)) if old_volume == Some(0.0) => 0.0,
         (None, Some(old)) => level(old_volume.unwrap_or(1.0) * f64::from(old.rms()) / rms),
         (None, None) => old_volume.unwrap_or_else(|| level(BACKGROUND_RMS / rms)),
     };
@@ -692,6 +694,14 @@ volume = 0.6
         )
         .unwrap();
         assert_eq!(out["volume"], 0.7, "{out}");
+        // A muted sound stays muted when it is replaced.
+        let toml = dir.join("audio.toml");
+        let muted = std::fs::read_to_string(&toml)
+            .unwrap()
+            .replace("volume = 0.7", "volume = 0");
+        std::fs::write(&toml, muted).unwrap();
+        let out = run_with(&dir, args, &mut canned(200, stream(&tone(), 1))).unwrap();
+        assert_eq!(out["volume"], 0.0, "{out}");
         // A loud new sound is turned down to the background level; a quiet one is not
         // turned up past 1.
         for (bytes, volume) in [(wav(1.0), 0.04), (wav(0.01), 1.0)] {
