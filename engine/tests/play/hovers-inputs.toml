@@ -1,0 +1,391 @@
+# Widget, speaker, moving being, clear and return; all notes use the F8 path.
+
+[[pointer]]
+tick = 2
+action = "move"
+widget = "advance"
+
+[[note]]
+tick = 4
+text = "Widget hover: advance the day"
+
+[[pointer]]
+tick = 6
+action = "move"
+widget = "point:1260,700"
+
+[[note]]
+tick = 8
+text = "Hover cleared on empty space"
+
+[[pointer]]
+tick = 10
+action = "move"
+widget = "walker-help"
+
+[[note]]
+tick = 12
+text = "Being A hover before speaking"
+
+[[click]]
+tick = 14
+widget = "speaker.life.walker"
+
+[[note]]
+tick = 17
+text = "Speaking being with hover"
+
+[[click]]
+tick = 20
+widget = "advance"
+
+[[pointer]]
+tick = 21
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 22
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 23
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 24
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 25
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 26
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 27
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 28
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 29
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 30
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 31
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 32
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 33
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 34
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 35
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 36
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 37
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 38
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 39
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 40
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 41
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 42
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 43
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 44
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 45
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 46
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 47
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 48
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 49
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 50
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 51
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 52
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 53
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 54
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 55
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 56
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 57
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 58
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 59
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 60
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 61
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 62
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 63
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 64
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 65
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 66
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 67
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 68
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 69
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 70
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 71
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 72
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 73
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 74
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 75
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 76
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 77
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 78
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 79
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 80
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 81
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 82
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 83
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 84
+action = "move"
+widget = "walker-help"
+
+[[pointer]]
+tick = 85
+action = "move"
+widget = "walker-help"
+
+[[note]]
+tick = 45
+text = "Hover follows the walking speaker"
+
+[[note]]
+tick = 75
+text = "Hover still follows the walking speaker"
+
+[[pointer]]
+tick = 87
+action = "move"
+widget = "point:1260,700"
+
+[[note]]
+tick = 89
+text = "Moving speaker hover cleared"
+
+[[pointer]]
+tick = 92
+action = "move"
+widget = "walker-help"
+
+[[note]]
+tick = 94
+text = "Hover reappears on the moving being"

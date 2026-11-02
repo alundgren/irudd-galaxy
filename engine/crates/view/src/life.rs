@@ -57,6 +57,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 name.into()
             };
             Some(Widget {
+                hover: None,
                 kind: "sign".into(),
                 id: Some(format!("life.{id}")),
                 path: format!("{id}/sign"),
@@ -148,8 +149,30 @@ fn clock_values(w: &mut World, values: &BTreeMap<String, i64>) {
     }
 }
 impl crate::View {
+    fn check_life_pose(&mut self, world: &World, size: Vec2, alpha: f32) -> Vec<String> {
+        let mut silent = world.clone();
+        for c in silent.entities.values_mut() {
+            if let Some(t) = c.get_mut(TALK) {
+                t.fields.insert("active".into(), false.into());
+            }
+        }
+        self.scene(&silent, alpha, size, 0.0);
+        let place = galaxy_sim::travel::player(&silent)
+            .map(|(_, p)| p)
+            .unwrap_or("");
+        let mut findings: Vec<_> = self
+            .screens
+            .problems
+            .iter()
+            .map(|p| format!("place `{place}`, without talk: {p}"))
+            .collect();
+        findings.extend(self.check_talk_at(world, size, alpha, false));
+        findings
+    }
+
     /// Every clock selection and every transition between selections, in each room.
-    /// All beings move together; each half-tick reuses the actual talk focus checker.
+    /// Each half-tick uses ordinary screen readability, both silent and talking,
+    /// and the actual talk focus checker. All beings move together.
     pub fn check_life(&mut self, world: &World, registry: &Registry, size: Vec2) -> Vec<String> {
         if !world.entities.values().any(|c| c.contains_key(LIFE)) {
             return vec![];
@@ -181,33 +204,35 @@ impl crate::View {
                 }
                 galaxy_sim::life::update(&mut rest, registry)?;
                 galaxy_sim::services::ground(&mut rest);
-                findings.extend(view.check_talk_at(&rest, size, 1.0, false));
-                if !findings.is_empty() {
-                    return Ok(findings);
-                }
-                for to in &selections {
-                    if from == to {
-                        continue;
-                    }
-                    for room in &rooms {
-                        let mut staged = rest.clone();
-                        staged.apply(
-                            &Batch {
-                                cause: Cause::Engine {
-                                    service: "life-check".into(),
-                                },
-                                commands: vec![Command::Move {
-                                    entity: player.clone(),
-                                    place: room.clone(),
-                                    spot: None,
-                                    state: None,
-                                }],
+                for room in &rooms {
+                    let mut in_room = rest.clone();
+                    in_room.apply(
+                        &Batch {
+                            cause: Cause::Engine {
+                                service: "life-check".into(),
                             },
-                            registry,
-                        )?;
-                        if let Some(t) = staged.entities.get_mut(&player).unwrap().get_mut(TRAVEL) {
-                            t.fields.insert("active".into(), false.into());
+                            commands: vec![Command::Move {
+                                entity: player.clone(),
+                                place: room.clone(),
+                                spot: None,
+                                state: None,
+                            }],
+                        },
+                        registry,
+                    )?;
+                    if let Some(t) = in_room.entities.get_mut(&player).unwrap().get_mut(TRAVEL) {
+                        t.fields.insert("active".into(), false.into());
+                    }
+                    galaxy_sim::services::ground(&mut in_room);
+                    findings.extend(view.check_life_pose(&in_room, size, 1.0));
+                    if !findings.is_empty() {
+                        return Ok(findings);
+                    }
+                    for to in &selections {
+                        if from == to {
+                            continue;
                         }
+                        let mut staged = in_room.clone();
                         clock_values(&mut staged, to);
                         galaxy_sim::life::update(&mut staged, registry)?;
                         let mut ticks = 0;
@@ -221,7 +246,7 @@ impl crate::View {
                             galaxy_sim::life::update(&mut staged, registry)?;
                             galaxy_sim::services::ground(&mut staged);
                             for alpha in [0.5, 1.0] {
-                                findings.extend(view.check_talk_at(&staged, size, alpha, false));
+                                findings.extend(view.check_life_pose(&staged, size, alpha));
                             }
                             if !findings.is_empty() {
                                 return Ok(findings

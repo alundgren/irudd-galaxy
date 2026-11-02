@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Presentation {
     pub version: u32,
+    #[serde(default)]
+    pub pointer: Option<[f32; 2]>,
     pub scroll: BTreeMap<String, f32>,
     pub drag: Option<Drag>,
     #[serde(default)]
@@ -18,6 +20,7 @@ impl Default for Presentation {
     fn default() -> Self {
         Self {
             version: 1,
+            pointer: None,
             scroll: BTreeMap::new(),
             drag: None,
             settle: None,
@@ -73,6 +76,7 @@ impl Presentation {
 impl Screens {
     /// Losing window focus releases capture without sending a drop event.
     pub fn cancel_pointer(&mut self, tick: u64) {
+        self.presentation.pointer = None;
         self.presentation.scroll_grab = None;
         if let Some(drag) = self.presentation.drag.take() {
             self.presentation.settle = Some(Settle {
@@ -113,6 +117,7 @@ impl Screens {
     }
 
     pub fn pointer_move(&mut self, point: Vec2, tick: u64) -> Option<Input> {
+        self.presentation.pointer = Some(point.to_array());
         if let Some(drag) = &mut self.presentation.drag {
             drag.point = point.to_array();
         }
@@ -185,7 +190,17 @@ impl Screens {
     }
 
     pub fn bot_pointer(&mut self, action: &Pointer) -> Result<Option<Input>, String> {
-        let point = if let Some((name, part)) = action.widget.rsplit_once("::") {
+        let point = if let Some(p) = action.widget.strip_prefix("point:") {
+            let (x, y) = p.split_once(',').ok_or("point target needs x,y")?;
+            let p = Vec2::new(
+                x.parse().map_err(|_| "invalid point x")?,
+                y.parse().map_err(|_| "invalid point y")?,
+            );
+            if !p.is_finite() {
+                return Err("point must be finite".into());
+            }
+            p
+        } else if let Some((name, part)) = action.widget.rsplit_once("::") {
             let _ = self.target(name)?;
             let b = self
                 .all()
@@ -213,12 +228,7 @@ impl Screens {
                 }
                 Ok(self.pointer_down(point, action.tick))
             }
-            "move" => {
-                if self.presentation.drag.is_none() && self.presentation.scroll_grab.is_none() {
-                    return Err("move needs an active drag".into());
-                }
-                Ok(self.pointer_move(point, action.tick))
-            }
+            "move" => Ok(self.pointer_move(point, action.tick)),
             "drop" => {
                 if self.presentation.drag.is_none() && self.presentation.scroll_grab.is_none() {
                     return Err("drop needs an active drag".into());
@@ -232,7 +242,7 @@ impl Screens {
         }
     }
 
-    pub(super) fn all(&self) -> Vec<&Boxed> {
+    pub(crate) fn all(&self) -> Vec<&Boxed> {
         fn walk<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
             out.push(b);
             for c in &b.children {

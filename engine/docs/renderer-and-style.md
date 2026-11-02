@@ -349,3 +349,10 @@ anchor projection and the cut are rebuilt from world data in Rust; no per-frame 
 calls are added. `galaxy-gm check` projects beings against the authored camera and room
 panel at 1280x720. [Rooms and travel](rooms-and-travel.md) explains the component and
 marker contract, replay reconstruction and alternatives.
+
+Hover labels use the screen's existing paper/text style and ordered widget layers.
+They are measured and placed headlessly and painted after module widgets, before
+engine chrome. Picking reuses the front-face mesh raycast with interpolated pose
+and morph. The raycast can return a hit triangle vertex, mapped through glTF part
+ranges for `look`. This avoids a GPU ID buffer and keeps check, play and recorded
+inspection on one geometric path. See [Screens](screens.md).

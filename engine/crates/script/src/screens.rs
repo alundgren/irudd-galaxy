@@ -11,7 +11,8 @@ use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
 
-pub const KINDS: [&str; 12] = [
+pub const KINDS: [&str; 13] = [
+    "hover",
     "text",
     "button",
     "list",
@@ -32,6 +33,7 @@ pub struct Widget {
     pub id: Option<String>,
     pub path: String,
     pub text: String,
+    pub hover: Option<String>,
     pub width: Option<f32>,
     pub height: Option<f32>,
     pub x: Option<f32>,
@@ -231,7 +233,7 @@ fn read(
             pair.map_err(|_| bad("properties must have names; put widgets in children"))?;
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
-            "on", "payload", "children", "columns", "value", "accepts", "icon",
+            "on", "payload", "children", "columns", "value", "accepts", "icon", "hover",
         ]
         .contains(&key.as_str())
         {
@@ -331,7 +333,7 @@ fn read(
     }
     if matches!(
         kind.as_str(),
-        "text" | "button" | "delta" | "icon" | "drag_source"
+        "text" | "button" | "delta" | "icon" | "drag_source" | "hover"
     ) && !children.is_empty()
     {
         return Err(bad("leaf widgets have no children"));
@@ -356,6 +358,9 @@ fn read(
             Ok::<_, mlua::Error>(format!("{entity}#{name}"))
         })
         .transpose()?;
+    if kind == "hover" && anchor.is_none() {
+        return Err(bad("hover needs an anchor"));
+    }
     let columns = num("columns")?.unwrap_or(2.0);
     if columns.fract() != 0.0 || !(1.0..=64.0).contains(&columns) {
         return Err(bad("columns must be an integer from 1 to 64"));
@@ -411,6 +416,7 @@ fn read(
         id,
         path: path.into(),
         text: string("text")?.unwrap_or_default(),
+        hover: string("hover")?,
         width: num("width")?,
         height: num("height")?,
         x: num("x")?,

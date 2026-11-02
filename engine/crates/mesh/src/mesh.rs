@@ -118,7 +118,12 @@ impl MeshData {
     /// at a front face, or `None` if it misses. `dir` needn't be unit length, so `t` is
     /// the same in any affinely transformed space (mesh space or world space).
     pub fn raycast(&self, origin: Vec3, dir: Vec3) -> Option<f32> {
-        let mut best: Option<f32> = None;
+        self.raycast_vertex(origin, dir).map(|(t, _)| t)
+    }
+
+    /// Nearest front surface and one vertex of its triangle, for named-part picking.
+    pub fn raycast_vertex(&self, origin: Vec3, dir: Vec3) -> Option<(f32, usize)> {
+        let mut best: Option<(f32, usize)> = None;
         for t in self.indices.as_chunks::<3>().0 {
             let [a, b, c] = t.map(|i| Vec3::from(self.vertices[i as usize].position));
             let (e1, e2) = (b - a, c - a);
@@ -139,8 +144,8 @@ impl MeshData {
                 continue;
             }
             let hit = e2.dot(q) / det;
-            if hit >= 0.0 && best.is_none_or(|b| hit < b) {
-                best = Some(hit);
+            if hit >= 0.0 && best.is_none_or(|b| hit < b.0) {
+                best = Some((hit, t[0] as usize));
             }
         }
         best

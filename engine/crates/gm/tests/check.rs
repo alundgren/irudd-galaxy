@@ -230,3 +230,82 @@ fn screen_check_is_headless_and_reports_widget_paths() {
             .any(|p| p["message"].as_str().unwrap().contains("/outside[2]"))
     );
 }
+
+#[test]
+fn life_sign_overlap_only_mid_walk_fails_check_and_passes_when_fixed() {
+    use galaxy_api::{Batch, Cause, Command};
+    use galaxy_module::module::{Module, ModuleFiles};
+    use galaxy_render::glam::Vec2;
+    use galaxy_sim::Session;
+    use galaxy_view::View;
+
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("life");
+    let files = ModuleFiles::read(&engine().join("tests/play/life/demo")).unwrap();
+    for (path, text) in files.0 {
+        let text = if path == "start.toml" {
+            text.split("[entities.speech]").next().unwrap().to_owned()
+        } else {
+            text
+        };
+        let path = dir.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    let script = dir.join("scripts/main.luau");
+    let panel = |x| {
+        format!(
+            "return {{ screen = function(_, ui) return ui.panel {{ id='panel', x={x}, y=210, width=40, height=20, pad=0 }} end }}"
+        )
+    };
+    std::fs::write(&script, panel(450)).unwrap();
+    let mut s = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    let size = Vec2::new(1280.0, 720.0);
+    v.scene(&s.world, 1.0, size, 0.0);
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    s.world
+        .apply(
+            &Batch {
+                cause: Cause::Engine {
+                    service: "test".into(),
+                },
+                commands: vec![Command::AdvanceClock {
+                    entity: "life.clock".into(),
+                    amount: 1,
+                }],
+            },
+            &s.registry().clone(),
+        )
+        .unwrap();
+    // Both endpoints are clear; only the silent sign crosses the panel mid-walk.
+    let mut live_overlap = false;
+    for _ in 0..160 {
+        v.before_step(&s.world);
+        s.step(&[]).unwrap();
+        v.scene(&s.world, 0.5, size, 0.0);
+        live_overlap |= v
+            .screens
+            .problems
+            .iter()
+            .any(|p| p.contains("life.walker/sign: overlaps"));
+    }
+    assert!(live_overlap, "expected a live mid-walk sign overlap");
+    assert!(
+        v.screens.problems.is_empty(),
+        "endpoint: {:?}",
+        v.screens.problems
+    );
+    let (code, out) = gm(tmp.path(), &["check", "life"]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        messages(&json(&out))
+            .iter()
+            .any(|m| m.contains("life transition")
+                && m.contains("life.walker/sign: overlaps life:scripts/main.luau/screen")),
+        "{out}"
+    );
+    std::fs::write(&script, panel(940)).unwrap();
+    let (code, out) = gm(tmp.path(), &["check", "life"]);
+    assert_eq!(code, 0, "{out}");
+}

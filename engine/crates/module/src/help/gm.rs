@@ -6,6 +6,43 @@ use crate::discover::Tool;
 pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
+        path: "look",
+        synopsis: "<recording> (--note <n> | --tick <n>) [--point <x,y>] [--size <w>x<h>]",
+        answers: "What is under a point of a recorded frame, and is its hover readable?",
+        about: "Replays embedded modules headlessly. Points and rectangles use logical pixels. Notes use their exact recorded frame; tick mode uses alpha 1 and the requested viewport.",
+        args: &[
+            ("<recording>", "recording.json or its session folder"),
+            (
+                "--note <n>",
+                "F8 note number, starting at 1; exclusive with --tick",
+            ),
+            ("--tick <n>", "recorded simulation tick, drawn at alpha 1"),
+            (
+                "--point <x,y>",
+                "logical pixel coordinates; defaults to the note pointer",
+            ),
+            (
+                "--size <w>x<h>",
+                "tick-mode logical viewport, default 1280x720; notes retain their size",
+            ),
+        ],
+        output: &[
+            (
+                "widget, entity, being, part, place, anchor",
+                "topmost widget path and underlying anchor or nearest mesh part; null where absent",
+            ),
+            (
+                "hover",
+                "text, rectangle, readable and problems; null means no authored hover",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm look sessions/example/recording.json --note 3",
+        next: "Compare the point with the note frame; galaxy-gm guide hovers explains declarations and checks.",
+        topic: "hovers",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "guide",
         synopsis: "[topic]",
         answers: "What do you want to do, and which command does it? For both galaxy and \
@@ -13,7 +50,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, rooms, talk, life, audio, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -29,7 +66,7 @@ pub static COMMANDS: &[Command] = &[
         answers: "Does this module load? Its manifest, start state, scripts, models and \
                   style, screens and every room at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -40,9 +77,13 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look, screen, room, talk or sound) and message",
+                "each problem: kind (schema, script, start, look, screen, hover, room, talk or sound) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
+            (
+                "hovers",
+                "reachable targets in staged places and talk lines: widget, entity, part, point, scroll and hover text/readability; null means no declared label",
+            ),
             (
                 "worn.looks, worn.models",
                 "each look and model the module has, and the things (from every \
@@ -562,6 +603,28 @@ pub static COMMANDS: &[Command] = &[
 
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
+    Topic {
+        name: "hovers",
+        title: "Hover labels and looking at recorded points",
+        about: "Every widget accepts hover = \"label text\". A pure screen can also return ui.hover { id = \"person-help\", anchor = \"being.demo.person\", text = \"A moving speaker\" } beside ordinary widgets. This declares a label without drawing a permanent widget: the nearest visible model surface activates it, or a 44px anchor target for things without models. A part anchor such as being.demo.person.face restricts it to that mesh part (empty nodes use an anchor target); publisher#name binds an ordinary named anchor. Keep declarations conditional on the current place, like other anchored screens. Later declarations win. The engine shows the label immediately, keeps it inside the viewport, clears it on pointer exit or capture, and follows interpolated anchors. Its text and surface use [screen] text and paper. Hover paint never changes world state. Check stages screens, places and talk lines and reports hovers, including null for targets without a declaration, plus readability problems. It checks authored states, not arbitrary future script branches. Look uses the same picking and layout headlessly. A note preserves its exact pointer, size, style and fractional pose; use --note to match its saved frame. Tick mode uses alpha 1 and --size (default 1280x720). Coordinates are logical pixels; divide physical image coordinates by the note scale.",
+        tasks: &[
+            ("Inspect a note under its recorded pointer", "gm look"),
+            ("Check authored hover labels", "gm check"),
+        ],
+        recipes: &[Recipe {
+            title: "Record a hover and inspect it",
+            steps: &[
+                "Add hover = \"Add one\" to a button, or ui.hover with an anchor and text to a screen.",
+                "galaxy-gm check <module>",
+                "galaxy play --modules <modules>; point at the widget or being and press F8.",
+                "galaxy-gm look <session>/recording.json --note 1",
+                "galaxy-gm look <session>/recording.json --note 1 --point 320,240",
+                "galaxy-gm audit <session>/recording.json",
+                "galaxy-gm film <session>/recording.json --note 1 --before 1 --after 1",
+                "Bot [[pointer]] action = \"move\" needs no active drag. widget names a widget ID, an anchored hover ID, or point:x,y for coordinates. Repeat moves to track a moving target; moving off it clears the label.",
+            ],
+        }],
+    },
     Topic {
         name: "life",
         title: "A recorded day per being, with visible walks and signs",

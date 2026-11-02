@@ -208,18 +208,22 @@ default when absent.
 `galaxy-gm check` enumerates distinct selections over the least common repeat period
 of the days sharing each clock, and the product of independent clocks. It stages every
 resting arrangement and every transition between arrangements in each place, including
-simultaneously moving beings. Every authored talk line then uses the ordinary triangle
+simultaneously moving beings. Each pose first runs ordinary screen readability with
+talk inactive, so name signs are checked against panels even for beings without a talk.
+Every authored talk line then uses screen readability and the ordinary triangle
 focus check at each tick and half-tick, including rising and settling morphs. This also
 checks jumps across acts and the day wrap, not only adjacent destinations. A clear
 resting scene can therefore fail for a crossing figure, a raised head under a panel,
-or a bubble following a walker out of frame. Results name the transition and talk.
+or a sign or bubble crossing a panel. Results name the place, transition, widget paths
+and talk when active. Active walks staged by the talk checker also include silent signs.
 
 The checker refuses a clock period over 100000 units, over 64 distinct arrangements,
 or a transition longer than 18000 ticks, with an explicit finding; it never marks a
 partial exploration as passed. These are authoring-check bounds, not runtime limits.
 The check covers authored days with the current module geometry and screens. Arbitrary
 future script branches, retargeting during a walk and changed assets require their own
-variants or recorded runs. Geometric focus limits are those in [Talk](talk.md).
+variants or recorded runs. The command checks at 1280x720; other window sizes need
+recorded runs too. Geometric focus limits are those in [Talk](talk.md).
 
 ## Trying life and alternatives
 
@@ -248,3 +252,10 @@ Morph targets keep poses in module assets instead of hard-coding game looks. A f
 skeleton, navigation mesh or generalized behaviour tree would exceed this day's thin
 loop. The finite day can later issue more elaborate engine-owned motion without moving
 schedule meaning into the renderer.
+
+The life demo declares `ui.hover` on `being.life.walker` and labels its controls.
+Picking uses the interpolated, morphed mesh; the label follows the same head anchor
+as the name sign and speech. The shared screen path owns paint and placement, with
+no changes to life state or its hash. `tests/play/hovers-inputs.toml` follows the
+moving speaker and takes eight F8-path notes for replay, audit and `look`.
+See [Screens](screens.md) and [Motion tools](motion-tools.md).

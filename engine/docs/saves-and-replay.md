@@ -216,8 +216,8 @@ coordinate is added to the recording format. Screen
 functions are pure reads of the replayed world; their open state must be module state,
 changed by recorded events. A fresh audit or film view therefore rebuilds the same trees
 from the embedded scripts and current components. Named anchors use the recorded camera,
-frame size and interpolation fraction, like model poses. No additional presentation
-record is needed in Screens I: it has no hover, scroll or transient pointer rendering.
+frame size and interpolation fraction, like model poses. Hover pointers, scrolling and transient drag state use presentation snapshots;
+each note keeps its exact last drawn snapshot.
 See `screens.md` for the bot click and note example.
 
 ## Places, clocks and in-progress walks
@@ -269,3 +269,10 @@ their recorded tick, and style reloads can run after theirs, but never pass an e
 world reload. A style snapshot made after a code edit therefore sees that code when
 replayed, even when both edits arrived between the same two ticks. Audit and film use
 this same queue, including its notification to rebuild the view's module assets.
+
+`galaxy-gm look` replays embedded modules headlessly using the shared screen/mesh
+picker. `--note` restores the exact moment and checks its world hash; `--tick` draws
+an endpoint at the requested viewport. It reports both builds. The optional pointer
+in presentation version 1 defaults to absent in older recordings. Hover labels derive
+from that pointer, the screen tree and posed geometry; no hover state enters saves,
+world hashes or recorded simulation inputs.

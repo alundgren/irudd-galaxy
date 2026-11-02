@@ -227,3 +227,8 @@ Repo docs like this one stay for builders: how a system works and why.
 `cargo xtask linux-check [--distro <name>]` takes this machine's build permit, runs
 `cargo xtask check` inside WSL on the same checkout, and gives the permit back when WSL
 finishes. WSL builds in its own shared folder, which stays warm between runs.
+
+`look`, like audit and replay, selects the recording's installed build unless an
+explicit `--build` overrides it. Older installed launchers may not know `look`; name
+the hover-capable dev build explicitly until its launcher is released. The report
+identifies both builds and gives an explicit build command when they differ.
