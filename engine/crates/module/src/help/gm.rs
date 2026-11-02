@@ -242,7 +242,8 @@ pub static COMMANDS: &[Command] = &[
                 and it exits 5 with kind hot_load_refused), recorded with the new files, so \
                 the session still replays, audits and films. Scripts keep no state, so the \
                 world carries on; a changed start.toml does not move things already placed. \
-                A style.toml-only change is presentation only.",
+                A style.toml-only change is presentation only. While an F8 note is open it \
+                is refused (kind hot_load_refused): keep or drop the note, then load.",
         args: &[
             (
                 "<module>",

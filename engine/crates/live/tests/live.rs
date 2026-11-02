@@ -41,6 +41,8 @@ fn copy(from: &Path, to: &Path) {
 struct Headless {
     session: Session,
     dir: PathBuf,
+    /// An F8 note is open.
+    paused: bool,
 }
 
 impl Host for Headless {
@@ -53,6 +55,10 @@ impl Host for Headless {
             unreachable!()
         };
         m
+    }
+
+    fn holds_loads(&self) -> Option<&'static str> {
+        self.paused.then_some("an F8 note is open")
     }
 
     fn frame(&mut self) -> Result<RgbaImage, String> {
@@ -125,6 +131,7 @@ fn rig() -> Rig {
         host: Headless {
             session,
             dir: session_dir,
+            paused: false,
         },
         live,
     }
@@ -311,11 +318,15 @@ fn a_load_hot_loads_changed_files_and_the_session_replays() {
     assert_eq!(loaded["loaded"][0]["module"], "stroll", "{loaded}");
     assert_eq!(loaded["loaded"][0]["presentation_only"], false);
     assert_eq!(loaded["unchanged"], json!(["tally"]));
+    // The recording written at the load, before another tick ran, replays to the same
+    // world: the load made after its last tick is applied at its end.
+    let at_load =
+        galaxy_sim::Recording::read(Path::new(loaded["recording"].as_str().unwrap())).unwrap();
+    assert_eq!(at_load.end.tick, 10);
+    let (_, replayed) = galaxy_sim::replay(&at_load).unwrap();
     assert!(
-        loaded["recording"]
-            .as_str()
-            .unwrap()
-            .ends_with("recording.json")
+        replayed.identical,
+        "the recording written at the load replays"
     );
 
     for _ in 0..60 {
@@ -340,7 +351,18 @@ fn a_load_hot_loads_changed_files_and_the_session_replays() {
     assert_eq!(refused.fields["failed"][0]["module"], "stroll");
     assert_eq!(rig.host.session.world.hash(), before);
 
-    // A folder that isn't a running module is a usage mistake.
+    // While an F8 note is open, loads wait: nothing changes.
+    std::fs::write(&rules, &text).unwrap();
+    rig.host.paused = true;
+    let held = rig
+        .with_client(|dir| call(&dir, Op::Load { dirs: vec![] }))
+        .unwrap_err();
+    assert_eq!((held.code, held.kind.as_str()), (5, "hot_load_refused"));
+    assert!(held.message.contains("F8"), "{}", held.message);
+    assert_eq!(rig.host.session.world.hash(), before);
+    rig.host.paused = false;
+
+    // A named module folder loads even when unchanged.
     let other = rig._tmp.path().join("modules/tally");
     let named = rig
         .with_client(move |dir| call(&dir, Op::Load { dirs: vec![other] }))

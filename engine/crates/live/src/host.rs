@@ -27,6 +27,12 @@ pub trait Host {
     /// What only the window knows: `fps`, `window` (logical size), `paused` (a note is
     /// being written) and the like. Merged into `status`.
     fn presentation(&self) -> Map<String, Value>;
+    /// Why the world can't take a hot-load now, if it can't: an F8 note is open, and a
+    /// note kept after a load on the same tick would hold a world its replay can't reach
+    /// at that note.
+    fn holds_loads(&self) -> Option<&'static str> {
+        None
+    }
     /// The frame the window shows now, drawn again at the same moment.
     fn frame(&mut self) -> Result<RgbaImage, String>;
     /// Hot-loads these modules between ticks, in order, as `--watch` would: each one's
@@ -245,6 +251,9 @@ impl Live {
     /// Hot-loads `dirs` (each a module folder), or with none every module whose files
     /// changed in the folder it was loaded from.
     fn load(&mut self, host: &mut impl Host, dirs: &[PathBuf]) -> Result<Value, WireError> {
+        if let Some(why) = host.holds_loads() {
+            return Err(WireError::new(5, "hot_load_refused", why).with("loaded", json!([])));
+        }
         let running: BTreeMap<String, &Module> = host
             .session()
             .modules()

@@ -74,7 +74,10 @@ load, the world still fits; else nothing changes and the reply is `hot_load_refu
 recorded with the new files, and followed by the same refresh of keys, sounds and the
 view. So the session still replays, audits and films; a `style.toml`-only change is a
 presentation-only load, as with `--watch`. After a load the game writes its recording, so
-the session folder has it even if the game is killed later.
+the session folder has it even if the game is killed later; its replay applies the load at
+the end (`saves-and-replay.md`). While an F8 note is open a load is refused
+(`hot_load_refused`): a note kept after a load on the same tick would hold a world its
+replay can't reach at that note.
 
 **Choosing a game.** The client lists the discovery files and drops those whose endpoint
 no longer answers (a crashed or killed game). With one game, it is used; a load uses the

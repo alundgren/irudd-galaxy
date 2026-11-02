@@ -48,7 +48,7 @@ text. Messages from the build tools (`cargo xtask`) go to stderr.
 | `no_game` | 2 | `galaxy-gm live`: no game is running (or none runs the modules a load names, or `--game` names none). Says how to start one. | `games` (when some run) |
 | `several_games` | 2 | `galaxy-gm live`: several games run and none is clearly meant; `--game <pid or session>` picks one. | `games` |
 | `live_protocol` | 2 | `galaxy-gm live`: the running game speaks another live protocol; names the build to run. | |
-| `hot_load_refused` | 5 | `galaxy-gm live load`: a module's scripts don't load or the world doesn't fit it; nothing of that module changed. | `loaded`, `failed` (each `module`, `error`), `unchanged`, `tick`, `hash` |
+| `hot_load_refused` | 5 | `galaxy-gm live load`: a module's scripts don't load or the world doesn't fit it (nothing of that module changed), or an F8 note is open in the game (nothing loaded). | `loaded`, `failed` (each `module`, `error`), `unchanged`, `tick`, `hash` |
 | `runtime` | 1 | Anything else that failed after starting: I/O, a build the launcher could not start. | `path` (sometimes) |
 
 The table lives in code in `crates/module/src/failure.rs`; a new kind is added there and

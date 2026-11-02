@@ -735,6 +735,12 @@ impl galaxy_live::Host for App {
         map
     }
 
+    fn holds_loads(&self) -> Option<&'static str> {
+        self.note.as_ref().map(
+            |_| "an F8 note is open in the game; keep it (Enter) or drop it (Esc), then load again",
+        )
+    }
+
     fn frame(&mut self) -> Result<RgbaImage, String> {
         let r = self
             .running

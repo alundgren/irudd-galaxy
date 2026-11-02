@@ -362,6 +362,11 @@ impl<'a> Replay<'a> {
     /// Runs the next tick, with its hot-loads and inputs. False once at the end.
     pub fn step(&mut self) -> Result<bool, String> {
         if self.session.world.tick >= self.rec.end.tick {
+            // A world hot-load made after the last tick ran is recorded for the tick that
+            // never came, but the recorded end already holds it (a recording written just
+            // after a load, or a window closed before the next tick).
+            self.modules_changed = false;
+            self.apply_loads(true)?;
             return Ok(false);
         }
         let tick = self.session.world.tick + 1;

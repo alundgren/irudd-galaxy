@@ -85,7 +85,10 @@ widget clicks fit the same shape later.
 
 `galaxy sim replay <recording>` builds the modules from the recorded files (never the
 module folders), starts from the recorded world, applies each input and hot-load on its
-tick, and compares the end hash with the recorded one. It reports the world's hash at
+tick, and compares the end hash with the recorded one. A world hot-load made after the last
+tick ran (recorded for the tick that never came, as when the recording is written right
+after a load or the window closes before the next tick) is applied at the end, since the
+recorded end already holds it. It reports the world's hash at
 every note, so an audit can jump to a noted moment. A different end exits 5 with kind
 `replay_diverged`. `--state` prints the world at the end, as for `sim run`: a line an
 entity, `--entity` and `--component` for fields, `--all` for everything.
