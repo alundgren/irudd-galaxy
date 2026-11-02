@@ -178,31 +178,34 @@ impl Mixer {
         let gains = self.buses.each_mut().map(Ramp::next);
         for v in &mut self.voices {
             let count = v.clip.frames.len();
-            let i = v.position as usize;
-            if i >= count {
+            if v.position >= count as f64 {
                 continue;
             }
-            let j = if i + 1 < count {
-                i + 1
-            } else if v.bus != Bus::Sound {
-                0
-            } else {
-                i
-            };
-            let fraction = (v.position - i as f64) as f32;
+            let looping = v.bus != Bus::Sound;
+            let seam = if looping { v.clip.seam } else { 0 };
             let mut gain = v.gain.next() * gains[v.bus.index()];
-            if v.bus == Bus::Sound {
+            if !looping {
                 let remaining = (count as f64 - v.position) / f64::from(v.clip.rate);
                 gain *= (remaining as f32 / EDGE_SECONDS).min(1.0);
             }
-            for (channel, sample) in out.iter_mut().enumerate() {
-                let a = v.clip.frames[i][channel];
-                let b = v.clip.frames[j][channel];
-                *sample += (a + (b - a) * fraction) * gain;
+            let mut value = sample(&v.clip.frames, v.position, looping && seam == 0);
+            // The last `seam` frames fade out while the start fades in, so the loop
+            // continues from frame `seam` with no jump.
+            let start = (count - seam) as f64;
+            if seam > 0 && v.position >= start {
+                let into = v.position - start;
+                let t = (into / seam as f64) as f32;
+                let head = sample(&v.clip.frames, into, false);
+                for (tail, head) in value.iter_mut().zip(head) {
+                    *tail += (head - *tail) * t;
+                }
+            }
+            for (out, value) in out.iter_mut().zip(value) {
+                *out += value * gain;
             }
             v.position += f64::from(v.clip.rate) / f64::from(self.rate);
-            if v.bus != Bus::Sound {
-                v.position %= count as f64;
+            if looping && v.position >= count as f64 {
+                v.position = seam as f64 + (v.position - count as f64) % start;
             }
         }
         self.voices.retain(|v| {
@@ -225,6 +228,22 @@ impl Mixer {
             *frame = self.frame();
         }
     }
+}
+
+/// The frame at a fractional position, linearly interpolated; past the end it
+/// wraps to the first frame or holds the last.
+fn sample(frames: &[[f32; 2]], position: f64, wrap: bool) -> [f32; 2] {
+    let i = position as usize;
+    let j = if i + 1 < frames.len() {
+        i + 1
+    } else if wrap {
+        0
+    } else {
+        i
+    };
+    let fraction = (position - i as f64) as f32;
+    let (a, b) = (frames[i], frames[j]);
+    [0, 1].map(|c| a[c] + (b[c] - a[c]) * fraction)
 }
 
 fn finite(value: f32) -> f32 {

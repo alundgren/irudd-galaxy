@@ -34,6 +34,10 @@ pub const INSTRUMENTAL: &str = "Instrumental only: no vocals, no singing, no lyr
 const MAX_PROMPT_CHARS: usize = 1000;
 /// A full piece can take minutes to stream.
 pub const TIMEOUT: Duration = Duration::from_secs(600);
+/// Background level: without `--volume`, a new sound's volume makes the clip's RMS times
+/// its volume about this, -30 dBFS. With the default master gain of 0.7 the music leaves
+/// the mixer at about -33 dBFS RMS.
+pub const BACKGROUND_RMS: f64 = 0.0316;
 
 /// What the command line asked for.
 struct Ask {
@@ -166,16 +170,19 @@ fn make(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => DocumentMut::new(),
         Err(e) => return Err(bad(format!("can't read audio.toml: {e}"))),
     };
-    let existing = doc
+    let sound = doc
         .get("sounds")
         .and_then(Item::as_table_like)
-        .and_then(|t| t.get(&ask.name))
-        .map(|s| {
-            s.get("file")
-                .and_then(Item::as_str)
-                .unwrap_or("")
-                .to_owned()
-        });
+        .and_then(|t| t.get(&ask.name));
+    let existing = sound.map(|s| {
+        s.get("file")
+            .and_then(Item::as_str)
+            .unwrap_or("")
+            .to_owned()
+    });
+    let old_volume = sound
+        .and_then(|s| s.get("volume"))
+        .and_then(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)));
     let taken: Vec<String> = ["mp3", "wav", "ogg"]
         .iter()
         .map(|ext| format!("music/{}.{ext}", ask.name))
@@ -290,12 +297,22 @@ fn make(
             .with("written", false));
         }
     };
+    // An explicit volume wins. A replaced sound keeps the loudness its volume gave the
+    // old clip; a new one sits at the background level.
+    let rms = f64::from(clip.rms());
+    let old = existing.as_deref().and_then(|file| old_clip(dir, file));
+    let volume = match (ask.volume, old) {
+        (Some(volume), _) => volume,
+        (None, Some(old)) => level(old_volume.unwrap_or(1.0) * f64::from(old.rms()) / rms),
+        (None, None) => old_volume.unwrap_or_else(|| level(BACKGROUND_RMS / rms)),
+    };
     std::fs::rename(&partial, &target).map_err(|e| io("can't move the music in place", e))?;
 
     let replaced = declare(
         &mut doc,
         &ask,
         &file,
+        volume,
         event.as_deref(),
         audio.model.as_deref(),
     );
@@ -333,6 +350,8 @@ fn make(
         "bytes": audio.bytes.len(),
         "seconds": (seconds * 100.0).round() / 100.0,
         "sample_rate": clip.sample_rate(),
+        "volume": volume,
+        "rms": (rms * 10000.0).round() / 10000.0,
         "event": event,
         "replaced": replaced,
         "model": ask.model,
@@ -353,6 +372,7 @@ fn declare(
     doc: &mut DocumentMut,
     ask: &Ask,
     file: &str,
+    volume: f64,
     event: Option<&str>,
     answered_by: Option<&str>,
 ) -> Option<String> {
@@ -370,18 +390,11 @@ fn declare(
         .as_table_like_mut()
         .expect("sounds is a table");
     let before = sounds.get(&ask.name).map(|s| {
-        (
-            s.get("file")
-                .and_then(Item::as_str)
-                .unwrap_or("")
-                .to_owned(),
-            s.get("volume").and_then(Item::as_float),
-        )
+        s.get("file")
+            .and_then(Item::as_str)
+            .unwrap_or("")
+            .to_owned()
     });
-    let volume = ask
-        .volume
-        .or_else(|| before.as_ref().and_then(|b| b.1))
-        .unwrap_or(0.5);
     match sounds.get_mut(&ask.name) {
         Some(Item::Table(t)) => {
             set_kept(t, "file", file.into());
@@ -433,7 +446,29 @@ fn declare(
             }
         }
     }
-    before.map(|b| b.0)
+    before
+}
+
+/// A volume for audio.toml: two decimals, from 0.01 to 1.
+fn level(volume: f64) -> f64 {
+    if volume.is_finite() {
+        ((volume * 100.0).round() / 100.0).clamp(0.01, 1.0)
+    } else {
+        1.0
+    }
+}
+
+/// The clip a sound named before it is replaced, when it is a module file that decodes.
+fn old_clip(dir: &Path, file: &str) -> Option<galaxy_audio::Clip> {
+    let path = Path::new(file);
+    let inside = !file.is_empty()
+        && path
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)));
+    inside
+        .then(|| galaxy_audio::Clip::read(&dir.join(path)).ok())
+        .flatten()
+        .filter(|clip| clip.rms() > 0.0)
 }
 
 /// What every generation note starts with.
@@ -601,8 +636,76 @@ mod tests {
         let v: toml::Value =
             toml::from_str(&std::fs::read_to_string(dir.join("audio.toml")).unwrap()).unwrap();
         assert_eq!(v["events"].as_array().unwrap().len(), 1);
-        // The volume a sound had is kept when --volume is not given.
-        assert_eq!(v["sounds"]["theme"]["volume"].as_float(), Some(0.5));
+        // Without --volume the music sits at the background level: the decoded tone's RMS
+        // is 0.126, so 0.0316 / 0.126 is 0.25; replacing it with an equally loud clip
+        // keeps that.
+        assert_eq!(out["rms"], 0.1258, "{out}");
+        assert_eq!(out["volume"], 0.25, "{out}");
+        assert_eq!(v["sounds"]["theme"]["volume"].as_float(), Some(0.25));
+    }
+
+    /// A 16 kHz mono 16-bit WAV of a 440 Hz tone at this peak.
+    fn wav(peak: f64) -> Vec<u8> {
+        let samples: Vec<i16> = (0..1600)
+            .map(|n| {
+                let v = (f64::from(n) * std::f64::consts::TAU * 440.0 / 16000.0).sin();
+                (v * peak * 32767.0).round() as i16
+            })
+            .collect();
+        let data = (samples.len() * 2) as u32;
+        let mut out = Vec::new();
+        out.extend_from_slice(b"RIFF");
+        out.extend_from_slice(&(36 + data).to_le_bytes());
+        out.extend_from_slice(b"WAVEfmt ");
+        for v in [16_u32, 1 | 1 << 16, 16000, 32000, 2 | 16 << 16] {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out.extend_from_slice(b"data");
+        out.extend_from_slice(&data.to_le_bytes());
+        for s in samples {
+            out.extend_from_slice(&s.to_le_bytes());
+        }
+        out
+    }
+
+    #[test]
+    fn music_lands_at_the_background_level_and_a_replacement_keeps_its_loudness() {
+        let tmp = module(Some(
+            "[sounds.theme]
+file = 'music/theme.wav'
+volume = 0.6
+",
+        ));
+        let dir = tmp.path().join("calm");
+        std::fs::create_dir(dir.join("music")).unwrap();
+        std::fs::write(dir.join("music/theme.wav"), wav(0.125)).unwrap();
+        // The old clip is quieter than the new one (RMS 0.088 against 0.126), so the
+        // same loudness needs less volume: 0.6 * 0.088 / 0.126 is 0.42.
+        let args = "--name theme --prompt calm --replace";
+        let out = run_with(&dir, args, &mut canned(200, stream(&tone(), 1))).unwrap();
+        assert_eq!(out["volume"], 0.42, "{out}");
+        // An explicit --volume wins over both.
+        let out = run_with(
+            &dir,
+            &format!("{args} --volume 0.7"),
+            &mut canned(200, stream(&tone(), 1)),
+        )
+        .unwrap();
+        assert_eq!(out["volume"], 0.7, "{out}");
+        // A loud new sound is turned down to the background level; a quiet one is not
+        // turned up past 1.
+        for (bytes, volume) in [(wav(1.0), 0.04), (wav(0.01), 1.0)] {
+            let tmp = module(None);
+            let dir = tmp.path().join("calm");
+            let out = run_with(
+                &dir,
+                "--name theme --prompt calm",
+                &mut canned(200, stream(&bytes, 1)),
+            )
+            .unwrap();
+            assert_eq!(out["format"], "wav");
+            assert_eq!(out["volume"], volume, "{out}");
+        }
     }
 
     #[test]

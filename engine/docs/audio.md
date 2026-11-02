@@ -30,6 +30,7 @@ volume = 0.3
 [sounds.theme]
 file = "sounds/theme.ogg"
 volume = 0.3
+loop_crossfade = 2.0            # seconds the loop's end fades into its start, 0..60
 
 [places]
 first = "room"                 # local or own full place ID -> local sound
@@ -76,7 +77,18 @@ Clips hold immutable stereo frames shared by voices. A voice has its source fram
 position, bus, gain ramp and stop state. Each output frame linearly interpolates the
 two neighboring source frames, advances by source rate / output rate, and wraps music
 and ambience. This lets the same bank play on devices with different sample rates.
-One-shots end on their last frame. Authored loops should join cleanly at the seam.
+One-shots end on their last frame.
+
+**Loop seams.** A clip rarely ends where it starts: generated music ends on a decaying
+note and starts on a full attack, so a plain wrap is a sudden step in level. Each sound
+has a `loop_crossfade` (seconds, default 2). When music or ambience reaches its last
+`loop_crossfade` seconds, the clip's start plays under it with a linear crossfade, and on
+reaching the end the voice carries on from the point the start had reached. Each pass
+after the first is therefore that much shorter than the file; the first pass still
+starts at frame 0. A clip shorter than four fades wraps as authored: short loops are cut
+to whole cycles, and starting the next pass early would put them out of phase. A long
+loop cut to whole bars sets `loop_crossfade = 0` to keep its beat. The crossfade is a
+second read of the same frames and a multiply, so the callback still allocates nothing.
 
 Ramps advance once per output sample, reaching their target in the requested number
 of frames. New voices and stopped voices have at least a 5 ms edge ramp, and effects
@@ -143,7 +155,15 @@ and stops it at second 7. The first second fades the initial ambience in.
 
 `galaxy audio` creates a new stereo 48 kHz 16-bit PCM WAV and reports peak, RMS,
 limited samples, voice counts and world hash. It never opens a window or device.
-Its options and limits are in `galaxy audio --help`. The small original fixture files
+Its options and limits are in `galaxy audio --help`.
+
+The seam was measured on a real 30.8 s Lyria clip, rendered for 120 s at volume 1. With
+`loop_crossfade = 0` the level 50 ms either side of each wrap goes from 0.032 to 0.0001
+and then straight to full level (0.20 in the next 50 ms), which is the hard cut players
+hear. With the default 2 s the largest sample step within 2 ms of each seam is 0.012,
+1.7 times the clip's median step (0.0073) and a quarter of its largest step elsewhere
+(0.052), and the quarter-second level runs 0.13, 0.10, 0.15, 0.18, 0.15, 0.17 across
+the fade with no step. Tests check the same on a ramp, whose plain wrap jumps by 1. The small original fixture files
 are reproduced by `python engine/tests/play/audio/demo/generate.py`; no downloaded music
 is used. The Ogg decoder fixture is made from `sounds/high.wav` with
 `oggenc -Q -s 7 -o sounds/high.ogg sounds/high.wav` in that module folder
@@ -168,4 +188,9 @@ and keeps I/O off the callback; streaming large music is unnecessary for this pr
 MP3 is decoded rather than transcoded at generation time because a WAV of the same piece
 is about ten times larger in git, and an Ogg encoder would be another native library.
 Linear interpolation and crossfades are small and inspectable; higher-order resampling,
-equal-power fades and a compressor are unnecessary for these authored clips.
+equal-power fades and a compressor are unnecessary for these authored clips. For loops,
+an equal-power fade would keep uncorrelated material level through the seam (the linear
+fade dips by up to 3 dB at its middle) but lifts a clip whose end matches its start by
+3 dB; searching each clip for the best-matching loop point, or cutting at beats, would
+need analysis the engine doesn't otherwise do. A fixed crossfade that shortens the loop
+needs nothing beyond the frames already in memory.

@@ -6,6 +6,8 @@ use std::sync::Arc;
 pub struct Clip {
     pub(crate) frames: Arc<[[f32; 2]]>,
     pub(crate) rate: u32,
+    /// Source frames a loop crossfades from its end into its start; 0 is a hard wrap.
+    pub(crate) seam: usize,
 }
 
 impl Clip {
@@ -23,7 +25,40 @@ impl Clip {
         Ok(Self {
             frames: frames.into(),
             rate,
+            seam: 0,
         })
+    }
+
+    /// When looped, crossfade the last `seconds` into the start instead of jumping back,
+    /// which makes the loop that much shorter. A clip shorter than four fades wraps as
+    /// authored: short loops are cut to whole cycles, and an early restart would put
+    /// them out of phase.
+    pub fn with_loop_crossfade(mut self, seconds: f32) -> Self {
+        let seconds = if seconds.is_finite() {
+            seconds.max(0.0)
+        } else {
+            0.0
+        };
+        let frames = (f64::from(seconds) * f64::from(self.rate)).round() as usize;
+        self.seam = if frames * 4 <= self.frames.len() {
+            frames
+        } else {
+            0
+        };
+        self
+    }
+    pub fn loop_crossfade_frames(&self) -> usize {
+        self.seam
+    }
+    /// Root mean square of every sample, both channels: 1 is a full-scale square wave.
+    pub fn rms(&self) -> f32 {
+        let sum: f64 = self
+            .frames
+            .iter()
+            .flatten()
+            .map(|&s| f64::from(s) * f64::from(s))
+            .sum();
+        (sum / (self.frames.len() * 2) as f64).sqrt() as f32
     }
 
     pub fn frames(&self) -> usize {
