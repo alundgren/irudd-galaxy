@@ -27,8 +27,13 @@ exit 2, kind `no_key`, and nothing is written. The key is only ever placed in th
 (an error, a body excerpt, the model's text, the prompt, the shape of a failed answer)
 first goes through a redactor that removes the key or any run of 12 or more of its
 characters however JSON spells them (plain, or `\uXXXX` escapes behind any number of
-backslashes). Redaction runs before any truncation, so a cut can't leave a long piece. There
-are no spend caps or budgets in the command: the key carries its own limit.
+backslashes). Redaction runs before any truncation, so a cut can't leave a long piece. The
+client redacts every text it returns, the answer's own `id` and `model` included, and the
+command redacts every string of what it reports (JSON on success, the error and its fields
+on failure) and the `audio.toml` it writes, so an option or answer field echoing the key
+can't carry it out. A `--model` holding the key is refused as a usage error before the
+call, since it would otherwise be sent as the model. There are no spend caps or budgets in
+the command: the key carries its own limit.
 
 **The call.** One `POST /api/v1/chat/completions` with `modalities: ["text", "audio"]` and
 `stream: true` (OpenRouter streams audio output). The prompt gets "Instrumental only: no
@@ -51,10 +56,11 @@ decoded with the sound system's own decoder, and only if that succeeds are moved
 `music/<name>.<ext>`. `audio.toml` is edited with `toml_edit`, so the author's comments,
 order and other entries stay: `[sounds.<name>]` gets `file` and `volume` (0.5 by default,
 or the volume it had when replacing) behind a comment naming the model that answered and
-the prompt, and `--event` adds one `[[events]]` cue on the music bus (looping, crossfading
-from other music) unless the same cue exists. The edited file is written beside and moved
-over. The command then loads the module's sound bank again and reports its findings as
-`check` would.
+the prompt. When replacing, the author's comments above the table and beside its values
+stay; only an earlier generation note is swapped for the new one. `--event` adds one
+`[[events]]` cue on the music bus (looping, crossfading from other music) unless the same
+cue exists. The edited file is written beside and moved over. The command then loads the
+module's sound bank again and reports its findings as `check` would.
 
 **Failures.** A refused call (HTTP error, or an error object inside a 2xx stream; 401 a
 bad key, 402 no credit), no answer at all, an answer without audio or audio that doesn't

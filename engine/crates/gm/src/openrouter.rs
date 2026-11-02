@@ -53,6 +53,26 @@ impl ApiKey {
         }
         redact_runs(text, &key, MIN_RUN.min(key.len())).unwrap_or_else(|| text.to_owned())
     }
+
+    /// Whether [`ApiKey::redact`] would change `text`: it holds the key or a long run of it.
+    pub fn found_in(&self, text: &str) -> bool {
+        self.redact(text) != text
+    }
+
+    /// `v` with every string in it, and every object key, passed through
+    /// [`ApiKey::redact`].
+    pub fn redact_json(&self, v: Value) -> Value {
+        match v {
+            Value::String(s) => Value::String(self.redact(&s)),
+            Value::Array(a) => Value::Array(a.into_iter().map(|v| self.redact_json(v)).collect()),
+            Value::Object(o) => Value::Object(
+                o.into_iter()
+                    .map(|(k, v)| (self.redact(&k), self.redact_json(v)))
+                    .collect(),
+            ),
+            v => v,
+        }
+    }
 }
 
 impl fmt::Debug for ApiKey {
@@ -241,6 +261,28 @@ impl CallError {
             cost_usd: answer.and_then(cost),
         }
     }
+
+    /// Every text in the error passed through [`ApiKey::redact`].
+    fn redacted(self, key: &ApiKey) -> Self {
+        match self {
+            CallError::Network(m) => CallError::Network(key.redact(&m)),
+            CallError::Refused { status, message } => CallError::Refused {
+                status,
+                message: key.redact(&message),
+            },
+            CallError::Malformed {
+                message,
+                answer,
+                generation_id,
+                cost_usd,
+            } => CallError::Malformed {
+                message: key.redact(&message),
+                answer: answer.map(|a| key.redact_json(a)),
+                generation_id: generation_id.map(|g| key.redact(&g)),
+                cost_usd,
+            },
+        }
+    }
 }
 
 /// Longest string kept whole by [`shorten`].
@@ -342,12 +384,25 @@ pub fn music_body(model: &str, prompt: &str, seed: Option<u64>) -> Value {
 }
 
 /// Posts `body` and reads the audio out of the answer. One attempt: a paid call is never
-/// retried behind the caller's back.
+/// retried behind the caller's back. Every text in the result, the answer's own `model`
+/// and `id` included, is redacted here, whichever path produced it.
 pub fn generate(
     transport: &mut dyn Transport,
     key: &ApiKey,
     body: &Value,
 ) -> Result<Audio, CallError> {
+    match call(transport, key, body) {
+        Ok(audio) => Ok(Audio {
+            text: key.redact(&audio.text),
+            model: audio.model.map(|m| key.redact(&m)),
+            generation_id: audio.generation_id.map(|g| key.redact(&g)),
+            ..audio
+        }),
+        Err(e) => Err(e.redacted(key)),
+    }
+}
+
+fn call(transport: &mut dyn Transport, key: &ApiKey, body: &Value) -> Result<Audio, CallError> {
     let reply = transport
         .post(CHAT_URL, &key.bearer(), &body.to_string())
         .map_err(|e| CallError::Network(key.redact(&e)))?;
@@ -806,6 +861,27 @@ pub(crate) mod tests {
             generate(&mut canned(503, "upstream busy"), &key, &body),
             Err(CallError::Refused { status: 503, .. })
         ));
+    }
+
+    #[test]
+    fn an_answers_own_id_and_model_are_redacted() {
+        let key = ApiKey::new(KEY);
+        let body = music_body("m", "p", None);
+        let echo =
+            format!(r#"{{"id":"{KEY}","choices":[{{"message":{{"content":"<instrumental>"}}}}]}}"#);
+        let Err(CallError::Malformed { generation_id, .. }) =
+            generate(&mut canned(200, echo), &key, &body)
+        else {
+            panic!("text without audio is malformed")
+        };
+        assert_eq!(generation_id.as_deref(), Some(REDACTED));
+        let answer = stream(b"ID3\x03\x00\x00\x00\x00\x00\x00rest", 1)
+            .replace("vendor/music-clip", &format!("vendor/{KEY}"))
+            .replace("gen-1-abc", KEY);
+        let audio = generate(&mut canned(200, answer), &key, &body).unwrap();
+        assert_eq!(audio.model.as_deref(), Some("vendor/<redacted>"));
+        assert_eq!(audio.generation_id.as_deref(), Some(REDACTED));
+        assert!(!format!("{audio:?}").contains("0123456789abcdef"));
     }
 
     #[test]

@@ -122,7 +122,32 @@ fn with_siblings(dir: &Path, module: &Module) -> Vec<Module> {
 }
 
 /// Runs the command: `key` is `OPENROUTER_API_KEY`, `transport` sends the one call.
+/// Whatever the command reports, success or failure, has the key redacted from every
+/// string in it, so no option, answer field or message can carry it out.
 pub fn run(
+    dir: &Path,
+    opts: &Opts,
+    key: Option<ApiKey>,
+    transport: &mut dyn Transport,
+) -> Result<Output, Failure> {
+    let Some(k) = key.clone() else {
+        return make(dir, opts, None, transport);
+    };
+    match make(dir, opts, key, transport) {
+        Ok(Output::Json(v)) => Ok(Output::Json(k.redact_json(v))),
+        Ok(Output::Text(t)) => Ok(Output::Text(k.redact(&t))),
+        Err(mut f) => {
+            f.message = k.redact(&f.message);
+            f.fields = std::mem::take(&mut f.fields)
+                .into_iter()
+                .map(|(name, v)| (name, k.redact_json(v)))
+                .collect();
+            Err(f)
+        }
+    }
+}
+
+fn make(
     dir: &Path,
     opts: &Opts,
     key: Option<ApiKey>,
@@ -198,6 +223,14 @@ pub fn run(
         .with("env", ApiKey::ENV));
     };
 
+    // A key pasted into --model would be sent to OpenRouter as the model: refuse it.
+    if key.found_in(&ask.model) {
+        return Err(Failure::usage(format!(
+            "--model holds the OpenRouter key, not a model ID: pass a model such as \
+             {DEFAULT_MODEL} and keep the key in {} only; nothing was sent",
+            ApiKey::ENV
+        )));
+    }
     // A key pasted into a prompt goes nowhere: not to the model, the file or the output.
     ask.prompt = key.redact(&ask.prompt);
     let body = openrouter::music_body(&ask.model, &ask.prompt, ask.seed);
@@ -266,7 +299,7 @@ pub fn run(
         event.as_deref(),
         audio.model.as_deref(),
     );
-    write_atomic(&toml_path, doc.to_string().trim_start())
+    write_atomic(&toml_path, &key.redact(doc.to_string().trim_start()))
         .map_err(|e| io("can't write audio.toml", e))?;
 
     // What the sound system now makes of this module.
@@ -324,7 +357,7 @@ fn declare(
     answered_by: Option<&str>,
 ) -> Option<String> {
     let note = format!(
-        "\n# galaxy-gm music ({}): {}\n",
+        "\n{NOTE_MARK}{}): {}\n",
         answered_by.unwrap_or(&ask.model),
         ask.prompt.trim_end_matches(INSTRUMENTAL).trim()
     );
@@ -351,9 +384,10 @@ fn declare(
         .unwrap_or(0.5);
     match sounds.get_mut(&ask.name) {
         Some(Item::Table(t)) => {
-            t["file"] = value(file);
-            t["volume"] = value(volume);
-            t.decor_mut().set_prefix(note);
+            set_kept(t, "file", file.into());
+            set_kept(t, "volume", volume.into());
+            let prefix = with_note(t.decor().prefix().and_then(|p| p.as_str()), &note);
+            t.decor_mut().set_prefix(prefix);
         }
         Some(Item::Value(toml_edit::Value::InlineTable(t))) => {
             t.insert("file", file.into());
@@ -400,6 +434,38 @@ fn declare(
         }
     }
     before.map(|b| b.0)
+}
+
+/// What every generation note starts with.
+const NOTE_MARK: &str = "# galaxy-gm music (";
+
+/// A table's comments above its header with `note` in place of an older generation
+/// note: the author's own comments stay, in order, and the note comes last.
+fn with_note(prefix: Option<&str>, note: &str) -> String {
+    let mut kept: String = prefix
+        .unwrap_or("")
+        .split_inclusive('\n')
+        .filter(|line| !line.trim_start().starts_with(NOTE_MARK))
+        .collect();
+    if kept.trim().is_empty() {
+        return note.to_owned();
+    }
+    if !kept.ends_with('\n') {
+        kept.push('\n');
+    }
+    kept + note.trim_start_matches('\n')
+}
+
+/// Sets `t[k]` to `v`, keeping the comment and spacing around the value it replaces.
+fn set_kept(t: &mut Table, k: &str, v: toml_edit::Value) {
+    match t.get_mut(k).and_then(Item::as_value_mut) {
+        Some(old) => {
+            let decor = old.decor().clone();
+            *old = v;
+            *old.decor_mut() = decor;
+        }
+        None => t[k] = value(v),
+    }
 }
 
 /// Writes beside the target, then moves it over, so a failed write leaves the old file.
@@ -603,5 +669,84 @@ mod tests {
         let left: Vec<_> = std::fs::read_dir(dir.join("music")).unwrap().collect();
         assert!(left.is_empty(), "no partial file is left");
         assert!(!dir.join("audio.toml").exists());
+    }
+
+    #[test]
+    fn a_key_pasted_into_model_is_refused_before_the_call() {
+        let tmp = module(None);
+        let dir = tmp.path().join("calm");
+        for model in [KEY.to_owned(), format!("vendor/{KEY}")] {
+            let mut t = canned(400, r#"{"error":{"message":"invalid model"}}"#);
+            let e = run_with(
+                &dir,
+                &format!("--name theme --prompt calm --model {model}"),
+                &mut t,
+            )
+            .unwrap_err();
+            assert_eq!(e.kind, "usage", "{}", e.message);
+            assert!(e.message.contains("--model holds the OpenRouter key"));
+            assert!(t.sent.is_empty(), "the key is never sent as a model");
+            let json = e.to_json().to_string();
+            assert!(!json.contains("feedface"), "{json}");
+        }
+        assert!(!dir.join("music").exists() && !dir.join("audio.toml").exists());
+    }
+
+    #[test]
+    fn a_key_echoed_in_an_answers_id_or_model_never_leaves_the_command() {
+        let tmp = module(None);
+        let dir = tmp.path().join("calm");
+        // A failed answer: the ID is the key.
+        let echo =
+            format!(r#"{{"id":"{KEY}","choices":[{{"message":{{"content":"<instrumental>"}}}}]}}"#);
+        let e = run_with(&dir, "--name theme --prompt calm", &mut canned(200, echo)).unwrap_err();
+        assert_eq!(e.kind, "openrouter");
+        assert_eq!(e.fields["generation_id"], openrouter::REDACTED);
+        let json = e.to_json().to_string();
+        assert!(!json.contains("feedface"), "{json}");
+        // A good answer whose model and ID are the key.
+        let answer = stream(&tone(), 1)
+            .replace("vendor/music-clip", KEY)
+            .replace("gen-1-abc", KEY);
+        let out = run_with(&dir, "--name theme --prompt calm", &mut canned(200, answer)).unwrap();
+        assert_eq!(out["answered_by"], openrouter::REDACTED);
+        assert_eq!(out["generation_id"], openrouter::REDACTED);
+        assert!(!out.to_string().contains("feedface"), "{out}");
+        let text = std::fs::read_to_string(dir.join("audio.toml")).unwrap();
+        assert!(!text.contains("feedface"), "{text}");
+        assert!(
+            text.contains("# galaxy-gm music (<redacted>): calm"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn replacing_a_sound_keeps_its_authored_comments() {
+        let tmp = module(Some(
+            "[sounds.ping]\nfile = 'ping.wav'\n\n# Keep this sound quiet; used under dialogue.\n\
+             [sounds.theme]\nfile = 'music/theme.mp3'\nvolume = 0.3 # under dialogue\n",
+        ));
+        let dir = tmp.path().join("calm");
+        std::fs::write(dir.join("ping.wav"), b"").unwrap();
+        for prompt in ["calm", "calmer still"] {
+            run_with(
+                &dir,
+                &format!("--name theme --prompt {prompt} --replace"),
+                &mut canned(200, stream(&tone(), 1)),
+            )
+            .unwrap();
+        }
+        let text = std::fs::read_to_string(dir.join("audio.toml")).unwrap();
+        assert!(
+            text.contains(
+                "# Keep this sound quiet; used under dialogue.\n\
+                 # galaxy-gm music (vendor/music-clip): calmer still\n[sounds.theme]"
+            ),
+            "{text}"
+        );
+        assert_eq!(text.matches("# galaxy-gm music (").count(), 1, "{text}");
+        assert!(text.contains("volume = 0.3 # under dialogue"), "{text}");
+        let v: toml::Value = toml::from_str(&text).unwrap();
+        assert_eq!(v["sounds"]["ping"]["file"].as_str(), Some("ping.wav"));
     }
 }
