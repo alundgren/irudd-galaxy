@@ -69,6 +69,8 @@ tempfile = "3.27.0"
 toml = "1.1.8"
 wgpu = "30.0"
 winit = "0.30.13"
+# Win32 calls for the play window's monitor-scale fix; the version winit 0.30 uses.
+windows-sys = "0.52"
 zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [workspace.lints.rust]

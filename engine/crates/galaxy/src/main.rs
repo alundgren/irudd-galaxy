@@ -8,6 +8,9 @@ mod film;
 mod notes;
 mod play;
 mod sim;
+// The rule is used by the Windows window hook; elsewhere only its tests use it.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod window_scale;
 
 use std::path::Path;
 use std::process::ExitCode;

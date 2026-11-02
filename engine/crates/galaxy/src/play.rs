@@ -163,6 +163,9 @@ struct Times {
     scene: Vec<f64>,
     /// Handing the scene to the GPU and presenting, which waits for the display (vsync).
     draw: Vec<f64>,
+    /// Intervals of the frames right after the window was resized: the frame that
+    /// rebuilt the targets and the one after it.
+    resize: Vec<f64>,
 }
 
 fn summary(mut ms: Vec<f64>) -> Value {
@@ -184,6 +187,9 @@ impl Times {
     /// Frames after the first few, which load the GPU's pipelines and are not typical.
     const SETTLE: usize = 10;
 
+    /// Frames after a resize whose intervals count as resize frames.
+    const RESIZE_FRAMES: u32 = 2;
+
     fn push(&mut self, interval: f64, sim: f64, scene: f64, draw: f64) {
         self.interval.push(interval);
         self.sim.push(sim);
@@ -203,11 +209,17 @@ impl Times {
             "sim_ms": summary(settled(self.sim)),
             "scene_ms": summary(settled(self.scene)),
             "draw_ms": summary(settled(self.draw)),
+            "resize_frames": self.resize.len(),
+            "resize_interval_ms": summary(self.resize),
         })
     }
 }
 
 struct Running {
+    /// Corrects where the window lands when it moves to a monitor with another scale
+    /// ([`crate::window_scale`]). Declared first so it unhooks before the window goes.
+    #[cfg(windows)]
+    _scale_hook: Option<crate::window_scale::Hook>,
     window: Arc<Window>,
     renderer: Renderer,
     view: View,
@@ -237,9 +249,16 @@ struct App {
     /// Scripted wheel steps by tick (`[[zoom]]` in `--inputs`), turned once their tick
     /// has run.
     scripted_zooms: BTreeMap<u64, Vec<f32>>,
+    /// Scripted window sizes by tick (`[[resize]]` in `--inputs`), in logical pixels.
+    scripted_resizes: BTreeMap<u64, Vec<(u32, u32)>>,
+    /// Frames still to count as resize frames since the window last changed size.
+    resize_frames: u32,
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
+    /// Every problem the view showed during the session, in the order first seen, so
+    /// one a script caused and later cleared still reaches the report.
+    problems: Vec<String>,
     started: Instant,
     last: Instant,
     times: Times,
@@ -251,6 +270,9 @@ struct App {
     note: Option<NoteBox>,
     /// Notes kept so far.
     notes: usize,
+    /// Note frames being written to PNG off the main thread, so keeping a note doesn't
+    /// stall the game. Joined before `play` returns.
+    note_writes: Vec<std::thread::JoinHandle<()>>,
     /// How the last frame was drawn, so F8 can keep exactly that frame.
     last_alpha: f32,
     last_time: f32,
@@ -372,18 +394,21 @@ impl App {
         self.notes += 1;
         let file = notes::frame_file(self.notes);
         let path = self.dir.join(&file);
-        if let Err(e) = note.frame.save_png(&path) {
-            eprintln!(
-                "galaxy: can't save the note's frame to {}: {e}",
-                path.display()
-            );
-        }
-        let camera = serde_json::to_value(note.moment).ok();
         let frame = json!({
             "file": file,
             "width": note.frame.width,
             "height": note.frame.height,
         });
+        let image = note.frame;
+        self.note_writes.push(std::thread::spawn(move || {
+            if let Err(e) = image.save_png(&path) {
+                eprintln!(
+                    "galaxy: can't save the note's frame to {}: {e}",
+                    path.display()
+                );
+            }
+        }));
+        let camera = serde_json::to_value(note.moment).ok();
         self.session.note(note.text.trim(), camera, Some(frame));
         self.write_recording();
         eprintln!(
@@ -563,6 +588,19 @@ impl App {
                 }
             }
         }
+        let due: Vec<u64> = self
+            .scripted_resizes
+            .range(..=self.session.world.tick)
+            .map(|(t, _)| *t)
+            .collect();
+        for tick in due {
+            for (w, h) in self.scripted_resizes.remove(&tick).unwrap_or_default() {
+                if let Some(size) = r.window.request_inner_size(LogicalSize::new(w, h)) {
+                    r.renderer.resize(size.width, size.height);
+                    self.resize_frames = Times::RESIZE_FRAMES;
+                }
+            }
+        }
         let logical = r.renderer.logical_size();
         let time = (now - self.started).as_secs_f32();
         self.last_alpha = self.pace.alpha();
@@ -574,6 +612,13 @@ impl App {
         self.session.record_presentation(
             serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
         );
+        for problem in r.view.problems() {
+            // Capped, so a problem whose wording changes every frame can't grow it forever.
+            if self.problems.len() < 200 && !self.problems.contains(&problem) {
+                eprintln!("galaxy: {problem} (tick {})", self.session.world.tick);
+                self.problems.push(problem);
+            }
+        }
         let scene_ms = ms_since(scene_start);
         let draw_start = Instant::now();
         if let Err(e) = r.renderer.render(&scene) {
@@ -589,6 +634,7 @@ impl App {
             .range(..=self.session.world.tick)
             .map(|(t, _)| *t)
             .collect();
+        // A note pauses the game, like F8, so its time is not a frame interval.
         for tick in due {
             for text in self.scripted_notes.remove(&tick).unwrap_or_default() {
                 self.open_note();
@@ -597,11 +643,16 @@ impl App {
                 }
                 self.keep_note();
             }
+            self.last = Instant::now();
         }
         let Some(r) = &mut self.running else { return };
         // The first frame's interval is the time since the window opened.
         if self.frames > 1 && self.times.interval.len() < 1_000_000 {
             self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
+            if self.resize_frames > 0 {
+                self.resize_frames -= 1;
+                self.times.resize.push(dt * 1000.0);
+            }
         }
         if self.options.frames.is_some_and(|n| self.frames >= n) {
             event_loop.exit();
@@ -651,11 +702,14 @@ impl ApplicationHandler for App {
         );
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
+            self.problems.push(problem);
         }
         self.pace.reset();
         self.last = Instant::now();
         window.request_redraw();
         self.running = Some(Running {
+            #[cfg(windows)]
+            _scale_hook: crate::window_scale::Hook::install(&window),
             window,
             renderer,
             view,
@@ -666,8 +720,11 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
-                if let Some(r) = &mut self.running {
+                if let Some(r) = &mut self.running
+                    && (size.width, size.height) != r.renderer.size()
+                {
                     r.renderer.resize(size.width, size.height);
+                    self.resize_frames = Times::RESIZE_FRAMES;
                 }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
@@ -825,6 +882,7 @@ struct Script {
     inputs: BTreeMap<u64, Vec<Input>>,
     notes: BTreeMap<u64, Vec<String>>,
     zooms: BTreeMap<u64, Vec<f32>>,
+    resizes: BTreeMap<u64, Vec<(u32, u32)>>,
 }
 
 /// The inputs, notes and zooms `--inputs` names, by tick, each input checked against the
@@ -859,7 +917,12 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for p in &script.pointers {
         pointers.entry(p.tick).or_default().push(p.clone());
     }
+    let mut resizes: BTreeMap<u64, Vec<(u32, u32)>> = BTreeMap::new();
+    for (tick, size) in &script.resizes {
+        resizes.entry(*tick).or_default().push(*size);
+    }
     Ok(Script {
+        resizes,
         pointers,
         clicks,
         inputs: script.by_tick(),
@@ -922,9 +985,12 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pointer: Vec2::ZERO,
         scripted_notes: script.notes,
         scripted_zooms: script.zooms,
+        scripted_resizes: script.resizes,
+        resize_frames: 0,
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
+        problems: Vec::new(),
         started: Instant::now(),
         last: Instant::now(),
         times: Times::default(),
@@ -933,6 +999,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         dir,
         note: None,
         notes: 0,
+        note_writes: Vec::new(),
         last_alpha: 0.0,
         last_time: 0.0,
     };
@@ -941,6 +1008,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     event_loop
         .run_app(&mut app)
         .map_err(|e| Failure::runtime(format!("the window loop failed: {e}")))?;
+    for write in std::mem::take(&mut app.note_writes) {
+        let _ = write.join();
+    }
     if let Some(e) = app.error {
         return Err(e);
     }
@@ -959,11 +1029,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         rec.write(path)
             .map_err(|e| Failure::runtime(e).with("path", path.display().to_string()))?;
     }
-    let problems = app
-        .running
-        .as_ref()
-        .map(|r| r.view.problems())
-        .unwrap_or_default();
+    let problems = app.problems;
     Ok(Output::Json(json!({
         "ok": true,
         "command": "play",
@@ -1006,7 +1072,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let script = scripted_inputs(&session, &options)?;
     if !script.clicks.is_empty() || !script.pointers.is_empty() {
         return Err(Failure::bad_input(
-            "pointer clicks need galaxy play; film or replay its recording",
+            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
         ));
     }
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);

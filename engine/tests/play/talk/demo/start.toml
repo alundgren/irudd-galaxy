@@ -79,7 +79,7 @@ visits = { count = 0 }
 [entities.third_talk]
 "engine.talk" = { speaker = "talk.third", first = "talk.third_1" }
 [entities.third_1]
-"engine.talk_line" = { text = "Cover my face with the test button. The geometry check must reject it." }
+"engine.talk_line" = { text = "Cover my face with the test button. The problems panel should flag it." }
 [entities.marker]
 "engine.position" = { x = 0, y = 1, height = 0 }
 "engine.location" = { place = "talk.station" }

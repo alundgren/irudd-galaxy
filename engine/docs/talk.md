@@ -77,12 +77,29 @@ invent idle sway, future event-handler states or arbitrary script branches. Auth
 Visibility is geometric at the checked viewport (1280x720), not a GPU lighting or
 subjective expression judgement. Subpixel occlusion and model ink are not measured.
 
+## While playing
+
+`check` judges the states it stages; a script can still cover a face at runtime (patching
+a model, moving a prop, opening a screen over the speaker). So every scene also runs the
+same focus test (`View::live_focus` calls the check's `focus`) for each line on screen,
+with the frame's camera, size, interpolated poses and painted screens. A covered or
+off-screen focus becomes a problem such as ``talk `talk.third_talk`, line `talk.third_1`:
+speaker `talk.third` focus `face` is covered by geometry of `talk.third` ``. It goes the
+same way as live screen readability: the problems panel while it lasts, play's report
+(every problem seen in the session, first seen first) and stderr with its tick. It reads
+the world and never writes it, so replays and hashes are unchanged; because it is part of
+the scene, F8, audit and film draw the same panel and notes still audit pixel-identically.
+It costs about a millisecond of scene time on frames where a line shows. `check` turns it
+off while it stages lines, as it runs the same test itself.
+
 ## Reconstruction and evidence
 
 F8's world tick plus existing camera, size, scale and interpolation metadata reproduce
 the active line and its anchor. Audit and film use the same scene/screen path. The
-playable fixture is `tests/play/talk`; `tests/play/talk-covered` intentionally covers a
-speaker's face in a room the player has not entered. It must fail check.
+playable fixture is `tests/play/talk`; its Room B cover button covers the third
+speaker's face at runtime, which check can't see and the problems panel flags.
+`tests/play/talk-covered` intentionally covers a speaker's face in a room the player has
+not entered. It must fail check.
 
 From the repository root, select the installed dev build after each executable:
 
@@ -102,7 +119,8 @@ galaxy-gm --build <name> motion flicker <film> --screen
 
 The bot speaks to a non-being anchor, leaves an unfinished story, returns to hear it,
 finishes it, asks again, moves a speaker during a line, changes rooms, and deliberately
-covers then uncovers a face. Headless tests cover those state transitions, save/replay,
+covers then uncovers a face: the problems panel shows the covered focus in note 9 and is
+gone again in note 10, and play's report lists it. Headless tests cover those state transitions, save/replay,
 fresh-view reconstruction, interpolated bubble attachment, malformed chains, alternate
 focus, viewport, panel/bubble/mesh coverage and active-walk combinations. They use no GPU.
 Manual play, audit and film provide the pixel evidence.

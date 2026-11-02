@@ -12,7 +12,10 @@
 //!   (`notes/0001.png`). Pixel-identical is expected only on the machine that played; on
 //!   another GPU the picture should still visibly match.
 //!
-//! It reports one line per note, and exits 5 (`replay_diverged`) if any world differs.
+//! It reports one line per note, and how many pictures it compared, in words when that
+//! is not all of them: a recording copied out of its session folder has no `notes/`
+//! beside it, so only the world hashes can be checked. It exits 5 (`replay_diverged`) if
+//! any world differs.
 
 use std::path::{Path, PathBuf};
 
@@ -107,6 +110,7 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
         .map(|r| View::new(r, replay.session.modules(), replay.session.world.seed));
     let mut report = Vec::new();
     let mut diverged = false;
+    let mut pictures = Pictures::default();
     for note in &notes {
         while replay.session.world.tick < note.tick {
             if let Some(v) = &mut view {
@@ -127,6 +131,9 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
             "text": note.text,
             "identical": identical,
         });
+        if note.moment.is_none() || note.frame.is_none() {
+            pictures.no_frame += 1;
+        }
         if let (Some(moment), Some(r), Some(v)) = (&note.moment, &mut renderer, &mut view) {
             let image = draw(r, v, &replay, moment).map_err(Failure::runtime)?;
             std::fs::create_dir_all(&audit_dir).map_err(|e| {
@@ -151,9 +158,15 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
                         if let Some((mean, share)) = image.difference(&seen) {
                             line["mean_difference"] = json!((mean * 1000.0).round() / 1000.0);
                             line["pixels_differing"] = json!((share * 10000.0).round() / 10000.0);
+                            pictures.compared += 1;
+                        } else {
+                            pictures.other_size += 1;
                         }
                     }
-                    Err(e) => line["seen_error"] = json!(e.to_string()),
+                    Err(e) => {
+                        line["seen_error"] = json!(e.to_string());
+                        pictures.missing.get_or_insert_with(|| frame.clone());
+                    }
                 }
             }
         }
@@ -169,6 +182,8 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
             "drew",
             &format!("galaxy-gm audit {}", path.display()),
         ),
+        "pictures_compared": pictures.compared,
+        "pictures": pictures.summary(notes.len()),
         "notes": report,
     });
     if diverged {
@@ -184,4 +199,96 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
         return Err(failure);
     }
     Ok(Output::Json(out))
+}
+
+/// How the pictures went: compared, or why not.
+#[derive(Default)]
+struct Pictures {
+    compared: usize,
+    /// The first frame a note named that couldn't be read.
+    missing: Option<PathBuf>,
+    /// Frames of another size than the moment drawn.
+    other_size: usize,
+    /// Notes that kept no frame or moment to draw.
+    no_frame: usize,
+}
+
+impl Pictures {
+    /// One plain sentence: how many of `notes` pictures were compared, and why not all.
+    fn summary(&self, notes: usize) -> String {
+        if notes == 0 {
+            return "the recording has no notes, so there were no pictures to compare".into();
+        }
+        if self.compared == notes {
+            return format!("compared all {notes} note pictures with the frames the player saw");
+        }
+        let mut out = if self.compared == 0 {
+            format!("compared no pictures: of {notes} notes, none could be compared")
+        } else {
+            format!(
+                "compared {} of {notes} note pictures; the rest could not be",
+                self.compared
+            )
+        };
+        if let Some(path) = &self.missing {
+            out.push_str(&format!(
+                ". The frames the player saw were not found (first: {}). They are kept in \
+                 notes/ in the session folder, beside the original recording.json, so \
+                 audit that recording instead of a copy",
+                path.display()
+            ));
+        }
+        if self.other_size > 0 {
+            out.push_str(&format!(
+                ". {} frames are a different size from the moment drawn",
+                self.other_size
+            ));
+        }
+        if self.no_frame > 0 {
+            out.push_str(&format!(
+                ". {} notes kept no frame (from galaxy sim run, or an older recording), so \
+                 only their world hash was checked",
+                self.no_frame
+            ));
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Pictures;
+    use std::path::PathBuf;
+
+    #[test]
+    fn the_summary_says_plainly_when_no_pictures_were_compared() {
+        let none = Pictures {
+            missing: Some(PathBuf::from("copy/notes/0001.png")),
+            ..Pictures::default()
+        };
+        assert!(!none.summary(3).contains("kept no frame"));
+        let sim_notes = Pictures {
+            no_frame: 2,
+            ..Pictures::default()
+        };
+        assert!(sim_notes.summary(2).contains("2 notes kept no frame"));
+        let text = none.summary(3);
+        assert!(text.starts_with("compared no pictures"), "{text}");
+        assert!(text.contains("copy/notes/0001.png"), "{text}");
+        assert!(text.contains("session folder"), "{text}");
+        let all = Pictures {
+            compared: 2,
+            ..Pictures::default()
+        };
+        assert_eq!(
+            all.summary(2),
+            "compared all 2 note pictures with the frames the player saw"
+        );
+        assert!(Pictures::default().summary(0).contains("no notes"));
+        let some = Pictures {
+            compared: 1,
+            ..Pictures::default()
+        };
+        assert!(some.summary(2).starts_with("compared 1 of 2"));
+    }
 }

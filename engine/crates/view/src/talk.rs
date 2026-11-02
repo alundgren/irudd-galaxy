@@ -218,6 +218,32 @@ impl View {
         }
     }
 
+    /// The speakers of the lines on screen whose focus is covered or off screen in this
+    /// frame, by the same rules as [`View::check_talk`]: a script can cover a face at
+    /// runtime in a state the check never stages. Presentation only; the world is read.
+    pub(crate) fn live_focus(
+        &self,
+        world: &World,
+        alpha: f32,
+        size: Vec2,
+        camera: Camera,
+    ) -> Vec<String> {
+        world
+            .entities
+            .iter()
+            .filter_map(|(id, c)| {
+                let f = &c.get(TALK)?.fields;
+                if f["active"] != true || !talk::available(world, f) {
+                    return None;
+                }
+                let line = text(f, "current");
+                self.focus(world, text(f, "speaker"), camera, size, alpha)
+                    .err()
+                    .map(|e| format!("talk `{id}`, line `{line}`: {e}"))
+            })
+            .collect()
+    }
+
     /// Check every authored line with its place's conditional screens and room camera.
     /// Active walks are sampled at every tick and halfway between ticks, including their endpoint.
     pub fn check_talk(&mut self, world: &World, size: Vec2) -> Vec<String> {
@@ -225,6 +251,20 @@ impl View {
     }
 
     pub(crate) fn check_talk_at(
+        &mut self,
+        world: &World,
+        size: Vec2,
+        alpha: f32,
+        walks: bool,
+    ) -> Vec<String> {
+        // The check stages each line and runs focus itself, with its own wording.
+        let live = std::mem::replace(&mut self.focus_live, false);
+        let findings = self.check_talk_lines(world, size, alpha, walks);
+        self.focus_live = live;
+        findings
+    }
+
+    fn check_talk_lines(
         &mut self,
         world: &World,
         size: Vec2,
