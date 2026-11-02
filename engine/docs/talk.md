@@ -72,9 +72,9 @@ still receive bubble readability and anchor checks.
 
 Active straight walks are checked at every remaining tick and half-tick pose through
 completion, with all moving entities evaluated together. Poses are streamed rather than
-retained as a film in memory. This covers the existing walk service; it does not invent
-later life schedules, idle sway, future event-handler states or arbitrary script
-branches. Authored variants need their own check, and recorded play remains necessary.
+retained as a film in memory. The life check additionally stages every authored day arrangement and transitions
+between them, including module-owned morph poses and simultaneous walkers. It does not
+invent idle sway, future event-handler states or arbitrary script branches. Authored variants need their own check, and recorded play remains necessary.
 Visibility is geometric at the checked viewport (1280x720), not a GPU lighting or
 subjective expression judgement. Subpixel occlusion and model ink are not measured.
 
@@ -123,3 +123,7 @@ actual foreground geometry headlessly. Screenshots alone cannot prove attachment
 movement, so recorded motion and fractional-frame headless assertions complement the
 geometry check. Conversation state held by the view would break save/load, audit and
 film; ordinary world components avoid that extra reconstruction contract.
+
+Life signs share the screen path and merge the speaking being's name into its bubble.
+The figure, its morphed head anchor and focus geometry use the same recorded phase.
+See [Places and beings](places-and-beings.md) for the day contract and check bounds.

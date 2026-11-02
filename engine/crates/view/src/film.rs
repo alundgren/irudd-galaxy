@@ -505,12 +505,7 @@ fn things(
                     on_screen,
                     followed: followed.as_deref() == Some(id.as_str()),
                     reach: view.reach(world, id),
-                    morph: world
-                        .component(id, MODEL)
-                        .and_then(|m| m.fields.get("morph"))
-                        .and_then(Value::as_f64)
-                        .filter(|m| m.is_finite() && *m > 0.0)
-                        .map(|m| m as f32),
+                    morph: Some(view.morph(world, id, alpha)).filter(|m| m.is_finite() && *m > 0.0),
                 },
             ))
         })

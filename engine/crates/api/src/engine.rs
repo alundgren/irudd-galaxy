@@ -95,6 +95,9 @@ pub const ROOM: &str = "engine.room";
 pub const TRAVEL: &str = "engine.travel";
 pub const PLACE_ARRIVED: &str = "engine.place_arrived";
 pub const CLOCK: &str = "engine.clock";
+pub const LIFE: &str = "engine.life";
+pub const ACT: &str = "engine.act";
+pub const CLOCK_ADVANCED: &str = "engine.clock_advanced";
 pub const WALK_FINISHED: &str = "engine.walk_finished";
 
 /// The engine's event kinds (in the `engine` namespace).
@@ -105,7 +108,8 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
 /// - `walk_finished`: a recorded walk completed (`entity`, `place`, `spot`).
 /// - `place_arrived`: play landed a trip, recorded as input (`entity`, `place`, `start_tick`).
-pub const EVENTS: [&str; 8] = [
+pub const EVENTS: [&str; 9] = [
+    "clock_advanced",
     "start",
     "hot_loaded",
     "script_failed",
@@ -125,6 +129,75 @@ pub const SCRIPT_FAILED: &str = "engine.script_failed";
 /// name), field, meaning. `galaxy-gm fields components` prints it beside each field's type
 /// and default from [`components`]; a test keeps the two in step.
 pub const FIELDS: &[(&str, &str, &str)] = &[
+    ("life", "clock", "clock driving this being's repeating day"),
+    (
+        "life",
+        "first",
+        "first act in a finite chain; the end loops to first",
+    ),
+    (
+        "life",
+        "name",
+        "name on the being's sign; empty hides the sign",
+    ),
+    ("life", "speed", "walking speed in world units per second"),
+    (
+        "life",
+        "presentation",
+        "states animates visible changes; instant finishes them",
+    ),
+    ("life", "current", "selected act; engine-owned"),
+    ("life", "phase", "rise, walk, settle or empty; engine-owned"),
+    (
+        "life",
+        "start_tick",
+        "start of the current pose phase; engine-owned",
+    ),
+    ("life", "from_morph", "saved source morph; engine-owned"),
+    ("life", "from_angle", "saved source facing; engine-owned"),
+    (
+        "life",
+        "walk_spot",
+        "visible segment endpoint; engine-owned",
+    ),
+    (
+        "life",
+        "departed_tick",
+        "trip tick whose source fade keeps this pose; engine-owned",
+    ),
+    (
+        "life",
+        "departed_place",
+        "source place of a finished unseen walk; engine-owned",
+    ),
+    ("life", "departed_x", "source fade x; engine-owned"),
+    ("life", "departed_y", "source fade y; engine-owned"),
+    (
+        "life",
+        "departed_height",
+        "source fade floor height; engine-owned",
+    ),
+    ("life", "departed_angle", "source fade facing; engine-owned"),
+    ("life", "departed_morph", "source fade morph; engine-owned"),
+    (
+        "act",
+        "next",
+        "next act; empty loops to the day's first act",
+    ),
+    ("act", "duration", "positive whole clock units"),
+    (
+        "act",
+        "place",
+        "destination place (without following enter)",
+    ),
+    ("act", "spot", "destination spot in that place"),
+    ("act", "state", "module-defined activity shown on the sign"),
+    (
+        "act",
+        "morph",
+        "resting pose in the module's model morph target, 0 to 1",
+    ),
+    ("act", "angle", "resting facing in radians"),
     (
         "talk",
         "speaker",
@@ -472,6 +545,46 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
     let mut model = fields(&[("model", Text), ("look", Text), ("morph", Number)]);
     model.extend(numbers(&[("scale", 1.0)]));
     vec![
+        ("act", {
+            let mut f = fields(&[
+                ("next", Id),
+                ("duration", Int),
+                ("place", Id),
+                ("spot", Id),
+                ("state", Text),
+            ]);
+            f.get_mut("duration").unwrap().default = 1.into();
+            f.extend(numbers(&[("morph", 0.0), ("angle", 0.0)]));
+            f
+        }),
+        ("life", {
+            let mut f = fields(&[
+                ("clock", Id),
+                ("first", Id),
+                ("name", Text),
+                ("presentation", Text),
+                ("current", Id),
+                ("phase", Text),
+                ("start_tick", Int),
+                ("walk_spot", Id),
+                ("departed_tick", Int),
+                ("departed_place", Id),
+            ]);
+            f.get_mut("presentation").unwrap().default = "states".into();
+            f.extend(numbers(&[
+                ("speed", 1.5),
+                ("from_morph", 0.0),
+                ("from_angle", 0.0),
+            ]));
+            f.extend(numbers(&[
+                ("departed_x", 0.0),
+                ("departed_y", 0.0),
+                ("departed_height", 0.0),
+                ("departed_angle", 0.0),
+                ("departed_morph", 0.0),
+            ]));
+            f
+        }),
         ("focus", {
             let mut f = fields(&[("part", Text)]);
             f.get_mut("part").unwrap().default = "face".into();

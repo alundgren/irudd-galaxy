@@ -1,0 +1,60 @@
+[[click]]
+tick = 5
+widget = "speaker.life.walker"
+[[note]]
+tick = 10
+text = "Resting speaker before the day changes"
+[[click]]
+tick = 15
+widget = "advance"
+[[note]]
+tick = 20
+text = "Getting up while speaking"
+[[note]]
+tick = 50
+text = "Mid-walk bubble and name follow the head"
+[[note]]
+tick = 80
+text = "Still walking smoothly"
+[[click]]
+tick = 90
+widget = "go"
+[[note]]
+tick = 125
+text = "Leaving mid-walk finished the destination in the world"
+[[click]]
+tick = 130
+widget = "go"
+[[note]]
+tick = 165
+text = "Returned to the completed act"
+[[click]]
+tick = 175
+widget = "advance"
+[[note]]
+tick = 195
+text = "Departure walks towards the room exit"
+[[click]]
+tick = 200
+widget = "presentation"
+[[note]]
+tick = 210
+text = "Switching presentation finished the departure"
+[[click]]
+tick = 220
+widget = "advance"
+[[click]]
+tick = 230
+widget = "advance"
+[[click]]
+tick = 240
+widget = "presentation"
+[[click]]
+tick = 250
+widget = "advance"
+[[note]]
+tick = 290
+text = "Walking name label without active speech"
+[[note]]
+tick = 365
+text = "Standing at the destination with activity sign"

@@ -13,7 +13,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, rooms, talk, audio, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, rooms, talk, life, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -550,6 +550,29 @@ pub static COMMANDS: &[Command] = &[
 
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
+    Topic {
+        name: "life",
+        title: "A recorded day per being, with visible walks and signs",
+        about: "Add engine.life to a non-player being with a position: clock names an engine.clock, first names an engine.act, name supplies its sign, speed is world units per second. Each act has positive integer duration, place, spot, state, morph (0..1 in the module's glTF target), angle (radians), and next; empty next repeats from first. The engine uses no activity names or game-specific poses. A visible change rises to neutral morph 0 for 9 ticks, walks, then settles for 9 ticks. Every room used by a cross-room day needs an arrival spot on the act's floor; departures use a matching door spot when present, otherwise the room arrival. Elsewhere changes finish at once. Leaving mid-walk or changing life.presentation from states to instant finishes the destination in world state. Scripts alone advance clocks using ctx.advance_clock; each increase, including direct clock writes, records engine.clock_advanced with entity, amount and value. Signs share screen paint. Speaking signs join the bubble; other signs show name and resting activity. check exercises every distinct clock arrangement and transitions between them, with simultaneous beings and every dialogue line at tick and half-tick poses. It reports excessive check spaces explicitly rather than passing an incomplete check. Arbitrary script branches still need their own recorded runs.",
+        tasks: &[
+            ("Life, act and clock fields", "gm fields"),
+            ("Check poses and moving speaker focus", "gm check"),
+        ],
+        recipes: &[Recipe {
+            title: "Try a day, leave during a walk, and reproduce it",
+            steps: &[
+                "galaxy-gm check engine/tests/play/life/demo",
+                "galaxy play --modules engine/tests/play/life --inputs engine/tests/play/life-inputs.toml --ticks 380 --size 1280x720",
+                "In live play, click Being A to talk, then Advance clock. Watch the figure rise and its bubble follow it. Leave before it reaches the other spot and return: the act has finished. Advance again and switch Presentation during departure; the hall sign reports the completed destination. Select a dev build with --build <name> immediately after each executable.",
+                "galaxy sim replay <session>/recording.json",
+                "galaxy-gm audit <session>/recording.json",
+                "galaxy-gm film <session>/recording.json --from 10 --to 125 --size 1280x720 --out life-film",
+                "galaxy-gm motion track life-film --thing life.walker",
+                "galaxy-gm motion sheet life-film --count 12",
+                "galaxy-gm guide motion",
+            ],
+        }],
+    },
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",

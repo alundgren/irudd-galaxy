@@ -1,0 +1,44 @@
+[entities.clock]
+"engine.clock" = {}
+[entities.hall]
+"engine.place" = { arrival = "life.hall_entry" }
+"engine.room" = { title = "Hall" }
+"engine.model" = { model = "life.station" }
+[entities.hall_entry]
+"engine.spot" = { place = "life.hall", name = "entry" }
+[entities.hall_left]
+"engine.spot" = { place = "life.hall", name = "left" }
+[entities.room]
+"engine.place" = { parent = "life.hall", arrival = "life.entry" }
+"engine.room" = { title = "Day room" }
+"engine.model" = { model = "life.room_a" }
+[entities.entry]
+"engine.spot" = { place = "life.room", name = "entry" }
+[entities.left]
+"engine.spot" = { place = "life.room", name = "left" }
+[entities.right]
+"engine.spot" = { place = "life.room", name = "right" }
+[entities.middle]
+"engine.spot" = { place = "life.room", name = "middle" }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "life.room", spot = "life.entry" }
+"engine.position" = {}
+[entities.walker]
+"engine.being" = { home = "life.room" }
+"engine.location" = { place = "life.room", spot = "life.right" }
+"engine.position" = {}
+"engine.model" = { model = "life.being" }
+"engine.life" = { name = "Being A", clock = "life.clock", first = "life.rest", speed = 1.0 }
+[entities.rest]
+"engine.act" = { duration = 1, place = "life.room", spot = "life.right", state = "Resting", morph = 1, next = "life.observe" }
+[entities.observe]
+"engine.act" = { duration = 1, place = "life.room", spot = "life.left", state = "Observing", next = "life.visit" }
+[entities.visit]
+"engine.act" = { duration = 1, place = "life.hall", spot = "life.hall_left", state = "Visiting", next = "life.return" }
+[entities.return]
+"engine.act" = { duration = 1, place = "life.room", spot = "life.right", state = "Standing" }
+[entities.speech]
+"engine.talk" = { speaker = "life.walker", first = "life.line", width = 300 }
+[entities.line]
+"engine.talk_line" = { text = "I can keep talking as the day moves me. My name and bubble follow my head." }

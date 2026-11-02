@@ -237,3 +237,10 @@ recorded engine inputs. Leaving interrupts without marking a story seen. Save/lo
 and replay retain pending and active conversations through the ordinary component
 path, without a format change. F8, audit and film rebuild the bubble through the same
 scene path and existing moment metadata. See [Talk](talk.md).
+
+Life days and transition phases are ordinary engine.life and engine.act components.
+A saved rise, walk or settle retains its clock, target act, source morph/facing, phase
+start and walk endpoint. Resume validates these references. F8, audit and film compute
+the same fractional pose and sign without a private timer. Every increase of an
+existing clock records engine.clock_advanced under the writing command cause; replay
+regenerates it from the recorded input and script. No storage format changes.

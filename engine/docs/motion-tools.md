@@ -367,3 +367,11 @@ Use `sheet` around appearance/disappearance and cut ticks, `flow --screen` over 
 bubble region, and `flicker --screen` to distinguish commanded changes from unintended
 one-frame breaks. Audit compares each note's exact moment; a whole film also checks
 the world hash at notes. The geometry check and full recipe are in [Talk](talk.md).
+
+The life bot (`tests/play/life-inputs.toml`) records rising during speech, a walk,
+leaving it unfinished, presentation switching, and a second walk with a name sign.
+Film ticks 10 through 125 for speech and departure; ticks 250 through 370 show the
+independent moving sign. Use track for life.walker, sheet across rise/walk/cut, strip
+and flow over the head/bubble band, and flicker to inspect any flagged frames. Audit
+all ten notes, and film a mid-walk note at its exact moment for a pixel comparison.
+The authored day and headless regression recipe are in [Places and beings](places-and-beings.md).

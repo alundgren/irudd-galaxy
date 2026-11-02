@@ -336,6 +336,15 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                         .map(|p| finding("talk", p)),
                     );
                     findings.extend(
+                        view.check_life(
+                            &session.world,
+                            session.registry(),
+                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                        )
+                        .into_iter()
+                        .map(|p| finding("life", p)),
+                    );
+                    findings.extend(
                         view.check_rooms(
                             &session.world,
                             galaxy_render::glam::Vec2::new(1280.0, 720.0),
