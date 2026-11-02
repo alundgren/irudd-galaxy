@@ -307,6 +307,15 @@ impl View {
             };
             // Stream poses through the check instead of retaining whole worlds for a walk.
             let mut check_pose = |pose: &World| {
+                // An active conversation hides its speaker's life sign. Check the
+                // same pose without speech too, including intermediate walk poses.
+                self.scene(pose, alpha, size, 0.0);
+                findings.extend(
+                    self.screens
+                        .problems
+                        .iter()
+                        .map(|p| format!("place `{place}`, without talk: {p}")),
+                );
                 for line in &chain {
                     let mut test = pose.clone();
                     let t = &mut test

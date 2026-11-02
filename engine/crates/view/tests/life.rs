@@ -318,3 +318,28 @@ fn talk_check_covers_resting_morphs_and_the_whole_day_path() {
         "{found:#?}"
     );
 }
+
+#[test]
+fn life_demo_signs_and_being_hovers_clear_the_panel_across_day_poses_and_sizes() {
+    let s = session();
+    for size in [size(), Vec2::new(2048.0, 720.0), Vec2::new(1920.0, 1080.0)] {
+        let mut v = View::detached(s.modules(), 7);
+        v.hover_checks = Some(Default::default());
+        let findings = v.check_life(&s.world, s.registry(), size);
+        assert!(findings.is_empty(), "{size}: {findings:#?}");
+        let hovers = v.hover_checks.take().unwrap();
+        let mut beings = 0;
+        for hover in hovers
+            .values()
+            .filter(|h| h["being"] == "life.walker" && !h["hover"].is_null())
+        {
+            beings += 1;
+            assert_eq!(hover["hover"]["readable"], true, "{size}: {hover}");
+            let r = hover["hover"]["rect"].as_array().unwrap();
+            let right = r[0].as_f64().unwrap() + r[2].as_f64().unwrap();
+            // The panel's left edge is fixed by the flexible row, at width - 320.
+            assert!(right <= f64::from(size.x - 320.0), "{size}: {hover}");
+        }
+        assert!(beings > 0);
+    }
+}

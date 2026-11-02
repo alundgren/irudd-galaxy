@@ -16,7 +16,10 @@ return {
         if here == place then
             table.insert(children, ui.hover { id = "walker-help", anchor = "being.life.walker", text = "Being A follows the authored day. Click to talk." })
         end
-        return ui.panel { id = "panel", x = 940, y = 30, width = 300, children = children }
+        return ui.row { y = 30, pad = 0, gap = 0, children = {
+            ui.column {},
+            ui.panel { id = "panel", width = 300, children = children },
+        } }
     end,
     on = {
         advance = function(_event, ctx) ctx.advance_clock("clock", 1) end,
