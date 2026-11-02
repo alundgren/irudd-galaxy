@@ -1,3 +1,8 @@
+local function token(ui, value)
+    return ui.drag_source { id = value, text = value == "small" and "Small token" or "Large token",
+        value = value, height = 60 }
+end
+
 return {
     screen = function(ctx, ui)
         local state = ctx.get("state", "state")
@@ -6,28 +11,41 @@ return {
             rows[n] = ui.button { id = "entry-" .. n, text = "Entry " .. n,
                 on = "choose", payload = { number = n } }
         end
+        local function home(value)
+            local here = state[value] == ""
+            return ui.column { height = 60, children = {
+                here and token(ui, value) or ui.panel { height = 60, children = {} },
+            } }
+        end
+        local function slot(id, label)
+            local occupant = state.small == id and "small" or state.large == id and "large" or nil
+            local function verdict(value)
+                if occupant and occupant ~= value then return "Already occupied" end
+                if id == "narrow" and value == "large" then return "Needs a wider slot" end
+                return ""
+            end
+            return ui.drop_target { id = id, text = label, on = "place", payload = { slot = id },
+                accepts = { small = verdict("small"), large = verdict("large") },
+                children = { ui.column { height = 60, children = occupant and { token(ui, occupant) } or {} } } }
+        end
         return ui.panel { width = 1200, children = {
             ui.text { text = "Grid, scrolling and drag targets", size = 28 },
             ui.text { text = "Selected: " .. state.chosen .. "    Drops: " .. state.drops },
             ui.row { children = {
-                ui.scroll { id = "entries", width = 400, height = 390,
+                ui.scroll { id = "entries", width = 400, height = 430,
                     on = "scrolled", children = rows },
                 ui.column { children = {
                     ui.row { children = {
                         ui.icon { icon = "token", width = 44 },
                         ui.delta { value = 3, width = 120 },
                         ui.delta { value = -12, width = 120 },
-                        ui.text { text = "Wheel over the list." },
+                        ui.text { text = "Drag the list handle." },
                     } },
                     ui.grid { columns = 2, children = {
-                        ui.drag_source { id = "small", text = "Small token", value = "small", pad = 16 },
-                        ui.drag_source { id = "large", text = "Large token", value = "large", pad = 16 },
-                        ui.drop_target { id = "narrow", text = "Narrow slot", on = "place", pad = 16,
-                            accepts = { small = "", large = "Needs a wider slot" } },
-                        ui.drop_target { id = "wide", text = "Wide slot", on = "place", pad = 16,
-                            accepts = { small = "", large = "" } },
+                        home("small"), home("large"),
+                        slot("narrow", "Narrow slot"), slot("wide", "Wide slot"),
                     } },
-                    ui.text { text = "Pick up a token to see every verdict. Release over a green slot to place it. F8 keeps a note, including an unfinished drag." },
+                    ui.text { text = "Pick up a token, then release over a slot. A placed token can be picked up again. F8 keeps a note." },
                 } },
             } },
         } }
@@ -36,9 +54,15 @@ return {
         choose = function(event, ctx)
             ctx.patch("state", "state", { chosen = event.payload.number })
         end,
-        place = function(_, ctx)
+        place = function(event, ctx)
             local state = ctx.get("state", "state")
-            ctx.patch("state", "state", { drops = state.drops + 1 })
+            local value, slot = event.payload.value, event.payload.slot
+            if value ~= "small" and value ~= "large" then return end
+            if slot ~= "narrow" and slot ~= "wide" then return end
+            if value == "large" and slot == "narrow" then return end
+            local other = value == "small" and "large" or "small"
+            if state[other] == slot then return end
+            ctx.patch("state", "state", { [value] = slot, drops = state.drops + 1 })
         end,
         scrolled = function(event, ctx)
             ctx.patch("state", "state", { offset = event.payload.offset })

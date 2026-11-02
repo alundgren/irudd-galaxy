@@ -504,6 +504,7 @@ impl View {
             }
         }
         self.place_anchors(world, alpha, logical, camera, &mut anchors);
+        self.screens.clock = (world.tick.saturating_sub(1) as f32 + alpha) / 30.0;
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
         if let Some(cut) = travel::Cut::step(world, alpha) {

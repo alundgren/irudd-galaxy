@@ -330,7 +330,7 @@ fn read(
     }
     if matches!(
         kind.as_str(),
-        "text" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
+        "text" | "button" | "delta" | "icon" | "drag_source"
     ) && !children.is_empty()
     {
         return Err(bad("leaf widgets have no children"));

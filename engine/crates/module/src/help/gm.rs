@@ -787,9 +787,14 @@ pub static TOPICS: &[Topic] = &[
                 reason allows it, a nonempty reason explains rejection, unlisted values are \
                 rejected. All verdicts show at pick-up; drop sends on with payload plus value. \
                 ui.scroll can have on/payload: a changed offset sends that event with offset. \
-                Scroll offsets and active drags stay view state, preserved by notes and films. \
+                Drag sources lift out of an empty socket and settle for 240ms on release. Targets \
+                may contain children above the verdict. Store placement in world state and emit \
+                the source at its new parent with the same unique id and value in that script. \
+                Scroll offsets, thumb capture and token motion are preserved by notes and films. \
                 Bot [[pointer]] takes tick, action = pickup/move/drop/scroll, widget = path/id, \
-                and delta = logical pixels for scroll (positive down). Use separate ticks to \
+                and delta = logical pixels for scroll (positive down). Scrollbar parts use \
+                widget = entries::thumb, entries::track-start or entries::track-end with \
+                pickup/move/drop. Use separate ticks to \
                 take a [[note]] mid-drag. Pointer gestures and clicks at one tick run gestures first.",
         tasks: &[("Screen API and types", "gm types")],
         recipes: &[

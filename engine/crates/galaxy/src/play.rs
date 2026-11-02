@@ -356,6 +356,7 @@ impl App {
             text: String::new(),
             frame,
             moment,
+            editor: Default::default(),
         });
     }
 
@@ -415,6 +416,21 @@ impl App {
                     n.backspace();
                 }
             }
+            Key::Named(NamedKey::PageUp) => {
+                if let Some(n) = &mut self.note {
+                    n.scroll(-120.0);
+                }
+            }
+            Key::Named(NamedKey::PageDown) => {
+                if let Some(n) = &mut self.note {
+                    n.scroll(120.0);
+                }
+            }
+            Key::Named(NamedKey::End) => {
+                if let Some(n) = &mut self.note {
+                    n.editor.follow = true;
+                }
+            }
             _ => {
                 if let (Some(n), Some(text)) = (&mut self.note, &event.text) {
                     n.type_text(text);
@@ -427,7 +443,7 @@ impl App {
     fn note_frame(&mut self, event_loop: &ActiveEventLoop) {
         self.last = Instant::now();
         self.pace.reset();
-        let (Some(r), Some(note)) = (&mut self.running, &self.note) else {
+        let (Some(r), Some(note)) = (&mut self.running, &mut self.note) else {
             return;
         };
         let logical = r.renderer.logical_size();
@@ -657,7 +673,15 @@ impl ApplicationHandler for App {
                     r.renderer.set_scale_factor(scale_factor as f32);
                 }
             }
-            WindowEvent::Focused(false) => self.release_all(),
+            WindowEvent::Focused(false) => {
+                self.release_all();
+                if let Some(n) = &mut self.note {
+                    n.pointer_up();
+                }
+                if let Some(r) = &mut self.running {
+                    r.view.screens.cancel_pointer(self.session.world.tick + 1);
+                }
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if self.note.is_some() {
                     self.note_key(&event);
@@ -680,11 +704,37 @@ impl ApplicationHandler for App {
                 }
                 self.key(code, down);
             }
+            WindowEvent::CursorMoved { position, .. } if self.note.is_some() => {
+                if let (Some(r), Some(n)) = (&self.running, &mut self.note) {
+                    self.pointer =
+                        Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
+                    n.pointer_move(self.pointer);
+                }
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: winit::event::MouseButton::Left,
+                ..
+            } if self.note.is_some() => {
+                if let Some(n) = &mut self.note {
+                    if state == ElementState::Pressed {
+                        n.pointer_down(self.pointer);
+                    } else {
+                        n.pointer_up();
+                    }
+                }
+            }
             WindowEvent::CursorMoved { position, .. } if self.note.is_none() => {
                 if let Some(r) = &mut self.running {
                     self.pointer =
                         Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
-                    r.view.screens.pointer_move(self.pointer);
+                    if let Some(input) = r
+                        .view
+                        .screens
+                        .pointer_move(self.pointer, self.session.world.tick + 1)
+                    {
+                        self.pending.push(input);
+                    }
                 }
             }
             WindowEvent::MouseInput {
@@ -715,6 +765,15 @@ impl ApplicationHandler for App {
                         .pointer_up(self.pointer, self.session.world.tick + 1)
                 {
                     self.pending.push(input);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } if self.note.is_some() => {
+                let pixels = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => -y * 60.0,
+                    MouseScrollDelta::PixelDelta(p) => -p.y as f32,
+                };
+                if let Some(n) = &mut self.note {
+                    n.scroll(pixels);
                 }
             }
             WindowEvent::MouseWheel { delta, .. } if self.note.is_none() => {

@@ -1,6 +1,7 @@
 //! Widget layout, readability and hit testing. All dimensions are logical pixels.
 mod icons;
 mod interaction;
+mod scrolling;
 pub use interaction::{Drag, Presentation};
 
 use std::collections::BTreeMap;
@@ -35,6 +36,7 @@ pub struct Screens {
     pub presentation: Presentation,
     pub presented: Presentation,
     icons: BTreeMap<String, String>,
+    pub clock: f32,
 }
 
 impl Screens {
@@ -100,11 +102,14 @@ impl Screens {
                     &mut self.problems,
                 );
                 present(&mut boxed, &mut self.presentation, None);
-                draw(&boxed, overlay, None, &self.presentation);
                 self.boxes.push(boxed);
             }
         }
-        self.draw_drag(overlay, size);
+        self.finish_motion();
+        for boxed in &self.boxes {
+            draw(boxed, overlay, None, &self.presentation);
+        }
+        self.draw_drag(overlay);
         self.presented = self.presentation.clone();
         // Compare painted descendants, not just root bounds: columns have no surface,
         // and an anchored child can lie outside its root.
@@ -219,8 +224,20 @@ impl Screens {
 }
 
 fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
+    let mut padded = w.clone();
+    if w.kind == "scroll" {
+        padded.pad = w.pad.max(12.0);
+    }
+    let w = &padded;
     let width = w.width.unwrap_or(available).max(1.0);
-    let inner = (width - 2.0 * w.pad).max(1.0);
+    let inner = (width
+        - 2.0 * w.pad
+        - if w.kind == "scroll" {
+            scrolling::LANE + 8.0
+        } else {
+            0.0
+        })
+    .max(1.0);
     let mut text = None;
     let mut children = Vec::new();
     let height;
@@ -242,7 +259,17 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure) -> Boxed {
             .collect();
         measured.sort_by(|a, b| a.1.total_cmp(&b.1));
         let (t, h) = measured.pop().expect("at least one label");
-        height = h + 2.0 * w.pad;
+        let mut t = t;
+        let mut y = w.pad;
+        for child in &w.children {
+            let mut b = layout(child, inner, measure);
+            b.rect.x = w.pad;
+            b.rect.y = y;
+            y += b.rect.h + w.gap;
+            children.push(b);
+        }
+        t.pos.y = y;
+        height = h + y + w.pad;
         text = Some(t);
     } else if w.kind == "grid" {
         let cell = ((inner - w.gap * (w.columns - 1) as f32) / w.columns as f32).max(1.0);
@@ -474,6 +501,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
         ..Default::default()
     };
     let mut backing = backing;
+    let lifted = state.lifted(&b.widget);
     if matches!(
         b.widget.kind.as_str(),
         "panel" | "button" | "scroll" | "drag_source" | "drop_target"
@@ -484,6 +512,12 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
         }
         if b.widget.kind == "drag_source" {
             panel.fill = Color::hex(0xffce75);
+            if lifted {
+                panel.fill = Color::hex(0xe4dccb);
+                panel.shadow = false;
+                panel.dash = 6.0;
+                panel.border_px = 1.0;
+            }
         }
         if b.widget.kind == "drop_target"
             && let Some(drag) = &state.drag
@@ -494,10 +528,13 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
                 .get(&drag.value)
                 .is_some_and(String::is_empty)
             {
-                Color::hex(0xc6e8bd)
+                Color::hex(0xe1ebd4)
             } else {
-                Color::hex(0xf6c4bc)
+                Color::hex(0xf1ddd5)
             };
+        }
+        if b.widget.kind == "drop_target" && state.drag.is_some() {
+            panel.border_px = 2.0;
         }
         layer.panels.push(panel);
         backing = Some(b.rect);
@@ -531,7 +568,9 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
                 },
             };
         }
-        layer.texts.push(t);
+        if !lifted {
+            layer.texts.push(t);
+        }
     }
     if !layer.panels.is_empty() || !layer.texts.is_empty() {
         overlay.widgets.push(layer);
@@ -539,22 +578,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
     for child in &b.children {
         draw(child, overlay, backing, state);
     }
-    if b.widget.kind == "scroll" && b.content_height > b.rect.h {
-        let height = (b.rect.h * b.rect.h / b.content_height)
-            .max(18.0)
-            .min(b.rect.h);
-        let offset = state.scroll.get(&b.widget.path).copied().unwrap_or(0.0);
-        let y = b.rect.y + (b.rect.h - height) * offset / (b.content_height - b.rect.h);
-        let mut thumb = Panel::new(Rect::new(b.rect.x + b.rect.w - 6.0, y, 5.0, height));
-        thumb.fill = Color::hex(0x6d5943);
-        thumb.border_px = 0.0;
-        thumb.shadow = false;
-        overlay.widgets.push(UiLayer {
-            panels: vec![thumb],
-            clip: b.clip,
-            ..Default::default()
-        });
-    }
+    scrolling::draw(b, overlay, state);
 }
 
 fn leaf(kind: &str) -> bool {
@@ -602,7 +626,8 @@ fn present(b: &mut Boxed, state: &mut Presentation, clip: Option<Rect>) {
         for child in &mut b.children {
             translate(child, -*offset);
         }
-        Some(clip.map_or(b.rect, |r| intersection(r, b.rect)))
+        let viewport = scrolling::viewport(b);
+        Some(clip.map_or(viewport, |r| intersection(r, viewport)))
     } else {
         clip
     };

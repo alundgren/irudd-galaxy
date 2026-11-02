@@ -129,7 +129,12 @@ history with layout. Neither is needed for these widgets.
 as tall as its tallest cell. Cells flow without anchors or x/y; explicit cell widths
 still obey containment and overlap checks. `ui.scroll { id, height, children, on?, payload? }`
 flows a vertical list in a fixed viewport. Rust clamps its offset, clips all descendant
-panels and glyphs using the same GPU scissor, clips hit testing, and paints a scroll thumb.
+panels and glyphs using the same GPU scissor, and clips hit testing. A minimum 12px inner
+padding keeps rows clear of the frame. A separate 32px lane plus an 8px gap holds the
+scroll track; none of its grab area covers content. The thumb is at least 44px tall
+(or the track height when shorter). Dragging preserves the grab point, captures the
+pointer outside the track and releases on mouse-up. Clicking the track centres the
+thumb there. Both routes emit the same offset event as wheel scrolling.
 The wheel over a list scrolls it; elsewhere it zooms the camera. Nested lists use the
 innermost one under the pointer. The full content is measured and checked headlessly,
 including entries currently outside the scrolling viewport. Viewport clipping is allowed;
@@ -163,12 +168,22 @@ ui.grid { columns = 2, children = {
 A source has a string `value`; every target maps values to verdict strings in `accepts`.
 An empty string permits the drop, a nonempty string explains rejection, and an absent
 value means "Not accepted". Picking up immediately colours every target and shows its
-verdict in words. Layout reserves the largest measured verdict, so targets never move
-when picking up. All verdict labels receive glyph and readability checks. Rust draws a
-label beside the pointer, moving it into spare viewport space when it would cover a
-verdict. Release on an accepting target sends its `on` event with its
-`payload` plus `value`; release elsewhere or on a rejecting target cancels. A source
-removed or changed by state updates cannot complete its old drag. Targets use the
+verdict in words on a softly tinted surface. Layout reserves the largest measured
+verdict, so targets never move when picking up. All verdict labels receive glyph and
+readability checks. Picking up lifts the actual source surface and label, leaving an
+empty socket. Its size and pointer grab point stay attached to the pointer. Release on
+an accepting target sends its `on` event with its `payload` plus `value`; release elsewhere
+or on a rejecting target returns home. Both use a 240ms smoothstep settling animation,
+computed from simulation tick and interpolation, independent of frame rate.
+
+A target may contain children above its verdict label. Keep a fixed-height child area
+for its occupant so empty and occupied slots have the same geometry. The event handler
+stores the placement in world state; the screen then emits the source under its new
+parent, with the **same id and value in the same screen script**. This identity lets Rust
+suppress the new copy while the lifted token animates into its new box, and lets the
+player pick it up there again. IDs for movable sources must be unique within that
+script. The rich-screen demo shows this pattern, including occupied-slot rejection.
+A source removed or changed by state updates cannot complete its old drag. Targets use the
 current tree, and modules should validate world operations in their event handlers.
 
 Scrolling normally changes only presentation. An optional scroll `on` sends a recorded
@@ -177,12 +192,15 @@ changes. Thus a module that changes the world when scrolling replays that change
 Drops always use recorded inputs, just like clicks. Neither gesture invokes Luau per frame.
 
 `Screens::Presentation` keeps scroll offsets by full widget path, plus the source,
-value, label and pointer position of an active drag. Played frames record changed
-presentation snapshots separately from simulation inputs. World replay ignores those
+value, stable identity, original bounds, grab point and pointer position of an active
+drag, a captured scroll thumb, and a settling token with its start time. Played frames
+record changed presentation snapshots separately from simulation inputs. World replay ignores those
 snapshots; film applies them on their recorded ticks. Notes keep their own exact last
 drawn snapshot in `Moment`, so a pointer move arriving before F8 cannot alter the note's
 redraw. Audit restores that snapshot. Filming around a selected note prioritises that
-snapshot at the note's tick. Older notes default to an unscrolled view with no drag.
+snapshot at the note's tick. Notes without screen metadata default to an unscrolled
+view with no drag. Recordings with the earlier experimental screen metadata are refused with a message to use their
+original build; current screen snapshots carry presentation version 1.
 Hot loading resets widgets and their state. This keeps presentation out of world hashes
 and saves; storing only a drop would lose unfinished drags, while invoking Luau every
 pointer move would break the event-only screen contract.
@@ -190,7 +208,9 @@ pointer move would break the event-only screen contract.
 The bot uses `[[pointer]]` entries with `tick`, `action` (`pickup`, `move`, `drop`, `scroll`),
 `widget` (a unique ID or full path) and optional `delta` (scroll pixels, positive down).
 Separate pickup and drop ticks allow mid-drag notes. Targets must be visible at their
-centre and uncovered. Gestures run before clicks at the same tick; both run before world
+centre and uncovered. `entries::thumb`, `entries::track-start` and
+`entries::track-end` name scrollbar parts for pickup/move/drop using the same captured
+pointer path as live input. Gestures run before clicks at the same tick; both run before world
 inputs. Headless sim/shot/film input runners refuse gestures; play them once and then
 replay or film the resulting recording. Help, `fields inputs`, `types` and `guide screens`
 cover this surface.
@@ -210,3 +230,10 @@ The generic module offers sixteen entries, two token sizes and two slots. The bo
 scrolls, notes the list, picks up the large token, notes its rejection at the narrow
 slot, and drops it into the wide slot. Headless tests compare rebuilt overlays at each
 note and world hashes after replay. GPU clipping tests are explicitly ignored.
+
+`tests/play/rich-screens-motion.toml` drags the thumb, returns a token from a refusing
+slot, places it in an accepting slot, then picks it up again and returns it to that
+slot after another refusal. Run it for 140 ticks, audit its eight notes (including
+settling frames), and film ticks 1 through 134 to inspect the actual movement with
+`galaxy-gm motion sheet` and `strip`. Headless tests assert one visible token throughout,
+state-driven placement, return motion, scroll events, replay hashes and rebuilt notes.

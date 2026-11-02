@@ -113,6 +113,13 @@ Every `galaxy play` records itself into a folder of its own under the sessions f
   audit/0001.png      the same moment drawn again by galaxy-gm audit
 ```
 
+The note editor wraps text inside a clipped viewport and scrolls to keep the end caret
+visible while typing or deleting. Wheel and Page Up/Down scroll through the full note;
+End returns to the caret. A separate 32px track and minimum 44px thumb also support
+dragging and track clicks, without covering the note text. The editor
+uses the same headless font measurement as drawing. This editing view is not part of
+the saved note image: F8 preserves the game frame before opening the editor.
+
 **F8** pauses the game on the tick it is on and opens a note box over the frame that was
 on screen. Enter keeps the note, Esc drops it; the game carries on from the same tick
 either way, and keys held when F8 was pressed are let go. A kept note stores its text, the

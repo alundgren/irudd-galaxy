@@ -184,7 +184,7 @@ pub fn recorded_zooms(rec: &Recording) -> Vec<(u64, Zoom)> {
                 ..
             } => serde_json::from_value::<crate::Moment>(camera.clone())
                 .ok()
-                .map(|m| (*tick, Zoom::Presentation(m.screens))),
+                .map(|m| (*tick, Zoom::Presentation(Box::new(m.screens)))),
             _ => None,
         })
         .collect()
@@ -197,7 +197,7 @@ pub enum Zoom {
     Steps(f32),
     /// A view height, as a recording keeps it.
     View(f32),
-    Presentation(crate::screens::Presentation),
+    Presentation(Box<crate::screens::Presentation>),
 }
 
 /// How to film.
@@ -300,7 +300,7 @@ pub fn shoot(
                 match zooms.next().expect("peeked").1 {
                     Zoom::Steps(steps) => view.zoom(stepper.world(), steps),
                     Zoom::View(v) => view.eye.view = Some(v),
-                    Zoom::Presentation(s) => view.screens.presentation = s,
+                    Zoom::Presentation(s) => view.screens.presentation = *s,
                 }
             }
             let world = stepper.world();

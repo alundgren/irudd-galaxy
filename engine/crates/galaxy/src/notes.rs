@@ -79,11 +79,59 @@ pub struct NoteBox {
     pub text: String,
     pub frame: RgbaImage,
     pub moment: Moment,
+    pub editor: NoteEditor,
+}
+
+#[derive(Default)]
+pub struct NoteEditor {
+    offset: f32,
+    pub follow: bool,
+    measure: galaxy_render::text::TextMeasure,
+    rail: Option<(Rect, Rect, f32)>,
+    grab: Option<f32>,
 }
 
 impl NoteBox {
+    pub fn pointer_down(&mut self, point: Vec2) {
+        let Some((track, thumb, _)) = self.editor.rail else {
+            return;
+        };
+        if point.x < track.x
+            || point.x >= track.x + track.w
+            || point.y < track.y
+            || point.y >= track.y + track.h
+        {
+            return;
+        }
+        self.editor.grab = Some(if point.y >= thumb.y && point.y < thumb.y + thumb.h {
+            point.y - thumb.y
+        } else {
+            thumb.h * 0.5
+        });
+        self.pointer_move(point);
+    }
+
+    pub fn pointer_move(&mut self, point: Vec2) {
+        if let (Some(grab), Some((track, thumb, max))) = (self.editor.grab, self.editor.rail) {
+            self.editor.follow = false;
+            self.editor.offset =
+                ((point.y - track.y - grab) / (track.h - thumb.h).max(1.0) * max).clamp(0.0, max);
+        }
+    }
+
+    pub fn pointer_up(&mut self) {
+        self.editor.grab = None;
+    }
+
+    pub fn scroll(&mut self, pixels: f32) {
+        self.editor.offset = (self.editor.offset + pixels).max(0.0);
+        self.editor.follow = false;
+    }
+
     /// Adds typed text, dropping control characters.
     pub fn type_text(&mut self, typed: &str) {
+        self.editor.follow = true;
+        self.editor.measure.clear();
         for c in typed.chars().filter(|c| !c.is_control()) {
             if self.text.chars().count() < MAX_NOTE {
                 self.text.push(c);
@@ -93,37 +141,65 @@ impl NoteBox {
 
     pub fn backspace(&mut self) {
         self.text.pop();
+        self.editor.follow = true;
+        self.editor.measure.clear();
     }
 
     /// Draws the box at the bottom of the frame, over everything.
-    pub fn draw(&self, scene: &mut Scene, logical: Vec2) {
+    pub fn draw(&mut self, scene: &mut Scene, logical: Vec2) {
         let width = (logical.x - 48.0).clamp(240.0, 760.0);
-        let height = 112.0;
+        let height = (logical.y * 0.42).clamp(160.0, 300.0);
         let x = (logical.x - width) * 0.5;
         let y = logical.y - height - 24.0;
-        let layer = &mut scene.overlay.upper[2];
+        let layer = &mut scene.overlay.upper[1];
         layer.panels.push(Panel {
             fill: defaults::PAPER,
             ..Panel::new(Rect::new(x, y, width, height))
         });
         layer.texts.push(
             Text::new(
-                "Note (paused). Enter keeps it, Esc drops it.",
+                "Note (paused). Enter keeps it, Esc drops it. Wheel / PgUp / PgDn scroll.",
                 Vec2::new(x + 18.0, y + 12.0),
                 15.0,
             )
             .color(Color::BLACK)
             .weight(600),
         );
-        layer.texts.push(
-            Text::new(
-                format!("{}|", self.text),
-                Vec2::new(x + 18.0, y + 40.0),
-                18.0,
-            )
+        let clip = Rect::new(x + 18.0, y + 42.0, width - 84.0, height - 60.0);
+        let mut text = Text::new(format!("{}|", self.text), Vec2::ZERO, 18.0)
             .color(Color::BLACK)
-            .wrap(width - 36.0),
-        );
+            .wrap(clip.w);
+        let text_height = self.editor.measure.measure(&text, 1.0).y;
+        let max = (text_height - clip.h).max(0.0);
+        if self.editor.follow {
+            self.editor.offset = max;
+        }
+        self.editor.offset = self.editor.offset.clamp(0.0, max);
+        text.pos = Vec2::new(clip.x, clip.y - self.editor.offset);
+        self.editor.rail = None;
+        if max > 0.0 {
+            let h = (clip.h * clip.h / text_height).max(44.0).min(clip.h);
+            let track = Rect::new(x + width - 50.0, clip.y, 32.0, clip.h);
+            let thumb = Rect::new(
+                track.x,
+                clip.y + (clip.h - h) * self.editor.offset / max,
+                track.w,
+                h,
+            );
+            self.editor.rail = Some((track, thumb, max));
+            let mut rail = Panel::new(track);
+            rail.fill = Color::hex(0xe4dccb);
+            rail.border_px = 0.0;
+            rail.shadow = false;
+            let mut handle = Panel::new(thumb);
+            handle.fill = Color::hex(0xb69b78);
+            handle.border_px = 1.0;
+            handle.shadow = false;
+            layer.panels.extend([rail, handle]);
+        }
+        let text_layer = &mut scene.overlay.upper[2];
+        text_layer.clip = Some(clip);
+        text_layer.texts.push(text);
     }
 }
 
@@ -154,15 +230,15 @@ mod tests {
         assert!(a.file_name().unwrap().to_str().unwrap().ends_with("aa-bb"));
     }
 
-    #[test]
-    fn typing_keeps_printable_text() {
-        let mut n = NoteBox {
+    fn note() -> NoteBox {
+        NoteBox {
             text: String::new(),
             frame: RgbaImage {
                 width: 1,
                 height: 1,
                 pixels: vec![0; 4],
             },
+            editor: Default::default(),
             moment: Moment {
                 screens: Default::default(),
                 alpha: 0.0,
@@ -175,10 +251,76 @@ mod tests {
                 eye: [0.0; 3],
                 target: [0.0; 3],
             },
-        };
+        }
+    }
+
+    #[test]
+    fn typing_keeps_printable_text() {
+        let mut n = note();
         n.type_text("the dock\tfeels\u{8} far");
         assert_eq!(n.text, "the dockfeels far");
         n.backspace();
         assert_eq!(n.text, "the dockfeels fa");
+        n.type_text(&" A long note that wraps onto many lines.".repeat(60));
+        let mut scene = Scene::new(galaxy_render::Camera::top_down(Vec2::ZERO, 60.0));
+        n.draw(&mut scene, Vec2::new(640.0, 360.0));
+        assert!(n.editor.offset > 0.0);
+        let bottom = n.editor.offset;
+        let layer = &scene.overlay.upper[2];
+        let clip = layer.clip.unwrap();
+        let text = &layer.texts[0];
+        let h = n.editor.measure.measure(text, 1.0).y;
+        assert!(
+            (text.pos.y + h - clip.y - clip.h).abs() < 0.01,
+            "caret is visible"
+        );
+        n.scroll(-10000.0);
+        n.draw(
+            &mut Scene::new(galaxy_render::Camera::top_down(Vec2::ZERO, 60.0)),
+            Vec2::new(640.0, 360.0),
+        );
+        assert_eq!(n.editor.offset, 0.0, "start of the note can be read");
+        n.type_text("!");
+        n.draw(
+            &mut Scene::new(galaxy_render::Camera::top_down(Vec2::ZERO, 60.0)),
+            Vec2::new(640.0, 360.0),
+        );
+        assert!(n.editor.offset >= bottom, "typing brings the caret back");
+        let (track, thumb, _) = n.editor.rail.unwrap();
+        n.pointer_down(thumb.center());
+        n.pointer_move(Vec2::new(track.center().x, track.y - 100.0));
+        assert_eq!(
+            n.editor.offset, 0.0,
+            "thumb capture reaches the top outside the track"
+        );
+        n.pointer_up();
+        n.pointer_move(Vec2::new(track.center().x, track.y + track.h));
+        assert_eq!(n.editor.offset, 0.0, "release ends capture");
+    }
+    #[test]
+    #[ignore = "needs a GPU: inspect the long F8 editor at both ends"]
+    fn draw_long_note_editor() {
+        let mut n = note();
+        n.type_text(&"A long note must remain readable all the way to the end. ".repeat(30));
+        let out = std::env::temp_dir().join("galaxy-note-editor");
+        std::fs::create_dir_all(&out).unwrap();
+        for (width, height) in [(640, 360), (1280, 720)] {
+            let mut renderer = galaxy_render::Renderer::new_headless(width, height).unwrap();
+            for end in ["bottom", "top"] {
+                if end == "top" {
+                    n.scroll(-10000.0);
+                } else {
+                    n.editor.follow = true;
+                }
+                let mut scene = Scene::new(galaxy_render::Camera::top_down(Vec2::ZERO, 60.0));
+                n.draw(&mut scene, Vec2::new(width as f32, height as f32));
+                renderer
+                    .render_to_rgba(&scene)
+                    .unwrap()
+                    .save_png(out.join(format!("{width}-{end}.png")))
+                    .unwrap();
+            }
+        }
+        eprintln!("note editor pictures: {}", out.display());
     }
 }

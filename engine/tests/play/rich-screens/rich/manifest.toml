@@ -8,3 +8,5 @@ events = ["choose", "place", "scrolled"]
 chosen = "int"
 drops = "int"
 offset = "number"
+small = "text"
+large = "text"

@@ -139,7 +139,7 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
     if let Some((tick, _, Some(moment))) = chosen {
         // At the selected note's tick, use the frame it kept even if the pointer moved
         // again before the next simulation tick.
-        zooms.push((*tick, Zoom::Presentation(moment.screens.clone())));
+        zooms.push((*tick, Zoom::Presentation(Box::new(moment.screens.clone()))));
     }
     let out = match opts.text("out") {
         Some(o) => discover::resolve(&galaxy_module::cli::current_dir()?, Path::new(o)),

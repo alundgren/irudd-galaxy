@@ -70,7 +70,7 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[pointer]]",
         "widget",
         "\"items\"",
-        "visible widget's unique id or full diagnostic path",
+        "visible widget's unique id or full diagnostic path; scroll parts append ::thumb, ::track-start or ::track-end",
     ),
     (
         "[[pointer]]",
