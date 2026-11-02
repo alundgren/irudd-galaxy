@@ -1,0 +1,8 @@
+# No bumps: the count stays at zero. Passes.
+ticks = 10
+
+[[expect]]
+entity = "board"
+component = "count"
+field = "n"
+equals = 0

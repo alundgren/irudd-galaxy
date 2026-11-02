@@ -63,7 +63,7 @@ Beside the manifest:
 ```text
 start.toml         optional: the entities a new world starts with
 scripts/*.luau     scripts
-tests/*.toml       scenario tests (saves-and-replay.md)
+tests/*.luau       Luau tests; tests/*.toml scenario runs (tests-and-what-if.md)
 style.toml         optional: looks, ink, light, sky, course and screen (renderer-and-style.md)
 models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
 audio.toml        optional: event sounds, music and place ambience (audio.md)

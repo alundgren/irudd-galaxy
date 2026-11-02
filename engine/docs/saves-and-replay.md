@@ -178,8 +178,9 @@ audit draws at the size it is given.
 A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs, and
 `[[expect]]` entries on component fields or fact counts, checked after their tick. The
 runner (`run_module_tests`) runs each and reports the expectations that failed and any
-script failures. `galaxy-gm` will run it for modules; today the engine's own tests run the
-test module's scenarios.
+script failures. `galaxy-gm test <module>` runs them with the module's Luau tests, and
+`galaxy-gm what-if` runs a recording again on changed modules to find the first tick that
+differs: both are in [tests-and-what-if.md](tests-and-what-if.md).
 
 ## Hot-loading
 

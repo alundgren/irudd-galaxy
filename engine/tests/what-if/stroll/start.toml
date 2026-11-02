@@ -1,0 +1,20 @@
+# The ground (layer 0), a ramp rising 0.2 per unit from x = 10, and a deck on layer 1 at
+# height 2 from x = 20. w1 walks up the ramp; w2 walks beside it and stays on the ground.
+[entities.ground]
+"engine.surface" = { layer = 0, min_x = -100.0, min_y = -10.0, max_x = 100.0, max_y = 10.0 }
+
+[entities.ramp]
+"engine.surface" = { layer = 0, min_x = 10.0, min_y = -2.0, max_x = 22.0, max_y = 2.0, rise_x = 0.2 }
+
+[entities.deck]
+"engine.surface" = { layer = 1, min_x = 20.0, min_y = -10.0, max_x = 60.0, max_y = 10.0, height = 2.0 }
+
+[entities.w1]
+walker = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = { vx = 2.0 }
+
+[entities.w2]
+walker = { pace = 1.5 }
+"engine.position" = { x = -5.0, y = 5.0 }
+"engine.motion" = { vx = 1.5 }

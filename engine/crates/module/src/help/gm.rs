@@ -50,7 +50,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
+            "play, notes, replay, tests, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -58,6 +58,61 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm guide notes",
         next: "Run the command it names; `<command> --help` for its options.",
         topic: "install",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "test",
+        synopsis: "<module> [--only <text>]",
+        answers: "Do this module's tests pass? Runs its Luau tests (tests/*.luau) and its \
+                  scenario runs (tests/*.toml) and reports each pass or failure with what failed.",
+        about: "A Luau test file returns a table of named functions; one passes if it returns \
+                without an error (assert(cond, \"why\") fails it). Tests run in the scripts' \
+                sandbox and budgets, require(\"../scripts/name\") sees the module's files, and \
+                there is no ctx: they test pure Luau. A scenario run is a seed, ticks, \
+                [[input]] entries as in an inputs file (a plain name is the module's own event) \
+                and [[expect]] entries on component fields or fact counts after a tick; script \
+                failures during it fail it too. The modules beside it are loaded, as for check. \
+                Any failure exits 5 with kind tests_failed and the same fields.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "--only <text>",
+                "run only the tests whose file or name contains this text",
+            ),
+        ],
+        output: &[
+            ("ok", "every test passed"),
+            (
+                "module, version, context_modules",
+                "the module tested and the modules beside it",
+            ),
+            (
+                "passed, failed",
+                "how many tests and scenario runs passed and failed",
+            ),
+            (
+                "failures",
+                "a line for each failure: the file, the test and what failed (with its line, or \
+                 the tick and the value found against the one expected)",
+            ),
+            (
+                "tests",
+                "each Luau test: file, name ((load) when the file itself fails), passed, failure",
+            ),
+            (
+                "scenarios",
+                "each scenario run: file, passed, ticks, the world's hash at the end, failures",
+            ),
+            (
+                "notes",
+                "modules beside it that could not be read; no tests found",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm test game/modules/core",
+        next: "Fix the module or the test; galaxy-gm fields inputs lists the inputs a \
+               scenario can send, galaxy-gm guide tests shows both formats.",
+        topic: "tests",
     },
     Command {
         tool: Tool::Gm,
@@ -314,6 +369,89 @@ pub static COMMANDS: &[Command] = &[
         next: "galaxy-gm film <recording> --from <tick> --to <tick> films a moment; \
                galaxy-gm notes <recording> lists its notes.",
         topic: "replay",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "what-if",
+        synopsis: "<recording> [--all] --modules <dir>",
+        answers: "What would a module change have done to this session? Runs the recording's \
+                  inputs on the changed modules beside a replay of the recording and reports \
+                  the first tick where the world differs, and what differs there.",
+        about: "The given modules replace the recorded ones by ID (others are added); the rest \
+                stay as recorded. A session that started fresh starts again from the changed \
+                start states with the recorded seed; one that started from a save resumes it. \
+                Recorded hot-loads of a changed module are skipped. Both runs use this build, \
+                so a difference is the change's alone; baseline says whether the replay still \
+                matches the recording. A changed run that can't go on (an input it no longer \
+                declares) is reported as the difference, with error. It exits 0 whether or not \
+                the world differs.",
+        args: &[
+            (
+                "<recording>",
+                "a recording, or a session folder (its recording.json is used)",
+            ),
+            (
+                "--modules <dir>",
+                "the changed module folder, or a folder of modules (unchanged ones are listed \
+                 under same)",
+            ),
+            (
+                "--all",
+                "list every difference; without it, 20 of each kind and 8 report lines",
+            ),
+        ],
+        output: &[
+            (
+                "report",
+                "a few lines: the first tick that differs (or that nothing does) and each \
+                 difference there",
+            ),
+            ("differs", "whether the world ever differs"),
+            (
+                "tick, time",
+                "the first tick that differs (0 is the start), and m:ss.s",
+            ),
+            ("inputs", "the recorded inputs on that tick"),
+            (
+                "differences.entities",
+                "entity, component, field, recorded and changed values; or only_in (recorded or \
+                 changed) for an entity or component one run lacks",
+            ),
+            (
+                "differences.facts",
+                "facts recorded on that tick in only one run: kind, payload, only_in",
+            ),
+            (
+                "differences.other, differences.more",
+                "other state that differs (random streams, causes); how many differences were \
+                 left out",
+            ),
+            (
+                "error",
+                "why the changed run could not go on, when it failed",
+            ),
+            (
+                "modules",
+                "which given modules are changed, added and the same",
+            ),
+            (
+                "start",
+                "rebuilt from the changed start states, or resumed from the saved world",
+            ),
+            (
+                "skipped_hot_loads",
+                "recorded hot-loads of changed modules, not applied",
+            ),
+            (
+                "baseline",
+                "matches_recording and a note: does this build still replay it",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm what-if sessions/example/recording.json --modules game/modules/core",
+        next: "galaxy-gm recording <recording> timeline --from <tick> shows what the player was \
+               doing then; galaxy sim run --state --ticks <tick> shows the changed world.",
+        topic: "tests",
     },
     Command {
         tool: Tool::Gm,
@@ -603,6 +741,42 @@ pub static COMMANDS: &[Command] = &[
 
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
+    Topic {
+        name: "tests",
+        title: "Module tests and what a change does to a session",
+        about: "A module's tests live in its tests/ folder. tests/<name>.luau returns { \
+                name = function() ... end }: each function is a test that passes if it returns \
+                without an error, so write assert(rules.reached_deck(at), \"1.9 high reaches \
+                the deck\"). It runs in the scripts' sandbox, can require(\"../scripts/rules\") \
+                and has no ctx, so keep the rules you want to test in plain functions. \
+                tests/<name>.toml is a scenario run: seed, ticks, [[input]] entries (tick, \
+                name, source, payload; a plain name is the module's own event) and [[expect]] \
+                entries checked after their tick (the last by default): entity, component and \
+                field with equals, at_least or at_most (absent = true without a field), or \
+                facts = \"<event>\" with a count. galaxy-gm test runs both. galaxy-gm what-if \
+                runs a recorded session (galaxy play, or galaxy sim run --record) again on \
+                changed modules and names the first tick where the world differs and the \
+                entities, fields and facts that differ.",
+        tasks: &[
+            ("Run a module's tests and scenario runs", "gm test"),
+            (
+                "What a module change does to a recorded session: the first tick that differs",
+                "gm what-if",
+            ),
+        ],
+        recipes: &[Recipe {
+            title: "Add a test, run it, then see which tick a script change first alters",
+            steps: &[
+                "Write tests/rules.luau in the module: local rules = require(\"../scripts/rules\"), then return { steps_add_up = function() assert(rules.STEP == 1, \"one step a second\") end }.",
+                "galaxy-gm test <module> --only rules",
+                "Record a session by playing it (galaxy play --modules <modules>), or script one:",
+                "galaxy sim run --modules <modules> --seed 7 --ticks 450 --inputs <inputs.toml> --record session.json",
+                "Copy the module, change a value in one of its scripts, then:",
+                "galaxy-gm what-if session.json --modules <changed module>",
+                "Read report: the first tick that differs, and the fields and facts that differ there.",
+            ],
+        }],
+    },
     Topic {
         name: "hovers",
         title: "Hover labels and looking at recorded points",
