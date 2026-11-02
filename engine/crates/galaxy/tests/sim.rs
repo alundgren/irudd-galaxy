@@ -202,3 +202,69 @@ fn bad_input_and_divergence_are_told_apart() {
         "{out}"
     );
 }
+
+#[test]
+fn play_load_checks_arguments_and_save_before_opening_a_window() {
+    let (code, result) = galaxy(&[
+        "play",
+        "--modules",
+        "tests/modules",
+        "--load",
+        "missing.db",
+        "--seed",
+        "1",
+    ]);
+    assert_eq!(code, 2, "{result}");
+    assert!(result["error"].as_str().unwrap().contains("saved seed"));
+    let (code, result) = galaxy(&["play", "--modules", "tests/modules", "--load", "missing.db"]);
+    assert_eq!(code, 4, "{result}");
+    assert!(result["error"].as_str().unwrap().contains("no save"));
+}
+
+#[test]
+#[ignore = "opens a GPU window"]
+fn a_resumed_window_records_the_saved_start_and_final_tick_note() {
+    let tmp = tempfile::tempdir().unwrap();
+    let save = tmp.path().join("mid.db");
+    let inputs = tmp.path().join("run.inputs");
+    let record = tmp.path().join("resumed.json");
+    std::fs::write(&inputs, "[[note]]\ntick = 60\ntext = 'resumed final tick'").unwrap();
+    let (code, first) = galaxy(&[
+        "sim",
+        "run",
+        "--modules",
+        "tests/play/audio/demo",
+        "--ticks",
+        "30",
+        "--save",
+        path(&save),
+    ]);
+    assert_eq!(code, 0, "{first}");
+    let (code, played) = galaxy(&[
+        "play",
+        "--modules",
+        "tests/play/audio/demo",
+        "--load",
+        path(&save),
+        "--ticks",
+        "60",
+        "--inputs",
+        path(&inputs),
+        "--record",
+        path(&record),
+        "--size",
+        "1280x720",
+        "--physical-size",
+        "--no-live",
+    ]);
+    assert_eq!(code, 0, "{played}");
+    assert_eq!(played["tick"], 60);
+    assert_eq!(played["notes"], 1);
+    assert_eq!(played["size"], serde_json::json!([1280, 720]));
+    let recording = galaxy_sim::Recording::read(&record).unwrap();
+    assert_eq!(recording.start.tick, 30);
+    assert_eq!(recording.start.hash(), first["hash"]);
+    let (code, replay) = galaxy(&["sim", "replay", path(&record)]);
+    assert_eq!(code, 0, "{replay}");
+    assert_eq!(replay["identical"], true);
+}

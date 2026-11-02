@@ -9,6 +9,7 @@
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audit;
+mod bot;
 mod fields;
 mod film;
 mod live;

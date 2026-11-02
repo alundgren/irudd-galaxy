@@ -358,3 +358,9 @@ engine chrome. Picking reuses the front-face mesh raycast with interpolated pose
 and morph. The raycast can return a hit triangle vertex, mapped through glTF part
 ranges for `look`. This avoids a GPU ID buffer and keeps check, play and recorded
 inspection on one geometric path. See [Screens](screens.md).
+
+`galaxy play --physical-size --size 1280x720` requests physical pixels rather than
+logical pixels, for repeatable bot measurements on scaled displays. The play report
+includes total rendered `frames` and final physical `size`. Bot tick limits stop
+exactly at the requested absolute world tick, draw it and keep any due notes before
+closing, including when starting from `--load`.

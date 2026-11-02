@@ -28,6 +28,8 @@ pub(crate) struct Options {
     pub ticks: Option<u64>,
     pub inputs: Option<PathBuf>,
     pub save: Option<PathBuf>,
+    pub load: Option<PathBuf>,
+    pub physical_size: bool,
     pub record: Option<PathBuf>,
     pub realtime: bool,
     pub watch: bool,
@@ -77,7 +79,13 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
         }
         let switch = matches!(
             flag,
-            "--realtime" | "--watch" | "--state" | "--probes-only" | "--all" | "--no-live"
+            "--realtime"
+                | "--watch"
+                | "--state"
+                | "--probes-only"
+                | "--all"
+                | "--no-live"
+                | "--physical-size"
         );
         if switch {
             if inline.is_some() {
@@ -89,6 +97,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--probes-only" => options.probes_only = true,
                 "--all" => options.all = true,
                 "--no-live" => options.no_live = true,
+                "--physical-size" => options.physical_size = true,
                 _ => options.state = true,
             }
             continue;
@@ -108,6 +117,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
             "--ticks" => options.ticks = Some(number(&value)?),
             "--inputs" => options.inputs = Some(path(&value)),
             "--save" => options.save = Some(path(&value)),
+            "--load" => options.load = Some(path(&value)),
             "--record" => options.record = Some(path(&value)),
             "--out" => options.out = Some(path(&value)),
             "--frames" => options.frames = Some(number(&value)?),
@@ -180,7 +190,17 @@ pub fn load(args: &[String]) -> Result<Output, Failure> {
     };
     let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
     let modules = load_modules(&options)?;
-    let (info, world) = save::read(&save_path)
+    let session = resume_save(&save_path, modules, false)?;
+    drive(session, &options, 0, "load")
+}
+
+/// Shared restore path; windowed play requires the exact build and module files.
+pub(crate) fn resume_save(
+    save_path: &Path,
+    modules: Vec<Module>,
+    exact: bool,
+) -> Result<Session, Failure> {
+    let (info, world) = save::read(save_path)
         .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
     let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
     let mut loaded: Vec<&str> = modules.iter().map(Module::id).collect();
@@ -192,8 +212,29 @@ pub fn load(args: &[String]) -> Result<Output, Failure> {
         ))
         .with("saved_modules", json!(info.modules)));
     }
-    let session = Session::resume(modules, world).map_err(bad_modules)?;
-    drive(session, &options, 0, "load")
+    if exact {
+        let build = BuildStamp::current();
+        if info.engine != build.version || info.build != build.name {
+            return Err(Failure::bad_input(
+                "the save was made by another engine build; reopen it with the build that saved it",
+            )
+            .with("saved_engine", info.engine)
+            .with("saved_build", json!(info.build)));
+        }
+        for saved in &info.modules {
+            let module = modules
+                .iter()
+                .find(|m| m.id() == saved.id)
+                .expect("same IDs");
+            if saved.files != module.files.hash() {
+                return Err(Failure::bad_input(format!(
+                    "the save's module `{}` has different files; reopen it with the modules that saved it",
+                    saved.id
+                )));
+            }
+        }
+    }
+    Session::resume(modules, world).map_err(bad_modules)
 }
 
 /// `galaxy sim replay`.
