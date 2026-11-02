@@ -39,6 +39,15 @@ that would lose data, such as a field a module no longer declares, is refused wi
 message. Saves of other formats are refused too: the game is a prototype, so there are
 no migrations. Saves of the slice are not supported.
 
+Windowed resume uses `galaxy play --modules <modules> --load save.db`. It restores
+through the same reader and `Session::resume`, without firing startup events again.
+For play, the engine version/installed build name and module text hashes must match;
+otherwise exit 4 explains which build or modules to restore. Uninstalled binaries
+have only a version identity. Headless `sim load` retains its schema-compatible
+module update behavior described above. `--seed` with `--load` is a usage error.
+Bot inputs and `--ticks` use absolute world ticks; ticks already saved do not run again.
+The resumed recording embeds the saved world, and F8, replay, audit and film use it.
+
 ## Recordings
 
 A recording is one JSON file that holds everything needed to run a session again:

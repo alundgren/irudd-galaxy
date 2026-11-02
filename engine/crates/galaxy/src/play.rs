@@ -28,7 +28,7 @@ use galaxy_sim::{BuildStamp, Input, Session, save};
 use galaxy_view::View;
 use serde_json::{Map, Value, json};
 use winit::application::ApplicationHandler;
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
@@ -47,6 +47,8 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--seed",
     "--record",
     "--save",
+    "--load",
+    "--physical-size",
     "--watch",
     "--size",
     "--frames",
@@ -529,6 +531,13 @@ impl App {
         let ticks = self.pace.advance(dt);
         let sim_start = Instant::now();
         for _ in 0..ticks {
+            if self
+                .options
+                .ticks
+                .is_some_and(|end| self.session.world.tick >= end)
+            {
+                break;
+            }
             r.view.before_step(&self.session.world);
             let mut inputs = std::mem::take(&mut self.pending);
             let tick = self.session.world.tick + 1;
@@ -597,14 +606,6 @@ impl App {
             }
         }
         let sim_ms = ms_since(sim_start);
-        if self
-            .options
-            .ticks
-            .is_some_and(|end| self.session.world.tick >= end)
-        {
-            event_loop.exit();
-            return;
-        }
         let due: Vec<u64> = self
             .scripted_zooms
             .range(..=self.session.world.tick)
@@ -690,7 +691,12 @@ impl App {
                 self.times.resize.push(dt * 1000.0);
             }
         }
-        if self.options.frames.is_some_and(|n| self.frames >= n) {
+        if self.options.frames.is_some_and(|n| self.frames >= n)
+            || self
+                .options
+                .ticks
+                .is_some_and(|end| self.session.world.tick >= end)
+        {
             event_loop.exit();
             return;
         }
@@ -804,12 +810,22 @@ impl ApplicationHandler for App {
         );
         let attrs = Window::default_attributes()
             .with_title(title)
-            .with_inner_size(LogicalSize::new(self.size.0, self.size.1))
-            .with_min_inner_size(LogicalSize::new(640, 360));
+            .with_inner_size(if self.options.physical_size {
+                Size::Physical(PhysicalSize::new(self.size.0, self.size.1))
+            } else {
+                Size::Logical(LogicalSize::new(self.size.0 as f64, self.size.1 as f64))
+            })
+            .with_min_inner_size(if self.options.physical_size {
+                Size::Physical(PhysicalSize::new(64, 64))
+            } else {
+                Size::Logical(LogicalSize::new(640.0, 360.0))
+            });
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
-                self.error = Some(Failure::runtime(format!("can't open a window: {e}")));
+                self.error = Some(Failure::render_unavailable(format!(
+                    "no window available: {e}"
+                )));
                 event_loop.exit();
                 return;
             }
@@ -817,7 +833,9 @@ impl ApplicationHandler for App {
         let mut renderer = match Renderer::new_windowed(window.clone()) {
             Ok(r) => r,
             Err(e) => {
-                self.error = Some(Failure::runtime(e.to_string()));
+                self.error = Some(Failure::render_unavailable(format!(
+                    "no GPU available: {e}"
+                )));
                 event_loop.exit();
                 return;
             }
@@ -1053,14 +1071,24 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
     for (tick, size) in &script.resizes {
         resizes.entry(*tick).or_default().push(*size);
     }
-    Ok(Script {
+    let mut result = Script {
         resizes,
         pointers,
         clicks,
         inputs: script.by_tick(),
         notes,
         zooms,
-    })
+    };
+    if options.load.is_some() {
+        let tick = session.world.tick;
+        result.inputs.retain(|t, _| *t > tick);
+        result.clicks.retain(|t, _| *t > tick);
+        result.pointers.retain(|t, _| *t > tick);
+        result.notes.retain(|t, _| *t > tick);
+        result.zooms.retain(|t, _| *t > tick);
+        result.resizes.retain(|t, _| *t > tick);
+    }
+    Ok(result)
 }
 
 /// `galaxy play`.
@@ -1071,8 +1099,16 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
             "play takes options only: galaxy play --modules <dir>",
         ));
     }
+    if options.load.is_some() && options.seed.is_some() {
+        return Err(usage(
+            "--load uses the saved seed; do not combine it with --seed",
+        ));
+    }
     let modules = load_modules(&options)?;
-    let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
+    let mut session = match &options.load {
+        Some(path) => crate::sim::resume_save(path, modules, true)?,
+        None => Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?,
+    };
     let script = scripted_inputs(&session, &options)?;
     session.start_recording(BuildStamp::current());
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
@@ -1096,11 +1132,16 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     } else {
         None
     };
-    let mut audio = audio_scene(&session, 0);
+    let first_fact = if options.load.is_some() {
+        session.world.facts.len()
+    } else {
+        0
+    };
+    let mut audio = audio_scene(&session, first_fact);
     let mut audio_output = galaxy_audio::Output::open();
     audio_output.send(audio.update(&session.world));
-    let event_loop =
-        EventLoop::new().map_err(|e| Failure::runtime(format!("no window system: {e}")))?;
+    let event_loop = EventLoop::new()
+        .map_err(|e| Failure::render_unavailable(format!("no window system available: {e}")))?;
     let (live, live_report) = if options.no_live {
         (None, json!({ "served": false, "why": "--no-live" }))
     } else {
@@ -1176,6 +1217,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "command": "play",
         "tick": app.session.world.tick,
         "hash": app.session.world.hash(),
+        "frames": app.frames,
+        "size": app.running.as_ref().map(|r| r.renderer.size()),
         "frame_time": app.times.report(),
         "adapter": app.running.as_ref().map(|r| r.renderer.adapter_info()),
         "problems": problems,
@@ -1393,6 +1436,73 @@ fn crop_round(image: &RgbaImage, cx: f32, cy: f32, half: f32) -> (RgbaImage, [u3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_play_start_preserves_world_and_recording_and_rejects_other_sources() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let module = Module::read(&root.join("tests/modules/stroll")).unwrap();
+        let mut session = Session::new(vec![module.clone()], 7).unwrap();
+        for _ in 0..17 {
+            session.step(&[]).unwrap();
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("save.db");
+        let build = BuildStamp::current();
+        save::write(&path, &session.world, session.modules(), &build).unwrap();
+        let mut resumed = crate::sim::resume_save(&path, vec![module.clone()], true).unwrap();
+        assert_eq!(resumed.world.hash(), session.world.hash());
+        let inputs = dir.path().join("resume.inputs");
+        std::fs::write(&inputs, "[[note]]\ntick = 10\ntext = 'past'\n[[note]]\ntick = 20\ntext = 'future'\n[[zoom]]\ntick = 10\nsteps = 2").unwrap();
+        let script = scripted_inputs(
+            &resumed,
+            &Options {
+                load: Some(path.clone()),
+                inputs: Some(inputs),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(script.notes.keys().copied().collect::<Vec<_>>(), [20]);
+        assert!(script.zooms.is_empty());
+        resumed.start_recording(build.clone());
+        for _ in 0..13 {
+            resumed.step(&[]).unwrap();
+            session.step(&[]).unwrap();
+        }
+        assert_eq!(resumed.world.hash(), session.world.hash());
+        let recording = resumed.recording().unwrap();
+        assert_eq!(recording.start.tick, 17);
+        assert!(galaxy_sim::replay(&recording).unwrap().1.identical);
+        let mut changed = module.clone();
+        changed
+            .files
+            .0
+            .insert("extra.toml".into(), "# changed".into());
+        assert!(
+            crate::sim::resume_save(&path, vec![changed], true)
+                .err()
+                .unwrap()
+                .message
+                .contains("different files")
+        );
+        assert!(
+            crate::sim::resume_save(&path, vec![], true)
+                .err()
+                .unwrap()
+                .message
+                .contains("same modules")
+        );
+        let mut other = build;
+        other.name = Some("another-build".into());
+        save::write(&path, &session.world, session.modules(), &other).unwrap();
+        assert!(
+            crate::sim::resume_save(&path, vec![module], true)
+                .err()
+                .unwrap()
+                .message
+                .contains("another engine build")
+        );
+    }
 
     #[test]
     fn audio_startup_runs_once_and_resume_and_hot_load_skip_old_cues() {

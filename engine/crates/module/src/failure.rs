@@ -57,6 +57,11 @@ impl Failure {
         Self::new(code::RUNTIME, "runtime", message)
     }
 
+    /// Exit 1: a rendered run cannot open a GPU or window.
+    pub fn render_unavailable(message: impl Into<String>) -> Self {
+        Self::new(code::RUNTIME, "render_unavailable", message)
+    }
+
     /// Adds a field to the JSON object.
     pub fn with(mut self, key: &str, value: impl Into<Value>) -> Self {
         self.fields.insert(key.to_owned(), value.into());

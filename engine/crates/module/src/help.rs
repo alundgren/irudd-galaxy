@@ -497,7 +497,18 @@ static GAME: &[Command] = &[
                 the note, Esc drops it. `galaxy-gm notes` lists the notes later.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
-            ("--seed <n>", "the world's seed; 1 by default"),
+            (
+                "--seed <n>",
+                "the world's seed; 1 by default; cannot combine with --load",
+            ),
+            (
+                "--load <save>",
+                "resume a save from this build and these exact modules; records from the saved world",
+            ),
+            (
+                "--physical-size",
+                "interpret --size as physical pixels, independent of display scaling",
+            ),
             (
                 "--size <w>x<h>",
                 "the window in logical pixels; 1280x720 by default",
@@ -530,6 +541,10 @@ static GAME: &[Command] = &[
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("session", "the session folder"),
+            (
+                "frames, size",
+                "total rendered frames and final physical pixel dimensions",
+            ),
             ("notes", "how many notes were taken"),
             (
                 "live",
