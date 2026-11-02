@@ -513,7 +513,7 @@ impl App {
                     r.renderer.logical_size(),
                     self.last_time,
                 );
-                match r.view.screens.bot_pointer(&pointer) {
+                match r.view.bot_pointer(&self.session.world, &pointer) {
                     Ok(Some(input)) => inputs.push(input),
                     Ok(None) => {}
                     Err(e) => {
@@ -783,6 +783,11 @@ impl ApplicationHandler for App {
                     } else {
                         n.pointer_up();
                     }
+                }
+            }
+            WindowEvent::CursorLeft { .. } if self.note.is_none() && !self.bot_pointer => {
+                if let Some(r) = &mut self.running {
+                    r.view.screens.presentation.pointer = None;
                 }
             }
             WindowEvent::CursorMoved { position, .. }

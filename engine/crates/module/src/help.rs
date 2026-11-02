@@ -249,7 +249,7 @@ pub fn overview(tool: Tool) -> String {
                 ("Modules", &["check", "types", "fields", "model"]),
                 (
                     "Played sessions and notes",
-                    &["notes", "recording", "audit", "film"],
+                    &["notes", "recording", "audit", "film", "look"],
                 ),
                 ("How motion looks", &["film show", "motion", "motion check"]),
                 ("This install", &["doctor"]),
@@ -980,7 +980,7 @@ mod tests {
             );
         }
         let g = guide();
-        assert!(g.lines().count() < 80, "the guide stays short:\n{g}");
+        assert!(g.lines().count() < 90, "the guide stays short:\n{g}");
     }
 
     #[test]

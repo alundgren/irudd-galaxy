@@ -1,4 +1,5 @@
 //! Widget layout, readability and hit testing. All dimensions are logical pixels.
+mod hovers;
 mod icons;
 mod interaction;
 mod scrolling;
@@ -40,6 +41,7 @@ pub struct Screens {
     pub presented: Presentation,
     icons: BTreeMap<String, String>,
     pub clock: f32,
+    pub anchors: BTreeMap<String, Vec2>,
     pub style: ScreenStyle,
 }
 
@@ -81,6 +83,7 @@ impl Screens {
     ) {
         self.problems = self.load_problems.clone();
         self.boxes.clear();
+        self.anchors = anchors.clone();
         for screen in &mut self.functions {
             let calls = screen.calls;
             screen.refresh(world);
@@ -225,7 +228,7 @@ impl Screens {
                 && p.y >= r.y
                 && p.x < r.x + r.w
                 && p.y < r.y + r.h
-                && painted_kind(&b.widget.kind))
+                && (painted_kind(&b.widget.kind) || b.widget.hover.is_some()))
             .then_some(&b.widget)
         }
         for b in self.boxes.iter().rev() {
@@ -253,6 +256,10 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
     }
     if w.kind == "scroll" {
         padded.pad = w.pad.max(12.0);
+    }
+    if w.kind == "hover" {
+        padded.width = Some(44.0);
+        padded.height = Some(44.0);
     }
     let w = &padded;
     let width = w.width.unwrap_or(available).max(1.0);
@@ -389,6 +396,15 @@ fn place(
     problems: &mut Vec<String>,
 ) {
     let w = &b.widget;
+    if w.kind == "hover" {
+        if let Some(p) = w.anchor.as_ref().and_then(|a| anchors.get(a)) {
+            b.rect.x = p.x - 22.0;
+            b.rect.y = p.y - 22.0;
+        } else {
+            problems.push(format!("{}: missing hover anchor", w.path));
+        }
+        return;
+    }
     let mut pos = origin + Vec2::new(b.rect.x, b.rect.y);
     if let Some(x) = w.x {
         pos.x = origin.x + x;
@@ -433,6 +449,9 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 }
 
 fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Vec<String>) {
+    if b.widget.kind == "hover" {
+        return;
+    }
     let mut problem = |message: &str| problems.push(format!("{}: {message}", b.widget.path));
     if !contains(viewport, b.rect) {
         problem("outside the viewport");
@@ -517,7 +536,10 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
             ));
         }
         for other in &b.children[..i] {
-            if overlaps(c.rect, other.rect) {
+            if c.widget.kind != "hover"
+                && other.widget.kind != "hover"
+                && overlaps(c.rect, other.rect)
+            {
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
             }
         }

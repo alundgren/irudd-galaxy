@@ -57,6 +57,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 name.into()
             };
             Some(Widget {
+                hover: None,
                 kind: "sign".into(),
                 id: Some(format!("life.{id}")),
                 path: format!("{id}/sign"),

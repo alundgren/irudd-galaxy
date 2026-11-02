@@ -69,13 +69,13 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[pointer]]",
         "action",
         "\"scroll\"",
-        "pickup, move, drop or scroll; separate ticks allow notes during a drag",
+        "pickup, move, drop or scroll; move also hovers without dragging; separate ticks allow notes",
     ),
     (
         "[[pointer]]",
         "widget",
         "\"items\"",
-        "visible widget's unique id or full diagnostic path; scroll parts append ::thumb, ::track-start or ::track-end",
+        "visible widget or anchored hover id/path, or point:x,y; scroll parts append ::thumb, ::track-start or ::track-end",
     ),
     (
         "[[pointer]]",
@@ -100,7 +100,7 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[click]]",
         "widget",
         "\"continue\"",
-        "instead of x/y: a visible button's full widget path or unique id; resolves its centre on that tick, including moving anchors; missing, ambiguous or covered targets fail",
+        "instead of x/y: a visible button's full widget path or unique id; point:x,y for a coordinate target; resolves its centre on that tick, including moving anchors; missing, ambiguous or covered targets fail",
     ),
     (
         "[[input]]",

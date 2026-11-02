@@ -9,6 +9,7 @@
 mod audit;
 mod fields;
 mod film;
+mod look;
 mod model;
 mod sessions;
 
@@ -88,6 +89,16 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                     command.usage()
                 ))),
             }
+        }
+        "look" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            let [path] = positional.as_slice() else {
+                return Err(usage("look takes one recording".into()));
+            };
+            look::run(
+                &discover::recording_file(&discover::resolve(&cwd, Path::new(path))),
+                &opts,
+            )
         }
         "audit" => {
             let path = one("one recording")?;
@@ -299,62 +310,74 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         }
     }
     let mut findings = Vec::new();
+    let mut hovers = Vec::new();
     let mut all: Vec<Module> = context.clone();
     all.push(module.clone());
     match Registry::new(&all.iter().collect::<Vec<_>>()) {
         Err(e) => findings.push(finding("schema", e)),
-        Ok(registry) => match ScriptSet::load(&module, &registry) {
-            Err(problems) => {
-                findings.extend(problems.iter().map(|p| finding("script", p.to_string())))
-            }
-            Ok(_) => match Session::new(all.clone(), 1) {
-                Err(e) => findings.push(finding("start", e)),
-                Ok(mut session) => {
-                    if let Err(e) = session.step(&[]) {
-                        findings.push(finding("start", e));
-                    }
-                    let mut view = galaxy_view::View::detached(session.modules(), 1);
-                    view.scene(
-                        &session.world,
-                        1.0,
-                        galaxy_render::glam::Vec2::new(1280.0, 720.0),
-                        0.0,
-                    );
-                    findings.extend(
-                        view.screens
-                            .problems
-                            .iter()
-                            .filter(|p| p.starts_with(&format!("{}:", module.id())))
-                            .map(|p| finding("screen", p.clone())),
-                    );
-                    findings.extend(
-                        view.check_talk(
-                            &session.world,
-                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
-                        )
-                        .into_iter()
-                        .map(|p| finding("talk", p)),
-                    );
-                    findings.extend(
-                        view.check_life(
-                            &session.world,
-                            session.registry(),
-                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
-                        )
-                        .into_iter()
-                        .map(|p| finding("life", p)),
-                    );
-                    findings.extend(
-                        view.check_rooms(
-                            &session.world,
-                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
-                        )
-                        .into_iter()
-                        .map(|p| finding("room", p)),
-                    );
+        Ok(registry) => {
+            match ScriptSet::load(&module, &registry) {
+                Err(problems) => {
+                    findings.extend(problems.iter().map(|p| finding("script", p.to_string())))
                 }
-            },
-        },
+                Ok(_) => match Session::new(all.clone(), 1) {
+                    Err(e) => findings.push(finding("start", e)),
+                    Ok(mut session) => {
+                        if let Err(e) = session.step(&[]) {
+                            findings.push(finding("start", e));
+                        }
+                        let mut view = galaxy_view::View::detached(session.modules(), 1);
+                        view.hover_checks = Some(Default::default());
+                        view.scene(
+                            &session.world,
+                            1.0,
+                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                            0.0,
+                        );
+                        findings.extend(
+                            view.screens
+                                .problems
+                                .iter()
+                                .filter(|p| p.starts_with(&format!("{}:", module.id())))
+                                .map(|p| finding("screen", p.clone())),
+                        );
+                        findings.extend(
+                            view.check_talk(
+                                &session.world,
+                                galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                            )
+                            .into_iter()
+                            .map(|p| finding("talk", p)),
+                        );
+                        findings.extend(
+                            view.check_life(
+                                &session.world,
+                                session.registry(),
+                                galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                            )
+                            .into_iter()
+                            .map(|p| finding("life", p)),
+                        );
+                        findings.extend(
+                            view.check_rooms(
+                                &session.world,
+                                galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                            )
+                            .into_iter()
+                            .map(|p| finding("room", p)),
+                        );
+                        hovers.extend(view.hover_checks.take().unwrap().into_values());
+                        for hover in &hovers {
+                            if let Some(problems) = hover["hover"]["problems"].as_array() {
+                                findings.extend(problems.iter().map(|p| {
+                                    finding("hover", format!("{}: {}", hover["widget"], p))
+                                }));
+                            }
+                        }
+                    }
+                },
+            }
+        }
     }
     findings.extend(looks(&module, &all));
     findings.extend(
@@ -375,6 +398,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         "notes": notes,
         "findings": findings,
         "worn": own(worn(&all), module.id()),
+        "hovers": hovers,
     });
     if ok {
         return Ok(Output::Json(out));
@@ -423,6 +447,7 @@ mod tests {
         let check = help::find(Tool::Gm, "motion check").unwrap();
         assert_eq!(check.options(), film::CHECK_OPTIONS);
         for (path, takes) in [
+            ("look", look::OPTIONS),
             ("fields", fields::OPTIONS),
             ("model", model::OPTIONS),
             ("film show", film::SHOW_OPTIONS),

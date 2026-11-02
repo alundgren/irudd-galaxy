@@ -248,3 +248,10 @@ Morph targets keep poses in module assets instead of hard-coding game looks. A f
 skeleton, navigation mesh or generalized behaviour tree would exceed this day's thin
 loop. The finite day can later issue more elaborate engine-owned motion without moving
 schedule meaning into the renderer.
+
+The life demo declares `ui.hover` on `being.life.walker` and labels its controls.
+Picking uses the interpolated, morphed mesh; the label follows the same head anchor
+as the name sign and speech. The shared screen path owns paint and placement, with
+no changes to life state or its hash. `tests/play/hovers-inputs.toml` follows the
+moving speaker and takes eight F8-path notes for replay, audit and `look`.
+See [Screens](screens.md) and [Motion tools](motion-tools.md).

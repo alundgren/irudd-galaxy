@@ -338,3 +338,54 @@ A table in the existing style asset avoids a second loader, watch path or record
 store. Per-widget colours would duplicate the look in every script and make whole-theme
 contrast checks impossible without enumerating runtime branches. Skin scripts or
 module-owned motion would move frame work into Luau and change the shared behaviour.
+
+## Hovers and recorded point inspection
+
+Every widget accepts `hover = "A label"`. `ui.hover { id = "help", anchor =
+"being.demo.person", text = "Click to talk" }` declares a label for an anchored thing
+without painting a permanent widget or adding a world component. Keep it conditional
+on the visible place. Existing named-anchor forms work; `being.<id>.<part>` restricts
+a model hover to that mesh part; an empty model node uses a 44px anchor target.
+Container labels also apply to descendants without their own hover. Entity IDs resolve longest first. The last matching
+declaration wins. Life signs and talk bubbles sharing the anchor use its declaration
+too; an explicit widget hover takes precedence.
+
+Rust picks the topmost clipped screen surface first, then the nearest front-facing
+posed mesh surface. Model-less anchors have a 44px target at their projected point;
+foreground geometry blocks them. The tooltip appears immediately and clears on
+pointer exit, focus loss, drag/scroll capture or a travel cut. It follows interpolated
+anchors without calling Luau per frame. Its paint uses `[screen]` text/paper, padding,
+radius and border, with the same bundled font and contrast checks.
+
+The engine owns the 320px maximum width, wrapping and placement. It tries positions
+around the target and nearby readable widgets, keeps an 8px viewport margin, and
+avoids text, controls, signs and speech bubbles. Empty panel paper is usable space.
+If no candidate fits, the report names covered widgets; empty labels, missing glyphs
+and viewport overflow are also findings. Tooltips do not intercept input.
+
+`check` collects a `hovers` array from every staged scene: initial screens, rooms,
+talk lines and life poses. Entries name the place, active talk line, widget, entity,
+being, part, point, scroll offsets and the hover's text, bounds and readability.
+Null means no authored label. Rectangle partitions find exposed widget areas even
+when centres are covered. Each descendant is scrolled through its ancestors without
+events. Mesh triangle probes fall back to logical pixels for partly covered parts.
+Repeated target/text/talk/readability observations merge. This covers authored states,
+not arbitrary future script branches.
+
+`galaxy-gm look <recording> --note 3` resolves the saved F8 pointer; `--point 320,240`
+substitutes a logical-pixel point. `--tick 45 --point 320,240` uses the tick endpoint
+(`alpha = 1`) at 1280x720, or `--size 1600x900`. Notes use their exact scale, size,
+fractional pose and style. Divide image coordinates by the note scale. JSON returns
+widget, entity, being, part, anchor, place and hover; absent values are null. No GPU
+is needed. `guide hovers` and `look --help` cover this workflow.
+
+The optional pointer lives in the existing version-1 presentation snapshot; old
+snapshots default to none. F8 freezes the last drawn pointer, even if another input
+arrives before the note is taken. Audit and film share the same layout and picker.
+There is no timer or cached target to save, and no change to world hashes or simulation
+inputs. A tooltip entity or separate inspector picker would duplicate that contract.
+
+Bot `[[pointer]] action = "move"` works without a drag. `widget` names an ordinary
+widget, an anchored hover ID, or `point:x,y`. Repeated moves track a moving target;
+moving to empty space clears it. The life and talk demos declare hovers. The recorded
+motion recipe is in [Motion tools](motion-tools.md).

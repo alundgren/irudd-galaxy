@@ -26,6 +26,7 @@ pub fn widgets(world: &World) -> Vec<Widget> {
             let line_id = text(f, "current");
             let line = &world.component(line_id, TALK_LINE)?.fields;
             Some(Widget {
+                hover: None,
                 kind: "bubble".into(),
                 id: Some(format!("talk.{id}")),
                 path: format!("{id}/talk"),
@@ -68,14 +69,14 @@ pub fn widgets(world: &World) -> Vec<Widget> {
         .collect()
 }
 
-struct Geometry {
-    id: String,
-    mesh: MeshData,
-    transform: Mat4,
-    inverse: Mat4,
+pub(crate) struct Geometry {
+    pub(crate) id: String,
+    pub(crate) mesh: MeshData,
+    pub(crate) transform: Mat4,
+    pub(crate) inverse: Mat4,
 }
 impl Geometry {
-    fn hit(&self, origin: Vec3, direction: Vec3) -> Option<f32> {
+    pub(crate) fn hit(&self, origin: Vec3, direction: Vec3) -> Option<f32> {
         self.mesh.raycast(
             self.inverse.transform_point3(origin),
             self.inverse.transform_vector3(direction),
@@ -84,7 +85,7 @@ impl Geometry {
 }
 
 impl View {
-    fn geometry(&self, world: &World, alpha: f32) -> Vec<Geometry> {
+    pub(crate) fn geometry(&self, world: &World, alpha: f32) -> Vec<Geometry> {
         let place = crate::travel::place(world, alpha);
         world
             .entities

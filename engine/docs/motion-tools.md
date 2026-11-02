@@ -379,3 +379,31 @@ independent moving sign. Use track for life.walker, sheet across rise/walk/cut, 
 and flow over the head/bubble band, and flicker to inspect any flagged frames. Audit
 all ten notes, and film a mid-walk note at its exact moment for a pixel comparison.
 The authored day and headless regression recipe are in [Places and beings](places-and-beings.md).
+
+## Hover motion and exact point inspection
+
+The life fixture's `hovers-inputs.toml` moves over a widget, clears the pointer, hovers
+a being, starts speech, advances its day and follows its walk, then clears and restores
+the hover. It takes eight notes. From the repository root with the installed build:
+
+```sh
+galaxy --build <name> play --modules engine/tests/play/life --inputs engine/tests/play/hovers-inputs.toml --ticks 100
+galaxy-gm --build <name> check engine/tests/play/life/demo
+galaxy-gm --build <name> look <session> --note 3
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>
+galaxy-gm --build <name> film <session> --note 5 --before 1.45 --after 1.75 --out <film>
+galaxy-gm --build <name> motion track <film> --thing life.walker
+galaxy-gm --build <name> motion sheet <film> --count 12
+galaxy-gm --build <name> motion strip <film> --screen "400,240;900,240"
+galaxy-gm --build <name> motion flow <film> --screen --region 300,100,650,450
+galaxy-gm --build <name> motion flicker <film> --screen
+```
+
+Compare `look`'s logical point, part and hover bounds with the note frame (physical
+pixels divided by scale). Inspect appearance/clear ticks and the walking interval;
+check speech stays readable and the tooltip follows smoothly. The film's `note.png`
+uses the exact noted pointer and fractional pose; regular frames sample pointer
+snapshots at film cadence. Thus an exact note can be pixel-identical even when a
+nearby regular frame differs. World replay ignores pointer snapshots. There is no
+new motion-analysis tool or private hover reconstruction path.

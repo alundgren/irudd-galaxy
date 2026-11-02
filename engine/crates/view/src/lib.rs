@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod hovers;
 pub mod life;
 pub mod rooms;
 pub mod screens;
@@ -241,6 +242,7 @@ pub struct View {
     talk_focus: Vec<String>,
     /// Whether scenes run the live focus check; off while `check_talk` runs its own.
     focus_live: bool,
+    pub hover_checks: Option<BTreeMap<String, Value>>,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -298,6 +300,7 @@ impl View {
             talk_frame: (1.0, Vec2::ONE),
             talk_focus: Vec::new(),
             focus_live: true,
+            hover_checks: None,
         };
         view.replace(renderer, assets);
         view
@@ -572,6 +575,11 @@ impl View {
         self.screens.clock = (world.tick.saturating_sub(1) as f32 + alpha) / 30.0;
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
+        self.camera = Some(camera);
+        self.draw_hover(world, alpha, logical, &mut scene.overlay);
+        if self.hover_checks.is_some() {
+            self.check_hovers(world, alpha, logical);
+        }
         self.talk_focus = if self.focus_live {
             self.live_focus(full, alpha, logical, camera)
         } else {

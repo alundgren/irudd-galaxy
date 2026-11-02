@@ -155,14 +155,16 @@ export type ScreenCtx = {
 --- Buttons, drop targets and scrolling lists take on/payload. Unknown properties are errors. Minimum text: 16px.
 --- children is a consecutive list of widgets. id names a widget for diagnostics and bot
 --- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
+--- hover supplies a tooltip. ui.hover needs anchor and text and paints only on hover.
 export type Widget = {
-    kind: string?, id: string?, text: string?, children: {Widget}?,
+    kind: string?, id: string?, text: string?, hover: string?, children: {Widget}?,
     width: number?, height: number?, x: number?, y: number?,
     size: number?, pad: number?, gap: number?, anchor: string?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
 }
 export type Ui = {
+    hover: (Widget) -> Widget,
     text: (Widget) -> Widget, button: (Widget) -> Widget,
     list: (Widget) -> Widget, panel: (Widget) -> Widget,
     row: (Widget) -> Widget, column: (Widget) -> Widget,

@@ -126,3 +126,10 @@ Life uses room arrivals and optional door spots for visible departures and arriv
 When the player leaves during a life walk, its destination and act finish in world
 state on that tick. Morphed being tops and mesh-part anchors follow the actual posed
 vertices. See [Places and beings](places-and-beings.md) for the day and sign contract.
+
+Room hover declarations use the existing place, spot, being/part and publisher anchors.
+`look` tests the nearest posed mesh surface, so a room prop in front of a being wins;
+painted screens take precedence. Model-less targets use their anchors and foreground
+geometry blocks them. During a busy cut inspection reports `engine.travel` and no
+hover. Room staging contributes the same hover observations to `check` without
+changing the player's recorded location. See [Screens](screens.md).

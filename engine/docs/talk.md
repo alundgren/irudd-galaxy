@@ -144,3 +144,10 @@ film; ordinary world components avoid that extra reconstruction contract.
 Life signs share the screen path and merge the speaking being's name into its bubble.
 The figure, its morphed head anchor and focus geometry use the same recorded phase.
 See [Places and beings](places-and-beings.md) for the day contract and check bounds.
+
+A screen's `ui.hover` declaration on the speaker anchor supplies its hover label,
+including on the bubble sharing that anchor. The screen engine keeps tooltip text
+clear of speech and reports overlap when no candidate fits. Each staged line also
+contributes hover observations to `check`; `look --note` returns the bubble path or
+speaker and nearest mesh part using the same frame geometry. The talk and life
+fixtures include declarations. See [Screens](screens.md) for authoring and picking.

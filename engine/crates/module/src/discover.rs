@@ -107,7 +107,7 @@ pub fn recording_build(tool: Tool, args: &[OsString], cwd: &Path) -> Option<Stri
     let first: Vec<&str> = args.iter().take(2).filter_map(|a| a.to_str()).collect();
     let at = match (tool, first.as_slice()) {
         (Tool::Game, ["sim", "replay", ..]) => 2,
-        (Tool::Gm, ["audit", ..]) => 1,
+        (Tool::Gm, ["audit" | "look", ..]) => 1,
         _ => return None,
     };
     let path = recording_file(&resolve(cwd, Path::new(args.get(at)?)));
@@ -221,6 +221,10 @@ mod tests {
         );
         assert_eq!(
             recording_build(Tool::Gm, &args(&["audit", "r.json"]), root).as_deref(),
+            Some("0.2.0-abc")
+        );
+        assert_eq!(
+            recording_build(Tool::Gm, &args(&["look", "r.json", "--note", "1"]), root).as_deref(),
             Some("0.2.0-abc")
         );
         assert_eq!(
