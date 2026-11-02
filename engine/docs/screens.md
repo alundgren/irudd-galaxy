@@ -211,7 +211,9 @@ Separate pickup and drop ticks allow mid-drag notes. Targets must be visible at 
 centre and uncovered. `entries::thumb`, `entries::track-start` and
 `entries::track-end` name scrollbar parts for pickup/move/drop using the same captured
 pointer path as live input. Gestures run before clicks at the same tick; both run before world
-inputs. Headless sim/shot/film input runners refuse gestures; play them once and then
+inputs. A play run with scripted pointer gestures ignores live pointer and focus
+changes for those gestures; F8 editing remains interactive. Headless sim/shot/film
+input runners refuse gestures; play them once and then
 replay or film the resulting recording. Help, `fields inputs`, `types` and `guide screens`
 cover this surface.
 

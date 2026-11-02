@@ -228,6 +228,8 @@ struct App {
     scripted: BTreeMap<u64, Vec<Input>>,
     scripted_clicks: BTreeMap<u64, Vec<Click>>,
     scripted_pointers: BTreeMap<u64, Vec<Pointer>>,
+    /// Scripted gestures own the pointer for the run, even while unfocused.
+    bot_pointer: bool,
     pointer: Vec2,
     /// Scripted notes by tick (`[[note]]` in `--inputs`): taken like F8 on the first
     /// frame at or after their tick.
@@ -678,7 +680,9 @@ impl ApplicationHandler for App {
                 if let Some(n) = &mut self.note {
                     n.pointer_up();
                 }
-                if let Some(r) = &mut self.running {
+                if !self.bot_pointer
+                    && let Some(r) = &mut self.running
+                {
                     r.view.screens.cancel_pointer(self.session.world.tick + 1);
                 }
             }
@@ -724,7 +728,9 @@ impl ApplicationHandler for App {
                     }
                 }
             }
-            WindowEvent::CursorMoved { position, .. } if self.note.is_none() => {
+            WindowEvent::CursorMoved { position, .. }
+                if self.note.is_none() && !self.bot_pointer =>
+            {
                 if let Some(r) = &mut self.running {
                     self.pointer =
                         Vec2::new(position.x as f32, position.y as f32) / r.renderer.scale_factor();
@@ -741,7 +747,7 @@ impl ApplicationHandler for App {
                 state: ElementState::Pressed,
                 button: winit::event::MouseButton::Left,
                 ..
-            } if self.note.is_none() => {
+            } if self.note.is_none() && !self.bot_pointer => {
                 if let Some(r) = &mut self.running
                     && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, true)
                         .or_else(|| {
@@ -757,7 +763,7 @@ impl ApplicationHandler for App {
                 state: ElementState::Released,
                 button: winit::event::MouseButton::Left,
                 ..
-            } if self.note.is_none() => {
+            } if self.note.is_none() && !self.bot_pointer => {
                 if let Some(r) = &mut self.running
                     && let Some(input) = r
                         .view
@@ -776,7 +782,7 @@ impl ApplicationHandler for App {
                     n.scroll(pixels);
                 }
             }
-            WindowEvent::MouseWheel { delta, .. } if self.note.is_none() => {
+            WindowEvent::MouseWheel { delta, .. } if self.note.is_none() && !self.bot_pointer => {
                 let steps = match delta {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(p) => p.y as f32 / 60.0,
@@ -904,6 +910,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
+        bot_pointer: !script.pointers.is_empty(),
         scripted_pointers: script.pointers,
         pointer: Vec2::ZERO,
         scripted_notes: script.notes,
