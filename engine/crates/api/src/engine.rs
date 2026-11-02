@@ -86,6 +86,9 @@ pub const DOOR: &str = "engine.door";
 pub const LOCATION: &str = "engine.location";
 pub const BEING: &str = "engine.being";
 pub const WALK: &str = "engine.walk";
+pub const ROOM: &str = "engine.room";
+pub const TRAVEL: &str = "engine.travel";
+pub const PLACE_ARRIVED: &str = "engine.place_arrived";
 pub const CLOCK: &str = "engine.clock";
 pub const WALK_FINISHED: &str = "engine.walk_finished";
 
@@ -96,12 +99,14 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 ///   `script`, `handler`, `code`, `error`).
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
 /// - `walk_finished`: a recorded walk completed (`entity`, `place`, `spot`).
-pub const EVENTS: [&str; 5] = [
+/// - `place_arrived`: play landed a trip, recorded as input (`entity`, `place`, `start_tick`).
+pub const EVENTS: [&str; 6] = [
     "start",
     "hot_loaded",
     "script_failed",
     "arrived",
     "walk_finished",
+    "place_arrived",
 ];
 
 pub const START: &str = "engine.start";
@@ -113,6 +118,48 @@ pub const SCRIPT_FAILED: &str = "engine.script_failed";
 /// name), field, meaning. `galaxy-gm fields components` prints it beside each field's type
 /// and default from [`components`]; a test keeps the two in step.
 pub const FIELDS: &[(&str, &str, &str)] = &[
+    ("room", "title", "place title on the travel card"),
+    (
+        "room",
+        "camera",
+        "named glTF camera node; empty uses camera",
+    ),
+    (
+        "room",
+        "fov",
+        "posed camera vertical field of view in degrees",
+    ),
+    (
+        "travel",
+        "active",
+        "trip awaiting its recorded place_arrived input",
+    ),
+    ("travel", "from", "source place"),
+    ("travel", "to", "destination place"),
+    ("travel", "start_tick", "tick the trip started"),
+    (
+        "travel",
+        "from_spot",
+        "source spot occupied when the trip started",
+    ),
+    (
+        "travel",
+        "from_x",
+        "source x before changing coordinate spaces",
+    ),
+    (
+        "travel",
+        "from_y",
+        "source y before changing coordinate spaces",
+    ),
+    ("travel", "from_height", "source floor height"),
+    ("travel", "from_angle", "source facing in radians"),
+    ("travel", "from_layer", "source floor layer"),
+    (
+        "travel",
+        "reverse",
+        "leaving for an ancestor plays the cut backward",
+    ),
     (
         "anchor",
         "name",
@@ -376,6 +423,27 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
     let mut model = fields(&[("model", Text), ("look", Text), ("morph", Number)]);
     model.extend(numbers(&[("scale", 1.0)]));
     vec![
+        ("room", {
+            let mut room = fields(&[("title", Text), ("camera", Text)]);
+            room.extend(numbers(&[("fov", 40.0)]));
+            room
+        }),
+        (
+            "travel",
+            fields(&[
+                ("active", Bool),
+                ("from", Id),
+                ("to", Id),
+                ("start_tick", Int),
+                ("reverse", Bool),
+                ("from_spot", Id),
+                ("from_x", Number),
+                ("from_y", Number),
+                ("from_height", Number),
+                ("from_angle", Number),
+                ("from_layer", Int),
+            ]),
+        ),
         (
             "anchor",
             fields(&[

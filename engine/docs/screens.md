@@ -76,7 +76,9 @@ at the same target. Modules can publish these in start data, or write them with 
 A widget with `anchor = "marker#label"` is detached from flow. The view interpolates the
 target's pose, projects it through the current camera, places the widget above that point
 and clamps it to an 8px viewport margin. `x` and `y` offset that placement. This is generic:
-the publisher need not have a model. A missing target or projection reports a missing
+the publisher need not have a model. Rooms additionally publish `place.<full-id>`, `spot.<name>`, `being.<full-id>` and
+`being.<full-id>.<node-name>` through this same map; see [Rooms and travel](rooms-and-travel.md).
+A missing target or projection reports a missing
 anchor rather than silently discarding the widget.
 
 ## Clicks, recording and trying it

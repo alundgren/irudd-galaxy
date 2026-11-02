@@ -1,0 +1,31 @@
+[[click]]
+tick = 5
+widget = "enter_a"
+[[note]]
+tick = 15
+text = "Room A cut title card"
+[[note]]
+tick = 42
+text = "Room A: two beings at floor spots"
+[[click]]
+tick = 50
+widget = "leave"
+[[note]]
+tick = 60
+text = "Reverse cut to station"
+[[click]]
+tick = 90
+widget = "enter_b"
+[[click]]
+tick = 96
+x = 100
+y = 100
+[[note]]
+tick = 100
+text = "Room B: click landed the cut"
+[[click]]
+tick = 115
+widget = "leave"
+[[note]]
+tick = 150
+text = "Back at station after both rooms"

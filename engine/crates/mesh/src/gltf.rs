@@ -49,6 +49,48 @@ pub fn read(text: &str) -> Result<MeshData, String> {
     read_parts(text).map(|(mesh, _)| mesh)
 }
 
+/// Named nodes, including empty markers, in the same world axes as the mesh.
+/// Camera nodes look along glTF -Z, with +Y up; inherited transforms are included.
+#[derive(Clone, Debug)]
+pub struct NamedNode {
+    pub position: Vec3,
+    pub forward: Vec3,
+    pub up: Vec3,
+}
+
+pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
+    let doc = Gltf::from_slice(text.as_bytes()).map_err(|e| format!("not a glTF file: {e}"))?;
+    let scene = doc
+        .default_scene()
+        .or_else(|| doc.scenes().next())
+        .ok_or("the model has no scene")?;
+    let mut nodes = BTreeMap::new();
+    let mut stack: Vec<_> = scene.nodes().map(|n| (n, Mat4::IDENTITY)).collect();
+    // A malformed hierarchy must not trap asset loading in a cycle.
+    let mut visited = std::collections::BTreeSet::new();
+    while let Some((node, parent)) = stack.pop() {
+        if !visited.insert(node.index()) {
+            return Err("a node occurs more than once in the scene".into());
+        }
+        let transform = parent * Mat4::from_cols_array_2d(&node.transform().matrix());
+        if let Some(name) = node.name() {
+            let marker = NamedNode {
+                position: to_world(transform.transform_point3(Vec3::ZERO)),
+                forward: to_world(transform.transform_vector3(-Vec3::Z)).normalize_or(-Vec3::X),
+                up: to_world(transform.transform_vector3(Vec3::Y)).normalize_or(Vec3::Z),
+            };
+            if !marker.position.is_finite() {
+                return Err(format!("node `{name}` has a non-finite pose"));
+            }
+            if nodes.insert(name.to_owned(), marker).is_some() {
+                return Err(format!("duplicate named node `{name}`"));
+            }
+        }
+        stack.extend(node.children().map(|c| (c, transform)));
+    }
+    Ok(nodes)
+}
+
 /// One part of a model as read: the node's name and its vertices in the mesh.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PartRange {
@@ -483,6 +525,19 @@ pub fn write(parts: &[Part]) -> String {
 mod tests {
     use super::*;
     use crate::{Color, MeshBuilder};
+
+    #[test]
+    fn empty_markers_keep_their_inherited_pose_and_camera_axes() {
+        let text = r#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+            "nodes":[{"translation":[1,2,3],"scale":[2,2,2],"children":[1,2]},
+            {"name":"spot.left","translation":[4,5,6]},
+            {"name":"camera","translation":[0,0,1]}]}"#;
+        let nodes = read_nodes(text).unwrap();
+        assert_eq!(nodes["spot.left"].position, Vec3::new(15.0, 9.0, 12.0));
+        assert_eq!(nodes["camera"].position, Vec3::new(5.0, 1.0, 2.0));
+        assert_eq!(nodes["camera"].forward, -Vec3::X);
+        assert_eq!(nodes["camera"].up, Vec3::Z);
+    }
 
     fn hull() -> MeshData {
         let mut b = MeshBuilder::new();

@@ -13,7 +13,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, rooms, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -27,9 +27,9 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, screens at 1280x720, and whether what its start state wears exists.",
+                  style, screens and every room at 1280x720, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -40,7 +40,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look or screen) and message",
+                "each problem: kind (schema, script, start, look, screen or room) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
@@ -729,6 +729,29 @@ pub static TOPICS: &[Topic] = &[
             ),
         ],
         recipes: &[],
+    },
+    Topic {
+        name: "rooms",
+        title: "Rooms, floor spots, anchors and travel",
+        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
+        tasks: &[
+            ("Room and travel component fields", "gm fields"),
+            ("Validate every room", "gm check"),
+        ],
+        recipes: &[Recipe {
+            title: "Play both directions and reproduce an F8 note",
+            steps: &[
+                "From the repository root, select the installed dev build with --build <name> immediately after galaxy or galaxy-gm.",
+                "galaxy-gm check engine/tests/play/rooms/demo",
+                "galaxy play --modules engine/tests/play/rooms --inputs engine/tests/play/rooms-inputs.toml --ticks 160",
+                "Use the session folder printed by play for the next commands. The bot enters and leaves both rooms, lands one cut by clicking, and takes notes in rooms and mid-cut.",
+                "galaxy sim replay <session>/recording.json",
+                "galaxy-gm audit <session>/recording.json",
+                "galaxy-gm film <session>/recording.json --from 0 --to 45 --size 1280x720 --out room-film",
+                "galaxy-gm guide motion",
+                "Inspect the notes, audit pictures and film frames. Compare the cut title and the beings' floor contact and clearance from the panel.",
+            ],
+        }],
     },
     Topic {
         name: "screens",

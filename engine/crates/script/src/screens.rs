@@ -315,9 +315,18 @@ fn read(
     let anchor = string("anchor")?;
     let anchor = anchor
         .map(|a| {
-            let (entity, name) = a
-                .split_once('#')
-                .ok_or_else(|| bad("anchor is publisher#name"))?;
+            // Place publishers use fully qualified literal names. Explicit publishers
+            // retain their existing module-relative publisher#name spelling.
+            if !a.contains('#')
+                && ["place.", "spot.", "being."]
+                    .iter()
+                    .any(|prefix| a.strip_prefix(prefix).is_some_and(|s| !s.is_empty()))
+            {
+                return Ok(a);
+            }
+            let (entity, name) = a.split_once('#').ok_or_else(|| {
+                bad("anchor is publisher#name, place.<id>, spot.<name> or being.<id>[.<part>]")
+            })?;
             let entity = entity_id(module, entity, registry)
                 .ok_or_else(|| bad("invalid anchor publisher"))?;
             Ok::<_, mlua::Error>(format!("{entity}#{name}"))

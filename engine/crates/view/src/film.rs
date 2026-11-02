@@ -462,13 +462,18 @@ fn things(
     scale: f32,
     size: (u32, u32),
 ) -> BTreeMap<String, Thing> {
+    let shown = crate::rooms::screen_world(world, crate::travel::place(world, alpha));
+    let world = &*shown;
     let followed = camera_holder(world).map(|(id, _)| id.to_owned());
+    let place = crate::travel::place(world, alpha);
     world
         .entities
         .iter()
         .filter(|(_, c)| {
-            c.contains_key(POSITION) && (c.contains_key(MODEL) || c.contains_key(CAMERA))
+            (c.contains_key(POSITION) || c.contains_key(galaxy_api::engine::ROOM))
+                && (c.contains_key(MODEL) || c.contains_key(CAMERA))
         })
+        .filter(|(id, _)| crate::rooms::visible(world, id, place))
         .filter_map(|(id, _)| {
             let pose = view.pose(world, id, alpha)?;
             let screen = camera
@@ -508,7 +513,10 @@ fn outlines(world: &World, modules: Vec<&Module>) -> BTreeMap<String, Outline> {
     world
         .entities
         .iter()
-        .filter(|(_, c)| c.contains_key(POSITION) && c.contains_key(MODEL))
+        .filter(|(_, c)| {
+            (c.contains_key(POSITION) || c.contains_key(galaxy_api::engine::ROOM))
+                && c.contains_key(MODEL)
+        })
         .filter_map(|(id, _)| {
             let radius = world
                 .component(id, BODY)
@@ -575,7 +583,10 @@ fn parts(world: &World, modules: Vec<&Module>) -> Parts {
         }
     }
     for (id, c) in &world.entities {
-        let Some(model) = c.get(MODEL).filter(|_| c.contains_key(POSITION)) else {
+        let Some(model) = c
+            .get(MODEL)
+            .filter(|_| c.contains_key(POSITION) || c.contains_key(galaxy_api::engine::ROOM))
+        else {
             continue;
         };
         let Some(name) = model.fields.get("model").and_then(Value::as_str) else {
