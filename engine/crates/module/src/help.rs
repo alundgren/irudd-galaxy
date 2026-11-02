@@ -560,7 +560,7 @@ static GAME: &[Command] = &[
         path: "audio",
         synopsis: "--modules <dir> --out <file.wav> [options]",
         answers: "Render a scripted session through the game's mixer without an audio device.",
-        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV or Ogg Vorbis files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
+        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV, Ogg Vorbis or MP3 files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
             ("--out <file.wav>", "new WAV file to create"),

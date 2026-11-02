@@ -1,16 +1,21 @@
 # Audio
 
 `galaxy-audio` owns the mixer. CPAL only opens the output device and supplies buffers;
-hound decodes WAV and writes offline WAVs; lewton decodes Ogg Vorbis. All three are
-MIT-compatible. There is no audio middleware and no per-frame Luau work.
+hound decodes WAV and writes offline WAVs; lewton decodes Ogg Vorbis; symphonia's MP3
+decoder (MPL-2.0, the only symphonia part built) decodes MP3. All are MIT-compatible.
+There is no audio middleware and no per-frame Luau work.
 
 ## Module declarations
 
 An optional `audio.toml` lives beside the manifest. Its sound names are local,
 one-part names. Files are relative to the module, use `/`, and must not contain `..`.
-WAV integer PCM (up to 32 bits), WAV 32-bit float and Ogg Vorbis are supported, mono
-or stereo. Ogg files contain one logical Vorbis stream, without chaining. The final
-granule length trims codec padding so short loops keep their authored duration.
+WAV integer PCM (up to 32 bits), WAV 32-bit float, Ogg Vorbis and MP3 are supported,
+mono or stereo. Ogg files contain one logical Vorbis stream, without chaining. The final
+granule length trims codec padding so short loops keep their authored duration. MP3 is
+trimmed by its LAME tag's encoder delay and padding when it has one; an untagged file
+keeps a few milliseconds of codec silence at each end. MP3 frames that fail to decode are
+skipped, as players do, and decoder overshoot past full scale is clamped. Generated
+music arrives as MP3 (`docs/music-generation.md`).
 Samples must be finite and within [-1, 1]. Mono feeds both stereo channels.
 Clips are decoded into memory before playback; music should be kept reasonably small.
 
@@ -142,7 +147,10 @@ Its options and limits are in `galaxy audio --help`. The small original fixture 
 are reproduced by `python engine/tests/play/audio/demo/generate.py`; no downloaded music
 is used. The Ogg decoder fixture is made from `sounds/high.wav` with
 `oggenc -Q -s 7 -o sounds/high.ogg sounds/high.wav` in that module folder
-(vorbis-tools). On Linux, building CPAL needs `pkg-config` and the ALSA development
+(vorbis-tools). The MP3 decoder fixture `sounds/high.mp3` is the same WAV encoded at
+32 kbit/s, quality 2, with the `lameenc` Python package (`Encoder()` with
+`set_bit_rate(32)`, `set_in_sample_rate(16000)`, `set_channels(1)`, `set_quality(2)`;
+`encode(pcm) + flush()`); it is untagged. On Linux, building CPAL needs `pkg-config` and the ALSA development
 package (`libasound2-dev` on Ubuntu); playing without a device needs no special setup.
 Tests measure frequency amplitudes across the fade, event and music windows,
 exercise resampling, gain ramps, voice saturation, decoding failures and silent output,
@@ -157,5 +165,7 @@ replay plumbing; an event table reuses facts already present and works headless.
 An ambience field on a world component would put presentation choices into saves and
 hashes; a place-ID table keeps them in module presentation data. Predecoding is simple
 and keeps I/O off the callback; streaming large music is unnecessary for this prototype.
+MP3 is decoded rather than transcoded at generation time because a WAV of the same piece
+is about ten times larger in git, and an Ogg encoder would be another native library.
 Linear interpolation and crossfades are small and inspectable; higher-order resampling,
 equal-power fades and a compressor are unnecessary for these authored clips.

@@ -603,6 +603,100 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "music",
+        synopsis: "<module> --name <sound> --prompt <text> [--event <kind>] [options]",
+        answers: "Make music for a module: one generation through OpenRouter, written into the \
+                 module as an audio file and declared in its audio.toml, so the game plays it.",
+        about: "Needs OPENROUTER_API_KEY in the environment; it is read from there only, sent \
+                 only as the request's authorization, and never printed or written. Without it, \
+                 exit 2 with kind no_key and nothing is written. Every run makes one paid call \
+                 (about $0.04 for the default model) and is never retried by itself, so run it \
+                 once per piece and commit the file. The game never calls a model; music is made \
+                 only here, at build time. The prompt is sent with \"Instrumental only\" added. \
+                 The answer (MP3 for the default model) is checked to decode before anything is \
+                 written. It becomes music/<name>.<ext> and [sounds.<name>] with a comment naming \
+                 the model and prompt; --event adds an [[events]] cue on the music bus, which \
+                 loops it and crossfades from other music. Usage, module and overwrite problems \
+                 are reported before the key is needed or any call is made. A refused call, no \
+                 answer or unplayable audio exits 1 with kind openrouter and writes nothing.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "--name <sound>",
+                "the sound's local name: lowercase letters, digits and _",
+            ),
+            (
+                "--prompt <text>",
+                "what the music should sound like: mood, tempo, instruments; up to 1000 \
+                 characters",
+            ),
+            (
+                "--event <kind>",
+                "also cue it on the music bus when this event happens: a local event the \
+                 manifest declares, or a full kind such as engine.start; default: no cue",
+            ),
+            (
+                "--volume <0..1>",
+                "the sound's volume; default 0.5, or the volume it had with --replace",
+            ),
+            (
+                "--fade <s>",
+                "the cue's fade-in in seconds, 0..60; default 1",
+            ),
+            (
+                "--model <id>",
+                "an OpenRouter model with audio output; default google/lyria-3-clip-preview \
+                 (about 30 s); google/lyria-3-pro-preview makes a longer piece",
+            ),
+            (
+                "--seed <n>",
+                "passed to the model, which may or may not honour it",
+            ),
+            (
+                "--replace",
+                "generate again over an existing sound or music/<name> file; without it that \
+                 is bad_input",
+            ),
+        ],
+        output: &[
+            (
+                "ok",
+                "the module's sounds have no findings after the change",
+            ),
+            (
+                "module, sound, file",
+                "where the music went: file is relative to the module",
+            ),
+            ("format, bytes, seconds, sample_rate", "the decoded audio"),
+            ("event", "the cue added, or null"),
+            (
+                "replaced",
+                "the file the sound named before --replace, or null",
+            ),
+            (
+                "model, answered_by, cost_usd, generation_id",
+                "the model asked for, the one that answered, and what OpenRouter charged",
+            ),
+            (
+                "prompt, seed, text",
+                "what was sent, and any text the model sent back",
+            ),
+            (
+                "findings",
+                "sound problems in the module now, as check reports them",
+            ),
+            ("next", "what to run to hear it"),
+        ],
+        writes: "<module>/music/<name>.<ext> and <module>/audio.toml (created if missing; \
+                 existing comments and entries are kept)",
+        example: "galaxy-gm music game/modules/example --name calm --prompt \"slow warm pads, \
+                 quiet and unhurried\" --event engine.start --volume 0.4",
+        next: "galaxy-gm check <module>, then galaxy play --modules <modules folder> and listen; \
+                 galaxy audio renders the mix to a WAV without a device.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "notes",
         synopsis: "[<recording | session folder | sessions folder>] [--all]",
         answers: "What did the player note with F8? Each note's number, tick, time and text, \
@@ -1199,11 +1293,15 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float and Ogg Vorbis, mono or stereo, are decoded before playback. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
+        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float, Ogg Vorbis and MP3, mono or stereo, are decoded before playback. galaxy-gm music generates a piece at build time and declares it here. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
         tasks: &[
             (
                 "Check sound declarations and decode every referenced file",
                 "gm check",
+            ),
+            (
+                "Generate music through OpenRouter (needs OPENROUTER_API_KEY)",
+                "gm music",
             ),
             ("Listen in the game", "game play"),
             ("Render and measure a mix without a device", "game audio"),

@@ -12,6 +12,7 @@ galaxy-module.workspace = true
 cpal.workspace = true
 hound.workspace = true
 lewton.workspace = true
+symphonia.workspace = true
 serde.workspace = true
 toml.workspace = true
 
