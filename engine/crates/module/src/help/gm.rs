@@ -365,7 +365,13 @@ pub static COMMANDS: &[Command] = &[
                 "one entry a note: note (its number), tick, text, identical (the world \
               matches the note's), seen (the frame the player saw, notes/0001.png), drawn \
               (the moment drawn again, audit/0001.png), camera_matches, mean_difference (per \
-              channel, 0 to 255) and pixels_differing (the share of pixels, 0 to 1)",
+              channel, 0 to 255) and pixels_differing (the share of pixels, 0 to 1), or \
+              seen_error when the seen frame can't be read",
+            ),
+            (
+                "ok",
+                "true when every note's world matches; it says nothing about pictures, \
+              which pictures_compared and pictures report",
             ),
             (
                 "pictures_compared, pictures",
@@ -788,7 +794,7 @@ pub static TOPICS: &[Topic] = &[
                 title: "Add a room",
                 steps: &[
                     "Model it: a glTF set at unit scale with the floor at the origin. Name one node camera (it looks down its -Z, +Y up) and add one empty node spot.<name> per floor spot, such as spot.entry, at floor height 0. Save it as models/cellar.gltf in the module, which makes the model `<module>.cellar`.",
-                    "Declare it in start.toml (here the module is demo, beside an existing place demo.station): [entities.cellar] with \"engine.place\" = { parent = 'demo.station', arrival = 'demo.cellar_entry', width = 10, depth = 8 }, \"engine.room\" = { title = 'Cellar' } and \"engine.model\" = { model = 'demo.cellar' }; then [entities.cellar_entry] with \"engine.spot\" = { place = 'demo.cellar', name = 'entry' }, one entity per spot node.",
+                    "Declare it in start.toml. The examples use a module with id demo beside an existing place demo.station; write your manifest's id instead of demo (rooms in engine/tests/play/rooms/demo): [entities.cellar] with \"engine.place\" = { parent = 'demo.station', arrival = 'demo.cellar_entry', width = 10, depth = 8 }, \"engine.room\" = { title = 'Cellar' } and \"engine.model\" = { model = 'demo.cellar' }; then [entities.cellar_entry] with \"engine.spot\" = { place = 'demo.cellar', name = 'entry' }, one entity per spot node.",
                     "List engine.place, engine.room, engine.spot and engine.model in the manifest's writes (and engine.location, engine.position and engine.being for beings).",
                     "A being in the room: [entities.keeper] with \"engine.being\" = { player = false }, \"engine.location\" = { place = 'demo.cellar', spot = 'demo.cellar_entry' }, \"engine.position\" = {} and \"engine.model\" = { model = 'demo.being' }. Its spot sets where it stands.",
                     "A way in: a screen button with on = 'go' and payload = { place = 'demo.cellar' }, and an event handler go = function(event, ctx) ctx.move('player', event.payload.place) end, as engine/tests/play/rooms/demo/scripts/main.luau does. The player lands on the place's arrival spot. Beings whose day walks between rooms also want an engine.door { from, spot, to, arrival } each way.",

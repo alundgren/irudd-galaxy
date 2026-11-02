@@ -512,8 +512,10 @@ static GAME: &[Command] = &[
             ("notes", "how many notes were taken"),
             (
                 "frame_time",
-                "frame times in milliseconds: median, p95, worst; resize_interval_ms for \
-                 the frames right after the window changed size",
+                "fps and frames, then interval_ms (frame to frame), sim_ms, scene_ms and \
+                 draw_ms, each with median, p95, p99 and max in milliseconds after the first \
+                 10 frames; resize_interval_ms is the same for the two frames after each \
+                 window resize (null when there was none) and resize_frames counts them",
             ),
             (
                 "problems",

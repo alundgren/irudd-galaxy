@@ -232,9 +232,9 @@ impl Pictures {
         };
         if let Some(path) = &self.missing {
             out.push_str(&format!(
-                ". The frames the player saw were not found (first: {}); a recording moved \
-                 out of its session folder leaves notes/ behind, so audit it inside the \
-                 session folder",
+                ". The frames the player saw were not found (first: {}). They are kept in \
+                 notes/ in the session folder, beside the original recording.json, so \
+                 audit that recording instead of a copy",
                 path.display()
             ));
         }

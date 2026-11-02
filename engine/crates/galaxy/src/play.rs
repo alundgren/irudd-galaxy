@@ -1072,7 +1072,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let script = scripted_inputs(&session, &options)?;
     if !script.clicks.is_empty() || !script.pointers.is_empty() {
         return Err(Failure::bad_input(
-            "clicks and drags ([[click]], [[pointer]]) need galaxy play; film or replay its recording",
+            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
         ));
     }
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
