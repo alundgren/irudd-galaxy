@@ -1,0 +1,62 @@
+seed = 7
+ticks = 8
+
+[[input]]
+tick = 1
+name = "water"
+[[input]]
+tick = 2
+name = "water"
+[[input]]
+tick = 3
+name = "water"
+[[input]]
+tick = 4
+name = "water"
+[[input]]
+tick = 6
+name = "reset"
+
+[[expect]]
+tick = 1
+entity = "garden"
+component = "growth"
+field = "water"
+equals = 1
+[[expect]]
+tick = 4
+entity = "garden"
+component = "growth"
+field = "water"
+equals = 3
+[[expect]]
+tick = 4
+entity = "flower"
+component = "engine.model"
+field = "scale"
+equals = 1.0
+[[expect]]
+tick = 4
+entity = "keeper"
+component = "engine.being"
+field = "state"
+equals = "Enjoying the bloom"
+[[expect]]
+tick = 4
+facts = "bloomed"
+equals = 1
+[[expect]]
+entity = "garden"
+component = "growth"
+field = "water"
+equals = 0
+[[expect]]
+entity = "flower"
+component = "engine.model"
+field = "scale"
+equals = 0.25
+[[expect]]
+entity = "keeper"
+component = "engine.being"
+field = "state"
+equals = "Tending the garden"

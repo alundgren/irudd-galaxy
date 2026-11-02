@@ -1,0 +1,11 @@
+[sky]
+top = "#9eb7b2"
+bottom = "#dce1c8"
+stars = 0
+cloud_count = 0
+
+[screen]
+paper = "#faf6e9"
+panel = "#f1edda"
+button = "#d5e5ce"
+text = "#25352c"
