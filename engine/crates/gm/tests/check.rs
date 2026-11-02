@@ -72,7 +72,7 @@ fn check_reports_unused_missing_glyphs_missing_icons_and_unreadable_grids() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("example");
         std::fs::create_dir(&dir).unwrap();
-        std::fs::write(dir.join("manifest.toml"), "id='example'\nversion='0.1.0'\nmin_engine_version='0.3.0'\nscripts=['screen.luau']\nevents=['drop']").unwrap();
+        std::fs::write(dir.join("manifest.toml"), "id='example'\nversion='0.1.0'\nmin_engine_version='0.4.0'\nscripts=['screen.luau']\nevents=['drop']").unwrap();
         std::fs::write(dir.join("icons.toml"), catalogue).unwrap();
         std::fs::write(
             dir.join("screen.luau"),

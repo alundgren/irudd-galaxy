@@ -28,7 +28,7 @@ fn sound_workshop_passes_and_missing_or_corrupt_sounds_are_findings() {
     std::fs::create_dir(&root).unwrap();
     std::fs::write(
         root.join("manifest.toml"),
-        "id='demo'\nversion='0.1.0'\nmin_engine_version='0.3.0'\n",
+        "id='demo'\nversion='0.1.0'\nmin_engine_version='0.4.0'\n",
     )
     .unwrap();
     std::fs::write(

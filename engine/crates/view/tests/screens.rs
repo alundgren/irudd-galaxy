@@ -57,7 +57,7 @@ fn screen_clicks_replay_and_anchors_move_without_luau_per_frame() {
 
 fn screen(code: &str) -> (Session, View) {
     let mut files = ModuleFiles::default();
-    files.0.insert("manifest.toml".into(), "id = 'test'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\nscripts = ['screen.luau']\nevents = ['click']\n".into());
+    files.0.insert("manifest.toml".into(), "id = 'test'\nversion = '0.1.0'\nmin_engine_version = '0.4.0'\nscripts = ['screen.luau']\nevents = ['click']\n".into());
     files.0.insert("screen.luau".into(), code.into());
     let module = Module::from_files(Path::new("test"), files).unwrap();
     let session = Session::new(vec![module], 1).unwrap();

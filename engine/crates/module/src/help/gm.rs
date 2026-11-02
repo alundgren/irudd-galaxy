@@ -801,7 +801,7 @@ pub static TOPICS: &[Topic] = &[
             Recipe {
                 title: "Build a screen, attach a button, then check, click and replay it",
                 steps: &[
-                    "Create example/manifest.toml with:\nid = 'example'\nversion = '0.1.0'\nmin_engine_version = '0.3.0'\nscripts = ['screen.luau']\nevents = ['activate', 'clicked']\nwrites = ['engine.position', 'engine.motion', 'engine.camera', 'engine.anchor']",
+                    "Create example/manifest.toml with:\nid = 'example'\nversion = '0.1.0'\nmin_engine_version = '0.4.0'\nscripts = ['screen.luau']\nevents = ['activate', 'clicked']\nwrites = ['engine.position', 'engine.motion', 'engine.camera', 'engine.anchor']",
                     "Create example/start.toml with:\n[entities.camera]\n'engine.position' = {}\n'engine.camera' = { view = 60 }\n[entities.marker]\n'engine.position' = { x = 12 }\n'engine.motion' = { vx = 2 }\n'engine.anchor' = { name = 'label' }",
                     "Create example/screen.luau with:\nreturn {\n  screen = function(_, ui)\n    return ui.panel { width = 320, children = {\n      ui.text { text = 'Screen example' },\n      ui.button { id = 'continue', anchor = 'marker#label',\n        width = 220, text = 'Continue', on = 'activate' },\n    } }\n  end,\n  on = { activate = function(_, ctx) ctx.record('clicked', {}) end },\n}",
                     "galaxy-gm check example",
