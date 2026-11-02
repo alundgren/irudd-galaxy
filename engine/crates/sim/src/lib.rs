@@ -14,6 +14,7 @@
 pub mod changes;
 pub mod collide;
 pub mod flight;
+pub mod life;
 pub mod places;
 pub mod recording;
 pub mod rooms;

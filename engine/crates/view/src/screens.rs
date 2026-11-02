@@ -105,7 +105,10 @@ impl Screens {
                 self.boxes.push(boxed);
             }
         }
-        for tree in crate::talk::widgets(world) {
+        for tree in crate::life::widgets(world)
+            .into_iter()
+            .chain(crate::talk::widgets(world))
+        {
             let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
             check(

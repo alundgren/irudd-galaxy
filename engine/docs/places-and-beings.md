@@ -96,8 +96,8 @@ and moves without replacing this model. No view needs to be present for a walk t
 
 Everything is in ordinary components, including the active walk and clock. SQLite save
 format 1 and recordings need no new storage or presentation state. The same saved walk
-resumes with the same cause and endpoint, even when the player is elsewhere. Daily
-routines and when to offer a story remain module rules. The talk service keeps offered
+resumes with the same cause and endpoint, even when the player is elsewhere. Days are authored with `engine.life` and `engine.act` (below); scripts choose when
+to advance their clocks and when to offer a story. The talk service keeps offered
 conversations pending until acknowledged; see [Talk](talk.md).
 
 A resource/singleton store would add a second save path just for the clock and player.
@@ -105,7 +105,7 @@ Arrays of spots and doors would require new field types. Small entities reuse sc
 capability, query and save machinery. Locations are separate from beings so surfaces
 and solid objects can share the same room isolation without inventing extra being kinds.
 Presentation-owned walks would be lost when switching views; recorded segments let
-any later presentation reconstruct them. Room kinds, routines and being states remain module concepts. The generic room and
+any later presentation reconstruct them. Room kinds, authored acts and being state names remain module concepts. The generic room and
 travel presentation is described in [Rooms and travel](rooms-and-travel.md).
 
 ## Headless proof
@@ -141,3 +141,110 @@ is `face`, and empty means no focus. Talk is not limited to beings: any anchored
 speaker can use the recorded conversation service. Unseen story conversations are
 kept until their final line is acknowledged. See [Talk](talk.md) for components,
 geometry checks and the distinction between a pending conversation and module routines.
+
+## Life: a day per being
+
+`sim/src/life.rs` runs a finite authored day, using the existing place, walk and clock
+services. A non-player being with a position can carry `engine.life`:
+
+| Field | Meaning |
+|---|---|
+| `clock`, `first` | Clock entity and first `engine.act` entity. |
+| `name`, `speed` | Sign label (empty hides it), walking speed in world units per second (default 1.5). |
+| `presentation` | `states` animates visible changes; `instant` completes them immediately. |
+| `current`, `phase`, `start_tick` | Engine-owned selected act and phase (`rise`, `walk`, `settle`, or empty). |
+| `from_morph`, `from_angle`, `walk_spot` | Recorded source pose and visible walk endpoint. |
+| `departed_*` | Trip tick, place and frozen pose used only for a departure fade. |
+
+Each `engine.act` has positive integer `duration`, destination `place` and `spot`,
+module-defined `state`, resting `morph` (0..1) and `angle` (radians), and optional `next`.
+An empty next repeats the day from first. The explicit chain must be finite; references,
+duration sums, poses, speeds and floors are validated with command-batch rollback and
+on resume. A day may use a shared clock or its own. Clock modulo total duration selects
+an act, so a script can advance several units without replaying every skipped act.
+All days start at clock zero; initial loading places beings in their selected acts.
+
+The module owns the model and its morph target: for example, morph 1 can be a seated
+figure and morph 0 its neutral standing pose. The engine does not know what an activity
+or pose means. At a visible change it eases to neutral over 9 ticks (0.3 s), starts an
+ordinary straight walk, then eases into the new act over 9 ticks. The body keeps its
+source facing while walking and takes the destination facing while settling. Position,
+model morph, named mesh-part anchors, picking and focus checks use the same pose.
+The neutral walk is a translated figure; skeletal gait and navigation are not supplied.
+
+When neither end is in the player's place, the destination is applied immediately.
+A departure walks to a matching door's source spot, or the source room's arrival, then
+moves out of sight. An arrival starts at the destination room's arrival and walks to its
+act spot. Cross-room days require arrival spots on the acts' floor layer. There is no
+invisible pathfinder or doorway policy. Authors choose clear straight segments.
+
+Leaving mid-transition finishes its act in the world on that tick. The departure pose
+is saved alongside it, so the source room fades out with the figure where it was seen,
+without showing the offscreen completion as a teleport. Switching from
+`states` to `instant` does the same. A clock change during a visible transition cancels
+the old segment and retargets from the current position and pose. Switching views or reconstructing a view
+needs no notification: no view owns transition progress. A life-managed being's day
+owns its resting destination; scripts author the day and clock rather than competing
+with an active transition by writing its location.
+
+Life runs after event and cadence handlers, so the clock and player destination for the
+tick are settled first. Walk integration remains in the normal service order. The
+engine never increments a clock. Each increase of an existing clock (advance_clock,
+put or patch) appends `engine.clock_advanced { entity, amount, value }` with the writing
+command's cause, including multiple increases in one handler. Failed batches undo both
+the writes and their facts. Clock initialization is start state; zero additions do not
+record an increase. Direct decreases select an earlier day position, without an advance
+fact. The existing place golden changes because the recorded clock fact is new.
+
+## Signs and exhaustive authored-day checks
+
+`view/src/life.rs` adds ordinary anchored text widgets to the screen path. A resting
+sign says the being's name and activity; while moving it shows the name. An active
+speaker's name moves into the bubble so two panels do not overlap. There is no new
+palette or font. A module's room or hall screen can query the same location, being and
+life fields for a directory of who is where; the generic fixture does this. Later
+screen styling changes these same surfaces.
+
+`galaxy-gm check` enumerates distinct selections over the least common repeat period
+of the days sharing each clock, and the product of independent clocks. It stages every
+resting arrangement and every transition between arrangements in each place, including
+simultaneously moving beings. Every authored talk line then uses the ordinary triangle
+focus check at each tick and half-tick, including rising and settling morphs. This also
+checks jumps across acts and the day wrap, not only adjacent destinations. A clear
+resting scene can therefore fail for a crossing figure, a raised head under a panel,
+or a bubble following a walker out of frame. Results name the transition and talk.
+
+The checker refuses a clock period over 100000 units, over 64 distinct arrangements,
+or a transition longer than 18000 ticks, with an explicit finding; it never marks a
+partial exploration as passed. These are authoring-check bounds, not runtime limits.
+The check covers authored days with the current module geometry and screens. Arbitrary
+future script branches, retargeting during a walk and changed assets require their own
+variants or recorded runs. Geometric focus limits are those in [Talk](talk.md).
+
+## Trying life and alternatives
+
+From the repository root, select the dev build after each executable:
+
+```sh
+galaxy-gm --build <name> guide life
+galaxy-gm --build <name> check engine/tests/play/life/demo
+galaxy --build <name> play --modules engine/tests/play/life --inputs engine/tests/play/life-inputs.toml --ticks 380 --size 1280x720
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+galaxy-gm --build <name> film <session>/recording.json --from 10 --to 125 --size 1280x720 --out life-film
+```
+
+Click the being, advance the clock, leave during its walk and return. Advance again and
+switch presentation during departure. The last bot walk has a name label without talk.
+`view/tests/life.rs` covers day selection, offscreen and cross-room changes, pose and
+bubble continuity, interruption, save/load/replay, invalid authoring rollback, and a
+scene that passes at rest but hides focus along its walk. All these tests are headless.
+
+A script-only schedule would duplicate phase and offscreen completion rules and hide
+future poses from the checker. A per-frame Lua animation would violate the engine's
+cadence contract. Linked scalar components reuse capabilities, validation and save
+storage; absolute recorded phases let film and audit reconstruct mid-walk frames.
+Morph targets keep poses in module assets instead of hard-coding game looks. A full
+skeleton, navigation mesh or generalized behaviour tree would exceed this day's thin
+loop. The finite day can later issue more elaborate engine-owned motion without moving
+schedule meaning into the renderer.

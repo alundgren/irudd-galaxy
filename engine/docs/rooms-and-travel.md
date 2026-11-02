@@ -121,3 +121,8 @@ by scene triangles, the room panel or the bubble. Active walk poses are included
 Starting a trip interrupts talk without marking an unseen story seen. Picking a speaker
 uses its projected mesh through the displayed camera. [Talk](talk.md) describes the
 world contract, the generic play fixture and the geometry check's limits.
+
+Life uses room arrivals and optional door spots for visible departures and arrivals.
+When the player leaves during a life walk, its destination and act finish in world
+state on that tick. Morphed being tops and mesh-part anchors follow the actual posed
+vertices. See [Places and beings](places-and-beings.md) for the day and sign contract.

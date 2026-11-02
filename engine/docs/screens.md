@@ -249,3 +249,8 @@ width and offsets affect its geometry. A whole bubble is a click target; its inp
 includes the current line so stale or duplicate advances are recorded no-ops. Speaker picking runs only when no
 painted widget covers the pointer. See [Talk](talk.md) for focus checks combining screen
 surfaces, room geometry and each authored line.
+
+Life signs are ordinary anchored text widgets with the same neutral surface. Resting
+signs show name and activity; moving signs show the name, which joins the bubble while
+speaking. Directories use ordinary screen queries over life, being and location fields.
+No separate sign paint or game look is introduced. See [Places and beings](places-and-beings.md).

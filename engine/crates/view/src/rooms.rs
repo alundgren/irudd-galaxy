@@ -42,6 +42,18 @@ pub fn screen_world<'a>(world: &'a World, place: Option<&str>) -> std::borrow::C
                         .insert(key.into(), trip.fields[&format!("from_{key}")].clone());
                 }
             }
+            for c in shown.entities.values_mut() {
+                if let Some(l) = c.get_mut(galaxy_api::engine::LIFE)
+                    && l.fields["departed_tick"] == trip.fields["start_tick"]
+                    && l.fields["departed_place"] == place
+                {
+                    l.fields.insert("phase".into(), "walk".into());
+                    if let Some(loc) = c.get_mut(LOCATION) {
+                        loc.fields.insert("place".into(), place.into());
+                        loc.fields.insert("spot".into(), serde_json::Value::Null);
+                    }
+                }
+            }
         }
         return std::borrow::Cow::Owned(shown);
     }
@@ -120,14 +132,36 @@ impl View {
                 .assets
                 .models
                 .get(name)
-                .and_then(|m| m.bounds())
+                .and_then(|m| m.morphed(self.morph(world, id, alpha)).bounds())
                 .map_or(1.8, |(_, hi)| hi.z * scale);
             publish(format!("being.{id}"), pose.point() + Vec3::Z * top);
             if let Some(nodes) = self.assets.nodes.get(name) {
                 for (part, node) in nodes {
+                    // Keep the authored node origin, displaced by its mesh part's
+                    // mean morph motion. Empty nodes keep their authored offsets.
+                    let point = self
+                        .assets
+                        .parts
+                        .get(name)
+                        .and_then(|parts| parts.iter().find(|p| p.name == *part))
+                        .and_then(|part| {
+                            self.assets.models.get(name).map(|mesh| {
+                                let vertices = &mesh.vertices[part.vertices.clone()];
+                                node.position
+                                    + vertices
+                                        .iter()
+                                        .map(|v| {
+                                            Vec3::from(v.morph_position) - Vec3::from(v.position)
+                                        })
+                                        .sum::<Vec3>()
+                                        / vertices.len().max(1) as f32
+                                        * self.morph(world, id, alpha).clamp(0.0, 1.0)
+                            })
+                        })
+                        .unwrap_or(node.position);
                     publish(
                         format!("being.{id}.{part}"),
-                        pose.point() + Quat::from_rotation_z(pose.angle) * node.position * scale,
+                        pose.point() + Quat::from_rotation_z(pose.angle) * point * scale,
                     );
                 }
             }

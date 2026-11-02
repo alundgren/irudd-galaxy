@@ -5,7 +5,8 @@ use std::process::Command;
 
 const MODULES: &str = "tests/modules/places";
 // Shared by Windows and Linux: changing the model deliberately updates this hash.
-const GOLDEN: &str = "a6c304441e46d3f13c0b46f5de6e9631923a836e148f11a3d085d45413d3d463";
+// Includes the clock_advanced fact emitted by the script's clock increase.
+const GOLDEN: &str = "de69c2eb4b3595d824836befb782d0bb30aec396d980bc1ad3c1cfa4ce0f6b9d";
 
 fn engine() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

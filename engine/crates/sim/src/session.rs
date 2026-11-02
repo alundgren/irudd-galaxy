@@ -124,6 +124,15 @@ impl Session {
         world.record(cause, START, Fields::new());
         crate::places::validate(&world)?;
         crate::talk::validate(&world)?;
+        crate::life::validate(&world)?;
+        crate::life::update(&mut world, &registry)?;
+        if world
+            .entities
+            .values()
+            .any(|c| c.contains_key(galaxy_api::engine::LIFE))
+        {
+            services::ground(&mut world);
+        }
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -147,6 +156,7 @@ impl Session {
         })?;
         crate::places::validate(&world)?;
         crate::talk::validate(&world)?;
+        crate::life::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -218,6 +228,15 @@ impl Session {
         services::ground(&mut self.world);
         if tick.is_multiple_of(CADENCE_TICKS) {
             self.run_cadence();
+        }
+        crate::life::update(&mut self.world, &self.registry)?;
+        if self
+            .world
+            .entities
+            .values()
+            .any(|c| c.contains_key(galaxy_api::engine::LIFE))
+        {
+            services::ground(&mut self.world);
         }
         crate::travel::start(&mut self.world, before, &self.registry)?;
         crate::talk::interrupt(&mut self.world, &self.registry)?;

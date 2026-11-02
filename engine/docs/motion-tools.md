@@ -108,6 +108,10 @@ keep theirs; `--image` puts it elsewhere.
   film is checked against the hash the note kept, on the note's own tick whatever the
   `--fps`: a film of a different world exits 5 (`replay_diverged`) rather than pass for
   what the player saw, and so does `--builds` when either build's film does.
+  With `--note`, a drawn film also exports `note.png` (`note_frame` in the report)
+  using the original note's physical size, scale, fractional tick and presentation
+  state. Compare that image with the F8 image for an exact redraw; the numbered
+  frames retain their uniform sampling times for motion measurements.
 - **Which build drew it.** The world can replay identically on a newer build while it
   draws differently: a drawing defect fixed since shows as fixed. So `film.json` keeps
   `builds` (the build that recorded the session, the one that drew the film, whether they
@@ -367,3 +371,11 @@ Use `sheet` around appearance/disappearance and cut ticks, `flow --screen` over 
 bubble region, and `flicker --screen` to distinguish commanded changes from unintended
 one-frame breaks. Audit compares each note's exact moment; a whole film also checks
 the world hash at notes. The geometry check and full recipe are in [Talk](talk.md).
+
+The life bot (`tests/play/life-inputs.toml`) records rising during speech, a walk,
+leaving it unfinished, presentation switching, and a second walk with a name sign.
+Film ticks 10 through 125 for speech and departure; ticks 250 through 370 show the
+independent moving sign. Use track for life.walker, sheet across rise/walk/cut, strip
+and flow over the head/bubble band, and flicker to inspect any flagged frames. Audit
+all ten notes, and film a mid-walk note at its exact moment for a pixel comparison.
+The authored day and headless regression recipe are in [Places and beings](places-and-beings.md).

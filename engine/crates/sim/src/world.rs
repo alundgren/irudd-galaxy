@@ -149,7 +149,9 @@ impl World {
             if matches!(batch.cause, Cause::Start { .. }) {
                 Ok(())
             } else {
-                crate::places::validate(self).and_then(|()| crate::talk::validate(self))
+                crate::places::validate(self)
+                    .and_then(|()| crate::talk::validate(self))
+                    .and_then(|()| crate::life::validate(self))
             }
         });
         if let Err(e) = result {
@@ -169,6 +171,18 @@ impl World {
         undo: &mut Vec<Undo>,
     ) -> Result<(), String> {
         let command = registry.check(actor, command)?;
+        let clock_before = match &command {
+            Command::Put {
+                entity, component, ..
+            }
+            | Command::Patch {
+                entity, component, ..
+            } if component == galaxy_api::engine::CLOCK => self
+                .component(entity, component)
+                .and_then(|c| c.fields["value"].as_i64())
+                .map(|value| (entity.clone(), value)),
+            _ => None,
+        };
         let tick = self.tick;
         match command {
             command @ (Command::Move { .. }
@@ -264,6 +278,25 @@ impl World {
             }
             Command::Record { kind, payload } => {
                 self.record(cause, &kind, payload);
+                undo.push(Undo::Fact);
+            }
+        }
+        if let Some((entity, before)) = clock_before {
+            let value = self
+                .component(&entity, galaxy_api::engine::CLOCK)
+                .unwrap()
+                .fields["value"]
+                .as_i64()
+                .unwrap();
+            if value > before && before >= 0 {
+                self.record(
+                    cause,
+                    galaxy_api::engine::CLOCK_ADVANCED,
+                    serde_json::json!({"entity":entity,"amount":value-before,"value":value})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                );
                 undo.push(Undo::Fact);
             }
         }

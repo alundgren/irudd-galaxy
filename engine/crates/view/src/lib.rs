@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod life;
 pub mod rooms;
 pub mod screens;
 pub mod talk;
@@ -355,6 +356,9 @@ impl View {
 
     /// Where `entity` is drawn, `alpha` of the way from the last tick to this one.
     pub fn pose(&self, world: &World, entity: &str, alpha: f32) -> Option<Pose> {
+        if let Some((pose, _)) = life::departure(world, entity, alpha) {
+            return Some(pose);
+        }
         if world.component(entity, galaxy_api::engine::PLACE).is_some()
             && world.component(entity, POSITION).is_none()
         {
@@ -373,10 +377,49 @@ impl View {
         {
             return Some(now);
         }
-        Some(match self.previous.get(entity) {
+        let mut pose = match self.previous.get(entity) {
             Some(before) => before.lerp(now, alpha.clamp(0.0, 1.0)),
             None => now,
-        })
+        };
+        if let Some((_, angle)) = galaxy_sim::life::pose(world, entity, alpha) {
+            pose.angle = angle;
+        }
+        Some(pose)
+    }
+
+    pub fn morph(&self, world: &World, entity: &str, alpha: f32) -> f32 {
+        if let Some((_, morph)) = life::departure(world, entity, alpha) {
+            return morph;
+        }
+        galaxy_sim::life::pose(world, entity, alpha)
+            .map(|p| p.0)
+            .unwrap_or_else(|| {
+                world
+                    .component(entity, MODEL)
+                    .and_then(|m| m.fields["morph"].as_f64())
+                    .unwrap_or(0.0) as f32
+            })
+    }
+
+    /// Rebuild an F8 moment without disturbing a film's continuing presentation.
+    pub fn note_scene(&mut self, world: &World, moment: &Moment) -> Scene {
+        let eye = self.eye;
+        let screens = std::mem::replace(&mut self.screens.presentation, moment.screens.clone());
+        let courses = std::mem::replace(
+            &mut self.courses,
+            course::Courses::starting_at(moment.course_age),
+        );
+        self.eye.view = moment.zoom;
+        let scene = self.scene(
+            world,
+            moment.alpha,
+            Vec2::new(moment.width as f32, moment.height as f32) / moment.scale,
+            moment.time,
+        );
+        self.eye = eye;
+        self.screens.presentation = screens;
+        self.courses = courses;
+        scene
     }
 
     /// Zooms by wheel `steps` (positive is closer), within the camera's range.
@@ -473,7 +516,7 @@ impl View {
             scene.meshes.push(
                 MeshInstance::new(handle, transform)
                     .with_material(material)
-                    .with_morph(number("morph", 0.0) as f32),
+                    .with_morph(self.morph(world, id, alpha)),
             );
         }
         let (plan, arrived) = self.plan(world, alpha);

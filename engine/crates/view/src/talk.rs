@@ -30,7 +30,13 @@ pub fn widgets(world: &World) -> Vec<Widget> {
                 id: Some(format!("talk.{id}")),
                 path: format!("{id}/talk"),
                 text: format!(
-                    "{}\n\n{}",
+                    "{}{}\n\n{}",
+                    world
+                        .component(text(f, "speaker"), LIFE)
+                        .map(|l| text(&l.fields, "name"))
+                        .filter(|s| !s.is_empty())
+                        .map(|s| format!("{s}\n"))
+                        .unwrap_or_default(),
                     text(line, "text"),
                     if text(line, "next").is_empty() {
                         "Done"
@@ -105,7 +111,7 @@ impl View {
                         .assets
                         .models
                         .get(text(f, "model"))?
-                        .morphed(f["morph"].as_f64().unwrap_or(0.0) as f32),
+                        .morphed(self.morph(world, id, alpha)),
                     transform,
                     inverse: transform.inverse(),
                 })
@@ -214,6 +220,16 @@ impl View {
     /// Check every authored line with its place's conditional screens and room camera.
     /// Active walks are sampled at every tick and halfway between ticks, including their endpoint.
     pub fn check_talk(&mut self, world: &World, size: Vec2) -> Vec<String> {
+        self.check_talk_at(world, size, 1.0, true)
+    }
+
+    pub(crate) fn check_talk_at(
+        &mut self,
+        world: &World,
+        size: Vec2,
+        alpha: f32,
+        walks: bool,
+    ) -> Vec<String> {
         let mut findings = Vec::new();
         for (id, c) in &world.entities {
             let Some(t) = c.get(TALK) else { continue };
@@ -264,7 +280,7 @@ impl View {
                             .unwrap()
                             .clone(),
                     );
-                    let scene = self.scene(&test, 1.0, size, 0.0);
+                    let scene = self.scene(&test, alpha, size, 0.0);
                     let prefix = format!("place `{place}`, talk `{id}`, line `{line}`");
                     findings.extend(
                         self.screens
@@ -272,16 +288,18 @@ impl View {
                             .iter()
                             .map(|p| format!("{prefix}: {p}")),
                     );
-                    if let Err(e) = self.focus(&test, speaker, scene.camera, size) {
+                    if let Err(e) = self.focus(&test, speaker, scene.camera, size, alpha) {
                         findings.push(format!("{prefix}: {e}"));
                     }
                 }
             };
             check_pose(&staged);
-            while staged.entities.values().any(|c| {
-                c.get(WALK)
-                    .is_some_and(|w| w.fields["active"] == true && w.fields["place"] == place)
-            }) {
+            while walks
+                && staged.entities.values().any(|c| {
+                    c.get(WALK)
+                        .is_some_and(|w| w.fields["active"] == true && w.fields["place"] == place)
+                })
+            {
                 let before = staged.clone();
                 staged.tick += 1;
                 galaxy_sim::places::advance_walks(&mut staged);
@@ -317,6 +335,7 @@ impl View {
         speaker: &str,
         camera: Camera,
         size: Vec2,
+        alpha: f32,
     ) -> Result<(), String> {
         let part = world
             .component(speaker, FOCUS)
@@ -329,7 +348,7 @@ impl View {
         if part.is_empty() {
             return Ok(());
         }
-        let geometry = self.geometry(world, 1.0);
+        let geometry = self.geometry(world, alpha);
         let g = geometry
             .iter()
             .find(|g| g.id == speaker)
