@@ -149,7 +149,7 @@ impl World {
             if matches!(batch.cause, Cause::Start { .. }) {
                 Ok(())
             } else {
-                crate::places::validate(self)
+                crate::places::validate(self).and_then(|()| crate::talk::validate(self))
             }
         });
         if let Err(e) = result {

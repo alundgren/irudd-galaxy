@@ -105,7 +105,7 @@ impl Screens {
                 size: w.size,
             });
             None
-        } else if w.kind == "button" {
+        } else if matches!(w.kind.as_str(), "button" | "bubble") {
             self.click(point, tick)
         } else {
             None

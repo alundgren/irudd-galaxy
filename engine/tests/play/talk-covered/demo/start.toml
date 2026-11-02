@@ -1,0 +1,94 @@
+[entities.state]
+visits = { count = 0 }
+[entities.station]
+"engine.place" = { parent = "", arrival = "talk.station_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Hall" }
+"engine.model" = { model = "talk.station" }
+[entities.station_entry]
+"engine.spot" = { place = "talk.station", name = "entry" }
+[entities.station_left]
+"engine.spot" = { place = "talk.station", name = "left" }
+[entities.station_right]
+"engine.spot" = { place = "talk.station", name = "right" }
+[entities.room_a]
+"engine.place" = { parent = "talk.station", arrival = "talk.room_a_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Room A" }
+"engine.model" = { model = "talk.room_a" }
+[entities.room_a_entry]
+"engine.spot" = { place = "talk.room_a", name = "entry" }
+[entities.room_a_left]
+"engine.spot" = { place = "talk.room_a", name = "left" }
+[entities.room_a_right]
+"engine.spot" = { place = "talk.room_a", name = "right" }
+[entities.room_b]
+"engine.place" = { parent = "talk.station", arrival = "talk.room_b_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Room B" }
+"engine.model" = { model = "talk.room_b" }
+[entities.room_b_entry]
+"engine.spot" = { place = "talk.room_b", name = "entry" }
+[entities.room_b_left]
+"engine.spot" = { place = "talk.room_b", name = "left" }
+[entities.room_b_right]
+"engine.spot" = { place = "talk.room_b", name = "right" }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "talk.station", spot = "talk.station_entry" }
+"engine.position" = {}
+[entities.first]
+"engine.being" = { player = false }
+"engine.location" = { place = "talk.room_a", spot = "talk.room_a_left" }
+"engine.position" = {}
+"engine.model" = { model = "talk.being" }
+[entities.second]
+"engine.being" = { player = false }
+"engine.location" = { place = "talk.room_a", spot = "talk.room_a_right" }
+"engine.position" = {}
+"engine.model" = { model = "talk.being" }
+[entities.third]
+"engine.being" = { player = false }
+"engine.location" = { place = "talk.room_b", spot = "talk.room_b_left" }
+"engine.position" = {}
+"engine.model" = { model = "talk.covered" }
+
+[entities.station_to_room_a]
+"engine.door" = { from = "talk.station", to = "talk.room_a", arrival = "talk.room_a_entry" }
+
+[entities.room_a_to_station]
+"engine.door" = { from = "talk.room_a", to = "talk.station", arrival = "talk.station_entry" }
+
+[entities.station_to_room_b]
+"engine.door" = { from = "talk.station", to = "talk.room_b", arrival = "talk.room_b_entry" }
+
+[entities.room_b_to_station]
+"engine.door" = { from = "talk.room_b", to = "talk.station", arrival = "talk.station_entry" }
+
+[entities.welcome]
+"engine.talk" = { speaker = "talk.first", first = "talk.welcome_1", story = true }
+[entities.welcome_1]
+"engine.talk_line" = { text = "This moment waits for you. Leave before the end and I will tell it again.", next = "talk.welcome_2" }
+[entities.welcome_2]
+"engine.talk_line" = { text = "This is the last line. Click Done to mark the moment seen." }
+[entities.repeat]
+"engine.talk" = { speaker = "talk.first", first = "talk.repeat_1" }
+[entities.repeat_1]
+"engine.talk_line" = { text = "You heard the whole story. Click my figure whenever you want to talk again." }
+[entities.second_talk]
+"engine.talk" = { speaker = "talk.second", first = "talk.second_1" }
+[entities.second_1]
+"engine.talk_line" = { text = "My bubble follows my anchor while I cross the floor." }
+[entities.third_talk]
+"engine.talk" = { speaker = "talk.third", first = "talk.third_1" }
+[entities.third_1]
+"engine.talk_line" = { text = "Cover my face with the test button. The geometry check must reject it." }
+[entities.marker]
+"engine.position" = { x = 0, y = 1, height = 0 }
+"engine.location" = { place = "talk.station" }
+"engine.model" = { model = "talk.being", scale = 0.6 }
+"engine.anchor" = { name = "voice", height = 1.3 }
+[entities.marker_talk]
+"engine.talk" = { speaker = "talk.marker", anchor = "talk.marker#voice", first = "talk.marker_1" }
+[entities.marker_1]
+"engine.talk_line" = { text = "I have an anchor, but no being component. I can speak too." }
+
+[entities.room_a_middle]
+"engine.spot" = { place = "talk.room_a", name = "middle" }

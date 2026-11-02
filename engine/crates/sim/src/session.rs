@@ -123,6 +123,7 @@ impl Session {
         let cause = world.service_cause("start");
         world.record(cause, START, Fields::new());
         crate::places::validate(&world)?;
+        crate::talk::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -145,6 +146,7 @@ impl Session {
             })
         })?;
         crate::places::validate(&world)?;
+        crate::talk::validate(&world)?;
         Ok(Session {
             world,
             shapes: Shapes::of(modules.values().map(|l| &l.module)),
@@ -189,6 +191,7 @@ impl Session {
             if let Some(finish) = crate::travel::finish(&self.world, &input)? {
                 commands.push(finish);
             }
+            commands.extend(crate::talk::input(&self.world, &input)?);
             commands.push(Command::Record {
                 kind: input.name.clone(),
                 payload: input.payload.clone(),
@@ -217,6 +220,7 @@ impl Session {
             self.run_cadence();
         }
         crate::travel::start(&mut self.world, before, &self.registry)?;
+        crate::talk::interrupt(&mut self.world, &self.registry)?;
         Ok(())
     }
 

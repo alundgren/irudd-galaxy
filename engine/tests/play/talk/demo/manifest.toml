@@ -1,0 +1,8 @@
+id = "talk"
+version = "0.1.0"
+min_engine_version = "0.4.0"
+scripts = ["scripts/main.luau"]
+events = ["go", "move_speaker", "cover"]
+writes = ["engine.place", "engine.door", "engine.room", "engine.spot", "engine.location", "engine.being", "engine.position", "engine.model", "engine.camera", "engine.talk", "engine.talk_line", "engine.focus", "engine.anchor", "engine.walk"]
+[components.visits]
+count = "int"

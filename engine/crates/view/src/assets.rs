@@ -17,6 +17,7 @@ pub const STYLE: &str = "style.toml";
 pub struct Assets {
     /// Models by ID (`<module>.<name>`).
     pub models: BTreeMap<String, MeshData>,
+    pub parts: BTreeMap<String, Vec<galaxy_mesh::gltf::PartRange>>,
     pub nodes: BTreeMap<String, BTreeMap<String, galaxy_mesh::gltf::NamedNode>>,
     /// Looks by ID (`<module>.<name>`).
     pub looks: BTreeMap<String, Look>,
@@ -69,10 +70,11 @@ impl Assets {
                 else {
                     continue;
                 };
-                match galaxy_mesh::gltf::read(text)
-                    .and_then(|mesh| galaxy_mesh::gltf::read_nodes(text).map(|nodes| (mesh, nodes)))
-                {
-                    Ok((mesh, nodes)) => {
+                match galaxy_mesh::gltf::read_parts(text).and_then(|(mesh, parts)| {
+                    galaxy_mesh::gltf::read_nodes(text).map(|nodes| (mesh, parts, nodes))
+                }) {
+                    Ok((mesh, parts, nodes)) => {
+                        out.parts.insert(format!("{id}.{name}"), parts);
                         out.nodes.insert(format!("{id}.{name}"), nodes);
                         out.models.insert(format!("{id}.{name}"), mesh);
                     }

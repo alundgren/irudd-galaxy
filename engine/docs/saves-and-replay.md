@@ -228,3 +228,12 @@ replay consumes that exact input. F8 and film rebuild the cut from the world tic
 existing interpolation metadata. Room markers are imported into the initial world;
 saves keep them as ordinary spot and position components. Existing room-less recordings
 and save format 1 remain compatible. See [Rooms and travel](rooms-and-travel.md).
+
+## Conversations
+
+`engine.talk` stores current line, active status and whether the final line was
+acknowledged; `engine.talk_line` holds the authored text chain. Start and advance are
+recorded engine inputs. Leaving interrupts without marking a story seen. Save/load
+and replay retain pending and active conversations through the ordinary component
+path, without a format change. F8, audit and film rebuild the bubble through the same
+scene path and existing moment metadata. See [Talk](talk.md).

@@ -23,6 +23,7 @@ pub mod services;
 pub mod session;
 pub mod shape;
 pub mod step;
+pub mod talk;
 pub mod travel;
 pub mod watch;
 pub mod world;

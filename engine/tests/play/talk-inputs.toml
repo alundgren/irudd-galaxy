@@ -1,0 +1,93 @@
+[[click]]
+tick = 5
+widget = "speaker.talk.marker"
+[[note]]
+tick = 10
+text = "An anchored object without a being component speaks"
+[[click]]
+tick = 15
+widget = "talk.talk.marker_talk"
+[[click]]
+tick = 20
+widget = "enter_a"
+[[click]]
+tick = 55
+widget = "speaker.talk.first"
+[[note]]
+tick = 60
+text = "The pending story's first line"
+[[click]]
+tick = 65
+widget = "talk.talk.welcome"
+[[note]]
+tick = 70
+text = "Mid-conversation second line"
+[[click]]
+tick = 75
+widget = "leave"
+[[note]]
+tick = 85
+text = "Room change interrupts the story without marking it seen"
+[[click]]
+tick = 110
+widget = "enter_a"
+[[click]]
+tick = 145
+widget = "speaker.talk.first"
+[[note]]
+tick = 150
+text = "Unfinished story is still waiting, from the beginning"
+[[click]]
+tick = 155
+widget = "talk.talk.welcome"
+[[click]]
+tick = 165
+widget = "talk.talk.welcome"
+[[click]]
+tick = 175
+widget = "speaker.talk.first"
+[[note]]
+tick = 180
+text = "Seen story gives way to repeat talk"
+[[click]]
+tick = 190
+widget = "talk.talk.repeat"
+[[click]]
+tick = 200
+widget = "speaker.talk.second"
+[[click]]
+tick = 210
+widget = "move"
+[[note]]
+tick = 225
+text = "Bubble follows the moving speaker"
+[[note]]
+tick = 245
+text = "Bubble still attached near the end of movement"
+[[click]]
+tick = 255
+widget = "talk.talk.second_talk"
+[[click]]
+tick = 265
+widget = "leave"
+[[click]]
+tick = 300
+widget = "enter_b"
+[[click]]
+tick = 335
+widget = "speaker.talk.third"
+[[click]]
+tick = 345
+widget = "cover"
+[[note]]
+tick = 350
+text = "Deliberately covered face; talk-covered module must fail check"
+[[click]]
+tick = 360
+widget = "cover"
+[[note]]
+tick = 365
+text = "Focus visible again"
+[[click]]
+tick = 370
+widget = "talk.talk.third_talk"

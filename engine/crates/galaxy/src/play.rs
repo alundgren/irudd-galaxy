@@ -507,7 +507,7 @@ impl App {
                 );
                 match galaxy_sim::travel::arrival(&self.session.world, true)
                     .map(Ok)
-                    .unwrap_or_else(|| r.view.screens.bot_click(&click))
+                    .unwrap_or_else(|| r.view.bot_talk_click(&self.session.world, &click))
                 {
                     Ok(input) => inputs.push(input),
                     Err(e) => {
@@ -754,6 +754,13 @@ impl ApplicationHandler for App {
                             r.view
                                 .screens
                                 .pointer_down(self.pointer, self.session.world.tick + 1)
+                                .or_else(|| {
+                                    r.view.talk_click(
+                                        &self.session.world,
+                                        self.pointer,
+                                        self.session.world.tick + 1,
+                                    )
+                                })
                         })
                 {
                     self.pending.push(input);
