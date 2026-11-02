@@ -7,8 +7,11 @@
 //! as presentation only. `shot` runs the same session headless for some ticks and writes
 //! one frame as a PNG; `galaxy film` ([`crate::film`]) writes every frame. Both report
 //! frame times.
+//!
+//! `play` also serves the GM's live socket (`galaxy_live`) unless `--no-live`: between
+//! frames it answers `galaxy-gm live` reads and hot-loads, with [`App`] as the live host.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -49,6 +52,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--frames",
     "--inputs",
     "--ticks",
+    "--no-live",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -276,7 +280,14 @@ struct App {
     /// How the last frame was drawn, so F8 can keep exactly that frame.
     last_alpha: f32,
     last_time: f32,
+    /// The live socket galaxy-gm reads and hot-loads through; none with `--no-live`.
+    live: Option<galaxy_live::Live>,
+    /// The last frame intervals in milliseconds, for the live status's frame rate.
+    recent: VecDeque<f64>,
 }
+
+/// Frame intervals the live status averages: about a second.
+const RECENT_FRAMES: usize = 60;
 
 fn ms_since(start: Instant) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0
@@ -327,6 +338,11 @@ impl App {
                 }
             }
         }
+        self.after_reload(first_fact);
+    }
+
+    /// After modules were hot-loaded: the keys, sounds and what the view draws follow.
+    fn after_reload(&mut self, first_fact: usize) {
         self.keys = bindings(self.session.modules());
         self.audio = audio_scene(&self.session, first_fact);
         self.audio_output.send(vec![
@@ -348,6 +364,15 @@ impl App {
         if let Some(r) = &mut self.running {
             r.view.reload(Some(&mut r.renderer), self.session.modules());
         }
+    }
+
+    /// Answers what galaxy-gm asked through the live socket. Between ticks only.
+    fn serve_live(&mut self) {
+        let Some(mut live) = self.live.take() else {
+            return;
+        };
+        live.serve(self);
+        self.live = Some(live);
     }
 
     /// F8: pauses on this tick and opens the note box over the frame that was shown.
@@ -470,6 +495,7 @@ impl App {
     fn note_frame(&mut self, event_loop: &ActiveEventLoop) {
         self.last = Instant::now();
         self.pace.reset();
+        self.serve_live();
         let (Some(r), Some(note)) = (&mut self.running, &mut self.note) else {
             return;
         };
@@ -498,6 +524,7 @@ impl App {
         let dt = (now - self.last).as_secs_f64();
         self.last = now;
         self.hot_load();
+        self.serve_live();
         let Some(r) = &mut self.running else { return };
         let ticks = self.pace.advance(dt);
         let sim_start = Instant::now();
@@ -565,6 +592,9 @@ impl App {
             }
             self.audio_output
                 .send(self.audio.update(&self.session.world));
+            if let Some(live) = &mut self.live {
+                live.after_tick(&self.session.world);
+            }
         }
         let sim_ms = ms_since(sim_start);
         if self
@@ -647,6 +677,12 @@ impl App {
         }
         let Some(r) = &mut self.running else { return };
         // The first frame's interval is the time since the window opened.
+        if self.frames > 1 {
+            if self.recent.len() == RECENT_FRAMES {
+                self.recent.pop_front();
+            }
+            self.recent.push_back(dt * 1000.0);
+        }
         if self.frames > 1 && self.times.interval.len() < 1_000_000 {
             self.times.push(dt * 1000.0, sim_ms, scene_ms, draw_ms);
             if self.resize_frames > 0 {
@@ -662,7 +698,92 @@ impl App {
     }
 }
 
+impl galaxy_live::Host for App {
+    fn session(&self) -> &Session {
+        &self.session
+    }
+
+    fn presentation(&self) -> Map<String, Value> {
+        let mean = self.recent.iter().sum::<f64>() / self.recent.len().max(1) as f64;
+        let fps = if mean > 0.0 {
+            (10_000.0 / mean).round() / 10.0
+        } else {
+            0.0
+        };
+        let window = self.running.as_ref().map(|r| {
+            let size = r.renderer.logical_size();
+            json!({
+                "logical": [size.x.round(), size.y.round()],
+                "scale": r.renderer.scale_factor(),
+            })
+        });
+        let paused_why = self
+            .note
+            .as_ref()
+            .map(|_| "an F8 note is open: the world waits until it is kept or dropped");
+        let Value::Object(map) = json!({
+            "fps": fps,
+            "frames": self.frames,
+            "window": window,
+            "paused": self.note.is_some(),
+            "paused_why": paused_why,
+            "watching_folders": self.watcher.is_some(),
+            "notes": self.notes,
+        }) else {
+            unreachable!()
+        };
+        map
+    }
+
+    fn frame(&mut self) -> Result<RgbaImage, String> {
+        let r = self
+            .running
+            .as_mut()
+            .ok_or("the window has not opened yet; try again in a moment")?;
+        let logical = r.renderer.logical_size();
+        let scene = r.view.scene(
+            &self.session.world,
+            self.last_alpha,
+            logical,
+            self.last_time,
+        );
+        r.renderer
+            .render_to_rgba(&scene)
+            .map_err(|e| format!("drawing the frame failed: {e}"))
+    }
+
+    fn hot_load(&mut self, modules: Vec<Module>) -> Vec<Result<(), String>> {
+        let first_fact = self.session.world.facts.len();
+        let results: Vec<Result<(), String>> = modules
+            .into_iter()
+            .map(|m| {
+                let id = m.id().to_owned();
+                let result = self.session.hot_load(m);
+                match &result {
+                    Ok(()) => eprintln!("galaxy: hot-loaded {id} (galaxy-gm live load)"),
+                    Err(e) => eprintln!("galaxy: hot-load of {id} failed: {e}"),
+                }
+                result
+            })
+            .collect();
+        if results.iter().any(Result::is_ok) {
+            self.after_reload(first_fact);
+        }
+        results
+    }
+
+    fn write_recording(&mut self) -> Option<PathBuf> {
+        App::write_recording(self);
+        Some(self.dir.join("recording.json"))
+    }
+}
+
 impl ApplicationHandler for App {
+    /// galaxy-gm sent a request through the live socket.
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+        self.serve_live();
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.running.is_some() {
             return;
@@ -972,6 +1093,13 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     let mut audio = audio_scene(&session, 0);
     let mut audio_output = galaxy_audio::Output::open();
     audio_output.send(audio.update(&session.world));
+    let event_loop =
+        EventLoop::new().map_err(|e| Failure::runtime(format!("no window system: {e}")))?;
+    let (live, live_report) = if options.no_live {
+        (None, json!({ "served": false, "why": "--no-live" }))
+    } else {
+        start_live(&event_loop, &session, &dirs, &dir)
+    };
     let mut app = App {
         audio,
         audio_output,
@@ -1007,15 +1135,17 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         note_writes: Vec::new(),
         last_alpha: 0.0,
         last_time: 0.0,
+        live,
+        recent: VecDeque::new(),
     };
-    let event_loop =
-        EventLoop::new().map_err(|e| Failure::runtime(format!("no window system: {e}")))?;
     event_loop
         .run_app(&mut app)
         .map_err(|e| Failure::runtime(format!("the window loop failed: {e}")))?;
     for write in std::mem::take(&mut app.note_writes) {
         let _ = write.join();
     }
+    // Stop serving before the files are written: the game is closing.
+    drop(app.live.take());
     if let Some(e) = app.error {
         return Err(e);
     }
@@ -1047,9 +1177,50 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "log": app.session.log,
         "session": app.dir.display().to_string(),
         "notes": app.notes,
+        "live": live_report,
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
     })))
+}
+
+/// Serves the live socket for this session, waking the window loop for each request. A
+/// socket that can't open is reported, and the game plays on without it.
+fn start_live(
+    event_loop: &EventLoop<()>,
+    session: &Session,
+    dirs: &BTreeMap<String, PathBuf>,
+    session_dir: &std::path::Path,
+) -> (Option<galaxy_live::Live>, Value) {
+    let proxy = event_loop.create_proxy();
+    let wake: galaxy_live::Wake = std::sync::Arc::new(move || {
+        let _ = proxy.send_event(());
+    });
+    let options = galaxy_live::ServerOptions {
+        dir: galaxy_live::live_dir(),
+        session_dir: session_dir.to_path_buf(),
+        build: BuildStamp::current().label(),
+        modules: session
+            .modules()
+            .map(|m| galaxy_live::RunningModule {
+                id: m.id().to_owned(),
+                dir: dirs[m.id()].clone(),
+            })
+            .collect(),
+    };
+    match galaxy_live::Live::start(options, Some(wake)) {
+        Ok(live) => {
+            let pid = live.discovery().pid;
+            eprintln!("galaxy: serving the live socket (pid {pid}): galaxy-gm live status");
+            (Some(live), json!({ "served": true, "pid": pid }))
+        }
+        Err(e) => {
+            eprintln!("galaxy: can't serve the live socket, playing without it: {e}");
+            (
+                None,
+                json!({ "served": false, "why": format!("the socket could not open: {e}") }),
+            )
+        }
+    }
 }
 
 fn audio_scene(session: &Session, first_fact: usize) -> crate::audio::Cues {

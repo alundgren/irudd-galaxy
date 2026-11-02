@@ -1,0 +1,27 @@
+[package]
+name = "galaxy-live"
+description = "The GM's live socket: the server a played game runs, its protocol and the client galaxy-gm reads and hot-loads through"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+directories.workspace = true
+galaxy-api.workspace = true
+galaxy-module.workspace = true
+galaxy-render.workspace = true
+galaxy-sim.workspace = true
+getrandom.workspace = true
+interprocess.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+tempfile.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

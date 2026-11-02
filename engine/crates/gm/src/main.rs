@@ -10,6 +10,7 @@
 mod audit;
 mod fields;
 mod film;
+mod live;
 mod look;
 mod model;
 mod sessions;
@@ -199,6 +200,10 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             )
         }
         "motion check" => film::check(command, args),
+        path if path.starts_with("live ") => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            live::run(&path["live ".len()..], &positional, &opts, usage)
+        }
         tool => match tool.strip_prefix("motion ") {
             Some(tool) => film::motion(command, tool, args),
             None => unreachable!("galaxy-gm has help for `{tool}` but does not run it"),
@@ -484,6 +489,12 @@ mod tests {
             ("recording", sessions::RECORDING_OPTIONS),
             ("test", test::OPTIONS),
             ("what-if", what_if::OPTIONS),
+            ("live status", live::STATUS_OPTIONS),
+            ("live state", live::STATE_OPTIONS),
+            ("live history", live::HISTORY_OPTIONS),
+            ("live watch", live::WATCH_OPTIONS),
+            ("live shot", live::SHOT_OPTIONS),
+            ("live load", live::LOAD_OPTIONS),
         ] {
             let c = help::find(Tool::Gm, path).unwrap();
             assert_eq!(sorted(c.options()), sorted(takes.to_vec()), "{path}");

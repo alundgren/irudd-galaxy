@@ -24,6 +24,7 @@ publish = false
 # Our crates
 galaxy-api = { path = "crates/api" }
 galaxy-audio = { path = "crates/audio" }
+galaxy-live = { path = "crates/live" }
 galaxy-mesh = { path = "crates/mesh" }
 galaxy-module = { path = "crates/module" }
 galaxy-motion = { path = "crates/motion" }
@@ -43,6 +44,8 @@ cpal = "0.15.3"
 hound = "3.5.1"
 lewton = "0.10.2"
 directories = "6.0"
+# The live socket's session token, from the OS.
+getrandom = "0.3.4"
 glam = { version = "0.34", features = ["serde", "bytemuck"] }
 # glTF parsing for models; buffers are decoded by us, so no image or file loading.
 gltf = { version = "1.4", default-features = false, features = ["utils", "names", "extras"] }
@@ -53,6 +56,8 @@ glyphon = "0.12"
 libm = "0.2.16"
 # Luau (MIT) is built from source by mlua's bundled luau0-src; no system Lua needed.
 mlua = { version = "0.12.2", features = ["luau", "serialize"] }
+# Local sockets for the live socket: a named pipe on Windows, a Unix socket elsewhere.
+interprocess = "2.4.7"
 # Watches module folders for hot-loading.
 notify = "8.2.1"
 # The logging facade wgpu already logs through.
