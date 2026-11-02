@@ -1,0 +1,30 @@
+about = "A landing deck, gantry and lamp; an open station view"
+[[part]]
+shape = "cylinder"
+radius = 8
+height = 0.3
+at = [0, 0, -0.3]
+paint = "trim"
+[[part]]
+shape = "ring"
+radius = 6
+tube = 0.15
+paint = "lights"
+[[part]]
+shape = "block"
+depth = 3
+width = 5
+height = 3
+at = [-3, 2, 0]
+[[part]]
+shape = "beacon"
+height = 3
+at = [3, 4, 0]
+[[marker]]
+name = "camera"
+at = [16, -19, 15]
+turn = 130
+pitch = -32
+[[marker]]
+name = "spot.entry"
+at = [2, 0, 0]

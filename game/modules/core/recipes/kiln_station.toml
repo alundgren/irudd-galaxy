@@ -1,0 +1,4 @@
+about = "Cinder Kiln wears fired clay and blue enamel"
+[[part]]
+use = "station"
+palette = { main = "#cf8765", accent = "#87c6c8", trim = "#435e72" }

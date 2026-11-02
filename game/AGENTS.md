@@ -7,7 +7,10 @@ README and files; keep its rules and names there, never in these instructions.
 
 ## What is here
 
-- `modules/`: authored modules, with their data, scripts, screens, assets and tests.
+- `modules/`: the runtime module collection, loaded together by `galaxy play --modules
+  game/modules`. Its modules must compose into one game.
+- `examples/`: standalone examples, checked, tested and played separately. Quiet
+  Garden lives at `game/examples/quiet-garden`; it has its own player and scene style.
 - `docs/`: the change list and design notes.
 
 Nothing in `game/` is compiled.
