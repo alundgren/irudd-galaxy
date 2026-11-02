@@ -1,0 +1,21 @@
+[[note]]
+tick = 5
+text = "Seed and keeper before watering."
+[[click]]
+tick = 15
+widget = "water"
+[[click]]
+tick = 30
+widget = "water"
+[[click]]
+tick = 45
+widget = "water"
+[[note]]
+tick = 55
+text = "Three clicks brought the flower to full bloom."
+[[click]]
+tick = 70
+widget = "reset"
+[[note]]
+tick = 80
+text = "Plant another seed resets the flower and water count."

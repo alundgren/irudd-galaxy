@@ -1,0 +1,9 @@
+id = "quiet_garden"
+version = "0.1.0"
+min_engine_version = "0.5.0"
+scripts = ["scripts/main.luau"]
+events = ["water", "bloomed", "reset"]
+writes = ["engine.place", "engine.spot", "engine.being", "engine.location", "engine.position", "engine.model", "engine.camera"]
+
+[components.growth]
+water = { type = "int", default = 0 }

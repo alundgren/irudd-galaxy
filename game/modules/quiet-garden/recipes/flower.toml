@@ -1,0 +1,21 @@
+about = "A stem with a pink blossom"
+[[part]]
+name = "stem"
+shape = "cylinder"
+radius = 0.12
+height = 2.2
+[[part]]
+name = "petals"
+shape = "sphere"
+radius = 0.5
+angle = 0
+distance = 0.45
+copies = 5
+at = [0, 0, 2.3]
+paint = "#e9a2b6"
+[[part]]
+name = "centre"
+shape = "sphere"
+radius = 0.35
+at = [0, 0, 2.5]
+paint = "accent"

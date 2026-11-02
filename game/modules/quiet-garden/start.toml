@@ -1,0 +1,23 @@
+[entities.garden]
+"engine.place" = { width = 20, depth = 16, arrival = "quiet_garden.entry" }
+"engine.position" = {}
+"engine.model" = { model = "quiet_garden.garden" }
+growth = { water = 0 }
+
+[entities.entry]
+"engine.spot" = { place = "quiet_garden.garden", name = "entry", x = 3, y = -2 }
+
+[entities.keeper]
+"engine.being" = { player = true, home = "quiet_garden.garden", state = "Tending the garden" }
+"engine.location" = { place = "quiet_garden.garden", spot = "quiet_garden.entry" }
+"engine.position" = { x = 3, y = -2 }
+"engine.model" = { model = "quiet_garden.keeper" }
+
+[entities.flower]
+"engine.location" = { place = "quiet_garden.garden" }
+"engine.position" = { x = 1, y = 2 }
+"engine.model" = { model = "quiet_garden.flower", scale = 0.25 }
+
+[entities.camera]
+"engine.position" = { x = 0, y = 0 }
+"engine.camera" = { view = 26, min_view = 20, max_view = 40, tilt = 30 }
