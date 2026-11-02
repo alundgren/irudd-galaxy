@@ -24,14 +24,15 @@ galaxy-render.workspace = true
 galaxy-script.workspace = true
 galaxy-sim.workspace = true
 galaxy-view.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

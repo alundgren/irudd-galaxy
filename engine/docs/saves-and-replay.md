@@ -114,6 +114,7 @@ Every `galaxy play` records itself into a folder of its own under the sessions f
   recording.json      written at every note and when the window closes
   save.db             the world when the window closed
   notes/0001.png      the frame that was shown when each note was taken
+  recording.json.handled/0001.json   the GM's answer to note 1, when handled
   audit/0001.png      the same moment drawn again by galaxy-gm audit
   shots/tick-88.png   what the window showed when galaxy-gm live shot asked
 ```
@@ -139,6 +140,45 @@ the game, so its time is left out of the frame-time report.
 **`galaxy-gm notes`** lists the notes of every session in the sessions folder, newest
 first (or of one session or recording): number, tick, time and text, the frame that was
 seen and, once audited, the frame drawn again. It shows 20 unless `--all`.
+
+**`galaxy-gm notes inbox`** uses that same session reader but keeps only unhandled notes,
+newest sessions and newest notes first. Each entry keeps its original note number, tick,
+time in seconds, text and frame path, so `audit` and `film --note` address the same moment.
+The default cap of 20 is applied after filtering; `--all` removes it. `--handled` lists
+answered notes instead, including their reason and optional change reference. The ordinary
+`notes` command remains the complete history, with `handled: null` or the answer per note.
+No sessions yet means an empty inbox; unreadable recordings are reported as `unreadable`
+when listing a folder, as for `notes`, rather than silently disappearing.
+
+```sh
+galaxy-gm notes inbox
+galaxy-gm notes handle <session> --note 1 --reason "Adjusted the panel spacing" --change <commit>
+galaxy-gm notes inbox --handled
+galaxy-gm notes unhandle <session> --note 1
+```
+
+Handling requires a nonempty reason describing what answered the note. `--change` is
+optional free text: a commit, PR or module version. Repeating handle replaces that note's
+answer; unhandle removes it and is harmless when already unhandled. Unknown note numbers
+are `bad_input` (exit 4), invalid arguments `usage` (2), and storage I/O failures `runtime`
+(1). Each command prints one JSON value. Damaged or unsupported receipts are `bad_input`,
+not silently treated as answered; unhandle can remove a damaged receipt.
+
+**Storage:** `crates/gm/src/sessions/handled.rs` writes format-1 JSON receipts under
+`<recording filename>.handled/`, beside the recording, named by note number (`0001.json`).
+Each holds the original note event, reason and optional change. Matching the event prevents
+a recording replaced at the same path from hiding a different note. Appending notes to a
+running session preserves existing marks. A temporary file in the same folder replaces
+one receipt atomically; separate note files avoid competing updates to one shared index.
+Keep this folder when moving or backing up a session. New sessions and engine reinstalls
+do not touch it; it lives with the game data, including when `GALAXY_SESSIONS` moves that
+data. No absolute session identity or engine version is needed to find the marks.
+
+An engine-repository checklist would tie player feedback to a checkout and installation;
+putting answers into the recording would let the playing process overwrite them. A global
+inbox database would need its own session identities and relocation rules. Per-note
+receipts reuse the existing session layout and reader and let an unattended GM use the
+same commands later, without changing the recorded play or its replay format.
 
 **`galaxy-gm audit <recording>`** runs on the build that made the recording (the launcher
 picks it, as for replay). It replays from the start and, at each note, compares the
