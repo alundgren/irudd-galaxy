@@ -1,12 +1,13 @@
 //! `galaxy-gm model <module> [<model>]`: what a model is, without reading its glTF: its
 //! parts (glTF nodes) with their sizes and places, its outline on the plane as collision
-//! sees it, its morph target, and which parts glow or carry a bite; or, without a model,
+//! sees it, its morph target, which parts glow or carry a bite, and its markers (named
+//! nodes without a mesh, such as a room's `camera` and `spot.<name>`); or, without a model,
 //! every model the module has in a line each.
 
 use std::path::Path;
 
 use galaxy_api::engine::MODEL;
-use galaxy_mesh::gltf::{PartInfo, read_parts};
+use galaxy_mesh::gltf::{PartInfo, PartRange, read_nodes, read_parts};
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover};
@@ -112,7 +113,7 @@ pub fn make(dir: &Path, only: Option<&str>, check: bool) -> Result<Output, Failu
         "made": rows,
         "units": "size x by y by z at (centre), world units at scale 1: x the model's front, y its left, z up",
         "next": format!(
-            "galaxy-gm model {} <model> for one model's parts; galaxy shot --modules <folder> or galaxy play to see it",
+            "galaxy-gm model {} <model> for one model's parts and markers; galaxy shot --modules <folder> or galaxy play to see it",
             dir.display()
         ),
     });
@@ -169,13 +170,17 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
     let Some(want) = name else {
         let mut list = Map::new();
         for (path, text, id) in &models {
-            let line = match read_parts(text) {
-                Ok((mesh, ranges)) => {
+            let line = match read_parts(text).and_then(|r| {
+                let m = markers(text, &r.1)?;
+                Ok((r, m))
+            }) {
+                Ok(((mesh, ranges), marks)) => {
                     let parts = PartInfo::of(&mesh, &ranges);
                     let all = whole(&parts);
                     format!(
-                        "{path}: {} part(s), {} triangles, {}; worn by {}",
+                        "{path}: {} part(s), {} marker(s), {} triangles, {}; worn by {}",
                         parts.len(),
+                        marks.len(),
                         mesh.triangle_count(),
                         place(all.0, all.1),
                         worn.get(id).map_or("nothing".to_owned(), |w| w.join(", "))
@@ -191,7 +196,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
             "module": module.id(),
             "models": list,
             "units": "size x by y by z at (centre), world units at scale 1: x the model's front, y its left, z up",
-            "next": format!("galaxy-gm model {} <model> for one model's parts, outline, morph, glow and bite", dir.display()),
+            "next": format!("galaxy-gm model {} <model> for one model's parts, outline, morph, glow, bite and markers", dir.display()),
         })));
     };
     let full = if want.contains('.') {
@@ -211,6 +216,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         )));
     };
     let (mesh, ranges) = read_parts(text).map_err(|e| bad(format!("{path} does not read: {e}")))?;
+    let marks = markers(text, &ranges).map_err(|e| bad(format!("{path} does not read: {e}")))?;
     let parts = PartInfo::of(&mesh, &ranges);
     let all = whole(&parts);
     let profile = Profile::of(&mesh);
@@ -282,9 +288,29 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         },
         "glow": named(&|p: &PartInfo| p.glow),
         "bite": named(&|p: &PartInfo| p.bite),
+        "markers": marks,
+        "markers_about": "named nodes without a mesh, by name: at (its place), looks (the way it faces; a camera looks along it) and up, in the model's frame like the sizes. A room's camera is its `camera` node (or the one engine.room camera names); engine.spot `name` stands at node `spot.<name>`",
         "worn_by": worn.get(id.as_str()).cloned().unwrap_or_default(),
         "next": "galaxy-gm motion flicker <film> names these parts under changed pixels (events.parts); galaxy shot --crop <thing> draws one thing close up",
     })))
+}
+
+/// The model's markers: named nodes that are not parts, with where they are, which way
+/// they face and their up, as rooms and spots read them.
+fn markers(text: &str, parts: &[PartRange]) -> Result<Map<String, Value>, String> {
+    let v = |p: [f32; 3]| json!(p.map(r2));
+    Ok(read_nodes(text)?
+        .into_iter()
+        .filter(|(name, _)| !parts.iter().any(|p| p.name == *name))
+        .map(|(name, n)| {
+            let m = json!({
+                "at": v(n.position.to_array()),
+                "looks": v(n.forward.to_array()),
+                "up": v(n.up.to_array()),
+            });
+            (name, m)
+        })
+        .collect())
 }
 
 /// The box round every part.
@@ -450,6 +476,35 @@ mod tests {
             panic!("an unknown recipe is made");
         };
         assert!(none.message.contains("outpost"), "{}", none.message);
+    }
+
+    #[test]
+    fn a_generated_model_reports_its_camera_and_spot_markers() {
+        // The yard's outpost is made from recipes/outpost.toml (make --check pins it).
+        let yard = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/yard");
+        let all = json(run(&yard, None).unwrap());
+        let line = all["models"]["yard.outpost"].as_str().unwrap();
+        assert!(line.contains(", 2 marker(s), "), "{line}");
+        let out = json(run(&yard, Some("outpost")).unwrap());
+        let markers = out["markers"].as_object().unwrap();
+        let names: Vec<&str> = markers.keys().map(String::as_str).collect();
+        assert_eq!(names, ["camera", "spot.dock"], "{out}");
+        let num = |m: &str, k: &str, i: usize| out["markers"][m][k][i].as_f64().unwrap();
+        // The camera stands where the recipe puts it and looks back and down.
+        assert_eq!([0, 1, 2].map(|i| num("camera", "at", i)), [22.0, 0.0, 14.0]);
+        assert!(num("camera", "looks", 0) < -0.8 && num("camera", "looks", 2) < -0.4);
+        assert!(num("camera", "up", 2) > 0.8);
+        // The dock spot is 11.5 out at 90 degrees, facing the centre.
+        assert_eq!(num("spot.dock", "at", 1), 11.5);
+        assert!(num("spot.dock", "looks", 1) < -0.99, "{out}");
+        // Markers are not parts.
+        let parts = out["parts"].as_array().unwrap();
+        assert!(
+            !parts
+                .iter()
+                .any(|p| p.as_str().unwrap().starts_with("camera:")),
+            "{out}"
+        );
     }
 
     #[test]

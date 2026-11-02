@@ -497,8 +497,9 @@ pub static COMMANDS: &[Command] = &[
         path: "model",
         synopsis: "<module> [<model>]",
         answers: "What is a model made of? Its parts (glTF nodes) with sizes and places, \
-                  its outline as collision sees it, its morph target, and which parts glow or \
-                  carry a bite, without reading the glTF file.",
+                  its outline as collision sees it, its morph target, which parts glow or \
+                  carry a bite, and its markers (camera, spot.<name>), without reading the \
+                  glTF file.",
         about: "Sizes are world units at scale 1, in the model's own frame: x its front (where \
                 its thing heads), y its left, z up; a thing's engine.model scale multiplies \
                 them. The outline is the model's convex footprint on the plane, which \
@@ -514,7 +515,8 @@ pub static COMMANDS: &[Command] = &[
         output: &[
             (
                 "models",
-                "without a model: each one's file, parts, triangles, size and who wears it",
+                "without a model: each one's file, parts, markers, triangles, size and who \
+              wears it",
             ),
             (
                 "size, triangles, radius",
@@ -540,6 +542,12 @@ pub static COMMANDS: &[Command] = &[
                 "glow, bite",
                 "the parts that glow (self-lit, from glowing paint such as lights) or carry a \
               bite (paint marked as a fresh cut, kept out of the shadow hatching), and how much",
+            ),
+            (
+                "markers",
+                "each named node without a mesh, by name (camera, spot.<name>): at (its \
+              place), looks (the way it faces; a camera looks along it) and up, in the \
+              model's frame; a room's camera and its spots stand at these",
             ),
             (
                 "worn_by",

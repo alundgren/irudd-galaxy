@@ -69,7 +69,8 @@ turn = 180.0
   then runs it from whole to mined (`renderer-and-style.md`).
 - **Markers** are empty named nodes after the parts, with a pose: `turn` and `pitch` say
   where they look, so a `camera` marker looks down at the room and a `spot.<name>` faces
-  the way a being stands (`rooms-and-travel.md`).
+  the way a being stands (`rooms-and-travel.md`). `galaxy-gm model <module> <model>`
+  lists them under `markers`, each with `at`, `looks` and `up`.
 
 Each `[[part]]` becomes exactly one glTF node, named by `name` (default: its shape or
 used recipe, `.2`, `.3` after the first). That is the model contract's part: the renderer
