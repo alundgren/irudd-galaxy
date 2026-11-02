@@ -964,39 +964,41 @@ impl Renderer {
                 surface,
                 config,
                 window,
-            } => match {
+            } => {
                 if (config.width, config.height) != self.surface_size {
                     surface.configure(&self.device, config);
                     self.surface_size = (config.width, config.height);
                 }
-                surface.get_current_texture()
-            } {
-                wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-                wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
-                    return Ok(());
+                let acquired = surface.get_current_texture();
+                match acquired {
+                    wgpu::CurrentSurfaceTexture::Success(frame) => frame,
+                    wgpu::CurrentSurfaceTexture::Timeout
+                    | wgpu::CurrentSurfaceTexture::Occluded => {
+                        return Ok(());
+                    }
+                    wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
+                        // The acquired texture must be released before reconfiguring.
+                        drop(frame);
+                        surface.configure(&self.device, config);
+                        return Ok(());
+                    }
+                    wgpu::CurrentSurfaceTexture::Outdated => {
+                        surface.configure(&self.device, config);
+                        return Ok(());
+                    }
+                    wgpu::CurrentSurfaceTexture::Lost => {
+                        *surface = self
+                            .instance
+                            .create_surface(window.clone())
+                            .map_err(|e| RenderError::Surface(e.to_string()))?;
+                        surface.configure(&self.device, config);
+                        return Ok(());
+                    }
+                    wgpu::CurrentSurfaceTexture::Validation => {
+                        return Err(RenderError::Surface("validation error".into()));
+                    }
                 }
-                wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
-                    // The acquired texture must be released before reconfiguring.
-                    drop(frame);
-                    surface.configure(&self.device, config);
-                    return Ok(());
-                }
-                wgpu::CurrentSurfaceTexture::Outdated => {
-                    surface.configure(&self.device, config);
-                    return Ok(());
-                }
-                wgpu::CurrentSurfaceTexture::Lost => {
-                    *surface = self
-                        .instance
-                        .create_surface(window.clone())
-                        .map_err(|e| RenderError::Surface(e.to_string()))?;
-                    surface.configure(&self.device, config);
-                    return Ok(());
-                }
-                wgpu::CurrentSurfaceTexture::Validation => {
-                    return Err(RenderError::Surface("validation error".into()));
-                }
-            },
+            }
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(self.format),

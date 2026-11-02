@@ -131,6 +131,9 @@ pub fn run(path: &Path) -> Result<Output, Failure> {
             "text": note.text,
             "identical": identical,
         });
+        if note.moment.is_none() || note.frame.is_none() {
+            pictures.no_frame += 1;
+        }
         if let (Some(moment), Some(r), Some(v)) = (&note.moment, &mut renderer, &mut view) {
             let image = draw(r, v, &replay, moment).map_err(Failure::runtime)?;
             std::fs::create_dir_all(&audit_dir).map_err(|e| {
@@ -206,6 +209,8 @@ struct Pictures {
     missing: Option<PathBuf>,
     /// Frames of another size than the moment drawn.
     other_size: usize,
+    /// Notes that kept no frame or moment to draw.
+    no_frame: usize,
 }
 
 impl Pictures {
@@ -239,10 +244,13 @@ impl Pictures {
                 self.other_size
             ));
         }
-        out.push_str(
-            ". Notes without a kept frame (from galaxy sim run, or with no moment) only \
-             check the world hash",
-        );
+        if self.no_frame > 0 {
+            out.push_str(&format!(
+                ". {} notes kept no frame (from galaxy sim run, or an older recording), so \
+                 only their world hash was checked",
+                self.no_frame
+            ));
+        }
         out
     }
 }
@@ -258,6 +266,12 @@ mod tests {
             missing: Some(PathBuf::from("copy/notes/0001.png")),
             ..Pictures::default()
         };
+        assert!(!none.summary(3).contains("kept no frame"));
+        let sim_notes = Pictures {
+            no_frame: 2,
+            ..Pictures::default()
+        };
+        assert!(sim_notes.summary(2).contains("2 notes kept no frame"));
         let text = none.summary(3);
         assert!(text.starts_with("compared no pictures"), "{text}");
         assert!(text.contains("copy/notes/0001.png"), "{text}");

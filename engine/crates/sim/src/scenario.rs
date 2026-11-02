@@ -650,6 +650,23 @@ mod tests {
     }
 
     #[test]
+    fn a_resize_smaller_than_the_window_minimum_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("inputs.toml");
+        std::fs::write(&path, "[[resize]]\ntick = 5\nwidth = 320\nheight = 600\n").unwrap();
+        let e = InputsFile::read(&path).unwrap_err();
+        assert!(
+            e.contains("resize on tick 5") && e.contains("640x360"),
+            "{e}"
+        );
+        std::fs::write(&path, "[[resize]]\ntick = 5\nwidth = 1000\nheight = 600\n").unwrap();
+        assert_eq!(
+            InputsFile::read(&path).unwrap().resizes,
+            vec![(5, (1000, 600))]
+        );
+    }
+
+    #[test]
     fn an_inputs_file_of_every_documented_key_reads() {
         let mut text = String::new();
         let mut last = "";
