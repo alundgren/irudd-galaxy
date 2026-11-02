@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 galaxy-api.workspace = true
+galaxy-audio.workspace = true
+hound.workspace = true
 galaxy-module.workspace = true
 galaxy-motion.workspace = true
 galaxy-render.workspace = true

@@ -66,6 +66,8 @@ scripts/*.luau     scripts
 tests/*.toml       scenario tests (saves-and-replay.md)
 style.toml         optional: looks, ink, light and sky (renderer-and-style.md)
 models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
+audio.toml        optional: event sounds, music and place ambience (audio.md)
+sounds/*          WAV or Ogg Vorbis presentation assets
 ```
 
 `start.toml` lists entities by name with their components:
@@ -80,9 +82,10 @@ door = { open = false }                # this module's component type
 
 `crates/module/src/module.rs` reads a module folder into memory once: its `.toml`,
 `.luau` and `.gltf` files (names starting with `.` are skipped), with line endings made
-`\n`. The engine runs, records and hashes only that copy, so a recording can store exactly
-the files a session ran, models included. Other files (notes, later sound) are not read
-yet.
+`\n`. Simulation runs, records and hashes that copy, including models and audio tables.
+Binary sound files are decoded separately by presentation audio and checked by the GM.
+They are not embedded in recordings or module text hashes; headless replay needs no
+sound files or audio device. See [audio](audio.md).
 
 ## The version gate
 

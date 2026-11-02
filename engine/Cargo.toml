@@ -23,6 +23,7 @@ publish = false
 [workspace.dependencies]
 # Our crates
 galaxy-api = { path = "crates/api" }
+galaxy-audio = { path = "crates/audio" }
 galaxy-mesh = { path = "crates/mesh" }
 galaxy-module = { path = "crates/module" }
 galaxy-motion = { path = "crates/motion" }
@@ -37,6 +38,10 @@ galaxy-view = { path = "crates/view" }
 base64 = "0.22.1"
 blake3 = "1.8.7"
 bytemuck = { version = "1.25", features = ["derive"] }
+# Device output and file decoding only; galaxy-audio owns the mixer.
+cpal = "0.15.3"
+hound = "3.5.1"
+lewton = "0.10.2"
 directories = "6.0"
 glam = { version = "0.34", features = ["serde", "bytemuck"] }
 # glTF parsing for models; buffers are decoded by us, so no image or file loading.
