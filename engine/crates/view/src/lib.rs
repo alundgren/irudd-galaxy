@@ -236,6 +236,11 @@ pub struct View {
     pub camera: Option<Camera>,
     pub courses: course::Courses,
     talk_frame: (f32, Vec2),
+    /// Speakers of the lines on screen whose focus the last scene covered or left off
+    /// screen ([`View::live_focus`]), as problems.
+    talk_focus: Vec<String>,
+    /// Whether scenes run the live focus check; off while `check_talk` runs its own.
+    focus_live: bool,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -291,6 +296,8 @@ impl View {
             camera: None,
             courses: course::Courses::default(),
             talk_frame: (1.0, Vec2::ONE),
+            talk_focus: Vec::new(),
+            focus_live: true,
         };
         view.replace(renderer, assets);
         view
@@ -464,6 +471,7 @@ impl View {
     /// `logical` pixels, `time` seconds into the session (for shader shimmer only).
     pub fn scene(&mut self, world: &World, alpha: f32, logical: Vec2, time: f32) -> Scene {
         self.talk_frame = (alpha, logical);
+        let full = world;
         let shown = rooms::screen_world(world, travel::place(world, alpha));
         let world = &*shown;
         let camera = self.frame_camera(world, alpha);
@@ -564,6 +572,11 @@ impl View {
         self.screens.clock = (world.tick.saturating_sub(1) as f32 + alpha) / 30.0;
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
+        self.talk_focus = if self.focus_live {
+            self.live_focus(full, alpha, logical, camera)
+        } else {
+            Vec::new()
+        };
         if let Some(cut) = travel::Cut::step(world, alpha) {
             cut.overlay(world, logical, &mut scene);
         }
@@ -658,10 +671,12 @@ impl View {
         self.reach.get(id).map_or(1.0, |r| r * scale + 0.8)
     }
 
-    /// What is wrong with the modules' models and styles, as text.
+    /// What is wrong with the modules' models and styles, and with what the last scene
+    /// showed (screen readability, covered speakers), as text.
     pub fn problems(&self) -> Vec<String> {
         let mut all = self.assets.problems.clone();
         all.extend(self.screens.problems.clone());
+        all.extend(self.talk_focus.clone());
         all.extend(self.assets.conflicts.iter().map(assets::Conflict::message));
         all.extend(
             self.missing

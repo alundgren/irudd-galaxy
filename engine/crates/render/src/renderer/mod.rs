@@ -399,6 +399,12 @@ pub struct Renderer {
     samples: u32,
     size: (u32, u32),
     scale: f32,
+    /// The size the world targets were made for. They are rebuilt when the frame
+    /// starts if the window size or scale has moved since, so a burst of resize events
+    /// costs one rebuild.
+    raster: (u32, u32),
+    /// The size the window surface was last configured at.
+    surface_size: (u32, u32),
     msaa: Option<wgpu::TextureView>,
     world_color: wgpu::TextureView,
     antialias_bind: wgpu::BindGroup,
@@ -678,7 +684,7 @@ impl Renderer {
             },
         );
         let text = TextSystem::new(&device, &queue, format, 1);
-        let raster_size = world_size(size, device.limits().max_texture_dimension_2d);
+        let raster_size = world_size(size, scale, device.limits().max_texture_dimension_2d);
         let (msaa, depth) = create_targets(&device, format, samples, raster_size);
         let (world_color, antialias_bind) =
             create_world_color(&device, &layouts.antialias, &screen, format, raster_size);
@@ -716,6 +722,8 @@ impl Renderer {
             samples,
             size,
             scale,
+            raster: raster_size,
+            surface_size: size,
             msaa,
             world_color,
             antialias_bind,
@@ -772,21 +780,37 @@ impl Renderer {
         }
     }
 
-    /// Resizes the target. Zero sizes (a minimised window) are ignored.
+    /// Resizes the target. Zero sizes (a minimised window) are ignored. The window
+    /// surface and the world targets follow on the next frame: configuring a surface
+    /// waits for the GPU to finish all work in flight, so a burst of resize events
+    /// between two frames costs one wait, not one each.
     pub fn resize(&mut self, width: u32, height: u32) {
         if width == 0 || height == 0 || (width, height) == self.size {
             return;
         }
         self.size = (width, height);
-        if let Target::Window {
-            surface, config, ..
-        } = &mut self.target
-        {
+        if let Target::Window { config, .. } = &mut self.target {
             config.width = width;
             config.height = height;
-            surface.configure(&self.device, config);
         }
-        let raster_size = world_size(self.size, self.device.limits().max_texture_dimension_2d);
+    }
+
+    /// The world raster for the current size and scale.
+    fn raster_size(&self) -> (u32, u32) {
+        world_size(
+            self.size,
+            self.scale,
+            self.device.limits().max_texture_dimension_2d,
+        )
+    }
+
+    /// Rebuilds the world targets if the size or scale has changed since they were made.
+    fn fit_targets(&mut self) {
+        let raster_size = self.raster_size();
+        if raster_size == self.raster {
+            return;
+        }
+        self.raster = raster_size;
         let (msaa, depth) = create_targets(&self.device, self.format, self.samples, raster_size);
         self.msaa = msaa;
         self.depth = depth;
@@ -940,7 +964,13 @@ impl Renderer {
                 surface,
                 config,
                 window,
-            } => match surface.get_current_texture() {
+            } => match {
+                if (config.width, config.height) != self.surface_size {
+                    surface.configure(&self.device, config);
+                    self.surface_size = (config.width, config.height);
+                }
+                surface.get_current_texture()
+            } {
                 wgpu::CurrentSurfaceTexture::Success(frame) => frame,
                 wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                     return Ok(());
@@ -1089,6 +1119,7 @@ impl Renderer {
         scene: &Scene,
         target: &wgpu::TextureView,
     ) -> Result<wgpu::CommandEncoder, RenderError> {
+        self.fit_targets();
         let (w, h) = self.size;
         let viewport = Vec2::new(w as f32, h as f32);
         let logical = viewport / self.scale;
@@ -1137,13 +1168,7 @@ impl Renderer {
             bytemuck::bytes_of(&InkGpu {
                 params: ink,
                 color: scene.ink.color.to_array(),
-                raster: [
-                    world_size(self.size, self.device.limits().max_texture_dimension_2d).0 as f32
-                        / w as f32,
-                    0.0,
-                    0.0,
-                    0.0,
-                ],
+                raster: [self.raster.0 as f32 / w as f32, 0.0, 0.0, 0.0],
             }),
         );
 
@@ -1670,14 +1695,23 @@ fn create_targets(
     (msaa, make(DEPTH_FORMAT, "depth"))
 }
 
-// Keep the public/output size native; only world attachments use this denser raster.
-fn world_size(size: (u32, u32), limit: u32) -> (u32, u32) {
-    let scale = if size.0 <= limit / 2 && size.1 <= limit / 2 {
+/// The world raster for an output of `size` physical pixels at UI `scale`: a whole
+/// multiple of the output, so the downsample averages whole blocks, with at least two
+/// raster pixels per logical pixel each way. That is twice the output at scale 1 and
+/// the output itself on a 2x (Retina) display, where the pixels are already that dense.
+/// The output and overlay stay native; only the world attachments use this raster.
+fn world_size(size: (u32, u32), scale: f32, limit: u32) -> (u32, u32) {
+    let wanted = if scale.is_finite() && scale > 0.0 {
+        (2.0 / scale).ceil().clamp(1.0, 2.0) as u32
+    } else {
         2
+    };
+    let factor = if size.0 <= limit / wanted && size.1 <= limit / wanted {
+        wanted
     } else {
         1
     };
-    (size.0 * scale, size.1 * scale)
+    (size.0 * factor, size.1 * factor)
 }
 
 fn create_world_color(

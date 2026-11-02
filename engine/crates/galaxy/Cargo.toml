@@ -24,6 +24,14 @@ galaxy-view.workspace = true
 serde_json.workspace = true
 winit.workspace = true
 
+# The play window's message hook (src/window_scale.rs). The version winit itself uses.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
 [dev-dependencies]
 galaxy-mesh.workspace = true
 serde_json.workspace = true

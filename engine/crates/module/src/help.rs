@@ -512,9 +512,14 @@ static GAME: &[Command] = &[
             ("notes", "how many notes were taken"),
             (
                 "frame_time",
-                "frame times in milliseconds: median, p95, worst",
+                "frame times in milliseconds: median, p95, worst; resize_interval_ms for \
+                 the frames right after the window changed size",
             ),
-            ("problems", "model, look or screen readability problems"),
+            (
+                "problems",
+                "every model, look, screen readability or covered-speaker problem shown \
+                 during the session, in the order first seen",
+            ),
             ("hot_load_failures", "hot-loads --watch refused, with why"),
             ("log", "what scripts printed"),
         ],
@@ -583,7 +588,9 @@ static GAME: &[Command] = &[
             ("--seed <n>", "the world's seed; 1 by default"),
             (
                 "--inputs <file>",
-                "inputs and zooms by tick (`galaxy-gm fields inputs`)",
+                "inputs and zooms by tick (`galaxy-gm fields inputs`). Clicks and drags \
+                 ([[click]], [[pointer]]) are refused: they need a window, so run them with \
+                 galaxy play, then galaxy-gm film its recording",
             ),
             ("--size <w>x<h>", "in pixels; 1280x720 by default"),
             (
@@ -605,7 +612,10 @@ static GAME: &[Command] = &[
                 "the camera: eye, target, view height in world units",
             ),
             ("models_drawn", "how many models the scene drew"),
-            ("problems", "model, look or screen readability problems"),
+            (
+                "problems",
+                "model, look, screen readability or covered-speaker problems in the frame drawn",
+            ),
             ("log", "what scripts printed"),
         ],
         writes: "--out",
@@ -674,7 +684,10 @@ static GAME: &[Command] = &[
               side by side (path, top speed, arrival, end) and whether it is the same; and \
               where the pictures differ",
             ),
-            ("problems", "model, look or screen readability problems"),
+            (
+                "problems",
+                "model, look, screen readability or covered-speaker problems at the last frame",
+            ),
         ],
         writes: "<out>/film.json (how it was filmed, small), frames.jsonl (a frame a line: \
                  where every thing is), lines.jsonl (a frame a line: the lines and dots drawn), \

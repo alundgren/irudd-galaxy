@@ -153,9 +153,11 @@ these passes:
 5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera) and soft
    additive glows, depth-tested against the geometry samples, over inner ink.
 6. **Resolve**: average the finished colour samples into the world raster, including ink.
-7. **Downsample**: the world raster is twice the output width and height. Average each
-   2x2 group in linear colour into one output pixel, giving sixteen coverage samples
-   per pixel with MSAA x4. Nothing outside that pixel's footprint is mixed in.
+7. **Downsample**: the world raster has at least two pixels per logical pixel each way:
+   twice the output width and height on a scale-1 or 1.5 display, the output itself on
+   a 2x (Retina) display. Average each block in linear colour into one output pixel.
+   Either way a logical pixel gets sixteen coverage samples with MSAA x4. Nothing
+   outside an output pixel's footprint is mixed in.
 8. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
    screen system builds on this.
 
@@ -184,13 +186,31 @@ history and disocclusion handling. Neither is needed for this path.
 All style sizing still uses the output viewport: silhouette width, feature-size fades,
 subpixel feature culling and hatch spacing keep their native-pixel meaning. Only the
 ink stencil offsets scale with the denser raster. The overlay is drawn after the
-downsample at native resolution. Resize rebuilds both sets of targets and bindings.
-If doubling would exceed the device's texture dimension limit, the world raster uses
-native dimensions and the final pass copies it. Without MSAA the denser raster still
-provides four coverage samples per output pixel. The denser raster costs four times
-the world target storage and raster work; frame pacing is checked with the real bot
-window, not inferred from offline film speed. This changes presentation only, with no
-world or replay state.
+downsample at native resolution. If doubling would exceed the device's texture
+dimension limit, the world raster uses native dimensions and the final pass copies it.
+Without MSAA the denser raster still provides four coverage samples per output pixel.
+This changes presentation only, with no world or replay state.
+
+**Why the raster follows logical pixels, not physical ones.** The doubling was tuned on
+a scale-1 display, where it means two raster pixels per logical pixel. Doubling the
+*physical* size on a 2x display gave four per logical pixel: a 1280x720 window drew its
+world at 5120x2880 with four samples each, four times the work of the same window on
+Windows, and on the MacBook one frame in twenty or more missed vsync (p95 frame interval
+33.8 ms). At native size on Retina, each logical pixel still gets sixteen samples, as on
+the scale-1 PC; the difference is that each Retina output pixel averages four samples
+rather than sixteen, and those pixels are a quarter the area. The talk, life and screen
+bots went from a p95 frame interval of 33.8 ms to under 18 ms and hold 60 fps, with the
+same world hashes and notes that audit pixel-identically. At scale 1.25 or 1.5 the
+raster stays at twice the output.
+
+**Resizing.** Resize and scale changes only record the new size. The next frame
+configures the window surface once and rebuilds the world targets if the raster size
+changed, so a burst of resize events between two frames costs one rebuild. Configuring a
+surface makes wgpu wait for the GPU to finish all work in flight (about one frame's GPU
+time), which is what a resize frame costs now that creating the targets is cheap. On the
+MacBook a bot resizing every tick (`[[resize]]` in `--inputs`) measured
+`resize_interval_ms` median 47 ms before and 23 ms after; steady frames are 16.7 ms. MSAA
+is about half of that GPU time; it stays, because it is the look.
 
 **Why inverted hull plus a post pass.** The hull gives a clean, width-controlled
 silhouette that reads at any zoom; the post pass finds inner edges a hull can't (creases,
@@ -255,12 +275,29 @@ real time:
 - **The bot**: `--inputs <file>` plays scripted inputs on their ticks through the same
   loop the keyboard feeds, and `--ticks <n>` quits when the world reaches tick n. A bot
   run is a real play session, window and all, so its frame times are the player's.
+- **Monitors with different scales.** Moving the window to a monitor with another scale
+  keeps its logical size: the renderer takes the new scale from `ScaleFactorChanged`
+  and the new physical size from the resize that follows, and the next frame refits its
+  targets. On Windows, winit 0.30 puts the window in the wrong place when the scale
+  changes mid-drag (it overrides the rectangle Windows suggests, then a faulty monitor
+  check pushes it back across the edge, so it grows sideways and fights the pointer).
+  `crates/galaxy/src/window_scale.rs` hooks the window's messages and puts winit's own
+  move during `WM_DPICHANGED` on the suggested rectangle, which keeps the logical size
+  and the pointer's grip on the title bar. The rule is plain Rust, tested on every OS;
+  only the hook is Windows code. It can go when winit ships its fix (after 0.30).
+- **Problems while playing.** The problems panel shows what is wrong with what is on
+  screen right now: screen readability, and a speaker whose focus is covered or off
+  screen while its line shows (`talk.md`). Every problem shown during the session goes
+  into play's report, in the order first seen, and is printed with its tick, so one a
+  script caused and later cleared is still reported.
 
 When it quits it prints **frame times**, the numbers to watch for drift: `interval_ms`
 (frame to frame, what the player feels), `sim_ms`, `scene_ms` and `draw_ms` (handing the
 frame to the GPU, which waits for the display at vsync), each as median, p95, p99 and
-max, skipping the first ten frames. Times from a software renderer or a virtual display
-are for information only; the 60 fps target is for the owner's PC.
+max, skipping the first ten frames. `resize_interval_ms` covers the two frames after
+each resize, for `[[resize]]` bots and hand drags (`resize_frames` counts them). Times
+from a software renderer or a virtual display are for information only; the 60 fps
+target is for the owner's PC, and the MacBook holds it too.
 
 `shot` runs the same session headless for `--ticks` (30 by default) with optional
 `--inputs`, draws the last tick at `--size` pixels and writes a PNG. It draws one still

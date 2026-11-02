@@ -21,6 +21,11 @@
 //! [[zoom]]
 //! tick = 200                # the wheel, turned once tick 200 has run
 //! steps = 2.0               # positive is closer; presentation only, not a sim input
+//!
+//! [[resize]]
+//! tick = 220                # galaxy play only: the window resized once tick 220 has run
+//! width = 1000              # logical pixels; presentation only, not a sim input
+//! height = 600
 //! ```
 //!
 //! A scenario test is a module's `tests/<name>.toml`: a `seed`, a number of `ticks`, the
@@ -157,6 +162,24 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "2.0",
         "wheel steps; positive is closer",
     ),
+    (
+        "[[resize]]",
+        "tick",
+        "220",
+        "galaxy play only: the window is resized once this tick has run (view only; the sim never sees it, and play's frame times report the frames after it as resize_interval_ms)",
+    ),
+    (
+        "[[resize]]",
+        "width",
+        "1000",
+        "the window's new inner width in logical pixels (at least 640)",
+    ),
+    (
+        "[[resize]]",
+        "height",
+        "600",
+        "the window's new inner height in logical pixels (at least 360)",
+    ),
 ];
 
 #[derive(Deserialize)]
@@ -189,6 +212,14 @@ struct RawLoad {
 struct RawZoom {
     tick: u64,
     steps: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawResize {
+    tick: u64,
+    width: u32,
+    height: u32,
 }
 
 /// A bot pointer click. The view resolves it before the tick; recordings keep its event.
@@ -256,6 +287,8 @@ struct RawInputs {
     hot_load: Vec<RawLoad>,
     #[serde(default)]
     zoom: Vec<RawZoom>,
+    #[serde(default)]
+    resize: Vec<RawResize>,
 }
 
 fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Input, String> {
@@ -290,6 +323,9 @@ pub struct InputsFile {
     pub hot_loads: Vec<(u64, PathBuf)>,
     /// Wheel steps by tick: how the view zooms, which the sim never sees.
     pub zooms: Vec<(u64, f32)>,
+    /// Window sizes in logical pixels by tick (`galaxy play` only), which the sim never
+    /// sees.
+    pub resizes: Vec<(u64, (u32, u32))>,
 }
 
 impl InputsFile {
@@ -344,6 +380,23 @@ impl InputsFile {
                             "{}: zoom on tick {}: steps must be a number",
                             path.display(),
                             z.tick
+                        ))
+                    }
+                })
+                .collect::<Result<_, _>>()?,
+            resizes: raw
+                .resize
+                .into_iter()
+                .map(|r| {
+                    if r.width >= 640 && r.height >= 360 && r.width <= 16_384 && r.height <= 16_384
+                    {
+                        Ok((r.tick, (r.width, r.height)))
+                    } else {
+                        Err(format!(
+                            "{}: resize on tick {}: the window is at least 640x360 and at most \
+                             16384 on a side",
+                            path.display(),
+                            r.tick
                         ))
                     }
                 })
@@ -625,9 +678,10 @@ mod tests {
                 read.inputs.len(),
                 read.notes.len(),
                 read.hot_loads.len(),
-                read.zooms.len()
+                read.zooms.len(),
+                read.resizes.len()
             ),
-            (1, 1, 1, 1)
+            (1, 1, 1, 1, 1)
         );
     }
 }

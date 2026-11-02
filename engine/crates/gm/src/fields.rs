@@ -32,7 +32,7 @@ const TOPICS: &[(&str, &str)] = &[
     ("manifest", "a module's manifest.toml"),
     (
         "inputs",
-        "an inputs file (--inputs): inputs, notes, hot-loads and zooms by tick; with --modules, the inputs those modules take and the keys that send them",
+        "an inputs file (--inputs): inputs, notes, hot-loads, zooms and window resizes by tick; with --modules, the inputs those modules take and the keys that send them",
     ),
     (
         "spec",

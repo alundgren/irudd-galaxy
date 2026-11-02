@@ -81,7 +81,7 @@ tick = 345
 widget = "cover"
 [[note]]
 tick = 350
-text = "Deliberately covered face; talk-covered module must fail check"
+text = "Deliberately covered face; the problems panel should flag it"
 [[click]]
 tick = 360
 widget = "cover"

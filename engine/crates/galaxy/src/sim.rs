@@ -290,7 +290,7 @@ fn drive(
     let mut loads: BTreeMap<u64, Vec<Module>> = BTreeMap::new();
     if !script.clicks.is_empty() || !script.pointers.is_empty() {
         return Err(Failure::bad_input(
-            "pointer clicks need galaxy play; film or replay its recording",
+            "clicks and drags ([[click]], [[pointer]]) need galaxy play; film or replay its recording",
         ));
     }
     for (tick, dir) in &script.hot_loads {

@@ -47,11 +47,23 @@ fn widget_scissor_clips_panels_and_glyphs_at_two_scales() {
 
 #[test]
 fn world_raster_respects_texture_limits_without_changing_aspect() {
-    assert_eq!(world_size((1280, 720), 8192), (2560, 1440));
-    assert_eq!(world_size((1279, 719), 8192), (2558, 1438));
-    assert_eq!(world_size((4096, 4096), 8192), (8192, 8192));
-    assert_eq!(world_size((4097, 720), 8192), (4097, 720));
-    assert_eq!(world_size((720, 4097), 8192), (720, 4097));
+    assert_eq!(world_size((1280, 720), 1.0, 8192), (2560, 1440));
+    assert_eq!(world_size((1279, 719), 1.0, 8192), (2558, 1438));
+    assert_eq!(world_size((4096, 4096), 1.0, 8192), (8192, 8192));
+    assert_eq!(world_size((4097, 720), 1.0, 8192), (4097, 720));
+    assert_eq!(world_size((720, 4097), 1.0, 8192), (720, 4097));
+}
+
+#[test]
+fn world_raster_keeps_two_pixels_per_logical_pixel_at_any_scale() {
+    // 1280x720 logical on displays of each common scale.
+    assert_eq!(world_size((1600, 900), 1.25, 8192), (3200, 1800));
+    assert_eq!(world_size((1920, 1080), 1.5, 8192), (3840, 2160));
+    assert_eq!(world_size((2560, 1440), 2.0, 8192), (2560, 1440));
+    assert_eq!(world_size((3840, 2160), 3.0, 8192), (3840, 2160));
+    // A bad scale keeps the scale-1 raster.
+    assert_eq!(world_size((1280, 720), f32::NAN, 8192), (2560, 1440));
+    assert_eq!(world_size((1280, 720), 0.0, 8192), (2560, 1440));
 }
 
 #[test]

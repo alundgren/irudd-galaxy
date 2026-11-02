@@ -125,9 +125,11 @@ on screen. Enter keeps the note, Esc drops it; the game carries on from the same
 either way, and keys held when F8 was pressed are let go. A kept note stores its text, the
 tick, the world's hash, and a **moment**: how far between ticks the frame was drawn, the
 presentation time, the frame's size and scale, the player's zoom, how long the course had
-been showing, and the camera. The frame itself goes to `notes/`. A bot run takes notes the
-same way from `[[note]]` entries in its `--inputs` file, on the first frame at or after
-their tick.
+been showing, and the camera. The frame itself goes to `notes/`, written as a PNG on a
+background thread so Enter doesn't freeze the game while it compresses (`play` waits for
+those writes before it quits). A bot run takes notes the same way from `[[note]]` entries
+in its `--inputs` file, on the first frame at or after their tick; like F8, a note pauses
+the game, so its time is left out of the frame-time report.
 
 **`galaxy-gm notes`** lists the notes of every session in the sessions folder, newest
 first (or of one session or recording): number, tick, time and text, the frame that was
@@ -141,6 +143,12 @@ frame that was seen (mean difference per channel, and the share of pixels that d
 On the machine that played, the pictures are identical (except a course caught in its
 fifth of a second fading out, which is drawn gone); on another GPU they should still
 visibly match. A world that differs exits 5 with kind `replay_diverged`.
+
+The report also says how many pictures it compared (`pictures_compared`) and, in a
+sentence (`pictures`), why not all of them. The usual reason is a recording copied out of
+its session folder: the frames the player saw stay behind in `notes/`, so only the world
+hashes were checked. Notes from `galaxy sim run` have no frame at all, so they never
+count as compared.
 
 So a note says exactly where the player was and what they saw, and an agent can stand in
 the same moment, look at the state, and try a fix against it.
@@ -156,12 +164,16 @@ assets stay in the module folders and are unnecessary for headless replay. The
 
 ## Inputs files and scenario tests
 
-`--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]`, `[[hot_load]]` and
-`[[zoom]]` entries by tick (`crates/sim/src/scenario.rs` shows the format;
-`tests/sessions/stroll.toml` is an example). A hot-load names a module folder; it is read
-when the run starts. A zoom turns the wheel `steps` once its tick has run; it is for the
-view only (`play`, `shot` and `film` use it, `sim run` has nothing to zoom), and `play`
-records it like the player's own wheel.
+`--inputs <file>` takes a TOML file of `[[input]]`, `[[note]]`, `[[hot_load]]`,
+`[[zoom]]` and `[[resize]]` entries by tick (`crates/sim/src/scenario.rs` shows the
+format; `tests/sessions/stroll.toml` is an example). A hot-load names a module folder; it
+is read when the run starts. A zoom turns the wheel `steps` once its tick has run; it is
+for the view only (`play`, `shot` and `film` use it, `sim run` has nothing to zoom), and
+`play` records it like the player's own wheel. A resize sets the play window's inner size
+in logical pixels once its tick has run, so a bot can measure resizing
+(`resize_interval_ms` in play's frame times, `renderer-and-style.md`). Only `play` has a
+window to resize; the other commands ignore it, and it is not recorded, because a film or
+audit draws at the size it is given.
 
 A scenario test is a module's `tests/<name>.toml`: a seed, a number of ticks, inputs, and
 `[[expect]]` entries on component fields or fact counts, checked after their tick. The

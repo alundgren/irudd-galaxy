@@ -368,6 +368,12 @@ pub static COMMANDS: &[Command] = &[
               channel, 0 to 255) and pixels_differing (the share of pixels, 0 to 1)",
             ),
             (
+                "pictures_compared, pictures",
+                "how many note pictures were compared with the frames the player saw, and \
+              in words why not all of them (a recording moved out of its session folder has \
+              no notes/ beside it, so only the world hashes were checked)",
+            ),
+            (
                 "builds",
                 "recorded (the build that made the session), drawn (this build), same \
               (true, false, or null when it can't be told), note (what that means; when they \
@@ -777,25 +783,40 @@ pub static TOPICS: &[Topic] = &[
             ("Room and travel component fields", "gm fields"),
             ("Validate every room", "gm check"),
         ],
-        recipes: &[Recipe {
-            title: "Play both directions and reproduce an F8 note",
-            steps: &[
-                "From the repository root, select the installed dev build with --build <name> immediately after galaxy or galaxy-gm.",
-                "galaxy-gm check engine/tests/play/rooms/demo",
-                "galaxy play --modules engine/tests/play/rooms --inputs engine/tests/play/rooms-inputs.toml --ticks 160",
-                "Use the session folder printed by play for the next commands. The bot enters and leaves both rooms, lands one cut by clicking, and takes notes in rooms and mid-cut.",
-                "galaxy sim replay <session>/recording.json",
-                "galaxy-gm audit <session>/recording.json",
-                "galaxy-gm film <session>/recording.json --from 0 --to 45 --size 1280x720 --out room-film",
-                "galaxy-gm guide motion",
-                "Inspect the notes, audit pictures and film frames. Compare the cut title and the beings' floor contact and clearance from the panel.",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Add a room",
+                steps: &[
+                    "Model it: a glTF set at unit scale with the floor at the origin. Name one node camera (it looks down its -Z, +Y up) and add one empty node spot.<name> per floor spot, such as spot.entry, at floor height 0. Save it as models/cellar.gltf in the module, which makes the model `<module>.cellar`.",
+                    "Declare it in start.toml (here the module is demo, beside an existing place demo.station): [entities.cellar] with \"engine.place\" = { parent = 'demo.station', arrival = 'demo.cellar_entry', width = 10, depth = 8 }, \"engine.room\" = { title = 'Cellar' } and \"engine.model\" = { model = 'demo.cellar' }; then [entities.cellar_entry] with \"engine.spot\" = { place = 'demo.cellar', name = 'entry' }, one entity per spot node.",
+                    "List engine.place, engine.room, engine.spot and engine.model in the manifest's writes (and engine.location, engine.position and engine.being for beings).",
+                    "A being in the room: [entities.keeper] with \"engine.being\" = { player = false }, \"engine.location\" = { place = 'demo.cellar', spot = 'demo.cellar_entry' }, \"engine.position\" = {} and \"engine.model\" = { model = 'demo.being' }. Its spot sets where it stands.",
+                    "A way in: a screen button with on = 'go' and payload = { place = 'demo.cellar' }, and an event handler go = function(event, ctx) ctx.move('player', event.payload.place) end, as engine/tests/play/rooms/demo/scripts/main.luau does. The player lands on the place's arrival spot. Beings whose day walks between rooms also want an engine.door { from, spot, to, arrival } each way.",
+                    "galaxy-gm fields components --component room, then place, spot and door, lists every field.",
+                    "galaxy-gm check <module folder>: it enters every room, the new one too, and flags beings covered or off screen from the room camera, and spot nodes that are missing.",
+                    "galaxy play --modules <modules folder>: enter the room, press F8 for a note, quit, then galaxy-gm audit <session>/recording.json draws the moment again.",
+                ],
+            },
+            Recipe {
+                title: "Play both directions and reproduce an F8 note",
+                steps: &[
+                    "From the repository root, select the installed dev build with --build <name> immediately after galaxy or galaxy-gm.",
+                    "galaxy-gm check engine/tests/play/rooms/demo",
+                    "galaxy play --modules engine/tests/play/rooms --inputs engine/tests/play/rooms-inputs.toml --ticks 160",
+                    "Use the session folder printed by play for the next commands. The bot enters and leaves both rooms, lands one cut by clicking, and takes notes in rooms and mid-cut.",
+                    "galaxy sim replay <session>/recording.json",
+                    "galaxy-gm audit <session>/recording.json",
+                    "galaxy-gm film <session>/recording.json --from 0 --to 45 --size 1280x720 --out room-film",
+                    "galaxy-gm guide motion",
+                    "Inspect the notes, audit pictures and film frames. Compare the cut title and the beings' floor contact and clearance from the panel.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "talk",
         title: "Conversations on anchors and visible speaker focus",
-        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
+        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. While playing, the same test runs on every frame a line shows: a speaker whose focus a script covered or moved off screen appears in the problems panel and in play's problems report. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
         tasks: &[
             ("Talk, line and focus fields", "gm fields"),
             ("Check focus in every place", "gm check"),
@@ -810,7 +831,7 @@ pub static TOPICS: &[Topic] = &[
                 "galaxy-gm check engine/tests/play/talk-covered/demo",
                 "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
                 "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
-                "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button. The hall's smaller figure has an anchor but no being component.",
+                "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button: press it while the third being speaks and the problems panel flags the covered face, which check can't see. The hall's smaller figure has an anchor but no being component.",
                 "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble. Anchor-only speakers use x/y. Use the session folder printed by play below.",
                 "galaxy sim replay <session>/recording.json",
                 "galaxy-gm audit <session>/recording.json",
