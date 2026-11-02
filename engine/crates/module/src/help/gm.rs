@@ -88,7 +88,8 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "passed, failed",
-                "how many tests and scenario runs passed and failed",
+                "how many tests and scenario runs passed and failed (a scenario counts once, \
+                 however many of its expectations fail)",
             ),
             (
                 "failures",
@@ -750,10 +751,12 @@ pub static TOPICS: &[Topic] = &[
                 the deck\"). It runs in the scripts' sandbox, can require(\"../scripts/rules\") \
                 and has no ctx, so keep the rules you want to test in plain functions. \
                 tests/<name>.toml is a scenario run: seed, ticks, [[input]] entries (tick, \
-                name, source, payload; a plain name is the module's own event) and [[expect]] \
-                entries checked after their tick (the last by default): entity, component and \
-                field with equals, at_least or at_most (absent = true without a field), or \
-                facts = \"<event>\" with a count. galaxy-gm test runs both. galaxy-gm what-if \
+                name, source, payload; a plain name is the module's own event, payload IDs are \
+                full, and an input on tick N has run when tick N's expectations are checked) \
+                and [[expect]] entries checked after their tick (the last by default): entity \
+                (the module's own name, or a full ID), component and field with equals, \
+                at_least or at_most (absent = true without a field), or facts = \"<event>\" \
+                with a count. galaxy-gm test runs both. galaxy-gm what-if \
                 runs a recorded session (galaxy play, or galaxy sim run --record) again on \
                 changed modules and names the first tick where the world differs and the \
                 entities, fields and facts that differ.",

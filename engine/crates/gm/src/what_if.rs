@@ -238,8 +238,8 @@ pub fn run(path: &Path, modules_dir: &Path, all: bool) -> Result<Output, Failure
         None => json!({
             "matches_recording": true,
             "note": format!(
-                "the replay of the recording on this build matched every recorded hash up to \
-                 tick {reached}"
+                "the replay of the recording on this build matched every recorded hash (notes, \
+                 end) it reached; it ran to tick {reached}, where the comparison stopped"
             ),
         }),
     };

@@ -1,5 +1,5 @@
 --!strict
--- `galaxy-gm test tests/modules/stroll`: each function is a test that passes if it
+-- `galaxy-gm test <this module folder>`: each function is a test that passes if it
 -- returns without an error.
 local rules = require("../scripts/rules")
 
