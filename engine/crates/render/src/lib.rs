@@ -13,6 +13,7 @@ pub mod defaults;
 mod renderer;
 mod rng;
 pub mod scene;
+pub mod screen_style;
 pub mod style;
 pub mod text;
 

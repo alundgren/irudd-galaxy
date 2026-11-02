@@ -247,3 +247,8 @@ regenerates it from the recorded input and script. No storage format changes.
 Audit and `film --note` share the exact-moment scene path. A drawn note film exports
 `note.png` at the note's original physical size, scale and fractional tick, alongside
 its regularly sampled motion frames.
+
+A hot-load whose only changed file is `style.toml` carries `presentation_only = true`
+in its recorded hot-load event. It replaces the embedded style without a world cause
+or `engine.hot_loaded` fact, so changing screen paint cannot change the simulation.
+Events without this flag retain the original world-hot-load semantics.

@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, sync_channel};
 use std::sync::{Arc, Mutex};
 
-use galaxy_api::engine::{BODY, CAMERA, HOT_LOADED, MODEL, POSITION, TICKS_PER_SECOND};
+use galaxy_api::engine::{BODY, CAMERA, MODEL, POSITION, TICKS_PER_SECOND};
 use galaxy_module::module::Module;
 use galaxy_motion::film::{
     Cam, Change, FORMAT, Frame, LineProbe, Manifest, Outline, PartMesh, Parts, Thing, Worn,
@@ -118,16 +118,13 @@ impl Stepper for Replay<'_> {
     }
 
     fn step(&mut self) -> Result<bool, String> {
-        let facts = self.session.world.facts.len();
         if !Replay::step(self)? {
             return Err(format!(
                 "the recording ends at tick {}, before the film does",
                 self.end()
             ));
         }
-        Ok(self.session.world.facts[facts..]
-            .iter()
-            .any(|f| f.kind == HOT_LOADED))
+        Ok(self.modules_changed)
     }
 
     fn modules(&self) -> Vec<&Module> {

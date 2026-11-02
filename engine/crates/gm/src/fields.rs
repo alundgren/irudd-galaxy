@@ -23,7 +23,7 @@ impl From<Failure> for Error {
 const TOPICS: &[(&str, &str)] = &[
     (
         "style",
-        "a module's style.toml: ink, light, sky, course and looks; with --modules, their looks and models and which things wear each",
+        "a module's style.toml: ink, light, sky, course, screen and looks; with --modules, their looks and models and which things wear each",
     ),
     (
         "components",
@@ -153,7 +153,7 @@ fn style(modules: Option<&String>) -> Result<Value, Error> {
     }
     let mut out = json!({
         "topic": "style.toml",
-        "about": "Every key is optional. ink, light, sky and course are scene-wide and may come from one module only; [looks.<name>] is a look models wear as look = \"<module>.<name>\".",
+        "about": "Every key is optional. ink, light, sky, course and screen are scene-wide and may come from one module only; [looks.<name>] is a look models wear as look = \"<module>.<name>\".",
         "tables": tables,
     });
     if let Some(dir) = modules {

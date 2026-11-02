@@ -1,0 +1,23 @@
+[screen]
+paper = "#fff6e8"
+panel = "#f5e6cd"
+button = "#f1ca88"
+text = "#30291f"
+gain = "#28552f"
+loss = "#872525"
+border = "#806238"
+bubble = "#fff6e8"
+sign = "#fff6e8"
+held = "#ffe2a4"
+socket = "#e6d9c3"
+accept = "#d8ebc8"
+refuse = "#f6d8c8"
+track = "#e6d9c3"
+handle = "#806238"
+handle_active = "#594021"
+radius = 16.0
+border_px = 2.0
+frame_padding = 16.0
+handle_radius = 14.0
+socket_dash = 8.0
+hint_border_px = 3.0

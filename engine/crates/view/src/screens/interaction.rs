@@ -312,14 +312,16 @@ impl Screens {
         } else {
             return;
         };
-        let mut panel = Panel::new(rect);
-        panel.fill = Color::hex(0xffce75);
+        let mut panel = self.style.surface(rect, self.style.held);
+        panel.radius = panel.radius.min(drag.pad * 2.0);
+        panel.border_px = panel.border_px.min(drag.pad);
         let text = Text::new(
             &drag.label,
             Vec2::new(rect.x, rect.y) + Vec2::splat(drag.pad),
             drag.size,
         )
-        .wrap((rect.w - 2.0 * drag.pad).max(1.0));
+        .wrap((rect.w - 2.0 * drag.pad).max(1.0))
+        .color(self.style.text);
         overlay.widgets.push(UiLayer {
             panels: vec![panel],
             texts: vec![text],

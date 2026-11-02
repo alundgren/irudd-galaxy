@@ -202,8 +202,8 @@ fact. The existing place golden changes because the recorded clock fact is new.
 sign says the being's name and activity; while moving it shows the name. An active
 speaker's name moves into the bubble so two panels do not overlap. There is no new
 palette or font. A module's room or hall screen can query the same location, being and
-life fields for a directory of who is where; the generic fixture does this. Later
-screen styling changes these same surfaces.
+life fields for a directory of who is where; the generic fixture does this. The module's `[screen]` style supplies the sign surface and text colour, or the neutral
+default when absent.
 
 `galaxy-gm check` enumerates distinct selections over the least common repeat period
 of the days sharing each clock, and the product of independent clocks. It stages every

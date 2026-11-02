@@ -111,7 +111,7 @@ bands = 3                 # 2 or 3 tone bands
 ```
 
 Looks belong to their module and are named by full ID. The scene-wide tables (`ink`,
-`light`, `sky`, `course`) describe one scene, so one module sets each; when two do, the last one in
+`light`, `sky`, `course`, `screen`) describe one scene, so one module sets each; when two do, the last one in
 module order is used and `galaxy-gm check` reports it. A broken style file, a broken model,
 or a thing wearing a model or look no module has is a finding in `galaxy-gm check` and
 shows in a panel at the top left while playing (a missing model draws as a small box).
@@ -276,6 +276,13 @@ A view can also be made with no renderer (`View::detached`): it builds the same 
 whose meshes draw nothing, so a film's probes need no GPU.
 
 ## Module screens
+
+`[screen]` in `style.toml` owns screen paint and checked sizing, including talk bubbles,
+life signs, scrollbars, lifted tokens and drop hints. Missing tables use a neutral
+default, independent of world ink. Last module ID supplying the whole table wins;
+conflicts and invalid contrast or target sizes are checker findings. See
+[screens](screens.md#module-owned-screen-style) for fields, bounds and the two-look demo.
+Style-only watch reloads are presentation events and do not alter the world hash.
 
 `View` builds module widget trees through the read-only screen host. Rust lays out text
 with the headless shaper in `galaxy-render::text`, the same font/metrics as GPU drawing.
