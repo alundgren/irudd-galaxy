@@ -652,7 +652,9 @@ pub static TOPICS: &[Topic] = &[
                 breaking and one-frame pops are missed at 30 fps or small sizes), then ask one \
                 question per tool. Each answers with a `reading` sentence, a few numbers, the \
                 times (t, in seconds; tick) of suspicious moments and one picture. Probes-only \
-                films need no GPU and serve track and dots. When a defect is fixed, keep it \
+                films need no GPU and serve track and dots. A drawn film --note also writes \
+                note.png at the exact F8 moment and physical size; numbered frames stay uniformly sampled. \
+                When a defect is fixed, keep it \
                 fixed with a motion check spec.",
         tasks: &[
             ("Film a scripted run", "game film"),

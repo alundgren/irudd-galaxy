@@ -401,6 +401,27 @@ impl View {
             })
     }
 
+    /// Rebuild an F8 moment without disturbing a film's continuing presentation.
+    pub fn note_scene(&mut self, world: &World, moment: &Moment) -> Scene {
+        let eye = self.eye;
+        let screens = std::mem::replace(&mut self.screens.presentation, moment.screens.clone());
+        let courses = std::mem::replace(
+            &mut self.courses,
+            course::Courses::starting_at(moment.course_age),
+        );
+        self.eye.view = moment.zoom;
+        let scene = self.scene(
+            world,
+            moment.alpha,
+            Vec2::new(moment.width as f32, moment.height as f32) / moment.scale,
+            moment.time,
+        );
+        self.eye = eye;
+        self.screens.presentation = screens;
+        self.courses = courses;
+        scene
+    }
+
     /// Zooms by wheel `steps` (positive is closer), within the camera's range.
     pub fn zoom(&mut self, world: &World, steps: f32) {
         let spec = camera_holder(world).map(|(_, s)| s).unwrap_or_default();

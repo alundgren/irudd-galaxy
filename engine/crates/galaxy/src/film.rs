@@ -178,6 +178,7 @@ fn film_here(options: &Options, out: &Path, probes_only: bool) -> Result<Value, 
         None => View::detached(scripted.session.modules(), scripted.session.world.seed),
     };
     let shoot = Shoot {
+        exact_note: None,
         fps: fps as u32,
         from,
         to,

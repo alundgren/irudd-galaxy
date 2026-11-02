@@ -108,6 +108,10 @@ keep theirs; `--image` puts it elsewhere.
   film is checked against the hash the note kept, on the note's own tick whatever the
   `--fps`: a film of a different world exits 5 (`replay_diverged`) rather than pass for
   what the player saw, and so does `--builds` when either build's film does.
+  With `--note`, a drawn film also exports `note.png` (`note_frame` in the report)
+  using the original note's physical size, scale, fractional tick and presentation
+  state. Compare that image with the F8 image for an exact redraw; the numbered
+  frames retain their uniform sampling times for motion measurements.
 - **Which build drew it.** The world can replay identically on a newer build while it
   draws differently: a drawing defect fixed since shows as fixed. So `film.json` keeps
   `builds` (the build that recorded the session, the one that drew the film, whether they

@@ -216,6 +216,8 @@ pub struct Shoot {
     pub zooms: Vec<(u64, Zoom)>,
     /// What is being filmed, kept in the manifest.
     pub source: Value,
+    /// Export this exact F8 moment as note.png, separately from uniform film samples.
+    pub exact_note: Option<(u64, crate::Moment)>,
 }
 
 /// When frame `k` is shown at `fps`: the ticks run by then, how far it is drawn between
@@ -276,6 +278,14 @@ pub fn shoot(
     let mut kept_outlines = BTreeMap::new();
     let mut kept_parts = Parts::default();
     let mut kept_orders = BTreeMap::new();
+    let mut note_drawn = false;
+    export_note(
+        stepper.world(),
+        view,
+        renderer.as_deref_mut(),
+        shoot,
+        &mut note_drawn,
+    )?;
 
     let (tx, rx) = sync_channel::<(PathBuf, RgbaImage)>(8);
     let rx = Arc::new(Mutex::new(rx));
@@ -294,6 +304,13 @@ pub fn shoot(
                 if step_noting(stepper, shoot.from..=shoot.to, &mut changes)? {
                     view.reload(renderer.as_deref_mut(), stepper.modules());
                 }
+                export_note(
+                    stepper.world(),
+                    view,
+                    renderer.as_deref_mut(),
+                    shoot,
+                    &mut note_drawn,
+                )?;
             }
             let now = stepper.world().tick;
             while zooms.peek().is_some_and(|z| z.0 <= now) {
@@ -382,6 +399,37 @@ pub fn shoot(
     };
     manifest.write(&shoot.out)?;
     Ok(manifest)
+}
+
+fn export_note(
+    world: &World,
+    view: &mut View,
+    renderer: Option<&mut Renderer>,
+    shoot: &Shoot,
+    drawn: &mut bool,
+) -> Result<(), String> {
+    let Some((tick, moment)) = &shoot.exact_note else {
+        return Ok(());
+    };
+    if *drawn || world.tick != *tick {
+        return Ok(());
+    }
+    let Some(r) = renderer else {
+        return Ok(());
+    };
+    r.resize(moment.width, moment.height);
+    r.set_scale_factor(moment.scale);
+    let scene = view.note_scene(world, moment);
+    let image = r
+        .render_to_rgba(&scene)
+        .map_err(|e| format!("drawing film note: {e}"))?;
+    image
+        .save_png(shoot.out.join("note.png"))
+        .map_err(|e| e.to_string())?;
+    r.resize(shoot.width, shoot.height);
+    r.set_scale_factor(shoot.scale);
+    *drawn = true;
+    Ok(())
 }
 
 /// Which build draws this film, next to the one that recorded the session if it is one.

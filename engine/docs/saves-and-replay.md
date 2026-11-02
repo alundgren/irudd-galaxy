@@ -244,3 +244,6 @@ start and walk endpoint. Resume validates these references. F8, audit and film c
 the same fractional pose and sign without a private timer. Every increase of an
 existing clock records engine.clock_advanced under the writing command cause; replay
 regenerates it from the recorded input and script. No storage format changes.
+Audit and `film --note` share the exact-moment scene path. A drawn note film exports
+`note.png` at the note's original physical size, scale and fractional tick, alongside
+its regularly sampled motion frames.

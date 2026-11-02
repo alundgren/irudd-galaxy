@@ -45,6 +45,7 @@ struct Plan<'a> {
     path: &'a Path,
     /// The note filmed round: its number, and seconds before and after.
     note: Option<(usize, f32, f32)>,
+    exact_note: Option<(u64, Moment)>,
     from: u64,
     to: u64,
     fps: u32,
@@ -170,6 +171,8 @@ pub fn film(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         rec: &rec,
         path,
         note: note.map(|n| (n, before, after)),
+        exact_note: chosen
+            .and_then(|(tick, _, moment)| moment.as_ref().map(|m| (*tick, m.clone()))),
         from,
         to,
         fps: fps as u32,
@@ -239,6 +242,7 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
             out: out.to_path_buf(),
             zooms: plan.zooms.clone(),
             source: plan.source.clone(),
+            exact_note: plan.exact_note.clone(),
         };
         run_shoot(&mut replay, &shoot, probes_only)
     };
@@ -341,6 +345,7 @@ fn film_with(plan: &Plan, drawer: &Drawer, out: &Path) -> Result<(Value, bool), 
         "to": { "t": last.time, "tick": last.tick },
         "adapter": manifest.adapter,
         "notes_checked": checked,
+        "note_frame": if plan.exact_note.is_some() && manifest.drawn && out.join("note.png").is_file() { Some(out.join("note.png").display().to_string()) } else { None },
         "builds": manifest.builds,
         "next": format!("galaxy-gm motion <tool> <folder>: {}", galaxy_motion::TOOLS.join(", ")),
     });
@@ -473,6 +478,7 @@ pub fn check(command: &Command, args: &[String]) -> Result<Output, Failure> {
         out: out.clone(),
         zooms,
         source: json!({ "spec": spec_path.display().to_string() }),
+        exact_note: None,
     };
     run_shoot(&mut scripted, &shoot, spec.probes_only)?;
     let (runs, lines, passed) = evaluate(&spec, &out);

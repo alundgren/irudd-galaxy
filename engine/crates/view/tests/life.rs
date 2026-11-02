@@ -236,6 +236,19 @@ fn saved_and_replayed_mid_walk_rebuild_the_morph_bubble_sign_and_hash() {
             .scene(&replay.session.world, 0.37, size(), 1.0)
             .overlay
     );
+    let expected = v.scene(&s.world, 0.37, size(), 1.0).overlay;
+    let moment = v.moment(0.37, 1.0, (1600, 900), 1.25).unwrap();
+    assert_eq!(
+        expected,
+        rebuilt.note_scene(&replay.session.world, &moment).overlay
+    );
+    // An exact note between uniform film samples must not change the next sample.
+    assert_eq!(
+        rebuilt
+            .scene(&replay.session.world, 0.5, size(), 1.1)
+            .overlay,
+        v.scene(&s.world, 0.5, size(), 1.1).overlay
+    );
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("life.db");
     save::write(&file, &s.world, s.modules(), &BuildStamp::current()).unwrap();
