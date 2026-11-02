@@ -538,7 +538,8 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "glow, bite",
-                "the parts that glow or carry a bite, and how much",
+                "the parts that glow (self-lit, from glowing paint such as lights) or carry a \
+              bite (paint marked as a fresh cut, kept out of the shadow hatching), and how much",
             ),
             (
                 "worn_by",
@@ -1550,10 +1551,10 @@ pub static TOPICS: &[Topic] = &[
                 "Write recipes/palette.toml with main, trim, accent, lights and glass slots, and recipes/rock.toml with one [[part]] of shape = \"rock\", radius = 2.0, mined = 0.5.",
                 "Write recipes/station.toml: a tiers core, a spoked_ring round it and a truss with copies = 3, angle and distance.",
                 "galaxy-gm fields recipe",
-                "galaxy-gm model make tests/play/yard",
-                "galaxy-gm model tests/play/yard outpost",
-                "Give a thing in start.toml engine.model = { model = \"<module>.station\" }, then galaxy-gm check <module>.",
-                "galaxy shot --modules tests/play/yard --out yard.png --ticks 30",
+                "galaxy-gm model make <module>",
+                "galaxy-gm model <module> station",
+                "Give a thing in start.toml engine.model = { model = \"<id>.station\" } (<id> is the manifest's id), and another the rock with morph = 0.5 to show it part mined; then galaxy-gm check <module>.",
+                "galaxy shot --modules <module> --out station.png --ticks 30",
             ],
         }],
     },

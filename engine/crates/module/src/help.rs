@@ -295,7 +295,7 @@ pub fn overview(tool: Tool) -> String {
         Tool::Game => {
             "\nMore: galaxy <command> --help for its arguments, output and an example. \
              galaxy-gm guide maps tasks to commands for both binaries. --version prints the \
-             version; galaxy-gm --build <name> ... runs a named installed build."
+             version; galaxy --build <name> ... runs a named installed build."
         }
         Tool::Gm => {
             "\nMore: galaxy-gm <command> --help for its arguments, output and an example; \
