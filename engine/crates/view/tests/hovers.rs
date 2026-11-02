@@ -84,7 +84,7 @@ fn widget_and_walking_speaker_hovers_reconstruct_without_world_changes() {
 
 fn screen(code: &str) -> (Session, View) {
     let mut files = ModuleFiles::default();
-    files.0.insert("manifest.toml".into(),"id='example'\nversion='0.1.0'\nmin_engine_version='0.4.0'\nscripts=['screen.luau']\nevents=['click']".into());
+    files.0.insert("manifest.toml".into(),"id='example'\nversion='0.1.0'\nmin_engine_version='0.5.0'\nscripts=['screen.luau']\nevents=['click']".into());
     files.0.insert(
         "screen.luau".into(),
         format!("return {{screen=function(_,ui) {code} end}}"),

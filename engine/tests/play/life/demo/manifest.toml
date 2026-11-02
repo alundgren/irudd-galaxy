@@ -1,6 +1,6 @@
 id = "life"
 version = "0.1.0"
-min_engine_version = "0.4.0"
+min_engine_version = "0.5.0"
 scripts = ["scripts/main.luau"]
 events = ["advance", "go", "presentation"]
 writes = ["engine.place", "engine.room", "engine.spot", "engine.location", "engine.being", "engine.position", "engine.model", "engine.walk", "engine.clock", "engine.life", "engine.act", "engine.talk", "engine.talk_line"]
