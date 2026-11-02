@@ -1,0 +1,50 @@
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[click]]
+tick = 60
+widget = "mine"
+[[click]]
+tick = 330
+widget = "lantern"
+[[click]]
+tick = 600
+widget = "market"
+[[click]]
+tick = 660
+widget = "sell"
+[[click]]
+tick = 720
+widget = "leave"
+[[click]]
+tick = 780
+widget = "launch"
+
+[[note]]
+tick = 30
+text = "Flying into solid ironstone."
+
+[[note]]
+tick = 300
+text = "Six ore aboard and a visible cut in the rock."
+
+[[note]]
+tick = 550
+text = "Docked into the landing deck."
+
+[[note]]
+tick = 650
+text = "Inside the module-built market."
+
+[[note]]
+tick = 690
+text = "Sold six ore; the stockpile and credits grew."
+
+[[note]]
+tick = 830
+text = "Launched back into space."

@@ -1,0 +1,173 @@
+{
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 36,
+      "max": [
+        0.6499999761581421,
+        1.100000023841858,
+        0.800000011920929
+      ],
+      "min": [
+        -0.6499999761581421,
+        0.0,
+        -0.800000011920929
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5125,
+      "count": 36,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 36,
+      "max": [
+        0.550000011920929,
+        1.7999999523162842,
+        0.6499999761581421
+      ],
+      "min": [
+        -0.550000011920929,
+        1.100000023841858,
+        -0.6499999761581421
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5126,
+      "count": 36,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5125,
+      "count": 36,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "generator": "galaxy-mesh",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 0
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 432
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 864
+    },
+    {
+      "buffer": 0,
+      "byteLength": 144,
+      "byteOffset": 1296
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 1440
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 1872
+    },
+    {
+      "buffer": 0,
+      "byteLength": 432,
+      "byteOffset": 2304
+    },
+    {
+      "buffer": 0,
+      "byteLength": 144,
+      "byteOffset": 2736
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 2880,
+      "uri": "data:application/octet-stream;base64,ZmYmvwAAAADNzEw/ZmYmPwAAAADNzEw/ZmYmP83MjD/NzEw/ZmYmvwAAAADNzEw/ZmYmP83MjD/NzEw/ZmYmv83MjD/NzEw/ZmYmPwAAAADNzEy/ZmYmvwAAAADNzEy/ZmYmv83MjD/NzEy/ZmYmPwAAAADNzEy/ZmYmv83MjD/NzEy/ZmYmP83MjD/NzEy/ZmYmPwAAAADNzEw/ZmYmPwAAAADNzEy/ZmYmP83MjD/NzEy/ZmYmPwAAAADNzEw/ZmYmP83MjD/NzEy/ZmYmP83MjD/NzEw/ZmYmvwAAAADNzEy/ZmYmvwAAAADNzEw/ZmYmv83MjD/NzEw/ZmYmvwAAAADNzEy/ZmYmv83MjD/NzEw/ZmYmv83MjD/NzEy/ZmYmv83MjD/NzEy/ZmYmv83MjD/NzEw/ZmYmP83MjD/NzEw/ZmYmv83MjD/NzEy/ZmYmP83MjD/NzEw/ZmYmP83MjD/NzEy/ZmYmPwAAAADNzEy/ZmYmPwAAAADNzEw/ZmYmvwAAAADNzEw/ZmYmPwAAAADNzEy/ZmYmvwAAAADNzEw/ZmYmvwAAAADNzEy/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC///9/PwAAAAAAAAAA//9/PwAAAAAAAAAA//9/PwAAAAAAAAAA//9/PwAAAIAAAAAA//9/PwAAAIAAAAAA//9/PwAAAIAAAAAA//9/vwAAAAAAAAAA//9/vwAAAAAAAAAA//9/vwAAAAAAAAAA//9/vwAAAAAAAAAA//9/vwAAAAAAAAAA//9/vwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAA4LsfP8JkTj5LSqQ94LsfP8JkTj5LSqQ94LsfP8JkTj5LSqQ9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"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "box",
+      "primitives": [
+        {
+          "attributes": {
+            "COLOR_0": 2,
+            "NORMAL": 1,
+            "POSITION": 0
+          },
+          "indices": 3,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "box.2",
+      "primitives": [
+        {
+          "attributes": {
+            "COLOR_0": 6,
+            "NORMAL": 5,
+            "POSITION": 4
+          },
+          "indices": 7,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "box"
+    },
+    {
+      "mesh": 1,
+      "name": "box.2"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1
+      ]
+    }
+  ]
+}

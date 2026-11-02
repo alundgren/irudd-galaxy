@@ -1,0 +1,12 @@
+[[part]]
+name = "coat"
+shape = "cylinder"
+radius = 0.3
+height = 1.1
+paint = "trim"
+[[part]]
+name = "face"
+shape = "sphere"
+radius = 0.25
+at = [0, 0, 1.35]
+paint = "#efc89d"

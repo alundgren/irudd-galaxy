@@ -1,0 +1,20 @@
+about = "A compact lantern-lit ring station"
+[[part]]
+shape = "spoked_ring"
+radius = 5
+tube = 0.7
+inner = 1.8
+[[part]]
+shape = "tiers"
+radius = 2
+height = 2.8
+[[part]]
+shape = "panel"
+length = 4
+width = 2
+at = [-5, 0, 0]
+turn = 180
+[[part]]
+shape = "mast"
+height = 4
+at = [0, 2.5, 0]

@@ -1,0 +1,93 @@
+ticks = 2100
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 600
+name = "core.market"
+[[input]]
+tick = 660
+name = "core.sell"
+[[input]]
+tick = 720
+name = "core.leave"
+[[input]]
+tick = 780
+name = "core.launch"
+
+[[input]]
+tick = 900
+name = "core.mine"
+
+[[input]]
+tick = 1200
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 1500
+name = "core.market"
+
+[[input]]
+tick = 1560
+name = "core.sell"
+
+[[input]]
+tick = 1561
+name = "core.sell"
+
+[[input]]
+tick = 1620
+name = "core.leave"
+
+[[input]]
+tick = 1680
+name = "core.launch"
+
+[[input]]
+tick = 1740
+name = "core.mine"
+
+[[expect]]
+tick = 1590
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 144
+
+[[expect]]
+tick = 1590
+entity = "lantern"
+component = "port"
+field = "stock"
+equals = 12
+
+[[expect]]
+tick = 1590
+entity = "rock1"
+component = "ore"
+field = "left"
+equals = 0
+
+[[expect]]
+tick = 2100
+entity = "ship"
+component = "pilot"
+field = "cargo"
+equals = 6
+
+[[expect]]
+facts = "sold"
+equals = 2
