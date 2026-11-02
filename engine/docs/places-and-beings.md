@@ -96,9 +96,9 @@ and moves without replacing this model. No view needs to be present for a walk t
 
 Everything is in ordinary components, including the active walk and clock. SQLite save
 format 1 and recordings need no new storage or presentation state. The same saved walk
-resumes with the same cause and endpoint, even when the player is elsewhere. Pending
-story moments and daily routines remain module rules; the engine provides the recorded
-state they can build on.
+resumes with the same cause and endpoint, even when the player is elsewhere. Daily
+routines and when to offer a story remain module rules. The talk service keeps offered
+conversations pending until acknowledged; see [Talk](talk.md).
 
 A resource/singleton store would add a second save path just for the clock and player.
 Arrays of spots and doors would require new field types. Small entities reuse schema,
@@ -133,3 +133,11 @@ retargeting, cancellation, hot-load, zero-distance completion and same-place col
 
 Run the scenario assertions during engine development with
 `cargo xtask cargo test -p galaxy-sim --test places`.
+
+## Speaking and focus
+
+A being may carry `engine.focus { part }`; the default required part while speaking
+is `face`, and empty means no focus. Talk is not limited to beings: any anchored
+speaker can use the recorded conversation service. Unseen story conversations are
+kept until their final line is acknowledged. See [Talk](talk.md) for components,
+geometry checks and the distinction between a pending conversation and module routines.

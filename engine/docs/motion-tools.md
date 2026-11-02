@@ -356,3 +356,14 @@ brightens at once when the ship reaches it. Read such findings by their `change`
 - **Frame timing.** Films are drawn offline and say nothing about real frame delivery,
   vsync or stalls. The window's frame-time report (`galaxy play` prints it) is the
   measure for pacing.
+
+## Conversations and room cuts
+
+The talk fixture's bot (`tests/play/talk-inputs.toml`) records moving anchored speech,
+interruption, room cuts and a deliberately covered face. Film ticks 195 through 375
+at 1280x720 and 60 fps. `track --thing talk.second` measures the figure's interpolation;
+`strip --screen "300,240;650,240"` follows the bubble through a horizontal screen band.
+Use `sheet` around appearance/disappearance and cut ticks, `flow --screen` over the
+bubble region, and `flicker --screen` to distinguish commanded changes from unintended
+one-frame breaks. Audit compares each note's exact moment; a whole film also checks
+the world hash at notes. The geometry check and full recipe are in [Talk](talk.md).

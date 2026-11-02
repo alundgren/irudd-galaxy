@@ -79,6 +79,11 @@ pub const STEER: &str = "engine.steer";
 pub const WAYPOINT: &str = "engine.waypoint";
 pub const ANCHOR: &str = "engine.anchor";
 
+pub const TALK: &str = "engine.talk";
+pub const TALK_LINE: &str = "engine.talk_line";
+pub const FOCUS: &str = "engine.focus";
+pub const TALK_START: &str = "engine.talk_start";
+pub const TALK_NEXT: &str = "engine.talk_next";
 pub const BODY: &str = "engine.body";
 pub const PLACE: &str = "engine.place";
 pub const SPOT: &str = "engine.spot";
@@ -100,13 +105,15 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
 /// - `walk_finished`: a recorded walk completed (`entity`, `place`, `spot`).
 /// - `place_arrived`: play landed a trip, recorded as input (`entity`, `place`, `start_tick`).
-pub const EVENTS: [&str; 6] = [
+pub const EVENTS: [&str; 8] = [
     "start",
     "hot_loaded",
     "script_failed",
     "arrived",
     "walk_finished",
     "place_arrived",
+    "talk_start",
+    "talk_next",
 ];
 
 pub const START: &str = "engine.start";
@@ -118,6 +125,48 @@ pub const SCRIPT_FAILED: &str = "engine.script_failed";
 /// name), field, meaning. `galaxy-gm fields components` prints it beside each field's type
 /// and default from [`components`]; a test keeps the two in step.
 pub const FIELDS: &[(&str, &str, &str)] = &[
+    (
+        "talk",
+        "speaker",
+        "entity speaking; anything with an anchor can speak",
+    ),
+    (
+        "talk",
+        "anchor",
+        "published anchor; empty uses being.<speaker>",
+    ),
+    ("talk", "first", "first engine.talk_line entity"),
+    ("talk", "current", "current line; engine-owned progress"),
+    ("talk", "active", "conversation currently showing"),
+    ("talk", "enabled", "available for interaction"),
+    (
+        "talk",
+        "story",
+        "unseen story takes priority and stays pending until completed",
+    ),
+    ("talk", "seen", "last line acknowledged; engine-owned"),
+    ("talk", "width", "bubble width in logical pixels"),
+    (
+        "talk",
+        "x",
+        "horizontal offset from anchor in logical pixels",
+    ),
+    (
+        "talk",
+        "y",
+        "vertical offset above anchor in logical pixels",
+    ),
+    ("talk_line", "text", "line displayed in the bubble"),
+    (
+        "talk_line",
+        "next",
+        "next line entity; empty ends the conversation",
+    ),
+    (
+        "focus",
+        "part",
+        "model mesh part to keep visible while speaking; empty opts out; beings default to face",
+    ),
     ("room", "title", "place title on the travel card"),
     (
         "room",
@@ -423,6 +472,27 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
     let mut model = fields(&[("model", Text), ("look", Text), ("morph", Number)]);
     model.extend(numbers(&[("scale", 1.0)]));
     vec![
+        ("focus", {
+            let mut f = fields(&[("part", Text)]);
+            f.get_mut("part").unwrap().default = "face".into();
+            f
+        }),
+        ("talk_line", fields(&[("text", Text), ("next", Id)])),
+        ("talk", {
+            let mut f = fields(&[
+                ("speaker", Id),
+                ("anchor", Text),
+                ("first", Id),
+                ("current", Id),
+                ("active", Bool),
+                ("enabled", Bool),
+                ("story", Bool),
+                ("seen", Bool),
+            ]);
+            f.get_mut("enabled").unwrap().default = true.into();
+            f.extend(numbers(&[("width", 320.0), ("x", 0.0), ("y", -12.0)]));
+            f
+        }),
         ("room", {
             let mut room = fields(&[("title", Text), ("camera", Text)]);
             room.extend(numbers(&[("fov", 40.0)]));

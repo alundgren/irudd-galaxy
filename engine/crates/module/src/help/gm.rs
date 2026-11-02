@@ -13,7 +13,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, notes, replay, motion, screens, rooms, audio, modules, style or install; without one, every task \
+            "play, notes, replay, motion, screens, rooms, talk, audio, modules, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -29,7 +29,7 @@ pub static COMMANDS: &[Command] = &[
         answers: "Does this module load? Its manifest, start state, scripts, models and \
                   style, screens and every room at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -40,7 +40,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look, screen, room or sound) and message",
+                "each problem: kind (schema, script, start, look, screen, room, talk or sound) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
@@ -764,6 +764,35 @@ pub static TOPICS: &[Topic] = &[
                 "galaxy-gm film <session>/recording.json --from 0 --to 45 --size 1280x720 --out room-film",
                 "galaxy-gm guide motion",
                 "Inspect the notes, audit pictures and film frames. Compare the cut title and the beings' floor contact and clearance from the panel.",
+            ],
+        }],
+    },
+    Topic {
+        name: "talk",
+        title: "Conversations on anchors and visible speaker focus",
+        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
+        tasks: &[
+            ("Talk, line and focus fields", "gm fields"),
+            ("Check focus in every place", "gm check"),
+        ],
+        recipes: &[Recipe {
+            title: "Author, play, interrupt and reproduce a conversation",
+            steps: &[
+                "Add engine.talk and engine.talk_line to manifest writes. In start.toml: [entities.hello] with \"engine.talk\" = { speaker = 'demo.visitor', first = 'demo.line', story = true }; [entities.line] with \"engine.talk_line\" = { text = 'Welcome.' }. The speaker needs a visible anchor; a being model needs a face mesh part, or an explicit engine.focus part.",
+                "galaxy-gm fields components --component talk",
+                "galaxy-gm fields components --component talk_line",
+                "galaxy-gm check engine/tests/play/talk/demo",
+                "galaxy-gm check engine/tests/play/talk-covered/demo",
+                "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
+                "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
+                "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button. The hall's smaller figure has an anchor but no being component.",
+                "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble. Anchor-only speakers use x/y. Use the session folder printed by play below.",
+                "galaxy sim replay <session>/recording.json",
+                "galaxy-gm audit <session>/recording.json",
+                "galaxy-gm film <session>/recording.json --from 225 --to 300 --size 1280x720 --out talk-film",
+                "galaxy-gm motion track talk-film --thing talk.second",
+                "galaxy-gm motion sheet talk-film --count 8",
+                "galaxy-gm guide motion",
             ],
         }],
     },

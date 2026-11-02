@@ -112,3 +112,12 @@ copy of places inside the renderer would drift from scripts and walks. World tri
 and imported spot components use the existing save path instead. Baking the camera into
 painted room layers would require new assets for walking; glTF sets keep that option
 open. A general transition graph would add machinery to a deliberately temporary cut.
+
+## Talk in a room
+
+The room camera, conditional screens and each authored talk line are checked together.
+`engine.focus` selects a speaker mesh part; the talk check rejects focus pixels covered
+by scene triangles, the room panel or the bubble. Active walk poses are included.
+Starting a trip interrupts talk without marking an unseen story seen. Picking a speaker
+uses its projected mesh through the displayed camera. [Talk](talk.md) describes the
+world contract, the generic play fixture and the geometry check's limits.

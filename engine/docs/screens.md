@@ -239,3 +239,13 @@ slot after another refusal. Run it for 140 ticks, audit its eight notes (includi
 settling frames), and film ticks 1 through 134 to inspect the actual movement with
 `galaxy-gm motion sheet` and `strip`. Headless tests assert one visible token throughout,
 state-driven placement, return motion, scroll events, replay hashes and rebuilt notes.
+
+## Talk bubbles
+
+The talk service supplies an internal bubble widget from recorded world components.
+It uses this same measurement, layout, anchor, clipping, ordered paint and hit-testing
+path, with the neutral panel surface. No separate talk look is encoded. Module-owned
+width and offsets affect its geometry. A whole bubble is a click target; its input
+includes the current line so stale or duplicate advances are recorded no-ops. Speaker picking runs only when no
+painted widget covers the pointer. See [Talk](talk.md) for focus checks combining screen
+surfaces, room geometry and each authored line.

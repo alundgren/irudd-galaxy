@@ -105,6 +105,17 @@ impl Screens {
                 self.boxes.push(boxed);
             }
         }
+        for tree in crate::talk::widgets(world) {
+            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure);
+            place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
+            check(
+                &boxed,
+                Rect::new(0.0, 0.0, size.x, size.y),
+                &mut self.measure,
+                &mut self.problems,
+            );
+            self.boxes.push(boxed);
+        }
         self.finish_motion();
         for boxed in &self.boxes {
             draw(boxed, overlay, None, &self.presentation);
@@ -132,7 +143,7 @@ impl Screens {
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
-        if w.kind != "button" {
+        if !matches!(w.kind.as_str(), "button" | "bubble") {
             return None;
         }
         w.on.as_ref().map(|name| Input {
@@ -169,7 +180,7 @@ impl Screens {
                         ));
                     }
                 };
-                if b.widget.kind != "button" {
+                if !matches!(b.widget.kind.as_str(), "button" | "bubble") {
                     return Err(format!("{}: widget is not a button", b.widget.path));
                 }
                 let point = b.rect.center();
@@ -192,7 +203,7 @@ impl Screens {
         })
     }
 
-    fn hit(&self, point: Vec2) -> Option<&Widget> {
+    pub(crate) fn hit(&self, point: Vec2) -> Option<&Widget> {
         fn hit(b: &Boxed, p: Vec2) -> Option<&Widget> {
             if b.clip.is_some_and(|r| !point_in(r, p)) {
                 return None;
@@ -425,7 +436,7 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         }
         if matches!(
             b.widget.kind.as_str(),
-            "button" | "drag_source" | "drop_target"
+            "button" | "bubble" | "drag_source" | "drop_target"
         ) && (b.rect.h < 44.0 || b.rect.w < 44.0)
         {
             problem("button target is smaller than 44 pixels");
@@ -504,7 +515,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
     let lifted = state.lifted(&b.widget);
     if matches!(
         b.widget.kind.as_str(),
-        "panel" | "button" | "scroll" | "drag_source" | "drop_target"
+        "panel" | "button" | "bubble" | "scroll" | "drag_source" | "drop_target"
     ) {
         let mut panel = Panel::new(b.rect);
         if b.widget.kind == "button" {
@@ -584,7 +595,7 @@ fn draw(b: &Boxed, overlay: &mut Overlay, backing: Option<Rect>, state: &Present
 fn leaf(kind: &str) -> bool {
     matches!(
         kind,
-        "text" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
+        "text" | "button" | "bubble" | "delta" | "icon" | "drag_source" | "drop_target"
     )
 }
 fn painted_kind(kind: &str) -> bool {

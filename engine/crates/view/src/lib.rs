@@ -15,6 +15,7 @@ pub mod course;
 pub mod film;
 pub mod rooms;
 pub mod screens;
+pub mod talk;
 pub mod travel;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -230,6 +231,7 @@ pub struct View {
     /// The camera of the last scene.
     pub camera: Option<Camera>,
     pub courses: course::Courses,
+    talk_frame: (f32, Vec2),
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -284,6 +286,7 @@ impl View {
             missing: BTreeSet::new(),
             camera: None,
             courses: course::Courses::default(),
+            talk_frame: (1.0, Vec2::ONE),
         };
         view.replace(renderer, assets);
         view
@@ -410,6 +413,7 @@ impl View {
     /// The scene for this frame: `alpha` of the way between the last two ticks, at
     /// `logical` pixels, `time` seconds into the session (for shader shimmer only).
     pub fn scene(&mut self, world: &World, alpha: f32, logical: Vec2, time: f32) -> Scene {
+        self.talk_frame = (alpha, logical);
         let shown = rooms::screen_world(world, travel::place(world, alpha));
         let world = &*shown;
         let camera = self.frame_camera(world, alpha);
@@ -494,6 +498,9 @@ impl View {
                 .and_then(Value::as_str)
                 .filter(|s| !s.is_empty())
                 .unwrap_or(id);
+            if !rooms::visible(world, target, place) {
+                continue;
+            }
             if let Some(pose) = self.pose(world, target, alpha) {
                 let n = |k: &str| f.get(k).and_then(Value::as_f64).unwrap_or(0.0) as f32;
                 let offset =
