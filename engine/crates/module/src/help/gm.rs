@@ -287,7 +287,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "look",
         synopsis: "<recording> (--note <n> | --tick <n>) [--point <x,y>] [--size <w>x<h>]",
-        answers: "What is under a point of a recorded frame, and is its hover readable?",
+        answers: "What is under a point of a recorded frame; is its hover readable?",
         about: "Replays embedded modules headlessly. Points and rectangles use logical pixels. Notes use their exact recorded frame; tick mode uses alpha 1 and the requested viewport.",
         args: &[
             ("<recording>", "recording.json or its session folder"),
@@ -855,8 +855,8 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "film",
         synopsis: "<recording> (--note <n> | --from <tick> --to <tick>) [options]",
-        answers: "Film a played session again round one of its notes (or between two ticks), \
-                  frame by frame as the window showed it; by this build, the recording's or two.",
+        answers: "Film a played session round a note or between two ticks, frame by frame \
+                  as the window showed it.",
         about: "Which build draws: this one, unless told. --as-recorded draws with the build \
                 that recorded the session (installed builds sit side by side; galaxy-gm doctor \
                 lists them): this build runs that one's galaxy-gm to draw, then stamps the \
@@ -999,8 +999,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "doctor",
         synopsis: "",
-        answers: "Which engine is this, which builds and launchers are installed, and which \
-                  modules are near the working folder?",
+        answers: "Which engine and builds are installed, and which modules are nearby?",
         about: "",
         args: &[],
         output: &[

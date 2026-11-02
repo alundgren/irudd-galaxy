@@ -241,15 +241,22 @@ pub fn overview(tool: Tool) -> String {
             ],
         ),
         Tool::Gm => (
-            "galaxy-gm: the GM. It checks and tests modules, reads played sessions, notes \
-             and running games, films and measures motion. Commands print one JSON \
-             object, except help, guide and types.",
+            "galaxy-gm: the GM. It checks and tests modules, reads sessions, notes and \
+             running games, and films motion. Commands print one JSON object.",
             &[
                 ("Start here", &["guide"]),
                 ("Modules", &["check", "test", "types", "fields", "model"]),
                 (
                     "Played sessions and notes",
-                    &["notes", "recording", "audit", "film", "look", "what-if", "live"],
+                    &[
+                        "notes",
+                        "recording",
+                        "audit",
+                        "film",
+                        "look",
+                        "what-if",
+                        "live",
+                    ],
                 ),
                 ("How motion looks", &["film show", "motion", "motion check"]),
                 ("This install", &["doctor"]),
@@ -408,16 +415,17 @@ pub fn guide() -> String {
     }
     let names: Vec<&str> = TOPICS.iter().map(|t| t.name).collect();
     let _ = write!(s, "\nTopics: {}.", names.join(", "));
-    let recipes: Vec<String> = TOPICS
+    let with: Vec<&str> = TOPICS
         .iter()
-        .flat_map(|t| {
-            t.recipes
-                .iter()
-                .map(move |r| format!("{} (guide {})", r.title, t.name))
-        })
+        .filter(|t| !t.recipes.is_empty())
+        .map(|t| t.name)
         .collect();
-    if !recipes.is_empty() {
-        let _ = write!(s, "\nRecipes: {}.", recipes.join("; "));
+    if !with.is_empty() {
+        let _ = write!(
+            s,
+            "\nStep-by-step recipes: galaxy-gm guide {}.",
+            with.join(" | ")
+        );
     }
     wrap_long(&s)
 }
