@@ -978,7 +978,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy-recipe"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "galaxy-mesh",
  "galaxy-module",

@@ -399,10 +399,12 @@ pub use gm::TOPICS;
 pub fn guide() -> String {
     let mut s = String::from(
         "What do you want to do? Each line names the command; `<command> --help` says more, \
-         and `galaxy-gm guide <topic>` walks through a topic with examples.\n",
+         and `galaxy-gm guide <topic>` walks through a topic with examples.\n\n",
     );
+    // Topics follow each other without a blank line: each starts with its `(guide <name>)`
+    // title, and the whole list has to stay short enough to read at a glance.
     for t in TOPICS {
-        let _ = write!(s, "\n{} (guide {}):\n", t.title, t.name);
+        let _ = writeln!(s, "{} (guide {}):", t.title, t.name);
         let rows: Vec<(&str, String)> = t
             .tasks
             .iter()
