@@ -56,6 +56,8 @@ pub struct NamedNode {
     pub position: Vec3,
     pub forward: Vec3,
     pub up: Vec3,
+    /// Whether the node draws a mesh (a part) rather than only marking a place.
+    pub mesh: bool,
 }
 
 pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
@@ -78,6 +80,7 @@ pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
                 position: to_world(transform.transform_point3(Vec3::ZERO)),
                 forward: to_world(transform.transform_vector3(-Vec3::Z)).normalize_or(-Vec3::X),
                 up: to_world(transform.transform_vector3(Vec3::Y)).normalize_or(Vec3::Z),
+                mesh: node.mesh().is_some(),
             };
             if !marker.position.is_finite() {
                 return Err(format!("node `{name}` has a non-finite pose"));
@@ -441,9 +444,26 @@ impl Writer {
     }
 }
 
+/// An empty named node to write after the parts: a marker such as a room's `camera` or
+/// `spot.<name>`, in world axes (as [`read_nodes`] gives it back).
+pub struct Marker<'a> {
+    pub name: &'a str,
+    pub position: Vec3,
+    /// Where it looks; a camera node looks along it.
+    pub forward: Vec3,
+    /// Its up, turned square to `forward`.
+    pub up: Vec3,
+}
+
 /// Writes parts as a `.gltf` file with an embedded buffer, one node per part. Reading it
 /// back gives the same triangles, paint, glow, cuts and morph target.
 pub fn write(parts: &[Part]) -> String {
+    write_nodes(parts, &[])
+}
+
+/// [`write`], with empty named nodes after the parts. The same parts and markers give
+/// the same bytes: nodes, accessors and keys are written in a fixed order.
+pub fn write_nodes(parts: &[Part], markers: &[Marker]) -> String {
     let mut w = Writer::default();
     let mut meshes = Vec::new();
     let mut nodes = Vec::new();
@@ -502,6 +522,18 @@ pub fn write(parts: &[Part]) -> String {
         }
         meshes.push(json!({ "name": part.name, "primitives": [primitive] }));
         nodes.push(json!({ "name": part.name, "mesh": meshes.len() - 1 }));
+    }
+    for m in markers {
+        // glTF nodes look along their -Z with +Y up.
+        let f = to_gltf(m.forward).normalize_or(Vec3::Z);
+        let u = to_gltf(m.up);
+        let u = (u - f * f.dot(u)).normalize_or(if f.y.abs() < 0.9 { Vec3::Y } else { Vec3::X });
+        let r = f.cross(u);
+        let t = to_gltf(m.position);
+        nodes.push(json!({
+            "name": m.name,
+            "matrix": [r.x, r.y, r.z, 0.0, u.x, u.y, u.z, 0.0, -f.x, -f.y, -f.z, 0.0, t.x, t.y, t.z, 1.0],
+        }));
     }
     let doc = json!({
         "asset": { "version": "2.0", "generator": "galaxy-mesh" },
@@ -645,6 +677,57 @@ mod tests {
             back.vertices
                 .iter()
                 .any(|v| (v.position[2] - 1.0).abs() < 1e-6)
+        );
+    }
+
+    #[test]
+    fn markers_read_back_with_their_pose() {
+        let hull = hull();
+        let forward = Vec3::new(-1.0, 0.0, -0.5).normalize();
+        let text = write_nodes(
+            &[Part {
+                name: "hull",
+                mesh: &hull,
+            }],
+            &[
+                Marker {
+                    name: "camera",
+                    position: Vec3::new(8.0, 0.0, 4.0),
+                    forward,
+                    up: Vec3::Z,
+                },
+                Marker {
+                    name: "spot.door",
+                    position: Vec3::new(2.0, -1.0, 0.0),
+                    forward: Vec3::Y,
+                    up: Vec3::Z,
+                },
+            ],
+        );
+        let nodes = read_nodes(&text).unwrap();
+        let near = |a: Vec3, b: Vec3| (a - b).length() < 1e-5;
+        assert!(near(nodes["camera"].position, Vec3::new(8.0, 0.0, 4.0)));
+        assert!(near(nodes["camera"].forward, forward));
+        assert!(nodes["camera"].up.dot(forward).abs() < 1e-5);
+        assert!(nodes["camera"].up.z > 0.8);
+        assert!(near(nodes["spot.door"].forward, Vec3::Y));
+        assert!(near(nodes["spot.door"].up, Vec3::Z));
+        // Markers are not parts.
+        let (_, parts) = read_parts(&text).unwrap();
+        assert_eq!(parts.len(), 1);
+        // Without markers the file is what write gives.
+        assert_eq!(
+            write_nodes(
+                &[Part {
+                    name: "hull",
+                    mesh: &hull
+                }],
+                &[]
+            ),
+            write(&[Part {
+                name: "hull",
+                mesh: &hull
+            }])
         );
     }
 

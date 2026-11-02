@@ -66,6 +66,7 @@ scripts/*.luau     scripts
 tests/*.luau       Luau tests; tests/*.toml scenario runs (tests-and-what-if.md)
 style.toml         optional: looks, ink, light, sky, course and screen (renderer-and-style.md)
 models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
+recipes/*.toml     optional: recipes galaxy-gm model make turns into models/<name>.gltf (model-generator.md)
 audio.toml        optional: event sounds, music and place ambience (audio.md)
 sounds/*          WAV or Ogg Vorbis presentation assets
 ```

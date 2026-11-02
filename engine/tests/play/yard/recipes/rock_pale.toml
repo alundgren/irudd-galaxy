@@ -1,0 +1,8 @@
+about = "the rock recipe as a preset, repainted pale and made bigger"
+
+[[part]]
+name = "rock"
+use = "rock"
+scale = 1.5
+turn = 60.0
+palette = { stone = "#c9d6e3", moss = "#f3f6fa" }

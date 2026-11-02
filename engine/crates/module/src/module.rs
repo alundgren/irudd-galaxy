@@ -13,6 +13,7 @@
 //!   tests/*.luau      Luau tests; tests/*.toml scenario runs (galaxy-gm test)
 //!   style.toml        optional: how the module wants things drawn (galaxy-render's style)
 //!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
+//!   recipes/*.toml    optional: model recipes, made into models by the GM (model-generator.md)
 //!   audio.toml        optional event cues and place ambience (engine/docs/audio.md)
 //!   sounds/*          WAV or Ogg files; decoded separately, not stored in recordings
 //! ```

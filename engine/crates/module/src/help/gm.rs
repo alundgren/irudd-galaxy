@@ -329,7 +329,7 @@ pub static COMMANDS: &[Command] = &[
         about: "",
         args: &[(
             "[topic]",
-            "play, live, notes, replay, tests, motion, screens, rooms, talk, life, hovers, audio, modules, style or install; without one, every task \
+            "play, live, notes, replay, tests, motion, screens, rooms, talk, life, hovers, audio, modules, models, style or install; without one, every task \
              in a line each",
         )],
         output: &[],
@@ -448,15 +448,19 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "fields",
-        synopsis: "[style | components | manifest | inputs | spec] [--component <name>] \
+        synopsis: "[style | components | manifest | inputs | spec | recipe] [--component <name>] \
                    [--modules <dir>]",
         answers: "Which keys and fields exist, with their types, defaults and ranges? For \
                   style.toml, the engine's components (and a module's own), manifest.toml, \
-                  inputs files and motion check specs.",
+                  inputs files, motion check specs and model recipes (every shape and its \
+                  keys).",
         about: "Generated from the engine's own definitions, so it is what this build \
                 accepts. Without a topic, a one-line summary of each.",
         args: &[
-            ("[topic]", "style, components, manifest, inputs or spec"),
+            (
+                "[topic]",
+                "style, components, manifest, inputs, spec or recipe",
+            ),
             (
                 "--component <name>",
                 "components only: just this one, by full name or bare (flight for \
@@ -493,8 +497,9 @@ pub static COMMANDS: &[Command] = &[
         path: "model",
         synopsis: "<module> [<model>]",
         answers: "What is a model made of? Its parts (glTF nodes) with sizes and places, \
-                  its outline as collision sees it, its morph target, and which parts glow or \
-                  carry a bite, without reading the glTF file.",
+                  its outline as collision sees it, its morph target, which parts glow or \
+                  carry a bite, and its markers (camera, spot.<name>), without reading the \
+                  glTF file.",
         about: "Sizes are world units at scale 1, in the model's own frame: x its front (where \
                 its thing heads), y its left, z up; a thing's engine.model scale multiplies \
                 them. The outline is the model's convex footprint on the plane, which \
@@ -510,7 +515,8 @@ pub static COMMANDS: &[Command] = &[
         output: &[
             (
                 "models",
-                "without a model: each one's file, parts, triangles, size and who wears it",
+                "without a model: each one's file, parts, markers, triangles, size and who \
+              wears it",
             ),
             (
                 "size, triangles, radius",
@@ -534,7 +540,14 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "glow, bite",
-                "the parts that glow or carry a bite, and how much",
+                "the parts that glow (self-lit, from glowing paint such as lights) or carry a \
+              bite (paint marked as a fresh cut, kept out of the shadow hatching), and how much",
+            ),
+            (
+                "markers",
+                "each named node without a mesh, by name (camera, spot.<name>): at (its \
+              place), looks (the way it faces; a camera looks along it) and up, in the \
+              model's frame; a room's camera and its spots stand at these",
             ),
             (
                 "worn_by",
@@ -547,6 +560,46 @@ pub static COMMANDS: &[Command] = &[
         next: "galaxy-gm motion flicker names these parts under changed pixels; galaxy shot \
                --crop <thing> draws one thing close up.",
         topic: "modules",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "model make",
+        synopsis: "<module> [<recipe>] [--check]",
+        answers: "Make a module's models from its recipes: recipes/<name>.toml becomes \
+                  models/<name>.gltf, with the same bytes on every OS.",
+        about: "A recipe lists parts, each a shape (tiers, spoked_ring, truss, body, wing, \
+                nozzle, rock and more; galaxy-gm fields recipe lists them and their keys) or \
+                another recipe used as a preset, placed, repeated and painted from \
+                recipes/palette.toml. Each part is one glTF node, so one part for ink and for \
+                galaxy-gm model; markers are empty named nodes (camera, spot.<name>). All or \
+                nothing: a bad recipe is refused with its file and field (exit 4, fields \
+                recipe and field) and nothing is written. The same recipe and seed give the \
+                same file; change the seed for a variant.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "[recipe]",
+                "one recipe, by name (outpost for recipes/outpost.toml); every recipe by default",
+            ),
+            (
+                "--check",
+                "write nothing; exit 5 (kind findings) when a model is missing or is not what \
+              its recipe makes",
+            ),
+        ],
+        output: &[
+            (
+                "made",
+                "each recipe: recipe, model (its ID), file, status (written, unchanged, or with \
+              --check stale or missing), parts, markers, triangles, size and sha256 of the file",
+            ),
+            ("ok", "false with --check when a model is stale or missing"),
+        ],
+        writes: "models/<name>.gltf in the module, for each recipe made (unless --check)",
+        example: "galaxy-gm model make tests/play/yard",
+        next: "galaxy-gm model <module> <model> lists its parts; galaxy shot --modules <folder> \
+               or galaxy play draws it; galaxy-gm check <module> checks what wears it.",
+        topic: "models",
     },
     Command {
         tool: Tool::Gm,
@@ -1473,6 +1526,45 @@ pub static TOPICS: &[Topic] = &[
                 ],
             },
         ],
+    },
+    Topic {
+        name: "models",
+        title: "Models from recipes: stations, hulls, parts and rocks",
+        about: "A module's models can be made from recipes instead of drawn by hand: \
+                recipes/<name>.toml makes models/<name>.gltf (galaxy-gm model make). A recipe \
+                is [[part]] tables, each a shape with its keys (galaxy-gm fields recipe lists \
+                every shape, key, range and default) or use = \"<recipe>\" for another recipe \
+                of the module as a preset (a fitted part, a variant). Place a part with at = \
+                [x, y, z] (x the model's front, y its left, z up) or angle and distance round \
+                the centre, turned outwards; turn, pitch, roll and scale it; copies = n repeats \
+                it round the centre and mirror = true adds the left-right copy. Paint is by \
+                palette slot: recipes/palette.toml holds slot = \"#rrggbb\", a recipe's \
+                [palette] adds or replaces slots, and a used recipe is painted with its \
+                user's slots first (or a part's palette = { ... }). Shapes paint with paint \
+                (slot main), trim, accent, lights (self-lit) and glass. Each [[part]] is one \
+                glTF node, named by name: the part galaxy-gm model and the ink see. \
+                [[marker]] adds empty named nodes: a room's camera and spot.<name>, which \
+                look along turn and pitch. A rock with mined above 0 has a morph target: \
+                engine.model morph runs it from whole to mined. The seed varies lumps and \
+                chips; the same recipe gives the same bytes on every OS. Commit the recipes \
+                and the models, and remake after changing a recipe.",
+        tasks: &[
+            ("Make models from a module's recipes", "gm model make"),
+            ("Which shapes and keys a recipe takes", "gm fields"),
+            ("What a made model is: parts, outline, morph", "gm model"),
+        ],
+        recipes: &[Recipe {
+            title: "Make a rock and a small station and see them in the game",
+            steps: &[
+                "Write recipes/palette.toml with main, trim, accent, lights and glass slots, and recipes/rock.toml with one [[part]] of shape = \"rock\", radius = 2.0, mined = 0.5.",
+                "Write recipes/station.toml: a tiers core, a spoked_ring round it and a truss with copies = 3, angle and distance.",
+                "galaxy-gm fields recipe",
+                "galaxy-gm model make <module>",
+                "galaxy-gm model <module> station",
+                "Give a thing in start.toml engine.model = { model = \"<id>.station\" } (<id> is the manifest's id), and another the rock with morph = 0.5 to show it part mined; then galaxy-gm check <module>.",
+                "galaxy shot --modules <module> --out station.png --ticks 30",
+            ],
+        }],
     },
     Topic {
         name: "style",

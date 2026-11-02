@@ -1,12 +1,13 @@
 //! `galaxy-gm model <module> [<model>]`: what a model is, without reading its glTF: its
 //! parts (glTF nodes) with their sizes and places, its outline on the plane as collision
-//! sees it, its morph target, and which parts glow or carry a bite; or, without a model,
+//! sees it, its morph target, which parts glow or carry a bite, and its markers (named
+//! nodes without a mesh, such as a room's `camera` and `spot.<name>`); or, without a model,
 //! every model the module has in a line each.
 
 use std::path::Path;
 
 use galaxy_api::engine::MODEL;
-use galaxy_mesh::gltf::{PartInfo, read_parts};
+use galaxy_mesh::gltf::{PartInfo, read_nodes, read_parts};
 use galaxy_module::cli::Output;
 use galaxy_module::module::Module;
 use galaxy_module::{Failure, discover};
@@ -15,6 +16,124 @@ use serde_json::{Map, Value, json};
 
 /// The options `model` takes.
 pub const OPTIONS: &[&str] = &[];
+
+/// The options `model make` takes.
+pub const MAKE_OPTIONS: &[&str] = &["check"];
+
+/// `galaxy-gm model make <module> [<recipe>] [--check]`: makes `models/<name>.gltf` from
+/// each `recipes/<name>.toml` (or one), all or nothing: a bad recipe is refused, naming
+/// its field, and nothing is written. With `check`, writes nothing and refuses when a
+/// model is not what its recipe makes.
+pub fn make(dir: &Path, only: Option<&str>, check: bool) -> Result<Output, Failure> {
+    let module = Module::read(dir)?;
+    let files = &module.files.0;
+    let mut names = galaxy_recipe::names(files);
+    if names.is_empty() {
+        return Err(Failure::bad_input(format!(
+            "{} has no recipes (recipes/<name>.toml makes models/<name>.gltf); \
+             galaxy-gm guide models shows one",
+            module.id()
+        ))
+        .with("path", dir.display().to_string()));
+    }
+    if let Some(one) = only {
+        let one = one
+            .strip_prefix(&format!("{}.", module.id()))
+            .unwrap_or(one);
+        if !names.iter().any(|n| n == one) {
+            return Err(Failure::bad_input(format!(
+                "{} has no recipe `{one}`; it has {}",
+                module.id(),
+                names.join(", ")
+            ))
+            .with("path", dir.display().to_string()));
+        }
+        names = vec![one.to_owned()];
+    }
+    let mut made = Vec::new();
+    for name in &names {
+        let m = galaxy_recipe::make(files, name).map_err(|p| {
+            Failure::bad_input(format!("refused: {p}"))
+                .with("path", dir.display().to_string())
+                .with("recipe", p.file.clone())
+                .with("field", p.field.clone())
+        })?;
+        made.push(m);
+    }
+    let mut rows = Vec::new();
+    let mut stale = Vec::new();
+    for m in &made {
+        let path = dir.join(&m.file);
+        let old = std::fs::read_to_string(&path)
+            .ok()
+            .map(|t| t.replace("\r\n", "\n"));
+        let status = match (&old, check) {
+            (Some(t), _) if *t == m.text => "unchanged",
+            (None, true) => "missing",
+            (Some(_), true) => "stale",
+            (_, false) => "written",
+        };
+        if matches!(status, "missing" | "stale") {
+            stale.push(m.file.clone());
+        }
+        let (lo, hi) = m.bounds;
+        rows.push(json!({
+            "recipe": m.recipe,
+            "model": format!("{}.{}", module.id(), m.name),
+            "file": m.file,
+            "status": status,
+            "parts": m.parts,
+            "markers": m.markers,
+            "triangles": m.triangles,
+            "size": place(lo.to_array(), hi.to_array()),
+            "sha256": m.sha256,
+        }));
+    }
+    if !check {
+        for m in &made {
+            let path = dir.join(&m.file);
+            let same =
+                std::fs::read_to_string(&path).is_ok_and(|t| t.replace("\r\n", "\n") == m.text);
+            if same {
+                continue;
+            }
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    Failure::runtime(format!("can't make {}: {e}", parent.display()))
+                })?;
+            }
+            std::fs::write(&path, &m.text)
+                .map_err(|e| Failure::runtime(format!("can't write {}: {e}", path.display())))?;
+        }
+    }
+    let out = json!({
+        "ok": stale.is_empty(),
+        "command": "model make",
+        "module": module.id(),
+        "made": rows,
+        "units": "size x by y by z at (centre), world units at scale 1: x the model's front, y its left, z up",
+        "next": format!(
+            "galaxy-gm model {} <model> for one model's parts and markers; galaxy shot --modules <folder> or galaxy play to see it",
+            dir.display()
+        ),
+    });
+    if stale.is_empty() {
+        return Ok(Output::Json(out));
+    }
+    let mut failure = Failure::new(
+        galaxy_module::failure::code::REJECTED,
+        "findings",
+        format!(
+            "{} model(s) are not what their recipes make: {}; run galaxy-gm model make without --check",
+            stale.len(),
+            stale.join(", ")
+        ),
+    );
+    if let Value::Object(fields) = out {
+        failure.fields = fields;
+    }
+    Err(failure)
+}
 
 /// Two decimals, for sizes and places.
 fn r2(v: f32) -> f64 {
@@ -51,13 +170,17 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
     let Some(want) = name else {
         let mut list = Map::new();
         for (path, text, id) in &models {
-            let line = match read_parts(text) {
-                Ok((mesh, ranges)) => {
+            let line = match read_parts(text).and_then(|r| {
+                let m = markers(text)?;
+                Ok((r, m))
+            }) {
+                Ok(((mesh, ranges), marks)) => {
                     let parts = PartInfo::of(&mesh, &ranges);
                     let all = whole(&parts);
                     format!(
-                        "{path}: {} part(s), {} triangles, {}; worn by {}",
+                        "{path}: {} part(s), {} marker(s), {} triangles, {}; worn by {}",
                         parts.len(),
+                        marks.len(),
                         mesh.triangle_count(),
                         place(all.0, all.1),
                         worn.get(id).map_or("nothing".to_owned(), |w| w.join(", "))
@@ -73,7 +196,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
             "module": module.id(),
             "models": list,
             "units": "size x by y by z at (centre), world units at scale 1: x the model's front, y its left, z up",
-            "next": format!("galaxy-gm model {} <model> for one model's parts, outline, morph, glow and bite", dir.display()),
+            "next": format!("galaxy-gm model {} <model> for one model's parts, outline, morph, glow, bite and markers", dir.display()),
         })));
     };
     let full = if want.contains('.') {
@@ -93,6 +216,7 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         )));
     };
     let (mesh, ranges) = read_parts(text).map_err(|e| bad(format!("{path} does not read: {e}")))?;
+    let marks = markers(text).map_err(|e| bad(format!("{path} does not read: {e}")))?;
     let parts = PartInfo::of(&mesh, &ranges);
     let all = whole(&parts);
     let profile = Profile::of(&mesh);
@@ -164,9 +288,30 @@ pub fn run(dir: &Path, name: Option<&str>) -> Result<Output, Failure> {
         },
         "glow": named(&|p: &PartInfo| p.glow),
         "bite": named(&|p: &PartInfo| p.bite),
+        "markers": marks,
+        "markers_about": "named nodes without a mesh, by name: at (its place), looks (the way it faces; a camera looks along it) and up, in the model's frame like the sizes. A room's camera is its `camera` node (or the one engine.room camera names); engine.spot `name` stands at node `spot.<name>`",
         "worn_by": worn.get(id.as_str()).cloned().unwrap_or_default(),
         "next": "galaxy-gm motion flicker <film> names these parts under changed pixels (events.parts); galaxy shot --crop <thing> draws one thing close up",
     })))
+}
+
+/// The model's markers: named nodes without a mesh, with where they are, which way
+/// they face and their up, as rooms and spots read them. A part's display name can come
+/// from its mesh, so markers are told apart by the node itself, not by part names.
+fn markers(text: &str) -> Result<Map<String, Value>, String> {
+    let v = |p: [f32; 3]| json!(p.map(r2));
+    Ok(read_nodes(text)?
+        .into_iter()
+        .filter(|(_, n)| !n.mesh)
+        .map(|(name, n)| {
+            let m = json!({
+                "at": v(n.position.to_array()),
+                "looks": v(n.forward.to_array()),
+                "up": v(n.up.to_array()),
+            });
+            (name, m)
+        })
+        .collect())
 }
 
 /// The box round every part.
@@ -231,6 +376,162 @@ mod tests {
             Output::Json(v) => v,
             _ => panic!("model prints JSON"),
         }
+    }
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let path = entry.unwrap().path();
+            let dest = to.join(path.file_name().unwrap());
+            if path.is_dir() {
+                copy_dir(&path, &dest);
+            } else {
+                std::fs::copy(&path, &dest).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn make_writes_models_checks_them_and_refuses_a_bad_recipe_whole() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("yard");
+        copy_dir(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/yard"),
+            &dir,
+        );
+        let statuses = |v: &Value| -> Vec<String> {
+            v["made"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|m| m["status"].as_str().unwrap().to_owned())
+                .collect()
+        };
+        // The committed models are what the recipes make.
+        let out = json(make(&dir, None, true).unwrap());
+        assert!(statuses(&out).iter().all(|s| s == "unchanged"), "{out}");
+
+        // A changed recipe makes its model stale; making writes it, and only it.
+        let rock = dir.join("recipes/rock.toml");
+        let text = std::fs::read_to_string(&rock)
+            .unwrap()
+            .replace("seed = 11", "seed = 12");
+        std::fs::write(&rock, text).unwrap();
+        let Err(stale) = make(&dir, None, true) else {
+            panic!("a stale model passes --check");
+        };
+        assert_eq!((stale.code, stale.kind), (5, "findings"));
+        assert!(
+            stale.message.contains("models/rock.gltf"),
+            "{}",
+            stale.message
+        );
+        let out = json(make(&dir, Some("rock"), false).unwrap());
+        assert_eq!(statuses(&out), ["written"]);
+        // The pale rock uses the rock, so it is stale too until it is made.
+        let Err(stale) = make(&dir, None, true) else {
+            panic!("a recipe using a changed one passes --check");
+        };
+        assert!(
+            stale.message.contains("models/rock_pale.gltf"),
+            "{}",
+            stale.message
+        );
+        let out = json(make(&dir, None, false).unwrap());
+        assert_eq!(
+            statuses(&out),
+            [
+                "unchanged",
+                "unchanged",
+                "written",
+                "unchanged",
+                "unchanged"
+            ]
+        );
+        assert!(
+            json(make(&dir, None, true).unwrap())["ok"]
+                .as_bool()
+                .unwrap()
+        );
+        let made = json(run(&dir, Some("rock")).unwrap());
+        assert!(made["morph"]["parts"].is_array(), "{made}");
+
+        // A bad recipe is refused with its field, and nothing is written.
+        std::fs::remove_file(dir.join("models/outpost.gltf")).unwrap();
+        let skiff = dir.join("recipes/skiff.toml");
+        let text = std::fs::read_to_string(&skiff)
+            .unwrap()
+            .replace("span = 1.8", "span = -1.8");
+        std::fs::write(&skiff, text).unwrap();
+        let Err(bad) = make(&dir, None, false) else {
+            panic!("a bad recipe is made");
+        };
+        assert_eq!((bad.code, bad.kind), (4, "bad_input"));
+        assert_eq!(bad.fields["field"], "part[1].span");
+        assert_eq!(bad.fields["recipe"], "recipes/skiff.toml");
+        assert!(
+            !dir.join("models/outpost.gltf").exists(),
+            "nothing is written"
+        );
+        let Err(none) = make(&dir, Some("nope"), false) else {
+            panic!("an unknown recipe is made");
+        };
+        assert!(none.message.contains("outpost"), "{}", none.message);
+    }
+
+    #[test]
+    fn a_generated_model_reports_its_camera_and_spot_markers() {
+        // The yard's outpost is made from recipes/outpost.toml (make --check pins it).
+        let yard = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/yard");
+        let all = json(run(&yard, None).unwrap());
+        let line = all["models"]["yard.outpost"].as_str().unwrap();
+        assert!(line.contains(", 2 marker(s), "), "{line}");
+        let out = json(run(&yard, Some("outpost")).unwrap());
+        let markers = out["markers"].as_object().unwrap();
+        let names: Vec<&str> = markers.keys().map(String::as_str).collect();
+        assert_eq!(names, ["camera", "spot.dock"], "{out}");
+        let num = |m: &str, k: &str, i: usize| out["markers"][m][k][i].as_f64().unwrap();
+        // The camera stands where the recipe puts it and looks back and down.
+        assert_eq!([0, 1, 2].map(|i| num("camera", "at", i)), [22.0, 0.0, 14.0]);
+        assert!(num("camera", "looks", 0) < -0.8 && num("camera", "looks", 2) < -0.4);
+        assert!(num("camera", "up", 2) > 0.8);
+        // The dock spot is 11.5 out at 90 degrees, facing the centre.
+        assert_eq!(num("spot.dock", "at", 1), 11.5);
+        assert!(num("spot.dock", "looks", 1) < -0.99, "{out}");
+        // Markers are not parts.
+        let parts = out["parts"].as_array().unwrap();
+        assert!(
+            !parts
+                .iter()
+                .any(|p| p.as_str().unwrap().starts_with("camera:")),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_mesh_named_like_a_marker_does_not_hide_the_marker() {
+        // An unnamed mesh node shows as a part named after its mesh; here that mesh is
+        // called `camera`, beside the room's own empty `camera` node.
+        let rooms = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/rooms/demo");
+        let dir = std::env::temp_dir().join(format!("gm-model-markers-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        copy_dir(&rooms, &dir);
+        let path = dir.join("models/room_a.gltf");
+        let mut gltf: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        gltf["nodes"][0].as_object_mut().unwrap().remove("name");
+        gltf["meshes"][0]["name"] = json!("camera");
+        std::fs::write(&path, gltf.to_string()).unwrap();
+        let out = json(run(&dir, Some("room_a")).unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
+        let names: Vec<&str> = out["markers"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert!(names.contains(&"camera"), "{out}");
+        assert!(names.contains(&"spot.entry"), "{out}");
     }
 
     #[test]

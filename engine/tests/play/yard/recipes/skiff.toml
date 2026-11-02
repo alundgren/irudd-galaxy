@@ -1,0 +1,48 @@
+about = "a small hull: body, swept wings, a fin, a canopy and two thrusters (the thruster recipe)"
+seed = 1
+
+[[part]]
+name = "body"
+shape = "body"
+length = 4.2
+width = 1.8
+height = 1.2
+nose = 0.6
+sides = 8
+
+[[part]]
+name = "wings"
+shape = "wing"
+span = 1.8
+chord = 1.8
+sweep = 0.9
+thickness = 0.22
+at = [0.3, 0.6, -0.1]
+mirror = true
+light = true
+paint = "trim"
+
+[[part]]
+name = "fin"
+shape = "fin"
+length = 1.2
+height = 0.9
+at = [-0.8, 0.0, 0.4]
+paint = "trim"
+
+[[part]]
+name = "canopy"
+shape = "sphere"
+radius = 0.5
+half = true
+sides = 8
+rings = 3
+scale = [1.6, 1.0, 0.9]
+at = [0.6, 0.0, 0.45]
+paint = "glass"
+
+[[part]]
+name = "thrusters"
+use = "thruster"
+at = [-2.0, 0.55, -0.05]
+mirror = true

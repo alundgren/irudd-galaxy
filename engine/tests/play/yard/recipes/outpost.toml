@@ -1,0 +1,80 @@
+about = "a small station: a tiered core, a docking ring on spokes, three arms with panels, tanks, a dome and two masts"
+seed = 3
+
+[[part]]
+name = "core"
+shape = "tiers"
+radius = 4.0
+height = 5.0
+tiers = 3
+sides = 10
+
+[[part]]
+name = "ring"
+shape = "spoked_ring"
+radius = 9.0
+tube = 0.9
+spokes = 6
+inner = 3.5
+paint = "trim"
+trim = "main"
+
+[[part]]
+name = "arms"
+shape = "truss"
+length = 7.0
+width = 0.8
+angle = 30.0
+distance = 9.5
+copies = 3
+
+[[part]]
+name = "panels"
+shape = "panel"
+length = 6.0
+width = 2.4
+angle = 30.0
+distance = 16.5
+copies = 3
+paint = "accent"
+
+[[part]]
+name = "tanks"
+shape = "tanks"
+radius = 0.8
+length = 2.4
+count = 2
+angle = 90.0
+distance = 4.5
+at = [0.0, 0.0, -2.0]
+paint = "accent"
+
+[[part]]
+name = "dome"
+shape = "dome"
+radius = 1.6
+at = [0.0, 0.0, 3.0]
+turn = 15.0
+
+[[part]]
+name = "masts"
+shape = "mast"
+height = 4.0
+lean = 12.0
+angle = 210.0
+distance = 3.0
+at = [0.0, 0.0, 1.0]
+copies = 2
+spread = 120.0
+
+[[marker]]
+name = "spot.dock"
+angle = 90.0
+distance = 11.5
+turn = 180.0
+
+[[marker]]
+name = "camera"
+at = [22.0, 0.0, 14.0]
+turn = 180.0
+pitch = -30.0
