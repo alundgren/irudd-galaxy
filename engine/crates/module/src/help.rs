@@ -503,7 +503,8 @@ static GAME: &[Command] = &[
             (
                 "--load <save>",
                 "resume a save made by this build; module files changed since are carried \
-                 over when the saved world still fits them. Records from the saved world",
+                 over when the saved world still fits them. Records from the saved world; \
+                 its first tick brings engine.resumed",
             ),
             (
                 "--continue",
@@ -834,7 +835,9 @@ static GAME: &[Command] = &[
         synopsis: "<save|--continue> --modules <dir> [options]",
         answers: "Load a save and carry on with the modules.",
         about: "The save must list the same modules; their versions and files may differ if \
-                every stored component still fits. Exit 4 says when it doesn't.",
+                every stored component still fits. Exit 4 says when it doesn't. The first tick \
+                run starts with an engine.resumed input (source resume), so scripts can cue \
+                music again; a run that never stopped reaches the same world given that input.",
         args: &[
             ("<save>", "a save file, from --save or a session's save.db"),
             (

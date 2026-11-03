@@ -257,8 +257,8 @@ pub(crate) fn newest_save(root: &Path, modules: &[Module]) -> Option<PathBuf> {
 /// Shared restore path. Windowed play (`same_build`) needs the build that saved it. A
 /// module whose files changed since the save is carried over when the saved world still
 /// fits it (new fields get defaults; a change that would lose data is refused), as a
-/// hot-load is. Returns the session and what was resumed: the save, its tick, and the
-/// modules whose files changed.
+/// hot-load is. The session's next tick tells scripts with `engine.resumed`. Returns the
+/// session and what was resumed: the save, its tick, and the modules whose files changed.
 pub(crate) fn resume_save(
     save_path: &Path,
     modules: Vec<Module>,
@@ -296,7 +296,7 @@ pub(crate) fn resume_save(
         })
         .map(|saved| saved.id.clone())
         .collect();
-    let session = Session::resume(modules, world).map_err(|e| {
+    let mut session = Session::resume(modules, world).map_err(|e| {
         if changed.is_empty() {
             return bad_modules(e);
         }
@@ -306,6 +306,7 @@ pub(crate) fn resume_save(
         ))
         .with("changed_modules", json!(changed))
     })?;
+    session.announce_resume();
     let resumed = json!({
         "save": save_path.display().to_string(),
         "tick": info.tick,

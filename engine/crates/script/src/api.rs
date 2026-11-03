@@ -107,6 +107,8 @@ pub fn luau_types(engine: &str) -> String {
          --- An event: a fact recorded on an earlier tick, or an input on this one.\n\
          --- Talk inputs: engine.talk_start {{ talk }}, engine.talk_next {{ talk, line }} and\n\
          --- engine.talk_chosen {{ talk, line, choice }} (an answer button; stale ones never arrive).\n\
+         --- engine.resumed {{}} (source \"resume\") starts the first tick after a save resumed;\n\
+         --- a resumed world plays no earlier sound cue, so record the music event again.\n\
          export type Event = {{\n\
          \tkind: Id,\n\
          \ttick: number,\n\

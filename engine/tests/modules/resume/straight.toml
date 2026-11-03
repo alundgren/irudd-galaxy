@@ -1,0 +1,11 @@
+# The same run without stopping: the theme on tick 10, and the input a resume of a
+# tick-60 save brings on tick 61. A resumed run ends on this run's world.
+[[input]]
+tick = 10
+name = "tune.play"
+source = "scenario"
+
+[[input]]
+tick = 61
+name = "engine.resumed"
+source = "resume"

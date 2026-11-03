@@ -123,7 +123,10 @@ fact kinds and a read-only world view to the audio scene. A fresh session starts
 the cursor at zero, so facts already present, including `engine.start`, play once
 before the first tick alongside initial ambience. For a resumed world the cursor
 starts after its saved facts; a hot-load starts just before its new facts. Neither
-replays historical cues. No mixer position, gain or voice is in the world, save or
+replays historical cues. Music that should still play after a resume comes back
+through its module: the first tick of a resumed world starts with the input
+`engine.resumed`, and a handler records the music event again, which the cursor plays
+like any new fact (`saves-and-replay.md`, "Hearing a resume"). No mixer position, gain or voice is in the world, save or
 hash. The session's existing event facts and place state are all that drive it. Pausing for an F8 note
 leaves looping presentation audio running. `--watch` reloads banks outside the audio
 callback, fades old voices out and selects the current ambience again; music starts
@@ -180,7 +183,10 @@ table removed. Recording replay must reach the identical hash as well.
 ## Alternatives and why
 
 A playback/middleware crate would own the system we want to learn, so CPAL is only
-plumbing. A separate script sound command would require new presentation command and
+plumbing. Restoring music on resume by replaying the last music cue found in the saved
+facts would need no module code, but a cue chosen from world state rather than from one
+fact can't be read back; the `engine.resumed` event lets the module that chose the music
+choose it again. A separate script sound command would require new presentation command and
 replay plumbing; an event table reuses facts already present and works headless.
 An ambience field on a world component would put presentation choices into saves and
 hashes; a place-ID table keeps them in module presentation data. Predecoding is simple

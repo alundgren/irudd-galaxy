@@ -1,0 +1,9 @@
+[sounds.theme]
+file = "sounds/music.wav"
+volume = 0.3
+
+[[events]]
+event = "theme"
+sound = "theme"
+bus = "music"
+fade = 0.5

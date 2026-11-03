@@ -110,6 +110,8 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
 /// - `hot_loaded`: a module was hot-loaded (`module`, `version`).
+/// - `resumed`: a save was resumed (`galaxy play --load`/`--continue`, `sim load`),
+///   recorded as input with source `resume` on the first tick after the save; no payload.
 /// - `script_failed`: a handler call was aborted and its writes discarded (`module`,
 ///   `script`, `handler`, `code`, `error`).
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
@@ -121,10 +123,11 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 ///   `line` for next).
 /// - `talk_chosen`: an answer button in a bubble, recorded as input (`talk`, `line`,
 ///   `choice`). A stale answer (not on the line showing) records no event.
-pub const EVENTS: [&str; 11] = [
+pub const EVENTS: [&str; 12] = [
     "clock_advanced",
     "start",
     "hot_loaded",
+    "resumed",
     "script_failed",
     "arrived",
     "walk_finished",
@@ -137,6 +140,9 @@ pub const EVENTS: [&str; 11] = [
 
 pub const START: &str = "engine.start";
 pub const HOT_LOADED: &str = "engine.hot_loaded";
+pub const RESUMED: &str = "engine.resumed";
+/// The input source of [`RESUMED`].
+pub const RESUME_SOURCE: &str = "resume";
 pub const ARRIVED: &str = "engine.arrived";
 pub const SCRIPT_FAILED: &str = "engine.script_failed";
 

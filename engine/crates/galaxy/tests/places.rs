@@ -99,7 +99,28 @@ fn places_run_save_load_and_replay_have_the_same_world() {
         "--ticks",
         "62",
     ]);
-    assert_eq!(carried["hash"], end["hash"]);
+    // Resuming the save brings `engine.resumed` on tick 34, so the resumed world ends as
+    // the direct run does given that same input.
+    let straight = tmp.path().join("straight.toml");
+    let inputs = std::fs::read_to_string(engine().join(base[7])).unwrap();
+    std::fs::write(
+        &straight,
+        format!(
+            "{inputs}
+[[input]]
+tick = 34
+name = 'engine.resumed'
+source = 'resume'
+"
+        ),
+    )
+    .unwrap();
+    let direct = galaxy(&[&base[..7], &[straight.to_str().unwrap(), "--ticks", "95"]].concat());
+    assert_eq!(carried["hash"], direct["hash"]);
+    assert_ne!(
+        carried["hash"], end["hash"],
+        "the resume is an input of its own"
+    );
     let replayed = galaxy(&["sim", "replay", rec.to_str().unwrap()]);
     assert_eq!(replayed["identical"], true);
     assert_eq!(replayed["hash"], end["hash"]);

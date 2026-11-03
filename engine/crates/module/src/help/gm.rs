@@ -1739,7 +1739,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
             ("Generate with OpenRouter", "gm music"),
             ("Audio authoring tools", "gm audio"),
@@ -1781,8 +1781,11 @@ pub static TOPICS: &[Topic] = &[
                 through the same window loop (--inputs), and its [[note]] entries are taken \
                 like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
-                world ticks, including on resume. The new recording embeds the saved start world, \
-                so replay, F8, audit and film work as usual. --physical-size makes --size physical \
+                world ticks, including on resume. The first tick after a resume (play --load, \
+                --continue, sim load) starts with the recorded input engine.resumed (source \
+                resume): handle it to cue music or sounds again, since no earlier cue replays. \
+                The new recording embeds the saved start world, so replay, F8, audit and film \
+                work as usual. --physical-size makes --size physical \
                 pixels (otherwise logical); the report always gives physical size. \
                 Esc quits and saves unless a module binds escape in [keys]; Shift+Esc and \
                 closing the window always do. [keys] can also bind mouse_right; bot \
