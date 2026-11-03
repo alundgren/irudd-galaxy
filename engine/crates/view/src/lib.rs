@@ -16,6 +16,7 @@ pub mod film;
 pub mod glide;
 pub mod hovers;
 pub mod life;
+pub mod presses;
 pub mod rooms;
 pub mod screens;
 pub mod talk;
@@ -701,7 +702,8 @@ impl View {
         self.hand = self.targeted.is_some()
             || (self.screens.presentation.drag.is_none()
                 && self.screens.hit(point).is_some_and(|w| {
-                    matches!(w.kind.as_str(), "button" | "bubble" | "drag_source")
+                    matches!(w.kind.as_str(), "button" | "drag_source")
+                        || w.kind == "bubble" && w.on.is_some()
                 }));
         let Some((index, model, scale)) = self
             .targeted

@@ -1,0 +1,24 @@
+[entities.state]
+ui_state = {}
+[entities.clock]
+"engine.clock" = {}
+[entities.hall]
+"engine.place" = { arrival = "signpanel.entry" }
+"engine.room" = { title = "Hall" }
+"engine.model" = { model = "signpanel.station" }
+[entities.entry]
+"engine.spot" = { place = "signpanel.hall", name = "entry" }
+[entities.post]
+"engine.spot" = { place = "signpanel.hall", name = "left" }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "signpanel.hall", spot = "signpanel.entry" }
+"engine.position" = {}
+[entities.host]
+"engine.being" = { home = "signpanel.hall" }
+"engine.location" = { place = "signpanel.hall", spot = "signpanel.post" }
+"engine.position" = {}
+"engine.model" = { model = "signpanel.being" }
+"engine.life" = { name = "Host", clock = "signpanel.clock", first = "signpanel.wait" }
+[entities.wait]
+"engine.act" = { duration = 1, place = "signpanel.hall", spot = "signpanel.post", state = "waiting" }

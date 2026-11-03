@@ -34,6 +34,14 @@ pub struct ScreenStyle {
     pub hint_border_px: f32,
     /// Width of that outline, logical pixels.
     pub highlight_px: f32,
+    /// Talk bubble text sizes in logical pixels: the speaker's heading, the quieter
+    /// subtitle, the line (and its answer buttons), and the Continue/Done marker.
+    pub bubble_title: f32,
+    pub bubble_subtitle: f32,
+    pub bubble_text: f32,
+    pub bubble_marker: f32,
+    /// The heading's font weight, 400 to 700.
+    pub bubble_title_weight: f32,
 }
 
 impl Default for ScreenStyle {
@@ -66,6 +74,11 @@ impl Default for ScreenStyle {
             socket_dash: 6.0,
             hint_border_px: 2.0,
             highlight_px: 6.0,
+            bubble_title: 24.0,
+            bubble_subtitle: 16.0,
+            bubble_text: 20.0,
+            bubble_marker: 16.0,
+            bubble_title_weight: 650.0,
         }
     }
 }
@@ -83,12 +96,21 @@ impl ScreenStyle {
             ("socket_dash", self.socket_dash, 0.0, 16.0),
             ("hint_border_px", self.hint_border_px, 0.0, 4.0),
             ("highlight_px", self.highlight_px, 2.0, 12.0),
+            ("bubble_title", self.bubble_title, 16.0, 40.0),
+            ("bubble_subtitle", self.bubble_subtitle, 16.0, 32.0),
+            ("bubble_text", self.bubble_text, 16.0, 32.0),
+            ("bubble_marker", self.bubble_marker, 16.0, 32.0),
         ] {
             if !value.is_finite() || !(lo..=hi).contains(&value) {
                 return Err(format!(
                     "[screen] {field} must be {lo} to {hi} logical pixels"
                 ));
             }
+        }
+        if !self.bubble_title_weight.is_finite()
+            || !(400.0..=700.0).contains(&self.bubble_title_weight)
+        {
+            return Err("[screen] bubble_title_weight must be 400 to 700".into());
         }
         let surfaces = [
             ("paper", self.paper),

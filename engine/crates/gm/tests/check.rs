@@ -309,3 +309,33 @@ fn life_sign_overlap_only_mid_walk_fails_check_and_passes_when_fixed() {
     let (code, out) = gm(tmp.path(), &["check", "life"]);
     assert_eq!(code, 0, "{out}");
 }
+
+#[test]
+fn check_presses_a_button_to_find_a_panel_over_a_name_sign() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/sign-panel/demo"]);
+    assert_eq!(code, 5, "{out}");
+    let report = json(&out);
+    let findings = report["findings"].as_array().unwrap();
+    assert!(
+        findings.iter().all(|p| p["kind"] == "press"),
+        "only a press reaches it: {report}"
+    );
+    assert!(findings.iter().any(|p| {
+        let m = p["message"].as_str().unwrap();
+        m.contains("after pressing `toggle`") && m.contains("signpanel.host/sign: overlaps")
+    }));
+    assert_eq!(report["pressed"][0]["states"], 2, "{report}");
+    // The offer's answers panel opens clear of its sign, and its choice bubble lays out.
+    let (code, out) = gm(&engine(), &["check", "tests/play/offer/demo"]);
+    assert_eq!(code, 0, "{out}");
+    let report = json(&out);
+    assert_eq!(report["pressed"][0]["states"], 2, "{report}");
+    assert!(
+        report["hovers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h["widget"] == "offer.gift/talk/choices/offer.take"),
+        "{report}"
+    );
+}

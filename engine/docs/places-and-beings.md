@@ -217,6 +217,10 @@ resting scene can therefore fail for a crossing figure, a raised head under a pa
 or a sign or bubble crossing a panel. Results name the place, transition, widget paths
 and talk when active. Active walks staged by the talk checker also include silent signs.
 
+Signs are also checked against screens that buttons and targets open: `check` presses
+them from each place and checks each new state's signs (see "Pressing in check" in
+[Screens](screens.md)). This uses the first arrangement of each day, not every one.
+
 The checker refuses a clock period over 100000 units, over 64 distinct arrangements,
 or a transition longer than 18000 ticks, with an explicit finding; it never marks a
 partial exploration as passed. These are authoring-check bounds, not runtime limits.

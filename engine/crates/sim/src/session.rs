@@ -201,11 +201,17 @@ impl Session {
             if let Some(finish) = crate::travel::finish(&self.world, &input)? {
                 commands.push(finish);
             }
-            commands.extend(crate::talk::input(&self.world, &input)?);
-            commands.push(Command::Record {
-                kind: input.name.clone(),
-                payload: input.payload.clone(),
-            });
+            let talk = crate::talk::input(&self.world, &input)?;
+            // A stale answer (a double click, or one queued behind a room change) stays
+            // in the recording but is no event: scripts only ever see answers that took.
+            let stale = input.name == galaxy_api::engine::TALK_CHOSEN && talk.is_empty();
+            commands.extend(talk);
+            if !stale {
+                commands.push(Command::Record {
+                    kind: input.name.clone(),
+                    payload: input.payload.clone(),
+                });
+            }
             let batch = Batch {
                 cause: Cause::Input {
                     source: input.source.clone(),

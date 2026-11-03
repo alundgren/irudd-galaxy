@@ -81,9 +81,11 @@ pub const ANCHOR: &str = "engine.anchor";
 
 pub const TALK: &str = "engine.talk";
 pub const TALK_LINE: &str = "engine.talk_line";
+pub const TALK_CHOICE: &str = "engine.talk_choice";
 pub const FOCUS: &str = "engine.focus";
 pub const TALK_START: &str = "engine.talk_start";
 pub const TALK_NEXT: &str = "engine.talk_next";
+pub const TALK_CHOSEN: &str = "engine.talk_chosen";
 pub const BODY: &str = "engine.body";
 pub const PLACE: &str = "engine.place";
 pub const SPOT: &str = "engine.spot";
@@ -111,7 +113,11 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 /// - `place_arrived`: play landed a trip, recorded as input (`entity`, `place`, `start_tick`).
 /// - `camera_settled`: play landed a glide to another camera in the same room, recorded
 ///   as input (`entity`, `place`, `start_tick`).
-pub const EVENTS: [&str; 10] = [
+/// - `talk_start`, `talk_next`: a speaker or bubble click, recorded as input (`talk`, and
+///   `line` for next).
+/// - `talk_chosen`: an answer button in a bubble, recorded as input (`talk`, `line`,
+///   `choice`). A stale answer (not on the line showing) records no event.
+pub const EVENTS: [&str; 11] = [
     "clock_advanced",
     "start",
     "hot_loaded",
@@ -122,6 +128,7 @@ pub const EVENTS: [&str; 10] = [
     "camera_settled",
     "talk_start",
     "talk_next",
+    "talk_chosen",
 ];
 
 pub const START: &str = "engine.start";
@@ -225,6 +232,16 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     ("talk", "width", "bubble width in logical pixels"),
     (
         "talk",
+        "title",
+        "bubble heading; empty uses the speaker's life sign name",
+    ),
+    (
+        "talk",
+        "subtitle",
+        "quieter line under the heading, such as a place; empty shows none",
+    ),
+    (
+        "talk",
         "x",
         "horizontal offset from anchor in logical pixels",
     ),
@@ -237,7 +254,23 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     (
         "talk_line",
         "next",
-        "next line entity; empty ends the conversation",
+        "next line entity; empty ends the conversation; must be empty on a line with choices",
+    ),
+    (
+        "talk_choice",
+        "line",
+        "engine.talk_line that offers this answer as a button",
+    ),
+    ("talk_choice", "text", "button label"),
+    (
+        "talk_choice",
+        "next",
+        "line shown after this answer; empty ends the conversation",
+    ),
+    (
+        "talk_choice",
+        "order",
+        "button order on its line, lowest first; ties by entity ID",
     ),
     (
         "focus",
@@ -615,6 +648,10 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             f
         }),
         ("talk_line", fields(&[("text", Text), ("next", Id)])),
+        (
+            "talk_choice",
+            fields(&[("line", Id), ("text", Text), ("next", Id), ("order", Int)]),
+        ),
         ("talk", {
             let mut f = fields(&[
                 ("speaker", Id),
@@ -625,6 +662,8 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
                 ("enabled", Bool),
                 ("story", Bool),
                 ("seen", Bool),
+                ("title", Text),
+                ("subtitle", Text),
             ]);
             f.get_mut("enabled").unwrap().default = true.into();
             f.extend(numbers(&[("width", 320.0), ("x", 0.0), ("y", -12.0)]));

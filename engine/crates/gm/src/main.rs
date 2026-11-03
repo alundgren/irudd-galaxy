@@ -384,6 +384,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
     }
     let mut findings = Vec::new();
     let mut hovers = Vec::new();
+    let mut screen_states = Vec::new();
     let mut all: Vec<Module> = context.clone();
     all.push(module.clone());
     match Registry::new(&all.iter().collect::<Vec<_>>()) {
@@ -411,7 +412,10 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                             view.screens
                                 .problems
                                 .iter()
-                                .filter(|p| p.starts_with(&format!("{}:", module.id())))
+                                .filter(|p| {
+                                    p.starts_with(&format!("{}:", module.id()))
+                                        || p.starts_with(&format!("{}.", module.id()))
+                                })
                                 .map(|p| finding("screen", p.clone())),
                         );
                         findings.extend(
@@ -439,6 +443,13 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                             .into_iter()
                             .map(|p| finding("room", p)),
                         );
+                        let (pressed, states) = view.check_presses(
+                            &mut session,
+                            module.id(),
+                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                        );
+                        findings.extend(pressed.into_iter().map(|p| finding("press", p)));
+                        screen_states = states;
                         hovers.extend(view.hover_checks.take().unwrap().into_values());
                         for hover in &hovers {
                             if let Some(problems) = hover["hover"]["problems"].as_array() {
@@ -472,6 +483,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         "findings": findings,
         "worn": own(worn(&all), module.id()),
         "hovers": hovers,
+        "pressed": screen_states,
     });
     if ok {
         return Ok(Output::Json(out));

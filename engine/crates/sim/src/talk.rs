@@ -6,7 +6,6 @@ use galaxy_api::{
     engine::*,
 };
 use serde_json::json;
-use std::collections::BTreeSet;
 
 pub fn text<'a>(f: &'a Fields, key: &str) -> &'a str {
     f.get(key).and_then(|v| v.as_str()).unwrap_or("")
@@ -65,13 +64,34 @@ pub fn for_speaker<'a>(world: &'a World, speaker: &str) -> Option<&'a str> {
         .map(|(_, id)| id)
 }
 
+/// The answers a line offers, in button order: `order`, then entity ID.
+pub fn choices<'a>(world: &'a World, line: &str) -> Vec<&'a str> {
+    let mut out: Vec<_> = world
+        .entities
+        .iter()
+        .filter_map(|(id, c)| {
+            let f = &c.get(TALK_CHOICE)?.fields;
+            (text(f, "line") == line).then(|| (f["order"].as_i64().unwrap_or(0), id.as_str()))
+        })
+        .collect();
+    out.sort();
+    out.into_iter().map(|(_, id)| id).collect()
+}
+
+/// Every line a talk can reach from `first`, through `next` and through its choices,
+/// first line first. The graph must be finite and acyclic: every path ends.
 pub fn lines<'a>(world: &'a World, first: &'a str) -> Result<Vec<&'a str>, String> {
-    let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
-    let mut id = first;
-    while !id.is_empty() {
-        if !seen.insert(id) {
+    fn visit<'a>(
+        world: &'a World,
+        id: &'a str,
+        path: &mut Vec<&'a str>,
+        out: &mut Vec<&'a str>,
+    ) -> Result<(), String> {
+        if path.contains(&id) {
             return Err(format!("talk line cycle at `{id}`"));
+        }
+        if out.contains(&id) {
+            return Ok(());
         }
         let f = &world
             .component(id, TALK_LINE)
@@ -81,11 +101,33 @@ pub fn lines<'a>(world: &'a World, first: &'a str) -> Result<Vec<&'a str>, Strin
             return Err(format!("talk line `{id}` has empty text"));
         }
         out.push(id);
-        id = text(f, "next");
+        path.push(id);
+        let choices = choices(world, id);
+        let mut next: Vec<&str> = Vec::new();
+        if choices.is_empty() {
+            next.push(text(f, "next"));
+        } else if !text(f, "next").is_empty() {
+            return Err(format!(
+                "talk line `{id}` has choices, so its next must be empty: each choice names its own next"
+            ));
+        }
+        for c in choices {
+            next.push(text(
+                &world.component(c, TALK_CHOICE).unwrap().fields,
+                "next",
+            ));
+        }
+        for n in next.into_iter().filter(|n| !n.is_empty()) {
+            visit(world, n, path, out)?;
+        }
+        path.pop();
+        Ok(())
     }
-    if out.is_empty() {
+    if first.is_empty() {
         return Err("talk needs a first line".into());
     }
+    let mut out = Vec::new();
+    visit(world, first, &mut Vec::new(), &mut out)?;
     Ok(out)
 }
 
@@ -114,6 +156,23 @@ pub fn validate(world: &World) -> Result<(), String> {
     if active > 1 {
         return Err("only one talk can be active".into());
     }
+    for (id, c) in &world.entities {
+        let Some(choice) = c.get(TALK_CHOICE) else {
+            continue;
+        };
+        let f = &choice.fields;
+        let line = text(f, "line");
+        if world.component(line, TALK_LINE).is_none() {
+            return Err(format!("talk choice `{id}`: missing talk line `{line}`"));
+        }
+        if text(f, "text").trim().is_empty() {
+            return Err(format!("talk choice `{id}` has empty text"));
+        }
+        let next = text(f, "next");
+        if !next.is_empty() && world.component(next, TALK_LINE).is_none() {
+            return Err(format!("talk choice `{id}`: missing next line `{next}`"));
+        }
+    }
     Ok(())
 }
 
@@ -125,8 +184,10 @@ fn patch(id: &str, fields: serde_json::Value) -> Command {
     }
 }
 
+/// The commands a talk input makes. Empty for a stale or unavailable one: a queued
+/// click can outlive its line, room or enabled state.
 pub fn input(world: &World, input: &Input) -> Result<Vec<Command>, String> {
-    if input.name != TALK_START && input.name != TALK_NEXT {
+    if ![TALK_START, TALK_NEXT, TALK_CHOSEN].contains(&input.name.as_str()) {
         return Ok(vec![]);
     }
     let id = text(&input.payload, "talk");
@@ -135,17 +196,30 @@ pub fn input(world: &World, input: &Input) -> Result<Vec<Command>, String> {
         .ok_or_else(|| format!("missing talk `{id}`"))?
         .fields;
     if !available(world, f) {
-        return Ok(vec![]); // A queued click can outlive its room or enabled state.
+        return Ok(vec![]);
     }
-    if input.name == TALK_NEXT {
+    if input.name != TALK_START {
+        // Two clicks on one displayed line advance it only once.
         if f["active"] != true || text(&input.payload, "line") != text(f, "current") {
-            return Ok(vec![]); // Two clicks on one displayed line advance it only once.
+            return Ok(vec![]);
         }
-        let line = &world
-            .component(text(f, "current"), TALK_LINE)
-            .unwrap()
-            .fields;
-        let next = text(line, "next");
+        let current = text(f, "current");
+        let choices = choices(world, current);
+        let next = if input.name == TALK_NEXT {
+            if !choices.is_empty() {
+                return Ok(vec![]); // A line with choices continues only through one.
+            }
+            text(&world.component(current, TALK_LINE).unwrap().fields, "next")
+        } else {
+            let choice = text(&input.payload, "choice");
+            if !choices.contains(&choice) {
+                return Ok(vec![]);
+            }
+            text(
+                &world.component(choice, TALK_CHOICE).unwrap().fields,
+                "next",
+            )
+        };
         return Ok(vec![if next.is_empty() {
             patch(id, json!({"active": false, "current": null, "seen": true}))
         } else {

@@ -253,6 +253,36 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "width of that outline, logical pixels",
     ),
     (
+        "screen",
+        "bubble_title",
+        "16 to 40",
+        "talk bubble heading (the speaker's name) size, logical pixels",
+    ),
+    (
+        "screen",
+        "bubble_title_weight",
+        "400 to 700",
+        "talk bubble heading font weight; lines are 500",
+    ),
+    (
+        "screen",
+        "bubble_subtitle",
+        "16 to 32",
+        "talk bubble subtitle size, logical pixels; drawn at weight 400",
+    ),
+    (
+        "screen",
+        "bubble_text",
+        "16 to 32",
+        "talk bubble line and answer button size, logical pixels",
+    ),
+    (
+        "screen",
+        "bubble_marker",
+        "16 to 32",
+        "talk bubble Continue/Done marker size, logical pixels; drawn at weight 400",
+    ),
+    (
         "ink",
         "color",
         "",

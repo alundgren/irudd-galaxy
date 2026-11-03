@@ -1,0 +1,44 @@
+[entities.state]
+answers = {}
+[entities.clock]
+"engine.clock" = {}
+[entities.hall]
+"engine.place" = { arrival = "offer.entry" }
+"engine.room" = { title = "Hall" }
+"engine.model" = { model = "offer.station" }
+[entities.entry]
+"engine.spot" = { place = "offer.hall", name = "entry" }
+[entities.post]
+"engine.spot" = { place = "offer.hall", name = "left" }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "offer.hall", spot = "offer.entry" }
+"engine.position" = {}
+[entities.host]
+"engine.being" = { home = "offer.hall" }
+"engine.location" = { place = "offer.hall", spot = "offer.post" }
+"engine.position" = {}
+"engine.model" = { model = "offer.being" }
+"engine.life" = { name = "Host", clock = "offer.clock", first = "offer.wait" }
+[entities.wait]
+"engine.act" = { duration = 1, place = "offer.hall", spot = "offer.post", state = "waiting" }
+
+# A story whose first line offers two answers. Declining disables it (module logic).
+[entities.gift]
+"engine.talk" = { speaker = "offer.host", first = "offer.ask", story = true, subtitle = "In the hall", width = 360 }
+[entities.ask]
+"engine.talk_line" = { text = "I kept a spare lamp for you. Will you take it?" }
+[entities.take]
+"engine.talk_choice" = { line = "offer.ask", text = "Take it", next = "offer.taken", order = 1 }
+[entities.not_now]
+"engine.talk_choice" = { line = "offer.ask", text = "Not now", order = 2 }
+[entities.taken]
+"engine.talk_line" = { text = "It's yours. Mind the handle." }
+
+# Repeat talk with two lines: Continue, then Done.
+[entities.chat]
+"engine.talk" = { speaker = "offer.host", first = "offer.chat_1", width = 360 }
+[entities.chat_1]
+"engine.talk_line" = { text = "The hall is quiet today.", next = "offer.chat_2" }
+[entities.chat_2]
+"engine.talk_line" = { text = "Come back any time." }
