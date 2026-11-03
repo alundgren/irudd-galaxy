@@ -1,0 +1,135 @@
+# The fitting loop, headless: the same moves as tests/fit.toml, for sim runs and shots.
+# Drops are given as the events the cradle's targets send (core.fit, core.unfit).
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 404 }
+[[input]]
+tick = 470
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Too poor for the lens: nothing changes.
+[[input]]
+tick = 480
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 490
+name = "core.open"
+[[input]]
+tick = 500
+name = "core.sell"
+[[input]]
+tick = 510
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# The lens in the wrong socket, then in the drill mount: bought and fitted.
+[[input]]
+tick = 520
+name = "core.fit"
+source = "ui"
+payload = { socket = "hold", value = "core.lens" }
+[[input]]
+tick = 530
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+# The thrusters need 2 power and 1 is free; an unfitted part can't come off.
+[[input]]
+tick = 540
+name = "core.fit"
+source = "ui"
+payload = { socket = "engine", value = "core.thrusters" }
+[[input]]
+tick = 545
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.thrusters" }
+# Off into the locker, and on again from it for nothing.
+[[input]]
+tick = 550
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.lens" }
+[[input]]
+tick = 560
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 570
+name = "core.launch"
+[[input]]
+tick = 580
+name = "core.mine"
+[[input]]
+tick = 760
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 900
+name = "core.open"
+[[input]]
+tick = 910
+name = "core.sell"
+[[input]]
+tick = 920
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 930
+name = "core.fit"
+source = "ui"
+payload = { socket = "hold", value = "core.pods" }
+[[input]]
+tick = 940
+name = "core.launch"
+[[input]]
+tick = 950
+name = "core.mine"
+[[input]]
+tick = 1250
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1400
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Nine aboard and the bare hold takes six: the pods stay on.
+[[input]]
+tick = 1410
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.pods" }
+[[input]]
+tick = 1420
+name = "core.open"
+[[input]]
+tick = 1430
+name = "core.sell"
+[[input]]
+tick = 1440
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 1450
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.pods" }

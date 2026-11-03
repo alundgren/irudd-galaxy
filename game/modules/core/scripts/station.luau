@@ -6,6 +6,8 @@ local teach = require("./teach")
 local voices = require("./voices")
 local signs = require("./signs")
 local trade = require("./trade")
+local fit = require("./fit")
+local cradle = require("./cradle")
 local layout = require("./layout") -- room panels are layout.PANEL wide: at most about 45% of the view
 
 local function pressed(event)
@@ -178,7 +180,7 @@ local function buy(event, ctx)
     for _, id in trade.lines(ctx, pilot.room) do
         local line = ctx.get(id, "market")
         if line.role == "sells" and line.ware == event.payload.ware then
-            local units = rules.affordable(line, rules.CAPACITY - rules.load(hold), pilot.credits)
+            local units = rules.affordable(line, fit.hold(ctx) - rules.load(hold), pilot.credits)
             local asked = event.payload.units or 0
             if asked > 0 then units = math.min(units, asked) end
             if units == 0 then return end -- resting: the hold is full, or credits are short
@@ -222,7 +224,7 @@ local function skiffs(ctx)
 end
 
 -- One good in a trading room: its price and stock as plain text, then its verbs.
-local function line_rows(ctx, ui, id, hold, credits, rows, sellable, build)
+local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, build)
     local line = ctx.get(id, "market")
     local name = string.upper(string.sub(line.ware, 1, 1)) .. string.sub(line.ware, 2)
     local price = rules.price(line)
@@ -245,14 +247,23 @@ local function line_rows(ctx, ui, id, hold, credits, rows, sellable, build)
         end
     else
         table.insert(rows, ui.text { id = "about_" .. w, text = name .. " · asks " .. price .. " cr · stock " .. line.stock, size = 20 })
-        local room = rules.CAPACITY - rules.load(hold)
+        local room = capacity - rules.load(hold)
         local most = rules.affordable(line, room, credits)
+        -- Buying that can't happen now rests in place, with its reason beside it.
+        local why = nil
         if room == 0 then
-            return -- the panel says once that buying rests while the hold is full
+            why = "Hold full: sell first."
         elseif line.stock == 0 then
-            table.insert(rows, ui.text { id = "out_" .. w, text = "Sold out until the stock comes back.", size = 18 })
+            why = "Sold out until the stock comes back."
         elseif most == 0 then
-            table.insert(rows, ui.text { id = "short_" .. w, text = "Not enough credits for one " .. w .. ".", size = 18 })
+            why = "Not enough credits for one " .. w .. "."
+        end
+        if why then
+            table.insert(rows, ui.row { id = "buy_" .. w, gap = 12, children = {
+                ui.button { id = "buy1_" .. w, width = 200, on = "buy", payload = { ware = w, units = 1 },
+                    text = "Buy 1 · " .. price .. " cr", resting = why },
+                ui.text { id = "why_" .. w, width = 276, text = why, size = 18 },
+            } })
         else
             local buttons = { ui.button { id = "buy1_" .. w, width = 200, on = "buy", payload = { ware = w, units = 1 },
                 text = "Buy 1 · " .. price .. " cr" } }
@@ -269,19 +280,16 @@ local function trade_rows(ctx, ui, station, pilot, children)
     local hold = ctx.get("ship", "hold")
     local _, build = trade.building(ctx, station)
     local lines = trade.lines(ctx, pilot.room)
-    local sellable, sells = 0, false
+    local sellable = 0
     for _, id in lines do
         local line = ctx.get(id, "market")
         if line.role == "buys" and hold[line.ware] > 0 then sellable += 1 end
-        if line.role == "sells" then sells = true end
     end
-    table.insert(children, ui.text { id = "ledger", size = 20, text = "Hold " .. rules.load(hold) .. " / " .. rules.CAPACITY
+    local capacity = fit.hold(ctx)
+    table.insert(children, ui.text { id = "ledger", size = 20, text = "Hold " .. rules.load(hold) .. " / " .. capacity
         .. ": " .. rules.list(hold) .. "\nYou have " .. pilot.credits .. " cr" })
-    if sells and rules.load(hold) >= rules.CAPACITY then
-        table.insert(children, ui.text { id = "rest", text = "Hold full: buy buttons rest until you sell.", size = 18 })
-    end
     for _, id in lines do
-        line_rows(ctx, ui, id, hold, pilot.credits, children, sellable, build)
+        line_rows(ctx, ui, id, hold, capacity, pilot.credits, children, sellable, build)
     end
     if sellable > 1 then
         table.insert(children, ui.button { id = "sell", on = "sell", text = "Sell everything here  [Enter]" })
@@ -326,25 +334,33 @@ local function room_panel(ctx, ui, station, pilot)
     local facility = ctx.get(pilot.room, "facility")
     local at = ctx.get(pilot.room, "engine.position")
     local site = ctx.get(pilot.room, "build")
-    local children = { ui.text { id = "title", text = facility.name, size = 28 } }
+    local keeper_text = nil
     if facility.keeper ~= "" then
         local keeper = ctx.get(facility.keeper, "keeper")
         local first = string.match(keeper.name, "^%S+")
-        table.insert(children, ui.text { id = "keeper", size = 18, text = keeper.name .. " keeps it."
-            .. (teach.new(ctx.get("ship", "taught"), "talk") and " Click " .. first .. " to talk." or "") })
+        keeper_text = keeper.name .. " keeps it."
+            .. (teach.new(ctx.get("ship", "taught"), "talk") and " Click " .. first .. " to talk." or "")
     end
-    if site and not site.done then
-        site_rows(ui, site, children)
-    elseif #trade.lines(ctx, pilot.room) > 0 then
-        trade_rows(ctx, ui, station, pilot, children)
+    local children
+    if facility.fits then
+        -- The fitting room has the most to show, so it packs its own rows.
+        children = cradle.rows(ctx, ui, pilot, facility.name, keeper_text)
     else
-        office_rows(ctx, ui, station, children)
+        children = { ui.text { id = "title", text = facility.name, size = 28 } }
+        if keeper_text then table.insert(children, ui.text { id = "keeper", size = 18, text = keeper_text }) end
+        if site and not site.done then
+            site_rows(ui, site, children)
+        elseif #trade.lines(ctx, pilot.room) > 0 then
+            trade_rows(ctx, ui, station, pilot, children)
+        else
+            office_rows(ctx, ui, station, children)
+        end
+        table.insert(children, ui.button { id = "close", text = "Back to the station  [B]", on = "close" })
     end
-    table.insert(children, ui.button { id = "close", text = "Back to the station  [B]", on = "close" })
     -- The panel opens on the side away from its building, so the building stays in view.
     return layout.frame(ui, "room", {
         ui.panel { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
-            width = layout.PANEL, gap = 12, children = children },
+            width = layout.PANEL, gap = facility.fits and 8 or 12, children = children },
     })
 end
 
@@ -390,6 +406,7 @@ end
 return {
     on = {
         open = open, close = close, launch = launch, sell = sell, buy = buy,
+        fit = cradle.fit, unfit = cradle.unfit,
         ["engine.place_arrived"] = settled, ["engine.camera_settled"] = settled,
     },
     cadence = skiffs,

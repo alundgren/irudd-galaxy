@@ -7,6 +7,7 @@ local layout = require("./layout")
 local teach = require("./teach")
 local signs = require("./signs")
 local trade = require("./trade")
+local fit = require("./fit")
 
 -- The flight keys, each shown until it has been used a few times.
 local HINTS = {
@@ -31,7 +32,7 @@ end
 
 local function status(ctx, ui, pilot)
     local hold = ctx.get("ship", "hold")
-    local children = { ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. rules.CAPACITY, size = 20 } }
+    local children = { ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. fit.hold(ctx), size = 20 } }
     if rules.load(hold) > 0 then
         table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 18 })
     end

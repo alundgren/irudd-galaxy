@@ -2,6 +2,7 @@
 -- shift, so a second click hears something current instead of the same speech again.
 local rules = require("./rules")
 local trade = require("./trade")
+local fit = require("./fit")
 
 local voices = {}
 
@@ -52,10 +53,12 @@ function voices.refresh(ctx, station, hold, sold, need)
                 text = voices.trader(list == "nothing" and "" or list, sold, keeper.idle)
             elseif #trade.lines(ctx, id) > 0 then
                 text = keeper.idle
+            elseif facility.fits then
+                text = nil -- the fitter's line follows the last fit (cradle.luau)
             else
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "")
             end
-            ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text })
+            if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end
         end
     end
     voices.gifts(ctx, station, hold)
@@ -87,7 +90,7 @@ function voices.gifts(ctx, station, hold)
         if gift.answered then
             if talk.enabled then put_away(ctx, id, gift) end
         elseif at and at.place == station then
-            local room = rules.CAPACITY - rules.load(hold) >= gift.units
+            local room = fit.hold(ctx) - rules.load(hold) >= gift.units
             if talk.enabled ~= room then
                 ctx.patch(id, "engine.talk", { enabled = room })
                 ctx.patch(gift.instead, "engine.talk", { enabled = not room })
