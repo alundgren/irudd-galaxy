@@ -1,7 +1,9 @@
 [sky]
 top = "#19283c"
 bottom = "#697b86"
-stars = 120
+stars = 160
+# Far stars creep behind near ones as the ship flies: a little depth, kept faint.
+star_layers = [0.25, 0.6, 1.1]
 cloud_count = 3
 
 [screen]

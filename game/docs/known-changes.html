@@ -226,20 +226,6 @@
 </ul>
 </article>
 
-
-<article class="item low">
-<h3>NPC ship name labels show further out and never cover the HUD at any zoom <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Fly near Little Mercy or Quiet Lamp as they cross the reach.</li><li>Zoom right in with the mouse wheel, in a 1280×720 window and in one scaled to 125% (1024×576).</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>A trader's name shows only within 12 world units of the player's ship, away from the stations and from the other trader's label, on the side of the trader away from the player's ship. Pointing at a trader always names it. Further out it goes unlabelled.</li>
-  <li>The game can't see the zoom, so 12 units is what keeps a label clear of the HUD at the default zoom and wider. Zoomed right in, a nearby trader's label could still reach the order buttons or the status panel.</li>
-</ul>
-<p class="label">What good looks like</p>
-<p>Labels stay readable and fully on screen. They never sit on top of stations, the HUD or each other. They step aside, fade or hide when crowded, and show again on hover.</p>
-</article>
-
 <!-- ============================================================ -->
 <h2>Dialogue and NPCs</h2>
 
@@ -275,67 +261,12 @@
 <h2>Flight, collision and world</h2>
 
 <article class="item low">
-<h3>The ship stays on a rock's surface while the rock is cut smaller <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Fly out, press Space to mine the nearest rock and watch the ship's nose through a whole hold.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Ships, traders, rocks and stations are solid and bump and push with no damage. The Mine order parks the ship on the rock's drawn surface, with no gap and no sideways nudge.</li>
-  <li>Each cut shrinks the rock, and the ship stays where it parked: after the six cuts of a hold there is a gap of 0.29 world units between nose and rock, about 3 pixels at the default zoom. The next Mine order closes it.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>I can fly through things. We dont need collision damage but we do need proper physics for bot objects like these, stations, other ships and so on</blockquote>
-<p class="label">What good looks like</p>
-<ul>
-  <li>When mining, the ship sits right at the rock's drawn surface for the whole time it mines, with no visible gap and no sideways nudge.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>Flying off the dock goes straight back to the ship, with no title card <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Dock at either station, then press W (or A, S, D, or U).</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Flight already feels as decided: free movement, a little inertia, 180° per second turns, and W flies the ship straight off the dock on the tick it is pressed, facing away from the station, with no separate undock step.</li>
-  <li>But the view fades to a dark card reading <span class="screen">core.reach</span> for about a second before it shows the ship, which is already flying by then. Docking, by contrast, glides in from the ship's view.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>you cant just "fly" you have to hit space which makes the game feel frozen</blockquote>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Leaving a station glides back out from the station to the ship's view, the reverse of docking, with no card and no internal names on screen.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>The world feels alive out in space, not only at the dock <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Fly anywhere in the reach and look at the rocks, the stations' outsides and the sky.</p>
-<p class="label">What the player sees now</p>
-<p>Two traders, Little Mercy and Quiet Lamp, fly their own routes between the stations, moor off them for a while and fly back, so there is docking traffic out in space. Everything else (the rocks, the stations' outsides and the starfield) sits completely still.</p>
-<p class="label">Andreas said</p>
-<blockquote>the stations and the asterorids and like everything except me and npc ships are a bit to static</blockquote>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Gentle ambient motion in flight, for example:
-    <ul>
-      <li>rocks drifting and turning slowly</li>
-      <li>station rings turning and lights blinking</li>
-      <li>a little depth in the starfield</li>
-    </ul>
-  </li>
-  <li>It stays calm and lower in contrast than anything you can interact with.</li>
-</ul>
-</article>
-
-<article class="item low">
 <h3>The lane line doesn't cross the station you are docked at <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>Dock at Kettle Dock and look at the docked view.</p>
-<p class="label">What the player sees now</p>
+<p>The core has no lanes yet, and docked, the ship has no order, so no course line is drawn over the station. In an earlier build: dock at Kettle Dock and look at the docked view.</p>
+<p class="label">What the player saw</p>
 <p>The teal line of a nearby lane is drawn in a long arc straight across the station art, between Odo's dialogue box and the Market module.</p>
-<figure><img src="known-changes/lane-line-over-station.jpg" alt="Kettle Dock docked view with a teal lane line drawn across the station, near the greenhouse domes and the Office module." loading="lazy"><figcaption>Newest build, docked at Kettle Dock: the teal lane line cuts through the station.</figcaption></figure>
+<figure><img src="known-changes/lane-line-over-station.jpg" alt="Kettle Dock docked view with a teal lane line drawn across the station, near the greenhouse domes and the Office module." loading="lazy"><figcaption>Earlier build, docked at Kettle Dock: the teal lane line cuts through the station.</figcaption></figure>
 <p class="label">What good looks like</p>
 <p>Route and lane lines never draw over the station you are docked at. They pass behind it, fade out near it, or hide while you are docked.</p>
 </article>

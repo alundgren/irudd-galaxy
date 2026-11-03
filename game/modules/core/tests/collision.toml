@@ -1,6 +1,7 @@
 # Collision under held thrust: W from the start flies the ship straight at rock1. It
 # stops on the rock's surface (it would be at x 13 by tick 30 if it passed through),
-# then glances off round the rock rather than through it, and the rock never moves.
+# then glances off round the rock rather than through it, and the rock turns slowly but
+# never moves.
 ticks = 90
 [[input]]
 tick = 1
@@ -43,3 +44,18 @@ entity = "rock1"
 component = "engine.position"
 field = "y"
 equals = 0
+
+# It turns slowly where it floats (3 degrees a second: 9 degrees, 0.157 radians, by tick
+# 90), bumped or not, and still never moves.
+[[expect]]
+tick = 90
+entity = "rock1"
+component = "engine.position"
+field = "angle"
+at_least = 0.155
+[[expect]]
+tick = 90
+entity = "rock1"
+component = "engine.position"
+field = "angle"
+at_most = 0.159

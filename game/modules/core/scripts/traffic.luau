@@ -3,9 +3,10 @@
 -- side, waits there a while, then flies the other leg back. The engine flies them and
 -- they are solid like everything else; this script only gives the orders.
 --
--- Their name labels show only where they read cleanly: out in open space near the
--- player's ship, clear of the stations and of each other's labels (labels.luau). The
--- screen decides that every tick, as things move. Pointing at a trader always names it.
+-- Their name labels show at any distance where they read cleanly: clear of the
+-- stations (labels.luau), and, as `yield` labels, never off screen, over the HUD or over
+-- each other's labels. The screen decides that every tick, as things move. Pointing at
+-- a trader always names it.
 local labels = require("./labels")
 
 local DWELL = 240 -- ticks a trader waits at a mooring (8 seconds)
@@ -64,7 +65,7 @@ local function screen(ctx, ui)
             -- Above the trader by default; below it when the player's ship is above.
             local at = ctx.get(id, "engine.position")
             table.insert(children, ui.text { id = "label_" .. string.sub(id, 6), anchor = id .. "#label",
-                y = labels.below(ship, at) and 40 or 0, width = #trader.name * 8 + 14, text = trader.name, size = 16 })
+                y = labels.below(ship, at) and 40 or 0, width = #trader.name * 8 + 14, text = trader.name, size = 16, yield = true })
         end
     end
     return ui.column { id = "traffic", children = children }

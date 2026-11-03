@@ -1,0 +1,43 @@
+# Trader labels at every zoom: zoomed fully in, turn south and fly across Little
+# Mercy's route as she leaves Lantern Dock, so her label yields while it would sit on
+# the HUD; then zoomed fully out, where she is named far off. Six notes.
+[[zoom]]
+tick = 10
+steps = 20.0
+[[input]]
+tick = 20
+name = "core.right"
+payload = { down = true }
+[[input]]
+tick = 35
+name = "core.right"
+payload = { down = false }
+[[input]]
+tick = 140
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 212
+name = "core.ahead"
+payload = { down = false }
+[[note]]
+tick = 120
+text = "Zoomed fully in: Little Mercy is still off screen, so no label of hers is drawn."
+[[note]]
+tick = 196
+text = "Zoomed in, she passes below the ship: her label would sit on the message, so it yields."
+[[note]]
+tick = 230
+text = "Zoomed in, she is beside the ship: named, clear of the orders, status and message."
+[[zoom]]
+tick = 260
+steps = -40.0
+[[note]]
+tick = 300
+text = "Zoomed fully out: Little Mercy named far from the ship; Quiet Lamp by Cinder Kiln wears none."
+[[note]]
+tick = 400
+text = "Zoomed out: Little Mercy moored off Cinder Kiln wears no label."
+[[note]]
+tick = 470
+text = "Zoomed out with nothing pressed: the rocks and the station rings turn slowly."
