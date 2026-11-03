@@ -62,13 +62,18 @@ pub fn screen_world<'a>(world: &'a World, place: Option<&str>) -> std::borrow::C
 
 impl View {
     pub fn room_camera(&self, world: &World, place: &str) -> Option<Camera> {
+        self.room_camera_at(
+            world,
+            place,
+            &galaxy_sim::travel::room_camera(world, place)?,
+        )
+    }
+
+    /// The room's camera posed at its node `name`.
+    pub fn room_camera_at(&self, world: &World, place: &str, name: &str) -> Option<Camera> {
         let room = &world.component(place, ROOM)?.fields;
         let model = world.component(place, MODEL)?.fields["model"].as_str()?;
         let nodes = self.assets.nodes.get(model)?;
-        let name = room["camera"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .unwrap_or("camera");
         let node = nodes.get(name)?;
         Some(crate::CameraSpec::posed(
             node,

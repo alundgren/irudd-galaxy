@@ -268,7 +268,11 @@ real time:
   fast-forwards the world), runs them, builds the scene and draws it.
 - Keys a module binds (`[keys]` in its manifest, `modules-and-install.md`) become its
   events as inputs on the next tick, from the source `keyboard`. Key repeat is ignored,
-  and losing focus lets go of every held key, so none sticks down. Escape quits.
+  and losing focus lets go of every held key, so none sticks down. A bound right mouse
+  button works the same way, from the source `mouse`. Escape quits unless a module binds
+  `escape`; Shift+Escape always quits.
+- The pointer is a hand over something a click acts on: a button, bubble, drag source or
+  `ui.target` (`screens.md`).
 - `--watch` hot-loads a changed module between ticks and reloads its models and style.
 - Every session records itself into a session folder, and F8 takes a note with the frame
   that was shown (`saves-and-replay.md`). `--record` and `--save` also write the

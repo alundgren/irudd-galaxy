@@ -61,12 +61,40 @@ then the destination is selected beneath the opaque title. Screens still read cu
 world state, with the player's source location and pose restored in the drawing snapshot during fade-out.
 The trip is presentation-independent: walking later can replace the cut and camera.
 
-Play supplies `engine.place_arrived { entity, place, start_tick }` after 30 ticks, or
-on any left click during a trip. That click is consumed; it cannot press a covered
+## Gliding cameras
+
+`engine.room.glide` (seconds, 0 to 10, default 0) replaces the cut into that room with a
+camera glide. The trip records `glide` and draws the destination from its first frame,
+with no fade or title card. The camera moves from the one shown before (the source
+room's camera, or the follow camera with the player put back at its saved source pose)
+to the room's camera, eased with smoothstep over `(tick + alpha - start_tick)`. Each
+camera becomes a framing: the floor point it looks at, its direction and up, the height
+it shows at that point, and its field of view. An orthographic follow camera is a
+perspective one with a 2 degree field of view, so a glide from flight into a room
+widens the view while it closes in, like a dolly zoom. Across places the two cameras
+use different coordinates, so the glide keeps the source's angle, height and field of
+view but looks at the room camera's point throughout. `crates/view/src/glide.rs` holds
+the blend.
+
+Patching the room's `camera` to another node while the player is in that room glides
+too, when the room's `glide` is above 0. The travel service compares the room's camera
+node before and after each tick, and starts a trip with `from` equal to `to` and
+`from_camera` set to the old node. Such a trip does not interrupt talk. Its arrival
+input is `engine.camera_settled { entity, place, start_tick }`, so scripts counting
+arrivals at a place don't see a camera change. A camera change while a trip is still
+landing joins that trip, whose glide already aims at the current camera. Without
+`glide`, a camera change snaps as before.
+
+Play supplies `engine.place_arrived { entity, place, start_tick }` after 30 ticks (or
+after a glide's own length, rounded up to whole ticks), or on any left click during a
+trip. That click is consumed; it cannot press a covered
 button too. Multiple clicks on the same tick land once. This is a declared, recorded
 world **input**, with source `travel`. The sim validates that it matches the active
 trip and clears `active` before dispatching it to scripts. Scripts may subscribe with
 `on["engine.place_arrived"]`; they cannot emit engine events themselves.
+
+`engine.camera_settled` follows the same rules for a glide within a room. A click lands
+either on the next tick; the first frame after that tick shows the destination camera.
 
 Headless runs never invent presentation arrivals. A scenario can supply the same input,
 and replay applies the input that play actually recorded, including early clicks.
@@ -105,13 +133,22 @@ save/load and replay hashes, fresh-view reconstruction, anchors and framing fail
 Mesh tests check inherited empty-node transforms and camera axes. GPU work remains in
 manual play/audit/film, not normal test runs.
 
+The generic fixture `tests/play/targets` glides from a follow camera into a room (0.8 s)
+and between two camera nodes; see [Screens](screens.md) for its commands. Its film shows
+the room growing steadily from the follow camera's framing to the room camera's, with
+no fade.
+
 ## Alternatives
 
 A private travel timer would lose its phase on save, audit or view replacement. A second
 copy of places inside the renderer would drift from scripts and walks. World trip data
 and imported spot components use the existing save path instead. Baking the camera into
 painted room layers would require new assets for walking; glTF sets keep that option
-open. A general transition graph would add machinery to a deliberately temporary cut.
+open. A general transition graph would add machinery to a deliberately temporary cut. A
+glide is one option on the destination room, not a graph: the source camera is whatever
+was shown, so every way in gets the same glide. Interpolating eye positions directly
+would swing an orthographic follow camera's far-away eye through the room; blending
+framings keeps the subject in view throughout.
 
 ## Talk in a room
 

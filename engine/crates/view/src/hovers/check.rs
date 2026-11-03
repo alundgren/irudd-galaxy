@@ -99,7 +99,7 @@ impl View {
             if let Some(p) = p {
                 points.push(p);
             }
-            if b.widget.kind == "hover" {
+            if galaxy_script::screens::anchored(&b.widget.kind) {
                 points.push(b.rect.center());
             }
         }
@@ -112,7 +112,7 @@ impl View {
             .screens
             .all()
             .into_iter()
-            .filter(|b| b.widget.kind == "hover")
+            .filter(|b| galaxy_script::screens::anchored(&b.widget.kind))
             .filter(|b| {
                 let (id, part) = binding(world, b.widget.anchor.as_deref().unwrap_or(""));
                 id.as_ref()

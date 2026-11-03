@@ -58,7 +58,7 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
         .transpose()
         .map_err(Failure::bad_input)?
         .unwrap_or_default();
-    if !input.clicks.is_empty() || !input.pointers.is_empty() || !input.hot_loads.is_empty() {
+    if input.needs_window() || !input.hot_loads.is_empty() {
         return Err(Failure::bad_input(
             "offline audio accepts event inputs only; clicks, pointers and hot loads need a played session",
         ));

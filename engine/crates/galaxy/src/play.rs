@@ -32,7 +32,7 @@ use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
-use winit::window::{Window, WindowId};
+use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::notes::{self, NoteBox};
 use crate::sim::{Options, bad_modules, load_modules, parse, usage};
@@ -70,7 +70,7 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
 const CROP_SIDE: u32 = 512;
 
 /// Keys on the keyboard by their manifest key name (`galaxy_module::manifest::KEYS`).
-const KEY_CODES: [(KeyCode, &str); 56] = [
+const KEY_CODES: [(KeyCode, &str); 57] = [
     (KeyCode::KeyA, "a"),
     (KeyCode::KeyB, "b"),
     (KeyCode::KeyC, "c"),
@@ -127,7 +127,11 @@ const KEY_CODES: [(KeyCode, &str); 56] = [
     (KeyCode::F3, "f3"),
     (KeyCode::F4, "f4"),
     (KeyCode::F5, "f5"),
+    (KeyCode::Escape, "escape"),
 ];
+
+/// Manifest key names that are mouse buttons rather than keys on the keyboard.
+const MOUSE_KEYS: [&str; 1] = ["mouse_right"];
 
 /// The manifest key name of a key on the keyboard.
 fn key_name(code: KeyCode) -> Option<&'static str> {
@@ -147,15 +151,53 @@ fn bindings<'a>(modules: impl Iterator<Item = &'a Module>) -> BTreeMap<String, V
     out
 }
 
-fn key_input(event: &str, down: bool) -> Input {
+/// The input a bound key or mouse button sends: source `mouse` for a button, else
+/// `keyboard`.
+fn key_input(key: &str, event: &str, down: bool) -> Input {
     let mut payload = Map::new();
     payload.insert("down".into(), Value::Bool(down));
     Input {
         tick: 0,
-        source: "keyboard".into(),
+        source: if MOUSE_KEYS.contains(&key) {
+            "mouse"
+        } else {
+            "keyboard"
+        }
+        .into(),
         name: event.to_owned(),
         payload,
     }
+}
+
+/// Whether Esc quits (and saves): always with Shift held, and otherwise only when no
+/// module binds `escape`. Closing the window always quits.
+fn escape_quits(keys: &BTreeMap<String, Vec<String>>, shift: bool) -> bool {
+    shift || !keys.contains_key("escape")
+}
+
+/// A bot's `[[key]]` presses as the inputs the keyboard would send: each bound event
+/// down on its tick and up on the next. An unbound `escape` instead quits on its tick,
+/// as the key does; the first such tick is returned.
+fn scripted_keys(
+    keys: &BTreeMap<String, Vec<String>>,
+    presses: &[(u64, String)],
+    inputs: &mut BTreeMap<u64, Vec<Input>>,
+) -> Option<u64> {
+    let mut quit: Option<u64> = None;
+    for (tick, key) in presses {
+        if key == "escape" && escape_quits(keys, false) {
+            quit = Some(quit.map_or(*tick, |q| q.min(*tick)));
+            continue;
+        }
+        for event in keys.get(key).into_iter().flatten() {
+            for (at, down) in [(*tick, true), (tick + 1, false)] {
+                let mut input = key_input(key, event, down);
+                input.tick = at;
+                inputs.entry(at).or_default().push(input);
+            }
+        }
+    }
+    quit
 }
 
 /// Frame times, in milliseconds.
@@ -246,6 +288,10 @@ struct App {
     scripted: BTreeMap<u64, Vec<Input>>,
     scripted_clicks: BTreeMap<u64, Vec<Click>>,
     scripted_pointers: BTreeMap<u64, Vec<Pointer>>,
+    /// The tick a scripted `[[key]] key = "escape"` quits on, when no module binds it.
+    scripted_quit: Option<u64>,
+    /// Whether the window shows the hand pointer.
+    hand: bool,
     /// Scripted gestures own the pointer for the run, even while unfocused.
     bot_pointer: bool,
     pointer: Vec2,
@@ -298,6 +344,11 @@ fn ms_since(start: Instant) -> f64 {
 impl App {
     fn key(&mut self, code: KeyCode, down: bool) {
         let Some(name) = key_name(code) else { return };
+        self.press(name, down);
+    }
+
+    /// A manifest key (or mouse button) going down or up: its bound events, once per change.
+    fn press(&mut self, name: &'static str, down: bool) {
         let changed = if down {
             self.held.insert(name)
         } else {
@@ -307,7 +358,7 @@ impl App {
             return;
         }
         for event in self.keys.get(name).into_iter().flatten() {
-            self.pending.push(key_input(event, down));
+            self.pending.push(key_input(name, event, down));
         }
     }
 
@@ -315,7 +366,7 @@ impl App {
     fn release_all(&mut self) {
         for name in std::mem::take(&mut self.held) {
             for event in self.keys.get(name).into_iter().flatten() {
-                self.pending.push(key_input(event, false));
+                self.pending.push(key_input(name, event, false));
             }
         }
     }
@@ -538,9 +589,13 @@ impl App {
             {
                 break;
             }
+            let tick = self.session.world.tick + 1;
+            if self.scripted_quit.is_some_and(|quit| quit <= tick) {
+                event_loop.exit();
+                return;
+            }
             r.view.before_step(&self.session.world);
             let mut inputs = std::mem::take(&mut self.pending);
-            let tick = self.session.world.tick + 1;
             inputs.extend(self.scripted.remove(&tick).unwrap_or_default());
             for pointer in self.scripted_pointers.remove(&tick).unwrap_or_default() {
                 r.view.scene(
@@ -580,7 +635,7 @@ impl App {
             }
             let mut landing = false;
             inputs.retain(|i| {
-                if i.name != galaxy_api::engine::PLACE_ARRIVED {
+                if !galaxy_sim::travel::is_landing(&i.name) {
                     return true;
                 }
                 let first = !landing;
@@ -589,7 +644,7 @@ impl App {
             });
             if !inputs
                 .iter()
-                .any(|i| i.name == galaxy_api::engine::PLACE_ARRIVED)
+                .any(|i| galaxy_sim::travel::is_landing(&i.name))
                 && let Some(input) = galaxy_sim::travel::arrival(&self.session.world, false)
             {
                 inputs.push(input);
@@ -640,6 +695,14 @@ impl App {
         let scene = r
             .view
             .scene(&self.session.world, self.last_alpha, logical, time);
+        if r.view.hand != self.hand {
+            self.hand = r.view.hand;
+            r.window.set_cursor(if self.hand {
+                CursorIcon::Pointer
+            } else {
+                CursorIcon::Default
+            });
+        }
         self.session.record_presentation(
             serde_json::to_value(&r.view.screens.presentation).expect("finite screen state"),
         );
@@ -900,7 +963,10 @@ impl ApplicationHandler for App {
                     return;
                 };
                 let down = event.state == ElementState::Pressed;
-                if code == KeyCode::Escape && down {
+                if code == KeyCode::Escape
+                    && down
+                    && escape_quits(&self.keys, self.held.contains("shift"))
+                {
                     event_loop.exit();
                     return;
                 }
@@ -962,6 +1028,13 @@ impl ApplicationHandler for App {
                                 .screens
                                 .pointer_down(self.pointer, self.session.world.tick + 1)
                                 .or_else(|| {
+                                    r.view.target_click(
+                                        &self.session.world,
+                                        self.pointer,
+                                        self.session.world.tick + 1,
+                                    )
+                                })
+                                .or_else(|| {
                                     r.view.talk_click(
                                         &self.session.world,
                                         self.pointer,
@@ -986,6 +1059,13 @@ impl ApplicationHandler for App {
                 {
                     self.pending.push(input);
                 }
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: winit::event::MouseButton::Right,
+                ..
+            } if self.note.is_none() && !self.bot_pointer => {
+                self.press("mouse_right", state == ElementState::Pressed);
             }
             WindowEvent::MouseWheel { delta, .. } if self.note.is_some() => {
                 let pixels = match delta {
@@ -1033,6 +1113,13 @@ struct Script {
     notes: BTreeMap<u64, Vec<String>>,
     zooms: BTreeMap<u64, Vec<f32>>,
     resizes: BTreeMap<u64, Vec<(u32, u32)>>,
+    keys: Vec<(u64, String)>,
+}
+
+impl Script {
+    fn needs_window(&self) -> bool {
+        !self.clicks.is_empty() || !self.pointers.is_empty() || !self.keys.is_empty()
+    }
 }
 
 /// The inputs, notes and zooms `--inputs` names, by tick, each input checked against the
@@ -1072,6 +1159,12 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
         resizes.entry(*tick).or_default().push(*size);
     }
     let mut result = Script {
+        keys: script
+            .keys
+            .iter()
+            .filter(|(t, _)| options.load.is_none() || *t > session.world.tick)
+            .cloned()
+            .collect(),
         resizes,
         pointers,
         clicks,
@@ -1109,7 +1202,9 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         Some(path) => crate::sim::resume_save(path, modules, true)?,
         None => Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?,
     };
-    let script = scripted_inputs(&session, &options)?;
+    let mut script = scripted_inputs(&session, &options)?;
+    let keys = bindings(session.modules());
+    let scripted_quit = scripted_keys(&keys, &script.keys, &mut script.inputs);
     session.start_recording(BuildStamp::current());
     let ids: Vec<&str> = session.modules().map(Module::id).collect();
     let root = galaxy_module::install::sessions_dir();
@@ -1150,7 +1245,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
     let mut app = App {
         audio,
         audio_output,
-        keys: bindings(session.modules()),
+        keys,
         session,
         size: options.size.unwrap_or(DEFAULT_SIZE),
         options,
@@ -1160,6 +1255,8 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
+        scripted_quit,
+        hand: false,
         bot_pointer: !script.pointers.is_empty(),
         scripted_pointers: script.pointers,
         pointer: Vec2::ZERO,
@@ -1295,9 +1392,9 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let modules = load_modules(&options)?;
     let mut session = Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?;
     let script = scripted_inputs(&session, &options)?;
-    if !script.clicks.is_empty() || !script.pointers.is_empty() {
+    if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
         ));
     }
     let (w, h) = options.size.unwrap_or(DEFAULT_SIZE);
@@ -1591,9 +1688,12 @@ mod tests {
         use galaxy_module::manifest::KEYS;
         for name in KEYS {
             assert!(
-                KEY_CODES.iter().any(|(_, n)| *n == name),
+                KEY_CODES.iter().any(|(_, n)| *n == name) || MOUSE_KEYS.contains(&name),
                 "no key for `{name}`"
             );
+        }
+        for name in MOUSE_KEYS {
+            assert!(KEYS.contains(&name), "`{name}` is not a manifest key name");
         }
         for (_, name) in KEY_CODES {
             assert!(KEYS.contains(&name), "`{name}` is not a manifest key name");
@@ -1601,6 +1701,46 @@ mod tests {
         assert_eq!(key_name(KeyCode::KeyW), Some("w"));
         assert_eq!(key_name(KeyCode::ShiftRight), Some("shift"));
         assert_eq!(key_name(KeyCode::F8), None, "F8 is the engine's");
+        assert_eq!(key_name(KeyCode::Escape), Some("escape"));
+    }
+
+    #[test]
+    fn bound_escape_and_right_button_send_events_and_shift_escape_still_quits() {
+        let unbound = BTreeMap::new();
+        assert!(escape_quits(&unbound, false), "unbound Esc quits as before");
+        let mut keys = BTreeMap::new();
+        keys.insert("escape".to_owned(), vec!["demo.back".to_owned()]);
+        keys.insert("mouse_right".to_owned(), vec!["demo.back".to_owned()]);
+        assert!(!escape_quits(&keys, false));
+        assert!(escape_quits(&keys, true), "Shift+Esc always quits");
+        let mut inputs = BTreeMap::new();
+        let presses = [(5, "escape".to_owned()), (9, "mouse_right".to_owned())];
+        assert_eq!(scripted_keys(&keys, &presses, &mut inputs), None);
+        let sent: Vec<_> = inputs
+            .values()
+            .flatten()
+            .map(|i| {
+                (
+                    i.tick,
+                    i.source.as_str(),
+                    i.name.as_str(),
+                    i.payload["down"].clone(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            sent,
+            [
+                (5, "keyboard", "demo.back", Value::Bool(true)),
+                (6, "keyboard", "demo.back", Value::Bool(false)),
+                (9, "mouse", "demo.back", Value::Bool(true)),
+                (10, "mouse", "demo.back", Value::Bool(false)),
+            ]
+        );
+        let mut none = BTreeMap::new();
+        let quit = [(7, "escape".to_owned()), (3, "escape".to_owned())];
+        assert_eq!(scripted_keys(&unbound, &quit, &mut none), Some(3));
+        assert!(none.is_empty());
     }
 
     #[test]

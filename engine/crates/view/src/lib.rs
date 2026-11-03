@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod glide;
 pub mod hovers;
 pub mod life;
 pub mod rooms;
@@ -243,6 +244,12 @@ pub struct View {
     /// Whether scenes run the live focus check; off while `check_talk` runs its own.
     focus_live: bool,
     pub hover_checks: Option<BTreeMap<String, Value>>,
+    /// The thing whose `ui.target` the pointer is over in the last scene: drawn lifted
+    /// and outlined.
+    pub targeted: Option<String>,
+    /// Whether the pointer is over something a click acts on (a button, bubble, drag
+    /// source or target), so the window shows a hand.
+    pub hand: bool,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -301,6 +308,8 @@ impl View {
             talk_focus: Vec::new(),
             focus_live: true,
             hover_checks: None,
+            targeted: None,
+            hand: false,
         };
         view.replace(renderer, assets);
         view
@@ -452,8 +461,33 @@ impl View {
         if let Some(place) = travel::place(world, alpha)
             && let Some(camera) = self.room_camera(world, place)
         {
+            if let Some(cut) = travel::Cut::step(world, alpha)
+                && let Some(t) = cut.glide_progress()
+                && let Some(from) = self.glide_source(world, &cut, alpha)
+            {
+                return glide::between(from, camera, t, cut.from != cut.to);
+            }
             return camera;
         }
+        self.follow_camera(world, alpha)
+    }
+
+    /// Where a glide starts: the other camera node of the same room, or the camera the
+    /// source place showed (its room camera, or the follow camera with the player back at
+    /// its source pose).
+    fn glide_source(&self, world: &World, cut: &travel::Cut, alpha: f32) -> Option<Camera> {
+        if cut.from == cut.to {
+            return self.room_camera_at(world, cut.to, cut.from_camera);
+        }
+        let source = rooms::screen_world(world, Some(cut.from));
+        Some(
+            self.room_camera(&source, cut.from)
+                .unwrap_or_else(|| self.follow_camera(&source, alpha)),
+        )
+    }
+
+    /// The camera on the thing with `engine.camera`, at the player's zoom.
+    fn follow_camera(&self, world: &World, alpha: f32) -> Camera {
         let (target, spec) = match camera_holder(world) {
             Some((id, spec)) => (
                 self.pose(world, id, alpha)
@@ -485,6 +519,7 @@ impl View {
         scene.backdrop = Some(self.sky);
         scene.clear_color = self.assets.sky.bottom;
         let place = travel::place(world, alpha);
+        let mut drawn = BTreeMap::new();
         for (id, components) in &world.entities {
             if !rooms::visible(world, id, place) {
                 continue;
@@ -531,6 +566,7 @@ impl View {
                 Quat::from_rotation_z(pose.angle),
                 pose.point(),
             );
+            drawn.insert(id.as_str(), (scene.meshes.len(), model_id, scale));
             scene.meshes.push(
                 MeshInstance::new(handle, transform)
                     .with_material(material)
@@ -576,6 +612,7 @@ impl View {
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
         self.camera = Some(camera);
+        self.point_at_targets(world, alpha, logical, &drawn, &mut scene);
         self.draw_hover(world, alpha, logical, &mut scene.overlay);
         if self.hover_checks.is_some() {
             self.check_hovers(world, alpha, logical);
@@ -591,6 +628,51 @@ impl View {
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
+    }
+
+    /// Lifts and outlines the thing under the pointer whose `ui.target` a click would
+    /// press, and decides the pointer's shape. Presentation only: the pointer comes from
+    /// the presentation snapshot, so notes and films redraw it.
+    fn point_at_targets(
+        &mut self,
+        world: &World,
+        alpha: f32,
+        logical: Vec2,
+        drawn: &BTreeMap<&str, (usize, &str, f32)>,
+        scene: &mut Scene,
+    ) {
+        self.targeted = None;
+        self.hand = false;
+        let Some(point) = self.screens.presentation.pointer.map(Vec2::from) else {
+            return;
+        };
+        self.targeted = self
+            .target_at(world, alpha, logical, point)
+            .and_then(|found| found.entity);
+        self.hand = self.targeted.is_some()
+            || (self.screens.presentation.drag.is_none()
+                && self.screens.hit(point).is_some_and(|w| {
+                    matches!(w.kind.as_str(), "button" | "bubble" | "drag_source")
+                }));
+        let Some((index, model, scale)) = self
+            .targeted
+            .as_deref()
+            .and_then(|id| drawn.get(id))
+            .copied()
+        else {
+            return;
+        };
+        // A twentieth of the model's largest extent: visible on a figure and a building.
+        let lift = self
+            .assets
+            .models
+            .get(model)
+            .and_then(|m| m.bounds())
+            .map_or(0.1, |(lo, hi)| (hi - lo).max_element() * scale * 0.05);
+        let mesh = &mut scene.meshes[index];
+        mesh.transform = Mat4::from_translation(Vec3::Z * lift) * mesh.transform;
+        mesh.material.outline = self.screens.style.highlight;
+        mesh.material.outline_px = self.screens.style.highlight_px;
     }
 
     /// The followed thing's order, while it runs, for [`course::Courses`]: where it is

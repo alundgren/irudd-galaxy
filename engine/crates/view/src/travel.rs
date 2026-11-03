@@ -8,6 +8,10 @@ pub struct Cut<'a> {
     pub to: &'a str,
     pub elapsed: f32,
     pub reverse: bool,
+    /// Seconds the camera glides instead of the fade cut; 0 for the cut.
+    pub glide: f32,
+    /// The source camera node of a glide within one room.
+    pub from_camera: &'a str,
 }
 
 impl<'a> Cut<'a> {
@@ -26,10 +30,19 @@ impl<'a> Cut<'a> {
             to: t["to"].as_str()?,
             elapsed,
             reverse: t["reverse"] == true,
+            glide: galaxy_sim::travel::glide_seconds(t) as f32,
+            from_camera: t["from_camera"].as_str().unwrap_or(""),
         })
     }
     pub fn busy(&self) -> bool {
-        self.elapsed < 1.0
+        self.elapsed < if self.glide > 0.0 { self.glide } else { 1.0 }
+    }
+    /// How far along a glide is, eased (smoothstep) from 0 to 1; none for a fade cut.
+    pub fn glide_progress(&self) -> Option<f32> {
+        (self.glide > 0.0).then(|| {
+            let t = (self.elapsed / self.glide).clamp(0.0, 1.0);
+            t * t * (3.0 - 2.0 * t)
+        })
     }
     fn out(&self) -> f32 {
         if self.reverse { 0.22 } else { 0.18 }
@@ -38,7 +51,8 @@ impl<'a> Cut<'a> {
         if self.reverse { 0.18 } else { 0.22 }
     }
     pub fn place(&self) -> &'a str {
-        if self.elapsed < self.out() {
+        // A glide shows the destination from its first frame.
+        if self.glide <= 0.0 && self.elapsed < self.out() {
             self.from
         } else {
             self.to
@@ -55,7 +69,7 @@ impl<'a> Cut<'a> {
         .clamp(0.0, 1.0)
     }
     pub fn overlay(&self, world: &World, size: Vec2, scene: &mut Scene) {
-        if !self.busy() {
+        if !self.busy() || self.glide > 0.0 {
             return;
         }
         let alpha = self.opacity();

@@ -94,6 +94,7 @@ pub const WALK: &str = "engine.walk";
 pub const ROOM: &str = "engine.room";
 pub const TRAVEL: &str = "engine.travel";
 pub const PLACE_ARRIVED: &str = "engine.place_arrived";
+pub const CAMERA_SETTLED: &str = "engine.camera_settled";
 pub const CLOCK: &str = "engine.clock";
 pub const LIFE: &str = "engine.life";
 pub const ACT: &str = "engine.act";
@@ -108,7 +109,9 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 /// - `arrived`: a steering order got where it was going (`entity`, `mode`, `target`).
 /// - `walk_finished`: a recorded walk completed (`entity`, `place`, `spot`).
 /// - `place_arrived`: play landed a trip, recorded as input (`entity`, `place`, `start_tick`).
-pub const EVENTS: [&str; 9] = [
+/// - `camera_settled`: play landed a glide to another camera in the same room, recorded
+///   as input (`entity`, `place`, `start_tick`).
+pub const EVENTS: [&str; 10] = [
     "clock_advanced",
     "start",
     "hot_loaded",
@@ -116,6 +119,7 @@ pub const EVENTS: [&str; 9] = [
     "arrived",
     "walk_finished",
     "place_arrived",
+    "camera_settled",
     "talk_start",
     "talk_next",
 ];
@@ -252,6 +256,11 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "posed camera vertical field of view in degrees",
     ),
     (
+        "room",
+        "glide",
+        "seconds (0 to 10) the camera glides when arriving here or when camera changes; 0 is the fade cut",
+    ),
+    (
         "travel",
         "active",
         "trip awaiting its recorded place_arrived input",
@@ -281,6 +290,16 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "travel",
         "reverse",
         "leaving for an ancestor plays the cut backward",
+    ),
+    (
+        "travel",
+        "glide",
+        "seconds this trip glides the camera; 0 plays the fade cut",
+    ),
+    (
+        "travel",
+        "from_camera",
+        "source camera node of a glide within one room; empty for a trip between places",
     ),
     (
         "anchor",
@@ -608,7 +627,7 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
         }),
         ("room", {
             let mut room = fields(&[("title", Text), ("camera", Text)]);
-            room.extend(numbers(&[("fov", 40.0)]));
+            room.extend(numbers(&[("fov", 40.0), ("glide", 0.0)]));
             room
         }),
         (
@@ -625,6 +644,8 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
                 ("from_height", Number),
                 ("from_angle", Number),
                 ("from_layer", Int),
+                ("glide", Number),
+                ("from_camera", Text),
             ]),
         ),
         (

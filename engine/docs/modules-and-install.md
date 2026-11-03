@@ -55,8 +55,12 @@ A key in `[keys]` sends its event when it goes down (payload `down = true`) and 
 goes up (`down = false`), as an input from the source `keyboard`, so it is recorded and
 replays like any input. Key names say where the key is, not what is printed on it (`w` is
 the key above `s` on every layout): `a` to `z`, `0` to `9`, `up`, `down`, `left`, `right`,
-`space`, `enter`, `tab`, `backspace`, `shift`, `ctrl`, `alt` and `f1` to `f5`. Escape
-quits and F8 is kept for notes; they belong to the engine.
+`space`, `enter`, `tab`, `backspace`, `shift`, `ctrl`, `alt`, `f1` to `f5` and `escape`.
+`mouse_right` binds the right mouse button the same way, from the source `mouse`. F8 is
+kept for notes. Esc quits and saves while no module binds `escape`; once one does, Esc
+sends its event and Shift+Esc (or closing the window) quits and saves. The rule is the
+same live and for a bot, whose `[[key]]` entries press a key name for one tick through
+these bindings, and replay only sees the recorded events.
 
 Beside the manifest:
 

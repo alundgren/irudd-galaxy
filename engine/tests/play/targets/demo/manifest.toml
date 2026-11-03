@@ -1,0 +1,14 @@
+id = "targets"
+version = "0.1.0"
+min_engine_version = "0.6.0"
+scripts = ["scripts/main.luau"]
+events = ["go", "pick", "back"]
+writes = ["engine.place", "engine.room", "engine.spot", "engine.location", "engine.being", "engine.position", "engine.model", "engine.camera"]
+
+[keys]
+escape = "back"
+mouse_right = "back"
+
+[components.choice]
+picked = "text"
+backs = "int"

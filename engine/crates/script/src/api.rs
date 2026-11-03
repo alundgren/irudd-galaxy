@@ -15,7 +15,7 @@ pub const CTX: &[Member] = &[
     Member {
         name: "move",
         ty: "(entity: Id, place: Id, spot: Id?, state: string?) -> ()",
-        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Moving the player starts travel; play records engine.place_arrived when it lands. Writes apply in call order after the handler returns.",
+        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Moving the player starts travel; play records engine.place_arrived when it lands (after engine.room.glide seconds when the room glides). Writes apply in call order after the handler returns.",
     },
     Member {
         name: "walk",
@@ -156,15 +156,19 @@ export type ScreenCtx = {
 --- children is a consecutive list of widgets. id names a widget for diagnostics and bot
 --- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
 --- hover supplies a tooltip. ui.hover needs anchor and text and paints only on hover.
+--- ui.target needs anchor and on: clicking the anchored thing sends on/payload (source
+--- ui); text is its optional hover label. Hovered, its model lifts and is outlined.
+--- align (top-left, top, top-right, left, center, right, bottom-left, bottom,
+--- bottom-right) places a widget against the window's edges; x/y are then margins.
 export type Widget = {
     kind: string?, id: string?, text: string?, hover: string?, children: {Widget}?,
-    width: number?, height: number?, x: number?, y: number?,
+    width: number?, height: number?, x: number?, y: number?, align: string?,
     size: number?, pad: number?, gap: number?, anchor: string?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
 }
 export type Ui = {
-    hover: (Widget) -> Widget,
+    hover: (Widget) -> Widget, target: (Widget) -> Widget,
     text: (Widget) -> Widget, button: (Widget) -> Widget,
     list: (Widget) -> Widget, panel: (Widget) -> Widget,
     row: (Widget) -> Widget, column: (Widget) -> Widget,

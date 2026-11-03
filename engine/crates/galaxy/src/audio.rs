@@ -58,9 +58,9 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
         .transpose()
         .map_err(Failure::bad_input)?
         .unwrap_or_default();
-    if !script.clicks.is_empty() || !script.hot_loads.is_empty() {
+    if script.needs_window() || !script.hot_loads.is_empty() {
         return Err(usage(
-            "audio accepts event inputs; clicks and hot_load entries are not supported",
+            "audio accepts event inputs; clicks, drags, key presses and hot_load entries are not supported",
         ));
     }
     for input in &script.inputs {

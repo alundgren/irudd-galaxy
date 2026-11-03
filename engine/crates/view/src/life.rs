@@ -70,6 +70,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 pad: 8.0,
                 explicit_pad: true,
                 gap: 0.0,
+                align: None,
                 anchor: Some(format!("being.{id}")),
                 on: None,
                 payload: Default::default(),

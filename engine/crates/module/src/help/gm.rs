@@ -1608,7 +1608,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "hovers",
         title: "Hover labels and looking at recorded points",
-        about: "Every widget accepts hover = \"label text\". A pure screen can also return ui.hover { id = \"person-help\", anchor = \"being.demo.person\", text = \"A moving speaker\" } beside ordinary widgets. This declares a label without drawing a permanent widget: the nearest visible model surface activates it, or a 44px anchor target for things without models. A part anchor such as being.demo.person.face restricts it to that mesh part (empty nodes use an anchor target); publisher#name binds an ordinary named anchor. Keep declarations conditional on the current place, like other anchored screens. Later declarations win. The engine shows the label immediately, keeps it inside the viewport, clears it on pointer exit or capture, and follows interpolated anchors. Its text and surface use [screen] text and paper. Hover paint never changes world state. Check stages screens, places and talk lines and reports hovers, including null for targets without a declaration, plus readability problems. It checks authored states, not arbitrary future script branches. Look uses the same picking and layout headlessly. A note preserves its exact pointer, size, style and fractional pose; use --note to match its saved frame. Tick mode uses alpha 1 and --size (default 1280x720). Coordinates are logical pixels; divide physical image coordinates by the note scale.",
+        about: "Every widget accepts hover = \"label text\". ui.target { id, anchor, on, payload, text } makes the anchored model clickable: a click sends on with payload and source ui, like a button; a painted widget in front blocks it; while hovered the model lifts, gets a [screen] highlight outline and the pointer becomes a hand; text is its optional label. Bot [[click]] and [[pointer]] widget = the target id pick a visible point on its model. A pure screen can also return ui.hover { id = \"person-help\", anchor = \"being.demo.person\", text = \"A moving speaker\" } beside ordinary widgets. This declares a label without drawing a permanent widget: the nearest visible model surface activates it, or a 44px anchor target for things without models. A part anchor such as being.demo.person.face restricts it to that mesh part (empty nodes use an anchor target); publisher#name binds an ordinary named anchor. Keep declarations conditional on the current place, like other anchored screens. Later declarations win. The engine shows the label immediately, keeps it inside the viewport, clears it on pointer exit or capture, and follows interpolated anchors. Its text and surface use [screen] text and paper. Hover paint never changes world state. Check stages screens, places and talk lines and reports hovers, including null for targets without a declaration, plus readability problems. It checks authored states, not arbitrary future script branches. Look uses the same picking and layout headlessly. A note preserves its exact pointer, size, style and fractional pose; use --note to match its saved frame. Tick mode uses alpha 1 and --size (default 1280x720). Coordinates are logical pixels; divide physical image coordinates by the note scale.",
         tasks: &[
             ("Inspect a note under its recorded pointer", "gm look"),
             ("Check authored hover labels", "gm check"),
@@ -1699,7 +1699,10 @@ pub static TOPICS: &[Topic] = &[
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
                 world ticks, including on resume. The new recording embeds the saved start world, \
                 so replay, F8, audit and film work as usual. --physical-size makes --size physical \
-                pixels (otherwise logical); the report always gives physical size.",
+                pixels (otherwise logical); the report always gives physical size. \
+                Esc quits and saves unless a module binds escape in [keys]; Shift+Esc and \
+                closing the window always do. [keys] can also bind mouse_right; bot \
+                [[key]] entries press a key name for one tick.",
         tasks: &[
             ("Play the game", "game play"),
             (
@@ -1881,7 +1884,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "rooms",
         title: "Rooms, floor spots, anchors and travel",
-        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
+        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. engine.room.glide = seconds (0 to 10) replaces the cut into that room with a camera glide from the camera shown before, with no fade; patching that room's engine.room.camera to another node while the player is there glides too, and play then records engine.camera_settled. A click lands a glide on the next tick. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
         tasks: &[
             ("Room and travel component fields", "gm fields"),
             ("Validate every room", "gm check"),
@@ -1952,7 +1955,10 @@ pub static TOPICS: &[Topic] = &[
                 ui.panel/text/button/list/row/column with children = { ... }; return nil to \
                 hide a screen. ctx.get/query track world reads, so Luau runs only when those \
                 change. The engine supplies contrasting paper behind unbacked text. A button's \
-                on names a declared event; its payload and source ui are recorded. An \
+                on names a declared event; its payload and source ui are recorded. \
+                align = top-left, top, top-right, left, center, right, bottom-left, bottom \
+                or bottom-right places a widget against the window's edges, with x/y as \
+                margins, so it stays there at any window size and display scale. An \
                 engine.anchor publisher follows a thing; anchor = publisher#name attaches a \
                 widget, including a button. Bot clicks use widget = a full diagnostic path \
                 or a unique id, or x/y logical pixels. Widget clicks resolve the current \

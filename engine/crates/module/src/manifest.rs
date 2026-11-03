@@ -78,7 +78,7 @@ pub const FILE_KEYS: &[(&str, &str, &str, &str)] = &[
         "keys",
         "<key>",
         "\"opened\"",
-        "binds a key to one of its events, which then fires with { down = true } and { down = false }. Keys: a-z, 0-9, up, down, left, right, space, enter, tab, backspace, shift, ctrl, alt, f1-f5 (F8 and Esc are the engine's)",
+        "binds a key to one of its events, which then fires with { down = true } and { down = false }. Keys: a-z, 0-9, up, down, left, right, space, enter, tab, backspace, shift, ctrl, alt, f1-f5, escape, and mouse_right (the right mouse button). F8 is the engine's. Esc quits and saves unless a module binds escape; Shift+Esc and closing the window always do",
     ),
 ];
 
@@ -105,7 +105,7 @@ pub struct Manifest {
 /// Key names a module may bind. They name the key's place on the keyboard, not the
 /// letter printed on it, so `w` is the key above `s` on every layout. F8 (notes) and
 /// Escape belong to the engine.
-pub const KEYS: [&str; 52] = [
+pub const KEYS: [&str; 54] = [
     "a",
     "b",
     "c",
@@ -158,6 +158,8 @@ pub const KEYS: [&str; 52] = [
     "f3",
     "f4",
     "f5",
+    "escape",
+    "mouse_right",
 ];
 
 /// A component type a module declares: its fields, by name.
