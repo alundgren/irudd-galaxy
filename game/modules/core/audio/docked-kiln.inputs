@@ -1,0 +1,6 @@
+# A minute at the dock for `audio mix`: docked at once, the radio falls quiet under the
+# station's own sound.
+[[input]]
+tick = 1
+name = "core.dock"
+payload = { station = "core.kiln" }

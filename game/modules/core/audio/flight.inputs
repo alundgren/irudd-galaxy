@@ -1,0 +1,16 @@
+# A minute in flight for `audio mix`: the radio tunes Lantern Dock in its first second,
+# the ship mines a hold at the first rock, then flies on by hand.
+[[input]]
+tick = 90
+name = "core.mine"
+payload = { down = true }
+
+[[input]]
+tick = 900
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 930
+name = "core.ahead"
+payload = { down = false }

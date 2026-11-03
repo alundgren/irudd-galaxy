@@ -1,0 +1,155 @@
+# The radio tunes itself without flickering. A new game finds Lantern Dock's channel
+# in its first second and starts its music once. Mining a whole hold at the first rock,
+# where Cinder Kiln comes in a little stronger, the radio keeps Lantern Dock: no second
+# cue, no switch. Docking at Cinder Kiln stops the music; flying off there tunes
+# straight to the Kiln's own channel with one cue, its signal Strong. Flying back
+# across to Lantern Dock, the Kiln's channel holds over the rocks and Lantern Dock's
+# takes over once, near its berth, after it has been clearly stronger for a few seconds.
+seed = 7
+ticks = 1500
+
+[[input]]
+tick = 90
+name = "mine"
+payload = { down = true }
+
+[[input]]
+tick = 600
+name = "dock"
+payload = { station = "core.kiln" }
+
+[[input]]
+tick = 900
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 901
+name = "ahead"
+payload = { down = false }
+
+[[input]]
+tick = 960
+name = "dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 1020
+name = "cancel"
+payload = { down = true }
+
+# The first second out: Lantern Dock, Strong, its music cued once.
+[[expect]]
+tick = 61
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+
+[[expect]]
+tick = 61
+entity = "ship"
+component = "radio"
+field = "level"
+equals = 3
+
+[[expect]]
+tick = 61
+facts = "radio_lantern"
+equals = 1
+
+# A whole hold mined at the first rock: still Lantern Dock, cued once, and the Kiln
+# never cued.
+[[expect]]
+tick = 590
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+
+[[expect]]
+tick = 590
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+
+[[expect]]
+tick = 590
+facts = "radio_lantern"
+equals = 1
+
+[[expect]]
+tick = 590
+facts = "radio_kiln"
+equals = 0
+
+# Docked at Cinder Kiln, the music stops once.
+[[expect]]
+tick = 880
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.kiln"
+
+[[expect]]
+tick = 880
+facts = "radio_off"
+equals = 1
+
+# Flown off at the Kiln: straight to its channel, cued once, Strong.
+[[expect]]
+tick = 959
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+
+[[expect]]
+tick = 959
+entity = "ship"
+component = "radio"
+field = "level"
+equals = 3
+
+[[expect]]
+tick = 959
+facts = "radio_kiln"
+equals = 1
+
+[[expect]]
+tick = 959
+facts = "radio_lantern"
+equals = 1
+
+# Stopped by Lantern Dock's berth: Lantern Dock takes over once, Strong.
+[[expect]]
+tick = 1499
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+
+[[expect]]
+tick = 1499
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 1499
+facts = "radio_kiln"
+equals = 1
+
+[[expect]]
+tick = 1499
+entity = "ship"
+component = "radio"
+field = "level"
+equals = 3
+
+[[expect]]
+tick = 1499
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.reach"

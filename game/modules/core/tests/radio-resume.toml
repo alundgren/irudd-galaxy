@@ -1,0 +1,106 @@
+# A resumed save starts with no music, so in flight the radio plays its channel again,
+# once, without being touched. Resuming a save saved on tick N is this run given
+# engine.resumed on tick N + 1. Lantern Dock's channel is playing from the first second;
+# resuming on tick 301 brings one more Lantern Dock cue. Turned off, resuming on tick 461
+# cues nothing; on again, then docked, resuming on tick 1161 cues nothing either.
+seed = 7
+ticks = 1220
+
+[[input]]
+tick = 301
+name = "engine.resumed"
+source = "resume"
+
+[[input]]
+tick = 400
+name = "radio"
+source = "ui"
+payload = { tune = "toggle" }
+
+[[input]]
+tick = 461
+name = "engine.resumed"
+source = "resume"
+
+[[input]]
+tick = 520
+name = "radio"
+source = "ui"
+payload = { tune = "toggle" }
+
+[[input]]
+tick = 900
+name = "dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 1161
+name = "engine.resumed"
+source = "resume"
+
+# In flight: the channel that was playing is cued once more, and only once.
+[[expect]]
+tick = 300
+facts = "radio_lantern"
+equals = 1
+
+[[expect]]
+tick = 301
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 399
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 399
+entity = "ship"
+component = "radio"
+field = "playing"
+equals = "core.lantern_radio"
+
+# Off: nothing to play again.
+[[expect]]
+tick = 400
+facts = "radio_off"
+equals = 1
+
+[[expect]]
+tick = 519
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 519
+facts = "radio_off"
+equals = 1
+
+# On again, then docked: the radio is quiet, and resuming leaves it so.
+[[expect]]
+tick = 520
+facts = "radio_lantern"
+equals = 3
+
+[[expect]]
+tick = 1160
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
+
+[[expect]]
+tick = 1160
+facts = "radio_off"
+equals = 2
+
+[[expect]]
+tick = 1219
+facts = "radio_lantern"
+equals = 3
+
+[[expect]]
+tick = 1219
+facts = "radio_off"
+equals = 2

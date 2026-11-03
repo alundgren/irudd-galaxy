@@ -1,0 +1,66 @@
+# The radio played with real clicks and the R key: Lantern Dock's channel from the
+# first second, held while mining at the first rock where Cinder Kiln is about as
+# strong, its ticker on its next line, Next to Cinder Kiln by hand, Off and On, Prev
+# back to Lantern Dock, R on to Cinder Kiln, docking at Cinder Kiln (the radio hides
+# and falls quiet), and flying off there onto the Kiln's own channel. Ten notes.
+[[note]]
+tick = 45
+text = "First second out: Lantern Dock radio, Strong, its first line."
+[[input]]
+tick = 90
+name = "core.mine"
+payload = { down = true }
+[[note]]
+tick = 330
+text = "Mining at the first rock: the radio keeps Lantern Dock, its word and bars steady."
+[[note]]
+tick = 430
+text = "Twelve seconds on, the ticker shows Lantern Dock's next line."
+[[click]]
+tick = 450
+widget = "radio_next"
+[[note]]
+tick = 470
+text = "Next: Cinder Kiln radio, chosen by hand; the buttons look the same."
+[[click]]
+tick = 520
+widget = "radio_toggle"
+[[note]]
+tick = 540
+text = "Off: Radio off, no bars, the music fades out; the button now says On."
+[[click]]
+tick = 580
+widget = "radio_toggle"
+[[click]]
+tick = 640
+widget = "radio_prev"
+[[note]]
+tick = 660
+text = "On brought back Cinder Kiln; Prev stepped back to Lantern Dock."
+[[key]]
+tick = 700
+key = "r"
+[[note]]
+tick = 720
+text = "R stepped on to Cinder Kiln radio."
+[[input]]
+tick = 760
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[note]]
+tick = 1000
+text = "Docked at Cinder Kiln: no radio panel; the deck's furnace sound instead."
+[[input]]
+tick = 1200
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 1215
+name = "core.ahead"
+payload = { down = false }
+[[note]]
+tick = 1300
+text = "Flown off the Kiln: straight onto Cinder Kiln radio, Strong."
+[[note]]
+tick = 1550
+text = "Coasting off the Kiln: the radio stays put."

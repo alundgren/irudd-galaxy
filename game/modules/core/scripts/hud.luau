@@ -15,12 +15,15 @@ local HINTS = {
     { "mine", "Space mine" }, { "dock", "E dock" }, { "cancel", "0 cancel order" },
 }
 
+-- The flight keys still to learn, three to a line, so they fit beside the radio.
 local function hints(ctx)
-    local taught, parts = ctx.get("ship", "taught"), {}
+    local taught, lines, parts = ctx.get("ship", "taught"), {}, {}
     for _, hint in HINTS do
         if teach.new(taught, hint[1]) then table.insert(parts, hint[2]) end
+        if #parts == 3 then table.insert(lines, table.concat(parts, " · ")); parts = {} end
     end
-    return table.concat(parts, " · ")
+    if #parts > 0 then table.insert(lines, table.concat(parts, " · ")) end
+    return lines
 end
 
 local function where(ctx)
@@ -94,14 +97,13 @@ return {
         }
         if space then
             table.insert(children, orders(ctx, ui))
-            local keys = hints(ctx)
             -- The latest message sits just above the flight keys, or on the bottom edge
             -- once every key's hint has retired.
-            table.insert(children, ui.text { id = "message", align = "bottom", y = keys ~= "" and layout.M + 30 or layout.M,
-                width = 560, text = pilot.message, size = 20 })
-            if keys ~= "" then
-                table.insert(children, ui.text { id = "hints", align = "bottom", y = layout.M, width = 560, size = 16, text = keys })
+            local bottom = { ui.text { id = "message", width = layout.MESSAGE, text = pilot.message, size = 20 } }
+            for i, line in hints(ctx) do
+                table.insert(bottom, ui.text { id = i == 1 and "hints" or "hints" .. i, width = layout.MESSAGE, size = 16, text = line })
             end
+            table.insert(children, ui.column { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 6, children = bottom })
         end
         return layout.frame(ui, "hud", children)
     end,

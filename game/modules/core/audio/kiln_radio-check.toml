@@ -1,0 +1,21 @@
+# The kiln_radio bed (galaxy-gm audio check): a -23 LUFS source that plays near -26 LUFS at
+# volume 1 under the 0.7 master, unclipped, with no step at its loop.
+clip = "../music/kiln_radio.wav"
+looping = true
+
+[[expect]]
+value = "loudness.integrated_lufs"
+at_least = -24.0
+at_most = -22.0
+
+[[expect]]
+value = "loudness.true_peak_dbtp"
+at_most = -6.0
+
+[[expect]]
+value = "defects.clipped_frames"
+equals = 0
+
+[[expect]]
+value = "seam.level_jump_db"
+at_most = 3.0

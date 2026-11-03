@@ -32,7 +32,7 @@ payload = { station = "core.lantern" }
 tick = 450
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 395 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
 
 # E has not been used yet, so the full hold still says what E does.
 [[expect]]
