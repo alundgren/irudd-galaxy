@@ -191,3 +191,101 @@ fn notes_describe_accepted_values_of_drop_targets_in_readable_text() {
         Vec::<String>::new()
     );
 }
+
+/// A module whose `Update` button rewrites the far slot's note, as a cost change would.
+fn updating(first: &str, next: &str) -> Module {
+    let mut files = galaxy_module::module::ModuleFiles::default();
+    files.0.insert(
+        "manifest.toml".into(),
+        "id = 'test'\nversion = '0.1.0'\nmin_engine_version = '0.7.0'\nscripts = ['screen.luau']\nevents = ['update', 'place']\n[components.tray]\nchanged = 'bool'\n".into(),
+    );
+    files.0.insert(
+        "start.toml".into(),
+        "[entities.state]\ntray = { changed = false }\n".into(),
+    );
+    files.0.insert(
+        "screen.luau".into(),
+        format!(
+            "return {{
+    on = {{ update = function(_, ctx) ctx.patch('state', 'tray', {{ changed = true }}) end }},
+    screen = function(ctx, ui)
+        local changed = ctx.get('state', 'tray').changed
+        return ui.column {{ width = 267, children = {{
+            ui.button {{ id = 'update', text = 'Update', on = 'update' }},
+            ui.drag_source {{ id = 'token', text = 'Token', value = 'token' }},
+            ui.drop_target {{ id = 'far', text = 'Far slot', on = 'place',
+                accepts = {{ token = '' }},
+                notes = {{ token = if changed then {next:?} else {first:?} }} }},
+            ui.drop_target {{ id = 'near', text = 'Near slot', on = 'place',
+                accepts = {{ token = '' }} }},
+        }} }}
+    end,
+}}"
+        ),
+    );
+    Module::from_files(Path::new("test"), files).unwrap()
+}
+
+/// Hold the token, press Update, and return both slots' boxes before and after with the
+/// problems the redraw reports.
+fn update_while_holding(first: &str, next: &str) -> ((Rect, Rect), (Rect, Rect), Vec<String>) {
+    use galaxy_sim::scenario::{Click, ClickTarget, Pointer};
+    let mut s = Session::new(vec![updating(first, next)], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    v.scene(&s.world, 1.0, size(), 0.0);
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    let pointer = |tick, action: &str, widget: &str| Pointer {
+        tick,
+        action: action.into(),
+        widget: widget.into(),
+        delta: 0.0,
+    };
+    v.bot_pointer(&s.world, &pointer(2, "pickup", "token"))
+        .unwrap();
+    v.bot_pointer(&s.world, &pointer(2, "move", "point:600,500"))
+        .unwrap();
+    v.scene(&s.world, 1.0, size(), 0.0);
+    assert!(v.screens.presentation.drag.is_some());
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    let before = (rect_of(&v, "far"), rect_of(&v, "near"));
+    let update = v
+        .screens
+        .bot_click(&Click {
+            tick: 3,
+            target: ClickTarget::Widget("update".into()),
+        })
+        .unwrap();
+    s.step(&[update]).unwrap();
+    let scene = v.scene(&s.world, 1.0, size(), 0.0);
+    assert!(v.screens.presentation.drag.is_some());
+    assert!(
+        texts(&scene.overlay).contains(&format!("Far slot\nDrop here\n{next}")),
+        "the update reached the note"
+    );
+    let after = (rect_of(&v, "far"), rect_of(&v, "near"));
+    (before, after, v.screens.problems.clone())
+}
+
+#[test]
+fn a_note_that_changes_mid_drag_moves_no_target() {
+    // The note grows by a wrapped line: the targets keep the space reserved at pickup,
+    // and the note that no longer fits it is a problem.
+    let (before, after, problems) = update_while_holding(
+        "Installation cost: 9 credits; mass after fitting: 2",
+        "Installation cost: 10 credits; mass after fitting: 2",
+    );
+    assert_eq!(before, after);
+    assert!(
+        problems
+            .iter()
+            .any(|p| p.contains("/far[") && p.ends_with("drop verdict is clipped")),
+        "{problems:?}"
+    );
+    // A note that still fits, longer or shorter, moves nothing and reads fine.
+    for next in ["Installation cost: 8 credits", "Cost: 10 credits; mass 2"] {
+        let (before, after, problems) =
+            update_while_holding("Installation cost: 9 credits; mass after fitting: 2", next);
+        assert_eq!(before, after, "{next}");
+        assert!(problems.is_empty(), "{next}: {problems:?}");
+    }
+}

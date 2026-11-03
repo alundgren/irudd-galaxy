@@ -79,7 +79,9 @@ overlaps demo:scripts/main.luau/screen/list[2]``. A handler that fails on a pres
 finding too. States are told apart by what is on screen and by what event handlers
 changed (fields a handler set to something other than the start world, and start
 components removed), so a press that only moves a page counter or a selection still
-gets its second press; a screen already checked is not reported twice. Changes from the
+gets its second press; a screen already checked is not reported twice. A screen's
+identity includes each drop target's verdicts and notes, so a press that rewrites only a
+note leads to a new screen whose problems are reported. Changes from the
 cadence and engine services don't count, so they can't split one state into many. At
 most 32 new states per start are explored, and check's `pressed` output lists the states
 per start and whether that cap stopped it. Keys, drags, scrolls, three presses deep, talk answers and clock changes
@@ -203,7 +205,11 @@ what that drop will change, drawn on a line under `Drop here`. A consequence tha
 refuses (a cost, a slowdown) then shows at pickup beside the refusals, without Luau
 running during the drag. A note must belong to a value the target accepts, and is
 nonempty text; anything else is a screen error. Layout reserves the largest measured
-verdict or note, so targets never move when picking up. All verdict and note labels
+verdict or note, so targets never move when picking up. Pickup records each target's
+reserved height in the drag, and layout keeps it until the drop, so a note a script
+rewrites mid-drag (a cost that changes) moves no target either. A label that outgrows
+the kept space is a `drop verdict is clipped` problem rather than a move. The record is
+part of the presentation, so notes and replays rebuild the kept layout. All verdict and note labels
 receive glyph and readability checks. Picking up lifts the actual source surface and label, leaving an
 empty socket. Its size and pointer grab point stay attached to the pointer. Release on
 an accepting target sends its `on` event with its `payload` plus `value`; release elsewhere
@@ -279,6 +285,8 @@ slot has a note. `tests/play/drop-notes-inputs.toml` (90 ticks) picks the token 
 notes mid-drag, drops it on the far slot, lifts it out of there and drops it on the near
 slot. Headless tests assert the note shows on the far slot only while dragging, neither
 slot moves on any tick, every note rebuilds identically and the replay hash matches.
+Another headless test rewrites a held value's note: neither slot moves, and a note that
+no longer fits is reported.
 
 ## Talk bubbles
 

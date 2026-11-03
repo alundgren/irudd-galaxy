@@ -445,3 +445,64 @@ fn check_presses_a_button_to_find_a_panel_over_a_name_sign() {
         "{report}"
     );
 }
+
+#[test]
+fn check_reads_a_note_that_a_press_rewrites() {
+    // The press changes only the note's text: the screen it leads to is checked too.
+    for (height, next, expected) in [
+        (
+            110,
+            r"Cost: 10\nMass: 2\nSpeed: slower",
+            "drop verdict is clipped",
+        ),
+        (
+            140,
+            r"Cost: 10 \u{10ffff}",
+            "drop verdict has missing glyphs",
+        ),
+    ] {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("demo");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("manifest.toml"),
+            "id='demo'\nversion='0.1.0'\nmin_engine_version='0.7.0'\nscripts=['screen.luau']\n\
+             events=['update','place']\n[components.tray]\nchanged='bool'\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("start.toml"),
+            "[entities.state]\ntray={changed=false}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("screen.luau"),
+            format!(
+                "return {{
+    on = {{ update = function(_, ctx) ctx.patch('state', 'tray', {{changed=true}}) end }},
+    screen = function(ctx, ui)
+        local changed = ctx.get('state', 'tray').changed
+        return ui.column {{width=400, children={{
+            ui.button {{id='update', text='Update', on='update'}},
+            ui.drag_source {{id='token', text='Token', value='token'}},
+            ui.drop_target {{id='far', text='Far slot', on='place', height={height},
+                accepts={{token=''}},
+                notes={{token=if changed then '{next}' else 'Cost: 9'}}}},
+        }}}}
+    end,
+}}"
+            ),
+        )
+        .unwrap();
+        let (code, out) = gm(tmp.path(), &["check", "demo"]);
+        assert_eq!(code, 5, "{out}");
+        assert!(
+            messages(&json(&out))
+                .iter()
+                .any(|m| m.contains("after pressing `update`")
+                    && m.contains("/far[")
+                    && m.contains(expected)),
+            "{out}"
+        );
+    }
+}
