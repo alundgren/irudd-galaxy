@@ -249,6 +249,9 @@ impl View {
             );
             let mut panels = Vec::new();
             fn panels_in<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+                if b.hidden {
+                    return;
+                }
                 if b.widget.kind == "panel" {
                     out.push(b);
                 }

@@ -356,3 +356,136 @@ fn the_same_inputs_give_the_same_world() {
         "the flight session's world changed; if on purpose, update GOLDEN"
     );
 }
+
+#[test]
+fn a_hold_keeps_contact_while_its_rock_is_cut_smaller() {
+    let mut s = drift();
+    let (rx, ry) = at(&s.world, "drift.rock3");
+    let ship = s.world.entities.get_mut("drift.ship").unwrap();
+    let pos = &mut ship.get_mut(POSITION).unwrap().fields;
+    pos.insert("x".into(), Value::from(rx + 9.0));
+    pos.insert("y".into(), Value::from(ry - 2.0));
+    let order = &mut ship.get_mut(STEER).unwrap().fields;
+    order.insert("mode".into(), Value::from("hold"));
+    order.insert("target".into(), Value::from("drift.rock3"));
+    let rock = s.world.entities.get_mut("drift.rock3").unwrap();
+    rock.get_mut(MODEL)
+        .unwrap()
+        .fields
+        .insert("morph".into(), Value::from(0.0));
+    run(&mut s, &[], 300);
+    assert_eq!(arrivals(&s.world), [("hold".into(), "drift.rock3".into())]);
+    let gap = |w: &World| drawn_gap(&footprint(w, "drift.ship"), &footprint(w, "drift.rock3"));
+    let start = gap(&s.world);
+    assert!((-0.02..0.05).contains(&start), "{start}");
+    // Six cuts a second apart, each a sixth of the way to the mined shape, as a handler
+    // would make them; the gap is measured after every tick.
+    let shapes = Shapes::of(s.modules());
+    let mut widest: f64 = 0.0;
+    for cut in 1..=6 {
+        s.world
+            .entities
+            .get_mut("drift.rock3")
+            .unwrap()
+            .get_mut(MODEL)
+            .unwrap()
+            .fields
+            .insert("morph".into(), Value::from(f64::from(cut) / 6.0));
+        for _ in 0..30 {
+            s.step(&[]).unwrap();
+            assert_no_overlaps(&s.world, &shapes);
+            widest = widest.max(gap(&s.world));
+        }
+    }
+    assert!(widest < 0.05, "the gap opened to {widest}");
+    let end = gap(&s.world);
+    assert!((-0.02..0.05).contains(&end), "{end}");
+    // Still one arrival: holding on records nothing new, and the order stays done, so
+    // no course is drawn again.
+    assert_eq!(arrivals(&s.world), [("hold".into(), "drift.rock3".into())]);
+    let order = &s.world.component("drift.ship", STEER).unwrap().fields;
+    assert_eq!(
+        (order["mode"].as_str(), order["done"].as_bool()),
+        (Some("hold"), Some(true))
+    );
+    // The helm takes the ship back.
+    run(&mut s, &[key("thrust_back", true)], 10);
+    let order = &s.world.component("drift.ship", STEER).unwrap().fields;
+    assert_eq!(order["mode"], "");
+}
+
+#[test]
+fn a_spinning_rock_turns_steadily_and_its_outline_turns_with_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("spun");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        format!(
+            "id = \"spun\"\nversion = \"0.1.0\"\nmin_engine_version = \"{}\"\n\
+             writes = [\"engine.position\", \"engine.spin\", \"engine.motion\", \"engine.flight\"]\n",
+            env!("CARGO_PKG_VERSION")
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("start.toml"),
+        "[entities.rock]\n\
+         \"engine.position\" = { angle = 3.0 }\n\"engine.spin\" = { rate = 30.0 }\n\
+         [entities.ship]\n\
+         \"engine.position\" = {}\n\"engine.spin\" = { rate = 90.0 }\n\
+         \"engine.flight\" = {}\n\"engine.motion\" = {}\n",
+    )
+    .unwrap();
+    let mut s = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+    let mut angles = Vec::new();
+    for _ in 0..120 {
+        s.step(&[]).unwrap();
+        angles.push(number(&s.world, "spun.rock", POSITION, "angle"));
+    }
+    // 30 degrees a second: one degree a tick, wrapped into -PI..=PI.
+    let step = 1f64.to_radians();
+    for w in angles.windows(2) {
+        let d = galaxy_sim::flight::wrap(w[1] - w[0]);
+        assert!((d - step).abs() < 1e-12, "{d}");
+    }
+    assert!(
+        angles
+            .iter()
+            .all(|a| (-std::f64::consts::PI..=std::f64::consts::PI).contains(a))
+    );
+    let turned = galaxy_sim::flight::wrap(angles[119] - 3.0);
+    assert!((turned - 120.0 * step).abs() < 1e-9, "{turned}");
+    // Flight owns a flying thing's nose: the spin leaves it be.
+    assert_eq!(number(&s.world, "spun.ship", POSITION, "angle"), 0.0);
+    // The same on a second run, bit for bit.
+    let mut again = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+    for _ in 0..120 {
+        again.step(&[]).unwrap();
+    }
+    assert_eq!(again.world.hash(), s.world.hash());
+}
+
+#[test]
+fn a_spinning_body_s_outline_turns_with_it() {
+    let mut s = drift();
+    // rock1 is oblong; spinning it turns where its outline reaches.
+    let shapes = Shapes::of(s.modules());
+    let before = outline(&s.world, &shapes, "drift.rock1").unwrap();
+    s.world.entities.get_mut("drift.rock1").unwrap().insert(
+        "engine.spin".into(),
+        galaxy_sim::world::Component {
+            fields: serde_json::json!({ "rate": 45.0 })
+                .as_object()
+                .unwrap()
+                .clone(),
+            cause: 0,
+            tick: 0,
+        },
+    );
+    run(&mut s, &[], 30);
+    let after = outline(&s.world, &shapes, "drift.rock1").unwrap();
+    let angle = number(&s.world, "drift.rock1", POSITION, "angle");
+    assert!((angle - (0.4 + 45f64.to_radians())).abs() < 1e-9, "{angle}");
+    assert_ne!(before, after, "the outline turned with the rock");
+}

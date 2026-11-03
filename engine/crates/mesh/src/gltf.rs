@@ -17,6 +17,10 @@
 //!   shader keeps a cut out of the shadow tint and hatching.
 //! - The first morph target's `POSITION` and `NORMAL` displacements: the shape the model
 //!   takes at morph weight 1 (a rock mined down, a door open).
+//! - A part's motion, view-only and driven by time, from its node's `extras`: `spin`
+//!   (degrees a second about `spin_axis` through `spin_at`, in the node's own frame; by
+//!   default its +Y through its origin) and `pulse` (seconds a glow pulse takes; the glow
+//!   swings down to `pulse_low` of itself, 0.2 by default) ([`PartMotion`]).
 //!
 //! What it derives at load: outline normals (welded over equal positions), part spans and
 //! facet spans. Axes: glTF is +Y up with the front facing +Z; the world is +Z up and a
@@ -94,12 +98,130 @@ pub fn read_nodes(text: &str) -> Result<BTreeMap<String, NamedNode>, String> {
     Ok(nodes)
 }
 
-/// One part of a model as read: the node's name and its vertices in the mesh.
+/// One part of a model as read: the node's name, its vertices in the mesh and how it
+/// moves on its own.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PartRange {
     /// The node's name, else its mesh's, else `node <index>`.
     pub name: String,
     pub vertices: std::ops::Range<usize>,
+    pub motion: Option<PartMotion>,
+}
+
+/// How a part moves on its own, for the eye only: a steady spin and a pulsing glow,
+/// driven by time. In world axes (+x the model's front, +z up), in the model's frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PartMotion {
+    /// Degrees a second about `axis` through `at`, counter-clockwise looking down the
+    /// axis; 0 for none.
+    pub spin: f32,
+    pub axis: Vec3,
+    pub at: Vec3,
+    /// Seconds one glow pulse takes, bright to dim and back; 0 for none.
+    pub pulse: f32,
+    /// The glow at the dim end of a pulse, a share of its own (0 to 1).
+    pub low: f32,
+}
+
+/// The longest pulse and the fastest spin a part may have.
+pub const MAX_PULSE: f32 = 600.0;
+pub const MAX_SPIN: f32 = 3600.0;
+
+impl PartMotion {
+    /// The part's turn and glow at `seconds`: a transform in the model's frame, and how
+    /// much of its glow shows (1 at the start of a pulse).
+    pub fn at_time(&self, seconds: f64) -> (Mat4, f32) {
+        let turn = if self.spin == 0.0 {
+            Mat4::IDENTITY
+        } else {
+            // Whole turns are dropped in f64 first, so a long session keeps its precision.
+            let degrees = (f64::from(self.spin) * seconds).rem_euclid(360.0);
+            Mat4::from_translation(self.at)
+                * Mat4::from_axis_angle(self.axis, (degrees as f32).to_radians())
+                * Mat4::from_translation(-self.at)
+        };
+        let glow = if self.pulse > 0.0 {
+            let phase = (seconds / f64::from(self.pulse)).rem_euclid(1.0) as f32;
+            let bright = 0.5 + 0.5 * (phase * std::f32::consts::TAU).cos();
+            self.low + (1.0 - self.low) * bright
+        } else {
+            1.0
+        };
+        (turn, glow)
+    }
+
+    /// Reads a node's motion from its `extras`, in the frame `transform` puts it in. None
+    /// when it has none.
+    fn read(
+        extras: Option<&serde_json::value::RawValue>,
+        transform: Mat4,
+    ) -> Result<Option<PartMotion>, String> {
+        let Some(raw) = extras else {
+            return Ok(None);
+        };
+        let v: Value = serde_json::from_str(raw.get()).map_err(|e| format!("extras: {e}"))?;
+        let number = |key: &str, lo: f32, hi: f32, or: f32| -> Result<f32, String> {
+            match v.get(key) {
+                None => Ok(or),
+                Some(n) => n
+                    .as_f64()
+                    .map(|n| n as f32)
+                    .filter(|n| n.is_finite() && (lo..=hi).contains(n))
+                    .ok_or_else(|| format!("extras.{key} is {n}; expected a number {lo} to {hi}")),
+            }
+        };
+        let triple = |key: &str, or: Vec3| -> Result<Vec3, String> {
+            match v.get(key) {
+                None => Ok(or),
+                Some(t) => t
+                    .as_array()
+                    .filter(|a| a.len() == 3)
+                    .and_then(|a| {
+                        let f: Vec<f32> = a
+                            .iter()
+                            .filter_map(|x| x.as_f64().map(|x| x as f32))
+                            .collect();
+                        (f.len() == 3 && f.iter().all(|x| x.is_finite()))
+                            .then(|| Vec3::new(f[0], f[1], f[2]))
+                    })
+                    .ok_or_else(|| format!("extras.{key} is {t}; expected [x, y, z]")),
+            }
+        };
+        let spin = number("spin", -MAX_SPIN, MAX_SPIN, 0.0)?;
+        let pulse = number("pulse", 0.0, MAX_PULSE, 0.0)?;
+        let low = number("pulse_low", 0.0, 1.0, 0.2)?;
+        let axis = triple("spin_axis", Vec3::Y)?;
+        let at = triple("spin_at", Vec3::ZERO)?;
+        if spin == 0.0 && pulse == 0.0 {
+            return Ok(None);
+        }
+        let axis = to_world(transform.transform_vector3(axis));
+        if spin != 0.0 && axis.length() < 1e-6 {
+            return Err("extras.spin_axis has no length".into());
+        }
+        Ok(Some(PartMotion {
+            spin,
+            axis: axis.normalize_or(Vec3::Z),
+            at: to_world(transform.transform_point3(at)),
+            pulse,
+            low,
+        }))
+    }
+
+    /// The `extras` written for it, in glTF axes.
+    fn extras(&self) -> Value {
+        let mut out = serde_json::Map::new();
+        if self.spin != 0.0 {
+            out.insert("spin".into(), json!(self.spin));
+            out.insert("spin_axis".into(), json!(to_gltf(self.axis).to_array()));
+            out.insert("spin_at".into(), json!(to_gltf(self.at).to_array()));
+        }
+        if self.pulse > 0.0 {
+            out.insert("pulse".into(), json!(self.pulse));
+            out.insert("pulse_low".into(), json!(self.low));
+        }
+        Value::Object(out)
+    }
 }
 
 /// What one part of a model is, for reading by eye: its size and place in the model's
@@ -200,9 +322,12 @@ pub fn read_parts(text: &str) -> Result<(MeshData, Vec<PartRange>), String> {
                     .name()
                     .or(mesh.name())
                     .map_or_else(|| format!("node {}", node.index()), str::to_owned);
+                let motion = PartMotion::read(node.extras().as_deref(), transform)
+                    .map_err(|e| format!("node {name}: {e}"))?;
                 parts.push(PartRange {
                     name,
                     vertices: start..out.vertices.len(),
+                    motion,
                 });
             }
         }
@@ -381,10 +506,12 @@ fn read_part(
     Ok(())
 }
 
-/// One part of a model to write: a node with this name and mesh.
+/// One part of a model to write: a node with this name and mesh, and how it moves on its
+/// own (written in the node's `extras`).
 pub struct Part<'a> {
     pub name: &'a str,
     pub mesh: &'a MeshData,
+    pub motion: Option<PartMotion>,
 }
 
 /// Bytes of the buffer being written, with its views and accessors.
@@ -521,7 +648,11 @@ pub fn write_nodes(parts: &[Part], markers: &[Marker]) -> String {
             }]);
         }
         meshes.push(json!({ "name": part.name, "primitives": [primitive] }));
-        nodes.push(json!({ "name": part.name, "mesh": meshes.len() - 1 }));
+        let mut node = json!({ "name": part.name, "mesh": meshes.len() - 1 });
+        if let Some(motion) = &part.motion {
+            node["extras"] = motion.extras();
+        }
+        nodes.push(node);
     }
     for m in markers {
         // glTF nodes look along their -Z with +Y up.
@@ -594,10 +725,12 @@ mod tests {
             Part {
                 name: "hull",
                 mesh: &hull,
+                motion: None,
             },
             Part {
                 name: "lamp",
                 mesh: &lamp,
+                motion: None,
             },
         ]);
         let back = read(&text).expect("reads");
@@ -666,6 +799,7 @@ mod tests {
         let back = read(&write(&[Part {
             name: "tip",
             mesh: &m,
+            motion: None,
         }]))
         .unwrap();
         let xs: Vec<f32> = back.vertices.iter().map(|v| v.position[0]).collect();
@@ -688,6 +822,7 @@ mod tests {
             &[Part {
                 name: "hull",
                 mesh: &hull,
+                motion: None,
             }],
             &[
                 Marker {
@@ -720,13 +855,15 @@ mod tests {
             write_nodes(
                 &[Part {
                     name: "hull",
-                    mesh: &hull
+                    mesh: &hull,
+                    motion: None,
                 }],
                 &[]
             ),
             write(&[Part {
                 name: "hull",
-                mesh: &hull
+                mesh: &hull,
+                motion: None,
             }])
         );
     }
@@ -744,6 +881,7 @@ mod tests {
         let back = read(&write(&[Part {
             name: "rock",
             mesh: &big,
+            motion: None,
         }]))
         .unwrap();
         let morphed = back.morphed(1.0);
@@ -752,6 +890,89 @@ mod tests {
             ((hi - lo) - Vec3::new(2.0, 1.0, 0.5)).length() < 1e-4,
             "{lo} {hi}"
         );
+    }
+
+    #[test]
+    fn a_part_s_spin_and_pulse_read_back_in_world_axes() {
+        let (hull, lamp) = (hull(), lamp());
+        let ring = PartMotion {
+            spin: 30.0,
+            axis: Vec3::Z,
+            at: Vec3::new(1.0, 2.0, 0.0),
+            pulse: 0.0,
+            low: 0.2,
+        };
+        let blink = PartMotion {
+            spin: 0.0,
+            axis: Vec3::Z,
+            at: Vec3::ZERO,
+            pulse: 2.0,
+            low: 0.1,
+        };
+        let text = write(&[
+            Part {
+                name: "hull",
+                mesh: &hull,
+                motion: Some(ring),
+            },
+            Part {
+                name: "lamp",
+                mesh: &lamp,
+                motion: Some(blink),
+            },
+        ]);
+        let (_, parts) = read_parts(&text).unwrap();
+        let motion = |n: &str| parts.iter().find(|p| p.name == n).unwrap().motion.unwrap();
+        assert_eq!(motion("hull"), ring);
+        assert_eq!(motion("lamp"), blink);
+        // A quarter turn after three seconds, about its own point.
+        let (turn, glow) = ring.at_time(3.0);
+        let p = turn.transform_point3(Vec3::new(2.0, 2.0, 0.0));
+        assert!((p - Vec3::new(1.0, 3.0, 0.0)).length() < 1e-5, "{p}");
+        assert_eq!(glow, 1.0);
+        // Bright at the start of a pulse, dim halfway, bright again at the end.
+        assert!((blink.at_time(0.0).1 - 1.0).abs() < 1e-6);
+        assert!((blink.at_time(1.0).1 - 0.1).abs() < 1e-6);
+        assert!((blink.at_time(2.0).1 - 1.0).abs() < 1e-6);
+        // A node turned in the file spins about its own turned axis; a still part has none.
+        let turned = r#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+            "nodes":[{"name":"wheel","rotation":[0.7071068,0,0,0.7071068],"extras":{"spin":10}}]}"#;
+        let axis = PartMotion::read(
+            serde_json::value::RawValue::from_string(r#"{"spin":10}"#.into())
+                .ok()
+                .as_deref(),
+            Mat4::from_cols_array_2d(
+                &gltf::Gltf::from_slice(turned.as_bytes())
+                    .unwrap()
+                    .nodes()
+                    .next()
+                    .unwrap()
+                    .transform()
+                    .matrix(),
+            ),
+        )
+        .unwrap()
+        .unwrap()
+        .axis;
+        assert!((axis - Vec3::new(1.0, 0.0, 0.0)).length() < 1e-5, "{axis}");
+        assert!(
+            read_parts(&write(&[Part {
+                name: "hull",
+                mesh: &hull,
+                motion: None
+            }]))
+            .unwrap()
+            .1[0]
+                .motion
+                .is_none()
+        );
+        let bad = PartMotion::read(
+            serde_json::value::RawValue::from_string(r#"{"pulse":-1}"#.into())
+                .ok()
+                .as_deref(),
+            Mat4::IDENTITY,
+        );
+        assert!(bad.unwrap_err().contains("extras.pulse"));
     }
 
     #[test]

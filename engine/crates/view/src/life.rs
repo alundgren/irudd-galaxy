@@ -82,6 +82,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 notes: BTreeMap::new(),
                 weight: 500,
                 trailing: false,
+                yields: false,
                 resting: None,
             })
         })

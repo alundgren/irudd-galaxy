@@ -153,6 +153,7 @@ mod tests {
         write(&[Part {
             name: "cube",
             mesh: &mesh,
+            motion: None,
         }])
     }
 

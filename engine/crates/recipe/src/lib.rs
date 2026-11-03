@@ -21,7 +21,7 @@ pub mod shapes;
 use std::collections::BTreeMap;
 use std::fmt;
 
-use galaxy_mesh::gltf::{Marker, Part, write_nodes};
+use galaxy_mesh::gltf::{Marker, Part, PartMotion, write_nodes};
 use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::ids;
 use glam::{Mat4, Vec3};
@@ -171,6 +171,21 @@ pub const PART_KEYS: &[(&str, &str, &str)] = &[
         "number 0 to 1; default 0: how self-lit the main paint is",
     ),
     (
+        "spin",
+        "6.0",
+        "degrees a second -720 to 720; default 0: the part turns steadily about its own up through its origin (copies or mirror: together about the model's up), for the eye only",
+    ),
+    (
+        "pulse",
+        "2.0",
+        "seconds 0.1 to 60, optional: its glow pulses, bright to dim and back in this time, for the eye only",
+    ),
+    (
+        "pulse_low",
+        "0.2",
+        "number 0 to 1; default 0.2, with pulse: the glow at the dim end, a share of its own",
+    ),
+    (
         "palette",
         "{ main = \"#3fa7a0\" }",
         "with use only: slots to repaint the used recipe with",
@@ -278,7 +293,7 @@ pub fn make(files: &BTreeMap<String, String>, name: &str) -> Result<Made, Proble
     };
     let maker = Maker { files, module };
     let built = maker.recipe(name, &BTreeMap::new(), &mut Vec::new())?;
-    let triangles: usize = built.parts.iter().map(|(_, m)| m.triangle_count()).sum();
+    let triangles: usize = built.parts.iter().map(|(_, m, _)| m.triangle_count()).sum();
     let fail = |message: String| Problem {
         file: recipe.clone(),
         field: String::new(),
@@ -292,7 +307,11 @@ pub fn make(files: &BTreeMap<String, String>, name: &str) -> Result<Made, Proble
     let parts: Vec<Part> = built
         .parts
         .iter()
-        .map(|(n, m)| Part { name: n, mesh: m })
+        .map(|(n, m, motion)| Part {
+            name: n,
+            mesh: m,
+            motion: *motion,
+        })
         .collect();
     let markers: Vec<Marker> = built
         .markers
@@ -314,7 +333,7 @@ pub fn make(files: &BTreeMap<String, String>, name: &str) -> Result<Made, Proble
     }
     let mut lo = Vec3::splat(f32::MAX);
     let mut hi = Vec3::splat(f32::MIN);
-    for (_, m) in &built.parts {
+    for (_, m, _) in &built.parts {
         if let Some((a, b)) = m.bounds() {
             (lo, hi) = (lo.min(a), hi.max(b));
         }
@@ -327,7 +346,7 @@ pub fn make(files: &BTreeMap<String, String>, name: &str) -> Result<Made, Proble
         name: name.to_owned(),
         file: format!("models/{name}.gltf"),
         recipe,
-        parts: built.parts.iter().map(|(n, _)| n.clone()).collect(),
+        parts: built.parts.iter().map(|(n, _, _)| n.clone()).collect(),
         markers: built.markers.iter().map(|m| m.name.clone()).collect(),
         triangles,
         text,
@@ -351,9 +370,9 @@ struct MarkerAt {
     up: Vec3,
 }
 
-/// A recipe built: each part's node name and mesh, and its markers.
+/// A recipe built: each part's node name, mesh and motion, and its markers.
 struct Built {
-    parts: Vec<(String, MeshData)>,
+    parts: Vec<(String, MeshData, Option<PartMotion>)>,
     markers: Vec<MarkerAt>,
 }
 
@@ -400,9 +419,11 @@ fn palette(file: &str, at: &str, v: &Value) -> Result<Palette, Problem> {
     Ok(out)
 }
 
-/// What a part's or marker's placement keys say: the matrices of its copies.
+/// What a part's or marker's placement keys say: the matrices of its copies, and how
+/// the part moves on its own.
 struct Placement {
     copies: Vec<Mat4>,
+    motion: Option<PartMotion>,
 }
 
 fn degrees(t: &Table, key: &str, lo: f32, hi: f32) -> Result<f32, (String, String)> {
@@ -482,7 +503,41 @@ fn placement(t: &Table) -> Result<Placement, (String, String)> {
             out.push(Mat4::from_scale(Vec3::new(1.0, -1.0, 1.0)) * m);
         }
     }
-    Ok(Placement { copies: out })
+    let spin = match t.get("spin") {
+        None => 0.0,
+        Some(v) => ranged(v, -720.0, 720.0).map_err(|m| ("spin".to_owned(), m))?,
+    };
+    let pulse = match t.get("pulse") {
+        None => 0.0,
+        Some(v) => ranged(v, 0.1, 60.0).map_err(|m| ("pulse".to_owned(), m))?,
+    };
+    let low = match t.get("pulse_low") {
+        None => 0.2,
+        Some(_) if pulse == 0.0 => {
+            return Err(("pulse_low".into(), "goes with pulse".into()));
+        }
+        Some(v) => ranged(v, 0.0, 1.0).map_err(|m| ("pulse_low".to_owned(), m))?,
+    };
+    // One copy spins about its own up through its origin; copies round the centre (or a
+    // mirrored pair) turn together about the model's up through its centre.
+    let (axis, at) = match out.as_slice() {
+        [one] => (
+            one.transform_vector3(Vec3::Z).normalize_or(Vec3::Z),
+            one.transform_point3(Vec3::ZERO),
+        ),
+        _ => (Vec3::Z, Vec3::ZERO),
+    };
+    let motion = (spin != 0.0 || pulse > 0.0).then_some(PartMotion {
+        spin,
+        axis,
+        at,
+        pulse,
+        low,
+    });
+    Ok(Placement {
+        copies: out,
+        motion,
+    })
 }
 
 /// The keys a part may have besides its shape's.
@@ -583,7 +638,7 @@ impl Maker<'_> {
                 return Err(problem(at, format!("is {}; expected a table", show(part))));
             };
             let field = |(k, m): (String, String)| problem(format!("{at}.{k}"), m);
-            let (mesh, default_name) = self.part(
+            let (mesh, default_name, motion) = self.part(
                 t,
                 &colours,
                 &explicit,
@@ -597,7 +652,7 @@ impl Maker<'_> {
                     if !ids::valid_local(n) {
                         return Err(field(("name".into(), ids::local_rule(n))));
                     }
-                    if out.parts.iter().any(|(p, _)| p == n) {
+                    if out.parts.iter().any(|(p, _, _)| p == n) {
                         return Err(field((
                             "name".into(),
                             format!("is `{n}`, which an earlier part has; each part is one node"),
@@ -620,7 +675,7 @@ impl Maker<'_> {
                     } else {
                         format!("{base}.{n}")
                     };
-                    while out.parts.iter().any(|(p, _)| *p == candidate) {
+                    while out.parts.iter().any(|(p, _, _)| *p == candidate) {
                         *n += 1;
                         candidate = format!("{base}.{n}");
                     }
@@ -630,7 +685,16 @@ impl Maker<'_> {
             if mesh.is_empty() {
                 return Err(problem(at, "makes no triangles".into()));
             }
-            out.parts.push((node, mesh));
+            if motion.is_some_and(|m| m.pulse > 0.0)
+                && mesh.vertices.iter().all(|v| v.color[3] <= 0.0)
+            {
+                return Err(field((
+                    "pulse".into(),
+                    "is given, but nothing in the part glows (lights, glass or glow) to pulse"
+                        .into(),
+                )));
+            }
+            out.parts.push((node, mesh, motion));
         }
         stack.pop();
 
@@ -680,7 +744,7 @@ impl Maker<'_> {
                         )));
                     }
                 };
-                if out.parts.iter().any(|(p, _)| *p == name)
+                if out.parts.iter().any(|(p, _, _)| *p == name)
                     || out.markers.iter().any(|m| m.name == name)
                 {
                     return Err(field((
@@ -720,7 +784,7 @@ impl Maker<'_> {
         stack: &mut Vec<String>,
         file: &str,
         at: &str,
-    ) -> Result<(MeshData, String), Problem> {
+    ) -> Result<(MeshData, String, Option<PartMotion>), Problem> {
         let problem = |k: &str, message: String| Problem {
             file: file.to_owned(),
             field: format!("{at}.{k}"),
@@ -773,12 +837,12 @@ impl Maker<'_> {
                 let inner = self.recipe(name, &over, stack)?;
                 for m in &place.copies {
                     b.with(*m, |b| {
-                        for (_, mesh) in &inner.parts {
+                        for (_, mesh, _) in &inner.parts {
                             b.append(mesh);
                         }
                     });
                 }
-                Ok((b.build(), name.to_owned()))
+                Ok((b.build(), name.to_owned(), place.motion))
             }
             (Some(s), None) => {
                 let Some(shape) = s.as_str().and_then(shapes::find) else {
@@ -852,7 +916,7 @@ impl Maker<'_> {
                         return Err(problem(k, m));
                     }
                 }
-                Ok((b.build(), shape.name.to_owned()))
+                Ok((b.build(), shape.name.to_owned(), place.motion))
             }
         }
     }

@@ -1,0 +1,31 @@
+about = "a small station whose ring turns and whose lamps pulse, for the eye only"
+seed = 5
+
+[[part]]
+name = "core"
+shape = "tiers"
+radius = 3.5
+height = 4.0
+tiers = 3
+sides = 10
+
+[[part]]
+name = "ring"
+shape = "spoked_ring"
+radius = 8.0
+tube = 0.9
+spokes = 4
+inner = 3.2
+paint = "trim"
+trim = "main"
+spin = 8.0
+
+[[part]]
+name = "lamps"
+shape = "beacon"
+height = 2.4
+angle = 45.0
+distance = 4.6
+copies = 4
+pulse = 2.0
+pulse_low = 0.1

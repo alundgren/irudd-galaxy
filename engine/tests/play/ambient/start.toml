@@ -1,0 +1,58 @@
+# The ship starts in open space facing +x, beside the ore rock it mines with 2. The
+# drifting rock turns 12 degrees a second; the station is fixed, and its ring and lamps
+# move only on screen. The trader flies a loop of four waypoints for ever (the last one's
+# next is the first), passing just above the ship, and a label publisher names it. Sizes
+# are in world units; the camera shows 40 of them, and the wheel zooms from 12 to 120.
+[entities.ship]
+keys = {}
+"engine.position" = { x = 0.0, y = 0.0 }
+"engine.motion" = {}
+"engine.flight" = {}
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 1.0 }
+"engine.model" = { model = "ambient.skiff", look = "ambient.hull" }
+"engine.camera" = { tilt = 30.0, view = 40.0, min_view = 12.0, max_view = 120.0 }
+
+[entities.state]
+cuts = {}
+
+[entities.ore]
+"engine.position" = { x = 9.0, y = -2.0, angle = 0.6 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "ambient.rock", look = "ambient.rock", scale = 1.6 }
+
+[entities.drifter]
+"engine.position" = { x = -6.0, y = 11.0, angle = 0.3 }
+"engine.motion" = {}
+"engine.spin" = { rate = 12.0 }
+"engine.body" = { mass = 6.0 }
+"engine.model" = { model = "ambient.rock", look = "ambient.rock", scale = 2.0 }
+
+[entities.hub]
+"engine.position" = { x = -22.0, y = -12.0 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "ambient.hub", look = "ambient.hull" }
+
+[entities.trader]
+"engine.position" = { x = 20.0, y = 14.0, angle = 3.14159 }
+"engine.motion" = {}
+"engine.flight" = { speed = 6.0, accel = 8.0 }
+"engine.steer" = { mode = "follow", target = "ambient.t1" }
+"engine.model" = { model = "ambient.skiff", look = "ambient.hull" }
+
+[entities.trader_label]
+"engine.anchor" = { name = "label", target = "ambient.trader", height = 1.0 }
+
+[entities.t1]
+"engine.position" = { x = -14.0, y = 16.0 }
+"engine.waypoint" = { next = "ambient.t2" }
+[entities.t2]
+"engine.position" = { x = -16.0, y = 4.0 }
+"engine.waypoint" = { next = "ambient.t3" }
+[entities.t3]
+"engine.position" = { x = 4.0, y = 5.0 }
+"engine.waypoint" = { next = "ambient.t4" }
+[entities.t4]
+"engine.position" = { x = 22.0, y = 14.0 }
+"engine.waypoint" = { next = "ambient.t1" }

@@ -367,7 +367,11 @@ fn make_the_models() {
         let parts = make();
         let parts: Vec<Part> = parts
             .iter()
-            .map(|(n, m)| Part { name: n, mesh: m })
+            .map(|(n, m)| Part {
+                name: n,
+                mesh: m,
+                motion: None,
+            })
             .collect();
         let path = drift().join("models").join(format!("{name}.gltf"));
         std::fs::write(&path, write(&parts)).unwrap();

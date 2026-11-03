@@ -12,7 +12,9 @@
 //! **By order** the ship steers straight for where it goes: the wanted velocity comes from
 //! the target, reached at `accel` and shed at `brake`, slow enough to stop on the spot,
 //! and the nose swings toward the way it goes at the turn rate. Touching the helm sets the
-//! order aside: the player always has the controls.
+//! order aside: the player always has the controls. A `hold` keeps holding once there:
+//! it follows the target's surface as the target shrinks or moves, until the helm or a
+//! new order takes over.
 //!
 //! Every number is `f64` with plain arithmetic or `libm`, so replays match on every OS.
 
@@ -393,6 +395,56 @@ fn goal(
     }
 }
 
+/// How far a held thing is carried to stay on its target's surface: a tick at top speed.
+fn latch(feel: &Feel) -> f64 {
+    feel.speed * TICK_SECONDS
+}
+
+/// Keeps every `hold` that got there on its target's surface, at the end of a tick: when
+/// the target was cut smaller (morph), turned or nudged by up to a tick's flight, the
+/// holder moves onto the new surface on that same tick, whichever handler, cadence or
+/// service changed it. Further off, flight steers back as for any order.
+pub fn settle_holds(world: &mut World, shapes: &Shapes) {
+    let mut moves = Vec::new();
+    for (entity, components) in &world.entities {
+        let (Some(feel), Some(pos), Some(order)) = (
+            components.get(FLIGHT),
+            components.get(POSITION),
+            components.get(STEER),
+        ) else {
+            continue;
+        };
+        let order = &order.fields;
+        if text(order, "mode") != "hold" || !boolean(order, "done") {
+            continue;
+        }
+        let m = Motion {
+            x: number(&pos.fields, "x"),
+            y: number(&pos.fields, "y"),
+            vx: 0.0,
+            vy: 0.0,
+            heading: wrap(number(&pos.fields, "angle")),
+        };
+        let Some(goal) = goal(world, shapes, entity, &m, order) else {
+            continue;
+        };
+        let away = length(goal.to.0 - m.x, goal.to.1 - m.y);
+        if away > 0.0 && away <= latch(&Feel::of(&feel.fields)) {
+            moves.push((entity.clone(), goal.to));
+        }
+    }
+    if moves.is_empty() {
+        return;
+    }
+    let cause = world.service_cause("flight");
+    for (e, (x, y)) in moves {
+        set(world, &e, POSITION, "x", Value::from(x), cause);
+        set(world, &e, POSITION, "y", Value::from(y), cause);
+        set(world, &e, MOTION, "vx", Value::from(0.0), cause);
+        set(world, &e, MOTION, "vy", Value::from(0.0), cause);
+    }
+}
+
 /// Runs flight for everything with `engine.flight`, `engine.position` and `engine.motion`.
 pub fn flight(world: &mut World, shapes: &Shapes) {
     let dt = TICK_SECONDS;
@@ -420,7 +472,11 @@ pub fn flight(world: &mut World, shapes: &Shapes) {
             .and_then(Value::as_u64)
             .unwrap_or(0) as u32;
         let order = components.get(STEER).map(|s| &s.fields);
-        let active = order.filter(|o| !text(o, "mode").is_empty() && !boolean(o, "done"));
+        // A `hold` that got there keeps holding: it stays on the target's surface as the
+        // target shrinks (morph), turns or drifts, with no new arrival.
+        let holding = order.is_some_and(|o| text(o, "mode") == "hold" && boolean(o, "done"));
+        let active =
+            order.filter(|o| !text(o, "mode").is_empty() && (holding || !boolean(o, "done")));
         let Some(order) = active else {
             let (motion, stopping) = fly(&feel, m, stopping, hands, dt);
             flown.push(Flown {
@@ -458,6 +514,30 @@ pub fn flight(world: &mut World, shapes: &Shapes) {
             });
             continue;
         };
+        if holding {
+            let (ox, oy) = (goal.to.0 - m.x, goal.to.1 - m.y);
+            let motion = if length(ox, oy) <= latch(&feel) {
+                // Close: [`settle_holds`] keeps it on the surface at the end of the tick.
+                Motion {
+                    vx: 0.0,
+                    vy: 0.0,
+                    heading: goal
+                        .face
+                        .map_or(m.heading, |f| turn_toward(m.heading, f, feel.turn * dt)),
+                    ..m
+                }
+            } else {
+                steer(&feel, m, Some(goal.to), goal.face, dt)
+            };
+            flown.push(Flown {
+                entity: entity.clone(),
+                motion,
+                stopping: 0,
+                steer: None,
+                arrived: None,
+            });
+            continue;
+        }
         let mode = text(order, "mode").to_owned();
         let target = text(order, "target").to_owned();
         let range = number(order, "range").max(PASS);

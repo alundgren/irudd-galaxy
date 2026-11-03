@@ -28,6 +28,7 @@ The engine owns only the component types its own services act on:
 |---|---|---|
 | `engine.position` | `x`, `y`, `layer`, `height`, `angle` | modules place and turn things and change `layer`; the motion service moves `x`, `y`; the ground service sets `height` |
 | `engine.motion` | `vx`, `vy` (units per second) | modules |
+| `engine.spin` | `rate` (degrees per second, counter-clockwise) | modules; the spin service turns `angle` (`flight-and-collision.md`) |
 | `engine.surface` | `layer`, a rectangle, `height`, `rise_x`, `rise_y` | modules |
 | `engine.model` | `model`, `look`, `scale`, `morph` | modules; the view draws it (`renderer-and-style.md`) |
 | `engine.camera` | `tilt`, `view`, `min_view`, `max_view`, `fov` | modules; the camera follows the thing that has it |
@@ -95,8 +96,10 @@ The sim runs at a fixed 30 ticks per second of game time and reads no clock. Eac
    order. A handler's writes apply as soon as it returns, so the next handler sees them.
    Facts recorded now wait for the next tick. Inputs are handled before the services, so
    a key acts on the tick it arrives;
-4. engine services run: flight, motion, walking, collide, then ground (`flight-and-collision.md`);
-5. every 30th tick (once a second), each script's `cadence` handler runs.
+4. engine services run: flight, motion, spin, walking, collide, then ground (`flight-and-collision.md`);
+5. every 30th tick (once a second), each script's `cadence` handler runs;
+6. a `hold` that got there is settled back onto its target's surface, whatever changed
+   the target this tick (`flight-and-collision.md`).
 
 Per-frame work runs in Rust services, never in Luau: scripts run only on events and the
 slow cadence (`script-host.md`).

@@ -166,11 +166,13 @@ export type ScreenCtx = {
 --- maps accepted values to what dropping there changes, drawn under Drop here.
 --- resting = "<reason>" on a button: it stays in place drawn resting ([screen] resting,
 --- resting_dash), hovering shows the reason, and a click records nothing.
+--- yield = true on an anchored widget: not drawn (rather than clamped) while its anchor
+--- is off screen, it would leave the window, or it would overlap another painted widget.
 export type Widget = {
     kind: string?, id: string?, text: string?, hover: string?, resting: string?,
     children: {Widget}?,
     width: number?, height: number?, x: number?, y: number?, align: string?,
-    size: number?, pad: number?, gap: number?, anchor: string?,
+    size: number?, pad: number?, gap: number?, anchor: string?, yield: boolean?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
     notes: {[string]: string}?,
