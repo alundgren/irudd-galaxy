@@ -7,10 +7,6 @@ text = "At rest: two slots, no verdicts."
 tick = 10
 action = "pickup"
 widget = "token"
-[[pointer]]
-tick = 14
-action = "move"
-widget = "far"
 [[note]]
 tick = 18
 text = "Mid-drag: both say Drop here; the far slot adds its note."
