@@ -57,7 +57,8 @@ come back with Back.
 
 Each room has a keeper standing by it, wearing a name sign with what they do
 (`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
-the open log hides them all. Station names and room names never share a word.
+the open log hides them all except the keeper who is speaking, so a bubble always
+shows whose words it holds. Station names and room names never share a word.
 
 ## The keepers talk
 
@@ -70,8 +71,8 @@ ore left in the field (`scripts/voices.luau`). Talk ends when you launch and nev
 becomes the flight message.
 
 Each conversation you hear is one ship log entry that names the speaker and the
-station, with the lines quoted in order. A line already in the log isn't logged
-again. The log says it lists newest first.
+station, with the lines quoted in order, even when something else is logged
+while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
 
 ## Screens
 
@@ -125,14 +126,16 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are five Luau rule tests and seven scenarios: both complete station trips,
+There are five Luau rule tests and eight scenarios: both complete station trips,
 collision under held thrust, refused out-of-place actions, repeat trips through
 depletion with an empty-sale check, and the station itself (rooms from signs and
 M, refused sales outside the exchange, a building of another station, the log
 held shut inside a room, keeper talk, the sale receipt and log lines, the skiff
 and launch), and talk (an introduction once, one line per click, the repeat line
 following the hold and the sale, one log entry per conversation with no repeats,
-talk ended by launch, and hints retiring). `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
+talk ended by launch, and hints retiring), and one conversation (a sale in the
+middle of an introduction leaves it one entry, and the speaker keeps their name
+while the log is open). `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
 headless routes; `play.inputs` uses real screen clicks, talks to both Lantern Dock
 keepers and takes nine notes. `play.bot.toml` declares that 900-tick route at 1280x720 physical pixels. The GM
 test report includes its frame times, dimensions and deterministic replay

@@ -73,7 +73,7 @@ return {
             if pilot.room ~= "" then return end
             ctx.patch("ship", "pilot", { log_open = not pilot.log_open })
             local here = ctx.get("ship", "engine.location").place
-            if here ~= "" and ctx.get(here, "port") then signs.show(ctx, here, "", not pilot.log_open) end
+            if here ~= "" and ctx.get(here, "port") then signs.show(ctx, here, "", not pilot.log_open, signs.speaking(ctx)) end
         end,
     },
     screen = function(ctx, ui)

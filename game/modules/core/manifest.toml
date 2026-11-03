@@ -55,6 +55,8 @@ b = "id"
 n = "int"
 text = "text"
 talk = "id"
+# A conversation still being heard: its next lines join this entry.
+open = "bool"
 
 # How often the player has used each control; its hint retires after a few uses.
 [components.taught]
