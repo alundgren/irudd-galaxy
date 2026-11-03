@@ -16,6 +16,10 @@ sign = "#ffffff"
 text = "#000000"
 border = "#3b2f2f"
 radius = 8
+# A building under the pointer lifts and takes a blue outline: blue is no other kind's
+# colour, and it stands out on the warm station.
+highlight = "#2f6fdb"
+highlight_px = 5
 
 [light]
 ambient = "#49485e"

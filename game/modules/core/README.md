@@ -6,8 +6,8 @@ and Lantern Dock wants plate to build a galley. Once the galley is built, its
 cook sells rations that the Kiln's crews buy. The hold takes six units of any
 mix. The field is small and finite (36 ore); there is no timed objective.
 
-Use installed engine/GM 0.5.0 or newer. This version was authored and verified
-with `0.5.0-da110809f31d-dev`. No engine build is needed.
+Use installed engine/GM 0.7.0 or newer. This version was authored and verified
+with `0.7.0-244988df669c-dev`. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -21,33 +21,41 @@ galaxy play --modules game/modules
 | Space | Approach and mine the nearest rock with ore |
 | E | Dock at the nearest berth |
 | 0 | Cancel the current flight/mining order |
-| M | Docked: open the ore exchange |
+| M | Docked: open the exchange |
 | Enter | In a room that buys: sell everything it buys |
-| B | Back from a room to the whole station |
+| B, Esc or right-click | Back from a room to the whole station, or shut the log |
 | U | Docked: launch |
 | L | Open or close the ship log |
 | Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
-| Esc | Quit; the engine saves the session |
+| Shift+Esc | Quit; the engine saves the session (closing the window does too) |
 
-Everything is also a click: the order buttons in flight, the signs on the
-station's buildings, the station key, Sell, Buy, Back, Launch and the log. Click a
+Everything is also a click: the order buttons in flight, the station's buildings
+and their signs, the station key, Sell, Buy, Back, Launch and the log. Click a
 keeper to hear them. Manual thrust or turning cancels an order. Rocks and
 station hulls are solid; orders steer toward their targets, so use manual
 flight to clear an obstruction when approaching from the far side of a station.
 
 ## The station up close
 
-Docking cuts to the station drawn large: its deck, tower, berth (with your ship
-moored), crane, rim lamps and a skiff ferrying across the deck. The station is
-the menu. Each building carries a sign you can press, and hovering the building
-or its sign names its keeper and what is offered there. The station key along
-the bottom reaches the same rooms, and Launch sits at the bottom right.
+Docking glides in from the ship's view until the station fills the screen: its
+deck, tower, berth (with your ship moored), crane, rim lamps and a skiff ferrying
+across the deck. The station is the menu. Under the pointer a building lifts, takes
+a blue outline and names its keeper and what is offered there, and the pointer
+becomes a hand; clicking the building opens its room. Each building also carries a
+sign you can press, the station key along the bottom reaches the same rooms, and
+Launch sits at the bottom right.
 
-A room opens as a panel on the side away from its building, 520 of 1280 pixels
-wide, so the building and most of the station stay in view. Inside a room only
-that room shows: the status panel, title, key, log and launch step aside and
-come back with Back.
+Opening a room glides the view to frame its building, and the room opens as a
+panel on the side away from it, 520 pixels wide, so the building and its keeper
+stay in view beside it. Each glide takes a second; a click during one lands it at
+once. Inside a room only that room shows: the status panel, title, key, log and
+launch step aside and come back with Back, which glides out to the whole station
+again. Signs rest while the view glides, so they never crowd the moving view.
+Opening a room, going back and opening the log each end whatever is being said, so
+a bubble never rides a glide over the status panel or sits on a room panel or the
+log. Nothing is lost: an unfinished conversation begins again at a click, and an
+unanswered offer is still on offer.
 
 - **Exchange**: your hold and credits, then one line per good with its price
   and stock as plain text. A good the station buys gets `Sell N for X cr` when
@@ -65,8 +73,8 @@ come back with Back.
 
 Each room has a keeper standing by it, wearing a name sign with what they do
 (`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
-the open log hides them all except the keeper who is speaking, so a bubble always
-shows whose words it holds. Station names and room names never share a word.
+the open log hides them all; while someone speaks only they wear theirs, so a
+bubble always shows whose words it holds. Station names and room names never share a word.
 
 ## Trade, prices and the galley
 
@@ -97,13 +105,16 @@ Measured on the headless route `tests/trade.inputs` (seed 7): one hold of ore
 sells for 97 cr at the Kiln and 73 at Lantern Dock; the three plate runs earn
 25, 22 and 13 cr as the Kiln's plate stock runs down faster than visits restock
 it; a hold of rations earns 24 cr. The galley is built on the third plate
-delivery, about a minute of play after the first sale (80 seconds in the click
+delivery, about a minute of play after the first sale (88 seconds in the click
 route), with 157 cr in hand; the route ends at 181 cr.
 
 ## The keepers talk
 
 Click a keeper and they speak in first-person bubbles, one short sentence per
-click, with their name on its own line at the top of the bubble. The first
+click. The bubble's heading is their name, with what they do under it in smaller,
+lighter type (`Exchange keeper`, `Dockmaster`, `Cook`); the station is left out
+because you are standing in it. A small `Continue` or `Done` sits at the bubble's
+end. While someone speaks only they wear their name sign. The first
 conversation introduces them: who they are, what they do and where the other
 station is. After that a click gets one line that follows the shift: the exchange
 keeper talks about what you carry that they buy, the sale you just made, or
@@ -111,9 +122,15 @@ their own idle line; the dockmaster about the galley's plate while it is being
 built, then the ore left in the field (`scripts/voices.luau`). Talk ends when you launch and never
 becomes the flight message.
 
+Once her galley stands and she has introduced herself, Ines thanks you for the
+plate and offers a ration on the house, with `Take it` and `No, thanks` in the
+bubble. Taking it puts one ration in the hold with a receipt in the log; either
+answer ends the offer for good, and her everyday line comes back. While the hold
+is full the offer waits, unanswered, and she says her everyday line instead.
+
 Each conversation you hear is one ship log entry that names the speaker and the
-station, with the lines quoted in order, even when something else is logged
-while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
+station, with the lines quoted in order and any answer you gave (`You: Take it.`),
+even when something else is logged while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
 
 ## Screens
 
@@ -129,10 +146,11 @@ hint line after three uses, and messages stop explaining Space and E once those
 were used three times. A room stops saying "Click Tova to talk" after three
 conversations. Messages report what happened, not how fast it happens.
 
-Screens are laid out for the 1280x720 design size in logical pixels, inside a
-24-pixel margin (`scripts/layout.luau`). Smaller windows clip the right and
-bottom edges, because a screen can't yet place widgets against the window's
-edges.
+Each piece of a screen sits against a window edge with a 24-pixel margin
+(`scripts/layout.luau`), so the HUD holds at any window size and display scale:
+the design size is 1280x720 logical pixels, and everything also fits 1024x576
+(1280x720 on a display scaled to 125%). The room cameras frame each keeper so
+their bubble clears the room's panel at both sizes.
 
 ## Design rules
 
@@ -173,7 +191,7 @@ galaxy-gm test game/modules/core
 
 There are ten Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
-settling a market, quick taps not counting, hints, keepers' lines) and nine
+settling a market, quick taps not counting, hints, keepers' lines) and fourteen
 scenarios: both complete station trips, collision under held thrust, refused
 out-of-place actions, repeat trips through depletion with an empty-sale check,
 the station itself (rooms from signs and M, refused sales outside the exchange,
@@ -182,22 +200,40 @@ sale receipt and log lines, the skiff and launch), talk (an introduction once,
 one line per click, the repeat line following the hold and the sale, one log
 entry per conversation with no repeats, talk ended by launch, and hints
 retiring), one conversation (a sale in the middle of an introduction leaves it
-one entry, and the speaker keeps their name while the log is open), and trade
+one entry, and opening the log ends an introduction, which begins again once
+it shuts), trade
 (buying refused with a full hold, ore and plate priced unit by unit, plate into
 the galley, a quick redock tap that is not a visit, the site trading nothing
 before it is built, visits restocking, the galley built with its keeper and her
-sign, rations bought and sold, visit and docking counts). `loop.inputs`,
+sign, rations bought and sold, visit and docking counts), back (a building
+clicked opens its room and moves the room camera to frame it, Esc, right-click
+and B go back and frame the whole station again, Esc shuts the log, signs resting
+while the view glides and while someone else speaks, launching from a room), and
+Ines's gift taken (one ration and its receipt, her follow-up line, one log entry
+with the answer, the offer gone), declined (nothing changes hands, a late second
+answer is stale, the offer gone), waiting while the hold is full, and going back
+mid-talk (Back on her unanswered offer and on its first line ends the bubble and
+keeps the offer, a late answer to it is stale, the third time it is taken and
+logged once; opening the log ends a bubble and a click through it starts none). Play records
+`engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
+give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes. Two bots use real screen clicks: `play.inputs` talks to both Lantern
-Dock keepers and takes nine notes (`play.bot.toml`, 900 ticks), and
-`trade-play.inputs` plays the whole trade loop through the galley with eleven
-notes (`trade.bot.toml`, 3805 ticks). Both declare 1280x720 physical pixels. The
-GM test report includes their frame times, dimensions and deterministic replay
-results. On a display scaled above 100%, that window is smaller than 1280x720
-logical pixels and reports the clipped edges as problems.
+routes. Three bots use real screen clicks: `play.inputs` docks (the view glides in),
+talks to both Lantern Dock keepers, points at and clicks the exchange building,
+lands a glide with a click, goes back with Esc and with a right-click, shuts the
+log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
+`trade-play.inputs` plays the whole trade loop through the galley and Ines's gift
+with twelve notes (`trade.bot.toml`, 4150 ticks), and `back-talk.inputs` plays
+that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
+with a right-click on its first line, takes it the third time, opens the log while
+Tova speaks and opens her exchange while she speaks (`back-talk.bot.toml`, 3920
+ticks, thirteen notes). All three declare 1280x720 physical pixels. The GM test
+report includes their frame times, dimensions, problems and deterministic replay
+results. On a display scaled to 125% that window is 1024x576 logical pixels, and
+all three run there without problems.
 
 ```sh
-galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 900 --size 1280x720
+galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 1000 --size 1280x720
 galaxy sim replay SESSION/recording.json
 galaxy-gm audit SESSION/recording.json
 galaxy-gm film SESSION/recording.json --from 20 --to 45 --size 1280x720 --out flight-film
@@ -241,12 +277,10 @@ resting, because a button can't be drawn resting yet. The galley's sign sits
 low on its front so it clears the dockmaster's name sign.
 
 The station view is now the agreed design rather than a deck and a separate
-market room, and the two stations differ in their towers and paint. What is
-still missing is engine-side: the arrival is a fade to a title card rather than
-a zoom, buildings don't lift or outline under the pointer and only their signs
-open rooms, rooms open at once with no glide, and right-click and Esc don't go
-back. The key has no news ribbons because nothing at a station changes on its
-own yet. There is no music or station sound. In a bubble the
-speaker's name and Continue have the same size and weight as the line, and the
-bubble has no way to offer a choice, so no keeper makes an offer yet. Further
-art and pacing changes wait for a human playtest.
+market room, and the two stations differ in their towers and paint. Docking
+glides in, buildings lift and outline under the pointer and open their rooms when
+clicked, the view glides to each building, and Esc and right-click go back. The
+key has no news ribbons because nothing at a station changes on its own yet.
+There is no music or station sound. Ines's ration is the only offer so far, and
+the only thing anyone gives. Further art and pacing changes wait for a human
+playtest.

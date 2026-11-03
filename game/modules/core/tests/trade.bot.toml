@@ -1,4 +1,4 @@
 inputs = "tests/trade-play.inputs"
-ticks = 3805
+ticks = 4150
 size = [1280, 720]
 seed = 1

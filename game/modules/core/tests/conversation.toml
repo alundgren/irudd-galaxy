@@ -1,7 +1,8 @@
-# One conversation stays one log entry, and speech keeps its speaker's name. Bram's
-# introduction plays on with the log open: his sign stays while his bubble does, the
-# other keeper's steps aside, and his sign goes once he has finished. Tova's
-# introduction is interrupted by a sale and still ends as one entry in reading order.
+# One conversation stays one log entry, and speech keeps its speaker's name. Opening
+# the log ends Bram's introduction unseen; with the log shut it begins again, his sign
+# stays while his bubble does, the other keeper's steps aside, and every sign is back
+# once he has finished. Tova's introduction is interrupted by a sale and still ends as
+# one entry in reading order.
 seed = 3
 ticks = 700
 
@@ -26,7 +27,8 @@ name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 417 }
 
-# Bram starts his introduction, then the log opens over it.
+# Bram starts his introduction, then the log opens: it takes the whole focus, so his
+# bubble ends unseen and no sign shows.
 [[input]]
 tick = 500
 name = "engine.talk_start"
@@ -37,23 +39,50 @@ tick = 505
 name = "core.log"
 [[expect]]
 tick = 506
-entity = "lantern_master"
-component = "engine.life"
-field = "name"
-equals = "Bram Okafor"
+entity = "lantern_master_intro"
+component = "engine.talk"
+field = "active"
+equals = false
 [[expect]]
 tick = 506
-entity = "lantern_trader"
+entity = "lantern_master_intro"
+component = "engine.talk"
+field = "seen"
+equals = false
+[[expect]]
+tick = 506
+entity = "lantern_master"
 component = "engine.life"
 field = "name"
 equals = ""
 [[input]]
 tick = 510
+name = "core.log"
+[[expect]]
+tick = 511
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+# With the log shut his introduction begins again and plays through.
+[[input]]
+tick = 512
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_master_intro" }
+[[expect]]
+tick = 512
+entity = "lantern_master_intro"
+component = "engine.talk"
+field = "current"
+equals = "core.lantern_master_intro1"
+[[input]]
+tick = 515
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
 [[input]]
-tick = 515
+tick = 518
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
@@ -68,12 +97,18 @@ entity = "lantern_master"
 component = "engine.life"
 field = "name"
 equals = "Bram Okafor"
+[[expect]]
+tick = 521
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
 [[input]]
 tick = 523
 name = "engine.talk_next"
 source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
-# His last line: the bubble goes, and so does his sign while the log stays open.
+# His last line: the bubble goes, and every keeper's sign is back.
 [[input]]
 tick = 525
 name = "engine.talk_next"
@@ -81,21 +116,12 @@ source = "talk"
 payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[expect]]
 tick = 526
-entity = "lantern_master"
+entity = "lantern_trader"
 component = "engine.life"
 field = "name"
-equals = ""
-[[input]]
-tick = 530
-name = "core.log"
+equals = "Tova Reyes"
 [[expect]]
-tick = 531
-entity = "lantern_master"
-component = "engine.life"
-field = "name"
-equals = "Bram Okafor"
-[[expect]]
-tick = 531
+tick = 526
 entity = "log3"
 component = "entry"
 field = "text"

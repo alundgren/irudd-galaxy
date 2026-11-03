@@ -1,10 +1,10 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.5.0"
+min_engine_version = "0.7.0"
 scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "mined", "sold", "bought", "docked", "grown"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.life", "engine.act", "engine.clock"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock"]
 
 [components.pilot]
 credits = "int"
@@ -23,6 +23,9 @@ log_open = "bool"
 # flown well clear, or mined. Quick in-and-out taps are not visits.
 last_dock = "id"
 away = "bool"
+# The docked view is gliding: arriving, or to or from a room's building. Anchored signs
+# rest until it settles, so they never crowd the moving view.
+gliding = "bool"
 
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
@@ -80,11 +83,23 @@ name = "text"
 keeper = "id"
 offer = "text"
 order = "int"
+# The station camera node that frames this building while its room is open.
+camera = "text"
 
 [components.keeper]
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
 idle = "text"
+
+# A keeper's gift, offered once in its own talk (the talk entity carries this):
+# taking it puts `units` of `ware` in the hold, and either answer ends the offer.
+# `instead` is the keeper's everyday talk, set aside while the gift is on offer.
+[components.gift]
+ware = "text"
+units = "int"
+take = "id"
+instead = "id"
+answered = "bool"
 
 [components.skiff]
 a = "id"
@@ -119,5 +134,7 @@ e = "dock"
 m = "open"
 b = "close"
 u = "launch"
+escape = "close"
+mouse_right = "close"
 enter = "sell"
 l = "log"

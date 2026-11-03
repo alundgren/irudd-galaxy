@@ -1,6 +1,7 @@
 # The trade loop by real clicks at the design size: Kiln ore and plate, the galley site,
 # a quick redock tap, two more plate runs until the galley is built, Ines's introduction,
-# rations bought at the galley and sold at the Kiln. 11 notes.
+# her gift of a ration taken, rations bought at the galley and sold at the Kiln.
+# Rooms glide open, so a click after opening or leaving one waits for the glide. 12 notes.
 
 [[input]]
 tick = 1
@@ -29,221 +30,237 @@ tick = 723
 text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
 
 [[click]]
-tick = 738
+tick = 748
 widget = "sell_ore"
 
 [[click]]
-tick = 753
+tick = 763
 widget = "buymax_plate"
 
 [[note]]
-tick = 761
+tick = 771
 text = "Sold the ore, bought plate; each unit of plate asked a little more."
 
 [[click]]
-tick = 776
+tick = 786
 widget = "close"
 
 [[click]]
-tick = 791
+tick = 819
 widget = "launch"
 
 [[click]]
-tick = 831
+tick = 859
 widget = "lantern"
 
 [[click]]
-tick = 1176
+tick = 1204
 widget = "sign_galley"
 
 [[note]]
-tick = 1184
+tick = 1212
 text = "Lantern Dock: the galley site, 0 of 10 plate in."
 
 [[click]]
-tick = 1199
+tick = 1237
 widget = "close"
 
 [[click]]
-tick = 1214
+tick = 1270
 widget = "sign_exchange"
 
 [[click]]
-tick = 1229
+tick = 1303
 widget = "sell_plate"
 
 [[note]]
-tick = 1237
+tick = 1311
 text = "Plate sold into the galley: 3 of 10."
 
 [[click]]
-tick = 1252
+tick = 1326
 widget = "close"
 
 [[click]]
-tick = 1267
+tick = 1359
 widget = "launch"
 
 [[click]]
-tick = 1307
+tick = 1399
 widget = "lantern"
 
 [[note]]
-tick = 1457
+tick = 1549
 text = "A quick undock and redock: still one visit, nothing restocked."
 
 [[click]]
-tick = 1472
+tick = 1564
 widget = "launch"
 
 [[click]]
-tick = 1512
+tick = 1604
 widget = "kiln"
 
 [[click]]
-tick = 1857
+tick = 1949
 widget = "sign_exchange"
 
 [[click]]
-tick = 1872
+tick = 1982
 widget = "buymax_plate"
 
 [[click]]
-tick = 1887
+tick = 1997
 widget = "close"
 
 [[click]]
-tick = 1902
+tick = 2030
 widget = "launch"
 
 [[click]]
-tick = 1942
+tick = 2070
 widget = "lantern"
 
 [[click]]
-tick = 2287
+tick = 2415
 widget = "sign_exchange"
 
 [[click]]
-tick = 2302
+tick = 2448
 widget = "sell_plate"
 
 [[click]]
-tick = 2317
+tick = 2463
 widget = "close"
 
 [[click]]
-tick = 2332
+tick = 2496
 widget = "launch"
 
 [[click]]
-tick = 2372
+tick = 2536
 widget = "kiln"
 
 [[click]]
-tick = 2717
+tick = 2881
 widget = "sign_exchange"
 
 [[click]]
-tick = 2732
+tick = 2914
 widget = "buymax_plate"
 
 [[click]]
-tick = 2747
+tick = 2929
 widget = "close"
 
 [[click]]
-tick = 2762
+tick = 2962
 widget = "launch"
 
 [[click]]
-tick = 2802
+tick = 3002
 widget = "lantern"
 
 [[click]]
-tick = 3147
+tick = 3347
 widget = "sign_exchange"
 
 [[click]]
-tick = 3162
+tick = 3380
 widget = "sell_plate"
 
 [[note]]
-tick = 3170
+tick = 3388
 text = "The tenth plate: the galley is built."
 
 [[click]]
-tick = 3185
+tick = 3403
 widget = "close"
 
 [[note]]
-tick = 3193
+tick = 3411
 text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
 
 [[click]]
-tick = 3208
+tick = 3436
 widget = "sign_galley"
 
 [[click]]
-tick = 3223
+tick = 3469
 widget = "speaker.core.lantern_cook"
 
 [[note]]
-tick = 3231
+tick = 3477
 text = "Ines introduces herself."
 
 [[click]]
-tick = 3246
+tick = 3492
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3261
+tick = 3507
 widget = "talk.core.lantern_cook_intro"
 
 [[click]]
-tick = 3276
+tick = 3522
 widget = "talk.core.lantern_cook_intro"
 
+# Once she's introduced, Ines offers a ration for the plate, once; take it.
 [[click]]
-tick = 3291
+tick = 3537
+widget = "speaker.core.lantern_cook"
+[[click]]
+tick = 3552
+widget = "talk.core.lantern_cook_gift"
+[[note]]
+tick = 3560
+text = "Ines offers a ration on the house, with Take it and No, thanks."
+[[click]]
+tick = 3567
+widget = "choice.core.lantern_cook_gift_take"
+[[click]]
+tick = 3582
+widget = "talk.core.lantern_cook_gift"
+[[click]]
+tick = 3597
 widget = "buymax_rations"
 
 [[note]]
-tick = 3299
+tick = 3605
 text = "Bought rations at the galley."
 
 [[click]]
-tick = 3314
+tick = 3620
 widget = "close"
 
 [[click]]
-tick = 3329
+tick = 3653
 widget = "log_open"
 
 [[note]]
-tick = 3337
+tick = 3661
 text = "The log: sales, the galley built, the conversation."
 
 [[click]]
-tick = 3352
+tick = 3676
 widget = "log_close"
 
 [[click]]
-tick = 3367
+tick = 3691
 widget = "launch"
 
 [[click]]
-tick = 3407
+tick = 3731
 widget = "kiln"
 
 [[click]]
-tick = 3752
+tick = 4076
 widget = "sign_exchange"
 
 [[click]]
-tick = 3767
+tick = 4109
 widget = "sell_rations"
 
 [[note]]
-tick = 3775
+tick = 4117
 text = "Rations sold to the Kiln crews."

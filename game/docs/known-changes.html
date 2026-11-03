@@ -141,45 +141,19 @@
 <h2>Dock and station</h2>
 
 <article class="item high">
-<h3>Docking zooms in, and the station key carries news ribbons <span class="tag high">▲ High</span></h3>
+<h3>The station key carries news ribbons <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Dock at any station.</li><li>Look at the arrival and at the station key along the bottom of the docked view.</li></ol>
+<ol><li>Dock at any station.</li><li>Look at the station key along the bottom of the docked view.</li></ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>The rebuilt dock follows the agreed design: the station up close fills the view, each building carries its sign, the station key runs along the bottom, a room opens beside its building, and lamps, a crane and a skiff give it quiet life.</li>
-  <li>Arriving is a fade to a title card and back, not a zoom into the station.</li>
+  <li>The rebuilt dock follows the agreed design: docking glides in until the station fills the view, each building lifts and outlines under the pointer and opens its room when clicked, the station key runs along the bottom, and lamps, a crane and a skiff give it quiet life.</li>
   <li>The key has no New/Changed/Closed ribbons, because nothing at a station changes on its own yet.</li>
 </ul>
 <p class="label">Andreas said</p>
 <blockquote>Actually looking again I realize I am in fact docked we just didnt follow the instrucions for how docks should look at all. Its super tiny and its spread out from the upper left, the three "rooms" in the toolbar down on the screen and the tiny dock</blockquote>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Docking zooms in until the station fills most of the view.</li>
   <li>A station key icon carries a New, Changed or Closed ribbon when something happened there, with a one-line headline on hover.</li>
-</ul>
-</article>
-
-
-
-<article class="item high">
-<h3>Station buildings react when hovered and clicked <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Dock at any station and move the mouse over a building.</li><li>Click the building itself, not its sign.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Each building carries a sign you can press, and hovering the building or its sign shows the keeper and one line about what is offered there. The hover area is the building itself.</li>
-  <li>The building doesn't lift or get an outline, and the pointer doesn't change.</li>
-  <li>Clicking the building does nothing; only its sign and the station key open the room. The room opens at once, with no glide.</li>
-  <li>The Back button and B return to the whole station; right-click and Esc don't.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>The way you interact with these is super yanky. Its zero obvious that these even are interactive</blockquote>
-<figure><img src="known-changes/module-hover.jpg" alt="Lantern Wharf docked view with the Market module hovered: orange ring, tooltip 'Market · Ilse Marrow, Ice and ore bought, plate sold', and red scribbles drawn by Andreas around the area." loading="lazy"><figcaption>Previous build, hovering the Market module. The red marks are Andreas's.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>On hover, the building lifts slightly, gets an outline and the pointer changes.</li>
-  <li>Clicking the building opens its room. The view glides smoothly to it, and a second click during the glide lands immediately.</li>
-  <li>Right-click or Esc goes back.</li>
 </ul>
 </article>
 
@@ -283,43 +257,6 @@
 
 <!-- ============================================================ -->
 <h2>Dialogue and NPCs</h2>
-
-<article class="item high">
-<h3>In a bubble, the speaker's name and the continue hint look different from the line <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>Dock at either station and click a keeper, for example Tova Reyes beside Lantern Dock's ore exchange.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>A bubble over the keeper with one short sentence, and a click for the next. The keeper's name sits on its own line at the top: <span class="screen">Tova Reyes</span> / <span class="screen">I'm Tova, and I run the ore exchange.</span></li>
-  <li>The name has the same size and weight as the sentence, so it doesn't stand out.</li>
-  <li>Under the sentence, <span class="screen">Continue</span> (or <span class="screen">Done</span> on the last line) is just as large as the sentence.</li>
-</ul>
-<p class="label">Andreas said</p>
-<p>About the previous build's welcome box:</p>
-<blockquote>the speakers name and the location are styled the exact same + we have this massive click or enter - close competing for attention</blockquote>
-<figure><img src="../evidence/core-talk/bubble.jpg" alt="Docked at Lantern Dock: a white bubble over Bram with 'Bram Okafor', 'Welcome to Lantern Dock.' and 'Continue', all in the same size." loading="lazy"><figcaption>Current core build: one line at a time, the name on its own line, but name, line and Continue look alike.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The speaker's name stands out on its own. The place is shown separately and more quietly, or left out when it's obvious.</li>
-  <li>The continue/close hint is small and quiet, and a small marker shows there is more.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>An offer can be declined <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>The core has no offers yet. This applies to the first gift, job or part a person offers. In the previous build, dock at Cinder Hook several times after the dispute about Ilse's plate has started.</p>
-<p class="label">What the player saw</p>
-<ul>
-  <li>Rook offered money on every docking at Cinder Hook: <span class="screen">they left 300 credits with me for you</span> (seen 6 times). The only answer was <span class="screen">Take</span>, and it didn't pay twice, so the offer was empty after the first time.</li>
-  <li>Each repeat was stored again, so the ship log filled with duplicates.</li>
-</ul>
-<p class="label">What good looks like</p>
-<ul>
-  <li>An offer can be declined ("Not now" or "No"). Once taken or declined, it doesn't come back.</li>
-  <li>The log keeps one entry for one event.</li>
-</ul>
-</article>
 
 <article class="item low">
 <h3>World news looks different from speech and names the right source <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>

@@ -186,7 +186,19 @@ equals = 4
 [[input]]
 tick = 600
 name = "core.open"
-# Inside the exchange only its keeper keeps a sign.
+# While the view glides to the exchange no sign is worn; once it settles, only the
+# exchange's keeper keeps hers.
+[[expect]]
+tick = 600
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 601
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 600 }
 [[expect]]
 tick = 601
 entity = "lantern_master"

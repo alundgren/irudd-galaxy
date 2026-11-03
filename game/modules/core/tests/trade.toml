@@ -125,6 +125,16 @@ tick = 2480
 name = "core.open"
 payload = { facility = "core.lantern_galley" }
 [[input]]
+tick = 2290
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2255 }
+[[input]]
+tick = 2483
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+[[input]]
 tick = 2490
 name = "core.buy"
 payload = { ware = "rations", units = 0 }

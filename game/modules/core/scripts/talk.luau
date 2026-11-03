@@ -6,6 +6,7 @@ local voices = require("./voices")
 local teach = require("./teach")
 local signs = require("./signs")
 local trade = require("./trade")
+local rules = require("./rules")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -33,20 +34,26 @@ local function heard(ctx, talk)
     return nil, nil
 end
 
--- Signs follow the talk only while the log is open: its speaker keeps their name.
+-- Signs follow the talk: while someone speaks only they keep their name sign.
 local function sign(ctx, speaker)
     local pilot = ctx.get("ship", "pilot")
     local here = ctx.get("ship", "engine.location").place
-    if pilot.log_open and here ~= "" and ctx.get(here, "port") then
-        signs.show(ctx, here, pilot.room, true, speaker)
+    if here ~= "" and ctx.get(here, "port") then
+        signs.show(ctx, here, pilot.room, pilot.log_open, speaker)
     end
 end
 
 return {
     on = {
         ["engine.talk_start"] = function(event, ctx)
+            -- The open log hides the keepers: a click on one through it starts nothing.
+            if ctx.get("ship", "pilot").log_open then
+                signs.hush(ctx)
+                return
+            end
             teach.used(ctx, "talk")
             sign(ctx, ctx.get(event.payload.talk, "engine.talk").speaker)
+            voices.retire(ctx)
         end,
         -- A line was read and clicked on: it joins this conversation's log entry, which
         -- closes with the last line.
@@ -55,6 +62,7 @@ return {
             local said = ctx.get(line, "engine.talk_line")
             local open = (said.next or "") ~= ""
             sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
+            if not open then voices.retire(ctx) end
             local quoted = "\u{201C}" .. said.text .. "\u{201D}"
             local id, entry = heard(ctx, talk)
             if logged(ctx, talk, quoted) then
@@ -63,6 +71,43 @@ return {
                 ctx.patch(id, "entry", { text = entry.text .. " " .. quoted, open = open })
             else
                 log.say(ctx, source(ctx, talk) .. ": " .. quoted, talk, open)
+            end
+        end,
+        -- An answer to a line that offers a choice: the line and the answer join the
+        -- conversation's entry. A gift taken goes into the hold with its own receipt;
+        -- taken or declined, the offer is over, and once the talk ends the keeper's
+        -- everyday talk returns.
+        ["engine.talk_chosen"] = function(event, ctx)
+            local talk, line, choice = event.payload.talk, event.payload.line, event.payload.choice
+            local answer = ctx.get(choice, "engine.talk_choice")
+            local open = (answer.next or "") ~= ""
+            sign(ctx, open and ctx.get(talk, "engine.talk").speaker or nil)
+            local said = "\u{201C}" .. ctx.get(line, "engine.talk_line").text .. "\u{201D} You: " .. answer.text .. "."
+            local gift = ctx.get(talk, "gift")
+            local receipt = nil
+            if gift and not gift.answered then
+                local hold = ctx.get("ship", "hold")
+                local taken = choice == gift.take and rules.CAPACITY - rules.load(hold) >= gift.units
+                if taken or choice ~= gift.take then
+                    ctx.patch(talk, "gift", { answered = true })
+                    if not open then
+                        ctx.patch(talk, "engine.talk", { enabled = false })
+                        ctx.patch(gift.instead, "engine.talk", { enabled = true })
+                    end
+                end
+                if taken then
+                    ctx.patch("ship", "hold", { [gift.ware] = hold[gift.ware] + gift.units })
+                    receipt = ctx.get(ctx.get(talk, "engine.talk").speaker, "keeper").name .. " gave you "
+                        .. gift.ware .. ": " .. gift.units .. " into the hold."
+                end
+            end
+            local id, entry = heard(ctx, talk)
+            if id then
+                ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
+                if receipt then log.add(ctx, receipt) end
+            else
+                -- One new entry per handler: the receipt joins the conversation's.
+                log.say(ctx, source(ctx, talk) .. ": " .. said .. (receipt and " " .. receipt or ""), talk, open)
             end
         end,
         docked = function(event, ctx)
