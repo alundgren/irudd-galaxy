@@ -2,8 +2,8 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.7.0"
-scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted"]
+scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint"]
 
 [components.pilot]
@@ -134,6 +134,39 @@ leg = "text"
 moored = "bool"
 since = "int"
 
+# A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
+# `range` world units. Its signal is full within the inner 30% of the range and fades
+# to nothing at its edge. `cue` is the event that starts its music (audio.toml).
+[components.channel]
+name = "text"
+source = "id"
+range = "number"
+cue = "text"
+order = "int"
+
+# One line said on a channel, shown under the radio in turn (`n` from 1).
+[components.bit]
+channel = "id"
+n = "int"
+text = "text"
+
+# The ship's radio. `channel` is what it is tuned to ("" for no signal), `hand` when
+# the player chose it. It only changes channel once another is clearly and steadily
+# stronger, or after the tuned one has been out of range for a few seconds, so it never
+# flickers between stations (scripts/radio.luau). `level` is the signal shown: 1 Faint,
+# 2 Fair, 3 Strong. `lost` and `better` count those seconds; `bit` is the line showing
+# and `shown` the seconds it has shown. `playing` is the channel whose music is on.
+[components.radio]
+on = { type = "bool", default = true }
+channel = "id"
+hand = "bool"
+level = "int"
+lost = "int"
+better = "int"
+bit = { type = "int", default = 1 }
+shown = "int"
+playing = "id"
+
 [components.keeper]
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
@@ -186,3 +219,4 @@ escape = "close"
 mouse_right = "close"
 enter = "sell"
 l = "log"
+r = "radio"

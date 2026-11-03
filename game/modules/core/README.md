@@ -7,8 +7,9 @@ cook sells rations that the Kiln's crews buy. The hold takes six units of any
 mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
 speed, within the hull's power and mass. Two traders fly their own routes between
-the stations while you work. The field is small and finite (36 ore); there is no
-timed objective.
+the stations while you work, and in flight the radio plays each station's channel
+over the tug's quiet hum. The field is small and finite (36 ore); there is no timed
+objective.
 
 Use installed engine/GM 0.7.0 or newer. This version was authored and verified
 with `0.7.0-628121f7de13-dev`. No engine build is needed.
@@ -31,13 +32,15 @@ galaxy play --modules game/modules
 | B, Esc or right-click | Back from a room to the whole station, or shut the log |
 | U | Docked: launch without flying on |
 | L | Open or close the ship log |
+| R | In flight: the radio's next channel; past the last it turns off, and R again turns it on |
 | Drag | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off |
 | Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
 
 Everything is also a click: the order buttons in flight, the station's buildings
-and their signs, the station key, Sell, Buy, Back, Launch and the log. Click a
+and their signs, the station key, Sell, Buy, Back, Launch, the log and the radio's Prev, Off/On and
+Next. Click a
 keeper to hear them. Manual thrust or turning cancels an order. Rocks,
 station hulls and the traders are solid; orders steer toward their targets, so use manual
 flight to clear an obstruction when approaching from the far side of a station.
@@ -93,6 +96,44 @@ third of a second after the turn ends. The mining approach parks 0.004 units fro
 rock's surface. Cutting a
 hold of six shrinks the rock and opens that to 0.29 units; the next Mine order
 closes it again.
+
+## Radio and sound
+
+Each station broadcasts a channel (`channel` lines in `start.toml`): Lantern Dock
+radio and Cinder Kiln radio, each reaching 80 units, with full signal within the inner
+30% of that. In flight the radio sits at the bottom right: the channel's name, its
+signal as bars and a word that always agree (`|··  Faint`, `||·  Fair`, `|||  Strong`),
+the station's line on a ticker, and Prev, Off (On when off) and Next · R. Prev and Next
+step through the channels in range and then Off; their look never changes. Docked, the
+radio hides and its music fades out under the station's own sound.
+
+Once a second the radio measures every channel (`scripts/radio.luau`, rules in
+`scripts/signal.luau`). It keeps the channel it has until another is at least 0.25
+stronger for three seconds running, or until it has been out of range for five
+seconds, so it never flickers: over the rocks both stations come in about evenly and
+the radio keeps whichever it had, and near a station its own channel takes over once.
+A brief gap keeps the channel (at least `Faint`) and never flashes `No signal`. The word
+moves only once the signal is 0.05 past a threshold. Coming out of a station or starting
+a game, it tunes straight to the strongest station. A channel chosen with Prev, Next or
+R holds until it is out of range. The ticker shows each of the station's three lines
+for twelve seconds. A change of channel crossfades the music over three seconds;
+turning the radio off fades it over two.
+
+The music is cued by recorded events (`radio_lantern`, `radio_kiln` and `radio_off` in
+`audio.toml`), so every save and every player hears the same tracks; nothing is
+generated while playing. Each station's track was made once with `galaxy-gm music`
+and brought to a quiet loop with the audio tools: trimmed before its fade-out, set to
+-23 LUFS and looped with a two-second blend, stored as 16-bit WAV in `music/`. The
+reach's ambience is the tug's low engine hum with a slow beat over a faint cabin hush;
+Lantern Dock's deck has soft low ventilation, a low hum and the lamps' warm buzz;
+Cinder Kiln's a banked furnace roar, a low drone and a slow bellows breath. They are
+authored 16-second loops in `sounds/`, chosen by the player's place.
+
+Measured in the real mix (`galaxy-gm audio mix`, specs in `audio/`): in flight the
+music plays at -26.2 LUFS and the hum and hush at -37.8, eleven LU under it; docked,
+each deck plays alone (Lantern Dock -33.3 LUFS, Cinder Kiln -33.1). No mix comes near
+clipping (peaks -13.5 dBFS in flight, -20.3 docked). Every loop's seam as played steps
+by at most 1.9 dB.
 
 ## The station up close
 
@@ -248,8 +289,9 @@ you can press or pick up (orders, signs, the key, Sell, Back, Launch, the log
 button, the part cards), a pale blue panel for status and rooms, the same panel
 with a dashed frame for a button that rests, white bubbles and name signs for the people
 who speak, and cream paper for what just happened and for headings. Status sits top right, the log button
-bottom left, orders top left in flight, and the latest message with the flight
-keys at the bottom. Prices and stock are plain text, never buttons, and so are the
+bottom left, orders top left in flight, the radio bottom right in flight, and the
+latest message with the flight keys (three to a line) at the bottom. The radio wears the
+status panel's pale blue for now: the engine's screen style has no other panel surface. Prices and stock are plain text, never buttons, and so are the
 fitting room's labels (`Empty`, `On the ship`, the sockets' names).
 
 Hints teach and then retire (`scripts/teach.luau`). Each flight key leaves the
@@ -286,11 +328,11 @@ consequences and the agreed station design. Its Rust, progression, factions and
 economy code are not copied; the price formula, recount rule and growth from
 delivered goods follow the slice's behaviour. All models come from committed `recipes/` through
 `galaxy-gm model make game/modules/core`; the generated glTF files are
-committed. The engine owns flight, collision, steering, travel, walks, talk and
-hovers. Luau handles player intent, the traders' orders and their labels,
+committed. The engine owns flight, collision, steering, travel, walks, talk,
+hovers and the sound mixer. Luau handles player intent, the traders' orders and their labels,
 once-per-second extraction and skiff trips,
-trade rules and pricing, the galley's build, the ship's fit, the log and the
-module-styled screens. Each station is one place
+trade rules and pricing, the galley's build, the ship's fit, the radio's tuning, the log
+and the module-styled screens. Each station is one place
 whose set is the station up close; its buildings, keepers and skiff stand in it.
 
 ## Verify
@@ -303,15 +345,23 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are twenty-three Luau rule tests (hold, depletion, prices against stock and their
+There are thirty-three Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
 every rule's refusal and its words, the budgets in plain words, mining two a
 second, and an old save's bare hull keeping its old flight, and in `tests/labels.luau` where traders' labels show: near the ship, never
 far off, over a station, while moored, twice in a crowd or while docked, and on the
-side away from your ship) and seventeen
-scenarios: both complete station trips, collision under held thrust (stopped on the
+side away from your ship, and in `tests/signal.luau` the signal by distance, bars
+matching their word, the shown level holding on a threshold, two even stations never
+flickering for a minute, a stronger station taking over only when steady, a brief gap
+keeping the channel, a chosen channel holding, and Prev and Next stepping through) and
+nineteen scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
+second, kept while a hold is mined at the first rock, the music stopped on docking at
+Cinder Kiln, the Kiln's channel straight away on flying off there, and Lantern Dock's
+taking over once beside its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
+out past Lantern Dock, Off and On, Prev, R past the last channel to off and on again,
+and R doing nothing docked), both complete station trips, collision under held thrust (stopped on the
 rock's surface, then glancing off round it, the rock unmoved), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
 away from the station in a straight line and coasts to a stop in a second, D leaves
@@ -349,7 +399,7 @@ then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Five bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes, and so is `fit.inputs`. Six bots use real screen clicks: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
@@ -368,10 +418,21 @@ fitted over the free mass, and the pods refused coming off with nine aboard, and
 Little Mercy's route with her label showing, bumping her aside (her label below her,
 clear of your ship), pointing at her, docking
 at Lantern Dock, flying straight off with W, coasting to a stop and mining from the
-rock's surface. All five declare 1280x720 physical pixels. The GM test
+rock's surface, and `radio-play.inputs` plays the radio (`radio.bot.toml`, 1560 ticks, ten
+notes): Lantern Dock from the first second and through mining, the ticker's next line,
+Next, Off and On, Prev and R clicked and pressed, docking at Cinder Kiln with the radio
+hidden, and flying off onto the Kiln's channel. All six declare 1280x720 physical pixels. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-all five run there without problems.
+all six run there without problems.
+
+The sound has its own numeric checks: each bed's loudness, peak and loop seam, and the
+mix in flight and docked at each station (`audio/*-check.toml`):
+
+```sh
+galaxy-gm audio check game/modules/core/audio/flight-check.toml
+galaxy-gm audio mix game/modules/core/audio/flight.toml
+```
 
 ```sh
 galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 1000 --size 1280x720
@@ -410,7 +471,11 @@ the cradle existed still loads and plays, without the cradle; start a new game t
 see it. A save from before the traders likewise loads and plays without them, and its
 ship keeps the old, slower flight numbers; start a
 new game for both. A save taken while a trader is mid-route, mid-bump or moored resumes
-to the same hash as an uninterrupted run. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
+to the same hash as an uninterrupted run, and so does one taken with the radio tuned by
+hand (`radio-tune.toml`'s inputs to tick 650, resumed for 550). A save from before the
+radio loads and plays without it; start a new game for the radio. A save resumed in
+flight plays the hum, but its radio music starts only at the next channel change,
+docking or launch: the engine replays no earlier cues on resume. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
 and play's `--ticks` are absolute world ticks, including when resuming. The
 scenario schema cannot express save/load steps, so these checks run through the
 installed CLI separately.
@@ -442,6 +507,10 @@ market room, and the two stations differ in their towers and paint. Docking
 glides in, buildings lift and outline under the pointer and open their rooms when
 clicked, the view glides to each building, and Esc and right-click go back. The
 key has no news ribbons because nothing at a station changes on its own yet.
-There is no music or station sound. Ines's ration is the only offer so far, and
+The radio is the thinnest one too: two stations, one track each (an 18- and a
+21-second loop), three lines each, no lane beacons, no static at the edges and no
+news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet
+follow thrust, and the radio shares the status panel's look; each waits on the
+engine. Ines's ration is the only offer so far, and
 the only thing anyone gives. Further art and pacing changes wait for a human
 playtest.

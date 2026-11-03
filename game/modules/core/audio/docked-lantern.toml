@@ -1,0 +1,5 @@
+# audio mix scenario: a minute docked (galaxy-gm audio mix audio/docked-lantern.toml).
+modules = "../.."
+ticks = 1800
+seed = 7
+inputs = "docked-lantern.inputs"

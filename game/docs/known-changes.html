@@ -190,7 +190,7 @@
 <p class="label">Where and how</p>
 <p>Once goals and the radio exist in the rebuild, look at them beside everything else on screen, docked and in flight.</p>
 <p class="label">What the player sees now</p>
-<p>The rebuild gives each kind on screen today its own look: speech is a white bubble over the speaker, status (hold and credits) a pale blue panel at the top right, anything you can press an amber button (station signs included), and what just happened plain cream paper. It has no goals or radio yet. In the previous build, at least seven things with different jobs shared one cream box.</p>
+<p>The rebuild gives each kind on screen today its own look: speech is a white bubble over the speaker, status (hold and credits) a pale blue panel at the top right, anything you can press an amber button (station signs included), and what just happened plain cream paper. It has no goals yet. The radio, at the bottom right in flight, wears the same pale blue panel as status, because the engine's screen style has no other panel surface for it. In the previous build, at least seven things with different jobs shared one cream box.</p>
 <p class="label">Andreas said</p>
 <blockquote>There is way too many identical styled beige boxes on screen at once that do different things. They all blend together</blockquote>
 <p class="label">What good looks like</p>
@@ -408,72 +408,36 @@
 <h2>Music and radio</h2>
 
 <article class="item high">
-<h3>The radio doesn't flicker between stations <span class="tag high">▲ High</span></h3>
+<h3>The radio's music comes back when a save resumes in flight <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol>
-  <li>Start a new game, undock from Lantern Wharf and fly east into the Rimewater ice field, the first place you mine.</li>
-  <li>Fly around or mine there for half a minute and watch the radio panel at the bottom right.</li>
-</ol>
-<p>Rimewater sits right on the edge of both Lantern Wharf's and Kettle Dock's radio ranges, so this happens in the first minutes of every game.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Within about two seconds, four things flip back and forth:
-    <ul>
-      <li>the channel name (<span class="screen">Lantern Wharf radio</span> ↔ <span class="screen">Kettle Dock radio</span>)</li>
-      <li>the ticker text (<span class="screen">Lantern Wharf here. We keep the lamps lit along the pier all shift.</span> ↔ <span class="screen">Kettle Dock calling. Our greenhouse wants ice, as much as you can carry.</span>)</li>
-      <li>the signal bars and word (<span class="screen">Strong</span> → <span class="screen">Fair</span> → <span class="screen">Faint</span>)</li>
-      <li>the style of the Prev / Next buttons, which switch between filled and outlined</li>
-    </ul>
-  </li>
-  <li>In small gaps between ranges, and on every lane trip, the panel flashes <span class="screen">No signal</span>.</li>
-  <li>The ticker also cuts hard to the next line every few seconds.</li>
-  <li>The panel only exists in flight.</li>
-</ul>
-<p>This is not a deliberate effect: the strongest channel simply wins each moment.</p>
-<p class="label">Andreas said</p>
-<blockquote>Something is really messed up with this. They keep blinking randomly as I fly around. Could be that its just a badly made attempt to simulate signal faintness</blockquote>
-<figure><img src="known-changes/radio-panel.png" alt="Radio panel: 'Kettle Dock radio', Faint signal, ticker about the greenhouse wanting ice, buttons Prev, Off, Next · R." loading="lazy"><figcaption>Newest build, Andreas's screenshot of the radio panel.</figcaption></figure>
-<figure><img src="known-changes/radio-flicker-strip.jpg" alt="Ten consecutive frames of the radio panel over about three seconds: Lantern Wharf radio going Strong to Fair to Faint, Prev and Next switching between filled and outlined, then Kettle Dock radio taking over." loading="lazy"><figcaption>Newest build: ten frames about a third of a second apart while flying in Rimewater. The channel, bars and button styles keep changing.</figcaption></figure>
+<p>Quit in flight with the radio playing (Shift+Esc saves), then reopen the save.</p>
+<p class="label">What the player hears now</p>
+<p>Each station's channel plays its own finished track from the first launch, offline included, and the same in every save. A save resumed in flight starts with the engine hum but no music. The radio panel shows the channel as playing, and the music only starts at the next channel change, docking or launch.</p>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Once tuned, the radio stays on a channel until you are clearly out of its range or another channel is clearly and steadily stronger.</li>
-  <li>Changes are gradual: the music and ticker fade, and the station name changes once.</li>
-  <li>Weak signal is shown calmly, for example a little static or a lower volume, never as flicker.</li>
-  <li>Brief gaps and lane trips don't flash "No signal".</li>
-  <li>Button styles never change on their own.</li>
-  <li>The ticker moves to its next line gently.</li>
+  <li>The tuned channel's music fades in as the save resumes.</li>
+  <li>Keep an eye on download size. The two tracks ship as 16-bit WAV files (3.2 and 3.7 MB), because the audio tools write only WAV. A compressed file would be about a tenth of that.</li>
 </ul>
 </article>
 
 <article class="item high">
-<h3>Every radio channel has real music from the first launch <span class="tag high">▲ High</span></h3>
-<p class="label">What the player experiences now</p>
-<p>In the previous build, music was generated while playing and kept per save, so channels often played only a quiet placeholder loop, and a new game started with no music.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The core module ships finished tracks for its radio channels (the Lantern Reach has 7: 5 stations and 2 lane beacons), made by the GM when it builds the module.</li>
-  <li>Every channel has real music from the first launch, offline included, and the same music in every save.</li>
-  <li>Keep an eye on download size: one 30-second clip is about 0.75 MB.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Signal bars match the signal word <span class="tag low">● Low</span></h3>
+<h3>The radio's ticker fades to its next line <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<p>Fly close to Lantern Wharf with the radio on.</p>
+<p>Fly with the radio on and watch the line under the channel's name.</p>
 <p class="label">What the player sees now</p>
-<p>The word <span class="screen">Strong</span> appears with only 3 of the 4 bars filled. <span class="screen">Fair</span> and <span class="screen">Faint</span> show fewer.</p>
-<figure><img src="known-changes/radio-flicker-strip.jpg" alt="Radio frames showing 'Strong' with three of four bars." loading="lazy"><figcaption>Newest build, the first frames: "Strong" with 3 of 4 bars.</figcaption></figure>
+<p>Each of the station's lines shows for twelve seconds, then the next replaces it at once. The channel, the signal word and bars, and the buttons hold steady.</p>
 <p class="label">What good looks like</p>
-<p>The bars and the word always agree. Strongest means all bars.</p>
+<p>The ticker moves to its next line gently, for example with a short fade.</p>
 </article>
 
 <article class="item low">
-<h3>A quiet engine hum and ambient sound <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">What the player experienced</p>
-<p>The first build had no engine sound and no ambient sound, in stations or in space. Andreas noted it as missing. Real audio was not checked in the later test runs.</p>
+<h3>The engine hum follows thrust <span class="tag low">● Low</span></h3>
+<p class="label">Where and how</p>
+<p>Fly with W, let go and coast, then sit still.</p>
+<p class="label">What the player hears now</p>
+<p>In flight, a quiet low engine hum and a faint cabin hush play under the radio, and each station's deck has its own soft sound. The hum stays the same whether the ship thrusts, coasts or sits still.</p>
 <p class="label">What good looks like</p>
-<p>A quiet engine hum that follows thrust, and soft ambient sound beds out in space and at each station. These sit under the radio music without fighting it.</p>
+<p>The hum rises while the ship thrusts and settles as it coasts, still under the radio music.</p>
 </article>
 
 <!-- ============================================================ -->

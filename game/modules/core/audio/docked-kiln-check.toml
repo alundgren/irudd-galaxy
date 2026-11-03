@@ -1,0 +1,12 @@
+# The mix docked (galaxy-gm audio check): the station's deck alone, soft, once the
+# radio has faded out.
+scenario = "docked-kiln.toml"
+
+[[expect]]
+value = "buses.ambience.integrated_lufs"
+at_least = -35.0
+at_most = -31.0
+
+[[expect]]
+value = "playback.sample_peak_dbfs"
+at_most = -12.0

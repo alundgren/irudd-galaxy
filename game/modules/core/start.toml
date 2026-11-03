@@ -24,6 +24,8 @@ hold = {}
 held = {}
 taught = {}
 fit = { hull_speed = 20.0 }
+# The radio finds the strongest station on its first second out (scripts/radio.luau).
+radio = {}
 
 [entities.rock1]
 "engine.location" = { place = "core.reach" }
@@ -560,3 +562,31 @@ trader = { name = "Quiet Lamp", about = "a lamp launch running the long way roun
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -38, y = 0 }
 "engine.waypoint" = {}
+
+# The stations' radio channels (scripts/radio.luau). Each reaches past the far side of
+# the field, so the radio has a station almost anywhere in the reach. Over the rocks
+# both come in about evenly and the radio keeps the one it has; near a station its own
+# channel is clearly stronger and takes over.
+[entities.lantern_radio]
+channel = { name = "Lantern Dock radio", source = "core.lantern_exterior", range = 80, cue = "radio_lantern", order = 1 }
+
+[entities.lantern_radio_bit1]
+bit = { channel = "core.lantern_radio", n = 1, text = "Lantern Dock here. Our lamps stay lit all shift." }
+
+[entities.lantern_radio_bit2]
+bit = { channel = "core.lantern_radio", n = 2, text = "We buy ore and plate. Tova posts the prices." }
+
+[entities.lantern_radio_bit3]
+bit = { channel = "core.lantern_radio", n = 3, text = "A quiet night on the dock. Come in slow." }
+
+[entities.kiln_radio]
+channel = { name = "Cinder Kiln radio", source = "core.kiln_exterior", range = 80, cue = "radio_kiln", order = 2 }
+
+[entities.kiln_radio_bit1]
+bit = { channel = "core.kiln_radio", n = 1, text = "Cinder Kiln calling. Our kiln burns slow and steady." }
+
+[entities.kiln_radio_bit2]
+bit = { channel = "core.kiln_radio", n = 2, text = "We buy ore for the kiln and sell the plate it makes." }
+
+[entities.kiln_radio_bit3]
+bit = { channel = "core.kiln_radio", n = 3, text = "Orrin fits parts at our cradle, if you need them." }
