@@ -79,6 +79,11 @@ pub static COMMANDS: &[Command] = &[
               judders)",
             ),
             (
+                "turn",
+                "when it turned half a degree or more: degrees, deg_per_s (median, max) \
+              and judder (0 a smooth turn, 1 or more turning only on ticks)",
+            ),
+            (
                 "screen.offset_px",
                 "distance from the screen centre in pixels: mean, max, \
               max_at (for the followed thing, the camera's tracking error)",

@@ -36,6 +36,7 @@ builds in `crates/view/src/builds.rs`, `galaxy film` in `crates/galaxy/src/film.
 | How close does it come to another's surface; does it sink in, how deep, how long? | `track --thing x --to y` | probes | `surface.overlap`, `surface.contact` |
 | The gap frame by frame round a moment | `film show --thing x --gap y --from t --to t` | probes | the `gap_to` column |
 | Does the camera follow smoothly? Does a thing judder (moves on ticks, not frames)? | `track [--thing x]` | probes | `screen.judder`, `camera.judder`, `flags` |
+| Does a thing turn steadily (a slow spin), or in steps? | `track --thing x` | probes | `turn.deg_per_s`, `turn.judder` |
 | Does it stop where it should: overshoot, bounce back, settle? How does it brake? | `track --thing x --to y` | probes | `gap.overshoot`, `gap.rebound`, `approach` |
 | What happens, in what order; what does the approach look like? | `sheet [--count n] [--at t,t] [--crop x or x,y,w,h]` | pixels | the picture |
 | How does it slow down, speed up, overshoot, bounce, as one picture? | `sheet --onion x` | pixels | the picture, `gaps_between_poses` |

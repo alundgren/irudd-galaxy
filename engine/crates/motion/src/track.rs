@@ -4,6 +4,8 @@
 //!   tracking error), its speed in pixels, and how unevenly it moves from frame to frame.
 //! - **In the world**: how far it got (displacement, start to end) and how far it went
 //!   along its path, its top speed and when, and the same unevenness.
+//! - **Turning**, when it turns: how far (degrees), how fast, and how unevenly, from
+//!   frame to frame (a slow spin is smooth only if every frame turns it a little).
 //! - **The camera**: how unevenly the view itself moves, in pixels.
 //! - **A gap** (`--to <thing>`): the distance to another thing, how close it came, whether
 //!   it went past (overshoot) or bounced back, and when it settled; and between their
@@ -99,6 +101,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
         .map(|p| p.map(|p| [p[0] / per_pixel, p[1] / per_pixel]))
         .collect();
     let world_u = unevenness(&world_px);
+    let turn = turning(frames, &id, dt);
     let screen_u = unevenness(&screen);
     let camera_u = unevenness(&camera);
 
@@ -183,6 +186,7 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             "speed_px_per_frame": round(median(&steps(&camera).iter().flatten().map(|s| len(*s)).collect::<Vec<_>>()), 2),
             "judder": camera_u.score.map(|v| round(v, 3)),
         },
+        "turn": turn.as_ref().map(|t| t.report.clone()),
         "changes": changes_json(film),
         "zooms": zooms.iter().map(|z| z.describe(frames)).collect::<Vec<_>>(),
         "flagged": flag_count,
@@ -269,6 +273,9 @@ pub fn run(film: &Film, opts: &Opts) -> Result<Value, String> {
             frames[j].time,
             frames[peak_i].time
         ));
+    }
+    if let Some(t) = &turn {
+        reading.push(t.reading.clone());
     }
     reading.push(describe(&id, "on screen", screen_u.score, &screen_u));
     reading.push(describe("the camera", "", camera_u.score, &camera_u));
@@ -561,6 +568,65 @@ struct Unevenness {
     moving: Vec<f32>,
     /// The median of those over the median expected step.
     score: Option<f32>,
+}
+
+/// How a thing turned through the film, when it turned at least half a degree.
+struct Turn {
+    report: Value,
+    reading: String,
+}
+
+fn turning(frames: &[Frame], id: &str, dt: f32) -> Option<Turn> {
+    // Its angle in degrees, unwrapped so a turn past half a circle keeps counting.
+    let mut degrees: Vec<Option<f32>> = Vec::with_capacity(frames.len());
+    let mut last: Option<(f32, f32)> = None;
+    for f in frames {
+        let now = f.things.get(id).map(|t| t.angle);
+        degrees.push(now.map(|a| {
+            let unwrapped = match last {
+                Some((raw, total)) => {
+                    let d = (a - raw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+                        - std::f32::consts::PI;
+                    total + d.to_degrees()
+                }
+                None => a.to_degrees(),
+            };
+            last = Some((a, unwrapped));
+            unwrapped
+        }));
+    }
+    let present: Vec<f32> = degrees.iter().flatten().copied().collect();
+    let turned = present.last()? - present.first()?;
+    if turned.abs() < 0.5 {
+        return None;
+    }
+    let rates: Vec<f32> = degrees
+        .windows(2)
+        .filter_map(|w| Some((w[1]? - w[0]?).abs() / dt))
+        .collect();
+    // Unevenness of the turn, in tenths of a degree, as for a path.
+    let u = unevenness(
+        &degrees
+            .iter()
+            .map(|d| d.map(|d| [d * 10.0, 0.0]))
+            .collect::<Vec<_>>(),
+    );
+    let rate = median(&rates);
+    let max = rates.iter().fold(0.0f32, |a, b| a.max(*b));
+    let how = match u.score {
+        Some(s) if s < SMOOTH => format!("smoothly (judder {s:.2})"),
+        Some(s) if s < JUDDERS => format!("unevenly (judder {s:.2})"),
+        Some(s) => format!("in steps (judder {s:.2}: it turns only on some frames)"),
+        None => "too little a frame to judge".to_owned(),
+    };
+    Some(Turn {
+        report: json!({
+            "degrees": round(turned, 2),
+            "deg_per_s": { "median": round(rate, 2), "max": round(max, 2) },
+            "judder": u.score.map(|v| round(v, 3)),
+        }),
+        reading: format!("{id} turned {turned:.1} degrees at {rate:.1} a second, {how}"),
+    })
 }
 
 fn steps(p: &[Option<[f32; 2]>]) -> Vec<Option<[f32; 2]>> {
