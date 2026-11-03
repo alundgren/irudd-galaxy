@@ -82,7 +82,10 @@ course drawn again (the view draws a course only while an order is not done). At
 of every tick, after the cadence, `settle_holds` moves each holding ship onto its goal
 when that is within a tick's flight at top speed, so a cut a handler or the cadence
 makes on any tick never shows a gap; further off (the target was pushed away), flight
-steers back as for any order. The view eases a morph over a tick like a move, so between
+steers back as for any order. Settling comes after collision, so the ships it moves get
+collision's push-apart passes again (below): two ships holding one rock side by side
+stay apart as it shrinks, a little off the surface where they meet, rather than settling
+into each other. The view eases a morph over a tick like a move, so between
 ticks the shrinking rock and the ship settling onto it stay together. Six cuts of a
 rock in `tests/play/ambient` keep the surface gap under 0.05 units at every tick
 (`crates/view/tests/ambient.rs`). Issuing `hold` again after each cut closed the gap too,
@@ -130,6 +133,11 @@ replays collide identically.
 4. Four passes settle a pile-up.
 5. Things that don't fly lose `drag` of their speed per second, so a pushed rock comes to
    rest.
+
+When `settle_holds` sets holders down at the end of the tick, `separate` runs steps 1 to 4
+again for positions only (no bounce or drag), testing just the pairs with a moved body
+in them; a body they push joins the moved ones. No tick ends with solid bodies inside
+each other, and a tick where no hold settled is untouched.
 
 Nothing traps a pilot: a rock is pushable unless the module fixes it, and a ship pressed
 against a fixed body keeps every direction that leads away from it.

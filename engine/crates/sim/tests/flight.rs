@@ -415,6 +415,69 @@ fn a_hold_keeps_contact_while_its_rock_is_cut_smaller() {
 }
 
 #[test]
+fn holders_side_by_side_stay_apart_as_their_target_is_cut_smaller() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("pair");
+    std::fs::create_dir_all(dir.join("scripts")).unwrap();
+    std::fs::write(
+        dir.join("manifest.toml"),
+        format!(
+            "id = \"pair\"\nversion = \"0.1.0\"\nmin_engine_version = \"{}\"\n\
+             scripts = [\"scripts/main.luau\"]\n\
+             writes = [\"engine.position\", \"engine.motion\", \"engine.flight\", \
+             \"engine.body\", \"engine.steer\"]\n",
+            env!("CARGO_PKG_VERSION")
+        ),
+    )
+    .unwrap();
+    // Two ships hold a round target side by side, just clear of each other. When the
+    // target shrinks, each one's new surface point is in latch reach, and the two points
+    // are closer than the ships are wide.
+    let x = libm::sqrt(36.0 - 1.01f64.powi(2));
+    let mut start = String::from(
+        "[entities.target]\n\"engine.position\" = {}\n\
+         \"engine.body\" = { radius = 5, fixed = true }\n",
+    );
+    for (id, y) in [("a", 1.01), ("b", -1.01)] {
+        let angle = libm::atan2(-y, -x);
+        start.push_str(&format!(
+            "[entities.{id}]\n\
+             \"engine.position\" = {{ x = {x}, y = {y}, angle = {angle} }}\n\
+             \"engine.motion\" = {{}}\n\"engine.flight\" = {{ speed = 30 }}\n\
+             \"engine.body\" = {{ radius = 1, mass = 1 }}\n\
+             \"engine.steer\" = {{ mode = \"hold\", target = \"pair.target\" }}\n"
+        ));
+    }
+    std::fs::write(dir.join("start.toml"), start).unwrap();
+    std::fs::write(
+        dir.join("scripts/main.luau"),
+        "return { cadence = function(ctx)\n\
+         \x20   ctx.patch(\"target\", \"engine.body\", { radius = 4.5 })\n\
+         end }\n",
+    )
+    .unwrap();
+    let mut s = Session::new(vec![Module::read(&dir).unwrap()], 1).unwrap();
+    run(&mut s, &[], 29);
+    for ship in ["pair.a", "pair.b"] {
+        assert_eq!(s.world.component(ship, STEER).unwrap().fields["done"], true);
+    }
+    // The cut lands on the cadence at tick 30; `run` checks every tick for overlaps.
+    run(&mut s, &[], 31);
+    assert_eq!(s.world.tick, 60);
+    for ship in ["pair.a", "pair.b"] {
+        let (x, y) = at(&s.world, ship);
+        let gap = (x * x + y * y).sqrt() - 5.5;
+        assert!(
+            (0.0..0.05).contains(&gap),
+            "{ship}: {gap} off the cut surface"
+        );
+        let order = &s.world.component(ship, STEER).unwrap().fields;
+        assert_eq!(order["mode"], "hold");
+        assert_eq!(order["done"], true);
+    }
+}
+
+#[test]
 fn a_spinning_rock_turns_steadily_and_its_outline_turns_with_it() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("spun");

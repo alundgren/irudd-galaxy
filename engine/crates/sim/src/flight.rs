@@ -403,7 +403,8 @@ fn latch(feel: &Feel) -> f64 {
 /// Keeps every `hold` that got there on its target's surface, at the end of a tick: when
 /// the target was cut smaller (morph), turned or nudged by up to a tick's flight, the
 /// holder moves onto the new surface on that same tick, whichever handler, cadence or
-/// service changed it. Further off, flight steers back as for any order.
+/// service changed it. Further off, flight steers back as for any order. Settling never
+/// leaves a holder inside another body: [`crate::collide::separate`] pushes it out.
 pub fn settle_holds(world: &mut World, shapes: &Shapes) {
     let mut moves = Vec::new();
     for (entity, components) in &world.entities {
@@ -437,12 +438,17 @@ pub fn settle_holds(world: &mut World, shapes: &Shapes) {
         return;
     }
     let cause = world.service_cause("flight");
+    let mut moved = Vec::with_capacity(moves.len());
     for (e, (x, y)) in moves {
         set(world, &e, POSITION, "x", Value::from(x), cause);
         set(world, &e, POSITION, "y", Value::from(y), cause);
         set(world, &e, MOTION, "vx", Value::from(0.0), cause);
         set(world, &e, MOTION, "vy", Value::from(0.0), cause);
+        moved.push(e);
     }
+    // Collision has already run this tick: holders settling side by side on one
+    // shrinking rock, or one settling into a neighbour, are pushed apart here.
+    crate::collide::separate(world, shapes, &moved);
 }
 
 /// Runs flight for everything with `engine.flight`, `engine.position` and `engine.motion`.
