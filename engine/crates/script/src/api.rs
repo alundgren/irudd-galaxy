@@ -162,6 +162,8 @@ export type ScreenCtx = {
 --- ui); text is its optional hover label. Hovered, its model lifts and is outlined.
 --- align (top-left, top, top-right, left, center, right, bottom-left, bottom,
 --- bottom-right) places a widget against the window's edges; x/y are then margins.
+--- A drop target's accepts maps source values to "" (accept) or a refusal reason; notes
+--- maps accepted values to what dropping there changes, drawn under Drop here.
 --- resting = "<reason>" on a button: it stays in place drawn resting ([screen] resting,
 --- resting_dash), hovering shows the reason, and a click records nothing.
 export type Widget = {
@@ -171,6 +173,7 @@ export type Widget = {
     size: number?, pad: number?, gap: number?, anchor: string?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
+    notes: {[string]: string}?,
 }
 export type Ui = {
     hover: (Widget) -> Widget, target: (Widget) -> Widget,

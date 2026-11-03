@@ -28,6 +28,9 @@ pub struct Boxed {
     pub clip: Option<Rect>,
     pub content_height: f32,
     pub style: ScreenStyle,
+    /// A drop target's height for its verdicts: the tallest label, or the height kept for
+    /// them while a value is held. Zero for other widgets.
+    pub verdicts: f32,
 }
 
 #[derive(Default)]
@@ -84,6 +87,15 @@ impl Screens {
         self.problems = self.load_problems.clone();
         self.boxes.clear();
         self.anchors = anchors.clone();
+        // While a value is held, each drop target keeps the verdict height it had at
+        // pickup, so a note the scripts rewrite moves no target. The drop ends it: the
+        // drop's own handler may fill the target and change its verdicts.
+        let kept = self
+            .presentation
+            .drag
+            .as_ref()
+            .map(|d| d.kept.clone())
+            .unwrap_or_default();
         for screen in &mut self.functions {
             let calls = screen.calls;
             screen.refresh(world);
@@ -94,7 +106,7 @@ impl Screens {
             if let Some(tree) = &screen.tree {
                 let mut tree = tree.clone();
                 icons::resolve(&mut tree, &self.icons, &mut self.problems);
-                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
+                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
                 place(
                     &mut boxed,
                     Vec2::splat(20.0),
@@ -116,7 +128,7 @@ impl Screens {
             .into_iter()
             .chain(crate::talk::widgets(world, &self.style))
         {
-            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
+            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
             check(
                 &boxed,
@@ -278,7 +290,14 @@ impl Screens {
     }
 }
 
-fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenStyle) -> Boxed {
+/// `kept` maps a drop target's path to the verdict height it keeps while a value is held.
+fn layout(
+    w: &Widget,
+    available: f32,
+    measure: &mut TextMeasure,
+    style: &ScreenStyle,
+    kept: &BTreeMap<String, f32>,
+) -> Boxed {
     let mut padded = w.clone();
     if !w.explicit_pad
         && matches!(
@@ -307,6 +326,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
     .max(1.0);
     let mut text = None;
     let mut children = Vec::new();
+    let mut verdicts = 0.0;
     let height;
     if leaf(&w.kind) {
         let labels = if w.kind == "delta" {
@@ -331,11 +351,16 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
             })
             .collect();
         measured.sort_by(|a, b| a.1.total_cmp(&b.1));
-        let (t, h) = measured.pop().expect("at least one label");
-        let mut t = t;
+        let (mut t, mut h) = measured.pop().expect("at least one label");
+        if w.kind == "drop_target" {
+            // A held value keeps the space reserved at pickup; a verdict that outgrows it
+            // is reported as clipped by check.
+            h = kept.get(&w.path).copied().unwrap_or(h);
+            verdicts = h;
+        }
         let mut y = w.pad;
         for child in &w.children {
-            let mut b = layout(child, inner, measure, style);
+            let mut b = layout(child, inner, measure, style, kept);
             b.rect.x = w.pad;
             b.rect.y = y;
             y += b.rect.h + w.gap;
@@ -350,7 +375,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         for row in w.children.chunks(w.columns) {
             let mut boxes: Vec<_> = row
                 .iter()
-                .map(|c| layout(c, cell, measure, style))
+                .map(|c| layout(c, cell, measure, style, kept))
                 .collect();
             let h = boxes.iter().map(|b| b.rect.h).fold(0.0, f32::max);
             for (i, b) in boxes.iter_mut().enumerate() {
@@ -388,7 +413,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         let mut cursor = 0.0f32;
         let mut cross = 0.0f32;
         for child in &w.children {
-            let mut b = layout(child, share, measure, style);
+            let mut b = layout(child, share, measure, style, kept);
             let detached = detached(child);
             let p = if detached {
                 Vec2::ZERO
@@ -421,6 +446,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         clip: None,
         content_height: height,
         style: *style,
+        verdicts,
     }
 }
 
@@ -692,17 +718,7 @@ fn draw(
             };
         }
         if b.widget.kind == "drop_target" {
-            t.text = match &state.drag {
-                None => b.widget.text.clone(),
-                Some(drag) => match b.widget.accepts.get(&drag.value) {
-                    Some(reason) if reason.is_empty() => format!("{}\nDrop here", b.widget.text),
-                    reason => format!(
-                        "{}\nCannot drop: {}",
-                        b.widget.text,
-                        reason.map(String::as_str).unwrap_or("Not accepted")
-                    ),
-                },
-            };
+            t.text = verdict(&b.widget, state.drag.as_ref().map(|d| d.value.as_str()));
         }
         if !lifted {
             layer.texts.push(t);
@@ -810,17 +826,33 @@ fn present(b: &mut Boxed, state: &mut Presentation, clip: Option<Rect>) {
     }
 }
 
+/// A drop target's label while `value` is held (its plain text with no drag): `Drop here`
+/// and the value's note under it, or `Cannot drop:` and the reason.
+fn verdict(w: &Widget, value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return w.text.clone();
+    };
+    match w.accepts.get(value) {
+        Some(reason) if reason.is_empty() => match w.notes.get(value) {
+            Some(note) => format!("{}\nDrop here\n{note}", w.text),
+            None => format!("{}\nDrop here", w.text),
+        },
+        reason => format!(
+            "{}\nCannot drop: {}",
+            w.text,
+            reason.map_or("Not accepted", String::as_str)
+        ),
+    }
+}
+
+/// Every label a drop target can show, so layout reserves the tallest and check reads
+/// each one: at rest, a bare accept, an unlisted value and every listed value.
 fn verdict_labels(w: &Widget) -> Vec<String> {
     let mut out = vec![
         w.text.clone(),
         format!("{}\nDrop here", w.text),
         format!("{}\nCannot drop: Not accepted", w.text),
     ];
-    out.extend(
-        w.accepts
-            .values()
-            .filter(|s| !s.is_empty())
-            .map(|r| format!("{}\nCannot drop: {}", w.text, r)),
-    );
+    out.extend(w.accepts.keys().map(|v| verdict(w, Some(v))));
     out
 }

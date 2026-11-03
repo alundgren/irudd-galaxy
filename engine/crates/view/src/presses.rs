@@ -168,7 +168,11 @@ impl View {
             .iter()
             .map(|b| {
                 let w = &b.widget;
-                format!("{} {:?} {:?} {:?}", w.path, w.text, w.resting, b.rect)
+                // Verdicts and notes are text a press can rewrite on its own.
+                format!(
+                    "{} {:?} {:?} {:?} {:?} {:?}",
+                    w.path, w.text, w.resting, b.rect, w.accepts, w.notes
+                )
             })
             .collect();
         signature.push(format!("{:?}", galaxy_sim::travel::player(&silent)));

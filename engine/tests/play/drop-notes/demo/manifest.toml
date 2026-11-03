@@ -1,0 +1,9 @@
+id = "demo"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/screen.luau"]
+writes = ["engine.position", "engine.camera"]
+events = ["place"]
+[components.tray]
+at = "text"
+drops = "int"
