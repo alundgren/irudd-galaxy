@@ -818,3 +818,19 @@ fn audio_help_locates_harshness_and_explains_scores_and_judge_uses() {
     let judge_help = judge_help.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(judge_help.contains("One use means one run") && judge_help.contains("two paid calls"));
 }
+
+#[test]
+fn silent_levels_give_a_reason_for_every_null() {
+    let report = meter::levels(&tone(5.0, 440.0, 0.0));
+    for key in [
+        "momentary_max_lufs",
+        "short_term_max_lufs",
+        "integrated_lufs",
+    ] {
+        assert!(report[key].is_null(), "{key}: {report}");
+        assert!(
+            report["undefined_reason"][key].is_string(),
+            "{key} has no reason: {report}"
+        );
+    }
+}

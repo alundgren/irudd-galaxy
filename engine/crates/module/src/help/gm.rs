@@ -49,7 +49,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "spectrum, seam, playback_seam, stereo, defects",
-                "summary, strongest 12 peaks with level_dbfs/prominence_db (--detail for all), loop boundaries",
+                "summary, energy fractions low_mid 200-500 Hz, presence 2-5 kHz, air above 8 kHz; strongest 12 peaks with level_dbfs/prominence_db (--detail for all), loop boundaries",
             ),
             (
                 "findings",

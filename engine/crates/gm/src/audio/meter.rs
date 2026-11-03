@@ -133,18 +133,27 @@ impl Meter {
             json!({"start_s": i as f64 / 10.0, "end_s": i as f64 / 10.0 + window, "lufs": lufs(e)})).collect()
         };
         let rms = self.squares / (self.total * self.channels).max(1) as f64;
+        let momentary_max = momentary.iter().copied().filter_map(lufs).reduce(f64::max);
+        let short_max = short.iter().copied().filter_map(lufs).reduce(f64::max);
+        let max_reason = |blocks: &[f64], need: &'static str| {
+            if blocks.is_empty() {
+                Some(need)
+            } else {
+                Some("every block is digital silence")
+            }
+        };
         json!({
             "integrated_lufs": integrated,
-            "momentary_max_lufs": momentary.iter().copied().filter_map(lufs).reduce(f64::max),
-            "short_term_max_lufs": short.iter().copied().filter_map(lufs).reduce(f64::max),
+            "momentary_max_lufs": momentary_max,
+            "short_term_max_lufs": short_max,
             "loudness_range_lu": range,
             "rms_dbfs": db(rms), "sample_peak_dbfs": db(self.peak * self.peak),
             "crest_db": db(self.peak * self.peak).zip(db(rms)).map(|(p,r)| p-r),
             "momentary": series(&momentary, 0.4), "short_term": series(&short, 3.0),
             "undefined_reason": {
                 "integrated_lufs": integrated.is_none().then_some("needs a full 400 ms block above the -70 LUFS gate"),
-                "momentary_max_lufs": momentary.is_empty().then_some("needs 400 ms; silence is null"),
-                "short_term_max_lufs": short.is_empty().then_some("needs 3 s; silence is null"),
+                "momentary_max_lufs": momentary_max.map_or_else(|| max_reason(&momentary, "needs 400 ms"), |_| None),
+                "short_term_max_lufs": short_max.map_or_else(|| max_reason(&short, "needs 3 s"), |_| None),
                 "loudness_range_lu": range.is_none().then_some("needs 3 s above the gate; short clips give an unstable range"),
                 "db_values": (rms == 0.0).then_some("digital silence has no finite dB level")
             }
