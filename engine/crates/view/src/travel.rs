@@ -10,8 +10,25 @@ pub struct Cut<'a> {
     pub reverse: bool,
     /// Seconds the camera glides instead of the fade cut; 0 for the cut.
     pub glide: f32,
-    /// The source camera node of a glide within one room.
-    pub from_camera: &'a str,
+    /// The trip's fields.
+    pub trip: &'a galaxy_api::Fields,
+}
+
+/// Seconds from `start_tick` to `now` (tick plus alpha), never negative.
+pub fn elapsed(now: f64, start_tick: f64) -> f32 {
+    ((now - start_tick).max(0.0) / TICKS_PER_SECOND as f64) as f32
+}
+
+/// How far `elapsed` seconds are into a glide of `glide` seconds, eased (smoothstep)
+/// from 0 to 1.
+pub fn eased(elapsed: f32, glide: f32) -> f32 {
+    let t = (elapsed / glide).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// The glide a trip took over before that glide landed (`engine.travel.interrupted`).
+pub fn interrupted(trip: &galaxy_api::Fields) -> Option<galaxy_api::Fields> {
+    serde_json::from_str(trip.get("interrupted")?.as_str()?).ok()
 }
 
 impl<'a> Cut<'a> {
@@ -23,15 +40,14 @@ impl<'a> Cut<'a> {
         }
         // Trips start on an input boundary, not the previous-pose interpolation tick.
         // Finish the fade before the arrival input clears the trip at start + 30.
-        let elapsed = ((world.tick as f64 + alpha as f64 - t["start_tick"].as_f64()?).max(0.0)
-            / TICKS_PER_SECOND as f64) as f32;
+        let elapsed = elapsed(world.tick as f64 + alpha as f64, t["start_tick"].as_f64()?);
         Some(Self {
             from: t["from"].as_str()?,
             to: t["to"].as_str()?,
             elapsed,
             reverse: t["reverse"] == true,
             glide: galaxy_sim::travel::glide_seconds(t) as f32,
-            from_camera: t["from_camera"].as_str().unwrap_or(""),
+            trip: t,
         })
     }
     pub fn busy(&self) -> bool {
@@ -39,10 +55,7 @@ impl<'a> Cut<'a> {
     }
     /// How far along a glide is, eased (smoothstep) from 0 to 1; none for a fade cut.
     pub fn glide_progress(&self) -> Option<f32> {
-        (self.glide > 0.0).then(|| {
-            let t = (self.elapsed / self.glide).clamp(0.0, 1.0);
-            t * t * (3.0 - 2.0 * t)
-        })
+        (self.glide > 0.0).then(|| eased(self.elapsed, self.glide))
     }
     fn out(&self) -> f32 {
         if self.reverse { 0.22 } else { 0.18 }

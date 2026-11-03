@@ -81,9 +81,22 @@ too, when the room's `glide` is above 0. The travel service compares the room's 
 node before and after each tick, and starts a trip with `from` equal to `to` and
 `from_camera` set to the old node. Such a trip does not interrupt talk. Its arrival
 input is `engine.camera_settled { entity, place, start_tick }`, so scripts counting
-arrivals at a place don't see a camera change. A camera change while a trip is still
-landing joins that trip, whose glide already aims at the current camera. Without
-`glide`, a camera change snaps as before.
+arrivals at a place don't see a camera change. Without `glide`, a camera change snaps
+as before, and a change during a fade cut shows as that cut fades in.
+
+A glide can be taken over before it lands: a figure framed while the camera still
+glides into the room, or going back while it glides to that figure. The new trip starts
+from where the camera is at that moment, not from a camera node, so the picture never
+jumps. The trip stores the glide it took over in `interrupted`, as JSON text: that
+trip's fields plus `camera`, the node it was gliding to. The view evaluates that glide at
+the new trip's `start_tick` and uses the result as the new glide's source, which works
+for a chain of take-overs because each stored glide holds the one before it. A chain
+keeps at most four glides; an older one starts from its own source again. A trip
+between places taken over by a camera change keeps its `from`, `to` and source pose, so
+it still lands with `engine.place_arrived`, now after the new glide's length. A fade
+cut that leaves a room mid-glide keeps the glide moving while it fades out. Only plain
+fields are stored, so replays and hashes stay deterministic, and audit and film redraw
+a glide from the saved trip alone.
 
 Play supplies `engine.place_arrived { entity, place, start_tick }` after 30 ticks (or
 after a glide's own length, rounded up to whole ticks), or on any left click during a

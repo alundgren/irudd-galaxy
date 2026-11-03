@@ -100,20 +100,36 @@ pub fn start(
     let glide = world
         .component(to, ROOM)
         .map_or(0.0, |r| glide_seconds(&r.fields));
+    // A glide that has not landed when the camera changes again becomes the new one's source.
+    let interrupted = interrupted(&trip.fields, camera.as_deref());
     if from == to {
-        // A new camera node in the player's room glides when the room asks for it. A trip
-        // still landing keeps going: its glide already aims at the room's current camera.
+        // A new camera node in the player's room glides when the room asks for it. A fade
+        // cut still running keeps going: it shows the room's current camera as it fades in.
         let now_camera = room_camera(world, to);
-        if glide <= 0.0 || now_camera == camera || trip.fields["active"] == true {
+        let landing = trip.fields["active"] == true;
+        if glide <= 0.0 || now_camera == camera || (landing && glide_seconds(&trip.fields) <= 0.0) {
             return Ok(());
         }
-        fields.extend(
-            json!({"active": true, "from": from, "to": to, "start_tick": world.tick,
-                "reverse": false, "glide": glide, "from_camera": camera})
-            .as_object()
-            .unwrap()
-            .clone(),
-        );
+        if landing && trip.fields["from"] != trip.fields["to"] {
+            // A trip between places still gliding in keeps its endpoints, so it still lands
+            // with `engine.place_arrived`; it glides on from where the camera is now.
+            fields = trip.fields.clone();
+            fields.extend(
+                json!({"start_tick": world.tick, "glide": glide, "interrupted": interrupted})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            );
+        } else {
+            fields.extend(
+                json!({"active": true, "from": from, "to": to, "start_tick": world.tick,
+                    "reverse": false, "glide": glide, "from_camera": camera,
+                    "interrupted": interrupted})
+                .as_object()
+                .unwrap()
+                .clone(),
+            );
+        }
         return world.apply(
             &Batch {
                 cause: Cause::Engine {
@@ -143,7 +159,13 @@ pub fn start(
             break;
         }
     }
-    fields.extend(json!({"active": true, "from": from, "to": to, "start_tick": world.tick, "reverse": reverse, "glide": glide}).as_object().unwrap().clone());
+    fields.extend(
+        json!({"active": true, "from": from, "to": to, "start_tick": world.tick,
+        "reverse": reverse, "glide": glide, "interrupted": interrupted})
+        .as_object()
+        .unwrap()
+        .clone(),
+    );
     world.apply(
         &Batch {
             cause: Cause::Engine {
@@ -157,6 +179,37 @@ pub fn start(
         },
         registry,
     )
+}
+
+/// How many glides an `interrupted` chain keeps; an older one starts from its own source.
+pub const MAX_INTERRUPTED: usize = 4;
+
+/// The `interrupted` text for a new trip: the player's trip as it was, if it is a glide
+/// that has not landed, with `camera`, the node it glides to. Empty otherwise. A glide
+/// that already reached its end still counts: the camera shows its end node.
+fn interrupted(trip: &galaxy_api::Fields, camera: Option<&str>) -> String {
+    let gliding = trip["active"] == true && glide_seconds(trip) > 0.0;
+    let Some(camera) = camera.filter(|_| gliding) else {
+        return String::new();
+    };
+    let mut glide = trip.clone();
+    glide.remove("active");
+    glide.insert("camera".into(), camera.into());
+    serde_json::Value::Object(trimmed(glide, MAX_INTERRUPTED - 1)).to_string()
+}
+
+/// `glide` with at most `keep` interrupted glides behind it.
+fn trimmed(mut glide: galaxy_api::Fields, keep: usize) -> galaxy_api::Fields {
+    let inner = glide
+        .get("interrupted")
+        .and_then(|s| s.as_str())
+        .and_then(|s| serde_json::from_str::<galaxy_api::Fields>(s).ok())
+        .filter(|_| keep > 0);
+    let text = inner.map_or(String::new(), |inner| {
+        serde_json::Value::Object(trimmed(inner, keep - 1)).to_string()
+    });
+    glide.insert("interrupted".into(), text.into());
+    glide
 }
 
 /// Play supplies this input; replay never invents it. A click can finish before due. A

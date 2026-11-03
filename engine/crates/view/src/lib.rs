@@ -23,6 +23,7 @@ pub mod travel;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use galaxy_api::Fields;
 use galaxy_api::engine::{CAMERA, MODEL, POSITION, STEER, WAYPOINT};
 use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::module::Module;
@@ -31,7 +32,7 @@ use galaxy_render::{
     BackdropHandle, Camera, Material, MeshHandle, MeshInstance, Panel, Projection, Rect, Renderer,
     Scene, Text, backdrop, defaults,
 };
-use galaxy_sim::World;
+use galaxy_sim::{World, talk::text};
 use serde_json::{Map, Value, json};
 
 pub use assets::Assets;
@@ -461,29 +462,85 @@ impl View {
         if let Some(place) = travel::place(world, alpha)
             && let Some(camera) = self.room_camera(world, place)
         {
-            if let Some(cut) = travel::Cut::step(world, alpha)
-                && let Some(t) = cut.glide_progress()
-                && let Some(from) = self.glide_source(world, &cut, alpha)
-            {
-                return glide::between(from, camera, t, cut.from != cut.to);
+            if let Some(cut) = travel::Cut::step(world, alpha) {
+                let now = world.tick as f64 + alpha as f64;
+                if cut.glide > 0.0 {
+                    if let Some(glide) = self.glide_at(world, cut.trip, camera, now, alpha) {
+                        return glide;
+                    }
+                } else if place == cut.from
+                    && let Some(glide) = travel::interrupted(cut.trip)
+                    && let Some(moving) = self.interrupted_at(world, &glide, now, alpha)
+                {
+                    // A fade cut out of a glide keeps that glide moving while it fades out.
+                    return moving;
+                }
             }
             return camera;
         }
         self.follow_camera(world, alpha)
     }
 
-    /// Where a glide starts: the other camera node of the same room, or the camera the
-    /// source place showed (its room camera, or the follow camera with the player back at
-    /// its source pose).
-    fn glide_source(&self, world: &World, cut: &travel::Cut, alpha: f32) -> Option<Camera> {
-        if cut.from == cut.to {
-            return self.room_camera_at(world, cut.to, cut.from_camera);
+    /// The camera the glide in trip fields `trip` shows at `now` (tick plus alpha), ending
+    /// on `to`. None for a fade cut.
+    fn glide_at(
+        &self,
+        world: &World,
+        trip: &Fields,
+        to: Camera,
+        now: f64,
+        alpha: f32,
+    ) -> Option<Camera> {
+        let seconds = galaxy_sim::travel::glide_seconds(trip) as f32;
+        if seconds <= 0.0 {
+            return None;
         }
-        let source = rooms::screen_world(world, Some(cut.from));
-        Some(
-            self.room_camera(&source, cut.from)
-                .unwrap_or_else(|| self.follow_camera(&source, alpha)),
-        )
+        let start = trip.get("start_tick")?.as_f64()?;
+        let t = travel::eased(travel::elapsed(now, start), seconds);
+        if t >= 1.0 {
+            return Some(to);
+        }
+        let (from, place) = self.glide_source(world, trip, start, alpha)?;
+        Some(glide::between(from, to, t, place != text(trip, "to")))
+    }
+
+    /// Where a glide starts, and the place whose coordinates that camera uses: where the
+    /// glide it took over was on its first tick, else the other camera node of the same
+    /// room, else the camera the source place showed (its room camera, or the follow
+    /// camera with the player back at its source pose).
+    fn glide_source(
+        &self,
+        world: &World,
+        trip: &Fields,
+        start: f64,
+        alpha: f32,
+    ) -> Option<(Camera, String)> {
+        if let Some(glide) = travel::interrupted(trip) {
+            let camera = self.interrupted_at(world, &glide, start, alpha)?;
+            return Some((camera, text(&glide, "to").to_owned()));
+        }
+        let (from, to) = (text(trip, "from"), text(trip, "to"));
+        if from == to {
+            let camera = self.room_camera_at(world, to, text(trip, "from_camera"))?;
+            return Some((camera, to.to_owned()));
+        }
+        let source = rooms::source_world(world, from, trip);
+        let camera = self
+            .room_camera(&source, from)
+            .unwrap_or_else(|| self.follow_camera(&source, alpha));
+        Some((camera, from.to_owned()))
+    }
+
+    /// Where a glide that a newer trip took over had its camera at `now`.
+    fn interrupted_at(
+        &self,
+        world: &World,
+        glide: &Fields,
+        now: f64,
+        alpha: f32,
+    ) -> Option<Camera> {
+        let to = self.room_camera_at(world, text(glide, "to"), text(glide, "camera"))?;
+        self.glide_at(world, glide, to, now, alpha)
     }
 
     /// The camera on the thing with `engine.camera`, at the player's zoom.

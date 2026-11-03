@@ -302,6 +302,11 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "source camera node of a glide within one room; empty for a trip between places",
     ),
     (
+        "travel",
+        "interrupted",
+        "the glide this trip took over while it still moved, as JSON text (its fields and `camera`, its end node); empty otherwise",
+    ),
+    (
         "anchor",
         "name",
         "published name; widgets address publisher ID and this name",
@@ -646,6 +651,7 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
                 ("from_layer", Int),
                 ("glide", Number),
                 ("from_camera", Text),
+                ("interrupted", Text),
             ]),
         ),
         (
