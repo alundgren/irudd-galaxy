@@ -36,7 +36,8 @@ stale advances: a double click on one displayed line advances only once. A stale
 `engine.talk_chosen` event, so a handler sees each answer once; the input stays in the
 recording, so replays are identical. What an answer means is module logic: a handler can
 record it, and keep a declined offer from returning by disabling its talk. A queued click
-that outlives its room or enabled state is also a recorded no-op. Only acknowledging the last line sets `seen`. Leaving, moving the
+that outlives its room, its enabled state or the talk itself (a handler removing a
+finished talk) is also a recorded no-op. Only acknowledging the last line sets `seen`. Leaving, moving the
 speaker away or disabling the conversation interrupts without marking it seen. Starting
 it again begins at its first line. Seen status has no clock or expiry.
 

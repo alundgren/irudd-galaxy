@@ -17,6 +17,34 @@ fn fixture(name: &str) -> Module {
     Module::read(&Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../tests/play/{name}")))
         .unwrap()
 }
+/// A copy of a fixture with text replaced in its files, for a variant of one module.
+fn variant(name: &str, edits: &[(&str, &str, &str)]) -> (tempfile::TempDir, Module) {
+    fn copy(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for e in std::fs::read_dir(from).unwrap() {
+            let e = e.unwrap();
+            if e.file_type().unwrap().is_dir() {
+                copy(&e.path(), &to.join(e.file_name()));
+            } else {
+                std::fs::copy(e.path(), to.join(e.file_name())).unwrap();
+            }
+        }
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("demo");
+    copy(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../tests/play/{name}")),
+        &dir,
+    );
+    for (file, old, new) in edits {
+        let path = dir.join(file);
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains(old), "{file}: no `{old}`");
+        std::fs::write(&path, text.replace(old, new)).unwrap();
+    }
+    let module = Module::read(&dir).unwrap();
+    (tmp, module)
+}
 fn size() -> Vec2 {
     Vec2::new(1280.0, 720.0)
 }
@@ -218,6 +246,63 @@ fn a_declined_offer_ends_the_talk_and_module_logic_keeps_it_away() {
 }
 
 #[test]
+fn an_answer_queued_after_its_talk_is_removed_does_nothing_and_replays() {
+    // A handler may remove a finished one-shot talk; a second click is still queued.
+    let (_tmp, module) = variant(
+        "offer/demo",
+        &[(
+            "scripts/main.luau",
+            r#"ctx.patch("gift", "engine.talk", { enabled = false })"#,
+            r#"ctx.remove("gift", "engine.talk")"#,
+        )],
+    );
+    let mut s = Session::new(vec![module.clone()], 1).unwrap();
+    s.start_recording(BuildStamp::current());
+    let mut v = View::detached(s.modules(), 1);
+    click(&mut s, &mut v, "speaker.offer.host");
+    let decline = input(&mut v, &s, "choice.offer.not_now");
+    let advance = Input {
+        name: TALK_NEXT.into(),
+        payload: json!({"talk": "offer.gift", "line": "offer.ask"})
+            .as_object()
+            .unwrap()
+            .clone(),
+        ..decline.clone()
+    };
+    v.before_step(&s.world);
+    s.step(std::slice::from_ref(&decline)).unwrap();
+    assert!(s.world.component("offer.gift", TALK).is_none(), "removed");
+    assert_eq!(answers(&s)["declined"], true);
+    let before = s.world.facts.len();
+    v.before_step(&s.world);
+    s.step(&[decline.clone(), advance.clone()]).unwrap();
+    s.step(&[]).unwrap();
+    let chosen = s
+        .world
+        .facts
+        .iter()
+        .filter(|f| f.kind == TALK_CHOSEN)
+        .count();
+    assert_eq!(chosen, 1, "the late answer is no event");
+    assert!(
+        s.world.facts[before..]
+            .iter()
+            .all(|f| f.kind != SCRIPT_FAILED),
+        "no handler failed"
+    );
+    // The host falls back to its repeat talk.
+    click(&mut s, &mut v, "speaker.offer.host");
+    assert_eq!(talk(&s, "offer.chat")["active"], true);
+
+    let rec = s.recording().unwrap();
+    let mut replay = Replay::new(&rec).unwrap();
+    while replay.session.world.tick < s.world.tick {
+        assert!(replay.step().unwrap());
+    }
+    assert_eq!(s.world.hash(), replay.session.world.hash());
+}
+
+#[test]
 fn answers_are_authored_checked_and_laid_out() {
     let mut s = Session::new(vec![fixture("offer/demo")], 1).unwrap();
     let r = s.registry().clone();
@@ -325,5 +410,49 @@ fn check_presses_buttons_to_reach_panels_over_name_signs() {
     let mut v = View::detached(s.modules(), 1);
     let (found, states) = v.check_presses(&mut s, "offer", size());
     assert!(found.is_empty(), "{found:#?}");
-    assert_eq!(states[0]["states"], 2, "first screen and answers shown");
+    assert_eq!(
+        states[0]["states"], 2,
+        "first screen and answers shown; hiding them again is the first state"
+    );
+}
+
+#[test]
+fn check_presses_again_after_a_press_that_only_changes_script_state() {
+    // The first press moves a page counter and the screen looks the same; the second
+    // opens the list over the name sign.
+    let (_tmp, module) = variant(
+        "sign-panel/demo",
+        &[
+            (
+                "manifest.toml",
+                "open = \"bool\"",
+                "open = \"bool\"
+page = \"int\"",
+            ),
+            (
+                "scripts/main.luau",
+                r#"ctx.patch("state", "ui_state", { open = not ctx.get("state", "ui_state").open })"#,
+                r#"local page = ctx.get("state", "ui_state").page + 1
+            ctx.patch("state", "ui_state", { page = page, open = page >= 2 })"#,
+            ),
+        ],
+    );
+    let mut s = Session::new(vec![module], 1).unwrap();
+    s.step(&[]).unwrap();
+    let before = s.world.hash();
+    let mut v = View::detached(s.modules(), 1);
+    let (found, states) = v.check_presses(&mut s, "signpanel", size());
+    assert!(
+        found
+            .iter()
+            .any(|f| f.contains("after pressing `toggle` > `toggle`")
+                && f.contains("signpanel.host/sign: overlaps")),
+        "{found:#?}"
+    );
+    assert_eq!(s.world.hash(), before, "check leaves the world as it was");
+    assert_eq!(
+        states[0]["states"], 3,
+        "first, page 1, page 2 with the list"
+    );
+    assert_eq!(states[0]["truncated"], false);
 }

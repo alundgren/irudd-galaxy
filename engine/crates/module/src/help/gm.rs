@@ -634,7 +634,7 @@ pub static COMMANDS: &[Command] = &[
         answers: "Does this module load? Its manifest, start state, scripts, models and \
                   style, screens (and those its buttons open) and every room at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. From the first tick and with the player in each place, check presses every visible button and ui.target, two presses deep (at most 32 new screen states per start), running the handlers and landing trips, and checks each new state's screens and name signs with talk silent; pressed lists the states per start. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. From the first tick and with the player in each place, check presses every visible button and ui.target, two presses deep (at most 32 new states per start, told apart by the screen and by what event handlers changed), running the handlers and landing trips, and checks each new state's screens and name signs with talk silent; pressed lists the states per start. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -654,7 +654,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "pressed",
-                "per start (null: the first tick, else a place): new screen states reached by presses, and truncated when the cap stopped it",
+                "per start (null: the first tick, else a place): new states reached by presses, and truncated when the cap stopped it",
             ),
             (
                 "worn.looks, worn.models",

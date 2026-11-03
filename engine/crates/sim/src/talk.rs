@@ -185,16 +185,17 @@ fn patch(id: &str, fields: serde_json::Value) -> Command {
 }
 
 /// The commands a talk input makes. Empty for a stale or unavailable one: a queued
-/// click can outlive its line, room or enabled state.
+/// click can outlive its line, room, enabled state or the talk itself (a handler may
+/// remove a finished talk while a second click on it is still queued).
 pub fn input(world: &World, input: &Input) -> Result<Vec<Command>, String> {
     if ![TALK_START, TALK_NEXT, TALK_CHOSEN].contains(&input.name.as_str()) {
         return Ok(vec![]);
     }
     let id = text(&input.payload, "talk");
-    let f = &world
-        .component(id, TALK)
-        .ok_or_else(|| format!("missing talk `{id}`"))?
-        .fields;
+    let Some(talk) = world.component(id, TALK) else {
+        return Ok(vec![]);
+    };
+    let f = &talk.fields;
     if !available(world, f) {
         return Ok(vec![]);
     }

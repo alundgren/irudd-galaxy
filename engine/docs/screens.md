@@ -76,9 +76,13 @@ tick follows. Each new screen state, with talk silent, gets the same readability
 as play, life name signs included, so a sign under a room panel or a list a script opens
 is a `press` finding such as ``place `demo.hall`, after pressing `open`: demo.host/sign:
 overlaps demo:scripts/main.luau/screen/list[2]``. A handler that fails on a press is a
-finding too. States are compared by what is on screen; at most 32 new states per start
-are explored, and check's `pressed` output lists the states per start and whether that
-cap stopped it. Keys, drags, scrolls, three presses deep, talk answers and clock changes
+finding too. States are told apart by what is on screen and by what event handlers
+changed (fields a handler set to something other than the start world, and start
+components removed), so a press that only moves a page counter or a selection still
+gets its second press; a screen already checked is not reported twice. Changes from the
+cadence and engine services don't count, so they can't split one state into many. At
+most 32 new states per start are explored, and check's `pressed` output lists the states
+per start and whether that cap stopped it. Keys, drags, scrolls, three presses deep, talk answers and clock changes
 are not pressed: those states need a test or a recorded run. The pressed worlds are
 copies; the module's own state is untouched. `tests/play/sign-panel` opens a list over a
 name sign from a button and must fail check; its first screen alone passes.

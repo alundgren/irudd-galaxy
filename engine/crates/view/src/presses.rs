@@ -13,9 +13,19 @@ use galaxy_sim::{
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, VecDeque};
 
-/// Presses in a row from each start, and distinct screen states kept per start.
+/// Presses in a row from each start, and distinct states kept per start.
 pub const PRESS_DEPTH: usize = 2;
 pub const PRESS_STATES: usize = 32;
+
+/// What tells states apart: the screen, and what press handlers changed.
+#[derive(Default)]
+struct Seen {
+    /// Screens already checked: an equal screen reached another way has the same problems.
+    screens: BTreeSet<Vec<String>>,
+    /// Screen and script state together: a press that changes only a script's state (a
+    /// page counter, a selection) leads somewhere new on the next press.
+    states: BTreeSet<(Vec<String>, Vec<String>)>,
+}
 
 struct State {
     world: World,
@@ -72,13 +82,14 @@ impl View {
         }
         let mut findings = Vec::new();
         let mut summary = Vec::new();
-        // Shared by all starts: a place start that looks like the first screen adds nothing.
-        let mut seen = BTreeSet::new();
+        // Shared by all starts: a place start equal to the first state adds nothing.
+        let mut seen = Seen::default();
         for (start, world) in starts {
-            let before = seen.len();
+            let before = seen.states.len();
             let mut truncated = false;
             let mut queue = VecDeque::new();
-            let (first, problems) = self.press_state(world, vec![], module, size, &mut seen);
+            let (first, problems) =
+                self.press_state(world, &original, vec![], module, size, &mut seen);
             if problems.is_some() {
                 queue.push_back(first);
             }
@@ -100,12 +111,12 @@ impl View {
                             continue;
                         }
                     };
-                    if seen.len() - before >= PRESS_STATES {
+                    if seen.states.len() - before >= PRESS_STATES {
                         truncated = true;
                         break;
                     }
                     let (next, problems) =
-                        self.press_state(world, presses, module, size, &mut seen);
+                        self.press_state(world, &original, presses, module, size, &mut seen);
                     let Some(problems) = problems else {
                         continue;
                     };
@@ -120,7 +131,7 @@ impl View {
             }
             summary.push(json!({
                 "place": if start.is_empty() { Value::Null } else { start.into() },
-                "states": seen.len() - before,
+                "states": seen.states.len() - before,
                 "truncated": truncated,
             }));
         }
@@ -131,14 +142,17 @@ impl View {
         (findings, summary)
     }
 
-    /// Lays a state out silent. A screen state already seen gives no problems (`None`).
+    /// Lays a state out silent. A state already seen gives `None`: it is not pressed
+    /// again. A new state whose screen was already seen gives no problems, but its
+    /// buttons are pressed.
     fn press_state(
         &mut self,
         world: World,
+        original: &World,
         presses: Vec<String>,
         module: &str,
         size: Vec2,
-        seen: &mut BTreeSet<Vec<String>>,
+        seen: &mut Seen,
     ) -> (State, Option<Vec<String>>) {
         let mut silent = world.clone();
         for c in silent.entities.values_mut() {
@@ -156,8 +170,13 @@ impl View {
             .collect();
         signature.push(format!("{:?}", galaxy_sim::travel::player(&silent)));
         signature.sort();
-        let new = seen.insert(signature);
+        let new = seen
+            .states
+            .insert((signature.clone(), script_state(&world, original)));
         let problems = new.then(|| {
+            if !seen.screens.insert(signature) {
+                return vec![];
+            }
             self.screens
                 .problems
                 .iter()
@@ -200,6 +219,33 @@ impl View {
             problems,
         )
     }
+}
+
+/// The state scripts made, apart from the cadence: every component a module's event
+/// handler last changed to something other than the start world has, and every component
+/// of the start world now gone. Cadence and engine services change things on their own
+/// clock, so they would split states that a press did not; a toggle pressed twice is
+/// back where it started.
+fn script_state(world: &World, original: &World) -> Vec<String> {
+    let mut out = Vec::new();
+    for (id, components) in &world.entities {
+        for (name, c) in components {
+            let by_handler = world.causes.get(c.cause as usize).is_some_and(
+                |r| matches!(&r.cause, Cause::Script { handler, .. } if handler != "cadence"),
+            );
+            if by_handler && original.component(id, name).map(|o| &o.fields) != Some(&c.fields) {
+                out.push(format!("{id}/{name} {}", Value::Object(c.fields.clone())));
+            }
+        }
+    }
+    for (id, components) in &original.entities {
+        for name in components.keys() {
+            if world.component(id, name).is_none() {
+                out.push(format!("{id}/{name} gone"));
+            }
+        }
+    }
+    out
 }
 
 fn at(start: &str) -> String {
