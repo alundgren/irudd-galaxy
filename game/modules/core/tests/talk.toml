@@ -11,7 +11,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 # Mining three times teaches Space: its hint retires from later messages.
@@ -32,7 +32,7 @@ payload = { station = "core.lantern" }
 tick = 450
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 417 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 395 }
 
 # E has not been used yet, so the full hold still says what E does.
 [[expect]]

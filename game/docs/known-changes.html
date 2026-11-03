@@ -228,18 +228,14 @@
 
 
 <article class="item low">
-<h3>NPC ship name labels stay readable and never cover stations or the HUD <span class="tag low">● Low</span></h3>
+<h3>NPC ship name labels show further out and never cover the HUD at any zoom <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Start a new game and look near Lantern Wharf, where NPC ships come and go. Also look near Cinder Hook.</li><li>Open the fitting room and look at the top right.</li></ol>
+<ol><li>Fly near Little Mercy or Quiet Lamp as they cross the reach.</li><li>Zoom right in with the mouse wheel, in a 1280×720 window and in one scaled to 125% (1024×576).</li></ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>A ship's name is drawn in small white text under the ship. When the ship is over a station, the name sits on the station art and can't be read. <span class="screen">Little Mercy</span> was illegible over Lantern Wharf and Cinder Hook.</li>
-  <li>Near the screen edge the name is cut off, for example <span class="screen">Little M…</span>.</li>
-  <li>In the newest build, the name <span class="screen">Little Mercy</span> is drawn on top of the HUD, just under the credits/hold box.</li>
-  <li>On a new game, two ship names near the Wharf briefly overlap each other.</li>
+  <li>A trader's name shows only within 12 world units of the player's ship, away from the stations and from the other trader's label, on the side of the trader away from the player's ship. Pointing at a trader always names it. Further out it goes unlabelled.</li>
+  <li>The game can't see the zoom, so 12 units is what keeps a label clear of the HUD at the default zoom and wider. Zoomed right in, a nearby trader's label could still reach the order buttons or the status panel.</li>
 </ul>
-<figure><img src="known-changes/ship-label-over-station.jpg" alt="An NPC ship docked at Lantern Wharf with its name label drawn over the station art, unreadable." loading="lazy"><figcaption>Earlier build: the label "Little Mercy" drawn over the station art can't be read.</figcaption></figure>
-<figure><img src="known-changes/ship-label-over-hud.jpg" alt="Top right corner: the label 'Little Mercy' drawn over the HUD just under the credits and hold box." loading="lazy"><figcaption>Newest build: "Little Mercy" drawn over the HUD under the credits box.</figcaption></figure>
 <p class="label">What good looks like</p>
 <p>Labels stay readable and fully on screen. They never sit on top of stations, the HUD or each other. They step aside, fade or hide when crowded, and show again on hover.</p>
 </article>
@@ -278,66 +274,46 @@
 <!-- ============================================================ -->
 <h2>Flight, collision and world</h2>
 
-<article class="item high">
-<h3>Things are solid: ships, rocks and stations bump and push, with no damage <span class="tag high">▲ High</span></h3>
+<article class="item low">
+<h3>The ship stays on a rock's surface while the rock is cut smaller <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Start a new game, undock from Lantern Wharf and fly east into the Rimewater ice field.</li><li>Fly straight at a rock, at an NPC ship and at a station.</li><li>Watch NPC ships moving through the field.</li></ol>
+<p>Fly out, press Space to mine the nearest rock and watch the ship's nose through a whole hold.</p>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>The Wren flies straight through rocks, NPC ships and stations. It is drawn on top of or under them.</li>
-  <li>NPC ships also pass through rocks. In the screenshot, an NPC ship overlaps an ice rock near the ship <span class="screen">Little Mercy</span>.</li>
-  <li>When the player orders the ship to mine a rock, it parks a small gap away from the rock's drawn edge. In an earlier build, the ship also stopped clearly short of the rock, with a visible gap, and nudged sideways each time mining started.</li>
+  <li>Ships, traders, rocks and stations are solid and bump and push with no damage. The Mine order parks the ship on the rock's drawn surface, with no gap and no sideways nudge.</li>
+  <li>Each cut shrinks the rock, and the ship stays where it parked: after the six cuts of a hold there is a gap of 0.29 world units between nose and rock, about 3 pixels at the default zoom. The next Mine order closes it.</li>
 </ul>
 <p class="label">Andreas said</p>
 <blockquote>I can fly through things. We dont need collision damage but we do need proper physics for bot objects like these, stations, other ships and so on</blockquote>
-<figure><img src="known-changes/fly-through-rocks.png" alt="Ice field: an NPC ship drawn overlapping an ice rock; the ship Little Mercy nearby; a Kettle Dock label." loading="lazy"><figcaption>Newest build, Andreas's screenshot: an NPC ship overlapping an ice rock.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Every solid object (rocks, the player's ship, NPC ships, stations) has a body.</li>
-  <li>Touching gives a soft bump and push that the player can see and feel.</li>
-  <li>No collision damage, ever, and no punishment.</li>
-  <li><strong>Warning from the previous attempt:</strong> solid rocks were tried once and pulled back. In the ice fields, rocks sit only a few ship-lengths apart, and solid rocks walled off mining spots and left NPC pilots stuck. Collision must keep every mining spot reachable and must not trap NPC pilots.</li>
-  <li>When mining, the ship sits right at the rock's drawn surface, with no visible gap and no sideways nudge.</li>
-</ul>
-</article>
-
-<article class="item high">
-<h3>Flight feels good: free movement, slight inertia, 180° per second turns, and fly straight off the dock <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>Any time in flight, starting with the first undock from Lantern Wharf.</p>
-<p class="label">What the player saw in earlier builds</p>
-<ul>
-  <li>Leaving the dock needed a separate key (Space), because W and S were used to choose rows in the station's trade list. The game felt frozen until you found it.</li>
-  <li>The starting speed felt too slow.</li>
-  <li>The ship had no inertia, and you couldn't fly in a straight line in any direction you liked.</li>
-  <li>Andreas repeated "flight controls still need fixing" in his second session.</li>
-</ul>
-<p>The previous build's last version used:</p>
-<ul>
-  <li>W/S to thrust, A/D to turn, hold Space to brake and Shift to boost</li>
-  <li>slight inertia, so the ship coasts briefly to a stop</li>
-  <li>W flies straight off the dock</li>
-</ul>
-<p>Andreas hasn't commented on that version, except for fixing the turn rate.</p>
-<p class="label">Andreas said</p>
-<blockquote>you cant just "fly" you have to hit space which makes the game feel frozen</blockquote>
-<p>On speed: <q>maybe 20% faster</q> than the first build. On feel: <q>a tiny bit of intertia</q>, and it was <q>annoying not being able to fly in a straight line in any directions</q>.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The ship turns at <strong>180 degrees per second</strong> (decided).</li>
-  <li>A little inertia: not arcade-stiff, not heavy simulation. Letting go of thrust coasts gently to a stop.</li>
-  <li>You can hold a straight line in any direction you point.</li>
-  <li>Cruising speed feels brisk from the start, about 20% quicker than the original slow build.</li>
-  <li>Pressing a movement key while docked simply flies the ship off. There is no separate undock step.</li>
+  <li>When mining, the ship sits right at the rock's drawn surface for the whole time it mines, with no visible gap and no sideways nudge.</li>
 </ul>
 </article>
 
 <article class="item med">
-<h3>The world feels alive out in space, not only at the dock <span class="tag med">■ Medium</span> <span class="maybe">Possibly still open</span></h3>
+<h3>Flying off the dock goes straight back to the ship, with no title card <span class="tag med">■ Medium</span></h3>
 <p class="label">Where and how</p>
-<p>Flying anywhere in the Lantern Reach, in an earlier build.</p>
-<p class="label">What the player saw</p>
-<p>Apart from the player's ship and the NPC ships, everything (stations, rocks, the space around them) sat completely still. The previous build added life to the docked view: cranes, lights, small craft, and a quieter mode on Q. Open space was not rechecked.</p>
+<p>Dock at either station, then press W (or A, S, D, or U).</p>
+<p class="label">What the player sees now</p>
+<ul>
+  <li>Flight already feels as decided: free movement, a little inertia, 180° per second turns, and W flies the ship straight off the dock on the tick it is pressed, facing away from the station, with no separate undock step.</li>
+  <li>But the view fades to a dark card reading <span class="screen">core.reach</span> for about a second before it shows the ship, which is already flying by then. Docking, by contrast, glides in from the ship's view.</li>
+</ul>
+<p class="label">Andreas said</p>
+<blockquote>you cant just "fly" you have to hit space which makes the game feel frozen</blockquote>
+<p class="label">What good looks like</p>
+<ul>
+  <li>Leaving a station glides back out from the station to the ship's view, the reverse of docking, with no card and no internal names on screen.</li>
+</ul>
+</article>
+
+<article class="item med">
+<h3>The world feels alive out in space, not only at the dock <span class="tag med">■ Medium</span></h3>
+<p class="label">Where and how</p>
+<p>Fly anywhere in the reach and look at the rocks, the stations' outsides and the sky.</p>
+<p class="label">What the player sees now</p>
+<p>Two traders, Little Mercy and Quiet Lamp, fly their own routes between the stations, moor off them for a while and fly back, so there is docking traffic out in space. Everything else (the rocks, the stations' outsides and the starfield) sits completely still.</p>
 <p class="label">Andreas said</p>
 <blockquote>the stations and the asterorids and like everything except me and npc ships are a bit to static</blockquote>
 <p class="label">What good looks like</p>
@@ -346,7 +322,6 @@
     <ul>
       <li>rocks drifting and turning slowly</li>
       <li>station rings turning and lights blinking</li>
-      <li>docking traffic</li>
       <li>a little depth in the starfield</li>
     </ul>
   </li>
@@ -363,16 +338,6 @@
 <figure><img src="known-changes/lane-line-over-station.jpg" alt="Kettle Dock docked view with a teal lane line drawn across the station, near the greenhouse domes and the Office module." loading="lazy"><figcaption>Newest build, docked at Kettle Dock: the teal lane line cuts through the station.</figcaption></figure>
 <p class="label">What good looks like</p>
 <p>Route and lane lines never draw over the station you are docked at. They pass behind it, fade out near it, or hide while you are docked.</p>
-</article>
-
-<article class="item low">
-<h3>Flying is as smooth as being docked <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Compare how smooth the game runs in flight with how it runs docked, on the same computer.</p>
-<p class="label">What the player sees now</p>
-<p>In the newest build, the measured frame rate was 26 frames per second in flight against 34 docked. The build before it reached about 46. There is no screenshot of the effect.</p>
-<p class="label">What good looks like</p>
-<p>Flight is at least as smooth as the docked view and never feels heavy. This is a calm game with no reason to stutter.</p>
 </article>
 
 <!-- ============================================================ -->

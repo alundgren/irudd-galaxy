@@ -1,0 +1,109 @@
+# Traffic: Little Mercy waits moored off Lantern Dock, sets off on her own after her
+# wait, and is bumped aside when the player's ship flies across her route; she still
+# reaches her mooring off Cinder Kiln. Quiet Lamp flies the long way round the field,
+# moors off Cinder Kiln, flies back and moors off Lantern Dock. The traders' arrivals
+# never dock the player, and nothing takes damage.
+seed = 7
+ticks = 1500
+
+[[input]]
+tick = 1
+name = "right"
+payload = { down = true }
+
+[[input]]
+tick = 16
+name = "right"
+payload = { down = false }
+
+[[input]]
+tick = 140
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 290
+name = "ahead"
+payload = { down = false }
+
+[[expect]]
+tick = 60
+entity = "mercy"
+component = "trader"
+field = "moored"
+equals = true
+
+[[expect]]
+tick = 120
+entity = "mercy"
+component = "engine.steer"
+field = "mode"
+equals = "follow"
+
+# Unbumped she would be at y -38.6 here; the ship's push moved her south.
+[[expect]]
+tick = 210
+entity = "mercy"
+component = "engine.position"
+field = "y"
+at_most = -39.5
+
+[[expect]]
+tick = 400
+entity = "mercy"
+component = "trader"
+field = "moored"
+equals = true
+[[expect]]
+tick = 400
+entity = "mercy"
+component = "engine.position"
+field = "x"
+at_least = 29.9
+[[expect]]
+tick = 400
+entity = "mercy"
+component = "engine.position"
+field = "x"
+at_most = 30.1
+
+[[expect]]
+tick = 450
+entity = "lamp"
+component = "trader"
+field = "leg"
+equals = "out"
+[[expect]]
+tick = 450
+entity = "lamp"
+component = "trader"
+field = "moored"
+equals = true
+
+[[expect]]
+tick = 700
+entity = "lamp"
+component = "trader"
+field = "leg"
+equals = "home"
+[[expect]]
+tick = 700
+entity = "lamp"
+component = "trader"
+field = "moored"
+equals = false
+
+[[expect]]
+entity = "lamp"
+component = "trader"
+field = "moored"
+equals = true
+[[expect]]
+entity = "lamp"
+component = "engine.position"
+field = "x"
+at_most = -38.9
+
+[[expect]]
+facts = "docked"
+equals = 0

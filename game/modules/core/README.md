@@ -6,8 +6,9 @@ and Lantern Dock wants plate to build a galley. Once the galley is built, its
 cook sells rations that the Kiln's crews buy. The hold takes six units of any
 mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
-speed, within the hull's power and mass. The field is small and finite (36 ore);
-there is no timed objective.
+speed, within the hull's power and mass. Two traders fly their own routes between
+the stations while you work. The field is small and finite (36 ore); there is no
+timed objective.
 
 Use installed engine/GM 0.7.0 or newer. This version was authored and verified
 with `0.7.0-628121f7de13-dev`. No engine build is needed.
@@ -18,8 +19,9 @@ galaxy play --modules game/modules
 
 | Control | Action |
 | --- | --- |
-| W / S | Forward / reverse thrust; release to stop |
-| A / D | Turn left / right |
+| W / S | Forward / reverse thrust; let go and the ship coasts to a stop in a second |
+| A / D | Turn left / right, 180° a second |
+| W, A, S or D docked | Fly straight off the dock: no separate undock step |
 | Shift | Boost |
 | Space | Approach and mine the nearest rock with ore |
 | E | Dock at the nearest berth |
@@ -27,7 +29,7 @@ galaxy play --modules game/modules
 | M | Docked: open the exchange |
 | Enter | In a room that buys: sell everything it buys |
 | B, Esc or right-click | Back from a room to the whole station, or shut the log |
-| U | Docked: launch |
+| U | Docked: launch without flying on |
 | L | Open or close the ship log |
 | Drag | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off |
 | Mouse wheel | Zoom in flight; scroll the log |
@@ -36,9 +38,55 @@ galaxy play --modules game/modules
 
 Everything is also a click: the order buttons in flight, the station's buildings
 and their signs, the station key, Sell, Buy, Back, Launch and the log. Click a
-keeper to hear them. Manual thrust or turning cancels an order. Rocks and
-station hulls are solid; orders steer toward their targets, so use manual
+keeper to hear them. Manual thrust or turning cancels an order. Rocks,
+station hulls and the traders are solid; orders steer toward their targets, so use manual
 flight to clear an obstruction when approaching from the far side of a station.
+
+## Flight and traffic
+
+The ship flies by the locked flight preset (#47), at the core's view of 64 units:
+top speed 20 units a second (0.3 view heights), thrust 30 and braking 23.3 units a
+second squared, turns at 180° a second, and keeps a little inertia (0.4): the nose
+swings through a turn while the old heading carries on for a moment, and letting go
+of thrust coasts to a stop in exactly a second. From rest W flies a straight line
+wherever the nose points. Moored, the ship faces the station; it leaves facing away,
+so W, A, S or D flies it off on the tick the key is pressed, and U or Launch leaves
+the berth without flying on (`scripts/launch.luau`). The view still leaves the station
+through the engine's one-second fade with a title card naming the place (`core.reach`,
+as the reach is not a room); a glide back out to the ship waits on the engine.
+
+Everything that looks solid is solid, and nothing takes damage: ships, traders,
+rocks and stations bump and push. A ship that flies into a rock or a station
+stops on its drawn surface and glances off round it; a trader the ship flies into is
+pushed aside and steers back onto its route. Rocks and stations never move, so
+every mining spot stays where it is. A Mine order parks the ship on the rock's drawn
+surface (`range = 0`).
+
+Two traders work the reach (`scripts/traffic.luau`): Little Mercy, a hauler, runs
+along the south between moorings off Lantern Dock's and Cinder Kiln's far sides, and
+Quiet Lamp, a lamp launch, flies the long way round the north of the field between
+the stations' outer sides. Each flies its leg's waypoints without stopping, docks
+onto its mooring facing the station, waits there eight seconds and flies back.
+Their routes and moorings keep clear of the rocks and the player's berths, so they
+never block a mining spot or a berth. They don't trade: markets move only on the
+player's visits. Saves keep where they are and what they are doing.
+
+A trader's name label (`scripts/labels.luau`) shows only where it reads cleanly:
+out in open space within 12 units of the ship, clear of the stations (17 units from
+their centres) and of another trader's label. It sits on the side of the trader away
+from your ship, so it never covers it. Scripts can't see the zoom, so 12 units is what
+stays clear of the orders, status, log button and message at the default zoom and
+wider, at 1280x720 and 1024x576; zoomed right in, a label could still reach them.
+Pointing at a trader always names it and its run.
+
+Measured on films of the ship's probes (`galaxy film --probes-only`, then
+`galaxy-gm film show`): turns at 180.1° a second; top speed 20, 95% of it 0.67 seconds
+after W; letting go at full speed coasts 9.7 units and stops 1.0 seconds later; in a
+90° turn under thrust the course lags the nose by up to 27° and tracks it again a
+third of a second after the turn ends. The mining approach parks 0.004 units from the
+rock's surface. Cutting a
+hold of six shrinks the rock and opens that to 0.29 units; the next Mine order
+closes it again.
 
 ## The station up close
 
@@ -124,7 +172,7 @@ its rack, priced, so the first visit already shows what to aim for:
 | --- | --- | --- | --- | --- | --- |
 | Cutting lens | Drill mount | 90 cr | mines 2 ore a second instead of 1 | 2 | 1 |
 | Hold pods | Hold | 70 cr | the hold carries 9 instead of 6 | 0 | 3 |
-| Tuned thrusters | Engine | 110 cr | top speed 15 instead of 12 | 2 | 1 |
+| Tuned thrusters | Engine | 110 cr | top speed 25 instead of 20 | 2 | 1 |
 
 The hull has 3 power: whatever is fitted always runs, so a part that would draw
 more is refused, and the lens and the thrusters can't run together. It carries 3
@@ -158,9 +206,9 @@ saves and resumes.
 
 Measured on the headless route `tests/fit.inputs` (seed 7): the beam cuts once a
 second, so a hold of 6 takes six cuts bare and three with the lens, and 9 with the
-pods take five. The run from the
-Kiln's berth to Lantern Dock's takes 3.8 seconds bare or with the lens, 4.1 with the
-lens and pods (top speed 10.8, turns 162° a second) and 3.4 with the thrusters. The
+pods take five. From launching at the Kiln to docking at Lantern Dock takes 2.8
+seconds bare or with the lens, 2.9 with the lens and pods (top speed 18, turns 162° a
+second) and 2.6 with the thrusters. The
 first Kiln sale (97 cr) pays for the lens; the second for the pods.
 
 ## The keepers talk
@@ -233,7 +281,8 @@ economy code are not copied; the price formula, recount rule and growth from
 delivered goods follow the slice's behaviour. All models come from committed `recipes/` through
 `galaxy-gm model make game/modules/core`; the generated glTF files are
 committed. The engine owns flight, collision, steering, travel, walks, talk and
-hovers. Luau handles player intent, once-per-second extraction and skiff trips,
+hovers. Luau handles player intent, the traders' orders and their labels,
+once-per-second extraction and skiff trips,
 trade rules and pricing, the galley's build, the ship's fit, the log and the
 module-styled screens. Each station is one place
 whose set is the station up close; its buildings, keepers and skiff stand in it.
@@ -248,12 +297,21 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are fifteen Luau rule tests (hold, depletion, prices against stock and their
+There are twenty-one Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
 every rule's refusal and its words, the budgets in plain words, and mining two a
-second) and fifteen scenarios: both complete station trips, collision under held thrust, refused
+second, and in `tests/labels.luau` where traders' labels show: near the ship, never
+far off, over a station, while moored, twice in a crowd or while docked, and on the
+side away from your ship) and seventeen
+scenarios: both complete station trips, collision under held thrust (stopped on the
+rock's surface, then glancing off round it, the rock unmoved), flying straight off the
+dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
+away from the station in a straight line and coasts to a stop in a second, D leaves
+Cinder Kiln turning), traffic (`traffic.toml`: Little Mercy waits, sets off, is bumped
+aside by the ship and still moors off Cinder Kiln; Quiet Lamp moors there, flies back
+and moors off Lantern Dock; their arrivals never dock the player), refused
 out-of-place actions, repeat trips through depletion with an empty-sale check,
 the station itself (rooms from signs and M, refused sales outside the exchange,
 a building of another station, the log held shut inside a room, keeper talk, the
@@ -285,7 +343,7 @@ then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Four bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes, and so is `fit.inputs`. Five bots use real screen clicks: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
@@ -299,11 +357,15 @@ ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real d
 held with no credits and every socket's refusal, a click on the resting Buy 1 with a
 full hold (reported in `resting_clicks`, nothing bought), the lens fitted, the
 thrusters refused for power while held, Orrin's talk, mining with the lens, the pods
-fitted over the free mass, and the pods refused coming off with nine aboard. All four
-declare 1280x720 physical pixels. The GM test
+fitted over the free mass, and the pods refused coming off with nine aboard, and
+`flight.inputs` flies with the traffic (`flight.bot.toml`, 720 ticks, nine notes): across
+Little Mercy's route with her label showing, bumping her aside (her label below her,
+clear of your ship), pointing at her, docking
+at Lantern Dock, flying straight off with W, coasting to a stop and mining from the
+rock's surface. All five declare 1280x720 physical pixels. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-all four run there without problems.
+all five run there without problems.
 
 ```sh
 galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 1000 --size 1280x720
@@ -339,7 +401,10 @@ A save taken in the fitting cradle with the lens and pods fitted (`fit.inputs` t
 tick 935) resumes for 525 ticks to the same hash as an uninterrupted 1460-tick run,
 and reopens in the window with both parts on and the hold at 9. A save from before
 the cradle existed still loads and plays, without the cradle; start a new game to
-see it. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
+see it. A save from before the traders likewise loads and plays without them, and its
+ship keeps the old, slower flight numbers; start a
+new game for both. A save taken while a trader is mid-route, mid-bump or moored resumes
+to the same hash as an uninterrupted run. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
 and play's `--ticks` are absolute world ticks, including when resuming. The
 scenario schema cannot express save/load steps, so these checks run through the
 installed CLI separately.
@@ -359,6 +424,12 @@ take it only says `Drop here`: it can't yet say what the drop will change, so th
 mass cost of the pods shows in the budget only after the drop. The cradle's sign
 sits low beside it, on the rim side, so it clears the dockmaster's and Orrin's
 name signs at both window sizes.
+
+The traffic is the thinnest living world: two traders on fixed routes that never
+trade, talk or change anything, so nothing out in space reacts to what you do.
+Rocks, the stations' outsides and the sky still sit perfectly still. A trader's
+label shows only within 12 units of your ship, so most traders pass unnamed until
+you point at them.
 
 The station view is now the agreed design rather than a deck and a separate
 market room, and the two stations differ in their towers and paint. Docking

@@ -13,7 +13,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -27,7 +27,7 @@ payload = { station = "core.kiln" }
 tick = 440
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 404 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
 [[input]]
 tick = 470
 name = "core.open"
@@ -419,7 +419,7 @@ tick = 935
 entity = "ship"
 component = "engine.flight"
 field = "speed"
-equals = 10.8
+equals = 18.0
 
 [[expect]]
 tick = 935
@@ -482,7 +482,7 @@ tick = 1455
 entity = "ship"
 component = "engine.flight"
 field = "speed"
-equals = 12.0
+equals = 20.0
 
 [[expect]]
 tick = 1455

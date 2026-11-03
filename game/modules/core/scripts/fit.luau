@@ -14,7 +14,7 @@ local fit = {
     FLOOR = 0.5, -- never slower than this share
     HOLD = 6, -- the bare hull's hold
     MINE = 1, -- ore a second the bare hull's beam cuts
-    SPEED = 12, -- the bare hull's top speed, world units a second
+    SPEED = 20, -- the bare hull's top speed, world units a second
     TURN = 180, -- the bare hull's turn rate, degrees a second
     -- The sockets, in the order the fitting room shows them.
     SOCKETS = {
@@ -93,13 +93,13 @@ function fit.mass_text(t)
     return s .. ", " .. (fit.FREE_MASS - t.mass) .. " more before it slows you"
 end
 
--- "Hold 9 · mines 1 a second · top speed 13.5 · turns 162° a second"
+-- "Hold 9 · mines 1 a second · top speed 18 · turns 162° a second"
 function fit.ship_text(t)
     return "Hold " .. t.hold .. " · mines " .. t.mine .. " a second · top speed " .. fit.num(t.top)
         .. " · turns " .. fit.num(t.turn) .. "° a second"
 end
 
--- What a part does, in numbers: "mines 2 a second", "hold +3", "top speed +3".
+-- What a part does, in numbers: "mines 2 a second", "hold +3", "top speed +5".
 function fit.effect(p)
     local parts = {}
     if p.mine > 0 then table.insert(parts, "mines " .. (fit.MINE + p.mine) .. " a second") end

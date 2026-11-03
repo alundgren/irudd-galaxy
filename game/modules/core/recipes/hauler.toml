@@ -1,0 +1,29 @@
+about = "A stubby trader's hauler: cargo capsules along its back and a broad engine pair"
+[[part]]
+name = "hull"
+shape = "body"
+length = 3.4
+width = 1.7
+height = 0.9
+nose = 0.35
+paint = "#6f9aa3"
+[[part]]
+name = "cargo"
+shape = "tanks"
+length = 1.5
+radius = 0.32
+count = 2
+at = [-0.4, 0, 0.45]
+paint = "#b7c9c2"
+[[part]]
+name = "cabin"
+shape = "dome"
+radius = 0.5
+at = [1.0, 0, 0.3]
+paint = "glass"
+[[part]]
+name = "engines"
+shape = "nozzle"
+radius = 0.42
+at = [-1.6, 0.5, 0]
+mirror = true

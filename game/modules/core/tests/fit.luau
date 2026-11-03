@@ -6,7 +6,7 @@ local function rack()
     return {
         { id = "core.lens", name = "Cutting lens", socket = "drill", price = 90, power = 2, mass = 1, hold = 0, mine = 1, speed = 0, owned = false, fitted = false },
         { id = "core.pods", name = "Hold pods", socket = "hold", price = 70, power = 0, mass = 3, hold = 3, mine = 0, speed = 0, owned = false, fitted = false },
-        { id = "core.thrusters", name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, hold = 0, mine = 0, speed = 3, owned = false, fitted = false },
+        { id = "core.thrusters", name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, hold = 0, mine = 0, speed = 5, owned = false, fitted = false },
     }
 end
 
@@ -14,7 +14,7 @@ return {
     bare_hull = function()
         local t = fit.totals(rack())
         assert(t.hold == 6 and t.mine == 1 and t.power == 0 and t.mass == 0)
-        assert(t.top == 12 and t.turn == 180, "the bare hull flies as before")
+        assert(t.top == 20 and t.turn == 180, "the bare hull flies as before")
     end,
     parts_add_up = function()
         local parts = rack()
@@ -22,11 +22,11 @@ return {
         local t = fit.totals(parts)
         assert(t.hold == 9 and t.mine == 2 and t.power == 2 and t.mass == 4)
         -- One unit over the free mass: a tenth slower, and turns a tenth wider.
-        assert(t.over == 1 and math.abs(t.top - 10.8) < 1e-9 and math.abs(t.turn - 162) < 1e-9)
+        assert(t.over == 1 and math.abs(t.top - 18) < 1e-9 and math.abs(t.turn - 162) < 1e-9)
         -- Within the free mass, nothing is lost.
         parts[1].fitted = false
         local pods = fit.totals(parts)
-        assert(pods.over == 0 and pods.top == 12 and pods.turn == 180)
+        assert(pods.over == 0 and pods.top == 20 and pods.turn == 180)
         -- Never below half, however heavy.
         assert(fit.totals({ { id = "x", fitted = true, power = 0, mass = 20, hold = 0, mine = 0, speed = 0 } }).factor == 0.5)
     end,
@@ -59,9 +59,9 @@ return {
         parts[1].fitted, parts[2].fitted = true, true
         local t = fit.totals(parts)
         assert(fit.mass_text(t) == "Mass 4: the hull carries 3 freely. 1 over: 10% slower, wider turns")
-        assert(fit.ship_text(t) == "Hold 9 · mines 2 a second · top speed 10.8 · turns 162° a second")
+        assert(fit.ship_text(t) == "Hold 9 · mines 2 a second · top speed 18 · turns 162° a second")
         assert(fit.effect(parts[1]) == "mines 2 a second" and fit.cost(parts[1]) == "power 2 · mass 1")
-        assert(fit.effect(parts[3]) == "top speed +3" and fit.cost(parts[2]) == "power 0 · mass 3")
+        assert(fit.effect(parts[3]) == "top speed +5" and fit.cost(parts[2]) == "power 0 · mass 3")
     end,
     the_lens_mines_faster = function()
         assert(rules.transfer(0, 12, 6, 2) == 2)
