@@ -21,6 +21,8 @@ pub struct ScreenStyle {
     pub track: Color,
     pub handle: Color,
     pub handle_active: Color,
+    /// Outline of a hovered `ui.target`'s model.
+    pub highlight: Color,
     pub radius: f32,
     pub border_px: f32,
     pub frame_padding: f32,
@@ -30,6 +32,8 @@ pub struct ScreenStyle {
     pub handle_radius: f32,
     pub socket_dash: f32,
     pub hint_border_px: f32,
+    /// Width of that outline, logical pixels.
+    pub highlight_px: f32,
 }
 
 impl Default for ScreenStyle {
@@ -51,6 +55,7 @@ impl Default for ScreenStyle {
             track: Color::hex(0xdddddd),
             handle: Color::hex(0x666666),
             handle_active: Color::hex(0x444444),
+            highlight: Color::hex(0x2f6fdb),
             radius: 8.0,
             border_px: 1.0,
             frame_padding: 16.0,
@@ -60,6 +65,7 @@ impl Default for ScreenStyle {
             handle_radius: 8.0,
             socket_dash: 6.0,
             hint_border_px: 2.0,
+            highlight_px: 6.0,
         }
     }
 }
@@ -76,6 +82,7 @@ impl ScreenStyle {
             ("handle_radius", self.handle_radius, 0.0, 24.0),
             ("socket_dash", self.socket_dash, 0.0, 16.0),
             ("hint_border_px", self.hint_border_px, 0.0, 4.0),
+            ("highlight_px", self.highlight_px, 2.0, 12.0),
         ] {
             if !value.is_finite() || !(lo..=hi).contains(&value) {
                 return Err(format!(
@@ -104,6 +111,7 @@ impl ScreenStyle {
             ("track", self.track),
             ("handle", self.handle),
             ("handle_active", self.handle_active),
+            ("highlight", self.highlight),
         ]) {
             if color.a != 1.0 {
                 return Err(format!("[screen] {field} must be opaque"));

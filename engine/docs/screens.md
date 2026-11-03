@@ -56,6 +56,13 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
   widgets outside the viewport or parent, sibling overlaps, overlaps of painted widgets
   from separate screens, and missing anchors. Overlap findings name both widget paths.
   Unknown properties and undeclared button events fail parsing at their widget path.
+- `align` places a widget against the window's edges instead of its parent's flow:
+  `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom` or
+  `bottom-right`. `x` and `y` are then margins from those edges (offsets from the middle
+  on a centred axis), and the widget keeps its own width and height. A status panel at
+  `top-right` stays in that corner at any window size and display scale, so play, bot
+  runs, audit and film measure viewport problems against the size actually drawn. A
+  widget is anchored or aligned, not both, and grid cells flow.
 - `galaxy-gm check` runs the module's screens after the first tick at 1280x720, without a
   GPU. This checks the initial state; branches opened later are also checked while playing.
 
@@ -280,8 +287,8 @@ handle_min = 44.0
 ```
 
 The colour fields are `paper`, `panel`, `button`, `text`, `gain`, `loss`, `border`,
-`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `track`, `handle` and
-`handle_active`. Surface and text colours must be opaque: the arbitrary world behind
+`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `track`, `handle`,
+`handle_active` and `highlight` (the outline of a hovered target's model). Surface and text colours must be opaque: the arbitrary world behind
 them cannot undermine contrast. Linear-sRGB luminance checks every text/gain/loss
 against every possible text-bearing surface at 4.5:1, including nested deltas and
 both drag verdicts. Both handle states must contrast with the track at 3:1. Failures
@@ -289,7 +296,7 @@ name `[screen]` and both fields. An invalid table never reaches painting; playin
 shows its diagnostic and uses the last valid supplier or the neutral default.
 
 Sizes are logical pixels: `radius` and `handle_radius` (0-24), `border_px` and
-`hint_border_px` (0-4), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
+`hint_border_px` (0-4), `highlight_px` (2-12), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
 (24-48), `handle_min` (44-80) and `socket_dash` (0-16; zero is solid). Non-finite or
 out-of-range values fail check. `target_min` is a checked floor for actual targets,
 not a resizer. A scrolling viewport must fit the minimum handle. Explicit widget
@@ -340,6 +347,15 @@ store. Per-widget colours would duplicate the look in every script and make whol
 contrast checks impossible without enumerating runtime branches. Skin scripts or
 module-owned motion would move frame work into Luau and change the shared behaviour.
 
+## Edges instead of a viewport size
+
+`align` was chosen over passing the window size to `ctx`: a size in the context would be a
+tracked read, so every resize would call Luau again and authors would redo edge
+arithmetic in each script. Alignment keeps resizing in Rust, beside the anchor
+placement, and the readability checks see the same rectangles at every size.
+`crates/view/tests/targets.rs` lays the generic fixture out at 1280x720 and 1024x576 and
+checks the three edge widgets against both.
+
 ## Hovers and recorded point inspection
 
 Every widget accepts `hover = "A label"`. `ui.hover { id = "help", anchor =
@@ -389,6 +405,52 @@ There is no timer or cached target to save, and no change to world hashes or sim
 inputs. A tooltip entity or separate inspector picker would duplicate that contract.
 
 Bot `[[pointer]] action = "move"` works without a drag. `widget` names an ordinary
-widget, an anchored hover ID, or `point:x,y`. Repeated moves track a moving target;
+widget, an anchored hover or target ID, or `point:x,y`. Repeated moves track a moving target;
 moving to empty space clears it. The life and talk demos declare hovers. The recorded
 motion recipe is in [Motion tools](motion-tools.md).
+
+## Clickable models
+
+`ui.target { id, anchor, on, payload, text }` is a hover declaration that a click can
+press. Its anchor uses the same forms as `ui.hover` (`being.<id>`, `being.<id>.<part>`,
+`publisher#name`, ...), and the same picking: the nearest posed mesh surface under the
+pointer, or a 44px box for a model-less anchor that no nearer geometry hides. A left
+click on it records `on` with `payload` and source `ui`, exactly like a button, applied
+on the next tick. `text` is its optional hover label. Painted widgets are hit-tested
+first, so a panel or label in front blocks the click; an active drag or a travel cut
+does too. A target comes before talk-speaker picking when both share a model.
+
+While the pointer is over a target, the view lifts that entity's model by a twentieth of
+its largest extent, draws its outline in the `[screen]` `highlight` colour at
+`highlight_px`, and the window shows a hand pointer. The pointer is a hand over buttons,
+bubbles and drag sources too. Picking uses the resting, unlifted mesh, so lifting never
+moves the target out from under the pointer. All of this is derived each frame from the
+presentation pointer: notes, audit and film redraw a mid-hover frame exactly, and no
+world state, Luau call or timer is involved.
+
+Bot `[[click]] widget = "<target id>"` and `[[pointer]] action = "move"` find a visible
+point on the target's model through the same picking, and fail when it is covered or
+off screen. `look` reports a target with a label like a hover.
+
+From the repository root, with a dev build installed:
+
+```sh
+galaxy-gm --build <name> check engine/tests/play/targets/demo
+galaxy --build <name> play --modules engine/tests/play/targets --inputs engine/tests/play/targets-inputs.toml --ticks 210
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+galaxy-gm --build <name> film <session>/recording.json --from 36 --to 66 --size 1280x720 --out target-film
+```
+
+The bot glides into the hall, hovers and clicks the first figure (its camera glides to
+frame it), lands that glide with a click, goes back with Esc, frames the second figure,
+goes back with a right-click, shrinks the window to 1024x576 and leaves with Esc. A
+painted label covers the second figure's face; clicks there do nothing. Status, key
+strip and log stay at their edges throughout. `crates/view/tests/targets.rs` runs the
+same journey headlessly and redraws all six notes from a replay.
+
+A separate pickable-object component was rejected: what can be clicked depends on the
+screen's state (a building is clickable from the dock view, not from inside a room),
+which screens already express. A per-frame Luau hover callback would break the event-only
+screen contract. Lift and outline are fixed engine behaviour; their colour and width are
+module style.

@@ -1,0 +1,41 @@
+[entities.state]
+choice = { picked = "", backs = 0 }
+
+# Outside: no room, so the follow camera on `eye` shows it.
+[entities.yard]
+"engine.place" = { parent = "", width = 40, depth = 40 }
+[entities.eye]
+"engine.position" = {}
+"engine.camera" = { view = 30, tilt = 30 }
+[entities.post]
+"engine.being" = { player = false }
+"engine.location" = { place = "targets.yard" }
+"engine.position" = { x = 0, y = 4 }
+"engine.model" = { model = "targets.being", scale = 2 }
+
+# Inside: a room that glides its camera, on arrival and when its camera node changes.
+[entities.hall]
+"engine.place" = { parent = "targets.yard", arrival = "targets.hall_entry", width = 10, depth = 8 }
+"engine.room" = { title = "Hall", glide = 0.8 }
+"engine.model" = { model = "targets.hall" }
+[entities.hall_entry]
+"engine.spot" = { place = "targets.hall", name = "entry" }
+[entities.hall_left]
+"engine.spot" = { place = "targets.hall", name = "left" }
+[entities.hall_right]
+"engine.spot" = { place = "targets.hall", name = "right" }
+
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "targets.yard" }
+"engine.position" = {}
+[entities.first]
+"engine.being" = { player = false }
+"engine.location" = { place = "targets.hall", spot = "targets.hall_left" }
+"engine.position" = {}
+"engine.model" = { model = "targets.being" }
+[entities.second]
+"engine.being" = { player = false }
+"engine.location" = { place = "targets.hall", spot = "targets.hall_right" }
+"engine.position" = {}
+"engine.model" = { model = "targets.being" }

@@ -11,8 +11,9 @@ use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
 
-pub const KINDS: [&str; 13] = [
+pub const KINDS: [&str; 14] = [
     "hover",
+    "target",
     "text",
     "button",
     "list",
@@ -26,6 +27,26 @@ pub const KINDS: [&str; 13] = [
     "drag_source",
     "drop_target",
 ];
+
+/// Edges a widget can be placed against: `x`/`y` are margins from that edge of the
+/// window, or offsets from its middle on a centred axis.
+pub const ALIGNS: [&str; 9] = [
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+];
+
+/// Declarations anchored to a thing in the world rather than painted: `hover` labels it,
+/// `target` also makes it clickable.
+pub fn anchored(kind: &str) -> bool {
+    matches!(kind, "hover" | "target")
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Widget {
@@ -43,6 +64,8 @@ pub struct Widget {
     pub explicit_pad: bool,
     pub gap: f32,
     pub anchor: Option<String>,
+    /// One of [`ALIGNS`]: placed against the window's edges, detached from flow.
+    pub align: Option<String>,
     pub on: Option<String>,
     pub payload: Fields,
     pub children: Vec<Widget>,
@@ -233,7 +256,7 @@ fn read(
             pair.map_err(|_| bad("properties must have names; put widgets in children"))?;
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
-            "on", "payload", "children", "columns", "value", "accepts", "icon", "hover",
+            "on", "payload", "children", "columns", "value", "accepts", "icon", "hover", "align",
         ]
         .contains(&key.as_str())
         {
@@ -264,12 +287,16 @@ fn read(
                 .ok_or_else(|| bad("on must name one of this module's declared events"))
         })
         .transpose()?;
-    if matches!(kind.as_str(), "button" | "drop_target") && on.is_none() {
-        return Err(bad("button/drop_target needs an on event"));
+    if matches!(kind.as_str(), "button" | "drop_target" | "target") && on.is_none() {
+        return Err(bad("button/drop_target/target needs an on event"));
     }
-    if !matches!(kind.as_str(), "button" | "drop_target" | "scroll") && on.is_some() {
+    if !matches!(
+        kind.as_str(),
+        "button" | "drop_target" | "scroll" | "target"
+    ) && on.is_some()
+    {
         return Err(bad(
-            "only buttons, drop targets and scrolls have an on event",
+            "only buttons, drop targets, targets and scrolls have an on event",
         ));
     }
     let payload: Fields = match t.get::<Value>("payload")? {
@@ -333,7 +360,7 @@ fn read(
     }
     if matches!(
         kind.as_str(),
-        "text" | "button" | "delta" | "icon" | "drag_source" | "hover"
+        "text" | "button" | "delta" | "icon" | "drag_source" | "hover" | "target"
     ) && !children.is_empty()
     {
         return Err(bad("leaf widgets have no children"));
@@ -358,8 +385,17 @@ fn read(
             Ok::<_, mlua::Error>(format!("{entity}#{name}"))
         })
         .transpose()?;
-    if kind == "hover" && anchor.is_none() {
-        return Err(bad("hover needs an anchor"));
+    if anchored(&kind) && anchor.is_none() {
+        return Err(bad("hover and target need an anchor"));
+    }
+    let align = string("align")?;
+    if let Some(a) = &align {
+        if !ALIGNS.contains(&a.as_str()) {
+            return Err(bad(&format!("align must be one of {}", ALIGNS.join(", "))));
+        }
+        if anchor.is_some() || anchored(&kind) {
+            return Err(bad("a widget is either anchored or aligned, not both"));
+        }
     }
     let columns = num("columns")?.unwrap_or(2.0);
     if columns.fract() != 0.0 || !(1.0..=64.0).contains(&columns) {
@@ -435,6 +471,7 @@ fn read(
         explicit_pad: num("pad")?.is_some(),
         gap: num("gap")?.unwrap_or(12.0),
         anchor,
+        align,
         on,
         payload,
         children,

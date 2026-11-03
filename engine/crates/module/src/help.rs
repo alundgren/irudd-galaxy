@@ -490,7 +490,7 @@ static GAME: &[Command] = &[
         tool: Tool::Game,
         path: "play",
         synopsis: "--modules <dir> [options]",
-        answers: "Play the modules in a window. Esc quits, the wheel scrolls a list or zooms, F8 takes a note.",
+        answers: "Play the modules in a window. Esc quits (Shift+Esc when a module binds Esc), the wheel scrolls a list or zooms, F8 takes a note.",
         about: "Every session records itself into a new folder under the sessions folder: \
                 recording.json (written at every note and when the window closes), save.db \
                 (the world at the end) and notes/0001.png (the frame shown at each note). F8 \

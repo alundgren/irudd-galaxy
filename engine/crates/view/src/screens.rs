@@ -14,7 +14,7 @@ use galaxy_render::{
 };
 use galaxy_script::{
     ScriptSet,
-    screens::{Screen, Widget},
+    screens::{Screen, Widget, anchored},
 };
 use galaxy_sim::scenario::{Click, ClickTarget};
 use galaxy_sim::{Input, World};
@@ -265,7 +265,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
     if w.kind == "scroll" {
         padded.pad = w.pad.max(12.0);
     }
-    if w.kind == "hover" {
+    if anchored(&w.kind) {
         padded.width = Some(44.0);
         padded.height = Some(44.0);
     }
@@ -335,21 +335,17 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         };
     } else {
         let row = w.kind == "row";
-        let flowing = w
-            .children
-            .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none())
-            .count();
+        let flowing = w.children.iter().filter(|c| !detached(c)).count();
         let fixed: f32 = w
             .children
             .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none())
+            .filter(|c| !detached(c))
             .filter_map(|c| c.width)
             .sum();
         let flexible = w
             .children
             .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none() && c.width.is_none())
+            .filter(|c| !detached(c) && c.width.is_none())
             .count();
         let share = if row {
             ((inner - fixed - w.gap * flowing.saturating_sub(1) as f32) / flexible.max(1) as f32)
@@ -361,7 +357,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         let mut cross = 0.0f32;
         for child in &w.children {
             let mut b = layout(child, share, measure, style);
-            let detached = child.anchor.is_some() || child.x.is_some() || child.y.is_some();
+            let detached = detached(child);
             let p = if detached {
                 Vec2::ZERO
             } else if row {
@@ -404,7 +400,7 @@ fn place(
     problems: &mut Vec<String>,
 ) {
     let w = &b.widget;
-    if w.kind == "hover" {
+    if anchored(&w.kind) {
         if let Some(p) = w.anchor.as_ref().and_then(|a| anchors.get(a)) {
             b.rect.x = p.x - 22.0;
             b.rect.y = p.y - 22.0;
@@ -419,6 +415,9 @@ fn place(
     }
     if let Some(y) = w.y {
         pos.y = origin.y + y;
+    }
+    if let Some(align) = &w.align {
+        pos = aligned(align, Vec2::new(b.rect.w, b.rect.h), w.x, w.y, size);
     }
     if let Some(anchor) = &w.anchor {
         match anchors.get(anchor) {
@@ -457,7 +456,7 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 }
 
 fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Vec<String>) {
-    if b.widget.kind == "hover" {
+    if anchored(&b.widget.kind) {
         return;
     }
     let mut problem = |message: &str| problems.push(format!("{}: {message}", b.widget.path));
@@ -529,23 +528,21 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         }
     }
     for (i, c) in b.children.iter().enumerate() {
-        if b.widget.kind == "grid"
-            && (c.widget.anchor.is_some() || c.widget.x.is_some() || c.widget.y.is_some())
-        {
+        if b.widget.kind == "grid" && detached(&c.widget) {
             problems.push(format!(
-                "{}: grid cells must flow, without anchors or x/y",
+                "{}: grid cells must flow, without anchors, align or x/y",
                 c.widget.path
             ));
         }
-        if c.widget.anchor.is_none() && !contains(parent, c.rect) {
+        if c.widget.anchor.is_none() && c.widget.align.is_none() && !contains(parent, c.rect) {
             problems.push(format!(
                 "{}: outside its parent {}",
                 c.widget.path, b.widget.path
             ));
         }
         for other in &b.children[..i] {
-            if c.widget.kind != "hover"
-                && other.widget.kind != "hover"
+            if !anchored(&c.widget.kind)
+                && !anchored(&other.widget.kind)
                 && overlaps(c.rect, other.rect)
             {
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
@@ -672,6 +669,35 @@ fn draw(
         draw(child, overlay, backing, state, style);
     }
     scrolling::draw(b, overlay, state);
+}
+
+/// Out of its parent's flow: anchored, aligned or explicitly placed.
+fn detached(w: &Widget) -> bool {
+    w.anchor.is_some() || w.align.is_some() || w.x.is_some() || w.y.is_some()
+}
+
+/// The top-left corner of a `size` box placed against the window's `align` edges, with
+/// `x`/`y` as margins from those edges (or offsets from the middle on a centred axis).
+fn aligned(align: &str, size: Vec2, x: Option<f32>, y: Option<f32>, window: Vec2) -> Vec2 {
+    let (x, y) = (x.unwrap_or(0.0), y.unwrap_or(0.0));
+    let (vertical, horizontal) = match align {
+        "center" => ("middle", "center"),
+        "left" | "right" => ("middle", align),
+        "top" | "bottom" => (align, "center"),
+        _ => align.split_once('-').unwrap_or(("top", "left")),
+    };
+    Vec2::new(
+        match horizontal {
+            "left" => x,
+            "right" => window.x - size.x - x,
+            _ => (window.x - size.x) * 0.5 + x,
+        },
+        match vertical {
+            "top" => y,
+            "bottom" => window.y - size.y - y,
+            _ => (window.y - size.y) * 0.5 + y,
+        },
+    )
 }
 
 fn leaf(kind: &str) -> bool {

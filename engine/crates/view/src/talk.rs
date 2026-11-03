@@ -53,6 +53,7 @@ pub fn widgets(world: &World) -> Vec<Widget> {
                 pad: 16.0,
                 explicit_pad: false,
                 gap: 12.0,
+                align: None,
                 anchor: Some(talk::anchor(f)),
                 on: Some(TALK_NEXT.into()),
                 payload: serde_json::json!({"talk": id, "line": line_id})
@@ -212,10 +213,14 @@ impl View {
                 Ok(input)
             }
             ClickTarget::Point { x, y } => self.screens.bot_click(click).or_else(|_| {
-                self.talk_click(world, Vec2::new(*x, *y), click.tick)
-                    .ok_or_else(|| "click hit no widget or speaker".into())
+                let point = Vec2::new(*x, *y);
+                self.target_click(world, point, click.tick)
+                    .or_else(|| self.talk_click(world, point, click.tick))
+                    .ok_or_else(|| "click hit no widget, target or speaker".into())
             }),
-            _ => self.screens.bot_click(click),
+            ClickTarget::Widget(name) => self
+                .bot_target_click(world, name, click.tick)
+                .unwrap_or_else(|| self.screens.bot_click(click)),
         }
     }
 

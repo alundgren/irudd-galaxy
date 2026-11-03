@@ -29,9 +29,10 @@ pub fn available(world: &World, f: &Fields) -> bool {
     let Some((player, place)) = travel::player(world) else {
         return true;
     };
+    // A trip between places interrupts talk; a camera glide within the room does not.
     if world
         .component(player, TRAVEL)
-        .is_some_and(|t| t.fields["active"] == true)
+        .is_some_and(|t| t.fields["active"] == true && t.fields["from"] != t.fields["to"])
     {
         return false;
     }

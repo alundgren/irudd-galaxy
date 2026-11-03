@@ -13,6 +13,7 @@ pub mod assets;
 pub mod builds;
 pub mod course;
 pub mod film;
+pub mod glide;
 pub mod hovers;
 pub mod life;
 pub mod rooms;
@@ -22,6 +23,7 @@ pub mod travel;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use galaxy_api::Fields;
 use galaxy_api::engine::{CAMERA, MODEL, POSITION, STEER, WAYPOINT};
 use galaxy_mesh::{Color, MeshBuilder, MeshData};
 use galaxy_module::module::Module;
@@ -30,7 +32,8 @@ use galaxy_render::{
     BackdropHandle, Camera, Material, MeshHandle, MeshInstance, Panel, Projection, Rect, Renderer,
     Scene, Text, backdrop, defaults,
 };
-use galaxy_sim::World;
+use galaxy_sim::travel::{Blend, Glide, Part};
+use galaxy_sim::{World, talk::text};
 use serde_json::{Map, Value, json};
 
 pub use assets::Assets;
@@ -243,6 +246,12 @@ pub struct View {
     /// Whether scenes run the live focus check; off while `check_talk` runs its own.
     focus_live: bool,
     pub hover_checks: Option<BTreeMap<String, Value>>,
+    /// The thing whose `ui.target` the pointer is over in the last scene: drawn lifted
+    /// and outlined.
+    pub targeted: Option<String>,
+    /// Whether the pointer is over something a click acts on (a button, bubble, drag
+    /// source or target), so the window shows a hand.
+    pub hand: bool,
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -301,6 +310,8 @@ impl View {
             talk_focus: Vec::new(),
             focus_live: true,
             hover_checks: None,
+            targeted: None,
+            hand: false,
         };
         view.replace(renderer, assets);
         view
@@ -452,8 +463,80 @@ impl View {
         if let Some(place) = travel::place(world, alpha)
             && let Some(camera) = self.room_camera(world, place)
         {
+            if let Some(cut) = travel::Cut::step(world, alpha) {
+                let now = world.tick as f64 + alpha as f64;
+                if cut.glide > 0.0 {
+                    if let Some(glide) = self.glide_at(world, cut.trip, camera, now, alpha) {
+                        return glide;
+                    }
+                } else if place == cut.from
+                    && let Some(glide) = travel::interrupted(cut.trip)
+                    && let Some(moving) = self.interrupted_at(world, &glide, now, alpha)
+                {
+                    // A fade cut out of a glide keeps that glide moving while it fades out.
+                    return moving;
+                }
+            }
             return camera;
         }
+        self.follow_camera(world, alpha)
+    }
+
+    /// The camera the glide in trip fields `trip` shows at `now` (tick plus alpha), ending
+    /// on `to`. None for a fade cut.
+    fn glide_at(
+        &self,
+        world: &World,
+        trip: &Fields,
+        to: Camera,
+        now: f64,
+        alpha: f32,
+    ) -> Option<Camera> {
+        if galaxy_sim::travel::glide_seconds(trip) <= 0.0 {
+            return None;
+        }
+        let node = galaxy_sim::travel::room_camera(world, text(trip, "to"))?;
+        let glide = Glide::of(trip, &node);
+        Some(self.moving(world, &glide, to, now, alpha))
+    }
+
+    /// Where a glide that a newer trip took over had its camera at `now`.
+    fn interrupted_at(&self, world: &World, glide: &Glide, now: f64, alpha: f32) -> Option<Camera> {
+        let to = self.room_camera_at(world, &glide.to, &glide.camera)?;
+        Some(self.moving(world, glide, to, now, alpha))
+    }
+
+    /// The camera `glide` shows at `now`, ending exactly on `to`.
+    fn moving(&self, world: &World, glide: &Glide, to: Camera, now: f64, alpha: f32) -> Camera {
+        if glide.progress(now) >= 1.0 {
+            return to;
+        }
+        let blend = glide.at(now);
+        let cameras = |parts: &[Part]| -> Vec<(Camera, f32)> {
+            parts
+                .iter()
+                .filter_map(|p| Some((self.part_camera(world, p, &blend, alpha)?, p.weight as f32)))
+                .collect()
+        };
+        glide::blend(&cameras(&blend.pose), &cameras(&blend.focus), to)
+    }
+
+    /// The camera of one part of a glide's blend: a room's camera node, or the camera the
+    /// place left showed (its room camera, or the follow camera with the player back at
+    /// its source pose).
+    fn part_camera(&self, world: &World, part: &Part, blend: &Blend, alpha: f32) -> Option<Camera> {
+        if let Some(node) = &part.node {
+            return self.room_camera_at(world, &part.place, node);
+        }
+        let source = rooms::source_world(world, &part.place, &blend.left);
+        Some(
+            self.room_camera(&source, &part.place)
+                .unwrap_or_else(|| self.follow_camera(&source, alpha)),
+        )
+    }
+
+    /// The camera on the thing with `engine.camera`, at the player's zoom.
+    fn follow_camera(&self, world: &World, alpha: f32) -> Camera {
         let (target, spec) = match camera_holder(world) {
             Some((id, spec)) => (
                 self.pose(world, id, alpha)
@@ -485,6 +568,7 @@ impl View {
         scene.backdrop = Some(self.sky);
         scene.clear_color = self.assets.sky.bottom;
         let place = travel::place(world, alpha);
+        let mut drawn = BTreeMap::new();
         for (id, components) in &world.entities {
             if !rooms::visible(world, id, place) {
                 continue;
@@ -531,6 +615,7 @@ impl View {
                 Quat::from_rotation_z(pose.angle),
                 pose.point(),
             );
+            drawn.insert(id.as_str(), (scene.meshes.len(), model_id, scale));
             scene.meshes.push(
                 MeshInstance::new(handle, transform)
                     .with_material(material)
@@ -576,6 +661,7 @@ impl View {
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
         self.camera = Some(camera);
+        self.point_at_targets(world, alpha, logical, &drawn, &mut scene);
         self.draw_hover(world, alpha, logical, &mut scene.overlay);
         if self.hover_checks.is_some() {
             self.check_hovers(world, alpha, logical);
@@ -591,6 +677,51 @@ impl View {
         self.problems_panel(&mut scene, logical);
         self.camera = Some(camera);
         scene
+    }
+
+    /// Lifts and outlines the thing under the pointer whose `ui.target` a click would
+    /// press, and decides the pointer's shape. Presentation only: the pointer comes from
+    /// the presentation snapshot, so notes and films redraw it.
+    fn point_at_targets(
+        &mut self,
+        world: &World,
+        alpha: f32,
+        logical: Vec2,
+        drawn: &BTreeMap<&str, (usize, &str, f32)>,
+        scene: &mut Scene,
+    ) {
+        self.targeted = None;
+        self.hand = false;
+        let Some(point) = self.screens.presentation.pointer.map(Vec2::from) else {
+            return;
+        };
+        self.targeted = self
+            .target_at(world, alpha, logical, point)
+            .and_then(|found| found.entity);
+        self.hand = self.targeted.is_some()
+            || (self.screens.presentation.drag.is_none()
+                && self.screens.hit(point).is_some_and(|w| {
+                    matches!(w.kind.as_str(), "button" | "bubble" | "drag_source")
+                }));
+        let Some((index, model, scale)) = self
+            .targeted
+            .as_deref()
+            .and_then(|id| drawn.get(id))
+            .copied()
+        else {
+            return;
+        };
+        // A twentieth of the model's largest extent: visible on a figure and a building.
+        let lift = self
+            .assets
+            .models
+            .get(model)
+            .and_then(|m| m.bounds())
+            .map_or(0.1, |(lo, hi)| (hi - lo).max_element() * scale * 0.05);
+        let mesh = &mut scene.meshes[index];
+        mesh.transform = Mat4::from_translation(Vec3::Z * lift) * mesh.transform;
+        mesh.material.outline = self.screens.style.highlight;
+        mesh.material.outline_px = self.screens.style.highlight_px;
     }
 
     /// The followed thing's order, while it runs, for [`course::Courses`]: where it is

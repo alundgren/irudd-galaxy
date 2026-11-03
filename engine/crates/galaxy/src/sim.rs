@@ -332,9 +332,9 @@ fn drive(
     }
     let inputs = script.by_tick();
     let mut loads: BTreeMap<u64, Vec<Module>> = BTreeMap::new();
-    if !script.clicks.is_empty() || !script.pointers.is_empty() {
+    if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy sim replay <session>/recording.json",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy sim replay <session>/recording.json",
         ));
     }
     for (tick, dir) in &script.hot_loads {

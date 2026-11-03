@@ -8,6 +8,27 @@ pub struct Cut<'a> {
     pub to: &'a str,
     pub elapsed: f32,
     pub reverse: bool,
+    /// Seconds the camera glides instead of the fade cut; 0 for the cut.
+    pub glide: f32,
+    /// The trip's fields.
+    pub trip: &'a galaxy_api::Fields,
+}
+
+/// Seconds from `start_tick` to `now` (tick plus alpha), never negative.
+pub fn elapsed(now: f64, start_tick: f64) -> f32 {
+    ((now - start_tick).max(0.0) / TICKS_PER_SECOND as f64) as f32
+}
+
+/// How far `elapsed` seconds are into a glide of `glide` seconds, eased (smoothstep)
+/// from 0 to 1.
+pub fn eased(elapsed: f32, glide: f32) -> f32 {
+    let t = (elapsed / glide).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// The glide a trip took over before that glide landed (`engine.travel.interrupted`).
+pub fn interrupted(trip: &galaxy_api::Fields) -> Option<galaxy_sim::travel::Glide> {
+    galaxy_sim::travel::Glide::parse(trip.get("interrupted")?.as_str()?)
 }
 
 impl<'a> Cut<'a> {
@@ -19,17 +40,22 @@ impl<'a> Cut<'a> {
         }
         // Trips start on an input boundary, not the previous-pose interpolation tick.
         // Finish the fade before the arrival input clears the trip at start + 30.
-        let elapsed = ((world.tick as f64 + alpha as f64 - t["start_tick"].as_f64()?).max(0.0)
-            / TICKS_PER_SECOND as f64) as f32;
+        let elapsed = elapsed(world.tick as f64 + alpha as f64, t["start_tick"].as_f64()?);
         Some(Self {
             from: t["from"].as_str()?,
             to: t["to"].as_str()?,
             elapsed,
             reverse: t["reverse"] == true,
+            glide: galaxy_sim::travel::glide_seconds(t) as f32,
+            trip: t,
         })
     }
     pub fn busy(&self) -> bool {
-        self.elapsed < 1.0
+        self.elapsed < if self.glide > 0.0 { self.glide } else { 1.0 }
+    }
+    /// How far along a glide is, eased (smoothstep) from 0 to 1; none for a fade cut.
+    pub fn glide_progress(&self) -> Option<f32> {
+        (self.glide > 0.0).then(|| eased(self.elapsed, self.glide))
     }
     fn out(&self) -> f32 {
         if self.reverse { 0.22 } else { 0.18 }
@@ -38,7 +64,8 @@ impl<'a> Cut<'a> {
         if self.reverse { 0.18 } else { 0.22 }
     }
     pub fn place(&self) -> &'a str {
-        if self.elapsed < self.out() {
+        // A glide shows the destination from its first frame.
+        if self.glide <= 0.0 && self.elapsed < self.out() {
             self.from
         } else {
             self.to
@@ -55,7 +82,7 @@ impl<'a> Cut<'a> {
         .clamp(0.0, 1.0)
     }
     pub fn overlay(&self, world: &World, size: Vec2, scene: &mut Scene) {
-        if !self.busy() {
+        if !self.busy() || self.glide > 0.0 {
             return;
         }
         let alpha = self.opacity();

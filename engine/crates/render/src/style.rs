@@ -241,6 +241,18 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "drop hint frame width, logical pixels",
     ),
     (
+        "screen",
+        "highlight",
+        "opaque colour",
+        "outline of a hovered ui.target's model",
+    ),
+    (
+        "screen",
+        "highlight_px",
+        "2 to 12",
+        "width of that outline, logical pixels",
+    ),
+    (
         "ink",
         "color",
         "",
