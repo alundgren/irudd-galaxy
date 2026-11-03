@@ -1,13 +1,12 @@
-# Core v0: a quiet working shift
+# Core: a quiet working shift
 
 Fly a small tug, cut ironstone from three solid rocks, dock at either of two
-stations, enter its ore exchange, sell, and launch again. Lantern Dock pays
+stations, sell at its ore exchange, and launch again. Lantern Dock pays
 12 credits per ore; Cinder Kiln pays 16. The hold takes six units. This is a
 small, finite field (36 ore), without a progression tree or a timed objective.
 
 Use installed engine/GM 0.5.0 or newer. This version was authored and verified
-with `0.5.0-cb0acdf66fef`, including windowed save loading and declared rendered
-bot tests. No engine build is needed.
+with `0.5.0-da110809f31d-dev`. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -21,24 +20,64 @@ galaxy play --modules game/modules
 | Space | Approach and mine the nearest rock with ore |
 | E | Dock at the nearest berth |
 | 0 | Cancel the current flight/mining order |
-| M | Enter the market from a landing deck |
-| Enter | Sell the whole hold in the market |
-| B | Return from the market to the landing deck |
-| U | Launch from the landing deck |
-| Mouse wheel | Zoom |
+| M | Docked: open the ore exchange |
+| Enter | In the ore exchange: sell the whole hold |
+| B | Back from a room to the whole station |
+| U | Docked: launch |
+| L | Open or close the ship log |
+| Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
 | Esc | Quit; the engine saves the session |
 
-The buttons also mine, select either destination, enter/leave a market and sell.
-Manual thrust or turning cancels an order. Rocks and station hulls are solid;
-orders steer toward their targets, so use manual flight to clear an obstruction
-when approaching from the far side of a station.
+Everything is also a click: the order buttons in flight, the signs on the
+station's buildings, the station key, Sell, Back, Launch and the log. Click a
+keeper to hear them. Manual thrust or turning cancels an order. Rocks and
+station hulls are solid; orders steer toward their targets, so use manual
+flight to clear an obstruction when approaching from the far side of a station.
+
+## The station up close
+
+Docking cuts to the station drawn large: its deck, tower, berth (with your ship
+moored), crane, rim lamps and a skiff ferrying across the deck. The station is
+the menu. Each building carries a sign you can press, and hovering the building
+or its sign names its keeper and what is offered there. The station key along
+the bottom reaches the same rooms, and Launch sits at the bottom right.
+
+A room opens as a panel on the side away from its building, 520 of 1280 pixels
+wide, so the building and most of the station stay in view. Inside a room only
+that room shows: the status panel, title, key, log and launch step aside and
+come back with Back.
+
+- **Ore exchange**: the posted price, your hold and credits, the station's
+  stock and its crate pile beside the building. Sell is the only verb; with an
+  empty hold it is replaced by a plain line. A sale shows its receipt in the
+  room and in the log.
+- **Office**: the posted prices of both stations and how much ore the field
+  still holds.
+
+Each room has a keeper standing by it who speaks in first-person bubbles when
+clicked. Station names and room names never share a word.
+
+## Screens
+
+Each kind of thing keeps one look, all with pure black text: amber for anything
+you can press (orders, signs, the key, Sell, Back, Launch, the log button), a
+pale blue panel for status and rooms, white bubbles for speech and cream paper
+for what just happened and for headings. Status sits top right, the log button
+bottom left, orders top left in flight, and the latest message with the flight
+keys at the bottom. Prices and stock are plain text, never buttons.
+
+Screens are laid out for the 1280x720 design size in logical pixels, inside a
+24-pixel margin (`scripts/layout.luau`). Smaller windows clip the right and
+bottom edges, because a screen can't yet place widgets against the window's
+edges.
 
 ## Design rules
 
-- **Every change is seen.** Ore arrives in the hold ledger, the rock develops a
+- **Every change is seen.** Ore arrives in the hold, the rock develops a
   visible cut, and a sale changes credits, the posted station stock and its crate
-  pile. A sentence says what happened. Empty sales never create money.
+  pile. The ship log keeps a line for each docking, sale, launch and full hold.
+  Empty sales never create money.
 - **Shocks come with opportunities.** Exhausting a rock leaves other rocks to
   work and both buyers available. A full hold is an invitation to trade. There
   are no damage penalties or scripted shocks in this first loop.
@@ -46,13 +85,14 @@ when approaching from the far side of a station.
   player looks around. Mining produces one unit per second once within seven
   world units; the six-unit hold bounds the first shift.
 
-The slice supplies the calm mining/trading feel, warm inked machinery, and
-readable consequences. Its Rust, progression, factions and economy are not
-copied. All models come from committed `recipes/` through
-`galaxy-gm model make game/modules/core`; the generated glTF files are committed.
-The engine owns flight, collision, steering and travel. Luau handles player
-intent, once-per-second extraction, trade rules and the module-styled screens.
-Each station has a landing-deck room and a separate market room, linked by doors.
+The slice supplies the calm mining/trading feel, warm inked machinery, readable
+consequences and the agreed station design. Its Rust, progression, factions and
+economy are not copied. All models come from committed `recipes/` through
+`galaxy-gm model make game/modules/core`; the generated glTF files are
+committed. The engine owns flight, collision, steering, travel, walks, talk and
+hovers. Luau handles player intent, once-per-second extraction and skiff trips,
+trade rules, the log and the module-styled screens. Each station is one place
+whose set is the station up close; its buildings, keepers and skiff stand in it.
 
 ## Verify
 
@@ -64,76 +104,57 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are three Luau rule tests and five scenarios: both complete station trips,
-collision under held thrust, refused out-of-place actions, and repeat trips
-through depletion with an empty-sale check. The repeating trip then mines a
-different rock. `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
+There are three Luau rule tests and six scenarios: both complete station trips,
+collision under held thrust, refused out-of-place actions, repeat trips through
+depletion with an empty-sale check, and the station itself (rooms from signs and
+M, refused sales outside the exchange, a building of another station, the log
+held shut inside a room, keeper talk, the sale receipt and log lines, the skiff
+and launch). `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
 headless routes; `play.inputs` uses real screen clicks and takes six notes.
 `play.bot.toml` declares that 840-tick route at 1280x720 physical pixels. The GM
-test report includes its frame times, dimensions and deterministic replay result.
+test report includes its frame times, dimensions and deterministic replay
+result. On a display scaled above 100%, that window is smaller than 1280x720
+logical pixels and reports the clipped edges as problems.
 
 ```sh
-galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720 --physical-size
+galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720
 galaxy sim replay SESSION/recording.json
 galaxy-gm audit SESSION/recording.json
 galaxy-gm film SESSION/recording.json --from 20 --to 45 --size 1280x720 --out flight-film
 galaxy-gm motion track flight-film --thing ship --to rock1
-galaxy-gm film SESSION/recording.json --from 400 --to 500 --size 1280x720 --out dock-film
-galaxy-gm motion sheet dock-film --at 13.5,14.0,14.4,15.0
 ```
 
 `SESSION` is the folder printed by play. Keep recordings, saves and films outside
-this module. Curated screenshots live in `game/evidence/core-v0/`. The PR records
-the exact head's check/test results and the bot's frame-time report.
+this module. Curated screenshots live in `game/evidence/`.
 
 ### Save/load verification
 
 Play saves at session end and `--save FILE` also writes a chosen file. Reopen
 that save in the window with `galaxy play --modules game/modules --load SAVE`.
-For a manual journey, quit in the market with cargo, resume its session's
-`save.db`, press Enter to sell, B to return to the deck and U to launch.
-
-This bot journey saves in the market before selling, resumes in the window,
-sells six ore for 72 credits, returns to space and replays the resumed session.
-Use an existing external folder in place of `evidence`:
+The open room is world state, so a save taken inside the ore exchange reopens
+there. Run from the repo root with an external working folder in place of
+`evidence`:
 
 ```sh
-galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 650 --size 1280x720 --physical-size --save evidence/market.db
-galaxy play --modules game/modules --load evidence/market.db --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720 --physical-size --record evidence/resumed-window.json --save evidence/finished.db
-galaxy sim replay evidence/resumed-window.json
-galaxy sim load evidence/finished.db --modules game/modules --ticks 0 --state
-```
-
-Bot input ticks and play's `--ticks` are absolute world ticks, including when
-resuming. The saved tick-650 world has six cargo, zero credits and zero station
-stock; tick 840 has an empty hold, 72 credits and six station stock. Compare its
-hash with an uninterrupted seed-1 `play.inputs` run ending at tick 840.
-
-These commands verify continuity across a mid-mining save. Run from the repo
-root with an external working folder in place of `evidence`:
-
-```sh
-galaxy sim run --modules game/modules/core --seed 7 --ticks 150 --inputs game/modules/core/tests/loop.inputs --save evidence/mid.db
-galaxy sim load evidence/mid.db --modules game/modules/core --ticks 690 --inputs game/modules/core/tests/loop.inputs --record evidence/resumed.json
+galaxy sim run --modules game/modules/core --seed 7 --ticks 650 --inputs game/modules/core/tests/loop.inputs --save evidence/room.db
+galaxy sim load evidence/room.db --modules game/modules/core --ticks 190 --inputs game/modules/core/tests/loop.inputs
 galaxy sim run --modules game/modules/core --seed 7 --ticks 840 --inputs game/modules/core/tests/loop.inputs
-galaxy sim replay evidence/resumed.json
+galaxy play --modules game/modules --load evidence/room.db --ticks 700
 ```
 
-The resumed and uninterrupted final hashes must agree. Loading the bot's end
-save with zero ticks must also match the bot's final hash, with 72 credits,
-six station stock, six ore left in the first rock and the player back in space.
-The current scenario schema cannot express save/load steps, so these checks run
-through the installed CLI separately.
+The tick-650 save is inside Lantern Dock's ore exchange with six ore aboard.
+The resumed and uninterrupted runs must end on the same hash. Bot input ticks
+and play's `--ticks` are absolute world ticks, including when resuming. The
+scenario schema cannot express save/load steps, so these checks run through the
+installed CLI separately.
 
 ## One self-critique against the slice
 
-The short trip keeps the slice's calm work-and-return rhythm. The initial
-station was hidden behind the ledger; placing it lower made the field readable.
-Berths now face the ore field, and mining reach covers approaches to all three
-rock outlines. Collision stops the ship at the rock instead of passing through
-it. The market's visible stockpile makes the transaction concrete.
-
-The rooms are intentionally spare: a deck, a lamp, a counter and a stockpile.
-There is no station life, sound, dialogue or promise of the slice's longer
-journey. The engine's one-second title cut makes arrival clear. Further art and
-pacing changes wait for a human playtest.
+The station view is now the agreed design rather than a deck and a separate
+market room, and the two stations differ in their towers and paint. What is
+still missing is engine-side: the arrival is a fade to a title card rather than
+a zoom, buildings don't lift or outline under the pointer and only their signs
+open rooms, rooms open at once with no glide, and right-click and Esc don't go
+back. The key has no news ribbons because nothing at a station changes on its
+own yet. There is no music or station sound, and the keepers have two lines
+each. Further art and pacing changes wait for a human playtest.

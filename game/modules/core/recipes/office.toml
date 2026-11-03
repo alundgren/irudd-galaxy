@@ -1,0 +1,26 @@
+about = "The dock office: a lit two-storey house with a radio mast and dish"
+palette = { main = "#bcd4cf", accent = "#cf7c50" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [4.4, 5.2, 0.3]
+at = [0, 0, 0.15]
+paint = "trim"
+[[part]]
+name = "house"
+shape = "block"
+depth = 3.6
+width = 4.6
+height = 4.4
+at = [0.2, 0, 0.3]
+[[part]]
+name = "mast"
+shape = "mast"
+height = 4
+at = [0.6, -1.6, 4.4]
+[[part]]
+name = "porch"
+shape = "box"
+size = [1.2, 3.0, 0.2]
+at = [-1.9, 0, 2.6]
+paint = "accent"

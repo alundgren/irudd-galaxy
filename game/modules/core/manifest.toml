@@ -2,9 +2,9 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.5.0"
-scripts = ["scripts/main.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "market", "leave", "launch", "sell", "mined", "sold", "docked"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.door"]
+scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "log", "mined", "sold", "docked"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line"]
 
 [components.pilot]
 cargo = "int"
@@ -12,7 +12,11 @@ credits = "int"
 mining = "bool"
 target = "id"
 station = "id"
+room = "id"
+sale = "int"
 message = "text"
+logged = "int"
+log_open = "bool"
 
 [components.held]
 ahead = "bool"
@@ -30,8 +34,26 @@ name = "text"
 price = "int"
 stock = "int"
 berth = "id"
-market = "id"
 departure = "id"
+exchange = "id"
+
+[components.facility]
+station = "id"
+name = "text"
+keeper = "id"
+offer = "text"
+order = "int"
+
+[components.keeper]
+name = "text"
+
+[components.skiff]
+a = "id"
+b = "id"
+
+[components.entry]
+n = "int"
+text = "text"
 
 [keys]
 w = "ahead"
@@ -42,7 +64,8 @@ shift = "boost"
 space = "mine"
 e = "dock"
 0 = "cancel"
-m = "market"
-b = "leave"
+m = "open"
+b = "close"
 u = "launch"
 enter = "sell"
+l = "log"

@@ -43,10 +43,10 @@ ore = {}
 "engine.model" = { model = "core.station", look = "core.hull" }
 
 [entities.lantern]
-"engine.place" = { parent = "core.reach", arrival = "core.lantern_entry", width = 16, depth = 16 }
-"engine.room" = { title = "Lantern Dock / Landing deck", fov = 40 }
-"engine.model" = { model = "core.deck" }
-port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", market = "core.lantern_market", departure = "core.lantern_departure" }
+"engine.place" = { parent = "core.reach", arrival = "core.lantern_berth_spot", width = 30, depth = 30 }
+"engine.room" = { title = "Lantern Dock", fov = 40 }
+"engine.model" = { model = "core.lantern_dock" }
+port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", departure = "core.lantern_departure", exchange = "core.lantern_exchange" }
 
 [entities.lantern_berth]
 "engine.location" = { place = "core.reach" }
@@ -56,27 +56,80 @@ port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", market
 [entities.lantern_departure]
 "engine.spot" = { place = "core.reach", name = "lantern_departure", x = -14, y = -12 }
 
-[entities.lantern_entry]
-"engine.spot" = { place = "core.lantern", name = "entry" }
+[entities.lantern_berth_spot]
+"engine.spot" = { place = "core.lantern", name = "berth" }
 
-[entities.lantern_market]
-"engine.place" = { parent = "core.lantern", arrival = "core.lantern_market_entry", width = 12, depth = 10 }
-"engine.room" = { title = "Lantern Dock / Ore exchange", fov = 40 }
-"engine.model" = { model = "core.market" }
+[entities.lantern_exchange_keeper_spot]
+"engine.spot" = { place = "core.lantern", name = "exchange_keeper" }
 
-[entities.lantern_market_entry]
-"engine.spot" = { place = "core.lantern_market", name = "entry" }
+[entities.lantern_office_keeper_spot]
+"engine.spot" = { place = "core.lantern", name = "office_keeper" }
 
-[entities.lantern_market_stock]
-"engine.location" = { place = "core.lantern_market" }
-"engine.position" = { x = -3.5, y = -3 }
+[entities.lantern_skiff_a_spot]
+"engine.spot" = { place = "core.lantern", name = "skiff_a" }
+
+[entities.lantern_skiff_b_spot]
+"engine.spot" = { place = "core.lantern", name = "skiff_b" }
+
+[entities.lantern_exchange]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern" }
+"engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.exchange" }
+"engine.anchor" = { name = "sign", height = 4.8 }
+facility = { station = "core.lantern", name = "Ore exchange", keeper = "core.lantern_trader", offer = "buys ore at the posted price", order = 1 }
+
+[entities.lantern_office]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern" }
+"engine.position" = { x = 7.5, y = -0.5, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.office" }
+"engine.anchor" = { name = "sign", height = 4.8 }
+facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_master", offer = "posted prices and how the field stands", order = 2 }
+
+[entities.lantern_stock]
+"engine.location" = { place = "core.lantern" }
+"engine.position" = { x = -11, y = -4.5 }
 "engine.model" = { model = "core.crates", scale = 0.4 }
 
-[entities.lantern_to_market]
-"engine.door" = { from = "core.lantern", to = "core.lantern_market" }
+[entities.lantern_trader]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.keeper", scale = 1.5 }
+keeper = { name = "Tova Reyes" }
 
-[entities.lantern_from_market]
-"engine.door" = { from = "core.lantern_market", to = "core.lantern" }
+[entities.lantern_trader_talk]
+"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_line1" }
+
+[entities.lantern_trader_line1]
+"engine.talk_line" = { text = "Ore's my trade. I pay the posted price, and it holds steady.", next = "core.lantern_trader_line2" }
+
+[entities.lantern_trader_line2]
+"engine.talk_line" = { text = "Bring it in whenever suits you. The price will keep." }
+
+[entities.lantern_master]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern", spot = "core.lantern_office_keeper_spot" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.keeper", scale = 1.5 }
+keeper = { name = "Bram Okafor" }
+
+[entities.lantern_master_talk]
+"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_line1" }
+
+[entities.lantern_master_line1]
+"engine.talk_line" = { text = "I keep the berth and the lamps here. Welcome in.", next = "core.lantern_master_line2" }
+
+[entities.lantern_master_line2]
+"engine.talk_line" = { text = "Cinder Kiln is out east. It pays a little more for ore." }
+
+[entities.lantern_skiff]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern", spot = "core.lantern_skiff_a_spot" }
+"engine.position" = {}
+"engine.model" = { model = "core.skiff", scale = 1.4 }
+skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 
 [entities.kiln_exterior]
 "engine.location" = { place = "core.reach" }
@@ -85,10 +138,10 @@ port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", market
 "engine.model" = { model = "core.kiln_station", look = "core.hull" }
 
 [entities.kiln]
-"engine.place" = { parent = "core.reach", arrival = "core.kiln_entry", width = 16, depth = 16 }
-"engine.room" = { title = "Cinder Kiln / Landing deck", fov = 40 }
-"engine.model" = { model = "core.deck" }
-port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", market = "core.kiln_market", departure = "core.kiln_departure" }
+"engine.place" = { parent = "core.reach", arrival = "core.kiln_berth_spot", width = 30, depth = 30 }
+"engine.room" = { title = "Cinder Kiln", fov = 40 }
+"engine.model" = { model = "core.kiln_dock" }
+port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", departure = "core.kiln_departure", exchange = "core.kiln_exchange" }
 
 [entities.kiln_berth]
 "engine.location" = { place = "core.reach" }
@@ -98,24 +151,77 @@ port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", market = "
 [entities.kiln_departure]
 "engine.spot" = { place = "core.reach", name = "kiln_departure", x = 20, y = -12 }
 
-[entities.kiln_entry]
-"engine.spot" = { place = "core.kiln", name = "entry" }
+[entities.kiln_berth_spot]
+"engine.spot" = { place = "core.kiln", name = "berth" }
 
-[entities.kiln_market]
-"engine.place" = { parent = "core.kiln", arrival = "core.kiln_market_entry", width = 12, depth = 10 }
-"engine.room" = { title = "Cinder Kiln / Ore exchange", fov = 40 }
-"engine.model" = { model = "core.market" }
+[entities.kiln_exchange_keeper_spot]
+"engine.spot" = { place = "core.kiln", name = "exchange_keeper" }
 
-[entities.kiln_market_entry]
-"engine.spot" = { place = "core.kiln_market", name = "entry" }
+[entities.kiln_office_keeper_spot]
+"engine.spot" = { place = "core.kiln", name = "office_keeper" }
 
-[entities.kiln_market_stock]
-"engine.location" = { place = "core.kiln_market" }
-"engine.position" = { x = -3.5, y = -3 }
+[entities.kiln_skiff_a_spot]
+"engine.spot" = { place = "core.kiln", name = "skiff_a" }
+
+[entities.kiln_skiff_b_spot]
+"engine.spot" = { place = "core.kiln", name = "skiff_b" }
+
+[entities.kiln_exchange]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln" }
+"engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.exchange" }
+"engine.anchor" = { name = "sign", height = 4.8 }
+facility = { station = "core.kiln", name = "Ore exchange", keeper = "core.kiln_trader", offer = "buys ore at the posted price", order = 1 }
+
+[entities.kiln_office]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln" }
+"engine.position" = { x = 7.5, y = -0.5, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.office" }
+"engine.anchor" = { name = "sign", height = 4.8 }
+facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master", offer = "posted prices and how the field stands", order = 2 }
+
+[entities.kiln_stock]
+"engine.location" = { place = "core.kiln" }
+"engine.position" = { x = -11, y = -4.5 }
 "engine.model" = { model = "core.crates", scale = 0.4 }
 
-[entities.kiln_to_market]
-"engine.door" = { from = "core.kiln", to = "core.kiln_market" }
+[entities.kiln_trader]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.keeper", scale = 1.5 }
+keeper = { name = "Sefa Lind" }
 
-[entities.kiln_from_market]
-"engine.door" = { from = "core.kiln_market", to = "core.kiln" }
+[entities.kiln_trader_talk]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_line1" }
+
+[entities.kiln_trader_line1]
+"engine.talk_line" = { text = "Ore feeds the kiln. I buy it at the posted price.", next = "core.kiln_trader_line2" }
+
+[entities.kiln_trader_line2]
+"engine.talk_line" = { text = "No hurry. The kiln burns slow and steady." }
+
+[entities.kiln_master]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln", spot = "core.kiln_office_keeper_spot" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.keeper", scale = 1.5 }
+keeper = { name = "Mags Ferrow" }
+
+[entities.kiln_master_talk]
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_line1" }
+
+[entities.kiln_master_line1]
+"engine.talk_line" = { text = "You're at the Kiln. I keep the berth and watch the field.", next = "core.kiln_master_line2" }
+
+[entities.kiln_master_line2]
+"engine.talk_line" = { text = "Lantern Dock is out west. It buys ore too, a little cheaper." }
+
+[entities.kiln_skiff]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln", spot = "core.kiln_skiff_a_spot" }
+"engine.position" = {}
+"engine.model" = { model = "core.skiff", scale = 1.4 }
+skiff = { a = "core.kiln_skiff_a_spot", b = "core.kiln_skiff_b_spot" }

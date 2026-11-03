@@ -5,11 +5,15 @@ stars = 120
 cloud_count = 3
 
 [screen]
-paper = "#faf1dc"
-panel = "#f3e8ce"
-button = "#d9e6d8"
-text = "#233332"
-border = "#596960"
+# One look per kind of thing, all with pure black text: cream paper for what just
+# happened and for headings, pale blue panels for status and rooms, amber for anything
+# you can press, white bubbles for speech.
+paper = "#fbf3e0"
+panel = "#d3e4ee"
+button = "#f2b264"
+bubble = "#ffffff"
+text = "#000000"
+border = "#3b2f2f"
 radius = 8
 
 [light]
