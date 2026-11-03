@@ -1,0 +1,6 @@
+# A quiet place to try generated music: galaxy-gm music writes music/ and audio.toml here.
+id = "quiet"
+version = "0.1.0"
+min_engine_version = "0.4.0"
+scripts = ["scripts/quiet.luau"]
+writes = ["engine.place", "engine.location", "engine.being", "engine.position", "engine.camera"]

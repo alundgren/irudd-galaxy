@@ -4,16 +4,19 @@
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
 //! model's parts, outline and morph), `model make` (models from recipes), `test` (a
 //! module's tests and scenario runs), `what-if` (a recorded session on changed
-//! modules) and `guide`.
+//! modules), `music` (generated through OpenRouter at build time) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
 mod audit;
+mod bot;
 mod fields;
 mod film;
 mod live;
 mod look;
 mod model;
+mod music;
+mod openrouter;
 mod sessions;
 mod test;
 mod what_if;
@@ -111,6 +114,30 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
                 ))),
             }
         }
+        "music" => {
+            let (positional, opts) = split_args(args).map_err(usage)?;
+            let [dir] = positional.as_slice() else {
+                return Err(usage(format!(
+                    "music takes one module folder: {}",
+                    command.usage()
+                )));
+            };
+            let dir = manifest::module_dir(&discover::resolve(&cwd, Path::new(dir)));
+            gate::open(std::slice::from_ref(&dir))?;
+            music::run(
+                &dir,
+                &opts,
+                openrouter::ApiKey::from_env(),
+                &mut openrouter::Https::new(music::TIMEOUT),
+            )
+            .map_err(|f| {
+                if f.kind == "usage" {
+                    usage(f.message)
+                } else {
+                    f
+                }
+            })
+        }
         "look" => {
             let (positional, opts) = split_args(args).map_err(usage)?;
             let [path] = positional.as_slice() else {
@@ -155,15 +182,8 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             let opts = galaxy_motion::Opts::parse(rest).map_err(usage)?;
             film::show(&discover::resolve(&cwd, Path::new(path)), &opts)
         }
-        "notes" => {
-            let (positional, opts) = split_args(args).map_err(usage)?;
-            opts.only("notes", sessions::NOTES_OPTIONS).map_err(usage)?;
-            let target = match positional.as_slice() {
-                [] => None,
-                [one] => Some(discover::resolve(&cwd, Path::new(one))),
-                _ => return Err(usage("notes takes at most one folder or recording".into())),
-            };
-            sessions::notes(target, opts.flag("all"))
+        "notes" | "notes inbox" | "notes handle" | "notes unhandle" => {
+            sessions::run_notes(command, args, &cwd)
         }
         "recording" => {
             let (positional, opts) = split_args(args).map_err(usage)?;
@@ -502,8 +522,12 @@ mod tests {
             ("fields", fields::OPTIONS),
             ("model", model::OPTIONS),
             ("model make", model::MAKE_OPTIONS),
+            ("music", music::OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
+            ("notes inbox", sessions::INBOX_OPTIONS),
+            ("notes handle", sessions::HANDLE_OPTIONS),
+            ("notes unhandle", sessions::UNHANDLE_OPTIONS),
             ("recording", sessions::RECORDING_OPTIONS),
             ("test", test::OPTIONS),
             ("what-if", what_if::OPTIONS),

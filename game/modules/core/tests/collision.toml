@@ -1,0 +1,26 @@
+ticks = 120
+[[input]]
+tick = 1
+name = "ahead"
+payload = { down = true }
+[[input]]
+tick = 90
+name = "ahead"
+payload = { down = false }
+[[expect]]
+tick = 90
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_least = 6
+[[expect]]
+tick = 90
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = 9
+[[expect]]
+entity = "rock1"
+component = "engine.position"
+field = "x"
+equals = 12

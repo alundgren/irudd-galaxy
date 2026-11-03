@@ -1,0 +1,6 @@
+[[part]]
+shape = "ring"
+radius = 2
+tube = 0.12
+paint = "lights"
+glow = 0.8

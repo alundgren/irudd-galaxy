@@ -1,0 +1,21 @@
+about = "A gardener in a warm ochre coat"
+[[part]]
+name = "coat"
+shape = "cylinder"
+radius = 0.5
+height = 1.3
+taper = 0.75
+paint = "accent"
+[[part]]
+name = "face"
+shape = "sphere"
+radius = 0.4
+at = [0, 0, 1.65]
+paint = "#f3d5b5"
+[[part]]
+name = "hat"
+shape = "cylinder"
+radius = 0.65
+height = 0.15
+at = [0, 0, 1.95]
+paint = "trim"

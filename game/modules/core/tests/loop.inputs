@@ -1,0 +1,27 @@
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 600
+name = "core.market"
+[[input]]
+tick = 660
+name = "core.sell"
+[[input]]
+tick = 720
+name = "core.leave"
+[[input]]
+tick = 780
+name = "core.launch"

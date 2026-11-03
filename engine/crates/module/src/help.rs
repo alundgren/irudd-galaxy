@@ -245,7 +245,10 @@ pub fn overview(tool: Tool) -> String {
              running games, and films motion. Commands print one JSON object.",
             &[
                 ("Start here", &["guide"]),
-                ("Modules", &["check", "test", "types", "fields", "model"]),
+                (
+                    "Modules",
+                    &["check", "test", "types", "fields", "model", "music"],
+                ),
                 (
                     "Played sessions and notes",
                     &[
@@ -494,7 +497,18 @@ static GAME: &[Command] = &[
                 the note, Esc drops it. `galaxy-gm notes` lists the notes later.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
-            ("--seed <n>", "the world's seed; 1 by default"),
+            (
+                "--seed <n>",
+                "the world's seed; 1 by default; cannot combine with --load",
+            ),
+            (
+                "--load <save>",
+                "resume a save from this build and these exact modules; records from the saved world",
+            ),
+            (
+                "--physical-size",
+                "interpret --size as physical pixels, independent of display scaling",
+            ),
             (
                 "--size <w>x<h>",
                 "the window in logical pixels; 1280x720 by default",
@@ -527,6 +541,10 @@ static GAME: &[Command] = &[
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("session", "the session folder"),
+            (
+                "frames, size",
+                "total rendered frames and final physical pixel dimensions",
+            ),
             ("notes", "how many notes were taken"),
             (
                 "live",
@@ -560,7 +578,7 @@ static GAME: &[Command] = &[
         path: "audio",
         synopsis: "--modules <dir> --out <file.wav> [options]",
         answers: "Render a scripted session through the game's mixer without an audio device.",
-        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV or Ogg Vorbis files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
+        about: "Writes stereo 48 kHz 16-bit PCM. Uses audio.toml and WAV, Ogg Vorbis or MP3 files from the module folders. No window, device or Luau per-frame work. Refuses an existing output file. Clicks and hot-load entries are refused; use ordinary event inputs.",
         args: &[
             ("--modules <dir>", "a module folder, or a folder of modules"),
             ("--out <file.wav>", "new WAV file to create"),

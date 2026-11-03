@@ -1,0 +1,22 @@
+[sky]
+top = "#19283c"
+bottom = "#697b86"
+stars = 120
+cloud_count = 3
+
+[screen]
+paper = "#faf1dc"
+panel = "#f3e8ce"
+button = "#d9e6d8"
+text = "#233332"
+border = "#596960"
+radius = 8
+
+[light]
+ambient = "#49485e"
+rim = "#efc287"
+band_fade_degrees = 30
+
+[looks.hull]
+outline_px = 2
+hatch = 0.25

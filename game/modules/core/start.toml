@@ -1,0 +1,121 @@
+[entities.reach]
+"engine.place" = { width = 160, depth = 100 }
+
+[entities.ship]
+"engine.being" = { player = true }
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 0, y = 0 }
+"engine.motion" = {}
+"engine.flight" = { speed = 12, accel = 18, stop_time = 0.7 }
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 1 }
+"engine.model" = { model = "core.ship", look = "core.hull" }
+"engine.camera" = { view = 64, min_view = 24, max_view = 100, tilt = 30 }
+pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
+held = {}
+
+[entities.rock1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 12, y = 0 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.hull" }
+ore = {}
+
+[entities.rock2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 13, y = 14 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.hull" }
+ore = {}
+
+[entities.rock3]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -4, y = 18 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.rock", look = "core.hull" }
+ore = {}
+
+[entities.lantern_exterior]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -24, y = -18 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.station", look = "core.hull" }
+
+[entities.lantern]
+"engine.place" = { parent = "core.reach", arrival = "core.lantern_entry", width = 16, depth = 16 }
+"engine.room" = { title = "Lantern Dock / Landing deck", fov = 40 }
+"engine.model" = { model = "core.deck" }
+port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", market = "core.lantern_market", departure = "core.lantern_departure" }
+
+[entities.lantern_berth]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -14, y = -12, angle = -2.601173153319209 }
+"engine.model" = { model = "core.pad" }
+
+[entities.lantern_departure]
+"engine.spot" = { place = "core.reach", name = "lantern_departure", x = -14, y = -12 }
+
+[entities.lantern_entry]
+"engine.spot" = { place = "core.lantern", name = "entry" }
+
+[entities.lantern_market]
+"engine.place" = { parent = "core.lantern", arrival = "core.lantern_market_entry", width = 12, depth = 10 }
+"engine.room" = { title = "Lantern Dock / Ore exchange", fov = 40 }
+"engine.model" = { model = "core.market" }
+
+[entities.lantern_market_entry]
+"engine.spot" = { place = "core.lantern_market", name = "entry" }
+
+[entities.lantern_market_stock]
+"engine.location" = { place = "core.lantern_market" }
+"engine.position" = { x = -3.5, y = -3 }
+"engine.model" = { model = "core.crates", scale = 0.4 }
+
+[entities.lantern_to_market]
+"engine.door" = { from = "core.lantern", to = "core.lantern_market" }
+
+[entities.lantern_from_market]
+"engine.door" = { from = "core.lantern_market", to = "core.lantern" }
+
+[entities.kiln_exterior]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 30, y = -22 }
+"engine.body" = { fixed = true }
+"engine.model" = { model = "core.kiln_station", look = "core.hull" }
+
+[entities.kiln]
+"engine.place" = { parent = "core.reach", arrival = "core.kiln_entry", width = 16, depth = 16 }
+"engine.room" = { title = "Cinder Kiln / Landing deck", fov = 40 }
+"engine.model" = { model = "core.deck" }
+port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", market = "core.kiln_market", departure = "core.kiln_departure" }
+
+[entities.kiln_berth]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 20, y = -12, angle = -0.7853981633974483 }
+"engine.model" = { model = "core.pad" }
+
+[entities.kiln_departure]
+"engine.spot" = { place = "core.reach", name = "kiln_departure", x = 20, y = -12 }
+
+[entities.kiln_entry]
+"engine.spot" = { place = "core.kiln", name = "entry" }
+
+[entities.kiln_market]
+"engine.place" = { parent = "core.kiln", arrival = "core.kiln_market_entry", width = 12, depth = 10 }
+"engine.room" = { title = "Cinder Kiln / Ore exchange", fov = 40 }
+"engine.model" = { model = "core.market" }
+
+[entities.kiln_market_entry]
+"engine.spot" = { place = "core.kiln_market", name = "entry" }
+
+[entities.kiln_market_stock]
+"engine.location" = { place = "core.kiln_market" }
+"engine.position" = { x = -3.5, y = -3 }
+"engine.model" = { model = "core.crates", scale = 0.4 }
+
+[entities.kiln_to_market]
+"engine.door" = { from = "core.kiln", to = "core.kiln_market" }
+
+[entities.kiln_from_market]
+"engine.door" = { from = "core.kiln_market", to = "core.kiln" }

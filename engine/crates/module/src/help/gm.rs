@@ -342,8 +342,7 @@ pub static COMMANDS: &[Command] = &[
         tool: Tool::Gm,
         path: "test",
         synopsis: "<module> [--only <text>]",
-        answers: "Do this module's tests pass? Runs its Luau tests (tests/*.luau) and its \
-                  scenario runs (tests/*.toml) and reports each pass or failure with what failed.",
+        answers: "Run Luau tests, scenarios and declared rendered bots; report each result.",
         about: "A Luau test file returns a table of named functions; one passes if it returns \
                 without an error (assert(cond, \"why\") fails it). Tests run in the scripts' \
                 sandbox and budgets, require(\"../scripts/name\") sees the module's files, and \
@@ -351,7 +350,10 @@ pub static COMMANDS: &[Command] = &[
                 [[input]] entries as in an inputs file (a plain name is the module's own event) \
                 and [[expect]] entries on component fields or fact counts after a tick; script \
                 failures during it fail it too. The modules beside it are loaded, as for check. \
-                Any failure exits 5 with kind tests_failed and the same fields.",
+                tests/*.bot.toml explicitly opens a window: inputs (module-relative file), ticks, \
+                size = [1280, 720] (physical pixels), optional seed (default 1). No resize or hot_load. \
+                It runs the matching galaxy play and replays its recording. Missing GPU/window is \
+                status unavailable, never a pass. Any failure exits 5 with kind tests_failed.",
         args: &[
             ("<module>", "a module folder (with a manifest.toml)"),
             (
@@ -367,8 +369,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "passed, failed",
-                "how many tests and scenario runs passed and failed (a scenario counts once, \
-                 however many of its expectations fail)",
+                "how many tests, scenarios and bots passed and failed (each run counts once)",
             ),
             (
                 "failures",
@@ -384,14 +385,18 @@ pub static COMMANDS: &[Command] = &[
                 "each scenario run: file, passed, ticks, the world's hash at the end, failures",
             ),
             (
+                "bots",
+                "file, passed, status, requested_size, size, frames, frame_time (fps and interval_ms median/p95/p99/max), replay.identical, session; failure explains any unavailable or failed run",
+            ),
+            (
                 "notes",
                 "modules beside it that could not be read; no tests found",
             ),
         ],
-        writes: "",
+        writes: "declared bots keep a play session with recording, save and note pictures",
         example: "galaxy-gm test game/modules/core",
         next: "Fix the module or the test; galaxy-gm fields inputs lists the inputs a \
-               scenario can send, galaxy-gm guide tests shows both formats.",
+               scenario can send, galaxy-gm guide tests shows all formats.",
         topic: "tests",
     },
     Command {
@@ -603,13 +608,116 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "music",
+        synopsis: "<module> --name <sound> --prompt <text> [--event <kind>] [options]",
+        answers: "Make a module's music with one OpenRouter generation. It is written into the \
+                 module as an audio file and declared in its audio.toml, so the game plays it.",
+        about: "Needs OPENROUTER_API_KEY in the environment; it is read from there only, sent \
+                 only as the request's authorization, and never printed or written. Without it, \
+                 exit 2 with kind no_key and nothing is written. Every run makes one paid call \
+                 (about $0.04 for the default model) and is never retried by itself, so run it \
+                 once per piece and commit the file. The game never calls a model; music is made \
+                 only here, at build time. The prompt is sent with \"Instrumental only\" added. \
+                 The answer (MP3 for the default model) is checked to decode before anything is \
+                 written. It becomes music/<name>.<ext> and [sounds.<name>] with a comment naming \
+                 the model and prompt; --event adds an [[events]] cue on the music bus, which \
+                 loops it and crossfades from other music. Its volume comes from the clip's \
+                 measured loudness, so it sits in the background. Describe the timbre as well \
+                 as the mood: nothing is added to soften it. Usage, module and overwrite problems \
+                 are reported before the key is needed or any call is made. A refused call, no \
+                 answer or unplayable audio exits 1 with kind openrouter and writes nothing.",
+        args: &[
+            ("<module>", "a module folder (with a manifest.toml)"),
+            (
+                "--name <sound>",
+                "the sound's local name: lowercase letters, digits and _",
+            ),
+            (
+                "--prompt <text>",
+                "what the music should sound like: mood, tempo, instruments and timbre \
+                 (\"soft, mellow, rounded, no bright or harsh highs\"); up to 1000 characters",
+            ),
+            (
+                "--event <kind>",
+                "also cue it on the music bus when this event happens: a local event the \
+                 manifest declares, or a full kind such as engine.start; default: no cue",
+            ),
+            (
+                "--volume <0..1>",
+                "the sound's volume; default: the background level (volume times the clip's \
+                 RMS is 0.0316, -30 dBFS), or with --replace the loudness the old clip had",
+            ),
+            (
+                "--fade <s>",
+                "the cue's fade-in in seconds, 0..60; default 1",
+            ),
+            (
+                "--model <id>",
+                "an OpenRouter model with audio output; default google/lyria-3-clip-preview \
+                 (about 30 s); google/lyria-3-pro-preview makes a longer piece",
+            ),
+            (
+                "--seed <n>",
+                "passed to the model, which may or may not honour it",
+            ),
+            (
+                "--replace",
+                "generate again over an existing sound or music/<name> file; without it that \
+                 is bad_input",
+            ),
+        ],
+        output: &[
+            (
+                "ok",
+                "the module's sounds have no findings after the change",
+            ),
+            (
+                "module, sound, file",
+                "where the music went: file is relative to the module",
+            ),
+            ("format, bytes, seconds, sample_rate", "the decoded audio"),
+            (
+                "volume, rms",
+                "the volume written, and the decoded clip's RMS it was chosen from",
+            ),
+            ("event", "the cue added, or null"),
+            (
+                "replaced",
+                "the file the sound named before --replace, or null",
+            ),
+            (
+                "model, answered_by, cost_usd, generation_id",
+                "the model asked for, the one that answered, and what OpenRouter charged",
+            ),
+            (
+                "prompt, seed, text",
+                "what was sent, and any text the model sent back",
+            ),
+            (
+                "findings",
+                "sound problems in the module now, as check reports them",
+            ),
+            ("next", "what to run to hear it"),
+        ],
+        writes: "<module>/music/<name>.<ext> and <module>/audio.toml (created if missing; \
+                 existing comments and entries are kept)",
+        example: "galaxy-gm music game/modules/example --name calm --prompt \"slow warm pads, \
+                 quiet and unhurried; soft, mellow, rounded, no bright or harsh highs\" \
+                 --event engine.start",
+        next: "galaxy-gm check <module>, then galaxy play --modules <modules folder> and listen; \
+                 galaxy audio renders the mix to a WAV without a device.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "notes",
         synopsis: "[<recording | session folder | sessions folder>] [--all]",
-        answers: "What did the player note with F8? Each note's number, tick, time and text, \
-                  with the frame they saw, newest sessions first.",
+        answers: "Read F8 notes; notes inbox lists those still to answer. \
+                  Each note has its number, tick, time, text and frame, newest sessions first.",
         about: "Without a path it reads the sessions folder every `galaxy play` records into \
                 (`galaxy doctor` names it; GALAXY_SESSIONS moves it). Sessions without notes \
-                are counted, not listed.",
+                are counted, not listed. This history includes handled notes; \
+                `notes inbox` excludes them.",
         args: &[
             (
                 "[path]",
@@ -628,7 +736,7 @@ pub static COMMANDS: &[Command] = &[
                 "sessions.notes",
                 "note (its number, for audit and film --note), tick, t \
               (seconds), text, seen (the frame shown), drawn_again (audit's picture, once \
-              audited)",
+              audited), handled (null or reason and change reference)",
             ),
             ("more", "how many notes were left out, when capped"),
             ("sessions_without_notes", "how many sessions have none"),
@@ -637,6 +745,118 @@ pub static COMMANDS: &[Command] = &[
         example: "galaxy-gm notes",
         next: "galaxy-gm audit <session> checks each note's world and draws it again; \
                galaxy-gm film <session> --note <n> films the seconds round it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes inbox",
+        synopsis: "[<path>] [--handled] [--all]",
+        answers: "List unanswered F8 notes across sessions, newest first.",
+        about: "Uses the same folders and note numbers as notes, audit and film. \
+                With no path, reads the played sessions folder (GALAXY_SESSIONS moves it). \
+                --handled shows answered notes instead. The cap applies after filtering. \
+                A fresh install with no sessions returns an empty inbox.",
+        args: &[
+            (
+                "[path]",
+                "a recording, session folder or sessions folder; played sessions by default",
+            ),
+            (
+                "--handled",
+                "list only handled notes, with the reason and change reference",
+            ),
+            ("--all", "every matching note; 20 at most by default"),
+        ],
+        output: &[
+            (
+                "sessions",
+                "newest sessions first: session, recording, build, modules, ticks, seconds and notes",
+            ),
+            (
+                "sessions.notes",
+                "newest notes first: note (number for audit/film), tick, t (seconds), text, seen (frame if recorded), drawn_again (if audited), handled (null or reason and change)",
+            ),
+            (
+                "view, more",
+                "unhandled or handled; more says how many matching notes were capped",
+            ),
+            (
+                "unreadable, sessions_without_notes",
+                "recordings that could not be read, and count of sessions without any notes, when present",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm notes inbox",
+        next: "Read the frame, audit or film the moment, then notes handle <session> --note <n> --reason <text>.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes handle",
+        synopsis: "<recording | session folder> --note <n> --reason <text> [--change <reference>]",
+        answers: "Mark a note handled with the change that answered it.",
+        about: "The reason is required; the change reference can name a commit, PR or module version. \
+                Repeating the command replaces this note's receipt. Receipts live with the session, \
+                outside installed builds, and survive new sessions and reinstalls. A receipt is \
+                matched to the original note; replacing the recording cannot hide a different note.",
+        args: &[
+            (
+                "<recording | session folder>",
+                "the recording or session printed by notes inbox",
+            ),
+            (
+                "--note <n>",
+                "the note number, counting from 1, as printed by notes",
+            ),
+            (
+                "--reason <text>",
+                "nonempty explanation of the change that answered the note",
+            ),
+            (
+                "--change <reference>",
+                "optional nonempty commit, PR or module version; stored as text",
+            ),
+        ],
+        output: &[
+            (
+                "recording, note, handled",
+                "the recording, note number and true",
+            ),
+            (
+                "reason, change, mark",
+                "the explanation, optional reference and receipt file",
+            ),
+        ],
+        writes: "<recording filename>.handled/<note padded to 4 digits>.json beside the recording, \
+                 for example <session>/recording.json.handled/0001.json; atomically replaced",
+        example: "galaxy-gm notes handle <session> --note 1 --reason \"Adjusted the panel spacing\" --change <commit>",
+        next: "notes inbox no longer lists it; notes inbox --handled shows the answer; notes unhandle reopens it.",
+        topic: "notes",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "notes unhandle",
+        synopsis: "<recording | session folder> --note <n>",
+        answers: "Reopen a handled note in the inbox.",
+        about: "Removes the receipt, leaving the recording and frame untouched. \
+                A note already unhandled succeeds too; a nonexistent note is bad input (exit 4).",
+        args: &[
+            (
+                "<recording | session folder>",
+                "a recording or session folder",
+            ),
+            ("--note <n>", "the note number, counting from 1"),
+        ],
+        output: &[
+            (
+                "recording, note, handled",
+                "the recording, note number and false",
+            ),
+            ("reason, change, mark", "null after reopening"),
+        ],
+        writes: "removes this note's file from <recording filename>.handled/ beside the recording",
+        example: "galaxy-gm notes unhandle <session> --note 1",
+        next: "galaxy-gm notes inbox lists it again.",
         topic: "notes",
     },
     Command {
@@ -1093,7 +1313,13 @@ pub static TOPICS: &[Topic] = &[
                 and [[expect]] entries checked after their tick (the last by default): entity \
                 (the module's own name, or a full ID), component and field with equals, \
                 at_least or at_most (absent = true without a field), or facts = \"<event>\" \
-                with a count. galaxy-gm test runs both. galaxy-gm what-if \
+                with a count. tests/<name>.bot.toml declares a rendered run: inputs = \
+                \"tests/run.inputs\", ticks = 300, size = [1280, 720], optional seed = 1 (one key per line). \
+                Inputs are module-relative, use full event IDs, and cannot resize or hot-load. \
+                galaxy-gm test opens a window only for declared bots; --only filters their file names. \
+                bots reports physical size, frames, fps, interval_ms median/p95/p99/max and replay.identical. \
+                Missing GPU/window reports status unavailable and exits 5, never a pass. \
+                galaxy-gm what-if \
                 runs a recorded session (galaxy play, or galaxy sim run --record) again on \
                 changed modules and names the first tick where the world differs and the \
                 entities, fields and facts that differ.",
@@ -1199,16 +1425,35 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float and Ogg Vorbis, mono or stereo, are decoded before playback. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
+        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float, Ogg Vorbis and MP3, mono or stereo, are decoded before playback. galaxy-gm music generates a piece at build time and declares it here. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. A loop crossfades its last loop_crossfade seconds (per sound, default 2, 0..60) into its start so the seam is smooth, which shortens it by that much; a clip shorter than four fades wraps as authored. Set loop_crossfade = 0 for a loop cut to whole bars. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
         tasks: &[
             (
                 "Check sound declarations and decode every referenced file",
                 "gm check",
             ),
+            (
+                "Generate music through OpenRouter (needs OPENROUTER_API_KEY)",
+                "gm music",
+            ),
             ("Listen in the game", "game play"),
             ("Render and measure a mix without a device", "game audio"),
         ],
-        recipes: &[],
+        recipes: &[Recipe {
+            title: "Make background music",
+            steps: &[
+                "Write the prompt in plain words: mood, tempo, instruments and timbre, such as \
+                 \"slow warm pads, quiet and unhurried; soft, mellow, rounded, no bright or \
+                 harsh highs\". The model hears only what you write.",
+                "galaxy-gm music <module> --name calm --prompt \"...\" --event engine.start \
+                 makes one paid call. Without --volume the volume is set from the clip's \
+                 loudness so it sits in the background.",
+                "galaxy-gm check <module> loads the new sound and cue.",
+                "galaxy play --modules <modules folder>: listen past the first loop, where \
+                 the end crossfades into the start.",
+                "Too loud or quiet: edit volume in audio.toml. Wrong mood or too sharp: run \
+                 again with a new prompt and --replace, which keeps the loudness.",
+            ],
+        }],
     },
     Topic {
         name: "play",
@@ -1219,7 +1464,11 @@ pub static TOPICS: &[Topic] = &[
                 F8 pauses and opens a note box over the frame on screen; Enter keeps the note \
                 with its tick, the world's hash and the camera. A bot plays an inputs file \
                 through the same window loop (--inputs), and its [[note]] entries are taken \
-                like F8 notes.",
+                like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
+                use the saving build and unchanged module files. --ticks and inputs use absolute \
+                world ticks, including on resume. The new recording embeds the saved start world, \
+                so replay, F8, audit and film work as usual. --physical-size makes --size physical \
+                pixels (otherwise logical); the report always gives physical size.",
         tasks: &[
             ("Play the game", "game play"),
             (
@@ -1236,11 +1485,17 @@ pub static TOPICS: &[Topic] = &[
                 world's hash then, and the frame that was on screen (notes/0001.png in the \
                 session folder). To act on one: read it, see the frame, check the replay \
                 reaches the same world (audit draws the moment again into audit/0001.png), \
-                then film the seconds round it and measure what moved.",
+                then film the seconds round it and measure what moved. Start with notes inbox. \
+                After answering a note, handle it with a reason and optional change reference; \
+                --handled lists answers, and unhandle reopens a note. Receipts sit beside each \
+                recording in recording.json.handled/, so new sessions and engine reinstalls keep them.",
         tasks: &[
-            ("List the player's notes", "gm notes"),
-            ("Replay to each note and draw it again", "gm audit"),
-            ("Film the seconds round a note", "gm film"),
+            ("Read all notes", "gm notes"),
+            ("Find unanswered notes", "gm notes inbox"),
+            ("Record an answer", "gm notes handle"),
+            ("Reopen a note", "gm notes unhandle"),
+            ("Replay and redraw notes", "gm audit"),
+            ("Film round a note", "gm film"),
         ],
         recipes: &[],
     },

@@ -68,7 +68,8 @@ style.toml         optional: looks, ink, light, sky, course and screen (renderer
 models/*.gltf      models, `<module>.<name>` for models/<name>.gltf (renderer-and-style.md)
 recipes/*.toml     optional: recipes galaxy-gm model make turns into models/<name>.gltf (model-generator.md)
 audio.toml        optional: event sounds, music and place ambience (audio.md)
-sounds/*          WAV or Ogg Vorbis presentation assets
+sounds/*          WAV, Ogg Vorbis or MP3 presentation assets
+music/*           music galaxy-gm music generated (music-generation.md)
 ```
 
 `start.toml` lists entities by name with their components:

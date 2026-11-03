@@ -11,6 +11,9 @@ fn one() -> f32 {
 fn event_fade() -> f32 {
     0.02
 }
+fn loop_crossfade() -> f32 {
+    2.0
+}
 
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -31,6 +34,8 @@ struct Sound {
     file: String,
     #[serde(default = "one")]
     volume: f32,
+    #[serde(default = "loop_crossfade")]
+    loop_crossfade: f32,
 }
 
 #[derive(Deserialize)]
@@ -93,6 +98,9 @@ impl Bank {
                     if !sound.volume.is_finite() || !(0.0..=1.0).contains(&sound.volume) {
                         return Err("volume must be finite, from 0 to 1".into());
                     }
+                    if !seconds(sound.loop_crossfade) {
+                        return Err("loop_crossfade must be finite, from 0 to 60 seconds".into());
+                    }
                     // Keep asset names portable and within this module for authoring mistakes.
                     let path = Path::new(&sound.file);
                     if sound.file.is_empty()
@@ -106,6 +114,7 @@ impl Bank {
                         );
                     }
                     Clip::read(&module.manifest.dir.join(path))
+                        .map(|clip| clip.with_loop_crossfade(sound.loop_crossfade))
                 })();
                 match result {
                     Ok(clip) => {

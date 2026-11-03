@@ -1,0 +1,9 @@
+about = "Ironstone with a visible worked-out morph"
+seed = 17
+[[part]]
+shape = "rock"
+radius = 2.5
+mined = 0.55
+detail = 1
+paint = "#8c9e9d"
+accent = "#d1a36a"

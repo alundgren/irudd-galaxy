@@ -44,6 +44,8 @@ bytemuck = { version = "1.25", features = ["derive"] }
 cpal = "0.15.3"
 hound = "3.5.1"
 lewton = "0.10.2"
+# MP3 decoding only (generated music arrives as MP3); MPL-2.0, as the slice already uses.
+symphonia = { version = "0.6.1", default-features = false, features = ["mp3"] }
 directories = "6.0"
 # The live socket's session token, from the OS.
 getrandom = "0.3.4"
@@ -75,6 +77,10 @@ serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 toml = "1.1.8"
+# Edits audio.toml in place for galaxy-gm music, keeping the author's comments.
+toml_edit = "0.25.17"
+# The GM's HTTPS client for OpenRouter (music generation); never linked into the game.
+ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
 wgpu = "30.0"
 winit = "0.30.13"
 # Win32 calls for the play window's monitor-scale fix; the version winit 0.30 uses.

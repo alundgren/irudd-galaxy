@@ -15,7 +15,7 @@
 //!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
 //!   recipes/*.toml    optional: model recipes, made into models by the GM (model-generator.md)
 //!   audio.toml        optional event cues and place ambience (engine/docs/audio.md)
-//!   sounds/*          WAV or Ogg files; decoded separately, not stored in recordings
+//!   sounds/*, music/*  WAV, Ogg or MP3 files; decoded separately, not stored in recordings
 //! ```
 //!
 //! `start.toml`:

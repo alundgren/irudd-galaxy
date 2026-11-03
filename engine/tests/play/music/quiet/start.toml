@@ -1,0 +1,7 @@
+[entities.room]
+"engine.place" = { width = 8, depth = 8 }
+[entities.player]
+"engine.being" = { player = true }
+"engine.location" = { place = "quiet.room" }
+"engine.position" = {}
+"engine.camera" = { view = 18, min_view = 10, max_view = 30 }

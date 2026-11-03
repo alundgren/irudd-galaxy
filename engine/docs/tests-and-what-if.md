@@ -120,3 +120,37 @@ the entities and only the facts and causes added since.
 - **On the recording's build.** Replay and audit run the build that recorded the session.
   What-if is new, so older builds lack it, and the question is what the change does, which
   this build answers with both runs; `baseline` reports when the build matters.
+
+## Explicit rendered bot tests
+
+`tests/<name>.bot.toml` opts a module into a windowed test. Ordinary `.toml` tests
+stay headless scenarios; `--only` filters bot filenames too. Example (inside a module):
+
+```toml
+inputs = "tests/route.inputs"
+ticks = 300
+size = [1280, 720]
+seed = 7
+```
+
+Inputs use the usual bot format and full event IDs; the path is relative to the
+module folder. Use `.inputs` rather than `.toml` under `tests/` so it is not also
+run as a scenario. Ticks must be positive; dimensions are 64..8192 physical pixels.
+Resize and hot-load entries are refused because this test measures one viewport
+and module set. Seed defaults to 1. Unknown declaration keys fail the test.
+
+The GM launches the matching `galaxy` beside its own executable with `play`,
+`--physical-size`, and `--no-live`, captures its JSON, then replays the recording.
+Sibling modules are loaded as for scenarios. `bots` lists each result: status,
+passed, requested_size, actual size, frames, frame_time (fps and interval_ms
+median/p95/p99/max in milliseconds), replay.identical, hash and session folder.
+The first frame has no interval; the next ten intervals are warmup, as in play.
+Runs too short to measure intervals fail with an explanation. Sessions are retained
+for notes, audit and film. No implicit FPS threshold is imposed.
+
+Missing GPU/window produces status `unavailable` and a plain failure message;
+it is not counted as passing. Any failed or unavailable declared test exits 5
+(`tests_failed`) with the full report, just like a failed scenario. A crashed child
+or missing matching executable also becomes an explained test failure. Child stdout
+is captured so the GM still emits exactly one JSON value. GPU integration tests are
+ignored by default; declaration and failure handling tests remain headless.

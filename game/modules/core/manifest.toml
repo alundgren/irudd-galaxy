@@ -1,4 +1,48 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.1.0"
+min_engine_version = "0.5.0"
+scripts = ["scripts/main.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "market", "leave", "launch", "sell", "mined", "sold", "docked"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.door"]
+
+[components.pilot]
+cargo = "int"
+credits = "int"
+mining = "bool"
+target = "id"
+station = "id"
+message = "text"
+
+[components.held]
+ahead = "bool"
+back = "bool"
+left = "bool"
+right = "bool"
+boost = "bool"
+
+[components.ore]
+left = { type = "int", default = 12 }
+total = { type = "int", default = 12 }
+
+[components.port]
+name = "text"
+price = "int"
+stock = "int"
+berth = "id"
+market = "id"
+departure = "id"
+
+[keys]
+w = "ahead"
+s = "back"
+a = "left"
+d = "right"
+shift = "boost"
+space = "mine"
+e = "dock"
+0 = "cancel"
+m = "market"
+b = "leave"
+u = "launch"
+enter = "sell"

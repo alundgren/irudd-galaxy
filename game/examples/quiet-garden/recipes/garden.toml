@@ -1,0 +1,19 @@
+about = "A grass island with a stone border and a small flower bed"
+[[part]]
+name = "grass"
+shape = "box"
+size = [18, 14, 0.4]
+at = [0, 0, -0.2]
+[[part]]
+name = "border"
+shape = "ring"
+radius = 6
+tube = 0.3
+paint = "trim"
+[[part]]
+name = "soil"
+shape = "cylinder"
+radius = 2
+height = 0.06
+at = [1, 2, 0]
+paint = "#624b3c"
