@@ -9,7 +9,7 @@ pub static COMMANDS: &[Command] = &[
         path: "audio",
         synopsis: "<command>",
         answers: "Inspect, process, loop, mix, judge or check audio.",
-        about: "Offline authoring tools; one JSON object. Numeric tools are local. Only judge makes paid OpenRouter calls. Undefined measurements are null with reasons.",
+        about: "Offline authoring tools; one JSON object. Default output summarizes windows and repeated findings; --detail shows every window. Numeric tools are local. Only judge makes paid OpenRouter calls. Undefined measurements are null with reasons.",
         args: &[],
         output: &[(
             "reading, findings, detail",
@@ -23,10 +23,16 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "audio inspect",
-        synopsis: "<clip> [--target-lufs <n>] [--reference <clip>]",
-        answers: "Measure loudness, spectrum, defects and the loop seam.",
-        about: "WAV, Ogg Vorbis or MP3; mono/stereo, 8..192 kHz. Source LUFS differs from playback LUFS. Spectral flags need a reference and listening; they are not universal harshness limits.",
+        synopsis: "<clip|module> [--loop | --sound <name>] [--target-lufs <n>] [--reference <clip>] [--detail]",
+        answers: "Measure loudness, spectrum, defects and declared loops.",
+        about: "WAV, Ogg Vorbis or MP3; mono/stereo, 8..192 kHz. Source LUFS differs from playback LUFS. Spectral flags need a reference and listening. File seams require --loop; module --sound reads actual loop settings and renders the seam as played. DC: dc_mean/removed_dc are whole-clip signed means; dc_max is the largest absolute per-second mean, all in linear full-scale units.",
         args: &[
+            ("--loop", "declare a file to be a hard-wrapped loop"),
+            (
+                "--sound <name>",
+                "inspect local sound in module folder; playback_seam uses its crossfade",
+            ),
+            ("--detail", "include all windows and individual findings"),
             (
                 "--target-lufs <n>",
                 "optional source target, -70..0 LUFS; flag above it",
@@ -42,8 +48,8 @@ pub static COMMANDS: &[Command] = &[
                 "integrated, momentary, short-term LUFS, true peak, RMS, crest and range",
             ),
             (
-                "spectrum, seam, stereo, defects",
-                "spectral timeline, resonances, endpoint jumps, channel problems and counts",
+                "spectrum, seam, playback_seam, stereo, defects",
+                "summary, strongest 12 peaks with level_dbfs/prominence_db (--detail for all), loop boundaries",
             ),
             (
                 "findings",
@@ -52,7 +58,7 @@ pub static COMMANDS: &[Command] = &[
         ],
         writes: "",
         example: "galaxy-gm audio inspect clip.wav --target-lufs -23",
-        next: "Use audio process or audio loop; use audio mix for actual playback levels.",
+        next: "For harshness locate peaks, band energy and attacks before choosing EQ; use mix for playback levels.",
         topic: "audio",
     },
     Command {
@@ -62,6 +68,7 @@ pub static COMMANDS: &[Command] = &[
         answers: "Repair a clip into a new file and measure before and after.",
         about: "Order: trim, silence trim, isolated click interpolation, DC mean removal, EQ, fades, gain. Gentle EQ gains are -6..6 dB; notch cuts only. Gain respects the peak ceiling; no hidden limiter. Existing files are refused.",
         args: &[
+            ("--detail", "include all windows and individual findings"),
             (
                 "--out <new.wav>",
                 "required new float WAV; never overwrites",
@@ -79,7 +86,10 @@ pub static COMMANDS: &[Command] = &[
                 "--fade-out <seconds>",
                 "linear fade at end; use loop for repeating beds",
             ),
-            ("--remove-dc", "subtract channel means"),
+            (
+                "--remove-dc",
+                "subtract whole-clip signed channel means, linear full-scale units",
+            ),
             ("--declick", "interpolate isolated impulses"),
             ("--high-shelf <Hz,dB>", "gentle shelf above frequency"),
             ("--low-shelf <Hz,dB>", "gentle shelf below frequency"),
@@ -88,7 +98,7 @@ pub static COMMANDS: &[Command] = &[
         output: &[
             (
                 "before, after",
-                "complete source inspections, after decoding the new file",
+                "source summaries, after decoding the new file; --detail includes windows",
             ),
             (
                 "edits, gain",
@@ -96,7 +106,7 @@ pub static COMMANDS: &[Command] = &[
             ),
         ],
         writes: "<new.wav> only",
-        example: "galaxy-gm audio process clip.wav --out soft.wav --high-shelf 4000,-3 --target-lufs -23",
+        example: "galaxy-gm audio process clip.wav --out soft.wav --target-lufs -23",
         next: "Listen and inspect the output; loop it separately if needed.",
         topic: "audio",
     },
@@ -105,8 +115,9 @@ pub static COMMANDS: &[Command] = &[
         path: "audio loop",
         synopsis: "<clip> --out <new.wav> [--blend <s>] [--search <s>] [--curve <name>]",
         answers: "Find compatible endpoints and blend a tail into its head.",
-        about: "Waveform correlation and level matching, then sample/slope refinement; no beat or harmony guarantee. Shortens and rotates the clip. Re-decodes and checks three repetitions. Set loop_crossfade=0 in audio.toml for this prepared loop.",
+        about: "Waveform correlation and level matching, then sample/slope refinement; no beat or harmony guarantee. match_score is 1-correlation + absolute level difference/20 dB: 0 best, lower better, unbounded above; not a probability. Shortens and rotates the clip. Re-decodes and checks three repetitions. Set loop_crossfade=0 in audio.toml for this prepared loop.",
         args: &[
+            ("--detail", "include all windows and individual findings"),
             ("--out <new.wav>", "required new float WAV"),
             (
                 "--blend <seconds>",
@@ -130,7 +141,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "loop_validation",
-                "wraps and edit boundary, repeated-clip click timestamps",
+                "chronological boundaries, wraps and repeated-clip click timestamps",
             ),
         ],
         writes: "<new.wav> only",
@@ -145,6 +156,7 @@ pub static COMMANDS: &[Command] = &[
         answers: "Measure source loudness and each bus in the real mix.",
         about: "Scenario TOML: modules path, ticks (1..108000), optional seed=1 and inputs path, relative to scenario. Event inputs only. Uses the same Scene and Mixer as play, including voice limits, fades and master gain.",
         args: &[
+            ("--detail", "include all windows and individual findings"),
             (
                 "--out <new.wav>",
                 "optional stereo float WAV of final playback; refuses existing file",
@@ -161,7 +173,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "pre_clamp, windows",
-                "pre-clamp peak and levels; 1 s bus level differences and spectral overlap",
+                "pre-clamp peak and levels; summary; --detail has 1 s windows, rms_dbfs keyed by sound/music/ambience",
             ),
             (
                 "findings, world_hash",
@@ -178,7 +190,7 @@ pub static COMMANDS: &[Command] = &[
         path: "audio judge",
         synopsis: "--intent <text> <clip> [--model <id>]",
         answers: "Describe audio blind, then assess its fit to an intent.",
-        about: "Two paid OpenRouter calls; first has no intent or source metadata, second sees the blind description and intent. Never retries. Key only from OPENROUTER_API_KEY. At most 120 s. No calls during play.",
+        about: "One use means one run, making two paid calls on success (a failure may stop after one). First is blind; second sees intent. Never retries. Model certainty is unreliable: two runs can disagree; measurements outrank descriptions. Key only from OPENROUTER_API_KEY. At most 120 s. No calls during play.",
         args: &[
             ("--intent <text>", "required intent, 1..4000 bytes"),
             (
@@ -204,13 +216,16 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "audio check",
-        synopsis: "<spec.toml>",
+        synopsis: "<spec.toml> [--detail]",
         answers: "Check numeric audio expectations with actionable failures.",
-        about: "TOML has clip or scenario (exactly one), paths relative to the spec, and [[expect]] with value (dotted report path), at_least/at_most or equals. Unknown fields are input errors; undefined numbers fail. Never calls a model.",
-        args: &[],
+        about: "TOML has clip or scenario (exactly one), paths relative to the spec, and [[expect]] with value (dotted report path), at_least/at_most or equals. For source seams set looping=true. Unknown fields are input errors; undefined numbers fail. Never calls a model. --detail includes windows.",
+        args: &[(
+            "--detail",
+            "include every measurement window and individual finding",
+        )],
         output: &[(
             "ok, expectations, findings, run",
-            "bounds, got, pass and suggested_action; full local report once",
+            "bounds, got, pass; suggested_action only on failures; local summary once",
         )],
         writes: "",
         example: "galaxy-gm audio check bed-check.toml",
@@ -1659,14 +1674,15 @@ pub static TOPICS: &[Topic] = &[
             title: "A quiet, smooth background bed",
             steps: &[
                 "Prompt for warm rounded pads, sparse voicing, steady energy, compatible beginning/end, no intro, outro or final cadence. Generate once with galaxy-gm music <module> --name calm --prompt <text> --event engine.start.",
-                "galaxy-gm audio inspect clip.mp3 --reference approved.wav. Compare spectral balance at matched loudness; bright bands are clues, not universal defects.",
-                "galaxy-gm audio process clip.mp3 --out soft.wav --remove-dc --declick --high-shelf 4000,-3 --target-lufs -23",
-                "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1. Set its audio.toml file to bed.wav and loop_crossfade=0; inspect and listen to three repetitions.",
+                "galaxy-gm audio inspect clip.mp3 --reference approved.wav. For sharp/harsh complaints locate narrow_resonances (level_dbfs), band energies and attacks/crest against a matched reference before choosing notch/shelf frequencies. Warm low mids are not a defect.",
+                "galaxy-gm audio process clip.mp3 --out soft.wav --target-lufs -23. Apply DC/click repair or EQ only for a measured, unwanted problem.",
+                "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1. Set its audio.toml file to bed.wav and loop_crossfade=0. Listen to repetitions.",
+                "galaxy-gm audio inspect <module> --sound <name> measures the seam as played. For a standalone file use --loop to measure its hard wrap. Default output is a summary; --detail includes all windows.",
                 "Write mix.toml: modules='modules' and ticks=1800 (60 s), optional inputs='route.toml' and seed=1. Paths are relative to the scenario. galaxy-gm audio mix mix.toml --out mix.wav measures sources separately from playback buses.",
                 "There is no universal background target. Try music's rendered contribution near -26 LUFS, then tune against foreground effects and ambience. volume and default master 0.7 lower source loudness. A peak ceiling can prevent reaching a target; read gain.peak_limited and after.",
-                "galaxy-gm audio judge --intent 'quiet warm background pads' bed.wav makes two paid calls with OPENROUTER_API_KEY. It describes before seeing intent and reports uncertainty, usage and actual cost.",
-                "Write check.toml: clip='bed.wav', then [[expect]], value='loudness.integrated_lufs', at_least=-24.0, at_most=-22.0. Add another [[expect]] with value='seam.level_jump_db', at_most=3.0. galaxy-gm audio check check.toml; exit 5 names failures and repairs. Use scenario='mix.toml' instead of clip to check buses.music.integrated_lufs.",
-                "Clipping already baked in needs regeneration: 'clean, undistorted, restrained dynamics'. Stereo cancellation: 'stable centred bass, mono-compatible stereo'. Muddiness: 'sparse voicing, clear low mids'. Wrong mood/instruments: change the prompt. Local repairs cannot recover missing musical content.",
+                "galaxy-gm audio judge --intent 'quiet warm background pads' bed.wav makes two paid calls with OPENROUTER_API_KEY. One use/run makes two calls. Two runs can disagree despite certainty claims; measurements outrank the description. Reports usage and actual cost.",
+                "Write check.toml: clip='bed.wav', looping=true, then [[expect]], value='loudness.integrated_lufs', at_least=-24.0, at_most=-22.0. Add another [[expect]] with value='seam.level_jump_db', at_most=3.0. galaxy-gm audio check check.toml; exit 5 names failures and repairs. Use scenario='mix.toml' instead of clip to check buses.music.integrated_lufs.",
+                "Clipping already baked in needs regeneration: 'clean, undistorted, restrained dynamics'. Stereo cancellation: 'stable centred bass, mono-compatible stereo'. Unwanted muddiness: locate it against a reference; preserve intended warmth. Wrong mood/instruments: change the prompt. Local repairs cannot recover missing musical content.",
             ],
         }],
     },

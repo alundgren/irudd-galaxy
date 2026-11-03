@@ -88,22 +88,30 @@ pub(super) fn silence(pcm: &Pcm) -> (usize, usize) {
 
 pub(super) fn spectrum(pcm: &Pcm) -> Value {
     let n = 2048usize;
-    let step = (pcm.rate as usize / 10).max(1);
+    let step = n / 4; // 75% overlap: no gaps, including short attacks and clip edges.
+    let window: Vec<_> = (0..n)
+        .map(|j| 0.5 - 0.5 * (std::f64::consts::TAU * j as f64 / (n - 1) as f64).cos())
+        .collect();
+    let window_power: f64 = window.iter().map(|w| w * w).sum();
     let fft = FftPlanner::<f64>::new().plan_fft_forward(n);
     let mut bins = vec![0.0; n / 2 + 1];
     let mut timeline = vec![];
     let mut buf = vec![Complex::new(0.0, 0.0); n];
-    for start in (0..pcm.frames.len()).step_by(step) {
-        let count = n.min(pcm.frames.len() - start);
-        if count < n / 2 {
-            break;
-        }
+    for center in (step as isize - (n / 2) as isize..pcm.frames.len() as isize + (n / 2) as isize)
+        .step_by(step)
+    {
+        let start = center - (n / 2) as isize;
+        let end = (start + n as isize).min(pcm.frames.len() as isize);
         let mut power = vec![0.0; bins.len()];
         for c in 0..pcm.channels as usize {
             for (j, x) in buf.iter_mut().enumerate() {
-                let window = 0.5 - 0.5 * (std::f64::consts::TAU * j as f64 / (n - 1) as f64).cos();
+                let index = start + j as isize;
                 *x = Complex::new(
-                    pcm.frames.get(start + j).map_or(0.0, |f| f64::from(f[c])) * window,
+                    usize::try_from(index)
+                        .ok()
+                        .and_then(|i| pcm.frames.get(i))
+                        .map_or(0.0, |f| f64::from(f[c]))
+                        * window[j],
                     0.0,
                 );
             }
@@ -116,31 +124,45 @@ pub(super) fn spectrum(pcm: &Pcm) -> Value {
             *sum += p;
         }
         let mut features = spectral_features(&power, pcm.rate, n);
-        features["start_s"] = json!(start as f64 / f64::from(pcm.rate));
-        features["end_s"] = json!((start + count) as f64 / f64::from(pcm.rate));
+        features["start_s"] = json!(start.max(0) as f64 / f64::from(pcm.rate));
+        features["end_s"] = json!(end as f64 / f64::from(pcm.rate));
         timeline.push(features);
+    }
+    // Parseval normalization: mean channel power in each positive-frequency bin.
+    let scale = 2.0 * step as f64
+        / (n as f64 * window_power * pcm.frames.len() as f64 * f64::from(pcm.channels));
+    for (i, bin) in bins.iter_mut().enumerate() {
+        *bin *= scale * if i == 0 || i == n / 2 { 0.5 } else { 1.0 };
     }
     let mut report = spectral_features(&bins, pcm.rate, n);
     let total: f64 = bins.iter().sum();
     let mut resonances = vec![];
-    for i in 5..bins.len() - 5 {
-        if bins[i] < bins[i - 1] || bins[i] < bins[i + 1] || bins[i] < total * 0.01 {
+    for i in 3..bins.len() - 3 {
+        if bins[i] <= bins[i - 1] || bins[i] < bins[i + 1] {
             continue;
         }
-        let neighbors =
-            (bins[i - 5..i - 2].iter().sum::<f64>() + bins[i + 3..i + 6].iter().sum::<f64>()) / 6.0;
-        let prominence = db(bins[i] / neighbors.max(1e-20)).unwrap_or(0.0);
-        if prominence > 12.0 {
+        // A broad, robust background stays outside the gentle notch's shoulders.
+        // Do not gate a partial on its share of unrelated bass/music energy.
+        let radius = (i / 2).max(6);
+        let exclude = (i / 4).max(3);
+        let mut neighbors: Vec<_> = (i.saturating_sub(radius)..=(i + radius).min(bins.len() - 1))
+            .filter(|&j| i.abs_diff(j) > exclude)
+            .map(|j| bins[j])
+            .collect();
+        neighbors.sort_by(f64::total_cmp);
+        let background = neighbors[neighbors.len() / 2].max(1e-20);
+        let prominence = db(bins[i] / background).unwrap_or(0.0);
+        let peak_power: f64 = bins[i - 1..=i + 1].iter().sum();
+        if prominence > 12.0 && peak_power > 1e-8 {
             resonances.push(json!({"hz": i as f64 * f64::from(pcm.rate)/n as f64,
-                "prominence_db": prominence, "energy_fraction": bins[i]/total,
+                "prominence_db": prominence, "level_dbfs": db(peak_power), "energy_fraction": peak_power/total,
                 "start_s": 0.0, "end_s": duration(pcm),
-                "suggested_action": "A tonal partial is not automatically harsh. Compare a loudness-matched reference; if unwanted, process --notch hz,-3,4 or prompt 'muted timbres, rounded attacks'."}));
+                "suggested_action": "A tonal partial is not automatically harsh. Compare level_dbfs at matched loudness; if unwanted, process --notch hz,-3,4 or prompt 'muted timbres, rounded attacks'."}));
         }
     }
     report["narrow_resonances"] = json!(resonances);
     report["timeline"] = json!(timeline);
-    report["undefined_reason"] =
-        json!((total == 0.0).then_some("silence or fewer than 1024 samples"));
+    report["undefined_reason"] = json!((total == 0.0).then_some("silence"));
     report
 }
 
@@ -170,10 +192,14 @@ fn spectral_features(power: &[f64], rate: u32, n: usize) -> Value {
 }
 
 pub(super) fn inspect(pcm: &Pcm, target: Option<f64>) -> Value {
+    inspect_with_loop(pcm, target, false)
+}
+
+pub(super) fn inspect_with_loop(pcm: &Pcm, target: Option<f64>, looping: bool) -> Value {
     let seconds = duration(pcm);
     let loudness = levels(pcm);
     let spec = spectrum(pcm);
-    let seam = seam(pcm);
+    let seam = if looping { seam(pcm) } else { Value::Null };
     let mut findings = vec![];
     if loudness["true_peak_dbtp"].as_f64().is_some_and(|p| p > 0.0) {
         findings.push(finding("true_peak_overshoot",0.0,seconds,
@@ -284,12 +310,12 @@ pub(super) fn inspect(pcm: &Pcm, target: Option<f64>) -> Value {
         {
             Some((
                 "bright_band",
-                "Compare a loudness-matched reference; if too sharp, process --high-shelf 4000,-3 or prompt 'rounded attacks, muted timbres, soft upper register'.",
+                "Locate sharpness using narrow_resonances, band energies and attack/crest measurements against a loudness-matched reference. Choose EQ frequency from that evidence, or prompt 'rounded attacks, muted timbres, soft upper register'.",
             ))
         } else if window["low_mid_fraction"].as_f64().is_some_and(|v| v > 0.7) {
             Some((
                 "low_mid_dominance",
-                "Compare a reference; try process --low-shelf 400,-3 or prompt 'sparse voicing, clear low mids, restrained bass'.",
+                "Warm pads normally concentrate energy here; this is descriptive, not a defect. Keep intended warmth. Only if unwanted muddiness is heard, compare a matched reference and locate its frequencies before editing.",
             ))
         } else {
             None
@@ -305,10 +331,12 @@ pub(super) fn inspect(pcm: &Pcm, target: Option<f64>) -> Value {
         }
     }
     let count = findings.len();
-    json!({"measurement_version":1,"reading":format!("{seconds:.2} s; {count} findings. Spectral flags are clues, not a universal harshness verdict."),
+    json!({"measurement_version":1,"reading":format!("{seconds:.2} s; {count} finding occurrences. Spectral flags are clues, not a universal harshness verdict."),
         "duration_s":seconds,"sample_rate":pcm.rate,"channels":pcm.channels,"loudness":loudness,
-        "spectrum":spec,"seam":seam,"stereo":stereo,
+        "spectrum":spec,"seam":seam,"seam_undefined_reason":(!looping).then_some("not declared looping; use --loop for a file or --sound with a module"),"stereo":stereo,
         "stereo_undefined_reason": (pcm.channels == 1).then_some("mono source"),
+        "dc_mean": ([0,1].map(|c| pcm.frames.iter().map(|f| f64::from(f[c])).sum::<f64>() / pcm.frames.len() as f64)),
+        "dc_detail":"dc_mean and process removed_dc are signed whole-clip channel means in linear full-scale units; defects.dc_max is the maximum absolute per-second channel mean, including the final partial second.",
         "defects":{"clipped_frames":clipped,"clicks":impulses.len(),"dc_max":dc_max,
             "head_silence_s": head as f64/f64::from(pcm.rate),"tail_silence_s":tail as f64/f64::from(pcm.rate)},
         "findings":findings,"detail":"Source channels are metered before playback's clamp. M=400 ms, S=3 s, 100 ms hop, -70/-10 LU integrated gates; LRA -70/-20 LU gates, 10th to 95th percentile. True peak is 4x sinc estimated. LUFS is not physical listening level; choose a target in the real mix."})

@@ -5,7 +5,11 @@ authoring work: no analysis or network call runs during play, and no measurement
 touches simulation state, hashes or replay. Each command returns one JSON object
 with `measurement_version: 1`, a `reading`, timestamped `findings` with numeric
 evidence and `suggested_action`, and `detail`. Undefined numbers are `null`, with
-reasons, never minus infinity or a silent zero. Help and `guide audio` ship with the GM.
+reasons, never minus infinity or a silent zero. Default reports summarize window ranges
+and group findings by kind/bus pair with occurrence counts and first evidence. Their
+time span need not be continuous. The summary lists the strongest 12 narrow peaks
+with their total count; detail lists all detected peaks. `--detail` returns every window and finding; numeric
+checks always evaluate the full report before presentation is summarized. Help and `guide audio` ship with the GM.
 
 ## Inspect the source
 
@@ -33,10 +37,16 @@ tests validate a stereo 1 kHz sine at -23 dBFS amplitude against -23 LUFS, the m
 3.01 LU difference, 44.1/48/96 kHz agreement, relative gating, a ten-LU range and a
 12 kHz signal whose intersample peak exceeds its samples. No large fixtures ship.
 
-RustFFT supplies only FFT plumbing. A 2048-sample Hann window at 100 ms hops sums
+RustFFT supplies only FFT plumbing. A 2048-sample Hann window at 512-sample hops, centered and zero-padded
+at edges, covers every sample and sums
 channel powers (so opposite-polarity stereo cannot hide a bright band). Power-weighted
 centroid, 95% roll-off and fractions in 200..500 Hz, 2..5 kHz and above 8 kHz describe
-balance. Narrow peaks with over 12 dB prominence and over 1% of energy are listed.
+balance. Narrow peaks above -80 dBFS and 12 dB prominence are listed independently of
+unrelated bass energy. Prominence compares the peak bin with the median background
+0.25..0.5 times its frequency away (at least 3..6 bins); `level_dbfs` integrates
+the peak and its two adjacent bins with Hann/Parseval normalization. Compare this
+absolute level at matched loudness when checking notch gain; prominence also depends
+on changes to the surrounding spectrum.
 These can be wanted musical partials. A band above Nyquist is undefined. Compare
 fractions with an approved reference and compensate the reported loudness difference
 when listening; there is no universal harshness threshold.
@@ -45,22 +55,35 @@ Findings include clipping/flat-top runs, isolated impulse residuals compared wit
 neighboring derivatives, per-second DC means and stereo correlation/imbalance/mono
 fold-down loss, and head/tail blocks below -60 dBFS. An isolated impulse detector
 cannot identify every musical click. Spectral flags are clues with actions, not
-automatic rejection. The loop seam reports first/last 100 ms level difference and
+automatic rejection. Low-mid dominance can be intended warmth; it is not a reason
+to cut bass. `dc_mean` and process `removed_dc` are whole-clip signed channel means;
+`defects.dc_max` is the maximum absolute per-second channel mean, including the final
+partial second. All use linear full-scale sample units.
+
+File seam analysis requires `--loop`, and reports first/last 100 ms level difference and
 instantaneous sample/slope jumps; the level difference catches a fade-out followed
-by a loud restart even when the sample jump is tiny.
+by a loud restart even when the sample jump is tiny. Ordinary recordings have no
+loop finding or loop repair advice. `audio inspect <module> --sound <local-name>`
+recognizes music/ambience use from audio.toml and reports raw `source_seam` separately
+from `playback_seam`. The latter renders two wraps through the actual 48 kHz Mixer
+with the sound volume, default master, crossfade and short-clip disabling; its
+chronological boundaries cover blend starts and wraps. This measures an isolated
+loop; `audio mix` measures the complete session. Listen across the full blend too.
 
 ## Repair into a new file
 
 ```sh
 galaxy-gm audio process clip.mp3 --out soft.wav --remove-dc --declick \
-  --high-shelf 4000,-3 --target-lufs -23
+  --target-lufs -23
 galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1
 ```
 
 Processing order is explicit: `--trim start,end`, `--trim-silence` (10 ms margin),
 `--declick` (interpolate isolated samples), `--remove-dc` (channel means), low shelf,
 high shelf, notch, linear fades, gain. Shelves take `Hz,dB`; notch takes `Hz,dB,Q`.
-EQ gains are limited to gentle +/-6 dB, notch cuts only. Fade durations must fit.
+EQ gains are limited to gentle +/-6 dB, notch cuts only. For sharp/harsh complaints,
+locate resonances, band energies and attacks/crest against a matched reference first;
+choose EQ frequency from that evidence, not a fixed high shelf. Fade durations must fit.
 Gain takes either `--target-lufs` or `--gain-db`. The default -1 dBTP ceiling can be
 changed with `--peak`; gain is reduced if necessary and `gain.peak_limited` says so.
 There is no hidden compressor: an unreachable target stays below target.
@@ -73,6 +96,8 @@ is measured from the decoded exported file.
 Loop search compares possible head/tail overlaps using normalized stereo waveform
 correlation and level similarity on a 20 ms endpoint grid, then refines endpoints
 within 1 ms for sample/slope compatibility. `--search 0` keeps the endpoints.
+`match_score = 1 - correlation + absolute level difference / 20 dB`: zero is best,
+lower is better, unbounded above, not a probability. Boundaries are chronological.
 It overlaps tail into head and rotates past the consumed head; the output is shorter
 by the overlap and any endpoint trimming. `--curve linear` suits correlated material;
 `equal-power` can reduce dips for uncorrelated material but boost correlated material.
@@ -106,7 +131,7 @@ preserved for final playback. Pre-clamp and final levels are separate. The exist
 
 Optional stems are float WAV before the shared clamp, so sums can exceed full scale.
 The report compares simultaneous one-second RMS levels and overlap between normalized
-spectral bands. Similar spectra at similar levels suggest masking, not proof of it.
+spectral bands. Window `rms_dbfs` values are keyed by sound/music/ambience. Similar spectra at similar levels suggest masking, not proof of it.
 The raw source's nominal volume/master gain is informative; bus measurements are
 authoritative. No universal background LUFS target exists. A starting experiment
 is music's rendered contribution near -26 LUFS, tuned against effects/ambience.
@@ -125,7 +150,8 @@ catalog on 2026-11-03; `--model vendor/model` overrides it. The key comes only f
 success, error, metadata and reflected prompts; model IDs containing it are refused.
 Tests inject canned HTTP replies and never use a network or a real key.
 
-There are exactly two non-streamed requests, no retries. First, fresh PCM WAV with
+One judge use is one run: two paid non-streamed requests on success, no retries;
+a failure may stop after the first call. First, fresh PCM WAV with
 no filename/tags and no intent asks for a neutral description with timestamped mood,
 instruments, energy, vocals and certainty. Only after a valid response does the
 second request supply intent, the same audio and the blind description. It requires
@@ -134,12 +160,18 @@ each with an action and certainty. Invalid/missing timestamps or fields fail cle
 Clips over 120 seconds are refused before any call; trim a representative excerpt.
 Each call reports the actual model, generation ID, usage and provider-reported cost.
 Missing actual cost remains null. A failed second call still reports the first call's
-usage/cost. Semantic opinions are fallible and do not override numeric defects.
+usage/cost. The output explicitly warns that self-reported certainty is unreliable:
+two runs on the same audio can disagree, even when both say certain. Measurements
+outrank the description. A captured-request regression decodes the exact base64 WAV
+from both request bodies for MP3 and processed WAV sources; sample rate, channel
+count and frame count match, and levels match within PCM16 quantization. No semantic
+model call is needed to verify transport fidelity.
 
 ## Numeric acceptance
 
 ```toml
 clip = "bed.wav" # or scenario = "mix.toml", exactly one
+looping = true # only for a clip intended to loop; enables source seam measurements
 [[expect]]
 value = "loudness.integrated_lufs"
 at_least = -24.0
@@ -153,7 +185,7 @@ equals = 0
 ```
 
 `galaxy-gm audio check spec.toml` runs the local analysis once and returns `got`,
-bounds, `pass` and suggested actions. Paths are relative to the spec. Dotted report
+bounds, `pass` and suggested actions only on failures. Paths are relative to the spec. Dotted report
 paths can index arrays numerically. A mix spec can use `buses.music.integrated_lufs`,
 `pre_clamp.sample_peak_dbfs` or `limited_samples`. Undefined values fail, unknown
 fields are bad input, and a failed numeric expectation exits 5 `audio_expectations`.
@@ -167,7 +199,7 @@ The check never calls a model. Keep targets appropriate to the authored intent.
 | Damaged flat tops | Attenuation prevents more clipping but cannot restore data; regenerate clean, undistorted, restrained dynamics. |
 | Clicks | Local interpolation or tiny fades; smooth sustained transitions, though prompting is unreliable here. |
 | DC / silence | Remove DC or trim with margins; immediate continuous texture, no silent intro/outro. |
-| Sharp / muddy | Gentle shelf/notch with reference; rounded attacks, muted timbres, soft upper register / sparse voicing, clear low mids. |
+| Sharp / muddy | Locate narrow peaks, band energies and attack/crest against a matched reference before selecting EQ; preserve intended warmth. Prompt rounded attacks or muted timbres for an unwanted attack/timbre. |
 | Stereo cancellation | Regenerate stable centred bass, mono-compatible stereo; gain cannot recover cancellation. |
 | Abrupt loop / wrong content | Blend and listen; continuous repeating phrase, no final cadence. Change mood/instrument wording when content is wrong. |
 

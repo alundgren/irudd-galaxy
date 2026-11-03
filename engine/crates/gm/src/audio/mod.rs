@@ -4,7 +4,9 @@ mod inspect;
 mod judge;
 mod meter;
 mod mix;
+mod playback;
 mod process;
+mod summary;
 #[cfg(test)]
 mod tests;
 
@@ -14,10 +16,10 @@ use galaxy_motion::Opts;
 use serde_json::json;
 use std::path::Path;
 
-pub const INSPECT_OPTIONS: &[&str] = &["target-lufs", "reference"];
-pub const MIX_OPTIONS: &[&str] = &["out", "stems"];
+pub const INSPECT_OPTIONS: &[&str] = &["target-lufs", "reference", "loop", "sound", "detail"];
+pub const MIX_OPTIONS: &[&str] = &["out", "stems", "detail"];
 pub const JUDGE_OPTIONS: &[&str] = &["intent", "model"];
-pub const CHECK_OPTIONS: &[&str] = &[];
+pub const CHECK_OPTIONS: &[&str] = &["detail"];
 pub use process::{LOOP_OPTIONS, OPTIONS as PROCESS_OPTIONS};
 
 pub(super) fn read(path: &Path) -> Result<Pcm, Failure> {
@@ -49,7 +51,7 @@ fn parse(args: &[String], known: &[&str]) -> Result<(String, Opts), Failure> {
             }
             let value = if let Some(value) = inline {
                 value.to_owned()
-            } else if ["remove-dc", "declick", "trim-silence"].contains(&name) {
+            } else if ["remove-dc", "declick", "trim-silence", "loop", "detail"].contains(&name) {
                 "true".into()
             } else {
                 i += 1;
@@ -96,11 +98,20 @@ pub fn run(command: &str, args: &[String]) -> Result<Output, Failure> {
     }
     let (path, opts) = parse(args, known)?;
     let path = Path::new(&path);
-    let report = match command {
+    let detailed = process::flag(&opts, "detail")?;
+    let mut report = match command {
         "audio inspect" => {
-            let pcm = read(path)?;
-            let mut out =
-                inspect::inspect(&pcm, process::number(&opts, "target-lufs", -70.0, 0.0)?);
+            let target = process::number(&opts, "target-lufs", -70.0, 0.0)?;
+            let mut out = if let Some(sound) = opts.text("sound") {
+                if opts.text("loop").is_some() {
+                    return Err(Failure::usage(
+                        "--sound uses module loop settings; omit --loop",
+                    ));
+                }
+                playback::inspect_sound(path, sound, target)?
+            } else {
+                inspect::inspect_with_loop(&read(path)?, target, process::flag(&opts, "loop")?)
+            };
             if let Some(reference) = opts.text("reference") {
                 let reference = inspect::inspect(&read(Path::new(reference))?, None);
                 let delta = out["loudness"]["integrated_lufs"]
@@ -115,8 +126,11 @@ pub fn run(command: &str, args: &[String]) -> Result<Output, Failure> {
         "audio process" => process::run(path, &opts, false)?,
         "audio loop" => process::run(path, &opts, true)?,
         "audio mix" => mix::run(path, &opts)?,
-        "audio check" => return check::run(path),
+        "audio check" => return check::run_with_detail(path, detailed),
         _ => unreachable!(),
     };
+    if !detailed {
+        summary::compact(&mut report);
+    }
     Ok(Output::Json(report))
 }

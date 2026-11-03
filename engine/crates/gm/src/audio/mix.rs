@@ -252,5 +252,5 @@ fn overlap_window(frames: &[Vec<[f32; 2]>; 3], rate: u32, second: u64) -> Value 
         pairs.push(json!({"a":names[a],"b":names[b],"level_difference_db":db(power[a]).zip(db(power[b])).map(|(a,b)|a-b),
             "spectral_overlap":overlap,"undefined_reason":overlap.is_none().then_some("one bus is silent or below -100 dBFS")}));
     }
-    json!({"start_s":second,"end_s":second as f64+frames[0].len() as f64/f64::from(rate),"rms_dbfs":power.map(db),"pairs":pairs})
+    json!({"start_s":second,"end_s":second as f64+frames[0].len() as f64/f64::from(rate),"rms_dbfs":names.into_iter().zip(power.map(db)).map(|(name, value)| (name.to_owned(), json!(value))).collect::<serde_json::Map<String, Value>>(),"pairs":pairs})
 }

@@ -10,6 +10,7 @@ use std::path::Path;
 
 pub const OPTIONS: &[&str] = &[
     "out",
+    "detail",
     "target-lufs",
     "peak",
     "gain-db",
@@ -23,10 +24,24 @@ pub const OPTIONS: &[&str] = &[
     "low-shelf",
     "notch",
 ];
-pub const LOOP_OPTIONS: &[&str] = &["out", "blend", "search", "curve", "target-lufs", "peak"];
+pub const LOOP_OPTIONS: &[&str] = &[
+    "out",
+    "blend",
+    "search",
+    "curve",
+    "target-lufs",
+    "peak",
+    "detail",
+];
 
 pub(super) fn number(opts: &Opts, name: &str, low: f64, high: f64) -> Result<Option<f64>, Failure> {
-    let value = opts.number(name).map_err(Failure::usage)?.map(f64::from);
+    let value = opts
+        .text(name)
+        .map(|v| {
+            v.parse::<f64>()
+                .map_err(|_| Failure::usage(format!("--{name} needs a number")))
+        })
+        .transpose()?;
     if value.is_some_and(|v| !(low..=high).contains(&v)) {
         return Err(Failure::usage(format!("--{name} must be {low}..{high}")));
     }
@@ -76,7 +91,7 @@ pub(super) fn write(path: &Path, pcm: &Pcm) -> Result<(), Failure> {
     Ok(())
 }
 
-fn flag(opts: &Opts, name: &str) -> Result<bool, Failure> {
+pub(super) fn flag(opts: &Opts, name: &str) -> Result<bool, Failure> {
     match opts.text(name) {
         None => Ok(false),
         Some("true") => Ok(true),
@@ -194,7 +209,7 @@ pub(super) fn run(source: &Path, opts: &Opts, looping: bool) -> Result<Value, Fa
         ));
     }
     let mut pcm = super::read(source)?;
-    let before = inspect::inspect(&pcm, None);
+    let before = inspect::inspect_with_loop(&pcm, None, looping);
     let mut edits = vec![];
     if looping {
         let blend = number(opts, "blend", 0.005, 10.0)?.unwrap_or(1.0);
@@ -205,18 +220,24 @@ pub(super) fn run(source: &Path, opts: &Opts, looping: bool) -> Result<Value, Fa
         }
         edits.push(make_loop(&mut pcm, blend, search, curve)?);
     } else {
-        if let Some(trim) = opts.numbers("trim").map_err(Failure::usage)? {
+        if let Some(raw) = opts.text("trim") {
+            let trim = raw
+                .split(',')
+                .map(str::parse::<f64>)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Failure::usage("--trim needs start,end seconds"))?;
             if trim.len() != 2
+                || trim.iter().any(|v| !v.is_finite())
                 || trim[0] < 0.0
                 || trim[1] <= trim[0]
-                || f64::from(trim[1]) > inspect::duration(&pcm)
+                || trim[1] > inspect::duration(&pcm)
             {
                 return Err(Failure::usage(
                     "--trim takes start,end seconds within the clip, end > start",
                 ));
             }
-            let start = (f64::from(trim[0]) * f64::from(pcm.rate)).round() as usize;
-            let end = (f64::from(trim[1]) * f64::from(pcm.rate)).round() as usize;
+            let start = (trim[0] * f64::from(pcm.rate)).round() as usize;
+            let end = (trim[1] * f64::from(pcm.rate)).round() as usize;
             if end <= start {
                 return Err(Failure::usage("trim must retain at least one sample"));
             }
@@ -290,7 +311,8 @@ pub(super) fn run(source: &Path, opts: &Opts, looping: bool) -> Result<Value, Fa
     write(Path::new(out), &pcm)?;
     // Analyze the exported/decoded data, not just our working buffer.
     let decoded = super::read(Path::new(out))?;
-    let after = inspect::inspect(&decoded, number(opts, "target-lufs", -70.0, 0.0)?);
+    let after =
+        inspect::inspect_with_loop(&decoded, number(opts, "target-lufs", -70.0, 0.0)?, looping);
     let boundaries = if looping {
         let mut repeated = decoded.clone();
         repeated.frames.extend_from_slice(&decoded.frames);
@@ -309,6 +331,12 @@ pub(super) fn run(source: &Path, opts: &Opts, looping: bool) -> Result<Value, Fa
                 checks.push(check);
             }
         }
+        checks.sort_by(|a, b| {
+            a["at_s"]
+                .as_f64()
+                .unwrap()
+                .total_cmp(&b["at_s"].as_f64().unwrap())
+        });
         Some(
             json!({"repetitions":3,"wraps_s":[inspect::duration(&decoded),2.0*inspect::duration(&decoded)],
             "clicks":inspect::clicks(&repeated).iter().map(|&i|i as f64/f64::from(pcm.rate)).collect::<Vec<_>>(),
@@ -410,11 +438,11 @@ fn make_loop(pcm: &mut Pcm, seconds: f64, search: f64, curve: &str) -> Result<Va
         json!({"source_start_s":start as f64/f64::from(pcm.rate),"source_end_s":end as f64/f64::from(pcm.rate),
         "overlap_s":seconds,"curve":curve,"match_score":best.0,"duration_s":inspect::duration(pcm),
         "blend_boundary_frame":boundary_frame,"blend_boundary":boundary(pcm,boundary_frame),
-        "detail":"Waveform/level candidate search and sample/slope refinement; no reliable beat or harmonic ranking. The overlap shortens and rotates the clip; set audio.toml loop_crossfade=0 for this prepared loop."}),
+        "detail":"match_score = 1 - correlation + absolute level difference / 20 dB; 0 is best, lower is better, unbounded above (not a probability). Waveform/level candidate search and sample/slope refinement; no reliable beat or harmonic ranking. The overlap shortens and rotates the clip; set audio.toml loop_crossfade=0 for this prepared loop."}),
     )
 }
 
-fn boundary(pcm: &Pcm, at: usize) -> Value {
+pub(super) fn boundary(pcm: &Pcm, at: usize) -> Value {
     let f = &pcm.frames;
     let w = (pcm.rate as usize / 10).min(at).min(f.len() - at);
     let left = meter::db(inspect::energy(&f[at - w..at]));

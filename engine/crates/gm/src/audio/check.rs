@@ -10,6 +10,8 @@ struct Spec {
     clip: Option<PathBuf>,
     scenario: Option<PathBuf>,
     expect: Vec<Expect>,
+    #[serde(default)]
+    looping: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -20,7 +22,12 @@ struct Expect {
     equals: Option<f64>,
 }
 
+#[cfg(test)]
 pub(super) fn run(path: &Path) -> Result<Output, Failure> {
+    run_with_detail(path, false)
+}
+
+pub(super) fn run_with_detail(path: &Path, detailed: bool) -> Result<Output, Failure> {
     let text = std::fs::read_to_string(path).map_err(|e| Failure::bad_input(e.to_string()))?;
     let spec: Spec = toml::from_str(&text).map_err(|e| Failure::bad_input(e.to_string()))?;
     if spec.clip.is_some() == spec.scenario.is_some() || spec.expect.is_empty() {
@@ -42,7 +49,9 @@ pub(super) fn run(path: &Path) -> Result<Output, Failure> {
     }
     let base = path.parent().unwrap_or(Path::new("."));
     let report = match spec.clip {
-        Some(clip) => super::inspect::inspect(&super::read(&base.join(clip))?, None),
+        Some(clip) => {
+            super::inspect::inspect_with_loop(&super::read(&base.join(clip))?, None, spec.looping)
+        }
         None => super::mix::run(&base.join(spec.scenario.unwrap()), &Opts::new())?,
     };
     let mut results = vec![];
@@ -67,7 +76,15 @@ pub(super) fn run(path: &Path) -> Result<Output, Failure> {
         });
         let action = action(&e.value);
         results.push(json!({"value":e.value,"got":got,"at_least":e.at_least,"at_most":e.at_most,"equals":e.equals,"pass":pass,
-            "reason":got.is_null().then_some("measurement is undefined; see the run's undefined_reason"),"suggested_action":action}));
+            "reason":got.is_null().then_some("measurement is undefined; see the run's undefined_reason"),"suggested_action":(!pass).then_some(action)}));
+        if pass {
+            results
+                .last_mut()
+                .unwrap()
+                .as_object_mut()
+                .unwrap()
+                .remove("suggested_action");
+        }
         if !pass {
             findings.push(super::inspect::finding(
                 "expectation",
@@ -81,8 +98,11 @@ pub(super) fn run(path: &Path) -> Result<Output, Failure> {
         }
     }
     let ok = findings.is_empty();
-    let out = json!({"measurement_version":1,"ok":ok,"reading":if ok {"All numeric expectations passed"} else {"Audio expectations failed; act on each suggested_action"},
+    let mut out = json!({"measurement_version":1,"ok":ok,"reading":if ok {"All numeric expectations passed"} else {"Audio expectations failed; act on each suggested_action"},
         "expectations":results,"findings":findings,"run":report,"detail":"Undefined values fail, never become zero. One local analysis per spec; no paid model calls."});
+    if !detailed {
+        super::summary::compact(&mut out);
+    }
     if ok {
         Ok(Output::Json(out))
     } else {

@@ -147,8 +147,9 @@ fn make(
         json!({"measurement_version":1,"reading":assessment["summary"],"requested_model":model,
         "model":calls.last().map(|c|&c["model"]),"duration_s":seconds,"blind_description":blind,"assessment":assessment,
         "findings":assessment["findings"],"calls":calls,"cost_usd":cost,
+        "reliability":"Model self-reported certainty is not calibrated or reliable. Two runs on the same audio can disagree, even when both say certain. Measurements outrank the judge description; listen to resolve semantic disagreement.",
         "cost_reason":cost.is_none().then_some("provider omitted actual cost; not estimated or treated as zero"),
-        "detail":"Two explicit OpenRouter requests, never retried. The description request contains no intent or source metadata. Semantic opinion with uncertainty; use inspect/mix/check for numeric acceptance. No model runs during play."}),
+        "detail":"One judge use is one run: two paid OpenRouter calls on success, never retried; a failure can stop after the first call. The description request contains no intent or source metadata. Semantic opinion with uncertainty; use inspect/mix/check for numeric acceptance. No model runs during play."}),
     )
 }
 

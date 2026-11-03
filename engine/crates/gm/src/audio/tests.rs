@@ -236,6 +236,15 @@ fn real_mix_has_separate_source_and_playback_levels_and_same_hash() {
     let playback = num(&r, &["buses", "music", "integrated_lufs"]);
     assert!((playback - src - 20.0 * 0.35_f64.log10()).abs() < 0.1);
     assert_eq!(r["limited_samples"], 0);
+    assert!(r["windows"][0]["rms_dbfs"]["music"].is_number());
+    assert!(r["windows"][0]["rms_dbfs"]["sound"].is_null());
+    let summary = output(run("audio mix", &[scenario.to_str().unwrap().into()]).unwrap());
+    assert!(
+        summary.to_string().len() < 18000,
+        "{}",
+        summary.to_string().len()
+    );
+    assert_eq!(summary["windows"]["window_count"], 2);
     let m = galaxy_module::module::Module::read(&module).unwrap();
     let mut session = galaxy_sim::Session::new(vec![m], 1).unwrap();
     for _ in 0..60 {
@@ -409,4 +418,403 @@ fn invalid_judge_timestamps_keep_answer_and_cost_and_do_not_call_assessor() {
             .unwrap()
             .contains("1.000000 seconds")
     );
+}
+
+#[test]
+fn bursts_between_old_fft_windows_and_short_edges_are_measured() {
+    let mut original: Option<f64> = None;
+    for offset in [0, 2400] {
+        let mut pcm = tone(2.0, 10000.0, 0.5);
+        for (i, f) in pcm.frames.iter_mut().enumerate() {
+            let j = (i % 4800) as isize - offset;
+            let envelope = if (0..1440).contains(&j) {
+                (std::f64::consts::PI * j as f64 / 1440.0).sin().powi(2) as f32
+            } else {
+                0.0
+            };
+            for x in f {
+                *x *= envelope;
+            }
+        }
+        let report = inspect::inspect(&pcm, None);
+        let centroid = num(&report, &["spectrum", "centroid_hz"]);
+        assert!((centroid - 10000.0).abs() < 30.0);
+        assert!(num(&report, &["spectrum", "air_fraction"]) > 0.99);
+        assert!(
+            report["findings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|f| f["kind"] == "bright_band")
+        );
+        if let Some(previous) = original {
+            assert!((centroid - previous).abs() < 1.0);
+        }
+        original = Some(centroid);
+    }
+    let short = inspect::spectrum(&tone(0.01, 10000.0, 0.2));
+    assert!(short["air_fraction"].as_f64().unwrap() > 0.99);
+}
+
+#[test]
+fn decimal_edit_endpoints_accept_the_exact_clip_end() {
+    let temp = tempfile::tempdir().unwrap();
+    for (seconds, option, value) in [(0.1, "fade-out", "0.1"), (4.3, "trim", "0,4.3")] {
+        let src = temp.path().join(format!("{option}.wav"));
+        let out = temp.path().join(format!("{option}-edited.wav"));
+        let pcm = tone(seconds, 1000.0, 0.1);
+        process::write(&src, &pcm).unwrap();
+        process::run(
+            &src,
+            &options(&[("out", out.to_str().unwrap()), (option, value)]),
+            false,
+        )
+        .unwrap();
+        assert_eq!(read(&out).unwrap().frames.len(), pcm.frames.len());
+    }
+}
+
+fn resonance(spec: &Value, hz: f64) -> &Value {
+    spec["narrow_resonances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| (r["hz"].as_f64().unwrap() - hz).abs() < 30.0)
+        .unwrap_or_else(|| panic!("missing peak {hz}: {}", spec["narrow_resonances"]))
+}
+
+#[test]
+fn quiet_resonances_survive_notches_and_loop_edits_at_consistent_levels() {
+    let temp = tempfile::tempdir().unwrap();
+    // Dominant warm bed plus a small partial below the old 1% cutoff and noise floor.
+    let mut pcm = tone(4.0, 300.0, 0.2);
+    let mut rng = 17u32;
+    for (i, f) in pcm.frames.iter_mut().enumerate() {
+        rng = rng.wrapping_mul(1664525).wrapping_add(1013904223);
+        let noise = (f64::from(rng) / f64::from(u32::MAX) - 0.5) * 0.004;
+        let partial = 0.008 * (std::f64::consts::TAU * 1184.0 * i as f64 / 48000.0).sin();
+        for x in f {
+            *x += (partial + noise) as f32;
+        }
+    }
+    let src = temp.path().join("source.wav");
+    let cut = temp.path().join("cut.wav");
+    let looped = temp.path().join("looped.wav");
+    process::write(&src, &pcm).unwrap();
+    let report = process::run(
+        &src,
+        &options(&[("out", cut.to_str().unwrap()), ("notch", "1184,-3,4")]),
+        false,
+    )
+    .unwrap();
+    let before = resonance(&report["before"]["spectrum"], 1184.0);
+    let after = resonance(&report["after"]["spectrum"], 1184.0);
+    let reduction = num(before, &["level_dbfs"]) - num(after, &["level_dbfs"]);
+    assert!((reduction - 3.0).abs() < 0.2, "level reduction {reduction}");
+    let prominence = num(before, &["prominence_db"]) - num(after, &["prominence_db"]);
+    assert!(
+        (prominence - 3.0).abs() < 0.7,
+        "prominence reduction {prominence}"
+    );
+    let loop_report = process::run(
+        &cut,
+        &options(&[
+            ("out", looped.to_str().unwrap()),
+            ("blend", "0.25"),
+            ("search", "0"),
+        ]),
+        true,
+    )
+    .unwrap();
+    let measured = inspect::inspect(&read(&looped).unwrap(), None);
+    assert_eq!(loop_report["after"]["spectrum"], measured["spectrum"]);
+    let loop_peak = resonance(&measured["spectrum"], 1184.0);
+    assert!((num(loop_peak, &["level_dbfs"]) - num(after, &["level_dbfs"])).abs() < 0.5);
+    let boundaries = loop_report["loop_validation"]["boundaries"]
+        .as_array()
+        .unwrap();
+    assert!(
+        boundaries
+            .windows(2)
+            .all(|w| w[0]["at_s"].as_f64() <= w[1]["at_s"].as_f64())
+    );
+}
+
+#[test]
+fn seams_require_loop_intent_and_module_seams_use_the_actual_crossfade() {
+    let temp = tempfile::tempdir().unwrap();
+    let module = temp.path().join("demo");
+    fs::create_dir(&module).unwrap();
+    fs::write(
+        module.join("manifest.toml"),
+        "id='demo'\nversion='0.1.0'\nmin_engine_version='0.5.0'\n",
+    )
+    .unwrap();
+    let mut pcm = tone(8.0, 1000.0, 0.3);
+    for (i, f) in pcm.frames.iter_mut().enumerate() {
+        let gain = 0.1 + 0.9 * i as f32 / 384000.0;
+        for x in f {
+            *x *= gain;
+        }
+    }
+    process::write(&module.join("bed.wav"), &pcm).unwrap();
+    let ordinary = inspect::inspect(&pcm, None);
+    assert!(ordinary["seam"].is_null());
+    assert!(
+        !ordinary["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["kind"] == "loop_seam")
+    );
+    let declared = inspect::inspect_with_loop(&pcm, None, true);
+    assert!(
+        declared["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["kind"] == "loop_seam")
+    );
+    let table = "[sounds.bed]\nfile='bed.wav'\n[[events]]\nevent='engine.start'\nsound='bed'\nbus='music'\n";
+    fs::write(module.join("audio.toml"), table).unwrap();
+    let report = playback::inspect_sound(&module, "bed", None).unwrap();
+    assert_eq!(report["playback_seam"]["effective_crossfade_s"], 2.0);
+    assert!(num(&report, &["source_seam", "level_jump_db"]) > 15.0);
+    for b in report["playback_seam"]["boundaries"].as_array().unwrap() {
+        assert!(num(b, &["level_jump_db"]) < 3.0, "{b}");
+    }
+    fs::write(
+        module.join("audio.toml"),
+        table.replace("file='bed.wav'", "file='bed.wav'\nloop_crossfade=0"),
+    )
+    .unwrap();
+    let hard = playback::inspect_sound(&module, "bed", None).unwrap();
+    assert!(num(&hard["playback_seam"]["boundaries"][0], &["level_jump_db"]) > 15.0);
+    fs::write(
+        module.join("audio.toml"),
+        table.replace("bus='music'", "bus='sound'"),
+    )
+    .unwrap();
+    let oneshot = playback::inspect_sound(&module, "bed", None).unwrap();
+    assert_eq!(oneshot["looping"], false);
+    assert!(oneshot.get("playback_seam").is_none());
+    let short = galaxy_audio::Clip::new(tone(1.0, 1000.0, 0.1).frames, 48000)
+        .unwrap()
+        .with_loop_crossfade(2.0);
+    assert_eq!(playback::seam(&short, 1.0)["effective_crossfade_s"], 0.0);
+}
+
+#[test]
+fn summary_is_bounded_warmth_is_descriptive_and_dc_scales_are_explained() {
+    let temp = tempfile::tempdir().unwrap();
+    let src = temp.path().join("warm.wav");
+    let out = temp.path().join("dc.wav");
+    let mut pcm = tone(30.0, 300.0, 0.1);
+    for (i, f) in pcm.frames.iter_mut().enumerate() {
+        for x in f {
+            *x += if i < 48000 { 0.008 } else { 0.002 };
+        }
+    }
+    process::write(&src, &pcm).unwrap();
+    let report = process::run(
+        &src,
+        &options(&[("out", out.to_str().unwrap()), ("remove-dc", "true")]),
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        report["before"]["dc_mean"],
+        report["edits"][0]["removed_dc"]
+    );
+    assert!((num(&report, &["before", "defects", "dc_max"]) - 0.008).abs() < 0.00001);
+    let args = vec![src.to_str().unwrap().into()];
+    let summary = output(run("audio inspect", &args).unwrap());
+    let detailed = output(run("audio inspect", &[args[0].clone(), "--detail".into()]).unwrap());
+    assert!(
+        summary.to_string().len() < 14000,
+        "{}",
+        summary.to_string().len()
+    );
+    assert!(detailed["spectrum"]["timeline"].is_array());
+    assert!(
+        summary["spectrum"]["timeline"]["window_count"]
+            .as_u64()
+            .unwrap()
+            > 100
+    );
+    let warm: Vec<_> = summary["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["kind"] == "low_mid_dominance")
+        .collect();
+    assert_eq!(warm.len(), 1);
+    assert!(warm[0]["occurrences"].as_u64().unwrap() > 100);
+    assert!(
+        !warm[0]["suggested_action"]
+            .as_str()
+            .unwrap()
+            .contains("low-shelf")
+    );
+    assert!(
+        warm[0]["suggested_action"]
+            .as_str()
+            .unwrap()
+            .contains("Keep intended warmth")
+    );
+}
+
+#[test]
+fn successful_expectations_have_no_repair_advice() {
+    let temp = tempfile::tempdir().unwrap();
+    process::write(&temp.path().join("clean.wav"), &tone(0.2, 1000.0, 0.1)).unwrap();
+    let spec = temp.path().join("check.toml");
+    fs::write(
+        &spec,
+        "clip='clean.wav'\n[[expect]]\nvalue='defects.clipped_frames'\nequals=0\n",
+    )
+    .unwrap();
+    let report = output(check::run(&spec).unwrap());
+    assert_eq!(report["expectations"][0]["pass"], true);
+    assert!(report["expectations"][0].get("suggested_action").is_none());
+}
+
+#[test]
+fn exact_judge_request_audio_preserves_mp3_and_wav_rate_duration_and_level() {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    let temp = tempfile::tempdir().unwrap();
+    let wav = temp.path().join("processed.wav");
+    let src = temp.path().join("source.wav");
+    process::write(&src, &tone(1.2, 1184.0, 0.2)).unwrap();
+    process::run(
+        &src,
+        &options(&[
+            ("out", wav.to_str().unwrap()),
+            ("notch", "1184,-3,4"),
+            ("trim", "0,1"),
+        ]),
+        false,
+    )
+    .unwrap();
+    let mp3 =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/audio/demo/sounds/high.mp3");
+    let mp3_edit = temp.path().join("mp3-edited.wav");
+    let mp3_loop = temp.path().join("mp3-loop.wav");
+    process::run(
+        &mp3,
+        &options(&[
+            ("out", mp3_edit.to_str().unwrap()),
+            ("notch", "1000,-3,4"),
+            ("trim", "0,0.16"),
+        ]),
+        false,
+    )
+    .unwrap();
+    process::run(
+        &mp3_edit,
+        &options(&[
+            ("out", mp3_loop.to_str().unwrap()),
+            ("blend", "0.02"),
+            ("search", "0"),
+        ]),
+        true,
+    )
+    .unwrap();
+    for path in [mp3, mp3_loop, wav] {
+        let source = read(&path).unwrap();
+        let mut blind = description();
+        blind["segments"][0]["end_s"] = json!(inspect::duration(&source));
+        blind["segments"][0]["certainty"] = json!("certain");
+        let mut assess = assessment();
+        for f in assess["findings"].as_array_mut().unwrap() {
+            f["end_s"] = json!(inspect::duration(&source));
+        }
+        let mut http = Canned {
+            replies: VecDeque::from([reply(blind, None), reply(assess, None)]),
+            bodies: vec![],
+        };
+        let report = output(
+            judge::run(
+                &[
+                    path.to_str().unwrap().into(),
+                    "--intent".into(),
+                    "warm pad".into(),
+                ],
+                JUDGE_OPTIONS,
+                Some(ApiKey::new("test-key")),
+                &mut http,
+            )
+            .unwrap(),
+        );
+        assert!(
+            report["reliability"]
+                .as_str()
+                .unwrap()
+                .contains("Two runs on the same audio can disagree")
+        );
+        for body in &http.bodies {
+            let encoded = body["messages"][0]["content"][1]["input_audio"]["data"]
+                .as_str()
+                .unwrap();
+            let bytes = STANDARD.decode(encoded).unwrap();
+            let mut reader = hound::WavReader::new(std::io::Cursor::new(bytes)).unwrap();
+            assert_eq!(reader.spec().sample_rate, source.rate);
+            assert_eq!(reader.spec().channels, source.channels);
+            let decoded: Vec<_> = reader
+                .samples::<i16>()
+                .map(|s| f64::from(s.unwrap()) / 32768.0)
+                .collect();
+            assert_eq!(
+                decoded.len(),
+                source.frames.len() * source.channels as usize
+            );
+            let mut squares = 0.0;
+            for (s, expected) in decoded.iter().zip(
+                source
+                    .frames
+                    .iter()
+                    .flat_map(|f| f.iter().take(source.channels as usize)),
+            ) {
+                assert!((s - f64::from(*expected)).abs() < 0.00005);
+                squares += s * s;
+            }
+            let delta = meter::db(squares / decoded.len() as f64).unwrap()
+                - meter::db(inspect::energy(&source.frames)).unwrap();
+            assert!(delta.abs() < 0.01, "level delta {delta}");
+            eprintln!(
+                "payload {}: {} Hz, {} channels, {} frames, {:.6} s, RMS delta {:.6} dB",
+                path.extension().unwrap().to_str().unwrap(),
+                source.rate,
+                source.channels,
+                source.frames.len(),
+                inspect::duration(&source),
+                delta
+            );
+        }
+    }
+}
+
+#[test]
+fn audio_help_locates_harshness_and_explains_scores_and_judge_uses() {
+    let guide = galaxy_module::help::guide_topic("audio").unwrap();
+    assert!(guide.contains("narrow_resonances") && guide.contains("attacks/crest"));
+    assert!(!guide.contains("high-shelf 4000"));
+    assert!(guide.contains("measurements outrank"));
+    let loop_help = galaxy_module::help::for_args(
+        galaxy_module::discover::Tool::Gm,
+        &["audio".into(), "loop".into()],
+    );
+    assert!(
+        loop_help
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .contains("0 best, lower better, unbounded above")
+    );
+    let judge_help = galaxy_module::help::for_args(
+        galaxy_module::discover::Tool::Gm,
+        &["audio".into(), "judge".into()],
+    );
+    let judge_help = judge_help.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(judge_help.contains("One use means one run") && judge_help.contains("two paid calls"));
 }
