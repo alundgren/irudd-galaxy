@@ -2,9 +2,9 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.7.0"
-scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau"]
+scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint"]
 
 [components.pilot]
 credits = "int"
@@ -109,11 +109,30 @@ order = "int"
 
 # What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
 # and the power and mass in use. Set whenever a part goes on or comes off.
+# `hull_speed` is the bare hull's top speed the ship flies by: a new game sets the
+# locked flight's 20 (start.toml); a save from before it loads with the old hull's 12
+# and keeps its old flight.
 [components.fit]
 hold = { type = "int", default = 6 }
 mine = { type = "int", default = 1 }
 power = "int"
 mass = "int"
+hull_speed = { type = "number", default = 12.0 }
+
+# A trader flying its own route (scripts/traffic.luau): two legs, each a chain of
+# waypoints from `out` or `home` ending in a docking onto `out_moor` or `home_moor`.
+# `leg` is the leg flown last; `moored` while it waits at that leg's mooring, from tick
+# `since`.
+[components.trader]
+name = "text"
+about = "text"
+out = "id"
+out_moor = "id"
+home = "id"
+home_moor = "id"
+leg = "text"
+moored = "bool"
+since = "int"
 
 [components.keeper]
 name = "text"

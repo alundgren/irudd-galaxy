@@ -11,7 +11,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -25,7 +25,7 @@ payload = { station = "core.lantern" }
 tick = 450
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 417 }
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 395 }
 
 # Bram starts his introduction, then the log opens: it takes the whole focus, so his
 # bubble ends unseen and no sign shows.

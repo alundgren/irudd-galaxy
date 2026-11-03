@@ -13,7 +13,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -27,7 +27,7 @@ payload = { station = "core.kiln" }
 tick = 440
 name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.kiln", start_tick = 404 }
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
 [[input]]
 tick = 470
 name = "core.open"
@@ -419,7 +419,7 @@ tick = 935
 entity = "ship"
 component = "engine.flight"
 field = "speed"
-equals = 10.8
+equals = 18.0
 
 [[expect]]
 tick = 935
@@ -482,7 +482,7 @@ tick = 1455
 entity = "ship"
 component = "engine.flight"
 field = "speed"
-equals = 12.0
+equals = 20.0
 
 [[expect]]
 tick = 1455
@@ -502,3 +502,41 @@ equals = "core.ship"
 tick = 1455
 facts = "fitted"
 equals = 5
+
+# A new game's ship flies the locked flight's bare hull. Taking the lens off changes
+# only the beam: the flight stays the locked preset (an old save keeps its own hull:
+# tests/fit.luau, an_old_save_keeps_its_hull).
+[[expect]]
+tick = 0
+entity = "ship"
+component = "fit"
+field = "hull_speed"
+equals = 20.0
+
+[[expect]]
+tick = 550
+entity = "ship"
+component = "fit"
+field = "mine"
+equals = 1
+
+[[expect]]
+tick = 550
+entity = "ship"
+component = "engine.flight"
+field = "speed"
+equals = 20.0
+
+[[expect]]
+tick = 550
+entity = "ship"
+component = "engine.flight"
+field = "accel"
+equals = 30.0
+
+[[expect]]
+tick = 550
+entity = "ship"
+component = "engine.flight"
+field = "turn"
+equals = 180.0

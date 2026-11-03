@@ -25,7 +25,7 @@ end
 -- rate, and its look (fitted pods show on the hull). `parts` is after the caller's
 -- writes.
 function cradle.apply(ctx, parts)
-    local t = fit.totals(parts)
+    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
     ctx.patch("ship", "fit", { hold = t.hold, mine = t.mine, power = t.power, mass = t.mass })
     ctx.patch("ship", "engine.flight", { speed = t.top, turn = t.turn })
     local look = "core.ship"
@@ -131,7 +131,7 @@ end
 function cradle.rows(ctx, ui, pilot, title, keeper)
     local parts = cradle.parts(ctx)
     local load = rules.load(ctx.get("ship", "hold"))
-    local t = fit.totals(parts)
+    local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
     local under = ui.text { id = "keeper", width = 276, size = 16, text = keeper or "" }
     if pilot.deal ~= "" then
         local row = { ui.text { id = "deal", width = pilot.sale < 0 and 200 or 276, text = pilot.deal, size = 16 } }

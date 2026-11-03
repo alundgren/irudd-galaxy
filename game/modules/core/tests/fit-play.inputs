@@ -12,7 +12,7 @@ name = "core.ahead"
 payload = { down = true }
 
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 

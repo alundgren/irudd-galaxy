@@ -4,6 +4,7 @@ local teach = require("./teach")
 local trade = require("./trade")
 local signs = require("./signs")
 local fit = require("./fit")
+local undock = require("./launch")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -27,10 +28,19 @@ local function stop(ctx)
     ctx.patch("ship", "pilot", { mining = false, target = "" })
 end
 
+-- The keys that fly the ship off the dock: the movement keys, not boost alone.
+local MOVES = { ahead = true, back = true, left = true, right = true }
+
 local function flight(event, ctx)
-    if not space(ctx) then return end
-    local held = ctx.get("ship", "held")
     local key = string.sub(event.kind, 6)
+    local held = ctx.get("ship", "held")
+    if not space(ctx) then
+        -- Docked, a movement key simply flies the ship off: there is no undock step.
+        local station = undock.docked(ctx)
+        if not station or not MOVES[key] or event.payload.down ~= true then return end
+        undock.launch(ctx, station)
+        held = { ahead = false, back = false, left = false, right = false, boost = false }
+    end
     held[key] = event.payload.down == true
     ctx.patch("ship", "held", { [key] = held[key] })
     local function axis(a, b)
@@ -69,7 +79,8 @@ local function mine(event, ctx)
     local target = nearest(ctx, "ore")
     if not target then message(ctx, "The field is worked out. Your ore still has a buyer."); return end
     stop(ctx)
-    ctx.put("ship", "engine.steer", { mode = "hold", target = target, range = 1.5 })
+    -- The ship parks on the rock's drawn surface, with no gap.
+    ctx.put("ship", "engine.steer", { mode = "hold", target = target, range = 0 })
     ctx.patch("ship", "pilot", { mining = true, target = target, message = "Heading for the nearest ore." })
 end
 
@@ -96,6 +107,7 @@ return {
             end
         end,
         ["engine.arrived"] = function(event, ctx)
+            if event.payload.entity ~= "core.ship" then return end -- traders: traffic.luau
             local pilot = ctx.get("ship", "pilot")
             if pilot.station == "" or not space(ctx) then return end
             local port = ctx.get(pilot.station, "port")

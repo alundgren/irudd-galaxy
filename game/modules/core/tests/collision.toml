@@ -1,4 +1,7 @@
-ticks = 120
+# Collision under held thrust: W from the start flies the ship straight at rock1. It
+# stops on the rock's surface (it would be at x 13 by tick 30 if it passed through),
+# then glances off round the rock rather than through it, and the rock never moves.
+ticks = 90
 [[input]]
 tick = 1
 name = "ahead"
@@ -7,20 +10,36 @@ payload = { down = true }
 tick = 90
 name = "ahead"
 payload = { down = false }
+
+# On the surface: the rock (at x 12) stops it short.
 [[expect]]
-tick = 90
+tick = 24
 entity = "ship"
 component = "engine.position"
 field = "x"
-at_least = 6
+at_most = 8.3
+
+# Pressed against the curved side, it slides round it instead of sticking or passing.
 [[expect]]
-tick = 90
+tick = 30
 entity = "ship"
 component = "engine.position"
 field = "x"
-at_most = 9
+at_most = 10.2
+[[expect]]
+tick = 30
+entity = "ship"
+component = "engine.position"
+field = "y"
+at_least = 2
+
 [[expect]]
 entity = "rock1"
 component = "engine.position"
 field = "x"
 equals = 12
+[[expect]]
+entity = "rock1"
+component = "engine.position"
+field = "y"
+equals = 0

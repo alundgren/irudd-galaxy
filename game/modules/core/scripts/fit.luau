@@ -14,7 +14,8 @@ local fit = {
     FLOOR = 0.5, -- never slower than this share
     HOLD = 6, -- the bare hull's hold
     MINE = 1, -- ore a second the bare hull's beam cuts
-    SPEED = 12, -- the bare hull's top speed, world units a second
+    SPEED = 20, -- the bare hull's top speed, world units a second, in the locked flight
+    OLD_SPEED = 12, -- the bare hull's top speed in a save from before the locked flight
     TURN = 180, -- the bare hull's turn rate, degrees a second
     -- The sockets, in the order the fitting room shows them.
     SOCKETS = {
@@ -32,9 +33,10 @@ function fit.socket_name(id)
 end
 
 -- What the hull and its fitted parts add up to. `without` leaves one fitted part out,
--- and `with` adds one that isn't fitted, to ask what a change would make.
-function fit.totals(parts, without, with)
-    local t = { power = 0, mass = 0, hold = fit.HOLD, mine = fit.MINE, speed = fit.SPEED }
+-- and `with` adds one that isn't fitted, to ask what a change would make. `hull` is the
+-- bare hull's top speed (fit.hull_speed); fit.SPEED when left out.
+function fit.totals(parts, without, with, hull)
+    local t = { power = 0, mass = 0, hold = fit.HOLD, mine = fit.MINE, speed = hull or fit.SPEED }
     for _, p in parts do
         local on = (p.fitted and p.id ~= without) or p.id == with
         if on then
@@ -93,13 +95,13 @@ function fit.mass_text(t)
     return s .. ", " .. (fit.FREE_MASS - t.mass) .. " more before it slows you"
 end
 
--- "Hold 9 · mines 1 a second · top speed 13.5 · turns 162° a second"
+-- "Hold 9 · mines 1 a second · top speed 18 · turns 162° a second"
 function fit.ship_text(t)
     return "Hold " .. t.hold .. " · mines " .. t.mine .. " a second · top speed " .. fit.num(t.top)
         .. " · turns " .. fit.num(t.turn) .. "° a second"
 end
 
--- What a part does, in numbers: "mines 2 a second", "hold +3", "top speed +3".
+-- What a part does, in numbers: "mines 2 a second", "hold +3", "top speed +5".
 function fit.effect(p)
     local parts = {}
     if p.mine > 0 then table.insert(parts, "mines " .. (fit.MINE + p.mine) .. " a second") end
@@ -117,6 +119,14 @@ end
 function fit.hold(ctx)
     local f = ctx.get("ship", "fit")
     return f and f.hold or fit.HOLD
+end
+
+-- The bare hull's top speed this ship was built with: fit.SPEED in a new game. A save
+-- from before the locked flight keeps flying the old hull, so its `fit` loads with the
+-- field's default, fit.OLD_SPEED, and the cradle goes on from the speed it really has.
+function fit.hull_speed(ctx)
+    local f = ctx.get("ship", "fit")
+    return f and f.hull_speed or fit.SPEED
 end
 
 -- Ore a second the beam cuts with the parts fitted now.

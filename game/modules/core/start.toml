@@ -10,7 +10,10 @@
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 0, y = 0 }
 "engine.motion" = {}
-"engine.flight" = { speed = 12, accel = 18, stop_time = 0.7 }
+# The locked flight preset (#47) at the core's view of 64 units: top speed, thrust and
+# braking are 0.3, 0.45 and 0.35 view heights a second, letting go of thrust stops the
+# ship in a second, a little inertia, and turns at 180 degrees a second.
+"engine.flight" = { speed = 20, accel = 30, brake = 23.3, stop_time = 1.0, inertia = 0.4, turn = 180 }
 "engine.helm" = {}
 "engine.steer" = {}
 "engine.body" = { mass = 1 }
@@ -20,7 +23,7 @@ pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 hold = {}
 held = {}
 taught = {}
-fit = {}
+fit = { hull_speed = 20.0 }
 
 [entities.rock1]
 "engine.location" = { place = "core.reach" }
@@ -442,4 +445,118 @@ part = { name = "Cutting lens", socket = "drill", price = 90, power = 2, mass = 
 part = { name = "Hold pods", socket = "hold", price = 70, mass = 3, hold = 3, order = 2, model = "core.ship_pods", effect = "your hold carries 9 instead of 6", said = "Room for three more. She's heavier, mind." }
 
 [entities.thrusters]
-part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 3, order = 3, effect = "your top speed goes from 12 to 15", said = "Open her up out there. She'll run." }
+part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
+
+# Traffic: two traders fly their own routes between the stations, moor beside a station
+# for a while, then fly back (scripts/traffic.luau). Their routes keep clear of the
+# rocks and the player's berths, and their moorings sit off the stations' far sides.
+# A leg is a chain of waypoints flown without stopping, then a docking onto a mooring.
+[entities.mercy]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -24, y = -30, angle = 1.5707963267948966 }
+"engine.motion" = {}
+"engine.flight" = { speed = 9, accel = 12, brake = 10, stop_time = 1.0, turn = 120 }
+"engine.helm" = {}
+"engine.steer" = {}
+"engine.body" = { mass = 2 }
+"engine.model" = { model = "core.hauler", look = "core.hull" }
+"engine.anchor" = { name = "label" }
+trader = { name = "Little Mercy", about = "a hauler working between Lantern Dock and Cinder Kiln", out = "core.mercy_out1", out_moor = "core.kiln_south", home = "core.mercy_home1", home_moor = "core.lantern_south", leg = "home", moored = true, since = -150 }
+
+[entities.lantern_south]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -24, y = -30, angle = 1.5707963267948966 }
+
+[entities.kiln_south]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 30, y = -34, angle = 1.5707963267948966 }
+
+[entities.mercy_out1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -14, y = -37 }
+"engine.waypoint" = { next = "core.mercy_out2" }
+
+[entities.mercy_out2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 20, y = -40 }
+"engine.waypoint" = {}
+
+[entities.mercy_home1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 20, y = -40 }
+"engine.waypoint" = { next = "core.mercy_home2" }
+
+[entities.mercy_home2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -14, y = -37 }
+"engine.waypoint" = {}
+
+[entities.lamp]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 8, y = 32 }
+"engine.motion" = { vx = 8 }
+"engine.flight" = { speed = 8, accel = 10, brake = 9, stop_time = 1.0, turn = 120 }
+"engine.helm" = {}
+"engine.steer" = { mode = "follow", target = "core.lamp_out4" }
+"engine.body" = { mass = 2 }
+"engine.model" = { model = "core.lamp_launch", look = "core.hull" }
+"engine.anchor" = { name = "label" }
+trader = { name = "Quiet Lamp", about = "a lamp launch running the long way round the field", out = "core.lamp_out1", out_moor = "core.kiln_east", home = "core.lamp_home1", home_moor = "core.lantern_west", leg = "out" }
+
+[entities.lantern_west]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -39, y = -16, angle = 0.0 }
+
+[entities.kiln_east]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 41, y = -20, angle = 3.141592653589793 }
+
+[entities.lamp_out1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -38, y = 0 }
+"engine.waypoint" = { next = "core.lamp_out2" }
+
+[entities.lamp_out2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -24, y = 28 }
+"engine.waypoint" = { next = "core.lamp_out3" }
+
+[entities.lamp_out3]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 8, y = 32 }
+"engine.waypoint" = { next = "core.lamp_out4" }
+
+[entities.lamp_out4]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 34, y = 22 }
+"engine.waypoint" = { next = "core.lamp_out5" }
+
+[entities.lamp_out5]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 46, y = 0 }
+"engine.waypoint" = {}
+
+[entities.lamp_home1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 46, y = 0 }
+"engine.waypoint" = { next = "core.lamp_home2" }
+
+[entities.lamp_home2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 34, y = 22 }
+"engine.waypoint" = { next = "core.lamp_home3" }
+
+[entities.lamp_home3]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 8, y = 32 }
+"engine.waypoint" = { next = "core.lamp_home4" }
+
+[entities.lamp_home4]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -24, y = 28 }
+"engine.waypoint" = { next = "core.lamp_home5" }
+
+[entities.lamp_home5]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -38, y = 0 }
+"engine.waypoint" = {}

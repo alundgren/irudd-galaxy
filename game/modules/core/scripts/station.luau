@@ -8,6 +8,7 @@ local signs = require("./signs")
 local trade = require("./trade")
 local fit = require("./fit")
 local cradle = require("./cradle")
+local undock = require("./launch")
 local layout = require("./layout") -- room panels are layout.PANEL wide: at most about 45% of the view
 
 local function pressed(event)
@@ -75,19 +76,7 @@ end
 local function launch(event, ctx)
     if not pressed(event) then return end
     local station = docked(ctx)
-    if not station then return end
-    local port = ctx.get(station, "port")
-    ctx.put("ship", "engine.helm", {})
-    ctx.put("ship", "engine.steer", {})
-    ctx.put("ship", "held", {})
-    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = false })
-    signs.show(ctx, station, "", false, nil, true) -- worn again once the next visit settles
-    ctx.patch(station, "engine.room", { camera = "" }) -- the next arrival frames the whole station
-    ctx.move("ship", "core.reach", port.departure)
-    ctx.put("ship", "engine.body", { mass = 1 })
-    ctx.patch("ship", "engine.model", { scale = 1 })
-    local hint = teach.new(ctx.get("ship", "taught"), "mine") and " Space finds the nearest ore." or ""
-    log.add(ctx, "Launched from " .. port.name .. "." .. hint)
+    if station then undock.launch(ctx, station) end
 end
 
 -- The site becomes its room: the finished building, its keeper arriving to stand by
@@ -399,7 +388,7 @@ local function overview(ctx, ui, station, pilot)
     end
     table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * 182 - 12, gap = 12, children = key })
     table.insert(children, ui.button { id = "launch", align = "bottom-right", x = layout.M, y = layout.M, width = 200,
-        text = "Launch  [U]", hover = "Fly off from the berth", on = "launch" })
+        text = "Launch  [U]", hover = "Fly off from the berth: U, or just fly with W, A, S or D", on = "launch" })
     return layout.frame(ui, "dock", children)
 end
 

@@ -1,0 +1,28 @@
+about = "A slim lamp launch: a narrow hull, a lantern mast and short swept wings"
+[[part]]
+name = "hull"
+shape = "body"
+length = 3.0
+width = 1.1
+height = 0.7
+nose = 0.15
+paint = "#a6b7d6"
+[[part]]
+name = "wings"
+shape = "wing"
+span = 0.9
+chord = 0.9
+mirror = true
+at = [-0.7, 0.3, 0]
+paint = "trim"
+[[part]]
+name = "lamp"
+shape = "mast"
+height = 1.1
+dish = false
+at = [0.2, 0, 0.3]
+[[part]]
+name = "engine"
+shape = "nozzle"
+radius = 0.36
+at = [-1.4, 0, 0]
