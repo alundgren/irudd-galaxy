@@ -526,7 +526,8 @@ static GAME: &[Command] = &[
                 "--inputs <file>",
                 "a bot: play these inputs, clicks, pointer gestures, notes and zooms on their ticks \
               through the window loop. [[click]] takes tick and either x/y logical pixels \
-              or widget = a full path or unique id (follows moving anchors). \
+              or widget = a full path or unique id (follows moving anchors); a click on a \
+              resting button records nothing and is listed in the report's resting_clicks. \
               [[pointer]] takes tick, action (pickup/move/drop/scroll), widget and optional delta in pixels. \
               `galaxy-gm fields inputs` lists the format; `galaxy-gm guide screens` gives a recipe",
             ),

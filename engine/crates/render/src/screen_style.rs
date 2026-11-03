@@ -23,6 +23,8 @@ pub struct ScreenStyle {
     pub handle_active: Color,
     /// Outline of a hovered `ui.target`'s model.
     pub highlight: Color,
+    /// Fill of a resting button (one that can't act now). Unset, it is `panel`.
+    pub resting: Option<Color>,
     pub radius: f32,
     pub border_px: f32,
     pub frame_padding: f32,
@@ -31,6 +33,8 @@ pub struct ScreenStyle {
     pub handle_min: f32,
     pub handle_radius: f32,
     pub socket_dash: f32,
+    /// Dash period of a resting button's frame; zero is solid.
+    pub resting_dash: f32,
     pub hint_border_px: f32,
     /// Width of that outline, logical pixels.
     pub highlight_px: f32,
@@ -64,6 +68,7 @@ impl Default for ScreenStyle {
             handle: Color::hex(0x666666),
             handle_active: Color::hex(0x444444),
             highlight: Color::hex(0x2f6fdb),
+            resting: None,
             radius: 8.0,
             border_px: 1.0,
             frame_padding: 16.0,
@@ -72,6 +77,7 @@ impl Default for ScreenStyle {
             handle_min: 44.0,
             handle_radius: 8.0,
             socket_dash: 6.0,
+            resting_dash: 6.0,
             hint_border_px: 2.0,
             highlight_px: 6.0,
             bubble_title: 24.0,
@@ -94,6 +100,7 @@ impl ScreenStyle {
             ("handle_min", self.handle_min, 44.0, 80.0),
             ("handle_radius", self.handle_radius, 0.0, 24.0),
             ("socket_dash", self.socket_dash, 0.0, 16.0),
+            ("resting_dash", self.resting_dash, 0.0, 16.0),
             ("hint_border_px", self.hint_border_px, 0.0, 4.0),
             ("highlight_px", self.highlight_px, 2.0, 12.0),
             ("bubble_title", self.bubble_title, 16.0, 40.0),
@@ -122,6 +129,7 @@ impl ScreenStyle {
             ("socket", self.socket),
             ("accept", self.accept),
             ("refuse", self.refuse),
+            ("resting", self.resting_fill()),
         ];
         // Descendant text (including deltas) can sit on any containing surface.
         // Opaque colours make the guarantee independent of the world behind them.
@@ -152,6 +160,20 @@ impl ScreenStyle {
                 }
             }
         }
+        // A resting button must look unlike a ready one: by its dashed frame, which then
+        // has to show against its fill, or by its fill alone.
+        if self.resting_dash > 0.0 {
+            if contrast(self.border, self.resting_fill()) < 3.0 {
+                return Err(
+                    "[screen] border on resting needs contrast at least 3:1 to show its dashes"
+                        .into(),
+                );
+            }
+        } else if self.resting_fill() == self.button {
+            return Err(
+                "[screen] resting must differ from button, or set resting_dash above 0".into(),
+            );
+        }
         for (name, ink) in [
             ("handle", self.handle),
             ("handle_active", self.handle_active),
@@ -163,6 +185,11 @@ impl ScreenStyle {
             }
         }
         Ok(())
+    }
+
+    /// The fill a resting button is drawn with.
+    pub fn resting_fill(&self) -> Color {
+        self.resting.unwrap_or(self.panel)
     }
 
     pub fn surface(&self, rect: Rect, fill: Color) -> Panel {
@@ -194,13 +221,52 @@ mod tests {
         let base = toml::Value::try_from(ScreenStyle::default()).unwrap();
         for surface in [
             "paper", "panel", "button", "bubble", "sign", "held", "socket", "accept", "refuse",
+            "resting",
         ] {
             for ink in ["text", "gain", "loss"] {
                 let mut value = base.clone();
-                value[ink] = value[surface].clone();
+                let table = value.as_table_mut().unwrap();
+                // Resting is unset by default: give it the ink's colour instead, which
+                // the text ink (checked first) may fail on too.
+                let expected = if surface == "resting" {
+                    let ink_colour = table[ink].clone();
+                    table.insert(surface.into(), ink_colour);
+                    "on resting"
+                } else {
+                    let fill = table[surface].clone();
+                    table.insert(ink.into(), fill);
+                    ink
+                };
                 let style: ScreenStyle = value.try_into().unwrap();
-                assert!(style.check().unwrap_err().contains(ink));
+                assert!(style.check().unwrap_err().contains(expected));
             }
         }
+    }
+
+    #[test]
+    fn a_resting_button_must_look_unlike_a_ready_one() {
+        let ok = ScreenStyle {
+            resting: Some(Color::hex(0xffffff)),
+            ..ScreenStyle::default()
+        };
+        ok.check().unwrap();
+        let faint = ScreenStyle {
+            border: Color::hex(0xdddddd),
+            ..ok
+        };
+        assert!(faint.check().unwrap_err().contains("border on resting"));
+        let same = ScreenStyle {
+            resting: Some(ok.button),
+            resting_dash: 0.0,
+            ..ok
+        };
+        assert!(same.check().unwrap_err().contains("resting must differ"));
+        // Solid, but its own fill: still resting.
+        ScreenStyle {
+            resting_dash: 0.0,
+            ..ok
+        }
+        .check()
+        .unwrap();
     }
 }

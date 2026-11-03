@@ -81,6 +81,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 accepts: BTreeMap::new(),
                 weight: 500,
                 trailing: false,
+                resting: None,
             })
         })
         .collect()

@@ -311,6 +311,49 @@ fn life_sign_overlap_only_mid_walk_fails_check_and_passes_when_fixed() {
 }
 
 #[test]
+fn check_passes_a_resting_button_and_lists_its_reason_as_its_hover() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/resting/demo"]);
+    assert_eq!(code, 0, "{out}");
+    let report = json(&out);
+    // Start, one in the tray and a full tray: Add rests there, and nothing presses Empty
+    // while it rests.
+    assert_eq!(report["pressed"][0]["states"], 3, "{report}");
+    let empty = report["hovers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|h| h["widget"] == "demo:scripts/screen.luau/screen/row[2]/empty[2]")
+        .expect("the resting button is hovered");
+    assert_eq!(empty["hover"]["text"], "Nothing to empty yet.", "{report}");
+    assert_eq!(empty["hover"]["readable"], true, "{report}");
+    // A style whose resting look can't be told from a ready button is refused.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/resting/demo"), &module);
+    std::fs::write(
+        module.join("style.toml"),
+        "[screen]\nbutton = '#dddddd'\nresting = '#dddddd'\nresting_dash = 0.0\n",
+    )
+    .unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_ne!(code, 0, "{out}");
+    assert!(out.contains("resting must differ from button"), "{out}");
+}
+
+fn copy(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
 fn check_presses_a_button_to_find_a_panel_over_a_name_sign() {
     let (code, out) = gm(&engine(), &["check", "tests/play/sign-panel/demo"]);
     assert_eq!(code, 5, "{out}");

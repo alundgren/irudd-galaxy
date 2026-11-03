@@ -121,6 +121,7 @@ fn run_with(
             "tick",
             "hash",
             "problems",
+            "resting_clicks",
         ] {
             report[key] = play[key].clone();
         }

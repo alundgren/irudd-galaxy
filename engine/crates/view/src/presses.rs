@@ -166,7 +166,10 @@ impl View {
             .screens
             .all()
             .iter()
-            .map(|b| format!("{} {:?} {:?}", b.widget.path, b.widget.text, b.rect))
+            .map(|b| {
+                let w = &b.widget;
+                format!("{} {:?} {:?} {:?}", w.path, w.text, w.resting, b.rect)
+            })
             .collect();
         signature.push(format!("{:?}", galaxy_sim::travel::player(&silent)));
         signature.sort();

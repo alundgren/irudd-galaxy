@@ -41,6 +41,7 @@ fn part(kind: &str, path: String, text: &str, size: f32) -> Widget {
         accepts: BTreeMap::new(),
         weight: 500,
         trailing: false,
+        resting: None,
     }
 }
 
@@ -291,7 +292,10 @@ impl View {
                 }
                 Ok(input)
             }
-            ClickTarget::Point { x, y } => self.screens.bot_click(click).or_else(|_| {
+            ClickTarget::Point { x, y } => self.screens.bot_click(click).or_else(|e| {
+                if self.screens.bot_resting(click).is_some() {
+                    return Err(e);
+                }
                 let point = Vec2::new(*x, *y);
                 self.target_click(world, point, click.tick)
                     .or_else(|| self.talk_click(world, point, click.tick))

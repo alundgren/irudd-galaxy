@@ -1,0 +1,34 @@
+# Hover the resting Empty button, click it (reported as resting, nothing recorded),
+# fill the tray until Add rests, then click Add (resting) and Empty (ready).
+[[pointer]]
+tick = 10
+action = "move"
+widget = "empty"
+[[note]]
+tick = 14
+text = "Empty rests while the tray is empty; hovering it shows why."
+[[click]]
+tick = 20
+widget = "empty"
+[[click]]
+tick = 30
+widget = "add"
+[[click]]
+tick = 40
+widget = "add"
+[[pointer]]
+tick = 45
+action = "move"
+widget = "add"
+[[note]]
+tick = 50
+text = "The tray is full: Add rests and Empty is ready."
+[[click]]
+tick = 55
+widget = "add"
+[[click]]
+tick = 60
+widget = "empty"
+[[note]]
+tick = 70
+text = "Emptied: Add is ready again and Empty rests."
