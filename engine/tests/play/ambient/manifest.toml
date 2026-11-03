@@ -1,0 +1,41 @@
+# A generic test module for a world that moves when nothing is pressed, and for labels
+# that yield. A ship flown with W/A/S/D; a rock turning slowly (engine.spin); a station
+# whose ring spins and whose lamps pulse (recipe part motion, drawn only); three star
+# layers ([sky] star_layers); a trader flying a loop with a name label that yields
+# instead of covering the status panel. 2 holds on the ore rock, and each second while
+# held a script cuts it a sixth smaller, six times; the hold keeps the ship on its
+# surface. 0 drops the order. Every model is made from recipes/ by
+# `galaxy-gm model make tests/play/ambient`.
+id = "ambient"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/ambient.luau"]
+events = ["thrust_ahead", "thrust_back", "turn_left", "turn_right", "order_mine", "order_none"]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera", "engine.flight",
+    "engine.helm", "engine.steer", "engine.waypoint", "engine.body", "engine.spin",
+    "engine.anchor",
+]
+
+# Which flight keys are held, so two keys for one way (W and Up) don't fight.
+[components.keys]
+ahead = "int"
+back = "int"
+left = "int"
+right = "int"
+
+# How many times the ore rock has been cut.
+[components.cuts]
+count = "int"
+
+[keys]
+w = "thrust_ahead"
+up = "thrust_ahead"
+s = "thrust_back"
+down = "thrust_back"
+a = "turn_left"
+left = "turn_left"
+d = "turn_right"
+right = "turn_right"
+2 = "order_mine"
+0 = "order_none"

@@ -12,7 +12,8 @@ struct Instance {
     outline: vec4<f32>,
     emissive: vec4<f32>,
     // x: morph weight (0 the mesh, 1 its morph target), y: the uniform scale the
-    // hatching is spaced for (0: the instance's own).
+    // hatching is spaced for (0: the instance's own), z: the share of its glow that
+    // shows (a pulsing lamp).
     morph: vec4<f32>,
 };
 
@@ -219,8 +220,12 @@ fn fs_main(in: VOut) -> @location(0) vec4<f32> {
     let hatch = stroke * shadowed * inst.highlight.w * (1.0 - bite);
     col = mix(col, col * 0.5 + INK * 0.5, hatch * 0.55);
 
-    // Self-lit paint (windows, engines) ignores the light.
-    col = mix(col, in.color.rgb * inst.tint.rgb * 1.1, in.color.a);
+    // Self-lit paint (windows, engines) ignores the light. A pulsing lamp (morph.z under
+    // 1) shows that share of its glow, and towards the dim end its paint also sinks to
+    // the shadow tone, so the pulse reads under a bright sun too.
+    let pulse = inst.morph.z;
+    col = mix(col, in.color.rgb * inst.tint.rgb * 1.1, in.color.a * pulse);
+    col = mix(col, col * shadow_rgb, in.color.a * (1.0 - pulse));
     col += inst.emissive.rgb * inst.emissive.a;
     return vec4<f32>(col, 1.0);
 }

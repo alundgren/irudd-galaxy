@@ -229,6 +229,7 @@ impl Session {
         self.dispatch_events();
         crate::flight::flight(&mut self.world, &self.shapes);
         services::motion(&mut self.world);
+        services::spin(&mut self.world);
         crate::places::advance_walks(&mut self.world);
         crate::collide::collide(&mut self.world, &self.shapes);
         services::ground(&mut self.world);
@@ -236,6 +237,7 @@ impl Session {
             self.run_cadence();
         }
         crate::life::update(&mut self.world, &self.registry)?;
+        crate::flight::settle_holds(&mut self.world, &self.shapes);
         if self
             .world
             .entities

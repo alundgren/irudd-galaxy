@@ -33,6 +33,16 @@ pub fn room_camera(world: &World, place: &str) -> Option<String> {
     )
 }
 
+/// The camera node a glide ends on when its place is not a room: the follow camera. No
+/// room camera node has this name (an empty `engine.room.camera` is `camera`).
+pub const FOLLOW: &str = "";
+
+/// The camera a glide into `place` ends on: the room's camera node, or [`FOLLOW`] for a
+/// place that isn't a room.
+pub fn glide_camera(world: &World, place: &str) -> String {
+    room_camera(world, place).unwrap_or_else(|| FOLLOW.to_owned())
+}
+
 /// Whether `name` is an input that lands the player's trip or camera glide.
 pub fn is_landing(name: &str) -> bool {
     name == PLACE_ARRIVED || name == CAMERA_SETTLED
@@ -144,6 +154,15 @@ pub fn start(
             registry,
         );
     }
+    // Leaving a gliding room for a place that isn't a room glides back out to the follow
+    // camera: the same glide played the other way.
+    let glide = if world.component(to, ROOM).is_some() {
+        glide
+    } else {
+        world
+            .component(&from, ROOM)
+            .map_or(0.0, |r| glide_seconds(&r.fields))
+    };
     let mut ancestor = from.as_str();
     let mut reverse = false;
     for _ in 0..world.entities.len() {
@@ -182,14 +201,16 @@ pub fn start(
 }
 
 /// The `interrupted` text for a new trip: the player's trip as it was, if it is a glide
-/// that has not landed, ending on node `camera`. Empty otherwise. A glide that already
+/// that has not landed, ending on node `camera` (the follow camera when `None`). Empty
+/// otherwise. A glide that already
 /// reached its end still counts: the camera shows its end node.
 fn interrupted(trip: &galaxy_api::Fields, camera: Option<&str>) -> String {
     let gliding = trip["active"] == true && glide_seconds(trip) > 0.0;
-    match camera.filter(|_| gliding) {
-        Some(camera) => Glide::of(trip, camera).to_text(),
-        None => String::new(),
+    if !gliding {
+        return String::new();
     }
+    // A glide out of a room ends on the follow camera of a place with no room camera.
+    Glide::of(trip, camera.unwrap_or(FOLLOW)).to_text()
 }
 
 /// Weights at or below this are dropped from a blend; what they moved is far below a

@@ -1,0 +1,8 @@
+# The colours of ambient. Recipes paint by these slots.
+main = "#efdcb4"
+trim = "#d9774b"
+accent = "#3fa7a0"
+lights = "#ffcf6b"
+glass = "#9fe0c8"
+stone = "#b98a6a"
+moss = "#8fae6a"

@@ -334,6 +334,35 @@ struct Journey {
     jumps: Vec<(u64, f32, f32)>,
     eyes: BTreeMap<u64, Vec3>,
     note: Option<Note>,
+    /// Per tick, the camera at the end of the tick before and at the start of this one.
+    steps: BTreeMap<u64, (galaxy_render::Camera, galaxy_render::Camera)>,
+}
+
+/// What a camera shows, whatever it looks at: the way it looks, its field of view and
+/// the height it shows at the point it looks at. A glide across places keeps these.
+fn framing(c: &galaxy_render::Camera) -> (Vec3, f32, f32) {
+    let to = c.target - c.eye;
+    match c.projection {
+        galaxy_render::Projection::Perspective { fov_y, .. } => {
+            // Shown where the view meets the floor, as a glide measures it.
+            let dir = to.normalize();
+            let distance = if dir.z < -1e-3 {
+                -c.eye.z / dir.z
+            } else {
+                10.0
+            };
+            (dir, fov_y, 2.0 * distance * (fov_y * 0.5).tan())
+        }
+        galaxy_render::Projection::Orthographic { view_height, .. } => {
+            (to.normalize(), 0.0, view_height)
+        }
+    }
+}
+
+/// Whether two framings are the same, to float noise.
+fn same_framing(a: &galaxy_render::Camera, b: &galaxy_render::Camera) -> bool {
+    let (fa, fb) = (framing(a), framing(b));
+    (fa.0 - fb.0).length() < 1e-3 && (fa.1 - fb.1).abs() < 1e-3 && (fa.2 / fb.2 - 1.0).abs() < 1e-3
 }
 
 fn journey(events: &[(u64, &str, &str, &str)], ticks: u64, note_at: u64) -> Journey {
@@ -345,6 +374,7 @@ fn journey(events: &[(u64, &str, &str, &str)], ticks: u64, note_at: u64) -> Jour
     let hall =
         |w: &galaxy_sim::World, alpha| galaxy_view::travel::place(w, alpha) == Some("targets.hall");
     let (mut jumps, mut eyes, mut note) = (Vec::new(), BTreeMap::new(), None);
+    let mut steps = BTreeMap::new();
     for tick in 1..=ticks {
         v.before_step(&s.world);
         let before = v.scene(&s.world, 1.0, size, 0.0).camera;
@@ -374,6 +404,7 @@ fn journey(events: &[(u64, &str, &str, &str)], ticks: u64, note_at: u64) -> Jour
         }
         s.step(&inputs).unwrap();
         let after = v.scene(&s.world, 0.0, size, 0.0).camera;
+        steps.insert(tick, (before, after));
         if shown_before && hall(&s.world, 0.0) {
             let px = (after.world_to_screen(point, size).unwrap()
                 - before.world_to_screen(point, size).unwrap())
@@ -403,6 +434,7 @@ fn journey(events: &[(u64, &str, &str, &str)], ticks: u64, note_at: u64) -> Jour
         jumps,
         eyes,
         note,
+        steps,
     }
 }
 
@@ -489,7 +521,8 @@ fn camera_changes_during_any_glide_continue_from_the_current_view() {
     let second = j.v.room_camera(&j.s.world, "targets.hall").unwrap().eye;
     assert!((j.eyes[&90] - second).length() < 1e-3);
 
-    // Leaving the hall mid-glide fades out of the glide as it moves, not from a snap.
+    // Leaving the hall mid-glide glides back out from where the camera is, not from a
+    // snap: the framing carries on across the step into the yard.
     let j = journey(
         &[
             (5, "go", "ui", ""),
@@ -500,8 +533,23 @@ fn camera_changes_during_any_glide_continue_from_the_current_view() {
         60,
         49,
     );
-    assert_no_jump(&j, "fading out");
-    assert!(j.jumps.iter().any(|(t, ..)| *t == 48));
+    assert_no_jump(&j, "gliding out");
+    let (before, after) = &j.steps[&48];
+    assert!(same_framing(before, after), "{before:?} then {after:?}");
+    let trip =
+        &j.s.world
+            .component("targets.player", TRAVEL)
+            .unwrap()
+            .fields;
+    assert_eq!(
+        (trip["to"].as_str(), trip["start_tick"].as_u64()),
+        (Some("targets.yard"), Some(48))
+    );
+    let taken = galaxy_view::travel::interrupted(trip).unwrap();
+    assert_eq!(
+        taken.camera, "camera",
+        "Esc at 45 was gliding back to the hall's camera"
+    );
     assert_eq!(
         j.s.world
             .component("targets.player", "engine.location")
@@ -557,4 +605,128 @@ fn a_long_fast_chain_of_camera_changes_never_jumps() {
         while replay.step().unwrap() {}
         assert_eq!(replay.session.world.hash(), j.s.world.hash(), "{what}");
     }
+}
+
+#[test]
+fn leaving_a_gliding_room_glides_back_out_to_the_follow_camera() {
+    // In, landed, then back out with Esc at tick 40: the reverse of the glide in, with
+    // no fade or title card, ending on the follow camera.
+    let j = journey(&[(5, "go", "ui", ""), (40, "back", "keyboard", "")], 90, 50);
+    let trip =
+        &j.s.world
+            .component("targets.player", TRAVEL)
+            .unwrap()
+            .fields;
+    assert_eq!(trip["glide"], 0.8);
+    assert_eq!(trip["interrupted"], "", "the glide in had landed");
+    let (before, after) = &j.steps[&40];
+    assert!(same_framing(before, after), "{before:?} then {after:?}");
+    // The eye closes in on the follow camera's, frame after frame, and lands on it.
+    let mut world = j.s.world.clone();
+    let follow = {
+        let mut v = View::detached(j.s.modules(), 3);
+        world
+            .entities
+            .get_mut("targets.player")
+            .unwrap()
+            .remove(TRAVEL);
+        v.scene(&world, 0.0, Vec2::new(1280.0, 720.0), 0.0).camera
+    };
+    // It looks at the ship throughout, and its direction, shown height and field of
+    // view each move steadily toward the follow camera's, then land on it.
+    let (dir, _, height) = framing(&follow);
+    let mut last = (f32::MAX, f32::MAX, f32::MAX);
+    for t in 41..=64 {
+        let c = &j.steps[&t].1;
+        assert!((c.target - follow.target).length() < 1e-3, "tick {t}");
+        let (d, fov, h) = framing(c);
+        let now = ((d - dir).length(), (h / height).ln().abs(), fov);
+        assert!(
+            now.0 <= last.0 + 1e-4 && now.1 <= last.1 + 1e-4 && now.2 <= last.2 + 1e-4,
+            "tick {t}: {now:?} after {last:?}"
+        );
+        last = now;
+    }
+    assert_eq!(j.steps[&70].1, follow);
+    let facts: Vec<_> = j.s.world.facts.iter().map(|f| f.kind.as_str()).collect();
+    assert_eq!(facts.iter().filter(|k| **k == PLACE_ARRIVED).count(), 2);
+
+    // Shown frame by frame: the yard from the first frame, never a card.
+    let mut s = Session::new(vec![module()], 3).unwrap();
+    let mut v = View::detached(s.modules(), 3);
+    let go = Input {
+        tick: 5,
+        source: "ui".into(),
+        name: "targets.go".into(),
+        payload: Map::new(),
+    };
+    for tick in 1..=80u64 {
+        v.before_step(&s.world);
+        let mut inputs: Vec<_> = travel::arrival(&s.world, false).into_iter().collect();
+        if tick == 5 {
+            inputs.push(go.clone());
+        }
+        if tick == 40 || tick == 41 {
+            let mut payload = Map::new();
+            payload.insert("down".into(), (tick == 40).into());
+            inputs.push(Input {
+                tick,
+                source: "keyboard".into(),
+                name: "targets.back".into(),
+                payload,
+            });
+        }
+        s.step(&inputs).unwrap();
+        for alpha in [0.0, 0.5] {
+            let scene = v.scene(&s.world, alpha, Vec2::new(1280.0, 720.0), 0.0);
+            assert!(
+                scene.overlay.upper[1].panels.is_empty(),
+                "tick {tick}: a fade or card"
+            );
+            if (40..64).contains(&tick) {
+                assert_eq!(
+                    galaxy_view::travel::place(&s.world, alpha),
+                    Some("targets.yard")
+                );
+            }
+        }
+    }
+
+    // Going back in while it glides out glides in from where the camera is.
+    let j = journey(
+        &[
+            (5, "go", "ui", ""),
+            (40, "back", "keyboard", ""),
+            (48, "go", "ui", ""),
+        ],
+        100,
+        50,
+    );
+    let (before, after) = &j.steps[&48];
+    assert!(same_framing(before, after), "{before:?} then {after:?}");
+    let trip =
+        &j.s.world
+            .component("targets.player", TRAVEL)
+            .unwrap()
+            .fields;
+    let taken = galaxy_view::travel::interrupted(trip).unwrap();
+    assert_eq!(
+        (taken.to.as_str(), taken.camera.as_str()),
+        ("targets.yard", travel::FOLLOW)
+    );
+    let hall = j.v.room_camera(&j.s.world, "targets.hall").unwrap().eye;
+    assert!((j.eyes[&100] - hall).length() < 1e-3);
+    // Replay matches, and a fresh view redraws the note taken mid-glide.
+    let rec = j.s.recording().unwrap();
+    let mut replay = Replay::new(&rec).unwrap();
+    let mut rebuilt = View::detached(replay.session.modules(), 3);
+    let note = j.note.as_ref().unwrap();
+    while replay.session.world.tick < note.tick {
+        rebuilt.before_step(&replay.session.world);
+        replay.step().unwrap();
+    }
+    let redrawn = rebuilt.note_scene(&replay.session.world, &note.moment);
+    assert_eq!(redrawn.camera, note.scene.camera);
+    while replay.step().unwrap() {}
+    assert_eq!(replay.session.world.hash(), j.s.world.hash());
 }

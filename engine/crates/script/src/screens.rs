@@ -83,6 +83,10 @@ pub struct Widget {
     pub weight: u16,
     /// The text sits against the widget's end edge instead of its start (engine widgets).
     pub trailing: bool,
+    /// An anchored widget that yields: instead of being clamped to the window, it isn't
+    /// drawn while its anchor is off screen, it would leave the window, or it would
+    /// overlap another painted widget.
+    pub yields: bool,
 }
 
 #[derive(Default)]
@@ -267,7 +271,7 @@ fn read(
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
             "on", "payload", "children", "columns", "value", "accepts", "notes", "icon", "hover",
-            "align", "resting",
+            "align", "resting", "yield",
         ]
         .contains(&key.as_str())
         {
@@ -442,6 +446,14 @@ fn read(
     } else {
         String::new()
     };
+    let yields = match t.get::<Value>("yield")? {
+        Value::Nil => false,
+        Value::Boolean(b) => b,
+        _ => return Err(bad("yield must be true or false")),
+    };
+    if yields && (anchor.is_none() || anchored(&kind)) {
+        return Err(bad("yield goes with anchor, on a painted widget"));
+    }
     let resting = string("resting")?;
     if resting.is_some() && kind != "button" {
         return Err(bad("only buttons rest"));
@@ -533,6 +545,7 @@ fn read(
         delta,
         weight: 500,
         trailing: false,
+        yields,
         accepts,
         notes,
     })

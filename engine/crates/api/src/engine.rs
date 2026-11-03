@@ -10,6 +10,9 @@
 //!   facing +x). `height` is the engine's to write: the ground service sets it.
 //! - `engine.motion { vx, vy }`: velocity in world units per second. The motion service
 //!   moves everything with a position and a motion every tick.
+//! - `engine.spin { rate }`: a slow steady turn, degrees per second (positive is
+//!   counter-clockwise). The spin service turns `angle` every tick, so a body's outline
+//!   turns with it. Things with `engine.flight` are turned by flight instead.
 //! - `engine.surface { layer, min_x, min_y, max_x, max_y, height, rise_x, rise_y }`: a
 //!   walkable rectangle on a layer. Its height at a point is `height + rise_x * (x -
 //!   min_x) + rise_y * (y - min_y)`, so a flat deck has no rise and a ramp or hill side
@@ -38,7 +41,7 @@
 //! - `engine.steer { mode, target, x, y, range, done }`: an order the flight service flies
 //!   instead of the helm. `mode` is `arrive` (stop within `range` of the target's
 //!   outline, or of the point `x`, `y` when `target` is empty), `hold` (the same, then
-//!   face the target), `dock` (stop on the target's point, facing its way) or `follow`
+//!   face the target, and keep on its surface as it shrinks or moves), `dock` (stop on the target's point, facing its way) or `follow`
 //!   (pass each `engine.waypoint` in turn from `target`, stopping at the last); empty is
 //!   no order. The engine sets `done` and records `engine.arrived` when it gets there.
 //! - `engine.waypoint { next }`: a point on a route; `next` is the following one.
@@ -70,6 +73,7 @@ pub const CADENCE_TICKS: u64 = TICKS_PER_SECOND as u64;
 /// The engine's component types.
 pub const POSITION: &str = "engine.position";
 pub const MOTION: &str = "engine.motion";
+pub const SPIN: &str = "engine.spin";
 pub const SURFACE: &str = "engine.surface";
 pub const MODEL: &str = "engine.model";
 pub const CAMERA: &str = "engine.camera";
@@ -444,6 +448,11 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     ("motion", "vx", "velocity, world units a second"),
     ("motion", "vy", "velocity, world units a second"),
     (
+        "spin",
+        "rate",
+        "a steady turn, degrees a second, positive counter-clockwise; ignored with engine.flight",
+    ),
+    (
         "surface",
         "layer",
         "the floor layer this walkable rectangle is on",
@@ -528,7 +537,7 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     (
         "steer",
         "mode",
-        "arrive, hold, dock or follow; empty is no order",
+        "arrive, hold (keeps on the target's surface once there), dock or follow; empty is no order",
     ),
     (
         "steer",
@@ -761,6 +770,7 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             ]),
         ),
         ("motion", fields(&[("vx", Number), ("vy", Number)])),
+        ("spin", numbers(&[("rate", 0.0)])),
         (
             "surface",
             fields(&[

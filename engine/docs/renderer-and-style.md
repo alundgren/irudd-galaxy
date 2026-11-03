@@ -31,6 +31,13 @@ What the engine reads (`crates/mesh/src/gltf.rs`):
   `_GLOW` float per vertex. Glowing paint ignores the light.
 - `_BITE` (a float, or a `VEC2` for now and at the morph target): a fresh cut, kept out of
   the shadow tint and hatching.
+- **Part motion**, view-only, from the node's `extras`: `spin` turns the part steadily
+  (degrees a second) about `spin_axis` through `spin_at` (the node's own frame; by
+  default its +Y, up, through its origin), and `pulse` (seconds) swings its glow down to
+  `pulse_low` of itself (0.2 by default) and back. Driven by game time (the tick plus
+  the frame's fraction), so a film or an F8 note redraws the same pose, and never in the
+  world: a station's ring turning or its lamps blinking change no hash. Recipes write it
+  with `spin`, `pulse` and `pulse_low` (`model-generator.md`).
 - The **first morph target**'s `POSITION` and `NORMAL`: the shape at `morph = 1`. Shape
   changes such as mining a rock are a weight, not a new mesh.
 - **Axes**: glTF is +Y up with the front facing +Z. The world is +Z up and a thing at
@@ -94,6 +101,7 @@ clouds = ["#c2577a", "#6b4aa0", "#2f8f8a", "#e8905a"]
 cloud_alpha = 0.2
 cloud_count = 16
 stars = 260
+star_layers = [0.6]       # 1 to 4 layers, each its scroll in logical px per world unit
 
 [course]                  # the followed ship's order, for the whole scene
 show = true
@@ -130,7 +138,11 @@ these passes:
 
 1. **Sky**: a vertical gradient, then soft nebula clouds and stars on a tile that repeats
    and scrolls slower than the camera (parallax), so it never competes with the play
-   field. Generated from the sky style and the world's seed.
+   field. Generated from the sky style and the world's seed. `star_layers` shares the
+   stars among up to four layers, each scrolling its own logical pixels per world unit
+   the camera moves (stars are spread in turn, with nearer layers' stars a little
+   bigger), so far stars creep behind near ones as the camera follows. One layer at 0.6
+   is the sky as it was.
 2. **Meshes**: each instance's paint is lit by the sun and quantised into two or three
    flat bands (shadow, mid, highlight). The shadow band gets sketched hatching, a rim
    light catches edges turned away, glow ignores light. Instances of the same mesh are
@@ -225,10 +237,17 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
 
 - Every entity with `engine.position` and `engine.model` is drawn at `(x, y, height)`,
   turned by `angle` about +Z, scaled by `scale`, morphed by `morph`, in its look.
+- **Moving parts.** A model with spinning or pulsing parts is uploaded as its still
+  parts and each moving part on its own, and each frame draws them with the part's turn
+  and its share of glow (`MeshInstance::glow`). In the mesh shader that share scales the
+  paint's self-lighting, and towards the dim end the glowing paint also sinks to the
+  look's shadow tone: glowing and lit paint look much alike on a face the sun lights from
+  above, so a pulse of self-lighting alone hardly showed on a lamp seen from above. Picking, hovers and outlines use the whole model at rest.
 - **Interpolation.** The sim steps at 30 ticks a second; the screen runs at the display's
   rate. Before each tick the view keeps the poses, and each frame draws `alpha` of the
   way from the last tick to the current one (the fixed step's leftover time), turning the
-  short way round. Motion is smooth at 60 or 144 Hz with no change to the sim.
+  short way round. A morph eases the same way, so a rock cut on one tick shrinks over
+  that tick instead of jumping. Motion is smooth at 60 or 144 Hz with no change to the sim.
 - **The camera** follows the first entity, in ID order, with `engine.camera`. `tilt`
   leans it back from straight down (30 by default shows the sides of things), `view` is
   the world units it shows from the bottom of the screen to the top, and `fov` above 0

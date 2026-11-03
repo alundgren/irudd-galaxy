@@ -1,0 +1,12 @@
+# How ambient is drawn: three star layers, far ones creeping behind near ones, and looks
+# per kind of thing.
+[sky]
+star_layers = [0.2, 0.6, 1.4]
+
+[looks.hull]
+outline_px = 3.5
+hatch = 0.25
+
+[looks.rock]
+outline_px = 3.0
+hatch = 0.85
