@@ -236,6 +236,18 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
     ),
     (
         "screen",
+        "resting",
+        "opaque colour",
+        "resting button fill; unset is panel; text needs 4.5:1, its dashed border 3:1",
+    ),
+    (
+        "screen",
+        "resting_dash",
+        "0 to 16",
+        "resting button frame dash period, logical pixels; 0 is solid, then resting must differ from button",
+    ),
+    (
+        "screen",
         "hint_border_px",
         "0 to 4",
         "drop hint frame width, logical pixels",
@@ -432,7 +444,12 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
         table("light", &Light::default()),
         table("sky", &Sky::default()),
         table("course", &Course::default()),
-        table("screen", &crate::screen_style::ScreenStyle::default()),
+        table("screen", &{
+            // Unset, a resting button uses the panel colour: list that as its default.
+            let mut s = crate::screen_style::ScreenStyle::default();
+            s.resting = Some(s.panel);
+            s
+        }),
         table("looks.<name>", &Look::default()),
     ]
 }

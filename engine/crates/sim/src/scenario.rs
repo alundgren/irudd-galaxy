@@ -101,7 +101,7 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[click]]",
         "widget",
         "\"continue\"",
-        "instead of x/y: a visible button's or ui.target's full widget path or unique id (speaker.<id> a talk speaker, talk.<talk id> its bubble, choice.<choice id> an answer); point:x,y for a coordinate target; resolves its centre (a target: a visible point on its model) on that tick, including moving anchors; missing, ambiguous or covered targets fail",
+        "instead of x/y: a visible button's or ui.target's full widget path or unique id (speaker.<id> a talk speaker, talk.<talk id> its bubble, choice.<choice id> an answer); point:x,y for a coordinate target; resolves its centre (a target: a visible point on its model) on that tick, including moving anchors; missing, ambiguous or covered targets fail; a resting button is not clicked: play lists it in resting_clicks with its reason",
     ),
     (
         "[[key]]",

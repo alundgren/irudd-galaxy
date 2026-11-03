@@ -162,8 +162,11 @@ export type ScreenCtx = {
 --- ui); text is its optional hover label. Hovered, its model lifts and is outlined.
 --- align (top-left, top, top-right, left, center, right, bottom-left, bottom,
 --- bottom-right) places a widget against the window's edges; x/y are then margins.
+--- resting = "<reason>" on a button: it stays in place drawn resting ([screen] resting,
+--- resting_dash), hovering shows the reason, and a click records nothing.
 export type Widget = {
-    kind: string?, id: string?, text: string?, hover: string?, children: {Widget}?,
+    kind: string?, id: string?, text: string?, hover: string?, resting: string?,
+    children: {Widget}?,
     width: number?, height: number?, x: number?, y: number?, align: string?,
     size: number?, pad: number?, gap: number?, anchor: string?,
     on: Id?, payload: Payload?,

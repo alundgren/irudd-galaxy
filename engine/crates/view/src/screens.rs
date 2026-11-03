@@ -151,9 +151,10 @@ impl Screens {
     }
 
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
+    /// A resting button takes the click and records nothing.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
-        if !matches!(w.kind.as_str(), "button" | "bubble") {
+        if !matches!(w.kind.as_str(), "button" | "bubble") || w.resting.is_some() {
             return None;
         }
         w.on.as_ref().map(|name| Input {
@@ -165,8 +166,34 @@ impl Screens {
     }
 
     /// Resolve bot targets against the current layout, then use ordinary pointer hit testing.
+    /// A resting button is an error naming its reason; see [`Screens::bot_resting`].
     pub fn bot_click(&self, click: &Click) -> Result<Input, String> {
-        let point = match &click.target {
+        let point = self.bot_point(click)?;
+        if let Some((path, reason)) = self.resting_at(point) {
+            return Err(format!("{path}: resting: {reason}"));
+        }
+        self.click(point, click.tick).ok_or_else(|| {
+            format!(
+                "click at {},{} before tick {} hit no button",
+                point.x, point.y, click.tick
+            )
+        })
+    }
+
+    /// The resting button a bot click would land on, with its reason: the bot reports it
+    /// instead of clicking, and nothing is recorded.
+    pub fn bot_resting(&self, click: &Click) -> Option<(String, String)> {
+        self.resting_at(self.bot_point(click).ok()?)
+    }
+
+    fn resting_at(&self, point: Vec2) -> Option<(String, String)> {
+        let w = self.hit(point)?;
+        (w.kind == "button").then_some((w.path.clone(), w.resting.clone()?))
+    }
+
+    /// Where a bot click lands: its point, or a named button's uncovered centre.
+    fn bot_point(&self, click: &Click) -> Result<Vec2, String> {
+        Ok(match &click.target {
             ClickTarget::Point { x, y } => Vec2::new(*x, *y),
             ClickTarget::Widget(name) => {
                 let mut widgets = Vec::new();
@@ -204,12 +231,6 @@ impl Screens {
                 }
                 point
             }
-        };
-        self.click(point, click.tick).ok_or_else(|| {
-            format!(
-                "click at {},{} before tick {} hit no button",
-                point.x, point.y, click.tick
-            )
         })
     }
 
@@ -502,6 +523,13 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
             b.widget.path, b.style.target_min
         ));
     }
+    // The frame is capped by the padding, and the frame is what marks a button resting.
+    if b.widget.kind == "button" && b.widget.resting.is_some() && b.widget.pad < 1.0 {
+        problems.push(format!(
+            "{}: a resting button needs pad of at least 1 pixel to show its frame",
+            b.widget.path
+        ));
+    }
     if b.widget.kind == "scroll"
         && b.content_height > b.rect.h
         && scrolling::viewport(b).h < b.style.handle_min
@@ -604,6 +632,12 @@ fn draw(
         panel.radius = panel.radius.min(b.widget.pad * 2.0);
         if b.widget.kind == "button" {
             panel.fill = style.button;
+            if b.widget.resting.is_some() {
+                // Resting: its own fill and a dashed frame, with text at full contrast.
+                panel.fill = style.resting_fill();
+                panel.dash = style.resting_dash;
+                panel.border_px = style.border_px.max(1.0);
+            }
         }
         if b.widget.kind == "drag_source" {
             panel.fill = style.button;

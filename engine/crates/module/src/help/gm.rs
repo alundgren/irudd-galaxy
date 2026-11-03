@@ -2056,6 +2056,10 @@ pub static TOPICS: &[Topic] = &[
                 widget, including a button. Bot clicks use widget = a full diagnostic path \
                 or a unique id, or x/y logical pixels. Widget clicks resolve the current \
                 centre even when its anchor moves; missing, ambiguous or covered targets fail. \
+                A button with resting = \"<reason>\" can't act now: it stays in place, drawn \
+                with [screen] resting and resting_dash, hovering shows the reason, a click \
+                records nothing, and a bot click on it is listed in play's resting_clicks. \
+                Its pad must be at least 1, room for its frame. \
                 ui.grid uses columns; ui.scroll needs id and height and clips its children. \
                 ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
                 icon in icons.toml [icons], mapping local names to glyph strings. check reports \
@@ -2156,7 +2160,7 @@ pub static TOPICS: &[Topic] = &[
         title: "How the world is drawn, and the keys files take",
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
-                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

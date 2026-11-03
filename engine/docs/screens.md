@@ -312,11 +312,12 @@ handle_min = 44.0
 ```
 
 The colour fields are `paper`, `panel`, `button`, `text`, `gain`, `loss`, `border`,
-`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `track`, `handle`,
+`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `resting`, `track`, `handle`,
 `handle_active` and `highlight` (the outline of a hovered target's model). Surface and text colours must be opaque: the arbitrary world behind
 them cannot undermine contrast. Linear-sRGB luminance checks every text/gain/loss
 against every possible text-bearing surface at 4.5:1, including nested deltas and
-both drag verdicts. Both handle states must contrast with the track at 3:1. Failures
+both drag verdicts. Both handle states must contrast with the track at 3:1, and a
+dashed resting frame's `border` its `resting` fill. Failures
 name `[screen]` and both fields. An invalid table never reaches painting; playing
 shows its diagnostic and uses the last valid supplier or the neutral default.
 
@@ -324,7 +325,8 @@ Talk bubble text sizes are `bubble_title` (16-40), `bubble_subtitle`, `bubble_te
 `bubble_marker` (16-32), with `bubble_title_weight` (400-700). Sizes are logical pixels:
 `radius` and `handle_radius` (0-24), `border_px` and
 `hint_border_px` (0-4), `highlight_px` (2-12), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
-(24-48), `handle_min` (44-80) and `socket_dash` (0-16; zero is solid). Non-finite or
+(24-48), `handle_min` (44-80), `socket_dash` and `resting_dash` (0-16; zero is solid).
+Non-finite or
 out-of-range values fail check. `target_min` is a checked floor for actual targets,
 not a resizer. A scrolling viewport must fit the minimum handle. Explicit widget
 `pad` overrides default frame padding; scroll content retains its minimum 12px inset.
@@ -435,6 +437,51 @@ Bot `[[pointer]] action = "move"` works without a drag. `widget` names an ordina
 widget, an anchored hover or target ID, or `point:x,y`. Repeated moves track a moving target;
 moving to empty space clears it. The life and talk demos declare hovers. The recorded
 motion recipe is in [Motion tools](motion-tools.md).
+
+## Resting buttons
+
+```lua
+ui.button { id = "add", text = "Add one", on = "add",
+    resting = if full then "The tray is full: empty it first." else nil }
+```
+
+A button with `resting = "<reason>"` is an action that exists but can't happen now. It
+keeps its place and size, so nothing moves when it wakes, and is drawn with the `[screen]`
+`resting` fill (unset, the `panel` colour) and a frame dashed every `resting_dash`
+pixels in `border`, at least 1px wide. Its text keeps the full-contrast `text` colour:
+resting is never greyed out. Check refuses a style whose resting look can't be told from a
+ready button: a dashed frame must contrast with the fill at 3:1, and a solid one
+(`resting_dash = 0`) needs a fill other than `button`. Text on `resting` gets the usual
+4.5:1 check. The frame is capped by the padding like any border, so check also refuses a
+resting button whose `pad` is under 1px. Only buttons rest, and the reason must not be
+empty.
+
+Hovering shows the reason, after the button's own `hover` label if it has one; check's
+`hovers` array and `look` report it like any label. A click on it hits it (it still
+covers what is behind it) and records nothing, and the pointer stays an arrow. Check
+never presses it. A bot `[[click]]` that lands on one, by name or point, is not
+clicked: `galaxy play` prints `<widget>: resting: <reason>`, lists
+`{ tick, widget, resting }` in its report's `resting_clicks` and plays on, and the
+GM's `bot` report copies that list. Headless callers of `bot_click` get the same text as
+an error. Replays never see the lookup, so they are unchanged.
+
+From the repository root, with a dev build installed:
+
+```sh
+galaxy-gm --build <name> check engine/tests/play/resting/demo
+galaxy --build <name> play --modules engine/tests/play/resting --inputs engine/tests/play/resting-inputs.toml --ticks 75
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+```
+
+The tray holds two. Empty rests while it is empty and Add while it is full. The bot
+hovers the resting Empty, clicks it (reported, not clicked), fills the tray, clicks the
+resting Add, then empties it, leaving three notes. `crates/view/tests/resting.rs` checks
+the paint, hover, clicks and replay headlessly.
+
+A flag that hides the button was rejected: the player then can't see the action exists.
+Greyed text fails the contrast rules and reads as broken. A separate widget kind would
+duplicate the button's layout and checks for one state.
 
 ## Clickable models
 

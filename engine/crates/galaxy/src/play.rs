@@ -309,6 +309,8 @@ struct App {
     watcher: Option<ModuleWatcher>,
     dirs: BTreeMap<String, PathBuf>,
     hot_load_failures: Vec<Value>,
+    /// Bot clicks that landed on a resting button: reported with its reason, not clicked.
+    resting_clicks: Vec<Value>,
     /// Every problem the view showed during the session, in the order first seen, so
     /// one a script caused and later cleared still reaches the report.
     problems: Vec<String>,
@@ -622,6 +624,14 @@ impl App {
                     r.renderer.logical_size(),
                     self.last_time,
                 );
+                if galaxy_sim::travel::arrival(&self.session.world, true).is_none()
+                    && let Some((widget, reason)) = r.view.screens.bot_resting(&click)
+                {
+                    eprintln!("galaxy: before tick {tick}: {widget}: resting: {reason}");
+                    self.resting_clicks
+                        .push(json!({"tick": tick, "widget": widget, "resting": reason}));
+                    continue;
+                }
                 match galaxy_sim::travel::arrival(&self.session.world, true)
                     .map(Ok)
                     .unwrap_or_else(|| r.view.bot_talk_click(&self.session.world, &click))
@@ -1282,6 +1292,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         watcher,
         dirs,
         hot_load_failures: Vec::new(),
+        resting_clicks: Vec::new(),
         problems: Vec::new(),
         started: Instant::now(),
         last: Instant::now(),
@@ -1335,6 +1346,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "adapter": app.running.as_ref().map(|r| r.renderer.adapter_info()),
         "problems": problems,
         "hot_load_failures": app.hot_load_failures,
+        "resting_clicks": app.resting_clicks,
         "log": app.session.log,
         "session": app.dir.display().to_string(),
         "notes": app.notes,

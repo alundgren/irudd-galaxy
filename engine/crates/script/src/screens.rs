@@ -55,6 +55,9 @@ pub struct Widget {
     pub path: String,
     pub text: String,
     pub hover: Option<String>,
+    /// A button that exists but can't act now: drawn resting, its click records nothing,
+    /// and hovering shows this short reason.
+    pub resting: Option<String>,
     pub width: Option<f32>,
     pub height: Option<f32>,
     pub x: Option<f32>,
@@ -262,6 +265,7 @@ fn read(
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
             "on", "payload", "children", "columns", "value", "accepts", "icon", "hover", "align",
+            "resting",
         ]
         .contains(&key.as_str())
         {
@@ -436,6 +440,18 @@ fn read(
     } else {
         String::new()
     };
+    let resting = string("resting")?;
+    if resting.is_some() && kind != "button" {
+        return Err(bad("only buttons rest"));
+    }
+    if resting.as_ref().is_some_and(|r| r.trim().is_empty()) {
+        return Err(bad("resting needs a short reason"));
+    }
+    // Hovering a resting button shows its reason, after any label of its own.
+    let hover = match (string("hover")?, &resting) {
+        (Some(h), Some(r)) => Some(format!("{h}\n{r}")),
+        (h, r) => h.or_else(|| r.clone()),
+    };
     let accepts = match t.get::<Value>("accepts")? {
         Value::Nil => BTreeMap::new(),
         Value::Table(t) => t
@@ -457,7 +473,8 @@ fn read(
         id,
         path: path.into(),
         text: string("text")?.unwrap_or_default(),
-        hover: string("hover")?,
+        hover,
+        resting,
         width: num("width")?,
         height: num("height")?,
         x: num("x")?,

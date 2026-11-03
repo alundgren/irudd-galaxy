@@ -702,7 +702,7 @@ impl View {
         self.hand = self.targeted.is_some()
             || (self.screens.presentation.drag.is_none()
                 && self.screens.hit(point).is_some_and(|w| {
-                    matches!(w.kind.as_str(), "button" | "drag_source")
+                    matches!(w.kind.as_str(), "button" | "drag_source") && w.resting.is_none()
                         || w.kind == "bubble" && w.on.is_some()
                 }));
         let Some((index, model, scale)) = self
