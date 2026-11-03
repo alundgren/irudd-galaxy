@@ -5,6 +5,7 @@ local log = require("./log")
 local voices = require("./voices")
 local teach = require("./teach")
 local signs = require("./signs")
+local trade = require("./trade")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -66,7 +67,8 @@ return {
         end,
         docked = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")
-            voices.refresh(ctx, event.payload.station, pilot.cargo, 0)
+            local _, build = trade.building(ctx, event.payload.station)
+            voices.refresh(ctx, event.payload.station, ctx.get("ship", "hold"), 0, build and build.need - build.given or 0)
             signs.show(ctx, event.payload.station, "", pilot.log_open)
         end,
     },

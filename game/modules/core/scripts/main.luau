@@ -1,6 +1,7 @@
 local rules = require("./rules")
 local log = require("./log")
 local teach = require("./teach")
+local trade = require("./trade")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -62,8 +63,7 @@ end
 local function mine(event, ctx)
     if not pressed(event) or not space(ctx) then return end
     teach.used(ctx, "mine")
-    local pilot = ctx.get("ship", "pilot")
-    if pilot.cargo >= rules.CAPACITY then message(ctx, "Hold full. Dock and sell your six ore."); return end
+    if rules.load(ctx.get("ship", "hold")) >= rules.CAPACITY then message(ctx, "Hold full. Dock to sell or trade."); return end
     local target = nearest(ctx, "ore")
     if not target then message(ctx, "The field is worked out. Your ore still has a buyer."); return end
     stop(ctx)
@@ -100,30 +100,53 @@ return {
             if event.payload.mode ~= "dock" or event.payload.target ~= port.berth then return end
             stop(ctx)
             ctx.remove("ship", "engine.body")
-            ctx.patch("ship", "pilot", { room = "", sale = 0 })
+            ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", last_dock = pilot.station, away = false })
             ctx.patch("ship", "engine.model", { scale = 1.3 }) -- moored, seen up close
             ctx.move("ship", pilot.station)
+            -- A visit only counts once the ship has really been away: then the
+            -- station's market eases back towards its usual stock.
+            local counted = rules.counts(pilot.last_dock, pilot.away, pilot.station)
+            if counted then
+                ctx.patch(pilot.station, "port", { visits = port.visits + 1 })
+                for _, id in trade.station_lines(ctx, pilot.station) do
+                    local line = ctx.get(id, "market")
+                    local stock = rules.settle(line)
+                    ctx.patch(id, "market", { stock = stock })
+                    if line.ware == "ore" then
+                        ctx.patch(pilot.station .. "_stock", "engine.model", { scale = trade.pile(stock) })
+                    end
+                end
+            end
             log.add(ctx, "Docked at " .. port.name .. ".")
-            ctx.record("docked", { station = pilot.station })
+            ctx.record("docked", { station = pilot.station, counted = counted })
         end,
     },
     cadence = function(ctx)
         local pilot = ctx.get("ship", "pilot")
-        if not space(ctx) or not pilot.mining or pilot.target == "" then return end
+        if not space(ctx) then return end
+        local at = ctx.get("ship", "engine.position")
+        -- Flown well clear of the last berth: the next docking there is a new visit.
+        if pilot.last_dock ~= "" and not pilot.away then
+            local berth = ctx.get(ctx.get(pilot.last_dock, "port").berth, "engine.position")
+            if rules.distance2(at, berth) > rules.AWAY ^ 2 then ctx.patch("ship", "pilot", { away = true }) end
+        end
+        if not pilot.mining or pilot.target == "" then return end
         local ore = ctx.get(pilot.target, "ore")
-        if rules.distance2(ctx.get("ship", "engine.position"), ctx.get(pilot.target, "engine.position")) > rules.MINE_DISTANCE ^ 2 then return end
-        local amount = rules.transfer(pilot.cargo, ore.left)
+        if rules.distance2(at, ctx.get(pilot.target, "engine.position")) > rules.MINE_DISTANCE ^ 2 then return end
+        local hold = ctx.get("ship", "hold")
+        local amount = rules.transfer(rules.load(hold), ore.left)
         if amount == 0 then
             ctx.patch("ship", "pilot", { mining = false })
             local taught = ctx.get("ship", "taught")
-            if pilot.cargo == rules.CAPACITY then
-                log.add(ctx, "Hold full: " .. pilot.cargo .. " ore aboard." .. (teach.new(taught, "dock") and " E docks at the nearest station." or ""))
+            if rules.load(hold) == rules.CAPACITY then
+                log.add(ctx, "Hold full: " .. rules.list(hold) .. " aboard." .. (teach.new(taught, "dock") and " E docks at the nearest station." or ""))
             else
                 log.add(ctx, "Rock worked out." .. (teach.new(taught, "mine") and " Space finds the next one." or ""))
             end
             return
         end
-        ctx.patch("ship", "pilot", { cargo = pilot.cargo + amount, message = "+1 ore aboard." })
+        ctx.patch("ship", "hold", { ore = hold.ore + amount })
+        ctx.patch("ship", "pilot", { message = "+1 ore aboard.", away = true })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
         ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
         ctx.record("mined", { rock = pilot.target, units = amount })

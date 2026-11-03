@@ -1,0 +1,75 @@
+about = "A building site: a bare floor, a scaffold frame and a short stack of plate waiting to go up"
+palette = { main = "#a9b4b2", accent = "#cf7c50" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.2, 3.6, 0.3]
+at = [0, 0, 0.15]
+paint = "trim"
+[[part]]
+name = "post_a"
+shape = "strut"
+from = [-1.4, -1.6, 0.3]
+to = [-1.4, -1.6, 3.4]
+thickness = 0.22
+paint = "accent"
+[[part]]
+name = "post_b"
+shape = "strut"
+from = [1.4, -1.6, 0.3]
+to = [1.4, -1.6, 3.4]
+thickness = 0.22
+paint = "accent"
+[[part]]
+name = "post_c"
+shape = "strut"
+from = [-1.4, 1.6, 0.3]
+to = [-1.4, 1.6, 3.4]
+thickness = 0.22
+paint = "accent"
+[[part]]
+name = "post_d"
+shape = "strut"
+from = [1.4, 1.6, 0.3]
+to = [1.4, 1.6, 3.4]
+thickness = 0.22
+paint = "accent"
+[[part]]
+name = "beam_front"
+shape = "strut"
+from = [-1.4, -1.6, 3.4]
+to = [-1.4, 1.6, 3.4]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "beam_back"
+shape = "strut"
+from = [1.4, -1.6, 3.4]
+to = [1.4, 1.6, 3.4]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "beam_left"
+shape = "strut"
+from = [-1.4, -1.6, 3.4]
+to = [1.4, -1.6, 3.4]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "beam_right"
+shape = "strut"
+from = [-1.4, 1.6, 3.4]
+to = [1.4, 1.6, 3.4]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "plate_stack"
+shape = "box"
+size = [1.4, 1.8, 0.5]
+at = [0.2, 0, 0.55]
+[[part]]
+name = "plate_top"
+shape = "box"
+size = [1.2, 1.6, 0.12]
+at = [0.2, 0, 0.86]
+paint = "accent"

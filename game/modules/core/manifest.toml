@@ -3,20 +3,32 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.5.0"
 scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "log", "mined", "sold", "docked"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "mined", "sold", "bought", "docked", "grown"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.life", "engine.act", "engine.clock"]
 
 [components.pilot]
-cargo = "int"
 credits = "int"
 mining = "bool"
 target = "id"
 station = "id"
 room = "id"
+# The last trade's receipt in the open room: credits gained (or spent, below zero)
+# and what changed hands.
 sale = "int"
+deal = "text"
 message = "text"
 logged = "int"
 log_open = "bool"
+# The station last docked at, and whether the ship has been away from it since:
+# flown well clear, or mined. Quick in-and-out taps are not visits.
+last_dock = "id"
+away = "bool"
+
+# What the hold carries, by ware. Its total is bounded by the hold's capacity.
+[components.hold]
+ore = "int"
+plate = "int"
+rations = "int"
 
 [components.held]
 ahead = "bool"
@@ -31,11 +43,36 @@ total = { type = "int", default = 12 }
 
 [components.port]
 name = "text"
-price = "int"
-stock = "int"
 berth = "id"
 departure = "id"
 exchange = "id"
+# Counted visits: dockings after the ship has really been away.
+visits = "int"
+
+# One good traded in one room: a station that buys it pays, one that sells it asks.
+# The price follows the stock against its target; each counted visit to the station
+# eases the stock back towards the target by `rate`.
+[components.market]
+room = "id"
+ware = "text"
+role = "text"
+base = "int"
+target = "int"
+stock = "int"
+rate = "int"
+
+# Something a station is building from a ware the player sells it. When `given`
+# reaches `need`, the site becomes the named room, kept by `keeper`.
+[components.build]
+station = "id"
+ware = "text"
+need = "int"
+given = "int"
+done = "bool"
+name = "text"
+offer = "text"
+keeper = "id"
+model = "text"
 
 [components.facility]
 station = "id"
@@ -46,6 +83,8 @@ order = "int"
 
 [components.keeper]
 name = "text"
+# What they say after their introduction when there's nothing else to talk about.
+idle = "text"
 
 [components.skiff]
 a = "id"

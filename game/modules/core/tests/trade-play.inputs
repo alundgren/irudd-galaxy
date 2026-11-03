@@ -1,0 +1,249 @@
+# The trade loop by real clicks at the design size: Kiln ore and plate, the galley site,
+# a quick redock tap, two more plate runs until the galley is built, Ines's introduction,
+# rations bought at the galley and sold at the Kiln. 11 notes.
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+
+[[click]]
+tick = 60
+widget = "mine"
+
+[[click]]
+tick = 330
+widget = "kiln"
+
+[[click]]
+tick = 715
+widget = "sign_exchange"
+
+[[note]]
+tick = 723
+text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
+
+[[click]]
+tick = 738
+widget = "sell_ore"
+
+[[click]]
+tick = 753
+widget = "buymax_plate"
+
+[[note]]
+tick = 761
+text = "Sold the ore, bought plate; each unit of plate asked a little more."
+
+[[click]]
+tick = 776
+widget = "close"
+
+[[click]]
+tick = 791
+widget = "launch"
+
+[[click]]
+tick = 831
+widget = "lantern"
+
+[[click]]
+tick = 1176
+widget = "sign_galley"
+
+[[note]]
+tick = 1184
+text = "Lantern Dock: the galley site, 0 of 10 plate in."
+
+[[click]]
+tick = 1199
+widget = "close"
+
+[[click]]
+tick = 1214
+widget = "sign_exchange"
+
+[[click]]
+tick = 1229
+widget = "sell_plate"
+
+[[note]]
+tick = 1237
+text = "Plate sold into the galley: 3 of 10."
+
+[[click]]
+tick = 1252
+widget = "close"
+
+[[click]]
+tick = 1267
+widget = "launch"
+
+[[click]]
+tick = 1307
+widget = "lantern"
+
+[[note]]
+tick = 1457
+text = "A quick undock and redock: still one visit, nothing restocked."
+
+[[click]]
+tick = 1472
+widget = "launch"
+
+[[click]]
+tick = 1512
+widget = "kiln"
+
+[[click]]
+tick = 1857
+widget = "sign_exchange"
+
+[[click]]
+tick = 1872
+widget = "buymax_plate"
+
+[[click]]
+tick = 1887
+widget = "close"
+
+[[click]]
+tick = 1902
+widget = "launch"
+
+[[click]]
+tick = 1942
+widget = "lantern"
+
+[[click]]
+tick = 2287
+widget = "sign_exchange"
+
+[[click]]
+tick = 2302
+widget = "sell_plate"
+
+[[click]]
+tick = 2317
+widget = "close"
+
+[[click]]
+tick = 2332
+widget = "launch"
+
+[[click]]
+tick = 2372
+widget = "kiln"
+
+[[click]]
+tick = 2717
+widget = "sign_exchange"
+
+[[click]]
+tick = 2732
+widget = "buymax_plate"
+
+[[click]]
+tick = 2747
+widget = "close"
+
+[[click]]
+tick = 2762
+widget = "launch"
+
+[[click]]
+tick = 2802
+widget = "lantern"
+
+[[click]]
+tick = 3147
+widget = "sign_exchange"
+
+[[click]]
+tick = 3162
+widget = "sell_plate"
+
+[[note]]
+tick = 3170
+text = "The tenth plate: the galley is built."
+
+[[click]]
+tick = 3185
+widget = "close"
+
+[[note]]
+tick = 3193
+text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
+
+[[click]]
+tick = 3208
+widget = "sign_galley"
+
+[[click]]
+tick = 3223
+widget = "speaker.core.lantern_cook"
+
+[[note]]
+tick = 3231
+text = "Ines introduces herself."
+
+[[click]]
+tick = 3246
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3261
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3276
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3291
+widget = "buymax_rations"
+
+[[note]]
+tick = 3299
+text = "Bought rations at the galley."
+
+[[click]]
+tick = 3314
+widget = "close"
+
+[[click]]
+tick = 3329
+widget = "log_open"
+
+[[note]]
+tick = 3337
+text = "The log: sales, the galley built, the conversation."
+
+[[click]]
+tick = 3352
+widget = "log_close"
+
+[[click]]
+tick = 3367
+widget = "launch"
+
+[[click]]
+tick = 3407
+widget = "kiln"
+
+[[click]]
+tick = 3752
+widget = "sign_exchange"
+
+[[click]]
+tick = 3767
+widget = "sell_rations"
+
+[[note]]
+tick = 3775
+text = "Rations sold to the Kiln crews."

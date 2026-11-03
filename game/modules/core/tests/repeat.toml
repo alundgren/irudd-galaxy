@@ -65,14 +65,14 @@ tick = 1590
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 144
+equals = 142
 
 [[expect]]
 tick = 1590
-entity = "lantern"
-component = "port"
+entity = "lantern_ore"
+component = "market"
 field = "stock"
-equals = 12
+equals = 36
 
 [[expect]]
 tick = 1590
@@ -84,8 +84,8 @@ equals = 0
 [[expect]]
 tick = 2100
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 6
 
 [[expect]]

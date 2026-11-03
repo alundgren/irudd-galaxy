@@ -43,8 +43,8 @@ equals = "core.lantern_office"
 [[expect]]
 tick = 606
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 6
 
 # Another station's building can't be opened from here.
@@ -106,19 +106,19 @@ tick = 632
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 72
+equals = 73
 [[expect]]
 tick = 632
 entity = "ship"
 component = "pilot"
 field = "sale"
-equals = 72
+equals = 73
 [[expect]]
 tick = 632
-entity = "lantern"
-component = "port"
+entity = "lantern_ore"
+component = "market"
 field = "stock"
-equals = 6
+equals = 33
 [[expect]]
 tick = 632
 entity = "log2"
@@ -130,7 +130,7 @@ tick = 632
 entity = "log3"
 component = "entry"
 field = "text"
-equals = "Sold 6 ore to Lantern Dock for 72 cr."
+equals = "Sold 6 ore to Lantern Dock for 73 cr."
 
 # Back to the whole station, then the log opens and closes.
 [[input]]

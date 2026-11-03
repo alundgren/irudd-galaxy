@@ -18,7 +18,7 @@ end
 function signs.show(ctx, station, room, log_open, speaking)
     for _, id in ctx.query("facility") do
         local facility = ctx.get(id, "facility")
-        if facility.station == station then
+        if facility.station == station and facility.keeper ~= "" then
             local heard = not log_open or facility.keeper == speaking
             local shown = heard and (room == "" or room == id)
             local name = shown and ctx.get(facility.keeper, "keeper").name or ""
