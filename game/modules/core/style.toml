@@ -20,6 +20,14 @@ radius = 8
 # colour, and it stands out on the warm station.
 highlight = "#2f6fdb"
 highlight_px = 5
+# Dragging a part: the card under the pointer keeps the amber of something you can
+# press, and the gap it leaves is a darker blue. Picking one up tints every target at
+# once, bluish green where it may go and pale vermilion where it may not, always with
+# the words "Drop here" or "Cannot drop" and the reason (a colourblind-safe pair).
+held = "#f2b264"
+socket = "#b9cfdb"
+accept = "#bfe8d3"
+refuse = "#f6cdb8"
 
 [light]
 ambient = "#49485e"

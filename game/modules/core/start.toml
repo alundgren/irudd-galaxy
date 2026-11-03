@@ -20,6 +20,7 @@ pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 hold = {}
 held = {}
 taught = {}
+fit = {}
 
 [entities.rock1]
 "engine.location" = { place = "core.reach" }
@@ -384,3 +385,61 @@ keeper = { name = "Mags Ferrow" }
 "engine.position" = {}
 "engine.model" = { model = "core.skiff", scale = 1.4 }
 skiff = { a = "core.kiln_skiff_a_spot", b = "core.kiln_skiff_b_spot" }
+
+# Cinder Kiln's fitting cradle, where Orrin fits parts to the ship. Its parts are on
+# the rack from the start, priced, so the first visit already shows what to aim for
+# (scripts/cradle.luau, scripts/fit.luau).
+[entities.kiln_cradle]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln" }
+"engine.position" = { x = 8.4, y = -7.0, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.cradle" }
+# Signed low beside it, on the rim side: above or in front, the sign would meet the
+# dockmaster's or the fitter's name sign at one window size or the other.
+"engine.anchor" = { name = "sign", height = 0.2, y = 2.5 }
+facility = { station = "core.kiln", name = "Fitting cradle", keeper = "core.kiln_fitter", offer = "fits parts to your ship", order = 3, camera = "camera.cradle", fits = true }
+
+[entities.kiln_cradle_keeper_spot]
+"engine.spot" = { place = "core.kiln", name = "cradle_keeper" }
+
+[entities.kiln_fitter]
+"engine.being" = {}
+"engine.location" = { place = "core.kiln", spot = "core.kiln_cradle_keeper_spot" }
+"engine.position" = { angle = -1.5707963267948966 }
+"engine.model" = { model = "core.keeper", scale = 1.5 }
+keeper = { name = "Orrin Vale" }
+"engine.life" = { clock = "core.day", first = "core.kiln_fitter_act", name = "Orrin Vale" }
+
+[entities.kiln_fitter_act]
+"engine.act" = { place = "core.kiln", spot = "core.kiln_cradle_keeper_spot", angle = -1.5707963267948966, state = "fitter" }
+
+# Said once: the first click introduces the keeper.
+[entities.kiln_fitter_intro]
+"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_intro1", width = 420, x = 0, story = true, title = "Orrin Vale", subtitle = "Fitter" }
+
+[entities.kiln_fitter_intro1]
+"engine.talk_line" = { text = "I'm Orrin. I fit parts to ships.", next = "core.kiln_fitter_intro2" }
+
+[entities.kiln_fitter_intro2]
+"engine.talk_line" = { text = "Drag a part onto its socket to fit it.", next = "core.kiln_fitter_intro3" }
+
+[entities.kiln_fitter_intro3]
+"engine.talk_line" = { text = "Power caps what runs; weight slows you." }
+
+# After that, one short line about the last fit (scripts/cradle.luau).
+[entities.kiln_fitter_talk]
+"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_now", width = 420, x = 0, title = "Orrin Vale", subtitle = "Fitter" }
+
+[entities.kiln_fitter_now]
+"engine.talk_line" = { text = "Bring me credits and I'll fit you out." }
+
+# The parts on Orrin's rack. The hull has 3 power and carries 3 mass freely, so the
+# lens and the thrusters can't run together, and the pods with anything else slow you.
+[entities.lens]
+part = { name = "Cutting lens", socket = "drill", price = 90, power = 2, mass = 1, mine = 1, order = 1, effect = "your beam cuts 2 ore a second instead of 1", said = "That lens cuts twice as quick." }
+
+[entities.pods]
+part = { name = "Hold pods", socket = "hold", price = 70, mass = 3, hold = 3, order = 2, model = "core.ship_pods", effect = "your hold carries 9 instead of 6", said = "Room for three more. She's heavier, mind." }
+
+[entities.thrusters]
+part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 3, order = 3, effect = "your top speed goes from 12 to 15", said = "Open her up out there. She'll run." }

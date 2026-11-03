@@ -1,5 +1,6 @@
 -- Plain rules with no world access, so tests can call them directly.
 local rules = {
+    -- The bare hull's hold; fitted parts can add to it (fit.luau, fit.hold).
     CAPACITY = 6,
     MINE_DISTANCE = 7,
     -- A docking counts as a visit only after the ship has flown this far from the
@@ -31,9 +32,10 @@ function rules.list(hold)
     return #parts > 0 and table.concat(parts, ", ") or "nothing"
 end
 
--- Ore mined this second: one unit, if the hold has room and the rock has ore.
-function rules.transfer(load, left)
-    return math.max(0, math.min(1, rules.CAPACITY - load, left))
+-- Ore mined this second: `rate` units (one by default), as far as the hold of
+-- `capacity` (the bare hull's by default) has room and the rock has ore.
+function rules.transfer(load, left, capacity, rate)
+    return math.max(0, math.min(rate or 1, (capacity or rules.CAPACITY) - load, left))
 end
 
 -- The price of the next unit on a market line: the base price, raised while the

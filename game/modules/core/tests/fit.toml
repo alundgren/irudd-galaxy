@@ -1,0 +1,504 @@
+# The fitting loop at Cinder Kiln's cradle: on a new game the rack is stocked and priced;
+# a part that can't be paid for, put in the wrong socket or that needs more power than
+# is free does nothing when dropped; the lens is bought and fitted with one receipt,
+# taken off into the locker and fitted again for nothing, and its two ore a second fill
+# the next hold; the pods make the hold 9 and the ship slower, with wider turns, and
+# can't come off while nine are aboard. The drops are the events the cradle's drop
+# targets send. tests/fit.inputs holds the same route for sim runs and shots.
+seed = 7
+ticks = 1460
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 404 }
+[[input]]
+tick = 470
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Too poor for the lens: nothing changes.
+[[input]]
+tick = 480
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 490
+name = "core.open"
+[[input]]
+tick = 500
+name = "core.sell"
+[[input]]
+tick = 510
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# The lens in the wrong socket, then in the drill mount: bought and fitted.
+[[input]]
+tick = 520
+name = "core.fit"
+source = "ui"
+payload = { socket = "hold", value = "core.lens" }
+[[input]]
+tick = 530
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+# The thrusters need 2 power and 1 is free; an unfitted part can't come off.
+[[input]]
+tick = 540
+name = "core.fit"
+source = "ui"
+payload = { socket = "engine", value = "core.thrusters" }
+[[input]]
+tick = 545
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.thrusters" }
+# Off into the locker, and on again from it for nothing.
+[[input]]
+tick = 550
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.lens" }
+[[input]]
+tick = 560
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 570
+name = "core.launch"
+[[input]]
+tick = 580
+name = "core.mine"
+[[input]]
+tick = 760
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 900
+name = "core.open"
+[[input]]
+tick = 910
+name = "core.sell"
+[[input]]
+tick = 920
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 930
+name = "core.fit"
+source = "ui"
+payload = { socket = "hold", value = "core.pods" }
+[[input]]
+tick = 940
+name = "core.launch"
+[[input]]
+tick = 950
+name = "core.mine"
+[[input]]
+tick = 1250
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1400
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Nine aboard and the bare hold takes six: the pods stay on.
+[[input]]
+tick = 1410
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.pods" }
+[[input]]
+tick = 1420
+name = "core.open"
+[[input]]
+tick = 1430
+name = "core.sell"
+[[input]]
+tick = 1440
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+[[input]]
+tick = 1450
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.pods" }
+
+[[expect]]
+tick = 1
+entity = "lens"
+component = "part"
+field = "owned"
+equals = false
+
+[[expect]]
+tick = 1
+entity = "lens"
+component = "part"
+field = "price"
+equals = 90
+
+[[expect]]
+tick = 1
+entity = "pods"
+component = "part"
+field = "price"
+equals = 70
+
+[[expect]]
+tick = 1
+entity = "thrusters"
+component = "part"
+field = "price"
+equals = 110
+
+[[expect]]
+tick = 1
+entity = "ship"
+component = "fit"
+field = "hold"
+equals = 6
+
+[[expect]]
+tick = 1
+entity = "ship"
+component = "fit"
+field = "mine"
+equals = 1
+
+[[expect]]
+tick = 485
+entity = "lens"
+component = "part"
+field = "owned"
+equals = false
+
+[[expect]]
+tick = 485
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 0
+
+[[expect]]
+tick = 485
+facts = "fitted"
+equals = 0
+
+[[expect]]
+tick = 525
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 525
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 97
+
+[[expect]]
+tick = 535
+entity = "lens"
+component = "part"
+field = "owned"
+equals = true
+
+[[expect]]
+tick = 535
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = true
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 7
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "pilot"
+field = "sale"
+equals = -90
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "pilot"
+field = "deal"
+equals = "Fitted the cutting lens."
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "fit"
+field = "mine"
+equals = 2
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "fit"
+field = "power"
+equals = 2
+
+[[expect]]
+tick = 535
+entity = "ship"
+component = "fit"
+field = "mass"
+equals = 1
+
+[[expect]]
+tick = 535
+entity = "kiln_fitter_now"
+component = "engine.talk_line"
+field = "text"
+equals = "That lens cuts twice as quick."
+
+[[expect]]
+tick = 535
+facts = "fitted"
+equals = 1
+
+[[expect]]
+tick = 548
+entity = "thrusters"
+component = "part"
+field = "owned"
+equals = false
+
+[[expect]]
+tick = 548
+entity = "thrusters"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 548
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 7
+
+[[expect]]
+tick = 548
+facts = "fitted"
+equals = 1
+
+[[expect]]
+tick = 555
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 555
+entity = "lens"
+component = "part"
+field = "owned"
+equals = true
+
+[[expect]]
+tick = 555
+entity = "ship"
+component = "fit"
+field = "mine"
+equals = 1
+
+[[expect]]
+tick = 555
+entity = "ship"
+component = "fit"
+field = "power"
+equals = 0
+
+[[expect]]
+tick = 555
+entity = "ship"
+component = "pilot"
+field = "deal"
+equals = "Took off the cutting lens, into your locker."
+
+[[expect]]
+tick = 565
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = true
+
+[[expect]]
+tick = 565
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 7
+
+[[expect]]
+tick = 565
+entity = "ship"
+component = "pilot"
+field = "sale"
+equals = 0
+
+[[expect]]
+tick = 565
+entity = "ship"
+component = "fit"
+field = "mine"
+equals = 2
+
+[[expect]]
+tick = 760
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+
+[[expect]]
+tick = 760
+facts = "mined"
+equals = 9
+
+[[expect]]
+tick = 935
+entity = "pods"
+component = "part"
+field = "fitted"
+equals = true
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 29
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "fit"
+field = "hold"
+equals = 9
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "fit"
+field = "mass"
+equals = 4
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "engine.flight"
+field = "speed"
+equals = 10.8
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "engine.flight"
+field = "turn"
+equals = 162.0
+
+[[expect]]
+tick = 935
+entity = "ship"
+component = "engine.model"
+field = "model"
+equals = "core.ship_pods"
+
+[[expect]]
+tick = 1250
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 9
+
+[[expect]]
+tick = 1415
+entity = "pods"
+component = "part"
+field = "fitted"
+equals = true
+
+[[expect]]
+tick = 1415
+entity = "ship"
+component = "fit"
+field = "hold"
+equals = 9
+
+[[expect]]
+tick = 1455
+entity = "pods"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 1455
+entity = "pods"
+component = "part"
+field = "owned"
+equals = true
+
+[[expect]]
+tick = 1455
+entity = "ship"
+component = "fit"
+field = "hold"
+equals = 6
+
+[[expect]]
+tick = 1455
+entity = "ship"
+component = "engine.flight"
+field = "speed"
+equals = 12.0
+
+[[expect]]
+tick = 1455
+entity = "ship"
+component = "engine.flight"
+field = "turn"
+equals = 180.0
+
+[[expect]]
+tick = 1455
+entity = "ship"
+component = "engine.model"
+field = "model"
+equals = "core.ship"
+
+[[expect]]
+tick = 1455
+facts = "fitted"
+equals = 5

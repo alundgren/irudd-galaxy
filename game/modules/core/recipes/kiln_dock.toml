@@ -122,6 +122,11 @@ at = [-0.95, -19, 13.5]
 turn = 90
 pitch = -38
 [[marker]]
+name = "camera.cradle"
+at = [1.5, -23, 10.5]
+turn = 90
+pitch = -32
+[[marker]]
 name = "spot.berth"
 at = [0, -8, 0]
 [[marker]]
@@ -136,3 +141,6 @@ at = [-8, -12, 0]
 [[marker]]
 name = "spot.skiff_b"
 at = [8, -12, 0]
+[[marker]]
+name = "spot.cradle_keeper"
+at = [7.0, -11.0, 0]

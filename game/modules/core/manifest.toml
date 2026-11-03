@@ -3,7 +3,7 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.7.0"
 scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "mined", "sold", "bought", "docked", "grown"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock"]
 
 [components.pilot]
@@ -85,6 +85,35 @@ offer = "text"
 order = "int"
 # The station camera node that frames this building while its room is open.
 camera = "text"
+# A fitting cradle: its room fits parts to the ship (scripts/cradle.luau).
+fits = "bool"
+
+# A part for the ship's fit (scripts/fit.luau): which socket it goes in, what it
+# costs, draws and weighs, and what it adds. `effect` says it in plain words, and
+# `said` is the fitter's remark once it is on. `model` is the ship's look while fitted.
+[components.part]
+name = "text"
+socket = "text"
+price = "int"
+power = "int"
+mass = "int"
+hold = "int"
+mine = "int"
+speed = "number"
+effect = "text"
+said = "text"
+model = "text"
+owned = "bool"
+fitted = "bool"
+order = "int"
+
+# What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
+# and the power and mass in use. Set whenever a part goes on or comes off.
+[components.fit]
+hold = { type = "int", default = 6 }
+mine = { type = "int", default = 1 }
+power = "int"
+mass = "int"
 
 [components.keeper]
 name = "text"

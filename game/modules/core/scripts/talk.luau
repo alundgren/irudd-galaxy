@@ -7,6 +7,7 @@ local teach = require("./teach")
 local signs = require("./signs")
 local trade = require("./trade")
 local rules = require("./rules")
+local fit = require("./fit")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -87,7 +88,7 @@ return {
             local receipt = nil
             if gift and not gift.answered then
                 local hold = ctx.get("ship", "hold")
-                local taken = choice == gift.take and rules.CAPACITY - rules.load(hold) >= gift.units
+                local taken = choice == gift.take and fit.hold(ctx) - rules.load(hold) >= gift.units
                 if taken or choice ~= gift.take then
                     ctx.patch(talk, "gift", { answered = true })
                     if not open then

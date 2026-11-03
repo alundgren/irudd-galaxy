@@ -4,10 +4,13 @@ Fly a small tug, cut ironstone from three solid rocks, dock at either of two
 stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
 and Lantern Dock wants plate to build a galley. Once the galley is built, its
 cook sells rations that the Kiln's crews buy. The hold takes six units of any
-mix. The field is small and finite (36 ore); there is no timed objective.
+mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
+lens that mines faster, pods for a bigger hold and thrusters for a higher top
+speed, within the hull's power and mass. The field is small and finite (36 ore);
+there is no timed objective.
 
 Use installed engine/GM 0.7.0 or newer. This version was authored and verified
-with `0.7.0-244988df669c-dev`. No engine build is needed.
+with `0.7.0-628121f7de13-dev`. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -26,6 +29,7 @@ galaxy play --modules game/modules
 | B, Esc or right-click | Back from a room to the whole station, or shut the log |
 | U | Docked: launch |
 | L | Open or close the ship log |
+| Drag | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off |
 | Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
@@ -61,15 +65,18 @@ unanswered offer is still on offer.
   and stock as plain text. A good the station buys gets `Sell N for X cr` when
   you carry it (with `[Enter]` when it is the only one; `Sell everything here`
   appears when there are several). A good it sells gets `Buy 1` and `Buy N`,
-  the most that fits and that you can pay for. A full hold replaces the buy
-  buttons with one line, `Hold full: buy buttons rest until you sell.`; short
-  credits and an empty stock each say so. Each trade shows its receipt in the
-  room and in the log. The crate pile beside the exchange follows its ore stock.
+  the most that fits and that you can pay for. When buying can't happen now,
+  `Buy 1` stays in place drawn resting (a dashed frame on the panel, black text)
+  with its reason beside it: `Hold full: sell first.`, short credits or an empty
+  stock. Hovering it gives the reason too, and a click on it does nothing. Each
+  trade shows its receipt in the room and in the log. The crate pile beside the
+  exchange follows its ore stock.
 - **Office**: every station's posted prices, what a station is building and how
   far it has got, and how much ore the field still holds.
 - **Galley site** (Lantern Dock): what will be built, how much plate is in, and
   what it will bring. Once built it is the **Galley**, kept by Ines Varga, who
   sells rations.
+- **Fitting cradle** (Cinder Kiln): Orrin Vale fits parts to the ship (below).
 
 Each room has a keeper standing by it, wearing a name sign with what they do
 (`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
@@ -108,11 +115,59 @@ it; a hold of rations earns 24 cr. The galley is built on the third plate
 delivery, about a minute of play after the first sale (88 seconds in the click
 route), with 157 cr in hand; the route ends at 181 cr.
 
+## Fitting the ship
+
+The fitting cradle stands on Cinder Kiln's deck from the start, with three parts on
+its rack, priced, so the first visit already shows what to aim for:
+
+| Part | Socket | Price | Does | Power | Mass |
+| --- | --- | --- | --- | --- | --- |
+| Cutting lens | Drill mount | 90 cr | mines 2 ore a second instead of 1 | 2 | 1 |
+| Hold pods | Hold | 70 cr | the hold carries 9 instead of 6 | 0 | 3 |
+| Tuned thrusters | Engine | 110 cr | top speed 15 instead of 12 | 2 | 1 |
+
+The hull has 3 power: whatever is fitted always runs, so a part that would draw
+more is refused, and the lens and the thrusters can't run together. It carries 3
+mass freely; each unit over costs 10% of top speed and turn rate (never below
+half), so the pods with anything else make the ship slower with wider turns. The
+control rack holds the controls the ship flies by (the Mine and Dock orders): they
+are always fitted, cost no power or mass and never come off. The rules are
+`scripts/fit.luau`; the room is `scripts/cradle.luau`.
+
+The room shows the budgets in plain words (`Power 2 of 3 in use, 1 free`, `Mass 4:
+the hull carries 3 freely. 1 over: 10% slower, wider turns`) and the ship's numbers
+(hold, ore a second, top speed, turn rate). Below are the three sockets and the
+parts tray, each part under its own socket. A card in the tray gives its name, its
+price (or `In your locker`), what it does and what it draws and weighs; its hover
+says the effect in words. Drag a card onto its socket to fit it: a part not yet
+yours is bought first. Drag a fitted part onto the tray to take it off into the
+locker; fitting it again costs nothing. Picking a part up tints every target at
+once, bluish green with `Drop here` or pale vermilion with `Cannot drop:` and the
+reason in full: the wrong socket (`it goes in the drill mount`), power (`it needs
+2 power; 1 is free`), credits (`it costs 90 cr; you have 40`), or cargo that
+wouldn't fit once the pods are off (`you carry 9; the hold would take 6`). A
+refused drop returns the part and changes nothing. Every socket keeps one size and
+the tray keeps its row, so nothing moves while a part is held.
+
+A fit gives one receipt under the room's title (`Fitted the cutting lens.` with
+the credits spent) and one log line with what the part does; Orrin's next line is
+flavour about it (`That lens cuts twice as quick.`), never the receipt again. His
+bubble opens beside him, away from the room's panel. Fitted pods show on the hull.
+The ship's fit is world state (`fit` on the ship, `part` on each part), so it
+saves and resumes.
+
+Measured on the headless route `tests/fit.inputs` (seed 7): the beam cuts once a
+second, so a hold of 6 takes six cuts bare and three with the lens, and 9 with the
+pods take five. The run from the
+Kiln's berth to Lantern Dock's takes 3.8 seconds bare or with the lens, 4.1 with the
+lens and pods (top speed 10.8, turns 162° a second) and 3.4 with the thrusters. The
+first Kiln sale (97 cr) pays for the lens; the second for the pods.
+
 ## The keepers talk
 
 Click a keeper and they speak in first-person bubbles, one short sentence per
 click. The bubble's heading is their name, with what they do under it in smaller,
-lighter type (`Exchange keeper`, `Dockmaster`, `Cook`); the station is left out
+lighter type (`Exchange keeper`, `Dockmaster`, `Cook`, `Fitter`); the station is left out
 because you are standing in it. A small `Continue` or `Done` sits at the bubble's
 end. While someone speaks only they wear their name sign. The first
 conversation introduces them: who they are, what they do and where the other
@@ -135,11 +190,13 @@ even when something else is logged while you are still listening. A line already
 ## Screens
 
 Each kind of thing keeps one look, all with pure black text: amber for anything
-you can press (orders, signs, the key, Sell, Back, Launch, the log button), a
-pale blue panel for status and rooms, white bubbles and name signs for the people
+you can press or pick up (orders, signs, the key, Sell, Back, Launch, the log
+button, the part cards), a pale blue panel for status and rooms, the same panel
+with a dashed frame for a button that rests, white bubbles and name signs for the people
 who speak, and cream paper for what just happened and for headings. Status sits top right, the log button
 bottom left, orders top left in flight, and the latest message with the flight
-keys at the bottom. Prices and stock are plain text, never buttons.
+keys at the bottom. Prices and stock are plain text, never buttons, and so are the
+fitting room's labels (`Empty`, `On the ship`, the sockets' names).
 
 Hints teach and then retire (`scripts/teach.luau`). Each flight key leaves the
 hint line after three uses, and messages stop explaining Space and E once those
@@ -157,16 +214,18 @@ their bubble clears the room's panel at both sizes.
 - **Every change is seen.** Ore arrives in the hold, the rock develops a
   visible cut, and a trade changes credits, the posted stock and price, and for
   ore the crate pile. Plate delivered to the galley site shows as progress, and
-  the finished galley replaces the scaffold. The ship log keeps a line for each
-  docking, trade, launch, full hold, the galley built and each conversation.
-  Empty sales never create money, and a trade that can't happen does nothing.
+  the finished galley replaces the scaffold. A fit changes the budgets and the
+  ship's numbers, the lens fills the hold twice as fast, and fitted pods show on
+  the hull. The ship log keeps a line for each docking, trade, fit, launch, full
+  hold, the galley built and each conversation. Empty sales never create money,
+  and a trade or fit that can't happen does nothing.
 - **Shocks come with opportunities.** Exhausting a rock leaves other rocks to
   work and both buyers available. A full hold is an invitation to trade. There
   are no damage penalties or scripted shocks in this first loop.
 - **No fake urgency.** Prices move only with trades and counted visits, never
   with time. Nothing expires while the player looks around. Mining produces one
-  unit per second once within seven world units; the six-unit hold bounds each
-  trip.
+  unit per second (two with the lens) once within seven world units; the hold
+  (six, or nine with the pods) bounds each trip.
 
 The slice supplies the calm mining/trading feel, warm inked machinery, readable
 consequences and the agreed station design. Its Rust, progression, factions and
@@ -175,8 +234,8 @@ delivered goods follow the slice's behaviour. All models come from committed `re
 `galaxy-gm model make game/modules/core`; the generated glTF files are
 committed. The engine owns flight, collision, steering, travel, walks, talk and
 hovers. Luau handles player intent, once-per-second extraction and skiff trips,
-trade rules and pricing, the galley's build, the log and the module-styled
-screens. Each station is one place
+trade rules and pricing, the galley's build, the ship's fit, the log and the
+module-styled screens. Each station is one place
 whose set is the station up close; its buildings, keepers and skiff stand in it.
 
 ## Verify
@@ -189,10 +248,12 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are ten Luau rule tests (hold, depletion, prices against stock and their
+There are fifteen Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
-settling a market, quick taps not counting, hints, keepers' lines) and fourteen
-scenarios: both complete station trips, collision under held thrust, refused
+settling a market, quick taps not counting, hints, keepers' lines, and in
+`tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
+every rule's refusal and its words, the budgets in plain words, and mining two a
+second) and fifteen scenarios: both complete station trips, collision under held thrust, refused
 out-of-place actions, repeat trips through depletion with an empty-sale check,
 the station itself (rooms from signs and M, refused sales outside the exchange,
 a building of another station, the log held shut inside a room, keeper talk, the
@@ -214,11 +275,17 @@ with the answer, the offer gone), declined (nothing changes hands, a late second
 answer is stale, the offer gone), waiting while the hold is full, and going back
 mid-talk (Back on her unanswered offer and on its first line ends the bubble and
 keeps the offer, a late answer to it is stale, the third time it is taken and
-logged once; opening the log ends a bubble and a click through it starts none). Play records
+logged once; opening the log ends a bubble and a click through it starts none), and
+the fitting loop (`fit.toml`: the rack stocked and priced on a new game; a part that
+can't be paid for, in the wrong socket or short of power doing nothing; the lens
+bought and fitted with one receipt and Orrin's line, taken off and fitted again for
+nothing; the next hold mined two a second; the pods making the hold 9, the ship 10.8
+and 162° and its model the podded hull; the pods refused coming off with nine aboard,
+then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes. Three bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes, and so is `fit.inputs`. Four bots use real screen clicks: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
@@ -227,10 +294,16 @@ with twelve notes (`trade.bot.toml`, 4150 ticks), and `back-talk.inputs` plays
 that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
 with a right-click on its first line, takes it the third time, opens the log while
 Tova speaks and opens her exchange while she speaks (`back-talk.bot.toml`, 3920
-ticks, thirteen notes). All three declare 1280x720 physical pixels. The GM test
+ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
+(`fit.bot.toml`, 2340 ticks, thirteen notes): the cradle on the first visit, the lens
+held with no credits and every socket's refusal, a click on the resting Buy 1 with a
+full hold (reported in `resting_clicks`, nothing bought), the lens fitted, the
+thrusters refused for power while held, Orrin's talk, mining with the lens, the pods
+fitted over the free mass, and the pods refused coming off with nine aboard. All four
+declare 1280x720 physical pixels. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-all three run there without problems.
+all four run there without problems.
 
 ```sh
 galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 1000 --size 1280x720
@@ -262,7 +335,11 @@ The tick-650 save is inside Lantern Dock's exchange with six ore aboard. The
 same holds for a save taken just after the galley is built: run `trade.inputs`
 to tick 2475 with `--save`, load it for 365 ticks, and compare with an
 uninterrupted 2840-tick run; the galley, Ines and her sign come back with it.
-The resumed and uninterrupted runs must end on the same hash. Bot input ticks
+A save taken in the fitting cradle with the lens and pods fitted (`fit.inputs` to
+tick 935) resumes for 525 ticks to the same hash as an uninterrupted 1460-tick run,
+and reopens in the window with both parts on and the hold at 9. A save from before
+the cradle existed still loads and plays, without the cradle; start a new game to
+see it. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
 and play's `--ticks` are absolute world ticks, including when resuming. The
 scenario schema cannot express save/load steps, so these checks run through the
 installed CLI separately.
@@ -272,9 +349,16 @@ installed CLI separately.
 The trade loop is the thinnest one: three goods, one thing to build, one
 milestone. Plate is the only good that builds anything, so after the galley
 opens nothing else grows, and the Kiln's plate margin shrinks run by run until
-visits restock it. Buy buttons are left out with a full hold instead of drawn
-resting, because a button can't be drawn resting yet. The galley's sign sits
-low on its front so it clears the dockmaster's name sign.
+visits restock it. The galley's sign sits low on its front so it clears the
+dockmaster's name sign.
+
+The fitting loop is the thinnest one too: one fitter, three parts on one rack, one
+part per socket and no hulls, blueprints or parts ordered from friends. The fit is
+instant, with no crane or fitting moment. While a part is held, a socket that will
+take it only says `Drop here`: it can't yet say what the drop will change, so the
+mass cost of the pods shows in the budget only after the drop. The cradle's sign
+sits low beside it, on the rim side, so it clears the dockmaster's and Orrin's
+name signs at both window sizes.
 
 The station view is now the agreed design rather than a deck and a separate
 market room, and the two stations differ in their towers and paint. Docking

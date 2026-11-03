@@ -1,0 +1,11 @@
+about = "The tug with hold pods: a cargo capsule slung under each wing"
+[[part]]
+use = "ship"
+[[part]]
+name = "pods"
+shape = "tanks"
+length = 1.3
+radius = 0.34
+at = [-0.3, 1.05, -0.05]
+mirror = true
+paint = "trim"
