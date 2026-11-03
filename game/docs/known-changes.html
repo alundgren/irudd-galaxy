@@ -408,21 +408,6 @@
 <h2>Music and radio</h2>
 
 <article class="item high">
-<h3>The radio's music comes back when a save resumes in flight <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>Quit in flight with the radio playing (Shift+Esc saves), then reopen the save.</p>
-<p class="label">What the player hears now</p>
-<p>A save resumed in flight starts with the engine hum but no music, while the radio panel shows the channel tuned and on. The music starts at the next channel change, Off and On, docking or launch. A hot load in flight already plays the channel again.</p>
-<p class="label">Why it waits on the engine</p>
-<p>Engine 0.7.0 records nothing when a save resumes, and its audio starts after the saved facts, so no earlier cue plays again. A resumed world is the same as an uninterrupted one to every script, the panel's included, so the module can neither cue the music nor tell the panel it is silent. It needs a generic engine feature: either a recorded fact when a save resumes, which scripts can handle like <code>engine.hot_loaded</code>, or the audio replaying the last music cue still in effect when a save resumes. Check: save in flight with music playing, reopen, keep still; the same track fades in.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The tuned channel's music fades in as the save resumes.</li>
-  <li>Keep an eye on download size. The two tracks ship as 16-bit WAV files (3.2 and 3.7 MB), because the audio tools write only WAV. A compressed file would be about a tenth of that.</li>
-</ul>
-</article>
-
-<article class="item high">
 <h3>The radio's ticker fades to its next line <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
 <p>Fly with the radio on and watch the line under the channel's name.</p>

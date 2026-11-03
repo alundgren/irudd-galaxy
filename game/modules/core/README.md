@@ -105,7 +105,8 @@ radio and Cinder Kiln radio, each reaching 80 units, with full signal within the
 signal as bars and a word that always agree (`|··  Faint`, `||·  Fair`, `|||  Strong`),
 the station's line on a ticker, and Prev, Off (On when off) and Next · R. Prev and Next
 step through the channels in range and then Off; their look never changes. Docked, the
-radio hides and its music fades out under the station's own sound.
+radio hides and its music fades out under the station's own sound. Reopen a save
+taken in flight and the tuned channel's track fades in again on its own.
 
 Once a second the radio measures every channel (`scripts/radio.luau`, rules in
 `scripts/signal.luau`). It keeps the channel it has until another is at least 0.25
@@ -123,7 +124,8 @@ The music is cued by recorded events (`radio_lantern`, `radio_kiln` and `radio_o
 `audio.toml`), so every save and every player hears the same tracks; nothing is
 generated while playing. Each station's track was made once with `galaxy-gm music`
 and brought to a quiet loop with the audio tools: trimmed before its fade-out, set to
--23 LUFS and looped with a two-second blend, stored as 16-bit WAV in `music/`. The
+-23 LUFS and looped with a two-second blend, stored as 16-bit WAV in `music/` (3.2 and
+3.7 MB; the audio tools write only WAV, and a compressed file would be about a tenth). The
 reach's ambience is the tug's low engine hum with a slow beat over a faint cabin hush;
 Lantern Dock's deck has soft low ventilation, a low hum and the lamps' warm buzz;
 Cinder Kiln's a banked furnace roar, a low drone and a slow bellows breath. They are
@@ -356,13 +358,14 @@ side away from your ship, and in `tests/signal.luau` the signal by distance, bar
 matching their word, the shown level holding on a threshold, two even stations never
 flickering for a minute, a stronger station taking over only when steady, a brief gap
 keeping the channel, a chosen channel holding, and Prev and Next stepping through) and
-twenty scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
+twenty-one scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
 second, kept while a hold is mined at the first rock, the music stopped on docking at
 Cinder Kiln, the Kiln's channel straight away on flying off there, and Lantern Dock's
 taking over once beside its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
 out past Lantern Dock, Off and On, Prev, R past the last channel to off and on again,
 and R doing nothing docked; `radio-hot-load.toml`: a hot load's fact in flight
-cueing the playing channel once more), both complete station trips, collision under held thrust (stopped on the
+cueing the playing channel once more; `radio-resume.toml`: a resume in flight cueing
+it once more, and one with the radio off or docked cueing nothing), both complete station trips, collision under held thrust (stopped on the
 rock's surface, then glancing off round it, the rock unmoved), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
 away from the station in a straight line and coasts to a stop in a second, D leaves
@@ -457,31 +460,41 @@ there. Run from the repo root with an external working folder in place of
 ```sh
 galaxy sim run --modules game/modules/core --seed 7 --ticks 650 --inputs game/modules/core/tests/loop.inputs --save evidence/room.db
 galaxy sim load evidence/room.db --modules game/modules/core --ticks 190 --inputs game/modules/core/tests/loop.inputs
-galaxy sim run --modules game/modules/core --seed 7 --ticks 840 --inputs game/modules/core/tests/loop.inputs
+galaxy sim run --modules game/modules/core --seed 7 --ticks 840 --inputs evidence/loop-resumed.inputs
 galaxy play --modules game/modules --load evidence/room.db --ticks 700
 ```
 
-The tick-650 save is inside Lantern Dock's exchange with six ore aboard. The
-same holds for a save taken just after the galley is built: run `trade.inputs`
-to tick 2475 with `--save`, load it for 365 ticks, and compare with an
-uninterrupted 2840-tick run; the galley, Ines and her sign come back with it.
-A save taken in the fitting cradle with the lens and pods fitted (`fit.inputs` to
-tick 935) resumes for 525 ticks to the same hash as an uninterrupted 1460-tick run,
-and reopens in the window with both parts on and the hold at 9. A save from before
+The first tick after a resume starts with the engine's `engine.resumed` input, so a
+resumed save ends on the hash of an uninterrupted run given that input on the tick
+after the save. `evidence/loop-resumed.inputs` is `loop.inputs` plus:
+
+```toml
+[[input]]
+tick = 651
+name = "engine.resumed"
+source = "resume"
+```
+
+Without it the uninterrupted run's hash differs, as it should. Every comparison below
+adds that input on the tick after its save. The tick-650 save is inside Lantern Dock's
+exchange with six ore aboard. The same holds for a save taken just after the galley is
+built: run `trade.inputs` to tick 2475 with `--save`, load it for 365 ticks, and
+compare with an uninterrupted 2840-tick run; the galley, Ines and her sign come back
+with it. A save taken in the fitting cradle with the lens and pods fitted
+(`fit.inputs` to tick 935) resumes for 525 ticks to the same hash as an uninterrupted
+1460-tick run, and reopens in the window with both parts on and the hold at 9. A save from before
 the cradle existed still loads and plays, without the cradle; start a new game to
 see it. A save from before the traders likewise loads and plays without them, and its
 ship keeps the old, slower flight numbers; start a
 new game for both. A save taken while a trader is mid-route, mid-bump or moored resumes
 to the same hash as an uninterrupted run, and so does one taken with the radio tuned by
 hand (`radio-tune.toml`'s inputs to tick 650, resumed for 550). A save from before the
-radio loads and plays without it; start a new game for the radio. A hot load in
-flight plays the radio's channel again. A save resumed in flight plays the hum, but its
-radio music starts only at the next channel change, docking or launch: the engine
-replays no earlier cues and records nothing on resume, so no script can tell a resumed
-world from an uninterrupted one (`game/docs/known-changes.html`). The resumed and uninterrupted runs must end on the same hash. Bot input ticks
-and play's `--ticks` are absolute world ticks, including when resuming. The
-scenario schema cannot express save/load steps, so these checks run through the
-installed CLI separately.
+radio loads and plays without it; start a new game for the radio. Resumed or hot
+loaded in flight, the radio cues the channel it was playing once more, so the same
+track fades in without input; docked, off or with no signal it cues nothing. Bot
+input ticks and play's `--ticks` are absolute world ticks, including when resuming.
+The scenario schema cannot express save/load steps, so these checks run through the
+installed CLI separately; `radio-resume.toml` gives the resume input directly.
 
 ## One self-critique against the slice
 

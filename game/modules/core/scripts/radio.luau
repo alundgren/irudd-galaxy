@@ -45,6 +45,15 @@ local function cue(ctx, radio, want)
     return { playing = want }
 end
 
+-- Cues the channel that was playing once more, after the music stopped without the
+-- radio being touched. Docked, off or with no signal, nothing was playing.
+local function replay(_, ctx)
+    if not ctx.has("ship", "radio") or not flying(ctx) then return end
+    local radio = ctx.get("ship", "radio")
+    if radio.playing == "" then return end
+    ctx.record(ctx.get(radio.playing, "channel").cue, { channel = radio.playing })
+end
+
 local function merge(into, from)
     for k, v in from do into[k] = v end
     return into
@@ -148,13 +157,9 @@ return {
             if not ctx.has("ship", "radio") then return end
             ctx.patch("ship", "radio", cue(ctx, ctx.get("ship", "radio"), ""))
         end,
-        -- A hot load stops all music; the channel that was playing starts again.
-        ["engine.hot_loaded"] = function(_, ctx)
-            if not ctx.has("ship", "radio") or not flying(ctx) then return end
-            local radio = ctx.get("ship", "radio")
-            if radio.playing == "" then return end
-            ctx.record(ctx.get(radio.playing, "channel").cue, { channel = radio.playing })
-        end,
+        -- A hot load stops all music, and a resumed save starts with none.
+        ["engine.hot_loaded"] = replay,
+        ["engine.resumed"] = replay,
     },
     cadence = function(ctx)
         -- A save from before the radio has none, and plays without it.
