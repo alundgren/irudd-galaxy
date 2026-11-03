@@ -6,6 +6,219 @@ use crate::discover::Tool;
 pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
+        path: "audio",
+        synopsis: "<command>",
+        answers: "Inspect, process, loop, mix, judge or check audio.",
+        about: "Offline authoring tools; one JSON object. Numeric tools are local. Only judge makes paid OpenRouter calls. Undefined measurements are null with reasons.",
+        args: &[],
+        output: &[(
+            "reading, findings, detail",
+            "interpretation, timestamped findings with actions, and method",
+        )],
+        writes: "",
+        example: "galaxy-gm audio inspect clip.wav",
+        next: "galaxy-gm guide audio walks through the workflow.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio inspect",
+        synopsis: "<clip> [--target-lufs <n>] [--reference <clip>]",
+        answers: "Measure loudness, spectrum, defects and the loop seam.",
+        about: "WAV, Ogg Vorbis or MP3; mono/stereo, 8..192 kHz. Source LUFS differs from playback LUFS. Spectral flags need a reference and listening; they are not universal harshness limits.",
+        args: &[
+            (
+                "--target-lufs <n>",
+                "optional source target, -70..0 LUFS; flag above it",
+            ),
+            (
+                "--reference <clip>",
+                "compare gain-invariant spectral fractions and report loudness difference",
+            ),
+        ],
+        output: &[
+            (
+                "loudness",
+                "integrated, momentary, short-term LUFS, true peak, RMS, crest and range",
+            ),
+            (
+                "spectrum, seam, stereo, defects",
+                "spectral timeline, resonances, endpoint jumps, channel problems and counts",
+            ),
+            (
+                "findings",
+                "each has kind, start_s/end_s, numeric value and suggested_action",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm audio inspect clip.wav --target-lufs -23",
+        next: "Use audio process or audio loop; use audio mix for actual playback levels.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio process",
+        synopsis: "<clip> --out <new.wav> [options]",
+        answers: "Repair a clip into a new file and measure before and after.",
+        about: "Order: trim, silence trim, isolated click interpolation, DC mean removal, EQ, fades, gain. Gentle EQ gains are -6..6 dB; notch cuts only. Gain respects the peak ceiling; no hidden limiter. Existing files are refused.",
+        args: &[
+            (
+                "--out <new.wav>",
+                "required new float WAV; never overwrites",
+            ),
+            (
+                "--target-lufs <n>",
+                "source target -70..0; requires 400 ms above gate; conflicts with gain-db",
+            ),
+            ("--peak <dBTP>", "true-peak ceiling -30..0, default -1"),
+            ("--gain-db <n>", "gain -60..30 dB, constrained by peak"),
+            ("--trim <start,end>", "keep this range in seconds"),
+            ("--trim-silence", "trim below -60 dBFS with a 10 ms margin"),
+            ("--fade-in <seconds>", "linear fade at start"),
+            (
+                "--fade-out <seconds>",
+                "linear fade at end; use loop for repeating beds",
+            ),
+            ("--remove-dc", "subtract channel means"),
+            ("--declick", "interpolate isolated impulses"),
+            ("--high-shelf <Hz,dB>", "gentle shelf above frequency"),
+            ("--low-shelf <Hz,dB>", "gentle shelf below frequency"),
+            ("--notch <Hz,dB,Q>", "narrow peaking cut; Q 0.3..20"),
+        ],
+        output: &[
+            (
+                "before, after",
+                "complete source inspections, after decoding the new file",
+            ),
+            (
+                "edits, gain",
+                "applied operations, requested/applied gain, peak_limited flag",
+            ),
+        ],
+        writes: "<new.wav> only",
+        example: "galaxy-gm audio process clip.wav --out soft.wav --high-shelf 4000,-3 --target-lufs -23",
+        next: "Listen and inspect the output; loop it separately if needed.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio loop",
+        synopsis: "<clip> --out <new.wav> [--blend <s>] [--search <s>] [--curve <name>]",
+        answers: "Find compatible endpoints and blend a tail into its head.",
+        about: "Waveform correlation and level matching, then sample/slope refinement; no beat or harmony guarantee. Shortens and rotates the clip. Re-decodes and checks three repetitions. Set loop_crossfade=0 in audio.toml for this prepared loop.",
+        args: &[
+            ("--out <new.wav>", "required new float WAV"),
+            (
+                "--blend <seconds>",
+                "overlap 0.005..10, default 1; clip must be at least four overlaps long",
+            ),
+            (
+                "--search <seconds>",
+                "endpoint search 0..10, default 1; zero retains endpoints",
+            ),
+            (
+                "--curve <name>",
+                "linear (default) for correlated material or equal-power",
+            ),
+            ("--target-lufs <n>", "optional source target -70..0"),
+            ("--peak <dBTP>", "peak ceiling -30..0, default -1"),
+        ],
+        output: &[
+            (
+                "before, after, edits, gain",
+                "measurements, chosen endpoints and applied gain",
+            ),
+            (
+                "loop_validation",
+                "wraps and edit boundary, repeated-clip click timestamps",
+            ),
+        ],
+        writes: "<new.wav> only",
+        example: "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1",
+        next: "Audition at least three repetitions; numeric continuity cannot prove musical continuity.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio mix",
+        synopsis: "<scenario.toml> [--out <new.wav>] [--stems <new-folder>]",
+        answers: "Measure source loudness and each bus in the real mix.",
+        about: "Scenario TOML: modules path, ticks (1..108000), optional seed=1 and inputs path, relative to scenario. Event inputs only. Uses the same Scene and Mixer as play, including voice limits, fades and master gain.",
+        args: &[
+            (
+                "--out <new.wav>",
+                "optional stereo float WAV of final playback; refuses existing file",
+            ),
+            (
+                "--stems <new-folder>",
+                "optional sound/music/ambience float WAVs before shared clamp; new directory",
+            ),
+        ],
+        output: &[
+            (
+                "sources, playback, buses",
+                "source levels, actual clamped mix and simultaneous post-gain bus levels",
+            ),
+            (
+                "pre_clamp, windows",
+                "pre-clamp peak and levels; 1 s bus level differences and spectral overlap",
+            ),
+            (
+                "findings, world_hash",
+                "clipping/masking suggestions and simulation result",
+            ),
+        ],
+        writes: "optional mix WAV and stem directory",
+        example: "galaxy-gm audio mix mix.toml --out mix.wav --stems stems",
+        next: "Compare effective playback level, then tune audio.toml volume or process source gain.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio judge",
+        synopsis: "--intent <text> <clip> [--model <id>]",
+        answers: "Describe audio blind, then assess its fit to an intent.",
+        about: "Two paid OpenRouter calls; first has no intent or source metadata, second sees the blind description and intent. Never retries. Key only from OPENROUTER_API_KEY. At most 120 s. No calls during play.",
+        args: &[
+            ("--intent <text>", "required intent, 1..4000 bytes"),
+            (
+                "--model <id>",
+                "audio-capable OpenRouter model; default google/gemini-3.8-flash",
+            ),
+        ],
+        output: &[
+            (
+                "blind_description, assessment",
+                "timestamped mood, instruments, energy, fit and uncertainty",
+            ),
+            (
+                "model, calls, cost_usd",
+                "actual model, per-request usage and actual cost; missing cost is null",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm audio judge --intent \"quiet warm background pads\" bed.wav",
+        next: "Use inspect and check for numeric acceptance; semantic judgment is fallible.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio check",
+        synopsis: "<spec.toml>",
+        answers: "Check numeric audio expectations with actionable failures.",
+        about: "TOML has clip or scenario (exactly one), paths relative to the spec, and [[expect]] with value (dotted report path), at_least/at_most or equals. Unknown fields are input errors; undefined numbers fail. Never calls a model.",
+        args: &[],
+        output: &[(
+            "ok, expectations, findings, run",
+            "bounds, got, pass and suggested_action; full local report once",
+        )],
+        writes: "",
+        example: "galaxy-gm audio check bed-check.toml",
+        next: "Exit 5 audio_expectations means repair the named values and check again.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "live status",
         synopsis: "[--game <pid|session>]",
         answers: "What is the running game doing: its build, modules, tick, world hash, the \
@@ -1425,33 +1638,35 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float, Ogg Vorbis and MP3, mono or stereo, are decoded before playback. galaxy-gm music generates a piece at build time and declares it here. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. A loop crossfades its last loop_crossfade seconds (per sound, default 2, 0..60) into its start so the seam is smooth, which shortens it by that much; a clip shorter than four fades wraps as authored. Set loop_crossfade = 0 for a loop cut to whole bars. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
+            ("Generate with OpenRouter", "gm music"),
+            ("Audio authoring tools", "gm audio"),
+            ("Render playback PCM", "game audio"),
+            ("Levels, spectrum, defects and seam", "gm audio inspect"),
             (
-                "Check sound declarations and decode every referenced file",
-                "gm check",
+                "Gain, trim, fades, DC, clicks and gentle EQ",
+                "gm audio process",
             ),
-            (
-                "Generate music through OpenRouter (needs OPENROUTER_API_KEY)",
-                "gm music",
-            ),
+            ("Search and blend a loop", "gm audio loop"),
+            ("Actual simultaneous bus levels", "gm audio mix"),
+            ("Blind description, then semantic fit", "gm audio judge"),
+            ("Numeric acceptance", "gm audio check"),
+            ("Validate module declarations", "gm check"),
             ("Listen in the game", "game play"),
-            ("Render and measure a mix without a device", "game audio"),
         ],
         recipes: &[Recipe {
-            title: "Make background music",
+            title: "A quiet, smooth background bed",
             steps: &[
-                "Write the prompt in plain words: mood, tempo, instruments and timbre, such as \
-                 \"slow warm pads, quiet and unhurried; soft, mellow, rounded, no bright or \
-                 harsh highs\". The model hears only what you write.",
-                "galaxy-gm music <module> --name calm --prompt \"...\" --event engine.start \
-                 makes one paid call. Without --volume the volume is set from the clip's \
-                 loudness so it sits in the background.",
-                "galaxy-gm check <module> loads the new sound and cue.",
-                "galaxy play --modules <modules folder>: listen past the first loop, where \
-                 the end crossfades into the start.",
-                "Too loud or quiet: edit volume in audio.toml. Wrong mood or too sharp: run \
-                 again with a new prompt and --replace, which keeps the loudness.",
+                "Prompt for warm rounded pads, sparse voicing, steady energy, compatible beginning/end, no intro, outro or final cadence. Generate once with galaxy-gm music <module> --name calm --prompt <text> --event engine.start.",
+                "galaxy-gm audio inspect clip.mp3 --reference approved.wav. Compare spectral balance at matched loudness; bright bands are clues, not universal defects.",
+                "galaxy-gm audio process clip.mp3 --out soft.wav --remove-dc --declick --high-shelf 4000,-3 --target-lufs -23",
+                "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1. Set its audio.toml file to bed.wav and loop_crossfade=0; inspect and listen to three repetitions.",
+                "Write mix.toml: modules='modules' and ticks=1800 (60 s), optional inputs='route.toml' and seed=1. Paths are relative to the scenario. galaxy-gm audio mix mix.toml --out mix.wav measures sources separately from playback buses.",
+                "There is no universal background target. Try music's rendered contribution near -26 LUFS, then tune against foreground effects and ambience. volume and default master 0.7 lower source loudness. A peak ceiling can prevent reaching a target; read gain.peak_limited and after.",
+                "galaxy-gm audio judge --intent 'quiet warm background pads' bed.wav makes two paid calls with OPENROUTER_API_KEY. It describes before seeing intent and reports uncertainty, usage and actual cost.",
+                "Write check.toml: clip='bed.wav', then [[expect]], value='loudness.integrated_lufs', at_least=-24.0, at_most=-22.0. Add another [[expect]] with value='seam.level_jump_db', at_most=3.0. galaxy-gm audio check check.toml; exit 5 names failures and repairs. Use scenario='mix.toml' instead of clip to check buses.music.integrated_lufs.",
+                "Clipping already baked in needs regeneration: 'clean, undistorted, restrained dynamics'. Stereo cancellation: 'stable centred bass, mono-compatible stereo'. Muddiness: 'sparse voicing, clear low mids'. Wrong mood/instruments: change the prompt. Local repairs cannot recover missing musical content.",
             ],
         }],
     },

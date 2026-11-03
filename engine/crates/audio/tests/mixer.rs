@@ -13,6 +13,28 @@ fn near(a: f32, b: f32) {
 }
 
 #[test]
+fn stems_and_pre_clamp_peaks_are_from_the_same_playback_frame() {
+    let mut mixer = Mixer::new(1000);
+    for bus in [Bus::Sound, Bus::Music, Bus::Ambience] {
+        mixer.apply(play(
+            Clip::new(vec![[0.9; 2]; 1000], 1000).unwrap(),
+            bus,
+            0.01,
+        ));
+    }
+    for _ in 0..20 {
+        mixer.frame();
+    }
+    let frame = mixer.frame_with_buses();
+    for c in 0..2 {
+        near(frame.pre_clamp[c], 1.89);
+        near(frame.output[c], 1.0);
+        near(frame.buses.iter().map(|b| b[c]).sum(), frame.pre_clamp[c]);
+    }
+    assert!(mixer.limited_samples > 0);
+}
+
+#[test]
 fn crossfade_is_sample_accurate_and_volume_ramps_reach_the_target() {
     let mut mixer = Mixer::new(1000);
     mixer.apply(play(

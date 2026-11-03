@@ -241,13 +241,14 @@ pub fn overview(tool: Tool) -> String {
             ],
         ),
         Tool::Gm => (
-            "galaxy-gm: the GM. It checks and tests modules, reads sessions, notes and \
-             running games, and films motion. Commands print one JSON object.",
+            "galaxy-gm: author modules, inspect playtests and measure motion/audio. JSON output.",
             &[
                 ("Start here", &["guide"]),
                 (
                     "Modules",
-                    &["check", "test", "types", "fields", "model", "music"],
+                    &[
+                        "check", "test", "types", "fields", "model", "music", "audio",
+                    ],
                 ),
                 (
                     "Played sessions and notes",
@@ -607,6 +608,10 @@ static GAME: &[Command] = &[
                 "voice-limit replacements and busiest tick's voice count",
             ),
             ("ticks, world_hash", "simulation result, unchanged by audio"),
+            (
+                "pre_clamp_peak, bus_rms",
+                "peak before the safety clamp, and effective sound/music/ambience levels after playback gains",
+            ),
         ],
         writes: "the new WAV file named by --out",
         example: "galaxy audio --modules game/modules --ticks 300 --out mix.wav",

@@ -7,7 +7,7 @@ mod mixer;
 mod scene;
 
 pub use bank::Bank;
-pub use decode::Clip;
+pub use decode::{Clip, Pcm};
 pub use device::Output;
-pub use mixer::{Action, Bus, MAX_VOICES, Mixer};
+pub use mixer::{Action, Bus, MAX_VOICES, MixFrame, Mixer};
 pub use scene::Scene;

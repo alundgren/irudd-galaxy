@@ -2,6 +2,32 @@ use galaxy_audio::{Action, Bus, Clip, Mixer};
 use std::path::Path;
 
 #[test]
+fn authoring_pcm_retains_overshoots_and_source_channel_count() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("over.wav");
+    let mut writer = hound::WavWriter::create(
+        &path,
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: 48000,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        },
+    )
+    .unwrap();
+    writer.write_sample(1.2_f32).unwrap();
+    writer.write_sample(-1.1_f32).unwrap();
+    writer.finalize().unwrap();
+    let pcm = galaxy_audio::Pcm::read(&path).unwrap();
+    assert_eq!(pcm.channels, 1);
+    assert_eq!(pcm.frames[0], [1.2; 2]);
+    assert!(
+        Clip::read(&path).is_err(),
+        "playback still refuses over-range float WAV"
+    );
+}
+
+#[test]
 fn ogg_vorbis_decodes_and_plays_finite_nonzero_samples() {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/audio/demo/sounds/high.ogg");

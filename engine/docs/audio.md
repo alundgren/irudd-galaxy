@@ -194,3 +194,13 @@ fade dips by up to 3 dB at its middle) but lifts a clip whose end matches its st
 3 dB; searching each clip for the best-matching loop point, or cutting at beats, would
 need analysis the engine doesn't otherwise do. A fixed crossfade that shortens the loop
 needs nothing beyond the frames already in memory.
+
+## Authoring measurements
+
+[Audio tools](audio-tools.md) describes `galaxy-gm audio inspect/process/loop/mix/judge/check`.
+`Pcm::read` exposes decoded source channels and finite overshoots before playback
+clamping, while `Clip::read` retains its existing playback behavior. `frame_with_buses`
+returns the same final frame plus each post-gain bus and the pre-clamp sum, without
+changing summation order or allocating in the callback. The offline `galaxy audio`
+report adds `pre_clamp_peak` and per-bus `bus_rms`; the GM adds LUFS and overlapping
+bus comparisons. Prepared loop files use `loop_crossfade=0` to avoid blending twice.
