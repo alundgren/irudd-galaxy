@@ -76,6 +76,8 @@ pub struct Widget {
     pub value: String,
     pub delta: f64,
     pub accepts: BTreeMap<String, String>,
+    /// For an accepted value, what dropping it changes: drawn under `Drop here`.
+    pub notes: BTreeMap<String, String>,
     /// Text weight, 300 to 700. Screens always use 500; engine widgets such as a talk
     /// bubble's heading set their own.
     pub weight: u16,
@@ -264,8 +266,8 @@ fn read(
             pair.map_err(|_| bad("properties must have names; put widgets in children"))?;
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
-            "on", "payload", "children", "columns", "value", "accepts", "icon", "hover", "align",
-            "resting",
+            "on", "payload", "children", "columns", "value", "accepts", "notes", "icon", "hover",
+            "align", "resting",
         ]
         .contains(&key.as_str())
         {
@@ -468,6 +470,35 @@ fn read(
             .collect::<mlua::Result<_>>()?,
         _ => return Err(bad("accepts must be a table")),
     };
+    let notes = match t.get::<Value>("notes")? {
+        Value::Nil => BTreeMap::new(),
+        Value::Table(t) => t
+            .pairs::<String, Value>()
+            .map(|p| {
+                let (key, value) = p?;
+                match value {
+                    Value::String(s) => Ok((key, s.to_str()?.to_string())),
+                    _ => Err(bad("notes maps accepted source values to text")),
+                }
+            })
+            .collect::<mlua::Result<BTreeMap<_, _>>>()?,
+        _ => return Err(bad("notes must be a table")),
+    };
+    if !notes.is_empty() && kind != "drop_target" {
+        return Err(bad("only drop targets have notes"));
+    }
+    for (value, note) in &notes {
+        if note.trim().is_empty() {
+            return Err(bad(&format!(
+                "notes.{value} needs text; leave it out instead"
+            )));
+        }
+        if accepts.get(value).is_none_or(|r| !r.is_empty()) {
+            return Err(bad(&format!(
+                "notes.{value} describes an accepted drop: set accepts.{value} = \"\""
+            )));
+        }
+    }
     Ok(Widget {
         kind: kind.clone(),
         id,
@@ -503,6 +534,7 @@ fn read(
         weight: 500,
         trailing: false,
         accepts,
+        notes,
     })
 }
 

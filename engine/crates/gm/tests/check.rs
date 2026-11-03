@@ -380,6 +380,29 @@ fn check_refuses_a_resting_button_too_tightly_padded_to_show_its_frame() {
     assert_eq!(code, 0, "{out}");
 }
 
+#[test]
+fn check_passes_drop_notes_and_reads_each_note_for_missing_glyphs() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/drop-notes/demo"]);
+    assert_eq!(code, 0, "{out}");
+    // A note the font can't draw is a finding, like any other drop verdict.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/drop-notes/demo"), &module);
+    let script = module.join("scripts/screen.luau");
+    let text = std::fs::read_to_string(&script).unwrap();
+    let broken = text.replace("2 more steps", "2 more steps \u{10ffff}");
+    assert_ne!(broken, text);
+    std::fs::write(&script, broken).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        messages(&json(&out))
+            .iter()
+            .any(|m| m.contains("/far[") && m.contains("drop verdict has missing glyphs")),
+        "{out}"
+    );
+}
+
 fn copy(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {

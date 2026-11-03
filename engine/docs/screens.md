@@ -190,16 +190,21 @@ shaping and deterministic text assets rather than introducing a second image ass
 ui.grid { columns = 2, children = {
     ui.drag_source { id = "token", text = "Small token", value = "small" },
     ui.drop_target { id = "slot", text = "Slot", on = "place",
-        accepts = { small = "", large = "Needs a wider slot" } },
+        accepts = { small = "", large = "Needs a wider slot" },
+        notes = { small = "Fills the slot: 1 left" } },
 } }
 ```
 
 A source has a string `value`; every target maps values to verdict strings in `accepts`.
 An empty string permits the drop, a nonempty string explains rejection, and an absent
 value means "Not accepted". Picking up immediately colours every target and shows its
-verdict in words on a softly tinted surface. Layout reserves the largest measured
-verdict, so targets never move when picking up. All verdict labels receive glyph and
-readability checks. Picking up lifts the actual source surface and label, leaving an
+verdict in words on a softly tinted surface. An optional `notes` maps accepted values to
+what that drop will change, drawn on a line under `Drop here`. A consequence that never
+refuses (a cost, a slowdown) then shows at pickup beside the refusals, without Luau
+running during the drag. A note must belong to a value the target accepts, and is
+nonempty text; anything else is a screen error. Layout reserves the largest measured
+verdict or note, so targets never move when picking up. All verdict and note labels
+receive glyph and readability checks. Picking up lifts the actual source surface and label, leaving an
 empty socket. Its size and pointer grab point stay attached to the pointer. Release on
 an accepting target sends its `on` event with its `payload` plus `value`; release elsewhere
 or on a rejecting target returns home. Both use a 240ms smoothstep settling animation,
@@ -268,6 +273,12 @@ slot after another refusal. Run it for 140 ticks, audit its eight notes (includi
 settling frames), and film ticks 1 through 134 to inspect the actual movement with
 `galaxy-gm motion sheet` and `strip`. Headless tests assert one visible token throughout,
 state-driven placement, return motion, scroll events, replay hashes and rebuilt notes.
+
+`tests/play/drop-notes` has one token and two slots that both accept it; only the far
+slot has a note. `tests/play/drop-notes-inputs.toml` (90 ticks) picks the token up,
+notes mid-drag, drops it on the far slot, lifts it out of there and drops it on the near
+slot. Headless tests assert the note shows on the far slot only while dragging, neither
+slot moves on any tick, every note rebuilds identically and the replay hash matches.
 
 ## Talk bubbles
 

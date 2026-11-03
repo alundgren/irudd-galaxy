@@ -160,7 +160,7 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "screen",
         "accept",
         "opaque colour",
-        "accept colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+        "accept colour, behind Drop here and its note; text pairs need 4.5:1 contrast, handles on track 3:1",
     ),
     (
         "screen",

@@ -2066,7 +2066,10 @@ pub static TOPICS: &[Topic] = &[
                 missing icons and glyphs. ui.drag_source needs id, text and a string value; \
                 ui.drop_target needs id, text, on and accepts = { value = reason }: an empty \
                 reason allows it, a nonempty reason explains rejection, unlisted values are \
-                rejected. All verdicts show at pick-up; drop sends on with payload plus value. \
+                rejected. notes = { value = text } says under Drop here what an accepted drop \
+                changes. All verdicts and notes show at pick-up, reserved in layout so \
+                nothing moves, and check reads them like other text; drop sends on with \
+                payload plus value. \
                 ui.scroll can have on/payload: a changed offset sends that event with offset. \
                 Drag sources lift out of an empty socket and settle for 240ms on release. Targets \
                 may contain children above the verdict. Store placement in world state and emit \
@@ -2103,7 +2106,7 @@ pub static TOPICS: &[Topic] = &[
                 steps: &[
                     "In the example above, declare events place and scrolled in manifest.toml. Their handlers receive event.payload.value (a dropped string) or event.payload.offset (scroll pixels); record a clicked fact to observe them.",
                     "Add icons.toml with:\n[icons]\ntoken = 'T'",
-                    "Inside the panel children, add ui.icon { icon = 'token' }, ui.delta { value = -12 }, and ui.grid { columns = 2, children = { ui.drag_source { id = 'token', text = 'Token', value = 'small' }, ui.drop_target { id = 'slot', text = 'Slot', on = 'place', accepts = { small = '', large = 'Too wide' } } } }.",
+                    "Inside the panel children, add ui.icon { icon = 'token' }, ui.delta { value = -12 }, and ui.grid { columns = 2, children = { ui.drag_source { id = 'token', text = 'Token', value = 'small' }, ui.drop_target { id = 'slot', text = 'Slot', on = 'place', accepts = { small = '', large = 'Too wide' }, notes = { small = 'Fills the slot' } } } }.",
                     "Add ui.scroll { id = 'entries', height = 160, on = 'scrolled', children = { ui.text { text = 'One', height = 80 }, ui.text { text = 'Two', height = 80 }, ui.text { text = 'Three', height = 80 } } }. Keep the panel within the viewport. All entries are checked even when clipped by scrolling.",
                     "Write gestures.toml with:\n[[pointer]]\ntick = 10\naction = 'scroll'\nwidget = 'entries'\ndelta = 80\n[[note]]\ntick = 18\ntext = 'Scrolled'\n[[pointer]]\ntick = 30\naction = 'pickup'\nwidget = 'token'\n[[note]]\ntick = 40\ntext = 'Mid-drag'\n[[pointer]]\ntick = 55\naction = 'drop'\nwidget = 'slot'",
                     "galaxy-gm check example",

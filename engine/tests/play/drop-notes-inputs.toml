@@ -1,0 +1,37 @@
+# Pick the token up (both slots accept it; only the far one has a note), drop it on the
+# far slot, then lift it out of there and drop it on the near slot.
+[[note]]
+tick = 5
+text = "At rest: two slots, no verdicts."
+[[pointer]]
+tick = 10
+action = "pickup"
+widget = "token"
+[[pointer]]
+tick = 14
+action = "move"
+widget = "far"
+[[note]]
+tick = 18
+text = "Mid-drag: both say Drop here; the far slot adds its note."
+[[pointer]]
+tick = 24
+action = "drop"
+widget = "far"
+[[note]]
+tick = 40
+text = "Placed in the far slot."
+[[pointer]]
+tick = 50
+action = "pickup"
+widget = "token"
+[[note]]
+tick = 54
+text = "Lifted from the far slot: its note still shows."
+[[pointer]]
+tick = 60
+action = "drop"
+widget = "near"
+[[note]]
+tick = 80
+text = "Placed in the near slot."

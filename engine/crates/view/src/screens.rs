@@ -692,17 +692,7 @@ fn draw(
             };
         }
         if b.widget.kind == "drop_target" {
-            t.text = match &state.drag {
-                None => b.widget.text.clone(),
-                Some(drag) => match b.widget.accepts.get(&drag.value) {
-                    Some(reason) if reason.is_empty() => format!("{}\nDrop here", b.widget.text),
-                    reason => format!(
-                        "{}\nCannot drop: {}",
-                        b.widget.text,
-                        reason.map(String::as_str).unwrap_or("Not accepted")
-                    ),
-                },
-            };
+            t.text = verdict(&b.widget, state.drag.as_ref().map(|d| d.value.as_str()));
         }
         if !lifted {
             layer.texts.push(t);
@@ -810,17 +800,33 @@ fn present(b: &mut Boxed, state: &mut Presentation, clip: Option<Rect>) {
     }
 }
 
+/// A drop target's label while `value` is held (its plain text with no drag): `Drop here`
+/// and the value's note under it, or `Cannot drop:` and the reason.
+fn verdict(w: &Widget, value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return w.text.clone();
+    };
+    match w.accepts.get(value) {
+        Some(reason) if reason.is_empty() => match w.notes.get(value) {
+            Some(note) => format!("{}\nDrop here\n{note}", w.text),
+            None => format!("{}\nDrop here", w.text),
+        },
+        reason => format!(
+            "{}\nCannot drop: {}",
+            w.text,
+            reason.map_or("Not accepted", String::as_str)
+        ),
+    }
+}
+
+/// Every label a drop target can show, so layout reserves the tallest and check reads
+/// each one: at rest, a bare accept, an unlisted value and every listed value.
 fn verdict_labels(w: &Widget) -> Vec<String> {
     let mut out = vec![
         w.text.clone(),
         format!("{}\nDrop here", w.text),
         format!("{}\nCannot drop: Not accepted", w.text),
     ];
-    out.extend(
-        w.accepts
-            .values()
-            .filter(|s| !s.is_empty())
-            .map(|r| format!("{}\nCannot drop: {}", w.text, r)),
-    );
+    out.extend(w.accepts.keys().map(|v| verdict(w, Some(v))));
     out
 }
