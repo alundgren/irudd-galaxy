@@ -412,7 +412,9 @@
 <p class="label">Where and how</p>
 <p>Quit in flight with the radio playing (Shift+Esc saves), then reopen the save.</p>
 <p class="label">What the player hears now</p>
-<p>Each station's channel plays its own finished track from the first launch, offline included, and the same in every save. A save resumed in flight starts with the engine hum but no music. The radio panel shows the channel as playing, and the music only starts at the next channel change, docking or launch.</p>
+<p>A save resumed in flight starts with the engine hum but no music, while the radio panel shows the channel tuned and on. The music starts at the next channel change, Off and On, docking or launch. A hot load in flight already plays the channel again.</p>
+<p class="label">Why it waits on the engine</p>
+<p>Engine 0.7.0 records nothing when a save resumes, and its audio starts after the saved facts, so no earlier cue plays again. A resumed world is the same as an uninterrupted one to every script, the panel's included, so the module can neither cue the music nor tell the panel it is silent. It needs a generic engine feature: either a recorded fact when a save resumes, which scripts can handle like <code>engine.hot_loaded</code>, or the audio replaying the last music cue still in effect when a save resumes. Check: save in flight with music playing, reopen, keep still; the same track fades in.</p>
 <p class="label">What good looks like</p>
 <ul>
   <li>The tuned channel's music fades in as the save resumes.</li>

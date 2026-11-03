@@ -356,12 +356,13 @@ side away from your ship, and in `tests/signal.luau` the signal by distance, bar
 matching their word, the shown level holding on a threshold, two even stations never
 flickering for a minute, a stronger station taking over only when steady, a brief gap
 keeping the channel, a chosen channel holding, and Prev and Next stepping through) and
-nineteen scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
+twenty scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
 second, kept while a hold is mined at the first rock, the music stopped on docking at
 Cinder Kiln, the Kiln's channel straight away on flying off there, and Lantern Dock's
 taking over once beside its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
 out past Lantern Dock, Off and On, Prev, R past the last channel to off and on again,
-and R doing nothing docked), both complete station trips, collision under held thrust (stopped on the
+and R doing nothing docked; `radio-hot-load.toml`: a hot load's fact in flight
+cueing the playing channel once more), both complete station trips, collision under held thrust (stopped on the
 rock's surface, then glancing off round it, the rock unmoved), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
 away from the station in a straight line and coasts to a stop in a second, D leaves
@@ -473,9 +474,11 @@ ship keeps the old, slower flight numbers; start a
 new game for both. A save taken while a trader is mid-route, mid-bump or moored resumes
 to the same hash as an uninterrupted run, and so does one taken with the radio tuned by
 hand (`radio-tune.toml`'s inputs to tick 650, resumed for 550). A save from before the
-radio loads and plays without it; start a new game for the radio. A save resumed in
-flight plays the hum, but its radio music starts only at the next channel change,
-docking or launch: the engine replays no earlier cues on resume. The resumed and uninterrupted runs must end on the same hash. Bot input ticks
+radio loads and plays without it; start a new game for the radio. A hot load in
+flight plays the radio's channel again. A save resumed in flight plays the hum, but its
+radio music starts only at the next channel change, docking or launch: the engine
+replays no earlier cues and records nothing on resume, so no script can tell a resumed
+world from an uninterrupted one (`game/docs/known-changes.html`). The resumed and uninterrupted runs must end on the same hash. Bot input ticks
 and play's `--ticks` are absolute world ticks, including when resuming. The
 scenario schema cannot express save/load steps, so these checks run through the
 installed CLI separately.
