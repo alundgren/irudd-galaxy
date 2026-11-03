@@ -47,6 +47,7 @@ local function open(event, ctx)
     local id = event.payload.facility or ctx.get(station, "port").exchange
     local facility = ctx.get(id, "facility")
     if not facility or facility.station ~= station or pilot.room == id then return end
+    signs.hush(ctx) -- the bubble would ride the glide in over the room's panel
     ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", log_open = false, gliding = true })
     -- The view glides to frame the building, beside its room's panel.
     ctx.patch(station, "engine.room", { camera = facility.camera })
@@ -59,12 +60,13 @@ local function close(event, ctx)
     if not pressed(event) then return end
     local station, pilot = docked(ctx)
     if station and pilot.room ~= "" then
+        signs.hush(ctx) -- the bubble would ride the glide out over the HUD
         ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", gliding = true })
         ctx.patch(station, "engine.room", { camera = "" })
-        signs.show(ctx, station, "", false, signs.speaking(ctx), true)
+        signs.show(ctx, station, "", false, nil, true)
     elseif pilot.log_open then
         ctx.patch("ship", "pilot", { log_open = false })
-        if station then signs.show(ctx, station, "", false, signs.speaking(ctx)) end
+        if station then signs.show(ctx, station, "", false, nil) end
     end
 end
 

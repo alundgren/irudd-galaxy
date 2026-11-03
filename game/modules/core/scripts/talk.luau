@@ -46,6 +46,11 @@ end
 return {
     on = {
         ["engine.talk_start"] = function(event, ctx)
+            -- The open log hides the keepers: a click on one through it starts nothing.
+            if ctx.get("ship", "pilot").log_open then
+                signs.hush(ctx)
+                return
+            end
             teach.used(ctx, "talk")
             sign(ctx, ctx.get(event.payload.talk, "engine.talk").speaker)
             voices.retire(ctx)

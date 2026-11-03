@@ -75,9 +75,11 @@ return {
             if event.payload.down == false then return end
             local pilot = ctx.get("ship", "pilot")
             if pilot.room ~= "" then return end
+            -- The open log takes the whole focus: a bubble would sit on it.
+            signs.hush(ctx)
             ctx.patch("ship", "pilot", { log_open = not pilot.log_open })
             local here = ctx.get("ship", "engine.location").place
-            if here ~= "" and ctx.get(here, "port") then signs.show(ctx, here, "", not pilot.log_open, signs.speaking(ctx)) end
+            if here ~= "" and ctx.get(here, "port") then signs.show(ctx, here, "", not pilot.log_open, nil) end
         end,
     },
     screen = function(ctx, ui)

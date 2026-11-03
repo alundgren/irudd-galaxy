@@ -52,6 +52,10 @@ stay in view beside it. Each glide takes a second; a click during one lands it a
 once. Inside a room only that room shows: the status panel, title, key, log and
 launch step aside and come back with Back, which glides out to the whole station
 again. Signs rest while the view glides, so they never crowd the moving view.
+Opening a room, going back and opening the log each end whatever is being said, so
+a bubble never rides a glide over the status panel or sits on a room panel or the
+log. Nothing is lost: an unfinished conversation begins again at a click, and an
+unanswered offer is still on offer.
 
 - **Exchange**: your hold and credits, then one line per good with its price
   and stock as plain text. A good the station buys gets `Sell N for X cr` when
@@ -69,8 +73,8 @@ again. Signs rest while the view glides, so they never crowd the moving view.
 
 Each room has a keeper standing by it, wearing a name sign with what they do
 (`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
-the open log hides them all except the keeper who is speaking, so a bubble always
-shows whose words it holds. Station names and room names never share a word.
+the open log hides them all; while someone speaks only they wear theirs, so a
+bubble always shows whose words it holds. Station names and room names never share a word.
 
 ## Trade, prices and the galley
 
@@ -187,7 +191,7 @@ galaxy-gm test game/modules/core
 
 There are ten Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
-settling a market, quick taps not counting, hints, keepers' lines) and thirteen
+settling a market, quick taps not counting, hints, keepers' lines) and fourteen
 scenarios: both complete station trips, collision under held thrust, refused
 out-of-place actions, repeat trips through depletion with an empty-sale check,
 the station itself (rooms from signs and M, refused sales outside the exchange,
@@ -196,7 +200,8 @@ sale receipt and log lines, the skiff and launch), talk (an introduction once,
 one line per click, the repeat line following the hold and the sale, one log
 entry per conversation with no repeats, talk ended by launch, and hints
 retiring), one conversation (a sale in the middle of an introduction leaves it
-one entry, and the speaker keeps their name while the log is open), trade
+one entry, and opening the log ends an introduction, which begins again once
+it shuts), trade
 (buying refused with a full hold, ore and plate priced unit by unit, plate into
 the galley, a quick redock tap that is not a visit, the site trading nothing
 before it is built, visits restocking, the galley built with its keeper and her
@@ -206,19 +211,26 @@ and B go back and frame the whole station again, Esc shuts the log, signs restin
 while the view glides and while someone else speaks, launching from a room), and
 Ines's gift taken (one ration and its receipt, her follow-up line, one log entry
 with the answer, the offer gone), declined (nothing changes hands, a late second
-answer is stale, the offer gone) and waiting while the hold is full. Play records
+answer is stale, the offer gone), waiting while the hold is full, and going back
+mid-talk (Back on her unanswered offer and on its first line ends the bubble and
+keeps the offer, a late answer to it is stale, the third time it is taken and
+logged once; opening the log ends a bubble and a click through it starts none). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes. Two bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes. Three bots use real screen clicks: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
 `trade-play.inputs` plays the whole trade loop through the galley and Ines's gift
-with twelve notes (`trade.bot.toml`, 4150 ticks). Both declare 1280x720 physical
-pixels. The GM test report includes their frame times, dimensions and
-deterministic replay results. On a display scaled to 125% that window is 1024x576
-logical pixels, and both bots run there without problems.
+with twelve notes (`trade.bot.toml`, 4150 ticks), and `back-talk.inputs` plays
+that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
+with a right-click on its first line, takes it the third time, opens the log while
+Tova speaks and opens her exchange while she speaks (`back-talk.bot.toml`, 3920
+ticks, thirteen notes). All three declare 1280x720 physical pixels. The GM test
+report includes their frame times, dimensions, problems and deterministic replay
+results. On a display scaled to 125% that window is 1024x576 logical pixels, and
+all three run there without problems.
 
 ```sh
 galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 1000 --size 1280x720

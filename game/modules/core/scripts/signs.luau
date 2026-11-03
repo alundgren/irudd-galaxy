@@ -1,7 +1,9 @@
 -- The keepers' name signs (their engine.life name). On the whole station every keeper
 -- wears one; inside a room only that room's keeper does, and the open log hides them
 -- all, so a sign never sits under a panel. While someone speaks only they keep theirs,
--- so the bubble never sits on another keeper's sign.
+-- so the bubble never sits on another keeper's sign. A bubble ends when a room opens or
+-- closes, and never shows with the log (hush), so it never rides a glide or sits on a
+-- panel.
 local signs = {}
 
 -- The keeper whose bubble is showing, if any.
@@ -11,6 +13,15 @@ function signs.speaking(ctx)
         if talk.active then return talk.speaker end
     end
     return nil
+end
+
+-- Ends whatever is being said, as leaving a place does. The talk stays unseen, so an
+-- unanswered offer is still on offer, and a click on the keeper begins it again. A
+-- handler's reads come before its own writes: callers pass nil as `speaking` after.
+function signs.hush(ctx)
+    for _, id in ctx.query("engine.talk") do
+        if ctx.get(id, "engine.talk").active then ctx.patch(id, "engine.talk", { active = false }) end
+    end
 end
 
 -- `room`, `log_open`, `speaking` and `gliding` are the values after the calling
