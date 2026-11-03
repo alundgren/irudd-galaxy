@@ -43,6 +43,7 @@ bytemuck = { version = "1.25", features = ["derive"] }
 # Device output and file decoding only; galaxy-audio owns the mixer.
 cpal = "0.15.3"
 hound = "3.5.1"
+rustfft = "6.4"
 lewton = "0.10.2"
 # MP3 decoding only (generated music arrives as MP3); MPL-2.0, as the slice already uses.
 symphonia = { version = "0.6.1", default-features = false, features = ["mp3"] }

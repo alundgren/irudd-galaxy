@@ -95,6 +95,8 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
     let mut squares = 0.0_f64;
     let mut samples = 0_u64;
     let mut max_voices = 0;
+    let mut pre_clamp_peak = 0.0_f32;
+    let mut bus_squares = [0.0_f64; 3];
     for tick in 1..=ticks {
         session
             .step(&inputs.remove(&tick).unwrap_or_default())
@@ -104,7 +106,14 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
         }
         max_voices = max_voices.max(mixer.voice_count());
         for _ in 0..RATE / galaxy_api::engine::TICKS_PER_SECOND {
-            for sample in mixer.frame() {
+            let frame = mixer.frame_with_buses();
+            for s in frame.pre_clamp {
+                pre_clamp_peak = pre_clamp_peak.max(s.abs());
+            }
+            for (sum, bus) in bus_squares.iter_mut().zip(frame.buses) {
+                *sum += bus.into_iter().map(|s| f64::from(s).powi(2)).sum::<f64>();
+            }
+            for sample in frame.output {
                 peak = peak.max(sample.abs());
                 squares += f64::from(sample).powi(2);
                 samples += 1;
@@ -121,6 +130,7 @@ pub fn render(args: &[String]) -> Result<Output, Failure> {
         json!({ "wav": path, "sample_rate": RATE, "frames": samples / 2, "peak": peak,
         "rms": (squares / samples.max(1) as f64).sqrt(), "limited_samples": mixer.limited_samples,
         "stolen_voices": mixer.stolen_voices, "max_voices": max_voices, "ticks": ticks,
-        "world_hash": session.world.hash() }),
+        "world_hash": session.world.hash(), "pre_clamp_peak": pre_clamp_peak,
+        "bus_rms": (["sound", "music", "ambience"].into_iter().zip(bus_squares.map(|s| (s / samples.max(1) as f64).sqrt())).collect::<std::collections::BTreeMap<_,_>>()) }),
     ))
 }

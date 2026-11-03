@@ -92,6 +92,14 @@ pub struct Mixer {
     pub stolen_voices: u64,
 }
 
+/// One real mixer frame. Stems include voice, bus and master ramps, before the
+/// shared final clamp. Bus order is sound, music, ambience.
+pub struct MixFrame {
+    pub output: [f32; 2],
+    pub pre_clamp: [f32; 2],
+    pub buses: [[f32; 2]; 3],
+}
+
 impl Mixer {
     pub fn new(rate: u32) -> Self {
         Self {
@@ -174,7 +182,12 @@ impl Mixer {
     }
 
     pub fn frame(&mut self) -> [f32; 2] {
+        self.frame_with_buses().output
+    }
+
+    pub fn frame_with_buses(&mut self) -> MixFrame {
         let mut out = [0.0_f32; 2];
+        let mut buses = [[0.0_f32; 2]; 3];
         let gains = self.buses.each_mut().map(Ramp::next);
         for v in &mut self.voices {
             let count = v.clip.frames.len();
@@ -200,8 +213,9 @@ impl Mixer {
                     *tail += (head - *tail) * t;
                 }
             }
-            for (out, value) in out.iter_mut().zip(value) {
+            for (c, (out, value)) in out.iter_mut().zip(value).enumerate() {
                 *out += value * gain;
+                buses[v.bus.index()][c] += value * gain;
             }
             v.position += f64::from(v.clip.rate) / f64::from(self.rate);
             if looping && v.position >= count as f64 {
@@ -213,6 +227,10 @@ impl Mixer {
                 && (v.bus != Bus::Sound || v.position < v.clip.frames.len() as f64)
         });
         let master = self.master.next();
+        let pre_clamp = out.map(|s| s * master);
+        for sample in buses.iter_mut().flatten() {
+            *sample *= master;
+        }
         for s in &mut out {
             *s *= master;
             if s.abs() > 1.0 {
@@ -220,7 +238,11 @@ impl Mixer {
             }
             *s = s.clamp(-1.0, 1.0);
         }
-        out
+        MixFrame {
+            output: out,
+            pre_clamp,
+            buses,
+        }
     }
 
     pub fn render(&mut self, frames: &mut [[f32; 2]]) {

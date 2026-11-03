@@ -8,6 +8,7 @@
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod audio;
 mod audit;
 mod bot;
 mod fields;
@@ -55,6 +56,7 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
         }
     };
     match command.path {
+        path if path == "audio" || path.starts_with("audio ") => audio::run(path, args),
         "guide" => match args {
             [] => Ok(Output::Text(help::guide())),
             [topic] => help::guide_topic(topic).map(Output::Text).ok_or_else(|| {
@@ -523,6 +525,12 @@ mod tests {
             ("model", model::OPTIONS),
             ("model make", model::MAKE_OPTIONS),
             ("music", music::OPTIONS),
+            ("audio inspect", audio::INSPECT_OPTIONS),
+            ("audio process", audio::PROCESS_OPTIONS),
+            ("audio loop", audio::LOOP_OPTIONS),
+            ("audio mix", audio::MIX_OPTIONS),
+            ("audio judge", audio::JUDGE_OPTIONS),
+            ("audio check", audio::CHECK_OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("notes inbox", sessions::INBOX_OPTIONS),

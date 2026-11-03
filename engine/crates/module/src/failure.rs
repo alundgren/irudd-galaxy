@@ -62,6 +62,11 @@ impl Failure {
         Self::new(code::RUNTIME, "render_unavailable", message)
     }
 
+    /// Exit 5: an offline audio measurement failed its numeric expectation.
+    pub fn audio_expectations(message: impl Into<String>) -> Self {
+        Self::new(code::REJECTED, "audio_expectations", message)
+    }
+
     /// Adds a field to the JSON object.
     pub fn with(mut self, key: &str, value: impl Into<Value>) -> Self {
         self.fields.insert(key.to_owned(), value.into());
