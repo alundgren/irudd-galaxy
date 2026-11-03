@@ -226,6 +226,9 @@ pub struct View {
     pub assets: Assets,
     pub screens: screens::Screens,
     handles: BTreeMap<String, MeshHandle>,
+    /// Models with parts that move on their own, drawn as their still parts and each
+    /// moving part apart.
+    animated: BTreeMap<String, Animated>,
     /// How far each model reaches from its centre on the plane, for rings round it.
     reach: BTreeMap<String, f32>,
     placeholder: MeshHandle,
@@ -233,6 +236,9 @@ pub struct View {
     seed: u64,
     /// Poses at the tick before the world's current one.
     previous: BTreeMap<String, Pose>,
+    /// Morph weights at the tick before the world's current one: a cut eases over a tick
+    /// like a move, so a thing holding on the surface stays on it between ticks.
+    previous_morphs: BTreeMap<String, f32>,
     previous_places: BTreeMap<String, String>,
     pub eye: Eye,
     /// Model and look IDs things asked for that no module has, once each.
@@ -253,6 +259,33 @@ pub struct View {
     /// Whether the pointer is over something a click acts on (a button, bubble, drag
     /// source or target), so the window shows a hand.
     pub hand: bool,
+}
+
+/// A model whose parts spin or pulse (`galaxy_mesh::gltf::PartMotion`): the parts that
+/// don't, as one mesh, and each one that does with its motion.
+struct Animated {
+    still: Option<MeshHandle>,
+    parts: Vec<(MeshHandle, galaxy_mesh::gltf::PartMotion)>,
+}
+
+/// The vertices `range` of `mesh` and the triangles among them, as a mesh of its own.
+fn part_mesh(mesh: &MeshData, range: std::ops::Range<usize>) -> MeshData {
+    let mut out = MeshData {
+        vertices: mesh.vertices[range.clone()].to_vec(),
+        indices: Vec::new(),
+    };
+    for tri in mesh.indices.as_chunks::<3>().0 {
+        if tri.iter().all(|&i| range.contains(&(i as usize))) {
+            out.indices
+                .extend(tri.iter().map(|&i| i - range.start as u32));
+        }
+    }
+    out
+}
+
+/// An `engine.model`'s morph weight.
+fn model_morph(fields: &Map<String, Value>) -> f32 {
+    fields.get("morph").and_then(Value::as_f64).unwrap_or(0.0) as f32
 }
 
 /// A small inked box, drawn where a model is missing.
@@ -297,11 +330,13 @@ impl View {
             assets: Assets::default(),
             screens,
             handles: BTreeMap::new(),
+            animated: BTreeMap::new(),
             reach: BTreeMap::new(),
             placeholder,
             sky,
             seed,
             previous: BTreeMap::new(),
+            previous_morphs: BTreeMap::new(),
             previous_places: BTreeMap::new(),
             eye: Eye::default(),
             missing: BTreeSet::new(),
@@ -337,6 +372,17 @@ impl View {
                 r.remove_mesh(handle);
             }
         }
+        for (_, animated) in std::mem::take(&mut self.animated) {
+            if let Some(r) = renderer.as_deref_mut() {
+                for handle in animated
+                    .still
+                    .into_iter()
+                    .chain(animated.parts.iter().map(|p| p.0))
+                {
+                    r.remove_mesh(handle);
+                }
+            }
+        }
         if let Some(r) = renderer.as_deref_mut() {
             r.remove_backdrop(self.sky);
             self.sky = r.upload_backdrop(&backdrop(&assets.sky.params(), self.seed));
@@ -348,6 +394,34 @@ impl View {
                 None => MeshHandle::DETACHED,
             };
             self.handles.insert(id.clone(), handle);
+            let parts = assets.parts.get(id).map(Vec::as_slice).unwrap_or_default();
+            if parts.iter().any(|p| p.motion.is_some()) {
+                let mut upload = |m: &MeshData| match renderer.as_deref_mut() {
+                    Some(r) => r.upload_mesh(m),
+                    None => MeshHandle::DETACHED,
+                };
+                let mut still = MeshData::default();
+                let mut moving = Vec::new();
+                for p in parts {
+                    let part = part_mesh(mesh, p.vertices.clone());
+                    match p.motion {
+                        Some(motion) => moving.push((upload(&part), motion)),
+                        None => {
+                            let base = still.vertices.len() as u32;
+                            still.vertices.extend(part.vertices);
+                            still.indices.extend(part.indices.iter().map(|i| i + base));
+                        }
+                    }
+                }
+                let still = (!still.is_empty()).then(|| upload(&still));
+                self.animated.insert(
+                    id.clone(),
+                    Animated {
+                        still,
+                        parts: moving,
+                    },
+                );
+            }
             let reach = mesh
                 .vertices
                 .iter()
@@ -372,6 +446,11 @@ impl View {
                     galaxy_sim::places::place_of(world, id).to_owned(),
                 )
             })
+            .collect();
+        self.previous_morphs = world
+            .entities
+            .iter()
+            .filter_map(|(id, c)| Some((id.clone(), model_morph(&c.get(MODEL)?.fields))))
             .collect();
         self.previous = world
             .entities
@@ -420,10 +499,13 @@ impl View {
         galaxy_sim::life::pose(world, entity, alpha)
             .map(|p| p.0)
             .unwrap_or_else(|| {
-                world
+                let now = world
                     .component(entity, MODEL)
-                    .and_then(|m| m.fields["morph"].as_f64())
-                    .unwrap_or(0.0) as f32
+                    .map_or(0.0, |m| model_morph(&m.fields));
+                match self.previous_morphs.get(entity) {
+                    Some(before) => before + (now - before) * alpha.clamp(0.0, 1.0),
+                    _ => now,
+                }
             })
     }
 
@@ -461,26 +543,24 @@ impl View {
 
     /// The camera for this frame.
     pub fn frame_camera(&self, world: &World, alpha: f32) -> Camera {
-        if let Some(place) = travel::place(world, alpha)
-            && let Some(camera) = self.room_camera(world, place)
-        {
-            if let Some(cut) = travel::Cut::step(world, alpha) {
-                let now = world.tick as f64 + alpha as f64;
-                if cut.glide > 0.0 {
-                    if let Some(glide) = self.glide_at(world, cut.trip, camera, now, alpha) {
-                        return glide;
-                    }
-                } else if place == cut.from
-                    && let Some(glide) = travel::interrupted(cut.trip)
-                    && let Some(moving) = self.interrupted_at(world, &glide, now, alpha)
-                {
-                    // A fade cut out of a glide keeps that glide moving while it fades out.
-                    return moving;
+        let place = travel::place(world, alpha);
+        let room = place.and_then(|p| self.room_camera(world, p));
+        let shown = room.unwrap_or_else(|| self.follow_camera(world, alpha));
+        if let Some(cut) = travel::Cut::step(world, alpha) {
+            let now = world.tick as f64 + alpha as f64;
+            if cut.glide > 0.0 {
+                if let Some(glide) = self.glide_at(world, cut.trip, shown, now, alpha) {
+                    return glide;
                 }
+            } else if place == Some(cut.from)
+                && let Some(glide) = travel::interrupted(cut.trip)
+                && let Some(moving) = self.interrupted_at(world, &glide, now, alpha)
+            {
+                // A fade cut out of a glide keeps that glide moving while it fades out.
+                return moving;
             }
-            return camera;
         }
-        self.follow_camera(world, alpha)
+        shown
     }
 
     /// The camera the glide in trip fields `trip` shows at `now` (tick plus alpha), ending
@@ -496,15 +576,24 @@ impl View {
         if galaxy_sim::travel::glide_seconds(trip) <= 0.0 {
             return None;
         }
-        let node = galaxy_sim::travel::room_camera(world, text(trip, "to"))?;
+        let node = galaxy_sim::travel::glide_camera(world, text(trip, "to"));
         let glide = Glide::of(trip, &node);
         Some(self.moving(world, &glide, to, now, alpha))
     }
 
     /// Where a glide that a newer trip took over had its camera at `now`.
     fn interrupted_at(&self, world: &World, glide: &Glide, now: f64, alpha: f32) -> Option<Camera> {
-        let to = self.room_camera_at(world, &glide.to, &glide.camera)?;
+        let to = self.glide_end(world, &glide.to, &glide.camera, alpha)?;
         Some(self.moving(world, glide, to, now, alpha))
+    }
+
+    /// The camera a glide ends on: node `node` of room `place`, or the follow camera for
+    /// [`galaxy_sim::travel::FOLLOW`].
+    fn glide_end(&self, world: &World, place: &str, node: &str, alpha: f32) -> Option<Camera> {
+        if node == galaxy_sim::travel::FOLLOW {
+            return Some(self.follow_camera(world, alpha));
+        }
+        self.room_camera_at(world, place, node)
     }
 
     /// The camera `glide` shows at `now`, ending exactly on `to`.
@@ -522,12 +611,12 @@ impl View {
         glide::blend(&cameras(&blend.pose), &cameras(&blend.focus), to)
     }
 
-    /// The camera of one part of a glide's blend: a room's camera node, or the camera the
-    /// place left showed (its room camera, or the follow camera with the player back at
-    /// its source pose).
+    /// The camera of one part of a glide's blend: a room's camera node, the follow camera,
+    /// or the camera the place left showed (its room camera, or the follow camera with
+    /// the player back at its source pose).
     fn part_camera(&self, world: &World, part: &Part, blend: &Blend, alpha: f32) -> Option<Camera> {
         if let Some(node) = &part.node {
-            return self.room_camera_at(world, &part.place, node);
+            return self.glide_end(world, &part.place, node, alpha);
         }
         let source = rooms::source_world(world, &part.place, &blend.left);
         Some(
@@ -569,6 +658,8 @@ impl View {
         scene.backdrop = Some(self.sky);
         scene.clear_color = self.assets.sky.bottom;
         let place = travel::place(world, alpha);
+        // Game time at this frame, for parts that move on their own.
+        let seconds = (world.tick as f64 - 1.0 + alpha as f64).max(0.0) / 30.0;
         let mut drawn = BTreeMap::new();
         for (id, components) in &world.entities {
             if !rooms::visible(world, id, place) {
@@ -616,12 +707,35 @@ impl View {
                 Quat::from_rotation_z(pose.angle),
                 pose.point(),
             );
-            drawn.insert(id.as_str(), (scene.meshes.len(), model_id, scale));
-            scene.meshes.push(
-                MeshInstance::new(handle, transform)
-                    .with_material(material)
-                    .with_morph(self.morph(world, id, alpha)),
-            );
+            let first = scene.meshes.len();
+            let morph = self.morph(world, id, alpha);
+            match self.animated.get(model_id) {
+                Some(animated) => {
+                    // Moving parts turn and pulse with time, for the eye only.
+                    if let Some(still) = animated.still {
+                        scene.meshes.push(
+                            MeshInstance::new(still, transform)
+                                .with_material(material)
+                                .with_morph(morph),
+                        );
+                    }
+                    for (handle, motion) in &animated.parts {
+                        let (turn, glow) = motion.at_time(seconds);
+                        scene.meshes.push(
+                            MeshInstance::new(*handle, transform * turn)
+                                .with_material(material)
+                                .with_morph(morph)
+                                .with_glow(glow),
+                        );
+                    }
+                }
+                None => scene.meshes.push(
+                    MeshInstance::new(handle, transform)
+                        .with_material(material)
+                        .with_morph(morph),
+                ),
+            }
+            drawn.insert(id.as_str(), (first..scene.meshes.len(), model_id, scale));
         }
         let (plan, arrived) = self.plan(world, alpha);
         let per_pixel = camera.world_per_pixel(logical);
@@ -688,7 +802,7 @@ impl View {
         world: &World,
         alpha: f32,
         logical: Vec2,
-        drawn: &BTreeMap<&str, (usize, &str, f32)>,
+        drawn: &BTreeMap<&str, (std::ops::Range<usize>, &str, f32)>,
         scene: &mut Scene,
     ) {
         self.targeted = None;
@@ -705,11 +819,11 @@ impl View {
                     matches!(w.kind.as_str(), "button" | "drag_source") && w.resting.is_none()
                         || w.kind == "bubble" && w.on.is_some()
                 }));
-        let Some((index, model, scale)) = self
+        let Some((meshes, model, scale)) = self
             .targeted
             .as_deref()
             .and_then(|id| drawn.get(id))
-            .copied()
+            .cloned()
         else {
             return;
         };
@@ -720,10 +834,11 @@ impl View {
             .get(model)
             .and_then(|m| m.bounds())
             .map_or(0.1, |(lo, hi)| (hi - lo).max_element() * scale * 0.05);
-        let mesh = &mut scene.meshes[index];
-        mesh.transform = Mat4::from_translation(Vec3::Z * lift) * mesh.transform;
-        mesh.material.outline = self.screens.style.highlight;
-        mesh.material.outline_px = self.screens.style.highlight_px;
+        for mesh in &mut scene.meshes[meshes] {
+            mesh.transform = Mat4::from_translation(Vec3::Z * lift) * mesh.transform;
+            mesh.material.outline = self.screens.style.highlight;
+            mesh.material.outline_px = self.screens.style.highlight_px;
+        }
     }
 
     /// The followed thing's order, while it runs, for [`course::Courses`]: where it is

@@ -4,6 +4,9 @@
 //!   velocity from the helm or an order.
 //! - **motion**: everything with an `engine.position` and an `engine.motion` moves by its
 //!   velocity each tick.
+//! - **spin**: everything with an `engine.position` and an `engine.spin` turns by its rate
+//!   each tick (not things with `engine.flight`, whose nose flight turns), before collide,
+//!   so a body's outline turns with it.
 //! - **ground**: everything with an `engine.position` gets the height of the floor under
 //!   it on its layer: the highest `engine.surface` on that layer that covers its point, or
 //!   0 where none does.
@@ -13,7 +16,7 @@
 //! Each service changes components directly with its own cause, and only when a value
 //! actually changes, so the cause on a component says who last moved it.
 
-use galaxy_api::engine::{MOTION, POSITION, SURFACE, TICK_SECONDS};
+use galaxy_api::engine::{FLIGHT, MOTION, POSITION, SPIN, SURFACE, TICK_SECONDS};
 use serde_json::Value;
 
 use crate::world::World;
@@ -84,6 +87,34 @@ pub fn motion(world: &mut World) {
         position.fields.insert("y".into(), Value::from(y));
         position.cause = cause;
         position.tick = tick;
+    }
+}
+
+/// Turns everything with a position and a spin by its rate, in plain `f64` arithmetic, so
+/// the angle is the same bits on every OS. Kept in `-PI..=PI`.
+pub fn spin(world: &mut World) {
+    let turning: Vec<(String, f64)> = world
+        .entities
+        .iter()
+        .filter_map(|(entity, components)| {
+            components.get(POSITION)?;
+            if components.contains_key(FLIGHT) || crate::places::walking(world, entity) {
+                return None;
+            }
+            let rate = number(&components.get(SPIN)?.fields, "rate");
+            (rate != 0.0 && rate.is_finite()).then(|| (entity.clone(), rate))
+        })
+        .collect();
+    if turning.is_empty() {
+        return;
+    }
+    let cause = world.service_cause("spin");
+    for (entity, rate) in turning {
+        let angle = world
+            .component(&entity, POSITION)
+            .map_or(0.0, |p| number(&p.fields, "angle"));
+        let angle = crate::flight::wrap(angle + rate.to_radians() * TICK_SECONDS);
+        set(world, &entity, POSITION, "angle", Value::from(angle), cause);
     }
 }
 

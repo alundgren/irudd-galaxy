@@ -254,6 +254,9 @@ impl Screens {
 
     pub(crate) fn all(&self) -> Vec<&Boxed> {
         fn walk<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+            if b.hidden {
+                return;
+            }
             out.push(b);
             for c in &b.children {
                 walk(c, out);

@@ -93,10 +93,13 @@ struct Body {
     inverse_mass: f64,
     /// Speed lost per second after a push; 0 for things that fly.
     drag: f64,
+    /// Whether its pairs are tested: every body's in [`collide`]; in [`separate`] only
+    /// those of bodies that were set down or pushed.
+    stirred: bool,
 }
 
-/// Pushes overlapping bodies apart and damps drifting ones.
-pub fn collide(world: &mut World, shapes: &Shapes) {
+/// The solid bodies in `world`, where they are now.
+fn bodies(world: &World, shapes: &Shapes) -> Vec<Body> {
     let mut bodies: Vec<Body> = Vec::new();
     for (entity, components) in &world.entities {
         let (Some(body), Some(pos)) = (components.get(BODY), components.get(POSITION)) else {
@@ -134,12 +137,16 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
             vy: motion.map_or(0.0, |m| number(m, "vy")),
             inverse_mass,
             drag,
+            stirred: true,
         });
     }
-    if bodies.is_empty() {
-        return;
-    }
-    let before: Vec<(f64, f64, f64, f64)> = bodies.iter().map(|b| (b.x, b.y, b.vx, b.vy)).collect();
+    bodies
+}
+
+/// Pushes overlapping pairs with a stirred body in them apart, over [`PASSES`] passes; a
+/// body that is pushed is stirred from then on. With `bounce`, their velocities also lose
+/// what was carrying them into each other.
+fn push_apart(bodies: &mut [Body], bounce: bool) {
     for _ in 0..PASSES {
         // Sweep along x: only bodies whose spans on x meet can touch.
         let mut order: Vec<usize> = (0..bodies.len()).collect();
@@ -155,7 +162,7 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
                     break;
                 }
                 let (a, b) = (&bodies[i], &bodies[j]);
-                if a.place != b.place {
+                if a.place != b.place || !(a.stirred || b.stirred) {
                     continue;
                 }
                 let total = a.inverse_mass + b.inverse_mass;
@@ -169,7 +176,7 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
                 };
                 let (ia, ib) = (a.inverse_mass / total, b.inverse_mass / total);
                 let closing = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-                let impulse = if closing < 0.0 {
+                let impulse = if bounce && closing < 0.0 {
                     -(1.0 + BOUNCE) * closing
                 } else {
                     0.0
@@ -180,6 +187,7 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
                     a.y -= ny * depth * ia;
                     a.vx -= nx * impulse * ia;
                     a.vy -= ny * impulse * ia;
+                    a.stirred |= ia > 0.0;
                 }
                 {
                     let b = &mut bodies[j];
@@ -187,6 +195,7 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
                     b.y += ny * depth * ib;
                     b.vx += nx * impulse * ib;
                     b.vy += ny * impulse * ib;
+                    b.stirred |= ib > 0.0;
                 }
                 pushed = true;
             }
@@ -195,18 +204,13 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
             break;
         }
     }
-    for b in &mut bodies {
-        if b.drag > 0.0 && b.inverse_mass > 0.0 {
-            let keep = libm::exp(-b.drag * TICK_SECONDS);
-            (b.vx, b.vy) = (b.vx * keep, b.vy * keep);
-            if libm::sqrt(b.vx * b.vx + b.vy * b.vy) < REST {
-                (b.vx, b.vy) = (0.0, 0.0);
-            }
-        }
-    }
+}
+
+/// Writes back the bodies that moved or changed speed since `before`.
+fn write(world: &mut World, bodies: &[Body], before: &[(f64, f64, f64, f64)]) {
     let changed: BTreeMap<&str, &Body> = bodies
         .iter()
-        .zip(&before)
+        .zip(before)
         .filter(|(b, was)| (b.x, b.y, b.vx, b.vy) != **was)
         .map(|(b, _)| (b.entity.as_str(), b))
         .collect();
@@ -222,4 +226,45 @@ pub fn collide(world: &mut World, shapes: &Shapes) {
             crate::services::set(world, entity, MOTION, "vy", Value::from(b.vy), cause);
         }
     }
+}
+
+fn state(bodies: &[Body]) -> Vec<(f64, f64, f64, f64)> {
+    bodies.iter().map(|b| (b.x, b.y, b.vx, b.vy)).collect()
+}
+
+/// Pushes overlapping bodies apart and damps drifting ones.
+pub fn collide(world: &mut World, shapes: &Shapes) {
+    let mut bodies = bodies(world, shapes);
+    if bodies.is_empty() {
+        return;
+    }
+    let before = state(&bodies);
+    push_apart(&mut bodies, true);
+    for b in &mut bodies {
+        if b.drag > 0.0 && b.inverse_mass > 0.0 {
+            let keep = libm::exp(-b.drag * TICK_SECONDS);
+            (b.vx, b.vy) = (b.vx * keep, b.vy * keep);
+            if libm::sqrt(b.vx * b.vx + b.vy * b.vy) < REST {
+                (b.vx, b.vy) = (0.0, 0.0);
+            }
+        }
+    }
+    write(world, &bodies, &before);
+}
+
+/// Pushes `moved`, bodies set down after [`collide`] ran this tick, out of whatever they
+/// now overlap, and anything they push out of what that overlaps, so no tick ends with
+/// solid bodies inside each other. Positions only: [`collide`] settled speeds and drag,
+/// and pairs where neither body moved stay as it left them.
+pub fn separate(world: &mut World, shapes: &Shapes, moved: &[String]) {
+    let mut bodies = bodies(world, shapes);
+    for b in &mut bodies {
+        b.stirred = moved.contains(&b.entity);
+    }
+    if !bodies.iter().any(|b| b.stirred) {
+        return;
+    }
+    let before = state(&bodies);
+    push_apart(&mut bodies, false);
+    write(world, &bodies, &before);
 }

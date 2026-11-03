@@ -64,7 +64,9 @@ The trip is presentation-independent: walking later can replace the cut and came
 ## Gliding cameras
 
 `engine.room.glide` (seconds, 0 to 10, default 0) replaces the cut into that room with a
-camera glide. The trip records `glide` and draws the destination from its first frame,
+camera glide, and the cut out of it to a place that isn't a room (launching from a
+station into flight) with the same glide played the other way: from the room's camera
+back out to the follow camera, with the ship already flying. The trip records `glide` and draws the destination from its first frame,
 with no fade or title card. The camera moves from the one shown before (the source
 room's camera, or the follow camera with the player put back at its saved source pose)
 to the room's camera, eased with smoothstep over `(tick + alpha - start_tick)`. Each
@@ -75,6 +77,16 @@ widens the view while it closes in, like a dolly zoom. Across places the two cam
 use different coordinates, so the glide keeps the source's angle, height and field of
 view but looks at the room camera's point throughout. `crates/view/src/glide.rs` holds
 the blend.
+
+Gliding out ends on the follow camera, which has no node: the trip stores it as the
+camera node `""` (`galaxy_sim::travel::FOLLOW`; a room's empty `camera` means its
+`camera` node, so no room camera has that name). Across places the glide out keeps the
+room camera's angle, height and field of view at its start and looks at the ship
+throughout, widening to the follow camera's framing as the room's did narrowing in. A
+glide out taken over (docking again before it lands) is a blend with a part on the
+follow camera, so the glide back in starts where the camera is: `view/tests/targets.rs`
+checks the framing carries on across each step, and that no frame of a glide out draws
+a fade or title card.
 
 Patching the room's `camera` to another node while the player is in that room glides
 too, when the room's `glide` is above 0. The travel service compares the room's camera

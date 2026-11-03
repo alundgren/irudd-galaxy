@@ -42,6 +42,7 @@ fn part(kind: &str, path: String, text: &str, size: f32) -> Widget {
         notes: BTreeMap::new(),
         weight: 500,
         trailing: false,
+        yields: false,
         resting: None,
     }
 }

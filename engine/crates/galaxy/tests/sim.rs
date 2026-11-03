@@ -105,8 +105,21 @@ fn run_save_load_hot_load_and_replay_agree() {
 fn a_saved_run_carries_on_like_one_long_run() {
     let tmp = tempfile::tempdir().unwrap();
     let half = tmp.path().join("half.db");
+    // Loading the save brings one input, `engine.resumed` on the tick after it; the long
+    // run gets the same input, and ends on the same world.
+    let resumed = tmp.path().join("resumed.toml");
+    std::fs::write(
+        &resumed,
+        "[[input]]
+tick = 121
+name = 'engine.resumed'
+source = 'resume'
+",
+    )
+    .unwrap();
     let base = ["sim", "run", "--modules", "tests/modules", "--seed", "3"];
-    let (_, straight) = galaxy(&[&base[..], &["--ticks", "200"]].concat());
+    let (_, straight) =
+        galaxy(&[&base[..], &["--ticks", "200", "--inputs", path(&resumed)]].concat());
     let (code, _) = galaxy(&[&base[..], &["--ticks", "120", "--save", path(&half)]].concat());
     assert_eq!(code, 0);
     let (code, carried) = galaxy(&[
@@ -148,6 +161,108 @@ fn a_saved_run_carries_on_like_one_long_run() {
     );
     let (code, err) = galaxy(&[&base[..], &["--all"]].concat());
     assert_eq!(code, 2, "{err}");
+}
+
+/// A save resumed headless tells its scripts with `engine.resumed`, and the tune module
+/// cues its music again with no new input. The resumed session replays identically and
+/// ends where an uninterrupted run given the same `engine.resumed` input does.
+#[test]
+fn a_resumed_save_tells_scripts_and_its_music_cue_comes_back() {
+    let tmp = tempfile::tempdir().unwrap();
+    let save = tmp.path().join("mid.db");
+    let rec = tmp.path().join("resumed.json");
+    let modules = ["--modules", "tests/modules/resume", "--seed", "7"];
+    let (code, mid) = galaxy(
+        &[
+            &["sim", "run"][..],
+            &modules,
+            &[
+                "--ticks",
+                "60",
+                "--inputs",
+                "tests/modules/resume/inputs.toml",
+                "--save",
+                path(&save),
+            ],
+        ]
+        .concat(),
+    );
+    assert_eq!(code, 0, "{mid}");
+    // Loading with no ticks to run announces nothing yet: the world is the saved one.
+    let (code, still) = galaxy(
+        &[
+            &["sim", "load", path(&save)][..],
+            &modules[..2],
+            &["--ticks", "0"],
+        ]
+        .concat(),
+    );
+    assert_eq!(code, 0, "{still}");
+    assert_eq!(still["hash"], mid["hash"]);
+
+    let (code, carried) = galaxy(
+        &[
+            &["sim", "load", path(&save)][..],
+            &modules[..2],
+            &["--ticks", "30", "--record", path(&rec), "--state", "--all"],
+        ]
+        .concat(),
+    );
+    assert_eq!(code, 0, "{carried}");
+    assert_eq!(
+        carried["script_failures"],
+        Value::Array(Vec::new()),
+        "{carried}"
+    );
+    assert_eq!(carried["log"][0]["text"], "resumed on tick 61 from resume");
+    assert_eq!(carried["log"][0]["tick"], 61);
+    let state = &carried["state"];
+    let facts = state["facts"].as_array().unwrap();
+    let causes = state["causes"].as_array().unwrap();
+    let after: Vec<&Value> = facts
+        .iter()
+        .filter(|f| f["tick"].as_u64() > Some(60))
+        .collect();
+    let kinds: Vec<&str> = after.iter().map(|f| f["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["engine.resumed", "tune.theme"], "{after:?}");
+    let cause = |f: &Value| &causes[f["cause"].as_u64().unwrap() as usize]["cause"];
+    assert_eq!(cause(after[0])["kind"], "input");
+    assert_eq!(cause(after[0])["source"], "resume");
+    assert_eq!(cause(after[1])["kind"], "script");
+    assert_eq!(cause(after[1])["handler"], "engine.resumed");
+    // The theme played once before the save: the resumed cue is the only new one.
+    let themes = facts.iter().filter(|f| f["kind"] == "tune.theme").count();
+    assert_eq!(themes, 2);
+
+    // The recording holds the resume as its one input, and replays to the same world.
+    let recording: Value = serde_json::from_str(&std::fs::read_to_string(&rec).unwrap()).unwrap();
+    let events = recording["events"].as_array().unwrap();
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(events[0]["name"], "engine.resumed");
+    assert_eq!(events[0]["tick"], 61);
+    for _ in 0..2 {
+        let (code, replay) = galaxy(&["sim", "replay", path(&rec)]);
+        assert_eq!(code, 0, "{replay}");
+        assert_eq!(replay["identical"], true);
+        assert_eq!(replay["hash"], carried["hash"]);
+    }
+
+    // An uninterrupted run with that one input ends on the resumed world.
+    let (code, straight) = galaxy(
+        &[
+            &["sim", "run"][..],
+            &modules,
+            &[
+                "--ticks",
+                "90",
+                "--inputs",
+                "tests/modules/resume/straight.toml",
+            ],
+        ]
+        .concat(),
+    );
+    assert_eq!(code, 0, "{straight}");
+    assert_eq!(straight["hash"], carried["hash"]);
 }
 
 #[test]

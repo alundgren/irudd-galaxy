@@ -111,6 +111,19 @@ the publisher need not have a model. Rooms additionally publish `place.<full-id>
 A missing target or projection reports a missing
 anchor rather than silently discarding the widget.
 
+**Yielding.** `yield = true` on an anchored widget makes it give way instead of being
+clamped: it isn't drawn while its anchor is off screen or unpublished (no missing-anchor
+finding), while it would leave the window (the same 8px margin), or while any of it would
+overlap another painted widget, from any screen, a talk bubble or a life sign. Yielding
+widgets are decided after every screen is laid out and scrolled, in paint order, and
+each one shown is in the way of later ones, so two name labels never cover each other
+either. A hidden widget paints nothing, takes no click, is no bot target and is left out
+of the readability and overlap checks, so play reports no overlap. A trader's name label
+can then show at any distance and zoom and simply not be drawn over the status panel
+(`tests/play/ambient`, `view/tests/ambient.rs`). Fading instead of hiding would need a
+remembered opacity per widget, which notes, audit and film would have to replay; hiding
+is decided afresh from each frame's layout.
+
 ## Clicks, recording and trying it
 
 Left click hit-tests the displayed tree in logical pixels. The chosen button becomes an

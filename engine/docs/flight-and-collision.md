@@ -8,6 +8,8 @@ sets the controls and gives orders, on events.
 ```sh
 galaxy play --modules tests/play/drift      # W/S thrust, A/D turn, Shift boost
                                             # 1 dock, 2 mine the nearest rock, 3 fly the route
+galaxy play --modules tests/play/ambient --inputs tests/play/ambient-inputs.toml --ticks 900
+                                            # a spinning rock, a hold through six cuts
 ```
 
 ## Flying by hand
@@ -44,7 +46,7 @@ press).
 | `mode` | What it does | Done when |
 |---|---|---|
 | `arrive` | flies to `target` and stops with `range` between the outlines (or to the point `x`, `y` when `target` is empty) | stopped there |
-| `hold` | the same, then turns to face the target: mining, with `range = 0` the ship sits on the rock's drawn surface | stopped and facing it |
+| `hold` | the same, then turns to face the target: mining, with `range = 0` the ship sits on the rock's drawn surface. Once there it keeps holding (below) | stopped and facing it |
 | `dock` | flies onto the target's point and turns to its `angle` | stopped on it, facing that way |
 | `follow` | passes each `engine.waypoint` from `target` along `next` without stopping, and stops on the last | stopped on the last |
 
@@ -73,9 +75,37 @@ turns 1.8 radians to the berth's heading at its turn rate (180 degrees a second)
 `engine.arrived` comes at 3.30 s. `galaxy-gm motion track <film> --to berth` shows it
 under `approach` (`stopped_at`, `turned_after_stop`, `arrived_at`).
 
+**Holding on.** A `hold` that got there stays `done` and keeps holding until the helm or
+a new order takes over: as its target is cut smaller (morph), turns or is nudged, the
+ship stays on the new surface and keeps facing it, with no new `engine.arrived` and no
+course drawn again (the view draws a course only while an order is not done). At the end
+of every tick, after the cadence, `settle_holds` moves each holding ship onto its goal
+when that is within a tick's flight at top speed, so a cut a handler or the cadence
+makes on any tick never shows a gap; further off (the target was pushed away), flight
+steers back as for any order. Settling comes after collision, so the ships it moves get
+collision's push-apart passes again (below): two ships holding one rock side by side
+stay apart as it shrinks, a little off the surface where they meet, rather than settling
+into each other. The view eases a morph over a tick like a move, so between
+ticks the shrinking rock and the ship settling onto it stay together. Six cuts of a
+rock in `tests/play/ambient` keep the surface gap under 0.05 units at every tick
+(`crates/view/tests/ambient.rs`). Issuing `hold` again after each cut closed the gap too,
+but each new order brightened the course for `bright` seconds.
+
 A dock point must be clear of solid outlines; a ship can't stop inside something solid.
 Where a ship docks and what docking shows (stations, places, interiors) is the module's
 and, later, the place model's: the engine only flies there.
+
+## Spin
+
+`engine.spin { rate }` turns a thing steadily, `rate` degrees a second (positive is
+counter-clockwise), for slow rocks and wrecks. The spin service runs after motion and
+before collide, in plain `f64` (`angle + rate * tick`, wrapped into `-PI..=PI`), so a
+replay turns the same bits on every OS and a body's outline (which is turned with the
+thing) turns with it. Things with `engine.flight` are skipped: flight owns their nose.
+The view interpolates the angle between ticks, so a 12 degree a second rock turns
+smoothly at any frame rate. Parts of a model that turn or pulse only on screen (a
+station's ring, its lamps) are the model's, not the world's: see
+`renderer-and-style.md`.
 
 ## Collision
 
@@ -104,6 +134,11 @@ replays collide identically.
 5. Things that don't fly lose `drag` of their speed per second, so a pushed rock comes to
    rest.
 
+When `settle_holds` sets holders down at the end of the tick, `separate` runs steps 1 to 4
+again for positions only (no bounce or drag), testing just the pairs with a moved body
+in them; a body they push joins the moved ones. No tick ends with solid bodies inside
+each other, and a tick where no hold settled is untouched.
+
 Nothing traps a pilot: a rock is pushable unless the module fixes it, and a ship pressed
 against a fixed body keeps every direction that leads away from it.
 
@@ -120,6 +155,13 @@ against a fixed body keeps every direction that leads away from it.
   outlines stand slightly proud of long flat edges (where two neighbouring sample lines
   meet beyond the edge), by about 1% of the edge's length at 128 directions; 32 left
   visible gaps beside a rock's flat faces.
+- **Spin as a field of `engine.motion`.** One component for all movement reads well,
+  but every existing world stores every field of a component, so a new field would have
+  changed every world's hash and saved state. A component of its own leaves worlds that
+  don't spin as they were.
+- **Re-issuing `hold` after each cut, or a new order mode for it.** Re-issuing flashed
+  the course each time; a separate mode would make every module choose. Holding on is
+  what `hold` means.
 - **Orders as Luau.** Steering is per-tick work; scripts give orders on events and hear
   `engine.arrived`, and the engine flies.
 

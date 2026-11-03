@@ -78,6 +78,9 @@ impl Style {
         if let Some(light) = &style.light {
             light.check().map_err(|e| format!("[light] {e}"))?;
         }
+        if let Some(sky) = &style.sky {
+            sky.check().map_err(|e| format!("[sky] {e}"))?;
+        }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
         }
@@ -367,6 +370,12 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
     ("sky", "cloud_count", "0 to 64", "how many clouds"),
     ("sky", "stars", "0 to 4000", "how many stars"),
     (
+        "sky",
+        "star_layers",
+        "[numbers]",
+        "1 to 4 star layers, each the logical pixels it scrolls per world unit the camera moves (0 to 20): [0.25, 0.6, 1.2] puts far stars creeping behind near ones; the stars are shared among them",
+    ),
+    (
         "course",
         "show",
         "true or false",
@@ -568,6 +577,7 @@ pub struct Sky {
     pub cloud_alpha: f32,
     pub cloud_count: u32,
     pub stars: u32,
+    pub star_layers: Vec<f32>,
 }
 
 impl Default for Sky {
@@ -580,11 +590,32 @@ impl Default for Sky {
             cloud_alpha: b.cloud_alpha,
             cloud_count: b.clouds,
             stars: b.stars,
+            star_layers: b.star_layers,
         }
     }
 }
 
 impl Sky {
+    fn check(&self) -> Result<(), String> {
+        use crate::backdrop::{MAX_STAR_LAYERS, MAX_STAR_PARALLAX};
+        let n = self.star_layers.len();
+        if !(1..=MAX_STAR_LAYERS).contains(&n) {
+            return Err(format!(
+                "star_layers has {n} layers; a sky has 1 to {MAX_STAR_LAYERS}"
+            ));
+        }
+        if let Some(p) = self
+            .star_layers
+            .iter()
+            .find(|p| !p.is_finite() || !(0.0..=MAX_STAR_PARALLAX).contains(*p))
+        {
+            return Err(format!(
+                "star_layers has {p}; each layer scrolls 0 to {MAX_STAR_PARALLAX} logical pixels per world unit"
+            ));
+        }
+        Ok(())
+    }
+
     pub fn params(&self) -> BackdropParams {
         BackdropParams {
             top: self.top,
@@ -593,6 +624,7 @@ impl Sky {
             cloud_alpha: self.cloud_alpha.clamp(0.0, 1.0),
             clouds: self.cloud_count.min(64),
             stars: self.stars.min(4000),
+            star_layers: self.star_layers.clone(),
             ..BackdropParams::default()
         }
     }
@@ -790,6 +822,16 @@ color = \"#3fa7a0\"
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn star_layers_are_read_and_kept_in_range() {
+        let s = Style::parse("[sky]\nstar_layers = [0.25, 0.6, 1.2]").unwrap();
+        assert_eq!(s.sky.unwrap().params().star_layers, [0.25, 0.6, 1.2]);
+        for bad in ["[]", "[1.0, 2.0, 3.0, 4.0, 5.0]", "[-1.0]", "[30.0]"] {
+            let e = Style::parse(&format!("[sky]\nstar_layers = {bad}")).unwrap_err();
+            assert!(e.contains("[sky] star_layers"), "{bad}: {e}");
         }
     }
 

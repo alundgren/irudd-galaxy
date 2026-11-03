@@ -3,6 +3,7 @@ mod hovers;
 mod icons;
 mod interaction;
 mod scrolling;
+mod yielding;
 pub use interaction::{Drag, Presentation};
 
 use std::collections::BTreeMap;
@@ -31,6 +32,8 @@ pub struct Boxed {
     /// A drop target's height for its verdicts: the tallest label, or the height kept for
     /// them while a value is held. Zero for other widgets.
     pub verdicts: f32,
+    /// A yielding widget not drawn this frame, with everything in it (`yield`).
+    pub hidden: bool,
 }
 
 #[derive(Default)]
@@ -96,6 +99,10 @@ impl Screens {
             .as_ref()
             .map(|d| d.kept.clone())
             .unwrap_or_default();
+        // Placed boxes as laid out (checked), and as shown (scrolled and clipped). Whether
+        // a yielding widget shows is decided on what is shown, over every screen at once.
+        let mut placed = Vec::new();
+        let mut screens = 0;
         for screen in &mut self.functions {
             let calls = screen.calls;
             screen.refresh(world);
@@ -114,14 +121,8 @@ impl Screens {
                     anchors,
                     &mut self.problems,
                 );
-                check(
-                    &boxed,
-                    Rect::new(0.0, 0.0, size.x, size.y),
-                    &mut self.measure,
-                    &mut self.problems,
-                );
-                present(&mut boxed, &mut self.presentation, None);
-                self.boxes.push(boxed);
+                placed.push(boxed);
+                screens += 1;
             }
         }
         for tree in crate::life::widgets(world)
@@ -130,14 +131,23 @@ impl Screens {
         {
             let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
+            placed.push(boxed);
+        }
+        let mut shown = placed.clone();
+        for boxed in shown.iter_mut().take(screens) {
+            present(boxed, &mut self.presentation, None);
+        }
+        yielding::resolve(&mut shown, size);
+        for (boxed, shown) in placed.iter_mut().zip(&shown) {
+            yielding::copy_hidden(shown, boxed);
             check(
-                &boxed,
+                boxed,
                 Rect::new(0.0, 0.0, size.x, size.y),
                 &mut self.measure,
                 &mut self.problems,
             );
-            self.boxes.push(boxed);
         }
+        self.boxes = shown;
         self.finish_motion();
         for boxed in &self.boxes {
             draw(boxed, overlay, None, &self.presentation, &self.style);
@@ -256,7 +266,7 @@ impl Screens {
 
     fn hit_surface(&self, point: Vec2, include_hovers: bool) -> Option<&Widget> {
         fn hit(b: &Boxed, p: Vec2, include_hovers: bool) -> Option<&Widget> {
-            if b.clip.is_some_and(|r| !point_in(r, p)) {
+            if b.hidden || b.clip.is_some_and(|r| !point_in(r, p)) {
                 return None;
             }
             for child in b.children.iter().rev() {
@@ -447,6 +457,7 @@ fn layout(
         content_height: height,
         style: *style,
         verdicts,
+        hidden: false,
     }
 }
 
@@ -479,6 +490,16 @@ fn place(
     }
     if let Some(anchor) = &w.anchor {
         match anchors.get(anchor) {
+            Some(p) if w.yields => {
+                // Never clamped: off screen, or in the way, it is hidden instead.
+                pos = *p
+                    + Vec2::new(
+                        w.x.unwrap_or(0.0) - b.rect.w * 0.5,
+                        w.y.unwrap_or(-12.0) - b.rect.h,
+                    );
+                b.hidden = !point_in(Rect::new(0.0, 0.0, size.x, size.y), *p);
+            }
+            None if w.yields => b.hidden = true,
             Some(p) => {
                 pos = *p
                     + Vec2::new(
@@ -514,7 +535,7 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 }
 
 fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Vec<String>) {
-    if anchored(&b.widget.kind) {
+    if anchored(&b.widget.kind) || b.hidden {
         return;
     }
     let mut problem = |message: &str| problems.push(format!("{}: {message}", b.widget.path));
@@ -609,6 +630,8 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         for other in &b.children[..i] {
             if !anchored(&c.widget.kind)
                 && !anchored(&other.widget.kind)
+                && !c.hidden
+                && !other.hidden
                 && overlaps(c.rect, other.rect)
             {
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
@@ -619,6 +642,9 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
 }
 
 fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+    if b.hidden {
+        return;
+    }
     if painted_kind(&b.widget.kind) {
         out.push(b);
     }
@@ -634,7 +660,7 @@ fn draw(
     state: &Presentation,
     style: &ScreenStyle,
 ) {
-    if b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
+    if b.hidden || b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
         return;
     }
     let mut layer = UiLayer {

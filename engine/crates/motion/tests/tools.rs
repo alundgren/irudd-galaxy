@@ -826,3 +826,57 @@ fn flicker_makes_a_close_up_of_any_event_or_moment_asked_for() {
     let opts = Opts::parse(&["--event".to_owned(), "99".to_owned()]).unwrap();
     assert!(run("flicker", &dir, &opts).unwrap_err().contains("--event"));
 }
+
+#[test]
+fn track_tells_a_smooth_spin_from_one_that_turns_on_ticks() {
+    let tmp = tempfile::tempdir().unwrap();
+    let shot = |angle: f32| {
+        let mut things = BTreeMap::new();
+        let mut rock = thing(100.0, 90.0);
+        rock.angle = angle;
+        things.insert("t.rock".to_owned(), rock);
+        Shot {
+            image: Image::new(W, H, BG),
+            things,
+            lines: Vec::new(),
+        }
+    };
+    let (smooth, ticks, still) = (
+        tmp.path().join("s"),
+        tmp.path().join("t"),
+        tmp.path().join("x"),
+    );
+    // 12 degrees a second, through the wrap at half a circle.
+    let at = |i: usize| {
+        (3.1 + (12.0f32 / 60.0).to_radians() * i as f32 + std::f32::consts::PI)
+            .rem_euclid(std::f32::consts::TAU)
+            - std::f32::consts::PI
+    };
+    film(&smooth, 120, |i| shot(at(i)));
+    film(&ticks, 120, |i| shot(at(i - i % 2)));
+    film(&still, 120, |_| shot(0.4));
+    let s = tool("track", &smooth, &["--thing", "rock"]);
+    assert!((f(&s, "turn.degrees") - 23.8).abs() < 0.05, "{s}");
+    assert!((f(&s, "turn.deg_per_s.median") - 12.0).abs() < 0.05, "{s}");
+    assert!(f(&s, "turn.judder") < 0.1, "{s}");
+    assert!(
+        s["reading"]
+            .as_str()
+            .unwrap()
+            .contains("turned 23.8 degrees"),
+        "{s}"
+    );
+    let t = tool("track", &ticks, &["--thing", "rock"]);
+    assert!(f(&t, "turn.judder") > 0.5, "{t}");
+    let x = tool("track", &still, &["--thing", "rock"]);
+    assert!(x["turn"].is_null(), "{x}");
+    // A quick turn, then still: its rate is the turn's, and too short to call uneven.
+    let quick = tmp.path().join("q");
+    film(&quick, 120, |i| shot(0.05 * i.min(6) as f32));
+    let q = tool("track", &quick, &["--thing", "rock"]);
+    assert!(
+        (f(&q, "turn.deg_per_s.median") - 0.05f64.to_degrees() * 60.0).abs() < 0.5,
+        "{q}"
+    );
+    assert!(q["turn"]["judder"].is_null(), "{q}");
+}

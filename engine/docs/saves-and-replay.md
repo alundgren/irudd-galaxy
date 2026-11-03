@@ -59,6 +59,27 @@ browser the game doesn't have yet; the newest session is what "carry on" means t
 Bot inputs and `--ticks` use absolute world ticks; ticks already saved do not run again.
 The resumed recording embeds the saved world, and F8, replay, audit and film use it.
 
+**Hearing a resume.** A resumed world is the saved one exactly, so nothing in it says the
+game stopped, and presentation that follows new facts (sound cues, `audio.md`) plays no
+earlier cue again. So resuming (`play --load`, `play --continue`, `sim load`) tells the
+scripts: the first tick run after the save starts with the input `engine.resumed` (source
+`resume`, no payload), before any other input on that tick. Handlers see it like any
+event; a module whose music should still be playing records its music event again, and
+the cue plays on that tick. `Session::announce_resume` queues it, and `resume_save` (both
+commands' shared path) calls it. A load that runs no tick (`sim load --ticks 0`) adds
+nothing. It is recorded like any input, so a replay, audit, film or what-if of the resumed
+session applies it from the recording; a replay starts with `Session::resume` alone and
+never announces a second time.
+
+This defines what a resumed world equals. Before, a save resumed for n ticks ended on the
+same hash as a run that never stopped. Now it ends on the hash of a run that never stopped
+and was given that one input on the tick after the save (an `[[input]]` with name
+`engine.resumed` and source `resume` in its inputs file). The input is always there, so the
+hash moves by its fact even when no module handles it; the tests in
+`crates/galaxy/tests/sim.rs` and `places.rs` compare a resumed run with such a direct run,
+and the generic module `tests/modules/resume` shows a cue coming back
+(`tune.luau`: `play` marks it playing, `engine.resumed` records the theme again).
+
 ## Recordings
 
 A recording is one JSON file that holds everything needed to run a session again:
@@ -271,6 +292,14 @@ recording stores the new files, so the replay loads exactly what the session did
 - **Recording module folders by path.** Smaller, but a replay would run whatever the
   folder holds now. Storing the exact files makes a recording self-contained, which is
   what lets agents audit a playtest later.
+- **Hearing a resume: a recorded input.** A fact written into the world when the save
+  loads (as a hot-load writes `engine.hot_loaded`) would put an event between two ticks
+  that no inputs file can give, so no uninterrupted run could reach a resumed world. The
+  audio replaying the last music cue still in effect would keep the hash, but only for
+  music, and only for cues a table can read back from history: a script's choice made from
+  world state (a channel that changed by distance) can't be told from an old fact. An
+  input on the first tick lets every script react, and keeps a simple equality: resuming
+  is that one input.
 - **A binary recording format.** Smaller and faster, but opaque. JSON is readable by
   people and agents, and recordings are small while modules are text. Binary assets will
   need a different encoding when they arrive.

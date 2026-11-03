@@ -1739,7 +1739,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
             ("Generate with OpenRouter", "gm music"),
             ("Audio authoring tools", "gm audio"),
@@ -1781,8 +1781,11 @@ pub static TOPICS: &[Topic] = &[
                 through the same window loop (--inputs), and its [[note]] entries are taken \
                 like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
-                world ticks, including on resume. The new recording embeds the saved start world, \
-                so replay, F8, audit and film work as usual. --physical-size makes --size physical \
+                world ticks, including on resume. The first tick after a resume (play --load, \
+                --continue, sim load) starts with the recorded input engine.resumed (source \
+                resume): handle it to cue music or sounds again, since no earlier cue replays. \
+                The new recording embeds the saved start world, so replay, F8, audit and film \
+                work as usual. --physical-size makes --size physical \
                 pixels (otherwise logical); the report always gives physical size. \
                 Esc quits and saves unless a module binds escape in [keys]; Shift+Esc and \
                 closing the window always do. [keys] can also bind mouse_right; bot \
@@ -1963,7 +1966,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "rooms",
         title: "Rooms, floor spots, anchors and travel",
-        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. engine.room.glide = seconds (0 to 10) replaces the cut into that room with a camera glide from the camera shown before, with no fade; patching that room's engine.room.camera to another node while the player is there glides too, and play then records engine.camera_settled. A camera change or a trip that starts while a glide has not landed carries on from where that glide's camera is, with no jump. A click lands a glide on the next tick. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
+        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. engine.room.glide = seconds (0 to 10) replaces the cut into that room with a camera glide from the camera shown before, with no fade, and leaving it for a place that isn't a room glides back out to the follow camera; patching that room's engine.room.camera to another node while the player is there glides too, and play then records engine.camera_settled. A camera change or a trip that starts while a glide has not landed carries on from where that glide's camera is, with no jump. A click lands a glide on the next tick. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
         tasks: &[
             ("Room and travel component fields", "gm fields"),
             ("Validate every room", "gm check"),
@@ -2053,7 +2056,9 @@ pub static TOPICS: &[Topic] = &[
                 or bottom-right places a widget against the window's edges, with x/y as \
                 margins, so it stays there at any window size and display scale. An \
                 engine.anchor publisher follows a thing; anchor = publisher#name attaches a \
-                widget, including a button. Bot clicks use widget = a full diagnostic path \
+                widget, including a button. With yield = true it isn't drawn, rather than \
+                clamped, while its anchor is off screen, it would leave the window or it \
+                would overlap another painted widget. Bot clicks use widget = a full diagnostic path \
                 or a unique id, or x/y logical pixels. Widget clicks resolve the current \
                 centre even when its anchor moves; missing, ambiguous or covered targets fail. \
                 A button with resting = \"<reason>\" can't act now: it stays in place, drawn \
@@ -2137,7 +2142,9 @@ pub static TOPICS: &[Topic] = &[
                 glTF node, named by name: the part galaxy-gm model and the ink see. \
                 [[marker]] adds empty named nodes: a room's camera and spot.<name>, which \
                 look along turn and pitch. A rock with mined above 0 has a morph target: \
-                engine.model morph runs it from whole to mined. The seed varies lumps and \
+                engine.model morph runs it from whole to mined. spin = degrees a second \
+                turns a part about its own up (copies together about the centre) and pulse \
+                = seconds pulses its glow down to pulse_low: drawn only, by game time. The seed varies lumps and \
                 chips; the same recipe gives the same bytes on every OS. Commit the recipes \
                 and the models, and remake after changing a recipe.",
         tasks: &[
@@ -2163,7 +2170,8 @@ pub static TOPICS: &[Topic] = &[
         title: "How the world is drawn, and the keys files take",
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
-                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                key is optional. [sky] star_layers = [0.25, 0.6, 1.2] lays stars in layers \
+                scrolling at their own rates. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",
