@@ -1,4 +1,29 @@
 about = "Cinder Kiln wears fired clay and blue enamel"
-[[part]]
-use = "station"
+# The same station as station.toml in the Kiln's paint. A used recipe's motion isn't
+# carried into the part that uses it, so the parts are listed here with their own: the
+# ring turns the other way, a little slower, and the lamps keep their own beat.
 palette = { main = "#cf8765", accent = "#87c6c8", trim = "#435e72" }
+[[part]]
+shape = "spoked_ring"
+radius = 5
+tube = 0.7
+inner = 1.8
+spin = -5
+pulse = 5
+pulse_low = 0.45
+[[part]]
+shape = "tiers"
+radius = 2
+height = 2.8
+[[part]]
+shape = "panel"
+length = 4
+width = 2
+at = [-5, 0, 0]
+turn = 180
+[[part]]
+shape = "mast"
+height = 4
+at = [0, 2.5, 0]
+pulse = 3
+pulse_low = 0.2

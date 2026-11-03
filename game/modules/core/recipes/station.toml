@@ -1,9 +1,14 @@
 about = "A compact lantern-lit ring station"
+# The ring turns slowly (a full turn a minute) and its lamps breathe; the mast's tip
+# lamp blinks a little quicker. Both are drawn only, so they change no world state.
 [[part]]
 shape = "spoked_ring"
 radius = 5
 tube = 0.7
 inner = 1.8
+spin = 6
+pulse = 4
+pulse_low = 0.45
 [[part]]
 shape = "tiers"
 radius = 2
@@ -18,3 +23,5 @@ turn = 180
 shape = "mast"
 height = 4
 at = [0, 2.5, 0]
+pulse = 2.5
+pulse_low = 0.2

@@ -12,10 +12,10 @@ return {
         local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 5, 5) }, STATIONS)
         assert(shown.a == true)
     end,
-    far_off_traders_go_unlabelled = function()
-        -- Past 12 units a label could reach the HUD: pointing at the trader names it.
-        local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 12.5, 0), trader("b", 0, 30) }, STATIONS)
-        assert(shown.a == false and shown.b == false)
+    far_off_traders_are_named_too = function()
+        -- Distance is no limit: the engine hides a yielding label off screen or over the HUD.
+        local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 12.5, 0), trader("b", 0, 30), trader("c", 60, 30) }, STATIONS)
+        assert(shown.a == true and shown.b == true and shown.c == true)
     end,
     no_label_over_a_station = function()
         -- Near Lantern Dock's hull, even right beside the player.
@@ -26,10 +26,10 @@ return {
         local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 3, 0, true) }, STATIONS)
         assert(shown.a == false)
     end,
-    two_close_traders_share_one_label = function()
-        local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 2, 2), trader("b", 4, 3), trader("c", -6, -4) }, STATIONS)
-        assert(shown.a == true and shown.b == false, "the first keeps its label")
-        assert(shown.c == true, "a trader well apart keeps its own")
+    close_traders_are_both_offered = function()
+        -- Two labels that would overlap are kept apart by the engine's yield, not here.
+        local shown = labels.shown({ x = 0, y = 0 }, { trader("a", 2, 2), trader("b", 4, 3) }, STATIONS)
+        assert(shown.a == true and shown.b == true)
     end,
     docked_player_sees_no_labels = function()
         local shown = labels.shown(nil, { trader("a", 1, 1) }, STATIONS)

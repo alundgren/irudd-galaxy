@@ -27,7 +27,9 @@ fit = { hull_speed = 20.0 }
 # The radio finds the strongest station on its first second out (scripts/radio.luau).
 radio = {}
 
+# Each rock turns slowly where it floats, never drifting, so every mining spot stays put.
 [entities.rock1]
+"engine.spin" = { rate = 3 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 12, y = 0 }
 "engine.body" = { fixed = true }
@@ -35,6 +37,7 @@ radio = {}
 ore = {}
 
 [entities.rock2]
+"engine.spin" = { rate = -4 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = 13, y = 14 }
 "engine.body" = { fixed = true }
@@ -42,6 +45,7 @@ ore = {}
 ore = {}
 
 [entities.rock3]
+"engine.spin" = { rate = 2.5 }
 "engine.location" = { place = "core.reach" }
 "engine.position" = { x = -4, y = 18 }
 "engine.body" = { fixed = true }

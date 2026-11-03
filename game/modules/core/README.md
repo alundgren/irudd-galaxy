@@ -8,11 +8,12 @@ mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
 speed, within the hull's power and mass. Two traders fly their own routes between
 the stations while you work, and in flight the radio plays each station's channel
-over the tug's quiet hum. The field is small and finite (36 ore); there is no timed
-objective.
+over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
+turn and their lamps breathe, and the stars drift in layers as you fly. The field is
+small and finite (36 ore); there is no timed objective.
 
 Use installed engine/GM 0.7.0 or newer. This version was authored and verified
-with `0.7.0-628121f7de13-dev`. No engine build is needed.
+with `0.7.0-f41d435baa58-dev`. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -54,9 +55,10 @@ swings through a turn while the old heading carries on for a moment, and letting
 of thrust coasts to a stop in exactly a second. From rest W flies a straight line
 wherever the nose points. Moored, the ship faces the station; it leaves facing away,
 so W, A, S or D flies it off on the tick the key is pressed, and U or Launch leaves
-the berth without flying on (`scripts/launch.luau`). The view still leaves the station
-through the engine's one-second fade with a title card naming the place (`core.reach`,
-as the reach is not a room); a glide back out to the ship waits on the engine.
+the berth without flying on (`scripts/launch.luau`). The view glides back out from the
+station to the ship's view in a second, the reverse of docking in, with no fade and no
+title card, while the ship is already flying (each station's `engine.room` has
+`glide = 1.0`, which glides both ways).
 
 A save from before the locked flight keeps its old flight: top speed 12, thrust 18,
 braking 16 and a 0.7-second stop. Its ship's `fit` loads with `hull_speed` 12, the
@@ -68,8 +70,9 @@ Everything that looks solid is solid, and nothing takes damage: ships, traders,
 rocks and stations bump and push. A ship that flies into a rock or a station
 stops on its drawn surface and glances off round it; a trader the ship flies into is
 pushed aside and steers back onto its route. Rocks and stations never move, so
-every mining spot stays where it is. A Mine order parks the ship on the rock's drawn
-surface (`range = 0`).
+every mining spot stays where it is; a rock only turns slowly in place. A Mine order
+parks the ship on the rock's drawn surface (`range = 0`), and the engine's finished
+`hold` keeps it there while the rock is cut smaller and turns.
 
 Two traders work the reach (`scripts/traffic.luau`): Little Mercy, a hauler, runs
 along the south between moorings off Lantern Dock's and Cinder Kiln's far sides, and
@@ -80,22 +83,46 @@ Their routes and moorings keep clear of the rocks and the player's berths, so th
 never block a mining spot or a berth. They don't trade: markets move only on the
 player's visits. Saves keep where they are and what they are doing.
 
-A trader's name label (`scripts/labels.luau`) shows only where it reads cleanly:
-out in open space within 12 units of the ship, clear of the stations (17 units from
-their centres) and of another trader's label. It sits on the side of the trader away
-from your ship, so it never covers it. Scripts can't see the zoom, so 12 units is what
-stays clear of the orders, status, log button and message at the default zoom and
-wider, at 1280x720 and 1024x576; zoomed right in, a label could still reach them.
-Pointing at a trader always names it and its run.
+A trader under way wears its name label (`scripts/labels.luau`) at any distance and
+zoom, except within 17 units of a station's centre, where it would sit on the hull. The
+label is a `yield` widget, so the engine leaves it undrawn while its trader is off
+screen, while it would leave the window, and while it would overlap the orders, status,
+log button, message, radio or the other trader's label; it comes back once clear. It
+sits on the side of the trader away from your ship, so it never covers it. Pointing at
+a trader always names it and its run.
 
 Measured on films of the ship's probes (`galaxy film --probes-only`, then
 `galaxy-gm film show`): turns at 180.1° a second; top speed 20, 95% of it 0.67 seconds
 after W; letting go at full speed coasts 9.7 units and stops 1.0 seconds later; in a
 90° turn under thrust the course lags the nose by up to 27° and tracks it again a
 third of a second after the turn ends. The mining approach parks 0.004 units from the
-rock's surface. Cutting a
-hold of six shrinks the rock and opens that to 0.29 units; the next Mine order
-closes it again.
+rock's surface and stays within 0.05 of it for the whole hold (12.9 seconds, six cuts,
+the rock turning), ending 0.004 away.
+
+## The reach moves on its own
+
+With nothing pressed the reach is never quite still, and everything that moves on its
+own is slow and quiet beside what you can act on:
+
+- **Rocks** turn where they float (`engine.spin` in `start.toml`: 3, -4 and 2.5 degrees
+  a second) and never drift, so every mining spot stays put. Their solid outline turns
+  with them, and a Mine order's hold keeps the ship on the turning surface.
+- **Stations' rings** turn about their hubs (`spin` on the ring part in
+  `recipes/station.toml` and `recipes/kiln_station.toml`: Lantern Dock 6 degrees a second
+  one way, Cinder Kiln 5 the other), and the ring's lamps breathe between full and 45%
+  glow every four or five seconds while the mast's tip lamp blinks down to 20% every 2.5
+  or 3 seconds (`pulse`, `pulse_low`). Both are drawn only: they change no world state,
+  so saves and replays are untouched. The station up close, which is the menu, stays
+  still.
+- **Stars** lie in three layers (`star_layers` in `style.toml`): far ones creep behind
+  near ones as the ship flies.
+
+Measured on films with nothing pressed (`galaxy film`, then the motion tools): rock1
+turns 17.9 degrees in six seconds, at 3.0 a second, smoothly (judder 0.00); Lantern
+Dock's ring turns steadily on `motion sheet --crop lantern_exterior`; at the bright end
+of its pulse the ring shows 804 pixels brighter than 220 against 284 at the dim end.
+Flying west for a second, stars matched between frames scroll at 0.20-0.25, 0.55-0.60
+and 1.05-1.15 pixels per world unit, the three layers.
 
 ## Radio and sound
 
@@ -352,9 +379,9 @@ bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
 every rule's refusal and its words, the budgets in plain words, mining two a
-second, and an old save's bare hull keeping its old flight, and in `tests/labels.luau` where traders' labels show: near the ship, never
-far off, over a station, while moored, twice in a crowd or while docked, and on the
-side away from your ship, and in `tests/signal.luau` the signal by distance, bars
+second, and an old save's bare hull keeping its old flight, and in `tests/labels.luau` where traders' labels are offered: near the ship and
+far off alike, never over a station, while moored or while docked, both of a close pair
+(the engine's `yield` keeps them apart), and on the side away from your ship, and in `tests/signal.luau` the signal by distance, bars
 matching their word, the shown level holding on a threshold, two even stations never
 flickering for a minute, a stronger station taking over only when steady, a brief gap
 keeping the channel, a chosen channel holding, and Prev and Next stepping through) and
@@ -366,7 +393,8 @@ out past Lantern Dock, Off and On, Prev, R past the last channel to off and on a
 and R doing nothing docked; `radio-hot-load.toml`: a hot load's fact in flight
 cueing the playing channel once more; `radio-resume.toml`: a resume in flight cueing
 it once more, and one with the radio off or docked cueing nothing), both complete station trips, collision under held thrust (stopped on the
-rock's surface, then glancing off round it, the rock unmoved), flying straight off the
+rock's surface, then glancing off round it, the rock unmoved but turning 3 degrees a
+second), flying straight off the
 dock (`undock.toml`: Shift alone stays moored, W leaves on the tick it is pressed facing
 away from the station in a straight line and coasts to a stop in a second, D leaves
 Cinder Kiln turning), traffic (`traffic.toml`: Little Mercy waits, sets off, is bumped
@@ -403,7 +431,7 @@ then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Six bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes, and so is `fit.inputs`. Seven bots use real screen clicks: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
@@ -425,10 +453,15 @@ at Lantern Dock, flying straight off with W, coasting to a stop and mining from 
 rock's surface, and `radio-play.inputs` plays the radio (`radio.bot.toml`, 1560 ticks, ten
 notes): Lantern Dock from the first second and through mining, the ticker's next line,
 Next, Off and On, Prev and R clicked and pressed, docking at Cinder Kiln with the radio
-hidden, and flying off onto the Kiln's channel. All six declare 1280x720 physical pixels. The GM test
+hidden, and flying off onto the Kiln's channel, and `zoom-play.inputs` flies with the
+traffic zoomed fully in and then fully out (`zoom.bot.toml`, 480 ticks, six notes):
+Little Mercy off screen with no label drawn, her label yielding while it would sit on the
+message, named beside the ship clear of the HUD, then named far off zoomed out, Quiet
+Lamp by Cinder Kiln and Mercy moored with none, and the rocks and rings turning with
+nothing pressed. All seven declare 1280x720 physical pixels. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-all six run there without problems.
+all seven run there without problems.
 
 The sound has its own numeric checks: each bed's loudness, peak and loop seam, and the
 mix in flight and docked at each station (`audio/*-check.toml`):
@@ -489,7 +522,10 @@ ship keeps the old, slower flight numbers; start a
 new game for both. A save taken while a trader is mid-route, mid-bump or moored resumes
 to the same hash as an uninterrupted run, and so does one taken with the radio tuned by
 hand (`radio-tune.toml`'s inputs to tick 650, resumed for 550). A save from before the
-radio loads and plays without it; start a new game for the radio. Resumed or hot
+radio loads and plays without it; start a new game for the radio. A save taken mid-hold, the rock
+turning under the ship (a Mine order at tick 1, saved at 150, resumed for 250), resumes to
+the same hash as an uninterrupted run. A save from before the rocks turned loads and
+plays with its rocks still; its rings, lamps and stars move anyway, as they are drawn only. Resumed or hot
 loaded in flight, the radio cues the channel it was playing once more, so the same
 track fades in without input; docked, off or with no signal it cues nothing. Bot
 input ticks and play's `--ticks` are absolute world ticks, including when resuming.
@@ -514,9 +550,9 @@ name signs at both window sizes.
 
 The traffic is the thinnest living world: two traders on fixed routes that never
 trade, talk or change anything, so nothing out in space reacts to what you do.
-Rocks, the stations' outsides and the sky still sit perfectly still. A trader's
-label shows only within 12 units of your ship, so most traders pass unnamed until
-you point at them.
+The rocks turn, the rings turn and the lamps breathe, but on fixed clocks: nothing
+drifts, flickers or reacts to the ship passing. A trader's label sits a fixed number of
+pixels from its anchor, so zoomed right in it overlaps the top of its own hull.
 
 The station view is now the agreed design rather than a deck and a separate
 market room, and the two stations differ in their towers and paint. Docking

@@ -325,6 +325,21 @@
   ],
   "nodes": [
     {
+      "extras": {
+        "pulse": 4.0,
+        "pulse_low": 0.44999998807907104,
+        "spin": 6.0,
+        "spin_at": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "spin_axis": [
+          0.0,
+          1.0,
+          0.0
+        ]
+      },
       "mesh": 0,
       "name": "spoked_ring"
     },
@@ -337,6 +352,10 @@
       "name": "panel"
     },
     {
+      "extras": {
+        "pulse": 2.5,
+        "pulse_low": 0.20000000298023224
+      },
       "mesh": 3,
       "name": "mast"
     }
