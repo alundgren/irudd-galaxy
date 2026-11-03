@@ -1593,9 +1593,16 @@ mod tests {
         assert_eq!(script.notes.keys().copied().collect::<Vec<_>>(), [20]);
         assert!(script.zooms.is_empty());
         resumed.start_recording(build.clone());
-        for _ in 0..13 {
+        // The resumed session starts with `engine.resumed`; the straight one is given it.
+        let resume = [Input {
+            tick: 18,
+            source: "resume".into(),
+            name: "engine.resumed".into(),
+            payload: Default::default(),
+        }];
+        for k in 0..13 {
             resumed.step(&[]).unwrap();
-            session.step(&[]).unwrap();
+            session.step(if k == 0 { &resume } else { &[] }).unwrap();
         }
         assert_eq!(resumed.world.hash(), session.world.hash());
         let recording = resumed.recording().unwrap();
@@ -1728,6 +1735,73 @@ mod tests {
             }
         ));
         assert!(audio.update(&session.world).is_empty());
+    }
+
+    #[test]
+    fn a_resumed_save_cues_its_music_again_through_the_resume_event() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let module = Module::read(&root.join("tests/modules/resume/tune")).unwrap();
+        let mut session = Session::new(vec![module.clone()], 7).unwrap();
+        let mut audio = audio_scene(&session, 0);
+        assert!(audio.update(&session.world).is_empty());
+        let play = [Input {
+            tick: 10,
+            source: "scenario".into(),
+            name: "tune.play".into(),
+            payload: Default::default(),
+        }];
+        let music = |actions: &[galaxy_audio::Action]| {
+            actions
+                .iter()
+                .filter(|a| {
+                    matches!(
+                        a,
+                        galaxy_audio::Action::Play {
+                            bus: galaxy_audio::Bus::Music,
+                            ..
+                        }
+                    )
+                })
+                .count()
+        };
+        let mut cues = 0;
+        for tick in 1..=30 {
+            session.step(if tick == 10 { &play } else { &[] }).unwrap();
+            cues += music(&audio.update(&session.world));
+        }
+        assert_eq!(cues, 1, "the theme starts once");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("save.db");
+        save::write(
+            &path,
+            &session.world,
+            session.modules(),
+            &BuildStamp::current(),
+        )
+        .unwrap();
+
+        // As play resumes: the cursor starts after the saved facts, so the first tick's
+        // music comes only from the module hearing engine.resumed.
+        let (mut resumed, _) = crate::sim::resume_save(&path, vec![module.clone()], true).unwrap();
+        resumed.start_recording(BuildStamp::current());
+        let mut audio = audio_scene(&resumed, resumed.world.facts.len());
+        assert!(audio.update(&resumed.world).is_empty());
+        resumed.step(&[]).unwrap();
+        assert_eq!(music(&audio.update(&resumed.world)), 1, "the theme again");
+        for _ in 0..30 {
+            resumed.step(&[]).unwrap();
+            assert!(audio.update(&resumed.world).is_empty());
+        }
+        let (replayed, report) = galaxy_sim::replay(&resumed.recording().unwrap()).unwrap();
+        assert!(report.identical);
+        assert_eq!(replayed.world, resumed.world);
+
+        // A replay starts from the same world without announcing: nothing more is heard.
+        let (_, world) = save::read(&path).unwrap();
+        let mut quiet = Session::resume(vec![module], world).unwrap();
+        let mut audio = audio_scene(&quiet, quiet.world.facts.len());
+        quiet.step(&[]).unwrap();
+        assert!(audio.update(&quiet.world).is_empty());
     }
 
     #[test]

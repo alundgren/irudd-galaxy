@@ -1,0 +1,10 @@
+# A generic test module for resuming a save: `play` starts a music cue and marks it
+# playing; when a save resumes, `engine.resumed` cues it again, so the music comes back.
+id = "tune"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/tune.luau"]
+events = ["play", "theme"]
+
+[components.state]
+playing = "bool"
