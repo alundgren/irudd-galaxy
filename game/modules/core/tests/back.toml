@@ -1,0 +1,241 @@
+# Rooms glide and go back: a click on a building opens its room and the view glides to
+# frame it; Esc, right-click or B goes back and glides out again; Esc also shuts the log.
+# Name signs rest while the view glides, and while someone speaks only the speaker keeps
+# theirs. Launching from a room leaves the station framed whole for the next arrival.
+# Play records engine.camera_settled when a glide lands; here it is given by hand.
+seed = 3
+ticks = 700
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+
+# Arriving glides in: no signs until it lands.
+[[expect]]
+tick = 420
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = true
+[[expect]]
+tick = 420
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 450
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 417 }
+[[expect]]
+tick = 450
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = "Tova Reyes"
+[[expect]]
+tick = 450
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = ""
+
+# A click on the exchange building: its room opens and the view glides to frame it.
+[[input]]
+tick = 500
+name = "core.open"
+source = "ui"
+payload = { facility = "core.lantern_exchange" }
+[[expect]]
+tick = 500
+entity = "ship"
+component = "pilot"
+field = "room"
+equals = "core.lantern_exchange"
+[[expect]]
+tick = 500
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = "camera.exchange"
+[[expect]]
+tick = 500
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 530
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 500 }
+[[expect]]
+tick = 530
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = false
+[[expect]]
+tick = 530
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = "Tova Reyes"
+[[expect]]
+tick = 530
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = ""
+
+# Esc goes back to the whole station, gliding out; letting go of it does nothing more.
+[[input]]
+tick = 540
+name = "core.close"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 541
+name = "core.close"
+source = "keyboard"
+payload = { down = false }
+[[expect]]
+tick = 541
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = ""
+[[expect]]
+tick = 541
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = true
+[[input]]
+tick = 570
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 540 }
+[[expect]]
+tick = 570
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+
+# The office from its building, then straight back with a right-click mid-glide.
+[[input]]
+tick = 580
+name = "core.open"
+source = "ui"
+payload = { facility = "core.lantern_office" }
+[[expect]]
+tick = 580
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = "camera.office"
+[[input]]
+tick = 585
+name = "core.close"
+source = "mouse"
+payload = { down = true }
+[[expect]]
+tick = 585
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = ""
+[[input]]
+tick = 615
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 585 }
+
+# Esc shuts the open log too.
+[[input]]
+tick = 620
+name = "core.log"
+[[expect]]
+tick = 620
+entity = "ship"
+component = "pilot"
+field = "log_open"
+equals = true
+[[input]]
+tick = 625
+name = "core.close"
+source = "keyboard"
+payload = { down = true }
+[[expect]]
+tick = 625
+entity = "ship"
+component = "pilot"
+field = "log_open"
+equals = false
+[[expect]]
+tick = 625
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = "Tova Reyes"
+
+# While Bram speaks only he keeps his sign; the bubble never sits on Tova's.
+[[input]]
+tick = 640
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_master_intro" }
+[[expect]]
+tick = 641
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
+[[expect]]
+tick = 641
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+
+# Launching from inside a room leaves the station framed whole for the next arrival.
+[[input]]
+tick = 650
+name = "core.open"
+source = "ui"
+payload = { facility = "core.lantern_exchange" }
+[[input]]
+tick = 660
+name = "core.launch"
+[[expect]]
+tick = 660
+entity = "lantern"
+component = "engine.room"
+field = "camera"
+equals = ""
+[[expect]]
+tick = 660
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = false
+[[expect]]
+tick = 660
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.reach"

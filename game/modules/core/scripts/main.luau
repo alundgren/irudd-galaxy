@@ -2,6 +2,7 @@ local rules = require("./rules")
 local log = require("./log")
 local teach = require("./teach")
 local trade = require("./trade")
+local signs = require("./signs")
 
 -- Which hint each held key teaches.
 local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
@@ -100,9 +101,10 @@ return {
             if event.payload.mode ~= "dock" or event.payload.target ~= port.berth then return end
             stop(ctx)
             ctx.remove("ship", "engine.body")
-            ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", last_dock = pilot.station, away = false })
+            ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", last_dock = pilot.station, away = false, gliding = true })
             ctx.patch("ship", "engine.model", { scale = 1.3 }) -- moored, seen up close
             ctx.move("ship", pilot.station)
+            signs.show(ctx, pilot.station, "", pilot.log_open, nil, true) -- up once the glide in lands
             -- A visit only counts once the ship has really been away: then the
             -- station's market eases back towards its usual stock.
             local counted = rules.counts(pilot.last_dock, pilot.away, pilot.station)

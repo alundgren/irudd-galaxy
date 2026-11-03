@@ -58,6 +58,42 @@ function voices.refresh(ctx, station, hold, sold, need)
             ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text })
         end
     end
+    voices.gifts(ctx, station, hold)
+end
+
+-- An answered gift's talk is put away and the keeper's everyday talk comes back.
+-- Disabling a talk interrupts it, so this waits until the answer's last line is heard.
+local function put_away(ctx, id, gift)
+    ctx.patch(id, "engine.talk", { enabled = false })
+    ctx.patch(gift.instead, "engine.talk", { enabled = true })
+end
+
+-- Puts away every answered gift still on offer: when its talk ends, or when another
+-- starts in its place.
+function voices.retire(ctx)
+    for _, id in ctx.query("gift") do
+        local gift = ctx.get(id, "gift")
+        if gift.answered and ctx.get(id, "engine.talk").enabled then put_away(ctx, id, gift) end
+    end
+end
+
+-- A keeper's unanswered gift is on offer, in place of their everyday talk, while they
+-- stand at `station` and the hold has room for it. `hold` is after the caller's writes.
+function voices.gifts(ctx, station, hold)
+    for _, id in ctx.query("gift") do
+        local gift = ctx.get(id, "gift")
+        local talk = ctx.get(id, "engine.talk")
+        local at = ctx.get(talk.speaker, "engine.location")
+        if gift.answered then
+            if talk.enabled then put_away(ctx, id, gift) end
+        elseif at and at.place == station then
+            local room = rules.CAPACITY - rules.load(hold) >= gift.units
+            if talk.enabled ~= room then
+                ctx.patch(id, "engine.talk", { enabled = room })
+                ctx.patch(gift.instead, "engine.talk", { enabled = not room })
+            end
+        end
+    end
 end
 
 return voices

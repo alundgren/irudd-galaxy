@@ -36,7 +36,7 @@ local function status(ctx, ui, pilot)
         table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 18 })
     end
     table.insert(children, ui.text { id = "credits", text = pilot.credits .. " cr", size = 20 })
-    return ui.panel { id = "status", x = layout.W - 240, y = 0, width = 240, gap = 4, children = children }
+    return ui.panel { id = "status", align = "top-right", x = layout.M, y = layout.M, width = 240, gap = 4, children = children }
 end
 
 local function log_panel(ctx, ui)
@@ -48,10 +48,10 @@ local function log_panel(ctx, ui)
     end
     if #rows == 0 then rows = { ui.text { text = "Nothing logged yet.", size = 18 } } end
     return layout.frame(ui, "log", {
-        ui.panel { id = "log", x = 0, y = 0, width = layout.PANEL, gap = 12, children = {
+        ui.panel { id = "log", align = "top-left", x = layout.M, y = layout.M, width = layout.PANEL, gap = 12, children = {
             ui.text { id = "log_title", text = "Ship log", size = 28 },
             ui.text { id = "log_order", text = "Newest first", size = 16 },
-            ui.scroll { id = "entries", height = 440, children = rows },
+            ui.scroll { id = "entries", height = 330, children = rows },
             ui.button { id = "log_close", text = "Close the log  [L]", on = "log" },
         } },
     })
@@ -66,7 +66,7 @@ local function orders(ctx, ui)
         table.insert(children, ui.button { id = string.match(id, "%.(%w+)$"), text = "Dock at " .. port.name,
             hover = trade.posted(ctx, id), on = "dock", payload = { station = id } })
     end
-    return ui.column { id = "orders", x = 0, y = 0, width = 300, gap = 12, children = children }
+    return ui.column { id = "orders", align = "top-left", x = layout.M, y = layout.M, width = 300, gap = 12, children = children }
 end
 
 return {
@@ -87,14 +87,17 @@ return {
         if docked and pilot.room ~= "" then return nil end
         local children = {
             status(ctx, ui, pilot),
-            ui.button { id = "log_open", x = 0, y = layout.H - layout.BUTTON, width = 200, text = "Ship log  [L]", on = "log" },
+            ui.button { id = "log_open", align = "bottom-left", x = layout.M, y = layout.M, width = 200, text = "Ship log  [L]", on = "log" },
         }
         if space then
             table.insert(children, orders(ctx, ui))
-            table.insert(children, ui.text { id = "message", x = 336, y = layout.H - 76, width = 560, text = pilot.message, size = 20 })
             local keys = hints(ctx)
+            -- The latest message sits just above the flight keys, or on the bottom edge
+            -- once every key's hint has retired.
+            table.insert(children, ui.text { id = "message", align = "bottom", y = keys ~= "" and layout.M + 30 or layout.M,
+                width = 560, text = pilot.message, size = 20 })
             if keys ~= "" then
-                table.insert(children, ui.text { id = "hints", x = 336, y = layout.H - 26, width = 560, size = 16, text = keys })
+                table.insert(children, ui.text { id = "hints", align = "bottom", y = layout.M, width = 560, size = 16, text = keys })
             end
         end
         return layout.frame(ui, "hud", children)

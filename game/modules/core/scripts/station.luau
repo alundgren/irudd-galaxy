@@ -47,16 +47,24 @@ local function open(event, ctx)
     local id = event.payload.facility or ctx.get(station, "port").exchange
     local facility = ctx.get(id, "facility")
     if not facility or facility.station ~= station or pilot.room == id then return end
-    ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", log_open = false })
-    signs.show(ctx, station, id, false)
+    ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", log_open = false, gliding = true })
+    -- The view glides to frame the building, beside its room's panel.
+    ctx.patch(station, "engine.room", { camera = facility.camera })
+    signs.show(ctx, station, id, false, nil, true)
 end
 
+-- Back (B, Esc, right-click or the Back button): from a room to the whole station,
+-- or shut the open log.
 local function close(event, ctx)
     if not pressed(event) then return end
     local station, pilot = docked(ctx)
     if station and pilot.room ~= "" then
-        ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "" })
-        signs.show(ctx, station, "", false)
+        ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", gliding = true })
+        ctx.patch(station, "engine.room", { camera = "" })
+        signs.show(ctx, station, "", false, signs.speaking(ctx), true)
+    elseif pilot.log_open then
+        ctx.patch("ship", "pilot", { log_open = false })
+        if station then signs.show(ctx, station, "", false, signs.speaking(ctx)) end
     end
 end
 
@@ -68,8 +76,9 @@ local function launch(event, ctx)
     ctx.put("ship", "engine.helm", {})
     ctx.put("ship", "engine.steer", {})
     ctx.put("ship", "held", {})
-    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false })
-    signs.show(ctx, station, "", false) -- worn again on the next visit
+    ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = false })
+    signs.show(ctx, station, "", false, nil, true) -- worn again once the next visit settles
+    ctx.patch(station, "engine.room", { camera = "" }) -- the next arrival frames the whole station
     ctx.move("ship", "core.reach", port.departure)
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
@@ -94,6 +103,15 @@ local function build_up(ctx, site, build)
     -- wears a sign; the new keeper's sign goes up when the player is back on the
     -- station (signs.show).
     ctx.put(keeper, "engine.life", { clock = "core.day", first = act, name = "" })
+    -- Their thanks for the building goes on offer once the introduction is heard; the
+    -- sale that built it left room in the hold.
+    for _, id in ctx.query("gift") do
+        local gift = ctx.get(id, "gift")
+        if ctx.get(id, "engine.talk").speaker == keeper and not gift.answered then
+            ctx.patch(id, "engine.talk", { enabled = true })
+            ctx.patch(gift.instead, "engine.talk", { enabled = false })
+        end
+    end
 end
 
 -- Sells the hold's `ware` (or everything this room buys) at the room's posted prices.
@@ -177,6 +195,16 @@ local function buy(event, ctx)
             return
         end
     end
+end
+
+-- The view has settled at a station: arrived, or framed a building. Signs go back up.
+local function settled(event, ctx)
+    local place = event.payload.place
+    if event.payload.entity ~= "core.ship" or not ctx.get(place, "port") then return end
+    local pilot = ctx.get("ship", "pilot")
+    if not pilot.gliding then return end
+    ctx.patch("ship", "pilot", { gliding = false })
+    signs.show(ctx, place, pilot.room, pilot.log_open, signs.speaking(ctx), false)
 end
 
 -- The skiffs ferry crates across their deck, back and forth, without end.
@@ -312,9 +340,9 @@ local function room_panel(ctx, ui, station, pilot)
     end
     table.insert(children, ui.button { id = "close", text = "Back to the station  [B]", on = "close" })
     -- The panel opens on the side away from its building, so the building stays in view.
-    local x = at.x < 0 and layout.W - layout.PANEL or 0
     return layout.frame(ui, "room", {
-        ui.panel { id = "room", x = x, y = 0, width = layout.PANEL, gap = 12, children = children },
+        ui.panel { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
+            width = layout.PANEL, gap = 12, children = children },
     })
 end
 
@@ -328,34 +356,45 @@ local function about(ctx, id)
     return ctx.get(facility.keeper, "keeper").name .. " · " .. facility.offer
 end
 
-local function overview(ctx, ui, station)
+local function overview(ctx, ui, station, pilot)
     local port = ctx.get(station, "port")
     local children = {
-        ui.text { id = "station", x = 0, y = 0, width = 420, text = "Docked at " .. port.name, size = 30 },
+        ui.text { id = "station", align = "top-left", x = layout.M, y = layout.M, width = 420,
+            text = "Docked at " .. port.name, size = 30 },
     }
     local key = {}
+    local talking = signs.speaking(ctx) ~= nil
     for _, id in facilities(ctx, station) do
         local facility = ctx.get(id, "facility")
         local text = about(ctx, id)
-        table.insert(children, ui.button { id = "sign_" .. short(id), anchor = id .. "#sign", width = 170, text = facility.name,
-            hover = text, on = "open", payload = { facility = id } })
-        table.insert(children, ui.hover { id = "hover_" .. short(id), anchor = "being." .. id, text = text })
+        -- Signs rest while the view glides or someone speaks, so they never crowd the
+        -- moving view or a bubble.
+        if not pilot.gliding and not talking then
+            table.insert(children, ui.button { id = "sign_" .. short(id), anchor = id .. "#sign", width = 170, text = facility.name,
+                hover = text, on = "open", payload = { facility = id } })
+        end
+        -- The building itself: it lifts and outlines under the pointer, and a click opens it.
+        table.insert(children, ui.target { id = "target_" .. short(id), anchor = "being." .. id, text = text,
+            on = "open", payload = { facility = id } })
         table.insert(key, ui.button { id = "key_" .. short(id), width = 170, text = facility.name, hover = text,
             on = "open", payload = { facility = id } })
     end
-    table.insert(children, ui.row { id = "key", x = 260, y = layout.H - layout.BUTTON, width = 560, gap = 12, children = key })
-    table.insert(children, ui.button { id = "launch", x = layout.W - 200, y = layout.H - layout.BUTTON, width = 200,
+    table.insert(children, ui.row { id = "key", align = "bottom", y = layout.M, width = #key * 182 - 12, gap = 12, children = key })
+    table.insert(children, ui.button { id = "launch", align = "bottom-right", x = layout.M, y = layout.M, width = 200,
         text = "Launch  [U]", hover = "Fly off from the berth", on = "launch" })
     return layout.frame(ui, "dock", children)
 end
 
 return {
-    on = { open = open, close = close, launch = launch, sell = sell, buy = buy },
+    on = {
+        open = open, close = close, launch = launch, sell = sell, buy = buy,
+        ["engine.place_arrived"] = settled, ["engine.camera_settled"] = settled,
+    },
     cadence = skiffs,
     screen = function(ctx, ui)
         local station, pilot = docked(ctx)
         if not station or pilot.log_open then return nil end
         if pilot.room ~= "" then return room_panel(ctx, ui, station, pilot) end
-        return overview(ctx, ui, station)
+        return overview(ctx, ui, station, pilot)
     end,
 }

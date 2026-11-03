@@ -112,6 +112,16 @@ at = [0, -27.5, 23]
 turn = 90
 pitch = -42
 [[marker]]
+name = "camera.exchange"
+at = [1, -19, 12]
+turn = 90
+pitch = -34
+[[marker]]
+name = "camera.office"
+at = [-0.95, -19, 13.5]
+turn = 90
+pitch = -38
+[[marker]]
 name = "spot.berth"
 at = [0, -8, 0]
 [[marker]]
