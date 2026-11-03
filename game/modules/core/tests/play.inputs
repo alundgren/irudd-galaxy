@@ -14,13 +14,13 @@ tick = 330
 widget = "lantern"
 [[click]]
 tick = 600
-widget = "market"
+widget = "sign_exchange"
 [[click]]
 tick = 660
 widget = "sell"
 [[click]]
 tick = 720
-widget = "leave"
+widget = "close"
 [[click]]
 tick = 780
 widget = "launch"
@@ -35,11 +35,11 @@ text = "Six ore aboard and a visible cut in the rock."
 
 [[note]]
 tick = 550
-text = "Docked into the landing deck."
+text = "Docked: the station up close, signs on its buildings."
 
 [[note]]
 tick = 650
-text = "Inside the module-built market."
+text = "The ore exchange opened beside its building."
 
 [[note]]
 tick = 690

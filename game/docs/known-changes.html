@@ -103,7 +103,6 @@
   <dt>Locker</dt><dd>Storage for parts you own but have not fitted. There is one locker per hull.</dd>
   <dt>Ready / Make / Friends</dt><dd>Tabs in the fitting room. Ready is parts on the rack to buy, Make is parts made to order, and Friends is parts ordered from contacts at other stations.</dd>
   <dt>Goal banner</dt><dd>The wide cream bar at the top centre that shows the current goal and who gave it.</dd>
-  <dt>Station plate</dt><dd>The cream box at the top left that shows the docked station's name, a teal bar and its faction.</dd>
   <dt>Log</dt><dd>The ship log, a list of past messages, opened by a button at the bottom left.</dd>
   <dt>Radio</dt><dd>Each station and two lane beacons broadcast a channel with a range. In flight, a panel at the bottom right shows the channel, its signal strength, a text ticker and the buttons Prev, Off and Next (the R key).</dd>
   <dt>Chronicle</dt><dd>Entries that record a change in the world, such as <q>a greenhouse ring lit up</q>.</dd>
@@ -143,93 +142,49 @@
 <h2>Dock and station</h2>
 
 <article class="item high">
-<h3>The dock must look like the agreed design: one station, large and up close <span class="tag high">▲ High</span></h3>
+<h3>Docking zooms in, and the station key carries news ribbons <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Start a new game. You begin docked at Lantern Wharf.</li><li>Look at the whole screen.</li></ol>
+<ol><li>Dock at any station.</li><li>Look at the arrival and at the station key along the bottom of the docked view.</li></ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>The station is a small drawing in the middle of a big starfield, with three small labels on it: <span class="screen">Office</span>, <span class="screen">Market</span> and <span class="screen">Wharf</span>.</li>
-  <li>The rest of the dock is spread around the screen edges:
-    <ul>
-      <li>a station plate at the top left (<span class="screen">Lantern Wharf</span>, a teal bar, <span class="screen">Wharf Cooperative</span>)</li>
-      <li>three room tabs along the bottom: <span class="screen">Office · Ilse</span>, <span class="screen">Market · Ilse</span>, <span class="screen">Wharf · Orrin</span></li>
-      <li>a goal banner at the top</li>
-      <li>a credits and hold box at the top right</li>
-      <li>a dialogue box on the left</li>
-    </ul>
-  </li>
-  <li>The station key, the zoom-in and the news ribbons from the agreed design are missing.</li>
+  <li>The rebuilt dock follows the agreed design: the station up close fills the view, each building carries its sign, the station key runs along the bottom, a room opens beside its building, and lamps, a crane and a skiff give it quiet life.</li>
+  <li>Arriving is a fade to a title card and back, not a zoom into the station.</li>
+  <li>The key has no New/Changed/Closed ribbons, because nothing at a station changes on its own yet.</li>
 </ul>
 <p class="label">Andreas said</p>
 <blockquote>Actually looking again I realize I am in fact docked we just didnt follow the instrucions for how docks should look at all. Its super tiny and its spread out from the upper left, the three "rooms" in the toolbar down on the screen and the tiny dock</blockquote>
-<p>From an earlier build, about the old station card: <q>cramped and dull for no reason</q>.</p>
-<figure><img src="known-changes/dock-overview.jpg" alt="Docked at Lantern Wharf: small station in the centre, station plate top left, goal banner top centre, Ilse's dialogue box on the left, credits and hold top right, Log button and three room tabs at the bottom." loading="lazy"><figcaption>Newest build, docked at Lantern Wharf at the start of a game. The station is small and the dock's parts sit at four different screen edges.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Docking zooms in until the station fills most of the view. The station itself is the menu.</li>
-  <li>Each module carries its sign. The station key along the bottom gives the same rooms as icons, with New/Changed/Closed ribbons when something happened there.</li>
-  <li>A room opens beside its module (at most about 45% of the screen) and the station stays visible.</li>
-  <li>The station shows quiet life up close, such as lights, cranes and small craft.</li>
-  <li>The whole dock reads as one place you have arrived at, not as boxes around the screen edges.</li>
+  <li>Docking zooms in until the station fills most of the view.</li>
+  <li>A station key icon carries a New, Changed or Closed ribbon when something happened there, with a one-line headline on hover.</li>
 </ul>
 </article>
 
-<article class="item high">
-<h3>Being docked is unmistakable, and nothing looks like a health bar unless it is one <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>The same start screen as above: docked at Lantern Wharf at the start of a new game.</p>
-<p class="label">What the player sees now</p>
-<p>The station plate at the top left shows the station name, a teal horizontal bar under it, then the faction name. The station drawing is small, so nothing else in the view says "you are docked".</p>
-<p class="label">Andreas said</p>
-<blockquote>Not entirely sure what the to left bar is supposed to be. Is it a health bar for the station im closet to since Im not docked anywhere</blockquote>
-<p>He only realised a moment later that he was docked.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The docked state is obvious from the view itself: the zoomed-in station fills the screen, and the controls change to station controls.</li>
-  <li>The station's name and faction are shown in a way that cannot be mistaken for a meter.</li>
-  <li>Bars are used only for real quantities, and they carry a label.</li>
-</ul>
-</article>
+
 
 <article class="item high">
-<h3>Station modules look clickable and react cleanly <span class="tag high">▲ High</span></h3>
+<h3>Station buildings react when hovered and clicked <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Docked at any station (for example Lantern Wharf), move the mouse over the station drawing.</li><li>Hover the Market module, then click it.</li></ol>
+<ol><li>Dock at any station and move the mouse over a building.</li><li>Click the building itself, not its sign.</li></ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>Before hovering, nothing tells you the modules can be clicked. They are small buildings with small text labels.</li>
-  <li>Hovering the Market module draws an orange ring around it and shows a tooltip: <span class="screen">Market · Ilse Marrow</span> / <span class="screen">Ice and ore bought, plate sold</span>.</li>
-  <li>At the same time, a second pill at the bottom of the screen says the same thing (<span class="screen">Market · Ice and ore bought, plate sold</span>), and the Market tab lights up.</li>
-  <li>The hover area does not match the building, so the highlight seems to come and go.</li>
+  <li>Each building carries a sign you can press, and hovering the building or its sign shows the keeper and one line about what is offered there. The hover area is the building itself.</li>
+  <li>The building doesn't lift or get an outline, and the pointer doesn't change.</li>
+  <li>Clicking the building does nothing; only its sign and the station key open the room. The room opens at once, with no glide.</li>
+  <li>The Back button and B return to the whole station; right-click and Esc don't.</li>
 </ul>
 <p class="label">Andreas said</p>
 <blockquote>The way you interact with these is super yanky. Its zero obvious that these even are interactive</blockquote>
-<figure><img src="known-changes/module-hover.jpg" alt="Lantern Wharf docked view with the Market module hovered: orange ring, tooltip 'Market · Ilse Marrow, Ice and ore bought, plate sold', and red scribbles drawn by Andreas around the area." loading="lazy"><figcaption>Newest build, hovering the Market module. The red marks are Andreas's. The same text appears twice, in the tooltip and in a pill at the bottom.</figcaption></figure>
+<figure><img src="known-changes/module-hover.jpg" alt="Lantern Wharf docked view with the Market module hovered: orange ring, tooltip 'Market · Ilse Marrow, Ice and ore bought, plate sold', and red scribbles drawn by Andreas around the area." loading="lazy"><figcaption>Previous build, hovering the Market module. The red marks are Andreas's.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Modules look like things you can press even before you hover them. They are big enough, with a clear sign on each.</li>
-  <li>On hover, the module lifts slightly, gets an outline and shows its sign once (the keeper plus one line), and the pointer changes.</li>
-  <li>The hover area is generous and matches the building, so it doesn't flicker on and off.</li>
-  <li>A click glides smoothly to the room. A second click during the glide lands immediately.</li>
+  <li>On hover, the building lifts slightly, gets an outline and the pointer changes.</li>
+  <li>Clicking the building opens its room. The view glides smoothly to it, and a second click during the glide lands immediately.</li>
   <li>Right-click or Esc goes back.</li>
 </ul>
 </article>
 
-<article class="item med">
-<h3>One name per thing: the fitting room is not also called "Wharf" <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Docked at Lantern Wharf, click the <span class="screen">Wharf · Orrin</span> tab or the Wharf module.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The fitting room's panel is titled <span class="screen">Wharf</span>, <span class="screen">Kept by Orrin Vale</span>, <span class="screen">Orrin fits parts in the cradle</span>.</li>
-  <li>The station is also called "Lantern Wharf", and its plate stays on screen at the same time. Other places add to the mix: the "Wharf Cooperative" faction, and characters saying "east of the Wharf".</li>
-  <li>"Wharf" therefore means both the whole station and one room inside it.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>the confusingly named wharf that is not the same thing as the station also named wharf</blockquote>
-<p class="label">What good looks like</p>
-<p>No word names both a station and a room inside it. For example, name the room after what it is or who keeps it (a fitting cradle, or the hullwright's). The station keeps its name. The agent picks the exact words.</p>
-</article>
+
 
 <article class="item low">
 <h3>A part ordered from a friend gets a proper arrival moment <span class="tag low">● Low</span></h3>
@@ -258,75 +213,20 @@
 <h2>HUD and screen hierarchy</h2>
 
 <article class="item high">
-<h3>Different kinds of information look different: no wall of identical beige boxes <span class="tag high">▲ High</span></h3>
+<h3>Goals and the radio get looks of their own <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<p>Start a new game. The first screen, docked at Lantern Wharf, shows the problem best. It holds throughout the game, docked and in flight.</p>
+<p>Once goals and the radio exist in the rebuild, look at them beside everything else on screen, docked and in flight.</p>
 <p class="label">What the player sees now</p>
-<p>At least seven things, each with a different job, share one look: a cream/beige box with a dark outline and dark text.</p>
-<ul>
-  <li>The station plate (top left)</li>
-  <li>The goal banner (top centre): <span class="screen">Ilse Marrow · Lantern Wharf</span> / <span class="screen">Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W, turn with A and D, and look for the pale rocks.</span></li>
-  <li>Ilse's dialogue box (left)</li>
-  <li>The module labels <span class="screen">Office</span>, <span class="screen">Market</span> and <span class="screen">Wharf</span> on the station</li>
-  <li>The three room tabs (bottom)</li>
-  <li>The Log button (bottom left)</li>
-  <li>In flight: the control hint pill (<span class="screen">Hold Space · mine ice</span>) and the radio panel</li>
-</ul>
-<p>Only the credits/hold box (<span class="screen">40 cr</span> / <span class="screen">Hold 0 / 20</span>) is dark. The player can't tell which boxes are talk, which are goals, which are status and which are buttons.</p>
+<p>The rebuild gives each kind on screen today its own look: speech is a white bubble over the speaker, status (hold and credits) a pale blue panel at the top right, anything you can press an amber button (station signs included), and what just happened plain cream paper. It has no goals or radio yet. In the previous build, at least seven things with different jobs shared one cream box.</p>
 <p class="label">Andreas said</p>
 <blockquote>There is way too many identical styled beige boxes on screen at once that do different things. They all blend together</blockquote>
-<p>This was the main theme of his latest playtest. He repeated it inside the fitting room (see the next item).</p>
-<figure><img src="known-changes/dock-overview.jpg" alt="Docked at Lantern Wharf with many beige boxes: station plate, goal banner, dialogue box, module labels, room tabs and Log button all in the same style." loading="lazy"><figcaption>Newest build, start of a game. Count the beige boxes: plate, goal banner, dialogue, three module labels, three room tabs, Log.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Each kind of thing has its own clearly different look, and the eye knows where to go first:
-    <ul>
-      <li>speech: a bubble over the speaker</li>
-      <li>the current goal</li>
-      <li>status (credits, hold)</li>
-      <li>buttons you can press</li>
-      <li>station signs</li>
-      <li>the radio</li>
-    </ul>
-  </li>
-  <li>Fewer things are on screen at once. Anything not needed right now is hidden.</li>
+  <li>The current goal and the radio each have a look that differs from speech, status, buttons, signs and paper, so the eye knows where to go first.</li>
 </ul>
 </article>
 
-<article class="item high">
-<h3>A focused screen shows only what that screen is for <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Start a new game, mine ice until the hold is full (20/20), and fly back to Lantern Wharf.</li><li>Open the fitting room: the Wharf module or the <span class="screen">Wharf · Orrin</span> tab.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The fitting panel is on the right:
-    <ul>
-      <li><span class="screen">POWER 0 of 4</span>, <span class="screen">MASS 0 of 3 free</span></li>
-      <li>tabs <span class="screen">Ready 0</span> / <span class="screen">Make 0</span> / <span class="screen">Friends 0</span></li>
-      <li><span class="screen">THE WREN'S LOCKER</span></li>
-    </ul>
-  </li>
-  <li>The ship's sockets are on the left.</li>
-  <li>Everything else also stays on screen:
-    <ul>
-      <li>the station plate <span class="screen">Lantern Wharf</span></li>
-      <li>the goal banner <span class="screen">Ilse asks you to take the ice to Odo at Kettle Dock. Dock in its ring and pick Deliver.</span></li>
-      <li>the credits/hold box <span class="screen">40 cr · Hold 20/20 · Ice 20</span></li>
-      <li>the hint <span class="screen">W or S · fly off and undock</span></li>
-      <li>the Log button with <span class="screen">2 new</span></li>
-      <li>all three room tabs</li>
-    </ul>
-  </li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>More of the "all the beige boxes" that have different meaning. Do we really need the top quest, the lantern wharf banner, the hold, the undock and the log when inside the confusingly named wharf that is not the same thing as the station also named wharf</blockquote>
-<figure><img src="known-changes/fitting-room-hud.jpg" alt="Fitting room at Lantern Wharf: sockets on the left, fitting panel on the right, and the goal banner, station plate, credits and hold box, undock hint, Log button and room tabs all still visible." loading="lazy"><figcaption>Newest build, the fitting room on a new game. The goal banner, station plate, hold box, undock hint, Log and tabs all stay around the fitting panel.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Inside a room, only what that room needs is shown. In the fitting room, for example, show the ship, sockets, parts, budgets and credits.</li>
-  <li>Goal, station plate, undock hint and log step out of the way, and come back when you return to the station view or fly off.</li>
-</ul>
-</article>
+
 
 <article class="item med">
 <h3>The goal banner doesn't compete with the conversation that gives the goal, and names the right person <span class="tag med">■ Medium</span></h3>
@@ -353,32 +253,17 @@
 </ul>
 </article>
 
-<article class="item med">
-<h3>The Log button can't be mistaken for pause <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Look at the bottom left of the screen, docked or in flight.</p>
-<p class="label">What the player sees now</p>
-<p>The Log button's icon is two upright rectangles side by side above the word <span class="screen">Log</span>, which is the standard pause symbol. A badge such as <span class="screen">2 new</span> sits on it. The game also has a real pause (P or Esc).</p>
-<p class="label">Andreas said</p>
-<blockquote>The "log" looks exactly like a pause button and we also have pause</blockquote>
-<figure><img src="known-changes/dock-overview.jpg" alt="Bottom left of the docked view: the Log button whose icon is two vertical bars, like pause." loading="lazy"><figcaption>Newest build. See the bottom-left corner: the Log icon is two vertical bars.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>The log's icon looks like a log or a book of messages. Only the pause control looks like pause.</p>
-</article>
 
 <article class="item low">
-<h3>Labels and prices don't look like buttons, and buttons do <span class="tag low">● Low</span></h3>
+<h3>Fitting-room labels don't look like buttons, and its actions do <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Dock at Kettle Dock and open the Market.</li><li>Also: open the fitting room at Lantern Wharf after buying any part.</li></ol>
+<p>Open the fitting room after buying any part.</p>
 <p class="label">What the player sees now</p>
-<ul>
-  <li>In the Kettle Dock market, each price (<span class="screen">pays 13.7 cr</span>, <span class="screen">pays 49.4 cr</span>) is drawn as a filled yellow rounded pill, just like the real <span class="screen">Sell 1</span> / <span class="screen">Sell all</span> buttons beside it.</li>
-  <li>In the fitting room, the status chips <span class="screen">Fitted</span> and <span class="screen">In the locker</span> are outlined like buttons, while the actual action, <span class="screen">Drag to fit</span>, is plain text.</li>
-</ul>
-<figure><img src="known-changes/market-tags-look-like-buttons.jpg" alt="Kettle Dock market kept by Odo Fenn: prices 'pays 13.7 cr' and 'pays 49.4 cr' drawn in the same pill style as the Sell buttons; a teal lane line crosses the station." loading="lazy"><figcaption>Newest build, Kettle Dock market. The price pills look like buttons. (The teal line through the station is a separate item, "The lane line doesn't cross the station you are docked at".)</figcaption></figure>
+<p>In the previous build, the status chips <span class="screen">Fitted</span> and <span class="screen">In the locker</span> are outlined like buttons, while the actual action, <span class="screen">Drag to fit</span>, is plain text. The rebuild has no fitting room yet.</p>
 <p class="label">What good looks like</p>
-<p>Only things you can press look pressable. Prices and status read as plain labels, and the real verbs look like buttons.</p>
+<p>Only things you can press look pressable. Status reads as a plain label, and the real verbs look like buttons.</p>
 </article>
+
 
 <article class="item low">
 <h3>NPC ship name labels stay readable and never cover stations or the HUD <span class="tag low">● Low</span></h3>

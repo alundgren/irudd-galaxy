@@ -1,0 +1,54 @@
+about = "An ore exchange booth: a striped awning over a counter, with a lamp and a scale post"
+palette = { main = "#e7c78e", accent = "#cf7c50" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [4.4, 5.6, 0.3]
+at = [0, 0, 0.15]
+paint = "trim"
+[[part]]
+name = "hall"
+shape = "block"
+depth = 3.2
+width = 5
+height = 3.6
+at = [0.6, 0, 0.3]
+[[part]]
+name = "awning"
+shape = "box"
+size = [1.8, 5.6, 0.25]
+at = [-1.6, 0, 3.0]
+pitch = 0
+roll = 0
+paint = "accent"
+[[part]]
+name = "awning_posts"
+shape = "strut"
+from = [-2.4, 2.6, 0.3]
+to = [-2.4, 2.6, 3.0]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "awning_posts.2"
+shape = "strut"
+from = [-2.4, -2.6, 0.3]
+to = [-2.4, -2.6, 3.0]
+thickness = 0.2
+paint = "trim"
+[[part]]
+name = "counter"
+shape = "box"
+size = [0.9, 4.2, 1.1]
+at = [-1.6, 0, 0.85]
+paint = "main"
+[[part]]
+name = "counter_band"
+shape = "box"
+size = [1.0, 4.4, 0.15]
+at = [-1.6, 0, 1.45]
+paint = "accent"
+[[part]]
+name = "lamp"
+shape = "beacon"
+height = 4.6
+at = [-2.2, 3.2, 0.3]

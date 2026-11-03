@@ -16,13 +16,13 @@ name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
 tick = 600
-name = "core.market"
+name = "core.open"
 [[input]]
 tick = 660
 name = "core.sell"
 [[input]]
 tick = 720
-name = "core.leave"
+name = "core.close"
 [[input]]
 tick = 780
 name = "core.launch"
@@ -38,7 +38,7 @@ payload = { station = "core.lantern" }
 
 [[input]]
 tick = 1500
-name = "core.market"
+name = "core.open"
 
 [[input]]
 tick = 1560
@@ -50,7 +50,7 @@ name = "core.sell"
 
 [[input]]
 tick = 1620
-name = "core.leave"
+name = "core.close"
 
 [[input]]
 tick = 1680

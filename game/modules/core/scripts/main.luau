@@ -1,4 +1,5 @@
 local rules = require("./rules")
+local log = require("./log")
 
 local function space(ctx)
     return ctx.get("ship", "engine.location").place == "core.reach"
@@ -72,55 +73,10 @@ local function dock(event, ctx)
     ctx.patch("ship", "pilot", { station = station, message = "Approaching " .. port.name .. "." })
 end
 
-local function market(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" or ctx.get("ship", "engine.location").place ~= station then return end
-    ctx.move("ship", ctx.get(station, "port").market)
-    message(ctx, "The posted price is yours whenever you choose to sell.")
-end
-
-local function leave(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" then return end
-    if ctx.get("ship", "engine.location").place == ctx.get(station, "port").market then
-        ctx.move("ship", station)
-        message(ctx, "Back on the landing deck. U launches your ship.")
-    end
-end
-
-local function launch(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" or ctx.get("ship", "engine.location").place ~= station then return end
-    stop(ctx)
-    ctx.move("ship", "core.reach", ctx.get(station, "port").departure)
-    ctx.put("ship", "engine.body", { mass = 1 })
-    ctx.patch("ship", "engine.model", { model = "core.ship" })
-    ctx.patch("ship", "engine.camera", { view = 64 })
-    message(ctx, "Clear of the berth. Space finds the nearest remaining ore.")
-end
-
-local function sell(event, ctx)
-    if not pressed(event) then return end
-    local pilot = ctx.get("ship", "pilot")
-    if pilot.station == "" then return end
-    local port = ctx.get(pilot.station, "port")
-    if ctx.get("ship", "engine.location").place ~= port.market then return end
-    if pilot.cargo == 0 then message(ctx, "Your hold is empty. More ore waits outside."); return end
-    local earned = rules.sale(pilot.cargo, port.price)
-    ctx.patch("ship", "pilot", { cargo = 0, credits = pilot.credits + earned,
-        message = "Sold " .. pilot.cargo .. " ore for " .. earned .. " credits. The stockpile has grown." })
-    ctx.patch(pilot.station, "port", { stock = port.stock + pilot.cargo })
-    ctx.patch(port.market .. "_stock", "engine.model", { scale = 0.4 + (port.stock + pilot.cargo) * 0.04 })
-    ctx.record("sold", { units = pilot.cargo, credits = earned, station = pilot.station })
-end
-
 return {
     on = {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
-        mine = mine, dock = dock, market = market, leave = leave, launch = launch, sell = sell,
+        mine = mine, dock = dock,
         cancel = function(event, ctx)
             if pressed(event) and space(ctx) then stop(ctx); message(ctx, "Order cancelled. Coasting to a stop.") end
         end,
@@ -131,10 +87,10 @@ return {
             if event.payload.mode ~= "dock" or event.payload.target ~= port.berth then return end
             stop(ctx)
             ctx.remove("ship", "engine.body")
-            ctx.patch("ship", "engine.model", { model = "core.pilot" })
-            ctx.patch("ship", "engine.camera", { view = 24 })
+            ctx.patch("ship", "pilot", { room = "", sale = 0 })
+            ctx.patch("ship", "engine.model", { scale = 1.3 }) -- moored, seen up close
             ctx.move("ship", pilot.station)
-            message(ctx, "Welcome to " .. port.name .. ". M opens the market room.")
+            log.add(ctx, "Docked at " .. port.name .. ".")
             ctx.record("docked", { station = pilot.station })
         end,
     },
@@ -145,45 +101,13 @@ return {
         if rules.distance2(ctx.get("ship", "engine.position"), ctx.get(pilot.target, "engine.position")) > rules.MINE_DISTANCE ^ 2 then return end
         local amount = rules.transfer(pilot.cargo, ore.left)
         if amount == 0 then
-            ctx.patch("ship", "pilot", { mining = false, message = pilot.cargo == rules.CAPACITY and "Hold full. E docks at the nearest station." or "Rock exhausted. Space selects another." })
+            ctx.patch("ship", "pilot", { mining = false })
+            log.add(ctx, pilot.cargo == rules.CAPACITY and "Hold full: " .. pilot.cargo .. " ore aboard. E docks at the nearest station." or "Rock worked out. Space finds the next one.")
             return
         end
         ctx.patch("ship", "pilot", { cargo = pilot.cargo + amount, message = "+1 ore aboard. The cut in the rock is visible." })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
         ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
         ctx.record("mined", { rock = pilot.target, units = amount })
-    end,
-    screen = function(ctx, ui)
-        local pilot = ctx.get("ship", "pilot")
-        local here = ctx.get("ship", "engine.location").place
-        local children = {
-            ui.text { text = "LANTERN REACH", size = 26 },
-            ui.text { text = "Ore " .. pilot.cargo .. "/6    |    " .. pilot.credits .. " cr", size = 20 },
-            ui.text { text = pilot.message, size = 18 },
-        }
-        if here == "core.reach" then
-            table.insert(children, ui.text { text = "W/S thrust  A/D turn  Shift boost\nSpace mine  E dock  0 cancel", size = 16 })
-            table.insert(children, ui.button { id = "mine", text = "Mine nearest ore", on = "mine" })
-            table.insert(children, ui.button { id = "lantern", text = "Lantern Dock  |  12 cr / ore", on = "dock", payload = { station = "core.lantern" } })
-            table.insert(children, ui.button { id = "kiln", text = "Cinder Kiln  |  16 cr / ore", on = "dock", payload = { station = "core.kiln" } })
-        else
-            local station = pilot.station
-            -- The GM stages rooms directly while checking them.
-            if here == "core.lantern" or here == "core.lantern_market" then station = "core.lantern" end
-            if here == "core.kiln" or here == "core.kiln_market" then station = "core.kiln" end
-            local port = ctx.get(station, "port")
-            if port then
-                table.insert(children, ui.text { text = port.name, size = 24 })
-                if here == port.market then
-                    table.insert(children, ui.text { text = "ORE EXCHANGE\nBuyer pays " .. port.price .. " cr / ore\nStation stock: " .. port.stock, size = 18 })
-                    table.insert(children, ui.button { id = "sell", text = "Sell cargo  |  " .. rules.sale(pilot.cargo, port.price) .. " cr [Enter]", on = "sell" })
-                    table.insert(children, ui.button { id = "leave", text = "Back to landing deck [B]", on = "leave" })
-                else
-                    table.insert(children, ui.button { id = "market", text = "Enter market room [M]", on = "market" })
-                    table.insert(children, ui.button { id = "launch", text = "Launch [U]", on = "launch" })
-                end
-            end
-        end
-        return ui.panel { id = "ledger", x = 24, y = 24, width = 336, gap = 12, children = children }
     end,
 }

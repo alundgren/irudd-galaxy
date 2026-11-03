@@ -1,0 +1,118 @@
+about = "Lantern Dock up close: the deck, lantern tower, berth, crane and rim lamps; the docked view"
+[[part]]
+name = "deck"
+shape = "cylinder"
+radius = 14
+height = 0.6
+sides = 16
+at = [0, 0, -0.6]
+paint = "trim"
+[[part]]
+name = "deck_top"
+shape = "cylinder"
+radius = 13.2
+height = 0.05
+sides = 16
+paint = "#5d7a72"
+[[part]]
+name = "rim"
+shape = "spoked_ring"
+radius = 14.2
+tube = 0.9
+spokes = 0
+lamps = 12
+[[part]]
+name = "tower"
+shape = "tiers"
+radius = 3
+height = 7
+tiers = 3
+at = [0, 6, 0]
+[[part]]
+name = "lantern_mast"
+shape = "mast"
+height = 3
+at = [0, 6, 7.4]
+[[part]]
+name = "lantern_ring"
+shape = "ring"
+radius = 4
+tube = 0.25
+at = [0, 6, 3.6]
+paint = "lights"
+[[part]]
+name = "solar"
+shape = "panel"
+length = 7
+width = 3
+at = [-14, 6, 0.6]
+turn = 180
+[[part]]
+name = "berth"
+shape = "cylinder"
+radius = 3.2
+height = 0.25
+sides = 12
+at = [0, -8, 0]
+paint = "accent"
+[[part]]
+name = "berth_lights"
+shape = "ring"
+radius = 3.4
+tube = 0.15
+at = [0, -8, 0.2]
+paint = "lights"
+[[part]]
+name = "crane_post"
+shape = "strut"
+from = [4.2, -10.5, 0]
+to = [4.2, -10.5, 5]
+thickness = 0.45
+paint = "trim"
+[[part]]
+name = "crane_arm"
+shape = "strut"
+from = [4.2, -10.5, 5]
+to = [0.8, -8.4, 5.4]
+thickness = 0.35
+paint = "accent"
+[[part]]
+name = "crane_line"
+shape = "strut"
+from = [0.8, -8.4, 5.4]
+to = [0.8, -8.4, 3.2]
+thickness = 0.06
+paint = "trim"
+[[part]]
+name = "crane_hook"
+shape = "box"
+size = [0.7, 0.7, 0.5]
+at = [0.8, -8.4, 2.9]
+paint = "accent"
+[[part]]
+name = "lamps"
+shape = "beacon"
+height = 2.2
+copies = 6
+angle = 15
+distance = 12.2
+[[marker]]
+name = "camera"
+at = [0, -27.5, 23]
+turn = 90
+pitch = -42
+[[marker]]
+name = "spot.berth"
+at = [0, -8, 0]
+[[marker]]
+name = "spot.exchange_keeper"
+at = [-5.2, -5.6, 0]
+[[marker]]
+name = "spot.office_keeper"
+at = [5.4, -5.0, 0]
+[[marker]]
+name = "spot.skiff_a"
+at = [-8, -12, 0]
+[[marker]]
+name = "spot.skiff_b"
+at = [8, -12, 0]
