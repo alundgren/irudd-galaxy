@@ -55,17 +55,38 @@ come back with Back.
 - **Office**: the posted prices of both stations and how much ore the field
   still holds.
 
-Each room has a keeper standing by it who speaks in first-person bubbles when
-clicked. Station names and room names never share a word.
+Each room has a keeper standing by it, wearing a name sign with what they do
+(`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
+the open log hides them all except the keeper who is speaking, so a bubble always
+shows whose words it holds. Station names and room names never share a word.
+
+## The keepers talk
+
+Click a keeper and they speak in first-person bubbles, one short sentence per
+click, with their name on its own line at the top of the bubble. The first
+conversation introduces them: who they are, what they do and where the other
+station is. After that a click gets one line that follows the shift: the exchange
+keeper talks about your hold or the sale you just made, the dockmaster about the
+ore left in the field (`scripts/voices.luau`). Talk ends when you launch and never
+becomes the flight message.
+
+Each conversation you hear is one ship log entry that names the speaker and the
+station, with the lines quoted in order, even when something else is logged
+while you are still listening. A line already in the log isn't logged again. The log says it lists newest first.
 
 ## Screens
 
 Each kind of thing keeps one look, all with pure black text: amber for anything
 you can press (orders, signs, the key, Sell, Back, Launch, the log button), a
-pale blue panel for status and rooms, white bubbles for speech and cream paper
-for what just happened and for headings. Status sits top right, the log button
+pale blue panel for status and rooms, white bubbles and name signs for the people
+who speak, and cream paper for what just happened and for headings. Status sits top right, the log button
 bottom left, orders top left in flight, and the latest message with the flight
 keys at the bottom. Prices and stock are plain text, never buttons.
+
+Hints teach and then retire (`scripts/teach.luau`). Each flight key leaves the
+hint line after three uses, and messages stop explaining Space and E once those
+were used three times. A room stops saying "Click Tova to talk" after three
+conversations. Messages report what happened, not how fast it happens.
 
 Screens are laid out for the 1280x720 design size in logical pixels, inside a
 24-pixel margin (`scripts/layout.luau`). Smaller windows clip the right and
@@ -76,7 +97,8 @@ edges.
 
 - **Every change is seen.** Ore arrives in the hold, the rock develops a
   visible cut, and a sale changes credits, the posted station stock and its crate
-  pile. The ship log keeps a line for each docking, sale, launch and full hold.
+  pile. The ship log keeps a line for each docking, sale, launch, full hold and
+  conversation.
   Empty sales never create money.
 - **Shocks come with opportunities.** Exhausting a rock leaves other rocks to
   work and both buyers available. A full hold is an invitation to trade. There
@@ -104,20 +126,24 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are three Luau rule tests and six scenarios: both complete station trips,
+There are five Luau rule tests and eight scenarios: both complete station trips,
 collision under held thrust, refused out-of-place actions, repeat trips through
 depletion with an empty-sale check, and the station itself (rooms from signs and
 M, refused sales outside the exchange, a building of another station, the log
 held shut inside a room, keeper talk, the sale receipt and log lines, the skiff
-and launch). `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
-headless routes; `play.inputs` uses real screen clicks and takes six notes.
-`play.bot.toml` declares that 840-tick route at 1280x720 physical pixels. The GM
+and launch), and talk (an introduction once, one line per click, the repeat line
+following the hold and the sale, one log entry per conversation with no repeats,
+talk ended by launch, and hints retiring), and one conversation (a sale in the
+middle of an introduction leaves it one entry, and the speaker keeps their name
+while the log is open). `loop.inputs`, `kiln.inputs` and `repeat.inputs` are equivalent
+headless routes; `play.inputs` uses real screen clicks, talks to both Lantern Dock
+keepers and takes nine notes. `play.bot.toml` declares that 900-tick route at 1280x720 physical pixels. The GM
 test report includes its frame times, dimensions and deterministic replay
 result. On a display scaled above 100%, that window is smaller than 1280x720
 logical pixels and reports the clipped edges as problems.
 
 ```sh
-galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 840 --size 1280x720
+galaxy play --modules game/modules --inputs game/modules/core/tests/play.inputs --ticks 900 --size 1280x720
 galaxy sim replay SESSION/recording.json
 galaxy-gm audit SESSION/recording.json
 galaxy-gm film SESSION/recording.json --from 20 --to 45 --size 1280x720 --out flight-film
@@ -156,5 +182,7 @@ still missing is engine-side: the arrival is a fade to a title card rather than
 a zoom, buildings don't lift or outline under the pointer and only their signs
 open rooms, rooms open at once with no glide, and right-click and Esc don't go
 back. The key has no news ribbons because nothing at a station changes on its
-own yet. There is no music or station sound, and the keepers have two lines
-each. Further art and pacing changes wait for a human playtest.
+own yet. There is no music or station sound. In a bubble the
+speaker's name and Continue have the same size and weight as the line, and the
+bubble has no way to offer a choice, so no keeper makes an offer yet. Further
+art and pacing changes wait for a human playtest.

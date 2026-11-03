@@ -87,10 +87,10 @@ equals = "core.lantern_exchange"
 tick = 620
 name = "engine.talk_start"
 source = "talk"
-payload = { talk = "core.lantern_trader_talk" }
+payload = { talk = "core.lantern_trader_intro" }
 [[expect]]
 tick = 621
-entity = "lantern_trader_talk"
+entity = "lantern_trader_intro"
 component = "engine.talk"
 field = "active"
 equals = true

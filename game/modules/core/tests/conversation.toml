@@ -1,0 +1,163 @@
+# One conversation stays one log entry, and speech keeps its speaker's name. Bram's
+# introduction plays on with the log open: his sign stays while his bubble does, the
+# other keeper's steps aside, and his sign goes once he has finished. Tova's
+# introduction is interrupted by a sale and still ends as one entry in reading order.
+seed = 3
+ticks = 700
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 450
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 417 }
+
+# Bram starts his introduction, then the log opens over it.
+[[input]]
+tick = 500
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_master_intro" }
+[[input]]
+tick = 505
+name = "core.log"
+[[expect]]
+tick = 506
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+[[expect]]
+tick = 506
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 510
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro1" }
+[[input]]
+tick = 515
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro2" }
+[[input]]
+tick = 520
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro3" }
+[[expect]]
+tick = 521
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+# His last line: the bubble goes, and so does his sign while the log stays open.
+[[input]]
+tick = 525
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
+[[expect]]
+tick = 526
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = ""
+[[input]]
+tick = 530
+name = "core.log"
+[[expect]]
+tick = 531
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
+[[expect]]
+tick = 531
+entity = "log3"
+component = "entry"
+field = "text"
+equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is the other station.” “It's out east, and pays more for ore.”"
+
+# Tova's introduction, with a sale after her first line.
+[[input]]
+tick = 540
+name = "core.open"
+[[input]]
+tick = 550
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_trader_intro" }
+[[input]]
+tick = 555
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro1" }
+[[input]]
+tick = 560
+name = "core.sell"
+# The sale is logged after her first line, as the newest entry.
+[[expect]]
+tick = 561
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 5
+[[input]]
+tick = 565
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro2" }
+[[input]]
+tick = 570
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_trader_intro", line = "core.lantern_trader_intro3" }
+[[expect]]
+tick = 571
+entity = "log4"
+component = "entry"
+field = "text"
+equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the ore exchange.” “I pay the posted price; it holds steady.” “Bring ore in whenever it suits you.”"
+# Her later lines joined that entry: nothing new was logged.
+[[expect]]
+tick = 571
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 5
+
+# Her next conversation is a new entry, not more of the finished introduction.
+[[input]]
+tick = 580
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_trader_talk" }
+[[input]]
+tick = 585
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_trader_talk", line = "core.lantern_trader_now" }
+[[expect]]
+tick = 586
+entity = "log6"
+component = "entry"
+field = "text"
+equals = "Tova Reyes at Lantern Dock: “Thanks. Your ore's on the pile already.”"
