@@ -181,35 +181,229 @@ pub fn start(
     )
 }
 
-/// How many glides an `interrupted` chain keeps; an older one starts from its own source.
-pub const MAX_INTERRUPTED: usize = 4;
-
 /// The `interrupted` text for a new trip: the player's trip as it was, if it is a glide
-/// that has not landed, with `camera`, the node it glides to. Empty otherwise. A glide
-/// that already reached its end still counts: the camera shows its end node.
+/// that has not landed, ending on node `camera`. Empty otherwise. A glide that already
+/// reached its end still counts: the camera shows its end node.
 fn interrupted(trip: &galaxy_api::Fields, camera: Option<&str>) -> String {
     let gliding = trip["active"] == true && glide_seconds(trip) > 0.0;
-    let Some(camera) = camera.filter(|_| gliding) else {
-        return String::new();
-    };
-    let mut glide = trip.clone();
-    glide.remove("active");
-    glide.insert("camera".into(), camera.into());
-    serde_json::Value::Object(trimmed(glide, MAX_INTERRUPTED - 1)).to_string()
+    match camera.filter(|_| gliding) {
+        Some(camera) => Glide::of(trip, camera).to_text(),
+        None => String::new(),
+    }
 }
 
-/// `glide` with at most `keep` interrupted glides behind it.
-fn trimmed(mut glide: galaxy_api::Fields, keep: usize) -> galaxy_api::Fields {
-    let inner = glide
-        .get("interrupted")
-        .and_then(|s| s.as_str())
-        .and_then(|s| serde_json::from_str::<galaxy_api::Fields>(s).ok())
-        .filter(|_| keep > 0);
-    let text = inner.map_or(String::new(), |inner| {
-        serde_json::Value::Object(trimmed(inner, keep - 1)).to_string()
-    });
-    glide.insert("interrupted".into(), text.into());
-    glide
+/// Weights at or below this are dropped from a blend; what they moved is far below a
+/// pixel.
+const NEGLIGIBLE: f64 = 1e-9;
+
+/// One camera in a [`Blend`]: node `node` of room `place`, or with no node the camera
+/// the player left `place` with on a trip between places.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Part {
+    pub place: String,
+    pub node: Option<String>,
+    pub weight: f64,
+}
+
+/// A camera pose as weights over the cameras a chain of glides passed through. However
+/// many glides take each other over, it holds at most one part per camera node, plus
+/// the camera the chain first left, so it stays small. The view blends the cameras'
+/// framings with these weights; the sim only does the arithmetic, which is exact on
+/// every OS.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Blend {
+    /// Weights for the direction looked in, up, shown height and field of view.
+    pub pose: Vec<Part>,
+    /// Weights for the point looked at. Only nodes of one room count: across places a
+    /// glide looks at its destination's point throughout, so the rest of the weight goes
+    /// there.
+    pub focus: Vec<Part>,
+    /// The source pose (`from_*` fields) of the trip between places that a part with no
+    /// node left from.
+    pub left: galaxy_api::Fields,
+}
+
+impl Blend {
+    /// The camera a trip's glide starts from: where the glide it took over was at its
+    /// `start_tick`, else the room's previous node, else the camera of the place left.
+    pub fn source(trip: &galaxy_api::Fields) -> Blend {
+        if let Some(taken) = trip
+            .get("interrupted")
+            .and_then(|t| t.as_str())
+            .and_then(Glide::parse)
+        {
+            return taken.at(trip["start_tick"].as_f64().unwrap_or(0.0));
+        }
+        let text = |k: &str| trip[k].as_str().unwrap_or("").to_owned();
+        let (from, to) = (text("from"), text("to"));
+        if from == to {
+            let node = Part {
+                place: to,
+                node: Some(text("from_camera")),
+                weight: 1.0,
+            };
+            return Blend {
+                pose: vec![node.clone()],
+                focus: vec![node],
+                left: Default::default(),
+            };
+        }
+        Blend {
+            pose: vec![Part {
+                place: from,
+                node: None,
+                weight: 1.0,
+            }],
+            focus: Vec::new(),
+            left: trip
+                .iter()
+                .filter(|(k, _)| k.starts_with("from_"))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        }
+    }
+
+    /// This pose `t` (eased, 0 to 1) of the way to node `node` of room `place`.
+    pub fn toward(&self, place: &str, node: &str, t: f64) -> Blend {
+        let end = |weight| Part {
+            place: place.into(),
+            node: Some(node.into()),
+            weight,
+        };
+        let mut pose = scaled(self.pose.iter(), 1.0 - t);
+        add(&mut pose, end(t));
+        // Points looked at in another place's coordinates can't blend with this one's.
+        let mut focus = scaled(self.focus.iter().filter(|p| p.place == place), 1.0 - t);
+        let kept: f64 = focus.iter().map(|p| p.weight).sum();
+        add(&mut focus, end(1.0 - kept));
+        let pose = pruned(pose);
+        let left = if pose.iter().any(|p| p.node.is_none()) {
+            self.left.clone()
+        } else {
+            Default::default()
+        };
+        Blend {
+            pose,
+            focus: pruned(focus),
+            left,
+        }
+    }
+}
+
+fn scaled<'a>(parts: impl Iterator<Item = &'a Part>, by: f64) -> Vec<Part> {
+    parts
+        .map(|p| Part {
+            weight: p.weight * by,
+            ..p.clone()
+        })
+        .collect()
+}
+
+fn add(parts: &mut Vec<Part>, part: Part) {
+    match parts
+        .iter_mut()
+        .find(|p| p.place == part.place && p.node == part.node)
+    {
+        Some(p) => p.weight += part.weight,
+        None => parts.push(part),
+    }
+}
+
+/// `parts` without negligible weights, scaled back to a total of one.
+fn pruned(parts: Vec<Part>) -> Vec<Part> {
+    let kept: Vec<_> = parts
+        .into_iter()
+        .filter(|p| p.weight > NEGLIGIBLE)
+        .collect();
+    let total: f64 = kept.iter().map(|p| p.weight).sum();
+    kept.into_iter()
+        .map(|p| Part {
+            weight: p.weight / total,
+            ..p
+        })
+        .collect()
+}
+
+/// A camera glide: from `from` to node `camera` of room `to`, over `glide` seconds from
+/// `start_tick`. `engine.travel.interrupted` stores the glide a trip took over this way,
+/// as JSON text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Glide {
+    pub to: String,
+    pub camera: String,
+    pub start_tick: f64,
+    pub glide: f64,
+    pub from: Blend,
+}
+
+impl Glide {
+    /// The glide of trip fields `trip`, ending on node `camera` of its `to`.
+    pub fn of(trip: &galaxy_api::Fields, camera: &str) -> Glide {
+        Glide {
+            to: trip["to"].as_str().unwrap_or("").into(),
+            camera: camera.into(),
+            start_tick: trip["start_tick"].as_f64().unwrap_or(0.0),
+            glide: glide_seconds(trip),
+            from: Blend::source(trip),
+        }
+    }
+
+    /// How far the glide is at `now` (tick plus alpha), eased (smoothstep) from 0 to 1.
+    pub fn progress(&self, now: f64) -> f64 {
+        if self.glide <= 0.0 {
+            return 1.0;
+        }
+        let ticks = self.glide * TICKS_PER_SECOND as f64;
+        let t = ((now - self.start_tick) / ticks).clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    }
+
+    /// Where the camera is at `now` (tick plus alpha).
+    pub fn at(&self, now: f64) -> Blend {
+        self.from.toward(&self.to, &self.camera, self.progress(now))
+    }
+
+    fn to_text(&self) -> String {
+        let parts = |parts: &[Part]| {
+            parts
+                .iter()
+                .map(|p| json!([p.place, p.node, p.weight]))
+                .collect::<Vec<_>>()
+        };
+        json!({"to": self.to, "camera": self.camera, "start_tick": self.start_tick,
+            "glide": self.glide, "pose": parts(&self.from.pose),
+            "focus": parts(&self.from.focus), "left": self.from.left})
+        .to_string()
+    }
+
+    /// The glide stored in `engine.travel.interrupted` text; None for empty or bad text.
+    pub fn parse(text: &str) -> Option<Glide> {
+        let v: serde_json::Value = serde_json::from_str(text).ok()?;
+        let parts = |key: &str| -> Option<Vec<Part>> {
+            v[key]
+                .as_array()?
+                .iter()
+                .map(|p| {
+                    Some(Part {
+                        place: p[0].as_str()?.into(),
+                        node: p[1].as_str().map(Into::into),
+                        weight: p[2].as_f64().filter(|w| w.is_finite())?,
+                    })
+                })
+                .collect()
+        };
+        Some(Glide {
+            to: v["to"].as_str()?.into(),
+            camera: v["camera"].as_str()?.into(),
+            start_tick: v["start_tick"].as_f64()?,
+            glide: v["glide"].as_f64()?.clamp(0.0, MAX_GLIDE),
+            from: Blend {
+                pose: parts("pose")?,
+                focus: parts("focus")?,
+                left: v["left"].as_object().cloned().unwrap_or_default(),
+            },
+        })
+    }
 }
 
 /// Play supplies this input; replay never invents it. A click can finish before due. A

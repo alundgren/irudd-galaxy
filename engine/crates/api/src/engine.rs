@@ -304,7 +304,7 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
     (
         "travel",
         "interrupted",
-        "the glide this trip took over while it still moved, as JSON text (its fields and `camera`, its end node); empty otherwise",
+        "the glide this trip took over while it still moved, as JSON text: its end (`to`, `camera`), `start_tick`, `glide` and the camera it started from as weights over camera nodes; empty otherwise",
     ),
     (
         "anchor",

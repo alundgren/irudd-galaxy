@@ -27,8 +27,8 @@ pub fn eased(elapsed: f32, glide: f32) -> f32 {
 }
 
 /// The glide a trip took over before that glide landed (`engine.travel.interrupted`).
-pub fn interrupted(trip: &galaxy_api::Fields) -> Option<galaxy_api::Fields> {
-    serde_json::from_str(trip.get("interrupted")?.as_str()?).ok()
+pub fn interrupted(trip: &galaxy_api::Fields) -> Option<galaxy_sim::travel::Glide> {
+    galaxy_sim::travel::Glide::parse(trip.get("interrupted")?.as_str()?)
 }
 
 impl<'a> Cut<'a> {

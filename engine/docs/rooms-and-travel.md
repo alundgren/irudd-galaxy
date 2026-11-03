@@ -87,11 +87,25 @@ as before, and a change during a fade cut shows as that cut fades in.
 A glide can be taken over before it lands: a figure framed while the camera still
 glides into the room, or going back while it glides to that figure. The new trip starts
 from where the camera is at that moment, not from a camera node, so the picture never
-jumps. The trip stores the glide it took over in `interrupted`, as JSON text: that
-trip's fields plus `camera`, the node it was gliding to. The view evaluates that glide at
-the new trip's `start_tick` and uses the result as the new glide's source, which works
-for a chain of take-overs because each stored glide holds the one before it. A chain
-keeps at most four glides; an older one starts from its own source again. A trip
+jumps. The trip stores the glide it took over in `interrupted`, as JSON text: where it
+ended (`to` and `camera`, the node it was gliding to), its `start_tick` and `glide`, and
+the camera it started from. That camera is a blend: weights over the room camera nodes
+the chain passed through, plus, until its weight runs out, the camera of the place the
+chain first left (with that trip's `from_*` source pose). A glide part of the way from
+one blend to a node is again a blend over the same cameras, so however many glides take
+each other over, and however quickly, the stored glide holds one weight per camera node
+and never a history. The sim does only the weight arithmetic (plain `f64`, the same bits
+on every OS); the view blends the cameras' framings with those weights (direction, up,
+field of view, and the shown height by its logarithm) and the point looked at with a
+second set of weights. Across places a glide looks at its destination's point
+throughout, so the point weights only count nodes of the room shown. The view draws the
+current glide the same way, so the camera at the moment of a take-over is exactly the
+new glide's source. Weights below 1e-9 are dropped.
+
+Storing the history instead (each glide holding the one it took over) needs no blend,
+but it grows with every take-over, and cutting it short changes where the oldest kept
+glide started, which shows as a jump. Storing the camera pose itself would need the sim
+to compute cameras from room models, which belong to the view. A trip
 between places taken over by a camera change keeps its `from`, `to` and source pose, so
 it still lands with `engine.place_arrived`, now after the new glide's length. A fade
 cut that leaves a room mid-glide keeps the glide moving while it fades out. Only plain

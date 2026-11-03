@@ -32,6 +32,7 @@ use galaxy_render::{
     BackdropHandle, Camera, Material, MeshHandle, MeshInstance, Panel, Projection, Rect, Renderer,
     Scene, Text, backdrop, defaults,
 };
+use galaxy_sim::travel::{Blend, Glide, Part};
 use galaxy_sim::{World, talk::text};
 use serde_json::{Map, Value, json};
 
@@ -491,56 +492,47 @@ impl View {
         now: f64,
         alpha: f32,
     ) -> Option<Camera> {
-        let seconds = galaxy_sim::travel::glide_seconds(trip) as f32;
-        if seconds <= 0.0 {
+        if galaxy_sim::travel::glide_seconds(trip) <= 0.0 {
             return None;
         }
-        let start = trip.get("start_tick")?.as_f64()?;
-        let t = travel::eased(travel::elapsed(now, start), seconds);
-        if t >= 1.0 {
-            return Some(to);
-        }
-        let (from, place) = self.glide_source(world, trip, start, alpha)?;
-        Some(glide::between(from, to, t, place != text(trip, "to")))
-    }
-
-    /// Where a glide starts, and the place whose coordinates that camera uses: where the
-    /// glide it took over was on its first tick, else the other camera node of the same
-    /// room, else the camera the source place showed (its room camera, or the follow
-    /// camera with the player back at its source pose).
-    fn glide_source(
-        &self,
-        world: &World,
-        trip: &Fields,
-        start: f64,
-        alpha: f32,
-    ) -> Option<(Camera, String)> {
-        if let Some(glide) = travel::interrupted(trip) {
-            let camera = self.interrupted_at(world, &glide, start, alpha)?;
-            return Some((camera, text(&glide, "to").to_owned()));
-        }
-        let (from, to) = (text(trip, "from"), text(trip, "to"));
-        if from == to {
-            let camera = self.room_camera_at(world, to, text(trip, "from_camera"))?;
-            return Some((camera, to.to_owned()));
-        }
-        let source = rooms::source_world(world, from, trip);
-        let camera = self
-            .room_camera(&source, from)
-            .unwrap_or_else(|| self.follow_camera(&source, alpha));
-        Some((camera, from.to_owned()))
+        let node = galaxy_sim::travel::room_camera(world, text(trip, "to"))?;
+        let glide = Glide::of(trip, &node);
+        Some(self.moving(world, &glide, to, now, alpha))
     }
 
     /// Where a glide that a newer trip took over had its camera at `now`.
-    fn interrupted_at(
-        &self,
-        world: &World,
-        glide: &Fields,
-        now: f64,
-        alpha: f32,
-    ) -> Option<Camera> {
-        let to = self.room_camera_at(world, text(glide, "to"), text(glide, "camera"))?;
-        self.glide_at(world, glide, to, now, alpha)
+    fn interrupted_at(&self, world: &World, glide: &Glide, now: f64, alpha: f32) -> Option<Camera> {
+        let to = self.room_camera_at(world, &glide.to, &glide.camera)?;
+        Some(self.moving(world, glide, to, now, alpha))
+    }
+
+    /// The camera `glide` shows at `now`, ending exactly on `to`.
+    fn moving(&self, world: &World, glide: &Glide, to: Camera, now: f64, alpha: f32) -> Camera {
+        if glide.progress(now) >= 1.0 {
+            return to;
+        }
+        let blend = glide.at(now);
+        let cameras = |parts: &[Part]| -> Vec<(Camera, f32)> {
+            parts
+                .iter()
+                .filter_map(|p| Some((self.part_camera(world, p, &blend, alpha)?, p.weight as f32)))
+                .collect()
+        };
+        glide::blend(&cameras(&blend.pose), &cameras(&blend.focus), to)
+    }
+
+    /// The camera of one part of a glide's blend: a room's camera node, or the camera the
+    /// place left showed (its room camera, or the follow camera with the player back at
+    /// its source pose).
+    fn part_camera(&self, world: &World, part: &Part, blend: &Blend, alpha: f32) -> Option<Camera> {
+        if let Some(node) = &part.node {
+            return self.room_camera_at(world, &part.place, node);
+        }
+        let source = rooms::source_world(world, &part.place, &blend.left);
+        Some(
+            self.room_camera(&source, &part.place)
+                .unwrap_or_else(|| self.follow_camera(&source, alpha)),
+        )
     }
 
     /// The camera on the thing with `engine.camera`, at the player's zoom.

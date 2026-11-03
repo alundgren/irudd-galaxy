@@ -439,8 +439,8 @@ fn going_back_during_a_glide_glides_on_from_where_the_camera_is() {
         assert_eq!(trip["start_tick"], 52);
         let taken = galaxy_view::travel::interrupted(trip).unwrap();
         assert_eq!(
-            (taken["start_tick"].as_u64(), taken["camera"].as_str()),
-            (Some(40), Some("camera_first"))
+            (taken.start_tick, taken.camera.as_str()),
+            (40.0, "camera_first")
         );
         // It glides back rather than arriving at once: the eye still moves after the press,
         // and comes to rest on the hall's camera.
@@ -509,4 +509,52 @@ fn camera_changes_during_any_glide_continue_from_the_current_view() {
             .fields["place"],
         "targets.yard"
     );
+}
+
+#[test]
+fn a_long_fast_chain_of_camera_changes_never_jumps() {
+    // The review's chain: six selections eight ticks apart, then slower and much faster
+    // ones, each taking over a glide that has barely started.
+    for (gap, picks) in [(8, 6), (12, 6), (8, 20), (3, 40), (1, 30)] {
+        let mut events = vec![(5, "go", "ui", "")];
+        let who = ["first", "second"];
+        events.extend((0..picks).map(|i| (40 + i * gap, "pick", "ui", who[i as usize % 2])));
+        let last = 40 + (picks - 1) * gap;
+        let j = journey(&events, last + 60, last - gap / 2);
+        let what = format!("{picks} picks {gap} ticks apart");
+        assert_no_jump(&j, &what);
+        for at in (0..picks).map(|i| 40 + i * gap) {
+            assert!(j.jumps.iter().any(|(t, ..)| *t == at), "{what}: tick {at}");
+        }
+        // The stored glide stays small: one part per camera node, however long the chain.
+        let trip =
+            &j.s.world
+                .component("targets.player", TRAVEL)
+                .unwrap()
+                .fields;
+        let taken = galaxy_view::travel::interrupted(trip).unwrap();
+        assert!(taken.from.pose.len() <= 3, "{what}: {:?}", taken.from.pose);
+        assert!(
+            trip["interrupted"].as_str().unwrap().len() < 600,
+            "{what}: {}",
+            trip["interrupted"]
+        );
+        // It lands on the last figure picked.
+        let end = j.v.room_camera(&j.s.world, "targets.hall").unwrap().eye;
+        assert!((j.eyes[&(last + 60)] - end).length() < 1e-3, "{what}");
+
+        // Replay reaches the same world, and a fresh view redraws a note taken mid-chain.
+        let rec = j.s.recording().unwrap();
+        let mut replay = Replay::new(&rec).unwrap();
+        let mut rebuilt = View::detached(replay.session.modules(), 3);
+        let note = j.note.as_ref().unwrap();
+        while replay.session.world.tick < note.tick {
+            rebuilt.before_step(&replay.session.world);
+            replay.step().unwrap();
+        }
+        let redrawn = rebuilt.note_scene(&replay.session.world, &note.moment);
+        assert_eq!(redrawn.camera, note.scene.camera, "{what}");
+        while replay.step().unwrap() {}
+        assert_eq!(replay.session.world.hash(), j.s.world.hash(), "{what}");
+    }
 }

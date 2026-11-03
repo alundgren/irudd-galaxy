@@ -74,23 +74,46 @@ pub fn between(from: Camera, to: Camera, t: f32, across: bool) -> Camera {
     if t >= 1.0 {
         return to;
     }
-    let a = Framing::of(&from);
-    let b = Framing::of(&to);
-    let focus = if across {
-        b.focus
-    } else {
-        a.focus.lerp(b.focus, t)
+    let pose = [(from, 1.0 - t), (to, t)];
+    let focus: &[(Camera, f32)] = if across { &[(to, 1.0)] } else { &pose };
+    blend(&pose, focus, to)
+}
+
+/// The camera whose framing blends `pose`'s framings by weight (direction, up, shown
+/// height and field of view) and looks at `focus`'s points by weight. A chain of glides
+/// that take each other over is one such blend, so it never has to be nested. `to` is
+/// the fallback when the weights cancel out.
+pub fn blend(pose: &[(Camera, f32)], focus: &[(Camera, f32)], to: Camera) -> Camera {
+    /// The framings of `parts` with their weights scaled to a total of one; None for
+    /// no weight.
+    fn framings(parts: &[(Camera, f32)]) -> Option<Vec<(Framing, f32)>> {
+        let total: f32 = parts.iter().map(|(_, w)| w).sum();
+        (total > 0.0).then(|| {
+            parts
+                .iter()
+                .map(|(c, w)| (Framing::of(c), w / total))
+                .collect()
+        })
+    }
+    let Some(pose) = framings(pose) else {
+        return to;
     };
-    let dir = a.dir.lerp(b.dir, t).normalize_or(b.dir);
-    let up = a.up.lerp(b.up, t);
+    let b = Framing::of(&to);
+    let vec = |parts: &[(Framing, f32)], of: fn(&Framing) -> Vec3| {
+        parts.iter().map(|(f, w)| of(f) * *w).sum::<Vec3>()
+    };
+    let mean = |of: fn(&Framing) -> f32| pose.iter().map(|(f, w)| of(f) * w).sum::<f32>();
+    let dir = vec(&pose, |f| f.dir).normalize_or(b.dir);
+    let up = vec(&pose, |f| f.up);
     // Keep up square to the view, so the picture never shears.
     let up = (up - dir * up.dot(dir)).normalize_or(b.up);
     Framing {
-        focus,
+        focus: framings(focus).map_or(b.focus, |f| vec(&f, |f| f.focus)),
         dir,
         up,
-        height: a.height * (b.height / a.height).powf(t),
-        fov: a.fov + (b.fov - a.fov) * t,
+        // The shown height changes by a steady ratio: its logarithm is blended.
+        height: mean(|f| f.height.ln()).exp(),
+        fov: mean(|f| f.fov),
     }
     .camera()
 }
