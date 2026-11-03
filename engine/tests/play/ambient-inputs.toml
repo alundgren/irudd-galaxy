@@ -1,0 +1,22 @@
+# Zoomed fully in, with nothing pressed: the trader flies its loop past the top-right
+# status panel, and its yielding name label is not drawn where it would cover the panel
+# or leave the window. Then 2 holds on the ore rock through its six cuts. Run for 900
+# ticks; play should report no problems.
+
+[[zoom]]
+tick = 1
+steps = 40.0
+
+[[note]]
+tick = 300
+text = "Zoomed fully in: the trader near the status panel"
+
+[[input]]
+tick = 400
+name = "ambient.order_mine"
+source = "keyboard"
+payload = { down = true }
+
+[[note]]
+tick = 700
+text = "Holding on the ore rock after its cuts"

@@ -21,11 +21,23 @@ trim = "main"
 spin = 8.0
 
 [[part]]
-name = "lamps"
+name = "posts"
 shape = "beacon"
 height = 2.4
 angle = 45.0
 distance = 4.6
 copies = 4
+
+[[part]]
+name = "lamps"
+shape = "sphere"
+radius = 0.45
+sides = 8
+angle = 45.0
+distance = 4.6
+at = [0.0, 0.0, 2.75]
+copies = 4
+paint = "lights"
+glow = 1.0
 pulse = 2.0
 pulse_low = 0.1

@@ -847,9 +847,11 @@ fn track_tells_a_smooth_spin_from_one_that_turns_on_ticks() {
         tmp.path().join("x"),
     );
     // 12 degrees a second, through the wrap at half a circle.
-    let at = |i: usize| (3.1 + (12.0f32 / 60.0).to_radians() * i as f32 + std::f32::consts::PI)
-        .rem_euclid(std::f32::consts::TAU)
-        - std::f32::consts::PI;
+    let at = |i: usize| {
+        (3.1 + (12.0f32 / 60.0).to_radians() * i as f32 + std::f32::consts::PI)
+            .rem_euclid(std::f32::consts::TAU)
+            - std::f32::consts::PI
+    };
     film(&smooth, 120, |i| shot(at(i)));
     film(&ticks, 120, |i| shot(at(i - i % 2)));
     film(&still, 120, |_| shot(0.4));
@@ -857,9 +859,24 @@ fn track_tells_a_smooth_spin_from_one_that_turns_on_ticks() {
     assert!((f(&s, "turn.degrees") - 23.8).abs() < 0.05, "{s}");
     assert!((f(&s, "turn.deg_per_s.median") - 12.0).abs() < 0.05, "{s}");
     assert!(f(&s, "turn.judder") < 0.1, "{s}");
-    assert!(s["reading"].as_str().unwrap().contains("turned 23.8 degrees"), "{s}");
+    assert!(
+        s["reading"]
+            .as_str()
+            .unwrap()
+            .contains("turned 23.8 degrees"),
+        "{s}"
+    );
     let t = tool("track", &ticks, &["--thing", "rock"]);
     assert!(f(&t, "turn.judder") > 0.5, "{t}");
     let x = tool("track", &still, &["--thing", "rock"]);
     assert!(x["turn"].is_null(), "{x}");
+    // A quick turn, then still: its rate is the turn's, and too short to call uneven.
+    let quick = tmp.path().join("q");
+    film(&quick, 120, |i| shot(0.05 * i.min(6) as f32));
+    let q = tool("track", &quick, &["--thing", "rock"]);
+    assert!(
+        (f(&q, "turn.deg_per_s.median") - 0.05f64.to_degrees() * 60.0).abs() < 0.5,
+        "{q}"
+    );
+    assert!(q["turn"]["judder"].is_null(), "{q}");
 }

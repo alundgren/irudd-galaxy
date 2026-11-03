@@ -80,7 +80,7 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "turn",
-                "when it turned half a degree or more: degrees, deg_per_s (median, max) \
+                "when it turned half a degree or more: degrees, deg_per_s while turning (median, max) \
               and judder (0 a smooth turn, 1 or more turning only on ticks)",
             ),
             (

@@ -239,8 +239,10 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   turned by `angle` about +Z, scaled by `scale`, morphed by `morph`, in its look.
 - **Moving parts.** A model with spinning or pulsing parts is uploaded as its still
   parts and each moving part on its own, and each frame draws them with the part's turn
-  and its share of glow (`MeshInstance::glow`, which scales the paint's self-lighting in
-  the mesh shader). Picking, hovers and outlines use the whole model at rest.
+  and its share of glow (`MeshInstance::glow`). In the mesh shader that share scales the
+  paint's self-lighting, and towards the dim end the glowing paint also sinks to the
+  look's shadow tone: glowing and lit paint look much alike on a face the sun lights from
+  above, so a pulse of self-lighting alone hardly showed on a lamp seen from above. Picking, hovers and outlines use the whole model at rest.
 - **Interpolation.** The sim steps at 30 ticks a second; the screen runs at the display's
   rate. Before each tick the view keeps the poses, and each frame draws `alpha` of the
   way from the last tick to the current one (the fixed step's leftover time), turning the

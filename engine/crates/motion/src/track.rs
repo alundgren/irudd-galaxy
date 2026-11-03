@@ -600,32 +600,38 @@ fn turning(frames: &[Frame], id: &str, dt: f32) -> Option<Turn> {
     if turned.abs() < 0.5 {
         return None;
     }
+    // The rate on the frames it turns: a quick turn and then a long hold isn't slow.
     let rates: Vec<f32> = degrees
         .windows(2)
         .filter_map(|w| Some((w[1]? - w[0]?).abs() / dt))
+        .filter(|r| *r > 0.0)
         .collect();
-    // Unevenness of the turn, in tenths of a degree, as for a path.
+    // Unevenness of the turn, in tenths of a degree, as for a path; only for a turn of a
+    // fifth of a second or more, as a short turn's start and stop would dominate it.
     let u = unevenness(
         &degrees
             .iter()
             .map(|d| d.map(|d| [d * 10.0, 0.0]))
             .collect::<Vec<_>>(),
     );
+    let score = u.score.filter(|_| rates.len() as f32 * dt >= 0.2);
     let rate = median(&rates);
     let max = rates.iter().fold(0.0f32, |a, b| a.max(*b));
-    let how = match u.score {
+    let how = match score {
         Some(s) if s < SMOOTH => format!("smoothly (judder {s:.2})"),
         Some(s) if s < JUDDERS => format!("unevenly (judder {s:.2})"),
         Some(s) => format!("in steps (judder {s:.2}: it turns only on some frames)"),
-        None => "too little a frame to judge".to_owned(),
+        None => "too briefly or too little a frame to judge how evenly".to_owned(),
     };
     Some(Turn {
         report: json!({
             "degrees": round(turned, 2),
             "deg_per_s": { "median": round(rate, 2), "max": round(max, 2) },
-            "judder": u.score.map(|v| round(v, 3)),
+            "judder": score.map(|v| round(v, 3)),
         }),
-        reading: format!("{id} turned {turned:.1} degrees at {rate:.1} a second, {how}"),
+        reading: format!(
+            "{id} turned {turned:.1} degrees, at {rate:.1} a second while turning, {how}"
+        ),
     })
 }
 
