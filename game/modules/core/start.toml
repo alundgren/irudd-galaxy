@@ -17,6 +17,7 @@
 "engine.model" = { model = "core.ship", look = "core.hull" }
 "engine.camera" = { view = 64, min_view = 24, max_view = 100, tilt = 30 }
 pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
+hold = {}
 held = {}
 taught = {}
 
@@ -51,7 +52,7 @@ ore = {}
 "engine.place" = { parent = "core.reach", arrival = "core.lantern_berth_spot", width = 30, depth = 30 }
 "engine.room" = { title = "Lantern Dock", fov = 40 }
 "engine.model" = { model = "core.lantern_dock" }
-port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", departure = "core.lantern_departure", exchange = "core.lantern_exchange" }
+port = { name = "Lantern Dock", berth = "core.lantern_berth", departure = "core.lantern_departure", exchange = "core.lantern_exchange" }
 
 [entities.lantern_berth]
 "engine.location" = { place = "core.reach" }
@@ -82,7 +83,7 @@ port = { name = "Lantern Dock", price = 12, berth = "core.lantern_berth", depart
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.exchange" }
 "engine.anchor" = { name = "sign", height = 4.8 }
-facility = { station = "core.lantern", name = "Ore exchange", keeper = "core.lantern_trader", offer = "buys ore at the posted price", order = 1 }
+facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", offer = "buys ore, and plate for the galley", order = 1 }
 
 [entities.lantern_office]
 "engine.being" = {}
@@ -92,34 +93,44 @@ facility = { station = "core.lantern", name = "Ore exchange", keeper = "core.lan
 "engine.anchor" = { name = "sign", height = 4.8 }
 facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_master", offer = "posted prices and how the field stands", order = 2 }
 
+# Lantern Dock's market. Plate goes into the galley until it is built.
+[entities.lantern_ore]
+market = { room = "core.lantern_exchange", ware = "ore", role = "buys", base = 12, target = 30, stock = 24, rate = 3 }
+
+[entities.lantern_plate]
+market = { room = "core.lantern_exchange", ware = "plate", role = "buys", base = 34, target = 24, stock = 18, rate = 2 }
+
+[entities.lantern_rations]
+market = { room = "core.lantern_galley", ware = "rations", role = "sells", base = 14, target = 30, stock = 30, rate = 3 }
+
 [entities.lantern_stock]
 "engine.location" = { place = "core.lantern" }
 "engine.position" = { x = -11, y = -4.5 }
-"engine.model" = { model = "core.crates", scale = 0.4 }
+"engine.model" = { model = "core.crates", scale = 0.56 }
 
 [entities.lantern_trader]
 "engine.being" = {}
 "engine.location" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
-keeper = { name = "Tova Reyes" }
+keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside." }
 "engine.life" = { clock = "core.day", first = "core.lantern_trader_act", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
-"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore" }
+"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore and plate" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_trader_intro]
 "engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_intro1", width = 420, story = true }
 
 [entities.lantern_trader_intro1]
-"engine.talk_line" = { text = "I'm Tova, and I run the ore exchange.", next = "core.lantern_trader_intro2" }
+"engine.talk_line" = { text = "I'm Tova, and I run the exchange.", next = "core.lantern_trader_intro2" }
 
 [entities.lantern_trader_intro2]
-"engine.talk_line" = { text = "I pay the posted price; it holds steady.", next = "core.lantern_trader_intro3" }
+"engine.talk_line" = { text = "I buy ore, and plate for our galley.", next = "core.lantern_trader_intro3" }
 
 [entities.lantern_trader_intro3]
-"engine.talk_line" = { text = "Bring ore in whenever it suits you." }
+"engine.talk_line" = { text = "My prices drop as my stock fills." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_trader_talk]
@@ -153,7 +164,10 @@ keeper = { name = "Bram Okafor" }
 "engine.talk_line" = { text = "Cinder Kiln is the other station.", next = "core.lantern_master_intro4" }
 
 [entities.lantern_master_intro4]
-"engine.talk_line" = { text = "It's out east, and pays more for ore." }
+"engine.talk_line" = { text = "It's out east, and pays more for ore.", next = "core.lantern_master_intro5" }
+
+[entities.lantern_master_intro5]
+"engine.talk_line" = { text = "We're raising a galley. It needs plate." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_master_talk]
@@ -161,6 +175,48 @@ keeper = { name = "Bram Okafor" }
 
 [entities.lantern_master_now]
 "engine.talk_line" = { text = "The field still holds 36 ore." }
+
+# The galley site: plate sold at the exchange builds it. Once built it is the galley,
+# where Ines cooks and sells rations (scripts/trade.luau).
+[entities.lantern_galley]
+"engine.being" = {}
+"engine.location" = { place = "core.lantern" }
+"engine.position" = { x = 8.4, y = -7.0, angle = -1.5707963267948966 }
+"engine.model" = { model = "core.galley_site" }
+# Signed low at its front: above it, the sign would meet the dockmaster's name sign.
+"engine.anchor" = { name = "sign", height = 0.2, x = 2.6 }
+facility = { station = "core.lantern", name = "Galley site", keeper = "", offer = "plate sold here builds the galley", order = 3 }
+build = { station = "core.lantern", ware = "plate", need = 10, name = "Galley", offer = "sells rations", keeper = "core.lantern_cook", model = "core.galley" }
+
+# The cook arrives when the galley is built; until then only their name is known.
+[entities.lantern_cook]
+keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them." }
+
+[entities.lantern_galley_keeper_spot]
+"engine.spot" = { place = "core.lantern", name = "galley_keeper" }
+
+[entities.lantern_cook_act]
+"engine.act" = { place = "core.lantern", spot = "core.lantern_galley_keeper_spot", angle = -1.5707963267948966, state = "cook" }
+
+# Said once: the first click introduces the keeper.
+[entities.lantern_cook_intro]
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_intro1", width = 420, story = true }
+
+[entities.lantern_cook_intro1]
+"engine.talk_line" = { text = "I'm Ines. Your plate built this galley.", next = "core.lantern_cook_intro2" }
+
+[entities.lantern_cook_intro2]
+"engine.talk_line" = { text = "I cook rations for the crews.", next = "core.lantern_cook_intro3" }
+
+[entities.lantern_cook_intro3]
+"engine.talk_line" = { text = "Cinder Kiln pays well for them." }
+
+# After that, one short line that follows the shift (scripts/talk.luau).
+[entities.lantern_cook_talk]
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_now", width = 420 }
+
+[entities.lantern_cook_now]
+"engine.talk_line" = { text = "Fresh rations, whenever you want them." }
 
 [entities.lantern_skiff]
 "engine.being" = {}
@@ -179,7 +235,7 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 "engine.place" = { parent = "core.reach", arrival = "core.kiln_berth_spot", width = 30, depth = 30 }
 "engine.room" = { title = "Cinder Kiln", fov = 40 }
 "engine.model" = { model = "core.kiln_dock" }
-port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", departure = "core.kiln_departure", exchange = "core.kiln_exchange" }
+port = { name = "Cinder Kiln", berth = "core.kiln_berth", departure = "core.kiln_departure", exchange = "core.kiln_exchange" }
 
 [entities.kiln_berth]
 "engine.location" = { place = "core.reach" }
@@ -210,7 +266,7 @@ port = { name = "Cinder Kiln", price = 16, berth = "core.kiln_berth", departure 
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.exchange" }
 "engine.anchor" = { name = "sign", height = 4.8 }
-facility = { station = "core.kiln", name = "Ore exchange", keeper = "core.kiln_trader", offer = "buys ore at the posted price", order = 1 }
+facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trader", offer = "buys ore and rations, sells plate", order = 1 }
 
 [entities.kiln_office]
 "engine.being" = {}
@@ -220,21 +276,31 @@ facility = { station = "core.kiln", name = "Ore exchange", keeper = "core.kiln_t
 "engine.anchor" = { name = "sign", height = 4.8 }
 facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master", offer = "posted prices and how the field stands", order = 2 }
 
+# Cinder Kiln's market: the kiln turns ore into plate.
+[entities.kiln_ore]
+market = { room = "core.kiln_exchange", ware = "ore", role = "buys", base = 16, target = 30, stock = 24, rate = 3 }
+
+[entities.kiln_plate]
+market = { room = "core.kiln_exchange", ware = "plate", role = "sells", base = 28, target = 24, stock = 24, rate = 2 }
+
+[entities.kiln_rations]
+market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 18, target = 30, stock = 18, rate = 2 }
+
 [entities.kiln_stock]
 "engine.location" = { place = "core.kiln" }
 "engine.position" = { x = -11, y = -4.5 }
-"engine.model" = { model = "core.crates", scale = 0.4 }
+"engine.model" = { model = "core.crates", scale = 0.56 }
 
 [entities.kiln_trader]
 "engine.being" = {}
 "engine.location" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
-keeper = { name = "Sefa Lind" }
+keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
 "engine.life" = { clock = "core.day", first = "core.kiln_trader_act", name = "Sefa Lind" }
 
 [entities.kiln_trader_act]
-"engine.act" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore" }
+"engine.act" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot", angle = -1.5707963267948966, state = "sells plate" }
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_trader_intro]
@@ -244,7 +310,7 @@ keeper = { name = "Sefa Lind" }
 "engine.talk_line" = { text = "I'm Sefa. Ore feeds the kiln here.", next = "core.kiln_trader_intro2" }
 
 [entities.kiln_trader_intro2]
-"engine.talk_line" = { text = "I buy it at the posted price.", next = "core.kiln_trader_intro3" }
+"engine.talk_line" = { text = "I buy it, and sell the plate it makes.", next = "core.kiln_trader_intro3" }
 
 [entities.kiln_trader_intro3]
 "engine.talk_line" = { text = "No hurry; the kiln burns slow." }

@@ -1,0 +1,365 @@
+# The trade loop end to end: mine and sell ore at Cinder Kiln, carry plate to Lantern
+# Dock until its galley is built, then carry the galley's rations back to the Kiln.
+# Along the way: buying rests while the hold is full, prices walk with each unit,
+# a quick undock-and-redock tap is not a visit, and a site trades nothing until built.
+# tests/trade.inputs holds the same route for sim runs and shots.
+seed = 7
+ticks = 2840
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 600
+name = "core.open"
+[[input]]
+tick = 605
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 610
+name = "core.sell"
+[[input]]
+tick = 620
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 640
+name = "core.launch"
+[[input]]
+tick = 650
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 960
+name = "core.open"
+[[input]]
+tick = 970
+name = "core.sell"
+[[input]]
+tick = 980
+name = "core.launch"
+[[input]]
+tick = 985
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1010
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 1015
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 1020
+name = "core.close"
+[[input]]
+tick = 1100
+name = "core.launch"
+[[input]]
+tick = 1110
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1410
+name = "core.open"
+[[input]]
+tick = 1420
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1440
+name = "core.launch"
+[[input]]
+tick = 1450
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1760
+name = "core.open"
+[[input]]
+tick = 1770
+name = "core.sell"
+[[input]]
+tick = 1790
+name = "core.launch"
+[[input]]
+tick = 1800
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2100
+name = "core.open"
+[[input]]
+tick = 2110
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 2130
+name = "core.launch"
+[[input]]
+tick = 2140
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2450
+name = "core.open"
+[[input]]
+tick = 2460
+name = "core.sell"
+[[input]]
+tick = 2480
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2490
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 2510
+name = "core.launch"
+[[input]]
+tick = 2520
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2820
+name = "core.open"
+[[input]]
+tick = 2830
+name = "core.sell"
+
+# Docked at the Kiln with a full hold of ore: buying plate is refused.
+[[expect]]
+tick = 606
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 0
+[[expect]]
+tick = 606
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+
+# Six ore sell unit by unit as the Kiln's stock fills.
+[[expect]]
+tick = 615
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 97
+[[expect]]
+tick = 615
+entity = "kiln_ore"
+component = "market"
+field = "stock"
+equals = 33
+
+# Buy as much plate as the credits allow; each unit asks a little more.
+[[expect]]
+tick = 630
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 3
+[[expect]]
+tick = 630
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 11
+[[expect]]
+tick = 630
+entity = "ship"
+component = "pilot"
+field = "sale"
+equals = -86
+[[expect]]
+tick = 630
+entity = "kiln_plate"
+component = "market"
+field = "stock"
+equals = 21
+
+# At Lantern Dock the plate goes into the galley.
+[[expect]]
+tick = 975
+entity = "lantern_galley"
+component = "build"
+field = "given"
+equals = 3
+[[expect]]
+tick = 975
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 122
+[[expect]]
+tick = 975
+entity = "lantern"
+component = "port"
+field = "visits"
+equals = 1
+
+# A quick launch and redock is still a docking, but not a visit: nothing settles.
+[[expect]]
+tick = 1000
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
+[[expect]]
+tick = 1000
+entity = "lantern"
+component = "port"
+field = "visits"
+equals = 1
+[[expect]]
+tick = 1000
+entity = "lantern_plate"
+component = "market"
+field = "stock"
+equals = 20
+
+# The galley site trades nothing before it is built.
+[[expect]]
+tick = 1016
+entity = "ship"
+component = "hold"
+field = "rations"
+equals = 0
+[[expect]]
+tick = 1016
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 122
+
+# Back at the Kiln, a counted visit has eased its plate stock back by two.
+[[expect]]
+tick = 1430
+entity = "kiln"
+component = "port"
+field = "visits"
+equals = 2
+[[expect]]
+tick = 1430
+entity = "kiln_plate"
+component = "market"
+field = "stock"
+equals = 19
+[[expect]]
+tick = 1430
+entity = "ship"
+component = "hold"
+field = "plate"
+equals = 4
+
+# The tenth plate builds the galley: a new building, its cook, and rations for sale.
+[[expect]]
+tick = 2470
+entity = "lantern_galley"
+component = "build"
+field = "done"
+equals = true
+[[expect]]
+tick = 2470
+entity = "lantern_galley"
+component = "engine.model"
+field = "model"
+equals = "core.galley"
+[[expect]]
+tick = 2470
+entity = "lantern_galley"
+component = "facility"
+field = "name"
+equals = "Galley"
+[[expect]]
+tick = 2470
+entity = "lantern_cook"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
+[[expect]]
+tick = 2470
+entity = "lantern_cook"
+component = "engine.life"
+field = "name"
+equals = ""
+[[expect]]
+tick = 2470
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Sold 4 plate to Lantern Dock for 136 cr. The galley is built: Ines Varga sells rations there."
+[[expect]]
+tick = 2470
+entity = "lantern_master_now"
+component = "engine.talk_line"
+field = "text"
+equals = "The field still holds 30 ore."
+
+# In her own room she wears her name sign.
+[[expect]]
+tick = 2485
+entity = "lantern_cook"
+component = "engine.life"
+field = "name"
+equals = "Ines Varga"
+[[expect]]
+tick = 2500
+entity = "ship"
+component = "hold"
+field = "rations"
+equals = 6
+[[expect]]
+tick = 2500
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 70
+
+# The Kiln's crews buy the rations.
+[[expect]]
+tick = 2840
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 181
+[[expect]]
+tick = 2840
+entity = "kiln_rations"
+component = "market"
+field = "stock"
+equals = 32
+[[expect]]
+entity = "kiln"
+component = "port"
+field = "visits"
+equals = 4
+[[expect]]
+entity = "lantern"
+component = "port"
+field = "visits"
+equals = 3
+[[expect]]
+facts = "docked"
+equals = 8
+[[expect]]
+facts = "grown"
+equals = 1

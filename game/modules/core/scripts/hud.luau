@@ -6,6 +6,7 @@ local rules = require("./rules")
 local layout = require("./layout")
 local teach = require("./teach")
 local signs = require("./signs")
+local trade = require("./trade")
 
 -- The flight keys, each shown until it has been used a few times.
 local HINTS = {
@@ -28,11 +29,14 @@ local function where(ctx)
     return pilot, here == "core.reach", docked
 end
 
-local function status(ui, pilot)
-    return ui.panel { id = "status", x = layout.W - 220, y = 0, width = 220, gap = 4, children = {
-        ui.text { id = "hold", text = "Hold " .. pilot.cargo .. " / " .. rules.CAPACITY .. " ore", size = 20 },
-        ui.text { id = "credits", text = pilot.credits .. " cr", size = 20 },
-    } }
+local function status(ctx, ui, pilot)
+    local hold = ctx.get("ship", "hold")
+    local children = { ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. rules.CAPACITY, size = 20 } }
+    if rules.load(hold) > 0 then
+        table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 18 })
+    end
+    table.insert(children, ui.text { id = "credits", text = pilot.credits .. " cr", size = 20 })
+    return ui.panel { id = "status", x = layout.W - 240, y = 0, width = 240, gap = 4, children = children }
 end
 
 local function log_panel(ctx, ui)
@@ -60,7 +64,7 @@ local function orders(ctx, ui)
     for _, id in ctx.query("port") do
         local port = ctx.get(id, "port")
         table.insert(children, ui.button { id = string.match(id, "%.(%w+)$"), text = "Dock at " .. port.name,
-            hover = port.name .. " pays " .. port.price .. " cr per ore", on = "dock", payload = { station = id } })
+            hover = trade.posted(ctx, id), on = "dock", payload = { station = id } })
     end
     return ui.column { id = "orders", x = 0, y = 0, width = 300, gap = 12, children = children }
 end
@@ -82,7 +86,7 @@ return {
         if pilot.log_open then return log_panel(ctx, ui) end
         if docked and pilot.room ~= "" then return nil end
         local children = {
-            status(ui, pilot),
+            status(ctx, ui, pilot),
             ui.button { id = "log_open", x = 0, y = layout.H - layout.BUTTON, width = 200, text = "Ship log  [L]", on = "log" },
         }
         if space then

@@ -21,8 +21,8 @@ field = "credits"
 equals = 0
 [[expect]]
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 0
 [[expect]]
 entity = "ship"

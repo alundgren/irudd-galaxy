@@ -29,17 +29,17 @@ widget = "talk.core.lantern_master_intro"
 [[click]]
 tick = 575
 widget = "talk.core.lantern_master_intro"
-
-# Tova at the ore exchange: her introduction, then a line about the hold.
 [[click]]
 tick = 590
-widget = "sign_exchange"
+widget = "talk.core.lantern_master_intro"
+
+# Tova at the exchange: her introduction, then a line about the hold.
 [[click]]
 tick = 605
-widget = "speaker.core.lantern_trader"
+widget = "sign_exchange"
 [[click]]
 tick = 620
-widget = "talk.core.lantern_trader_intro"
+widget = "speaker.core.lantern_trader"
 [[click]]
 tick = 635
 widget = "talk.core.lantern_trader_intro"
@@ -48,24 +48,27 @@ tick = 650
 widget = "talk.core.lantern_trader_intro"
 [[click]]
 tick = 665
+widget = "talk.core.lantern_trader_intro"
+[[click]]
+tick = 680
 widget = "speaker.core.lantern_trader"
 [[click]]
-tick = 685
+tick = 700
 widget = "talk.core.lantern_trader_talk"
 [[click]]
-tick = 700
-widget = "sell"
-[[click]]
-tick = 730
-widget = "close"
+tick = 715
+widget = "sell_ore"
 [[click]]
 tick = 745
+widget = "close"
+[[click]]
+tick = 760
 widget = "log_open"
 [[click]]
-tick = 770
+tick = 785
 widget = "log_close"
 [[click]]
-tick = 790
+tick = 805
 widget = "launch"
 
 [[note]]
@@ -85,19 +88,19 @@ tick = 520
 text = "Bram's first line: his name on top, one sentence, Continue."
 
 [[note]]
-tick = 612
+tick = 627
 text = "Tova introduces herself beside the open exchange."
 
 [[note]]
-tick = 675
+tick = 690
 text = "Clicked again, Tova talks about the hold instead of repeating."
 
 [[note]]
-tick = 715
+tick = 730
 text = "Sold six ore; the stockpile and credits grew."
 
 [[note]]
-tick = 760
+tick = 775
 text = "The log: newest first, each conversation one entry with speaker and station."
 
 [[note]]

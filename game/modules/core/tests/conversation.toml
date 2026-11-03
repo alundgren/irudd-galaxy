@@ -68,12 +68,17 @@ entity = "lantern_master"
 component = "engine.life"
 field = "name"
 equals = "Bram Okafor"
+[[input]]
+tick = 523
+name = "engine.talk_next"
+source = "talk"
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
 # His last line: the bubble goes, and so does his sign while the log stays open.
 [[input]]
 tick = 525
 name = "engine.talk_next"
 source = "talk"
-payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro4" }
+payload = { talk = "core.lantern_master_intro", line = "core.lantern_master_intro5" }
 [[expect]]
 tick = 526
 entity = "lantern_master"
@@ -94,7 +99,7 @@ tick = 531
 entity = "log3"
 component = "entry"
 field = "text"
-equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is the other station.” “It's out east, and pays more for ore.”"
+equals = "Bram Okafor at Lantern Dock: “Welcome to Lantern Dock.” “I'm Bram. I keep the berth and lamps.” “Cinder Kiln is the other station.” “It's out east, and pays more for ore.” “We're raising a galley. It needs plate.”"
 
 # Tova's introduction, with a sale after her first line.
 [[input]]
@@ -135,7 +140,7 @@ tick = 571
 entity = "log4"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the ore exchange.” “I pay the posted price; it holds steady.” “Bring ore in whenever it suits you.”"
+equals = "Tova Reyes at Lantern Dock: “I'm Tova, and I run the exchange.” “I buy ore, and plate for our galley.” “My prices drop as my stock fills.”"
 # Her later lines joined that entry: nothing new was logged.
 [[expect]]
 tick = 571
@@ -160,4 +165,4 @@ tick = 586
 entity = "log6"
 component = "entry"
 field = "text"
-equals = "Tova Reyes at Lantern Dock: “Thanks. Your ore's on the pile already.”"
+equals = "Tova Reyes at Lantern Dock: “Thanks. It's all on the pile already.”"

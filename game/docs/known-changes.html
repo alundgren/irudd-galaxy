@@ -599,53 +599,18 @@
 <!-- ============================================================ -->
 <h2>Cargo, trade and progression</h2>
 
-<article class="item med">
-<h3>Helping a station grow feels worth it <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<ol>
-  <li>Deliver or sell ice and refined plate to Odo at Kettle Dock over several trips. His greenhouse grows in stages ("rings").</li>
-  <li>For example, he asks: <span class="screen">My greenhouse needs 24 more ice and 2 more plate for its next ring.</span></li>
-  <li>Keep going until he offers the first harvest.</li>
-</ol>
-<p class="label">What the player sees</p>
-<ul>
-  <li>In an earlier build, the domes glowed green and Odo said <span class="screen">Second ring's lit. Mostly your ice. And your plate, mostly.</span> That was it.</li>
-  <li>The newest build adds a "lamp night" at the station and a harvest offer with <span class="screen">Accept</span> / <span class="screen">Not now</span>.</li>
-  <li>After 24 more ice and 2 plate, the harvest gift is <span class="screen">Confirmed · Kettle Dock: Odo gave you 4 rations from the first harvest · a gift</span>, worth about 60 credits. That is small next to what the deliveries cost in time and cargo.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>something turned green ... ok why is this exciting, mysterious, rewarding</blockquote>
-<figure><img src="known-changes/greenhouse-ring-lit.jpg" alt="Kettle Dock with glowing green greenhouse domes and messages from Odo: 'Second ring's lit. Mostly your ice.'" loading="lazy"><figcaption>Earlier build: the ring lights up, and nothing says why it matters.</figcaption></figure>
-<figure><img src="known-changes/first-harvest-gift.jpg" alt="Kettle Dock: card 'Confirmed · Kettle Dock: Odo gave you 4 rations from the first harvest · a gift'." loading="lazy"><figcaption>Newest build: the first-harvest reward is 4 rations.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Each milestone feels exciting, mysterious or rewarding. The player knows beforehand that something will happen, and afterwards sees a real change. For example:
-    <ul>
-      <li>a new person or room at the station</li>
-      <li>a story hook</li>
-      <li>new goods</li>
-      <li>a visible change to the station</li>
-      <li>a reason to come back</li>
-    </ul>
-  </li>
-  <li>The exact size of rewards belongs to the balance pass (see the note below).</li>
-</ul>
-</article>
-
 <article class="item low">
-<h3>Buy buttons rest while the hold is full <span class="tag low">● Low</span></h3>
+<h3>Buy buttons are drawn resting while the hold is full <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>Take on Ilse's 20 refined plate for Rook (<span class="screen">Hold 20/20 · Refined plate 20 · Ilse's</span>), then open the Market at Lantern Wharf.</p>
+<p>Dock at Cinder Kiln with a full hold of ore and open the Exchange.</p>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>Rations (<span class="screen">asks 15.9 cr</span>) and Refined plate (<span class="screen">asks 32.9 cr</span>) still show solid, normal-looking <span class="screen">Buy 1</span> / <span class="screen">Buy max</span> buttons, although nothing can be bought.</li>
-  <li>The sell side correctly shows <span class="screen">You have no glassite to sell.</span></li>
+  <li>The plate line shows its price and stock, and one line says <span class="screen">Hold full: buy buttons rest until you sell.</span></li>
+  <li>The <span class="screen">Buy</span> buttons are left out instead of drawn resting: a screen button can't yet be drawn in a resting state.</li>
 </ul>
-<figure><img src="known-changes/buy-with-full-hold.jpg" alt="Lantern Wharf market with Hold 20/20 Refined plate 20 Ilse's: Buy 1 and Buy max buttons for rations and plate still look active." loading="lazy"><figcaption>Newest build: the hold is full, but the buy buttons look ready.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>With a full hold, the buy buttons are drawn as resting (for example dashed, never greyed text), with one short reason.</li>
-  <li>The agreed station mock-up words it as <span class="screen">Hold full: buy buttons rest until you sell</span>.</li>
+  <li>With a full hold, the buy buttons stay in place, drawn as resting (for example dashed, never greyed text), with that one short reason.</li>
 </ul>
 </article>
 
@@ -740,28 +705,6 @@
 <p>The first build had no engine sound and no ambient sound, in stations or in space. Andreas noted it as missing. Real audio was not checked in the later test runs.</p>
 <p class="label">What good looks like</p>
 <p>A quiet engine hum that follows thrust, and soft ambient sound beds out in space and at each station. These sit under the radio music without fighting it.</p>
-</article>
-
-<!-- ============================================================ -->
-<h2>Exploits</h2>
-
-<article class="item med">
-<h3>Quick undock and redock taps never count as visits <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<ol>
-  <li>While docked at any station (for example Kettle Dock), tap W to undock and immediately dock again.</li>
-  <li>Repeat a few times.</li>
-</ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li><strong>Earlier build:</strong> three quick taps at Cinder Hook counted as three dockings. That opened the next story step at Cinder Hook before the current one was finished, and the map's "seen 1 docking ago" note jumped to 5. Unlocks such as the nav chip also counted dockings.</li>
-  <li><strong>Newest build:</strong> the story and unlocks no longer count taps (fixed). But each station's count of how often you have scouted it still goes up with every tap. At Kettle Dock it went from 3 to 7 after 4 taps. Nothing reads that count yet, but future content could.</li>
-</ul>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Anything that counts dockings or visits ignores quick in-and-out taps. A visit only counts after the ship has really left: flown a real distance away, or gone somewhere else.</li>
-  <li>Progress can never be farmed by tapping at a dock.</li>
-</ul>
 </article>
 
 <!-- ============================================================ -->

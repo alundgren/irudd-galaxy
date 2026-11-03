@@ -45,8 +45,8 @@ at_most = 9
 [[expect]]
 tick = 300
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 6
 
 [[expect]]
@@ -82,28 +82,28 @@ tick = 670
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 72
+equals = 73
 
 [[expect]]
 tick = 670
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 0
 
 [[expect]]
 tick = 670
-entity = "lantern"
-component = "port"
+entity = "lantern_ore"
+component = "market"
 field = "stock"
-equals = 6
+equals = 33
 
 [[expect]]
 tick = 670
 entity = "lantern_stock"
 component = "engine.model"
 field = "scale"
-equals = 0.64
+equals = 0.92
 
 [[expect]]
 tick = 840
