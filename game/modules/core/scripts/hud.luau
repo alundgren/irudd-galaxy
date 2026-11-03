@@ -4,6 +4,22 @@
 -- whole focus, so the rest steps aside.
 local rules = require("./rules")
 local layout = require("./layout")
+local teach = require("./teach")
+local signs = require("./signs")
+
+-- The flight keys, each shown until it has been used a few times.
+local HINTS = {
+    { "thrust", "W/S thrust" }, { "turn", "A/D turn" }, { "boost", "Shift boost" },
+    { "mine", "Space mine" }, { "dock", "E dock" }, { "cancel", "0 cancel order" },
+}
+
+local function hints(ctx)
+    local taught, parts = ctx.get("ship", "taught"), {}
+    for _, hint in HINTS do
+        if teach.new(taught, hint[1]) then table.insert(parts, hint[2]) end
+    end
+    return table.concat(parts, " · ")
+end
 
 local function where(ctx)
     local pilot = ctx.get("ship", "pilot")
@@ -30,6 +46,7 @@ local function log_panel(ctx, ui)
     return layout.frame(ui, "log", {
         ui.panel { id = "log", x = 0, y = 0, width = layout.PANEL, gap = 12, children = {
             ui.text { id = "log_title", text = "Ship log", size = 28 },
+            ui.text { id = "log_order", text = "Newest first", size = 16 },
             ui.scroll { id = "entries", height = 440, children = rows },
             ui.button { id = "log_close", text = "Close the log  [L]", on = "log" },
         } },
@@ -55,6 +72,8 @@ return {
             local pilot = ctx.get("ship", "pilot")
             if pilot.room ~= "" then return end
             ctx.patch("ship", "pilot", { log_open = not pilot.log_open })
+            local here = ctx.get("ship", "engine.location").place
+            if here ~= "" and ctx.get(here, "port") then signs.show(ctx, here, "", not pilot.log_open) end
         end,
     },
     screen = function(ctx, ui)
@@ -69,8 +88,10 @@ return {
         if space then
             table.insert(children, orders(ctx, ui))
             table.insert(children, ui.text { id = "message", x = 336, y = layout.H - 76, width = 560, text = pilot.message, size = 20 })
-            table.insert(children, ui.text { id = "hints", x = 336, y = layout.H - 26, width = 560, size = 16,
-                text = "W/S thrust · A/D turn · Shift boost · E dock · 0 cancel" })
+            local keys = hints(ctx)
+            if keys ~= "" then
+                table.insert(children, ui.text { id = "hints", x = 336, y = layout.H - 26, width = 560, size = 16, text = keys })
+            end
         end
         return layout.frame(ui, "hud", children)
     end,

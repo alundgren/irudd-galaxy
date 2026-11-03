@@ -1,5 +1,9 @@
 local rules = require("./rules")
 local log = require("./log")
+local teach = require("./teach")
+
+-- Which hint each held key teaches.
+local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
 
 local function space(ctx)
     return ctx.get("ship", "engine.location").place == "core.reach"
@@ -33,8 +37,11 @@ local function flight(event, ctx)
         thrust = axis("ahead", "back"), turn = axis("left", "right"), boost = held.boost,
     })
     if pressed(event) then
+        teach.used(ctx, TEACHES[key])
+        local ordered = ctx.get("ship", "engine.steer").mode ~= ""
         ctx.put("ship", "engine.steer", {})
-        ctx.patch("ship", "pilot", { mining = false, target = "", message = "Flying by hand. Release thrust to stop." })
+        ctx.patch("ship", "pilot", { mining = false, target = "" })
+        if ordered then message(ctx, "Order dropped: flying by hand.") end
     end
 end
 
@@ -54,17 +61,19 @@ end
 
 local function mine(event, ctx)
     if not pressed(event) or not space(ctx) then return end
+    teach.used(ctx, "mine")
     local pilot = ctx.get("ship", "pilot")
     if pilot.cargo >= rules.CAPACITY then message(ctx, "Hold full. Dock and sell your six ore."); return end
     local target = nearest(ctx, "ore")
     if not target then message(ctx, "The field is worked out. Your ore still has a buyer."); return end
     stop(ctx)
     ctx.put("ship", "engine.steer", { mode = "hold", target = target, range = 1.5 })
-    ctx.patch("ship", "pilot", { mining = true, target = target, message = "Approaching ore. One unit per second in reach." })
+    ctx.patch("ship", "pilot", { mining = true, target = target, message = "Heading for the nearest ore." })
 end
 
 local function dock(event, ctx)
     if not pressed(event) or not space(ctx) then return end
+    teach.used(ctx, "dock")
     local station = event.payload.station
     if station ~= "core.lantern" and station ~= "core.kiln" then station = nearest(ctx, "port") end
     local port = ctx.get(station, "port")
@@ -78,7 +87,11 @@ return {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
         mine = mine, dock = dock,
         cancel = function(event, ctx)
-            if pressed(event) and space(ctx) then stop(ctx); message(ctx, "Order cancelled. Coasting to a stop.") end
+            if pressed(event) and space(ctx) then
+                teach.used(ctx, "cancel")
+                stop(ctx)
+                message(ctx, "Order cancelled. Coasting to a stop.")
+            end
         end,
         ["engine.arrived"] = function(event, ctx)
             local pilot = ctx.get("ship", "pilot")
@@ -102,10 +115,15 @@ return {
         local amount = rules.transfer(pilot.cargo, ore.left)
         if amount == 0 then
             ctx.patch("ship", "pilot", { mining = false })
-            log.add(ctx, pilot.cargo == rules.CAPACITY and "Hold full: " .. pilot.cargo .. " ore aboard. E docks at the nearest station." or "Rock worked out. Space finds the next one.")
+            local taught = ctx.get("ship", "taught")
+            if pilot.cargo == rules.CAPACITY then
+                log.add(ctx, "Hold full: " .. pilot.cargo .. " ore aboard." .. (teach.new(taught, "dock") and " E docks at the nearest station." or ""))
+            else
+                log.add(ctx, "Rock worked out." .. (teach.new(taught, "mine") and " Space finds the next one." or ""))
+            end
             return
         end
-        ctx.patch("ship", "pilot", { cargo = pilot.cargo + amount, message = "+1 ore aboard. The cut in the rock is visible." })
+        ctx.patch("ship", "pilot", { cargo = pilot.cargo + amount, message = "+1 ore aboard." })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
         ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
         ctx.record("mined", { rock = pilot.target, units = amount })

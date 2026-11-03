@@ -2,9 +2,9 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.5.0"
-scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau"]
+scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "log", "mined", "sold", "docked"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.life", "engine.act", "engine.clock"]
 
 [components.pilot]
 cargo = "int"
@@ -54,6 +54,17 @@ b = "id"
 [components.entry]
 n = "int"
 text = "text"
+talk = "id"
+
+# How often the player has used each control; its hint retires after a few uses.
+[components.taught]
+thrust = "int"
+turn = "int"
+boost = "int"
+mine = "int"
+dock = "int"
+cancel = "int"
+talk = "int"
 
 [keys]
 w = "ahead"

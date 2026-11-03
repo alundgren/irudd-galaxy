@@ -77,8 +77,7 @@
   <dt>Odo Fenn</dt><dd>Keeper at Kettle Dock, who grows the greenhouse there. He wants ice and refined plate.</dd>
   <dt>Tamsin Oddway</dt><dd>At Kettle Dock, in the Berths. She builds tenders.</dd>
   <dt>Rook Adeyemi</dt><dd>Keeps the ore depot at Cinder Hook.</dd>
-  <dt>Pip Calloway and Saffron Vey</dt><dd>At Brassmouth Exchange. Pip runs the market and Saffron keeps the Tollway Compact's books in the office.</dd>
-  <dt>Hesper Lune and Nell</dt><dd>At Glass Drift Observatory. Hesper is in the office and Nell in the archive. Hesper can send parts to the Wren.</dd>
+  <dt>Hesper Lune</dt><dd>At Glass Drift Observatory, in the office. Hesper can send parts to the Wren.</dd>
 </dl>
 
 <h4>World</h4>
@@ -286,81 +285,46 @@
 <h2>Dialogue and NPCs</h2>
 
 <article class="item high">
-<h3>Dialogue comes one short line at a time, with speaker and place styled differently <span class="tag high">▲ High</span></h3>
+<h3>In a bubble, the speaker's name and the continue hint look different from the line <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<p>Start a new game. Ilse's welcome opens at once.</p>
+<p>Dock at either station and click a keeper, for example Tova Reyes beside Lantern Dock's ore exchange.</p>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>One box with a single orange pill on top, <span class="screen">Ilse Marrow · Lantern Wharf</span>. The speaker's name and the station name share the same style in the same pill.</li>
-  <li>Then one block of five sentences: <span class="screen">Welcome to Lantern Wharf. I'm Ilse; I keep the dock. The Wren's yours now: small, round-nosed and honest. Odo at Kettle Dock needs ice for his greenhouse, and the pale rocks east of here are Rimewater ice.</span></li>
-  <li>Under it, in large text: <span class="screen">Click or Enter · close</span>.</li>
+  <li>A bubble over the keeper with one short sentence, and a click for the next. The keeper's name sits on its own line at the top: <span class="screen">Tova Reyes</span> / <span class="screen">I'm Tova, and I run the ore exchange.</span></li>
+  <li>The name has the same size and weight as the sentence, so it doesn't stand out.</li>
+  <li>Under the sentence, <span class="screen">Continue</span> (or <span class="screen">Done</span> on the last line) is just as large as the sentence.</li>
 </ul>
-<p>In an earlier build, the same intro also stayed on screen after flying away from the station, which made it hard to connect to where it came from.</p>
 <p class="label">Andreas said</p>
-<blockquote>This is what 5 sentences but they are all just smashed into one wall of text and the speakers name and the location are styled the exact same + we have this massive click or enter - close competing for attention</blockquote>
-<p>From the earlier build: <q>a bit wall of texty and it sticks beyond the stations so its a bit hard to relate after flying away … maybe more like a chat so I can scroll back</q></p>
-<figure><img src="known-changes/ilse-intro-dialogue.png" alt="Ilse's intro box: pill 'Ilse Marrow · Lantern Wharf', five sentences in one block, and 'Click or Enter · close' below." loading="lazy"><figcaption>Newest build, Ilse's welcome on a new game.</figcaption></figure>
+<p>About the previous build's welcome box:</p>
+<blockquote>the speakers name and the location are styled the exact same + we have this massive click or enter - close competing for attention</blockquote>
+<figure><img src="../evidence/core-talk/bubble.jpg" alt="Docked at Lantern Dock: a white bubble over Bram with 'Bram Okafor', 'Welcome to Lantern Dock.' and 'Continue', all in the same size." loading="lazy"><figcaption>Current core build: one line at a time, the name on its own line, but name, line and Continue look alike.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>A short bubble over the speaker with one sentence or beat at a time. A click advances, and a small marker shows there is more.</li>
   <li>The speaker's name stands out on its own. The place is shown separately and more quietly, or left out when it's obvious.</li>
-  <li>The continue/close hint is small and quiet.</li>
-  <li>Past lines can be read again in the ship log.</li>
-  <li>Talk never stays on screen after you fly away.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>Trust the player: no hint text for things that are already obvious <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Start a new game, mine 20 ice, fly to Kettle Dock and dock. Odo asks about the ice.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Odo's box: <span class="screen">Odo Fenn · Kettle Dock</span> / <span class="screen">Is that ice for my greenhouse? I still need 20. It's yours to deliver, sell or keep.</span></li>
-  <li>Three numbered answer buttons: <span class="screen">1 Deliver 20 ice to Odo</span>, <span class="screen">2 Sell it at the market</span>, <span class="screen">3 Keep it</span>.</li>
-  <li>Under the buttons: <span class="screen">Pick an answer: click it or press its number</span>.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>we dont need this super handholdy "the player has no brain" type of texts</blockquote>
-<p>From an earlier build, about a big "Your hold is full" pill and a mining-speed readout always shown while mining: <q>This one is a bit to hand holdy. Like while mining it will show the mining speed. We need to teach the controls but not constantly</q></p>
-<figure><img src="known-changes/odo-choice-hint.png" alt="Odo's question with three numbered answers and, below, the hint 'Pick an answer: click it or press its number' circled in red." loading="lazy"><figcaption>Newest build. Andreas circled the hint under the answers.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>No text explains UI that explains itself. Numbered buttons are enough.</li>
-  <li>Things that do need teaching, like the first flight keys or how to mine, are shown early, then fade out once the player has used them a few times.</li>
-  <li>Readouts like mining speed show only when they matter.</li>
-  <li>The Deliver / Sell / Keep choice itself is good and stays.</li>
+  <li>The continue/close hint is small and quiet, and a small marker shows there is more.</li>
 </ul>
 </article>
 
 <article class="item low">
-<h3>NPCs don't repeat themselves, and an offer can be declined <span class="tag low">● Low</span></h3>
+<h3>An offer can be declined <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>Mid-game, dock several times at the same station:</p>
+<p>The core has no offers yet. This applies to the first gift, job or part a person offers. In the previous build, dock at Cinder Hook several times after the dispute about Ilse's plate has started.</p>
+<p class="label">What the player saw</p>
 <ul>
-  <li>Glass Drift Observatory (Hesper)</li>
-  <li>Brassmouth Exchange (Pip)</li>
-  <li>Cinder Hook (Rook), after the dispute about Ilse's plate has started</li>
-</ul>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Hesper says <span class="screen">The lane lamps know your hull now. They brighten a little when you pass.</span> on every visit (seen 4+ times).</li>
-  <li>Pip says <span class="screen">You're through that lane more often…</span> on every visit (seen 5 times).</li>
-  <li>Rook offers money on every docking at Cinder Hook: <span class="screen">they left 300 credits with me for you</span> (seen 6 times). The only answer is <span class="screen">Take</span>, and it doesn't pay twice, so the offer is empty after the first time.</li>
-  <li>Each repeat is stored again, so the ship log and the world's memory fill with duplicates. In one run, the 8 most common entries were all repeats.</li>
+  <li>Rook offered money on every docking at Cinder Hook: <span class="screen">they left 300 credits with me for you</span> (seen 6 times). The only answer was <span class="screen">Take</span>, and it didn't pay twice, so the offer was empty after the first time.</li>
+  <li>Each repeat was stored again, so the ship log filled with duplicates.</li>
 </ul>
 <p class="label">What good looks like</p>
 <ul>
-  <li>A line is said once. After that the character varies it, says something new, or just greets briefly.</li>
   <li>An offer can be declined ("Not now" or "No"). Once taken or declined, it doesn't come back.</li>
   <li>The log keeps one entry for one event.</li>
 </ul>
 </article>
 
 <article class="item low">
-<h3>News and world-change entries name the right source, in plain words and a clear order <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
+<h3>World news looks different from speech and names the right source <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
 <p class="label">Where and how</p>
-<p>In an earlier build, messages and "Chronicle" entries (world changes) stacked in one box at the bottom left.</p>
+<p>The core has no world news yet: nothing at a station changes on its own. In an earlier build, messages and "Chronicle" entries (world changes) stacked in one box at the bottom left.</p>
 <ol>
   <li>Deliver ice to Odo at Kettle Dock until a greenhouse ring lights up.</li>
   <li>Buy the mining lens at Lantern Wharf.</li>
@@ -368,14 +332,7 @@
 </ol>
 <p class="label">What the player saw</p>
 <ul>
-  <li>Three entries were stacked with no order cue (no time, no newest/oldest marker), mixing speech and world news:
-    <ul>
-      <li><span class="screen">Odo Fenn · Kettle Dock: 20 ice. The beans will hear about this.</span></li>
-      <li>Odo about Orrin's mining lens</li>
-      <li><span class="screen">Chronicle · Ilse Marrow · Kettle Dock: At Kettle Dock, a greenhouse ring lit up. Ilse remembers.</span></li>
-    </ul>
-  </li>
-  <li>That last entry is tagged with Ilse at Kettle Dock, but Ilse lives at Lantern Wharf.</li>
+  <li>Speech and world news were mixed in one box: <span class="screen">Chronicle · Ilse Marrow · Kettle Dock: At Kettle Dock, a greenhouse ring lit up. Ilse remembers.</span> That entry is tagged with Ilse at Kettle Dock, but Ilse lives at Lantern Wharf.</li>
   <li>At Cinder Hook, on a first visit, "Ask what changed" returned the Kettle Dock greenhouse news instead of anything about Cinder Hook.</li>
   <li>"A greenhouse ring lit up" was used for what Odo himself calls the first pane.</li>
   <li>Buying the lens produced the cryptic <span class="screen">The pilot's welcome changed</span>.</li>
@@ -387,56 +344,8 @@
 <p class="label">What good looks like</p>
 <ul>
   <li>World news looks different from speech. In the agreed design it surfaces as a ribbon on the station key with a one-line headline.</li>
-  <li>Every entry names the right source and place, and is about the station you are asking at.</li>
+  <li>Every news entry names the right source and place, and is about the station you are asking at.</li>
   <li>The wording is plain ("Odo's greenhouse at Kettle Dock grew its first pane").</li>
-  <li>The log reads in an obvious order, newest clearly marked.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Control hints say exactly what the key or click does <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>Two hints in earlier builds, both shown in the top banner while flying:</p>
-<ol>
-  <li>The pause hint early in a game.</li>
-  <li>The prompt after the nav chip became available.</li>
-</ol>
-<p class="label">What the player saw</p>
-<ul>
-  <li><span class="screen">Press P or Esc whenever you like. The whole galaxy waits for you.</span> The poetic second sentence made it sound like the key opens a galaxy map, not pause.</li>
-  <li><span class="screen">Orrin has a nav chip: click where you want the Wren to go.</span> This read as an instruction to click-to-move, but clicking did nothing, because the nav chip had to be bought first. It also named Orrin and the Wren before either had been introduced (see the next item).</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>super wierd way to sell the pause function. the text sounds like it would open a map or someting</blockquote>
-<figure><img src="known-changes/pause-hint.jpg" alt="Top banner: 'Press P or Esc whenever you like. The whole galaxy waits for you.' circled in red." loading="lazy"><figcaption>Earlier build, the pause hint.</figcaption></figure>
-<figure><img src="known-changes/nav-chip-prompt.jpg" alt="In flight near ice rocks: top banner 'Orrin has a nav chip: click where you want the Wren to go.' marked in red; bottom pill 'Hold Space · mine ice'." loading="lazy"><figcaption>Earlier build, the nav chip prompt that read as an instruction to click-to-move.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>A control hint states the key and its effect literally: "P or Esc · pause".</li>
-  <li>Something that isn't usable yet is described as an offer ("Orrin can fit a nav chip that lets you click to fly"), not as an instruction.</li>
-  <li>Flavour belongs in dialogue, not in control hints.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Names and terms are introduced before they are used <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>Earliest builds, in the first minutes of play and on the first sale at Kettle Dock.</p>
-<p class="label">What the player saw</p>
-<ul>
-  <li>The banner <span class="screen">Orrin has a nav chip: click where you want the Wren to go.</span> came before the game had said who Orrin or the Wren were. Andreas couldn't tell whether he was the Wren and Orrin was his ship, or whether Orrin was someone still to meet. He worked it out only by finding "HULLWRIGHT · Orrin Vale" on a station screen.</li>
-  <li>After selling a full hold at Kettle Dock, Tamsin said <span class="screen">You emptied a whole hold into Kettle Dock. A tender would've waited.</span>, but "tender" and "Kettle Dock" had not been explained.</li>
-  <li>"Chronicle" appeared as a label with no explanation.</li>
-</ul>
-<p>The newest build already improves on this: Ilse's welcome says <q>The Wren's yours now</q>, and Tamsin's goal reads <span class="screen">Tamsin Oddway at Kettle Dock keeps tenders, little craft with no crew.</span></p>
-<p class="label">Andreas said</p>
-<blockquote>never told the player what "wren" or "orrin" is</blockquote>
-<blockquote>Discovering/figuring out in game systems is part of the fun but the game has to provide enough clues at a reasonable pace</blockquote>
-<figure><img src="known-changes/tamsin-tender-line.png" alt="Message 'Tamsin Oddway · Kettle Dock: You emptied a whole hold into Kettle Dock. A tender would've waited.'" loading="lazy"><figcaption>Earlier build: "tender" used before the game explains it.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Every proper noun has a path to being learned: you meet the person, see the thing, or someone explains it in a few words when it first comes up.</li>
-  <li>This is not a big arrow to the next objective. Clues can stay vague (see "Keep" at the bottom), but they must not depend on words the player has never seen.</li>
 </ul>
 </article>
 

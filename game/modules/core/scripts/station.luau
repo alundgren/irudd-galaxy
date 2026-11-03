@@ -2,6 +2,9 @@
 -- beside its building, and the station key along the bottom reaches every room.
 local rules = require("./rules")
 local log = require("./log")
+local teach = require("./teach")
+local voices = require("./voices")
+local signs = require("./signs")
 local layout = require("./layout") -- room panels are layout.PANEL wide: at most about 45% of the view
 
 local function pressed(event)
@@ -38,12 +41,16 @@ local function open(event, ctx)
     local facility = ctx.get(id, "facility")
     if not facility or facility.station ~= station or pilot.room == id then return end
     ctx.patch("ship", "pilot", { room = id, sale = 0, log_open = false })
+    signs.show(ctx, station, id, false)
 end
 
 local function close(event, ctx)
     if not pressed(event) then return end
     local station, pilot = docked(ctx)
-    if station and pilot.room ~= "" then ctx.patch("ship", "pilot", { room = "", sale = 0 }) end
+    if station and pilot.room ~= "" then
+        ctx.patch("ship", "pilot", { room = "", sale = 0 })
+        signs.show(ctx, station, "", false)
+    end
 end
 
 local function launch(event, ctx)
@@ -55,10 +62,12 @@ local function launch(event, ctx)
     ctx.put("ship", "engine.steer", {})
     ctx.put("ship", "held", {})
     ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false })
+    signs.show(ctx, station, "", false) -- worn again on the next visit
     ctx.move("ship", "core.reach", port.departure)
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
-    log.add(ctx, "Launched from " .. port.name .. ". Space finds the nearest ore.")
+    local hint = teach.new(ctx.get("ship", "taught"), "mine") and " Space finds the nearest ore." or ""
+    log.add(ctx, "Launched from " .. port.name .. "." .. hint)
 end
 
 local function sell(event, ctx)
@@ -71,6 +80,7 @@ local function sell(event, ctx)
     ctx.patch("ship", "pilot", { cargo = 0, credits = pilot.credits + earned, sale = earned })
     ctx.patch(station, "port", { stock = port.stock + pilot.cargo })
     ctx.patch(station .. "_stock", "engine.model", { scale = 0.4 + (port.stock + pilot.cargo) * 0.04 })
+    voices.refresh(ctx, station, 0, earned)
     log.add(ctx, "Sold " .. pilot.cargo .. " ore to " .. port.name .. " for " .. earned .. " cr.")
     ctx.record("sold", { units = pilot.cargo, credits = earned, station = station })
 end
@@ -95,7 +105,8 @@ local function room_panel(ctx, ui, station, pilot)
     local first = string.match(keeper.name, "^%S+")
     local children = {
         ui.text { id = "title", text = facility.name, size = 28 },
-        ui.text { id = "keeper", text = keeper.name .. " keeps it. Click " .. first .. " to talk.", size = 18 },
+        ui.text { id = "keeper", size = 18, text = keeper.name .. " keeps it."
+            .. (teach.new(ctx.get("ship", "taught"), "talk") and " Click " .. first .. " to talk." or "") },
     }
     if pilot.room == port.exchange then
         table.insert(children, ui.text { id = "price", text = "Pays " .. port.price .. " cr per ore", size = 22 })

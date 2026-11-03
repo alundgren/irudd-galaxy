@@ -1,3 +1,7 @@
+# The keepers' day: one resting act each, so each wears a name sign.
+[entities.day]
+"engine.clock" = {}
+
 [entities.reach]
 "engine.place" = { width = 160, depth = 100 }
 
@@ -14,6 +18,7 @@
 "engine.camera" = { view = 64, min_view = 24, max_view = 100, tilt = 30 }
 pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 held = {}
+taught = {}
 
 [entities.rock1]
 "engine.location" = { place = "core.reach" }
@@ -98,15 +103,30 @@ facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_m
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
 keeper = { name = "Tova Reyes" }
+"engine.life" = { clock = "core.day", first = "core.lantern_trader_act", name = "Tova Reyes" }
 
+[entities.lantern_trader_act]
+"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore" }
+
+# Said once: the first click introduces the keeper.
+[entities.lantern_trader_intro]
+"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_intro1", width = 420, story = true }
+
+[entities.lantern_trader_intro1]
+"engine.talk_line" = { text = "I'm Tova, and I run the ore exchange.", next = "core.lantern_trader_intro2" }
+
+[entities.lantern_trader_intro2]
+"engine.talk_line" = { text = "I pay the posted price; it holds steady.", next = "core.lantern_trader_intro3" }
+
+[entities.lantern_trader_intro3]
+"engine.talk_line" = { text = "Bring ore in whenever it suits you." }
+
+# After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_trader_talk]
-"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_line1" }
+"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_now", width = 420 }
 
-[entities.lantern_trader_line1]
-"engine.talk_line" = { text = "Ore's my trade. I pay the posted price, and it holds steady.", next = "core.lantern_trader_line2" }
-
-[entities.lantern_trader_line2]
-"engine.talk_line" = { text = "Bring it in whenever suits you. The price will keep." }
+[entities.lantern_trader_now]
+"engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
 
 [entities.lantern_master]
 "engine.being" = {}
@@ -114,15 +134,33 @@ keeper = { name = "Tova Reyes" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
 keeper = { name = "Bram Okafor" }
+"engine.life" = { clock = "core.day", first = "core.lantern_master_act", name = "Bram Okafor" }
 
+[entities.lantern_master_act]
+"engine.act" = { place = "core.lantern", spot = "core.lantern_office_keeper_spot", angle = -1.5707963267948966, state = "dockmaster" }
+
+# Said once: the first click introduces the keeper.
+[entities.lantern_master_intro]
+"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_intro1", width = 420, story = true }
+
+[entities.lantern_master_intro1]
+"engine.talk_line" = { text = "Welcome to Lantern Dock.", next = "core.lantern_master_intro2" }
+
+[entities.lantern_master_intro2]
+"engine.talk_line" = { text = "I'm Bram. I keep the berth and lamps.", next = "core.lantern_master_intro3" }
+
+[entities.lantern_master_intro3]
+"engine.talk_line" = { text = "Cinder Kiln is the other station.", next = "core.lantern_master_intro4" }
+
+[entities.lantern_master_intro4]
+"engine.talk_line" = { text = "It's out east, and pays more for ore." }
+
+# After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_master_talk]
-"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_line1" }
+"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_now", width = 420 }
 
-[entities.lantern_master_line1]
-"engine.talk_line" = { text = "I keep the berth and the lamps here. Welcome in.", next = "core.lantern_master_line2" }
-
-[entities.lantern_master_line2]
-"engine.talk_line" = { text = "Cinder Kiln is out east. It pays a little more for ore." }
+[entities.lantern_master_now]
+"engine.talk_line" = { text = "The field still holds 36 ore." }
 
 [entities.lantern_skiff]
 "engine.being" = {}
@@ -193,15 +231,30 @@ facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master"
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
 keeper = { name = "Sefa Lind" }
+"engine.life" = { clock = "core.day", first = "core.kiln_trader_act", name = "Sefa Lind" }
 
+[entities.kiln_trader_act]
+"engine.act" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore" }
+
+# Said once: the first click introduces the keeper.
+[entities.kiln_trader_intro]
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_intro1", width = 420, story = true }
+
+[entities.kiln_trader_intro1]
+"engine.talk_line" = { text = "I'm Sefa. Ore feeds the kiln here.", next = "core.kiln_trader_intro2" }
+
+[entities.kiln_trader_intro2]
+"engine.talk_line" = { text = "I buy it at the posted price.", next = "core.kiln_trader_intro3" }
+
+[entities.kiln_trader_intro3]
+"engine.talk_line" = { text = "No hurry; the kiln burns slow." }
+
+# After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_trader_talk]
-"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_line1" }
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_now", width = 420 }
 
-[entities.kiln_trader_line1]
-"engine.talk_line" = { text = "Ore feeds the kiln. I buy it at the posted price.", next = "core.kiln_trader_line2" }
-
-[entities.kiln_trader_line2]
-"engine.talk_line" = { text = "No hurry. The kiln burns slow and steady." }
+[entities.kiln_trader_now]
+"engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
 
 [entities.kiln_master]
 "engine.being" = {}
@@ -209,15 +262,33 @@ keeper = { name = "Sefa Lind" }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.keeper", scale = 1.5 }
 keeper = { name = "Mags Ferrow" }
+"engine.life" = { clock = "core.day", first = "core.kiln_master_act", name = "Mags Ferrow" }
 
+[entities.kiln_master_act]
+"engine.act" = { place = "core.kiln", spot = "core.kiln_office_keeper_spot", angle = -1.5707963267948966, state = "dockmaster" }
+
+# Said once: the first click introduces the keeper.
+[entities.kiln_master_intro]
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_intro1", width = 420, story = true }
+
+[entities.kiln_master_intro1]
+"engine.talk_line" = { text = "You're at Cinder Kiln.", next = "core.kiln_master_intro2" }
+
+[entities.kiln_master_intro2]
+"engine.talk_line" = { text = "I'm Mags. I watch the field from here.", next = "core.kiln_master_intro3" }
+
+[entities.kiln_master_intro3]
+"engine.talk_line" = { text = "Lantern Dock is the other station.", next = "core.kiln_master_intro4" }
+
+[entities.kiln_master_intro4]
+"engine.talk_line" = { text = "It's out west, and pays a bit less." }
+
+# After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_master_talk]
-"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_line1" }
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_now", width = 420 }
 
-[entities.kiln_master_line1]
-"engine.talk_line" = { text = "You're at the Kiln. I keep the berth and watch the field.", next = "core.kiln_master_line2" }
-
-[entities.kiln_master_line2]
-"engine.talk_line" = { text = "Lantern Dock is out west. It buys ore too, a little cheaper." }
+[entities.kiln_master_now]
+"engine.talk_line" = { text = "The field still holds 36 ore." }
 
 [entities.kiln_skiff]
 "engine.being" = {}

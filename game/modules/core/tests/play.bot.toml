@@ -1,4 +1,4 @@
 inputs = "tests/play.inputs"
-ticks = 840
+ticks = 900
 size = [1280, 720]
 seed = 1
