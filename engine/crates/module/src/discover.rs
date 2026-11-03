@@ -34,6 +34,26 @@ pub fn modules_in(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// The IDs of the modules `dir` holds (a module, or a folder of modules), sorted: which
+/// game it is, for `galaxy-gm memory` and `notes inbox --modules`. Bad input when it holds
+/// none, or a manifest can't be read.
+pub fn game_ids(dir: &Path) -> Result<Vec<String>, crate::Failure> {
+    let found = modules_in(dir);
+    if found.is_empty() {
+        return Err(crate::Failure::bad_input(format!(
+            "no modules in {}: a module is a folder with a {FILE}",
+            dir.display()
+        ))
+        .with("path", dir.display().to_string()));
+    }
+    let mut ids = found
+        .iter()
+        .map(|d| manifest::load(d).map(|m| m.id))
+        .collect::<Result<Vec<_>, _>>()?;
+    ids.sort();
+    Ok(ids)
+}
+
 /// The modules `doctor` reports on: walking up from `start`, the first folder that is a
 /// module, holds modules, or holds `game/modules`. Empty if there is none.
 pub fn modules_near(start: &Path) -> Vec<PathBuf> {

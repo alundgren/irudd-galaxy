@@ -942,8 +942,36 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "memory",
+        synopsis: "<modules>",
+        answers: "What does the GM remember of the player and this game?",
+        about: "The player's preferences and the long-running directions not yet in the game, \
+                in one short Markdown file a game (the module IDs in <modules>), kept in the \
+                per-user game data folder beside the sessions (GALAXY_GM_MEMORY moves it), so \
+                it outlives reinstalls and changes the player rolls back. The first run makes \
+                it from a template. Read it before choosing work; to update it, edit the file \
+                itself. The player may edit it too, and what they write there wins. It never \
+                holds secrets: a memory holding an API key is refused (exit 4), unprinted.",
+        args: &[(
+            "<modules>",
+            "the game: a module folder, or a folder of modules",
+        )],
+        output: &[
+            ("game", "the module IDs"),
+            ("path", "the memory file, to edit"),
+            ("created", "true when this run made it from the template"),
+            ("lines, text", "its length and its whole text"),
+        ],
+        writes: "the memory file, only when it is missing",
+        example: "galaxy-gm memory game/modules",
+        next: "galaxy-gm notes inbox --modules <modules> for the player's new notes; \
+               galaxy-gm guide unattended for a whole run.",
+        topic: "unattended",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "notes",
-        synopsis: "[<recording | session folder | sessions folder>] [--all]",
+        synopsis: "[<recording | session folder | sessions folder>] [--all] [--modules <dir>]",
         answers: "Read F8 notes; notes inbox lists those still to answer. \
                   Each note has its number, tick, time, text and frame, newest sessions first.",
         about: "Without a path it reads the sessions folder every `galaxy play` records into \
@@ -957,6 +985,10 @@ pub static COMMANDS: &[Command] = &[
               folder by default",
             ),
             ("--all", "every note; 20 at most by default"),
+            (
+                "--modules <dir>",
+                "only sessions that played exactly the modules in <dir> (one game)",
+            ),
         ],
         output: &[
             (
@@ -982,7 +1014,7 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "notes inbox",
-        synopsis: "[<path>] [--handled] [--all]",
+        synopsis: "[<path>] [--handled] [--all] [--modules <dir>]",
         answers: "List unanswered F8 notes across sessions, newest first.",
         about: "Uses the same folders and note numbers as notes, audit and film. \
                 With no path, reads the played sessions folder (GALAXY_SESSIONS moves it). \
@@ -998,6 +1030,10 @@ pub static COMMANDS: &[Command] = &[
                 "list only handled notes, with the reason and change reference",
             ),
             ("--all", "every matching note; 20 at most by default"),
+            (
+                "--modules <dir>",
+                "only sessions that played exactly the modules in <dir> (one game)",
+            ),
         ],
         output: &[
             (
@@ -1013,8 +1049,8 @@ pub static COMMANDS: &[Command] = &[
                 "unhandled or handled; more says how many matching notes were capped",
             ),
             (
-                "unreadable, sessions_without_notes",
-                "recordings that could not be read, and count of sessions without any notes, when present",
+                "unreadable, sessions_without_notes, sessions_of_other_modules",
+                "recordings that could not be read, and counts of sessions without notes or left out by --modules, when present",
             ),
         ],
         writes: "",
@@ -1532,6 +1568,52 @@ pub static COMMANDS: &[Command] = &[
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
     Topic {
+        name: "unattended",
+        title: "Unattended GM runs: from the player's notes to a reviewable change",
+        about: "A scheduled run with nobody watching: nobody answers questions, so decide, and \
+                put what needs the player in the handover. The game is the modules in the \
+                working folder (galaxy-gm doctor names them, and the build to use); its own \
+                instructions (AGENTS.md, README) come first. Never build the engine. The memory \
+                carries the player's preferences and long-running directions between runs; the \
+                notes are the player's new requests, each with the moment it was taken. The \
+                change goes on a git branch the player merges (accept) or deletes (roll back), \
+                and their game carries on from its save: galaxy play --continue.",
+        tasks: &[
+            ("Your memory of the player and the game", "gm memory"),
+            ("The player's new notes for this game", "gm notes inbox"),
+            (
+                "Does the player's save load on the change?",
+                "game sim load",
+            ),
+        ],
+        recipes: &[Recipe {
+            title: "One unattended run, start to handover",
+            steps: &[
+                "Read first: the game's own instructions, galaxy-gm doctor (the build and the game's modules), then:",
+                "galaxy-gm memory <modules>",
+                "galaxy-gm notes inbox --modules <modules> --all",
+                "galaxy sim load --continue --modules <modules> --state",
+                "Settle earlier handovers in the memory: a branch the player merged is done; one they deleted is a rollback: note what they turned down as a preference and reopen its notes (galaxy-gm notes unhandle) unless they said otherwise.",
+                "Understand each note from its moment: its text, the frame it saw (seen), then:",
+                "galaxy-gm audit <session>",
+                "galaxy-gm film <session> --note <n> --before 2 --after 2",
+                "Pick work: the notes, oldest first, then one step of a direction in the memory. A small, clear request done fully beats a big one half done. A note that needs the player's decision stays unhandled; ask in the handover.",
+                "Work in a new git worktree on a branch gm/<date> from the default branch, so the player's files stay as they are until they accept (not under git: git init and commit the folder as it is first). Follow the topic guides for the edits. Your own plays set GALAXY_SESSIONS to a scratch folder, so their notes and saves stay out of the player's.",
+                "The gate: every step passes before the handover. galaxy-gm check and galaxy-gm test on each changed module, then:",
+                "galaxy-gm what-if <session>/recording.json --modules <changed-modules>",
+                "galaxy play --modules <changed-modules> --inputs <bot.inputs> --ticks <n>",
+                "galaxy sim replay <bot-session>/recording.json",
+                "Look at each changed moment (galaxy shot, or a film and a motion tool for what moves). Then, with the player's sessions folder:",
+                "galaxy sim load --continue --modules <changed-modules>",
+                "It must load: the player's game carries on. Exit 4 names what no longer fits; give new fields defaults and keep the fields the save holds.",
+                "Commit one change per note, its message naming the note, what changed and the gate's evidence. Then mark each answered note:",
+                "galaxy-gm notes handle <session> --note <n> --reason <text> --change gm/<date>",
+                "Hand over the branch. Push it and open a pull request only if the game's instructions say so; never merge. Report what changed and why, the evidence, how to accept (merge, then galaxy play --modules <modules> --continue) or roll back (delete the branch), and what you need from the player.",
+                "Last, edit the memory file: preferences learned, directions still open, this handover as waiting. Short, nothing the game already says, never a secret.",
+            ],
+        }],
+    },
+    Topic {
         name: "tests",
         title: "Module tests and what a change does to a session",
         about: "A module's tests live in its tests/ folder. tests/<name>.luau returns { \
@@ -1671,8 +1753,6 @@ pub static TOPICS: &[Topic] = &[
             ("Actual simultaneous bus levels", "gm audio mix"),
             ("Blind description, then semantic fit", "gm audio judge"),
             ("Numeric acceptance", "gm audio check"),
-            ("Validate module declarations", "gm check"),
-            ("Listen in the game", "game play"),
         ],
         recipes: &[Recipe {
             title: "A quiet, smooth background bed",
@@ -1774,20 +1854,15 @@ pub static TOPICS: &[Topic] = &[
                 fixed with a motion check spec.",
         tasks: &[
             ("Film a scripted run", "game film"),
-            ("Film a played session round a note", "gm film"),
             (
-                "Film it as the player saw it (the recording's build), or on two builds \
-                 and compare: film --as-recorded, film --builds recorded,this",
+                "Film a played session round a note; as the player saw it \
+                 (--as-recorded), or on two builds (--builds recorded,this)",
                 "gm film",
             ),
             ("Where things are, frame by frame", "gm film show"),
             (
                 "How far and how fast did a thing move, and when? Film with --probes-only \
-                 (no GPU), then track --thing <x>: displacement, path, top speed with times",
-                "gm motion track",
-            ),
-            (
-                "Does a thing follow smoothly, overshoot, settle?",
+                 (no GPU), then track --thing <x>: displacement, path, top speed, overshoot and settling",
                 "gm motion track",
             ),
             ("Do dotted lines stay put? (no GPU)", "gm motion dots"),

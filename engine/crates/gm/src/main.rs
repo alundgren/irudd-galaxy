@@ -4,7 +4,8 @@
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
 //! model's parts, outline and morph), `model make` (models from recipes), `test` (a
 //! module's tests and scenario runs), `what-if` (a recorded session on changed
-//! modules), `music` (generated through OpenRouter at build time) and `guide`.
+//! modules), `music` (generated through OpenRouter at build time), `memory` (the GM's
+//! memory of a game, for unattended runs) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
@@ -15,6 +16,7 @@ mod fields;
 mod film;
 mod live;
 mod look;
+mod memory;
 mod model;
 mod music;
 mod openrouter;
@@ -183,6 +185,10 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             };
             let opts = galaxy_motion::Opts::parse(rest).map_err(usage)?;
             film::show(&discover::resolve(&cwd, Path::new(path)), &opts)
+        }
+        "memory" => {
+            let path = one("one module folder, or a folder of modules")?;
+            memory::run(&discover::resolve(&cwd, Path::new(path)))
         }
         "notes" | "notes inbox" | "notes handle" | "notes unhandle" => {
             sessions::run_notes(command, args, &cwd)

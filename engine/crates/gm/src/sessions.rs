@@ -21,8 +21,8 @@ const NOTES_SHOWN: usize = 20;
 const ROWS_SHOWN: usize = 40;
 
 /// The options each command takes.
-pub const NOTES_OPTIONS: &[&str] = &["all"];
-pub const INBOX_OPTIONS: &[&str] = &["all", "handled"];
+pub const NOTES_OPTIONS: &[&str] = &["all", "modules"];
+pub const INBOX_OPTIONS: &[&str] = &["all", "handled", "modules"];
 pub const HANDLE_OPTIONS: &[&str] = &["note", "reason", "change"];
 pub const UNHANDLE_OPTIONS: &[&str] = &["note"];
 pub const RECORDING_OPTIONS: &[&str] = &["from", "to", "all", "name"];
@@ -92,7 +92,17 @@ pub fn run_notes(
         } else {
             NotesView::Unhandled
         };
-        return notes(target, options.contains_key("all"), view);
+        // `--modules <dir>`: only the sessions that played exactly the modules there.
+        let game = options
+            .get("modules")
+            .map(|dir| {
+                galaxy_module::discover::game_ids(&galaxy_module::discover::resolve(
+                    cwd,
+                    Path::new(dir),
+                ))
+            })
+            .transpose()?;
+        return notes(target, options.contains_key("all"), view, game.as_deref());
     }
     let target = target.ok_or_else(|| usage("needs a recording or session folder".to_owned()))?;
     let note = options
@@ -176,7 +186,12 @@ fn session_notes(rec: &Recording, path: &Path) -> Result<Vec<Value>, Failure> {
 }
 
 /// `galaxy-gm notes [<recording | session folder | sessions folder>] [--all]`.
-fn notes(target: Option<PathBuf>, all: bool, view: NotesView) -> Result<Output, Failure> {
+fn notes(
+    target: Option<PathBuf>,
+    all: bool,
+    view: NotesView,
+    game: Option<&[String]>,
+) -> Result<Output, Failure> {
     let default = target.is_none();
     let target = target.unwrap_or_else(galaxy_module::install::sessions_dir);
     // One recording, or one session folder.
@@ -219,7 +234,7 @@ fn notes(target: Option<PathBuf>, all: bool, view: NotesView) -> Result<Output, 
     };
     let mut listed = Vec::new();
     let mut shown = 0;
-    let (mut hidden_notes, mut hidden_sessions, mut without) = (0, 0, 0);
+    let (mut hidden_notes, mut hidden_sessions, mut without, mut other_games) = (0, 0, 0, 0);
     let mut unreadable = Vec::new();
     for path in &sessions {
         let dir = path.parent().unwrap_or(Path::new("."));
@@ -232,6 +247,10 @@ fn notes(target: Option<PathBuf>, all: bool, view: NotesView) -> Result<Output, 
             }
             Err(f) => return Err(f),
         };
+        if game.is_some_and(|ids| !rec.modules.keys().eq(ids.iter())) {
+            other_games += 1;
+            continue;
+        }
         let mut notes = session_notes(&rec, path)?;
         if notes.is_empty() && single.is_none() {
             without += 1;
@@ -289,6 +308,9 @@ fn notes(target: Option<PathBuf>, all: bool, view: NotesView) -> Result<Output, 
     }
     if without > 0 {
         out["sessions_without_notes"] = json!(without);
+    }
+    if other_games > 0 {
+        out["sessions_of_other_modules"] = json!(other_games);
     }
     if !unreadable.is_empty() {
         out["unreadable"] = Value::Array(unreadable);
