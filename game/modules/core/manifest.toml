@@ -109,11 +109,15 @@ order = "int"
 
 # What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
 # and the power and mass in use. Set whenever a part goes on or comes off.
+# `hull_speed` is the bare hull's top speed the ship flies by: a new game sets the
+# locked flight's 20 (start.toml); a save from before it loads with the old hull's 12
+# and keeps its old flight.
 [components.fit]
 hold = { type = "int", default = 6 }
 mine = { type = "int", default = 1 }
 power = "int"
 mass = "int"
+hull_speed = { type = "number", default = 12.0 }
 
 # A trader flying its own route (scripts/traffic.luau): two legs, each a chain of
 # waypoints from `out` or `home` ending in a docking onto `out_moor` or `home_moor`.

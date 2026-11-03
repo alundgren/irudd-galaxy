@@ -30,6 +30,28 @@ return {
         -- Never below half, however heavy.
         assert(fit.totals({ { id = "x", fitted = true, power = 0, mass = 20, hold = 0, mine = 0, speed = 0 } }).factor == 0.5)
     end,
+    an_old_save_keeps_its_hull = function()
+        -- A save from before the locked flight loads with the old hull's 12 (its `fit`
+        -- gets the field's default), and the cradle goes on from what the ship flies.
+        local parts = rack()
+        parts[3].speed = 3 -- such a save keeps its thrusters as they were: 12 to 15
+        assert(fit.totals(parts, nil, nil, fit.OLD_SPEED).top == 12, "the old bare hull")
+        parts[1].owned, parts[1].fitted = true, true
+        local lens = fit.totals(parts, nil, nil, fit.OLD_SPEED)
+        assert(lens.top == 12 and lens.turn == 180, "the lens alone is within the free mass")
+        assert(fit.ship_text(lens) == "Hold 6 · mines 2 a second · top speed 12 · turns 180° a second")
+        -- Taking the lens off changes only the beam, never the flight.
+        local off = fit.totals(parts, "core.lens", nil, fit.OLD_SPEED)
+        assert(off.top == 12 and off.turn == 180 and off.mine == 1)
+        -- The lens and pods: one over, as the old cradle said and the old ship flew.
+        parts[2].owned, parts[2].fitted = true, true
+        local both = fit.totals(parts, nil, nil, fit.OLD_SPEED)
+        assert(math.abs(both.top - 10.8) < 1e-9 and math.abs(both.turn - 162) < 1e-9)
+        assert(fit.ship_text(both) == "Hold 9 · mines 2 a second · top speed 10.8 · turns 162° a second")
+        -- The old thrusters on the old bare hull: 15, as their card says.
+        parts[1].fitted, parts[2].fitted, parts[3].fitted = false, false, true
+        assert(fit.totals(parts, nil, nil, fit.OLD_SPEED).top == 15)
+    end,
     every_rule_refuses_with_its_reason = function()
         local parts = rack()
         local lens, pods, thrusters = parts[1], parts[2], parts[3]

@@ -23,7 +23,7 @@ pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 hold = {}
 held = {}
 taught = {}
-fit = {}
+fit = { hull_speed = 20.0 }
 
 [entities.rock1]
 "engine.location" = { place = "core.reach" }

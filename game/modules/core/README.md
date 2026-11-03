@@ -55,6 +55,12 @@ the berth without flying on (`scripts/launch.luau`). The view still leaves the s
 through the engine's one-second fade with a title card naming the place (`core.reach`,
 as the reach is not a room); a glide back out to the ship waits on the engine.
 
+A save from before the locked flight keeps its old flight: top speed 12, thrust 18,
+braking 16 and a 0.7-second stop. Its ship's `fit` loads with `hull_speed` 12, the
+bare hull it was built with (a new game sets 20), so the cradle shows the speed that
+ship really flies and a part changes only what it says: its thrusters still give 15.
+Such a save has no traders either. Start a new game for the locked flight and traffic.
+
 Everything that looks solid is solid, and nothing takes damage: ships, traders,
 rocks and stations bump and push. A ship that flies into a rock or a station
 stops on its drawn surface and glances off round it; a trader the ship flies into is
@@ -297,12 +303,12 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are twenty-two Luau rule tests (hold, depletion, prices against stock and their
+There are twenty-three Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
-every rule's refusal and its words, the budgets in plain words, and mining two a
-second, and in `tests/labels.luau` where traders' labels show: near the ship, never
+every rule's refusal and its words, the budgets in plain words, mining two a
+second, and an old save's bare hull keeping its old flight, and in `tests/labels.luau` where traders' labels show: near the ship, never
 far off, over a station, while moored, twice in a crowd or while docked, and on the
 side away from your ship) and seventeen
 scenarios: both complete station trips, collision under held thrust (stopped on the
@@ -336,9 +342,9 @@ keeps the offer, a late answer to it is stale, the third time it is taken and
 logged once; opening the log ends a bubble and a click through it starts none), and
 the fitting loop (`fit.toml`: the rack stocked and priced on a new game; a part that
 can't be paid for, in the wrong socket or short of power doing nothing; the lens
-bought and fitted with one receipt and Orrin's line, taken off and fitted again for
-nothing; the next hold mined two a second; the pods making the hold 9, the ship 10.8
-and 162° and its model the podded hull; the pods refused coming off with nine aboard,
+bought and fitted with one receipt and Orrin's line, taken off (the flight staying
+the locked preset) and fitted again for nothing; the next hold mined two a second; the
+pods making the hold 9, the ship 18 and 162° and its model the podded hull; the pods refused coming off with nine aboard,
 then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
