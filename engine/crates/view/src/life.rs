@@ -79,6 +79,8 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 value: String::new(),
                 delta: 0.0,
                 accepts: BTreeMap::new(),
+                weight: 500,
+                trailing: false,
             })
         })
         .collect()

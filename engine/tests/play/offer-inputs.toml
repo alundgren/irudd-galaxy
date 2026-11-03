@@ -1,0 +1,34 @@
+# The host offers a lamp; take it, finish, then hear the repeat talk.
+[[click]]
+tick = 5
+widget = "speaker.offer.host"
+[[note]]
+tick = 10
+text = "Heading, quieter subtitle, the line and two answers"
+[[click]]
+tick = 15
+widget = "choice.offer.take"
+[[note]]
+tick = 20
+text = "The taken branch, with a small Done marker"
+[[click]]
+tick = 25
+widget = "talk.offer.gift"
+[[click]]
+tick = 30
+widget = "speaker.offer.host"
+[[note]]
+tick = 35
+text = "Repeat talk with a small Continue marker"
+[[click]]
+tick = 40
+widget = "talk.offer.chat"
+[[click]]
+tick = 45
+widget = "talk.offer.chat"
+[[click]]
+tick = 50
+widget = "answers"
+[[note]]
+tick = 55
+text = "The script recorded the answer"

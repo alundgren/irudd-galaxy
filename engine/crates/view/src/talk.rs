@@ -5,6 +5,7 @@ use galaxy_mesh::MeshData;
 use galaxy_render::{
     Camera,
     glam::{Mat4, Quat, Vec2, Vec3},
+    screen_style::ScreenStyle,
 };
 use galaxy_script::screens::Widget;
 use galaxy_sim::{
@@ -14,7 +15,39 @@ use galaxy_sim::{
 };
 use std::collections::BTreeMap;
 
-pub fn widgets(world: &World) -> Vec<Widget> {
+fn part(kind: &str, path: String, text: &str, size: f32) -> Widget {
+    Widget {
+        hover: None,
+        kind: kind.into(),
+        id: None,
+        path,
+        text: text.into(),
+        width: None,
+        height: None,
+        x: None,
+        y: None,
+        size,
+        pad: 0.0,
+        explicit_pad: false,
+        gap: 12.0,
+        align: None,
+        anchor: None,
+        on: None,
+        payload: Default::default(),
+        children: vec![],
+        columns: 1,
+        value: String::new(),
+        delta: 0.0,
+        accepts: BTreeMap::new(),
+        weight: 500,
+        trailing: false,
+    }
+}
+
+/// The active line's bubble: a heading (the talk's title, else the speaker's sign name),
+/// an optional quieter subtitle and the line, then either a small Continue/Done marker
+/// or the line's answer buttons. Without answers the whole bubble is one click target.
+pub fn widgets(world: &World, style: &ScreenStyle) -> Vec<Widget> {
     world
         .entities
         .iter()
@@ -25,47 +58,93 @@ pub fn widgets(world: &World) -> Vec<Widget> {
             }
             let line_id = text(f, "current");
             let line = &world.component(line_id, TALK_LINE)?.fields;
-            Some(Widget {
-                hover: None,
-                kind: "bubble".into(),
-                id: Some(format!("talk.{id}")),
-                path: format!("{id}/talk"),
-                text: format!(
-                    "{}{}\n\n{}",
+            let path = format!("{id}/talk");
+            let title = Some(text(f, "title"))
+                .filter(|s| !s.is_empty())
+                .or_else(|| {
                     world
                         .component(text(f, "speaker"), LIFE)
                         .map(|l| text(&l.fields, "name"))
-                        .filter(|s| !s.is_empty())
-                        .map(|s| format!("{s}\n"))
-                        .unwrap_or_default(),
-                    text(line, "text"),
+                })
+                .unwrap_or("");
+            let mut children = Vec::new();
+            if !title.is_empty() {
+                let mut w = part("text", format!("{path}/title"), title, style.bubble_title);
+                w.weight = style.bubble_title_weight.round() as u16;
+                children.push(w);
+            }
+            let subtitle = text(f, "subtitle");
+            if !subtitle.is_empty() {
+                let mut w = part(
+                    "text",
+                    format!("{path}/subtitle"),
+                    subtitle,
+                    style.bubble_subtitle,
+                );
+                w.weight = 400;
+                children.push(w);
+            }
+            children.push(part(
+                "text",
+                format!("{path}/line"),
+                text(line, "text"),
+                style.bubble_text,
+            ));
+            let choices = talk::choices(world, line_id);
+            if choices.is_empty() {
+                let mut w = part(
+                    "text",
+                    format!("{path}/marker"),
                     if text(line, "next").is_empty() {
                         "Done"
                     } else {
                         "Continue"
-                    }
-                ),
-                width: Some(f["width"].as_f64().unwrap_or(320.0) as f32),
-                height: None,
-                x: Some(f["x"].as_f64().unwrap_or(0.0) as f32),
-                y: Some(f["y"].as_f64().unwrap_or(-12.0) as f32),
-                size: 20.0,
-                pad: 16.0,
-                explicit_pad: false,
-                gap: 12.0,
-                align: None,
-                anchor: Some(talk::anchor(f)),
-                on: Some(TALK_NEXT.into()),
-                payload: serde_json::json!({"talk": id, "line": line_id})
+                    },
+                    style.bubble_marker,
+                );
+                w.weight = 400;
+                w.trailing = true;
+                children.push(w);
+            } else {
+                let mut row = part("row", format!("{path}/choices"), "", style.bubble_text);
+                row.gap = 8.0;
+                for choice in choices {
+                    let cf = &world.component(choice, TALK_CHOICE)?.fields;
+                    let mut b = part(
+                        "button",
+                        format!("{path}/choices/{choice}"),
+                        text(cf, "text"),
+                        style.bubble_text,
+                    );
+                    b.id = Some(format!("choice.{choice}"));
+                    b.pad = 12.0;
+                    b.explicit_pad = true;
+                    b.on = Some(TALK_CHOSEN.into());
+                    b.payload = serde_json::json!({"talk": id, "line": line_id, "choice": choice})
+                        .as_object()
+                        .unwrap()
+                        .clone();
+                    row.children.push(b);
+                }
+                children.push(row);
+            }
+            let mut bubble = part("bubble", path, "", style.bubble_text);
+            bubble.id = Some(format!("talk.{id}"));
+            bubble.width = Some(f["width"].as_f64().unwrap_or(320.0) as f32);
+            bubble.x = Some(f["x"].as_f64().unwrap_or(0.0) as f32);
+            bubble.y = Some(f["y"].as_f64().unwrap_or(-12.0) as f32);
+            bubble.pad = 16.0;
+            bubble.gap = 6.0;
+            bubble.anchor = Some(talk::anchor(f));
+            if children.iter().all(|c| c.kind != "row") {
+                bubble.on = Some(TALK_NEXT.into());
+                bubble.payload = serde_json::json!({"talk": id, "line": line_id})
                     .as_object()
                     .unwrap()
-                    .clone(),
-                children: vec![],
-                columns: 1,
-                value: String::new(),
-                delta: 0.0,
-                accepts: BTreeMap::new(),
-            })
+                    .clone();
+            }
+            bubble.children = children;
+            Some(bubble)
         })
         .collect()
 }

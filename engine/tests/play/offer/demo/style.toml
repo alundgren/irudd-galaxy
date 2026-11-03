@@ -1,0 +1,7 @@
+# Bubble text sizes; every other screen key keeps the neutral default.
+[screen]
+bubble_title = 26.0
+bubble_title_weight = 700.0
+bubble_subtitle = 16.0
+bubble_text = 20.0
+bubble_marker = 16.0

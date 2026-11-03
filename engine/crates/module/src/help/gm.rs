@@ -632,9 +632,9 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, screens and every room at 1280x720, audio files, and whether what its start state wears exists.",
+                  style, screens (and those its buttons open) and every room at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. From the first tick and with the player in each place, check presses every visible button and ui.target, two presses deep (at most 32 new states per start, told apart by the screen and by what event handlers changed), running the handlers and landing trips, and checks each new state's screens and name signs with talk silent; pressed lists the states per start. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -645,12 +645,16 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look, screen, hover, room, talk or sound) and message",
+                "each problem: kind (schema, script, start, look, screen, press, hover, room, talk, life or sound) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
                 "hovers",
                 "reachable targets in staged places and talk lines: widget, entity, part, point, scroll and hover text/readability; null means no declared label",
+            ),
+            (
+                "pressed",
+                "per start (null: the first tick, else a place): new states reached by presses, and truncated when the cap stopped it",
             ),
             (
                 "worn.looks, worn.models",
@@ -1922,31 +1926,45 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "talk",
         title: "Conversations on anchors and visible speaker focus",
-        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. While playing, the same test runs on every frame a line shows: a speaker whose focus a script covered or moved off screen appears in the problems panel and in play's problems report. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
+        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. A line can instead offer answers: engine.talk_choice { line, text, next, order } entities show as buttons in its bubble (lowest order first); a click records engine.talk_chosen {talk,line,choice} and continues to that choice's next, or ends the talk (seen) when empty. A stale answer records no event. A declined offer stays away by module logic, for example patching its talk enabled=false in the handler. The bubble's heading is title, else the speaker's life sign name; subtitle is a quieter line under it; Continue/Done is a small marker; [screen] bubble_* keys size them. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. While playing, the same test runs on every frame a line shows: a speaker whose focus a script covered or moved off screen appears in the problems panel and in play's problems report. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
         tasks: &[
             ("Talk, line and focus fields", "gm fields"),
             ("Check focus in every place", "gm check"),
         ],
-        recipes: &[Recipe {
-            title: "Author, play, interrupt and reproduce a conversation",
-            steps: &[
-                "Add engine.talk and engine.talk_line to manifest writes. In start.toml: [entities.hello] with \"engine.talk\" = { speaker = 'demo.visitor', first = 'demo.line', story = true }; [entities.line] with \"engine.talk_line\" = { text = 'Welcome.' }. The speaker needs a visible anchor; a being model needs a face mesh part, or an explicit engine.focus part.",
-                "galaxy-gm fields components --component talk",
-                "galaxy-gm fields components --component talk_line",
-                "galaxy-gm check engine/tests/play/talk/demo",
-                "galaxy-gm check engine/tests/play/talk-covered/demo",
-                "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
-                "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
-                "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button: press it while the third being speaks and the problems panel flags the covered face, which check can't see. The hall's smaller figure has an anchor but no being component.",
-                "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble. Anchor-only speakers use x/y. Use the session folder printed by play below.",
-                "galaxy sim replay <session>/recording.json",
-                "galaxy-gm audit <session>/recording.json",
-                "galaxy-gm film <session>/recording.json --from 225 --to 300 --size 1280x720 --out talk-film",
-                "galaxy-gm motion track talk-film --thing talk.second",
-                "galaxy-gm motion sheet talk-film --count 8",
-                "galaxy-gm guide motion",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Author, play, interrupt and reproduce a conversation",
+                steps: &[
+                    "Add engine.talk and engine.talk_line to manifest writes. In start.toml: [entities.hello] with \"engine.talk\" = { speaker = 'demo.visitor', first = 'demo.line', story = true }; [entities.line] with \"engine.talk_line\" = { text = 'Welcome.' }. The speaker needs a visible anchor; a being model needs a face mesh part, or an explicit engine.focus part.",
+                    "galaxy-gm fields components --component talk",
+                    "galaxy-gm fields components --component talk_line",
+                    "galaxy-gm check engine/tests/play/talk/demo",
+                    "galaxy-gm check engine/tests/play/talk-covered/demo",
+                    "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
+                    "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
+                    "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button: press it while the third being speaks and the problems panel flags the covered face, which check can't see. The hall's smaller figure has an anchor but no being component.",
+                    "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble; widget='choice.<full-choice-id>' an answer. Anchor-only speakers use x/y. Use the session folder printed by play below.",
+                    "galaxy sim replay <session>/recording.json",
+                    "galaxy-gm audit <session>/recording.json",
+                    "galaxy-gm film <session>/recording.json --from 225 --to 300 --size 1280x720 --out talk-film",
+                    "galaxy-gm motion track talk-film --thing talk.second",
+                    "galaxy-gm motion sheet talk-film --count 8",
+                    "galaxy-gm guide motion",
+                ],
+            },
+            Recipe {
+                title: "Offer answers in a styled bubble",
+                steps: &[
+                    "Add engine.talk_choice to manifest writes. Give a line no next and two engine.talk_choice entities naming it; handle engine.talk_chosen in a script (event.payload.choice).",
+                    "galaxy-gm fields components --component talk_choice",
+                    "galaxy-gm check engine/tests/play/offer/demo",
+                    "galaxy-gm check engine/tests/play/sign-panel/demo",
+                    "The second check deliberately fails: its button opens a list over a name sign, which only check's presses reach.",
+                    "galaxy play --modules engine/tests/play/offer --inputs engine/tests/play/offer-inputs.toml --ticks 120",
+                    "The host's heading is its sign name with a quieter subtitle. Take it shows the next line; Not now ends the talk and the handler disables the offer, so the next click gets the repeat talk with Continue, then Done. Replay and audit the session as above.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "screens",
@@ -2063,7 +2081,7 @@ pub static TOPICS: &[Topic] = &[
         title: "How the world is drawn, and the keys files take",
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
-                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash and hint_border_px. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

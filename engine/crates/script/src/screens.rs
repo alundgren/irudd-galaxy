@@ -73,6 +73,11 @@ pub struct Widget {
     pub value: String,
     pub delta: f64,
     pub accepts: BTreeMap<String, String>,
+    /// Text weight, 300 to 700. Screens always use 500; engine widgets such as a talk
+    /// bubble's heading set their own.
+    pub weight: u16,
+    /// The text sits against the widget's end edge instead of its start (engine widgets).
+    pub trailing: bool,
 }
 
 #[derive(Default)]
@@ -478,6 +483,8 @@ fn read(
         columns: columns as usize,
         value,
         delta,
+        weight: 500,
+        trailing: false,
         accepts,
     })
 }

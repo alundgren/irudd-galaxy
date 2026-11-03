@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use galaxy_api::Registry;
 use galaxy_module::module::Module;
 use galaxy_render::{
-    Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
+    Align, Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
 };
 use galaxy_script::{
     ScriptSet,
@@ -114,7 +114,7 @@ impl Screens {
         }
         for tree in crate::life::widgets(world)
             .into_iter()
-            .chain(crate::talk::widgets(world))
+            .chain(crate::talk::widgets(world, &self.style))
         {
             let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
@@ -228,6 +228,11 @@ impl Screens {
             }
             for child in b.children.iter().rev() {
                 if let Some(w) = hit(child, p, include_hovers) {
+                    // A bubble is one surface: its heading, line and marker click it.
+                    // Only its answer buttons are separate targets.
+                    if b.widget.kind == "bubble" && w.kind != "button" {
+                        return Some(&b.widget);
+                    }
                     return Some(w);
                 }
             }
@@ -293,7 +298,13 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         let mut measured: Vec<_> = labels
             .into_iter()
             .map(|label| {
-                let t = Text::new(label, Vec2::splat(w.pad), w.size).wrap(inner);
+                let mut t = Text::new(label, Vec2::splat(w.pad), w.size)
+                    .wrap(inner)
+                    .weight(w.weight);
+                if w.trailing {
+                    t = t.align(Align::Right);
+                    t.pos.x = w.pad + inner;
+                }
                 let h = measure.measure(&t, 1.0).y;
                 (t, h)
             })
@@ -476,19 +487,20 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
             problem("the bundled font has missing glyphs");
         }
         let size = measure.measure(t, 1.0);
-        if !contains(b.rect, Rect::new(t.pos.x, t.pos.y, size.x, size.y)) {
+        if !contains(b.rect, text_rect(t, size)) {
             problem("text is clipped by its widget");
         }
-        if matches!(
-            b.widget.kind.as_str(),
-            "button" | "bubble" | "drag_source" | "drop_target"
-        ) && (b.rect.h < b.style.target_min || b.rect.w < b.style.target_min)
-        {
-            problem(&format!(
-                "target is smaller than [screen] target_min ({} pixels)",
-                b.style.target_min
-            ));
-        }
+    }
+    let target = matches!(
+        b.widget.kind.as_str(),
+        "button" | "drag_source" | "drop_target"
+    ) && b.text.is_some()
+        || b.widget.kind == "bubble" && b.widget.on.is_some();
+    if target && (b.rect.h < b.style.target_min || b.rect.w < b.style.target_min) {
+        problems.push(format!(
+            "{}: target is smaller than [screen] target_min ({} pixels)",
+            b.widget.path, b.style.target_min
+        ));
     }
     if b.widget.kind == "scroll"
         && b.content_height > b.rect.h
@@ -703,11 +715,20 @@ fn aligned(align: &str, size: Vec2, x: Option<f32>, y: Option<f32>, window: Vec2
 fn leaf(kind: &str) -> bool {
     matches!(
         kind,
-        "text" | "sign" | "button" | "bubble" | "delta" | "icon" | "drag_source" | "drop_target"
+        "text" | "sign" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
     )
 }
 fn painted_kind(kind: &str) -> bool {
-    leaf(kind) || matches!(kind, "panel" | "scroll")
+    leaf(kind) || matches!(kind, "panel" | "scroll" | "bubble")
+}
+/// The box a measured text covers; a trailing text's position is its end edge.
+fn text_rect(t: &Text, size: Vec2) -> Rect {
+    let x = match t.align {
+        Align::Left => t.pos.x,
+        Align::Center => t.pos.x - size.x * 0.5,
+        Align::Right => t.pos.x - size.x,
+    };
+    Rect::new(x, t.pos.y, size.x, size.y)
 }
 fn point_in(r: Rect, p: Vec2) -> bool {
     p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h

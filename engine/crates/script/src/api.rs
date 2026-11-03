@@ -105,6 +105,8 @@ pub fn luau_types(engine: &str) -> String {
          export type Payload = {{ [string]: any }}\n\
          \n\
          --- An event: a fact recorded on an earlier tick, or an input on this one.\n\
+         --- Talk inputs: engine.talk_start {{ talk }}, engine.talk_next {{ talk, line }} and\n\
+         --- engine.talk_chosen {{ talk, line, choice }} (an answer button; stale ones never arrive).\n\
          export type Event = {{\n\
          \tkind: Id,\n\
          \ttick: number,\n\

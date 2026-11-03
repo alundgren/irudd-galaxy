@@ -64,7 +64,28 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
   runs, audit and film measure viewport problems against the size actually drawn. A
   widget is anchored or aligned, not both, and grid cells flow.
 - `galaxy-gm check` runs the module's screens after the first tick at 1280x720, without a
-  GPU. This checks the initial state; branches opened later are also checked while playing.
+  GPU, and then presses (below). Branches it can't reach are checked while playing.
+
+### Pressing in check
+
+`crates/view/src/presses.rs`: from the first tick, and with the player moved into each
+place, check presses every visible button and `ui.target` (not talk bubbles, which have
+their own check), two presses deep. A press is an ordinary input through a `Session`:
+the module's handlers run, a trip they start lands as play would land it, and one quiet
+tick follows. Each new screen state, with talk silent, gets the same readability checks
+as play, life name signs included, so a sign under a room panel or a list a script opens
+is a `press` finding such as ``place `demo.hall`, after pressing `open`: demo.host/sign:
+overlaps demo:scripts/main.luau/screen/list[2]``. A handler that fails on a press is a
+finding too. States are told apart by what is on screen and by what event handlers
+changed (fields a handler set to something other than the start world, and start
+components removed), so a press that only moves a page counter or a selection still
+gets its second press; a screen already checked is not reported twice. Changes from the
+cadence and engine services don't count, so they can't split one state into many. At
+most 32 new states per start are explored, and check's `pressed` output lists the states
+per start and whether that cap stopped it. Keys, drags, scrolls, three presses deep, talk answers and clock changes
+are not pressed: those states need a test or a recorded run. The pressed worlds are
+copies; the module's own state is untouched. `tests/play/sign-panel` opens a list over a
+name sign from a button and must fail check; its first screen alone passes.
 
 Each painted widget contributes one ordered panel/text layer between the base overlay
 and engine chrome. GPU buffers and glyphon renderers grow to the required layer count.
@@ -250,11 +271,15 @@ state-driven placement, return motion, scroll events, replay hashes and rebuilt 
 
 ## Talk bubbles
 
-The talk service supplies an internal bubble widget from recorded world components.
+The talk service supplies an internal bubble widget from recorded world components:
+a column of heading, subtitle, line, and a Continue/Done marker or a row of answer
+buttons, sized by the `[screen]` `bubble_*` keys.
 It uses this same measurement, layout, anchor, clipping, ordered paint and hit-testing
 path, with the screen style's bubble surface. No separate talk look is encoded. Module-owned
-width and offsets affect its geometry. A whole bubble is a click target; its input
-includes the current line so stale or duplicate advances are recorded no-ops. Speaker picking runs only when no
+width and offsets affect its geometry. A whole bubble is a click target (hit
+testing does not descend into its texts); its input includes the current line so stale or
+duplicate advances are recorded no-ops. A bubble with answers is not itself a target; its
+buttons are. Speaker picking runs only when no
 painted widget covers the pointer. See [Talk](talk.md) for focus checks combining screen
 surfaces, room geometry and each authored line.
 
@@ -295,7 +320,9 @@ both drag verdicts. Both handle states must contrast with the track at 3:1. Fail
 name `[screen]` and both fields. An invalid table never reaches painting; playing
 shows its diagnostic and uses the last valid supplier or the neutral default.
 
-Sizes are logical pixels: `radius` and `handle_radius` (0-24), `border_px` and
+Talk bubble text sizes are `bubble_title` (16-40), `bubble_subtitle`, `bubble_text` and
+`bubble_marker` (16-32), with `bubble_title_weight` (400-700). Sizes are logical pixels:
+`radius` and `handle_radius` (0-24), `border_px` and
 `hint_border_px` (0-4), `highlight_px` (2-12), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
 (24-48), `handle_min` (44-80) and `socket_dash` (0-16; zero is solid). Non-finite or
 out-of-range values fail check. `target_min` is a checked floor for actual targets,
