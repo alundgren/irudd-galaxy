@@ -243,7 +243,7 @@ pub fn overview(tool: Tool) -> String {
         Tool::Gm => (
             "galaxy-gm: author modules, inspect playtests and measure motion/audio. JSON output.",
             &[
-                ("Start here", &["guide"]),
+                ("Start here", &["guide", "memory"]),
                 (
                     "Modules",
                     &[
@@ -302,9 +302,8 @@ pub fn overview(tool: Tool) -> String {
              version; galaxy --build <name> ... runs a named installed build."
         }
         Tool::Gm => {
-            "\nMore: galaxy-gm <command> --help for its arguments, output and an example; \
-             galaxy-gm guide <topic> walks through a task. galaxy-gm --build <name> ... runs \
-             an installed build."
+            "\nMore: <command> --help; guide <topic> walks through a task; --build <name> runs \
+             a build."
         }
     };
     let _ = write!(s, "{more}\n\n{EXIT_CODES}");
@@ -403,7 +402,8 @@ pub use gm::TOPICS;
 pub fn guide() -> String {
     let mut s = String::from(
         "What do you want to do? Each line names the command; `<command> --help` says more, \
-         and `galaxy-gm guide <topic>` walks through a topic with examples.\n\n",
+         and `galaxy-gm guide <topic>` walks through a topic with examples. Running on a \
+         schedule with nobody watching? Follow galaxy-gm guide unattended.\n\n",
     );
     // Topics follow each other without a blank line: each starts with its `(guide <name>)`
     // title, and the whole list has to stay short enough to read at a glance.
@@ -419,8 +419,6 @@ pub fn guide() -> String {
             let _ = writeln!(s, "  {want:width$}  {cmd}");
         }
     }
-    let names: Vec<&str> = TOPICS.iter().map(|t| t.name).collect();
-    let _ = write!(s, "\nTopics: {}.", names.join(", "));
     let with: Vec<&str> = TOPICS
         .iter()
         .filter(|t| !t.recipes.is_empty())
@@ -504,7 +502,13 @@ static GAME: &[Command] = &[
             ),
             (
                 "--load <save>",
-                "resume a save from this build and these exact modules; records from the saved world",
+                "resume a save made by this build; module files changed since are carried \
+                 over when the saved world still fits them. Records from the saved world",
+            ),
+            (
+                "--continue",
+                "--load the newest save of these modules (by ID) in the sessions folder: carry \
+                 on the player's game",
             ),
             (
                 "--physical-size",
@@ -566,6 +570,11 @@ static GAME: &[Command] = &[
             ),
             ("hot_load_failures", "hot-loads --watch refused, with why"),
             ("log", "what scripts printed"),
+            (
+                "resumed",
+                "with --load or --continue: save, tick and changed_modules (whose files \
+                 changed since the save)",
+            ),
         ],
         writes: "a session folder under the sessions folder (`galaxy doctor` names it; \
                  GALAXY_SESSIONS moves it), and --save and --record if given",
@@ -821,12 +830,17 @@ static GAME: &[Command] = &[
     Command {
         tool: Tool::Game,
         path: "sim load",
-        synopsis: "<save> --modules <dir> [options]",
+        synopsis: "<save|--continue> --modules <dir> [options]",
         answers: "Load a save and carry on with the modules.",
-        about: "The save must list the same modules; their versions may differ if every \
-                stored component still fits.",
+        about: "The save must list the same modules; their versions and files may differ if \
+                every stored component still fits. Exit 4 says when it doesn't.",
         args: &[
             ("<save>", "a save file, from --save or a session's save.db"),
+            (
+                "--continue",
+                "instead of <save>: the newest save of these modules in the sessions folder, \
+                 as galaxy play --continue takes",
+            ),
             ("--modules <dir>", "a module folder, or a folder of modules"),
             ("--ticks <n>", "ticks to run after loading; 0 by default"),
             ("--inputs <file>", "inputs, notes and hot-loads by tick"),
@@ -857,6 +871,10 @@ static GAME: &[Command] = &[
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("script_failures, log", "as for sim run"),
+            (
+                "resumed",
+                "save, tick and changed_modules (whose files changed since the save)",
+            ),
             (
                 "state",
                 "with --state: a line an entity; --entity, --component or --all for fields",

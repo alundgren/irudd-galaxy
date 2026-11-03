@@ -48,6 +48,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--record",
     "--save",
     "--load",
+    "--continue",
     "--physical-size",
     "--watch",
     "--size",
@@ -1186,21 +1187,35 @@ fn scripted_inputs(session: &Session, options: &Options) -> Result<Script, Failu
 
 /// `galaxy play`.
 pub fn play(args: &[String]) -> Result<Output, Failure> {
-    let (positional, options) = parse(args, PLAY_OPTIONS)?;
+    let (positional, mut options) = parse(args, PLAY_OPTIONS)?;
     if !positional.is_empty() {
         return Err(usage(
             "play takes options only: galaxy play --modules <dir>",
         ));
     }
-    if options.load.is_some() && options.seed.is_some() {
+    if (options.load.is_some() || options.continue_save) && options.seed.is_some() {
         return Err(usage(
-            "--load uses the saved seed; do not combine it with --seed",
+            "--load and --continue use the saved seed; do not combine them with --seed",
+        ));
+    }
+    if options.load.is_some() && options.continue_save {
+        return Err(usage(
+            "--continue finds the save itself; give --load <save> or --continue, not both",
         ));
     }
     let modules = load_modules(&options)?;
-    let mut session = match &options.load {
-        Some(path) => crate::sim::resume_save(path, modules, true)?,
-        None => Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?,
+    if options.continue_save {
+        options.load = Some(crate::sim::continuing_save(&modules)?);
+    }
+    let (mut session, resumed) = match &options.load {
+        Some(path) => {
+            let (session, resumed) = crate::sim::resume_save(path, modules, true)?;
+            (session, Some(resumed))
+        }
+        None => (
+            Session::new(modules, options.seed.unwrap_or(1)).map_err(bad_modules)?,
+            None,
+        ),
     };
     let mut script = scripted_inputs(&session, &options)?;
     let keys = bindings(session.modules());
@@ -1326,6 +1341,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         "live": live_report,
         "saved": app.options.save.as_ref().map(|p| p.display().to_string()),
         "recorded": app.options.record.as_ref().map(|p| p.display().to_string()),
+        "resumed": resumed,
     })))
 }
 
@@ -1546,7 +1562,10 @@ mod tests {
         let path = dir.path().join("save.db");
         let build = BuildStamp::current();
         save::write(&path, &session.world, session.modules(), &build).unwrap();
-        let mut resumed = crate::sim::resume_save(&path, vec![module.clone()], true).unwrap();
+        let (mut resumed, report) =
+            crate::sim::resume_save(&path, vec![module.clone()], true).unwrap();
+        assert_eq!(report["tick"], 17);
+        assert_eq!(report["changed_modules"], json!([]));
         assert_eq!(resumed.world.hash(), session.world.hash());
         let inputs = dir.path().join("resume.inputs");
         std::fs::write(&inputs, "[[note]]\ntick = 10\ntext = 'past'\n[[note]]\ntick = 20\ntext = 'future'\n[[zoom]]\ntick = 10\nsteps = 2").unwrap();
@@ -1570,18 +1589,56 @@ mod tests {
         let recording = resumed.recording().unwrap();
         assert_eq!(recording.start.tick, 17);
         assert!(galaxy_sim::replay(&recording).unwrap().1.identical);
-        let mut changed = module.clone();
-        changed
-            .files
-            .0
-            .insert("extra.toml".into(), "# changed".into());
-        assert!(
-            crate::sim::resume_save(&path, vec![changed], true)
-                .err()
-                .unwrap()
-                .message
-                .contains("different files")
+        // Changed module files carry the save over when the world still fits them, and a
+        // session resumed on them records and replays.
+        let mut files = module.files.clone();
+        let manifest = files.get("manifest.toml").unwrap().replace(
+            "pace = { type = \"number\", default = 1 }",
+            "pace = { type = \"number\", default = 1 }\nrest = { type = \"int\", default = 3 }",
         );
+        files.0.insert("manifest.toml".into(), manifest);
+        let grown = Module::from_files(&module.manifest.dir, files).unwrap();
+        let (mut carried, report) =
+            crate::sim::resume_save(&path, vec![grown.clone()], true).unwrap();
+        assert_eq!(report["changed_modules"], json!(["stroll"]));
+        carried.start_recording(build.clone());
+        for _ in 0..5 {
+            carried.step(&[]).unwrap();
+        }
+        let recording = carried.recording().unwrap();
+        assert!(galaxy_sim::replay(&recording).unwrap().1.identical);
+        // A change that would lose saved data is refused, naming the changed module.
+        let mut files = module.files.clone();
+        let manifest = files
+            .get("manifest.toml")
+            .unwrap()
+            .replace("climbs = \"int\"\n", "");
+        files.0.insert("manifest.toml".into(), manifest);
+        let shrunk = Module::from_files(&module.manifest.dir, files).unwrap();
+        let refused = crate::sim::resume_save(&path, vec![shrunk], true)
+            .err()
+            .unwrap();
+        assert!(
+            refused.message.contains("changed module files"),
+            "{}",
+            refused.message
+        );
+        assert_eq!(refused.fields["changed_modules"], json!(["stroll"]));
+        // --continue takes the newest save of exactly these modules.
+        let sessions = dir.path().join("sessions");
+        for name in ["2026-11-01-a", "2026-11-02-b"] {
+            std::fs::create_dir_all(sessions.join(name)).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            let save = sessions.join(name).join("save.db");
+            save::write(&save, &session.world, session.modules(), &build).unwrap();
+        }
+        std::fs::create_dir_all(sessions.join("2026-11-03-c")).unwrap();
+        std::fs::write(sessions.join("2026-11-03-c").join("save.db"), "not a save").unwrap();
+        assert_eq!(
+            crate::sim::newest_save(&sessions, std::slice::from_ref(&module)),
+            Some(sessions.join("2026-11-02-b").join("save.db"))
+        );
+        assert_eq!(crate::sim::newest_save(&sessions, &[]), None);
         assert!(
             crate::sim::resume_save(&path, vec![], true)
                 .err()

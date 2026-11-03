@@ -20,7 +20,8 @@ Nothing in `game/` is compiled.
 Game work never builds the engine or the GM: no `cargo`, no `cargo xtask`, no `target/`
 folder in a game worktree. Use the installed `galaxy` and `galaxy-gm` on PATH.
 
-Start with `galaxy-gm guide` and `galaxy --help`. The installed guide is the source of
+Start with `galaxy-gm guide` and `galaxy --help`. A scheduled run with nobody watching
+follows `galaxy-gm guide unattended`. The installed guide is the source of
 truth for commands, formats and workflows, versioned with the tools. Follow its topic
 guides and command help rather than copying command recipes into this file. Use its
 module, field and script API references when authoring; do not guess their schemas.

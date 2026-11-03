@@ -33,18 +33,29 @@ complete.
 
 Loading rebuilds the world from the tables and checks it hashes as it did when saved, so
 a save that doesn't come back exactly is refused. `sim load` needs the same set of modules
-the save lists. Their versions may differ: every stored component must still fit its
-schema, and fields a newer module added get their defaults (with a `load` cause). A save
+the save lists. Their versions and files may differ: every stored component must still fit
+its schema, and fields a newer module added get their defaults (with a `load` cause). A save
 that would lose data, such as a field a module no longer declares, is refused with a
-message. Saves of other formats are refused too: the game is a prototype, so there are
+message naming the modules whose files changed. Saves of other formats are refused too: the game is a prototype, so there are
 no migrations. Saves of the slice are not supported.
 
 Windowed resume uses `galaxy play --modules <modules> --load save.db`. It restores
 through the same reader and `Session::resume`, without firing startup events again.
-For play, the engine version/installed build name and module text hashes must match;
-otherwise exit 4 explains which build or modules to restore. Uninstalled binaries
-have only a version identity. Headless `sim load` retains its schema-compatible
-module update behavior described above. `--seed` with `--load` is a usage error.
+For play, the engine version and installed build name must match; otherwise exit 4
+explains which build to restore. Uninstalled binaries have only a version identity.
+Module files may have changed since the save, as when the GM changed the game between two
+sittings: play carries the world over to them exactly as `sim load` and a hot-load do, or
+refuses (exit 4) when the world no longer fits. Both report `resumed`: the save, its tick
+and `changed_modules`. `--seed` with `--load` is a usage error.
+
+**The continuing save.** `galaxy play --modules <modules> --continue` loads the newest
+`save.db` in the sessions folder made with exactly these modules (by ID), which is where the
+player stopped, since every session saves on quitting; `galaxy sim load --continue` takes
+the same save headless, which is how an unattended GM checks the player's game still loads
+on its change (`gm-unattended.md`). No save of the modules is exit 4. Newest is by the
+save file's modified time, so a GM's own bot sessions must go to another sessions folder
+(`GALAXY_SESSIONS`). The alternative, a named save slot the player picks, needs a save
+browser the game doesn't have yet; the newest session is what "carry on" means today.
 Bot inputs and `--ticks` use absolute world ticks; ticks already saved do not run again.
 The resumed recording embeds the saved world, and F8, replay, audit and film use it.
 
@@ -157,7 +168,9 @@ The default cap of 20 is applied after filtering; `--all` removes it. `--handled
 answered notes instead, including their reason and optional change reference. The ordinary
 `notes` command remains the complete history, with `handled: null` or the answer per note.
 No sessions yet means an empty inbox; unreadable recordings are reported as `unreadable`
-when listing a folder, as for `notes`, rather than silently disappearing.
+when listing a folder, as for `notes`, rather than silently disappearing. `--modules <dir>`
+(on `notes` too) keeps only the sessions that played exactly the modules in `<dir>`, one
+game when the sessions folder holds several; `sessions_of_other_modules` counts the rest.
 
 ```sh
 galaxy-gm notes inbox
