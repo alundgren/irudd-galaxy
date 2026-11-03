@@ -523,6 +523,13 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
             b.widget.path, b.style.target_min
         ));
     }
+    // The frame is capped by the padding, and the frame is what marks a button resting.
+    if b.widget.kind == "button" && b.widget.resting.is_some() && b.widget.pad < 1.0 {
+        problems.push(format!(
+            "{}: a resting button needs pad of at least 1 pixel to show its frame",
+            b.widget.path
+        ));
+    }
     if b.widget.kind == "scroll"
         && b.content_height > b.rect.h
         && scrolling::viewport(b).h < b.style.handle_min

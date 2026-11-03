@@ -2059,6 +2059,7 @@ pub static TOPICS: &[Topic] = &[
                 A button with resting = \"<reason>\" can't act now: it stays in place, drawn \
                 with [screen] resting and resting_dash, hovering shows the reason, a click \
                 records nothing, and a bot click on it is listed in play's resting_clicks. \
+                Its pad must be at least 1, room for its frame. \
                 ui.grid uses columns; ui.scroll needs id and height and clips its children. \
                 ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
                 icon in icons.toml [icons], mapping local names to glyph strings. check reports \

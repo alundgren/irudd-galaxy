@@ -452,7 +452,9 @@ pixels in `border`, at least 1px wide. Its text keeps the full-contrast `text` c
 resting is never greyed out. Check refuses a style whose resting look can't be told from a
 ready button: a dashed frame must contrast with the fill at 3:1, and a solid one
 (`resting_dash = 0`) needs a fill other than `button`. Text on `resting` gets the usual
-4.5:1 check. Only buttons rest, and the reason must not be empty.
+4.5:1 check. The frame is capped by the padding like any border, so check also refuses a
+resting button whose `pad` is under 1px. Only buttons rest, and the reason must not be
+empty.
 
 Hovering shows the reason, after the button's own `hover` label if it has one; check's
 `hovers` array and `look` report it like any label. A click on it hits it (it still

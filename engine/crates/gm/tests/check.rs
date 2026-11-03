@@ -340,6 +340,46 @@ fn check_passes_a_resting_button_and_lists_its_reason_as_its_hover() {
     assert!(out.contains("resting must differ from button"), "{out}");
 }
 
+#[test]
+fn check_refuses_a_resting_button_too_tightly_padded_to_show_its_frame() {
+    // The frame is capped by the padding: with none, a resting button on a fill like
+    // `button`'s would look ready.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/resting/demo"), &module);
+    std::fs::write(module.join("style.toml"), "[screen]\nresting = '#dddddd'\n").unwrap();
+    let screen = |pad: f32| {
+        format!(
+            "return {{
+    on = {{ add = function() end, empty = function() end }},
+    screen = function(_, ui)
+        return ui.row {{ width = 412, children = {{
+            ui.button {{ id = \"ready\", text = \"Go\", on = \"add\",
+                width = 200, height = 60, pad = {pad} }},
+            ui.button {{ id = \"rest\", text = \"Go\", on = \"empty\",
+                width = 200, height = 60, pad = {pad}, resting = \"Not yet.\" }},
+        }} }}
+    end,
+}}
+"
+        )
+    };
+    let script = module.join("scripts/screen.luau");
+    std::fs::write(&script, screen(0.0)).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        messages(&json(&out))
+            .iter()
+            .any(|m| m.contains("rest[2]")
+                && m.contains("resting button needs pad of at least 1 pixel")),
+        "{out}"
+    );
+    std::fs::write(&script, screen(1.0)).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+}
+
 fn copy(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {
