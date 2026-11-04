@@ -44,6 +44,7 @@
 <h1>Irudd Galaxy · Known player-facing changes (Lantern Reach playtests)</h1>
 
 <div class="note">
+<p><strong>Start with the direction doc.</strong> The agreed design is <a href="direction.md">direction.md</a>, with its reference screenshots. The items on this page are changes on top of it, not the design itself.</p>
 <p><strong>What this is.</strong> This page lists behaviour to carry into the rebuild. It comes from three playtests of the previous build by Andreas, the game's designer, plus two scripted test runs. It is <strong>not a technical plan</strong>. It describes what the player should see and feel, and the agent doing the rebuild decides how to build it.</p>
 <p><strong>How to read an item.</strong> Every item stands on its own. It says where it happens and how to get there, what the player sees now (with the exact on-screen text where we have it), what Andreas said in his own words, and what good looks like. Quotes are copied as he typed them, typos included. Screenshots come from the previous build. Most are from the newest build he tested. Where a picture comes from an earlier build, its caption says so.</p>
 <p><strong>Priority</strong> reflects how strongly Andreas felt about it: <span class="tag high">▲ High</span> <span class="tag med">■ Medium</span> <span class="tag low">● Low</span>. <span class="maybe">Possibly still open</span> means the problem was seen in an earlier build and the newest build was not checked for it. Treat it as a requirement anyway.</p>
@@ -107,37 +108,11 @@
   <dt>Log</dt><dd>The ship log, a list of past messages, opened by a button at the bottom left.</dd>
   <dt>Radio</dt><dd>Each station and two lane beacons broadcast a channel with a range. In flight, a panel at the bottom right shows the channel, its signal strength, a text ticker and the buttons Prev, Off and Next (the R key).</dd>
   <dt>Chronicle</dt><dd>Entries that record a change in the world, such as <q>a greenhouse ring lit up</q>.</dd>
-  <dt>Station key</dt><dd>Part of the agreed station design (see "Already decided"): a row of icons along the bottom of the docked view, one per module.</dd>
+  <dt>Station key</dt><dd>Part of the agreed station design (see the direction doc): a row of icons along the bottom of the docked view, one per module.</dd>
 </dl>
 
 <h2>Already decided (do not contradict)</h2>
-<ul>
-  <li><strong>The docked station (agreed design).</strong>
-    <ul>
-      <li>Docking zooms in so the station fills the view.</li>
-      <li>Each module is clickable. Hovering a module lifts it slightly, gives it an outline and shows its sign: the keeper's name and one line about what is offered there.</li>
-      <li>Clicking a module glides the view to its room. The room panel opens beside the module and covers at most about 45% of the screen, so the station stays visible.</li>
-      <li>Right-click, Esc or a Back button returns to the whole station.</li>
-      <li>A <strong>station key</strong> runs along the bottom: one icon per module, so every room is one click away. An icon can carry a news ribbon (<span class="screen">New</span>, <span class="screen">Changed</span> or <span class="screen">Closed</span>) with a one-line headline on hover.</li>
-    </ul>
-  </li>
-  <li><strong>Talk.</strong> Characters speak in short bubbles over the speaker, and a click advances to the next line. The ship log is one small icon at the bottom left. No text panel grows with history.</li>
-  <li><strong>Input.</strong> Mouse first: every room and action can be reached by clicking. The movement keys (W, A, S, D) always fly the ship off the dock, with no separate undock step.</li>
-  <li><strong>Agency.</strong> Nothing changes the player's cargo, credits or fitted parts without a deliberate choice and a readable receipt.</li>
-  <li><strong>Readability.</strong>
-    <ul>
-      <li>Text is pure black or pure white, never grey.</li>
-      <li>State colours come from a colourblind-safe set and are always paired with a shape, an arrow or a word.</li>
-      <li>Disabled buttons look different (for example dashed), never greyed out.</li>
-    </ul>
-  </li>
-  <li><strong>Collision.</strong> Everything that looks solid is solid: ships, rocks and stations. They bump and push, stations included, and nothing ever takes damage.</li>
-  <li><strong>Turn rate.</strong> The ship turns at 180 degrees per second.</li>
-  <li><strong>Basic controls stay.</strong> Once a basic control is unlocked (for example click to fly, click to mine, map travel, order queues or loops), it is never taken away.</li>
-  <li><strong>Music.</strong> Music is made by the GM when it builds a module and ships with the module as ordinary audio files. Nothing is generated while playing, so every save and every player hears the same radio.</li>
-  <li><strong>No live model while playing.</strong> The game makes no language-model calls during play for now. NPC lines, radio chatter and other flavour are written into modules. Model-driven "living" NPCs may come later, once the base game is solid.</li>
-  <li><strong>Calm.</strong> The game is solo and forgiving. Nothing punishes the player for bumping into things.</li>
-</ul>
+<p>The agreed decisions now live in <a href="direction.md">direction.md</a>, section 7, "Rules that hold everywhere", together with the station, talk, fitting and look decisions. Where an item below differs from the direction doc, the direction doc says which decision wins.</p>
 
 <!-- ============================================================ -->
 <h2>Dock and station</h2>

@@ -1,5 +1,8 @@
 # Core v0: a quiet working shift
 
+Every change here follows [the direction doc](../../docs/direction.md); compare your
+screenshots with its reference images.
+
 Fly a small tug, cut ironstone from three solid rocks, dock at either of two
 stations, enter its ore exchange, sell, and launch again. Lantern Dock pays
 12 credits per ore; Cinder Kiln pays 16. The hold takes six units. This is a
