@@ -21,12 +21,26 @@ local signal = {
     BARS = { "|··", "||·", "|||" },
 }
 
--- The signal as the radio shows it: bars and a word for `level`; empty bars with
--- "None" when nothing is tuned, or "Off".
+-- How many bars are lit at `level`: none when nothing is tuned or the radio is off.
+function signal.lit(level, on)
+    if not on or level < 1 then return 0 end
+    return level
+end
+
+-- The word beside the bars: the level's, "None" with nothing tuned, or "Off". Bars and
+-- word both come from `level`, so they always agree.
+function signal.word(level, on)
+    if not on then return "Off" end
+    if level < 1 then return "None" end
+    return signal.WORDS[level]
+end
+
+-- The signal as text: bars and a word for `level`; empty bars with "None" when nothing
+-- is tuned, or "Off".
 function signal.shown(level, on)
-    if not on then return "···  Off" end
-    if level < 1 then return "···  None" end
-    return signal.BARS[level] .. "  " .. signal.WORDS[level]
+    local lit = signal.lit(level, on)
+    local bars = lit > 0 and signal.BARS[lit] or "···"
+    return bars .. "  " .. signal.word(level, on)
 end
 
 -- The signal from 0 (out of range) to 1 at `distance` from a source of `range`.

@@ -1,4 +1,4 @@
--- The ship's own screens: status, the log and, in flight, the orders. Each kind of
+-- The ship's own screens in flight: the orders and the hint strip. Each kind of
 -- thing keeps one look and one place: status top right, the log bottom left, what just
 -- happened at the bottom with the key to learn and the orders, and each station's name
 -- under it while it is in view. A room panel or the open log takes the
@@ -29,47 +29,6 @@ local function where(ctx)
     local here = ctx.get("ship", "engine.location").place
     local docked = here ~= "" and ctx.get(here, "port") ~= nil
     return pilot, here == "core.reach", docked
-end
-
-local function status(ctx, ui, pilot)
-    local hold = ctx.get("ship", "hold")
-    -- The status chip: credits first and largest, then the hold and what is in it.
-    local children = {
-        ui.text { id = "credits", text = pilot.credits .. " cr", size = 22 },
-        ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. fit.hold(ctx), size = 18 },
-    }
-    if rules.load(hold) > 0 then
-        table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 16 })
-    end
-    return ui.panel { id = "status", align = "top-right", x = layout.M, y = layout.M, width = 200, gap = 0, children = children }
-end
-
-local function log_panel(ctx, ui)
-    local entries = ctx.query("entry")
-    table.sort(entries, function(a, b) return ctx.get(a, "entry").n > ctx.get(b, "entry").n end)
-    -- Each entry carries its kind as a word in a tag: TALK for what someone said, SHIP
-    -- for what happened to the ship.
-    local rows = {}
-    for _, id in entries do
-        local entry = ctx.get(id, "entry")
-        table.insert(rows, ui.row { gap = 10, children = {
-            ui.panel { width = 64, pad = 4, children = { ui.text { text = entry.talk ~= "" and "TALK" or "SHIP", size = 16 } } },
-            ui.text { width = layout.PANEL - 176, text = entry.text, size = 18 },
-        } })
-    end
-    if #rows == 0 then rows = { ui.text { text = "Nothing logged yet.", size = 18 } } end
-    return layout.frame(ui, "log", {
-        ui.panel { id = "log", align = "top-left", x = layout.M, y = layout.M, width = layout.PANEL, gap = 12, children = {
-            ui.row { id = "log_heading", gap = 12, children = {
-                ui.column { width = 276, gap = 2, children = {
-                    ui.text { id = "log_title", text = "Ship log", size = 28 },
-                    ui.text { id = "log_order", text = "Newest first", size = 16 },
-                } },
-                ui.button { id = "log_close", width = 200, text = "Close  [L]", on = "log" },
-            } },
-            ui.scroll { id = "entries", height = 400, gap = 8, children = rows },
-        } },
-    })
 end
 
 -- Each station wears its name under it while it is in view, as the traders do
@@ -117,12 +76,10 @@ return {
     screen = function(ctx, ui)
         local pilot, space, docked = where(ctx)
         if not space and not docked then return nil end
-        if pilot.log_open then return log_panel(ctx, ui) end
+        -- The status chip and the log are their own screens (status.luau, logbook.luau).
+        if pilot.log_open then return nil end
         if docked and pilot.room ~= "" then return nil end
-        local children = {
-            status(ctx, ui, pilot),
-            ui.button { id = "log_open", align = "bottom-left", x = layout.M, y = layout.M, width = 104, height = 64, text = "Log · L", hover = "The ship log: what happened and what was said", on = "log" },
-        }
+        local children = {}
         if space then
             station_names(ctx, ui, children)
             -- One strip at the bottom: the latest message, then the orders and the one

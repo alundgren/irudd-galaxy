@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Credits: a gold coin with an inked rim and a stamped bar. -->
+  <circle cx="12" cy="12" r="10.5" fill="#2a1a2e"/>
+  <circle cx="12" cy="12" r="8.8" fill="#f2b43c"/>
+  <circle cx="12" cy="12" r="6.4" fill="#ffcf6b"/>
+  <rect x="10.4" y="7" width="3.2" height="10" rx="1.2" fill="#b07800"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- A station: a hub inside a ring. -->
+  <path fill-rule="evenodd" fill="currentColor" d="M12 1.5a10.5 10.5 0 1 1 0 21a10.5 10.5 0 1 1 0-21zM12 4.2a7.8 7.8 0 1 0 0 15.6a7.8 7.8 0 1 0 0-15.6z"/>
+  <rect x="8.5" y="8.5" width="7" height="7" rx="1.5" fill="currentColor"/>
+  <path fill="currentColor" d="M11 2h2v20h-2zM2 11h20v2H2z"/>
+</svg>
