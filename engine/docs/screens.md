@@ -481,6 +481,10 @@ delta, a parchment panel with spans, a receipt row with a mark and a tag, button
 icons beside and above, a shelf that fades in and out, and a talk bubble with an
 underlined name. It sits under `tests/play` because it is drawn and played.
 
+![The kit after Earn: the chip counting up, Earnings flashing, Earn hovered](screens/ui-kit.png)
+
+![The shelf fading and rising in over ticks 41 to 48](screens/ui-kit-shelf-in.png)
+
 ```sh
 galaxy-gm --build <name> check engine/tests/play/ui-kit/kit
 galaxy --build <name> play --modules engine/tests/play/ui-kit --inputs engine/tests/play/ui-kit-inputs.toml --ticks 100
