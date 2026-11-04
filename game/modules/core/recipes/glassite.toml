@@ -1,5 +1,8 @@
 about = "Glassite: a dark violet rock bristling with glowing lilac crystals"
 seed = 9
+# The whole rock, the first of its stages (ore.stages in start.toml): glassite_chipped,
+# glassite_worn and glassite_stubs share this rock part, so as it is mined only the
+# crystals change, breaking off, while the rock shrinks through engine.model morph.
 [[part]]
 name = "rock"
 shape = "rock"
@@ -10,7 +13,6 @@ lumps = 0.6
 squash = 0.8
 paint = "#5d3f7e"
 accent = "#b98ae6"
-# Crystals grow from the rock's heart, so they still stand as it is cut down.
 [[part]]
 name = "crystals"
 shape = "cylinder"

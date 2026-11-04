@@ -43,10 +43,13 @@ right = "bool"
 boost = "bool"
 
 # A rock: what is left in it, what it held, and the ware it yields (ore, ice or glassite).
+# `stages`, if given, is the models it wears as it is mined, whole first, separated by
+# spaces: each takes an equal share of the rock's life (rules.stage).
 [components.ore]
 left = { type = "int", default = 12 }
 total = { type = "int", default = 12 }
 ware = { type = "text", default = "ore" }
+stages = { type = "text", default = "" }
 
 [components.port]
 name = "text"

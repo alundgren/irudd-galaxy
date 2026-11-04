@@ -126,8 +126,10 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
 - **The ice drift** out west past Lantern Dock: eight pale mint-cream floes (`ice`, the
   tall `ice_shard`) with blue-violet shadow faces (`looks.ice`), 8 to 20 ice each.
 - **Glassite**, far out north-east: two dark violet rocks bristling with glowing lilac
-  crystals, 5 and 4 units. The crystals grow from the rock's heart, so they still stand
-  as it is cut down.
+  crystals, 5 and 4 units. As a rock is mined its crystals break off and wear to stumps:
+  `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
+  `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
+  they all share keeps shrinking through `engine.model` morph.
 - Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
   (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
   never solid, never mined.

@@ -164,7 +164,7 @@ ore = { left = 8, total = 8, ware = "ice" }
 "engine.position" = { x = 56, y = 32 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite", look = "core.glassite", scale = 1.0 }
-ore = { left = 5, total = 5, ware = "glassite" }
+ore = { left = 5, total = 5, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs" }
 
 [entities.glassite2]
 "engine.spin" = { rate = -4 }
@@ -172,7 +172,7 @@ ore = { left = 5, total = 5, ware = "glassite" }
 "engine.position" = { x = 64, y = 39 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.glassite", look = "core.glassite", scale = 0.75 }
-ore = { left = 4, total = 4, ware = "glassite" }
+ore = { left = 4, total = 4, ware = "glassite", stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs" }
 
 # Loose pebbles and splinters round the drifts: drawn only, never solid, never mined.
 [entities.debris1]

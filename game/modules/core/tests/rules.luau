@@ -17,6 +17,22 @@ return {
         assert(rules.transfer(0, 0) == 0)
         assert(rules.transfer(0, 1) == 1)
     end,
+    rock_stages = function()
+        -- Four stages over five units: whole until a second unit is mined, then one
+        -- stage a unit, and the last stays once the rock is empty.
+        local stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs"
+        local seen = {}
+        for mined = 0, 5 do
+            table.insert(seen, rules.stage(stages, mined, 5))
+        end
+        assert(table.concat(seen, ",") == "core.glassite,core.glassite,core.glassite_chipped,core.glassite_worn,core.glassite_stubs,core.glassite_stubs")
+        -- Four units: every unit mined breaks something off.
+        assert(rules.stage(stages, 1, 4) == "core.glassite_chipped")
+        assert(rules.stage(stages, 4, 4) == "core.glassite_stubs")
+        -- A rock without stages keeps its model; doubled spaces are not stages.
+        assert(rules.stage("", 3, 5) == nil)
+        assert(rules.stage("  core.a   core.b ", 3, 5) == "core.b")
+    end,
     prices_follow_stock = function()
         -- Short of target pays more; at target pays base; over target pays less.
         assert(rules.price(ORE) == 13)

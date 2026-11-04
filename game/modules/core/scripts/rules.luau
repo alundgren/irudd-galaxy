@@ -38,6 +38,18 @@ function rules.transfer(load, left, capacity, rate)
     return math.max(0, math.min(rate or 1, (capacity or rules.CAPACITY) - load, left))
 end
 
+-- The model a rock wears with `mined` of its `total` units gone: `stages` lists its
+-- models, whole first, separated by spaces, each taking an equal share of the rock's
+-- life, and the last one stays to the end. Nil for a rock without stages.
+function rules.stage(stages, mined, total)
+    local list = string.split(stages, " ")
+    for i = #list, 1, -1 do
+        if list[i] == "" then table.remove(list, i) end
+    end
+    if #list == 0 or total <= 0 then return nil end
+    return list[math.clamp(math.floor(mined / total * #list) + 1, 1, #list)]
+end
+
 -- The price of the next unit on a market line: the base price, raised while the
 -- station's stock is short of its target and lowered while it is over, by half the
 -- shortfall, within 70% to 130% of base. Rounded to whole credits, halves up.
