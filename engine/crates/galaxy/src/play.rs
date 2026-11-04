@@ -56,6 +56,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
     "--no-live",
+    "--reduced-motion",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -65,6 +66,7 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--size",
     "--out",
     "--crop",
+    "--reduced-motion",
 ];
 
 /// A cropped shot is enlarged until its longer side is at least this many pixels.
@@ -914,11 +916,12 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        let view = View::new(
+        let mut view = View::new(
             &mut renderer,
             self.session.modules(),
             self.session.world.seed,
         );
+        view.eye.still = self.options.reduced_motion;
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);
@@ -1429,6 +1432,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
     let mut view = View::new(&mut renderer, session.modules(), session.world.seed);
+    view.eye.still = options.reduced_motion;
     let ticks = options.ticks.unwrap_or(SHOT_TICKS);
     for _ in 0..ticks {
         view.before_step(&session.world);

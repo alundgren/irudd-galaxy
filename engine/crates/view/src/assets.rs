@@ -21,6 +21,11 @@ pub struct Assets {
     pub nodes: BTreeMap<String, BTreeMap<String, galaxy_mesh::gltf::NamedNode>>,
     /// Looks by ID (`<module>.<name>`).
     pub looks: BTreeMap<String, Look>,
+    /// Beam styles and particle recipes by ID (`<module>.<name>`).
+    pub beams: BTreeMap<String, galaxy_render::effects::BeamStyle>,
+    pub particles: BTreeMap<String, galaxy_render::effects::ParticleRecipe>,
+    /// Each model's patches of self-lit paint, where a look's halo goes.
+    pub lamps: BTreeMap<String, Vec<crate::effects::Lamp>>,
     pub ink: Ink,
     pub light: Light,
     pub sky: Sky,
@@ -75,6 +80,10 @@ impl Assets {
                     galaxy_mesh::gltf::read_nodes(text).map(|nodes| (mesh, parts, nodes))
                 }) {
                     Ok((mesh, parts, nodes)) => {
+                        let lamps = crate::effects::lamps(&mesh, &parts);
+                        if !lamps.is_empty() {
+                            out.lamps.insert(format!("{id}.{name}"), lamps);
+                        }
                         out.parts.insert(format!("{id}.{name}"), parts);
                         out.nodes.insert(format!("{id}.{name}"), nodes);
                         out.models.insert(format!("{id}.{name}"), mesh);
@@ -114,6 +123,12 @@ impl Assets {
             }
             for (name, look) in style.looks {
                 out.looks.insert(format!("{id}.{name}"), look);
+            }
+            for (name, beam) in style.beams {
+                out.beams.insert(format!("{id}.{name}"), beam);
+            }
+            for (name, recipe) in style.particles {
+                out.particles.insert(format!("{id}.{name}"), recipe);
             }
         }
         out.conflicts = scene_wide

@@ -120,6 +120,10 @@ highlight = "#fff6ea"     # multiplies paint in the highlight band
 bands = 3                 # 2 or 3 tone bands
 ```
 
+A look's `halo` and `halo_size` glow round its self-lit paint; `[beams.<name>]` and
+`[particles.<name>]` style what `engine.beam`, `engine.emitter` and `engine.burst` draw
+([effects](effects.md)).
+
 Looks belong to their module and are named by full ID. The scene-wide tables (`ink`,
 `light`, `sky`, `course`, `screen`) describe one scene, so one module sets each; when two do, the last one in
 module order is used and `galaxy-gm check` reports it. A broken style file, a broken model,
@@ -164,8 +168,9 @@ these passes:
    colour, then the **inner ink** pass draws each sample where neighbours disagree:
    a crease sharper than `crease_degrees`, a paint border stronger than `color_edge`,
    or a depth step bigger than `depth_step` (scaled by distance).
-5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera) and soft
-   additive glows, depth-tested against the geometry samples, over inner ink.
+5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera), particles
+   and soft additive glows, depth-tested against the geometry samples, over inner ink.
+   What a module asks for here (beams, particles, halos) is in [effects](effects.md).
 6. **Resolve**: average the finished colour samples into the world raster, including ink.
 7. **Downsample**: the world raster has at least two pixels per logical pixel each way:
    twice the output width and height on a scale-1 or 1.5 display, the output itself on
@@ -256,6 +261,8 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   a sim input: the world never sees it. A played session's recording keeps it beside the
   inputs as presentation only, so a film of the session shows the zoom the player had,
   and an inputs file can turn the wheel with `[[zoom]]` (`saves-and-replay.md`).
+  `speed_zoom`, `lead` and `shake` add camera feel on top, drawn only, and the player's
+  reduced-motion setting turns it off ([effects](effects.md#camera-feel)).
 
 - **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
   an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it

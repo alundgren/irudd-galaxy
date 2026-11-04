@@ -544,6 +544,11 @@ static GAME: &[Command] = &[
                 "don't serve the live socket galaxy-gm live reads and hot-loads through \
                  (served by default, locally and to this user only)",
             ),
+            (
+                "--reduced-motion",
+                "the player's reduced-motion setting: the camera never zooms with speed, leads \
+                 or shakes; notes keep it",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
@@ -656,6 +661,10 @@ static GAME: &[Command] = &[
                 "--crop <thing>",
                 "write only the square round this thing (by ID or bare name), enlarged in \
               whole pixel blocks to at least 512 px, for a before and after of one thing",
+            ),
+            (
+                "--reduced-motion",
+                "draw it as a player with reduced motion sees it: no camera shake, lead or speed zoom",
             ),
         ],
         output: &[
