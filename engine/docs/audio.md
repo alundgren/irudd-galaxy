@@ -112,8 +112,11 @@ between two entities' `engine.position`. Its place between `from` and `to` (clam
 then raised to `power`) picks gain and rate linearly between the pairs. Several curves on
 one loop multiply. The audio scene sends a change only when the result moved, and the
 mixer glides there over `ramp` seconds, so a value scripts set once a second still sounds
-smooth. A missing entity or field counts as `from`. Ambience follows apply to whichever
-ambience is playing, through crossfades.
+smooth. `field = "vx"` reads the signed value; a list, even `["vx"]`, reads its length.
+`check` rejects a component or field the loaded modules don't declare, or one that isn't
+a number, since a typo would leave the loop silently at `from`. While the game runs, a
+missing entity or a field with no value counts as `from`. Ambience follows apply to
+whichever ambience is playing, through crossfades.
 
 **Contacts.** The collide service records `engine.contact` (`entity`, `other`, `speed`)
 when two bodies start touching (`flight-and-collision.md`). A module asks for it with

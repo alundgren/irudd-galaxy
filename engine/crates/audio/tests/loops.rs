@@ -279,12 +279,15 @@ fn bad_loops_follows_and_variation_are_findings() {
          [[follow]]\nchannel='a'\nentity='x'\ncomponent='engine.motion'\nfield='vx'\ndistance_to='y'\nfrom=0\nto=1\ngain=[0,1]\n\
          [[follow]]\nambience=true\nentity='x'\ndistance_to='y'\nfrom=1\nto=1\npitch=[1,1]\n\
          [[follow]]\nchannel='a'\nentity='x'\ndistance_to='y'\nfrom=0\nto=1\n\
-         [[follow]]\nchannel='a'\nentity='x'\ndistance_to='y'\nfrom=0\nto=1\npitch=[0.1,1]\n",
+         [[follow]]\nchannel='a'\nentity='x'\ndistance_to='y'\nfrom=0\nto=1\npitch=[0.1,1]\n\
+         [[follow]]\nchannel='a'\nentity='x'\ncomponent='engine.motion'\nfield=['vx_typo','vy']\nfrom=0\nto=1\ngain=[0,1]\n\
+         [[follow]]\nchannel='a'\nentity='x'\ncomponent='engine.motoin'\nfield='vx'\nfrom=0\nto=1\ngain=[0,1]\n\
+         [[follow]]\nchannel='a'\nentity='x'\ncomponent='engine.being'\nfield='player'\nfrom=0\nto=1\ngain=[0,1]\n",
     )
     .unwrap();
     let bank = Bank::load([&Module::read(dir.path()).unwrap()]);
     let p = &bank.problems;
-    assert_eq!(p.len(), 7, "{p:#?}");
+    assert_eq!(p.len(), 10, "{p:#?}");
     for needle in [
         "loops on the sound bus",
         "vary_pitch",
@@ -293,7 +296,66 @@ fn bad_loops_follows_and_variation_are_findings() {
         "from and to must be finite and differ",
         "give gain, pitch or both",
         "pitch values",
+        "`engine.motion` declares no field `vx_typo`",
+        "component `engine.motoin` is not declared",
+        "`engine.being.player` is not a number",
     ] {
         assert!(p.iter().any(|m| m.contains(needle)), "{needle}: {p:#?}");
+    }
+}
+
+#[test]
+fn a_one_field_list_follows_its_length_and_a_plain_field_its_signed_value() {
+    // Moving at -14 along x: a list reads the vector's length (14, top pitch), a plain
+    // field the signed value (-14, below `from`, so the start pitch).
+    for (field, want) in [("['vx']", 1.6), ("['vx', 'vy']", 1.6), ("'vx'", 0.8)] {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("manifest.toml"),
+            "id='one'\nversion='0.1.0'\nmin_engine_version='0.4.0'\nwrites=['engine.position','engine.motion']\n",
+        )
+        .unwrap();
+        std::fs::copy(
+            engine().join("tests/play/loops/hum/sounds/hum.wav"),
+            dir.path().join("hum.wav"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("audio.toml"),
+            format!(
+                "[sounds.hum]\nfile='hum.wav'\n\
+                 [[events]]\nevent='engine.start'\nsound='hum'\nchannel='engine'\n\
+                 [[follow]]\nchannel='engine'\nentity='ship'\ncomponent='engine.motion'\n\
+                 field={field}\nfrom=0\nto=14\npitch=[0.8,1.6]\n"
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("start.toml"),
+            "[entities.ship]\n\"engine.position\" = { x = 0.0, y = 0.0 }\n\
+             \"engine.motion\" = { vx = -14.0, vy = 0.0 }\n",
+        )
+        .unwrap();
+        let module = Module::read(dir.path()).unwrap();
+        let bank = Bank::load([&module]);
+        assert!(bank.problems.is_empty(), "{:?}", bank.problems);
+        let session = Session::new(vec![module], 7).unwrap();
+        let mut scene = Scene::new(bank);
+        let pitch = scene
+            .update(&session.world, Vec::<&str>::new())
+            .into_iter()
+            .find_map(|a| match a {
+                Action::Tune {
+                    channel: Some(_),
+                    pitch,
+                    ..
+                } => Some(pitch),
+                _ => None,
+            })
+            .unwrap();
+        assert!(
+            (pitch - want).abs() < 1e-4,
+            "field = {field}: pitch {pitch}"
+        );
     }
 }

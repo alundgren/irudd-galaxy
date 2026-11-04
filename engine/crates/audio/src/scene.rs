@@ -148,12 +148,16 @@ impl Curve {
 /// The world value a curve reads: a field, a vector's length or a distance.
 fn value(world: &impl WorldView, curve: &Curve) -> Option<f64> {
     match &curve.source {
-        Source::Fields { component, fields } => {
+        Source::Fields {
+            component,
+            fields,
+            vector,
+        } => {
             let fields_of = world.get(&curve.entity, component)?;
             let values: Option<Vec<f64>> =
                 fields.iter().map(|f| fields_of.get(f)?.as_f64()).collect();
             match values?.as_slice() {
-                [one] => Some(*one),
+                [one] if !vector => Some(*one),
                 many => Some(many.iter().map(|v| v * v).sum::<f64>().sqrt()),
             }
         }

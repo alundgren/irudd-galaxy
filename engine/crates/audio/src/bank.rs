@@ -1,5 +1,6 @@
 use crate::{Bus, Clip, mixer::MAX_CHANNELS};
 use galaxy_api::Registry;
+use galaxy_module::manifest::FieldType;
 use galaxy_module::module::Module;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -263,6 +264,8 @@ pub(crate) enum Source {
     Fields {
         component: String,
         fields: Vec<String>,
+        /// A field list (`field = [..]`): read as a vector's length, even with one field.
+        vector: bool,
     },
     Distance(String),
 }
@@ -449,7 +452,7 @@ impl Bank {
                 );
             }
             for follow in def.follow {
-                match bank.curve(module, follow) {
+                match bank.curve(module, registry.as_ref(), follow) {
                     Ok(curve) => bank.follows.push(curve),
                     Err(e) => bank.problems.push(bad(format!("follow: {e}"))),
                 }
@@ -477,7 +480,12 @@ impl Bank {
         Ok(slot)
     }
 
-    fn curve(&self, module: &Module, f: Follow) -> Result<Curve, String> {
+    fn curve(
+        &self,
+        module: &Module,
+        registry: Option<&Registry>,
+        f: Follow,
+    ) -> Result<Curve, String> {
         let id = |name: &str| {
             if name.contains('.') {
                 name.to_owned()
@@ -498,14 +506,36 @@ impl Bank {
             _ => return Err("give one of channel or ambience = true".into()),
         };
         let source = match (f.component, f.field, f.distance_to) {
-            (Some(component), Some(field), None) => Source::Fields {
-                component: id(&component),
-                fields: match field {
-                    FieldList::One(name) => vec![name],
-                    FieldList::Vector(names) if !names.is_empty() => names,
+            (Some(component), Some(field), None) => {
+                let component = id(&component);
+                let (fields, vector) = match field {
+                    FieldList::One(name) => (vec![name], false),
+                    FieldList::Vector(names) if !names.is_empty() => (names, true),
                     FieldList::Vector(_) => return Err("field lists at least one field".into()),
-                },
-            },
+                };
+                // A misspelt component or field would silently leave the loop at `from`.
+                if let Some(registry) = registry {
+                    if !registry.components.contains_key(&component) {
+                        return Err(format!("component `{component}` is not declared"));
+                    }
+                    for name in &fields {
+                        match registry.field_type(&component, name) {
+                            Some(FieldType::Number | FieldType::Int) => {}
+                            Some(_) => {
+                                return Err(format!("`{component}.{name}` is not a number"));
+                            }
+                            None => {
+                                return Err(format!("`{component}` declares no field `{name}`"));
+                            }
+                        }
+                    }
+                }
+                Source::Fields {
+                    component,
+                    fields,
+                    vector,
+                }
+            }
             (None, None, Some(other)) => Source::Distance(id(&other)),
             _ => return Err("read component and field, or distance_to".into()),
         };
