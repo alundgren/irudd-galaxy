@@ -4,7 +4,7 @@ version = "0.1.0"
 min_engine_version = "0.7.0"
 scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "panel_open", "panel_close", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.emitter"]
 
 [components.pilot]
 credits = "int"
@@ -30,6 +30,8 @@ gliding = "bool"
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
 ore = "int"
+ice = "int"
+glassite = "int"
 plate = "int"
 rations = "int"
 
@@ -45,9 +47,16 @@ boost = "bool"
 [components.blipped]
 line = "id"
 
+# A rock: what is left in it, what it held, and the ware it yields (ore, ice or glassite).
+# `stages`, if given, is the models it wears as it is mined, whole first, separated by
+# spaces: each takes an equal share of the rock's life (rules.stage). `empty`, if given, is
+# the model it wears once nothing is left in it.
 [components.ore]
 left = { type = "int", default = 12 }
 total = { type = "int", default = 12 }
+ware = { type = "text", default = "ore" }
+stages = { type = "text", default = "" }
+empty = { type = "text", default = "" }
 
 [components.port]
 name = "text"

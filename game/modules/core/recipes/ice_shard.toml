@@ -1,0 +1,12 @@
+about = "A tall, split ice floe: pale mint with a teal cut"
+seed = 61
+[[part]]
+shape = "rock"
+radius = 2.5
+mined = 0.55
+detail = 0
+lumps = 0.45
+squash = 1.3
+scale = [0.8, 1.25, 1.0]
+paint = "#e8f5ea"
+accent = "#8fd3d6"

@@ -2,20 +2,22 @@
 
 Every change here follows [the direction doc](../../docs/direction.md); compare your screenshots with its reference images.
 
-Fly a small tug, cut ironstone from three solid rocks, dock at either of two
-stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
+Fly a small tug, cut ironstone, ice and rare glassite from the rocks of the reach, dock
+at either of two stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
 and Lantern Dock wants plate to build a galley. Once the galley is built, its
 cook sells rations that the Kiln's crews buy. The hold takes six units of any
 mix. At the Kiln's fitting cradle, Orrin fits parts bought with what you earn: a
 lens that mines faster, pods for a bigger hold and thrusters for a higher top
-speed, within the hull's power and mass. Two traders fly their own routes between
-the stations while you work, and in flight the radio plays each station's channel
+speed, within the hull's power and mass. Five traders fly their own routes across
+the reach while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
-turn and their lamps breathe, and the stars drift in layers as you fly. The field is
-small and finite (36 ore); there is no timed objective.
+turn and their lamps breathe, steam drifts off the stacks, and the stars drift in layers
+as you fly. The field is finite (84 ore, 100 ice, 9 glassite); there is no timed
+objective.
 
-Use installed engine/GM 0.7.0 or newer. This version was authored and verified
-with `0.7.0-c571bdc1442a` (the look: style, models and screens). No engine build is needed.
+Use installed engine/GM 0.7.0 with the world effects (halos, `engine.emitter`,
+`[particles.*]`): this version was authored and verified with `0.7.0-074b385e9087-dev`.
+Older 0.7.0 builds lack the effects and refuse `engine.emitter`. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -77,10 +79,21 @@ every mining spot stays where it is; a rock only turns slowly in place. A Mine o
 parks the ship on the rock's drawn surface (`range = 0`), and the engine's finished
 `hold` keeps it there while the rock is cut smaller and turns.
 
-Two traders work the reach (`scripts/traffic.luau`): Little Mercy, a hauler, runs
-along the south between moorings off Lantern Dock's and Cinder Kiln's far sides, and
-Quiet Lamp, a lamp launch, flies the long way round the north of the field between
-the stations' outer sides. Each flies its leg's waypoints without stopping, docks
+Five traders work the reach (`scripts/traffic.luau`), each its own hull and livery:
+
+- Little Mercy, a hauler, runs along the south between moorings off Lantern Dock's and
+  Cinder Kiln's far sides.
+- Quiet Lamp, a lamp launch, flies the long way round the north of the field between the
+  stations' outer sides.
+- Tern, a courier, runs the buoyed lane straight across the reach (x = 5, north to
+  south), crossing the player's runs between the berths and the ore. It rests at the
+  north buoys first and sets off about half a minute in.
+- Cold Kettle, an ice barge, hauls slowly from the ice camp beyond the west drift to a
+  mooring off Lantern Dock's south-west.
+- Pell's Luck, a prospector's tug, runs from the glassite out north-east to a mooring off
+  Cinder Kiln's far east side.
+
+ Each flies its leg's waypoints without stopping, docks
 onto its mooring facing the station, waits there eight seconds and flies back.
 Their routes and moorings keep clear of the rocks and the player's berths, so they
 never block a mining spot or a berth. They don't trade: markets move only on the
@@ -102,13 +115,67 @@ third of a second after the turn ends. The mining approach parks 0.004 units fro
 rock's surface and stays within 0.05 of it for the whole hold (12.9 seconds, six cuts,
 the rock turning), ending 0.004 away.
 
+## The field and the sky
+
+The reach is laid out in drifts (`start.toml`), each its own material with its own
+silhouette and colour, in several sizes (`engine.model` scale; a bigger rock holds more):
+
+- **The ore drift** round the middle: rust-brown ironstone in three shapes (`rock`, the
+  long `rock_lump` and the blocky `rock_chunk`), seven rocks of 8 to 18 ore. rock1 stays
+  the nearest rock to the start and to both berths, so the first Space finds ore.
+- **The ice drift** out west past Lantern Dock: eight pale mint-cream floes (`ice`, the
+  tall `ice_shard`) with blue-violet shadow faces (`looks.ice`), 8 to 20 ice each.
+- **Glassite**, far out north-east: two dark violet rocks bristling with glowing lilac
+  crystals, 5 and 4 units. As a rock is mined its crystals break off and wear to stumps:
+  `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
+  `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
+  they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
+  `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps.
+- Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
+  (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
+  never solid, never mined.
+- Lane buoys (`buoy`) blink along the courier's lane and at its moorings.
+- Far off, past where the ship can fly: a ringed planet sunk well below the field (its
+  model sits 60 units down, so it draws behind everything) to the north-west, and a
+  lighthouse on the reach's eastern edge. Both wear `looks.far`: faint ink, two bands and
+  a shadow close to the sky's violet, so they sit back in the haze.
+
+Each rock yields its own ware (`ware` on the `ore` component; ore by default), and Space
+mines the nearest rock with anything left. Ice and glassite are wares like ore: Lantern
+Dock buys ice, Cinder Kiln buys glassite (below). The office and the dockmaster count
+ore only.
+
+The sky (`[sky]` in `style.toml`) has 300 stars, mostly tiny, in four parallax layers,
+and 16 soft clouds, mostly violet with rose, amber and teal patches.
+
+The stations read as harbours, each in its owner's shape language:
+
+- **Lantern Dock** (`recipes/station.toml`) is round and hand-built: a turning spoked
+  ring with eight lamps, a three-tier core under a lantern cap, a greenhouse dome
+  glowing leaf-green, a green water tank, four lantern posts round the ring, a mast with
+  pennants, a banner on the core, and a dock arm with a lamp string, a crate pile and a
+  barrel. A little steam rises off its kettle cap.
+- **Cinder Kiln** (`recipes/kiln_station.toml`) is square and ordered: a still brass quay
+  frame, four deep-red kilns whose mouths glow round a tall chimney that breathes steam,
+  a fan turning on the stack, corner lamp posts with red banners, a tank farm, and a
+  dock arm with a toll gate and crates in neat rows.
+
+Both are drawn at 1.35 times their model's size. Their collision outlines stay clear of
+the berths and the traders' moorings: Lantern Dock reaches 7.3 units to the front and
+sides and 12.4 back along its dock arm, Cinder Kiln 5.6 and 12.2.
+
+Lamps, windows and engines glow (`halo` on the station, ship, buoy, glassite and far
+looks). Every ship leaves a short trail while it flies (`engine.emitter` with
+`[particles.exhaust]` on the player's ship, `[particles.wake]` on the traders), and
+steam (`[particles.steam]`) is cream cel puffs that swell and drift off.
+
 ## The reach moves on its own
 
 With nothing pressed the reach is never quite still, and everything that moves on its
 own is slow and quiet beside what you can act on:
 
-- **Rocks** turn where they float (`engine.spin` in `start.toml`: 3, -4 and 2.5 degrees
-  a second) and never drift, so every mining spot stays put. Their solid outline turns
+- **Rocks** turn where they float (`engine.spin` in `start.toml`: 1.5 to 6 degrees a
+  second, either way) and never drift, so every mining spot stays put. Their solid outline turns
   with them, and a Mine order's hold keeps the ship on the turning surface.
 - **Stations' rings** turn about their hubs (`spin` on the ring part in
   `recipes/station.toml` and `recipes/kiln_station.toml`: Lantern Dock 6 degrees a second
@@ -117,7 +184,10 @@ own is slow and quiet beside what you can act on:
   or 3 seconds (`pulse`, `pulse_low`). Both are drawn only: they change no world state,
   so saves and replays are untouched. The station up close, which is the menu, stays
   still.
-- **Stars** lie in three layers (`star_layers` in `style.toml`): far ones creep behind
+- **Stations** move in their parts: Lantern Dock's lantern posts, lamp string and
+  greenhouse each pulse on their own beat; Cinder Kiln's fan turns, its kiln mouths glow
+  and its corner lamps and toll-gate lamp pulse; steam drifts off both.
+- **Stars** lie in four layers (`star_layers` in `style.toml`): far ones creep behind
   near ones as the ship flies.
 
 Measured on films with nothing pressed (`galaxy film`, then the motion tools): rock1
@@ -247,8 +317,8 @@ bubble always shows whose words it holds. Station names and room names never sha
 
 ## Trade, prices and the galley
 
-Lantern Dock buys ore and plate; Cinder Kiln buys ore and rations and sells
-plate; the galley, once built, sells rations (`market` lines in `start.toml`).
+Lantern Dock buys ore, ice and plate; Cinder Kiln buys ore, glassite and rations
+and sells plate; the galley, once built, sells rations (`market` lines in `start.toml`).
 Every line has a base price, a target stock and a rate. The price of each unit
 is the base raised while stock is short of target and lowered while it is over,
 by half the shortfall, within 70% to 130% of base (`scripts/rules.luau`). A
