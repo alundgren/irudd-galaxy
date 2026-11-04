@@ -1,5 +1,7 @@
 # Core: a quiet working shift
 
+Every change here follows [the direction doc](../../docs/direction.md); compare your screenshots with its reference images.
+
 Fly a small tug, cut ironstone from three solid rocks, dock at either of two
 stations and sell it, then trade between them: Cinder Kiln turns ore into plate,
 and Lantern Dock wants plate to build a galley. Once the galley is built, its
