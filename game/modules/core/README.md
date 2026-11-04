@@ -181,11 +181,15 @@ a bubble blip as each line appears. Radio: a little static as it tunes a channel
 They are synthesised by `sounds/make.py` (sines, decaying modes and filtered noise with
 a fixed seed), levelled with `audio process` and measured with `audio inspect`. The
 cues come from facts the game already records (`docked`, `mined`, `sold`, `bought`,
-`fitted`, `grown`, the radio's channel cues, the talk inputs) and from events that
-`scripts/sound.luau` records once per real change, because a key sends a fact on press
-and on release: thrust on and off, boost, undocking, a panel opening or closing, a
-click, a refusal, the chips and the full hold. That script is first in the manifest,
-so it reads the world as the other scripts found it, and it only records facts. The
+`fitted`, `grown`, the radio's channel cues, a talk starting and an answer chosen) and
+from events that `scripts/sound.luau` records once per real change, because a key sends
+a fact on press and on release: thrust on and off (W less S, so S pressed against a
+held W stops it and let go starts it again), boost, undocking, a panel opening or
+closing, a click, a refusal, the chips, the full hold and a talk line appearing. A
+clicked line blips only when the talk really moved on, so a double click or a stale
+repeat blips once; the script keeps the last line it cued in `blipped` for that. It is
+first in the manifest, so it reads the world as the other scripts found it, and it
+writes only those facts and that note. The
 hum repeats exactly every second with 0.12 s fades, so the copy each `mined` fact
 starts blends into the last and the hum holds steady while the beam cuts. The three
 chips take turns so they never tick like a clock.
@@ -536,7 +540,8 @@ all seven run there without problems.
 The sound has its own numeric checks: each bed's loudness, peak and loop seam, the
 mining hum's level, and the mix in flight, mining, docked with talk, trading, fitting
 and docked at each station (`audio/*-check.toml`). `tests/sound.toml` checks that each
-cue is recorded once per real change:
+cue is recorded once per real change, and `tests/sound-talk.toml` that duplicate and
+stale clicks on a talk line blip once:
 
 ```sh
 galaxy-gm audio check game/modules/core/audio/flight-check.toml

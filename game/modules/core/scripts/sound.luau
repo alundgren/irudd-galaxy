@@ -2,11 +2,12 @@
 -- release, and audio.toml plays a sound on every fact of its event, so this script
 -- records one cue event per real change instead: thrust starting and stopping, boost,
 -- leaving a dock, a panel opening or closing, a click, a refusal, a mining chip, a full
--- hold and a paid receipt. It is listed first in the manifest, so its handlers read the world as
--- it was before the other scripts acted on the same input. It writes nothing but these
--- facts, so it never changes what happens. Facts that already mark a moment (docked,
--- mined, sold, bought, fitted, grown, the radio's channel cues and the talk inputs) are
--- cued straight from audio.toml.
+-- hold, a paid receipt and a talk line appearing. It is listed first in the manifest, so
+-- its handlers read the world as it was before the other scripts acted on the same
+-- input. It writes nothing but these facts and its own note of the last talk line it
+-- cued, so it never changes what happens. Facts that already mark a moment (docked,
+-- mined, sold, bought, fitted, grown, the radio's channel cues, a talk starting and an
+-- answer chosen) are cued straight from audio.toml.
 local rules = require("./rules")
 local fit = require("./fit")
 
@@ -50,13 +51,38 @@ local function flight(event, ctx)
         if down and not keys.boost then ctx.record("boost_on", {}) end
         return
     end
-    local other = OTHER[key]
-    if not other or keys[other] then return end
-    if down and not keys[key] then
+    -- Thrust is W less S (main.luau): cue when it starts or stops, whichever key moved
+    -- it, so S pressed against a held W stops it and let go starts it again.
+    if not OTHER[key] then return end
+    local before = (keys.ahead and 1 or 0) - (keys.back and 1 or 0)
+    keys[key] = down
+    local after = (keys.ahead and 1 or 0) - (keys.back and 1 or 0)
+    if before == 0 and after ~= 0 then
         ctx.record("thrust_on", {})
-    elseif not down and keys[key] then
+    elseif before ~= 0 and after == 0 then
         ctx.record("thrust_off", {})
     end
+end
+
+-- A line clicked on: the engine records the click even when it is a stale repeat that
+-- moves nothing on, so only a click that advanced the talk (to the line's next, or to
+-- its end) and isn't the line just cued blips. A talk starting or an answer chosen
+-- clears the note, so a later run through the same lines blips again.
+local function talk_next(event, ctx)
+    local talk = ctx.get(event.payload.talk, "engine.talk")
+    local said = ctx.get(event.payload.line, "engine.talk_line")
+    if not talk or not said then return end
+    local last = ctx.get("ship", "blipped")
+    if last and last.line == event.payload.line then return end
+    local following = said.next or ""
+    local advanced = if following ~= "" then talk.current == following else not talk.active
+    if not advanced then return end
+    ctx.put("ship", "blipped", { line = event.payload.line })
+    ctx.record("talk_line", {})
+end
+
+local function talk_reset(_, ctx)
+    if ctx.has("ship", "blipped") then ctx.remove("ship", "blipped") end
 end
 
 local function launch(event, ctx)
@@ -106,6 +132,9 @@ return {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
         launch = launch, open = open, close = close, log = log,
         dock = click_in_flight, radio = click_in_flight, mine = mine,
+        ["engine.talk_next"] = talk_next,
+        ["engine.talk_start"] = talk_reset,
+        ["engine.talk_chosen"] = talk_reset,
         -- A chip for each second's ore, one of three in turn so it never ticks like a
         -- clock; the unit that fills the hold chimes.
         mined = function(_, ctx)

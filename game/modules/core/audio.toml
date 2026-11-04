@@ -260,7 +260,7 @@ event = "engine.talk_start"
 sound = "talk_blip"
 
 [[events]]
-event = "engine.talk_next"
+event = "talk_line"
 sound = "talk_blip"
 
 [[events]]
