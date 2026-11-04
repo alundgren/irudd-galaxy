@@ -109,6 +109,8 @@ pub fn luau_types(engine: &str) -> String {
          --- engine.talk_chosen {{ talk, line, choice }} (an answer button; stale ones never arrive).\n\
          --- engine.resumed {{}} (source \"resume\") starts the first tick after a save resumed;\n\
          --- a resumed world plays no earlier sound cue, so record the music event again.\n\
+         --- engine.contact {{ entity, other, speed }}: two bodies started touching (`entity` is\n\
+         --- the one that moves more); recorded only when a manifest sets contact_speed.\n\
          export type Event = {{\n\
          \tkind: Id,\n\
          \ttick: number,\n\

@@ -1,0 +1,72 @@
+crossfade = 0.5
+
+[sounds.hum]
+file = "sounds/hum.wav"
+volume = 0.6
+loop_crossfade = 0
+[sounds.beam]
+file = "sounds/beam.wav"
+volume = 0.6
+loop_crossfade = 0
+[sounds.room]
+file = "sounds/room.wav"
+volume = 0.5
+loop_crossfade = 0
+[sounds.ping]
+file = "sounds/ping.wav"
+volume = 0.7
+[sounds.bump]
+file = "sounds/bump.wav"
+volume = 0.8
+
+[places]
+bay = "room"
+
+# The engine hum runs on its own channel from the start; its pitch and gain follow speed.
+[[events]]
+event = "engine.start"
+sound = "hum"
+channel = "engine"
+fade = 0.5
+
+# The beam loops while B is held: on with the beam, not with its first result.
+[[events]]
+event = "beam_on"
+sound = "beam"
+channel = "beam"
+fade = 0.3
+[[events]]
+event = "beam_off"
+channel = "beam"
+stop = true
+fade = 0.3
+
+[[events]]
+event = "ping"
+sound = "ping"
+vary_pitch = 0.1
+vary_gain = 0.3
+
+[[events]]
+event = "engine.contact"
+sound = "bump"
+
+[[follow]]
+channel = "engine"
+entity = "ship"
+component = "engine.motion"
+field = ["vx", "vy"]
+from = 0.0
+to = 14.0
+pitch = [0.8, 1.6]
+gain = [0.4, 1.0]
+ramp = 0.1
+
+# Quieter the further the ship is from the beacon.
+[[follow]]
+ambience = true
+entity = "ship"
+distance_to = "beacon"
+from = 0.0
+to = 18.0
+gain = [1.0, 0.25]
