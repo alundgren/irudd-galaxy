@@ -29,6 +29,12 @@ return {
         -- Four units: every unit mined breaks something off.
         assert(rules.stage(stages, 1, 4) == "core.glassite_chipped")
         assert(rules.stage(stages, 4, 4) == "core.glassite_stubs")
+        -- With an empty model, the emptied rock wears it; until then the stages run as before.
+        local pebbles = "core.glassite_pebbles"
+        assert(rules.stage(stages, 4, 5, pebbles) == "core.glassite_stubs")
+        assert(rules.stage(stages, 5, 5, pebbles) == pebbles)
+        assert(rules.stage(stages, 4, 4, pebbles) == pebbles)
+        assert(rules.stage(stages, 5, 5, "") == "core.glassite_stubs")
         -- A rock without stages keeps its model; doubled spaces are not stages.
         assert(rules.stage("", 3, 5) == nil)
         assert(rules.stage("  core.a   core.b ", 3, 5) == "core.b")

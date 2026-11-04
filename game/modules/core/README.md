@@ -129,7 +129,8 @@ silhouette and colour, in several sizes (`engine.model` scale; a bigger rock hol
   crystals, 5 and 4 units. As a rock is mined its crystals break off and wear to stumps:
   `ore.stages` names its four models (`glassite`, `glassite_chipped`, `glassite_worn`,
   `glassite_stubs`), each taking an equal share of the rock's units, while the rock part
-  they all share keeps shrinking through `engine.model` morph.
+  they all share keeps shrinking through `engine.model` morph. Once it is empty it becomes
+  `ore.empty`, `glassite_pebbles`: a few dark pebbles with warm glowing caps.
 - Pebbles and ice splinters (`debris`, `debris_ice`) and faint drifting dust
   (`[particles.dust]` from three `engine.emitter` points) round the drifts: drawn only,
   never solid, never mined.

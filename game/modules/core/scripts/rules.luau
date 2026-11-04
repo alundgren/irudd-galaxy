@@ -40,8 +40,10 @@ end
 
 -- The model a rock wears with `mined` of its `total` units gone: `stages` lists its
 -- models, whole first, separated by spaces, each taking an equal share of the rock's
--- life, and the last one stays to the end. Nil for a rock without stages.
-function rules.stage(stages, mined, total)
+-- life, and the last one stays to the end. Once all are mined, `empty` (a model, if given)
+-- takes over. Nil when neither applies: the rock keeps its model.
+function rules.stage(stages, mined, total, empty)
+    if empty and empty ~= "" and total > 0 and mined >= total then return empty end
     local list = string.split(stages, " ")
     for i = #list, 1, -1 do
         if list[i] == "" then table.remove(list, i) end

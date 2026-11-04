@@ -1,6 +1,6 @@
 # Glassite's crystals break off as it is mined: the ship turns north-east, flies to
-# glassite1 and mines it out. Its five units come aboard, the rock is fully morphed
-# and it wears its last stage, a shrunken rock with two glowing stumps.
+# glassite1 and mines it out. Its five units come aboard and the emptied rock is left as
+# a few pebbles with warm glowing caps (ore.empty).
 seed = 7
 ticks = 400
 
@@ -51,7 +51,7 @@ equals = 0
 entity = "glassite1"
 component = "engine.model"
 field = "model"
-equals = "core.glassite_stubs"
+equals = "core.glassite_pebbles"
 
 [[expect]]
 entity = "glassite1"
