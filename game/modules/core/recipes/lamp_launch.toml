@@ -6,7 +6,7 @@ length = 3.0
 width = 1.1
 height = 0.7
 nose = 0.15
-paint = "#a6b7d6"
+paint = "#f6ead4"
 [[part]]
 name = "wings"
 shape = "wing"
@@ -14,7 +14,7 @@ span = 0.9
 chord = 0.9
 mirror = true
 at = [-0.7, 0.3, 0]
-paint = "trim"
+paint = "#e0a050"
 [[part]]
 name = "lamp"
 shape = "mast"
@@ -26,3 +26,18 @@ name = "engine"
 shape = "nozzle"
 radius = 0.36
 at = [-1.4, 0, 0]
+# Its stripe and pennant, inside the hull's footprint.
+[[part]]
+name = "stripe"
+shape = "box"
+size = [1.6, 0.2, 0.08]
+at = [-0.5, 0, 0.33]
+paint = "#3a2d5c"
+[[part]]
+name = "pennant"
+shape = "fin"
+length = 0.6
+height = 0.45
+thickness = 0.07
+at = [-0.7, 0, 0.32]
+paint = "#e0a050"

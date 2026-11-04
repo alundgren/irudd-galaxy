@@ -1,41 +1,83 @@
+# The core's look, from the direction doc (game/docs/direction.md, 1.1, 1.2, 1.5 and 9).
+
+# Calm dusky plum space, never near-black, so the warm ink reads against it; sparse warm
+# stars and a few soft clouds of rose, amber, teal and violet haze.
 [sky]
-top = "#19283c"
-bottom = "#697b86"
-stars = 160
+top = "#4e3672"
+bottom = "#2a1f48"
+stars = 180
 # Far stars creep behind near ones as the ship flies: a little depth, kept faint.
 star_layers = [0.25, 0.6, 1.1]
-cloud_count = 3
+clouds = ["#c2577a", "#e8905a", "#2f8f8a", "#6b4aa0"]
+cloud_count = 9
+cloud_alpha = 0.2
 
-[screen]
-# One look per kind of thing, all with pure black text: cream paper for what just
-# happened and for headings, pale blue panels for status and rooms, amber for anything
-# you can press, white bubbles for speech and white name signs for the people who speak.
-paper = "#fbf3e0"
-panel = "#d3e4ee"
-button = "#f2b264"
-bubble = "#ffffff"
-sign = "#ffffff"
-text = "#000000"
-border = "#3b2f2f"
-radius = 8
-# A building under the pointer lifts and takes a blue outline: blue is no other kind's
-# colour, and it stands out on the warm station.
-highlight = "#2f6fdb"
-highlight_px = 5
-# Dragging a part: the card under the pointer keeps the amber of something you can
-# press, and the gap it leaves is a darker blue. Picking one up tints every target at
-# once, bluish green where it may go and pale vermilion where it may not, always with
-# the words "Drop here" or "Cannot drop" and the reason (a colourblind-safe pair).
-held = "#f2b264"
-socket = "#b9cfdb"
-accept = "#bfe8d3"
-refuse = "#f6cdb8"
+# Warm dark plum ink, not black: a silhouette round every model, and inner lines on sharp
+# creases and colour borders, so gentle rock facets stay bare.
+[ink]
+color = "#2a1a2e"
+crease_degrees = 50
+inner_px = 2.0
 
+# One warm key light; shadows are violet (each look's `shadow`), never grey, and a hard
+# warm rim catches the edges. Band edges fade over a few degrees so a turning rock never
+# flips a face from one band to the next in a frame.
 [light]
-ambient = "#49485e"
-rim = "#efc287"
+sun = "#fff1dc"
+ambient = "#2c2240"
+rim = "#ffb36b"
+rim_strength = 0.55
 band_fade_degrees = 30
 
-[looks.hull]
-outline_px = 2
-hatch = 0.25
+# Ink weight by the size of the thing: stations heaviest, then ships, rocks, props.
+[looks.station]
+outline_px = 4.5
+hatch = 0.3
+shadow = "#9e85cc"
+
+[looks.ship]
+outline_px = 3.5
+hatch = 0.3
+shadow = "#9e85cc"
+
+[looks.rock]
+outline_px = 3.0
+hatch = 0.7
+shadow = "#9e85cc"
+
+[looks.prop]
+outline_px = 2.5
+hatch = 0.15
+shadow = "#9e85cc"
+
+[screen]
+# The slice's screen family, light surfaces with pure black text throughout:
+# parchment panels with an ink border for rooms, status, the log and the radio; cream
+# paper for what just happened and the hint strip; mustard for anything you can press or
+# pick up; white bubbles for speech; lantern-gold name signs on people.
+paper = "#fff4dd"
+panel = "#f7e8c8"
+button = "#f2b43c"
+bubble = "#ffffff"
+sign = "#ffcf6b"
+text = "#000000"
+border = "#2a1a2e"
+border_px = 2
+radius = 12
+# Gains blue, losses vermilion (the colourblind-safe pair), darkened for 4.5:1 on every
+# light surface; a delta also carries its sign.
+gain = "#002f50"
+loss = "#7a2e00"
+# A building under the pointer lifts and takes the orange hover outline.
+highlight = "#e69f00"
+highlight_px = 5
+# Dragging a part: the held card keeps the mustard of something you can pick up, an
+# empty socket is hull cream with a dashed frame, and picking one up tints every target
+# at once: sky blue with "Drop here", vermilion with "Cannot drop" and the reason.
+held = "#f2b43c"
+socket = "#efdcb4"
+accept = "#8fcdef"
+refuse = "#f4a27c"
+track = "#efdcb4"
+handle = "#9a6a3a"
+handle_active = "#7a4e2a"

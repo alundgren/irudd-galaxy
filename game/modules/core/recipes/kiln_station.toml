@@ -1,20 +1,41 @@
-about = "Cinder Kiln wears fired clay and blue enamel"
-# The same station as station.toml in the Kiln's paint. A used recipe's motion isn't
-# carried into the part that uses it, so the parts are listed here with their own: the
-# ring turns the other way, a little slower, and the lamps keep their own beat.
-palette = { main = "#cf8765", accent = "#87c6c8", trim = "#435e72" }
+about = "Cinder Kiln: square and ordered, cream with brass trim and deep red caps"
+# The same ring and footprint as station.toml, but its core is square: a block with four
+# corner kilns round a tall chimney, where Lantern Dock has round lantern tiers. A used
+# recipe's motion isn't carried into the part that uses it, so the parts are listed here
+# with their own: the ring turns the other way, a little slower, and the lamps keep their
+# own beat.
+palette = { main = "#f3ddb0", trim = "#c98f4a", accent = "#8f3040" }
 [[part]]
 shape = "spoked_ring"
 radius = 5
 tube = 0.7
 inner = 1.8
+spokes = 4
 spin = -5
 pulse = 5
 pulse_low = 0.45
 [[part]]
-shape = "tiers"
-radius = 2
-height = 2.8
+name = "core"
+shape = "block"
+depth = 3.0
+width = 3.0
+height = 2.2
+at = [0, 0, -0.4]
+[[part]]
+name = "kilns"
+shape = "box"
+size = [0.9, 0.9, 1.4]
+copies = 4
+angle = 45
+distance = 2.1
+at = [0, 0, 0.5]
+paint = "accent"
+[[part]]
+name = "chimney"
+shape = "spire"
+radius = 0.6
+height = 3.6
+at = [0, 0, 1.6]
 [[part]]
 shape = "panel"
 length = 4

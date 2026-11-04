@@ -35,28 +35,41 @@ end
 
 local function status(ctx, ui, pilot)
     local hold = ctx.get("ship", "hold")
-    local children = { ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. fit.hold(ctx), size = 20 } }
+    -- The status chip: credits first and largest, then the hold and what is in it.
+    local children = {
+        ui.text { id = "credits", text = pilot.credits .. " cr", size = 22 },
+        ui.text { id = "hold", text = "Hold " .. rules.load(hold) .. " / " .. fit.hold(ctx), size = 18 },
+    }
     if rules.load(hold) > 0 then
-        table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 18 })
+        table.insert(children, ui.text { id = "cargo", text = rules.list(hold), size = 16 })
     end
-    table.insert(children, ui.text { id = "credits", text = pilot.credits .. " cr", size = 20 })
-    return ui.panel { id = "status", align = "top-right", x = layout.M, y = layout.M, width = 240, gap = 4, children = children }
+    return ui.panel { id = "status", align = "top-right", x = layout.M, y = layout.M, width = 200, gap = 0, children = children }
 end
 
 local function log_panel(ctx, ui)
     local entries = ctx.query("entry")
     table.sort(entries, function(a, b) return ctx.get(a, "entry").n > ctx.get(b, "entry").n end)
+    -- Each entry carries its kind as a word in a tag: TALK for what someone said, SHIP
+    -- for what happened to the ship.
     local rows = {}
     for _, id in entries do
-        table.insert(rows, ui.text { text = ctx.get(id, "entry").text, size = 18 })
+        local entry = ctx.get(id, "entry")
+        table.insert(rows, ui.row { gap = 10, children = {
+            ui.panel { width = 64, pad = 4, children = { ui.text { text = entry.talk ~= "" and "TALK" or "SHIP", size = 16 } } },
+            ui.text { width = layout.PANEL - 176, text = entry.text, size = 18 },
+        } })
     end
     if #rows == 0 then rows = { ui.text { text = "Nothing logged yet.", size = 18 } } end
     return layout.frame(ui, "log", {
         ui.panel { id = "log", align = "top-left", x = layout.M, y = layout.M, width = layout.PANEL, gap = 12, children = {
-            ui.text { id = "log_title", text = "Ship log", size = 28 },
-            ui.text { id = "log_order", text = "Newest first", size = 16 },
-            ui.scroll { id = "entries", height = 330, children = rows },
-            ui.button { id = "log_close", text = "Close the log  [L]", on = "log" },
+            ui.row { id = "log_heading", gap = 12, children = {
+                ui.column { width = 276, gap = 2, children = {
+                    ui.text { id = "log_title", text = "Ship log", size = 28 },
+                    ui.text { id = "log_order", text = "Newest first", size = 16 },
+                } },
+                ui.button { id = "log_close", width = 200, text = "Close  [L]", on = "log" },
+            } },
+            ui.scroll { id = "entries", height = 400, gap = 8, children = rows },
         } },
     })
 end
@@ -93,17 +106,19 @@ return {
         if docked and pilot.room ~= "" then return nil end
         local children = {
             status(ctx, ui, pilot),
-            ui.button { id = "log_open", align = "bottom-left", x = layout.M, y = layout.M, width = 200, text = "Ship log  [L]", on = "log" },
+            ui.button { id = "log_open", align = "bottom-left", x = layout.M, y = layout.M, width = 104, height = 64, text = "Log · L", hover = "The ship log: what happened and what was said", on = "log" },
         }
         if space then
             table.insert(children, orders(ctx, ui))
             -- The latest message sits just above the flight keys, or on the bottom edge
             -- once every key's hint has retired.
-            local bottom = { ui.text { id = "message", width = layout.MESSAGE, text = pilot.message, size = 20 } }
+            -- One strip: the message, then the keys still to learn.
+            local inside = layout.MESSAGE - 32
+            local bottom = { ui.text { id = "message", width = inside, text = pilot.message, size = 20 } }
             for i, line in hints(ctx) do
-                table.insert(bottom, ui.text { id = i == 1 and "hints" or "hints" .. i, width = layout.MESSAGE, size = 16, text = line })
+                table.insert(bottom, ui.text { id = i == 1 and "hints" or "hints" .. i, width = inside, size = 16, text = line })
             end
-            table.insert(children, ui.column { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 6, children = bottom })
+            table.insert(children, ui.panel { id = "bottom", align = "bottom", y = layout.M, width = layout.MESSAGE, gap = 4, children = bottom })
         end
         return layout.frame(ui, "hud", children)
     end,

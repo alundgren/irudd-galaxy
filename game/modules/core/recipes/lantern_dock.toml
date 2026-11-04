@@ -13,7 +13,7 @@ shape = "cylinder"
 radius = 13.2
 height = 0.05
 sides = 16
-paint = "#5d7a72"
+paint = "#d2a46c"
 [[part]]
 name = "rim"
 shape = "spoked_ring"
