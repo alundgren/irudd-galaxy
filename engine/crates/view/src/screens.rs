@@ -9,10 +9,12 @@ mod yielding;
 pub use interaction::{Drag, Presentation};
 pub use motion::Motion;
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use galaxy_api::Registry;
+use galaxy_api::ui::{UiAction, UiCue};
 use galaxy_module::module::Module;
 use galaxy_render::{
     Align, Overlay, Rect, Text, TextSpan, UiImage, UiLayer, glam::Vec2, screen_style::ScreenStyle,
@@ -64,7 +66,15 @@ pub struct Screens {
     pub style: ScreenStyle,
     /// The player's reduced-motion setting: recorded into the presentation.
     pub reduced_motion: bool,
+    /// UI sound cues since the game last took them; `None` unless the game listens, so
+    /// staged scenes in check, notes and films make none.
+    cues: RefCell<Option<Vec<UiCue>>>,
+    /// The clickable thing the pointer was over in the last frame, for hover cues.
+    hovering: Option<String>,
 }
+
+/// At most this many cues wait to be taken; later ones are dropped.
+const MAX_CUES: usize = 256;
 
 #[derive(Clone, Debug)]
 pub struct IconBox {
@@ -284,15 +294,21 @@ impl Screens {
     /// A resting button takes the click and records nothing.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
-        if !matches!(w.kind.as_str(), "button" | "bubble") || w.resting.is_some() {
+        if w.kind == "button" && w.resting.is_some() {
+            self.ui_cue(UiAction::Deny, w);
             return None;
         }
-        w.on.as_ref().map(|name| Input {
+        if !matches!(w.kind.as_str(), "button" | "bubble") {
+            return None;
+        }
+        let input = w.on.as_ref().map(|name| Input {
             tick,
             source: "ui".into(),
             name: name.clone(),
             payload: w.payload.clone(),
-        })
+        })?;
+        self.ui_cue(UiAction::Press, w);
+        Some(input)
     }
 
     /// Resolve bot targets against the current layout, then use ordinary pointer hit testing.
@@ -405,6 +421,73 @@ impl Screens {
 
     pub fn calls(&self) -> u64 {
         self.functions.iter().map(|s| s.calls).sum()
+    }
+
+    /// From now on, UI actions leave cues for [`Screens::take_cues`] (a played session).
+    pub fn listen(&mut self, on: bool) {
+        *self.cues.get_mut() = on.then(Vec::new);
+    }
+
+    pub fn listening(&self) -> bool {
+        self.cues.borrow().is_some()
+    }
+
+    /// The UI sound cues since the last call, in the order they happened.
+    pub fn take_cues(&mut self) -> Vec<UiCue> {
+        self.cues
+            .get_mut()
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
+    }
+
+    /// Puts cues taken with [`Screens::take_cues`] back, ahead of any newer ones.
+    pub(crate) fn requeue(&mut self, mut cues: Vec<UiCue>) {
+        if let Some(waiting) = self.cues.get_mut() {
+            cues.append(waiting);
+            *waiting = cues;
+        }
+    }
+
+    /// Notes a UI action on `w` for the game to play and record.
+    pub(crate) fn ui_cue(&self, action: UiAction, w: &Widget) {
+        self.ui_cue_as(action, &w.kind, w.look.as_deref(), &w.path);
+    }
+
+    pub(crate) fn ui_cue_as(&self, action: UiAction, kind: &str, look: Option<&str>, widget: &str) {
+        if let Some(cues) = self.cues.borrow_mut().as_mut()
+            && cues.len() < MAX_CUES
+        {
+            cues.push(UiCue {
+                tick: 0,
+                time: self.clock,
+                action,
+                kind: kind.to_owned(),
+                look: look.map(str::to_owned),
+                widget: widget.to_owned(),
+            });
+        }
+    }
+
+    /// A UI action on the shown widget at `path`, such as a bot's click on a resting button.
+    pub fn cue_path(&self, action: UiAction, path: &str) {
+        if let Some(b) = self.all().into_iter().find(|b| b.widget.path == path) {
+            self.ui_cue(action, &b.widget);
+        }
+    }
+
+    /// The pointer is over `over` (a clickable widget) this frame: a hover cue when it is
+    /// a different thing from last frame's. A widget with an id stays the same thing when
+    /// its screen moves it to another parent.
+    pub(crate) fn hover_over(&mut self, over: Option<&Widget>) {
+        let key = over.map(motion::key);
+        if key == self.hovering {
+            return;
+        }
+        self.hovering = key;
+        if let Some(w) = over {
+            self.ui_cue(UiAction::Hover, w);
+        }
     }
 }
 

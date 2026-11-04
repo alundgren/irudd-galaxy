@@ -2,37 +2,92 @@ use super::{
     inspect,
     meter::{Meter, db},
 };
+use galaxy_api::ui::UiCue;
 use galaxy_audio::{Bank, Heard, Mixer, Scene};
 use galaxy_module::{Failure, discover, gate, module::Module};
 use galaxy_motion::Opts;
-use galaxy_sim::{Session, scenario::InputsFile};
+use galaxy_sim::recording::RecEvent;
+use galaxy_sim::{Input, Recording, Replay, Session, World, scenario::InputsFile};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Scenario {
     modules: PathBuf,
-    ticks: u64,
+    /// Required with inputs; with a recording, defaults to the ticks it played.
+    ticks: Option<u64>,
     #[serde(default = "seed")]
     seed: u64,
     inputs: Option<PathBuf>,
+    /// A played session's recording.json: its world and its UI sounds, mixed with the
+    /// sounds in `modules`.
+    recording: Option<PathBuf>,
 }
 fn seed() -> u64 {
     1
+}
+
+/// What drives the mix: a scripted session, or a recording run again.
+enum Run<'a> {
+    Scripted {
+        session: Session,
+        inputs: BTreeMap<u64, Vec<Input>>,
+    },
+    Recorded(Replay<'a>),
+}
+
+impl Run<'_> {
+    fn world(&self) -> &World {
+        match self {
+            Run::Scripted { session, .. } => &session.world,
+            Run::Recorded(replay) => &replay.session.world,
+        }
+    }
+
+    fn step(&mut self) -> Result<(), Failure> {
+        match self {
+            Run::Scripted { session, inputs } => {
+                let tick = session.world.tick + 1;
+                session
+                    .step(&inputs.remove(&tick).unwrap_or_default())
+                    .map_err(Failure::runtime)
+            }
+            Run::Recorded(replay) => replay.step().map(|_| ()).map_err(Failure::runtime),
+        }
+    }
 }
 
 pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let text = std::fs::read_to_string(path).map_err(|e| Failure::bad_input(e.to_string()))?;
     let scenario: Scenario =
         toml::from_str(&text).map_err(|e| Failure::bad_input(e.to_string()))?;
-    if scenario.ticks == 0 || scenario.ticks > 108_000 {
+    let base = path.parent().unwrap_or(Path::new("."));
+    if scenario.recording.is_some() && scenario.inputs.is_some() {
         return Err(Failure::bad_input(
-            "mix ticks must be 1..108000 (up to one hour)",
+            "a mix scenario takes inputs or a recording, not both",
         ));
     }
-    let base = path.parent().unwrap_or(Path::new("."));
+    let recording = scenario
+        .recording
+        .as_ref()
+        .map(|p| Recording::read(&base.join(p)))
+        .transpose()
+        .map_err(Failure::bad_input)?;
+    let played = recording
+        .as_ref()
+        .map(|r| r.end.tick.saturating_sub(r.start.tick));
+    let ticks = scenario
+        .ticks
+        .or(played)
+        .ok_or_else(|| Failure::bad_input("a mix scenario with inputs needs ticks"))?;
+    if ticks == 0 || ticks > 108_000 || played.is_some_and(|p| ticks > p) {
+        return Err(Failure::bad_input(
+            "mix ticks must be 1..108000 (up to one hour), and no more than a recording played",
+        ));
+    }
     let root = base.join(&scenario.modules);
     let dirs = if root.join("manifest.toml").is_file() {
         vec![root]
@@ -63,16 +118,43 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
             "offline audio accepts event inputs only; clicks, pointers and hot loads need a played session",
         ));
     }
-    if input.inputs.iter().any(|i| i.tick > scenario.ticks) {
+    if input.inputs.iter().any(|i| i.tick > ticks) {
         return Err(Failure::bad_input(
             "scenario contains inputs after its last tick",
         ));
     }
-    let mut session = Session::new(modules.clone(), scenario.seed).map_err(Failure::bad_input)?;
-    for i in &input.inputs {
-        session.check_input(i).map_err(Failure::bad_input)?;
-    }
-    let mut inputs = input.by_tick();
+    let mut run = match &recording {
+        Some(rec) => Run::Recorded(Replay::new(rec).map_err(Failure::bad_input)?),
+        None => {
+            let session =
+                Session::new(modules.clone(), scenario.seed).map_err(Failure::bad_input)?;
+            for i in &input.inputs {
+                session.check_input(i).map_err(Failure::bad_input)?;
+            }
+            Run::Scripted {
+                session,
+                inputs: input.by_tick(),
+            }
+        }
+    };
+    // A recording's UI cues, by the frame of the mix they start on: the mix's first frame
+    // is the screen clock at the recording's first tick.
+    let start = run.world().tick;
+    let mut cues: Vec<(u64, &UiCue)> = recording
+        .iter()
+        .flat_map(|r| &r.events)
+        .filter_map(|e| match e {
+            RecEvent::UiSound(cue) => Some(cue),
+            _ => None,
+        })
+        .map(|cue| {
+            let at = (f64::from(cue.time) - start as f64 / 30.0) * 48_000.0;
+            (at.max(0.0).round() as u64, cue)
+        })
+        .collect();
+    cues.sort_by_key(|(at, _)| *at);
+    let mut cues = cues.into_iter().peekable();
+    let mut heard_ui = Vec::new();
     let mut sources = vec![];
     for module in &modules {
         if let Some(text) = module.files.get("audio.toml") {
@@ -100,19 +182,25 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let rate = 48_000;
     let mut mixer = Mixer::new(rate);
     let mut scene = Scene::new(bank);
-    let mut next_fact = 0;
-    let update = |scene: &mut Scene, mixer: &mut Mixer, session: &Session, next: &mut usize| {
+    // A recording's world already holds its saved facts; only new ones sound.
+    let mut next_fact = if recording.is_some() {
+        run.world().facts.len()
+    } else {
+        0
+    };
+    let update = |scene: &mut Scene, mixer: &mut Mixer, world: &World, next: &mut usize| {
         for action in scene.update(
-            &session.world,
-            session.world.facts[*next..]
+            world,
+            world.facts[*next..]
                 .iter()
                 .map(|f| Heard::fact(&f.kind, f.tick, &f.payload)),
         ) {
             mixer.apply(action);
         }
-        *next = session.world.facts.len();
+        *next = world.facts.len();
     };
-    update(&mut scene, &mut mixer, &session, &mut next_fact);
+    update(&mut scene, &mut mixer, run.world(), &mut next_fact);
+    let mut frame_at = 0_u64;
     let mut output = Meter::new(rate, 2);
     let mut pre = Meter::new(rate, 2);
     let mut buses: [Meter; 3] = std::array::from_fn(|_| Meter::new(rate, 2));
@@ -135,13 +223,22 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
     let mut window_buses: [Vec<[f32; 2]>; 3] =
         std::array::from_fn(|_| Vec::with_capacity(rate as usize));
     let mut max_voices = 0;
-    for tick in 1..=scenario.ticks {
-        session
-            .step(&inputs.remove(&tick).unwrap_or_default())
-            .map_err(Failure::runtime)?;
-        update(&mut scene, &mut mixer, &session, &mut next_fact);
+    for tick in 1..=ticks {
+        run.step()?;
+        update(&mut scene, &mut mixer, run.world(), &mut next_fact);
         max_voices = max_voices.max(mixer.voice_count());
         for _ in 0..rate / galaxy_api::engine::TICKS_PER_SECOND {
+            while let Some((_, cue)) = cues.next_if(|(at, _)| *at <= frame_at) {
+                let played = scene.ui(cue);
+                heard_ui.push(json!({"t": frame_at as f64 / f64::from(rate),
+                    "action": cue.action.name(), "kind": cue.kind, "look": cue.look,
+                    "widget": cue.widget, "sound": played.as_ref().map(|(_, name)| *name)}));
+                if let Some((action, _)) = played {
+                    mixer.apply(action);
+                }
+            }
+            frame_at += 1;
+            max_voices = max_voices.max(mixer.voice_count());
             let frame = mixer.frame_with_buses();
             output.push(frame.output);
             pre.push(frame.pre_clamp);
@@ -157,7 +254,7 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
                 }
             }
         }
-        if tick % 30 == 0 || tick == scenario.ticks {
+        if tick % 30 == 0 || tick == ticks {
             windows.push(overlap_window(&window_buses, rate, (tick - 1) / 30));
             for b in &mut window_buses {
                 b.clear();
@@ -176,7 +273,7 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
         .collect();
     let mut findings = vec![];
     if mixer.limited_samples > 0 {
-        findings.push(inspect::finding("mix_clipping",0.0,scenario.ticks as f64/30.0,
+        findings.push(inspect::finding("mix_clipping",0.0,ticks as f64/30.0,
         json!({"limited_samples":mixer.limited_samples,"pre_clamp_peak_dbfs":pre.report()["sample_peak_dbfs"]}),
         "Lower sound volumes in audio.toml or process sources to lower targets; final clamp cannot restore clipped detail."));
     }
@@ -196,8 +293,9 @@ pub(super) fn run(path: &Path, opts: &Opts) -> Result<Value, Failure> {
         json!({"measurement_version":1,"reading":"Source loudness and actual simultaneous bus contributions are separate. Bus levels include all playback gains and fades, before the shared clamp.",
         "sources":sources,"playback":output.report(),"pre_clamp":pre.report(),"buses":bus_report,
         "windows":windows,"findings":findings,"limited_samples":mixer.limited_samples,
-        "stolen_voices":mixer.stolen_voices,"max_voices":max_voices,"ticks":scenario.ticks,
-        "world_hash":session.world.hash(),"wav":opts.text("out"),"stems":stems,
+        "stolen_voices":mixer.stolen_voices,"max_voices":max_voices,"ticks":ticks,
+        "world_hash":run.world().hash(),"wav":opts.text("out"),"stems":stems,
+        "ui_sounds":heard_ui,
         "detail":"48 kHz, same Scene and Mixer as play and galaxy audio. Every 1 s window compares simultaneous RMS levels and normalized spectral band overlap. Bus stems are float WAV before final clamp; their sum may exceed full scale. Short effects need peaks and momentary measurements."}),
     )
 }

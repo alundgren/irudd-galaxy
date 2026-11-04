@@ -1,5 +1,6 @@
 //! Pointer interaction is presentation state, independent of screen function calls.
 use super::*;
+use galaxy_api::ui::UiAction;
 use galaxy_sim::scenario::Pointer;
 use serde::{Deserialize, Serialize};
 
@@ -113,6 +114,7 @@ impl Screens {
         let w = self.hit(point)?;
         if w.kind == "drag_source" {
             let b = self.all().into_iter().find(|b| b.widget.path == w.path)?;
+            self.ui_cue(UiAction::Drag, &b.widget);
             self.presentation.drag = Some(Drag {
                 source: w.path.clone(),
                 id: w.id.clone().unwrap_or_default(),
@@ -178,6 +180,20 @@ impl Screens {
                 .get(&drag.value)
                 .is_some_and(String::is_empty)
         });
+        // A drag's sounds are its source's: a refusing target denies, else it lands.
+        let refused = target.is_some() && accepted.is_none();
+        if let Some(source) = self
+            .all()
+            .into_iter()
+            .find(|b| b.widget.path == drag.source)
+        {
+            let action = if refused {
+                UiAction::Deny
+            } else {
+                UiAction::Drop
+            };
+            self.ui_cue(action, &source.widget);
+        }
         let destination = accepted.map(|b| array(b.rect)).unwrap_or(drag.home);
         let input = accepted.and_then(|b| {
             let mut payload = b.widget.payload.clone();

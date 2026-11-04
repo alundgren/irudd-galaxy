@@ -448,6 +448,7 @@ fn summary(rec: &Recording, out: &mut Value) {
             RecEvent::Zoom { .. } => "zooms",
             RecEvent::HotLoad { .. } => "hot_loads",
             RecEvent::Presentation { .. } => "presentation",
+            RecEvent::UiSound(_) => "ui_sounds",
         };
         *counts.entry(kind).or_default() += 1;
     }

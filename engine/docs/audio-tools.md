@@ -114,6 +114,7 @@ modules = "modules"
 ticks = 1800
 seed = 1
 # inputs = "route.toml"
+# recording = "session/recording.json"   # instead of inputs: a played session
 ```
 
 ```sh
@@ -122,7 +123,11 @@ galaxy-gm audio mix mix.toml --out mix.wav --stems stems
 
 The same `Scene` and `Mixer` as play and `galaxy audio` run an ordinary scripted
 session, with event inputs and no window/device. Clicks, pointer gestures and hot
-loads are refused. Up to one hour can be rendered. Source loudness is measured
+loads in inputs are refused; for those, play the session and mix its recording:
+`recording` runs its world again (ticks defaults to the ticks it played) and plays its
+recorded UI sound cues on their frames, listed in the report's `ui_sounds`
+(`audio.md`, "UI sounds"). Sounds come from `modules`, so an edited `audio.toml` is heard
+on the same session. Up to one hour can be rendered. Source loudness is measured
 before gains and playback clamp. Each bus is captured in the actual mixer pass
 after voice, bus and master ramps; crossfades and voice stealing therefore affect
 its effective level exactly as in play. The original voice summation order is

@@ -3,6 +3,7 @@
 //! All of it is presentation. Its state lives in the presentation snapshot beside scroll
 //! offsets and drags, timed by the screen clock (tick plus interpolation), so a note,
 //! audit and film redraw a mid-fade frame exactly and the world never sees it.
+use galaxy_api::ui::UiAction;
 use galaxy_script::screens::Widget;
 use serde::{Deserialize, Serialize};
 
@@ -136,7 +137,11 @@ impl Screens {
         let now: BTreeMap<String, &Boxed> = now.into_iter().map(|b| (key(&b.widget), b)).collect();
         let primed = motion.primed;
         motion.primed = true;
-        for k in now.keys() {
+        let mut opened = Vec::new();
+        for (k, b) in &now {
+            if primed && !motion.shown.contains_key(k) {
+                opened.push(b.widget.clone());
+            }
             motion
                 .shown
                 .entry(k.clone())
@@ -148,6 +153,7 @@ impl Screens {
             .filter(|k| !now.contains_key(*k))
             .cloned()
             .collect();
+        let mut closed = Vec::new();
         if !gone.is_empty() {
             let mut before = Vec::new();
             for b in previous {
@@ -155,6 +161,9 @@ impl Screens {
             }
             for k in gone {
                 motion.shown.remove(&k);
+                if let Some(b) = before.iter().find(|b| key(&b.widget) == k) {
+                    closed.push(b.widget.clone());
+                }
                 if !(on && style.motion_out > 0.0) {
                     continue;
                 }
@@ -201,6 +210,13 @@ impl Screens {
             seen.insert(k, cue);
         }
         motion.values = seen;
+        // Sounds don't depend on motion: a module without motion keys still hears them.
+        for w in &opened {
+            self.ui_cue(UiAction::Open, w);
+        }
+        for w in &closed {
+            self.ui_cue(UiAction::Close, w);
+        }
     }
 
     /// How far into its arrival a panel is (1 settled), and how far into a cue.

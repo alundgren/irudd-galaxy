@@ -261,6 +261,12 @@ impl View {
                 .then_some(id.as_str())
             })?
         };
+        self.screens.ui_cue_as(
+            galaxy_api::ui::UiAction::Press,
+            "speaker",
+            None,
+            conversation,
+        );
         Some(Input {
             tick,
             source: "talk".into(),

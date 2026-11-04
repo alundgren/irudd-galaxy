@@ -1,0 +1,11 @@
+id = "demo"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["scripts/screen.luau"]
+writes = ["engine.position", "engine.camera"]
+events = ["toggle", "pick", "place", "locked"]
+[components.desk]
+shelf = "bool"
+picked = "text"
+at = "text"
+drops = "int"
