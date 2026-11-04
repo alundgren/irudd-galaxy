@@ -48,6 +48,9 @@ pub struct Scene {
     pub lines: Vec<Line>,
     /// Soft additive halos (lanterns, engine glow, beam impact).
     pub glows: Vec<Glow>,
+    /// Sparks, chips and puffs, drawn between lines and glows; at most
+    /// [`MAX_PARTICLES`] are drawn.
+    pub particles: Vec<Particle>,
     /// Screen-space UI drawn on top.
     pub overlay: Overlay,
     /// How the inner ink is drawn (creases, colour edges, depth steps).
@@ -67,6 +70,7 @@ impl Scene {
             meshes: Vec::new(),
             lines: Vec::new(),
             glows: Vec::new(),
+            particles: Vec::new(),
             overlay: Overlay::default(),
             ink: Ink::default(),
             time: 0.0,
@@ -279,6 +283,8 @@ pub struct Line {
     /// lines that continue each other share one pattern when the second starts where the
     /// first ended; a line drawn from a fixed end keeps its pattern still in the world.
     pub phase: f32,
+    /// How strong a beam's soft outer glow is (1 is the default; 0 leaves the hot core).
+    pub glow: f32,
 }
 
 impl Line {
@@ -291,6 +297,7 @@ impl Line {
             closed: false,
             wobble: 0.0,
             phase: 0.0,
+            glow: 1.0,
         }
     }
 
@@ -337,6 +344,52 @@ impl Line {
         self.wobble = amplitude;
         self
     }
+
+    /// Sets a beam's outer glow strength (0 to 4).
+    pub fn with_glow(mut self, glow: f32) -> Self {
+        self.glow = if glow.is_finite() {
+            glow.clamp(0.0, 4.0)
+        } else {
+            1.0
+        };
+        self
+    }
+}
+
+/// The most particles one scene draws; the rest are dropped, so a runaway emitter can't
+/// eat the frame.
+pub const MAX_PARTICLES: usize = 4096;
+
+/// How a particle is drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ParticleShape {
+    /// A soft round dot.
+    #[default]
+    Dot,
+    /// A streak along its velocity, bright at the head.
+    Spark,
+    /// A round cel puff with an ink rim.
+    Puff,
+    /// A small turned square with an ink rim.
+    Chip,
+}
+
+/// One particle, as the view placed it this frame: presentation only.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Particle {
+    pub position: Vec3,
+    /// World units a second; a spark streaks along it.
+    pub velocity: Vec3,
+    /// Diameter in world units.
+    pub size: f32,
+    /// Colour; alpha is its opacity.
+    pub color: Color,
+    pub shape: ParticleShape,
+    /// Added to the colour beneath (a glow) instead of painted over it.
+    pub additive: bool,
+    /// A chip's turn on screen, radians.
+    pub spin: f32,
 }
 
 /// A soft round halo, added on top of the scene.

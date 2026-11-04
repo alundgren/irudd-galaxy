@@ -99,6 +99,10 @@ pub fn luau_types(engine: &str) -> String {
          export type Id = string\n\
          \n\
          --- A component's fields. An `id` field holds an entity ID, or \"\" for none.\n\
+         --- Effects are components too, drawn only: engine.beam {{ target, look, x, y, height }},\n\
+         --- engine.emitter {{ recipe, target, x, y, height, angle, rate, by }}, engine.burst\n\
+         --- {{ recipe, tick, ... }} (tick = ctx.tick) and engine.camera_feel {{ speed_zoom, lead,\n\
+         --- shake, shake_tick }}. `galaxy-gm fields components` lists every field.\n\
          export type Fields = {{ [string]: number | boolean | string }}\n\
          \n\
          --- A fact's payload: numbers, booleans, text, lists and tables.\n\

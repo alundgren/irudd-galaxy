@@ -546,8 +546,9 @@ static GAME: &[Command] = &[
             ),
             (
                 "--reduced-motion",
-                "screens don't slide, fade, lift, count or flash (also GALAXY_REDUCED_MOTION=1); \
-                 recordings keep the setting",
+                "the player's reduced-motion setting (also GALAXY_REDUCED_MOTION=1): the camera \
+                 never zooms with speed, leads or shakes, and screens don't slide, fade, lift, \
+                 count or flash; recordings and notes keep it",
             ),
         ],
         output: &[
@@ -661,6 +662,11 @@ static GAME: &[Command] = &[
                 "--crop <thing>",
                 "write only the square round this thing (by ID or bare name), enlarged in \
               whole pixel blocks to at least 512 px, for a before and after of one thing",
+            ),
+            (
+                "--reduced-motion",
+                "draw it as a player with reduced motion sees it (also GALAXY_REDUCED_MOTION=1): no \
+                 camera shake, lead or speed zoom, and screens already settled",
             ),
         ],
         output: &[

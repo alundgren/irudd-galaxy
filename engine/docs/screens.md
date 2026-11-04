@@ -478,7 +478,8 @@ presentation snapshot, so notes, audit and film rebuild a frame mid-fade exactly
 enters world state, events or recordings, and boxes, hit tests and check use the settled
 layout. A replay therefore has the same world hash with motion on or off. `galaxy play
 --reduced-motion` (or `GALAXY_REDUCED_MOTION=1`) settles every motion at once, including
-a released token's glide home or onto its target.
+a released token's glide home or onto its target. It is one setting with the camera's:
+the same switch turns off camera feel ([effects](effects.md)).
 
 `engine/tests/play/ui-kit` is the fixture: a dark chip with a drawn coin and a counted
 delta, a parchment panel with spans, a receipt row with a mark and a tag, buttons with

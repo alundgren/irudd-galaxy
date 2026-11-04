@@ -201,6 +201,21 @@ fn ui_motion_is_presentation_only_and_notes_rebuild_mid_motion() {
 }
 
 #[test]
+fn reduced_motion_is_one_setting_and_a_film_keeps_it_for_the_camera_too() {
+    use galaxy_view::film::{Zoom, recorded_zooms};
+    let mut v = View::detached([&kit()], 1);
+    v.set_reduced_motion(true);
+    assert!(v.reduced_motion && v.eye.still);
+    // A session played with reduced screens and no note: its film keeps the camera still.
+    let (s, _) = play(true);
+    let zooms = recorded_zooms(&s.recording().unwrap());
+    assert_eq!(zooms.first(), Some(&(0, Zoom::Still(true))));
+    let (s, _) = play(false);
+    let zooms = recorded_zooms(&s.recording().unwrap());
+    assert!(!zooms.iter().any(|(_, z)| matches!(z, Zoom::Still(_))));
+}
+
+#[test]
 fn a_button_lifts_under_the_pointer_and_sinks_while_pressed() {
     let mut s = Session::new(vec![kit()], 1).unwrap();
     s.step(&[]).unwrap();

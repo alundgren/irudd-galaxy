@@ -28,7 +28,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use galaxy_api::Registry;
-use galaxy_api::engine::MODEL;
+use galaxy_api::engine::{BEAM, BURST, EMITTER, MODEL};
 use galaxy_module::cli::{self, Output};
 use galaxy_module::discover::{self, Tool};
 use galaxy_module::failure::code;
@@ -273,8 +273,9 @@ fn finding(kind: &str, message: impl Into<String>) -> Value {
     json!({ "kind": kind, "message": message.into() })
 }
 
-/// What `module` brings for the eye: its models and style read, and every model and look
-/// its start state wears is one some module has.
+/// What `module` brings for the eye: its models and style read, every model and look its
+/// start state wears is one some module has, and so is every particle recipe and beam look
+/// its start state and beams name.
 fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
     let assets = Assets::load(all);
     let own = format!("{}: ", module.id());
@@ -313,6 +314,64 @@ fn looks(module: &Module, all: &[Module]) -> Vec<Value> {
                 format!(
                     "start.toml: {entity} wears the look `{look}`, which no module's \
                      style.toml has"
+                ),
+            ));
+        }
+    }
+    out.extend(effect_names(module, &assets));
+    out
+}
+
+/// Effect names in `module` that name nothing: recipes and beam looks in its start state
+/// (sprayed or not yet), an emitter's `by`, and its beams' impact recipes.
+fn effect_names(module: &Module, assets: &Assets) -> Vec<Value> {
+    let mut out = Vec::new();
+    for (entity, components) in &module.start {
+        for (kind, field) in [(EMITTER, "recipe"), (BURST, "recipe"), (BEAM, "look")] {
+            let Some(fields) = components.get(kind) else {
+                continue;
+            };
+            let text = |k: &str| fields.get(k).and_then(Value::as_str).unwrap_or("");
+            let name = text(field);
+            let known = if kind == BEAM {
+                assets.beams.contains_key(name)
+            } else {
+                assets.particles.contains_key(name)
+            };
+            if !name.is_empty() && !known {
+                let table = if kind == BEAM { "beams" } else { "particles" };
+                out.push(finding(
+                    "look",
+                    format!(
+                        "start.toml: {entity} {kind} {field} `{name}` is no [{table}.<name>] \
+                         in any module's style.toml"
+                    ),
+                ));
+            }
+            let by = text("by");
+            if kind == EMITTER && !["", "thrust", "speed"].contains(&by) {
+                out.push(finding(
+                    "look",
+                    format!(
+                        "start.toml: {entity} {kind} by `{by}` is not empty, `thrust` or `speed`"
+                    ),
+                ));
+            }
+        }
+    }
+    let own = format!("{}.", module.id());
+    for (beam, style) in assets.beams.iter().filter(|(k, _)| k.starts_with(&own)) {
+        for name in style
+            .impact
+            .iter()
+            .filter(|n| !assets.particles.contains_key(*n))
+        {
+            out.push(finding(
+                "look",
+                format!(
+                    "style.toml: [beams.{}] impact `{name}` is no [particles.<name>] in any \
+                     module's style.toml",
+                    &beam[own.len()..]
                 ),
             ));
         }

@@ -12,6 +12,7 @@
 pub mod assets;
 pub mod builds;
 pub mod course;
+pub mod effects;
 pub mod film;
 pub mod glide;
 pub mod hovers;
@@ -202,6 +203,9 @@ pub struct Moment {
     /// How long the course had been showing (it settles faint after a while).
     #[serde(default)]
     pub course_age: Option<f32>,
+    /// Whether the player had reduced motion on (no camera feel).
+    #[serde(default)]
+    pub still: bool,
     pub eye: [f32; 3],
     pub target: [f32; 3],
 }
@@ -219,6 +223,8 @@ impl Moment {
 pub struct Eye {
     /// The view height the wheel zoomed to, if it did.
     pub view: Option<f32>,
+    /// Reduced motion: no camera feel (speed zoom, lead or shake).
+    pub still: bool,
 }
 
 /// Models on a renderer, the style, and what the last frame drew.
@@ -248,6 +254,8 @@ pub struct View {
     /// The camera of the last scene.
     pub camera: Option<Camera>,
     pub courses: course::Courses,
+    /// The recent ticks effects are drawn from.
+    effects: effects::Effects,
     talk_frame: (f32, Vec2),
     /// Speakers of the lines on screen whose focus the last scene covered or left off
     /// screen ([`View::live_focus`]), as problems.
@@ -307,6 +315,13 @@ impl View {
         View::build(Some(renderer), modules, seed)
     }
 
+    /// The player's reduced-motion setting, one switch for both halves: no camera feel
+    /// ([`Eye::still`]) and screens that don't slide, fade, lift, count or flash.
+    pub fn set_reduced_motion(&mut self, on: bool) {
+        self.reduced_motion = on;
+        self.eye.still = on;
+    }
+
     /// A view with no renderer: it builds the same scenes, but they draw nothing. For a
     /// film's probes, which need where things are on screen and not the pixels.
     pub fn detached<'a>(modules: impl IntoIterator<Item = &'a Module>, seed: u64) -> View {
@@ -344,6 +359,7 @@ impl View {
             missing: BTreeSet::new(),
             camera: None,
             courses: course::Courses::default(),
+            effects: effects::Effects::default(),
             talk_frame: (1.0, Vec2::ONE),
             talk_focus: Vec::new(),
             focus_live: true,
@@ -440,6 +456,9 @@ impl View {
     /// Remembers where everything is, before the sim steps. Call it once before each tick
     /// so [`View::scene`] can draw between the last two.
     pub fn before_step(&mut self, world: &World) {
+        let mut fx = std::mem::take(&mut self.effects);
+        fx.record(self, world);
+        self.effects = fx;
         self.previous_places = world
             .entities
             .keys()
@@ -523,6 +542,7 @@ impl View {
             course::Courses::starting_at(moment.course_age),
         );
         self.eye.view = moment.zoom;
+        self.eye.still = moment.still;
         let scene = self.scene(
             world,
             moment.alpha,
@@ -628,9 +648,11 @@ impl View {
         )
     }
 
-    /// The camera on the thing with `engine.camera`, at the player's zoom.
+    /// The camera on the thing with `engine.camera`, at the player's zoom, with the
+    /// camera feel it asks for (`effects.rs`).
     fn follow_camera(&self, world: &World, alpha: f32) -> Camera {
-        let (target, spec) = match camera_holder(world) {
+        let holder = camera_holder(world);
+        let (target, spec) = match holder {
             Some((id, spec)) => (
                 self.pose(world, id, alpha)
                     .map_or(Vec3::ZERO, |p| p.point()),
@@ -643,7 +665,11 @@ impl View {
             .view
             .unwrap_or(spec.view)
             .clamp(spec.min_view, spec.max_view);
-        spec.camera(target, view)
+        let Some((id, _)) = holder else {
+            return spec.camera(target, view);
+        };
+        let (zoom, aim) = self.camera_feel(world, id, alpha, view);
+        effects::shifted(spec.camera(target, view * zoom), aim)
     }
 
     /// The scene for this frame: `alpha` of the way between the last two ticks, at
@@ -740,6 +766,7 @@ impl View {
             }
             drawn.insert(id.as_str(), (first..scene.meshes.len(), model_id, scale));
         }
+        self.draw_effects(world, alpha, place, &drawn, &mut scene);
         let (plan, arrived) = self.plan(world, alpha);
         let per_pixel = camera.world_per_pixel(logical);
         self.courses.draw(
@@ -937,6 +964,7 @@ impl View {
         let mut all = self.assets.problems.clone();
         all.extend(self.screens.problems.clone());
         all.extend(self.talk_focus.clone());
+        all.extend(self.effects.problems.clone());
         all.extend(self.assets.conflicts.iter().map(assets::Conflict::message));
         all.extend(
             self.missing
@@ -981,6 +1009,7 @@ impl View {
             scale,
             zoom: self.eye.view,
             course_age: self.courses.age(time),
+            still: self.eye.still,
             eye: camera.eye.to_array(),
             target: camera.target.to_array(),
         })

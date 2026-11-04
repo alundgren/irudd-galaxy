@@ -123,7 +123,8 @@ Which modules a command is about:
 
 `play` and `shot` are in `renderer-and-style.md`. `check` loads the module with the
 modules beside it (manifest, schemas, scripts, start state, models and style) and checks
-that every model and look its start state wears exists; findings exit 5 with kind
+that every model and look its start state wears exists, as does every particle recipe
+and beam look its start state and beams name; findings exit 5 with kind
 `findings`. `doctor`
 reports this engine, the installed builds, the launchers and the modules it found. The
 `sim` commands are in `saves-and-replay.md`.

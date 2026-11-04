@@ -1242,9 +1242,16 @@ impl Renderer {
             );
         }
 
-        // Lines and glows.
+        // Lines, particles and glows.
         let (mut fxv, mut fxi): (Vec<FxVertex>, Vec<u32>) = (Vec::new(), Vec::new());
-        fx::tessellate(&scene.lines, &scene.glows, cam, &mut fxv, &mut fxi);
+        fx::tessellate(
+            &scene.lines,
+            &scene.glows,
+            &scene.particles,
+            cam,
+            &mut fxv,
+            &mut fxi,
+        );
         self.fx_vertices
             .write(&self.device, &self.queue, bytemuck::cast_slice(&fxv));
         self.fx_indices

@@ -28,6 +28,22 @@
 //!   between `min_view` and `max_view`, and `fov` above 0 makes it a perspective camera
 //!   with that vertical field of view (degrees).
 //!
+//! Effects, drawn only (`engine/docs/effects.md`). Nothing in the world reads them:
+//!
+//! - `engine.beam { target, look, x, y, height }`: a beam from this thing (offset by `x`,
+//!   `y`, `height` in its own frame) to the drawn surface of `target`, while `target`
+//!   names one; `look` is a `[beams.<name>]` from a style.
+//! - `engine.emitter { recipe, target, x, y, height, angle, rate, by }`: sprays a
+//!   `[particles.<name>]` recipe from this thing (or `target`), `rate` times the recipe's
+//!   rate, scaled by `by` (`thrust` or `speed`; empty is always).
+//! - `engine.burst { recipe, tick, target, x, y, height, angle }`: one burst of a recipe's
+//!   `count`, born on `tick` (0 is none).
+//! - `engine.camera_feel { speed_zoom, lead, shake, shake_tick, shake_seconds }`, beside
+//!   `engine.camera`: `speed_zoom` widens the view by that share at the thing's top speed,
+//!   `lead` looks that many seconds ahead of it, and `shake` (a share of the view) shakes
+//!   it for `shake_seconds` from `shake_tick`. A separate component, so worlds without it
+//!   keep their hash.
+//!
 //! Flight and collision (`engine/docs/flight-and-collision.md`):
 //!
 //! - `engine.flight { speed, accel, brake, turn, inertia, boost, stop_time, slowdown }`:
@@ -106,6 +122,10 @@ pub const LIFE: &str = "engine.life";
 pub const ACT: &str = "engine.act";
 pub const CLOCK_ADVANCED: &str = "engine.clock_advanced";
 pub const WALK_FINISHED: &str = "engine.walk_finished";
+pub const BEAM: &str = "engine.beam";
+pub const EMITTER: &str = "engine.emitter";
+pub const BURST: &str = "engine.burst";
+pub const CAMERA_FEEL: &str = "engine.camera_feel";
 
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
@@ -511,6 +531,103 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "fov",
         "above 0, a perspective camera with this vertical field of view, degrees",
     ),
+    (
+        "camera_feel",
+        "speed_zoom",
+        "0 to 1: the view widens by this share at the followed thing's top speed; drawn only",
+    ),
+    (
+        "camera_feel",
+        "lead",
+        "0 to 2: seconds of its travel the camera looks ahead; eases back as it stops",
+    ),
+    (
+        "camera_feel",
+        "shake",
+        "0 to 0.2: a kick and shake, as a share of the view, from shake_tick",
+    ),
+    (
+        "camera_feel",
+        "shake_tick",
+        "the tick the shake starts (set it to ctx.tick on an event); 0 is none",
+    ),
+    (
+        "camera_feel",
+        "shake_seconds",
+        "0 to 2: how long the shake takes to die away",
+    ),
+    (
+        "beam",
+        "target",
+        "the thing it lands on; empty shows no beam",
+    ),
+    (
+        "beam",
+        "look",
+        "a [beams.<name>] from a style.toml (`<module>.<name>`), or empty for the default",
+    ),
+    (
+        "beam",
+        "x",
+        "where it starts, ahead in this thing's frame, world units",
+    ),
+    ("beam", "y", "where it starts, to the left, world units"),
+    ("beam", "height", "where it starts, up, world units"),
+    (
+        "emitter",
+        "recipe",
+        "a [particles.<name>] from a style.toml (`<module>.<name>`); empty sprays nothing",
+    ),
+    (
+        "emitter",
+        "target",
+        "the thing it sprays from; empty is this thing",
+    ),
+    (
+        "emitter",
+        "x",
+        "offset ahead in that thing's frame, world units",
+    ),
+    ("emitter", "y", "offset to the left, world units"),
+    ("emitter", "height", "offset up, world units"),
+    (
+        "emitter",
+        "angle",
+        "turns the spray from that thing's facing, degrees",
+    ),
+    ("emitter", "rate", "times the recipe's rate (0 stops it)"),
+    (
+        "emitter",
+        "by",
+        "empty sprays always; thrust while it pushes ahead; speed with its share of top speed",
+    ),
+    (
+        "burst",
+        "recipe",
+        "a [particles.<name>] from a style.toml; the burst is its count",
+    ),
+    (
+        "burst",
+        "tick",
+        "the tick it bursts (set it to ctx.tick); 0 is none",
+    ),
+    (
+        "burst",
+        "target",
+        "the thing it bursts from; empty is this thing",
+    ),
+    (
+        "burst",
+        "x",
+        "offset ahead in that thing's frame, world units",
+    ),
+    ("burst", "y", "offset to the left, world units"),
+    ("burst", "height", "offset up, world units"),
+    (
+        "burst",
+        "angle",
+        "turns the spray from that thing's facing, degrees",
+    ),
     ("flight", "speed", "top speed, world units a second"),
     ("flight", "accel", "thrust, world units a second squared"),
     ("flight", "brake", "braking, world units a second squared"),
@@ -841,6 +958,42 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
                 ("fov", 0.0),
             ]),
         ),
+        ("camera_feel", {
+            let mut f = numbers(&[
+                ("speed_zoom", 0.0),
+                ("lead", 0.0),
+                ("shake", 0.0),
+                ("shake_seconds", 0.4),
+            ]);
+            f.extend(fields(&[("shake_tick", Int)]));
+            f
+        }),
+        ("beam", {
+            let mut f = fields(&[("target", Id), ("look", Text)]);
+            f.extend(numbers(&[("x", 0.0), ("y", 0.0), ("height", 0.0)]));
+            f
+        }),
+        ("emitter", {
+            let mut f = fields(&[("recipe", Text), ("target", Id), ("by", Text)]);
+            f.extend(numbers(&[
+                ("x", 0.0),
+                ("y", 0.0),
+                ("height", 0.0),
+                ("angle", 0.0),
+                ("rate", 1.0),
+            ]));
+            f
+        }),
+        ("burst", {
+            let mut f = fields(&[("recipe", Text), ("tick", Int), ("target", Id)]);
+            f.extend(numbers(&[
+                ("x", 0.0),
+                ("y", 0.0),
+                ("height", 0.0),
+                ("angle", 0.0),
+            ]));
+            f
+        }),
     ]
 }
 
