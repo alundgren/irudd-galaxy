@@ -255,6 +255,8 @@ impl Screens {
                 &self.anchors,
                 &mut quiet,
             );
+            // Scrolled and clipped as it was last shown: scroll offsets outlive the list.
+            present(&mut b, &mut self.presentation, None);
             let t = if self.style.motion_out > 0.0 {
                 smooth((self.clock - l.start) / self.style.motion_out)
             } else {

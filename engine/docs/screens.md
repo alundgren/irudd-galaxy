@@ -450,22 +450,25 @@ buttons take `icon` too, beside the words, or above them with `icon_at = "top"`.
 files are module text, so recordings embed them like scripts. The renderer reads a small
 subset itself (`vector.rs`): paths with every command, rect, circle, ellipse, line,
 polyline, polygon, groups and transforms, fill and stroke in hex or `currentColor`, and
-even-odd or nonzero fill. Gradients, text, images, filters and other elements are
-refused by name. Files are capped at 64KB and 50,000 points. Icons are rasterised once
+even-odd or nonzero fill. Gradients, text, images and other elements are refused by
+name, and so are `filter`, `clip-path`, `mask` and markers, which would draw from
+`<defs>`. Files are capped at 64KB and 50,000 points. Icons are rasterised once
 per size with 4x4 supersampling, cached by content hash, and drawn by their own small
 pipeline between panels and text.
 
 Check covers what the player sees. Each look must be readable on its own fill, its hover
-and its flash. Each widget's words are tested on the surface it actually sits on, and
-each span's colour on its tag or that surface. Underlines and tinted icons need 3:1.
+and its flash. Each widget's words are tested on every background it can be drawn on:
+the surface it sits on, a ready button's hover fill (its look's or `button_hover`) and
+its flash at full strength. Each span's colour is tested on its tag, or else on each of
+those backgrounds. Underlines and tinted icons need 3:1 on each.
 Check also names unknown looks, missing or broken SVG, icons under 16px and icons
 clipped by their widget.
 
 **Motion** is presentation only. `motion_in` and `motion_out` (0-1 s) fade the outermost
 panel, scroll or bubble of a script when it appears or goes away, with a `motion_slide`
 (0-48 px) rise. A leaving surface is kept as its last widget tree and drawn fading where
-it was; it no longer takes clicks. `hover_lift` and `press_sink` (0-6 px) move a hovered
-or held button. `cue = "count"` on a delta counts from its old value to the new one over
+it was, scrolled and clipped as it was; it no longer takes clicks. `hover_lift` and
+`press_sink` (0-6 px) move a hovered or held button. `cue = "count"` on a delta counts from its old value to the new one over
 `cue_time` (0-2 s). `cue = "flash"` fades a changed text, delta or icon from the `flash`
 colour (or its look's) back to its own. Every motion key defaults to 0, so modules
 without them don't move.
@@ -474,7 +477,8 @@ Motion runs on the screen clock (tick plus alpha), never on a wall clock. It liv
 presentation snapshot, so notes, audit and film rebuild a frame mid-fade exactly. Nothing
 enters world state, events or recordings, and boxes, hit tests and check use the settled
 layout. A replay therefore has the same world hash with motion on or off. `galaxy play
---reduced-motion` (or `GALAXY_REDUCED_MOTION=1`) settles every motion at once.
+--reduced-motion` (or `GALAXY_REDUCED_MOTION=1`) settles every motion at once, including
+a released token's glide home or onto its target.
 
 `engine/tests/play/ui-kit` is the fixture: a dark chip with a drawn coin and a counted
 delta, a parchment panel with spans, a receipt row with a mark and a tag, buttons with

@@ -135,8 +135,38 @@ pub(super) fn span_ranges(w: &Widget) -> Vec<(std::ops::Range<usize>, String)> {
     out
 }
 
-/// Readability of the colours `b` is drawn in: its words on its surface, each span
-/// (and its tag or underline), a tinted icon and a flash. Unknown looks are named.
+/// Every background `b`'s words can be drawn on, with the words' colour there: its
+/// settled surface, a ready button's fill under the pointer and a flash at its peak.
+/// Drawing substitutes these fills (`screens::draw`), so the check tests each one.
+fn backgrounds(b: &Boxed, ink: Ink, style: &ScreenStyle) -> Vec<(&'static str, Color, Color)> {
+    let w = &b.widget;
+    let look = style.look(w.look.as_deref());
+    let mut out = Vec::new();
+    if w.kind == "button" && w.resting.is_some() {
+        out.push(("its surface", style.resting_fill(), style.text));
+    } else {
+        out.push(("its surface", ink.surface, ink.text));
+        if w.kind == "button"
+            && let Some(hover) = look.and_then(|l| l.hover).or(style.button_hover)
+        {
+            out.push(("its hover fill", hover, ink.text));
+        }
+    }
+    if w.cue.as_deref() == Some("flash") && style.cue_time > 0.0 {
+        out.push(("its flash", ink.flash, out[0].2));
+    }
+    let mut seen: Vec<(Color, Color)> = Vec::new();
+    out.retain(|&(_, on, text)| {
+        let new = !seen.contains(&(on, text));
+        seen.push((on, text));
+        new
+    });
+    out
+}
+
+/// Readability of the colours `b` is drawn in, on every background it can be drawn on:
+/// its words, each span (and its tag or underline), an underline, a tinted icon. Unknown
+/// looks are named.
 pub(super) fn check(b: &Boxed, ink: Ink, style: &ScreenStyle, problems: &mut Vec<String>) {
     let path = &b.widget.path;
     let mut problem = |m: String| problems.push(format!("{path}: {m}"));
@@ -149,47 +179,72 @@ pub(super) fn check(b: &Boxed, ink: Ink, style: &ScreenStyle, problems: &mut Vec
         name.as_ref()
             .map_or(String::new(), |n| format!(" (look `{n}`)"))
     };
-    if let Some(t) = &b.text {
-        let words = ink.words(&b.widget);
-        if !t.text.trim().is_empty() && contrast(words, ink.surface) < 4.5 {
-            problem(format!(
-                "text on its surface needs contrast at least 4.5:1{}",
-                named(&b.widget.look)
-            ));
+    let own = style.look(b.widget.look.as_deref());
+    for (at, surface, text) in backgrounds(b, ink, style) {
+        let ink = Ink {
+            surface,
+            text,
+            ..ink
+        };
+        if let Some(t) = &b.text {
+            if !t.text.trim().is_empty() && contrast(ink.words(&b.widget), surface) < 4.5 {
+                problem(format!(
+                    "text on {at} needs contrast at least 4.5:1{}",
+                    named(&b.widget.look)
+                ));
+            }
+            for (range, name) in span_ranges(&b.widget) {
+                let words = t.text[range].trim();
+                let Some(look) = style.looks.get(&name) else {
+                    continue;
+                };
+                let on = look.fill.unwrap_or(surface);
+                let colour = look.text.unwrap_or(text);
+                let need = if look.mark { 3.0 } else { 4.5 };
+                let sits = if look.fill.is_some() || at == "its surface" {
+                    "what it sits on".to_owned()
+                } else {
+                    at.to_owned()
+                };
+                if contrast(colour, on) < need {
+                    problem(format!(
+                        "span `{words}` (look `{name}`) needs contrast at least {need}:1 on {sits}"
+                    ));
+                }
+                if let Some(u) = look.underline
+                    && contrast(u, on) < 3.0
+                {
+                    problem(format!(
+                        "span `{words}` (look `{name}`): its underline needs contrast at least 3:1 on {sits}"
+                    ));
+                }
+            }
+            if let Some(u) = own.and_then(|l| l.underline)
+                && contrast(u, surface) < 3.0
+            {
+                problem(format!(
+                    "underline needs contrast at least 3:1 on {at}{}",
+                    named(&b.widget.look)
+                ));
+            }
         }
-        if b.widget.cue.as_deref() == Some("flash")
-            && style.cue_time > 0.0
-            && contrast(words, ink.flash) < 4.5
+        if let Some(icon) = &b.icon
+            && !icon.painted
+            && contrast(text, surface) < 3.0
         {
-            problem("text on its flash needs contrast at least 4.5:1".into());
+            problem(format!("icon needs contrast at least 3:1 on {at}"));
         }
-        let mut sub = 0;
-        for (range, name) in span_ranges(&b.widget) {
-            let words = &t.text[range.clone()];
-            sub += 1;
+    }
+    if let Some(t) = &b.text {
+        for (sub, (range, name)) in span_ranges(&b.widget).into_iter().enumerate() {
+            let words = &t.text[range];
             let Some(look) = style.looks.get(&name) else {
                 problem(format!(
-                    "span {sub}: look `{name}` is not in [screen.looks]"
+                    "span {}: look `{name}` is not in [screen.looks]",
+                    sub + 1
                 ));
                 continue;
             };
-            let on = look.fill.unwrap_or(ink.surface);
-            let colour = look.text.unwrap_or(ink.text);
-            let need = if look.mark { 3.0 } else { 4.5 };
-            if contrast(colour, on) < need {
-                problem(format!(
-                    "span `{}` (look `{name}`) needs contrast at least {need}:1 on what it sits on",
-                    words.trim()
-                ));
-            }
-            if let Some(u) = look.underline
-                && contrast(u, on) < 3.0
-            {
-                problem(format!(
-                    "span `{}` (look `{name}`): its underline needs contrast at least 3:1",
-                    words.trim()
-                ));
-            }
             if look.mark && words.chars().any(char::is_alphanumeric) {
                 problem(format!(
                     "span `{}` (look `{name}`) is a mark: symbols only, words go in ordinary text",
@@ -197,20 +252,5 @@ pub(super) fn check(b: &Boxed, ink: Ink, style: &ScreenStyle, problems: &mut Vec
                 ));
             }
         }
-        if let Some(look) = style.look(b.widget.look.as_deref())
-            && let Some(u) = look.underline
-            && contrast(u, ink.surface) < 3.0
-        {
-            problem(format!(
-                "underline needs contrast at least 3:1{}",
-                named(&b.widget.look)
-            ));
-        }
-    }
-    if let Some(icon) = &b.icon
-        && !icon.painted
-        && contrast(ink.text, ink.surface) < 3.0
-    {
-        problem("icon needs contrast at least 3:1 on its surface".into());
     }
 }

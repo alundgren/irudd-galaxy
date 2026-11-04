@@ -88,12 +88,19 @@ impl Screens {
         self.presentation.motion.pressed = None;
         self.presentation.scroll_grab = None;
         if let Some(drag) = self.presentation.drag.take() {
-            self.presentation.settle = Some(Settle {
-                destination: drag.home,
+            let home = drag.home;
+            self.settle(drag, home, tick);
+        }
+    }
+
+    /// A released token glides to `destination`; with reduced motion it is there at once.
+    fn settle(&mut self, drag: Drag, destination: [f32; 4], tick: u64) {
+        self.presentation.settle = (!(self.reduced_motion || self.presentation.motion.reduced))
+            .then(|| Settle {
                 drag,
+                destination,
                 start: tick.saturating_sub(1) as f32 / 30.0,
             });
-        }
     }
 
     pub fn pointer_down(&mut self, point: Vec2, tick: u64) -> Option<Input> {
@@ -182,11 +189,7 @@ impl Screens {
                 payload,
             })
         });
-        self.presentation.settle = Some(Settle {
-            drag,
-            destination,
-            start: tick.saturating_sub(1) as f32 / 30.0,
-        });
+        self.settle(drag, destination, tick);
         input
     }
 

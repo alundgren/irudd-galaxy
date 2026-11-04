@@ -5,7 +5,8 @@
 //! (every command, arcs included), `rect`, `circle`, `ellipse`, `line`, `polyline`,
 //! `polygon` and `g`, with `fill`, `stroke`, `stroke-width`, `fill-rule`, `opacity` and
 //! `transform`. Anything else that would draw is refused with its name, so a check finds
-//! it rather than a player seeing a missing shape.
+//! it rather than a player seeing a missing shape: other elements, and the `filter`,
+//! `clip-path`, `mask` and marker properties that would draw what `<defs>` holds.
 
 /// Largest icon file, in bytes.
 pub const MAX_BYTES: usize = 64 * 1024;
@@ -389,6 +390,13 @@ fn paint(attrs: &[(String, String)], parent: Paint) -> Result<Paint, String> {
             "stroke-width" => p.stroke_width = number(value)?,
             "fill-rule" => p.even_odd = value == "evenodd",
             "opacity" | "fill-opacity" | "stroke-opacity" => p.opacity *= number(value)?,
+            // Effects drawn from `<defs>`: skipping them would draw a different icon.
+            "filter" | "clip-path" | "mask" | "marker" | "marker-start" | "marker-mid"
+            | "marker-end"
+                if value.trim() != "none" =>
+            {
+                return Err(format!("`{key}` is not supported in icons"));
+            }
             _ => {}
         }
     }
@@ -844,6 +852,16 @@ mod tests {
             (
                 "<svg viewBox='0 0 4 4'><rect width='1' height='1' fill='red'/></svg>",
                 "#rgb",
+            ),
+            (
+                "<svg viewBox='0 0 4 4'><defs><filter id='b'><feGaussianBlur/></filter></defs>\
+                 <path filter='url(#b)' d='M0 0H4V4Z'/></svg>",
+                "`filter` is not supported",
+            ),
+            (
+                "<svg viewBox='0 0 4 4'><g style='clip-path: url(#c)'>\
+                 <rect width='1' height='1'/></g></svg>",
+                "`clip-path` is not supported",
             ),
         ] {
             let e = Icon::parse(svg).unwrap_err();

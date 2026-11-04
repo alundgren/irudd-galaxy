@@ -1,11 +1,11 @@
 //! The generic screen kit (`tests/play/ui-kit`): named looks, image icons, text spans
 //! and UI motion, all presentation only.
 use galaxy_module::module::Module;
-use galaxy_render::{Color, Overlay, Panel, Text, glam::Vec2};
+use galaxy_render::{Color, Overlay, Panel, Rect, Text, glam::Vec2};
 use galaxy_sim::{
     Session,
     recording::{BuildStamp, Replay},
-    scenario::InputsFile,
+    scenario::{Click, ClickTarget, InputsFile},
 };
 use galaxy_view::View;
 use std::path::Path;
@@ -228,12 +228,23 @@ fn a_button_lifts_under_the_pointer_and_sinks_while_pressed() {
     assert_eq!(v.screens.click(point, 1).unwrap().name, "kit.earn");
 }
 
+/// The kit with each `(file, find, replace)` edit made.
+fn edited(edits: &[(&str, &str, &str)]) -> Module {
+    let mut m = kit();
+    for (file, find, replace) in edits {
+        let text = m.files.0.get_mut(*file).unwrap();
+        assert!(text.contains(find), "{file} has no `{find}`");
+        *text = text.replace(find, replace);
+    }
+    m
+}
+
 /// The kit with one file replaced, checked at its first screen.
 fn problems(file: &str, find: &str, replace: &str) -> String {
-    let mut m = kit();
-    let text = m.files.0.get_mut(file).unwrap();
-    assert!(text.contains(find), "{file} has no `{find}`");
-    *text = text.replace(find, replace);
+    problems_after(&[(file, find, replace)])
+}
+fn problems_after(edits: &[(&str, &str, &str)]) -> String {
+    let m = edited(edits);
     let mut s = Session::new(vec![m], 1).unwrap();
     s.step(&[]).unwrap();
     let mut v = View::detached(s.modules(), 1);
@@ -293,4 +304,138 @@ fn unreadable_looks_spans_marks_and_icons_are_findings() {
         let found = problems(file, find, replace);
         assert!(found.contains(expected), "{expected}:\n{found}");
     }
+}
+
+#[test]
+fn words_are_checked_on_the_hover_fill_and_the_flash_they_are_drawn_on() {
+    // A chip button keeps its dark fill at rest, but under the pointer it takes the
+    // style's light `button_hover`, where its white words can't be read.
+    let found = problems(
+        "screen.luau",
+        "text = \"Earn 73\", on = \"earn\"",
+        "text = \"Earn 73\", on = \"earn\", look = \"chip\"",
+    );
+    assert!(
+        found.contains("text on its hover fill needs contrast at least 4.5:1 (look `chip`)"),
+        "{found}"
+    );
+    // A grey span is readable on the parchment, not on a grey flash at its peak.
+    let found = problems_after(&[
+        ("style.toml", "flash = \"#ffe9a6\"", "flash = \"#777777\""),
+        (
+            "style.toml",
+            "[screen.looks.gain]",
+            "[screen.looks.gray]\ntext = \"#555555\"\n\n[screen.looks.gain]",
+        ),
+        (
+            "screen.luau",
+            "text = \"Earnings: \" .. w.earned,",
+            "spans = { { text = \"Earnings: \" .. w.earned, look = \"gray\" } },",
+        ),
+    ]);
+    assert!(
+        found.contains(
+            "span `Earnings: 0` (look `gray`) needs contrast at least 4.5:1 on its flash"
+        ),
+        "{found}"
+    );
+    assert!(!found.contains("on what it sits on"), "{found}");
+}
+
+#[test]
+fn an_icon_with_a_filter_is_refused_by_file() {
+    let found = problems(
+        "icons/up.svg",
+        "<path d=",
+        "<defs><filter id=\"blur\"><feGaussianBlur stdDeviation=\"2\"/></filter></defs>\n  \
+         <path filter=\"url(#blur)\" d=",
+    );
+    assert!(
+        found.contains("icons/up.svg: `filter` is not supported in icons"),
+        "{found}"
+    );
+}
+
+/// The text `words` in `o`, with the clip of the layer it is drawn in.
+fn clipped<'a>(o: &'a Overlay, words: &str) -> Option<(&'a Text, Option<Rect>)> {
+    o.widgets.iter().find_map(|l| {
+        l.texts
+            .iter()
+            .find(|t| t.text == words)
+            .map(|t| (t, l.clip))
+    })
+}
+
+/// One tick: draw, click `widget` if given, step, draw again.
+fn frame(s: &mut Session, v: &mut View, widget: Option<&str>) -> Overlay {
+    v.scene(&s.world, 1.0, SIZE, 0.0);
+    let tick = s.world.tick + 1;
+    let inputs: Vec<_> = widget
+        .map(|w| {
+            v.screens
+                .bot_click(&Click {
+                    tick,
+                    target: ClickTarget::Widget(w.into()),
+                })
+                .unwrap()
+        })
+        .into_iter()
+        .collect();
+    v.before_step(&s.world);
+    s.step(&inputs).unwrap();
+    let o = v.scene(&s.world, 1.0, SIZE, 0.0).overlay;
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    o
+}
+
+#[test]
+fn a_scrolled_list_fades_out_scrolled_and_clipped_where_it_was() {
+    let rows: Vec<String> = (1..=10)
+        .map(|i| format!("ui.text {{ text = \"Row {i}\" }},"))
+        .collect();
+    let m = edited(&[
+        (
+            "screen.luau",
+            "ui.panel { id = \"shelf-panel\", look = \"parchment\",",
+            "ui.scroll { id = \"shelf-panel\", look = \"parchment\", height = 200,",
+        ),
+        (
+            "screen.luau",
+            "ui.text { icon = \"book\", text = \"Ship log\" },",
+            &rows.join("\n"),
+        ),
+        (
+            "screen.luau",
+            "ui.text { text = \"Earnings so far: \" .. w.earned .. \".\" },",
+            "",
+        ),
+    ]);
+    let mut s = Session::new(vec![m], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    frame(&mut s, &mut v, None);
+    frame(&mut s, &mut v, Some("shelf"));
+    for _ in 0..20 {
+        frame(&mut s, &mut v, None);
+    }
+    let open = frame(&mut s, &mut v, None);
+    let (row, _) = clipped(&open, "Row 1").unwrap();
+    let point = Vec2::new(row.pos.x + 10.0, row.pos.y + 10.0);
+    v.screens.scroll(point, 100.0, s.world.tick).unwrap();
+    let scrolled = frame(&mut s, &mut v, None);
+    let (row, clip) = clipped(&scrolled, "Row 5").unwrap();
+    let (y, clip) = (row.pos.y, clip.expect("a list clips its rows"));
+    let closing = frame(&mut s, &mut v, Some("shelf"));
+    let (row, going) = clipped(&closing, "Row 5").expect("the list is fading out");
+    let going = going.expect("still clipped while it fades");
+    let slide = row.pos.y - y;
+    assert!((0.0..=18.0).contains(&slide), "Row 5 moved {slide}");
+    assert_eq!(going.h, clip.h);
+    assert!(
+        (going.y - clip.y - slide).abs() < 0.01,
+        "{going:?} {clip:?}"
+    );
+    // A note taken mid-fade redraws the same frame.
+    let moment = v.moment(1.0, 0.0, (1280, 720), 1.0).unwrap();
+    let mut rebuilt = View::detached(s.modules(), 1);
+    assert_eq!(rebuilt.note_scene(&s.world, &moment).overlay, closing);
 }
