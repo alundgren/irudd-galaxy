@@ -1,0 +1,41 @@
+# A generic test module for effects, drawn only: drift's ship, rocks and hub, with an
+# exhaust that sprays while the ship pushes ahead, a cutting beam with sparks and chips
+# once a mine order holds on a rock, a puff and a camera kick when it docks, halos on
+# the lamps, and a camera that widens with speed and looks ahead. W/S/A/D (or the
+# arrows) fly, Shift boosts; 1 docks at the berth, 2 mines the nearest rock, 0 drops the
+# order.
+id = "effects"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/effects.luau"]
+events = [
+    "thrust_ahead", "thrust_back", "turn_left", "turn_right", "boost",
+    "order_dock", "order_mine", "order_none",
+]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera",
+    "engine.flight", "engine.helm", "engine.steer", "engine.body",
+    "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel",
+]
+
+# Which flight keys are held, so two keys for one way (W and Up) don't fight.
+[components.keys]
+ahead = "int"
+back = "int"
+left = "int"
+right = "int"
+boost = "int"
+
+[keys]
+w = "thrust_ahead"
+up = "thrust_ahead"
+s = "thrust_back"
+down = "thrust_back"
+a = "turn_left"
+left = "turn_left"
+d = "turn_right"
+right = "turn_right"
+shift = "boost"
+1 = "order_dock"
+2 = "order_mine"
+0 = "order_none"

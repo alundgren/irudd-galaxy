@@ -249,6 +249,7 @@ mod tests {
                 scale: 1.0,
                 zoom: None,
                 course_age: None,
+                still: false,
                 eye: [0.0; 3],
                 target: [0.0; 3],
             },
