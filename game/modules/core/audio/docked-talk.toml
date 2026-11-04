@@ -1,0 +1,6 @@
+# audio mix scenario: docking, a conversation and the log (galaxy-gm audio mix
+# audio/docked-talk.toml).
+modules = "../.."
+ticks = 1050
+seed = 3
+inputs = "docked-talk.inputs"
