@@ -15,8 +15,8 @@ over that list too.
 
 **Which decision wins.** A later decision overrides an earlier one. Each area names what
 was overridden, and "Superseded" near the end lists all of it. Where two sources
-disagree and neither clearly wins, the doc lists an open question for Andreas instead
-of guessing.
+disagree and neither is later, the doc would list an open question for Andreas instead
+of guessing; none remain. Points the sources themselves leave open are in 12.
 
 Each area gives:
 
@@ -255,12 +255,12 @@ it. The slice's pieces:
 | Trade table | Columns for ware, price each, stock and hold. Each row has Sell 1 / Sell all / Buy 1 / Buy max. The hovered row is highlighted, and a long list pages. | Prices and status are plain labels, not pill shapes, and only verbs look like buttons ("Labels and prices don't look like buttons"). Text is pure black (the slice's green price text is not the target). |
 | Buttons | Mustard fill, ink border, black text, lantern-gold on hover. | A button that can't be used rests as a dashed outline with its reason on hover, never greyed out. |
 | Hint strip | A dark ink pill with a lantern-gold border at the bottom centre, saying the key and the action ("Space · dock at Lantern Wharf"). | Hints are literal and retire after a few uses (issue #47, 1.8). No hint for what is already obvious ("Trust the player"). |
-| Goal | A cream strip at the top centre. | The goal appears after the conversation that gives it, names who gave it, and never looks like the local keeper speaking. |
+| Goal | A cream strip at the top centre. | The goal appears after the conversation that gives it, names who gave it and where, and never looks like the local keeper speaking. Every active goal shows, not only the newest (see 4). |
 | Log icon | A small square button at the bottom left, with a "N new" tag. | The icon must look like a book of messages, not two pause bars ("The Log button can't be mistaken for pause"). |
 | Receipts and notices | Dark tickets marked "Confirmed" (what was given and got) or "Notice" (a place changed). | Keep. |
 | Station plate | Name and faction at the top left, over a teal bar. | The name and faction must not read as a meter ("Being docked is unmistakable"). |
 
-- The screens come with fixed rules; see "Rules that hold everywhere" (7) for them.
+- The screens come with fixed rules; see "Rules that hold everywhere" (9) for them.
 - The ui-lab and the places lab tried a look that separates the kinds:
   - a dark goal banner with a flag and the giver
   - white speech bubbles with a tail, the name underlined in amber and the role quieter
@@ -269,7 +269,7 @@ it. The slice's pieces:
   - a cream room panel
   - an amber Log button with a book icon
 - The ui-lab report says the look is "to be iterated while building the core". Whether
-  that lab look is the target is an open question (see 10).
+  that lab look is the target is left open (see 12).
 - The look belongs to the module: colours, surfaces and rounding come from the core's
   `style.toml`, and the engine checks readability (PR #82, 2026-11-02).
 
@@ -325,7 +325,8 @@ known-changes items.*
 - **Space:** a press does the action available here (dock in a ring, ride a current,
   start mining beside a rock), and holding it brakes. The hint names what a press does
   right now.
-- **Undocking** is flying off, with no undock button or key and no confirm step.
+- **Undocking** is flying off, with no undock button or key and no confirm step. Any of
+  the movement keys W, A, S and D flies the ship off the dock.
 - **The world has an edge:** past a region's edge, a gentle current carries you back,
   with a visible sign and a literal hint. There is no invisible wall.
 - **Things are solid:** ships, rocks and stations bump and push, with no damage.
@@ -341,14 +342,16 @@ known-changes items.*
   reference is `prototypes/flight-lab/` (PR #30).
 - Units, Space, undocking and the world edge: the Decisions section of PR #48 and its
   first Question and answer (2026-10-30).
-- Solid things and the 180°/s turn: `known-changes.html`, "Already decided" (now 7 here)
-  and "Things are solid" (2026-10-31).
+- Solid things, the 180°/s turn and W, A, S and D flying off the dock:
+  `known-changes.html`, "Already decided" (now 9 here) and "Things are solid" (PR #53,
+  merged 2026-10-31 12:48 UTC).
 - No arrows: the messaging-lab README (PR #43) and the slice README.
 
 **In a screenshot or film.**
 
 - Measure the turn: 180°/s.
 - Measure the stop after releasing W: about 1.0 s, from any speed.
+- Docked, a press of W, A, S or D leaves the dock.
 - Shift doubles the speed.
 - Hitting a rock pushes the ship, and the ship doesn't pass through it.
 
@@ -359,6 +362,9 @@ known-changes items.*
 - PR #48 dropped solid rock collision because rocks walled off mining spots. The
   known-changes list (later) brings it back, with the condition that every spot stays
   reachable.
+- PR #48 (merged 2026-10-31 05:32 UTC) built "W or S flies off; A and D do nothing while
+  docked". The later "Already decided" list (PR #53, merged 12:48 UTC the same day) says
+  "The movement keys (W, A, S, D) always fly the ship off the dock". The later one wins.
 
 **Parked.** Click-to-fly, map travel, order queues and loops as earned controls (see 5).
 System and galaxy maps: a map exists, but no minimap design is locked, and none should
@@ -394,6 +400,14 @@ be added (issue #47, "Still open"; known-changes "Keep").
   - Frame the view to the band between the title and the key.
   - Signs keep clear of other modules, panels and other signs, and never cover their own
     module.
+- **Signs, bubbles and labels stay usable while you zoom and hover.**
+  - They follow their anchors every frame as the view zooms.
+  - A module under a panel or off the screen gets no sign.
+  - A sign tries above its module, then below, then beside it, slides back on screen,
+    and keeps clear of the panels, the work in the scene (such as a socket being talked
+    about), other modules and bubbles.
+  - Hit areas don't move on hover, so hovering never flickers.
+  - A hovered sign sits in front and doesn't mix with a bubble under it.
 - **Size.** An outpost (2–4 parts) is framed whole. A hub (10 or more) groups parts into
   quarters, each with one sign, so a room is never more than two clicks away and always
   one through the key.
@@ -403,8 +417,9 @@ be added (issue #47, "Still open"; known-changes "Keep").
 - Issue #45 and PR #46, the station concept (merged 2026-10-30): direction A, "The
   station up close", with C's news ribbons on A's key, "agreed in review".
 - Issue #47, Phase 3.1 (2026-10-30), and PR #48.
-- Spacing and sign placement: `prototypes/ui-lab/REPORT.md`, "Room on the station" and
-  "Zoom at the station" (2026-11-01).
+- Spacing and sign placement: `prototypes/ui-lab/REPORT.md`, "Room on the station",
+  "Zoom at the station", "What the readability rules caught" and "Change before the
+  engine adopts it", item 3 (2026-11-01).
 
 **In a screenshot.**
 
@@ -412,7 +427,10 @@ be added (issue #47, "Still open"; known-changes "Keep").
 - The key runs along the bottom.
 - A hovered module is lifted and outlined.
 - The view isn't a small station surrounded by boxes at the screen edges.
-- Compare with `ui-lab-station-up-close.png`.
+- Hover each module and zoom in and out: no sign covers another sign, a bubble or the
+  thing being talked about, and the hovered target doesn't flicker.
+- Compare with `ui-lab-station-up-close.png`, except for the camera angle: the lab drew
+  the station close to top-down, and the agreed docked view is tilted (3.3).
 
 **Parked.**
 
@@ -433,7 +451,8 @@ view and that the modules sit far enough apart for signs. The hovered Market mod
 lifted and outlined in orange, and its sign names the keeper and the offer. The key along
 the bottom carries New (sky blue), Changed (orange) and Closed (vermilion) ribbons, each
 with a word and a shape. The Log button is at the bottom left, the plate at the top left
-and the status chip at the top right.*
+and the status chip at the top right. Not the reference for the camera angle: the agreed
+docked view is tilted about 40° (3.3).*
 
 ### 3.2 Rooms are places: `cut · staged · bubble · states` (the places lab)
 
@@ -463,6 +482,9 @@ and the status chip at the top right.*
   - When the day or a story moment moves someone in the room you are in, you watch them
     get up and walk. Elsewhere, it happens out of sight.
   - A story moment you haven't seen waits for you, up to a few room visits.
+  - If you leave while someone is walking, the walk still finishes in the world. Come
+    back and they are where the walk ended, not stranded halfway. The presentation holds
+    no state the world can't rebuild.
   - On the station, a module's sign names who is there who doesn't belong there
     ("Canteen · Orrin"). In a room, signs say what people are doing, and someone walking
     has no sign.
@@ -494,6 +516,7 @@ and the status chip at the top right.*
 - Going in shows a brief title card, not a camera glide and not a scene that differs per
   room.
 - The speaker's bubble points at their figure, and their face is visible.
+- Leave a room while someone walks, then come back: they stand at the walk's end.
 - Compare with `places-lab-cut.png`, `places-lab-office-talk.png` and
   `places-lab-market.png`.
 
@@ -551,8 +574,11 @@ amount.*
   - Each station has caps on walkers, craft and particles.
   - A quiet setting turns life down.
 - **Semi-3D.** Flight stays top-down on one plane, with no up or down to fly. Docking
-  swoops the camera in and tilts it to about 40°, so module heights and fronts read.
-  Undocking tilts back, and a click skips the move.
+  swoops the camera in and tilts it to about 40° (issue #47 allows 35–45°), so module
+  heights and fronts read. Undocking tilts back, and a click skips the move.
+  - This holds for the station overview. The places lab changed how you enter rooms and
+    what a room is; neither lab report changed the docked camera. The labs' station
+    images are close to top-down, so don't take their camera angle as the reference.
 - **Happenings** are short pieces of visible life written as data, each with a cause, a
   first-person line and a length counted in dockings (a lamp night when a greenhouse
   grows).
@@ -569,6 +595,8 @@ amount.*
 
 **In a screenshot or film.**
 
+- Docked, the camera looks at the station at a slant, about 40° from straight down, so
+  module fronts and heights show.
 - Docked, something real is moving: craft at berths, piles that changed after a sale.
 - Nothing moving covers a sign.
 - In flight, the rocks and rings turn slowly.
@@ -592,6 +620,9 @@ Nothing is a text panel that grows with history.
   - The speaker's name stands out, and the place is quieter or left out.
   - When someone asks something, the answers are buttons on the bubble, numbered for
     keys 1–9, and the bubble waits for one.
+  - An offer waiting for an answer can be set aside with a click. It comes back after
+    the other lines, so it never blocks the rest of the talk and is never lost.
+  - Skip sends the waiting lines to the log, but keeps unanswered offers up.
   - What was given and got comes back as a "Confirmed" receipt ("Delivered 20 ice to Odo
     · +120 cr").
 - **Nothing lingers.** Leaving ends the talk, and nothing stays on screen in flight. Lines
@@ -611,12 +642,28 @@ Nothing is a text panel that grows with history.
     open, the goal banner steps aside.
 - **Quests come from people at places.** No objective pops up in flight without a named
   source.
+- **The goal banner shows every active goal**, compactly, newest first. Each goal sits
+  under who gave it and where they are ("Rook Adeyemi · Cinder Hook"), and its numbers
+  are the real amounts. A newer goal never hides an older one that is still active. A
+  goal nobody gave doesn't show.
+- **Cargo carried for someone stays theirs.**
+  - Loading it is an offer you accept ("Accept / Not now"), with a receipt.
+  - In the hold it is marked with its owner's name ("Refined plate 20 · Ilse's").
+  - The market won't buy it.
+  - The job completes only when that cargo reaches the person it is for, not when any
+    equal amount of the same ware does.
+  - The banner and people's lines read from the actual hold.
 
 **Source.**
 
 - `prototypes/messaging-lab/README.md` and PR #43 (2026-10-30).
+- All active goals: issue #47, 1.3, item #46; PR #48, the Phase 1 status ("all active
+  goals shown with their sources") and "HUD and hints" decisions; the slice README.
+- Carried cargo: issue #47, 1.1 (#30) and 1.2 (#32); PR #48, the Phase 1 status;
+  known-changes "Keep" ("Carried cargo shows whose it is").
 - Issue #47, "Phase 2: Talk and the ship log (messaging direction A)" (2026-10-30).
-- PR #48, the Phase 2 status and "Talk and the log" decisions (2026-10-31).
+- PR #48, the Phase 2 status and "Talk and the log" decisions, including setting offers
+  aside and Skip (2026-10-31).
 - known-changes "Dialogue comes one short line at a time".
 
 **Overrides.** Where a bubble sits is now decided by the places lab (3.2): on the
@@ -627,6 +674,10 @@ speaker's figure in the room, not anchored to a module.
 - A bubble holds one short sentence, and the name is styled apart from the place.
 - After undocking, no talk is on screen.
 - The open log shows pinned jobs above one line per visit, not a transcript.
+- With two goals active, the banner shows both, each with its giver and place.
+- Cargo carried for someone shows its owner's name in the hold, and the market offers no
+  way to sell it.
+- An offer set aside comes back after the other lines.
 - Compare with `slice-ship-log.png`, which is the right layout but the old cream style,
   and `places-lab-office-talk.png` for the bubble.
 
@@ -670,6 +721,8 @@ here still looks like a pause button, which is a known-changes item.*
     whether that is good.
   - Then a short fitting animation plays (about 1.5 s, click to skip): the crane swings
     over, lowers the part, three bolt flashes, and the hull dips and settles.
+- **Or click to fit.** Click the part, then the socket. The same rings, refusals and
+  preview show before the fit happens, so the preview always comes first either way.
 - **Nothing is lost.** A removed part goes to a locker that belongs to the hull (or its
   lineage), not the station, and can be opened at any wharf that works on that hull.
   "Fitted", "In the locker" and "On its way" states never vanish.
@@ -692,7 +745,10 @@ here still looks like a pause button, which is a known-changes item.*
 - The station concept's "The fit model" and "A. 5. Hullwright fit" (PR #46, 2026-10-30).
 - The PR #46 comment of 2026-10-30, which records the fit-model decisions from review.
 - Issue #45's decided hullwright brief.
-- Issue #47, 3.2, and PR #48 (Phase 3 and "Station and hullwright" decisions).
+- Issue #47, 3.2, and PR #48 (Phase 3 and "Station and hullwright" decisions). Click to
+  fit: PR #48, "Ready parts are dragged, or clicked then dropped on a socket, so the
+  preview always shows first", and its Phase 3 comment, "click the part, then the
+  socket".
 - Verdicts at pick-up: `prototypes/ui-lab/REPORT.md`.
 - The cradle as a staged room: `prototypes/places-lab/REPORT.md`.
 
@@ -701,6 +757,7 @@ here still looks like a pause button, which is a known-changes item.*
 - While dragging, target sockets ring sky blue and a refused one rings vermilion with
   its reason.
 - The preview shows before you let go.
+- Clicking a part and then a socket, with no drag, shows the same preview or refusal.
 - The ship visibly wears what's fitted.
 - Compare with `places-lab-cradle-drag.png`.
 
@@ -722,7 +779,81 @@ the locker.*
 
 ---
 
-## 6. Screens are widget trees (the ui-lab)
+## 6. The radio
+
+**Decision.**
+
+- **Channels:** every station and some lane beacons broadcast a channel with a range.
+  While flying you tune in, and the signal fades with distance: lower volume and a
+  little static near the edge of range.
+- **Changes are gradual.** Where ranges overlap, channels crossfade. Once tuned, the
+  radio stays on a channel until you are clearly out of its range or another channel is
+  clearly and steadily stronger.
+  - The station name changes once, and the music and text fade over.
+  - Brief gaps and lane trips don't flash "No signal".
+  - Button styles never change on their own.
+  - The signal bars and the signal word always agree.
+- **Discovery:** the first time a channel comes into range, the log notes it, in literal
+  words ("New signal: Kettle Dock radio").
+- **Tuning** is mouse first, with Prev, Off and Next buttons, plus a key (R in the
+  slice).
+- **Silent while docked;** the radio plays in flight.
+- **Text bits:** a channel carries short written lines, shown as text, with no voice.
+  Beacons carry authored lines only.
+- **Music:** every channel has real music from the first launch. The GM makes the tracks
+  when it builds the module, and they ship with it, the same in every save (see 9).
+
+**Source.**
+
+- Issue #47, 5.1 (2026-10-30).
+- PR #48, the Phase 5 status and "Radio and music" decisions (2026-10-31).
+- known-changes "The radio doesn't flicker between stations", "Every radio channel has
+  real music from the first launch" and "Signal bars match the signal word"
+  (2026-10-31).
+
+**Overrides.** Issue #47's live radio lines and per-save generated music (5.1 text bits
+from the live layer, and 5.2) lost to "No live model while playing" (9). The radio's
+range, fading, discovery and tuning are not affected.
+
+**In a screenshot or film.**
+
+- Fly from one station toward another: the channel changes once, with a fade, and never
+  flickers back and forth.
+- At the edge of range, the signal is quieter with a little static, not blinking.
+- The first time a channel comes into range, the log shows "New signal: …".
+- Docked, the radio is silent.
+
+**Parked.** A quiet engine hum and ambient sound beds (issue #47, "Still open";
+known-changes "A quiet engine hum and ambient sound").
+
+---
+
+## 7. World memory
+
+**Decision.**
+
+- The save keeps a summarised history per station, per person and per faction: what
+  happened, when (in dockings and ticks), and its source (authored, game master or live
+  layer).
+- It is full-text searchable.
+- A visit's trades enter memory when the player undocks, so entries are only ever added.
+- This is record-keeping for the GM and for people's lines to refer back to. It is not a
+  screen.
+
+**Source.** Issue #47, 4.4 (2026-10-30), and PR #48, the Phase 4 status and "A living
+station and the live layer" decisions (2026-10-31). The later "No live model while
+playing" rule removes the live layer as a source of entries. It doesn't remove the
+memory.
+
+**In a check.** After a docking, a trade or a delivery, a history search for that
+station or person returns an entry with its docking count and source.
+
+**Parked.** Embeddings (vector search): issue #47, 4.4, "Don't build embeddings now",
+with the schema left ready for them.
+
+---
+
+## 8. Screens are widget trees (the ui-lab)
 
 **Decision.**
 
@@ -754,7 +885,7 @@ sizes other than 1280×720.
 
 ---
 
-## 7. Rules that hold everywhere
+## 9. Rules that hold everywhere
 
 These were the "Already decided (do not contradict)" list in `known-changes.html` (PR #53,
 2026-10-31), and now live here. The station-frame part is updated with the places lab
@@ -774,8 +905,8 @@ These were the "Already decided (do not contradict)" list in `known-changes.html
   the next line. The ship log is one small icon at the bottom left. No text panel grows
   with history.
 - **Input.** Mouse first: every room and action can be reached by clicking. The movement
-  keys (W, A, S, D) always fly the ship off the dock, with no separate undock step. (See
-  open question 3.)
+  keys (W, A, S, D) always fly the ship off the dock, with no separate undock step. This
+  is later than PR #48's "W or S" and wins (2).
 - **Agency.** Nothing changes the player's cargo, credits or fitted parts without a
   deliberate choice and a readable receipt.
 - **Readability.**
@@ -824,20 +955,21 @@ roles beside them are how the slice, issue #47 and the ui-lab used them.
 
 ---
 
-## 8. Superseded: what lost to a later decision
+## 10. Superseded: what lost to a later decision
 
 | Earlier | Later, which wins |
 |---|---|
 | Flight "stops on release" (design deck, 2026-10-29) | The locked tank preset with inertia and a 1.0 s auto-brake (issue #47, 1.5). |
 | No solid rock collision (PR #48) | Everything solid is solid, with mining spots kept reachable (known-changes, 2026-10-31). |
-| Live language-model layer, call log and per-save generated music during play (issue #47, Phase 4.2–4.3 and 5.2) | No live model while playing; the GM makes music at build time (known-changes "Already decided", 2026-10-31). |
+| Live language-model layer, call log, live radio lines and per-save generated music during play (issue #47, Phase 4.2–4.3, 5.1's live text bits and 5.2) | No live model while playing; the GM makes music at build time (known-changes "Already decided", 2026-10-31). The radio's channels, fading, discovery and tuning (6) and world memory (7) stay. |
+| Only W or S flies off the dock; A and D do nothing while docked (PR #48, merged 2026-10-31 05:32 UTC) | W, A, S and D all fly the ship off the dock (known-changes "Already decided", PR #53, merged 2026-10-31 12:48 UTC). |
 | Bubbles anchored to the speaker's module; the dockmaster speaks from the office building (issue #47, Phase 2 and 3.1) | The bubble is on the speaker's figure in a staged room (places lab, 2026-11-01). |
 | Click a module, the camera glides to it, and the room panel opens beside it with the station still visible (issue #45, issue #47 3.1, known-changes) | The cut into a staged room. The 45% panel cap and the back paths stay (places lab, 2026-11-01). |
 | The ui-lab's station view: bubbles on buildings, the cradle cutting to another scene, the office nudging the camera (2026-11-01) | The places lab's pick, one grammar for every room (2026-11-01, later the same day). |
 
 ---
 
-## 9. Parked, in one list
+## 11. Parked, in one list
 
 Each item is described in its area above.
 
@@ -849,37 +981,27 @@ Each item is described in its area above.
   - the hullwright as a working yard, and a visible personal history (3.3)
   - theme sounds (1.3)
 - **Fitting:** a working drone bay, faction-styled parts and hull upgrade trees (5).
+- **Sound:** a quiet engine hum and ambient sound beds (6).
+- **World memory:** embeddings for vector search (7).
 - **The world:** system and galaxy maps, with no minimap (2), and true-3D stations and
   planets (1.1).
 
 ---
 
-## 10. Open questions for Andreas
+## 12. Left open by the sources
 
-1. **The tilted docked view.**
-   - Issue #47 (4.1) and PR #48 tilt the docked station to a three-quarter view, about
-     40°.
-   - The ui-lab and places-lab station views (`ui-lab-station-up-close.png`) are close to
-     top-down, with modules on long struts.
-   - Does the tilt still apply to the station overview, now that rooms are staged sets?
-2. **The lab look.**
-   - The labs separated the kinds of screen element: a dark goal banner with a flag,
-     white speech bubbles with the name underlined in amber, yellow hanging signs, and an
-     amber Log button with a book icon.
-   - Is that the target look, or one try, given the ui-lab report says the look is "to be
-     iterated while building the core"?
-3. **A and D while docked.**
-   - PR #48 built "W or S flies off; A and D do nothing while docked".
-   - The later "Already decided" list says the movement keys W, A, S and D always fly
-     the ship off the dock.
-   - Should turning undock too?
-4. **What drives the life clock.** The places lab stepped people's days once per room
-   visit as a stand-in and left it open: world time, events or player actions.
-5. **Choices on arrival.**
-   - The slice asked Deliver / Sell / Keep as soon as you docked with goods someone
-     wanted.
-   - Now that talk happens in rooms, does that choice wait for you in the person's room
-     (as the places lab did with Ilse's welcome), or appear on the station view?
+Every conflict found between two sources has a later decision that wins; they are listed
+in 10. These two points are left open by the sources themselves:
+
+1. **The final screen look.** The labs separated the kinds of screen element: a dark goal
+   banner with a flag, white speech bubbles with the name underlined in amber, yellow
+   hanging signs, and an amber Log button with a book icon. The ui-lab report says how
+   the screens look is "to be iterated while building the core", so that look is a
+   reference, not a lock. What is locked is in 1.5 and 9: each kind looks different, and
+   the readability rules hold.
+2. **What drives the life clock.** The places-lab report: "Open: what drives the clock.
+   In the lab it steps once each time the player goes into a room, as a stand-in. The
+   game decides (world time, events or player actions)."
 
 ---
 
@@ -894,9 +1016,9 @@ Each item is described in its area above.
 | PR #30, `prototypes/flight-lab/` | 2026-10-30 | Flight models to choose from |
 | PR #43, `prototypes/messaging-lab/README.md` | 2026-10-30 | Three ways NPCs talk |
 | Issue #45, PR #46 (station concept page and its PR comment) | 2026-10-30 | Station A + C ribbons, the fit model, a station that lives, themes |
-| Issue #47 | 2026-10-30 | Final overnight decisions: flight preset, talk and log (A), station, hullwright, living station |
-| PR #48 | 2026-10-31 | Flight units, Space, undocking, station and hullwright details, tilt |
-| PR #53, `game/docs/known-changes.html` | 2026-10-31 | The rules in 7; open playtest changes |
+| Issue #47 | 2026-10-30 | Final overnight decisions: flight preset, cargo and goals, talk and log (A), station, hullwright, living station, world memory, radio |
+| PR #48 | 2026-10-31 | Flight units, Space, station and hullwright details, click to fit, setting offers aside, tilt, radio details |
+| PR #53, `game/docs/known-changes.html` | 2026-10-31 | The rules in 9; open playtest changes |
 | PRs #60 and #61, `prototypes/ui-lab/REPORT.md` | 2026-11-01 | Screens as widget trees; the station must feel like a place |
 | PR #71, `prototypes/places-lab/REPORT.md` | 2026-11-01 | `cut · staged · bubble · states` |
 | PR #82 | 2026-11-02 | A module owns its screen look in `style.toml` |

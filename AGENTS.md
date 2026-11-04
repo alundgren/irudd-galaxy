@@ -14,14 +14,14 @@ except "Public repo" below.
 
 Phases: **prototype** (slices: a test of an idea), **production** (`game/`, building the
 real game), **released** (`game/` once players have a public build). `prototypes/` are
-throwaway: they only have to run. A prototype lab ends with its verdict written into
-`game/docs/direction.md`; a report left in `prototypes/` doesn't count. `engine/` has the
-phase of `game/`. Change the phase
+throwaway: they only have to run. `engine/` has the phase of `game/`. Change the phase
 when the game moves on. The phase decides what blocks a merge (below). Nothing else in
 this file changes with it.
 
 The slice `slices/01-lantern-reach/` is frozen as a reference: no changes, except to keep
 it building through its own `cargo xtask`. It is deleted later, with the owner's OK.
+
+A prototype lab ends with its verdict written into `game/docs/direction.md`; a report left in `prototypes/` doesn't count.
 
 ## The two folders
 
@@ -126,8 +126,7 @@ For each defect, name the broken requirement and explain how supported use or a
 plausible authoring mistake reaches it. A synthetic reproduction can prove a real bug;
 unusual syntax alone does not prove an attack. Apply the phase's threat model, and do
 not expand the review into a search for deliberate bypasses.
-For a `game/` PR, compare its screenshots with `game/docs/direction.md` and its reference
-images; a miss of an agreed direction is a real defect.
+For a `game/` PR, compare its screenshots with `game/docs/direction.md` and its reference images; a miss of an agreed direction is a real defect.
 The author reported `check` passed at <sha>. If HEAD is that commit, don't rerun it:
 run the tests for what you probe (`cargo xtask cargo test -p <crate>`).
 ```

@@ -11,9 +11,8 @@ README and files; keep its rules and names there, never in these instructions.
   game/modules`. Its modules must compose into one game.
 - `examples/`: standalone examples, checked, tested and played separately. Quiet
   Garden lives at `game/examples/quiet-garden`; it has its own player and scene style.
-- `docs/`: the change list, design notes and the direction doc (`docs/direction.md`).
-  Every change follows the direction doc; compare its screenshots side by side with the
-  doc's reference images.
+- `docs/`: the change list and design notes.
+- `docs/direction.md`: the direction doc; every change follows it, and its screenshots are compared side by side with the doc's references.
 
 Nothing in `game/` is compiled.
 
