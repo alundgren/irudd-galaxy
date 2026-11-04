@@ -845,8 +845,9 @@ station and the live layer" decisions (2026-10-31). The later "No live model whi
 playing" rule removes the live layer as a source of entries. It doesn't remove the
 memory.
 
-**In a check.** After a docking, a trade or a delivery, a history search for that
-station or person returns an entry with its docking count and source.
+**In a check.** Trade at a station, then undock: a history search for that station or
+person now returns an entry with its docking count and source. Before the undock it
+returns no entry for that trade.
 
 **Parked.** Embeddings (vector search): issue #47, 4.4, "Don't build embeddings now",
 with the schema left ready for them.
