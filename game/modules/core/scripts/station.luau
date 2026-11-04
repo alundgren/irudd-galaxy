@@ -1,5 +1,6 @@
--- Docked: the station up close. Its buildings are the menu; a room opens as a panel
--- beside its building, and the station key along the bottom reaches every room.
+-- Docked: the station up close. Its buildings are the menu, and the station key along
+-- the bottom reaches every room. Each building's room is its own place: a staged set
+-- with its people in it, entered with the cut, its panel on the right.
 local rules = require("./rules")
 local log = require("./log")
 local teach = require("./teach")
@@ -10,17 +11,24 @@ local fit = require("./fit")
 local cradle = require("./cradle")
 local undock = require("./launch")
 local layout = require("./layout") -- room panels are layout.PANEL wide: at most about 45% of the view
+local places = require("./places")
+
+-- On the cradle the ship lies nose to the back left, its sockets turned to the camera.
+local CRADLE_ANGLE = 2.3
 
 local function pressed(event)
     return event.payload.down ~= false
 end
 
--- The station the ship is docked at, or nil: a place with a port is a station's dock.
+-- The station the ship is docked at, on its deck or in one of its rooms, or nil.
 local function docked(ctx)
-    local pilot = ctx.get("ship", "pilot")
-    local here = ctx.get("ship", "engine.location").place
-    if here ~= "" and ctx.get(here, "port") then return here, pilot end
-    return nil, pilot
+    return places.docked(ctx), ctx.get("ship", "pilot")
+end
+
+-- Back on the deck the ship lies moored at its berth, facing the station.
+local function moor(ctx, station)
+    local berth = ctx.get(ctx.get(station, "port").berth, "engine.position")
+    ctx.patch("ship", "engine.position", { angle = berth.angle })
 end
 
 -- The station's buildings, in key order.
@@ -50,10 +58,15 @@ local function open(event, ctx)
     local id = event.payload.facility or ctx.get(station, "port").exchange
     local facility = ctx.get(id, "facility")
     if not facility or facility.station ~= station or pilot.room == id then return end
-    signs.hush(ctx) -- the bubble would ride the glide in over the room's panel
-    ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", log_open = false, gliding = true })
-    -- The view glides to frame the building, beside its room's panel.
-    ctx.patch(station, "engine.room", { camera = facility.camera })
+    signs.hush(ctx) -- leaving a place ends what is being said there
+    ctx.patch("ship", "pilot", { room = id, sale = 0, deal = "", chosen = "", log_open = false, gliding = true })
+    -- The cut: a short dip to the room's title card, and the player is in the room. The
+    -- ship comes too: on the cradle it is the thing being fitted, elsewhere it waits out
+    -- of shot behind the camera. (Launching from a room glides out instead:
+    -- scripts/launch.luau turns its glide on, and it is off again for the cut in.)
+    ctx.patch(facility.place, "engine.room", { glide = 0 })
+    ctx.move("ship", facility.place)
+    if facility.fits then ctx.patch("ship", "engine.position", { angle = CRADLE_ANGLE }) end
     signs.show(ctx, station, id, false, nil, true)
 end
 
@@ -63,9 +76,13 @@ local function close(event, ctx)
     if not pressed(event) then return end
     local station, pilot = docked(ctx)
     if station and pilot.room ~= "" then
-        signs.hush(ctx) -- the bubble would ride the glide out over the HUD
-        ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", gliding = true })
-        ctx.patch(station, "engine.room", { camera = "" })
+        signs.hush(ctx) -- leaving a place ends what is being said there
+        ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", chosen = "", gliding = true })
+        -- The cut played backwards, out to the whole station and the ship at its berth:
+        -- the station's glide is for docking only, so it is off while you go back out.
+        ctx.patch(station, "engine.room", { glide = 0 })
+        ctx.move("ship", station)
+        moor(ctx, station)
         signs.show(ctx, station, "", false, nil, true)
     elseif pilot.log_open then
         ctx.patch("ship", "pilot", { log_open = false })
@@ -79,23 +96,23 @@ local function launch(event, ctx)
     if station then undock.launch(ctx, station) end
 end
 
--- The site becomes its room: the finished building, its keeper arriving to stand by
--- it, and the goods they trade.
+-- The site becomes its room: the finished building on the deck, its room furnished,
+-- its keeper arriving to work in it, and the goods they trade.
 local function build_up(ctx, site, build)
     local station = build.station
     ctx.patch(site, "engine.model", { model = build.model })
     ctx.patch(site, "facility", { name = build.name, keeper = build.keeper, offer = build.offer })
+    ctx.patch(ctx.get(site, "facility").place, "engine.model", { model = build.room_model })
     local keeper = build.keeper
     local act = keeper .. "_act"
     local plan = ctx.get(act, "engine.act")
     ctx.put(keeper, "engine.being", {})
-    ctx.put(keeper, "engine.location", { place = station, spot = plan.spot })
+    ctx.put(keeper, "engine.location", { place = plan.place, spot = plan.spot })
     ctx.put(keeper, "engine.position", { angle = plan.angle })
-    ctx.put(keeper, "engine.model", { model = "core.keeper", look = "core.prop", scale = 1.5 })
-    -- The sale that builds it happens in another room, where only that room's keeper
-    -- wears a sign; the new keeper's sign goes up when the player is back on the
-    -- station (signs.show).
-    ctx.put(keeper, "engine.life", { clock = "core.day", first = act, name = "" })
+    ctx.put(keeper, "engine.model", { model = ctx.get(keeper, "keeper").figure, look = "core.prop" })
+    -- The sale that builds it happens in another room; the new keeper's sign goes up
+    -- once the player is about again (signs.show).
+    ctx.put(keeper, "engine.life", { clock = station .. "_day", first = act, speed = 1.2, name = "" })
     -- Their thanks for the building goes on offer once the introduction is heard; the
     -- sale that built it left room in the hold.
     for _, id in ctx.query("gift") do
@@ -133,9 +150,7 @@ local function sell(event, ctx)
             local prices, stock = rules.walk(line, units - building)
             earned += rules.total(prices)
             ctx.patch(id, "market", { stock = stock })
-            if line.ware == "ore" then
-                ctx.patch(station .. "_stock", "engine.model", { scale = trade.pile(stock) })
-            end
+            if line.ware == "ore" then trade.piles(ctx, station, stock) end
             table.insert(sold, units .. " " .. line.ware)
             count += units
             hold[line.ware] = 0
@@ -157,6 +172,7 @@ local function sell(event, ctx)
     ctx.patch("ship", "pilot", { credits = pilot.credits + earned, sale = earned, deal = deal })
     voices.refresh(ctx, station, hold, earned, build and build.need - build.given - into or 0)
     log.add(ctx, text)
+    trade.day(ctx, station) -- the keeper takes it in: stacks the crates, stokes the kiln
     ctx.record("sold", { units = count, credits = earned, station = station })
 end
 
@@ -184,20 +200,22 @@ local function buy(event, ctx)
             local _, build = trade.building(ctx, station)
             voices.refresh(ctx, station, hold, 0, build and build.need - build.given or 0)
             log.add(ctx, "Bought " .. what .. " at " .. port.name .. " for " .. spent .. " cr.")
+            trade.day(ctx, station)
             ctx.record("bought", { ware = line.ware, units = units, credits = spent, station = station })
             return
         end
     end
 end
 
--- The view has settled at a station: arrived, or framed a building. Signs go back up.
+-- The view has settled at a station or in one of its rooms. Signs go back up.
 local function settled(event, ctx)
     local place = event.payload.place
-    if event.payload.entity ~= "core.ship" or not ctx.get(place, "port") then return end
+    local station = places.station(ctx, place)
+    if event.payload.entity ~= "core.ship" or not station then return end
     local pilot = ctx.get("ship", "pilot")
     if not pilot.gliding then return end
     ctx.patch("ship", "pilot", { gliding = false })
-    signs.show(ctx, place, pilot.room, pilot.log_open, signs.speaking(ctx), false)
+    signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx), false)
 end
 
 -- The skiffs ferry crates across their deck, back and forth, without end.
@@ -336,7 +354,6 @@ end
 
 local function room_panel(ctx, ui, station, pilot)
     local facility = ctx.get(pilot.room, "facility")
-    local at = ctx.get(pilot.room, "engine.position")
     local site = ctx.get(pilot.room, "build")
     local keeper_text = nil
     if facility.keeper ~= "" then
@@ -350,8 +367,13 @@ local function room_panel(ctx, ui, station, pilot)
         -- The fitting room has the most to show, so it packs its own rows.
         children = cradle.rows(ctx, ui, pilot, facility.name, keeper_text)
     else
-        children = { ui.text { id = "title", text = facility.name, size = 28 } }
-        if keeper_text then table.insert(children, ui.text { id = "keeper", size = 18, text = keeper_text }) end
+        -- The way back first, then the room's name and who keeps it.
+        local named = { ui.text { id = "title", width = 300, text = facility.name, size = 28 } }
+        if keeper_text then table.insert(named, ui.text { id = "keeper", width = 300, size = 16, text = keeper_text }) end
+        children = { ui.row { id = "heading", gap = 12, children = {
+            ui.button { id = "close", width = 176, text = "Station  [B]", hover = "Back out to the whole station: B, Esc or right-click", on = "close" },
+            ui.column { id = "named", width = 300, gap = 2, children = named },
+        } } }
         if site and not site.done then
             site_rows(ui, site, children)
         elseif #trade.lines(ctx, pilot.room) > 0 then
@@ -359,12 +381,11 @@ local function room_panel(ctx, ui, station, pilot)
         else
             office_rows(ctx, ui, station, children)
         end
-        table.insert(children, ui.button { id = "close", text = "Back to the station  [B]", on = "close" })
     end
-    -- The panel opens on the side away from its building, so the building stays in view.
+    -- The room's panel is on the right; the room's camera frames its people to the left.
     return layout.frame(ui, "room", {
-        ui.panel { id = "room", align = at.x < 0 and "top-right" or "top-left", x = layout.M, y = layout.M,
-            width = layout.PANEL, gap = facility.fits and 8 or 12, children = children },
+        ui.panel { id = "room", align = "top-right", x = layout.M, y = layout.M,
+            width = layout.PANEL, gap = facility.fits and 6 or 12, children = children },
     })
 end
 
@@ -415,14 +436,20 @@ end
 return {
     on = {
         open = open, close = close, launch = launch, sell = sell, buy = buy,
-        fit = cradle.fit, unfit = cradle.unfit,
-        ["engine.place_arrived"] = settled, ["engine.camera_settled"] = settled,
+        fit = cradle.fit, unfit = cradle.unfit, choose = cradle.choose,
+        ["engine.place_arrived"] = settled,
     },
     cadence = skiffs,
     screen = function(ctx, ui)
         local station, pilot = docked(ctx)
         if not station or pilot.log_open then return nil end
-        if pilot.room ~= "" then return room_panel(ctx, ui, station, pilot) end
+        -- The panel follows the place the ship is in, so it always matches the room shown.
+        local here = ctx.get("ship", "engine.location").place
+        if here ~= station then
+            pilot.room = places.facility(ctx, here) or ""
+            if pilot.room == "" then return nil end
+            return room_panel(ctx, ui, station, pilot)
+        end
         return overview(ctx, ui, station, pilot)
     end,
 }

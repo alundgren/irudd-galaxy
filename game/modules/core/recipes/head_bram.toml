@@ -1,0 +1,37 @@
+about = "The head of Bram Okafor: face, eyes and cap, one node (person_bram wears it as its face)"
+palette = { main = "#2c5a7a", trim = "#2a2a3a", accent = "#24435c", skin = "#7a4a32", hair = "#2a1a1a", hat = "#24435c" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "cap"
+shape = "cylinder"
+radius = 0.26
+height = 0.2
+sides = 8
+at = [-0.01, 0, 1.98]
+paint = "hat"
+[[part]]
+name = "peak"
+shape = "box"
+size = [0.2, 0.36, 0.04]
+at = [0.25, 0, 2.0]
+paint = "hat"
+[[part]]
+name = "badge"
+shape = "box"
+size = [0.04, 0.1, 0.08]
+at = [0.25, 0, 2.09]
+paint = "accent"

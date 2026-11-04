@@ -3,12 +3,11 @@
 -- movement key then flies on at once (main.luau), so there is no separate undock step.
 local log = require("./log")
 local signs = require("./signs")
+local places = require("./places")
 
--- The station the ship is docked at, or nil: a place with a port is a station's dock.
+-- The station the ship is docked at, on its deck or in one of its rooms, or nil.
 local function docked(ctx)
-    local here = ctx.get("ship", "engine.location").place
-    if here ~= "" and ctx.get(here, "port") then return here end
-    return nil
+    return places.docked(ctx)
 end
 
 -- The heading opposite `angle`, in -pi..pi.
@@ -25,7 +24,11 @@ local function launch(ctx, station)
     ctx.put("ship", "held", {})
     ctx.patch("ship", "pilot", { room = "", mining = false, target = "", log_open = false, gliding = false })
     signs.show(ctx, station, "", false, nil, true) -- worn again once the next visit settles
-    ctx.patch(station, "engine.room", { camera = "" }) -- the next arrival frames the whole station
+    -- Out glides back to the ship's view, as docking glided in, from the deck or from
+    -- a room (whose glides are off otherwise, so going in and out of them cuts:
+    -- scripts/station.luau).
+    local here = ctx.get("ship", "engine.location").place
+    ctx.patch(here, "engine.room", { glide = 1.0 })
     ctx.move("ship", "core.reach", port.departure)
     -- Moored, the ship faces the station; it leaves facing away, so W flies straight
     -- out instead of into the station's hull.

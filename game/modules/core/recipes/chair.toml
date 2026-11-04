@@ -1,0 +1,21 @@
+about = "A plain chair"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "seat"
+shape = "box"
+size = [0.5, 0.5, 0.08]
+at = [0, 0, 0.46]
+paint = "accent"
+[[part]]
+name = "back"
+shape = "box"
+size = [0.08, 0.5, 0.55]
+at = [-0.21, 0, 0.78]
+paint = "accent"
+[[part]]
+name = "legs"
+shape = "box"
+size = [0.42, 0.06, 0.44]
+at = [0, 0.2, 0.22]
+mirror = true
+paint = "wood_dark"

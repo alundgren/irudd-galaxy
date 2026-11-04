@@ -1,0 +1,8 @@
+about = "Sefa Lind, Cinder Kiln's exchange keeper: a deep red coat, a leather apron and a brass headscarf"
+palette = { main = "#8f3040", trim = "#3a2a2e", accent = "#a8794a", skin = "#a86b4a", hair = "#2a1a1a", hat = "#d9a54a" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_sefa"

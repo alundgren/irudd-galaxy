@@ -1,0 +1,33 @@
+about = "The head of Ines Varga: face, eyes and chef, one node (person_ines wears it as its face)"
+palette = { main = "#f1e3c8", trim = "#5a4a6a", accent = "#d9774b", skin = "#e0b48c", hair = "#7a3a22", hat = "#fffaf0" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "band"
+shape = "cylinder"
+radius = 0.25
+height = 0.12
+sides = 10
+at = [-0.01, 0, 1.97]
+paint = "hat"
+[[part]]
+name = "puff"
+shape = "sphere"
+radius = 0.27
+sides = 10
+rings = 4
+at = [-0.02, 0, 2.24]
+paint = "hat"

@@ -8,12 +8,13 @@ local signs = require("./signs")
 local trade = require("./trade")
 local rules = require("./rules")
 local fit = require("./fit")
+local places = require("./places")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
     local speaker = ctx.get(talk, "engine.talk").speaker
-    local port = ctx.get(ctx.get(speaker, "engine.location").place, "port")
-    return ctx.get(speaker, "keeper").name .. (port and " at " .. port.name or "")
+    local station = places.of(ctx, speaker)
+    return ctx.get(speaker, "keeper").name .. (station and " at " .. ctx.get(station, "port").name or "")
 end
 
 -- A line already kept in the log for this conversation is not logged again.
@@ -38,10 +39,8 @@ end
 -- Signs follow the talk: while someone speaks only they keep their name sign.
 local function sign(ctx, speaker)
     local pilot = ctx.get("ship", "pilot")
-    local here = ctx.get("ship", "engine.location").place
-    if here ~= "" and ctx.get(here, "port") then
-        signs.show(ctx, here, pilot.room, pilot.log_open, speaker)
-    end
+    local station = places.docked(ctx)
+    if station then signs.show(ctx, station, pilot.room, pilot.log_open, speaker) end
 end
 
 return {
@@ -115,7 +114,7 @@ return {
             local pilot = ctx.get("ship", "pilot")
             local _, build = trade.building(ctx, event.payload.station)
             voices.refresh(ctx, event.payload.station, ctx.get("ship", "hold"), 0, build and build.need - build.given or 0)
-            signs.show(ctx, event.payload.station, "", pilot.log_open)
+            signs.show(ctx, event.payload.station, pilot.room, pilot.log_open)
         end,
     },
 }

@@ -1,0 +1,8 @@
+about = "Mags Ferrow, Cinder Kiln's dockmaster: a violet coat and a wide brown hat"
+palette = { main = "#6b4aa0", trim = "#2a2a3a", accent = "#4f3478", skin = "#e8c09a", hair = "#9a9a9a", hat = "#6a4a2a" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_mags"

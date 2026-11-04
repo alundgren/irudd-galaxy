@@ -3,7 +3,7 @@ id = "core"
 version = "0.1.0"
 min_engine_version = "0.7.0"
 scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
 writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin"]
 
 [components.pilot]
@@ -23,9 +23,12 @@ log_open = "bool"
 # flown well clear, or mined. Quick in-and-out taps are not visits.
 last_dock = "id"
 away = "bool"
-# The docked view is gliding: arriving, or to or from a room's building. Anchored signs
-# rest until it settles, so they never crowd the moving view.
+# The docked view is moving: gliding in to the station, or cutting into or out of a
+# room. Anchored signs rest until it settles, so they never crowd the moving view.
 gliding = "bool"
+# A part clicked in the fitting cradle, waiting for its socket (or the tray): the click
+# way to fit, beside dragging (scripts/cradle.luau).
+chosen = "id"
 
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
@@ -76,6 +79,8 @@ name = "text"
 offer = "text"
 keeper = "id"
 model = "text"
+# The set its room becomes once built.
+room_model = "text"
 
 [components.facility]
 station = "id"
@@ -83,8 +88,9 @@ name = "text"
 keeper = "id"
 offer = "text"
 order = "int"
-# The station camera node that frames this building while its room is open.
-camera = "text"
+# The building's interior: a staged room, a child place of the station, entered with
+# the cut (scripts/station.luau).
+place = "id"
 # A fitting cradle: its room fits parts to the ship (scripts/cradle.luau).
 fits = "bool"
 
@@ -171,6 +177,8 @@ playing = "id"
 name = "text"
 # What they say after their introduction when there's nothing else to talk about.
 idle = "text"
+# The figure (a model) of a keeper who arrives later, when what they keep is built.
+figure = "text"
 
 # A keeper's gift, offered once in its own talk (the talk entity carries this):
 # taking it puts `units` of `ware` in the hold, and either answer ends the offer.

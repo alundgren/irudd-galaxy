@@ -1,0 +1,34 @@
+about = "The head of Mags Ferrow: face, eyes and brim, one node (person_mags wears it as its face)"
+palette = { main = "#6b4aa0", trim = "#2a2a3a", accent = "#4f3478", skin = "#e8c09a", hair = "#9a9a9a", hat = "#6a4a2a" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "crown"
+shape = "cylinder"
+radius = 0.2
+height = 0.22
+taper = 0.85
+sides = 8
+at = [-0.01, 0, 2.03]
+paint = "hat"
+[[part]]
+name = "brim"
+shape = "cylinder"
+radius = 0.42
+height = 0.04
+sides = 10
+at = [-0.01, 0, 2.02]
+paint = "hat"

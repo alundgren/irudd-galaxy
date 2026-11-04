@@ -82,7 +82,12 @@ component = "pilot"
 field = "room"
 equals = "core.lantern_exchange"
 
-# The keeper speaks when clicked.
+# The cut lands, and the keeper speaks when clicked.
+[[input]]
+tick = 618
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 615 }
 [[input]]
 tick = 620
 name = "engine.talk_start"

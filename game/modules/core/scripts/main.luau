@@ -116,6 +116,9 @@ return {
             ctx.remove("ship", "engine.body")
             ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", last_dock = pilot.station, away = false, gliding = true })
             ctx.patch("ship", "engine.model", { scale = 1.3 }) -- moored, seen up close
+            -- Docking glides in from the ship's view (going back out of a room turns the
+            -- glide off: scripts/station.luau).
+            ctx.patch(pilot.station, "engine.room", { glide = 1.0 })
             ctx.move("ship", pilot.station)
             signs.show(ctx, pilot.station, "", pilot.log_open, nil, true) -- up once the glide in lands
             -- A visit only counts once the ship has really been away: then the
@@ -127,9 +130,7 @@ return {
                     local line = ctx.get(id, "market")
                     local stock = rules.settle(line)
                     ctx.patch(id, "market", { stock = stock })
-                    if line.ware == "ore" then
-                        ctx.patch(pilot.station .. "_stock", "engine.model", { scale = trade.pile(stock) })
-                    end
+                    if line.ware == "ore" then trade.piles(ctx, pilot.station, stock) end
                 end
             end
             log.add(ctx, "Docked at " .. port.name .. ".")

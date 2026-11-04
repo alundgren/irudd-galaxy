@@ -1,0 +1,22 @@
+about = "A wall vent with a slowly turning fan"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "frame"
+shape = "ring"
+radius = 0.42
+tube = 0.1
+flat = 1.0
+sides = 4
+segments = 16
+pitch = 90
+paint = "trim"
+[[part]]
+name = "blades"
+shape = "petals"
+count = 4
+length = 0.5
+at = [0.04, 0, 0]
+pitch = 90
+scale = 0.76
+spin = 60
+paint = "main"

@@ -3,6 +3,7 @@
 local rules = require("./rules")
 local trade = require("./trade")
 local fit = require("./fit")
+local places = require("./places")
 
 local voices = {}
 
@@ -86,10 +87,9 @@ function voices.gifts(ctx, station, hold)
     for _, id in ctx.query("gift") do
         local gift = ctx.get(id, "gift")
         local talk = ctx.get(id, "engine.talk")
-        local at = ctx.get(talk.speaker, "engine.location")
         if gift.answered then
             if talk.enabled then put_away(ctx, id, gift) end
-        elseif at and at.place == station then
+        elseif places.of(ctx, talk.speaker) == station then
             local room = fit.hold(ctx) - rules.load(hold) >= gift.units
             if talk.enabled ~= room then
                 ctx.patch(id, "engine.talk", { enabled = room })
