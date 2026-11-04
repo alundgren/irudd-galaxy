@@ -424,3 +424,49 @@ fn a_wrap_width_narrower_than_one_glyph_is_unreadable() {
         v.screens.problems
     );
 }
+
+#[test]
+fn yield_goes_with_an_anchor_and_a_missing_anchor_hides_a_yielding_widget() {
+    for (code, says) in [
+        (
+            r#"ui.text {text="Name", yield=true}"#,
+            "yield goes with anchor",
+        ),
+        (
+            r#"ui.text {text="Name", anchor="being.test.none", yield="yes"}"#,
+            "yield must be true or false",
+        ),
+    ] {
+        let (s, mut v) = screen(&format!(
+            "return {{screen=function(_,ui) return {code} end}}"
+        ));
+        v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+        assert!(
+            v.screens.problems.iter().any(|p| p.contains(says)),
+            "{code}: {:?}",
+            v.screens.problems
+        );
+    }
+    // A yielding label whose anchor isn't shown is hidden, not reported or clamped; the
+    // same label without yield is reported missing.
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+            return ui.text {id="name", text="Name", anchor="being.test.none", yield=true}
+        end}"#,
+    );
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    assert!(v.screens.problems.is_empty(), "{:?}", v.screens.problems);
+    assert!(v.screens.boxes[0].hidden);
+    let (s, mut v) = screen(
+        r#"return {screen=function(_,ui)
+            return ui.text {id="name", text="Name", anchor="being.test.none"}
+        end}"#,
+    );
+    v.scene(&s.world, 1.0, Vec2::new(1280.0, 720.0), 0.0);
+    assert!(
+        v.screens
+            .problems
+            .iter()
+            .any(|p| p.contains("missing anchor"))
+    );
+}

@@ -1,0 +1,5 @@
+# audio mix scenario: a minute in flight (galaxy-gm audio mix audio/flight.toml).
+modules = "../.."
+ticks = 1800
+seed = 7
+inputs = "flight.inputs"

@@ -4,7 +4,8 @@
 //! Each tick, in this order:
 //!
 //! 1. the tick number goes up by one;
-//! 2. each input for this tick records its event (cause: the input);
+//! 2. each input for this tick records its event (cause: the input). After
+//!    [`Session::announce_resume`], the first one is `engine.resumed`;
 //! 3. events: every fact not handled yet (those recorded during the previous tick, and
 //!    this tick's inputs), in sequence order, runs the handlers for its kind: modules in
 //!    ID order, scripts in manifest order. Facts recorded now are events next tick, so one
@@ -25,7 +26,7 @@ use std::collections::BTreeMap;
 
 use galaxy_api::Registry;
 use galaxy_api::command::{Batch, Cause, Command, Fields};
-use galaxy_api::engine::{CADENCE_TICKS, HOT_LOADED, SCRIPT_FAILED, START};
+use galaxy_api::engine::{CADENCE_TICKS, HOT_LOADED, RESUME_SOURCE, RESUMED, SCRIPT_FAILED, START};
 use galaxy_module::module::Module;
 use galaxy_script::{Abort, Event, ScriptSet, Target};
 use serde::{Deserialize, Serialize};
@@ -73,6 +74,8 @@ pub struct Session {
     shapes: Shapes,
     pub log: Vec<LogLine>,
     recording: Option<Recording>,
+    /// The next tick starts with an `engine.resumed` input ([`Session::announce_resume`]).
+    resume_pending: bool,
 }
 
 /// Loads every module's scripts against `registry`. Problems are listed with their
@@ -140,6 +143,7 @@ impl Session {
             registry,
             log: Vec::new(),
             recording: None,
+            resume_pending: false,
         })
     }
 
@@ -164,7 +168,17 @@ impl Session {
             registry,
             log: Vec::new(),
             recording: None,
+            resume_pending: false,
         })
+    }
+
+    /// Tells scripts a save resumed: the next tick starts with an `engine.resumed` input
+    /// (source `resume`, no payload), recorded like any input, so a replay applies it from
+    /// the recording and never announces again. A resumed world therefore ends as an
+    /// uninterrupted one does given that same input on the tick after the save.
+    /// [`Session::resume`] alone (as a replay starts) announces nothing.
+    pub fn announce_resume(&mut self) {
+        self.resume_pending = true;
     }
 
     pub fn registry(&self) -> &Registry {
@@ -192,7 +206,13 @@ impl Session {
         let before = crate::travel::position(&self.world);
         self.world.tick += 1;
         let tick = self.world.tick;
-        for input in inputs {
+        let resumed = std::mem::take(&mut self.resume_pending).then(|| Input {
+            tick,
+            source: RESUME_SOURCE.to_owned(),
+            name: RESUMED.to_owned(),
+            payload: Fields::new(),
+        });
+        for input in resumed.iter().chain(inputs) {
             let input = Input {
                 tick,
                 ..input.clone()
@@ -201,11 +221,17 @@ impl Session {
             if let Some(finish) = crate::travel::finish(&self.world, &input)? {
                 commands.push(finish);
             }
-            commands.extend(crate::talk::input(&self.world, &input)?);
-            commands.push(Command::Record {
-                kind: input.name.clone(),
-                payload: input.payload.clone(),
-            });
+            let talk = crate::talk::input(&self.world, &input)?;
+            // A stale answer (a double click, or one queued behind a room change) stays
+            // in the recording but is no event: scripts only ever see answers that took.
+            let stale = input.name == galaxy_api::engine::TALK_CHOSEN && talk.is_empty();
+            commands.extend(talk);
+            if !stale {
+                commands.push(Command::Record {
+                    kind: input.name.clone(),
+                    payload: input.payload.clone(),
+                });
+            }
             let batch = Batch {
                 cause: Cause::Input {
                     source: input.source.clone(),
@@ -223,6 +249,7 @@ impl Session {
         self.dispatch_events();
         crate::flight::flight(&mut self.world, &self.shapes);
         services::motion(&mut self.world);
+        services::spin(&mut self.world);
         crate::places::advance_walks(&mut self.world);
         crate::collide::collide(&mut self.world, &self.shapes);
         services::ground(&mut self.world);
@@ -230,6 +257,7 @@ impl Session {
             self.run_cadence();
         }
         crate::life::update(&mut self.world, &self.registry)?;
+        crate::flight::settle_holds(&mut self.world, &self.shapes);
         if self
             .world
             .entities

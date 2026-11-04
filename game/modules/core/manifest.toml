@@ -1,18 +1,37 @@
 # The core module: the base game. It is written through the GM (game/AGENTS.md).
 id = "core"
 version = "0.1.0"
-min_engine_version = "0.5.0"
-scripts = ["scripts/main.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "market", "leave", "launch", "sell", "mined", "sold", "docked"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.door"]
+min_engine_version = "0.7.0"
+scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin"]
 
 [components.pilot]
-cargo = "int"
 credits = "int"
 mining = "bool"
 target = "id"
 station = "id"
+room = "id"
+# The last trade's receipt in the open room: credits gained (or spent, below zero)
+# and what changed hands.
+sale = "int"
+deal = "text"
 message = "text"
+logged = "int"
+log_open = "bool"
+# The station last docked at, and whether the ship has been away from it since:
+# flown well clear, or mined. Quick in-and-out taps are not visits.
+last_dock = "id"
+away = "bool"
+# The docked view is gliding: arriving, or to or from a room's building. Anchored signs
+# rest until it settles, so they never crowd the moving view.
+gliding = "bool"
+
+# What the hold carries, by ware. Its total is bounded by the hold's capacity.
+[components.hold]
+ore = "int"
+plate = "int"
+rations = "int"
 
 [components.held]
 ahead = "bool"
@@ -27,11 +46,162 @@ total = { type = "int", default = 12 }
 
 [components.port]
 name = "text"
-price = "int"
-stock = "int"
 berth = "id"
-market = "id"
 departure = "id"
+exchange = "id"
+# Counted visits: dockings after the ship has really been away.
+visits = "int"
+
+# One good traded in one room: a station that buys it pays, one that sells it asks.
+# The price follows the stock against its target; each counted visit to the station
+# eases the stock back towards the target by `rate`.
+[components.market]
+room = "id"
+ware = "text"
+role = "text"
+base = "int"
+target = "int"
+stock = "int"
+rate = "int"
+
+# Something a station is building from a ware the player sells it. When `given`
+# reaches `need`, the site becomes the named room, kept by `keeper`.
+[components.build]
+station = "id"
+ware = "text"
+need = "int"
+given = "int"
+done = "bool"
+name = "text"
+offer = "text"
+keeper = "id"
+model = "text"
+
+[components.facility]
+station = "id"
+name = "text"
+keeper = "id"
+offer = "text"
+order = "int"
+# The station camera node that frames this building while its room is open.
+camera = "text"
+# A fitting cradle: its room fits parts to the ship (scripts/cradle.luau).
+fits = "bool"
+
+# A part for the ship's fit (scripts/fit.luau): which socket it goes in, what it
+# costs, draws and weighs, and what it adds. `effect` says it in plain words, and
+# `said` is the fitter's remark once it is on. `model` is the ship's look while fitted.
+[components.part]
+name = "text"
+socket = "text"
+price = "int"
+power = "int"
+mass = "int"
+hold = "int"
+mine = "int"
+speed = "number"
+effect = "text"
+said = "text"
+model = "text"
+owned = "bool"
+fitted = "bool"
+order = "int"
+
+# What the ship's fitted parts add up to: its hold, the ore a second its beam cuts,
+# and the power and mass in use. Set whenever a part goes on or comes off.
+# `hull_speed` is the bare hull's top speed the ship flies by: a new game sets the
+# locked flight's 20 (start.toml); a save from before it loads with the old hull's 12
+# and keeps its old flight.
+[components.fit]
+hold = { type = "int", default = 6 }
+mine = { type = "int", default = 1 }
+power = "int"
+mass = "int"
+hull_speed = { type = "number", default = 12.0 }
+
+# A trader flying its own route (scripts/traffic.luau): two legs, each a chain of
+# waypoints from `out` or `home` ending in a docking onto `out_moor` or `home_moor`.
+# `leg` is the leg flown last; `moored` while it waits at that leg's mooring, from tick
+# `since`.
+[components.trader]
+name = "text"
+about = "text"
+out = "id"
+out_moor = "id"
+home = "id"
+home_moor = "id"
+leg = "text"
+moored = "bool"
+since = "int"
+
+# A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
+# `range` world units. Its signal is full within the inner 30% of the range and fades
+# to nothing at its edge. `cue` is the event that starts its music (audio.toml).
+[components.channel]
+name = "text"
+source = "id"
+range = "number"
+cue = "text"
+order = "int"
+
+# One line said on a channel, shown under the radio in turn (`n` from 1).
+[components.bit]
+channel = "id"
+n = "int"
+text = "text"
+
+# The ship's radio. `channel` is what it is tuned to ("" for no signal), `hand` when
+# the player chose it. It only changes channel once another is clearly and steadily
+# stronger, or after the tuned one has been out of range for a few seconds, so it never
+# flickers between stations (scripts/radio.luau). `level` is the signal shown: 1 Faint,
+# 2 Fair, 3 Strong. `lost` and `better` count those seconds; `bit` is the line showing
+# and `shown` the seconds it has shown. `playing` is the channel whose music is on.
+[components.radio]
+on = { type = "bool", default = true }
+channel = "id"
+hand = "bool"
+level = "int"
+lost = "int"
+better = "int"
+bit = { type = "int", default = 1 }
+shown = "int"
+playing = "id"
+
+[components.keeper]
+name = "text"
+# What they say after their introduction when there's nothing else to talk about.
+idle = "text"
+
+# A keeper's gift, offered once in its own talk (the talk entity carries this):
+# taking it puts `units` of `ware` in the hold, and either answer ends the offer.
+# `instead` is the keeper's everyday talk, set aside while the gift is on offer.
+[components.gift]
+ware = "text"
+units = "int"
+take = "id"
+instead = "id"
+answered = "bool"
+
+[components.skiff]
+a = "id"
+b = "id"
+
+[components.entry]
+n = "int"
+text = "text"
+talk = "id"
+# A conversation still being heard: its next lines join this entry.
+open = "bool"
+
+# How often the player has used each control; its hint retires after a few uses.
+[components.taught]
+thrust = "int"
+turn = "int"
+boost = "int"
+mine = "int"
+dock = "int"
+cancel = "int"
+talk = "int"
 
 [keys]
 w = "ahead"
@@ -42,7 +212,11 @@ shift = "boost"
 space = "mine"
 e = "dock"
 0 = "cancel"
-m = "market"
-b = "leave"
+m = "open"
+b = "close"
 u = "launch"
+escape = "close"
+mouse_right = "close"
 enter = "sell"
+l = "log"
+r = "radio"

@@ -76,7 +76,7 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[pointer]]",
         "widget",
         "\"items\"",
-        "visible widget or anchored hover id/path, or point:x,y; scroll parts append ::thumb, ::track-start or ::track-end",
+        "visible widget or anchored hover/target id/path, or point:x,y; scroll parts append ::thumb, ::track-start or ::track-end",
     ),
     (
         "[[pointer]]",
@@ -101,7 +101,19 @@ pub const INPUTS_KEYS: &[(&str, &str, &str, &str)] = &[
         "[[click]]",
         "widget",
         "\"continue\"",
-        "instead of x/y: a visible button's full widget path or unique id; point:x,y for a coordinate target; resolves its centre on that tick, including moving anchors; missing, ambiguous or covered targets fail",
+        "instead of x/y: a visible button's or ui.target's full widget path or unique id (speaker.<id> a talk speaker, talk.<talk id> its bubble, choice.<choice id> an answer); point:x,y for a coordinate target; resolves its centre (a target: a visible point on its model) on that tick, including moving anchors; missing, ambiguous or covered targets fail; a resting button is not clicked: play lists it in resting_clicks with its reason",
+    ),
+    (
+        "[[key]]",
+        "tick",
+        "12",
+        "galaxy play only: press the key on this tick and release it on the next, sending what the modules' [keys] bind",
+    ),
+    (
+        "[[key]]",
+        "key",
+        "\"escape\"",
+        "a manifest key name, including escape and mouse_right; an unbound escape quits and saves, as the key does",
     ),
     (
         "[[input]]",
@@ -215,6 +227,15 @@ struct RawZoom {
     steps: f32,
 }
 
+/// A bot key press (`[[key]]`): a manifest key name, pressed on its tick and released on
+/// the next, through the same bindings as the keyboard.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawKey {
+    tick: u64,
+    key: String,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawResize {
@@ -302,6 +323,8 @@ struct RawInputs {
     zoom: Vec<RawZoom>,
     #[serde(default)]
     resize: Vec<RawResize>,
+    #[serde(default)]
+    key: Vec<RawKey>,
 }
 
 fn input(raw: RawInput, qualify: impl Fn(&str) -> Option<String>) -> Result<Input, String> {
@@ -339,6 +362,8 @@ pub struct InputsFile {
     /// Window sizes in logical pixels by tick (`galaxy play` only), which the sim never
     /// sees.
     pub resizes: Vec<(u64, (u32, u32))>,
+    /// Key presses by tick (`galaxy play` only): manifest key names, released a tick later.
+    pub keys: Vec<(u64, String)>,
 }
 
 impl InputsFile {
@@ -358,7 +383,18 @@ impl InputsFile {
                 return Err("pointer needs tick >= 1, action pickup/move/drop/scroll, a widget path/id and finite delta".into());
             }
         }
+        for k in &raw.key {
+            if k.tick == 0 || !galaxy_module::manifest::KEYS.contains(&k.key.as_str()) {
+                return Err(format!(
+                    "{}: key on tick {}: needs tick >= 1 and a manifest key name ({})",
+                    path.display(),
+                    k.tick,
+                    galaxy_module::manifest::KEYS.join(", ")
+                ));
+            }
+        }
         Ok(InputsFile {
+            keys: raw.key.into_iter().map(|k| (k.tick, k.key)).collect(),
             pointers: raw.pointer,
             clicks: raw
                 .click
@@ -415,6 +451,11 @@ impl InputsFile {
                 })
                 .collect::<Result<_, _>>()?,
         })
+    }
+
+    /// Whether this needs a window: clicks, pointer gestures or key presses.
+    pub fn needs_window(&self) -> bool {
+        !self.clicks.is_empty() || !self.pointers.is_empty() || !self.keys.is_empty()
     }
 
     /// The inputs for each tick.
@@ -733,6 +774,7 @@ mod tests {
         std::fs::write(&path, &text).unwrap();
         let read = InputsFile::read(&path).unwrap_or_else(|e| panic!("{e}\n{text}"));
         assert_eq!(read.clicks.len(), 2);
+        assert_eq!(read.keys, vec![(12, "escape".to_owned())]);
         assert_eq!(
             (
                 read.inputs.len(),

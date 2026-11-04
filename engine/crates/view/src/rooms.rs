@@ -21,54 +21,80 @@ pub fn visible(world: &World, id: &str, place: Option<&str>) -> bool {
 }
 
 pub fn screen_world<'a>(world: &'a World, place: Option<&str>) -> std::borrow::Cow<'a, World> {
-    if let Some((id, current)) = galaxy_sim::travel::player(world)
-        && let Some(place) = place
-        && place != current
-    {
-        let mut shown = world.clone();
-        let loc = shown
-            .entities
-            .get_mut(id)
-            .unwrap()
-            .get_mut(LOCATION)
-            .unwrap();
-        loc.fields.insert("place".into(), place.into());
-        if let Some(trip) = world.component(id, TRAVEL) {
-            loc.fields
-                .insert("spot".into(), trip.fields["from_spot"].clone());
-            if let Some(p) = shown.entities.get_mut(id).unwrap().get_mut(POSITION) {
-                for key in ["x", "y", "height", "angle", "layer"] {
-                    p.fields
-                        .insert(key.into(), trip.fields[&format!("from_{key}")].clone());
-                }
-            }
-            for c in shown.entities.values_mut() {
-                if let Some(l) = c.get_mut(galaxy_api::engine::LIFE)
-                    && l.fields["departed_tick"] == trip.fields["start_tick"]
-                    && l.fields["departed_place"] == place
-                {
-                    l.fields.insert("phase".into(), "walk".into());
-                    if let Some(loc) = c.get_mut(LOCATION) {
-                        loc.fields.insert("place".into(), place.into());
-                        loc.fields.insert("spot".into(), serde_json::Value::Null);
-                    }
-                }
+    let trip = galaxy_sim::travel::player(world)
+        .and_then(|(id, _)| world.component(id, TRAVEL))
+        .map(|t| &t.fields);
+    match place {
+        Some(place) => shown_at(world, place, trip),
+        None => std::borrow::Cow::Borrowed(world),
+    }
+}
+
+/// The world as `trip` left it: the player back at `place`, at the trip's source spot and
+/// pose, with beings that left alongside still walking there. Unchanged when the player
+/// is already at `place`.
+pub fn source_world<'a>(
+    world: &'a World,
+    place: &str,
+    trip: &galaxy_api::Fields,
+) -> std::borrow::Cow<'a, World> {
+    shown_at(world, place, Some(trip))
+}
+
+fn shown_at<'a>(
+    world: &'a World,
+    place: &str,
+    trip: Option<&galaxy_api::Fields>,
+) -> std::borrow::Cow<'a, World> {
+    let Some((id, current)) = galaxy_sim::travel::player(world) else {
+        return std::borrow::Cow::Borrowed(world);
+    };
+    if place == current {
+        return std::borrow::Cow::Borrowed(world);
+    }
+    let mut shown = world.clone();
+    let player = shown.entities.get_mut(id).unwrap();
+    let loc = player.get_mut(LOCATION).unwrap();
+    loc.fields.insert("place".into(), place.into());
+    let Some(trip) = trip else {
+        return std::borrow::Cow::Owned(shown);
+    };
+    let field = |k: &str| trip.get(k).cloned().unwrap_or_default();
+    loc.fields.insert("spot".into(), field("from_spot"));
+    if let Some(p) = player.get_mut(POSITION) {
+        for key in ["x", "y", "height", "angle", "layer"] {
+            p.fields.insert(key.into(), field(&format!("from_{key}")));
+        }
+    }
+    for c in shown.entities.values_mut() {
+        if let Some(l) = c.get_mut(galaxy_api::engine::LIFE)
+            && l.fields.get("departed_tick") == trip.get("start_tick")
+            && l.fields["departed_place"] == place
+        {
+            l.fields.insert("phase".into(), "walk".into());
+            if let Some(loc) = c.get_mut(LOCATION) {
+                loc.fields.insert("place".into(), place.into());
+                loc.fields.insert("spot".into(), serde_json::Value::Null);
             }
         }
-        return std::borrow::Cow::Owned(shown);
     }
-    std::borrow::Cow::Borrowed(world)
+    std::borrow::Cow::Owned(shown)
 }
 
 impl View {
     pub fn room_camera(&self, world: &World, place: &str) -> Option<Camera> {
+        self.room_camera_at(
+            world,
+            place,
+            &galaxy_sim::travel::room_camera(world, place)?,
+        )
+    }
+
+    /// The room's camera posed at its node `name`.
+    pub fn room_camera_at(&self, world: &World, place: &str, name: &str) -> Option<Camera> {
         let room = &world.component(place, ROOM)?.fields;
         let model = world.component(place, MODEL)?.fields["model"].as_str()?;
         let nodes = self.assets.nodes.get(model)?;
-        let name = room["camera"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .unwrap_or("camera");
         let node = nodes.get(name)?;
         Some(crate::CameraSpec::posed(
             node,
@@ -223,6 +249,9 @@ impl View {
             );
             let mut panels = Vec::new();
             fn panels_in<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+                if b.hidden {
+                    return;
+                }
                 if b.widget.kind == "panel" {
                     out.push(b);
                 }

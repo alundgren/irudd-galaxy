@@ -127,6 +127,8 @@ pub struct MeshInstance {
     /// mesh that shrinks (a rock being mined) keeps its full-size spacing, so the
     /// strokes stay on its surface instead of sliding across it.
     pub hatch_scale: f32,
+    /// The share of the mesh's glow (self-lit paint) that shows, `0..=1`: a pulsing lamp.
+    pub glow: f32,
 }
 
 impl MeshInstance {
@@ -137,6 +139,7 @@ impl MeshInstance {
             material: Material::default(),
             morph: 0.0,
             hatch_scale: 0.0,
+            glow: 1.0,
         }
     }
 
@@ -163,6 +166,16 @@ impl MeshInstance {
             w.clamp(0.0, 1.0)
         } else {
             0.0
+        };
+        self
+    }
+
+    /// Shows `share` of the mesh's glow (0 to 1).
+    pub fn with_glow(mut self, share: f32) -> Self {
+        self.glow = if share.is_finite() {
+            share.clamp(0.0, 1.0)
+        } else {
+            1.0
         };
         self
     }

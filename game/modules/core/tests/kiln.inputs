@@ -3,7 +3,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -15,13 +15,13 @@ name = "core.dock"
 payload = { station = "core.kiln" }
 [[input]]
 tick = 600
-name = "core.market"
+name = "core.open"
 [[input]]
 tick = 660
 name = "core.sell"
 [[input]]
 tick = 720
-name = "core.leave"
+name = "core.close"
 [[input]]
 tick = 780
 name = "core.launch"

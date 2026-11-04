@@ -398,3 +398,73 @@ fn a_seed_varies_a_rock_and_placement_moves_the_part() {
     )]);
     assert_eq!(make(&files, "a").unwrap().parts, ["box", "box.2"]);
 }
+
+#[test]
+fn parts_can_spin_and_pulse_for_the_eye() {
+    let files = module(&[(
+        "a",
+        "[[part]]\nname = \"core\"\nshape = \"sphere\"\nradius = 2.0\n\n\
+         [[part]]\nname = \"ring\"\nshape = \"spoked_ring\"\nradius = 6.0\nat = [1.0, 0.0, 0.5]\nspin = 20.0\n\n\
+         [[part]]\nname = \"lamps\"\nshape = \"beacon\"\nheight = 2.0\nangle = 90.0\ndistance = 4.0\ncopies = 2\npulse = 1.5\npulse_low = 0.3\n",
+    )]);
+    let made = make(&files, "a").unwrap();
+    let (_, parts) = read_parts(&made.text).unwrap();
+    let motion = |n: &str| parts.iter().find(|p| p.name == n).unwrap().motion;
+    assert_eq!(motion("core"), None);
+    let ring = motion("ring").unwrap();
+    // One copy spins about its own up through its own origin.
+    assert_eq!((ring.spin, ring.pulse), (20.0, 0.0));
+    assert!((ring.axis - v3(0.0, 0.0, 1.0)).length() < 1e-6);
+    assert!((ring.at - v3(1.0, 0.0, 0.5)).length() < 1e-6);
+    let lamps = motion("lamps").unwrap();
+    assert_eq!((lamps.spin, lamps.pulse, lamps.low), (0.0, 1.5, 0.3));
+    // A still recipe writes no extras, so its bytes are as before.
+    let still = make(
+        &module(&[("b", "[[part]]\nshape = \"sphere\"\nradius = 2.0\n")]),
+        "b",
+    )
+    .unwrap();
+    assert!(!still.text.contains("extras"));
+
+    for (text, field, says) in [
+        (
+            "[[part]]\nshape = \"sphere\"\nradius = 2.0\npulse = 2.0\n",
+            "part[0].pulse",
+            "nothing in the part glows",
+        ),
+        (
+            "[[part]]\nshape = \"beacon\"\nheight = 2.0\npulse_low = 0.5\n",
+            "part[0].pulse_low",
+            "goes with pulse",
+        ),
+        (
+            "[[part]]\nshape = \"sphere\"\nradius = 2.0\nspin = 9000.0\n",
+            "part[0].spin",
+            "expected -720 to 720",
+        ),
+    ] {
+        let p = refused(text);
+        assert_eq!(p.field, field, "{text}");
+        assert!(p.message.contains(says), "{text}: {}", p.message);
+    }
+}
+
+fn v3(x: f32, y: f32, z: f32) -> glam::Vec3 {
+    glam::Vec3::new(x, y, z)
+}
+
+#[test]
+fn ambient_models_are_what_their_recipes_make() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/play/ambient");
+    let files = ModuleFiles::read(&dir).expect("ambient reads").0;
+    for name in names(&files) {
+        let made = make(&files, &name).unwrap_or_else(|p| panic!("{p}"));
+        assert_eq!(
+            files.get(&made.file).map(String::as_str),
+            Some(made.text.as_str()),
+            "{} is not what {} makes; run galaxy-gm model make tests/play/ambient",
+            made.file,
+            made.recipe
+        );
+    }
+}

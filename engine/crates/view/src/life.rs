@@ -70,6 +70,7 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 pad: 8.0,
                 explicit_pad: true,
                 gap: 0.0,
+                align: None,
                 anchor: Some(format!("being.{id}")),
                 on: None,
                 payload: Default::default(),
@@ -78,6 +79,11 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 value: String::new(),
                 delta: 0.0,
                 accepts: BTreeMap::new(),
+                notes: BTreeMap::new(),
+                weight: 500,
+                trailing: false,
+                yields: false,
+                resting: None,
             })
         })
         .collect()

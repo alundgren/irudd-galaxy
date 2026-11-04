@@ -29,8 +29,8 @@ const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 /// flicker a crease near the art bible's angle as a ship turned). Core WebGPU, so
 /// every backend renders to it.
 const GEOM_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
-/// Backdrop scroll, in logical pixels per world unit moved by the camera.
-const STAR_PARALLAX: f32 = 0.6;
+/// Cloud scroll, in logical pixels per world unit moved by the camera. Each star has its
+/// own (`Blob::parallax`).
 const CLOUD_PARALLAX: f32 = 0.25;
 
 /// Something went wrong creating or using the GPU.
@@ -245,7 +245,8 @@ struct InstanceGpu {
     highlight: [f32; 4],
     outline: [f32; 4],
     emissive: [f32; 4],
-    /// x: morph weight, y: hatch scale (0 for the instance's own).
+    /// x: morph weight, y: hatch scale (0 for the instance's own), z: the share of its
+    /// glow that shows.
     morph: [f32; 4],
 }
 
@@ -1217,7 +1218,7 @@ impl Renderer {
                     mat.outline_px.clamp(0.0, 32.0) * self.scale,
                 ],
                 emissive: mat.emissive.to_array(),
-                morph: [inst.morph, inst.hatch_scale, 0.0, 0.0],
+                morph: [inst.morph, inst.hatch_scale, inst.glow, 0.0],
             });
             let k = gpu_instances.len() as u32 - 1;
             match runs.last_mut() {
@@ -1262,12 +1263,8 @@ impl Renderer {
                 tile,
                 self.scale,
             ],
-            stars: [
-                cam.target.x * STAR_PARALLAX,
-                -cam.target.y * STAR_PARALLAX,
-                0.0,
-                0.0,
-            ],
+            // Each star scrolls by this times its layer's parallax.
+            stars: [cam.target.x, -cam.target.y, 0.0, 0.0],
             counts: [
                 (logical.x / tile).ceil() + 2.0,
                 (logical.y / tile).ceil() + 2.0,
@@ -1641,7 +1638,7 @@ fn make_backdrop(
         .iter()
         .chain(&source.stars)
         .map(|b| BlobGpu {
-            pos: [b.pos.x, b.pos.y, b.radius, 0.0],
+            pos: [b.pos.x, b.pos.y, b.radius, b.parallax],
             color: b.color.to_array(),
         })
         .collect();

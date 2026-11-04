@@ -78,6 +78,9 @@ impl Style {
         if let Some(light) = &style.light {
             light.check().map_err(|e| format!("[light] {e}"))?;
         }
+        if let Some(sky) = &style.sky {
+            sky.check().map_err(|e| format!("[sky] {e}"))?;
+        }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
         }
@@ -160,7 +163,7 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "screen",
         "accept",
         "opaque colour",
-        "accept colour; text pairs need 4.5:1 contrast, handles on track 3:1",
+        "accept colour, behind Drop here and its note; text pairs need 4.5:1 contrast, handles on track 3:1",
     ),
     (
         "screen",
@@ -236,9 +239,63 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
     ),
     (
         "screen",
+        "resting",
+        "opaque colour",
+        "resting button fill; unset is panel; text needs 4.5:1, its dashed border 3:1",
+    ),
+    (
+        "screen",
+        "resting_dash",
+        "0 to 16",
+        "resting button frame dash period, logical pixels; 0 is solid, then resting must differ from button",
+    ),
+    (
+        "screen",
         "hint_border_px",
         "0 to 4",
         "drop hint frame width, logical pixels",
+    ),
+    (
+        "screen",
+        "highlight",
+        "opaque colour",
+        "outline of a hovered ui.target's model",
+    ),
+    (
+        "screen",
+        "highlight_px",
+        "2 to 12",
+        "width of that outline, logical pixels",
+    ),
+    (
+        "screen",
+        "bubble_title",
+        "16 to 40",
+        "talk bubble heading (the speaker's name) size, logical pixels",
+    ),
+    (
+        "screen",
+        "bubble_title_weight",
+        "400 to 700",
+        "talk bubble heading font weight; lines are 500",
+    ),
+    (
+        "screen",
+        "bubble_subtitle",
+        "16 to 32",
+        "talk bubble subtitle size, logical pixels; drawn at weight 400",
+    ),
+    (
+        "screen",
+        "bubble_text",
+        "16 to 32",
+        "talk bubble line and answer button size, logical pixels",
+    ),
+    (
+        "screen",
+        "bubble_marker",
+        "16 to 32",
+        "talk bubble Continue/Done marker size, logical pixels; drawn at weight 400",
     ),
     (
         "ink",
@@ -312,6 +369,12 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
     ("sky", "cloud_alpha", "0 to 1", "how strong clouds are"),
     ("sky", "cloud_count", "0 to 64", "how many clouds"),
     ("sky", "stars", "0 to 4000", "how many stars"),
+    (
+        "sky",
+        "star_layers",
+        "[numbers]",
+        "1 to 4 star layers, each the logical pixels it scrolls per world unit the camera moves (0 to 20): [0.25, 0.6, 1.2] puts far stars creeping behind near ones; the stars are shared among them",
+    ),
     (
         "course",
         "show",
@@ -390,7 +453,12 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
         table("light", &Light::default()),
         table("sky", &Sky::default()),
         table("course", &Course::default()),
-        table("screen", &crate::screen_style::ScreenStyle::default()),
+        table("screen", &{
+            // Unset, a resting button uses the panel colour: list that as its default.
+            let mut s = crate::screen_style::ScreenStyle::default();
+            s.resting = Some(s.panel);
+            s
+        }),
         table("looks.<name>", &Look::default()),
     ]
 }
@@ -509,6 +577,7 @@ pub struct Sky {
     pub cloud_alpha: f32,
     pub cloud_count: u32,
     pub stars: u32,
+    pub star_layers: Vec<f32>,
 }
 
 impl Default for Sky {
@@ -521,11 +590,32 @@ impl Default for Sky {
             cloud_alpha: b.cloud_alpha,
             cloud_count: b.clouds,
             stars: b.stars,
+            star_layers: b.star_layers,
         }
     }
 }
 
 impl Sky {
+    fn check(&self) -> Result<(), String> {
+        use crate::backdrop::{MAX_STAR_LAYERS, MAX_STAR_PARALLAX};
+        let n = self.star_layers.len();
+        if !(1..=MAX_STAR_LAYERS).contains(&n) {
+            return Err(format!(
+                "star_layers has {n} layers; a sky has 1 to {MAX_STAR_LAYERS}"
+            ));
+        }
+        if let Some(p) = self
+            .star_layers
+            .iter()
+            .find(|p| !p.is_finite() || !(0.0..=MAX_STAR_PARALLAX).contains(*p))
+        {
+            return Err(format!(
+                "star_layers has {p}; each layer scrolls 0 to {MAX_STAR_PARALLAX} logical pixels per world unit"
+            ));
+        }
+        Ok(())
+    }
+
     pub fn params(&self) -> BackdropParams {
         BackdropParams {
             top: self.top,
@@ -534,6 +624,7 @@ impl Sky {
             cloud_alpha: self.cloud_alpha.clamp(0.0, 1.0),
             clouds: self.cloud_count.min(64),
             stars: self.stars.min(4000),
+            star_layers: self.star_layers.clone(),
             ..BackdropParams::default()
         }
     }
@@ -731,6 +822,16 @@ color = \"#3fa7a0\"
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn star_layers_are_read_and_kept_in_range() {
+        let s = Style::parse("[sky]\nstar_layers = [0.25, 0.6, 1.2]").unwrap();
+        assert_eq!(s.sky.unwrap().params().star_layers, [0.25, 0.6, 1.2]);
+        for bad in ["[]", "[1.0, 2.0, 3.0, 4.0, 5.0]", "[-1.0]", "[30.0]"] {
+            let e = Style::parse(&format!("[sky]\nstar_layers = {bad}")).unwrap_err();
+            assert!(e.contains("[sky] star_layers"), "{bad}: {e}");
         }
     }
 

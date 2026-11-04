@@ -1,0 +1,11 @@
+about = "a rock about three across; at morph 1 it is chipped, cut and shrunk as if mined"
+seed = 11
+
+[[part]]
+shape = "rock"
+radius = 1.6
+lumps = 0.6
+detail = 2
+mined = 0.6
+paint = "stone"
+accent = "moss"

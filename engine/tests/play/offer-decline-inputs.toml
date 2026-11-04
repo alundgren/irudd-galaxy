@@ -1,0 +1,19 @@
+# Decline the offer: the talk ends, the handler disables it, and it never returns.
+[[click]]
+tick = 5
+widget = "speaker.offer.host"
+[[click]]
+tick = 15
+widget = "choice.offer.not_now"
+[[click]]
+tick = 25
+widget = "speaker.offer.host"
+[[note]]
+tick = 30
+text = "Declined: the host has only its repeat talk now"
+[[click]]
+tick = 35
+widget = "answers"
+[[note]]
+tick = 40
+text = "The script recorded the declined answer"

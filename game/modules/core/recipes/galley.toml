@@ -1,0 +1,34 @@
+about = "The galley: a warm low house with a chimney, a lit window and a serving hatch under an awning"
+palette = { main = "#f0d9a8", accent = "#b85c3c" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.2, 3.6, 0.3]
+at = [0, 0, 0.15]
+paint = "trim"
+[[part]]
+name = "house"
+shape = "block"
+depth = 2.8
+width = 3.2
+height = 3.6
+at = [0.2, 0, 0.3]
+[[part]]
+name = "chimney"
+shape = "cylinder"
+radius = 0.35
+height = 1.6
+sides = 8
+at = [0.7, 0.9, 3.0]
+paint = "accent"
+[[part]]
+name = "awning"
+shape = "box"
+size = [0.9, 3.0, 0.2]
+at = [-1.5, 0, 2.4]
+paint = "accent"
+[[part]]
+name = "lamp"
+shape = "beacon"
+height = 1.4
+at = [-1.3, -1.5, 0.3]

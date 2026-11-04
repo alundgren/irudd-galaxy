@@ -1,0 +1,11 @@
+id = "offer"
+version = "0.1.0"
+min_engine_version = "0.7.0"
+scripts = ["scripts/main.luau"]
+events = ["answers"]
+writes = ["engine.place", "engine.room", "engine.spot", "engine.location", "engine.being", "engine.position", "engine.model", "engine.clock", "engine.life", "engine.act", "engine.talk", "engine.talk_line", "engine.talk_choice"]
+[components.answers]
+last = "text"
+taken = "bool"
+declined = "bool"
+open = "bool"

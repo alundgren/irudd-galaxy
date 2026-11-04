@@ -40,6 +40,10 @@ pub struct Drag {
     pub grab: [f32; 2],
     pub pad: f32,
     pub size: f32,
+    /// Each drop target's verdict height at pickup, by path: layout keeps it while the
+    /// value is held, so targets stay put whatever their notes change to.
+    #[serde(default)]
+    pub kept: BTreeMap<String, f32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -107,6 +111,12 @@ impl Screens {
                 grab: (point - Vec2::new(b.rect.x, b.rect.y)).to_array(),
                 pad: w.pad,
                 size: w.size,
+                kept: self
+                    .all()
+                    .into_iter()
+                    .filter(|b| b.widget.kind == "drop_target")
+                    .map(|b| (b.widget.path.clone(), b.verdicts))
+                    .collect(),
             });
             None
         } else if matches!(w.kind.as_str(), "button" | "bubble") {
@@ -244,6 +254,9 @@ impl Screens {
 
     pub(crate) fn all(&self) -> Vec<&Boxed> {
         fn walk<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+            if b.hidden {
+                return;
+            }
             out.push(b);
             for c in &b.children {
                 walk(c, out);

@@ -15,7 +15,7 @@ impl Screens {
         let obstacles: Vec<_> = self
             .all()
             .into_iter()
-            .filter(|b| leaf(&b.widget.kind))
+            .filter(|b| leaf(&b.widget.kind) || b.widget.kind == "bubble")
             .map(|b| {
                 (
                     b.widget.path.clone(),

@@ -44,6 +44,7 @@
 <h1>Irudd Galaxy · Known player-facing changes (Lantern Reach playtests)</h1>
 
 <div class="note">
+<p><strong>Start with the direction doc.</strong> The agreed design is <a href="direction.md">direction.md</a>, with its reference screenshots. The items on this page are changes on top of it, not the design itself.</p>
 <p><strong>What this is.</strong> This page lists behaviour to carry into the rebuild. It comes from three playtests of the previous build by Andreas, the game's designer, plus two scripted test runs. It is <strong>not a technical plan</strong>. It describes what the player should see and feel, and the agent doing the rebuild decides how to build it.</p>
 <p><strong>How to read an item.</strong> Every item stands on its own. It says where it happens and how to get there, what the player sees now (with the exact on-screen text where we have it), what Andreas said in his own words, and what good looks like. Quotes are copied as he typed them, typos included. Screenshots come from the previous build. Most are from the newest build he tested. Where a picture comes from an earlier build, its caption says so.</p>
 <p><strong>Priority</strong> reflects how strongly Andreas felt about it: <span class="tag high">▲ High</span> <span class="tag med">■ Medium</span> <span class="tag low">● Low</span>. <span class="maybe">Possibly still open</span> means the problem was seen in an earlier build and the newest build was not checked for it. Treat it as a requirement anyway.</p>
@@ -77,8 +78,7 @@
   <dt>Odo Fenn</dt><dd>Keeper at Kettle Dock, who grows the greenhouse there. He wants ice and refined plate.</dd>
   <dt>Tamsin Oddway</dt><dd>At Kettle Dock, in the Berths. She builds tenders.</dd>
   <dt>Rook Adeyemi</dt><dd>Keeps the ore depot at Cinder Hook.</dd>
-  <dt>Pip Calloway and Saffron Vey</dt><dd>At Brassmouth Exchange. Pip runs the market and Saffron keeps the Tollway Compact's books in the office.</dd>
-  <dt>Hesper Lune and Nell</dt><dd>At Glass Drift Observatory. Hesper is in the office and Nell in the archive. Hesper can send parts to the Wren.</dd>
+  <dt>Hesper Lune</dt><dd>At Glass Drift Observatory, in the office. Hesper can send parts to the Wren.</dd>
 </dl>
 
 <h4>World</h4>
@@ -103,133 +103,36 @@
   <dt>Locker</dt><dd>Storage for parts you own but have not fitted. There is one locker per hull.</dd>
   <dt>Ready / Make / Friends</dt><dd>Tabs in the fitting room. Ready is parts on the rack to buy, Make is parts made to order, and Friends is parts ordered from contacts at other stations.</dd>
   <dt>Goal banner</dt><dd>The wide cream bar at the top centre that shows the current goal and who gave it.</dd>
-  <dt>Station plate</dt><dd>The cream box at the top left that shows the docked station's name, a teal bar and its faction.</dd>
   <dt>Log</dt><dd>The ship log, a list of past messages, opened by a button at the bottom left.</dd>
   <dt>Radio</dt><dd>Each station and two lane beacons broadcast a channel with a range. In flight, a panel at the bottom right shows the channel, its signal strength, a text ticker and the buttons Prev, Off and Next (the R key).</dd>
   <dt>Chronicle</dt><dd>Entries that record a change in the world, such as <q>a greenhouse ring lit up</q>.</dd>
-  <dt>Station key</dt><dd>Part of the agreed station design (see "Already decided"): a row of icons along the bottom of the docked view, one per module.</dd>
+  <dt>Station key</dt><dd>Part of the agreed station design (see the direction doc): a row of icons along the bottom of the docked view, one per module.</dd>
 </dl>
 
 <h2>Already decided (do not contradict)</h2>
-<ul>
-  <li><strong>The docked station (agreed design).</strong>
-    <ul>
-      <li>Docking zooms in so the station fills the view.</li>
-      <li>Each module is clickable. Hovering a module lifts it slightly, gives it an outline and shows its sign: the keeper's name and one line about what is offered there.</li>
-      <li>Clicking a module glides the view to its room. The room panel opens beside the module and covers at most about 45% of the screen, so the station stays visible.</li>
-      <li>Right-click, Esc or a Back button returns to the whole station.</li>
-      <li>A <strong>station key</strong> runs along the bottom: one icon per module, so every room is one click away. An icon can carry a news ribbon (<span class="screen">New</span>, <span class="screen">Changed</span> or <span class="screen">Closed</span>) with a one-line headline on hover.</li>
-    </ul>
-  </li>
-  <li><strong>Talk.</strong> Characters speak in short bubbles over the speaker, and a click advances to the next line. The ship log is one small icon at the bottom left. No text panel grows with history.</li>
-  <li><strong>Input.</strong> Mouse first: every room and action can be reached by clicking. The movement keys (W, A, S, D) always fly the ship off the dock, with no separate undock step.</li>
-  <li><strong>Agency.</strong> Nothing changes the player's cargo, credits or fitted parts without a deliberate choice and a readable receipt.</li>
-  <li><strong>Readability.</strong>
-    <ul>
-      <li>Text is pure black or pure white, never grey.</li>
-      <li>State colours come from a colourblind-safe set and are always paired with a shape, an arrow or a word.</li>
-      <li>Disabled buttons look different (for example dashed), never greyed out.</li>
-    </ul>
-  </li>
-  <li><strong>Collision.</strong> Everything that looks solid is solid: ships, rocks and stations. They bump and push, stations included, and nothing ever takes damage.</li>
-  <li><strong>Turn rate.</strong> The ship turns at 180 degrees per second.</li>
-  <li><strong>Basic controls stay.</strong> Once a basic control is unlocked (for example click to fly, click to mine, map travel, order queues or loops), it is never taken away.</li>
-  <li><strong>Music.</strong> Music is made by the GM when it builds a module and ships with the module as ordinary audio files. Nothing is generated while playing, so every save and every player hears the same radio.</li>
-  <li><strong>No live model while playing.</strong> The game makes no language-model calls during play for now. NPC lines, radio chatter and other flavour are written into modules. Model-driven "living" NPCs may come later, once the base game is solid.</li>
-  <li><strong>Calm.</strong> The game is solo and forgiving. Nothing punishes the player for bumping into things.</li>
-</ul>
+<p>The agreed decisions now live in <a href="direction.md">direction.md</a>, section 9, "Rules that hold everywhere", together with the station, talk, fitting and look decisions. Where an item below differs from the direction doc, the direction doc says which decision wins.</p>
 
 <!-- ============================================================ -->
 <h2>Dock and station</h2>
 
 <article class="item high">
-<h3>The dock must look like the agreed design: one station, large and up close <span class="tag high">▲ High</span></h3>
+<h3>The station key carries news ribbons <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol><li>Start a new game. You begin docked at Lantern Wharf.</li><li>Look at the whole screen.</li></ol>
+<ol><li>Dock at any station.</li><li>Look at the station key along the bottom of the docked view.</li></ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>The station is a small drawing in the middle of a big starfield, with three small labels on it: <span class="screen">Office</span>, <span class="screen">Market</span> and <span class="screen">Wharf</span>.</li>
-  <li>The rest of the dock is spread around the screen edges:
-    <ul>
-      <li>a station plate at the top left (<span class="screen">Lantern Wharf</span>, a teal bar, <span class="screen">Wharf Cooperative</span>)</li>
-      <li>three room tabs along the bottom: <span class="screen">Office · Ilse</span>, <span class="screen">Market · Ilse</span>, <span class="screen">Wharf · Orrin</span></li>
-      <li>a goal banner at the top</li>
-      <li>a credits and hold box at the top right</li>
-      <li>a dialogue box on the left</li>
-    </ul>
-  </li>
-  <li>The station key, the zoom-in and the news ribbons from the agreed design are missing.</li>
+  <li>The rebuilt dock follows the agreed design: docking glides in until the station fills the view, each building lifts and outlines under the pointer and opens its room when clicked, the station key runs along the bottom, and lamps, a crane and a skiff give it quiet life.</li>
+  <li>The key has no New/Changed/Closed ribbons, because nothing at a station changes on its own yet.</li>
 </ul>
 <p class="label">Andreas said</p>
 <blockquote>Actually looking again I realize I am in fact docked we just didnt follow the instrucions for how docks should look at all. Its super tiny and its spread out from the upper left, the three "rooms" in the toolbar down on the screen and the tiny dock</blockquote>
-<p>From an earlier build, about the old station card: <q>cramped and dull for no reason</q>.</p>
-<figure><img src="known-changes/dock-overview.jpg" alt="Docked at Lantern Wharf: small station in the centre, station plate top left, goal banner top centre, Ilse's dialogue box on the left, credits and hold top right, Log button and three room tabs at the bottom." loading="lazy"><figcaption>Newest build, docked at Lantern Wharf at the start of a game. The station is small and the dock's parts sit at four different screen edges.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Docking zooms in until the station fills most of the view. The station itself is the menu.</li>
-  <li>Each module carries its sign. The station key along the bottom gives the same rooms as icons, with New/Changed/Closed ribbons when something happened there.</li>
-  <li>A room opens beside its module (at most about 45% of the screen) and the station stays visible.</li>
-  <li>The station shows quiet life up close, such as lights, cranes and small craft.</li>
-  <li>The whole dock reads as one place you have arrived at, not as boxes around the screen edges.</li>
+  <li>A station key icon carries a New, Changed or Closed ribbon when something happened there, with a one-line headline on hover.</li>
 </ul>
 </article>
 
-<article class="item high">
-<h3>Being docked is unmistakable, and nothing looks like a health bar unless it is one <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>The same start screen as above: docked at Lantern Wharf at the start of a new game.</p>
-<p class="label">What the player sees now</p>
-<p>The station plate at the top left shows the station name, a teal horizontal bar under it, then the faction name. The station drawing is small, so nothing else in the view says "you are docked".</p>
-<p class="label">Andreas said</p>
-<blockquote>Not entirely sure what the to left bar is supposed to be. Is it a health bar for the station im closet to since Im not docked anywhere</blockquote>
-<p>He only realised a moment later that he was docked.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The docked state is obvious from the view itself: the zoomed-in station fills the screen, and the controls change to station controls.</li>
-  <li>The station's name and faction are shown in a way that cannot be mistaken for a meter.</li>
-  <li>Bars are used only for real quantities, and they carry a label.</li>
-</ul>
-</article>
 
-<article class="item high">
-<h3>Station modules look clickable and react cleanly <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Docked at any station (for example Lantern Wharf), move the mouse over the station drawing.</li><li>Hover the Market module, then click it.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Before hovering, nothing tells you the modules can be clicked. They are small buildings with small text labels.</li>
-  <li>Hovering the Market module draws an orange ring around it and shows a tooltip: <span class="screen">Market · Ilse Marrow</span> / <span class="screen">Ice and ore bought, plate sold</span>.</li>
-  <li>At the same time, a second pill at the bottom of the screen says the same thing (<span class="screen">Market · Ice and ore bought, plate sold</span>), and the Market tab lights up.</li>
-  <li>The hover area does not match the building, so the highlight seems to come and go.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>The way you interact with these is super yanky. Its zero obvious that these even are interactive</blockquote>
-<figure><img src="known-changes/module-hover.jpg" alt="Lantern Wharf docked view with the Market module hovered: orange ring, tooltip 'Market · Ilse Marrow, Ice and ore bought, plate sold', and red scribbles drawn by Andreas around the area." loading="lazy"><figcaption>Newest build, hovering the Market module. The red marks are Andreas's. The same text appears twice, in the tooltip and in a pill at the bottom.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Modules look like things you can press even before you hover them. They are big enough, with a clear sign on each.</li>
-  <li>On hover, the module lifts slightly, gets an outline and shows its sign once (the keeper plus one line), and the pointer changes.</li>
-  <li>The hover area is generous and matches the building, so it doesn't flicker on and off.</li>
-  <li>A click glides smoothly to the room. A second click during the glide lands immediately.</li>
-  <li>Right-click or Esc goes back.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>One name per thing: the fitting room is not also called "Wharf" <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Docked at Lantern Wharf, click the <span class="screen">Wharf · Orrin</span> tab or the Wharf module.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The fitting room's panel is titled <span class="screen">Wharf</span>, <span class="screen">Kept by Orrin Vale</span>, <span class="screen">Orrin fits parts in the cradle</span>.</li>
-  <li>The station is also called "Lantern Wharf", and its plate stays on screen at the same time. Other places add to the mix: the "Wharf Cooperative" faction, and characters saying "east of the Wharf".</li>
-  <li>"Wharf" therefore means both the whole station and one room inside it.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>the confusingly named wharf that is not the same thing as the station also named wharf</blockquote>
-<p class="label">What good looks like</p>
-<p>No word names both a station and a room inside it. For example, name the room after what it is or who keeps it (a fitting cradle, or the hullwright's). The station keeps its name. The agent picks the exact words.</p>
-</article>
 
 <article class="item low">
 <h3>A part ordered from a friend gets a proper arrival moment <span class="tag low">● Low</span></h3>
@@ -258,75 +161,20 @@
 <h2>HUD and screen hierarchy</h2>
 
 <article class="item high">
-<h3>Different kinds of information look different: no wall of identical beige boxes <span class="tag high">▲ High</span></h3>
+<h3>Goals and the radio get looks of their own <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<p>Start a new game. The first screen, docked at Lantern Wharf, shows the problem best. It holds throughout the game, docked and in flight.</p>
+<p>Once goals and the radio exist in the rebuild, look at them beside everything else on screen, docked and in flight.</p>
 <p class="label">What the player sees now</p>
-<p>At least seven things, each with a different job, share one look: a cream/beige box with a dark outline and dark text.</p>
-<ul>
-  <li>The station plate (top left)</li>
-  <li>The goal banner (top centre): <span class="screen">Ilse Marrow · Lantern Wharf</span> / <span class="screen">Ilse needs ice for Odo's greenhouse at Kettle Dock. Fly off with W, turn with A and D, and look for the pale rocks.</span></li>
-  <li>Ilse's dialogue box (left)</li>
-  <li>The module labels <span class="screen">Office</span>, <span class="screen">Market</span> and <span class="screen">Wharf</span> on the station</li>
-  <li>The three room tabs (bottom)</li>
-  <li>The Log button (bottom left)</li>
-  <li>In flight: the control hint pill (<span class="screen">Hold Space · mine ice</span>) and the radio panel</li>
-</ul>
-<p>Only the credits/hold box (<span class="screen">40 cr</span> / <span class="screen">Hold 0 / 20</span>) is dark. The player can't tell which boxes are talk, which are goals, which are status and which are buttons.</p>
+<p>The rebuild gives each kind on screen today its own look: speech is a white bubble over the speaker, status (hold and credits) a pale blue panel at the top right, anything you can press an amber button (station signs included), and what just happened plain cream paper. It has no goals yet. The radio, at the bottom right in flight, wears the same pale blue panel as status, because the engine's screen style has no other panel surface for it. In the previous build, at least seven things with different jobs shared one cream box.</p>
 <p class="label">Andreas said</p>
 <blockquote>There is way too many identical styled beige boxes on screen at once that do different things. They all blend together</blockquote>
-<p>This was the main theme of his latest playtest. He repeated it inside the fitting room (see the next item).</p>
-<figure><img src="known-changes/dock-overview.jpg" alt="Docked at Lantern Wharf with many beige boxes: station plate, goal banner, dialogue box, module labels, room tabs and Log button all in the same style." loading="lazy"><figcaption>Newest build, start of a game. Count the beige boxes: plate, goal banner, dialogue, three module labels, three room tabs, Log.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Each kind of thing has its own clearly different look, and the eye knows where to go first:
-    <ul>
-      <li>speech: a bubble over the speaker</li>
-      <li>the current goal</li>
-      <li>status (credits, hold)</li>
-      <li>buttons you can press</li>
-      <li>station signs</li>
-      <li>the radio</li>
-    </ul>
-  </li>
-  <li>Fewer things are on screen at once. Anything not needed right now is hidden.</li>
+  <li>The current goal and the radio each have a look that differs from speech, status, buttons, signs and paper, so the eye knows where to go first.</li>
 </ul>
 </article>
 
-<article class="item high">
-<h3>A focused screen shows only what that screen is for <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Start a new game, mine ice until the hold is full (20/20), and fly back to Lantern Wharf.</li><li>Open the fitting room: the Wharf module or the <span class="screen">Wharf · Orrin</span> tab.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The fitting panel is on the right:
-    <ul>
-      <li><span class="screen">POWER 0 of 4</span>, <span class="screen">MASS 0 of 3 free</span></li>
-      <li>tabs <span class="screen">Ready 0</span> / <span class="screen">Make 0</span> / <span class="screen">Friends 0</span></li>
-      <li><span class="screen">THE WREN'S LOCKER</span></li>
-    </ul>
-  </li>
-  <li>The ship's sockets are on the left.</li>
-  <li>Everything else also stays on screen:
-    <ul>
-      <li>the station plate <span class="screen">Lantern Wharf</span></li>
-      <li>the goal banner <span class="screen">Ilse asks you to take the ice to Odo at Kettle Dock. Dock in its ring and pick Deliver.</span></li>
-      <li>the credits/hold box <span class="screen">40 cr · Hold 20/20 · Ice 20</span></li>
-      <li>the hint <span class="screen">W or S · fly off and undock</span></li>
-      <li>the Log button with <span class="screen">2 new</span></li>
-      <li>all three room tabs</li>
-    </ul>
-  </li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>More of the "all the beige boxes" that have different meaning. Do we really need the top quest, the lantern wharf banner, the hold, the undock and the log when inside the confusingly named wharf that is not the same thing as the station also named wharf</blockquote>
-<figure><img src="known-changes/fitting-room-hud.jpg" alt="Fitting room at Lantern Wharf: sockets on the left, fitting panel on the right, and the goal banner, station plate, credits and hold box, undock hint, Log button and room tabs all still visible." loading="lazy"><figcaption>Newest build, the fitting room on a new game. The goal banner, station plate, hold box, undock hint, Log and tabs all stay around the fitting panel.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Inside a room, only what that room needs is shown. In the fitting room, for example, show the ship, sockets, parts, budgets and credits.</li>
-  <li>Goal, station plate, undock hint and log step out of the way, and come back when you return to the station view or fly off.</li>
-</ul>
-</article>
+
 
 <article class="item med">
 <h3>The goal banner doesn't compete with the conversation that gives the goal, and names the right person <span class="tag med">■ Medium</span></h3>
@@ -353,129 +201,13 @@
 </ul>
 </article>
 
-<article class="item med">
-<h3>The Log button can't be mistaken for pause <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Look at the bottom left of the screen, docked or in flight.</p>
-<p class="label">What the player sees now</p>
-<p>The Log button's icon is two upright rectangles side by side above the word <span class="screen">Log</span>, which is the standard pause symbol. A badge such as <span class="screen">2 new</span> sits on it. The game also has a real pause (P or Esc).</p>
-<p class="label">Andreas said</p>
-<blockquote>The "log" looks exactly like a pause button and we also have pause</blockquote>
-<figure><img src="known-changes/dock-overview.jpg" alt="Bottom left of the docked view: the Log button whose icon is two vertical bars, like pause." loading="lazy"><figcaption>Newest build. See the bottom-left corner: the Log icon is two vertical bars.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>The log's icon looks like a log or a book of messages. Only the pause control looks like pause.</p>
-</article>
-
-<article class="item low">
-<h3>Labels and prices don't look like buttons, and buttons do <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Dock at Kettle Dock and open the Market.</li><li>Also: open the fitting room at Lantern Wharf after buying any part.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>In the Kettle Dock market, each price (<span class="screen">pays 13.7 cr</span>, <span class="screen">pays 49.4 cr</span>) is drawn as a filled yellow rounded pill, just like the real <span class="screen">Sell 1</span> / <span class="screen">Sell all</span> buttons beside it.</li>
-  <li>In the fitting room, the status chips <span class="screen">Fitted</span> and <span class="screen">In the locker</span> are outlined like buttons, while the actual action, <span class="screen">Drag to fit</span>, is plain text.</li>
-</ul>
-<figure><img src="known-changes/market-tags-look-like-buttons.jpg" alt="Kettle Dock market kept by Odo Fenn: prices 'pays 13.7 cr' and 'pays 49.4 cr' drawn in the same pill style as the Sell buttons; a teal lane line crosses the station." loading="lazy"><figcaption>Newest build, Kettle Dock market. The price pills look like buttons. (The teal line through the station is a separate item, "The lane line doesn't cross the station you are docked at".)</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>Only things you can press look pressable. Prices and status read as plain labels, and the real verbs look like buttons.</p>
-</article>
-
-<article class="item low">
-<h3>NPC ship name labels stay readable and never cover stations or the HUD <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Start a new game and look near Lantern Wharf, where NPC ships come and go. Also look near Cinder Hook.</li><li>Open the fitting room and look at the top right.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>A ship's name is drawn in small white text under the ship. When the ship is over a station, the name sits on the station art and can't be read. <span class="screen">Little Mercy</span> was illegible over Lantern Wharf and Cinder Hook.</li>
-  <li>Near the screen edge the name is cut off, for example <span class="screen">Little M…</span>.</li>
-  <li>In the newest build, the name <span class="screen">Little Mercy</span> is drawn on top of the HUD, just under the credits/hold box.</li>
-  <li>On a new game, two ship names near the Wharf briefly overlap each other.</li>
-</ul>
-<figure><img src="known-changes/ship-label-over-station.jpg" alt="An NPC ship docked at Lantern Wharf with its name label drawn over the station art, unreadable." loading="lazy"><figcaption>Earlier build: the label "Little Mercy" drawn over the station art can't be read.</figcaption></figure>
-<figure><img src="known-changes/ship-label-over-hud.jpg" alt="Top right corner: the label 'Little Mercy' drawn over the HUD just under the credits and hold box." loading="lazy"><figcaption>Newest build: "Little Mercy" drawn over the HUD under the credits box.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>Labels stay readable and fully on screen. They never sit on top of stations, the HUD or each other. They step aside, fade or hide when crowded, and show again on hover.</p>
-</article>
-
 <!-- ============================================================ -->
 <h2>Dialogue and NPCs</h2>
 
-<article class="item high">
-<h3>Dialogue comes one short line at a time, with speaker and place styled differently <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>Start a new game. Ilse's welcome opens at once.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>One box with a single orange pill on top, <span class="screen">Ilse Marrow · Lantern Wharf</span>. The speaker's name and the station name share the same style in the same pill.</li>
-  <li>Then one block of five sentences: <span class="screen">Welcome to Lantern Wharf. I'm Ilse; I keep the dock. The Wren's yours now: small, round-nosed and honest. Odo at Kettle Dock needs ice for his greenhouse, and the pale rocks east of here are Rimewater ice.</span></li>
-  <li>Under it, in large text: <span class="screen">Click or Enter · close</span>.</li>
-</ul>
-<p>In an earlier build, the same intro also stayed on screen after flying away from the station, which made it hard to connect to where it came from.</p>
-<p class="label">Andreas said</p>
-<blockquote>This is what 5 sentences but they are all just smashed into one wall of text and the speakers name and the location are styled the exact same + we have this massive click or enter - close competing for attention</blockquote>
-<p>From the earlier build: <q>a bit wall of texty and it sticks beyond the stations so its a bit hard to relate after flying away … maybe more like a chat so I can scroll back</q></p>
-<figure><img src="known-changes/ilse-intro-dialogue.png" alt="Ilse's intro box: pill 'Ilse Marrow · Lantern Wharf', five sentences in one block, and 'Click or Enter · close' below." loading="lazy"><figcaption>Newest build, Ilse's welcome on a new game.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>A short bubble over the speaker with one sentence or beat at a time. A click advances, and a small marker shows there is more.</li>
-  <li>The speaker's name stands out on its own. The place is shown separately and more quietly, or left out when it's obvious.</li>
-  <li>The continue/close hint is small and quiet.</li>
-  <li>Past lines can be read again in the ship log.</li>
-  <li>Talk never stays on screen after you fly away.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>Trust the player: no hint text for things that are already obvious <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<p>Start a new game, mine 20 ice, fly to Kettle Dock and dock. Odo asks about the ice.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Odo's box: <span class="screen">Odo Fenn · Kettle Dock</span> / <span class="screen">Is that ice for my greenhouse? I still need 20. It's yours to deliver, sell or keep.</span></li>
-  <li>Three numbered answer buttons: <span class="screen">1 Deliver 20 ice to Odo</span>, <span class="screen">2 Sell it at the market</span>, <span class="screen">3 Keep it</span>.</li>
-  <li>Under the buttons: <span class="screen">Pick an answer: click it or press its number</span>.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>we dont need this super handholdy "the player has no brain" type of texts</blockquote>
-<p>From an earlier build, about a big "Your hold is full" pill and a mining-speed readout always shown while mining: <q>This one is a bit to hand holdy. Like while mining it will show the mining speed. We need to teach the controls but not constantly</q></p>
-<figure><img src="known-changes/odo-choice-hint.png" alt="Odo's question with three numbered answers and, below, the hint 'Pick an answer: click it or press its number' circled in red." loading="lazy"><figcaption>Newest build. Andreas circled the hint under the answers.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>No text explains UI that explains itself. Numbered buttons are enough.</li>
-  <li>Things that do need teaching, like the first flight keys or how to mine, are shown early, then fade out once the player has used them a few times.</li>
-  <li>Readouts like mining speed show only when they matter.</li>
-  <li>The Deliver / Sell / Keep choice itself is good and stays.</li>
-</ul>
-</article>
-
 <article class="item low">
-<h3>NPCs don't repeat themselves, and an offer can be declined <span class="tag low">● Low</span></h3>
+<h3>World news looks different from speech and names the right source <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
 <p class="label">Where and how</p>
-<p>Mid-game, dock several times at the same station:</p>
-<ul>
-  <li>Glass Drift Observatory (Hesper)</li>
-  <li>Brassmouth Exchange (Pip)</li>
-  <li>Cinder Hook (Rook), after the dispute about Ilse's plate has started</li>
-</ul>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Hesper says <span class="screen">The lane lamps know your hull now. They brighten a little when you pass.</span> on every visit (seen 4+ times).</li>
-  <li>Pip says <span class="screen">You're through that lane more often…</span> on every visit (seen 5 times).</li>
-  <li>Rook offers money on every docking at Cinder Hook: <span class="screen">they left 300 credits with me for you</span> (seen 6 times). The only answer is <span class="screen">Take</span>, and it doesn't pay twice, so the offer is empty after the first time.</li>
-  <li>Each repeat is stored again, so the ship log and the world's memory fill with duplicates. In one run, the 8 most common entries were all repeats.</li>
-</ul>
-<p class="label">What good looks like</p>
-<ul>
-  <li>A line is said once. After that the character varies it, says something new, or just greets briefly.</li>
-  <li>An offer can be declined ("Not now" or "No"). Once taken or declined, it doesn't come back.</li>
-  <li>The log keeps one entry for one event.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>News and world-change entries name the right source, in plain words and a clear order <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>In an earlier build, messages and "Chronicle" entries (world changes) stacked in one box at the bottom left.</p>
+<p>The core has no world news yet: nothing at a station changes on its own. In an earlier build, messages and "Chronicle" entries (world changes) stacked in one box at the bottom left.</p>
 <ol>
   <li>Deliver ice to Odo at Kettle Dock until a greenhouse ring lights up.</li>
   <li>Buy the mining lens at Lantern Wharf.</li>
@@ -483,14 +215,7 @@
 </ol>
 <p class="label">What the player saw</p>
 <ul>
-  <li>Three entries were stacked with no order cue (no time, no newest/oldest marker), mixing speech and world news:
-    <ul>
-      <li><span class="screen">Odo Fenn · Kettle Dock: 20 ice. The beans will hear about this.</span></li>
-      <li>Odo about Orrin's mining lens</li>
-      <li><span class="screen">Chronicle · Ilse Marrow · Kettle Dock: At Kettle Dock, a greenhouse ring lit up. Ilse remembers.</span></li>
-    </ul>
-  </li>
-  <li>That last entry is tagged with Ilse at Kettle Dock, but Ilse lives at Lantern Wharf.</li>
+  <li>Speech and world news were mixed in one box: <span class="screen">Chronicle · Ilse Marrow · Kettle Dock: At Kettle Dock, a greenhouse ring lit up. Ilse remembers.</span> That entry is tagged with Ilse at Kettle Dock, but Ilse lives at Lantern Wharf.</li>
   <li>At Cinder Hook, on a first visit, "Ask what changed" returned the Kettle Dock greenhouse news instead of anything about Cinder Hook.</li>
   <li>"A greenhouse ring lit up" was used for what Odo himself calls the first pane.</li>
   <li>Buying the lens produced the cryptic <span class="screen">The pilot's welcome changed</span>.</li>
@@ -502,358 +227,67 @@
 <p class="label">What good looks like</p>
 <ul>
   <li>World news looks different from speech. In the agreed design it surfaces as a ribbon on the station key with a one-line headline.</li>
-  <li>Every entry names the right source and place, and is about the station you are asking at.</li>
+  <li>Every news entry names the right source and place, and is about the station you are asking at.</li>
   <li>The wording is plain ("Odo's greenhouse at Kettle Dock grew its first pane").</li>
-  <li>The log reads in an obvious order, newest clearly marked.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Control hints say exactly what the key or click does <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>Two hints in earlier builds, both shown in the top banner while flying:</p>
-<ol>
-  <li>The pause hint early in a game.</li>
-  <li>The prompt after the nav chip became available.</li>
-</ol>
-<p class="label">What the player saw</p>
-<ul>
-  <li><span class="screen">Press P or Esc whenever you like. The whole galaxy waits for you.</span> The poetic second sentence made it sound like the key opens a galaxy map, not pause.</li>
-  <li><span class="screen">Orrin has a nav chip: click where you want the Wren to go.</span> This read as an instruction to click-to-move, but clicking did nothing, because the nav chip had to be bought first. It also named Orrin and the Wren before either had been introduced (see the next item).</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>super wierd way to sell the pause function. the text sounds like it would open a map or someting</blockquote>
-<figure><img src="known-changes/pause-hint.jpg" alt="Top banner: 'Press P or Esc whenever you like. The whole galaxy waits for you.' circled in red." loading="lazy"><figcaption>Earlier build, the pause hint.</figcaption></figure>
-<figure><img src="known-changes/nav-chip-prompt.jpg" alt="In flight near ice rocks: top banner 'Orrin has a nav chip: click where you want the Wren to go.' marked in red; bottom pill 'Hold Space · mine ice'." loading="lazy"><figcaption>Earlier build, the nav chip prompt that read as an instruction to click-to-move.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>A control hint states the key and its effect literally: "P or Esc · pause".</li>
-  <li>Something that isn't usable yet is described as an offer ("Orrin can fit a nav chip that lets you click to fly"), not as an instruction.</li>
-  <li>Flavour belongs in dialogue, not in control hints.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Names and terms are introduced before they are used <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>Earliest builds, in the first minutes of play and on the first sale at Kettle Dock.</p>
-<p class="label">What the player saw</p>
-<ul>
-  <li>The banner <span class="screen">Orrin has a nav chip: click where you want the Wren to go.</span> came before the game had said who Orrin or the Wren were. Andreas couldn't tell whether he was the Wren and Orrin was his ship, or whether Orrin was someone still to meet. He worked it out only by finding "HULLWRIGHT · Orrin Vale" on a station screen.</li>
-  <li>After selling a full hold at Kettle Dock, Tamsin said <span class="screen">You emptied a whole hold into Kettle Dock. A tender would've waited.</span>, but "tender" and "Kettle Dock" had not been explained.</li>
-  <li>"Chronicle" appeared as a label with no explanation.</li>
-</ul>
-<p>The newest build already improves on this: Ilse's welcome says <q>The Wren's yours now</q>, and Tamsin's goal reads <span class="screen">Tamsin Oddway at Kettle Dock keeps tenders, little craft with no crew.</span></p>
-<p class="label">Andreas said</p>
-<blockquote>never told the player what "wren" or "orrin" is</blockquote>
-<blockquote>Discovering/figuring out in game systems is part of the fun but the game has to provide enough clues at a reasonable pace</blockquote>
-<figure><img src="known-changes/tamsin-tender-line.png" alt="Message 'Tamsin Oddway · Kettle Dock: You emptied a whole hold into Kettle Dock. A tender would've waited.'" loading="lazy"><figcaption>Earlier build: "tender" used before the game explains it.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Every proper noun has a path to being learned: you meet the person, see the thing, or someone explains it in a few words when it first comes up.</li>
-  <li>This is not a big arrow to the next objective. Clues can stay vague (see "Keep" at the bottom), but they must not depend on words the player has never seen.</li>
 </ul>
 </article>
 
 <!-- ============================================================ -->
 <h2>Flight, collision and world</h2>
 
-<article class="item high">
-<h3>Things are solid: ships, rocks and stations bump and push, with no damage <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<ol><li>Start a new game, undock from Lantern Wharf and fly east into the Rimewater ice field.</li><li>Fly straight at a rock, at an NPC ship and at a station.</li><li>Watch NPC ships moving through the field.</li></ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The Wren flies straight through rocks, NPC ships and stations. It is drawn on top of or under them.</li>
-  <li>NPC ships also pass through rocks. In the screenshot, an NPC ship overlaps an ice rock near the ship <span class="screen">Little Mercy</span>.</li>
-  <li>When the player orders the ship to mine a rock, it parks a small gap away from the rock's drawn edge. In an earlier build, the ship also stopped clearly short of the rock, with a visible gap, and nudged sideways each time mining started.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>I can fly through things. We dont need collision damage but we do need proper physics for bot objects like these, stations, other ships and so on</blockquote>
-<figure><img src="known-changes/fly-through-rocks.png" alt="Ice field: an NPC ship drawn overlapping an ice rock; the ship Little Mercy nearby; a Kettle Dock label." loading="lazy"><figcaption>Newest build, Andreas's screenshot: an NPC ship overlapping an ice rock.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Every solid object (rocks, the player's ship, NPC ships, stations) has a body.</li>
-  <li>Touching gives a soft bump and push that the player can see and feel.</li>
-  <li>No collision damage, ever, and no punishment.</li>
-  <li><strong>Warning from the previous attempt:</strong> solid rocks were tried once and pulled back. In the ice fields, rocks sit only a few ship-lengths apart, and solid rocks walled off mining spots and left NPC pilots stuck. Collision must keep every mining spot reachable and must not trap NPC pilots.</li>
-  <li>When mining, the ship sits right at the rock's drawn surface, with no visible gap and no sideways nudge.</li>
-</ul>
-</article>
-
-<article class="item high">
-<h3>Flight feels good: free movement, slight inertia, 180° per second turns, and fly straight off the dock <span class="tag high">▲ High</span></h3>
-<p class="label">Where and how</p>
-<p>Any time in flight, starting with the first undock from Lantern Wharf.</p>
-<p class="label">What the player saw in earlier builds</p>
-<ul>
-  <li>Leaving the dock needed a separate key (Space), because W and S were used to choose rows in the station's trade list. The game felt frozen until you found it.</li>
-  <li>The starting speed felt too slow.</li>
-  <li>The ship had no inertia, and you couldn't fly in a straight line in any direction you liked.</li>
-  <li>Andreas repeated "flight controls still need fixing" in his second session.</li>
-</ul>
-<p>The previous build's last version used:</p>
-<ul>
-  <li>W/S to thrust, A/D to turn, hold Space to brake and Shift to boost</li>
-  <li>slight inertia, so the ship coasts briefly to a stop</li>
-  <li>W flies straight off the dock</li>
-</ul>
-<p>Andreas hasn't commented on that version, except for fixing the turn rate.</p>
-<p class="label">Andreas said</p>
-<blockquote>you cant just "fly" you have to hit space which makes the game feel frozen</blockquote>
-<p>On speed: <q>maybe 20% faster</q> than the first build. On feel: <q>a tiny bit of intertia</q>, and it was <q>annoying not being able to fly in a straight line in any directions</q>.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The ship turns at <strong>180 degrees per second</strong> (decided).</li>
-  <li>A little inertia: not arcade-stiff, not heavy simulation. Letting go of thrust coasts gently to a stop.</li>
-  <li>You can hold a straight line in any direction you point.</li>
-  <li>Cruising speed feels brisk from the start, about 20% quicker than the original slow build.</li>
-  <li>Pressing a movement key while docked simply flies the ship off. There is no separate undock step.</li>
-</ul>
-</article>
-
-<article class="item med">
-<h3>The world feels alive out in space, not only at the dock <span class="tag med">■ Medium</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">Where and how</p>
-<p>Flying anywhere in the Lantern Reach, in an earlier build.</p>
-<p class="label">What the player saw</p>
-<p>Apart from the player's ship and the NPC ships, everything (stations, rocks, the space around them) sat completely still. The previous build added life to the docked view: cranes, lights, small craft, and a quieter mode on Q. Open space was not rechecked.</p>
-<p class="label">Andreas said</p>
-<blockquote>the stations and the asterorids and like everything except me and npc ships are a bit to static</blockquote>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Gentle ambient motion in flight, for example:
-    <ul>
-      <li>rocks drifting and turning slowly</li>
-      <li>station rings turning and lights blinking</li>
-      <li>docking traffic</li>
-      <li>a little depth in the starfield</li>
-    </ul>
-  </li>
-  <li>It stays calm and lower in contrast than anything you can interact with.</li>
-</ul>
-</article>
-
 <article class="item low">
 <h3>The lane line doesn't cross the station you are docked at <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>Dock at Kettle Dock and look at the docked view.</p>
-<p class="label">What the player sees now</p>
+<p>The core has no lanes yet, and docked, the ship has no order, so no course line is drawn over the station. In an earlier build: dock at Kettle Dock and look at the docked view.</p>
+<p class="label">What the player saw</p>
 <p>The teal line of a nearby lane is drawn in a long arc straight across the station art, between Odo's dialogue box and the Market module.</p>
-<figure><img src="known-changes/lane-line-over-station.jpg" alt="Kettle Dock docked view with a teal lane line drawn across the station, near the greenhouse domes and the Office module." loading="lazy"><figcaption>Newest build, docked at Kettle Dock: the teal lane line cuts through the station.</figcaption></figure>
+<figure><img src="known-changes/lane-line-over-station.jpg" alt="Kettle Dock docked view with a teal lane line drawn across the station, near the greenhouse domes and the Office module." loading="lazy"><figcaption>Earlier build, docked at Kettle Dock: the teal lane line cuts through the station.</figcaption></figure>
 <p class="label">What good looks like</p>
 <p>Route and lane lines never draw over the station you are docked at. They pass behind it, fade out near it, or hide while you are docked.</p>
 </article>
 
-<article class="item low">
-<h3>Flying is as smooth as being docked <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Compare how smooth the game runs in flight with how it runs docked, on the same computer.</p>
-<p class="label">What the player sees now</p>
-<p>In the newest build, the measured frame rate was 26 frames per second in flight against 34 docked. The build before it reached about 46. There is no screenshot of the effect.</p>
-<p class="label">What good looks like</p>
-<p>Flight is at least as smooth as the docked view and never feels heavy. This is a calm game with no reason to stutter.</p>
-</article>
-
 <!-- ============================================================ -->
 <h2>Fitting room and controls</h2>
-<p>The fitting room is Orrin's cradle at Lantern Wharf. The Wren is drawn on the left with five sockets: drill mount, utility, control rack, hold and engine. The right panel shows the power and mass budgets, the Ready / Make / Friends tabs, the parts tray and the Wren's locker. To fit a part, drag it from the tray or locker onto a socket. While dragging, valid sockets get a sky-blue dashed ring, and a preview shows how the ship's stats change. To remove a part, drag it from its socket to the locker.</p>
-
-<article class="item high">
-<h3>Basic controls are never taken away <span class="tag high">▲ High</span></h3>
-<p class="label">What this is</p>
-<p>A locked decision from Andreas, not a complaint. The control modules (nav chip = click where to fly, rock cradle = click a rock to mine, lane chart = click the map to travel, order slate = line up orders, loop log = repeat a route, docking clamp) go in the control rack. In the newest build the rack is labelled <span class="screen">Control rack · stays fitted</span> and <span class="screen">No controls yet</span>.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Once a control is unlocked, the player has it forever.</li>
-  <li>It costs no power or mass, can't be dragged off, and survives refits, hull changes and any later reset or prestige system.</li>
-  <li>New controls are offered with a short note on what they do. They are never fitted silently.</li>
-</ul>
-</article>
+<p>In the previous build the fitting room was Orrin's cradle at Lantern Wharf, with the Wren drawn beside five sockets and a preview of the ship's stats while dragging. The rebuild has Orrin's fitting cradle at Cinder Kiln: three sockets (drill mount, hold, engine), a parts tray, the power and mass budgets, and the control rack. Dragging a part tints every socket and the tray at once and names, in words, why a drop would be refused.</p>
 
 <article class="item low">
-<h3>Upgrades say what they do, and the difference can be felt <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
+<h3>A fit has a short fitting moment <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>In the first build, Andreas bought the mining lens at Lantern Wharf (600 cr), fitted it and went mining.</p>
-<p class="label">What the player saw</p>
+<p>Dock at Cinder Kiln with 90 credits, open the fitting cradle and drag the cutting lens onto the drill mount.</p>
+<p class="label">What the player sees now</p>
 <ul>
-  <li>Nothing said what the lens did, and mining felt the same afterwards.</li>
-  <li>A later build added the text <span class="screen">You mine half again as fast</span>.</li>
-  <li>The newest build shows a stat preview while dragging, for example <span class="screen">Top speed 173 → 159 ▼14</span>.</li>
+  <li>Every part says what it does in numbers on its card (<span class="screen">mines 2 a second</span>, <span class="screen">power 2 · mass 1</span>) and in words on hover, before you buy it.</li>
+  <li>The change is felt: the lens fills a hold in 3 seconds instead of 6, the pods show on the hull and make the hold 9, and the thrusters take the run from the Kiln to Lantern Dock from 3.8 to 3.4 seconds.</li>
+  <li>The fit itself is instant: the card lands in the socket, with a receipt under the room's title.</li>
 </ul>
-<p>Whether the effect is now felt in play was not rechecked.</p>
 <p class="label">Andreas said</p>
-<blockquote>never told me what it does and I cant tell any difference</blockquote>
 <p>On the fitting room in general: <q>There is a whole ship fitting and upgrade system potentially hiding here with graphics, animations, a ship wharf, an upgrade tree</q></p>
 <p class="label">What good looks like</p>
 <ul>
-  <li>Every part states its effect in plain words and numbers before you buy or fit it.</li>
-  <li>After fitting, the change is perceptible: it looks, sounds or reads differently. For example, a faster mining beam, a fuller-looking hold, or a visible speed change.</li>
   <li>A short crane or fitting animation (which a click skips) makes the moment feel real.</li>
 </ul>
 </article>
 
 <article class="item low">
-<h3>The fitting room isn't empty on a new game <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Start a new game and open the fitting room at Lantern Wharf straight away.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li><span class="screen">Ready 0</span> / <span class="screen">Make 0</span> / <span class="screen">Friends 0</span> and <span class="screen">Nothing on the rack today.</span></li>
-  <li>An empty locker, and the sockets showing nothing fitted.</li>
-</ul>
-<p>The first visit to the most exciting room shows nothing to want.</p>
-<figure><img src="known-changes/fitting-room-hud.jpg" alt="Fitting room on a new game: Ready 0, Make 0, Friends 0 and 'Nothing on the rack today'." loading="lazy"><figcaption>Newest build, the fitting room on a new game: nothing on the rack.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>The first visit already shows something to look at and aim for, such as a part or two on the rack, even if the player can't afford them yet, with prices and effects. The player leaves with a goal.</p>
-</article>
-
-<article class="item low">
-<h3>Dragging shows a refusal before you let go, the same way for every rule <span class="tag low">● Low</span></h3>
+<h3>Dragging says what an accepted drop will change, mass included <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
 <ol>
-  <li>Fit hold pods. Your hold becomes 32.</li>
-  <li>Load more than 22 units: for example, take on Ilse's 20 plate and buy a few more, giving <span class="screen">Hold 25/32 · Refined plate 25</span>.</li>
-  <li>In the fitting room, drag the hold pods from the Hold socket to the locker.</li>
+  <li>Dock at Cinder Kiln with the cutting lens fitted and at least 70 credits.</li>
+  <li>Open the fitting cradle and pick up the hold pods.</li>
 </ol>
 <p class="label">What the player sees now</p>
 <ul>
-  <li>During the drag, everything says yes:
-    <ul>
-      <li>the locker shows <span class="screen">Let go here to take it off</span></li>
-      <li>the preview <span class="screen">IF YOU TAKE OFF THE HOLD PODS</span> lists <span class="screen">Top speed 159 → 173 ▲14</span>, <span class="screen">Turn 174 → 198 ▲24</span>, <span class="screen">Hold 32 → 22 ▼10</span></li>
-      <li>there is no warning</li>
-    </ul>
-  </li>
-  <li>Only after you let go: <span class="screen">× Orrin: "Your hold would take 22, and you carry 25. Sell or deliver some first."</span></li>
-  <li>By contrast, dragging a part that needs too much power warns during the drag (next item). The two rules behave differently.</li>
+  <li>Every refusal shows the moment a part is picked up, the same way for every rule: the socket or tray turns pale vermilion and says <span class="screen">Cannot drop:</span> and the reason, for power, credits, the wrong socket and cargo that wouldn't fit.</li>
+  <li>A drop that will be accepted only says <span class="screen">Drop here</span>. Mass never refuses, so the pods' socket doesn't say that they will take the ship 1 over its free mass, 10% slower with wider turns. That shows in the budget only after the drop.</li>
 </ul>
-<figure><img src="known-changes/remove-pods-drag.jpg" alt="Dragging hold pods to the locker with Hold 25/32: the locker says 'Let go here to take it off' and the preview shows Hold 32 to 22 with no warning." loading="lazy"><figcaption>Newest build, during the drag: no sign that this will be refused.</figcaption></figure>
-<figure><img src="known-changes/remove-pods-refused.jpg" alt="After the drop: refusal message from Orrin, 'Your hold would take 22, and you carry 25. Sell or deliver some first.'" loading="lazy"><figcaption>Newest build, after letting go: the refusal appears only now.</figcaption></figure>
 <p class="label">What good looks like</p>
 <ul>
-  <li>While dragging, a target that will refuse the drop looks refused at once: a different outline plus a cross or word, never colour alone. It shows the short reason ("You carry 25; the hold would take 22").</li>
-  <li>Every rule (power, mass, cargo) warns the same way and at the same moment.</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>A refused socket names the real reason, in full <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>With parts already using 3 of the Wren's 4 power, drag the seam lamp (which needs 2 power) from the locker towards the Utility socket.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The Utility socket shows <span class="screen">× Can't go on here…</span>, cut off. It reads as "wrong socket" even though the socket is the right one.</li>
-  <li>The real reason appears only in the tooltip by the pointer: <span class="screen">× That would draw 5 power, and the Wren only has 4. Take something off first. Power +2</span>.</li>
-  <li>The budget row shows <span class="screen">× Over power: 5 of 4</span>.</li>
-  <li>Several part labels in the sockets are also cut off.</li>
-</ul>
-<figure><img src="known-changes/over-power-drag.jpg" alt="Dragging the seam lamp: the Utility socket shows a truncated 'Can't go on here', the tooltip explains 5 power of 4, the power row says 'Over power: 5 of 4'." loading="lazy"><figcaption>Newest build: the socket's message is vague and cut off. The real reason is in the tooltip.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>The socket itself says the real reason in full, readable words, for example "Not enough power: needs 2, 1 free". No label is cut off at the design resolution.</p>
-</article>
-
-<article class="item low">
-<h3>The mass budget reads in plain terms <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Fit hold pods (heavy) and another part so the Wren carries more mass than its free allowance of 3, then look at the MASS row in the fitting room.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>The row reads <span class="screen">MASS ▢▢▢▢▢▢ 6 of 3 free · 3 over, slower</span>, with a mix of solid and dashed squares.</li>
-  <li>"6 of 3 free" makes no sense as written. It means 6 mass used against 3 carried freely.</li>
-  <li>The squares don't explain which are free and which are over.</li>
-  <li>Earlier in the same session it read <span class="screen">5 of 3 free · 2 over, slower</span>.</li>
-</ul>
-<figure><img src="known-changes/mass-row.jpg" alt="Budget rows: POWER 3 of 4 with circles; MASS '6 of 3 free · 3 over, slower' with squares." loading="lazy"><figcaption>Newest build, the power and mass rows.</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>A plain statement of mass used against what the hull carries freely, and what the excess costs, for example "Mass 6 · hull carries 3 freely · 3 over: slower, wider turns". The squares, if kept, clearly mark free versus over.</p>
-</article>
-
-<article class="item low">
-<h3>The parts tray keeps its size while you drag <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>At 1280×720, open the fitting room with a few parts in the tray or locker and start dragging one.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>While a part is being dragged, the tray collapses to a single row with the pager <span class="screen">1–1 of 4</span>, so the other three parts disappear.</li>
-  <li>The preview box (<span class="screen">Let go to fit hold pods</span>, <span class="screen">Mass +3</span>, top speed 173 → 159 ▼14, turn 198 → 174 ▼24) takes its space.</li>
-</ul>
-<figure><img src="known-changes/tray-one-row.jpg" alt="Dragging hold pods onto the Hold socket with a blue dashed ring and 'Drop here'; the tray at the bottom right shrunk to one row, '1–1 of 4'." loading="lazy"><figcaption>Newest build, mid-drag: the tray shrinks to one row ("1–1 of 4").</figcaption></figure>
-<p class="label">What good looks like</p>
-<p>The tray stays at full size during a drag at 1280×720, and the preview finds room without pushing it away.</p>
-</article>
-
-<article class="item low">
-<h3>The keeper's bubble doesn't cover the work, and doesn't repeat the receipt <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>In the fitting room, buy and drop hold pods onto the Hold socket.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Orrin's bubble appears on the left, over the cradle: <span class="screen">There: I've fitted your hold pods. Your hold carries 10 more; heavy, so a little slower, with wider turns.</span> It covers the ship and the <span class="screen">Drill mount</span> label.</li>
-  <li>A confirmation card says the same: <span class="screen">Confirmed · Lantern Wharf: Fitted hold pods · −450 cr; your hold extender went to the Wren's locker.</span></li>
-  <li>The Hold socket says <span class="screen">Fitting…</span> underneath.</li>
-</ul>
-<figure><img src="known-changes/orrin-bubble-after-fit.jpg" alt="After fitting hold pods: Orrin's speech bubble covering the cradle and Drill mount label, plus a Confirmed card with the same information." loading="lazy"><figcaption>Newest build, just after a fit: the bubble covers the cradle and repeats the receipt.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Bubbles never cover the thing you are working on.</li>
-  <li>One clear receipt for the transaction.</li>
-  <li>If the keeper speaks, it adds flavour ("Heavier now, mind the turns") rather than repeating the receipt.</li>
+  <li>While dragging, an accepting target also says what the drop will change, for example <span class="screen">1 over the free mass: 10% slower</span> or <span class="screen">Top speed 12 → 10.8</span>, so mass warns at the same moment as the other rules.</li>
 </ul>
 </article>
 
 <!-- ============================================================ -->
 <h2>Cargo, trade and progression</h2>
-
-<article class="item med">
-<h3>Helping a station grow feels worth it <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<ol>
-  <li>Deliver or sell ice and refined plate to Odo at Kettle Dock over several trips. His greenhouse grows in stages ("rings").</li>
-  <li>For example, he asks: <span class="screen">My greenhouse needs 24 more ice and 2 more plate for its next ring.</span></li>
-  <li>Keep going until he offers the first harvest.</li>
-</ol>
-<p class="label">What the player sees</p>
-<ul>
-  <li>In an earlier build, the domes glowed green and Odo said <span class="screen">Second ring's lit. Mostly your ice. And your plate, mostly.</span> That was it.</li>
-  <li>The newest build adds a "lamp night" at the station and a harvest offer with <span class="screen">Accept</span> / <span class="screen">Not now</span>.</li>
-  <li>After 24 more ice and 2 plate, the harvest gift is <span class="screen">Confirmed · Kettle Dock: Odo gave you 4 rations from the first harvest · a gift</span>, worth about 60 credits. That is small next to what the deliveries cost in time and cargo.</li>
-</ul>
-<p class="label">Andreas said</p>
-<blockquote>something turned green ... ok why is this exciting, mysterious, rewarding</blockquote>
-<figure><img src="known-changes/greenhouse-ring-lit.jpg" alt="Kettle Dock with glowing green greenhouse domes and messages from Odo: 'Second ring's lit. Mostly your ice.'" loading="lazy"><figcaption>Earlier build: the ring lights up, and nothing says why it matters.</figcaption></figure>
-<figure><img src="known-changes/first-harvest-gift.jpg" alt="Kettle Dock: card 'Confirmed · Kettle Dock: Odo gave you 4 rations from the first harvest · a gift'." loading="lazy"><figcaption>Newest build: the first-harvest reward is 4 rations.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Each milestone feels exciting, mysterious or rewarding. The player knows beforehand that something will happen, and afterwards sees a real change. For example:
-    <ul>
-      <li>a new person or room at the station</li>
-      <li>a story hook</li>
-      <li>new goods</li>
-      <li>a visible change to the station</li>
-      <li>a reason to come back</li>
-    </ul>
-  </li>
-  <li>The exact size of rewards belongs to the balance pass (see the note below).</li>
-</ul>
-</article>
-
-<article class="item low">
-<h3>Buy buttons rest while the hold is full <span class="tag low">● Low</span></h3>
-<p class="label">Where and how</p>
-<p>Take on Ilse's 20 refined plate for Rook (<span class="screen">Hold 20/20 · Refined plate 20 · Ilse's</span>), then open the Market at Lantern Wharf.</p>
-<p class="label">What the player sees now</p>
-<ul>
-  <li>Rations (<span class="screen">asks 15.9 cr</span>) and Refined plate (<span class="screen">asks 32.9 cr</span>) still show solid, normal-looking <span class="screen">Buy 1</span> / <span class="screen">Buy max</span> buttons, although nothing can be bought.</li>
-  <li>The sell side correctly shows <span class="screen">You have no glassite to sell.</span></li>
-</ul>
-<figure><img src="known-changes/buy-with-full-hold.jpg" alt="Lantern Wharf market with Hold 20/20 Refined plate 20 Ilse's: Buy 1 and Buy max buttons for rations and plate still look active." loading="lazy"><figcaption>Newest build: the hold is full, but the buy buttons look ready.</figcaption></figure>
-<p class="label">What good looks like</p>
-<ul>
-  <li>With a full hold, the buy buttons are drawn as resting (for example dashed, never greyed text), with one short reason.</li>
-  <li>The agreed station mock-up words it as <span class="screen">Hold full: buy buttons rest until you sell</span>.</li>
-</ul>
-</article>
 
 <div class="note">
 <p><strong>Note: balance and market tuning are deferred to a separate pass. They are not changes for the rebuild.</strong> These numbers from the previous build are recorded for that pass:</p>
@@ -880,94 +314,23 @@
 <h2>Music and radio</h2>
 
 <article class="item high">
-<h3>The radio doesn't flicker between stations <span class="tag high">▲ High</span></h3>
+<h3>The radio's ticker fades to its next line <span class="tag high">▲ High</span></h3>
 <p class="label">Where and how</p>
-<ol>
-  <li>Start a new game, undock from Lantern Wharf and fly east into the Rimewater ice field, the first place you mine.</li>
-  <li>Fly around or mine there for half a minute and watch the radio panel at the bottom right.</li>
-</ol>
-<p>Rimewater sits right on the edge of both Lantern Wharf's and Kettle Dock's radio ranges, so this happens in the first minutes of every game.</p>
+<p>Fly with the radio on and watch the line under the channel's name.</p>
 <p class="label">What the player sees now</p>
-<ul>
-  <li>Within about two seconds, four things flip back and forth:
-    <ul>
-      <li>the channel name (<span class="screen">Lantern Wharf radio</span> ↔ <span class="screen">Kettle Dock radio</span>)</li>
-      <li>the ticker text (<span class="screen">Lantern Wharf here. We keep the lamps lit along the pier all shift.</span> ↔ <span class="screen">Kettle Dock calling. Our greenhouse wants ice, as much as you can carry.</span>)</li>
-      <li>the signal bars and word (<span class="screen">Strong</span> → <span class="screen">Fair</span> → <span class="screen">Faint</span>)</li>
-      <li>the style of the Prev / Next buttons, which switch between filled and outlined</li>
-    </ul>
-  </li>
-  <li>In small gaps between ranges, and on every lane trip, the panel flashes <span class="screen">No signal</span>.</li>
-  <li>The ticker also cuts hard to the next line every few seconds.</li>
-  <li>The panel only exists in flight.</li>
-</ul>
-<p>This is not a deliberate effect: the strongest channel simply wins each moment.</p>
-<p class="label">Andreas said</p>
-<blockquote>Something is really messed up with this. They keep blinking randomly as I fly around. Could be that its just a badly made attempt to simulate signal faintness</blockquote>
-<figure><img src="known-changes/radio-panel.png" alt="Radio panel: 'Kettle Dock radio', Faint signal, ticker about the greenhouse wanting ice, buttons Prev, Off, Next · R." loading="lazy"><figcaption>Newest build, Andreas's screenshot of the radio panel.</figcaption></figure>
-<figure><img src="known-changes/radio-flicker-strip.jpg" alt="Ten consecutive frames of the radio panel over about three seconds: Lantern Wharf radio going Strong to Fair to Faint, Prev and Next switching between filled and outlined, then Kettle Dock radio taking over." loading="lazy"><figcaption>Newest build: ten frames about a third of a second apart while flying in Rimewater. The channel, bars and button styles keep changing.</figcaption></figure>
+<p>Each of the station's lines shows for twelve seconds, then the next replaces it at once. The channel, the signal word and bars, and the buttons hold steady.</p>
 <p class="label">What good looks like</p>
-<ul>
-  <li>Once tuned, the radio stays on a channel until you are clearly out of its range or another channel is clearly and steadily stronger.</li>
-  <li>Changes are gradual: the music and ticker fade, and the station name changes once.</li>
-  <li>Weak signal is shown calmly, for example a little static or a lower volume, never as flicker.</li>
-  <li>Brief gaps and lane trips don't flash "No signal".</li>
-  <li>Button styles never change on their own.</li>
-  <li>The ticker moves to its next line gently.</li>
-</ul>
-</article>
-
-<article class="item high">
-<h3>Every radio channel has real music from the first launch <span class="tag high">▲ High</span></h3>
-<p class="label">What the player experiences now</p>
-<p>In the previous build, music was generated while playing and kept per save, so channels often played only a quiet placeholder loop, and a new game started with no music.</p>
-<p class="label">What good looks like</p>
-<ul>
-  <li>The core module ships finished tracks for its radio channels (the Lantern Reach has 7: 5 stations and 2 lane beacons), made by the GM when it builds the module.</li>
-  <li>Every channel has real music from the first launch, offline included, and the same music in every save.</li>
-  <li>Keep an eye on download size: one 30-second clip is about 0.75 MB.</li>
-</ul>
+<p>The ticker moves to its next line gently, for example with a short fade.</p>
 </article>
 
 <article class="item low">
-<h3>Signal bars match the signal word <span class="tag low">● Low</span></h3>
+<h3>The engine hum follows thrust <span class="tag low">● Low</span></h3>
 <p class="label">Where and how</p>
-<p>Fly close to Lantern Wharf with the radio on.</p>
-<p class="label">What the player sees now</p>
-<p>The word <span class="screen">Strong</span> appears with only 3 of the 4 bars filled. <span class="screen">Fair</span> and <span class="screen">Faint</span> show fewer.</p>
-<figure><img src="known-changes/radio-flicker-strip.jpg" alt="Radio frames showing 'Strong' with three of four bars." loading="lazy"><figcaption>Newest build, the first frames: "Strong" with 3 of 4 bars.</figcaption></figure>
+<p>Fly with W, let go and coast, then sit still.</p>
+<p class="label">What the player hears now</p>
+<p>In flight, a quiet low engine hum and a faint cabin hush play under the radio, and each station's deck has its own soft sound. The hum stays the same whether the ship thrusts, coasts or sits still.</p>
 <p class="label">What good looks like</p>
-<p>The bars and the word always agree. Strongest means all bars.</p>
-</article>
-
-<article class="item low">
-<h3>A quiet engine hum and ambient sound <span class="tag low">● Low</span> <span class="maybe">Possibly still open</span></h3>
-<p class="label">What the player experienced</p>
-<p>The first build had no engine sound and no ambient sound, in stations or in space. Andreas noted it as missing. Real audio was not checked in the later test runs.</p>
-<p class="label">What good looks like</p>
-<p>A quiet engine hum that follows thrust, and soft ambient sound beds out in space and at each station. These sit under the radio music without fighting it.</p>
-</article>
-
-<!-- ============================================================ -->
-<h2>Exploits</h2>
-
-<article class="item med">
-<h3>Quick undock and redock taps never count as visits <span class="tag med">■ Medium</span></h3>
-<p class="label">Where and how</p>
-<ol>
-  <li>While docked at any station (for example Kettle Dock), tap W to undock and immediately dock again.</li>
-  <li>Repeat a few times.</li>
-</ol>
-<p class="label">What the player sees now</p>
-<ul>
-  <li><strong>Earlier build:</strong> three quick taps at Cinder Hook counted as three dockings. That opened the next story step at Cinder Hook before the current one was finished, and the map's "seen 1 docking ago" note jumped to 5. Unlocks such as the nav chip also counted dockings.</li>
-  <li><strong>Newest build:</strong> the story and unlocks no longer count taps (fixed). But each station's count of how often you have scouted it still goes up with every tap. At Kettle Dock it went from 3 to 7 after 4 taps. Nothing reads that count yet, but future content could.</li>
-</ul>
-<p class="label">What good looks like</p>
-<ul>
-  <li>Anything that counts dockings or visits ignores quick in-and-out taps. A visit only counts after the ship has really left: flown a real distance away, or gone somewhere else.</li>
-  <li>Progress can never be farmed by tapping at a dock.</li>
-</ul>
+<p>The hum rises while the ship thrusts and settles as it coasts, still under the radio music.</p>
 </article>
 
 <!-- ============================================================ -->

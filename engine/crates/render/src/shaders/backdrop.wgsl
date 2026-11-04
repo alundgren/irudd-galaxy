@@ -6,7 +6,8 @@ struct Sky {
     bottom: vec4<f32>,
     // xy: cloud scroll offset (logical px), z: tile size (logical px), w: UI scale.
     clouds: vec4<f32>,
-    // xy: star scroll offset (logical px).
+    // xy: the camera's place (world units, y down the screen); each star scrolls by it
+    // times its layer's parallax.
     stars: vec4<f32>,
     // x: tiles across, y: tiles down, z: cloud count, w: star count.
     counts: vec4<f32>,
@@ -15,7 +16,8 @@ struct Sky {
 };
 
 struct Blob {
-    // xy: position in the tile, z: radius.
+    // xy: position in the tile, z: radius, w: a star's parallax (logical px per world
+    // unit).
     pos: vec4<f32>,
     color: vec4<f32>,
 };
@@ -64,7 +66,7 @@ fn vs_blob(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> 
     let tile = sky.clouds.z;
     var offset = sky.clouds.xy;
     if is_star {
-        offset = sky.stars.xy;
+        offset = sky.stars.xy * b.pos.w;
     }
     let p = b.pos.xy - offset;
     let base = (p - floor(p / tile) * tile + vec2<f32>(tx, ty) * tile) * sky.clouds.w;

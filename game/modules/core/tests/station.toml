@@ -1,0 +1,184 @@
+# Docked at Lantern Dock with a full hold: the station's buildings are the menu.
+# Open the office from its sign, switch straight to the exchange with M, try the
+# refused actions, talk to the keeper, sell, go back, use the log and launch.
+seed = 3
+ticks = 760
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.lantern" }
+# The arrival cut lands, as a window's play records it.
+[[input]]
+tick = 450
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
+
+# The office opens from its sign; selling there is refused.
+[[input]]
+tick = 600
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 605
+name = "core.sell"
+[[expect]]
+tick = 606
+entity = "ship"
+component = "pilot"
+field = "room"
+equals = "core.lantern_office"
+[[expect]]
+tick = 606
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 6
+
+# Another station's building can't be opened from here.
+[[input]]
+tick = 610
+name = "core.open"
+payload = { facility = "core.kiln_exchange" }
+[[expect]]
+tick = 611
+entity = "ship"
+component = "pilot"
+field = "room"
+equals = "core.lantern_office"
+
+# The log stays shut while a room has the focus.
+[[input]]
+tick = 612
+name = "core.log"
+[[expect]]
+tick = 613
+entity = "ship"
+component = "pilot"
+field = "log_open"
+equals = false
+
+# M opens the exchange directly from the office.
+[[input]]
+tick = 615
+name = "core.open"
+payload = { down = true }
+[[expect]]
+tick = 616
+entity = "ship"
+component = "pilot"
+field = "room"
+equals = "core.lantern_exchange"
+
+# The keeper speaks when clicked.
+[[input]]
+tick = 620
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_trader_intro" }
+[[expect]]
+tick = 621
+entity = "lantern_trader_intro"
+component = "engine.talk"
+field = "active"
+equals = true
+
+[[input]]
+tick = 630
+name = "core.sell"
+[[input]]
+tick = 631
+name = "core.sell"
+[[expect]]
+tick = 632
+entity = "ship"
+component = "pilot"
+field = "credits"
+equals = 73
+[[expect]]
+tick = 632
+entity = "ship"
+component = "pilot"
+field = "sale"
+equals = 73
+[[expect]]
+tick = 632
+entity = "lantern_ore"
+component = "market"
+field = "stock"
+equals = 33
+[[expect]]
+tick = 632
+entity = "log2"
+component = "entry"
+field = "text"
+equals = "Docked at Lantern Dock."
+[[expect]]
+tick = 632
+entity = "log3"
+component = "entry"
+field = "text"
+equals = "Sold 6 ore to Lantern Dock for 73 cr."
+
+# Back to the whole station, then the log opens and closes.
+[[input]]
+tick = 640
+name = "core.close"
+[[input]]
+tick = 645
+name = "core.log"
+[[expect]]
+tick = 646
+entity = "ship"
+component = "pilot"
+field = "log_open"
+equals = true
+
+# Opening a room closes the log.
+[[input]]
+tick = 650
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[expect]]
+tick = 651
+entity = "ship"
+component = "pilot"
+field = "log_open"
+equals = false
+
+# The skiff keeps ferrying across the deck while the player is docked.
+[[expect]]
+tick = 700
+entity = "lantern_skiff"
+component = "engine.walk"
+field = "active"
+equals = true
+
+[[input]]
+tick = 720
+name = "core.launch"
+[[expect]]
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.reach"
+[[expect]]
+entity = "ship"
+component = "engine.model"
+field = "scale"
+equals = 1
+[[expect]]
+facts = "sold"
+equals = 1

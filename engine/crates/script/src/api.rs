@@ -15,7 +15,7 @@ pub const CTX: &[Member] = &[
     Member {
         name: "move",
         ty: "(entity: Id, place: Id, spot: Id?, state: string?) -> ()",
-        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Moving the player starts travel; play records engine.place_arrived when it lands. Writes apply in call order after the handler returns.",
+        doc: "Moves immediately, following the place's enter chain; omitted spot uses its arrival. Cancels walking and motion. Moving the player starts travel; play records engine.place_arrived when it lands (after engine.room.glide seconds when the room glides). Writes apply in call order after the handler returns.",
     },
     Member {
         name: "walk",
@@ -105,6 +105,10 @@ pub fn luau_types(engine: &str) -> String {
          export type Payload = {{ [string]: any }}\n\
          \n\
          --- An event: a fact recorded on an earlier tick, or an input on this one.\n\
+         --- Talk inputs: engine.talk_start {{ talk }}, engine.talk_next {{ talk, line }} and\n\
+         --- engine.talk_chosen {{ talk, line, choice }} (an answer button; stale ones never arrive).\n\
+         --- engine.resumed {{}} (source \"resume\") starts the first tick after a save resumed;\n\
+         --- a resumed world plays no earlier sound cue, so record the music event again.\n\
          export type Event = {{\n\
          \tkind: Id,\n\
          \ttick: number,\n\
@@ -156,15 +160,27 @@ export type ScreenCtx = {
 --- children is a consecutive list of widgets. id names a widget for diagnostics and bot
 --- clicks; use a full widget path when ids repeat. Unbacked text gets a paper surface.
 --- hover supplies a tooltip. ui.hover needs anchor and text and paints only on hover.
+--- ui.target needs anchor and on: clicking the anchored thing sends on/payload (source
+--- ui); text is its optional hover label. Hovered, its model lifts and is outlined.
+--- align (top-left, top, top-right, left, center, right, bottom-left, bottom,
+--- bottom-right) places a widget against the window's edges; x/y are then margins.
+--- A drop target's accepts maps source values to "" (accept) or a refusal reason; notes
+--- maps accepted values to what dropping there changes, drawn under Drop here.
+--- resting = "<reason>" on a button: it stays in place drawn resting ([screen] resting,
+--- resting_dash), hovering shows the reason, and a click records nothing.
+--- yield = true on an anchored widget: not drawn (rather than clamped) while its anchor
+--- is off screen, it would leave the window, or it would overlap another painted widget.
 export type Widget = {
-    kind: string?, id: string?, text: string?, hover: string?, children: {Widget}?,
-    width: number?, height: number?, x: number?, y: number?,
-    size: number?, pad: number?, gap: number?, anchor: string?,
+    kind: string?, id: string?, text: string?, hover: string?, resting: string?,
+    children: {Widget}?,
+    width: number?, height: number?, x: number?, y: number?, align: string?,
+    size: number?, pad: number?, gap: number?, anchor: string?, yield: boolean?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
+    notes: {[string]: string}?,
 }
 export type Ui = {
-    hover: (Widget) -> Widget,
+    hover: (Widget) -> Widget, target: (Widget) -> Widget,
     text: (Widget) -> Widget, button: (Widget) -> Widget,
     list: (Widget) -> Widget, panel: (Widget) -> Widget,
     row: (Widget) -> Widget, column: (Widget) -> Widget,

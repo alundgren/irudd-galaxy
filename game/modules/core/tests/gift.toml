@@ -1,0 +1,285 @@
+# Ines's gift, taken: once the galley stands and she has introduced herself, a click
+# gets her offer of a ration on the house in place of her everyday line. Taking it puts
+# one in the hold with a receipt; after that the offer never comes back.
+# The route is trade.toml's, up to the galley being built and its room opened.
+seed = 7
+ticks = 2510
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 600
+name = "core.open"
+[[input]]
+tick = 605
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 610
+name = "core.sell"
+[[input]]
+tick = 620
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 640
+name = "core.launch"
+[[input]]
+tick = 650
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 960
+name = "core.open"
+[[input]]
+tick = 970
+name = "core.sell"
+[[input]]
+tick = 980
+name = "core.launch"
+[[input]]
+tick = 985
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1030
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 1035
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[input]]
+tick = 1040
+name = "core.close"
+[[input]]
+tick = 1100
+name = "core.launch"
+[[input]]
+tick = 1110
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 1410
+name = "core.open"
+[[input]]
+tick = 1420
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 1440
+name = "core.launch"
+[[input]]
+tick = 1450
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 1760
+name = "core.open"
+[[input]]
+tick = 1770
+name = "core.sell"
+[[input]]
+tick = 1790
+name = "core.launch"
+[[input]]
+tick = 1800
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 2100
+name = "core.open"
+[[input]]
+tick = 2110
+name = "core.buy"
+payload = { ware = "plate", units = 0 }
+[[input]]
+tick = 2130
+name = "core.launch"
+[[input]]
+tick = 2140
+name = "core.dock"
+payload = { station = "core.lantern" }
+[[input]]
+tick = 2450
+name = "core.open"
+[[input]]
+tick = 2460
+name = "core.sell"
+[[input]]
+tick = 2480
+name = "core.open"
+payload = { facility = "core.lantern_galley" }
+[[input]]
+tick = 2290
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
+[[input]]
+tick = 2483
+name = "engine.camera_settled"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+
+# Not offered before her introduction is heard; the story comes first.
+[[expect]]
+tick = 2484
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[input]]
+tick = 2485
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_intro" }
+[[input]]
+tick = 2486
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro1" }
+[[input]]
+tick = 2487
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro2" }
+[[input]]
+tick = 2488
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_intro", line = "core.lantern_cook_intro3" }
+[[expect]]
+tick = 2489
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = true
+[[expect]]
+tick = 2489
+entity = "lantern_cook_talk"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[input]]
+tick = 2490
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[expect]]
+tick = 2490
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "active"
+equals = true
+[[input]]
+tick = 2491
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift1" }
+# Take it.
+[[input]]
+tick = 2492
+name = "engine.talk_chosen"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
+[[expect]]
+tick = 2492
+entity = "ship"
+component = "hold"
+field = "rations"
+equals = 1
+[[expect]]
+tick = 2492
+entity = "lantern_cook_gift"
+component = "gift"
+field = "answered"
+equals = true
+[[expect]]
+tick = 2492
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Ines Varga gave you rations: 1 into the hold."
+[[expect]]
+tick = 2492
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "current"
+equals = "core.lantern_cook_gift3"
+[[input]]
+tick = 2493
+name = "engine.talk_next"
+source = "ui"
+payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift3" }
+[[expect]]
+tick = 2493
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "enabled"
+equals = false
+[[expect]]
+tick = 2493
+entity = "lantern_cook_talk"
+component = "engine.talk"
+field = "enabled"
+equals = true
+# One log entry holds the conversation and the answer; the receipt is the next.
+[[expect]]
+tick = 2493
+entity = "ship"
+component = "pilot"
+field = "logged"
+equals = 24
+[[expect]]
+tick = 2493
+entity = "log23"
+component = "entry"
+field = "text"
+equals = "Ines Varga at Lantern Dock: \u201CThanks again for the plate.\u201D \u201CWill you take a ration, on the house?\u201D You: Take it. \u201CThere. It's in your hold.\u201D"
+# Clicking her again gets her everyday line, not the offer.
+[[input]]
+tick = 2495
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_gift" }
+[[expect]]
+tick = 2495
+entity = "lantern_cook_gift"
+component = "engine.talk"
+field = "active"
+equals = false
+[[input]]
+tick = 2496
+name = "engine.talk_start"
+source = "talk"
+payload = { talk = "core.lantern_cook_talk" }
+[[expect]]
+tick = 2496
+entity = "lantern_cook_talk"
+component = "engine.talk"
+field = "active"
+equals = true
+# Buying fills what is left of the hold.
+[[input]]
+tick = 2500
+name = "core.buy"
+payload = { ware = "rations", units = 0 }
+[[expect]]
+tick = 2500
+entity = "ship"
+component = "hold"
+field = "rations"
+equals = 6

@@ -72,6 +72,15 @@ turn = 180.0
   the way a being stands (`rooms-and-travel.md`). `galaxy-gm model <module> <model>`
   lists them under `markers`, each with `at`, `looks` and `up`.
 
+- **Motion for the eye**: `spin` (degrees a second, -720 to 720) turns a part steadily
+  about its own up through its origin, or, with `copies` or `mirror`, all its copies
+  together about the model's up through its centre (a ring, a set of arms). `pulse`
+  (seconds) pulses its glow, down to `pulse_low` (0.2 by default); a part with nothing
+  glowing is refused. Both are written in the node's `extras` and drawn only
+  (`renderer-and-style.md`); a recipe without them writes the same bytes as before. A
+  used recipe's own motion isn't carried into the part that uses it: give the using part
+  its own.
+
 Each `[[part]]` becomes exactly one glTF node, named by `name` (default: its shape or
 used recipe, `.2`, `.3` after the first). That is the model contract's part: the renderer
 sizes ink per node, and `galaxy-gm model` and `galaxy-gm motion flicker` name parts by it.

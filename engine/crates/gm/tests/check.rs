@@ -309,3 +309,200 @@ fn life_sign_overlap_only_mid_walk_fails_check_and_passes_when_fixed() {
     let (code, out) = gm(tmp.path(), &["check", "life"]);
     assert_eq!(code, 0, "{out}");
 }
+
+#[test]
+fn check_passes_a_resting_button_and_lists_its_reason_as_its_hover() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/resting/demo"]);
+    assert_eq!(code, 0, "{out}");
+    let report = json(&out);
+    // Start, one in the tray and a full tray: Add rests there, and nothing presses Empty
+    // while it rests.
+    assert_eq!(report["pressed"][0]["states"], 3, "{report}");
+    let empty = report["hovers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|h| h["widget"] == "demo:scripts/screen.luau/screen/row[2]/empty[2]")
+        .expect("the resting button is hovered");
+    assert_eq!(empty["hover"]["text"], "Nothing to empty yet.", "{report}");
+    assert_eq!(empty["hover"]["readable"], true, "{report}");
+    // A style whose resting look can't be told from a ready button is refused.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/resting/demo"), &module);
+    std::fs::write(
+        module.join("style.toml"),
+        "[screen]\nbutton = '#dddddd'\nresting = '#dddddd'\nresting_dash = 0.0\n",
+    )
+    .unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_ne!(code, 0, "{out}");
+    assert!(out.contains("resting must differ from button"), "{out}");
+}
+
+#[test]
+fn check_refuses_a_resting_button_too_tightly_padded_to_show_its_frame() {
+    // The frame is capped by the padding: with none, a resting button on a fill like
+    // `button`'s would look ready.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/resting/demo"), &module);
+    std::fs::write(module.join("style.toml"), "[screen]\nresting = '#dddddd'\n").unwrap();
+    let screen = |pad: f32| {
+        format!(
+            "return {{
+    on = {{ add = function() end, empty = function() end }},
+    screen = function(_, ui)
+        return ui.row {{ width = 412, children = {{
+            ui.button {{ id = \"ready\", text = \"Go\", on = \"add\",
+                width = 200, height = 60, pad = {pad} }},
+            ui.button {{ id = \"rest\", text = \"Go\", on = \"empty\",
+                width = 200, height = 60, pad = {pad}, resting = \"Not yet.\" }},
+        }} }}
+    end,
+}}
+"
+        )
+    };
+    let script = module.join("scripts/screen.luau");
+    std::fs::write(&script, screen(0.0)).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        messages(&json(&out))
+            .iter()
+            .any(|m| m.contains("rest[2]")
+                && m.contains("resting button needs pad of at least 1 pixel")),
+        "{out}"
+    );
+    std::fs::write(&script, screen(1.0)).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+}
+
+#[test]
+fn check_passes_drop_notes_and_reads_each_note_for_missing_glyphs() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/drop-notes/demo"]);
+    assert_eq!(code, 0, "{out}");
+    // A note the font can't draw is a finding, like any other drop verdict.
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("demo");
+    copy(&engine().join("tests/play/drop-notes/demo"), &module);
+    let script = module.join("scripts/screen.luau");
+    let text = std::fs::read_to_string(&script).unwrap();
+    let broken = text.replace("2 more steps", "2 more steps \u{10ffff}");
+    assert_ne!(broken, text);
+    std::fs::write(&script, broken).unwrap();
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    assert_eq!(code, 5, "{out}");
+    assert!(
+        messages(&json(&out))
+            .iter()
+            .any(|m| m.contains("/far[") && m.contains("drop verdict has missing glyphs")),
+        "{out}"
+    );
+}
+
+fn copy(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn check_presses_a_button_to_find_a_panel_over_a_name_sign() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/sign-panel/demo"]);
+    assert_eq!(code, 5, "{out}");
+    let report = json(&out);
+    let findings = report["findings"].as_array().unwrap();
+    assert!(
+        findings.iter().all(|p| p["kind"] == "press"),
+        "only a press reaches it: {report}"
+    );
+    assert!(findings.iter().any(|p| {
+        let m = p["message"].as_str().unwrap();
+        m.contains("after pressing `toggle`") && m.contains("signpanel.host/sign: overlaps")
+    }));
+    assert_eq!(report["pressed"][0]["states"], 2, "{report}");
+    // The offer's answers panel opens clear of its sign, and its choice bubble lays out.
+    let (code, out) = gm(&engine(), &["check", "tests/play/offer/demo"]);
+    assert_eq!(code, 0, "{out}");
+    let report = json(&out);
+    assert_eq!(report["pressed"][0]["states"], 2, "{report}");
+    assert!(
+        report["hovers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h["widget"] == "offer.gift/talk/choices/offer.take"),
+        "{report}"
+    );
+}
+
+#[test]
+fn check_reads_a_note_that_a_press_rewrites() {
+    // The press changes only the note's text: the screen it leads to is checked too.
+    for (height, next, expected) in [
+        (
+            110,
+            r"Cost: 10\nMass: 2\nSpeed: slower",
+            "drop verdict is clipped",
+        ),
+        (
+            140,
+            r"Cost: 10 \u{10ffff}",
+            "drop verdict has missing glyphs",
+        ),
+    ] {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("demo");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("manifest.toml"),
+            "id='demo'\nversion='0.1.0'\nmin_engine_version='0.7.0'\nscripts=['screen.luau']\n\
+             events=['update','place']\n[components.tray]\nchanged='bool'\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("start.toml"),
+            "[entities.state]\ntray={changed=false}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("screen.luau"),
+            format!(
+                "return {{
+    on = {{ update = function(_, ctx) ctx.patch('state', 'tray', {{changed=true}}) end }},
+    screen = function(ctx, ui)
+        local changed = ctx.get('state', 'tray').changed
+        return ui.column {{width=400, children={{
+            ui.button {{id='update', text='Update', on='update'}},
+            ui.drag_source {{id='token', text='Token', value='token'}},
+            ui.drop_target {{id='far', text='Far slot', on='place', height={height},
+                accepts={{token=''}},
+                notes={{token=if changed then '{next}' else 'Cost: 9'}}}},
+        }}}}
+    end,
+}}"
+            ),
+        )
+        .unwrap();
+        let (code, out) = gm(tmp.path(), &["check", "demo"]);
+        assert_eq!(code, 5, "{out}");
+        assert!(
+            messages(&json(&out))
+                .iter()
+                .any(|m| m.contains("after pressing `update`")
+                    && m.contains("/far[")
+                    && m.contains(expected)),
+            "{out}"
+        );
+    }
+}

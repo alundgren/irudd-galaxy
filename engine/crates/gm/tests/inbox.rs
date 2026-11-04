@@ -251,3 +251,120 @@ fn a_fresh_install_is_empty_and_a_replaced_note_is_unhandled() {
     recording.write(&rec).unwrap();
     assert_eq!(count(&ok(&root, &["notes", "inbox"])), 1);
 }
+
+/// A module folder `dir/<id>` with only a manifest.
+fn module(dir: &Path, id: &str) -> PathBuf {
+    let root = dir.join(id);
+    std::fs::create_dir_all(&root).unwrap();
+    let manifest = format!(
+        "id = \"{id}\"\nversion = \"0.1.0\"\nmin_engine_version = \"{}\"\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    std::fs::write(root.join("manifest.toml"), manifest).unwrap();
+    root
+}
+
+#[test]
+fn inbox_for_one_game_leaves_out_sessions_of_other_modules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let games = root.join("games");
+    let garden = module(&games.join("garden"), "garden");
+    let other = module(&games.join("other"), "other");
+    for (name, dir) in [
+        ("2026-11-01-120000", &garden),
+        ("2026-11-02-120000", &other),
+    ] {
+        let session = root.join(name);
+        std::fs::create_dir_all(&session).unwrap();
+        let m = galaxy_module::module::Module::read(dir).unwrap();
+        let mut s = Session::new(vec![m], 7).unwrap();
+        s.start_recording(BuildStamp::current());
+        s.step(&[]).unwrap();
+        s.note("Make it bigger", None, None);
+        s.recording()
+            .unwrap()
+            .write(&session.join("recording.json"))
+            .unwrap();
+    }
+    assert_eq!(count(&ok(root, &["notes", "inbox"])), 2);
+    let one = ok(
+        root,
+        &["notes", "inbox", "--modules", garden.to_str().unwrap()],
+    );
+    assert_eq!(count(&one), 1);
+    assert_eq!(one["sessions"][0]["modules"], json!(["garden"]));
+    assert_eq!(one["sessions_of_other_modules"], 1);
+    let (code, out) = gm(
+        root,
+        &[
+            "notes",
+            "inbox",
+            "--modules",
+            root.join("none").to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        (code, out["kind"].as_str()),
+        (4, Some("bad_input")),
+        "{out}"
+    );
+}
+
+fn memory(root: &Path, game: &Path, key: &str) -> (i32, Value, String) {
+    let out = Command::new(env!("CARGO_BIN_EXE_engine-galaxy-gm"))
+        .args(["memory", game.to_str().unwrap()])
+        .env("GALAXY_GM_MEMORY", root.join("memory"))
+        .env("OPENROUTER_API_KEY", key)
+        .output()
+        .unwrap();
+    let text = String::from_utf8(out.stdout).unwrap();
+    let value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}: {text}"));
+    (out.status.code().unwrap(), value, text)
+}
+
+#[test]
+fn memory_is_made_once_kept_as_edited_and_never_prints_a_key() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let games = root.join("game");
+    module(&games, "garden");
+    module(&games, "paths");
+    let key = "test-key-0123456789";
+    let (code, first, _) = memory(root, &games, key);
+    assert_eq!(code, 0, "{first}");
+    assert_eq!(first["created"], true);
+    assert_eq!(first["game"], json!(["garden", "paths"]));
+    let path = PathBuf::from(first["path"].as_str().unwrap());
+    assert_eq!(path, root.join("memory").join("garden+paths.md"));
+    assert!(
+        first["text"]
+            .as_str()
+            .unwrap()
+            .contains("## The player's preferences")
+    );
+
+    // The GM and the player edit the file; later runs read it as it is.
+    let edited = "# GM memory\n\n## The player's preferences\n- Calm colours.\n";
+    std::fs::write(&path, edited).unwrap();
+    let (code, again, _) = memory(root, &games, key);
+    assert_eq!(code, 0);
+    assert_eq!(
+        (again["created"].clone(), again["text"].clone()),
+        (json!(false), json!(edited))
+    );
+
+    // One module of the game is a different game, with its own memory.
+    let (_, single, _) = memory(root, &games.join("garden"), key);
+    assert!(single["path"].as_str().unwrap().ends_with("garden.md"));
+
+    // A key in the memory is refused and never printed.
+    std::fs::write(&path, format!("{edited}- uses {key}\n")).unwrap();
+    let (code, refused, text) = memory(root, &games, key);
+    assert_eq!(
+        (code, refused["kind"].as_str()),
+        (4, Some("bad_input")),
+        "{refused}"
+    );
+    assert!(!text.contains(key));
+}

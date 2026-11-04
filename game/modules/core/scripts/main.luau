@@ -1,4 +1,13 @@
 local rules = require("./rules")
+local log = require("./log")
+local teach = require("./teach")
+local trade = require("./trade")
+local signs = require("./signs")
+local fit = require("./fit")
+local undock = require("./launch")
+
+-- Which hint each held key teaches.
+local TEACHES = { ahead = "thrust", back = "thrust", left = "turn", right = "turn", boost = "boost" }
 
 local function space(ctx)
     return ctx.get("ship", "engine.location").place == "core.reach"
@@ -19,10 +28,19 @@ local function stop(ctx)
     ctx.patch("ship", "pilot", { mining = false, target = "" })
 end
 
+-- The keys that fly the ship off the dock: the movement keys, not boost alone.
+local MOVES = { ahead = true, back = true, left = true, right = true }
+
 local function flight(event, ctx)
-    if not space(ctx) then return end
-    local held = ctx.get("ship", "held")
     local key = string.sub(event.kind, 6)
+    local held = ctx.get("ship", "held")
+    if not space(ctx) then
+        -- Docked, a movement key simply flies the ship off: there is no undock step.
+        local station = undock.docked(ctx)
+        if not station or not MOVES[key] or event.payload.down ~= true then return end
+        undock.launch(ctx, station)
+        held = { ahead = false, back = false, left = false, right = false, boost = false }
+    end
     held[key] = event.payload.down == true
     ctx.patch("ship", "held", { [key] = held[key] })
     local function axis(a, b)
@@ -32,8 +50,11 @@ local function flight(event, ctx)
         thrust = axis("ahead", "back"), turn = axis("left", "right"), boost = held.boost,
     })
     if pressed(event) then
+        teach.used(ctx, TEACHES[key])
+        local ordered = ctx.get("ship", "engine.steer").mode ~= ""
         ctx.put("ship", "engine.steer", {})
-        ctx.patch("ship", "pilot", { mining = false, target = "", message = "Flying by hand. Release thrust to stop." })
+        ctx.patch("ship", "pilot", { mining = false, target = "" })
+        if ordered then message(ctx, "Order dropped: flying by hand.") end
     end
 end
 
@@ -53,17 +74,19 @@ end
 
 local function mine(event, ctx)
     if not pressed(event) or not space(ctx) then return end
-    local pilot = ctx.get("ship", "pilot")
-    if pilot.cargo >= rules.CAPACITY then message(ctx, "Hold full. Dock and sell your six ore."); return end
+    teach.used(ctx, "mine")
+    if rules.load(ctx.get("ship", "hold")) >= fit.hold(ctx) then message(ctx, "Hold full. Dock to sell or trade."); return end
     local target = nearest(ctx, "ore")
     if not target then message(ctx, "The field is worked out. Your ore still has a buyer."); return end
     stop(ctx)
-    ctx.put("ship", "engine.steer", { mode = "hold", target = target, range = 1.5 })
-    ctx.patch("ship", "pilot", { mining = true, target = target, message = "Approaching ore. One unit per second in reach." })
+    -- The ship parks on the rock's drawn surface, with no gap.
+    ctx.put("ship", "engine.steer", { mode = "hold", target = target, range = 0 })
+    ctx.patch("ship", "pilot", { mining = true, target = target, message = "Heading for the nearest ore." })
 end
 
 local function dock(event, ctx)
     if not pressed(event) or not space(ctx) then return end
+    teach.used(ctx, "dock")
     local station = event.payload.station
     if station ~= "core.lantern" and station ~= "core.kiln" then station = nearest(ctx, "port") end
     local port = ctx.get(station, "port")
@@ -72,118 +95,76 @@ local function dock(event, ctx)
     ctx.patch("ship", "pilot", { station = station, message = "Approaching " .. port.name .. "." })
 end
 
-local function market(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" or ctx.get("ship", "engine.location").place ~= station then return end
-    ctx.move("ship", ctx.get(station, "port").market)
-    message(ctx, "The posted price is yours whenever you choose to sell.")
-end
-
-local function leave(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" then return end
-    if ctx.get("ship", "engine.location").place == ctx.get(station, "port").market then
-        ctx.move("ship", station)
-        message(ctx, "Back on the landing deck. U launches your ship.")
-    end
-end
-
-local function launch(event, ctx)
-    if not pressed(event) then return end
-    local station = ctx.get("ship", "pilot").station
-    if station == "" or ctx.get("ship", "engine.location").place ~= station then return end
-    stop(ctx)
-    ctx.move("ship", "core.reach", ctx.get(station, "port").departure)
-    ctx.put("ship", "engine.body", { mass = 1 })
-    ctx.patch("ship", "engine.model", { model = "core.ship" })
-    ctx.patch("ship", "engine.camera", { view = 64 })
-    message(ctx, "Clear of the berth. Space finds the nearest remaining ore.")
-end
-
-local function sell(event, ctx)
-    if not pressed(event) then return end
-    local pilot = ctx.get("ship", "pilot")
-    if pilot.station == "" then return end
-    local port = ctx.get(pilot.station, "port")
-    if ctx.get("ship", "engine.location").place ~= port.market then return end
-    if pilot.cargo == 0 then message(ctx, "Your hold is empty. More ore waits outside."); return end
-    local earned = rules.sale(pilot.cargo, port.price)
-    ctx.patch("ship", "pilot", { cargo = 0, credits = pilot.credits + earned,
-        message = "Sold " .. pilot.cargo .. " ore for " .. earned .. " credits. The stockpile has grown." })
-    ctx.patch(pilot.station, "port", { stock = port.stock + pilot.cargo })
-    ctx.patch(port.market .. "_stock", "engine.model", { scale = 0.4 + (port.stock + pilot.cargo) * 0.04 })
-    ctx.record("sold", { units = pilot.cargo, credits = earned, station = pilot.station })
-end
-
 return {
     on = {
         ahead = flight, back = flight, left = flight, right = flight, boost = flight,
-        mine = mine, dock = dock, market = market, leave = leave, launch = launch, sell = sell,
+        mine = mine, dock = dock,
         cancel = function(event, ctx)
-            if pressed(event) and space(ctx) then stop(ctx); message(ctx, "Order cancelled. Coasting to a stop.") end
+            if pressed(event) and space(ctx) then
+                teach.used(ctx, "cancel")
+                stop(ctx)
+                message(ctx, "Order cancelled. Coasting to a stop.")
+            end
         end,
         ["engine.arrived"] = function(event, ctx)
+            if event.payload.entity ~= "core.ship" then return end -- traders: traffic.luau
             local pilot = ctx.get("ship", "pilot")
             if pilot.station == "" or not space(ctx) then return end
             local port = ctx.get(pilot.station, "port")
             if event.payload.mode ~= "dock" or event.payload.target ~= port.berth then return end
             stop(ctx)
             ctx.remove("ship", "engine.body")
-            ctx.patch("ship", "engine.model", { model = "core.pilot" })
-            ctx.patch("ship", "engine.camera", { view = 24 })
+            ctx.patch("ship", "pilot", { room = "", sale = 0, deal = "", last_dock = pilot.station, away = false, gliding = true })
+            ctx.patch("ship", "engine.model", { scale = 1.3 }) -- moored, seen up close
             ctx.move("ship", pilot.station)
-            message(ctx, "Welcome to " .. port.name .. ". M opens the market room.")
-            ctx.record("docked", { station = pilot.station })
+            signs.show(ctx, pilot.station, "", pilot.log_open, nil, true) -- up once the glide in lands
+            -- A visit only counts once the ship has really been away: then the
+            -- station's market eases back towards its usual stock.
+            local counted = rules.counts(pilot.last_dock, pilot.away, pilot.station)
+            if counted then
+                ctx.patch(pilot.station, "port", { visits = port.visits + 1 })
+                for _, id in trade.station_lines(ctx, pilot.station) do
+                    local line = ctx.get(id, "market")
+                    local stock = rules.settle(line)
+                    ctx.patch(id, "market", { stock = stock })
+                    if line.ware == "ore" then
+                        ctx.patch(pilot.station .. "_stock", "engine.model", { scale = trade.pile(stock) })
+                    end
+                end
+            end
+            log.add(ctx, "Docked at " .. port.name .. ".")
+            ctx.record("docked", { station = pilot.station, counted = counted })
         end,
     },
     cadence = function(ctx)
         local pilot = ctx.get("ship", "pilot")
-        if not space(ctx) or not pilot.mining or pilot.target == "" then return end
+        if not space(ctx) then return end
+        local at = ctx.get("ship", "engine.position")
+        -- Flown well clear of the last berth: the next docking there is a new visit.
+        if pilot.last_dock ~= "" and not pilot.away then
+            local berth = ctx.get(ctx.get(pilot.last_dock, "port").berth, "engine.position")
+            if rules.distance2(at, berth) > rules.AWAY ^ 2 then ctx.patch("ship", "pilot", { away = true }) end
+        end
+        if not pilot.mining or pilot.target == "" then return end
         local ore = ctx.get(pilot.target, "ore")
-        if rules.distance2(ctx.get("ship", "engine.position"), ctx.get(pilot.target, "engine.position")) > rules.MINE_DISTANCE ^ 2 then return end
-        local amount = rules.transfer(pilot.cargo, ore.left)
+        if rules.distance2(at, ctx.get(pilot.target, "engine.position")) > rules.MINE_DISTANCE ^ 2 then return end
+        local hold = ctx.get("ship", "hold")
+        local capacity = fit.hold(ctx)
+        local amount = rules.transfer(rules.load(hold), ore.left, capacity, fit.mine(ctx))
         if amount == 0 then
-            ctx.patch("ship", "pilot", { mining = false, message = pilot.cargo == rules.CAPACITY and "Hold full. E docks at the nearest station." or "Rock exhausted. Space selects another." })
+            ctx.patch("ship", "pilot", { mining = false })
+            local taught = ctx.get("ship", "taught")
+            if rules.load(hold) == capacity then
+                log.add(ctx, "Hold full: " .. rules.list(hold) .. " aboard." .. (teach.new(taught, "dock") and " E docks at the nearest station." or ""))
+            else
+                log.add(ctx, "Rock worked out." .. (teach.new(taught, "mine") and " Space finds the next one." or ""))
+            end
             return
         end
-        ctx.patch("ship", "pilot", { cargo = pilot.cargo + amount, message = "+1 ore aboard. The cut in the rock is visible." })
+        ctx.patch("ship", "hold", { ore = hold.ore + amount })
+        ctx.patch("ship", "pilot", { message = "+" .. amount .. " ore aboard.", away = true })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
         ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
         ctx.record("mined", { rock = pilot.target, units = amount })
-    end,
-    screen = function(ctx, ui)
-        local pilot = ctx.get("ship", "pilot")
-        local here = ctx.get("ship", "engine.location").place
-        local children = {
-            ui.text { text = "LANTERN REACH", size = 26 },
-            ui.text { text = "Ore " .. pilot.cargo .. "/6    |    " .. pilot.credits .. " cr", size = 20 },
-            ui.text { text = pilot.message, size = 18 },
-        }
-        if here == "core.reach" then
-            table.insert(children, ui.text { text = "W/S thrust  A/D turn  Shift boost\nSpace mine  E dock  0 cancel", size = 16 })
-            table.insert(children, ui.button { id = "mine", text = "Mine nearest ore", on = "mine" })
-            table.insert(children, ui.button { id = "lantern", text = "Lantern Dock  |  12 cr / ore", on = "dock", payload = { station = "core.lantern" } })
-            table.insert(children, ui.button { id = "kiln", text = "Cinder Kiln  |  16 cr / ore", on = "dock", payload = { station = "core.kiln" } })
-        else
-            local station = pilot.station
-            -- The GM stages rooms directly while checking them.
-            if here == "core.lantern" or here == "core.lantern_market" then station = "core.lantern" end
-            if here == "core.kiln" or here == "core.kiln_market" then station = "core.kiln" end
-            local port = ctx.get(station, "port")
-            if port then
-                table.insert(children, ui.text { text = port.name, size = 24 })
-                if here == port.market then
-                    table.insert(children, ui.text { text = "ORE EXCHANGE\nBuyer pays " .. port.price .. " cr / ore\nStation stock: " .. port.stock, size = 18 })
-                    table.insert(children, ui.button { id = "sell", text = "Sell cargo  |  " .. rules.sale(pilot.cargo, port.price) .. " cr [Enter]", on = "sell" })
-                    table.insert(children, ui.button { id = "leave", text = "Back to landing deck [B]", on = "leave" })
-                else
-                    table.insert(children, ui.button { id = "market", text = "Enter market room [M]", on = "market" })
-                    table.insert(children, ui.button { id = "launch", text = "Launch [U]", on = "launch" })
-                end
-            end
-        end
-        return ui.panel { id = "ledger", x = 24, y = 24, width = 336, gap = 12, children = children }
     end,
 }

@@ -4,7 +4,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -16,13 +16,13 @@ name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
 tick = 600
-name = "core.market"
+name = "core.open"
 [[input]]
 tick = 660
 name = "core.sell"
 [[input]]
 tick = 720
-name = "core.leave"
+name = "core.close"
 [[input]]
 tick = 780
 name = "core.launch"
@@ -38,7 +38,7 @@ payload = { station = "core.lantern" }
 
 [[input]]
 tick = 1500
-name = "core.market"
+name = "core.open"
 
 [[input]]
 tick = 1560
@@ -50,7 +50,7 @@ name = "core.sell"
 
 [[input]]
 tick = 1620
-name = "core.leave"
+name = "core.close"
 
 [[input]]
 tick = 1680
@@ -65,14 +65,14 @@ tick = 1590
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 144
+equals = 142
 
 [[expect]]
 tick = 1590
-entity = "lantern"
-component = "port"
+entity = "lantern_ore"
+component = "market"
 field = "stock"
-equals = 12
+equals = 36
 
 [[expect]]
 tick = 1590
@@ -84,8 +84,8 @@ equals = 0
 [[expect]]
 tick = 2100
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 6
 
 [[expect]]

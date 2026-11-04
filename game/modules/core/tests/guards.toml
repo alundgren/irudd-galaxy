@@ -4,7 +4,7 @@ tick = 1
 name = "sell"
 [[input]]
 tick = 2
-name = "market"
+name = "open"
 [[input]]
 tick = 3
 name = "launch"
@@ -21,8 +21,8 @@ field = "credits"
 equals = 0
 [[expect]]
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 0
 [[expect]]
 entity = "ship"

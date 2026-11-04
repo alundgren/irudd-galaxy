@@ -29,6 +29,8 @@ pub(crate) struct Options {
     pub inputs: Option<PathBuf>,
     pub save: Option<PathBuf>,
     pub load: Option<PathBuf>,
+    /// `--continue`: load the newest save of these modules from the sessions folder.
+    pub continue_save: bool,
     pub physical_size: bool,
     pub record: Option<PathBuf>,
     pub realtime: bool,
@@ -86,6 +88,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 | "--all"
                 | "--no-live"
                 | "--physical-size"
+                | "--continue"
         );
         if switch {
             if inline.is_some() {
@@ -98,6 +101,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--all" => options.all = true,
                 "--no-live" => options.no_live = true,
                 "--physical-size" => options.physical_size = true,
+                "--continue" => options.continue_save = true,
                 _ => options.state = true,
             }
             continue;
@@ -175,31 +179,91 @@ pub fn run(args: &[String]) -> Result<Output, Failure> {
     drive(session, &options, DEFAULT_TICKS, "run")
 }
 
-/// `galaxy sim load`.
-pub fn load(args: &[String]) -> Result<Output, Failure> {
-    let allowed: Vec<&str> = RUN_OPTIONS
+/// The options `sim load` takes: `sim run`'s without `--seed`, and `--continue`.
+pub(crate) fn load_options() -> Vec<&'static str> {
+    RUN_OPTIONS
         .iter()
         .copied()
         .filter(|o| *o != "--seed")
-        .collect();
-    let (positional, options) = parse(args, &allowed)?;
-    let [save_path] = positional.as_slice() else {
-        return Err(usage(
-            "sim load takes one save: galaxy sim load <save> --modules <dir>",
-        ));
-    };
-    let save_path = discover::resolve(&cli::current_dir()?, Path::new(save_path));
-    let modules = load_modules(&options)?;
-    let session = resume_save(&save_path, modules, false)?;
-    drive(session, &options, 0, "load")
+        .chain(["--continue"])
+        .collect()
 }
 
-/// Shared restore path; windowed play requires the exact build and module files.
+/// `galaxy sim load`.
+pub fn load(args: &[String]) -> Result<Output, Failure> {
+    let (positional, options) = parse(args, &load_options())?;
+    let modules = load_modules(&options)?;
+    let save_path = match (positional.as_slice(), options.continue_save) {
+        ([save], false) => discover::resolve(&cli::current_dir()?, Path::new(save)),
+        ([], true) => continuing_save(&modules)?,
+        _ => {
+            return Err(usage(
+                "sim load takes one save, or --continue for the newest save of the modules: \
+                 galaxy sim load <save> --modules <dir>",
+            ));
+        }
+    };
+    let (session, resumed) = resume_save(&save_path, modules, false)?;
+    let mut out = drive(session, &options, 0, "load")?;
+    if let Output::Json(v) = &mut out {
+        v["resumed"] = resumed;
+    }
+    Ok(out)
+}
+
+/// The save `--continue` loads: the newest `save.db` in the sessions folder made with
+/// exactly these modules (by ID). Bad input when there is none.
+pub(crate) fn continuing_save(modules: &[Module]) -> Result<PathBuf, Failure> {
+    let root = galaxy_module::install::sessions_dir();
+    newest_save(&root, modules).ok_or_else(|| {
+        let ids: Vec<&str> = modules.iter().map(Module::id).collect();
+        Failure::bad_input(format!(
+            "no saved game of the modules {ids:?} in {}: play them once with galaxy play \
+             --modules <dir> and quit, which saves the session there",
+            root.display()
+        ))
+        .with("path", root.display().to_string())
+    })
+}
+
+/// The newest `<session>/save.db` under `root` whose modules have these IDs.
+pub(crate) fn newest_save(root: &Path, modules: &[Module]) -> Option<PathBuf> {
+    let mut ids: Vec<&str> = modules.iter().map(Module::id).collect();
+    ids.sort_unstable();
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in std::fs::read_dir(root).ok()?.flatten() {
+        let path = entry.path().join("save.db");
+        let Ok(when) = std::fs::metadata(&path).and_then(|m| m.modified()) else {
+            continue;
+        };
+        let Ok(info) = save::info(&path) else {
+            continue;
+        };
+        if !info
+            .modules
+            .iter()
+            .map(|m| m.id.as_str())
+            .eq(ids.iter().copied())
+        {
+            continue;
+        }
+        if best.as_ref().is_none_or(|(t, _)| when > *t) {
+            best = Some((when, path));
+        }
+    }
+    best.map(|(_, path)| path)
+}
+
+/// Shared restore path. Windowed play (`same_build`) needs the build that saved it. A
+/// module whose files changed since the save is carried over when the saved world still
+/// fits it (new fields get defaults; a change that would lose data is refused), as a
+/// hot-load is. The session's next tick tells scripts with `engine.resumed`. Returns the
+/// session and what was resumed: the save, its tick, and the modules whose files changed.
 pub(crate) fn resume_save(
     save_path: &Path,
     modules: Vec<Module>,
-    exact: bool,
-) -> Result<Session, Failure> {
+    same_build: bool,
+) -> Result<(Session, Value), Failure> {
     let (info, world) = save::read(save_path)
         .map_err(|e| Failure::bad_input(e).with("path", save_path.display().to_string()))?;
     let saved: Vec<&str> = info.modules.iter().map(|m| m.id.as_str()).collect();
@@ -212,7 +276,7 @@ pub(crate) fn resume_save(
         ))
         .with("saved_modules", json!(info.modules)));
     }
-    if exact {
+    if same_build {
         let build = BuildStamp::current();
         if info.engine != build.version || info.build != build.name {
             return Err(Failure::bad_input(
@@ -221,20 +285,34 @@ pub(crate) fn resume_save(
             .with("saved_engine", info.engine)
             .with("saved_build", json!(info.build)));
         }
-        for saved in &info.modules {
-            let module = modules
-                .iter()
-                .find(|m| m.id() == saved.id)
-                .expect("same IDs");
-            if saved.files != module.files.hash() {
-                return Err(Failure::bad_input(format!(
-                    "the save's module `{}` has different files; reopen it with the modules that saved it",
-                    saved.id
-                )));
-            }
-        }
     }
-    Session::resume(modules, world).map_err(bad_modules)
+    let changed: Vec<String> = info
+        .modules
+        .iter()
+        .filter(|saved| {
+            modules
+                .iter()
+                .any(|m| m.id() == saved.id && m.files.hash() != saved.files)
+        })
+        .map(|saved| saved.id.clone())
+        .collect();
+    let mut session = Session::resume(modules, world).map_err(|e| {
+        if changed.is_empty() {
+            return bad_modules(e);
+        }
+        Failure::bad_input(format!(
+            "the save doesn't fit the changed module files of {changed:?}: {e}. Load it with \
+             the module files that saved it, --load an earlier save, or start a new game"
+        ))
+        .with("changed_modules", json!(changed))
+    })?;
+    session.announce_resume();
+    let resumed = json!({
+        "save": save_path.display().to_string(),
+        "tick": info.tick,
+        "changed_modules": changed,
+    });
+    Ok((session, resumed))
 }
 
 /// `galaxy sim replay`.
@@ -332,9 +410,9 @@ fn drive(
     }
     let inputs = script.by_tick();
     let mut loads: BTreeMap<u64, Vec<Module>> = BTreeMap::new();
-    if !script.clicks.is_empty() || !script.pointers.is_empty() {
+    if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy sim replay <session>/recording.json",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy sim replay <session>/recording.json",
         ));
     }
     for (tick, dir) in &script.hot_loads {

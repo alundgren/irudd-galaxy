@@ -56,8 +56,38 @@ places, checks, paints and hit-tests it. `galaxy-gm types` describes the screen 
   widgets outside the viewport or parent, sibling overlaps, overlaps of painted widgets
   from separate screens, and missing anchors. Overlap findings name both widget paths.
   Unknown properties and undeclared button events fail parsing at their widget path.
+- `align` places a widget against the window's edges instead of its parent's flow:
+  `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom` or
+  `bottom-right`. `x` and `y` are then margins from those edges (offsets from the middle
+  on a centred axis), and the widget keeps its own width and height. A status panel at
+  `top-right` stays in that corner at any window size and display scale, so play, bot
+  runs, audit and film measure viewport problems against the size actually drawn. A
+  widget is anchored or aligned, not both, and grid cells flow.
 - `galaxy-gm check` runs the module's screens after the first tick at 1280x720, without a
-  GPU. This checks the initial state; branches opened later are also checked while playing.
+  GPU, and then presses (below). Branches it can't reach are checked while playing.
+
+### Pressing in check
+
+`crates/view/src/presses.rs`: from the first tick, and with the player moved into each
+place, check presses every visible button and `ui.target` (not talk bubbles, which have
+their own check), two presses deep. A press is an ordinary input through a `Session`:
+the module's handlers run, a trip they start lands as play would land it, and one quiet
+tick follows. Each new screen state, with talk silent, gets the same readability checks
+as play, life name signs included, so a sign under a room panel or a list a script opens
+is a `press` finding such as ``place `demo.hall`, after pressing `open`: demo.host/sign:
+overlaps demo:scripts/main.luau/screen/list[2]``. A handler that fails on a press is a
+finding too. States are told apart by what is on screen and by what event handlers
+changed (fields a handler set to something other than the start world, and start
+components removed), so a press that only moves a page counter or a selection still
+gets its second press; a screen already checked is not reported twice. A screen's
+identity includes each drop target's verdicts and notes, so a press that rewrites only a
+note leads to a new screen whose problems are reported. Changes from the
+cadence and engine services don't count, so they can't split one state into many. At
+most 32 new states per start are explored, and check's `pressed` output lists the states
+per start and whether that cap stopped it. Keys, drags, scrolls, three presses deep, talk answers and clock changes
+are not pressed: those states need a test or a recorded run. The pressed worlds are
+copies; the module's own state is untouched. `tests/play/sign-panel` opens a list over a
+name sign from a button and must fail check; its first screen alone passes.
 
 Each painted widget contributes one ordered panel/text layer between the base overlay
 and engine chrome. GPU buffers and glyphon renderers grow to the required layer count.
@@ -80,6 +110,19 @@ the publisher need not have a model. Rooms additionally publish `place.<full-id>
 `being.<full-id>.<node-name>` through this same map; see [Rooms and travel](rooms-and-travel.md).
 A missing target or projection reports a missing
 anchor rather than silently discarding the widget.
+
+**Yielding.** `yield = true` on an anchored widget makes it give way instead of being
+clamped: it isn't drawn while its anchor is off screen or unpublished (no missing-anchor
+finding), while it would leave the window (the same 8px margin), or while any of it would
+overlap another painted widget, from any screen, a talk bubble or a life sign. Yielding
+widgets are decided after every screen is laid out and scrolled, in paint order, and
+each one shown is in the way of later ones, so two name labels never cover each other
+either. A hidden widget paints nothing, takes no click, is no bot target and is left out
+of the readability and overlap checks, so play reports no overlap. A trader's name label
+can then show at any distance and zoom and simply not be drawn over the status panel
+(`tests/play/ambient`, `view/tests/ambient.rs`). Fading instead of hiding would need a
+remembered opacity per widget, which notes, audit and film would have to replay; hiding
+is decided afresh from each frame's layout.
 
 ## Clicks, recording and trying it
 
@@ -162,16 +205,25 @@ shaping and deterministic text assets rather than introducing a second image ass
 ui.grid { columns = 2, children = {
     ui.drag_source { id = "token", text = "Small token", value = "small" },
     ui.drop_target { id = "slot", text = "Slot", on = "place",
-        accepts = { small = "", large = "Needs a wider slot" } },
+        accepts = { small = "", large = "Needs a wider slot" },
+        notes = { small = "Fills the slot: 1 left" } },
 } }
 ```
 
 A source has a string `value`; every target maps values to verdict strings in `accepts`.
 An empty string permits the drop, a nonempty string explains rejection, and an absent
 value means "Not accepted". Picking up immediately colours every target and shows its
-verdict in words on a softly tinted surface. Layout reserves the largest measured
-verdict, so targets never move when picking up. All verdict labels receive glyph and
-readability checks. Picking up lifts the actual source surface and label, leaving an
+verdict in words on a softly tinted surface. An optional `notes` maps accepted values to
+what that drop will change, drawn on a line under `Drop here`. A consequence that never
+refuses (a cost, a slowdown) then shows at pickup beside the refusals, without Luau
+running during the drag. A note must belong to a value the target accepts, and is
+nonempty text; anything else is a screen error. Layout reserves the largest measured
+verdict or note, so targets never move when picking up. Pickup records each target's
+reserved height in the drag, and layout keeps it until the drop, so a note a script
+rewrites mid-drag (a cost that changes) moves no target either. A label that outgrows
+the kept space is a `drop verdict is clipped` problem rather than a move. The record is
+part of the presentation, so notes and replays rebuild the kept layout. All verdict and note labels
+receive glyph and readability checks. Picking up lifts the actual source surface and label, leaving an
 empty socket. Its size and pointer grab point stay attached to the pointer. Release on
 an accepting target sends its `on` event with its `payload` plus `value`; release elsewhere
 or on a rejecting target returns home. Both use a 240ms smoothstep settling animation,
@@ -241,13 +293,25 @@ settling frames), and film ticks 1 through 134 to inspect the actual movement wi
 `galaxy-gm motion sheet` and `strip`. Headless tests assert one visible token throughout,
 state-driven placement, return motion, scroll events, replay hashes and rebuilt notes.
 
+`tests/play/drop-notes` has one token and two slots that both accept it; only the far
+slot has a note. `tests/play/drop-notes-inputs.toml` (90 ticks) picks the token up,
+notes mid-drag, drops it on the far slot, lifts it out of there and drops it on the near
+slot. Headless tests assert the note shows on the far slot only while dragging, neither
+slot moves on any tick, every note rebuilds identically and the replay hash matches.
+Another headless test rewrites a held value's note: neither slot moves, and a note that
+no longer fits is reported.
+
 ## Talk bubbles
 
-The talk service supplies an internal bubble widget from recorded world components.
+The talk service supplies an internal bubble widget from recorded world components:
+a column of heading, subtitle, line, and a Continue/Done marker or a row of answer
+buttons, sized by the `[screen]` `bubble_*` keys.
 It uses this same measurement, layout, anchor, clipping, ordered paint and hit-testing
 path, with the screen style's bubble surface. No separate talk look is encoded. Module-owned
-width and offsets affect its geometry. A whole bubble is a click target; its input
-includes the current line so stale or duplicate advances are recorded no-ops. Speaker picking runs only when no
+width and offsets affect its geometry. A whole bubble is a click target (hit
+testing does not descend into its texts); its input includes the current line so stale or
+duplicate advances are recorded no-ops. A bubble with answers is not itself a target; its
+buttons are. Speaker picking runs only when no
 painted widget covers the pointer. See [Talk](talk.md) for focus checks combining screen
 surfaces, room geometry and each authored line.
 
@@ -280,17 +344,21 @@ handle_min = 44.0
 ```
 
 The colour fields are `paper`, `panel`, `button`, `text`, `gain`, `loss`, `border`,
-`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `track`, `handle` and
-`handle_active`. Surface and text colours must be opaque: the arbitrary world behind
+`bubble`, `sign`, `held`, `socket`, `accept`, `refuse`, `resting`, `track`, `handle`,
+`handle_active` and `highlight` (the outline of a hovered target's model). Surface and text colours must be opaque: the arbitrary world behind
 them cannot undermine contrast. Linear-sRGB luminance checks every text/gain/loss
 against every possible text-bearing surface at 4.5:1, including nested deltas and
-both drag verdicts. Both handle states must contrast with the track at 3:1. Failures
+both drag verdicts. Both handle states must contrast with the track at 3:1, and a
+dashed resting frame's `border` its `resting` fill. Failures
 name `[screen]` and both fields. An invalid table never reaches painting; playing
 shows its diagnostic and uses the last valid supplier or the neutral default.
 
-Sizes are logical pixels: `radius` and `handle_radius` (0-24), `border_px` and
-`hint_border_px` (0-4), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
-(24-48), `handle_min` (44-80) and `socket_dash` (0-16; zero is solid). Non-finite or
+Talk bubble text sizes are `bubble_title` (16-40), `bubble_subtitle`, `bubble_text` and
+`bubble_marker` (16-32), with `bubble_title_weight` (400-700). Sizes are logical pixels:
+`radius` and `handle_radius` (0-24), `border_px` and
+`hint_border_px` (0-4), `highlight_px` (2-12), `frame_padding` (12-32), `target_min` (44-64), `handle_width`
+(24-48), `handle_min` (44-80), `socket_dash` and `resting_dash` (0-16; zero is solid).
+Non-finite or
 out-of-range values fail check. `target_min` is a checked floor for actual targets,
 not a resizer. A scrolling viewport must fit the minimum handle. Explicit widget
 `pad` overrides default frame padding; scroll content retains its minimum 12px inset.
@@ -339,6 +407,15 @@ A table in the existing style asset avoids a second loader, watch path or record
 store. Per-widget colours would duplicate the look in every script and make whole-theme
 contrast checks impossible without enumerating runtime branches. Skin scripts or
 module-owned motion would move frame work into Luau and change the shared behaviour.
+
+## Edges instead of a viewport size
+
+`align` was chosen over passing the window size to `ctx`: a size in the context would be a
+tracked read, so every resize would call Luau again and authors would redo edge
+arithmetic in each script. Alignment keeps resizing in Rust, beside the anchor
+placement, and the readability checks see the same rectangles at every size.
+`crates/view/tests/targets.rs` lays the generic fixture out at 1280x720 and 1024x576 and
+checks the three edge widgets against both.
 
 ## Hovers and recorded point inspection
 
@@ -389,6 +466,97 @@ There is no timer or cached target to save, and no change to world hashes or sim
 inputs. A tooltip entity or separate inspector picker would duplicate that contract.
 
 Bot `[[pointer]] action = "move"` works without a drag. `widget` names an ordinary
-widget, an anchored hover ID, or `point:x,y`. Repeated moves track a moving target;
+widget, an anchored hover or target ID, or `point:x,y`. Repeated moves track a moving target;
 moving to empty space clears it. The life and talk demos declare hovers. The recorded
 motion recipe is in [Motion tools](motion-tools.md).
+
+## Resting buttons
+
+```lua
+ui.button { id = "add", text = "Add one", on = "add",
+    resting = if full then "The tray is full: empty it first." else nil }
+```
+
+A button with `resting = "<reason>"` is an action that exists but can't happen now. It
+keeps its place and size, so nothing moves when it wakes, and is drawn with the `[screen]`
+`resting` fill (unset, the `panel` colour) and a frame dashed every `resting_dash`
+pixels in `border`, at least 1px wide. Its text keeps the full-contrast `text` colour:
+resting is never greyed out. Check refuses a style whose resting look can't be told from a
+ready button: a dashed frame must contrast with the fill at 3:1, and a solid one
+(`resting_dash = 0`) needs a fill other than `button`. Text on `resting` gets the usual
+4.5:1 check. The frame is capped by the padding like any border, so check also refuses a
+resting button whose `pad` is under 1px. Only buttons rest, and the reason must not be
+empty.
+
+Hovering shows the reason, after the button's own `hover` label if it has one; check's
+`hovers` array and `look` report it like any label. A click on it hits it (it still
+covers what is behind it) and records nothing, and the pointer stays an arrow. Check
+never presses it. A bot `[[click]]` that lands on one, by name or point, is not
+clicked: `galaxy play` prints `<widget>: resting: <reason>`, lists
+`{ tick, widget, resting }` in its report's `resting_clicks` and plays on, and the
+GM's `bot` report copies that list. Headless callers of `bot_click` get the same text as
+an error. Replays never see the lookup, so they are unchanged.
+
+From the repository root, with a dev build installed:
+
+```sh
+galaxy-gm --build <name> check engine/tests/play/resting/demo
+galaxy --build <name> play --modules engine/tests/play/resting --inputs engine/tests/play/resting-inputs.toml --ticks 75
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+```
+
+The tray holds two. Empty rests while it is empty and Add while it is full. The bot
+hovers the resting Empty, clicks it (reported, not clicked), fills the tray, clicks the
+resting Add, then empties it, leaving three notes. `crates/view/tests/resting.rs` checks
+the paint, hover, clicks and replay headlessly.
+
+A flag that hides the button was rejected: the player then can't see the action exists.
+Greyed text fails the contrast rules and reads as broken. A separate widget kind would
+duplicate the button's layout and checks for one state.
+
+## Clickable models
+
+`ui.target { id, anchor, on, payload, text }` is a hover declaration that a click can
+press. Its anchor uses the same forms as `ui.hover` (`being.<id>`, `being.<id>.<part>`,
+`publisher#name`, ...), and the same picking: the nearest posed mesh surface under the
+pointer, or a 44px box for a model-less anchor that no nearer geometry hides. A left
+click on it records `on` with `payload` and source `ui`, exactly like a button, applied
+on the next tick. `text` is its optional hover label. Painted widgets are hit-tested
+first, so a panel or label in front blocks the click; an active drag or a travel cut
+does too. A target comes before talk-speaker picking when both share a model.
+
+While the pointer is over a target, the view lifts that entity's model by a twentieth of
+its largest extent, draws its outline in the `[screen]` `highlight` colour at
+`highlight_px`, and the window shows a hand pointer. The pointer is a hand over buttons,
+bubbles and drag sources too. Picking uses the resting, unlifted mesh, so lifting never
+moves the target out from under the pointer. All of this is derived each frame from the
+presentation pointer: notes, audit and film redraw a mid-hover frame exactly, and no
+world state, Luau call or timer is involved.
+
+Bot `[[click]] widget = "<target id>"` and `[[pointer]] action = "move"` find a visible
+point on the target's model through the same picking, and fail when it is covered or
+off screen. `look` reports a target with a label like a hover.
+
+From the repository root, with a dev build installed:
+
+```sh
+galaxy-gm --build <name> check engine/tests/play/targets/demo
+galaxy --build <name> play --modules engine/tests/play/targets --inputs engine/tests/play/targets-inputs.toml --ticks 210
+galaxy --build <name> sim replay <session>/recording.json
+galaxy-gm --build <name> audit <session>/recording.json
+galaxy-gm --build <name> film <session>/recording.json --from 36 --to 66 --size 1280x720 --out target-film
+```
+
+The bot glides into the hall, hovers and clicks the first figure (its camera glides to
+frame it), lands that glide with a click, goes back with Esc, frames the second figure,
+goes back with a right-click, shrinks the window to 1024x576 and leaves with Esc. A
+painted label covers the second figure's face; clicks there do nothing. Status, key
+strip and log stay at their edges throughout. `crates/view/tests/targets.rs` runs the
+same journey headlessly and redraws all six notes from a replay.
+
+A separate pickable-object component was rejected: what can be clicked depends on the
+screen's state (a building is clickable from the dock view, not from inside a room),
+which screens already express. A per-frame Luau hover callback would break the event-only
+screen contract. Lift and outline are fixed engine behaviour; their colour and width are
+module style.

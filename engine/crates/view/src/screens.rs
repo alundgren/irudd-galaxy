@@ -3,6 +3,7 @@ mod hovers;
 mod icons;
 mod interaction;
 mod scrolling;
+mod yielding;
 pub use interaction::{Drag, Presentation};
 
 use std::collections::BTreeMap;
@@ -10,11 +11,11 @@ use std::collections::BTreeMap;
 use galaxy_api::Registry;
 use galaxy_module::module::Module;
 use galaxy_render::{
-    Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
+    Align, Overlay, Rect, Text, UiLayer, glam::Vec2, screen_style::ScreenStyle, text::TextMeasure,
 };
 use galaxy_script::{
     ScriptSet,
-    screens::{Screen, Widget},
+    screens::{Screen, Widget, anchored},
 };
 use galaxy_sim::scenario::{Click, ClickTarget};
 use galaxy_sim::{Input, World};
@@ -28,6 +29,11 @@ pub struct Boxed {
     pub clip: Option<Rect>,
     pub content_height: f32,
     pub style: ScreenStyle,
+    /// A drop target's height for its verdicts: the tallest label, or the height kept for
+    /// them while a value is held. Zero for other widgets.
+    pub verdicts: f32,
+    /// A yielding widget not drawn this frame, with everything in it (`yield`).
+    pub hidden: bool,
 }
 
 #[derive(Default)]
@@ -84,6 +90,19 @@ impl Screens {
         self.problems = self.load_problems.clone();
         self.boxes.clear();
         self.anchors = anchors.clone();
+        // While a value is held, each drop target keeps the verdict height it had at
+        // pickup, so a note the scripts rewrite moves no target. The drop ends it: the
+        // drop's own handler may fill the target and change its verdicts.
+        let kept = self
+            .presentation
+            .drag
+            .as_ref()
+            .map(|d| d.kept.clone())
+            .unwrap_or_default();
+        // Placed boxes as laid out (checked), and as shown (scrolled and clipped). Whether
+        // a yielding widget shows is decided on what is shown, over every screen at once.
+        let mut placed = Vec::new();
+        let mut screens = 0;
         for screen in &mut self.functions {
             let calls = screen.calls;
             screen.refresh(world);
@@ -94,7 +113,7 @@ impl Screens {
             if let Some(tree) = &screen.tree {
                 let mut tree = tree.clone();
                 icons::resolve(&mut tree, &self.icons, &mut self.problems);
-                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
+                let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
                 place(
                     &mut boxed,
                     Vec2::splat(20.0),
@@ -102,30 +121,33 @@ impl Screens {
                     anchors,
                     &mut self.problems,
                 );
-                check(
-                    &boxed,
-                    Rect::new(0.0, 0.0, size.x, size.y),
-                    &mut self.measure,
-                    &mut self.problems,
-                );
-                present(&mut boxed, &mut self.presentation, None);
-                self.boxes.push(boxed);
+                placed.push(boxed);
+                screens += 1;
             }
         }
         for tree in crate::life::widgets(world)
             .into_iter()
-            .chain(crate::talk::widgets(world))
+            .chain(crate::talk::widgets(world, &self.style))
         {
-            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style);
+            let mut boxed = layout(&tree, size.x - 40.0, &mut self.measure, &self.style, &kept);
             place(&mut boxed, Vec2::ZERO, size, anchors, &mut self.problems);
+            placed.push(boxed);
+        }
+        let mut shown = placed.clone();
+        for boxed in shown.iter_mut().take(screens) {
+            present(boxed, &mut self.presentation, None);
+        }
+        yielding::resolve(&mut shown, size);
+        for (boxed, shown) in placed.iter_mut().zip(&shown) {
+            yielding::copy_hidden(shown, boxed);
             check(
-                &boxed,
+                boxed,
                 Rect::new(0.0, 0.0, size.x, size.y),
                 &mut self.measure,
                 &mut self.problems,
             );
-            self.boxes.push(boxed);
         }
+        self.boxes = shown;
         self.finish_motion();
         for boxed in &self.boxes {
             draw(boxed, overlay, None, &self.presentation, &self.style);
@@ -151,9 +173,10 @@ impl Screens {
     }
 
     /// Topmost painted surface wins, including a non-clickable panel covering a button.
+    /// A resting button takes the click and records nothing.
     pub fn click(&self, point: Vec2, tick: u64) -> Option<Input> {
         let w = self.hit(point)?;
-        if !matches!(w.kind.as_str(), "button" | "bubble") {
+        if !matches!(w.kind.as_str(), "button" | "bubble") || w.resting.is_some() {
             return None;
         }
         w.on.as_ref().map(|name| Input {
@@ -165,8 +188,34 @@ impl Screens {
     }
 
     /// Resolve bot targets against the current layout, then use ordinary pointer hit testing.
+    /// A resting button is an error naming its reason; see [`Screens::bot_resting`].
     pub fn bot_click(&self, click: &Click) -> Result<Input, String> {
-        let point = match &click.target {
+        let point = self.bot_point(click)?;
+        if let Some((path, reason)) = self.resting_at(point) {
+            return Err(format!("{path}: resting: {reason}"));
+        }
+        self.click(point, click.tick).ok_or_else(|| {
+            format!(
+                "click at {},{} before tick {} hit no button",
+                point.x, point.y, click.tick
+            )
+        })
+    }
+
+    /// The resting button a bot click would land on, with its reason: the bot reports it
+    /// instead of clicking, and nothing is recorded.
+    pub fn bot_resting(&self, click: &Click) -> Option<(String, String)> {
+        self.resting_at(self.bot_point(click).ok()?)
+    }
+
+    fn resting_at(&self, point: Vec2) -> Option<(String, String)> {
+        let w = self.hit(point)?;
+        (w.kind == "button").then_some((w.path.clone(), w.resting.clone()?))
+    }
+
+    /// Where a bot click lands: its point, or a named button's uncovered centre.
+    fn bot_point(&self, click: &Click) -> Result<Vec2, String> {
+        Ok(match &click.target {
             ClickTarget::Point { x, y } => Vec2::new(*x, *y),
             ClickTarget::Widget(name) => {
                 let mut widgets = Vec::new();
@@ -204,12 +253,6 @@ impl Screens {
                 }
                 point
             }
-        };
-        self.click(point, click.tick).ok_or_else(|| {
-            format!(
-                "click at {},{} before tick {} hit no button",
-                point.x, point.y, click.tick
-            )
         })
     }
 
@@ -223,11 +266,16 @@ impl Screens {
 
     fn hit_surface(&self, point: Vec2, include_hovers: bool) -> Option<&Widget> {
         fn hit(b: &Boxed, p: Vec2, include_hovers: bool) -> Option<&Widget> {
-            if b.clip.is_some_and(|r| !point_in(r, p)) {
+            if b.hidden || b.clip.is_some_and(|r| !point_in(r, p)) {
                 return None;
             }
             for child in b.children.iter().rev() {
                 if let Some(w) = hit(child, p, include_hovers) {
+                    // A bubble is one surface: its heading, line and marker click it.
+                    // Only its answer buttons are separate targets.
+                    if b.widget.kind == "bubble" && w.kind != "button" {
+                        return Some(&b.widget);
+                    }
                     return Some(w);
                 }
             }
@@ -252,7 +300,14 @@ impl Screens {
     }
 }
 
-fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenStyle) -> Boxed {
+/// `kept` maps a drop target's path to the verdict height it keeps while a value is held.
+fn layout(
+    w: &Widget,
+    available: f32,
+    measure: &mut TextMeasure,
+    style: &ScreenStyle,
+    kept: &BTreeMap<String, f32>,
+) -> Boxed {
     let mut padded = w.clone();
     if !w.explicit_pad
         && matches!(
@@ -265,7 +320,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
     if w.kind == "scroll" {
         padded.pad = w.pad.max(12.0);
     }
-    if w.kind == "hover" {
+    if anchored(&w.kind) {
         padded.width = Some(44.0);
         padded.height = Some(44.0);
     }
@@ -281,6 +336,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
     .max(1.0);
     let mut text = None;
     let mut children = Vec::new();
+    let mut verdicts = 0.0;
     let height;
     if leaf(&w.kind) {
         let labels = if w.kind == "delta" {
@@ -293,17 +349,28 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         let mut measured: Vec<_> = labels
             .into_iter()
             .map(|label| {
-                let t = Text::new(label, Vec2::splat(w.pad), w.size).wrap(inner);
+                let mut t = Text::new(label, Vec2::splat(w.pad), w.size)
+                    .wrap(inner)
+                    .weight(w.weight);
+                if w.trailing {
+                    t = t.align(Align::Right);
+                    t.pos.x = w.pad + inner;
+                }
                 let h = measure.measure(&t, 1.0).y;
                 (t, h)
             })
             .collect();
         measured.sort_by(|a, b| a.1.total_cmp(&b.1));
-        let (t, h) = measured.pop().expect("at least one label");
-        let mut t = t;
+        let (mut t, mut h) = measured.pop().expect("at least one label");
+        if w.kind == "drop_target" {
+            // A held value keeps the space reserved at pickup; a verdict that outgrows it
+            // is reported as clipped by check.
+            h = kept.get(&w.path).copied().unwrap_or(h);
+            verdicts = h;
+        }
         let mut y = w.pad;
         for child in &w.children {
-            let mut b = layout(child, inner, measure, style);
+            let mut b = layout(child, inner, measure, style, kept);
             b.rect.x = w.pad;
             b.rect.y = y;
             y += b.rect.h + w.gap;
@@ -318,7 +385,7 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         for row in w.children.chunks(w.columns) {
             let mut boxes: Vec<_> = row
                 .iter()
-                .map(|c| layout(c, cell, measure, style))
+                .map(|c| layout(c, cell, measure, style, kept))
                 .collect();
             let h = boxes.iter().map(|b| b.rect.h).fold(0.0, f32::max);
             for (i, b) in boxes.iter_mut().enumerate() {
@@ -335,21 +402,17 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         };
     } else {
         let row = w.kind == "row";
-        let flowing = w
-            .children
-            .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none())
-            .count();
+        let flowing = w.children.iter().filter(|c| !detached(c)).count();
         let fixed: f32 = w
             .children
             .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none())
+            .filter(|c| !detached(c))
             .filter_map(|c| c.width)
             .sum();
         let flexible = w
             .children
             .iter()
-            .filter(|c| c.anchor.is_none() && c.x.is_none() && c.y.is_none() && c.width.is_none())
+            .filter(|c| !detached(c) && c.width.is_none())
             .count();
         let share = if row {
             ((inner - fixed - w.gap * flowing.saturating_sub(1) as f32) / flexible.max(1) as f32)
@@ -360,8 +423,8 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         let mut cursor = 0.0f32;
         let mut cross = 0.0f32;
         for child in &w.children {
-            let mut b = layout(child, share, measure, style);
-            let detached = child.anchor.is_some() || child.x.is_some() || child.y.is_some();
+            let mut b = layout(child, share, measure, style, kept);
+            let detached = detached(child);
             let p = if detached {
                 Vec2::ZERO
             } else if row {
@@ -393,6 +456,8 @@ fn layout(w: &Widget, available: f32, measure: &mut TextMeasure, style: &ScreenS
         clip: None,
         content_height: height,
         style: *style,
+        verdicts,
+        hidden: false,
     }
 }
 
@@ -404,7 +469,7 @@ fn place(
     problems: &mut Vec<String>,
 ) {
     let w = &b.widget;
-    if w.kind == "hover" {
+    if anchored(&w.kind) {
         if let Some(p) = w.anchor.as_ref().and_then(|a| anchors.get(a)) {
             b.rect.x = p.x - 22.0;
             b.rect.y = p.y - 22.0;
@@ -420,8 +485,21 @@ fn place(
     if let Some(y) = w.y {
         pos.y = origin.y + y;
     }
+    if let Some(align) = &w.align {
+        pos = aligned(align, Vec2::new(b.rect.w, b.rect.h), w.x, w.y, size);
+    }
     if let Some(anchor) = &w.anchor {
         match anchors.get(anchor) {
+            Some(p) if w.yields => {
+                // Never clamped: off screen, or in the way, it is hidden instead.
+                pos = *p
+                    + Vec2::new(
+                        w.x.unwrap_or(0.0) - b.rect.w * 0.5,
+                        w.y.unwrap_or(-12.0) - b.rect.h,
+                    );
+                b.hidden = !point_in(Rect::new(0.0, 0.0, size.x, size.y), *p);
+            }
+            None if w.yields => b.hidden = true,
             Some(p) => {
                 pos = *p
                     + Vec2::new(
@@ -457,7 +535,7 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 }
 
 fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Vec<String>) {
-    if b.widget.kind == "hover" {
+    if anchored(&b.widget.kind) || b.hidden {
         return;
     }
     let mut problem = |message: &str| problems.push(format!("{}: {message}", b.widget.path));
@@ -477,19 +555,27 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
             problem("the bundled font has missing glyphs");
         }
         let size = measure.measure(t, 1.0);
-        if !contains(b.rect, Rect::new(t.pos.x, t.pos.y, size.x, size.y)) {
+        if !contains(b.rect, text_rect(t, size)) {
             problem("text is clipped by its widget");
         }
-        if matches!(
-            b.widget.kind.as_str(),
-            "button" | "bubble" | "drag_source" | "drop_target"
-        ) && (b.rect.h < b.style.target_min || b.rect.w < b.style.target_min)
-        {
-            problem(&format!(
-                "target is smaller than [screen] target_min ({} pixels)",
-                b.style.target_min
-            ));
-        }
+    }
+    let target = matches!(
+        b.widget.kind.as_str(),
+        "button" | "drag_source" | "drop_target"
+    ) && b.text.is_some()
+        || b.widget.kind == "bubble" && b.widget.on.is_some();
+    if target && (b.rect.h < b.style.target_min || b.rect.w < b.style.target_min) {
+        problems.push(format!(
+            "{}: target is smaller than [screen] target_min ({} pixels)",
+            b.widget.path, b.style.target_min
+        ));
+    }
+    // The frame is capped by the padding, and the frame is what marks a button resting.
+    if b.widget.kind == "button" && b.widget.resting.is_some() && b.widget.pad < 1.0 {
+        problems.push(format!(
+            "{}: a resting button needs pad of at least 1 pixel to show its frame",
+            b.widget.path
+        ));
     }
     if b.widget.kind == "scroll"
         && b.content_height > b.rect.h
@@ -529,23 +615,23 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
         }
     }
     for (i, c) in b.children.iter().enumerate() {
-        if b.widget.kind == "grid"
-            && (c.widget.anchor.is_some() || c.widget.x.is_some() || c.widget.y.is_some())
-        {
+        if b.widget.kind == "grid" && detached(&c.widget) {
             problems.push(format!(
-                "{}: grid cells must flow, without anchors or x/y",
+                "{}: grid cells must flow, without anchors, align or x/y",
                 c.widget.path
             ));
         }
-        if c.widget.anchor.is_none() && !contains(parent, c.rect) {
+        if c.widget.anchor.is_none() && c.widget.align.is_none() && !contains(parent, c.rect) {
             problems.push(format!(
                 "{}: outside its parent {}",
                 c.widget.path, b.widget.path
             ));
         }
         for other in &b.children[..i] {
-            if c.widget.kind != "hover"
-                && other.widget.kind != "hover"
+            if !anchored(&c.widget.kind)
+                && !anchored(&other.widget.kind)
+                && !c.hidden
+                && !other.hidden
                 && overlaps(c.rect, other.rect)
             {
                 problems.push(format!("{}: overlaps {}", c.widget.path, other.widget.path));
@@ -556,6 +642,9 @@ fn check(b: &Boxed, viewport: Rect, measure: &mut TextMeasure, problems: &mut Ve
 }
 
 fn painted<'a>(b: &'a Boxed, out: &mut Vec<&'a Boxed>) {
+    if b.hidden {
+        return;
+    }
     if painted_kind(&b.widget.kind) {
         out.push(b);
     }
@@ -571,7 +660,7 @@ fn draw(
     state: &Presentation,
     style: &ScreenStyle,
 ) {
-    if b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
+    if b.hidden || b.clip.is_some_and(|r| !overlaps(r, b.rect)) {
         return;
     }
     let mut layer = UiLayer {
@@ -595,6 +684,12 @@ fn draw(
         panel.radius = panel.radius.min(b.widget.pad * 2.0);
         if b.widget.kind == "button" {
             panel.fill = style.button;
+            if b.widget.resting.is_some() {
+                // Resting: its own fill and a dashed frame, with text at full contrast.
+                panel.fill = style.resting_fill();
+                panel.dash = style.resting_dash;
+                panel.border_px = style.border_px.max(1.0);
+            }
         }
         if b.widget.kind == "drag_source" {
             panel.fill = style.button;
@@ -649,17 +744,7 @@ fn draw(
             };
         }
         if b.widget.kind == "drop_target" {
-            t.text = match &state.drag {
-                None => b.widget.text.clone(),
-                Some(drag) => match b.widget.accepts.get(&drag.value) {
-                    Some(reason) if reason.is_empty() => format!("{}\nDrop here", b.widget.text),
-                    reason => format!(
-                        "{}\nCannot drop: {}",
-                        b.widget.text,
-                        reason.map(String::as_str).unwrap_or("Not accepted")
-                    ),
-                },
-            };
+            t.text = verdict(&b.widget, state.drag.as_ref().map(|d| d.value.as_str()));
         }
         if !lifted {
             layer.texts.push(t);
@@ -674,14 +759,52 @@ fn draw(
     scrolling::draw(b, overlay, state);
 }
 
+/// Out of its parent's flow: anchored, aligned or explicitly placed.
+fn detached(w: &Widget) -> bool {
+    w.anchor.is_some() || w.align.is_some() || w.x.is_some() || w.y.is_some()
+}
+
+/// The top-left corner of a `size` box placed against the window's `align` edges, with
+/// `x`/`y` as margins from those edges (or offsets from the middle on a centred axis).
+fn aligned(align: &str, size: Vec2, x: Option<f32>, y: Option<f32>, window: Vec2) -> Vec2 {
+    let (x, y) = (x.unwrap_or(0.0), y.unwrap_or(0.0));
+    let (vertical, horizontal) = match align {
+        "center" => ("middle", "center"),
+        "left" | "right" => ("middle", align),
+        "top" | "bottom" => (align, "center"),
+        _ => align.split_once('-').unwrap_or(("top", "left")),
+    };
+    Vec2::new(
+        match horizontal {
+            "left" => x,
+            "right" => window.x - size.x - x,
+            _ => (window.x - size.x) * 0.5 + x,
+        },
+        match vertical {
+            "top" => y,
+            "bottom" => window.y - size.y - y,
+            _ => (window.y - size.y) * 0.5 + y,
+        },
+    )
+}
+
 fn leaf(kind: &str) -> bool {
     matches!(
         kind,
-        "text" | "sign" | "button" | "bubble" | "delta" | "icon" | "drag_source" | "drop_target"
+        "text" | "sign" | "button" | "delta" | "icon" | "drag_source" | "drop_target"
     )
 }
 fn painted_kind(kind: &str) -> bool {
-    leaf(kind) || matches!(kind, "panel" | "scroll")
+    leaf(kind) || matches!(kind, "panel" | "scroll" | "bubble")
+}
+/// The box a measured text covers; a trailing text's position is its end edge.
+fn text_rect(t: &Text, size: Vec2) -> Rect {
+    let x = match t.align {
+        Align::Left => t.pos.x,
+        Align::Center => t.pos.x - size.x * 0.5,
+        Align::Right => t.pos.x - size.x,
+    };
+    Rect::new(x, t.pos.y, size.x, size.y)
 }
 fn point_in(r: Rect, p: Vec2) -> bool {
     p.x >= r.x && p.y >= r.y && p.x < r.x + r.w && p.y < r.y + r.h
@@ -729,17 +852,33 @@ fn present(b: &mut Boxed, state: &mut Presentation, clip: Option<Rect>) {
     }
 }
 
+/// A drop target's label while `value` is held (its plain text with no drag): `Drop here`
+/// and the value's note under it, or `Cannot drop:` and the reason.
+fn verdict(w: &Widget, value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return w.text.clone();
+    };
+    match w.accepts.get(value) {
+        Some(reason) if reason.is_empty() => match w.notes.get(value) {
+            Some(note) => format!("{}\nDrop here\n{note}", w.text),
+            None => format!("{}\nDrop here", w.text),
+        },
+        reason => format!(
+            "{}\nCannot drop: {}",
+            w.text,
+            reason.map_or("Not accepted", String::as_str)
+        ),
+    }
+}
+
+/// Every label a drop target can show, so layout reserves the tallest and check reads
+/// each one: at rest, a bare accept, an unlisted value and every listed value.
 fn verdict_labels(w: &Widget) -> Vec<String> {
     let mut out = vec![
         w.text.clone(),
         format!("{}\nDrop here", w.text),
         format!("{}\nCannot drop: Not accepted", w.text),
     ];
-    out.extend(
-        w.accepts
-            .values()
-            .filter(|s| !s.is_empty())
-            .map(|r| format!("{}\nCannot drop: {}", w.text, r)),
-    );
+    out.extend(w.accepts.keys().map(|v| verdict(w, Some(v))));
     out
 }

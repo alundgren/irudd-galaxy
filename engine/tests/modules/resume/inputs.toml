@@ -1,0 +1,5 @@
+# The theme starts on tick 10; a test saves on tick 60 and resumes from there.
+[[input]]
+tick = 10
+name = "tune.play"
+source = "scenario"

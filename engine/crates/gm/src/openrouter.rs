@@ -230,6 +230,28 @@ impl Transport for Https {
     }
 }
 
+/// One non-streamed text answer for explicit authoring calls. Never retry, and never
+/// return unredacted provider text, including network failures and object keys.
+pub fn chat(transport: &mut dyn Transport, key: &ApiKey, body: &Value) -> Result<Value, String> {
+    let reply = transport
+        .post(CHAT_URL, &key.bearer(), &body.to_string())
+        .map_err(|e| key.redact(&e))?;
+    let safe = key.redact(&reply.body);
+    let parsed: Value = serde_json::from_str(&safe)
+        .map_err(|_| format!("OpenRouter returned invalid JSON (HTTP {})", reply.status))?;
+    let parsed = key.redact_json(parsed);
+    if !(200..300).contains(&reply.status) || parsed.get("error").is_some() {
+        return Err(format!(
+            "OpenRouter refused the request (HTTP {}): {}",
+            reply.status,
+            parsed
+                .get("error")
+                .map_or("no error details".into(), Value::to_string)
+        ));
+    }
+    Ok(parsed)
+}
+
 /// Why a call produced no audio. Every text is already redacted.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CallError {

@@ -9,8 +9,9 @@ an authoring and playtest recipe, and `fields components` lists the schema.
 
 | Component | Fields and meaning |
 |---|---|
-| `engine.talk` | `speaker` is an entity; `first` starts a linked chain of lines. `anchor` is any published anchor, defaulting to `being.<speaker>`. `enabled` defaults true. `story` prioritizes an unseen moment over repeat dialogue. `active`, `current` and `seen` store engine-managed progress. `width` (320), `x` (0), `y` (-12) are logical-pixel bubble placement. |
-| `engine.talk_line` | `text` is one nonempty line; `next` names another line or is empty at the end. |
+| `engine.talk` | `speaker` is an entity; `first` starts a linked chain of lines. `anchor` is any published anchor, defaulting to `being.<speaker>`. `enabled` defaults true. `story` prioritizes an unseen moment over repeat dialogue. `active`, `current` and `seen` store engine-managed progress. `width` (320), `x` (0), `y` (-12) are logical-pixel bubble placement. `title` is the bubble's heading (empty uses the speaker's life sign name); `subtitle` is a quieter line under it, such as a place. |
+| `engine.talk_line` | `text` is one nonempty line; `next` names another line or is empty at the end. A line with answers has an empty `next`. |
+| `engine.talk_choice` | An answer `line` offers as a button: `text` is its label, `next` the line it leads to (empty ends the conversation), `order` its place among the line's answers (lowest first, ties by entity ID). |
 | `engine.focus` | `part` names a mesh part, default `face`; empty explicitly means no focus. Beings without this component still use `face`. Non-beings have no required focus unless they opt in. |
 
 Declare talk and line writes in the module manifest and define entities in start data,
@@ -26,13 +27,21 @@ Clicking a speaker picks its unseen story first, then repeat dialogue, then a se
 if no repeat exists. Ties use entity ID order. Only one conversation is active at a time.
 Starting another interrupts the previous one. Clicking the bubble sends
 `engine.talk_next { talk, line }`; clicking a speaker sends `engine.talk_start { talk }`.
+On a line with answers the bubble itself does not advance; its answer buttons send
+`engine.talk_chosen { talk, line, choice }`, which continues to that choice's `next` or
+ends the conversation, marking it seen.
 Both are recorded inputs, validated against the current world. The line token ignores
-stale advances: a double click on one displayed line advances only once. A queued click
-that outlives its room or enabled state is also a recorded no-op. Only acknowledging the last line sets `seen`. Leaving, moving the
+stale advances: a double click on one displayed line advances only once. A stale answer
+(not on the line showing, or not one of its answers) changes nothing and records no
+`engine.talk_chosen` event, so a handler sees each answer once; the input stays in the
+recording, so replays are identical. What an answer means is module logic: a handler can
+record it, and keep a declined offer from returning by disabling its talk. A queued click
+that outlives its room, its enabled state or the talk itself (a handler removing a
+finished talk) is also a recorded no-op. Only acknowledging the last line sets `seen`. Leaving, moving the
 speaker away or disabling the conversation interrupts without marking it seen. Starting
 it again begins at its first line. Seen status has no clock or expiry.
 
-Lines must form a finite, nonempty chain with existing references, nonempty text and a
+Lines and the answers' next lines must form a finite graph without cycles, with existing references, nonempty text and a
 current line in that chain when active. World batches validate atomically and roll back
 mistakes. Start-state and resumed-world validation use the same rules. There is no new
 save or recording format, and old worlds without talk retain their existing hashes.
@@ -43,19 +52,29 @@ The view derives an internal `bubble` widget from the active line. It uses the s
 text measurement, wrapping, anchor placement, viewport clamp, readability checks,
 ordered paint layers and hit testing. Its paint uses the bubble surface of the module's `[screen]` style, with a neutral
 default. No separate talk renderer or game look is introduced. Width and offsets are module-owned
-presentation geometry. The line and Continue/Done affordance form one click target.
+presentation geometry.
+
+The bubble is a column: the heading (larger and heavier), the subtitle (smaller and
+lighter), the line, then either a small, light Continue/Done marker against the bubble's
+end edge or a row of answer buttons. `[screen]` sizes them: `bubble_title` (24),
+`bubble_title_weight` (650), `bubble_subtitle` (16), `bubble_text` (20, also the answer
+buttons) and `bubble_marker` (16); subtitle and marker are drawn at weight 400, the line
+at 500. Without answers the whole bubble is one click target: hit testing returns the
+bubble for any point on it, its texts included. With answers only the buttons click.
 
 Anchors follow the same interpolated pose as the figure. A bubble has no private timer,
 position memory or Luau frame callback. Travel consumes landing clicks first and hides
 interrupted talk. Painted widgets block speaker picking. `[[click]]` bot entries accept
 `widget = "speaker.<full-id>"` for a model speaker and `widget = "talk.<full-talk-id>"`
-for a bubble; coordinate clicks also use the actual hit test. Model-less anchors use
+for a bubble, and `widget = "choice.<full-choice-id>"` for an answer; coordinate clicks
+also use the actual hit test. Model-less anchors use
 coordinates. Bot targeting records the resolved input, never a future lookup.
 
 ## Visibility, combinations and limits
 
 `galaxy-gm check` stages every authored talk, including disabled ones, in its speaker's
-place, and every line of that talk. It rebuilds the module's conditional screens, room
+place, and every line that talk can reach, through `next` and every answer. A line with
+answers is laid out with its buttons, so a bubble too narrow for them fails. It rebuilds the module's conditional screens, room
 camera, figure poses, anchor and actual bubble dimensions together. Thus a longer second
 line, room panel or clamped bubble can fail even when each screen alone passes. Existing
 room checks still test every room and floor spot, including empty rooms.
@@ -98,6 +117,8 @@ F8's world tick plus existing camera, size, scale and interpolation metadata rep
 the active line and its anchor. Audit and film use the same scene/screen path. The
 playable fixture is `tests/play/talk`; its Room B cover button covers the third
 speaker's face at runtime, which check can't see and the problems panel flags.
+`tests/play/offer` styles its bubble and offers two answers: taking shows the next line,
+declining ends the talk and its handler disables the offer.
 `tests/play/talk-covered` intentionally covers a speaker's face in a room the player has
 not entered. It must fail check.
 
@@ -115,7 +136,17 @@ galaxy-gm --build <name> motion strip <film> --screen "300,240;650,240"
 galaxy-gm --build <name> motion sheet <film> --count 12
 galaxy-gm --build <name> motion flow <film> --screen --region 300,180,420,220
 galaxy-gm --build <name> motion flicker <film> --screen
+galaxy-gm --build <name> check engine/tests/play/offer/demo
+galaxy-gm --build <name> check engine/tests/play/sign-panel/demo
+galaxy --build <name> play --modules engine/tests/play/offer --inputs engine/tests/play/offer-inputs.toml --ticks 70
+galaxy --build <name> play --modules engine/tests/play/offer --inputs engine/tests/play/offer-decline-inputs.toml --ticks 50
 ```
+
+For answers, `tests/play/offer-inputs.toml` (70 ticks) takes the offer and hears the
+repeat talk, and `tests/play/offer-decline-inputs.toml` (50 ticks) declines it; both leave
+notes that audit redraws identically. `crates/view/tests/offer.rs` covers sizes, the one
+click target, answer order, the stale double answer, branches, replay, a mid-talk redraw,
+save/load and authoring errors.
 
 The bot speaks to a non-being anchor, leaves an unfinished story, returns to hear it,
 finishes it, asks again, moves a speaker during a line, changes rooms, and deliberately
@@ -131,7 +162,11 @@ Module-only conversation counters could implement dialogue, but would duplicate 
 and interruption semantics and give the checker no finite list of lines to exercise.
 Linked line entities reuse the world's existing scalar schema, references, capability
 checks and persistence without introducing a second content store. Speaker-specific
-bubbles would exclude signs and other anchored objects. Separate overlay paint would
+bubbles would exclude signs and other anchored objects. Answers are entities pointing at
+their line, like lines pointing at the next, because the world has no list field; a
+per-line list would need a new field type. Answer buttons in a room panel would separate
+the answer from the question. Rich text spans in one label would need a markup parser
+and per-span measurement; a column of plain texts reuses the screen layout and checks. Separate overlay paint would
 bake another look into the engine and make later styling harder.
 
 An anchor-only visibility test misses hats and panels covering part of a face. Bounds-only

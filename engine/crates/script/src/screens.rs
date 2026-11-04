@@ -11,8 +11,9 @@ use mlua::{LuaSerdeExt, Table, Value};
 
 use crate::vm::{Code, LIMITS, Vm};
 
-pub const KINDS: [&str; 13] = [
+pub const KINDS: [&str; 14] = [
     "hover",
+    "target",
     "text",
     "button",
     "list",
@@ -27,6 +28,26 @@ pub const KINDS: [&str; 13] = [
     "drop_target",
 ];
 
+/// Edges a widget can be placed against: `x`/`y` are margins from that edge of the
+/// window, or offsets from its middle on a centred axis.
+pub const ALIGNS: [&str; 9] = [
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+];
+
+/// Declarations anchored to a thing in the world rather than painted: `hover` labels it,
+/// `target` also makes it clickable.
+pub fn anchored(kind: &str) -> bool {
+    matches!(kind, "hover" | "target")
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Widget {
     pub kind: String,
@@ -34,6 +55,9 @@ pub struct Widget {
     pub path: String,
     pub text: String,
     pub hover: Option<String>,
+    /// A button that exists but can't act now: drawn resting, its click records nothing,
+    /// and hovering shows this short reason.
+    pub resting: Option<String>,
     pub width: Option<f32>,
     pub height: Option<f32>,
     pub x: Option<f32>,
@@ -43,6 +67,8 @@ pub struct Widget {
     pub explicit_pad: bool,
     pub gap: f32,
     pub anchor: Option<String>,
+    /// One of [`ALIGNS`]: placed against the window's edges, detached from flow.
+    pub align: Option<String>,
     pub on: Option<String>,
     pub payload: Fields,
     pub children: Vec<Widget>,
@@ -50,6 +76,17 @@ pub struct Widget {
     pub value: String,
     pub delta: f64,
     pub accepts: BTreeMap<String, String>,
+    /// For an accepted value, what dropping it changes: drawn under `Drop here`.
+    pub notes: BTreeMap<String, String>,
+    /// Text weight, 300 to 700. Screens always use 500; engine widgets such as a talk
+    /// bubble's heading set their own.
+    pub weight: u16,
+    /// The text sits against the widget's end edge instead of its start (engine widgets).
+    pub trailing: bool,
+    /// An anchored widget that yields: instead of being clamped to the window, it isn't
+    /// drawn while its anchor is off screen, it would leave the window, or it would
+    /// overlap another painted widget.
+    pub yields: bool,
 }
 
 #[derive(Default)]
@@ -233,7 +270,8 @@ fn read(
             pair.map_err(|_| bad("properties must have names; put widgets in children"))?;
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
-            "on", "payload", "children", "columns", "value", "accepts", "icon", "hover",
+            "on", "payload", "children", "columns", "value", "accepts", "notes", "icon", "hover",
+            "align", "resting", "yield",
         ]
         .contains(&key.as_str())
         {
@@ -264,12 +302,16 @@ fn read(
                 .ok_or_else(|| bad("on must name one of this module's declared events"))
         })
         .transpose()?;
-    if matches!(kind.as_str(), "button" | "drop_target") && on.is_none() {
-        return Err(bad("button/drop_target needs an on event"));
+    if matches!(kind.as_str(), "button" | "drop_target" | "target") && on.is_none() {
+        return Err(bad("button/drop_target/target needs an on event"));
     }
-    if !matches!(kind.as_str(), "button" | "drop_target" | "scroll") && on.is_some() {
+    if !matches!(
+        kind.as_str(),
+        "button" | "drop_target" | "scroll" | "target"
+    ) && on.is_some()
+    {
         return Err(bad(
-            "only buttons, drop targets and scrolls have an on event",
+            "only buttons, drop targets, targets and scrolls have an on event",
         ));
     }
     let payload: Fields = match t.get::<Value>("payload")? {
@@ -333,7 +375,7 @@ fn read(
     }
     if matches!(
         kind.as_str(),
-        "text" | "button" | "delta" | "icon" | "drag_source" | "hover"
+        "text" | "button" | "delta" | "icon" | "drag_source" | "hover" | "target"
     ) && !children.is_empty()
     {
         return Err(bad("leaf widgets have no children"));
@@ -358,8 +400,17 @@ fn read(
             Ok::<_, mlua::Error>(format!("{entity}#{name}"))
         })
         .transpose()?;
-    if kind == "hover" && anchor.is_none() {
-        return Err(bad("hover needs an anchor"));
+    if anchored(&kind) && anchor.is_none() {
+        return Err(bad("hover and target need an anchor"));
+    }
+    let align = string("align")?;
+    if let Some(a) = &align {
+        if !ALIGNS.contains(&a.as_str()) {
+            return Err(bad(&format!("align must be one of {}", ALIGNS.join(", "))));
+        }
+        if anchor.is_some() || anchored(&kind) {
+            return Err(bad("a widget is either anchored or aligned, not both"));
+        }
     }
     let columns = num("columns")?.unwrap_or(2.0);
     if columns.fract() != 0.0 || !(1.0..=64.0).contains(&columns) {
@@ -395,6 +446,26 @@ fn read(
     } else {
         String::new()
     };
+    let yields = match t.get::<Value>("yield")? {
+        Value::Nil => false,
+        Value::Boolean(b) => b,
+        _ => return Err(bad("yield must be true or false")),
+    };
+    if yields && (anchor.is_none() || anchored(&kind)) {
+        return Err(bad("yield goes with anchor, on a painted widget"));
+    }
+    let resting = string("resting")?;
+    if resting.is_some() && kind != "button" {
+        return Err(bad("only buttons rest"));
+    }
+    if resting.as_ref().is_some_and(|r| r.trim().is_empty()) {
+        return Err(bad("resting needs a short reason"));
+    }
+    // Hovering a resting button shows its reason, after any label of its own.
+    let hover = match (string("hover")?, &resting) {
+        (Some(h), Some(r)) => Some(format!("{h}\n{r}")),
+        (h, r) => h.or_else(|| r.clone()),
+    };
     let accepts = match t.get::<Value>("accepts")? {
         Value::Nil => BTreeMap::new(),
         Value::Table(t) => t
@@ -411,12 +482,42 @@ fn read(
             .collect::<mlua::Result<_>>()?,
         _ => return Err(bad("accepts must be a table")),
     };
+    let notes = match t.get::<Value>("notes")? {
+        Value::Nil => BTreeMap::new(),
+        Value::Table(t) => t
+            .pairs::<String, Value>()
+            .map(|p| {
+                let (key, value) = p?;
+                match value {
+                    Value::String(s) => Ok((key, s.to_str()?.to_string())),
+                    _ => Err(bad("notes maps accepted source values to text")),
+                }
+            })
+            .collect::<mlua::Result<BTreeMap<_, _>>>()?,
+        _ => return Err(bad("notes must be a table")),
+    };
+    if !notes.is_empty() && kind != "drop_target" {
+        return Err(bad("only drop targets have notes"));
+    }
+    for (value, note) in &notes {
+        if note.trim().is_empty() {
+            return Err(bad(&format!(
+                "notes.{value} needs text; leave it out instead"
+            )));
+        }
+        if accepts.get(value).is_none_or(|r| !r.is_empty()) {
+            return Err(bad(&format!(
+                "notes.{value} describes an accepted drop: set accepts.{value} = \"\""
+            )));
+        }
+    }
     Ok(Widget {
         kind: kind.clone(),
         id,
         path: path.into(),
         text: string("text")?.unwrap_or_default(),
-        hover: string("hover")?,
+        hover,
+        resting,
         width: num("width")?,
         height: num("height")?,
         x: num("x")?,
@@ -435,13 +536,18 @@ fn read(
         explicit_pad: num("pad")?.is_some(),
         gap: num("gap")?.unwrap_or(12.0),
         anchor,
+        align,
         on,
         payload,
         children,
         columns: columns as usize,
         value,
         delta,
+        weight: 500,
+        trailing: false,
+        yields,
         accepts,
+        notes,
     })
 }
 

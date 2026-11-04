@@ -1,0 +1,234 @@
+# Tuning by hand. R steps from Lantern Dock to Cinder Kiln and its music is cued once;
+# the key's release changes nothing. The chosen channel holds even flown out past Lantern
+# Dock, where Lantern Dock's own channel is far stronger. Off stops the music and On
+# brings the same channel back; Prev steps back to Lantern Dock; R steps on, past the
+# last channel turns the radio off, and R again turns it on at the first. Docked, the radio
+# is quiet and R does nothing.
+seed = 7
+ticks = 1200
+
+[[input]]
+tick = 120
+name = "radio"
+payload = { down = true }
+
+[[input]]
+tick = 121
+name = "radio"
+payload = { down = false }
+
+[[input]]
+tick = 150
+name = "left"
+payload = { down = true }
+
+[[input]]
+tick = 180
+name = "left"
+payload = { down = false }
+
+[[input]]
+tick = 190
+name = "ahead"
+payload = { down = true }
+
+[[input]]
+tick = 235
+name = "ahead"
+payload = { down = false }
+
+[[input]]
+tick = 600
+name = "radio"
+source = "ui"
+payload = { tune = "toggle" }
+
+[[input]]
+tick = 660
+name = "radio"
+source = "ui"
+payload = { tune = "toggle" }
+
+[[input]]
+tick = 720
+name = "radio"
+source = "ui"
+payload = { tune = "prev" }
+
+[[input]]
+tick = 780
+name = "radio"
+payload = { down = true }
+
+[[input]]
+tick = 781
+name = "radio"
+payload = { down = true }
+
+[[input]]
+tick = 782
+name = "radio"
+payload = { down = true }
+
+[[input]]
+tick = 900
+name = "dock"
+payload = { station = "core.lantern" }
+
+[[input]]
+tick = 1150
+name = "radio"
+payload = { down = true }
+
+# R: Cinder Kiln by hand, cued once.
+[[expect]]
+tick = 121
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+
+[[expect]]
+tick = 121
+entity = "ship"
+component = "radio"
+field = "hand"
+equals = true
+
+[[expect]]
+tick = 121
+facts = "radio_kiln"
+equals = 1
+
+# Out west by Lantern Dock, the chosen channel holds.
+[[expect]]
+tick = 590
+entity = "ship"
+component = "engine.position"
+field = "x"
+at_most = -25
+
+[[expect]]
+tick = 590
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+
+[[expect]]
+tick = 590
+facts = "radio_kiln"
+equals = 1
+
+[[expect]]
+tick = 590
+facts = "radio_lantern"
+equals = 1
+
+# Off, then On: the same channel again.
+[[expect]]
+tick = 600
+entity = "ship"
+component = "radio"
+field = "on"
+equals = false
+
+[[expect]]
+tick = 600
+facts = "radio_off"
+equals = 1
+
+[[expect]]
+tick = 660
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+
+[[expect]]
+tick = 660
+facts = "radio_kiln"
+equals = 2
+
+# Prev: back to Lantern Dock.
+[[expect]]
+tick = 720
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+
+[[expect]]
+tick = 720
+facts = "radio_lantern"
+equals = 2
+
+# R steps on to Cinder Kiln, then past the last channel: off. R again: on, at the
+# first.
+[[expect]]
+tick = 780
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.kiln_radio"
+
+[[expect]]
+tick = 781
+entity = "ship"
+component = "radio"
+field = "on"
+equals = false
+
+[[expect]]
+tick = 781
+facts = "radio_off"
+equals = 2
+
+[[expect]]
+tick = 782
+entity = "ship"
+component = "radio"
+field = "on"
+equals = true
+
+[[expect]]
+tick = 782
+entity = "ship"
+component = "radio"
+field = "channel"
+equals = "core.lantern_radio"
+
+[[expect]]
+tick = 782
+facts = "radio_lantern"
+equals = 3
+
+[[expect]]
+tick = 782
+facts = "radio_kiln"
+equals = 3
+
+# Docked: quiet, and R does nothing.
+[[expect]]
+tick = 1150
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
+
+[[expect]]
+tick = 1150
+facts = "radio_off"
+equals = 3
+
+[[expect]]
+tick = 1151
+entity = "ship"
+component = "radio"
+field = "on"
+equals = true
+
+[[expect]]
+tick = 1151
+facts = "radio_lantern"
+equals = 3

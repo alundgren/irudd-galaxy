@@ -1,0 +1,37 @@
+# A hot load stops all music, so in flight the radio plays its channel again, once,
+# without being touched. Lantern Dock's channel is playing from the first second; the
+# hot load's fact on tick 90 brings one more Lantern Dock cue and nothing else.
+seed = 7
+ticks = 150
+
+[[input]]
+tick = 90
+name = "engine.hot_loaded"
+payload = { module = "core" }
+
+[[expect]]
+tick = 89
+facts = "radio_lantern"
+equals = 1
+
+[[expect]]
+tick = 92
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 149
+facts = "radio_lantern"
+equals = 2
+
+[[expect]]
+tick = 149
+facts = "radio_off"
+equals = 0
+
+[[expect]]
+tick = 149
+entity = "ship"
+component = "radio"
+field = "playing"
+equals = "core.lantern_radio"

@@ -150,9 +150,9 @@ fn film_here(options: &Options, out: &Path, probes_only: bool) -> Result<Value, 
             .map_err(|e| Failure::bad_input(e).with("path", path.display().to_string()))?,
         None => InputsFile::default(),
     };
-    if !script.clicks.is_empty() || !script.pointers.is_empty() {
+    if script.needs_window() {
         return Err(Failure::bad_input(
-            "clicks and drags ([[click]], [[pointer]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
+            "clicks, drags and key presses ([[click]], [[pointer]], [[key]]) need a window: run them with galaxy play, then galaxy-gm film <session>/recording.json draws them",
         ));
     }
     let zooms = script

@@ -78,11 +78,7 @@ mod tests {
     /// Every option a command's parser takes is in its help, and the other way round.
     #[test]
     fn help_lists_the_options_each_command_takes() {
-        let load: Vec<&str> = sim::RUN_OPTIONS
-            .iter()
-            .copied()
-            .filter(|o| *o != "--seed")
-            .collect();
+        let load = sim::load_options();
         let table: [(&str, &[&str]); 7] = [
             ("audio", audio::OPTIONS),
             ("play", play::PLAY_OPTIONS),

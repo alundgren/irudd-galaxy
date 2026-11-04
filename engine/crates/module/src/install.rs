@@ -62,6 +62,25 @@ pub fn sessions_dir() -> PathBuf {
         })
 }
 
+/// Moves the folder the GM keeps its memory of each game in to this absolute folder.
+pub const MEMORY_VAR: &str = "GALAXY_GM_MEMORY";
+
+/// Where `galaxy-gm memory` keeps one file a game (the player's preferences and directions
+/// for the GM): `GALAXY_GM_MEMORY` if it is an absolute folder, else `irudd-galaxy/gm-memory`
+/// in the per-user data folder, beside the sessions.
+pub fn memory_dir() -> PathBuf {
+    std::env::var_os(MEMORY_VAR)
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| {
+            directories::BaseDirs::new()
+                .map(|d| d.data_local_dir().to_path_buf())
+                .unwrap_or_else(std::env::temp_dir)
+                .join("irudd-galaxy")
+                .join("gm-memory")
+        })
+}
+
 /// The install root: `GALAXY_INSTALL_ROOT` if it is an absolute folder, else the default.
 pub fn root() -> PathBuf {
     std::env::var_os(ROOT_VAR)

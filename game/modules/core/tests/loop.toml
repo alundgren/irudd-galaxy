@@ -5,7 +5,7 @@ tick = 1
 name = "core.ahead"
 payload = { down = true }
 [[input]]
-tick = 31
+tick = 11
 name = "core.ahead"
 payload = { down = false }
 [[input]]
@@ -17,13 +17,13 @@ name = "core.dock"
 payload = { station = "core.lantern" }
 [[input]]
 tick = 600
-name = "core.market"
+name = "core.open"
 [[input]]
 tick = 660
 name = "core.sell"
 [[input]]
 tick = 720
-name = "core.leave"
+name = "core.close"
 [[input]]
 tick = 780
 name = "core.launch"
@@ -45,8 +45,8 @@ at_most = 9
 [[expect]]
 tick = 300
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 6
 
 [[expect]]
@@ -73,37 +73,37 @@ equals = "core.lantern"
 [[expect]]
 tick = 640
 entity = "ship"
-component = "engine.location"
-field = "place"
-equals = "core.lantern_market"
+component = "pilot"
+field = "room"
+equals = "core.lantern_exchange"
 
 [[expect]]
 tick = 670
 entity = "ship"
 component = "pilot"
 field = "credits"
-equals = 72
+equals = 73
 
 [[expect]]
 tick = 670
 entity = "ship"
-component = "pilot"
-field = "cargo"
+component = "hold"
+field = "ore"
 equals = 0
 
 [[expect]]
 tick = 670
-entity = "lantern"
-component = "port"
+entity = "lantern_ore"
+component = "market"
 field = "stock"
-equals = 6
+equals = 33
 
 [[expect]]
 tick = 670
-entity = "lantern_market_stock"
+entity = "lantern_stock"
 component = "engine.model"
 field = "scale"
-equals = 0.64
+equals = 0.92
 
 [[expect]]
 tick = 840
@@ -116,8 +116,8 @@ equals = "core.reach"
 tick = 840
 entity = "ship"
 component = "engine.model"
-field = "model"
-equals = "core.ship"
+field = "scale"
+equals = 1
 
 [[expect]]
 facts = "mined"

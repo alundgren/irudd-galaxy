@@ -1,0 +1,74 @@
+# The core's sound: each station's radio music, the ship's engine hum out in the reach,
+# and each station's deck. Every file is a prepared loop (loop_crossfade = 0).
+#
+# Music: one Lyria generation per channel through `galaxy-gm music`, then trimmed before
+# its fade-out, cleaned of DC, set to -23 LUFS (`audio process`) and looped with a 2 s
+# blend (`audio loop`), stored as 16-bit PCM. At volume 1 under the 0.7 master it plays
+# near -26 LUFS. Prompts:
+#   lantern_radio: Calm lamplit harbour radio at night: slow warm folk, mellow
+#     fingerpicked nylon guitar over soft Rhodes chords and a gentle upright bass, very
+#     light brushed percussion, about 72 bpm. Soft, mellow, rounded, no bright or harsh
+#     highs; clean, undistorted, restrained dynamics; stable centred bass. Steady even
+#     energy from start to end, sparse voicing, compatible beginning and end, no intro,
+#     no outro, no final cadence. (google/lyria-3-clip-preview)
+#   kiln_radio: Slow warm ambient radio for a furnace station at night: deep soft analog
+#     synth pads, a muted felt piano playing a few sparse low notes, a slow soft pulse
+#     like banked coals, gentle warm bass, about 64 bpm. Soft, mellow, rounded, no bright
+#     or harsh highs; clean, undistorted, restrained dynamics; stable centred bass,
+#     mono-compatible stereo. Steady even energy from start to end, compatible beginning
+#     and end, no intro, no outro, no final cadence. (google/lyria-3-clip-preview)
+#
+# Ambience: authored 16-second mono loops whose every partial and noise band repeats
+# exactly, so they have no seam. reach: the tug's low engine hum with a slow beat over a
+# faint cabin hush. lantern_deck: soft ventilation, a low hum and the lamps' warm buzz.
+# kiln_deck: the furnace's banked roar, a low drone and a slow bellows breath.
+crossfade = 2.0
+
+[sounds.lantern_radio]
+file = "music/lantern_radio.wav"
+volume = 1.0
+loop_crossfade = 0
+
+[sounds.kiln_radio]
+file = "music/kiln_radio.wav"
+volume = 1.0
+loop_crossfade = 0
+
+[sounds.reach]
+file = "sounds/reach.wav"
+volume = 0.25
+loop_crossfade = 0
+
+[sounds.lantern_deck]
+file = "sounds/lantern_deck.wav"
+volume = 0.42
+loop_crossfade = 0
+
+[sounds.kiln_deck]
+file = "sounds/kiln_deck.wav"
+volume = 0.44
+loop_crossfade = 0
+
+[places]
+reach = "reach"
+lantern = "lantern_deck"
+kiln = "kiln_deck"
+
+# The radio (scripts/radio.luau) records which channel should play; music fades across.
+[[events]]
+event = "radio_lantern"
+sound = "lantern_radio"
+bus = "music"
+fade = 3.0
+
+[[events]]
+event = "radio_kiln"
+sound = "kiln_radio"
+bus = "music"
+fade = 3.0
+
+[[events]]
+event = "radio_off"
+bus = "music"
+stop = true
+fade = 2.0

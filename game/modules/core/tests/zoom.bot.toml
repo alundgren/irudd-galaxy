@@ -1,0 +1,4 @@
+inputs = "tests/zoom-play.inputs"
+ticks = 480
+size = [1280, 720]
+seed = 1

@@ -1,0 +1,5 @@
+[entities.state]
+tray = { count = 0 }
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60 }

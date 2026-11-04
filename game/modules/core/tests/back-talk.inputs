@@ -1,0 +1,287 @@
+# Going back while someone is speaking, in the 1024x576 window: the trade route by real
+# clicks until Ines offers her gift, then Esc with the offer unanswered; back in, her
+# offer again from its first line, and a right-click on that ordinary line; then in
+# once more to take the gift. On the whole station, the log opened while Tova speaks,
+# and her exchange opened while she speaks. No bubble or sign may cover the HUD or a
+# panel. Rooms glide open, so a click after opening or leaving one waits for the glide.
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+
+[[click]]
+tick = 60
+widget = "mine"
+
+[[click]]
+tick = 330
+widget = "kiln"
+
+[[click]]
+tick = 715
+widget = "sign_exchange"
+
+[[note]]
+tick = 723
+text = "Kiln exchange: a full hold of ore; buying plate rests until I sell."
+
+[[click]]
+tick = 748
+widget = "sell_ore"
+
+[[click]]
+tick = 763
+widget = "buymax_plate"
+
+[[note]]
+tick = 771
+text = "Sold the ore, bought plate; each unit of plate asked a little more."
+
+[[click]]
+tick = 786
+widget = "close"
+
+[[click]]
+tick = 819
+widget = "launch"
+
+[[click]]
+tick = 859
+widget = "lantern"
+
+[[click]]
+tick = 1204
+widget = "sign_galley"
+
+[[note]]
+tick = 1212
+text = "Lantern Dock: the galley site, 0 of 10 plate in."
+
+[[click]]
+tick = 1237
+widget = "close"
+
+[[click]]
+tick = 1270
+widget = "sign_exchange"
+
+[[click]]
+tick = 1303
+widget = "sell_plate"
+
+[[note]]
+tick = 1311
+text = "Plate sold into the galley: 3 of 10."
+
+[[click]]
+tick = 1326
+widget = "close"
+
+[[click]]
+tick = 1359
+widget = "launch"
+
+[[click]]
+tick = 1399
+widget = "lantern"
+
+[[note]]
+tick = 1549
+text = "A quick undock and redock: still one visit, nothing restocked."
+
+[[click]]
+tick = 1564
+widget = "launch"
+
+[[click]]
+tick = 1604
+widget = "kiln"
+
+[[click]]
+tick = 1949
+widget = "sign_exchange"
+
+[[click]]
+tick = 1982
+widget = "buymax_plate"
+
+[[click]]
+tick = 1997
+widget = "close"
+
+[[click]]
+tick = 2030
+widget = "launch"
+
+[[click]]
+tick = 2070
+widget = "lantern"
+
+[[click]]
+tick = 2415
+widget = "sign_exchange"
+
+[[click]]
+tick = 2448
+widget = "sell_plate"
+
+[[click]]
+tick = 2463
+widget = "close"
+
+[[click]]
+tick = 2496
+widget = "launch"
+
+[[click]]
+tick = 2536
+widget = "kiln"
+
+[[click]]
+tick = 2881
+widget = "sign_exchange"
+
+[[click]]
+tick = 2914
+widget = "buymax_plate"
+
+[[click]]
+tick = 2929
+widget = "close"
+
+[[click]]
+tick = 2962
+widget = "launch"
+
+[[click]]
+tick = 3002
+widget = "lantern"
+
+[[click]]
+tick = 3347
+widget = "sign_exchange"
+
+[[click]]
+tick = 3380
+widget = "sell_plate"
+
+[[note]]
+tick = 3388
+text = "The tenth plate: the galley is built."
+
+[[click]]
+tick = 3403
+widget = "close"
+
+[[note]]
+tick = 3411
+text = "The station has grown: the galley stands where the scaffold was, with Ines by it."
+
+[[click]]
+tick = 3436
+widget = "sign_galley"
+
+[[click]]
+tick = 3469
+widget = "speaker.core.lantern_cook"
+
+[[note]]
+tick = 3477
+text = "Ines introduces herself."
+
+[[click]]
+tick = 3492
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3507
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3522
+widget = "talk.core.lantern_cook_intro"
+
+[[click]]
+tick = 3537
+widget = "speaker.core.lantern_cook"
+[[click]]
+tick = 3552
+widget = "talk.core.lantern_cook_gift"
+
+# Back with the offer unanswered: Esc.
+[[key]]
+tick = 3567
+key = "escape"
+[[note]]
+tick = 3572
+text = "Back from Ines's unanswered offer: the bubble goes, the HUD shows."
+
+# In again: her offer, still open, begins at its first line; Back on that line: a
+# right-click.
+[[click]]
+tick = 3600
+widget = "key_galley"
+[[click]]
+tick = 3633
+widget = "speaker.core.lantern_cook"
+[[key]]
+tick = 3648
+key = "mouse_right"
+[[note]]
+tick = 3653
+text = "Back from her first line: the bubble goes again."
+
+# In once more, and take it this time.
+[[click]]
+tick = 3681
+widget = "key_galley"
+[[click]]
+tick = 3714
+widget = "speaker.core.lantern_cook"
+[[click]]
+tick = 3729
+widget = "talk.core.lantern_cook_gift"
+[[click]]
+tick = 3744
+widget = "choice.core.lantern_cook_gift_take"
+[[click]]
+tick = 3759
+widget = "talk.core.lantern_cook_gift"
+[[note]]
+tick = 3767
+text = "The gift taken after all: one ration in the hold."
+[[click]]
+tick = 3774
+widget = "close"
+
+# On the whole station: Tova's line, then the log opened, which ends it, and Esc to
+# shut the log.
+[[click]]
+tick = 3810
+widget = "speaker.core.lantern_trader"
+[[click]]
+tick = 3825
+widget = "log_open"
+[[key]]
+tick = 3840
+key = "escape"
+[[note]]
+tick = 3848
+text = "Opening the log ended Tova's bubble; Esc shuts the log."
+
+# Tova again, and her exchange opened while she speaks: the view glides in.
+[[click]]
+tick = 3855
+widget = "speaker.core.lantern_trader"
+[[click]]
+tick = 3870
+widget = "key_exchange"
+[[note]]
+tick = 3876
+text = "The exchange opened while Tova spoke: her bubble ended."

@@ -6,6 +6,234 @@ use crate::discover::Tool;
 pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
+        path: "audio",
+        synopsis: "<command>",
+        answers: "Inspect, process, loop, mix, judge or check audio.",
+        about: "Offline authoring tools; one JSON object. Default output summarizes windows and repeated findings; --detail shows every window. Numeric tools are local. Only judge makes paid OpenRouter calls. Undefined measurements are null with reasons.",
+        args: &[],
+        output: &[(
+            "reading, findings, detail",
+            "interpretation, timestamped findings with actions, and method",
+        )],
+        writes: "",
+        example: "galaxy-gm audio inspect clip.wav",
+        next: "galaxy-gm guide audio walks through the workflow.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio inspect",
+        synopsis: "<clip|module> [--loop | --sound <name>] [--target-lufs <n>] [--reference <clip>] [--detail]",
+        answers: "Measure loudness, spectrum, defects and declared loops.",
+        about: "WAV, Ogg Vorbis or MP3; mono/stereo, 8..192 kHz. Source LUFS differs from playback LUFS. Spectral flags need a reference and listening. File seams require --loop; module --sound reads actual loop settings and renders the seam as played. DC: dc_mean/removed_dc are whole-clip signed means; dc_max is the largest absolute per-second mean, all in linear full-scale units.",
+        args: &[
+            ("--loop", "declare a file to be a hard-wrapped loop"),
+            (
+                "--sound <name>",
+                "inspect local sound in module folder; playback_seam uses its crossfade",
+            ),
+            ("--detail", "include all windows and individual findings"),
+            (
+                "--target-lufs <n>",
+                "optional source target, -70..0 LUFS; flag above it",
+            ),
+            (
+                "--reference <clip>",
+                "compare gain-invariant spectral fractions and report loudness difference",
+            ),
+        ],
+        output: &[
+            (
+                "loudness",
+                "integrated, momentary, short-term LUFS, true peak, RMS, crest and range",
+            ),
+            (
+                "spectrum, seam, playback_seam, stereo, defects",
+                "summary, energy fractions low_mid 200-500 Hz, presence 2-5 kHz, air above 8 kHz; strongest 12 peaks with level_dbfs/prominence_db (--detail for all), loop boundaries",
+            ),
+            (
+                "findings",
+                "each has kind, start_s/end_s, numeric value and suggested_action",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm audio inspect clip.wav --target-lufs -23",
+        next: "For harshness locate peaks, band energy and attacks before choosing EQ; use mix for playback levels.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio process",
+        synopsis: "<clip> --out <new.wav> [options]",
+        answers: "Repair a clip into a new file and measure before and after.",
+        about: "Order: trim, silence trim, isolated click interpolation, DC mean removal, EQ, fades, gain. Gentle EQ gains are -6..6 dB; notch cuts only. Gain respects the peak ceiling; no hidden limiter. Existing files are refused.",
+        args: &[
+            ("--detail", "include all windows and individual findings"),
+            (
+                "--out <new.wav>",
+                "required new float WAV; never overwrites",
+            ),
+            (
+                "--target-lufs <n>",
+                "source target -70..0; requires 400 ms above gate; conflicts with gain-db",
+            ),
+            ("--peak <dBTP>", "true-peak ceiling -30..0, default -1"),
+            ("--gain-db <n>", "gain -60..30 dB, constrained by peak"),
+            ("--trim <start,end>", "keep this range in seconds"),
+            ("--trim-silence", "trim below -60 dBFS with a 10 ms margin"),
+            ("--fade-in <seconds>", "linear fade at start"),
+            (
+                "--fade-out <seconds>",
+                "linear fade at end; use loop for repeating beds",
+            ),
+            (
+                "--remove-dc",
+                "subtract whole-clip signed channel means, linear full-scale units",
+            ),
+            ("--declick", "interpolate isolated impulses"),
+            ("--high-shelf <Hz,dB>", "gentle shelf above frequency"),
+            ("--low-shelf <Hz,dB>", "gentle shelf below frequency"),
+            ("--notch <Hz,dB,Q>", "narrow peaking cut; Q 0.3..20"),
+        ],
+        output: &[
+            (
+                "before, after",
+                "source summaries, after decoding the new file; --detail includes windows",
+            ),
+            (
+                "edits, gain",
+                "applied operations, requested/applied gain, peak_limited flag",
+            ),
+        ],
+        writes: "<new.wav> only",
+        example: "galaxy-gm audio process clip.wav --out soft.wav --target-lufs -23",
+        next: "Listen and inspect the output; loop it separately if needed.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio loop",
+        synopsis: "<clip> --out <new.wav> [--blend <s>] [--search <s>] [--curve <name>]",
+        answers: "Find compatible endpoints and blend a tail into its head.",
+        about: "Waveform correlation and level matching, then sample/slope refinement; no beat or harmony guarantee. match_score is 1-correlation + absolute level difference/20 dB: 0 best, lower better, unbounded above; not a probability. Shortens and rotates the clip. Re-decodes and checks three repetitions. Set loop_crossfade=0 in audio.toml for this prepared loop.",
+        args: &[
+            ("--detail", "include all windows and individual findings"),
+            ("--out <new.wav>", "required new float WAV"),
+            (
+                "--blend <seconds>",
+                "overlap 0.005..10, default 1; clip must be at least four overlaps long",
+            ),
+            (
+                "--search <seconds>",
+                "endpoint search 0..10, default 1; zero retains endpoints",
+            ),
+            (
+                "--curve <name>",
+                "linear (default) for correlated material or equal-power",
+            ),
+            ("--target-lufs <n>", "optional source target -70..0"),
+            ("--peak <dBTP>", "peak ceiling -30..0, default -1"),
+        ],
+        output: &[
+            (
+                "before, after, edits, gain",
+                "measurements, chosen endpoints and applied gain",
+            ),
+            (
+                "loop_validation",
+                "chronological boundaries, wraps and repeated-clip click timestamps",
+            ),
+        ],
+        writes: "<new.wav> only",
+        example: "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1",
+        next: "Audition at least three repetitions; numeric continuity cannot prove musical continuity.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio mix",
+        synopsis: "<scenario.toml> [--out <new.wav>] [--stems <new-folder>]",
+        answers: "Measure source loudness and each bus in the real mix.",
+        about: "Scenario TOML: modules path, ticks (1..108000), optional seed=1 and inputs path, relative to scenario. Event inputs only. Uses the same Scene and Mixer as play, including voice limits, fades and master gain.",
+        args: &[
+            ("--detail", "include all windows and individual findings"),
+            (
+                "--out <new.wav>",
+                "optional stereo float WAV of final playback; refuses existing file",
+            ),
+            (
+                "--stems <new-folder>",
+                "optional sound/music/ambience float WAVs before shared clamp; new directory",
+            ),
+        ],
+        output: &[
+            (
+                "sources, playback, buses",
+                "source levels, actual clamped mix and simultaneous post-gain bus levels",
+            ),
+            (
+                "pre_clamp, windows",
+                "pre-clamp peak and levels; summary; --detail has 1 s windows, rms_dbfs keyed by sound/music/ambience",
+            ),
+            (
+                "findings, world_hash",
+                "clipping/masking suggestions and simulation result",
+            ),
+        ],
+        writes: "optional mix WAV and stem directory",
+        example: "galaxy-gm audio mix mix.toml --out mix.wav --stems stems",
+        next: "Compare effective playback level, then tune audio.toml volume or process source gain.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio judge",
+        synopsis: "--intent <text> <clip> [--model <id>]",
+        answers: "Describe audio blind, then assess its fit to an intent.",
+        about: "One use means one run, making two paid calls on success (a failure may stop after one). First is blind; second sees intent. Never retries. Model certainty is unreliable: two runs can disagree; measurements outrank descriptions. Key only from OPENROUTER_API_KEY. At most 120 s. No calls during play.",
+        args: &[
+            ("--intent <text>", "required intent, 1..4000 bytes"),
+            (
+                "--model <id>",
+                "audio-capable OpenRouter model; default google/gemini-3.8-flash",
+            ),
+        ],
+        output: &[
+            (
+                "blind_description, assessment",
+                "timestamped mood, instruments, energy, fit and uncertainty",
+            ),
+            (
+                "model, calls, cost_usd",
+                "actual model, per-request usage and actual cost; missing cost is null",
+            ),
+        ],
+        writes: "",
+        example: "galaxy-gm audio judge --intent \"quiet warm background pads\" bed.wav",
+        next: "Use inspect and check for numeric acceptance; semantic judgment is fallible.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
+        path: "audio check",
+        synopsis: "<spec.toml> [--detail]",
+        answers: "Check numeric audio expectations with actionable failures.",
+        about: "TOML has clip or scenario (exactly one), paths relative to the spec, and [[expect]] with value (dotted report path), at_least/at_most or equals. For source seams set looping=true. Unknown fields are input errors; undefined numbers fail. Never calls a model. --detail includes windows.",
+        args: &[(
+            "--detail",
+            "include every measurement window and individual finding",
+        )],
+        output: &[(
+            "ok, expectations, findings, run",
+            "bounds, got, pass; suggested_action only on failures; local summary once",
+        )],
+        writes: "",
+        example: "galaxy-gm audio check bed-check.toml",
+        next: "Exit 5 audio_expectations means repair the named values and check again.",
+        topic: "audio",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "live status",
         synopsis: "[--game <pid|session>]",
         answers: "What is the running game doing: its build, modules, tick, world hash, the \
@@ -404,9 +632,9 @@ pub static COMMANDS: &[Command] = &[
         path: "check",
         synopsis: "<module>",
         answers: "Does this module load? Its manifest, start state, scripts, models and \
-                  style, screens and every room at 1280x720, audio files, and whether what its start state wears exists.",
+                  style, screens (and those its buttons open) and every room at 1280x720, audio files, and whether what its start state wears exists.",
         about: "The modules beside it are loaded too, since a module may use another's types \
-                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. Findings exit 5 with kind findings.",
+                and events. Screen functions run after engine.start; readability findings name widget paths. Every room is entered in a cloned world to check its beings against the camera and panel. Every reachable widget and anchored thing is hovered, including scrolled content; hovers reports the point, identity, label and readability. Every talk line is composed with its place and screens; speaking focus parts are checked against viewport, painted widgets and scene geometry, including active walk poses. From the first tick and with the player in each place, check presses every visible button and ui.target, two presses deep (at most 32 new states per start, told apart by the screen and by what event handlers changed), running the handlers and landing trips, and checks each new state's screens and name signs with talk silent; pressed lists the states per start. Findings exit 5 with kind findings.",
         args: &[("<module>", "a module folder (with a manifest.toml)")],
         output: &[
             ("ok", "no findings"),
@@ -417,12 +645,16 @@ pub static COMMANDS: &[Command] = &[
             ),
             (
                 "findings",
-                "each problem: kind (schema, script, start, look, screen, hover, room, talk or sound) and message",
+                "each problem: kind (schema, script, start, look, screen, press, hover, room, talk, life or sound) and message",
             ),
             ("notes", "modules beside it that could not be read, skipped"),
             (
                 "hovers",
                 "reachable targets in staged places and talk lines: widget, entity, part, point, scroll and hover text/readability; null means no declared label",
+            ),
+            (
+                "pressed",
+                "per start (null: the first tick, else a place): new states reached by presses, and truncated when the cap stopped it",
             ),
             (
                 "worn.looks, worn.models",
@@ -710,8 +942,36 @@ pub static COMMANDS: &[Command] = &[
     },
     Command {
         tool: Tool::Gm,
+        path: "memory",
+        synopsis: "<modules>",
+        answers: "What does the GM remember of the player and this game?",
+        about: "The player's preferences and the long-running directions not yet in the game, \
+                in one short Markdown file a game (the module IDs in <modules>), kept in the \
+                per-user game data folder beside the sessions (GALAXY_GM_MEMORY moves it), so \
+                it outlives reinstalls and changes the player rolls back. The first run makes \
+                it from a template. Read it before choosing work; to update it, edit the file \
+                itself. The player may edit it too, and what they write there wins. It never \
+                holds secrets: a memory holding an API key is refused (exit 4), unprinted.",
+        args: &[(
+            "<modules>",
+            "the game: a module folder, or a folder of modules",
+        )],
+        output: &[
+            ("game", "the module IDs"),
+            ("path", "the memory file, to edit"),
+            ("created", "true when this run made it from the template"),
+            ("lines, text", "its length and its whole text"),
+        ],
+        writes: "the memory file, only when it is missing",
+        example: "galaxy-gm memory game/modules",
+        next: "galaxy-gm notes inbox --modules <modules> for the player's new notes; \
+               galaxy-gm guide unattended for a whole run.",
+        topic: "unattended",
+    },
+    Command {
+        tool: Tool::Gm,
         path: "notes",
-        synopsis: "[<recording | session folder | sessions folder>] [--all]",
+        synopsis: "[<recording | session folder | sessions folder>] [--all] [--modules <dir>]",
         answers: "Read F8 notes; notes inbox lists those still to answer. \
                   Each note has its number, tick, time, text and frame, newest sessions first.",
         about: "Without a path it reads the sessions folder every `galaxy play` records into \
@@ -725,6 +985,10 @@ pub static COMMANDS: &[Command] = &[
               folder by default",
             ),
             ("--all", "every note; 20 at most by default"),
+            (
+                "--modules <dir>",
+                "only sessions that played exactly the modules in <dir> (one game)",
+            ),
         ],
         output: &[
             (
@@ -750,7 +1014,7 @@ pub static COMMANDS: &[Command] = &[
     Command {
         tool: Tool::Gm,
         path: "notes inbox",
-        synopsis: "[<path>] [--handled] [--all]",
+        synopsis: "[<path>] [--handled] [--all] [--modules <dir>]",
         answers: "List unanswered F8 notes across sessions, newest first.",
         about: "Uses the same folders and note numbers as notes, audit and film. \
                 With no path, reads the played sessions folder (GALAXY_SESSIONS moves it). \
@@ -766,6 +1030,10 @@ pub static COMMANDS: &[Command] = &[
                 "list only handled notes, with the reason and change reference",
             ),
             ("--all", "every matching note; 20 at most by default"),
+            (
+                "--modules <dir>",
+                "only sessions that played exactly the modules in <dir> (one game)",
+            ),
         ],
         output: &[
             (
@@ -781,8 +1049,8 @@ pub static COMMANDS: &[Command] = &[
                 "unhandled or handled; more says how many matching notes were capped",
             ),
             (
-                "unreadable, sessions_without_notes",
-                "recordings that could not be read, and count of sessions without any notes, when present",
+                "unreadable, sessions_without_notes, sessions_of_other_modules",
+                "recordings that could not be read, and counts of sessions without notes or left out by --modules, when present",
             ),
         ],
         writes: "",
@@ -1300,6 +1568,52 @@ pub static COMMANDS: &[Command] = &[
 /// The guide. Tasks name commands as `gm <path>` or `game <path>`.
 pub static TOPICS: &[Topic] = &[
     Topic {
+        name: "unattended",
+        title: "Unattended GM runs: from the player's notes to a reviewable change",
+        about: "A scheduled run with nobody watching: nobody answers questions, so decide, and \
+                put what needs the player in the handover. The game is the modules in the \
+                working folder (galaxy-gm doctor names them, and the build to use); its own \
+                instructions (AGENTS.md, README) come first. Never build the engine. The memory \
+                carries the player's preferences and long-running directions between runs; the \
+                notes are the player's new requests, each with the moment it was taken. The \
+                change goes on a git branch the player merges (accept) or deletes (roll back), \
+                and their game carries on from its save: galaxy play --continue.",
+        tasks: &[
+            ("Your memory of the player and the game", "gm memory"),
+            ("The player's new notes for this game", "gm notes inbox"),
+            (
+                "Does the player's save load on the change?",
+                "game sim load",
+            ),
+        ],
+        recipes: &[Recipe {
+            title: "One unattended run, start to handover",
+            steps: &[
+                "Read first: the game's own instructions, galaxy-gm doctor (the build and the game's modules), then:",
+                "galaxy-gm memory <modules>",
+                "galaxy-gm notes inbox --modules <modules> --all",
+                "galaxy sim load --continue --modules <modules> --state",
+                "Settle earlier handovers in the memory: a branch the player merged is done; one they deleted is a rollback: note what they turned down as a preference and reopen its notes (galaxy-gm notes unhandle) unless they said otherwise.",
+                "Understand each note from its moment: its text, the frame it saw (seen), then:",
+                "galaxy-gm audit <session>",
+                "galaxy-gm film <session> --note <n> --before 2 --after 2",
+                "Pick work: the notes, oldest first, then one step of a direction in the memory. A small, clear request done fully beats a big one half done. A note that needs the player's decision stays unhandled; ask in the handover.",
+                "Work in a new git worktree on a branch gm/<date> from the default branch, so the player's files stay as they are until they accept (not under git: git init and commit the folder as it is first). Follow the topic guides for the edits. Your own plays set GALAXY_SESSIONS to a scratch folder, so their notes and saves stay out of the player's.",
+                "The gate: every step passes before the handover. galaxy-gm check and galaxy-gm test on each changed module, then:",
+                "galaxy-gm what-if <session>/recording.json --modules <changed-modules>",
+                "galaxy play --modules <changed-modules> --inputs <bot.inputs> --ticks <n>",
+                "galaxy sim replay <bot-session>/recording.json",
+                "Look at each changed moment (galaxy shot, or a film and a motion tool for what moves). Then, with the player's sessions folder:",
+                "galaxy sim load --continue --modules <changed-modules>",
+                "It must load: the player's game carries on. Exit 4 names what no longer fits; give new fields defaults and keep the fields the save holds.",
+                "Commit one change per note, its message naming the note, what changed and the gate's evidence. Then mark each answered note:",
+                "galaxy-gm notes handle <session> --note <n> --reason <text> --change gm/<date>",
+                "Hand over the branch. Push it and open a pull request only if the game's instructions say so; never merge. Report what changed and why, the evidence, how to accept (merge, then galaxy play --modules <modules> --continue) or roll back (delete the branch), and what you need from the player.",
+                "Last, edit the memory file: preferences learned, directions still open, this handover as waiting. Short, nothing the game already says, never a secret.",
+            ],
+        }],
+    },
+    Topic {
         name: "tests",
         title: "Module tests and what a change does to a session",
         about: "A module's tests live in its tests/ folder. tests/<name>.luau returns { \
@@ -1380,7 +1694,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "hovers",
         title: "Hover labels and looking at recorded points",
-        about: "Every widget accepts hover = \"label text\". A pure screen can also return ui.hover { id = \"person-help\", anchor = \"being.demo.person\", text = \"A moving speaker\" } beside ordinary widgets. This declares a label without drawing a permanent widget: the nearest visible model surface activates it, or a 44px anchor target for things without models. A part anchor such as being.demo.person.face restricts it to that mesh part (empty nodes use an anchor target); publisher#name binds an ordinary named anchor. Keep declarations conditional on the current place, like other anchored screens. Later declarations win. The engine shows the label immediately, keeps it inside the viewport, clears it on pointer exit or capture, and follows interpolated anchors. Its text and surface use [screen] text and paper. Hover paint never changes world state. Check stages screens, places and talk lines and reports hovers, including null for targets without a declaration, plus readability problems. It checks authored states, not arbitrary future script branches. Look uses the same picking and layout headlessly. A note preserves its exact pointer, size, style and fractional pose; use --note to match its saved frame. Tick mode uses alpha 1 and --size (default 1280x720). Coordinates are logical pixels; divide physical image coordinates by the note scale.",
+        about: "Every widget accepts hover = \"label text\". ui.target { id, anchor, on, payload, text } makes the anchored model clickable: a click sends on with payload and source ui, like a button; a painted widget in front blocks it; while hovered the model lifts, gets a [screen] highlight outline and the pointer becomes a hand; text is its optional label. Bot [[click]] and [[pointer]] widget = the target id pick a visible point on its model. A pure screen can also return ui.hover { id = \"person-help\", anchor = \"being.demo.person\", text = \"A moving speaker\" } beside ordinary widgets. This declares a label without drawing a permanent widget: the nearest visible model surface activates it, or a 44px anchor target for things without models. A part anchor such as being.demo.person.face restricts it to that mesh part (empty nodes use an anchor target); publisher#name binds an ordinary named anchor. Keep declarations conditional on the current place, like other anchored screens. Later declarations win. The engine shows the label immediately, keeps it inside the viewport, clears it on pointer exit or capture, and follows interpolated anchors. Its text and surface use [screen] text and paper. Hover paint never changes world state. Check stages screens, places and talk lines and reports hovers, including null for targets without a declaration, plus readability problems. It checks authored states, not arbitrary future script branches. Look uses the same picking and layout headlessly. A note preserves its exact pointer, size, style and fractional pose; use --note to match its saved frame. Tick mode uses alpha 1 and --size (default 1280x720). Coordinates are logical pixels; divide physical image coordinates by the note scale.",
         tasks: &[
             ("Inspect a note under its recorded pointer", "gm look"),
             ("Check authored hover labels", "gm check"),
@@ -1425,33 +1739,34 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "audio",
         title: "Module sound, music and place ambience",
-        about: "An optional audio.toml declares [sounds.NAME] with file = \"sounds/name.wav\" and volume = 0.5 (0..1). WAV PCM/float, Ogg Vorbis and MP3, mono or stereo, are decoded before playback. galaxy-gm music generates a piece at build time and declares it here. [[events]] has event = \"local_event\", sound = \"NAME\", bus = \"sound\" (one-shot) or \"music\" (loop), and fade = 0.02 seconds. A loop crossfades its last loop_crossfade seconds (per sound, default 2, 0..60) into its start so the seam is smooth, which shortens it by that much; a clip shorter than four fades wraps as authored. Set loop_crossfade = 0 for a loop cut to whole bars. Event names may be fully qualified, such as engine.start. To fade a bus out, use stop = true without sound. Scripts use their existing ctx.record events; all new matching facts trigger cues, including key releases, so record a separate cue event on key-down if needed. [places] maps local or own full place IDs to sound names. The player being's location picks the loop; leaving mapped places fades to silence. The top-level crossfade is 1 second by default (0..60); music replaces music with its event's fade. Audio is presentation only; it never changes the world hash. Recordings retain the audio table with other module text, but binary sounds remain module assets on disk. No device means silent play with a note. The engine owns 32 voices, bus/master volume, resampling and fades; no per-frame scripts run.",
+        about: "audio.toml declares [sounds.NAME] with file and volume (0..1); WAV, Ogg Vorbis or MP3. [[events]] uses event, sound, bus (sound one-shot or music loop) and fade seconds. [places] maps place IDs to ambience sounds. crossfade defaults to 1 s. Per-sound loop_crossfade defaults to 2 s, disabled for clips shorter than four fades; use 0 for prepared loops. Stop a bus with stop=true and no sound. Cues follow recorded facts; use a separate event for key-down cues. A resumed save replays no earlier cue: an on['engine.resumed'] handler records the music event again. Music replaces music; player location chooses ambience. Audio stays outside world hashes. Binary assets remain on disk; no device means silent play with a note. The mixer owns 32 voices, ramps and resampling. Numeric tools run locally; only judge calls a model.",
         tasks: &[
+            ("Generate with OpenRouter", "gm music"),
+            ("Audio authoring tools", "gm audio"),
+            ("Render playback PCM", "game audio"),
+            ("Levels, spectrum, defects and seam", "gm audio inspect"),
             (
-                "Check sound declarations and decode every referenced file",
-                "gm check",
+                "Gain, trim, fades, DC, clicks and gentle EQ",
+                "gm audio process",
             ),
-            (
-                "Generate music through OpenRouter (needs OPENROUTER_API_KEY)",
-                "gm music",
-            ),
-            ("Listen in the game", "game play"),
-            ("Render and measure a mix without a device", "game audio"),
+            ("Search and blend a loop", "gm audio loop"),
+            ("Actual simultaneous bus levels", "gm audio mix"),
+            ("Blind description, then semantic fit", "gm audio judge"),
+            ("Numeric acceptance", "gm audio check"),
         ],
         recipes: &[Recipe {
-            title: "Make background music",
+            title: "A quiet, smooth background bed",
             steps: &[
-                "Write the prompt in plain words: mood, tempo, instruments and timbre, such as \
-                 \"slow warm pads, quiet and unhurried; soft, mellow, rounded, no bright or \
-                 harsh highs\". The model hears only what you write.",
-                "galaxy-gm music <module> --name calm --prompt \"...\" --event engine.start \
-                 makes one paid call. Without --volume the volume is set from the clip's \
-                 loudness so it sits in the background.",
-                "galaxy-gm check <module> loads the new sound and cue.",
-                "galaxy play --modules <modules folder>: listen past the first loop, where \
-                 the end crossfades into the start.",
-                "Too loud or quiet: edit volume in audio.toml. Wrong mood or too sharp: run \
-                 again with a new prompt and --replace, which keeps the loudness.",
+                "Prompt for warm rounded pads, sparse voicing, steady energy, compatible beginning/end, no intro, outro or final cadence. Generate once with galaxy-gm music <module> --name calm --prompt <text> --event engine.start.",
+                "galaxy-gm audio inspect clip.mp3 --reference approved.wav. For sharp/harsh complaints locate narrow_resonances (level_dbfs), band energies and attacks/crest against a matched reference before choosing notch/shelf frequencies. Warm low mids are not a defect.",
+                "galaxy-gm audio process clip.mp3 --out soft.wav --target-lufs -23. Apply DC/click repair or EQ only for a measured, unwanted problem.",
+                "galaxy-gm audio loop soft.wav --out bed.wav --blend 2 --search 1. Set its audio.toml file to bed.wav and loop_crossfade=0. Listen to repetitions.",
+                "galaxy-gm audio inspect <module> --sound <name> measures the seam as played. For a standalone file use --loop to measure its hard wrap. Default output is a summary; --detail includes all windows.",
+                "Write mix.toml: modules='modules' and ticks=1800 (60 s), optional inputs='route.toml' and seed=1. Paths are relative to the scenario. galaxy-gm audio mix mix.toml --out mix.wav measures sources separately from playback buses.",
+                "There is no universal background target. Try music's rendered contribution near -26 LUFS, then tune against foreground effects and ambience. volume and default master 0.7 lower source loudness. A peak ceiling can prevent reaching a target; read gain.peak_limited and after.",
+                "galaxy-gm audio judge --intent 'quiet warm background pads' bed.wav makes two paid calls with OPENROUTER_API_KEY. One use/run makes two calls. Two runs can disagree despite certainty claims; measurements outrank the description. Reports usage and actual cost.",
+                "Write check.toml: clip='bed.wav', looping=true, then [[expect]], value='loudness.integrated_lufs', at_least=-24.0, at_most=-22.0. Add another [[expect]] with value='seam.level_jump_db', at_most=3.0. galaxy-gm audio check check.toml; exit 5 names failures and repairs. Use scenario='mix.toml' instead of clip to check buses.music.integrated_lufs.",
+                "Clipping already baked in needs regeneration: 'clean, undistorted, restrained dynamics'. Stereo cancellation: 'stable centred bass, mono-compatible stereo'. Unwanted muddiness: locate it against a reference; preserve intended warmth. Wrong mood/instruments: change the prompt. Local repairs cannot recover missing musical content.",
             ],
         }],
     },
@@ -1466,9 +1781,15 @@ pub static TOPICS: &[Topic] = &[
                 through the same window loop (--inputs), and its [[note]] entries are taken \
                 like F8 notes. Resume with galaxy play --modules <modules> --load save.db; \
                 use the saving build and unchanged module files. --ticks and inputs use absolute \
-                world ticks, including on resume. The new recording embeds the saved start world, \
-                so replay, F8, audit and film work as usual. --physical-size makes --size physical \
-                pixels (otherwise logical); the report always gives physical size.",
+                world ticks, including on resume. The first tick after a resume (play --load, \
+                --continue, sim load) starts with the recorded input engine.resumed (source \
+                resume): handle it to cue music or sounds again, since no earlier cue replays. \
+                The new recording embeds the saved start world, so replay, F8, audit and film \
+                work as usual. --physical-size makes --size physical \
+                pixels (otherwise logical); the report always gives physical size. \
+                Esc quits and saves unless a module binds escape in [keys]; Shift+Esc and \
+                closing the window always do. [keys] can also bind mouse_right; bot \
+                [[key]] entries press a key name for one tick.",
         tasks: &[
             ("Play the game", "game play"),
             (
@@ -1536,20 +1857,15 @@ pub static TOPICS: &[Topic] = &[
                 fixed with a motion check spec.",
         tasks: &[
             ("Film a scripted run", "game film"),
-            ("Film a played session round a note", "gm film"),
             (
-                "Film it as the player saw it (the recording's build), or on two builds \
-                 and compare: film --as-recorded, film --builds recorded,this",
+                "Film a played session round a note; as the player saw it \
+                 (--as-recorded), or on two builds (--builds recorded,this)",
                 "gm film",
             ),
             ("Where things are, frame by frame", "gm film show"),
             (
                 "How far and how fast did a thing move, and when? Film with --probes-only \
-                 (no GPU), then track --thing <x>: displacement, path, top speed with times",
-                "gm motion track",
-            ),
-            (
-                "Does a thing follow smoothly, overshoot, settle?",
+                 (no GPU), then track --thing <x>: displacement, path, top speed, overshoot and settling",
                 "gm motion track",
             ),
             ("Do dotted lines stay put? (no GPU)", "gm motion dots"),
@@ -1650,7 +1966,7 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "rooms",
         title: "Rooms, floor spots, anchors and travel",
-        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
+        about: "A place with engine.room and engine.model is a 3D glTF set. Its named camera node supplies the pose (glTF -Z forward, +Y up); engine.room.fov supplies vertical degrees. Each engine.spot has a matching spot.<name> node, imported into the world at start. Beings stand on these floor spots. Raised floors need matching engine.surface data. Room models use unit scale at the local origin. Moving the player starts one one-second cut; a click lands it. Leaving for an ancestor reverses its fades. engine.room.glide = seconds (0 to 10) replaces the cut into that room with a camera glide from the camera shown before, with no fade, and leaving it for a place that isn't a room glides back out to the follow camera; patching that room's engine.room.camera to another node while the player is there glides too, and play then records engine.camera_settled. A camera change or a trip that starts while a glide has not landed carries on from where that glide's camera is, with no jump. A click lands a glide on the next tick. Play records engine.place_arrived with entity, place and start_tick; scripts may subscribe to it. Arrival is a world input, not a zoom event. No Lua runs per frame. Anchors are place.<full-id>, spot.<name>, being.<full-id> and being.<full-id>.<node-name>, including face. check enters every room and rejects covered or offscreen beings. Audit and film reconstruct the cut from the saved trip and tick interpolation.",
         tasks: &[
             ("Room and travel component fields", "gm fields"),
             ("Validate every room", "gm check"),
@@ -1688,31 +2004,45 @@ pub static TOPICS: &[Topic] = &[
     Topic {
         name: "talk",
         title: "Conversations on anchors and visible speaker focus",
-        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. While playing, the same test runs on every frame a line shows: a speaker whose focus a script covered or moved off screen appears in the problems panel and in play's problems report. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
+        about: "An engine.talk entity names speaker and first (an engine.talk_line entity). Each line has text and optional next. A line can instead offer answers: engine.talk_choice { line, text, next, order } entities show as buttons in its bubble (lowest order first); a click records engine.talk_chosen {talk,line,choice} and continues to that choice's next, or ends the talk (seen) when empty. A stale answer records no event. A declined offer stays away by module logic, for example patching its talk enabled=false in the handler. The bubble's heading is title, else the speaker's life sign name; subtitle is a quieter line under it; Continue/Done is a small marker; [screen] bubble_* keys size them. An empty anchor uses being.<speaker>; otherwise use any published anchor, including publisher#name on an object without engine.being. The engine shows one bubble, advances on a click and starts again on a speaker click. story=true prioritizes an unseen moment; seen becomes true only when the last line is acknowledged. Leaving interrupts without losing the moment. enabled gates availability. Scripts use ordinary put/patch and the engine.talk capability to offer new moments. Bubbles use screen layout and neutral screen paint; width/x/y set logical-pixel placement, not colours. A being's focus defaults to the face mesh part. engine.focus { part = 'front' } names another mesh part; part='' explicitly opts out. Other anchors need no focus unless supplied. check composes every line with its place, room camera, screens, bubble and active walks at tick and half-tick poses. It rejects focus pixels covered by any model (including the speaker's own hat), widgets or bubble, and focus outside the viewport. Missing focus mesh parts fail too. This checks the authored state and active walks, not all future script branches; run check on authored variants and inspect recorded play. While playing, the same test runs on every frame a line shows: a speaker whose focus a script covered or moved off screen appears in the problems panel and in play's problems report. Inputs engine.talk_start {talk} and engine.talk_next {talk,line} record progress. Save, audit and film rebuild it without a private conversation timer.",
         tasks: &[
             ("Talk, line and focus fields", "gm fields"),
             ("Check focus in every place", "gm check"),
         ],
-        recipes: &[Recipe {
-            title: "Author, play, interrupt and reproduce a conversation",
-            steps: &[
-                "Add engine.talk and engine.talk_line to manifest writes. In start.toml: [entities.hello] with \"engine.talk\" = { speaker = 'demo.visitor', first = 'demo.line', story = true }; [entities.line] with \"engine.talk_line\" = { text = 'Welcome.' }. The speaker needs a visible anchor; a being model needs a face mesh part, or an explicit engine.focus part.",
-                "galaxy-gm fields components --component talk",
-                "galaxy-gm fields components --component talk_line",
-                "galaxy-gm check engine/tests/play/talk/demo",
-                "galaxy-gm check engine/tests/play/talk-covered/demo",
-                "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
-                "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
-                "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button: press it while the third being speaks and the problems panel flags the covered face, which check can't see. The hall's smaller figure has an anchor but no being component.",
-                "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble. Anchor-only speakers use x/y. Use the session folder printed by play below.",
-                "galaxy sim replay <session>/recording.json",
-                "galaxy-gm audit <session>/recording.json",
-                "galaxy-gm film <session>/recording.json --from 225 --to 300 --size 1280x720 --out talk-film",
-                "galaxy-gm motion track talk-film --thing talk.second",
-                "galaxy-gm motion sheet talk-film --count 8",
-                "galaxy-gm guide motion",
-            ],
-        }],
+        recipes: &[
+            Recipe {
+                title: "Author, play, interrupt and reproduce a conversation",
+                steps: &[
+                    "Add engine.talk and engine.talk_line to manifest writes. In start.toml: [entities.hello] with \"engine.talk\" = { speaker = 'demo.visitor', first = 'demo.line', story = true }; [entities.line] with \"engine.talk_line\" = { text = 'Welcome.' }. The speaker needs a visible anchor; a being model needs a face mesh part, or an explicit engine.focus part.",
+                    "galaxy-gm fields components --component talk",
+                    "galaxy-gm fields components --component talk_line",
+                    "galaxy-gm check engine/tests/play/talk/demo",
+                    "galaxy-gm check engine/tests/play/talk-covered/demo",
+                    "The second check deliberately fails: the third being's face is covered by its own geometry in Room B, although the player starts elsewhere.",
+                    "galaxy play --modules engine/tests/play/talk --inputs engine/tests/play/talk-inputs.toml --ticks 380",
+                    "Select the dev build with --build <name> immediately after each executable. In live play, enter Room A, click the first being, leave midway, return and finish. Click it again for repeat talk. Move the second speaker during its line. Room B has a cover/uncover test button: press it while the third being speaks and the problems panel flags the covered face, which check can't see. The hall's smaller figure has an anchor but no being component.",
+                    "Bot [[click]] widget='speaker.<full-id>' clicks a visible model; widget='talk.<full-conversation-id>' clicks its bubble; widget='choice.<full-choice-id>' an answer. Anchor-only speakers use x/y. Use the session folder printed by play below.",
+                    "galaxy sim replay <session>/recording.json",
+                    "galaxy-gm audit <session>/recording.json",
+                    "galaxy-gm film <session>/recording.json --from 225 --to 300 --size 1280x720 --out talk-film",
+                    "galaxy-gm motion track talk-film --thing talk.second",
+                    "galaxy-gm motion sheet talk-film --count 8",
+                    "galaxy-gm guide motion",
+                ],
+            },
+            Recipe {
+                title: "Offer answers in a styled bubble",
+                steps: &[
+                    "Add engine.talk_choice to manifest writes. Give a line no next and two engine.talk_choice entities naming it; handle engine.talk_chosen in a script (event.payload.choice).",
+                    "galaxy-gm fields components --component talk_choice",
+                    "galaxy-gm check engine/tests/play/offer/demo",
+                    "galaxy-gm check engine/tests/play/sign-panel/demo",
+                    "The second check deliberately fails: its button opens a list over a name sign, which only check's presses reach.",
+                    "galaxy play --modules engine/tests/play/offer --inputs engine/tests/play/offer-inputs.toml --ticks 120",
+                    "The host's heading is its sign name with a quieter subtitle. Take it shows the next line; Not now ends the talk and the handler disables the offer, so the next click gets the repeat talk with Continue, then Done. Replay and audit the session as above.",
+                ],
+            },
+        ],
     },
     Topic {
         name: "screens",
@@ -1721,18 +2051,30 @@ pub static TOPICS: &[Topic] = &[
                 ui.panel/text/button/list/row/column with children = { ... }; return nil to \
                 hide a screen. ctx.get/query track world reads, so Luau runs only when those \
                 change. The engine supplies contrasting paper behind unbacked text. A button's \
-                on names a declared event; its payload and source ui are recorded. An \
+                on names a declared event; its payload and source ui are recorded. \
+                align = top-left, top, top-right, left, center, right, bottom-left, bottom \
+                or bottom-right places a widget against the window's edges, with x/y as \
+                margins, so it stays there at any window size and display scale. An \
                 engine.anchor publisher follows a thing; anchor = publisher#name attaches a \
-                widget, including a button. Bot clicks use widget = a full diagnostic path \
+                widget, including a button. With yield = true it isn't drawn, rather than \
+                clamped, while its anchor is off screen, it would leave the window or it \
+                would overlap another painted widget. Bot clicks use widget = a full diagnostic path \
                 or a unique id, or x/y logical pixels. Widget clicks resolve the current \
                 centre even when its anchor moves; missing, ambiguous or covered targets fail. \
+                A button with resting = \"<reason>\" can't act now: it stays in place, drawn \
+                with [screen] resting and resting_dash, hovering shows the reason, a click \
+                records nothing, and a bot click on it is listed in play's resting_clicks. \
+                Its pad must be at least 1, room for its frame. \
                 ui.grid uses columns; ui.scroll needs id and height and clips its children. \
                 ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
                 icon in icons.toml [icons], mapping local names to glyph strings. check reports \
                 missing icons and glyphs. ui.drag_source needs id, text and a string value; \
                 ui.drop_target needs id, text, on and accepts = { value = reason }: an empty \
                 reason allows it, a nonempty reason explains rejection, unlisted values are \
-                rejected. All verdicts show at pick-up; drop sends on with payload plus value. \
+                rejected. notes = { value = text } says under Drop here what an accepted drop \
+                changes. All verdicts and notes show at pick-up, reserved in layout so \
+                nothing moves, and check reads them like other text; drop sends on with \
+                payload plus value. \
                 ui.scroll can have on/payload: a changed offset sends that event with offset. \
                 Drag sources lift out of an empty socket and settle for 240ms on release. Targets \
                 may contain children above the verdict. Store placement in world state and emit \
@@ -1769,7 +2111,7 @@ pub static TOPICS: &[Topic] = &[
                 steps: &[
                     "In the example above, declare events place and scrolled in manifest.toml. Their handlers receive event.payload.value (a dropped string) or event.payload.offset (scroll pixels); record a clicked fact to observe them.",
                     "Add icons.toml with:\n[icons]\ntoken = 'T'",
-                    "Inside the panel children, add ui.icon { icon = 'token' }, ui.delta { value = -12 }, and ui.grid { columns = 2, children = { ui.drag_source { id = 'token', text = 'Token', value = 'small' }, ui.drop_target { id = 'slot', text = 'Slot', on = 'place', accepts = { small = '', large = 'Too wide' } } } }.",
+                    "Inside the panel children, add ui.icon { icon = 'token' }, ui.delta { value = -12 }, and ui.grid { columns = 2, children = { ui.drag_source { id = 'token', text = 'Token', value = 'small' }, ui.drop_target { id = 'slot', text = 'Slot', on = 'place', accepts = { small = '', large = 'Too wide' }, notes = { small = 'Fills the slot' } } } }.",
                     "Add ui.scroll { id = 'entries', height = 160, on = 'scrolled', children = { ui.text { text = 'One', height = 80 }, ui.text { text = 'Two', height = 80 }, ui.text { text = 'Three', height = 80 } } }. Keep the panel within the viewport. All entries are checked even when clipped by scrolling.",
                     "Write gestures.toml with:\n[[pointer]]\ntick = 10\naction = 'scroll'\nwidget = 'entries'\ndelta = 80\n[[note]]\ntick = 18\ntext = 'Scrolled'\n[[pointer]]\ntick = 30\naction = 'pickup'\nwidget = 'token'\n[[note]]\ntick = 40\ntext = 'Mid-drag'\n[[pointer]]\ntick = 55\naction = 'drop'\nwidget = 'slot'",
                     "galaxy-gm check example",
@@ -1800,7 +2142,9 @@ pub static TOPICS: &[Topic] = &[
                 glTF node, named by name: the part galaxy-gm model and the ink see. \
                 [[marker]] adds empty named nodes: a room's camera and spot.<name>, which \
                 look along turn and pitch. A rock with mined above 0 has a morph target: \
-                engine.model morph runs it from whole to mined. The seed varies lumps and \
+                engine.model morph runs it from whole to mined. spin = degrees a second \
+                turns a part about its own up (copies together about the centre) and pulse \
+                = seconds pulses its glow down to pulse_low: drawn only, by game time. The seed varies lumps and \
                 chips; the same recipe gives the same bytes on every OS. Commit the recipes \
                 and the models, and remake after changing a recipe.",
         tasks: &[
@@ -1826,7 +2170,8 @@ pub static TOPICS: &[Topic] = &[
         title: "How the world is drawn, and the keys files take",
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
-                key is optional. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash and hint_border_px. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                key is optional. [sky] star_layers = [0.25, 0.6, 1.2] lays stars in layers \
+                scrolling at their own rates. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

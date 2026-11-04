@@ -1,0 +1,16 @@
+# The reach ambience loop (galaxy-gm audio check): a soft bed whose loop has no step.
+clip = "../sounds/reach.wav"
+looping = true
+
+[[expect]]
+value = "loudness.integrated_lufs"
+at_least = -27.0
+at_most = -24.0
+
+[[expect]]
+value = "loudness.true_peak_dbtp"
+at_most = -6.0
+
+[[expect]]
+value = "seam.level_jump_db"
+at_most = 3.0

@@ -241,13 +241,14 @@ pub fn overview(tool: Tool) -> String {
             ],
         ),
         Tool::Gm => (
-            "galaxy-gm: the GM. It checks and tests modules, reads sessions, notes and \
-             running games, and films motion. Commands print one JSON object.",
+            "galaxy-gm: author modules, inspect playtests and measure motion/audio. JSON output.",
             &[
-                ("Start here", &["guide"]),
+                ("Start here", &["guide", "memory"]),
                 (
                     "Modules",
-                    &["check", "test", "types", "fields", "model", "music"],
+                    &[
+                        "check", "test", "types", "fields", "model", "music", "audio",
+                    ],
                 ),
                 (
                     "Played sessions and notes",
@@ -301,9 +302,8 @@ pub fn overview(tool: Tool) -> String {
              version; galaxy --build <name> ... runs a named installed build."
         }
         Tool::Gm => {
-            "\nMore: galaxy-gm <command> --help for its arguments, output and an example; \
-             galaxy-gm guide <topic> walks through a task. galaxy-gm --build <name> ... runs \
-             an installed build."
+            "\nMore: <command> --help; guide <topic> walks through a task; --build <name> runs \
+             a build."
         }
     };
     let _ = write!(s, "{more}\n\n{EXIT_CODES}");
@@ -402,7 +402,8 @@ pub use gm::TOPICS;
 pub fn guide() -> String {
     let mut s = String::from(
         "What do you want to do? Each line names the command; `<command> --help` says more, \
-         and `galaxy-gm guide <topic>` walks through a topic with examples.\n\n",
+         and `galaxy-gm guide <topic>` walks through a topic with examples. Running on a \
+         schedule with nobody watching? Follow galaxy-gm guide unattended.\n\n",
     );
     // Topics follow each other without a blank line: each starts with its `(guide <name>)`
     // title, and the whole list has to stay short enough to read at a glance.
@@ -418,8 +419,6 @@ pub fn guide() -> String {
             let _ = writeln!(s, "  {want:width$}  {cmd}");
         }
     }
-    let names: Vec<&str> = TOPICS.iter().map(|t| t.name).collect();
-    let _ = write!(s, "\nTopics: {}.", names.join(", "));
     let with: Vec<&str> = TOPICS
         .iter()
         .filter(|t| !t.recipes.is_empty())
@@ -489,7 +488,7 @@ static GAME: &[Command] = &[
         tool: Tool::Game,
         path: "play",
         synopsis: "--modules <dir> [options]",
-        answers: "Play the modules in a window. Esc quits, the wheel scrolls a list or zooms, F8 takes a note.",
+        answers: "Play the modules in a window. Esc quits (Shift+Esc when a module binds Esc), the wheel scrolls a list or zooms, F8 takes a note.",
         about: "Every session records itself into a new folder under the sessions folder: \
                 recording.json (written at every note and when the window closes), save.db \
                 (the world at the end) and notes/0001.png (the frame shown at each note). F8 \
@@ -503,7 +502,14 @@ static GAME: &[Command] = &[
             ),
             (
                 "--load <save>",
-                "resume a save from this build and these exact modules; records from the saved world",
+                "resume a save made by this build; module files changed since are carried \
+                 over when the saved world still fits them. Records from the saved world; \
+                 its first tick brings engine.resumed",
+            ),
+            (
+                "--continue",
+                "--load the newest save of these modules (by ID) in the sessions folder: carry \
+                 on the player's game",
             ),
             (
                 "--physical-size",
@@ -521,7 +527,8 @@ static GAME: &[Command] = &[
                 "--inputs <file>",
                 "a bot: play these inputs, clicks, pointer gestures, notes and zooms on their ticks \
               through the window loop. [[click]] takes tick and either x/y logical pixels \
-              or widget = a full path or unique id (follows moving anchors). \
+              or widget = a full path or unique id (follows moving anchors); a click on a \
+              resting button records nothing and is listed in the report's resting_clicks. \
               [[pointer]] takes tick, action (pickup/move/drop/scroll), widget and optional delta in pixels. \
               `galaxy-gm fields inputs` lists the format; `galaxy-gm guide screens` gives a recipe",
             ),
@@ -565,6 +572,11 @@ static GAME: &[Command] = &[
             ),
             ("hot_load_failures", "hot-loads --watch refused, with why"),
             ("log", "what scripts printed"),
+            (
+                "resumed",
+                "with --load or --continue: save, tick and changed_modules (whose files \
+                 changed since the save)",
+            ),
         ],
         writes: "a session folder under the sessions folder (`galaxy doctor` names it; \
                  GALAXY_SESSIONS moves it), and --save and --record if given",
@@ -607,6 +619,10 @@ static GAME: &[Command] = &[
                 "voice-limit replacements and busiest tick's voice count",
             ),
             ("ticks, world_hash", "simulation result, unchanged by audio"),
+            (
+                "pre_clamp_peak, bus_rms",
+                "peak before the safety clamp, and effective sound/music/ambience levels after playback gains",
+            ),
         ],
         writes: "the new WAV file named by --out",
         example: "galaxy audio --modules game/modules --ticks 300 --out mix.wav",
@@ -816,12 +832,19 @@ static GAME: &[Command] = &[
     Command {
         tool: Tool::Game,
         path: "sim load",
-        synopsis: "<save> --modules <dir> [options]",
+        synopsis: "<save|--continue> --modules <dir> [options]",
         answers: "Load a save and carry on with the modules.",
-        about: "The save must list the same modules; their versions may differ if every \
-                stored component still fits.",
+        about: "The save must list the same modules; their versions and files may differ if \
+                every stored component still fits. Exit 4 says when it doesn't. The first tick \
+                run starts with an engine.resumed input (source resume), so scripts can cue \
+                music again; a run that never stopped reaches the same world given that input.",
         args: &[
             ("<save>", "a save file, from --save or a session's save.db"),
+            (
+                "--continue",
+                "instead of <save>: the newest save of these modules in the sessions folder, \
+                 as galaxy play --continue takes",
+            ),
             ("--modules <dir>", "a module folder, or a folder of modules"),
             ("--ticks <n>", "ticks to run after loading; 0 by default"),
             ("--inputs <file>", "inputs, notes and hot-loads by tick"),
@@ -852,6 +875,10 @@ static GAME: &[Command] = &[
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),
             ("script_failures, log", "as for sim run"),
+            (
+                "resumed",
+                "save, tick and changed_modules (whose files changed since the save)",
+            ),
             (
                 "state",
                 "with --state: a line an entity; --entity, --component or --all for fields",

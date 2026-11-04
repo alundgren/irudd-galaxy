@@ -70,6 +70,27 @@ impl Clip {
 
     /// Decode WAV PCM/float, Ogg Vorbis or MP3 before playback, never in the callback.
     pub fn read(path: &Path) -> Result<Self, String> {
+        let mut pcm = Pcm::read(path)?;
+        if path.extension().and_then(|s| s.to_str()) == Some("mp3") {
+            for sample in pcm.frames.iter_mut().flatten() {
+                *sample = sample.clamp(-1.0, 1.0);
+            }
+        }
+        Self::new(pcm.frames, pcm.rate)
+    }
+}
+
+/// Authoring PCM before playback's clamp. Mono is duplicated for playback, but
+/// `channels` retains the source layout so meters count it only once.
+#[derive(Clone, Debug)]
+pub struct Pcm {
+    pub frames: Vec<[f32; 2]>,
+    pub rate: u32,
+    pub channels: u16,
+}
+
+impl Pcm {
+    pub fn read(path: &Path) -> Result<Self, String> {
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         let (samples, channels, rate) = match ext {
             "wav" => {
@@ -133,17 +154,24 @@ impl Clip {
         if samples.len() % usize::from(channels) != 0 {
             return Err("incomplete audio frame".into());
         }
+        if samples.is_empty() || samples.iter().any(|v| !v.is_finite()) {
+            return Err("audio must contain finite samples".into());
+        }
         let frames = samples
             .chunks_exact(usize::from(channels))
             .map(|s| [s[0], *s.get(1).unwrap_or(&s[0])])
             .collect();
-        Self::new(frames, rate)
+        Ok(Self {
+            frames,
+            rate,
+            channels,
+        })
     }
 }
 
 /// MP3 through symphonia's decoder. A LAME tag's encoder delay and padding are trimmed
 /// (gapless), so a tagged loop keeps its authored length. Lossy decoding can overshoot
-/// full scale by a little, so samples are clamped to [-1, 1] rather than rejected. A
+/// full scale; Pcm preserves this for inspection, Clip clamps it for playback. A
 /// frame that fails to decode is skipped, as players do; a file with none is an error.
 fn mp3(path: &Path) -> Result<(Vec<f32>, u16, u32), String> {
     use symphonia::core::codecs::CodecParameters;
@@ -196,7 +224,7 @@ fn mp3(path: &Path) -> Result<(Vec<f32>, u16, u32), String> {
         }
         format = Some(this);
         buffer.copy_to_vec_interleaved(&mut packet_samples);
-        samples.extend(packet_samples.iter().map(|s| s.clamp(-1.0, 1.0)));
+        samples.extend_from_slice(&packet_samples);
     }
     let (channels, rate) = format.ok_or("no MP3 frame decoded")?;
     Ok((samples, channels, rate))

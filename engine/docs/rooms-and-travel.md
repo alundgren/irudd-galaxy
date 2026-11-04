@@ -61,12 +61,79 @@ then the destination is selected beneath the opaque title. Screens still read cu
 world state, with the player's source location and pose restored in the drawing snapshot during fade-out.
 The trip is presentation-independent: walking later can replace the cut and camera.
 
-Play supplies `engine.place_arrived { entity, place, start_tick }` after 30 ticks, or
-on any left click during a trip. That click is consumed; it cannot press a covered
+## Gliding cameras
+
+`engine.room.glide` (seconds, 0 to 10, default 0) replaces the cut into that room with a
+camera glide, and the cut out of it to a place that isn't a room (launching from a
+station into flight) with the same glide played the other way: from the room's camera
+back out to the follow camera, with the ship already flying. The trip records `glide` and draws the destination from its first frame,
+with no fade or title card. The camera moves from the one shown before (the source
+room's camera, or the follow camera with the player put back at its saved source pose)
+to the room's camera, eased with smoothstep over `(tick + alpha - start_tick)`. Each
+camera becomes a framing: the floor point it looks at, its direction and up, the height
+it shows at that point, and its field of view. An orthographic follow camera is a
+perspective one with a 2 degree field of view, so a glide from flight into a room
+widens the view while it closes in, like a dolly zoom. Across places the two cameras
+use different coordinates, so the glide keeps the source's angle, height and field of
+view but looks at the room camera's point throughout. `crates/view/src/glide.rs` holds
+the blend.
+
+Gliding out ends on the follow camera, which has no node: the trip stores it as the
+camera node `""` (`galaxy_sim::travel::FOLLOW`; a room's empty `camera` means its
+`camera` node, so no room camera has that name). Across places the glide out keeps the
+room camera's angle, height and field of view at its start and looks at the ship
+throughout, widening to the follow camera's framing as the room's did narrowing in. A
+glide out taken over (docking again before it lands) is a blend with a part on the
+follow camera, so the glide back in starts where the camera is: `view/tests/targets.rs`
+checks the framing carries on across each step, and that no frame of a glide out draws
+a fade or title card.
+
+Patching the room's `camera` to another node while the player is in that room glides
+too, when the room's `glide` is above 0. The travel service compares the room's camera
+node before and after each tick, and starts a trip with `from` equal to `to` and
+`from_camera` set to the old node. Such a trip does not interrupt talk. Its arrival
+input is `engine.camera_settled { entity, place, start_tick }`, so scripts counting
+arrivals at a place don't see a camera change. Without `glide`, a camera change snaps
+as before, and a change during a fade cut shows as that cut fades in.
+
+A glide can be taken over before it lands: a figure framed while the camera still
+glides into the room, or going back while it glides to that figure. The new trip starts
+from where the camera is at that moment, not from a camera node, so the picture never
+jumps. The trip stores the glide it took over in `interrupted`, as JSON text: where it
+ended (`to` and `camera`, the node it was gliding to), its `start_tick` and `glide`, and
+the camera it started from. That camera is a blend: weights over the room camera nodes
+the chain passed through, plus, until its weight runs out, the camera of the place the
+chain first left (with that trip's `from_*` source pose). A glide part of the way from
+one blend to a node is again a blend over the same cameras, so however many glides take
+each other over, and however quickly, the stored glide holds one weight per camera node
+and never a history. The sim does only the weight arithmetic (plain `f64`, the same bits
+on every OS); the view blends the cameras' framings with those weights (direction, up,
+field of view, and the shown height by its logarithm) and the point looked at with a
+second set of weights. Across places a glide looks at its destination's point
+throughout, so the point weights only count nodes of the room shown. The view draws the
+current glide the same way, so the camera at the moment of a take-over is exactly the
+new glide's source. Weights below 1e-9 are dropped.
+
+Storing the history instead (each glide holding the one it took over) needs no blend,
+but it grows with every take-over, and cutting it short changes where the oldest kept
+glide started, which shows as a jump. Storing the camera pose itself would need the sim
+to compute cameras from room models, which belong to the view. A trip
+between places taken over by a camera change keeps its `from`, `to` and source pose, so
+it still lands with `engine.place_arrived`, now after the new glide's length. A fade
+cut that leaves a room mid-glide keeps the glide moving while it fades out. Only plain
+fields are stored, so replays and hashes stay deterministic, and audit and film redraw
+a glide from the saved trip alone.
+
+Play supplies `engine.place_arrived { entity, place, start_tick }` after 30 ticks (or
+after a glide's own length, rounded up to whole ticks), or on any left click during a
+trip. That click is consumed; it cannot press a covered
 button too. Multiple clicks on the same tick land once. This is a declared, recorded
 world **input**, with source `travel`. The sim validates that it matches the active
 trip and clears `active` before dispatching it to scripts. Scripts may subscribe with
 `on["engine.place_arrived"]`; they cannot emit engine events themselves.
+
+`engine.camera_settled` follows the same rules for a glide within a room. A click lands
+either on the next tick; the first frame after that tick shows the destination camera.
 
 Headless runs never invent presentation arrivals. A scenario can supply the same input,
 and replay applies the input that play actually recorded, including early clicks.
@@ -105,13 +172,22 @@ save/load and replay hashes, fresh-view reconstruction, anchors and framing fail
 Mesh tests check inherited empty-node transforms and camera axes. GPU work remains in
 manual play/audit/film, not normal test runs.
 
+The generic fixture `tests/play/targets` glides from a follow camera into a room (0.8 s)
+and between two camera nodes; see [Screens](screens.md) for its commands. Its film shows
+the room growing steadily from the follow camera's framing to the room camera's, with
+no fade.
+
 ## Alternatives
 
 A private travel timer would lose its phase on save, audit or view replacement. A second
 copy of places inside the renderer would drift from scripts and walks. World trip data
 and imported spot components use the existing save path instead. Baking the camera into
 painted room layers would require new assets for walking; glTF sets keep that option
-open. A general transition graph would add machinery to a deliberately temporary cut.
+open. A general transition graph would add machinery to a deliberately temporary cut. A
+glide is one option on the destination room, not a graph: the source camera is whatever
+was shown, so every way in gets the same glide. Interpolating eye positions directly
+would swing an orthographic follow camera's far-away eye through the room; blending
+framings keeps the subject in view throughout.
 
 ## Talk in a room
 

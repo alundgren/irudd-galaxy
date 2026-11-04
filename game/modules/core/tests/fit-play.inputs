@@ -1,0 +1,251 @@
+# The fitting loop by real clicks and drags at the design size: the cradle on a new
+# game (three parts on the rack, priced), a part picked up that can't be paid for, the
+# lens bought and fitted after the first sale, the thrusters refused for power while
+# still held, Orrin's talk beside the panel, mining at two a second, hold pods fitted
+# over the free mass, and the pods refused coming off while the bigger hold is full.
+# At the exchange with a full hold, a click on the resting Buy 1 buys nothing.
+# Rooms glide open, so a click after opening or leaving one waits for the glide.
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+
+[[click]]
+tick = 60
+widget = "mine"
+
+[[click]]
+tick = 330
+widget = "kiln"
+
+[[click]]
+tick = 480
+widget = "sign_cradle"
+
+[[note]]
+tick = 530
+text = "First visit to the cradle with 0 cr: three parts on the rack with prices and numbers."
+
+[[pointer]]
+tick = 540
+action = "pickup"
+widget = "part_lens"
+
+[[pointer]]
+tick = 545
+action = "move"
+widget = "empty_drill"
+
+[[note]]
+tick = 550
+text = "Holding the lens with 0 cr: every socket says now why it can't go there."
+
+[[pointer]]
+tick = 560
+action = "drop"
+widget = "socket_drill"
+
+[[click]]
+tick = 590
+widget = "close"
+
+[[click]]
+tick = 630
+widget = "sign_exchange"
+
+[[note]]
+tick = 655
+text = "Kiln exchange with a full hold: Buy 1 rests in place, with its reason beside it."
+
+[[click]]
+tick = 665
+widget = "buy1_plate"
+
+[[click]]
+tick = 672
+widget = "sell_ore"
+
+[[click]]
+tick = 690
+widget = "close"
+
+[[click]]
+tick = 730
+widget = "sign_cradle"
+
+[[pointer]]
+tick = 780
+action = "pickup"
+widget = "part_lens"
+
+[[pointer]]
+tick = 785
+action = "move"
+widget = "empty_drill"
+
+[[note]]
+tick = 790
+text = "Holding the lens with 97 cr: the drill mount says Drop here; the others say where it goes."
+
+[[pointer]]
+tick = 800
+action = "drop"
+widget = "socket_drill"
+
+[[note]]
+tick = 830
+text = "Lens fitted: one receipt under the title, power 2 of 3, the ship mines 2 a second."
+
+[[pointer]]
+tick = 840
+action = "pickup"
+widget = "part_thrusters"
+
+[[pointer]]
+tick = 845
+action = "move"
+widget = "empty_engine"
+
+[[note]]
+tick = 850
+text = "Holding the thrusters: the engine socket says they need 2 power and 1 is free."
+
+[[pointer]]
+tick = 860
+action = "drop"
+widget = "socket_engine"
+
+[[click]]
+tick = 890
+widget = "speaker.core.kiln_fitter"
+
+[[note]]
+tick = 900
+text = "Orrin introduces himself; his bubble stays beside him, clear of the panel."
+
+[[click]]
+tick = 910
+widget = "talk.core.kiln_fitter_intro"
+
+[[click]]
+tick = 925
+widget = "talk.core.kiln_fitter_intro"
+
+[[click]]
+tick = 940
+widget = "talk.core.kiln_fitter_intro"
+
+[[click]]
+tick = 960
+widget = "speaker.core.kiln_fitter"
+
+[[note]]
+tick = 970
+text = "Orrin's line after the fit is flavour, not the receipt again."
+
+[[click]]
+tick = 980
+widget = "talk.core.kiln_fitter_talk"
+
+[[click]]
+tick = 1000
+widget = "close"
+
+[[click]]
+tick = 1040
+widget = "launch"
+
+[[click]]
+tick = 1080
+widget = "mine"
+
+[[note]]
+tick = 1230
+text = "Mining with the lens: two ore a second."
+
+[[click]]
+tick = 1320
+widget = "kiln"
+
+[[click]]
+tick = 1470
+widget = "sign_exchange"
+
+[[click]]
+tick = 1510
+widget = "sell_ore"
+
+[[click]]
+tick = 1530
+widget = "close"
+
+[[click]]
+tick = 1570
+widget = "sign_cradle"
+
+[[pointer]]
+tick = 1620
+action = "pickup"
+widget = "part_pods"
+
+[[pointer]]
+tick = 1640
+action = "drop"
+widget = "socket_hold"
+
+[[note]]
+tick = 1670
+text = "Pods fitted: mass 4 of 3 free, 1 over: 10% slower, turns 10% wider; hold 9."
+
+[[click]]
+tick = 1690
+widget = "close"
+
+[[click]]
+tick = 1730
+widget = "launch"
+
+[[click]]
+tick = 1770
+widget = "mine"
+
+[[note]]
+tick = 1900
+text = "In flight with the pods: the hull carries them, a little slower."
+
+[[click]]
+tick = 2060
+widget = "kiln"
+
+[[click]]
+tick = 2230
+widget = "sign_cradle"
+
+[[pointer]]
+tick = 2280
+action = "pickup"
+widget = "part_pods"
+
+[[pointer]]
+tick = 2285
+action = "move"
+widget = "off_drill"
+
+[[note]]
+tick = 2290
+text = "Holding the pods with 9 aboard: the tray says it can't take them off before I let go."
+
+[[pointer]]
+tick = 2300
+action = "drop"
+widget = "off_drill"
+
+[[note]]
+tick = 2330
+text = "Let go on the tray: the pods went back to their socket; nothing changed."

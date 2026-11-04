@@ -4,16 +4,19 @@
 //! `types` (the Luau type file for scripts), `fields` (the keys files take), `model` (a
 //! model's parts, outline and morph), `model make` (models from recipes), `test` (a
 //! module's tests and scenario runs), `what-if` (a recorded session on changed
-//! modules), `music` (generated through OpenRouter at build time) and `guide`.
+//! modules), `music` (generated through OpenRouter at build time), `memory` (the GM's
+//! memory of a game, for unattended runs) and `guide`.
 //! Each command's help is in `galaxy_module::help`, which dispatch goes through. Exit
 //! codes and error kinds: `engine/docs/exit-codes.md`.
 
+mod audio;
 mod audit;
 mod bot;
 mod fields;
 mod film;
 mod live;
 mod look;
+mod memory;
 mod model;
 mod music;
 mod openrouter;
@@ -55,6 +58,7 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
         }
     };
     match command.path {
+        path if path == "audio" || path.starts_with("audio ") => audio::run(path, args),
         "guide" => match args {
             [] => Ok(Output::Text(help::guide())),
             [topic] => help::guide_topic(topic).map(Output::Text).ok_or_else(|| {
@@ -181,6 +185,10 @@ fn run(command: &'static help::Command, args: &[String]) -> Result<Output, Failu
             };
             let opts = galaxy_motion::Opts::parse(rest).map_err(usage)?;
             film::show(&discover::resolve(&cwd, Path::new(path)), &opts)
+        }
+        "memory" => {
+            let path = one("one module folder, or a folder of modules")?;
+            memory::run(&discover::resolve(&cwd, Path::new(path)))
         }
         "notes" | "notes inbox" | "notes handle" | "notes unhandle" => {
             sessions::run_notes(command, args, &cwd)
@@ -382,6 +390,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
     }
     let mut findings = Vec::new();
     let mut hovers = Vec::new();
+    let mut screen_states = Vec::new();
     let mut all: Vec<Module> = context.clone();
     all.push(module.clone());
     match Registry::new(&all.iter().collect::<Vec<_>>()) {
@@ -409,7 +418,10 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                             view.screens
                                 .problems
                                 .iter()
-                                .filter(|p| p.starts_with(&format!("{}:", module.id())))
+                                .filter(|p| {
+                                    p.starts_with(&format!("{}:", module.id()))
+                                        || p.starts_with(&format!("{}.", module.id()))
+                                })
                                 .map(|p| finding("screen", p.clone())),
                         );
                         findings.extend(
@@ -437,6 +449,13 @@ fn check(dir: &Path) -> Result<Output, Failure> {
                             .into_iter()
                             .map(|p| finding("room", p)),
                         );
+                        let (pressed, states) = view.check_presses(
+                            &mut session,
+                            module.id(),
+                            galaxy_render::glam::Vec2::new(1280.0, 720.0),
+                        );
+                        findings.extend(pressed.into_iter().map(|p| finding("press", p)));
+                        screen_states = states;
                         hovers.extend(view.hover_checks.take().unwrap().into_values());
                         for hover in &hovers {
                             if let Some(problems) = hover["hover"]["problems"].as_array() {
@@ -470,6 +489,7 @@ fn check(dir: &Path) -> Result<Output, Failure> {
         "findings": findings,
         "worn": own(worn(&all), module.id()),
         "hovers": hovers,
+        "pressed": screen_states,
     });
     if ok {
         return Ok(Output::Json(out));
@@ -523,6 +543,12 @@ mod tests {
             ("model", model::OPTIONS),
             ("model make", model::MAKE_OPTIONS),
             ("music", music::OPTIONS),
+            ("audio inspect", audio::INSPECT_OPTIONS),
+            ("audio process", audio::PROCESS_OPTIONS),
+            ("audio loop", audio::LOOP_OPTIONS),
+            ("audio mix", audio::MIX_OPTIONS),
+            ("audio judge", audio::JUDGE_OPTIONS),
+            ("audio check", audio::CHECK_OPTIONS),
             ("film show", film::SHOW_OPTIONS),
             ("notes", sessions::NOTES_OPTIONS),
             ("notes inbox", sessions::INBOX_OPTIONS),

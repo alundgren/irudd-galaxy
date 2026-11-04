@@ -117,9 +117,9 @@ renders the mix without a device.
   decodes MP3 instead (symphonia's MP3 decoder, plumbing like hound and lewton).
 - **Softening words added to every prompt.** That would make all modules' music lean the
   same way, out of the author's sight. The advice goes in the help and the guide instead.
-- **A loudness standard (LUFS) instead of RMS.** LUFS weights frequencies the way ears do
-  and gates silence, so it judges bright or sparse music better, but it needs filters and
-  gating that the GM would carry only for this. Plain RMS over the whole clip is close
-  enough for background music, and `volume` stays easy to adjust by ear.
+- **LUFS instead of the generation default.** Generation keeps its simple RMS volume
+  estimate. The offline [audio tools](audio-tools.md) now meter LUFS and the real mix,
+  prepare loops and EQ, and judge intent after generation. Use those to verify and tune
+  the asset; source loudness alone does not establish playback balance.
 - **A full OpenRouter SDK.** One POST, a stream fold and a parser are all this needs, and
   small code is easier to keep the key out of.

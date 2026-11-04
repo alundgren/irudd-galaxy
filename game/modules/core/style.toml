@@ -1,16 +1,35 @@
 [sky]
 top = "#19283c"
 bottom = "#697b86"
-stars = 120
+stars = 160
+# Far stars creep behind near ones as the ship flies: a little depth, kept faint.
+star_layers = [0.25, 0.6, 1.1]
 cloud_count = 3
 
 [screen]
-paper = "#faf1dc"
-panel = "#f3e8ce"
-button = "#d9e6d8"
-text = "#233332"
-border = "#596960"
+# One look per kind of thing, all with pure black text: cream paper for what just
+# happened and for headings, pale blue panels for status and rooms, amber for anything
+# you can press, white bubbles for speech and white name signs for the people who speak.
+paper = "#fbf3e0"
+panel = "#d3e4ee"
+button = "#f2b264"
+bubble = "#ffffff"
+sign = "#ffffff"
+text = "#000000"
+border = "#3b2f2f"
 radius = 8
+# A building under the pointer lifts and takes a blue outline: blue is no other kind's
+# colour, and it stands out on the warm station.
+highlight = "#2f6fdb"
+highlight_px = 5
+# Dragging a part: the card under the pointer keeps the amber of something you can
+# press, and the gap it leaves is a darker blue. Picking one up tints every target at
+# once, bluish green where it may go and pale vermilion where it may not, always with
+# the words "Drop here" or "Cannot drop" and the reason (a colourblind-safe pair).
+held = "#f2b264"
+socket = "#b9cfdb"
+accept = "#bfe8d3"
+refuse = "#f6cdb8"
 
 [light]
 ambient = "#49485e"
