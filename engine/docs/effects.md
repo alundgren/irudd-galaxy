@@ -12,6 +12,15 @@ galaxy play --modules tests/play/effects          # 2 mines, 1 docks, W flies
 galaxy play --modules tests/play/effects --inputs tests/play/effects-inputs.toml --ticks 720
 ```
 
+Drawn by `galaxy shot` from the test module at 1280x720: a mine order holding, with sparks
+and chips where the cutter lands; the exhaust trailing a turning ship; the puff on
+docking.
+
+![The cutter on a rock](effects/mining.png)
+![Close up: sparks and inked chips where it lands](effects/mining-close.png)
+![The exhaust trail](effects/exhaust.png)
+![Docking puff](effects/dock.png)
+
 ## What a module writes
 
 Components, which scripts put and patch like any other (`writes` in the manifest), and
