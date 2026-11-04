@@ -317,10 +317,9 @@ fn two_views_of_one_session_draw_the_same_particles_and_the_world_never_changes(
     assert_eq!(s.world.hash(), plain.world.hash());
 }
 
-#[test]
-fn a_runaway_recipe_is_capped_and_reported() {
-    let dir = tempfile::tempdir().unwrap();
-    let copy = dir.path().join("effects");
+/// A copy of the effects module in `dir`, to change.
+fn copied(dir: &Path) -> PathBuf {
+    let copy = dir.join("effects");
     for sub in ["", "models", "scripts"] {
         std::fs::create_dir_all(copy.join(sub)).unwrap();
         for e in std::fs::read_dir(folder().join(sub)).unwrap() {
@@ -330,6 +329,13 @@ fn a_runaway_recipe_is_capped_and_reported() {
             }
         }
     }
+    copy
+}
+
+#[test]
+fn a_runaway_recipe_is_capped_and_reported() {
+    let dir = tempfile::tempdir().unwrap();
+    let copy = copied(dir.path());
     let mut style = std::fs::read_to_string(copy.join("style.toml")).unwrap();
     style
         .push_str("\n[particles.flood]\nrate = 400.0\nlife = 4.0\nlife_jitter = 0.0\ndrag = 0.0\n");
@@ -376,4 +382,106 @@ fn a_missing_recipe_or_beam_look_is_a_problem() {
         "{:?}",
         v.problems()
     );
+}
+
+#[test]
+fn many_runaway_emitters_stop_making_particles_at_the_cap() {
+    let dir = tempfile::tempdir().unwrap();
+    let copy = copied(dir.path());
+    let mut style = std::fs::read_to_string(copy.join("style.toml")).unwrap();
+    style
+        .push_str("\n[particles.flood]\nrate = 400.0\nlife = 4.0\nlife_jitter = 0.0\ndrag = 0.0\n");
+    std::fs::write(copy.join("style.toml"), style).unwrap();
+    // Each of these keeps 1600 particles alive: 200 of them would make 320,000.
+    let mut start = std::fs::read_to_string(copy.join("start.toml")).unwrap();
+    for n in 0..200 {
+        start.push_str(&format!(
+            "\n[entities.flood{n}]\n\"engine.position\" = {{ x = {}.0, y = 40.0 }}\n\
+             \"engine.emitter\" = {{ recipe = \"effects.flood\" }}\n",
+            n % 20
+        ));
+    }
+    std::fs::write(copy.join("start.toml"), start).unwrap();
+    let mut s = Session::new(vec![Module::read(&copy).unwrap()], 1).unwrap();
+    let mut v = View::detached(s.modules(), 1);
+    for _ in 0..130 {
+        step(&mut s, &mut v, &[]);
+    }
+    let scene = v.scene(&s.world, 0.5, SIZE, 0.0);
+    assert_eq!(scene.particles.len(), MAX_PARTICLES);
+    // The scene never held more than one past the cap: the rest were never made.
+    assert!(
+        scene.particles.capacity() <= MAX_PARTICLES + 1,
+        "{}",
+        scene.particles.capacity()
+    );
+    assert!(
+        v.problems()
+            .iter()
+            .any(|p| p.contains("more particles at once")),
+        "{:?}",
+        v.problems()
+    );
+}
+
+#[test]
+fn a_film_of_a_recording_keeps_reduced_motion_from_its_start() {
+    use galaxy_sim::recording::{BuildStamp, Replay};
+    use galaxy_view::film::{self, Shoot};
+    let mut s = Session::new(vec![module()], 1).unwrap();
+    s.start_recording(BuildStamp::current());
+    let mut v = View::detached(s.modules(), 1);
+    v.eye.still = true;
+    // Where the player's camera looked on each tick, drawn at the tick itself.
+    let mut seen = std::collections::BTreeMap::new();
+    for _ in 0..75 {
+        let next = s.world.tick + 1;
+        let held = [key(next, "thrust_ahead", true)];
+        step(&mut s, &mut v, if next == 1 { &held } else { &[] });
+        let camera = v.scene(&s.world, 0.0, SIZE, 0.0).camera;
+        seen.insert(s.world.tick, camera.target);
+        if s.world.tick == 60 {
+            let moment = v.moment(0.0, 0.0, (1280, 720), 1.0).unwrap();
+            assert!(moment.still);
+            s.note("here", Some(serde_json::to_value(&moment).unwrap()), None);
+        }
+    }
+    let rec = s.recording().unwrap();
+    let moment: galaxy_view::Moment = rec
+        .events
+        .iter()
+        .find_map(|e| match e {
+            galaxy_sim::recording::RecEvent::Note {
+                camera: Some(c), ..
+            } => Some(serde_json::from_value(c.clone()).unwrap()),
+            _ => None,
+        })
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut replay = Replay::new(&rec).unwrap();
+    let mut view = View::detached(replay.session.modules(), 1);
+    let shoot = Shoot {
+        fps: 30,
+        from: 50,
+        to: 70,
+        width: 1280,
+        height: 720,
+        scale: 1.0,
+        out: dir.path().join("film"),
+        zooms: film::recorded_zooms(&rec),
+        source: serde_json::json!({}),
+        exact_note: Some((60, moment)),
+    };
+    let manifest = film::shoot(&mut replay, &mut view, None, &shoot).unwrap();
+    assert!(manifest.frames.len() > 15);
+    for frame in &manifest.frames {
+        assert_eq!(frame.alpha, 0.0);
+        let film = Vec3::from(frame.camera.target);
+        let player = seen[&frame.tick];
+        assert!(
+            (film - player).length() < 1e-3,
+            "tick {}: the film looks at {film}, the player at {player}",
+            frame.tick
+        );
+    }
 }

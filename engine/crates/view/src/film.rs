@@ -175,28 +175,39 @@ fn step_noting(
     Ok(hot)
 }
 
-/// The zooms a recording kept, for filming it as the player saw it.
+/// The zooms a recording kept, for filming it as the player saw it. Reduced motion is
+/// a switch for the whole session, kept in its notes: when one has it, the film has it
+/// from the start.
 pub fn recorded_zooms(rec: &Recording) -> Vec<(u64, Zoom)> {
-    rec.events
-        .iter()
-        .filter_map(|e| match e {
-            RecEvent::Zoom { tick, view } => Some((*tick, Zoom::View(*view))),
-            RecEvent::Presentation { tick, state } => serde_json::from_value(state.clone())
-                .ok()
-                .map(|s| (*tick, Zoom::Presentation(s))),
-            RecEvent::Note {
-                tick,
-                camera: Some(camera),
-                ..
-            } => serde_json::from_value::<crate::Moment>(camera.clone())
-                .ok()
-                .map(|m| (*tick, Zoom::Presentation(Box::new(m.screens)))),
-            _ => None,
-        })
+    let still = rec.events.iter().any(|e| match e {
+        RecEvent::Note {
+            camera: Some(camera),
+            ..
+        } => serde_json::from_value::<crate::Moment>(camera.clone()).is_ok_and(|m| m.still),
+        _ => false,
+    });
+    let kept = rec.events.iter().filter_map(|e| match e {
+        RecEvent::Zoom { tick, view } => Some((*tick, Zoom::View(*view))),
+        RecEvent::Presentation { tick, state } => serde_json::from_value(state.clone())
+            .ok()
+            .map(|s| (*tick, Zoom::Presentation(s))),
+        RecEvent::Note {
+            tick,
+            camera: Some(camera),
+            ..
+        } => serde_json::from_value::<crate::Moment>(camera.clone())
+            .ok()
+            .map(|m| (*tick, Zoom::Presentation(Box::new(m.screens)))),
+        _ => None,
+    });
+    still
+        .then_some((0, Zoom::Still(true)))
+        .into_iter()
+        .chain(kept)
         .collect()
 }
 
-/// A change of zoom, once its tick has run.
+/// A change of zoom or of how the view is presented, once its tick has run.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Zoom {
     /// Wheel steps, as from an inputs file (positive is closer).
@@ -204,6 +215,8 @@ pub enum Zoom {
     /// A view height, as a recording keeps it.
     View(f32),
     Presentation(Box<crate::screens::Presentation>),
+    /// Reduced motion on or off ([`crate::Eye::still`]).
+    Still(bool),
 }
 
 /// How to film.
@@ -329,6 +342,7 @@ pub fn shoot(
                     Zoom::Steps(steps) => view.zoom(stepper.world(), steps),
                     Zoom::View(v) => view.eye.view = Some(v),
                     Zoom::Presentation(s) => view.screens.presentation = *s,
+                    Zoom::Still(still) => view.eye.still = still,
                 }
             }
             let world = stepper.world();

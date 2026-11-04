@@ -104,6 +104,7 @@ pub fn run(path: &Path, opts: &Opts) -> Result<Output, Failure> {
                 Zoom::Steps(s) => view.zoom(&replay.session.world, s),
                 Zoom::View(v) => view.eye.view = Some(v),
                 Zoom::Presentation(p) => view.screens.presentation = *p,
+                Zoom::Still(still) => view.eye.still = still,
             }
         }
         if replay.session.world.tick == tick {

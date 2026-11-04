@@ -208,6 +208,12 @@ fn at(pose: &Pose, offset: Vec3) -> Vec3 {
     pose.point() + Quat::from_rotation_z(pose.angle) * offset
 }
 
+/// True once a scene holds more particles than it draws: one over [`MAX_PARTICLES`], so
+/// the overflow still shows, and no spray makes any more.
+fn full(particles: &[Particle]) -> bool {
+    particles.len() > MAX_PARTICLES
+}
+
 fn smoothstep(x: f32) -> f32 {
     let x = x.clamp(0.0, 1.0);
     x * x * (3.0 - 2.0 * x)
@@ -378,7 +384,7 @@ impl Spray<'_> {
     /// What a steady spray from `samples` shows at `now`: on each tick it makes `rate`
     /// a second times `scale` of that tick's sample, each born at its own moment in the
     /// tick, where its emitter was then. `place(pose)` gives where on the thing it
-    /// leaves from and which way.
+    /// leaves from and which way. It stops once the scene is [`full`].
     fn steady(
         &self,
         samples: &[Sample],
@@ -395,12 +401,9 @@ impl Spray<'_> {
         }
         let oldest = (now - r.life * TICKS).floor() as i64 - 1;
         for tick in oldest.max(0)..=now.floor() as i64 {
-            let Some(here) = samples
-                .iter()
-                .rev()
-                .find(|s| s.tick as i64 <= tick)
-                .or(samples.first())
-            else {
+            // The last sample at or before `tick`, else the first.
+            let i = samples.partition_point(|s| s.tick as i64 <= tick);
+            let Some(here) = samples.get(i.saturating_sub(1)) else {
                 return;
             };
             let due = rate * scale(here).clamp(0.0, 1.0) / TICKS;
@@ -413,6 +416,9 @@ impl Spray<'_> {
             ]);
             let count = due.floor() as u32 + u32::from(dice.next() < due.fract());
             for _ in 0..count {
+                if full(out) {
+                    return;
+                }
                 let born = tick as f32 + dice.next();
                 let mut each = Dice(dice.0 ^ 0x5851_f42d_4c95_7f2d);
                 dice.next();
@@ -446,7 +452,9 @@ impl View {
     ) {
         let now = world.tick as f32 - 1.0 + alpha;
         let seconds = now.max(0.0) / TICKS;
-        let mut particles = Vec::new();
+        // Generation stops one past the cap, so a module's mistake costs no more than a
+        // full scene, and the overflow is still seen.
+        let mut particles = Vec::with_capacity(MAX_PARTICLES + 1);
         let mut missing = Vec::new();
         for (id, c) in &world.entities {
             if let Some(f) = c.get(BEAM).map(|c| &c.fields) {
@@ -562,6 +570,9 @@ impl View {
         }
         // Sparks and chips where it lands, thrown back up the beam.
         for name in &style.impact {
+            if full(particles) {
+                break;
+            }
             let Some(recipe) = self.recipe(name, id, missing) else {
                 continue;
             };
@@ -645,6 +656,9 @@ impl View {
             return;
         };
         let from = source(f, id);
+        if full(particles) {
+            return;
+        }
         if !rooms::visible(world, from, place) {
             return;
         }
@@ -695,7 +709,7 @@ impl View {
         };
         // It shows from the frame its tick is drawn into.
         let born = tick as f32 - 1.0;
-        if now < born || now - born > recipe.life * TICKS {
+        if now < born || now - born > recipe.life * TICKS || full(particles) {
             return;
         }
         let from = source(f, id);
@@ -718,6 +732,9 @@ impl View {
         };
         let mut dice = Dice::new(&[self.seed, key(id), key(name), tick as u64]);
         for _ in 0..recipe.count.min(galaxy_render::effects::MAX_COUNT) {
+            if full(particles) {
+                break;
+            }
             let mut each = Dice(dice.0 ^ 0x5851_f42d_4c95_7f2d);
             dice.next();
             if let Some(p) = spray.particle(

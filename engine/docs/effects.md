@@ -70,6 +70,9 @@ count = 12                   # in one burst
   recording.
 
 Missing recipes and beam looks show in the problems panel, as missing models do.
+`galaxy-gm check` refuses a recipe or beam look the start state names (sprayed yet or
+not), an emitter `by` other than empty, `thrust` or `speed`, and a beam's impact recipe,
+when no module's style.toml has it.
 
 ## Drawn only, and the same every time
 
@@ -108,10 +111,12 @@ can read.
 
 ## The cap
 
-A scene draws at most 4096 particles (`MAX_PARTICLES`); the rest are dropped and the
-problems panel says so. Recipes are bounded too (count 256, rate 400 a second, life 4
-seconds), halos stop at 512 a scene and 64 lamps a model. A runaway module at the cap
-still holds 60 fps at 1280x720 (scene build 0.6 ms median).
+A scene draws at most 4096 particles (`MAX_PARTICLES`); the rest are never made, and the
+problems panel says so. Sprays are worked out in entity order and stop one past the cap,
+so a module's mistake (a thousand emitters, say) costs no more than a full scene; the
+first 4096 are the ones the scene would have kept anyway. Recipes are bounded too (count
+256, rate 400 a second, life 4 seconds), halos stop at 512 a scene and 64 lamps a model.
+A runaway module at the cap still holds 60 fps at 1280x720 (scene build 0.6 ms median).
 
 ## Drawing
 
@@ -157,7 +162,11 @@ world and the pose history, never from frame-to-frame state:
 
 **Reduced motion.** `galaxy play --reduced-motion` (and `galaxy shot`) turns all three
 off. It is the player's setting, not the world's: notes keep it in their moment, so a
-redraw matches what the player saw. Room cameras and glides never take camera feel.
+redraw matches what the player saw. It is a switch for the whole session, so a film of a
+recording (`galaxy-gm film`, drawn or `--probes-only`, and `look`) takes it from the
+first note that has it and applies it from the film's first frame. A recording without
+a note has nothing that says the player reduced motion. Room cameras and glides never
+take camera feel.
 
 ## Measured
 
