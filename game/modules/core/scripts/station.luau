@@ -322,7 +322,7 @@ local function office_rows(ctx, ui, station, children)
     local left, total = 0, 0
     for _, id in ctx.query("ore") do
         local ore = ctx.get(id, "ore")
-        left, total = left + ore.left, total + ore.total
+        if ore.ware == "ore" or ore.ware == "" then left, total = left + ore.left, total + ore.total end
     end
     table.insert(children, ui.text { id = "field", text = "Ore left in the field: " .. left .. " of " .. total, size = 20 })
 end

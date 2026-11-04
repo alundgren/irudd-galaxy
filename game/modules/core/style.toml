@@ -1,16 +1,19 @@
 # The core's look, from the direction doc (game/docs/direction.md, 1.1, 1.2, 1.5 and 9).
 
-# Calm dusky plum space, never near-black, so the warm ink reads against it; sparse warm
-# stars and a few soft clouds of rose, amber, teal and violet haze.
+# Calm dusky plum space, never near-black, so the warm ink reads against it; warm stars,
+# most of them tiny, and soft layered clouds of rose, amber, teal and violet haze.
 [sky]
 top = "#4e3672"
 bottom = "#2a1f48"
-stars = 180
-# Far stars creep behind near ones as the ship flies: a little depth, kept faint.
-star_layers = [0.25, 0.6, 1.1]
-clouds = ["#c2577a", "#e8905a", "#2f8f8a", "#6b4aa0"]
-cloud_count = 9
-cloud_alpha = 0.2
+stars = 300
+# Four layers: the farthest stars barely creep, the nearest slide past, so the backdrop
+# has depth as the ship flies without ever looking busy.
+star_layers = [0.12, 0.35, 0.75, 1.3]
+# Violet listed twice, so the broad haze is mostly violet with rose, amber and teal
+# patches over it.
+clouds = ["#c2577a", "#6b4aa0", "#e8905a", "#2f8f8a", "#6b4aa0"]
+cloud_count = 16
+cloud_alpha = 0.24
 
 # Warm dark plum ink, not black: a silhouette round every model, and inner lines on sharp
 # creases and colour borders, so gentle rock facets stay bare.
@@ -33,15 +36,20 @@ band_fade_degrees = 30
 sun_direction = [-0.62, 0.48, 0.52]
 
 # Ink weight by the size of the thing: stations heaviest, then ships, rocks, props.
+# Lamps, windows and engines are self-lit paint; a halo makes them glow and pool light.
 [looks.station]
 outline_px = 4.5
 hatch = 0.3
 shadow = "#9e85cc"
+halo = 1.1
+halo_size = 2.2
 
 [looks.ship]
 outline_px = 3.5
 hatch = 0.3
 shadow = "#9e85cc"
+halo = 0.8
+halo_size = 2.0
 
 [looks.rock]
 outline_px = 3.0
@@ -49,10 +57,112 @@ hatch = 1.0
 # A lighter violet than the rest, so the ink strokes read on the rust-brown shadow side.
 shadow = "#c8aef5"
 
+# Ice: pale mint-cream with blue-violet shadow faces (direction doc 1.4), less hatched
+# than ironstone so it reads smooth.
+[looks.ice]
+outline_px = 3.0
+hatch = 0.55
+shadow = "#8f8ee0"
+
+# Glassite: its crystals are self-lit and glow a little.
+[looks.glassite]
+outline_px = 3.0
+hatch = 0.8
+shadow = "#b7a0f0"
+halo = 0.7
+halo_size = 1.6
+
 [looks.prop]
 outline_px = 2.5
 hatch = 0.15
 shadow = "#9e85cc"
+
+# Lane buoys: props whose lamps glow, so the lane reads from afar.
+[looks.buoy]
+outline_px = 2.5
+hatch = 0.15
+shadow = "#9e85cc"
+halo = 1.4
+halo_size = 2.6
+
+# Pebbles and grit: thin ink, so a drift reads as texture, not a field of rocks.
+[looks.debris]
+outline_px = 1.5
+hatch = 0.4
+shadow = "#c8aef5"
+
+# Far things (a planet, a far lighthouse): faint ink, two bands, a shadow close to the
+# sky's own violet, so they sit back in the haze.
+[looks.far]
+outline_px = 1.5
+bands = 2
+hatch = 0.0
+shadow = "#6a5a9e"
+halo = 1.6
+halo_size = 3.0
+
+# Engine trails: warm sparks that stay where they are born, so a moving hull draws a
+# short fading line behind it.
+[particles.exhaust]
+shape = "dot"
+blend = "add"
+color = "#ffcf6b"
+end_color = "#ee7a5a"
+size = 0.55
+end_size = 0.15
+life = 0.7
+rate = 30.0
+speed = 2.0
+spread = 18.0
+direction = 180.0
+drag = 3.0
+
+# A trader's smaller, cooler trail.
+[particles.wake]
+shape = "dot"
+blend = "add"
+color = "#cff3ee"
+end_color = "#6b4aa0"
+size = 0.45
+end_size = 0.1
+life = 0.9
+rate = 18.0
+speed = 1.5
+spread = 15.0
+direction = 180.0
+drag = 3.0
+
+# Steam: slow cream cel puffs that swell and drift off a chimney or vent.
+[particles.steam]
+shape = "puff"
+blend = "paint"
+color = "#fff4dd"
+end_color = "#b9a6d9"
+size = 0.5
+end_size = 1.8
+life = 3.5
+life_jitter = 0.3
+rate = 3.0
+speed = 1.4
+speed_jitter = 0.4
+spread = 40.0
+drag = 0.6
+
+# Dust: a few faint warm motes drifting over the rock drifts.
+[particles.dust]
+shape = "dot"
+blend = "add"
+color = "#ffe9a8"
+end_color = "#6b4aa0"
+size = 0.16
+end_size = 0.08
+life = 4.0
+life_jitter = 0.5
+rate = 2.5
+speed = 1.2
+speed_jitter = 0.8
+spread = 360.0
+drag = 0.2
 
 [screen]
 # The slice's screen family, light surfaces with pure black text throughout:

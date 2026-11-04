@@ -161,8 +161,10 @@ return {
             end
             return
         end
-        ctx.patch("ship", "hold", { ore = hold.ore + amount })
-        ctx.patch("ship", "pilot", { message = "+" .. amount .. " ore aboard.", away = true })
+        -- Each rock yields its own ware: ore, ice or glassite.
+        local ware = ore.ware ~= "" and ore.ware or "ore"
+        ctx.patch("ship", "hold", { [ware] = (hold[ware] or 0) + amount })
+        ctx.patch("ship", "pilot", { message = "+" .. amount .. " " .. ware .. " aboard.", away = true })
         ctx.patch(pilot.target, "ore", { left = ore.left - amount })
         ctx.patch(pilot.target, "engine.model", { morph = (ore.total - ore.left + amount) / ore.total })
         ctx.record("mined", { rock = pilot.target, units = amount })

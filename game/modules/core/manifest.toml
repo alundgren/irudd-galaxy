@@ -4,7 +4,7 @@ version = "0.1.0"
 min_engine_version = "0.7.0"
 scripts = ["scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau"]
 events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "mined", "sold", "bought", "docked", "grown", "fitted", "radio", "radio_lantern", "radio_kiln", "radio_off"]
-writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin"]
+writes = ["engine.position", "engine.motion", "engine.flight", "engine.helm", "engine.steer", "engine.body", "engine.camera", "engine.model", "engine.being", "engine.location", "engine.place", "engine.room", "engine.spot", "engine.walk", "engine.anchor", "engine.talk", "engine.talk_line", "engine.talk_choice", "engine.life", "engine.act", "engine.clock", "engine.waypoint", "engine.spin", "engine.emitter"]
 
 [components.pilot]
 credits = "int"
@@ -30,6 +30,8 @@ gliding = "bool"
 # What the hold carries, by ware. Its total is bounded by the hold's capacity.
 [components.hold]
 ore = "int"
+ice = "int"
+glassite = "int"
 plate = "int"
 rations = "int"
 
@@ -40,9 +42,11 @@ left = "bool"
 right = "bool"
 boost = "bool"
 
+# A rock: what is left in it, what it held, and the ware it yields (ore, ice or glassite).
 [components.ore]
 left = { type = "int", default = 12 }
 total = { type = "int", default = 12 }
+ware = { type = "text", default = "ore" }
 
 [components.port]
 name = "text"

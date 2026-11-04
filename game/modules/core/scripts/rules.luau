@@ -7,14 +7,14 @@ local rules = {
     -- berth it last left, mined, or docked somewhere else.
     AWAY = 20,
     -- The goods a hold carries, in the order screens list them.
-    WARES = { "ore", "plate", "rations" },
+    WARES = { "ore", "ice", "glassite", "plate", "rations" },
 }
 
 function rules.distance2(a, b)
     return (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2
 end
 
--- Units in a hold ({ ore = n, plate = n, rations = n }).
+-- Units in a hold ({ ore = n, ice = n, ... }).
 function rules.load(hold)
     local n = 0
     for _, ware in rules.WARES do
