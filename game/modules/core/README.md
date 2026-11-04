@@ -517,7 +517,8 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and twenty-four scenarios:
+and the worked-out message for an empty and a full hold) and twenty-six scenarios (two of them, `sound.toml` and
+`sound-talk.toml`, under the sound below):
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
 the rock on the tick Space is pressed, a unit at half a second and one a second after,
 the sixth filling the hold and letting the beam go once, then turned and flown into
