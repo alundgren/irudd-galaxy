@@ -143,7 +143,10 @@ pub const CAMERA_FEEL: &str = "engine.camera_feel";
 ///   `line` for next).
 /// - `talk_chosen`: an answer button in a bubble, recorded as input (`talk`, `line`,
 ///   `choice`). A stale answer (not on the line showing) records no event.
-pub const EVENTS: [&str; 12] = [
+/// - `contact`: two bodies started touching at least as fast as a module's manifest
+///   `contact_speed` (`entity`, the one that moves more; `other`; `speed`, the closing
+///   speed in units a second). Recorded only when a loaded module sets `contact_speed`.
+pub const EVENTS: [&str; 13] = [
     "clock_advanced",
     "start",
     "hot_loaded",
@@ -156,6 +159,7 @@ pub const EVENTS: [&str; 12] = [
     "talk_start",
     "talk_next",
     "talk_chosen",
+    "contact",
 ];
 
 pub const START: &str = "engine.start";
@@ -164,6 +168,7 @@ pub const RESUMED: &str = "engine.resumed";
 /// The input source of [`RESUMED`].
 pub const RESUME_SOURCE: &str = "resume";
 pub const ARRIVED: &str = "engine.arrived";
+pub const CONTACT: &str = "engine.contact";
 pub const SCRIPT_FAILED: &str = "engine.script_failed";
 
 /// What each field of the engine's components means, with its unit: component (local

@@ -44,6 +44,7 @@ fn ogg_vorbis_decodes_and_plays_finite_nonzero_samples() {
         bus: Bus::Sound,
         volume: 1.0,
         fade: 0.005,
+        pitch: 1.0,
     });
     let mut frames = [[0.0; 2]; 4800];
     mixer.render(&mut frames);
@@ -103,6 +104,7 @@ fn mp3_decodes_to_the_tone_it_was_made_from() {
         bus: Bus::Sound,
         volume: 1.0,
         fade: 0.005,
+        pitch: 1.0,
     });
     let mut frames = [[0.0; 2]; 1600];
     mixer.render(&mut frames);

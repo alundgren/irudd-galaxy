@@ -27,8 +27,9 @@ those fields in full; `--all` prints every field, the facts and causes.
 
 A save is one SQLite file. Tables: `meta` (format, engine, build, seed, tick, hash),
 `modules` (each module the world ran with: ID, version, minimum engine version and the hash
-of its files), `components`, `facts`, `causes`, and `state` (the random streams and the
-engine services' causes). Writing goes to a temporary file that replaces the target when
+of its files), `components`, `facts`, `causes`, and `state` (the random streams, the
+engine services' causes and, only while bodies are in contact with contacts recorded,
+`contacts`: `flight-and-collision.md`). Writing goes to a temporary file that replaces the target when
 complete.
 
 Loading rebuilds the world from the tables and checks it hashes as it did when saved, so

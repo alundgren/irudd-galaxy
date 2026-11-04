@@ -31,7 +31,7 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize, Size};
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, ModifiersState, NamedKey, PhysicalKey};
 use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::notes::{self, NoteBox};
@@ -292,6 +292,8 @@ struct App {
     pace: FixedStep,
     keys: BTreeMap<String, Vec<String>>,
     held: BTreeSet<&'static str>,
+    /// The modifier keys held now, for the paste chord in the note box.
+    modifiers: ModifiersState,
     pending: Vec<Input>,
     /// Scripted inputs by tick (`--inputs`): the bot.
     scripted: BTreeMap<u64, Vec<Input>>,
@@ -422,6 +424,8 @@ impl App {
                 bus: galaxy_audio::Bus::Ambience,
                 fade: 0.25,
             },
+            // The new bank tunes its own loops from its first update.
+            galaxy_audio::Action::ResetTunes,
         ]);
         self.audio_output
             .send(self.audio.update(&self.session.world));
@@ -519,6 +523,17 @@ impl App {
     /// A key while the note box is open.
     fn note_key(&mut self, event: &winit::event::KeyEvent) {
         if event.state != ElementState::Pressed {
+            return;
+        }
+        if notes::is_paste(&event.logical_key, event.physical_key, self.modifiers) {
+            match crate::clipboard::text() {
+                Ok(text) => {
+                    if let Some(n) = &mut self.note {
+                        n.paste(&text);
+                    }
+                }
+                Err(e) => eprintln!("galaxy: can't paste: {e}"),
+            }
             return;
         }
         match &event.logical_key {
@@ -971,6 +986,7 @@ impl ApplicationHandler for App {
                     r.view.screens.cancel_pointer(self.session.world.tick + 1);
                 }
             }
+            WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
             WindowEvent::KeyboardInput { event, .. } => {
                 if self.note.is_some() {
                     self.note_key(&event);
@@ -1286,6 +1302,7 @@ pub fn play(args: &[String]) -> Result<Output, Failure> {
         running: None,
         pace: FixedStep::default(),
         held: BTreeSet::new(),
+        modifiers: ModifiersState::empty(),
         pending: Vec::new(),
         scripted: script.inputs,
         scripted_clicks: script.clicks,
