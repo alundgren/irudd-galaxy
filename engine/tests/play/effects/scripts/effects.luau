@@ -82,7 +82,7 @@ local function arrived(event, ctx)
 		ctx.patch(id, "engine.beam", { target = event.payload.target })
 	elseif event.payload.mode == "dock" then
 		ctx.patch(id, "engine.burst", { recipe = "effects.puff", tick = ctx.tick, x = -0.5 })
-		ctx.patch(id, "engine.camera", { shake = 0.025, shake_tick = ctx.tick, shake_seconds = 0.45 })
+		ctx.patch(id, "engine.camera_feel", { shake = 0.025, shake_tick = ctx.tick, shake_seconds = 0.45 })
 	end
 end
 

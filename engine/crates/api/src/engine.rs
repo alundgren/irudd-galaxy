@@ -22,14 +22,11 @@
 //!   model's ID (`<module>.<name>` is `models/<name>.gltf` in that module), `look` a look
 //!   from a module's `style.toml` (`<module>.<name>`, or empty for the default), `scale`
 //!   its size, and `morph` how far it is drawn towards its morph target, 0 to 1.
-//! - `engine.camera { tilt, view, min_view, max_view, fov, speed_zoom, lead, shake,
-//!   shake_tick, shake_seconds }`: the camera follows the thing that has this. `tilt`
-//!   leans it back from straight down (degrees), `view` is how many world units it shows
-//!   from the bottom of the screen to the top, the wheel zooms between `min_view` and
-//!   `max_view`, and `fov` above 0 makes it a perspective camera with that vertical field
-//!   of view (degrees). The rest is camera feel, drawn only: `speed_zoom` widens the view
-//!   by that share at the thing's top speed, `lead` looks that many seconds ahead of it,
-//!   and `shake` (a share of the view) shakes it for `shake_seconds` from `shake_tick`.
+//! - `engine.camera { tilt, view, min_view, max_view, fov }`: the camera follows the thing
+//!   that has this. `tilt` leans it back from straight down (degrees), `view` is how many
+//!   world units it shows from the bottom of the screen to the top, the wheel zooms
+//!   between `min_view` and `max_view`, and `fov` above 0 makes it a perspective camera
+//!   with that vertical field of view (degrees).
 //!
 //! Effects, drawn only (`engine/docs/effects.md`). Nothing in the world reads them:
 //!
@@ -41,6 +38,11 @@
 //!   rate, scaled by `by` (`thrust` or `speed`; empty is always).
 //! - `engine.burst { recipe, tick, target, x, y, height, angle }`: one burst of a recipe's
 //!   `count`, born on `tick` (0 is none).
+//! - `engine.camera_feel { speed_zoom, lead, shake, shake_tick, shake_seconds }`, beside
+//!   `engine.camera`: `speed_zoom` widens the view by that share at the thing's top speed,
+//!   `lead` looks that many seconds ahead of it, and `shake` (a share of the view) shakes
+//!   it for `shake_seconds` from `shake_tick`. A separate component, so worlds without it
+//!   keep their hash.
 //!
 //! Flight and collision (`engine/docs/flight-and-collision.md`):
 //!
@@ -123,6 +125,7 @@ pub const WALK_FINISHED: &str = "engine.walk_finished";
 pub const BEAM: &str = "engine.beam";
 pub const EMITTER: &str = "engine.emitter";
 pub const BURST: &str = "engine.burst";
+pub const CAMERA_FEEL: &str = "engine.camera_feel";
 
 /// The engine's event kinds (in the `engine` namespace).
 /// - `start`: once, on the first tick of a new world.
@@ -529,27 +532,27 @@ pub const FIELDS: &[(&str, &str, &str)] = &[
         "above 0, a perspective camera with this vertical field of view, degrees",
     ),
     (
-        "camera",
+        "camera_feel",
         "speed_zoom",
         "0 to 1: the view widens by this share at the followed thing's top speed; drawn only",
     ),
     (
-        "camera",
+        "camera_feel",
         "lead",
         "0 to 2: seconds of its travel the camera looks ahead; eases back as it stops",
     ),
     (
-        "camera",
+        "camera_feel",
         "shake",
         "0 to 0.2: a kick and shake, as a share of the view, from shake_tick",
     ),
     (
-        "camera",
+        "camera_feel",
         "shake_tick",
         "the tick the shake starts (set it to ctx.tick on an event); 0 is none",
     ),
     (
-        "camera",
+        "camera_feel",
         "shake_seconds",
         "0 to 2: how long the shake takes to die away",
     ),
@@ -945,13 +948,18 @@ pub fn components() -> Vec<(&'static str, BTreeMap<String, FieldDecl>)> {
             body.extend(numbers(&[("mass", 1.0), ("drag", 1.5)]));
             body
         }),
-        ("camera", {
-            let mut f = numbers(&[
+        (
+            "camera",
+            numbers(&[
                 ("tilt", 30.0),
                 ("view", 60.0),
                 ("min_view", 20.0),
                 ("max_view", 240.0),
                 ("fov", 0.0),
+            ]),
+        ),
+        ("camera_feel", {
+            let mut f = numbers(&[
                 ("speed_zoom", 0.0),
                 ("lead", 0.0),
                 ("shake", 0.0),

@@ -15,7 +15,7 @@ events = [
 writes = [
     "engine.position", "engine.motion", "engine.model", "engine.camera",
     "engine.flight", "engine.helm", "engine.steer", "engine.body",
-    "engine.beam", "engine.emitter", "engine.burst",
+    "engine.beam", "engine.emitter", "engine.burst", "engine.camera_feel",
 ]
 
 # Which flight keys are held, so two keys for one way (W and Up) don't fight.

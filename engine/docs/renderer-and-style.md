@@ -261,7 +261,7 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   a sim input: the world never sees it. A played session's recording keeps it beside the
   inputs as presentation only, so a film of the session shows the zoom the player had,
   and an inputs file can turn the wheel with `[[zoom]]` (`saves-and-replay.md`).
-  `speed_zoom`, `lead` and `shake` add camera feel on top, drawn only, and the player's
+  `engine.camera_feel` (`speed_zoom`, `lead`, `shake`) adds camera feel on top, drawn only, and the player's
   reduced-motion setting turns it off ([effects](effects.md#camera-feel)).
 
 - **The course** (`crates/view/src/course.rs`). While the thing the camera follows has

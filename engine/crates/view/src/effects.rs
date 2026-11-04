@@ -1,6 +1,6 @@
 //! Effects a module asks for, drawn only: beams (`engine.beam`), particles
 //! (`engine.emitter`, `engine.burst` and a beam's landing), halos round self-lit paint (a
-//! look's `halo`), and camera feel (`engine.camera`'s `speed_zoom`, `lead` and `shake`).
+//! look's `halo`), and camera feel (`engine.camera_feel`: `speed_zoom`, `lead`, `shake`).
 //!
 //! Nothing here writes the world. Every particle is worked out afresh each frame from
 //! where its emitter was on the tick it was born, the tick, the entity and the world's
@@ -12,7 +12,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use galaxy_api::engine::{BEAM, BURST, CAMERA, EMITTER, FLIGHT, HELM, MODEL, MOTION};
+use galaxy_api::engine::{BEAM, BURST, CAMERA_FEEL, EMITTER, FLIGHT, HELM, MODEL, MOTION};
 use galaxy_mesh::gltf::PartRange;
 use galaxy_mesh::{Color, MeshData};
 use galaxy_render::effects::{Blend, ParticleRecipe};
@@ -796,7 +796,7 @@ impl View {
         if self.eye.still {
             return (1.0, Vec3::ZERO);
         }
-        let Some(cam) = world.component(holder, CAMERA).map(|c| &c.fields) else {
+        let Some(cam) = world.component(holder, CAMERA_FEEL).map(|c| &c.fields) else {
             return (1.0, Vec3::ZERO);
         };
         let speed_zoom = number(cam, "speed_zoom", 0.0).clamp(0.0, 1.0);

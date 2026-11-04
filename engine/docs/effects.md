@@ -23,7 +23,7 @@ every field and key with its range and default.
 "engine.beam" = { look = "m.cutter", x = 2.3, height = 0.2 }   # target set by a script
 "engine.emitter" = { recipe = "m.exhaust", x = -2.0, angle = 180.0, by = "thrust" }
 "engine.burst" = {}                                            # recipe and tick by a script
-"engine.camera" = { view = 36.0, speed_zoom = 0.25, lead = 0.3 }
+"engine.camera_feel" = { speed_zoom = 0.25, lead = 0.3 }      # beside engine.camera
 
 # style.toml
 [looks.hull]
@@ -52,10 +52,13 @@ count = 12                   # in one burst
   paint on the models that wear it: windows, lanterns, an engine's nozzle. A patch is a
   connected run of glowing triangles in one model part, found when the model loads. A
   part that pulses pulses its halo; a part that spins carries it round.
-- **Camera feel**, on `engine.camera`: `speed_zoom` widens the view by that share at the
+- **Camera feel**, `engine.camera_feel` beside `engine.camera`: `speed_zoom` widens the view by that share at the
   followed thing's top speed, `lead` aims that many seconds of its travel ahead, and
   `shake` (a share of the view) kicks and shakes the camera for `shake_seconds` from
-  `shake_tick`. Like bursts, a script sets `shake_tick = ctx.tick` on the event.
+  `shake_tick`. Like bursts, a script sets `shake_tick = ctx.tick` on the event. It is a
+  component of its own rather than more `engine.camera` fields: new fields with defaults
+  would land in every camera holder and change the hash of every existing world and
+  recording.
 
 Missing recipes and beam looks show in the problems panel, as missing models do.
 

@@ -10,7 +10,8 @@ keys = {}
 "engine.steer" = {}
 "engine.body" = { mass = 1.0 }
 "engine.model" = { model = "effects.ship", look = "effects.hull" }
-"engine.camera" = { tilt = 30.0, view = 36.0, speed_zoom = 0.25, lead = 0.3 }
+"engine.camera" = { tilt = 30.0, view = 36.0 }
+"engine.camera_feel" = { speed_zoom = 0.25, lead = 0.3 }
 "engine.emitter" = { recipe = "effects.exhaust", x = -2.0, angle = 180.0, by = "thrust" }
 "engine.beam" = { look = "effects.cutter", x = 2.3, height = 0.2 }
 "engine.burst" = {}
