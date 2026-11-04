@@ -546,8 +546,9 @@ static GAME: &[Command] = &[
             ),
             (
                 "--reduced-motion",
-                "the player's reduced-motion setting: the camera never zooms with speed, leads \
-                 or shakes; notes keep it",
+                "the player's reduced-motion setting (also GALAXY_REDUCED_MOTION=1): the camera \
+                 never zooms with speed, leads or shakes, and screens don't slide, fade, lift, \
+                 count or flash; recordings and notes keep it",
             ),
         ],
         output: &[
@@ -664,7 +665,8 @@ static GAME: &[Command] = &[
             ),
             (
                 "--reduced-motion",
-                "draw it as a player with reduced motion sees it: no camera shake, lead or speed zoom",
+                "draw it as a player with reduced motion sees it (also GALAXY_REDUCED_MOTION=1): no \
+                 camera shake, lead or speed zoom, and screens already settled",
             ),
         ],
         output: &[

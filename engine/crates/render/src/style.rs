@@ -319,6 +319,156 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "talk bubble Continue/Done marker size, logical pixels; drawn at weight 400",
     ),
     (
+        "screen",
+        "button_hover",
+        "opaque colour",
+        "button fill under the pointer; unset keeps button; text needs 4.5:1",
+    ),
+    (
+        "screen",
+        "bubble_look",
+        "a look name",
+        "a [screen.looks] look for talk bubbles; empty uses bubble and text",
+    ),
+    (
+        "screen",
+        "bubble_title_look",
+        "a look name",
+        "a look for the bubble's heading (the speaker's name): its colour, weight, underline or tag fill",
+    ),
+    (
+        "screen",
+        "sign_look",
+        "a look name",
+        "a look for life signs; empty uses sign and text",
+    ),
+    (
+        "screen",
+        "motion_in",
+        "0 to 1",
+        "seconds a panel or bubble takes to fade (and slide) in; 0 shows it at once",
+    ),
+    (
+        "screen",
+        "motion_out",
+        "0 to 1",
+        "seconds a closed panel or bubble takes to fade out",
+    ),
+    (
+        "screen",
+        "motion_slide",
+        "0 to 48",
+        "how far panels slide while coming and going, logical pixels; 0 only fades",
+    ),
+    (
+        "screen",
+        "hover_lift",
+        "0 to 6",
+        "how far a button rises under the pointer, logical pixels",
+    ),
+    (
+        "screen",
+        "press_sink",
+        "0 to 6",
+        "how far a pressed button sinks, logical pixels",
+    ),
+    (
+        "screen",
+        "cue_time",
+        "0 to 2",
+        "seconds a value's cue (count or flash) runs; 0 turns cues off",
+    ),
+    (
+        "screen",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value; text needs 4.5:1",
+    ),
+    (
+        "screen.looks.<name>",
+        "fill",
+        "opaque colour",
+        "surface fill; on a span, a tag behind its words; unset keeps the widget's",
+    ),
+    (
+        "screen.looks.<name>",
+        "text",
+        "opaque colour",
+        "text colour; needs 4.5:1 on fill, hover and flash (3:1 for a mark)",
+    ),
+    (
+        "screen.looks.<name>",
+        "border",
+        "opaque colour",
+        "frame colour",
+    ),
+    (
+        "screen.looks.<name>",
+        "border_px",
+        "0 to 4",
+        "frame width, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "radius",
+        "0 to 24",
+        "corner rounding, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "pad",
+        "0 to 32",
+        "default padding of a widget wearing it, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "shadow",
+        "0 to 16",
+        "soft drop shadow under its surface, logical pixels; 0 has none",
+    ),
+    (
+        "screen.looks.<name>",
+        "hover",
+        "opaque colour",
+        "a button's fill under the pointer",
+    ),
+    (
+        "screen.looks.<name>",
+        "weight",
+        "300 to 700",
+        "font weight of its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "underline",
+        "opaque colour",
+        "a line under its text; 3:1 on what it sits on",
+    ),
+    (
+        "screen.looks.<name>",
+        "gain",
+        "opaque colour",
+        "positive ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "loss",
+        "opaque colour",
+        "negative ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value wearing it; unset is [screen] flash",
+    ),
+    (
+        "screen.looks.<name>",
+        "mark",
+        "true or false",
+        "a span of symbols, not words (an arrow, a dot): 3:1 contrast like a graphic",
+    ),
+    (
         "ink",
         "color",
         "",
@@ -613,7 +763,28 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
             // Unset, a resting button uses the panel colour: list that as its default.
             let mut s = crate::screen_style::ScreenStyle::default();
             s.resting = Some(s.panel);
+            s.button_hover = Some(s.button);
             s
+        }),
+        table("screen.looks.<name>", &{
+            // Every key, each at the value an unset key falls back to.
+            let s = crate::screen_style::ScreenStyle::default();
+            crate::screen_style::ScreenLook {
+                fill: Some(s.panel),
+                text: Some(s.text),
+                border: Some(s.border),
+                border_px: Some(s.border_px),
+                radius: Some(s.radius),
+                pad: Some(s.frame_padding),
+                shadow: Some(0.0),
+                hover: Some(s.button),
+                weight: Some(500.0),
+                underline: Some(s.border),
+                gain: Some(s.text),
+                loss: Some(s.text),
+                flash: Some(s.flash),
+                mark: false,
+            }
         }),
         table("looks.<name>", &Look::default()),
         table("beams.<name>", &BeamStyle::default()),

@@ -176,14 +176,19 @@ fn step_noting(
 }
 
 /// The zooms a recording kept, for filming it as the player saw it. Reduced motion is
-/// a switch for the whole session, kept in its notes: when one has it, the film has it
-/// from the start.
+/// one switch for the whole session, for the camera and screens alike, kept in its notes
+/// and in the screens' presentation: when either has it, the film has it from the start.
 pub fn recorded_zooms(rec: &Recording) -> Vec<(u64, Zoom)> {
     let still = rec.events.iter().any(|e| match e {
         RecEvent::Note {
             camera: Some(camera),
             ..
-        } => serde_json::from_value::<crate::Moment>(camera.clone()).is_ok_and(|m| m.still),
+        } => serde_json::from_value::<crate::Moment>(camera.clone())
+            .is_ok_and(|m| m.still || m.screens.motion.reduced),
+        RecEvent::Presentation { state, .. } => {
+            serde_json::from_value::<crate::screens::Presentation>(state.clone())
+                .is_ok_and(|p| p.motion.reduced)
+        }
         _ => false,
     });
     let kept = rec.events.iter().filter_map(|e| match e {

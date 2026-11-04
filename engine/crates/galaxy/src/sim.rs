@@ -32,7 +32,9 @@ pub(crate) struct Options {
     /// `--continue`: load the newest save of these modules from the sessions folder.
     pub continue_save: bool,
     pub physical_size: bool,
-    /// `--reduced-motion`: no camera feel (speed zoom, lead or shake).
+    /// `--reduced-motion` (or `GALAXY_REDUCED_MOTION=1`, read by `play::reduced_motion`):
+    /// no camera feel (speed zoom, lead or shake), and screens don't slide, fade, lift,
+    /// count or flash.
     pub reduced_motion: bool,
     pub record: Option<PathBuf>,
     pub realtime: bool,

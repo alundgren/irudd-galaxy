@@ -160,13 +160,15 @@ world and the pose history, never from frame-to-frame state:
   the shake's tick, fading as the square of the time left. The first instant is a kick
   one way. Eye and aim move together, so framing and tilt don't change.
 
-**Reduced motion.** `galaxy play --reduced-motion` (and `galaxy shot`) turns all three
-off. It is the player's setting, not the world's: notes keep it in their moment, so a
-redraw matches what the player saw. It is a switch for the whole session, so a film of a
-recording (`galaxy-gm film`, drawn or `--probes-only`, and `look`) takes it from the
-first note that has it and applies it from the film's first frame. A recording without
-a note has nothing that says the player reduced motion. Room cameras and glides never
-take camera feel.
+**Reduced motion.** `galaxy play --reduced-motion` or `GALAXY_REDUCED_MOTION=1` (and
+the same for `galaxy shot`) turns all three off. It is one setting with the screens'
+reduced motion (`View::set_reduced_motion`, [screens](screens.md)): the camera keeps
+still and screens don't slide, fade, lift, count or flash. It is the player's setting,
+not the world's: notes keep it in their moment, so a redraw matches what the player saw.
+It is a switch for the whole session, so a film of a recording (`galaxy-gm film`, drawn
+or `--probes-only`, and `look`) takes it from the first note, or recorded screen
+presentation, that has it and applies it from the film's first frame. Room cameras and
+glides never take camera feel.
 
 ## Measured
 

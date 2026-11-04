@@ -83,6 +83,11 @@ pub fn widgets(w: &World) -> Vec<Widget> {
                 weight: 500,
                 trailing: false,
                 yields: false,
+                look: None,
+                spans: Vec::new(),
+                icon: None,
+                icon_at: None,
+                cue: None,
                 resting: None,
             })
         })

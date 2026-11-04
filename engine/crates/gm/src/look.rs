@@ -127,7 +127,7 @@ pub fn run(path: &Path, opts: &Opts) -> Result<Output, Failure> {
         size = Vec2::new(m.width as f32, m.height as f32) / m.scale;
         view.note_scene(&replay.session.world, m);
         // look must use the exact style as well as the boxes reconstructed for this note.
-        view.screens.style = m.screen_style.unwrap_or(view.screens.style);
+        view.screens.style = m.screen_style.clone().unwrap_or(view.screens.style.clone());
         m.alpha
     } else {
         view.scene(&replay.session.world, 1.0, size, tick as f32 / 30.0);

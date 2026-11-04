@@ -1,6 +1,7 @@
 //! The wgpu renderer: a window or an offscreen target, and one `Scene` per frame.
 
 mod fx;
+mod icons;
 #[cfg(test)]
 mod tests;
 mod text;
@@ -431,6 +432,7 @@ pub struct Renderer {
     meshes: Vec<MeshSlot>,
     backdrops: Vec<Option<GpuBackdrop>>,
     text: TextSystem,
+    icons: icons::IconSystem,
 }
 
 fn uniform_entry(binding: u32, vis: wgpu::ShaderStages) -> wgpu::BindGroupLayoutEntry {
@@ -685,6 +687,7 @@ impl Renderer {
             },
         );
         let text = TextSystem::new(&device, &queue, format, 1);
+        let icons = icons::IconSystem::new(&device, format);
         let raster_size = world_size(size, scale, device.limits().max_texture_dimension_2d);
         let (msaa, depth) = create_targets(&device, format, samples, raster_size);
         let (world_color, antialias_bind) =
@@ -748,6 +751,7 @@ impl Renderer {
             meshes: Vec::new(),
             backdrops: Vec::new(),
             text,
+            icons,
         })
     }
 
@@ -1340,6 +1344,22 @@ impl Renderer {
                 &text_layers,
             )
             .map_err(|e| RenderError::Text(e.to_string()))?;
+        let image_layers: Vec<&[crate::scene::UiImage]> = std::iter::once(&[][..])
+            .chain(
+                overlay
+                    .widgets
+                    .iter()
+                    .chain(&overlay.upper)
+                    .map(|l| l.images.as_slice()),
+            )
+            .collect();
+        self.icons.prepare(
+            &self.device,
+            &self.queue,
+            &self.screen,
+            self.scale,
+            &image_layers,
+        );
 
         let mut encoder = self
             .device
@@ -1596,6 +1616,7 @@ impl Renderer {
                     pass.set_bind_group(0, &self.panels_bind[layer], &[]);
                     pass.draw(0..6, 0..count);
                 }
+                self.icons.render(layer, &mut pass);
                 self.text
                     .render(layer, &mut pass)
                     .map_err(|e| RenderError::Text(e.to_string()))?;
@@ -1617,7 +1638,11 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
         params: [
             p.radius.max(0.0) * scale,
             p.border_px.max(0.0) * scale,
-            if p.shadow { 5.0 * scale } else { 0.0 },
+            if p.shadow {
+                p.shadow_px.max(0.0) * scale
+            } else {
+                0.0
+            },
             p.dash.max(0.0) * scale,
         ],
         // Straight alpha; the shader premultiplies.
@@ -1629,7 +1654,7 @@ fn panel_gpu(p: &Panel, scale: f32) -> PanelGpu {
                 PanelShape::Box => 0.0,
                 PanelShape::Triangle => 1.0,
             },
-            0.0,
+            p.opacity.clamp(0.0, 1.0),
             0.0,
         ],
     }

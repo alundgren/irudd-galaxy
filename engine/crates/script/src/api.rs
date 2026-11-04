@@ -174,6 +174,11 @@ export type ScreenCtx = {
 --- resting_dash), hovering shows the reason, and a click records nothing.
 --- yield = true on an anchored widget: not drawn (rather than clamped) while its anchor
 --- is off screen, it would leave the window, or it would overlap another painted widget.
+--- look names a [screen.looks] entry (fill, text, border, radius, pad, shadow, weight,
+--- underline). spans = { "plain ", { text = "bold", look = "name" } } replaces text on
+--- text and button. icon on text or button sits beside it, or above with icon_at = "top".
+--- cue = "count" (delta: counts up to a new value) or "flash" (briefly flashes a change).
+export type Span = { text: string, look: string? }
 export type Widget = {
     kind: string?, id: string?, text: string?, hover: string?, resting: string?,
     children: {Widget}?,
@@ -181,7 +186,8 @@ export type Widget = {
     size: number?, pad: number?, gap: number?, anchor: string?, yield: boolean?,
     on: Id?, payload: Payload?,
     columns: number?, value: any?, icon: string?, accepts: {[string]: string}?,
-    notes: {[string]: string}?,
+    notes: {[string]: string}?, look: string?, spans: {string | Span}?,
+    icon_at: string?, cue: string?,
 }
 export type Ui = {
     hover: (Widget) -> Widget, target: (Widget) -> Widget,

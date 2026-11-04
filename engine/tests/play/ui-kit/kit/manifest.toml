@@ -1,0 +1,13 @@
+id = "kit"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["screen.luau"]
+events = ["earn", "shelf"]
+
+writes = ["engine.position", "engine.camera", "engine.model", "engine.anchor", "engine.talk", "engine.talk_line"]
+
+[components.wallet]
+credits = "int"
+last = "int"
+earned = "int"
+shelf = "bool"

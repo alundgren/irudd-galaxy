@@ -69,6 +69,12 @@ pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--reduced-motion",
 ];
 
+/// The player's one reduced-motion setting, for the camera and screens alike:
+/// `--reduced-motion`, or `GALAXY_REDUCED_MOTION=1` in the environment.
+fn reduced_motion(options: &Options) -> bool {
+    options.reduced_motion || std::env::var("GALAXY_REDUCED_MOTION").is_ok_and(|v| v == "1")
+}
+
 /// A cropped shot is enlarged until its longer side is at least this many pixels.
 const CROP_SIDE: u32 = 512;
 
@@ -921,7 +927,7 @@ impl ApplicationHandler for App {
             self.session.modules(),
             self.session.world.seed,
         );
-        view.eye.still = self.options.reduced_motion;
+        view.set_reduced_motion(reduced_motion(&self.options));
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);
@@ -1432,7 +1438,7 @@ pub fn shot(args: &[String]) -> Result<Output, Failure> {
     let mut renderer = Renderer::new_headless(w, h)
         .map_err(|e| Failure::runtime(format!("no GPU for the shot: {e}")))?;
     let mut view = View::new(&mut renderer, session.modules(), session.world.seed);
-    view.eye.still = options.reduced_motion;
+    view.set_reduced_motion(reduced_motion(&options));
     let ticks = options.ticks.unwrap_or(SHOT_TICKS);
     for _ in 0..ticks {
         view.before_step(&session.world);

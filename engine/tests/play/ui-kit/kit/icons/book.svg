@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- An open book: two pages either side of the spine. -->
+  <path d="M2 5c3-1.5 6-1.5 9 0.5V20c-3-2-6-2-9-0.5z"/>
+  <path d="M22 5c-3-1.5-6-1.5-9 0.5V20c3-2 6-2 9-0.5z"/>
+</svg>

@@ -6,7 +6,7 @@
 # order.
 id = "effects"
 version = "0.1.0"
-min_engine_version = "0.7.0"
+min_engine_version = "0.8.0"
 scripts = ["scripts/effects.luau"]
 events = [
     "thrust_ahead", "thrust_back", "turn_left", "turn_right", "boost",
