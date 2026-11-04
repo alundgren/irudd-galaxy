@@ -102,6 +102,17 @@ cloud_alpha = 0.2
 cloud_count = 16
 stars = 260
 star_layers = [0.6]       # 1 to 4 layers, each its scroll in logical px per world unit
+haze = "#3d2b5e"          # far layers and landmarks fade into it ([sky depth](sky-depth.md))
+atmosphere = 0.6
+
+[[sky.layers]]            # up to 8 backdrop layers: dust, speck, hatch or a model
+shape = "dust"
+parallax = 0.1            # 0 fixed on screen, 1 moves with the play layer
+
+[[sky.landmarks]]         # up to 16 big shapes far away: disc, wash or a model
+shape = "disc"
+at = [-30.0, 16.0]
+parallax = 0.03
 
 [course]                  # the followed ship's order, for the whole scene
 show = true
@@ -146,7 +157,10 @@ these passes:
    stars among up to four layers, each scrolling its own logical pixels per world unit
    the camera moves (stars are spread in turn, with nearer layers' stars a little
    bigger), so far stars creep behind near ones as the camera follows. One layer at 0.6
-   is the sky as it was.
+   is the sky as it was. Then the sky's own layers and landmarks, far to near, each
+   sliding at its parallax and fading into the haze, with a depth reset after each
+   group of far meshes ([sky depth](sky-depth.md)). Reduced motion holds all of it,
+   clouds and stars too, still on screen.
 2. **Meshes**: each instance's paint is lit by the sun and quantised into two or three
    flat bands (shadow, mid, highlight). The shadow band gets sketched hatching, a rim
    light catches edges turned away, glow ignores light. Instances of the same mesh are

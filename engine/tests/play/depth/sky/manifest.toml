@@ -1,0 +1,41 @@
+# A generic test module for depth in the sky, drawn only: drift's ship, rocks and hub
+# under a sky of layers and landmarks. Far hatching, dust and specks slide at their own
+# parallax, a model layer of small rocks drifts between, a lit disc and a nebula wash
+# hang far away, and a hub's silhouette sits in the middle distance. W/S/A/D (or the
+# arrows) fly, Shift boosts; 1 docks at the berth, 2 mines the nearest rock, 3 flies the
+# route, 0 drops the order.
+id = "sky"
+version = "0.1.0"
+min_engine_version = "0.8.0"
+scripts = ["scripts/sky.luau"]
+events = [
+    "thrust_ahead", "thrust_back", "turn_left", "turn_right", "boost",
+    "order_dock", "order_mine", "order_route", "order_none",
+]
+writes = [
+    "engine.position", "engine.motion", "engine.model", "engine.camera",
+    "engine.flight", "engine.helm", "engine.steer", "engine.waypoint", "engine.body",
+]
+
+# Which flight keys are held, so two keys for one way (W and Up) don't fight.
+[components.keys]
+ahead = "int"
+back = "int"
+left = "int"
+right = "int"
+boost = "int"
+
+[keys]
+w = "thrust_ahead"
+up = "thrust_ahead"
+s = "thrust_back"
+down = "thrust_back"
+a = "turn_left"
+left = "turn_left"
+d = "turn_right"
+right = "turn_right"
+shift = "boost"
+1 = "order_dock"
+2 = "order_mine"
+3 = "order_route"
+0 = "order_none"
