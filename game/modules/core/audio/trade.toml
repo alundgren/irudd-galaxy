@@ -1,0 +1,6 @@
+# audio mix scenario: the trade run of tests/trade.inputs, two dockings with buying,
+# selling and rooms opening and closing (galaxy-gm audio mix audio/trade.toml).
+modules = "../.."
+ticks = 2840
+seed = 7
+inputs = "../tests/trade.inputs"

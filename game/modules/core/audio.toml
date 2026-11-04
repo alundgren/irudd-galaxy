@@ -22,6 +22,15 @@
 # exactly, so they have no seam. reach: the tug's low engine hum with a slow beat over a
 # faint cabin hush. lantern_deck: soft ventilation, a low hum and the lamps' warm buzz.
 # kiln_deck: the furnace's banked roar, a low drone and a slow bellows breath.
+#
+# Effects: short one-shots on the sound bus, synthesised by sounds/make.py from sines,
+# decaying modes and filtered noise (soft attacks, little above 4 kHz), then levelled
+# with `audio process` (DC removed, silence trimmed, -18 LUFS or a gain under a -1 dBTP
+# ceiling) and measured with `audio inspect`. Their volumes set them under the radio's
+# music. scripts/sound.luau records the cue events for key presses and screen changes;
+# the other events are the game's own facts. mine_hum repeats exactly every second and
+# fades over its last 0.12 s, the same length as its fade-in: `mined` comes once a
+# second, so each copy blends into the next and the hum holds while the beam cuts.
 crossfade = 2.0
 
 [sounds.lantern_radio]
@@ -49,6 +58,90 @@ file = "sounds/kiln_deck.wav"
 volume = 0.44
 loop_crossfade = 0
 
+[sounds.thrust_on]
+file = "sounds/thrust_on.wav"
+volume = 0.32
+
+[sounds.thrust_off]
+file = "sounds/thrust_off.wav"
+volume = 0.35
+
+[sounds.boost]
+file = "sounds/boost.wav"
+volume = 0.42
+
+[sounds.mine_hum]
+file = "sounds/mine_hum.wav"
+volume = 0.2
+
+[sounds.mine_chip1]
+file = "sounds/mine_chip1.wav"
+volume = 0.38
+
+[sounds.mine_chip2]
+file = "sounds/mine_chip2.wav"
+volume = 0.38
+
+[sounds.mine_chip3]
+file = "sounds/mine_chip3.wav"
+volume = 0.38
+
+[sounds.hold_full]
+file = "sounds/hold_full.wav"
+volume = 0.4
+
+[sounds.dock_clunk]
+file = "sounds/dock_clunk.wav"
+volume = 0.65
+
+[sounds.undock_clunk]
+file = "sounds/undock_clunk.wav"
+volume = 0.55
+
+[sounds.ui_click]
+file = "sounds/ui_click.wav"
+volume = 0.4
+
+[sounds.panel_open]
+file = "sounds/panel_open.wav"
+volume = 0.36
+
+[sounds.panel_close]
+file = "sounds/panel_close.wav"
+volume = 0.36
+
+[sounds.receipt]
+file = "sounds/receipt.wav"
+volume = 0.42
+
+[sounds.sale_coin]
+file = "sounds/sale_coin.wav"
+volume = 0.5
+
+[sounds.buy_goods]
+file = "sounds/buy_goods.wav"
+volume = 0.5
+
+[sounds.part_drop]
+file = "sounds/part_drop.wav"
+volume = 0.6
+
+[sounds.refused]
+file = "sounds/refused.wav"
+volume = 0.45
+
+[sounds.talk_blip]
+file = "sounds/talk_blip.wav"
+volume = 0.36
+
+[sounds.radio_tune]
+file = "sounds/radio_tune.wav"
+volume = 0.36
+
+[sounds.built]
+file = "sounds/built.wav"
+volume = 0.5
+
 [places]
 reach = "reach"
 lantern = "lantern_deck"
@@ -72,3 +165,114 @@ event = "radio_off"
 bus = "music"
 stop = true
 fade = 2.0
+
+# One-shot effects.
+
+# Flying
+[[events]]
+event = "thrust_on"
+sound = "thrust_on"
+
+[[events]]
+event = "thrust_off"
+sound = "thrust_off"
+
+[[events]]
+event = "boost_on"
+sound = "boost"
+
+
+# Mining: the hum and a chip for each second's ore, a chime when the hold is full
+[[events]]
+event = "mined"
+sound = "mine_hum"
+
+[[events]]
+event = "chip1"
+sound = "mine_chip1"
+
+[[events]]
+event = "chip2"
+sound = "mine_chip2"
+
+[[events]]
+event = "chip3"
+sound = "mine_chip3"
+
+[[events]]
+event = "hold_full"
+sound = "hold_full"
+
+
+# Docking
+[[events]]
+event = "docked"
+sound = "dock_clunk"
+
+[[events]]
+event = "undocked"
+sound = "undock_clunk"
+
+
+# Screens and trade
+[[events]]
+event = "ui_click"
+sound = "ui_click"
+
+[[events]]
+event = "panel_open"
+sound = "panel_open"
+
+[[events]]
+event = "panel_close"
+sound = "panel_close"
+
+[[events]]
+event = "refused"
+sound = "refused"
+
+[[events]]
+event = "sold"
+sound = "sale_coin"
+
+[[events]]
+event = "bought"
+sound = "buy_goods"
+
+[[events]]
+event = "confirmed"
+sound = "receipt"
+
+[[events]]
+event = "grown"
+sound = "built"
+
+
+# Fitting: a part seats in its socket, or comes off into the locker
+[[events]]
+event = "fitted"
+sound = "part_drop"
+
+
+# Talk: each line's bubble
+[[events]]
+event = "engine.talk_start"
+sound = "talk_blip"
+
+[[events]]
+event = "engine.talk_next"
+sound = "talk_blip"
+
+[[events]]
+event = "engine.talk_chosen"
+sound = "talk_blip"
+
+
+# The radio: a little static as it tunes a channel in
+[[events]]
+event = "radio_lantern"
+sound = "radio_tune"
+
+[[events]]
+event = "radio_kiln"
+sound = "radio_tune"
