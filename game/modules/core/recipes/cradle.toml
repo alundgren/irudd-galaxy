@@ -1,5 +1,5 @@
 about = "The fitting cradle: an open frame over a deck with a hoist arm, a lamp and parts in a rack"
-palette = { main = "#a9c2cf", accent = "#d98a3d" }
+palette = { main = "#f3ddb0", trim = "#c98f4a", accent = "#8f3040" }
 [[part]]
 name = "floor"
 shape = "box"

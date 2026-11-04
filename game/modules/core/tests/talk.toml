@@ -40,7 +40,7 @@ tick = 329
 entity = "log1"
 component = "entry"
 field = "text"
-equals = "Hold full: 6 ore aboard. E docks at the nearest station."
+equals = "Hold full: 6 ore aboard."
 
 # Keepers wear name signs on the whole station; the open log hides them.
 [[expect]]

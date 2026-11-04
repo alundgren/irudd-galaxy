@@ -126,25 +126,32 @@ local function space(ui, id, height, text)
     return ui.text { id = id, width = INSIDE, height = height, size = 16, text = text }
 end
 
+-- A receipt's kind, as a word in a box (direction doc 1.5 and 4: "Confirmed").
+function cradle.confirmed(ui)
+    return ui.panel { id = "confirmed", width = 96, pad = 2, children = { ui.text { text = "CONFIRMED", size = 16 } } }
+end
+
 -- The whole fitting room: its title with the keeper (or the last receipt) and Back,
 -- the budgets, the sockets, the controls and the parts tray.
 function cradle.rows(ctx, ui, pilot, title, keeper)
     local parts = cradle.parts(ctx)
     local load = rules.load(ctx.get("ship", "hold"))
     local t = fit.totals(parts, nil, nil, fit.hull_speed(ctx))
-    local under = ui.text { id = "keeper", width = 276, size = 16, text = keeper or "" }
+    -- Under the title, the keeper; after a fit, the receipt instead, its CONFIRMED tag
+    -- beside the title so the heading keeps its height.
+    local named = { ui.text { id = "title", width = 196, text = title, size = 28 } }
+    local under = ui.text { id = "keeper", width = 296, size = 16, text = keeper or "" }
     if pilot.deal ~= "" then
-        local row = { ui.text { id = "deal", width = pilot.sale < 0 and 200 or 276, text = pilot.deal, size = 16 } }
+        named = { ui.row { id = "titled", gap = 4, children = { named[1], cradle.confirmed(ui) } } }
+        local row = { ui.text { id = "deal", width = pilot.sale < 0 and 220 or 296, text = pilot.deal, size = 16 } }
         if pilot.sale < 0 then table.insert(row, ui.delta { id = "spent", width = 68, value = pilot.sale, size = 16 }) end
         under = ui.row { id = "receipt", gap = 8, children = row }
     end
+    table.insert(named, under)
     local children = {
         ui.row { id = "heading", gap = 12, children = {
-            ui.column { id = "named", width = 276, gap = 2, children = {
-                ui.text { id = "title", text = title, size = 28 },
-                under,
-            } },
-            ui.button { id = "close", width = 200, text = "Back  [B]", on = "close" },
+            ui.column { id = "named", width = 296, gap = 2, children = named },
+            ui.button { id = "close", width = 180, text = "Back  [B]", on = "close" },
         } },
         ui.text { id = "budget", width = 488, size = 16,
             text = fit.power_text(t) .. "\n" .. fit.mass_text(t) .. "\n" .. fit.ship_text(t) },

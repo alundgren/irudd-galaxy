@@ -1,5 +1,8 @@
-main = "#e7c78e"
-trim = "#4d686e"
-accent = "#cf7c50"
-lights = "#ffe2a1"
-glass = "#7fc6c2"
+# The module's paint: Lantern Dock's cooperative colours (direction doc 1.2 and 1.3),
+# cream hull, lantern-green trim, warm gold accent, lantern glow and canopy glass.
+# Cinder Kiln's recipes carry their own palette: brass trim and deep red.
+main = "#f4e2c4"
+trim = "#2f9d86"
+accent = "#e7b15a"
+lights = "#ffcf6b"
+glass = "#7fd6e0"

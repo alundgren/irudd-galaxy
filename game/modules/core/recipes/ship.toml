@@ -1,4 +1,5 @@
-about = "A small working tug with twin engines and copper wings"
+about = "A small working tug: round-nosed coral hull, mustard wings and stripe, a glass canopy and a tail pennant"
+palette = { main = "#ee7a5a", trim = "#f2b43c", accent = "#f2b43c" }
 [[part]]
 name = "hull"
 shape = "body"
@@ -19,8 +20,45 @@ shape = "nozzle"
 radius = 0.4
 at = [-1.3, 0.6, 0]
 mirror = true
+paint = "#d9774b"
 [[part]]
 name = "cockpit"
 shape = "dome"
 radius = 0.55
+ribs = 0
 at = [0.4, 0, 0.3]
+paint = "trim"
+# The dorsal stripe and the tail pennant every hull carries, inside the hull's footprint.
+[[part]]
+name = "stripe"
+shape = "box"
+size = [1.3, 0.26, 0.1]
+at = [-0.75, 0, 0.42]
+paint = "trim"
+[[part]]
+name = "pennant"
+shape = "fin"
+length = 0.7
+height = 0.55
+thickness = 0.08
+at = [-0.95, 0, 0.4]
+paint = "#3fa7a0"
+# Its mark on the left wing, face up: Lantern Dock's lantern on green (1.4: every hull
+# carries its owner's mark).
+[[part]]
+name = "mark"
+shape = "cylinder"
+radius = 0.32
+height = 0.05
+sides = 12
+at = [-1.0, 1.0, 0.08]
+paint = "#2f9d86"
+[[part]]
+name = "mark_lantern"
+shape = "plate"
+outline = [[-0.3, -0.45], [0.3, -0.45], [0.38, -0.3], [0.38, 0.25], [0.25, 0.38], [-0.25, 0.38], [-0.38, 0.25], [-0.38, -0.3]]
+height = 0.05
+at = [-1.0, 1.0, 0.13]
+scale = 0.42
+paint = "#e7b15a"
+glow = 0.5

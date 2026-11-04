@@ -25,3 +25,28 @@ height = 4
 at = [0, 2.5, 0]
 pulse = 2.5
 pulse_low = 0.2
+# Lantern Dock's mark on its dock arm, face up: a lit gold lantern on a lantern-green
+# disc. The direction doc gives each owner a mark as well as a shape and paint (1.3).
+[[part]]
+name = "mark"
+shape = "cylinder"
+radius = 0.95
+height = 0.08
+sides = 16
+at = [-7, 0, 0.32]
+paint = "trim"
+[[part]]
+name = "mark_lantern"
+shape = "plate"
+outline = [[-0.3, -0.45], [0.3, -0.45], [0.38, -0.3], [0.38, 0.25], [0.25, 0.38], [-0.25, 0.38], [-0.38, 0.25], [-0.38, -0.3]]
+height = 0.1
+at = [-7, -0.05, 0.4]
+paint = "accent"
+glow = 0.5
+[[part]]
+name = "mark_cap"
+shape = "plate"
+outline = [[-0.16, 0.38], [0.16, 0.38], [0.1, 0.58], [-0.1, 0.58]]
+height = 0.1
+at = [-7, -0.05, 0.4]
+paint = "accent"

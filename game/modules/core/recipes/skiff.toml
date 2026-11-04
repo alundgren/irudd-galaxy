@@ -6,7 +6,7 @@ length = 1.8
 width = 0.9
 height = 0.6
 nose = 0.2
-paint = "#87c6c8"
+paint = "#3fa7a0"
 [[part]]
 name = "lamp"
 shape = "sphere"

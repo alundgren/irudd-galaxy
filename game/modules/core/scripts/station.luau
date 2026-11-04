@@ -91,7 +91,7 @@ local function build_up(ctx, site, build)
     ctx.put(keeper, "engine.being", {})
     ctx.put(keeper, "engine.location", { place = station, spot = plan.spot })
     ctx.put(keeper, "engine.position", { angle = plan.angle })
-    ctx.put(keeper, "engine.model", { model = "core.keeper", scale = 1.5 })
+    ctx.put(keeper, "engine.model", { model = "core.keeper", look = "core.prop", scale = 1.5 })
     -- The sale that builds it happens in another room, where only that room's keeper
     -- wears a sign; the new keeper's sign goes up when the player is back on the
     -- station (signs.show).
@@ -212,6 +212,18 @@ local function skiffs(ctx)
     end
 end
 
+-- The trade table's columns: ware, price each, stock and what you hold. Only verbs are
+-- buttons; prices and counts are plain labels.
+local COLUMNS = { 150, 150, 80, 72 }
+
+local function table_row(ui, id, cells, size)
+    local children = {}
+    for i, text in cells do
+        table.insert(children, ui.text { width = COLUMNS[i], text = text, size = size })
+    end
+    return ui.row { id = id, gap = 12, children = children }
+end
+
 -- One good in a trading room: its price and stock as plain text, then its verbs.
 local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, build)
     local line = ctx.get(id, "market")
@@ -219,13 +231,13 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
     local price = rules.price(line)
     local w = line.ware
     if line.role == "buys" then
-        local about = name .. " · pays " .. price .. " cr"
-        if build and build.ware == w then
-            about ..= " · builds the " .. string.lower(build.name) .. " (" .. build.given .. " of " .. build.need .. ")"
-        else
-            about ..= " · stock " .. line.stock
+        local building = build and build.ware == w
+        table.insert(rows, table_row(ui, "about_" .. w,
+            { name, "pays " .. price .. " cr", building and "-" or tostring(line.stock), tostring(hold[w]) }, 20))
+        if building then
+            table.insert(rows, ui.text { id = "builds_" .. w, size = 16,
+                text = "Builds the " .. string.lower(build.name) .. ": " .. build.given .. " of " .. build.need .. " in" })
         end
-        table.insert(rows, ui.text { id = "about_" .. w, text = about, size = 20 })
         if hold[w] > 0 then
             local units = hold[w]
             local building = build and build.ware == w and math.min(units, build.need - build.given) or 0
@@ -235,7 +247,7 @@ local function line_rows(ctx, ui, id, hold, capacity, credits, rows, sellable, b
                 text = "Sell " .. units .. " " .. w .. " for " .. value .. " cr" .. key })
         end
     else
-        table.insert(rows, ui.text { id = "about_" .. w, text = name .. " · asks " .. price .. " cr · stock " .. line.stock, size = 20 })
+        table.insert(rows, table_row(ui, "about_" .. w, { name, "asks " .. price .. " cr", tostring(line.stock), tostring(hold[w]) }, 20))
         local room = capacity - rules.load(hold)
         local most = rules.affordable(line, room, credits)
         -- Buying that can't happen now rests in place, with its reason beside it.
@@ -277,6 +289,7 @@ local function trade_rows(ctx, ui, station, pilot, children)
     local capacity = fit.hold(ctx)
     table.insert(children, ui.text { id = "ledger", size = 20, text = "Hold " .. rules.load(hold) .. " / " .. capacity
         .. ": " .. rules.list(hold) .. "\nYou have " .. pilot.credits .. " cr" })
+    table.insert(children, table_row(ui, "columns", { "WARE", "PRICE EACH", "STOCK", "HOLD" }, 16))
     for _, id in lines do
         line_rows(ctx, ui, id, hold, capacity, pilot.credits, children, sellable, build)
     end
@@ -284,8 +297,10 @@ local function trade_rows(ctx, ui, station, pilot, children)
         table.insert(children, ui.button { id = "sell", on = "sell", text = "Sell everything here  [Enter]" })
     end
     if pilot.deal ~= "" then
+        -- The receipt: its kind as a word in a box, what changed hands, and the amount.
         table.insert(children, ui.row { id = "receipt", gap = 8, children = {
-            ui.text { width = 330, text = pilot.deal .. (pilot.sale >= 0 and " Paid:" or " Spent:"), size = 20 },
+            cradle.confirmed(ui),
+            ui.text { width = 292, text = pilot.deal .. (pilot.sale >= 0 and " Paid:" or " Spent:"), size = 20 },
             ui.delta { width = 80, value = pilot.sale, size = 20 },
         } })
     end
@@ -366,8 +381,13 @@ end
 local function overview(ctx, ui, station, pilot)
     local port = ctx.get(station, "port")
     local children = {
-        ui.text { id = "station", align = "top-left", x = layout.M, y = layout.M, width = 420,
-            text = "Docked at " .. port.name, size = 30 },
+        -- The station's plate: its name, who holds it, and plainly that you are docked
+        -- there. No faction holds a core station yet, so each says so (direction doc 3.1).
+        ui.panel { id = "plate", align = "top-left", x = layout.M, y = layout.M, width = 320, gap = 0, children = {
+            ui.text { id = "station", text = port.name, size = 30 },
+            ui.text { id = "owner", text = "Unclaimed", size = 18 },
+            ui.text { id = "docked", text = "Docked here", size = 16 },
+        } },
     }
     local key = {}
     local talking = signs.speaking(ctx) ~= nil

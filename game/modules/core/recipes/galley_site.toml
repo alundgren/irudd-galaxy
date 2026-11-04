@@ -1,5 +1,5 @@
 about = "A building site: a bare floor, a scaffold frame and a short stack of plate waiting to go up"
-palette = { main = "#a9b4b2", accent = "#cf7c50" }
+palette = { main = "#c98f4a", accent = "#d9774b" }
 [[part]]
 name = "floor"
 shape = "box"

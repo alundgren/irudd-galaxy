@@ -4,13 +4,13 @@ name = "coat"
 shape = "cylinder"
 radius = 0.32
 height = 1.1
-paint = "#7a4e3a"
+paint = "#9a4f3a"
 [[part]]
 name = "apron"
 shape = "box"
 size = [0.08, 0.42, 0.7]
 at = [0.31, 0, 0.5]
-paint = "#e7c78e"
+paint = "#fff4dd"
 [[part]]
 name = "face"
 shape = "sphere"
