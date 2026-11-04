@@ -12,10 +12,20 @@ speed, within the hull's power and mass. Two traders fly their own routes betwee
 the stations while you work, and in flight the radio plays each station's channel
 over the tug's quiet hum. Out in the reach the rocks turn slowly, the stations' rings
 turn and their lamps breathe, and the stars drift in layers as you fly. The field is
-small and finite (36 ore); there is no timed objective.
+small (36 ore), and a rock cut down to pebbles grows back to half on your next counted
+visit to a station; there is no timed objective.
 
-Use installed engine/GM 0.7.0 or newer. This version was authored and verified
-with `0.7.0-c571bdc1442a` (the look: style, models and screens). No engine build is needed.
+You fly, aim, cut and dock by hand: fly up to a rock, point the nose at it and hold
+Space, and the cutter's beam bites, chips fly back up it, and each unit lands in the hold
+with a puff and a count. Fly slowly into a station's glowing berth ring and its clamps
+take you in. Two controls are earned at the cradle and change what a press does: the
+docking jets fly you into a berth from anywhere, and the reach rig flies out to a rock and
+cuts it from sixteen units off, aiming itself. The hand controls never go away.
+
+Use installed engine/GM 0.7.0 or newer with the engine's effects (beams, particles,
+halos and camera feel). This version was authored and verified with
+`0.7.0-074b385e9087-dev`; an earlier 0.7.0 build such as `0.7.0-c571bdc1442a` refuses
+the effect components. No engine build is needed.
 
 ```sh
 galaxy play --modules game/modules
@@ -27,9 +37,9 @@ galaxy play --modules game/modules
 | A / D | Turn left / right, 180° a second |
 | W, A, S or D docked | Fly straight off the dock: no separate undock step |
 | Shift | Boost |
-| Space | Approach and mine the nearest rock with ore |
-| E | Dock at the nearest berth |
-| 0 | Cancel the current flight/mining order |
+| Space (held) | Cut the rock the nose points at, within 7 units; let go to stop. In a berth's ring: dock |
+| E | With the docking jets: fly into the nearest berth. Without: says how docking is done |
+| 0 | Cancel what the jets or the rig are flying |
 | M | Docked: open the exchange |
 | Enter | In a room that buys: sell everything it buys |
 | B, Esc or right-click | Back from a room to the whole station, or shut the log |
@@ -41,13 +51,51 @@ galaxy play --modules game/modules
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
 
-Everything is also a click: the orders in flight (`Space · Mine` and `Dock at` either
-station, in the strip at the bottom), the station's buildings
-and their signs, the station key, Sell, Buy, Back, Launch, the log and the radio's Prev, Off/On and
-Next. Click a
-keeper to hear them. Manual thrust or turning cancels an order. Rocks,
-station hulls and the traders are solid; orders steer toward their targets, so use manual
-flight to clear an obstruction when approaching from the far side of a station.
+Everything is also a click, on the thing itself rather than a column of buttons. In
+flight, click a rock in the cutter's reach to put the beam on it without holding Space
+(click it again, or fly, to stop); a rock out of reach says so. Hover a station for its
+posted prices and how to dock there; with the jets fitted, a click on it flies you in, and
+with the rig fitted a click on a rock flies out to it and cuts. Docked, the station's
+buildings and their signs, the station key, Sell, Buy, Back, Launch, the log and the
+radio's Prev, Off/On and Next are clicks too. Click a keeper to hear them. Thrust or
+turning lifts the beam and drops whatever the jets or the rig were flying. Rocks, station
+hulls and the traders are solid; the jets and the rig steer toward their targets, so fly
+by hand to clear an obstruction when approaching from the far side of a station.
+
+## Mining and docking by hand
+
+The cutter sits in the nose and reaches 7 units from it (`rules.REACH`). Space held cuts
+the rock the nose points at: aim counts while the nose points within 12 degrees of the
+rock's edge (`rules.off_aim`), and turning further lifts the beam until the nose comes
+back. The beam (`engine.beam` on the ship, its look picked by the gap: `cutter_near`,
+`cutter` or `cutter_far` in `style.toml`) runs from the nose to the rock's drawn surface,
+with sparks and dust where it bites and chips flying back up it. The first unit comes
+loose half a second in and one every second after (two with the lens); the time counts
+however it is broken up, so turning off and back on loses nothing. Each unit throws a
+chunk of stone from the cut to the nose, an amber puff at the hold and a `+N` beside the
+hold's count. The sixth unit (ninth with the pods) is the hold's own beat: a bigger puff,
+a small camera kick, and the beam lets go. A rock cut to pebbles crumbles with its own
+burst and kick, and the message says how many rocks still hold ore.
+
+A station's berth is the glowing ring off its dock. Fly into it and stop (8 units a second
+or slower) and the clamps take you in with a puff of vapour; Space in the ring does it at
+once. A ring you have just launched from takes you only once you have left it. The
+ship's exhaust follows the thrust, and the view leans a little ahead as you speed up
+(`engine.camera_feel`).
+
+When every rock is cut down, the message says what you carry and who buys it, or, with an
+empty hold, to dock at either station and come back: fresh stone drifts in while you are
+docked (`rules.worked_out`, `rules.regrow`).
+
+Two controls are earned in the cradle's control rack (`start.toml`, socket `rack`):
+
+| Control | Price | What a press does once it is fitted |
+| --- | --- | --- |
+| Docking jets | 80 cr | E, or a click on a station, flies the ship into its berth from anywhere |
+| Reach rig | 140 cr | Space, or a click on a rock, flies out to a rock and cuts it from 16 units off, aiming itself; its beam is long and cyan (`beams.reach`) |
+
+The first Kiln sale (97 cr) pays for the jets; three holds pay for the rig. A bought
+control is never taken off.
 
 ## Flight and traffic
 
@@ -73,9 +121,10 @@ Everything that looks solid is solid, and nothing takes damage: ships, traders,
 rocks and stations bump and push. A ship that flies into a rock or a station
 stops on its drawn surface and glances off round it; a trader the ship flies into is
 pushed aside and steers back onto its route. Rocks and stations never move, so
-every mining spot stays where it is; a rock only turns slowly in place. A Mine order
-parks the ship on the rock's drawn surface (`range = 0`), and the engine's finished
-`hold` keeps it there while the rock is cut smaller and turns.
+every mining spot stays where it is; a rock only turns slowly in place. A scripted Mine
+(a test's or a bot's) parks the ship on the rock's drawn surface (`range = 0`), and the
+engine's finished `hold` keeps it there while the rock is cut smaller and turns; the reach
+rig holds nine units off instead.
 
 Two traders work the reach (`scripts/traffic.luau`): Little Mercy, a hauler, runs
 along the south between moorings off Lantern Dock's and Cinder Kiln's far sides, and
@@ -109,7 +158,7 @@ own is slow and quiet beside what you can act on:
 
 - **Rocks** turn where they float (`engine.spin` in `start.toml`: 3, -4 and 2.5 degrees
   a second) and never drift, so every mining spot stays put. Their solid outline turns
-  with them, and a Mine order's hold keeps the ship on the turning surface.
+  with them, and the engine's `hold` keeps a parked ship on the turning surface.
 - **Stations' rings** turn about their hubs (`spin` on the ring part in
   `recipes/station.toml` and `recipes/kiln_station.toml`: Lantern Dock 6 degrees a second
   one way, Cinder Kiln 5 the other), and the ring's lamps breathe between full and 45%
@@ -292,8 +341,10 @@ The hull has 3 power: whatever is fitted always runs, so a part that would draw
 more is refused, and the lens and the thrusters can't run together. It carries 3
 mass freely; each unit over costs 10% of top speed and turn rate (never below
 half), so the pods with anything else make the ship slower with wider turns. The
-control rack holds the controls the ship flies by (the Mine and Dock orders): they
-are always fitted, cost no power or mass and never come off. The rules are
+control rack holds the controls the ship flies by: the hand cutter and hand berthing
+are always there, and the docking jets and the reach rig are bought from a row of
+buttons under the sockets (`Docking jets · 80 cr`, resting with the reason while they
+can't be paid for). Controls cost no power or mass and never come off. The rules are
 `scripts/fit.luau`; the room is `scripts/cradle.luau`.
 
 The room shows the budgets in plain words (`Power 2 of 3 in use, 1 free`, `Mass 4:
@@ -354,15 +405,15 @@ even when something else is logged while you are still listening. A line already
 The screens follow the direction doc's screen language (`style.toml`), all with pure
 black text on light surfaces: parchment panels with a warm ink border and rounded
 corners for rooms, the status chip, the station plate, the log, the radio and the hint
-strip; mustard for anything you can press or pick up (orders, signs, the key, Sell,
+strip; mustard for anything you can press or pick up (signs, the key, Sell,
 Back, Launch, the log button, the part cards); the panel with a dashed frame for a
 button that rests; white bubbles for speech; lantern-gold name signs on the people who
 speak; and cream paper for loose labels. Status sits top right with credits first, the
 small log button (`Log · L`) bottom left, the station plate top left when docked
 (the station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked
 here`), the radio bottom right in flight, and one strip at the bottom in flight: the
-latest message, `Space · Mine` beside the one flight key still to learn (`W · fly
-ahead`), and `Dock at` either station, its posted prices on hover. In flight each
+latest message and the one key that fits where the ship is. The status chip shows the
+units the beam has brought in this cut (`+2`) beside the hold. In flight each
 station wears its name under it while it is in view, a `yield` label like the
 traders'. A trading room is a table with the columns Ware, Price each, Stock and Hold,
 each good's verbs under its row. Each log entry carries its kind as a word (`TALK`,
@@ -397,8 +448,10 @@ same buildings in its own paint (`recipes/kiln_exchange.toml`,
 pennants and marks sit inside the footprints.
 
 Hints teach and then retire (`scripts/teach.luau`). The strip shows one key and what
-it does at a time (`E · dock at the nearest station` once the hold is full, else W,
-A or D, Shift, E, and 0 while an order runs), each until it has been used three times.
+it does where the ship is (`Space · dock at Lantern Dock` in a berth's ring, `Hold Space
+· cut the rock ahead` with the nose on a rock in reach, `A or D · point your nose at the
+rock` beside one, the way to dock once the hold is full, else W, A or D, Shift, and 0
+while the jets or the rig fly), each until it has been used three times.
 Messages report what happened and leave the keys to the strip. A room stops saying "Click Tova to talk" after three
 conversations. Messages report what happened, not how fast it happens.
 
@@ -416,14 +469,17 @@ their bubble clears the room's panel at both sizes.
   the finished galley replaces the scaffold. A fit changes the budgets and the
   ship's numbers, the lens fills the hold twice as fast, and fitted pods show on
   the hull. The ship log keeps a line for each docking, trade, fit, launch, full
-  hold, the galley built and each conversation. Empty sales never create money,
+  hold, rock cut down, the galley built and each conversation. Empty sales never create money,
   and a trade or fit that can't happen does nothing.
+- **Hands first, help earned.** Flying, aiming, cutting and berthing are always done
+  by hand and never removed; the jets and the rig are bought and change what a press
+  does, and both are visible (the long cyan beam, the ship flying itself in).
 - **Shocks come with opportunities.** Exhausting a rock leaves other rocks to
-  work and both buyers available. A full hold is an invitation to trade. There
+  work and both buyers available, and a worked-out rock grows back on a visit. A full hold is an invitation to trade. There
   are no damage penalties or scripted shocks in this first loop.
 - **No fake urgency.** Prices move only with trades and counted visits, never
   with time. Nothing expires while the player looks around. Mining produces one
-  unit per second (two with the lens) once within seven world units; the hold
+  unit per second of beam time (two with the lens) within seven units of the nose; the hold
   (six, or nine with the pods) bounds each trip.
 
 The slice supplies the calm mining/trading feel, warm inked machinery, readable
@@ -433,7 +489,7 @@ delivered goods follow the slice's behaviour. All models come from committed `re
 `galaxy-gm model make game/modules/core`; the generated glTF files are
 committed. The engine owns flight, collision, steering, travel, walks, talk,
 hovers and the sound mixer. Luau handles player intent, the traders' orders and their labels,
-once-per-second extraction and skiff trips,
+aim, beam time and extraction, and skiff trips,
 trade rules and pricing, the galley's build, the ship's fit, the radio's tuning, the log
 and the module-styled screens. Each station is one place
 whose set is the station up close; its buildings, keepers and skiff stand in it.
@@ -448,7 +504,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are thirty-three Luau rule tests (hold, depletion, prices against stock and their
+There are thirty-nine Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -458,8 +514,20 @@ far off alike, never over a station, while moored or while docked, both of a clo
 (the engine's `yield` keeps them apart), and on the side away from your ship, and in `tests/signal.luau` the signal by distance, bars
 matching their word, the shown level holding on a threshold, two even stations never
 flickering for a minute, a stronger station taking over only when steady, a brief gap
-keeping the channel, a chosen channel holding, and Prev and Next stepping through) and
-twenty-one scenarios: the radio (`radio.toml`: Lantern Dock's channel in the first
+keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
+in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
+for every second of beam time however it is broken up, the berth ring, regrowth to half
+and the worked-out message for an empty and a full hold) and twenty-four scenarios:
+mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
+the rock on the tick Space is pressed, a unit at half a second and one a second after,
+the sixth filling the hold and letting the beam go once, then turned and flown into
+Lantern Dock's ring and clamped in; `hand-aim.toml`: turning lifts the beam, a quarter
+turn off says to point the nose, turning back resumes with no beam time lost, a click
+latches the beam and flying lifts it, a far rock is too far, and E without the jets
+flies nowhere and says how docking is done), the earned controls (`assists.toml`: the
+first sale buys the jets but not the rig, a bought control can't come off, E flies her
+in from the reach, and after three holds the rig cuts from the Kiln's berth with no key
+held, aiming itself), the radio (`radio.toml`: Lantern Dock's channel in the first
 second, kept while a hold is mined at the first rock, the music stopped on docking at
 Cinder Kiln, the Kiln's channel straight away on flying off there, and Lantern Dock's
 taking over once beside its berth; `radio-tune.toml`: R to Cinder Kiln held by hand
@@ -505,7 +573,10 @@ then taken off once sold). Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Seven bots use real screen clicks: `play.inputs` docks (the view glides in),
+routes, and so is `fit.inputs`. Eight bots run in a window: `hand-mining.inputs` mines and
+docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 570
+ticks, eight notes), and seven more use real screen clicks, their flights between
+stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
 talks to both Lantern Dock keepers, points at and clicks the exchange building,
 lands a glide with a click, goes back with Esc and with a right-click, shuts the
 log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
@@ -532,10 +603,11 @@ traffic zoomed fully in and then fully out (`zoom.bot.toml`, 480 ticks, six note
 Little Mercy off screen with no label drawn, her label yielding while it would sit on the
 message, named beside the ship clear of the HUD, then named far off zoomed out, Quiet
 Lamp by Cinder Kiln and Mercy moored with none, and the rocks and rings turning with
-nothing pressed. All seven declare 1280x720 physical pixels. The GM test
+nothing pressed. All eight declare 1280x720 physical pixels. The GM test
 report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
-all seven run there without problems.
+the seven click bots run there without problems, and the hand-mining route, shot there
+while cutting, full and in the ring, fits too.
 
 The sound has its own numeric checks: each bed's loudness, peak and loop seam, the
 mining hum's level, and the mix in flight, mining, docked with talk, trading, fitting

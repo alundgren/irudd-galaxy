@@ -74,12 +74,14 @@ component = "market"
 field = "stock"
 equals = 36
 
+# The second hold worked rock1 out; docking again brought fresh stone into it, half
+# its twelve.
 [[expect]]
 tick = 1590
 entity = "rock1"
 component = "ore"
 field = "left"
-equals = 0
+equals = 6
 
 [[expect]]
 tick = 2100

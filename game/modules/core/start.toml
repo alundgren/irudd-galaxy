@@ -19,6 +19,11 @@
 "engine.body" = { mass = 1 }
 "engine.model" = { model = "core.ship", look = "core.ship" }
 "engine.camera" = { view = 64, min_view = 24, max_view = 100, tilt = 30 }
+# The view widens a little at speed and looks a quarter second ahead; mining beats kick
+# it (scripts/main.luau keeps the same values).
+"engine.camera_feel" = { speed_zoom = 0.12, lead = 0.25 }
+# Exhaust from the engines, as hard as the ship thrusts.
+"engine.emitter" = { recipe = "core.exhaust", x = -2.0, height = 0.1, angle = 180.0, by = "thrust" }
 pilot = { message = "A quiet shift. Mine six ore, then choose a buyer." }
 hold = {}
 held = {}
@@ -456,6 +461,16 @@ part = { name = "Hold pods", socket = "hold", price = 70, mass = 3, hold = 3, or
 
 [entities.thrusters]
 part = { name = "Tuned thrusters", socket = "engine", price = 110, power = 2, mass = 1, speed = 5, order = 3, effect = "your top speed goes from 20 to 25", said = "Open her up out there. She'll run." }
+
+# Two controls take over work the pilot does by hand (scripts/cutter.luau). They sit in
+# the control rack: no power or mass, and once bought they never come off. The reach rig
+# aims the beam itself, cuts from far off and flies the ship out to a rock; the docking
+# jets fly it into a berth from anywhere.
+[entities.rig]
+part = { name = "Reach rig", socket = "rack", price = 140, order = 4, effect = "click a rock, or press Space, and she flies out and cuts it from 16 units off, aiming herself", said = "She'll stand off now and pull the stone in herself." }
+
+[entities.jets]
+part = { name = "Docking jets", socket = "rack", price = 80, order = 5, effect = "press E or click a station, and they fly her into its berth from anywhere", said = "Point her home and let the jets do the berthing." }
 
 # Traffic: two traders fly their own routes between the stations, moor beside a station
 # for a while, then fly back (scripts/traffic.luau). Their routes keep clear of the

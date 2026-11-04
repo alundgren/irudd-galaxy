@@ -3,6 +3,8 @@
 # her gift of a ration taken, rations bought at the galley and sold at the Kiln.
 # Rooms glide open, so a click after opening or leaving one waits for the glide. 12 notes.
 
+# The flights between are scripted Mine and Dock orders, which fly themselves;
+# hand-mining.inputs flies them by hand.
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -13,13 +15,14 @@ tick = 11
 name = "core.ahead"
 payload = { down = false }
 
-[[click]]
+[[input]]
 tick = 60
-widget = "mine"
+name = "core.mine"
 
-[[click]]
+[[input]]
 tick = 330
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 715
@@ -49,9 +52,10 @@ widget = "close"
 tick = 819
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 859
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
 [[click]]
 tick = 1204
@@ -85,9 +89,10 @@ widget = "close"
 tick = 1359
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1399
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
 [[note]]
 tick = 1549
@@ -97,9 +102,10 @@ text = "A quick undock and redock: still one visit, nothing restocked."
 tick = 1564
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 1604
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 1949
@@ -117,9 +123,10 @@ widget = "close"
 tick = 2030
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 2070
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
 [[click]]
 tick = 2415
@@ -137,9 +144,10 @@ widget = "close"
 tick = 2496
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 2536
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 2881
@@ -157,9 +165,10 @@ widget = "close"
 tick = 2962
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 3002
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
 [[click]]
 tick = 3347
@@ -249,9 +258,10 @@ widget = "log_close"
 tick = 3691
 widget = "launch"
 
-[[click]]
+[[input]]
 tick = 3731
-widget = "kiln"
+name = "core.dock"
+payload = { station = "core.kiln" }
 
 [[click]]
 tick = 4076

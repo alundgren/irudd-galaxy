@@ -5,6 +5,7 @@
 # straight to the Kiln's own channel with one cue, its signal Strong. Flying back
 # across to Lantern Dock, the Kiln's channel holds over the rocks and Lantern Dock's
 # takes over once, near its berth, after it has been clearly stronger for a few seconds.
+# The order is cancelled short of the berth's ring, where the clamps would take her in.
 seed = 7
 ticks = 1500
 
@@ -34,7 +35,7 @@ name = "dock"
 payload = { station = "core.lantern" }
 
 [[input]]
-tick = 1020
+tick = 1000
 name = "cancel"
 payload = { down = true }
 

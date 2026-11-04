@@ -2,6 +2,8 @@
 # exchange (it lifts and outlines) and click it (the view glides to it), hear Tova,
 # sell, go back with Esc, open the office and land its glide with a click, go back
 # with a right-click, open the log and shut it with Esc, launch. 12 notes.
+# The flights between are scripted Mine and Dock orders, which fly themselves;
+# hand-mining.inputs flies them by hand.
 [[input]]
 tick = 1
 name = "core.ahead"
@@ -10,12 +12,13 @@ payload = { down = true }
 tick = 11
 name = "core.ahead"
 payload = { down = false }
-[[click]]
+[[input]]
 tick = 60
-widget = "mine"
-[[click]]
+name = "core.mine"
+[[input]]
 tick = 330
-widget = "lantern"
+name = "core.dock"
+payload = { station = "core.lantern" }
 
 # Bram introduces himself, one line per click on his bubble.
 [[click]]

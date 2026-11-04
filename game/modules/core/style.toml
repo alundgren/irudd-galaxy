@@ -42,12 +42,289 @@ shadow = "#9e85cc"
 outline_px = 3.5
 hatch = 0.3
 shadow = "#9e85cc"
+# The engines and canopy are self-lit paint: a soft halo round them, not a bloom.
+halo = 0.8
+halo_size = 2.0
 
 [looks.rock]
 outline_px = 3.0
 hatch = 1.0
 # A lighter violet than the rest, so the ink strokes read on the rust-brown shadow side.
 shadow = "#c8aef5"
+
+# Effects, drawn only (scripts/cutter.luau and main.luau turn them on). Mining reads
+# as one chain of cause and effect: the beam leaves the nose, lands on the rock in a
+# spray of sparks and dust, chips of rust-brown stone come off the cut and fly back up
+# the beam to the ship, and each unit landing in the hold puffs amber at the hold.
+
+# The hand cutter: a short hot amber beam from the nose to the rock's surface. Its chips
+# fly back up the beam just its length, so there are three: the cut close to the nose
+# (under 1.5 units), within 3.5, and further (scripts/cutter.luau picks one).
+[beams.cutter_near]
+color = "#ffb36b"
+width = 0.35
+glow = 1.4
+glow_size = 1.6
+flicker = 0.2
+flicker_rate = 6.0
+impact = ["core.sparks", "core.chips_near", "core.dust"]
+
+[beams.cutter]
+color = "#ffb36b"
+width = 0.35
+glow = 1.4
+glow_size = 1.6
+flicker = 0.2
+flicker_rate = 6.0
+impact = ["core.sparks", "core.chips", "core.dust"]
+
+[beams.cutter_far]
+color = "#ffb36b"
+width = 0.35
+glow = 1.4
+glow_size = 1.6
+flicker = 0.2
+flicker_rate = 6.0
+impact = ["core.sparks", "core.chips_far", "core.dust"]
+
+# The reach rig: a longer, steadier teal beam that pulls its chips the whole way in.
+[beams.reach]
+color = "#7fd6e0"
+width = 0.45
+glow = 1.2
+glow_size = 1.8
+flicker = 0.1
+flicker_rate = 2.0
+impact = ["core.sparks", "core.reach_chips", "core.dust"]
+
+# Where the beam bites: bright short streaks thrown off the cut.
+[particles.sparks]
+shape = "spark"
+blend = "add"
+color = "#fff4dd"
+end_color = "#ffb36b"
+rate = 40.0
+life = 0.3
+speed = 9.0
+spread = 150.0
+direction = 0.0
+size = 0.12
+drag = 4.0
+
+# Chips of stone: inked squares, warm where they were cut, that come off the cut and fly
+# back up the beam to the ship's nose (direction 0 at a beam's landing is back up the
+# beam), fading as they arrive: for a cut 1.5, 3 and 5 units off the nose.
+[particles.chips_near]
+shape = "chip"
+blend = "paint"
+color = "#f0a060"
+end_color = "#b5653a"
+rate = 16.0
+life = 0.5
+life_jitter = 0.15
+speed = 3.2
+speed_jitter = 0.15
+spread = 30.0
+direction = 0.0
+size = 0.75
+end_size = 0.4
+drag = 0.0
+
+[particles.chips]
+shape = "chip"
+blend = "paint"
+color = "#f0a060"
+end_color = "#b5653a"
+rate = 16.0
+life = 0.5
+life_jitter = 0.15
+speed = 6.0
+speed_jitter = 0.15
+spread = 30.0
+direction = 0.0
+size = 0.75
+end_size = 0.4
+drag = 0.0
+
+[particles.chips_far]
+shape = "chip"
+blend = "paint"
+color = "#f0a060"
+end_color = "#b5653a"
+rate = 16.0
+life = 0.5
+life_jitter = 0.15
+speed = 10.0
+speed_jitter = 0.15
+spread = 30.0
+direction = 0.0
+size = 0.75
+end_size = 0.4
+drag = 0.0
+
+# Each unit cut: a fistful of bigger stones breaks off and flies from the cut to the ship,
+# one for each beam length (scripts/main.luau picks the one that matches the beam).
+[particles.chunk_near]
+shape = "chip"
+blend = "paint"
+color = "#ffb36b"
+end_color = "#c06a3a"
+count = 12
+life = 0.55
+life_jitter = 0.15
+speed = 2.8
+speed_jitter = 0.2
+spread = 28.0
+size = 1.05
+end_size = 0.5
+drag = 0.0
+
+[particles.chunk]
+shape = "chip"
+blend = "paint"
+color = "#ffb36b"
+end_color = "#c06a3a"
+count = 12
+life = 0.55
+life_jitter = 0.15
+speed = 5.5
+speed_jitter = 0.2
+spread = 28.0
+size = 1.05
+end_size = 0.5
+drag = 0.0
+
+[particles.chunk_far]
+shape = "chip"
+blend = "paint"
+color = "#ffb36b"
+end_color = "#c06a3a"
+count = 12
+life = 0.55
+life_jitter = 0.15
+speed = 9.0
+speed_jitter = 0.2
+spread = 28.0
+size = 1.05
+end_size = 0.5
+drag = 0.0
+
+[particles.reach_chunk]
+shape = "chip"
+blend = "paint"
+color = "#ffb36b"
+end_color = "#c06a3a"
+count = 12
+life = 1.3
+life_jitter = 0.15
+speed = 6.2
+speed_jitter = 0.2
+spread = 28.0
+size = 1.05
+end_size = 0.5
+drag = 0.0
+
+# The rig's chips: the same stone, pulled the length of its longer beam.
+[particles.reach_chips]
+shape = "chip"
+blend = "paint"
+color = "#f0a060"
+end_color = "#b5653a"
+rate = 12.0
+life = 1.3
+life_jitter = 0.1
+speed = 6.5
+speed_jitter = 0.1
+spread = 8.0
+direction = 0.0
+size = 0.7
+end_size = 0.4
+drag = 0.0
+
+# A little rock dust hanging round the cut.
+[particles.dust]
+shape = "puff"
+blend = "paint"
+color = "#c98f4a"
+end_color = "#8a6a8c"
+rate = 7.0
+life = 0.9
+speed = 2.0
+spread = 160.0
+direction = 0.0
+size = 0.8
+end_size = 1.4
+drag = 2.5
+
+# A unit landing in the hold: an amber puff round the hold.
+[particles.ore_in]
+shape = "puff"
+blend = "paint"
+color = "#f2b43c"
+end_color = "#e8905a"
+count = 10
+life = 0.45
+speed = 3.0
+spread = 360.0
+size = 0.35
+end_size = 0.15
+drag = 3.0
+
+# The hold full: a bigger ring of amber and a few warm sparks.
+[particles.full]
+shape = "puff"
+blend = "paint"
+color = "#ffcf6b"
+end_color = "#f2b43c"
+count = 28
+life = 0.7
+speed = 6.0
+spread = 360.0
+size = 0.5
+end_size = 0.2
+drag = 2.5
+
+# A rock giving its last: a burst of inked pebbles and dust from where it stood.
+[particles.rubble]
+shape = "chip"
+blend = "paint"
+color = "#8f4a2a"
+end_color = "#c98f4a"
+count = 36
+life = 1.4
+speed = 6.0
+spread = 360.0
+size = 0.5
+end_size = 0.3
+drag = 1.6
+
+# Exhaust: warm puffs from the engines while the ship thrusts, left behind as a trail.
+[particles.exhaust]
+shape = "puff"
+blend = "paint"
+color = "#ffcf6b"
+end_color = "#c2577a"
+rate = 30.0
+life = 0.5
+speed = 5.0
+spread = 18.0
+size = 0.35
+end_size = 0.7
+drag = 2.0
+
+# Docking: a puff of cream vapour as the clamps take the ship, and again as it moors.
+[particles.puff]
+shape = "puff"
+blend = "paint"
+color = "#fff4dd"
+end_color = "#cbb8e0"
+count = 24
+life = 0.8
+speed = 4.0
+spread = 360.0
+size = 0.6
+end_size = 1.1
+drag = 2.5
 
 [looks.prop]
 outline_px = 2.5

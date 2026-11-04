@@ -102,9 +102,9 @@ end
 local COLUMN, INSIDE = 157, 141
 -- Card heights: a fitted part shows its name and effect; one in the tray adds its
 -- price (or that it's yours) and what it draws and weighs.
-local FITTED, LOOSE = 60, 100
+local FITTED, LOOSE = 60, 96
 -- Every socket is as tall as the one with the longest refusal, so the row lines up.
-local SOCKET = 168
+local SOCKET = 160
 
 local function short(id)
     return string.match(id, "[^.]+$")
@@ -169,8 +169,25 @@ function cradle.rows(ctx, ui, pilot, title, keeper)
             children = { inside or space(ui, "empty_" .. s.id, FITTED, "Empty") } })
     end
     table.insert(children, ui.row { id = "sockets", gap = 8, children = sockets })
-    table.insert(children, ui.text { id = "rack", width = 488, size = 16, hover = "Controls cost no power or mass and never come off.",
-        text = "Controls, always fitted: Mine order, Dock order" })
+    -- The control rack: the hand controls, always fitted, then controls to buy (parts in
+    -- the "rack" socket). A control costs no power or mass and, once bought, never comes
+    -- off (direction doc 5); one that can't be bought yet rests with its reason.
+    local rack = { ui.text { id = "rack", width = 80, size = 16, text = "Controls",
+        hover = "Always fitted: the hand cutter and hand berthing. Controls cost no power or mass and never come off." } }
+    for _, p in parts do
+        if p.socket == "rack" then
+            local about = p.name .. ": " .. p.effect .. "."
+            if p.fitted then
+                table.insert(rack, ui.text { id = "rack_" .. short(p.id), width = 196, size = 16, text = p.name .. ", fitted", hover = about })
+            else
+                local why = fit.verdict(p, "rack", parts, pilot.credits, load)
+                table.insert(rack, ui.button { id = "rack_" .. short(p.id), width = 196, height = 44, size = 16, pad = 4,
+                    text = p.name .. " · " .. p.price .. " cr", hover = about, resting = why ~= "" and why or nil,
+                    on = "fit", payload = { socket = "rack", value = p.id } })
+            end
+        end
+    end
+    table.insert(children, ui.row { id = "controls", gap = 8, children = rack })
     -- The tray: parts on the rack to buy and parts in your locker, each under its own
     -- socket. Dropping a fitted part here takes it off.
     local accepts, tray = {}, {}
