@@ -544,6 +544,11 @@ static GAME: &[Command] = &[
                 "don't serve the live socket galaxy-gm live reads and hot-loads through \
                  (served by default, locally and to this user only)",
             ),
+            (
+                "--reduced-motion",
+                "screens don't slide, fade, lift, count or flash (also GALAXY_REDUCED_MOTION=1); \
+                 recordings keep the setting",
+            ),
         ],
         output: &[
             ("tick, hash", "the last tick and the world's hash there"),

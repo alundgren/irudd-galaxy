@@ -16,6 +16,7 @@ pub mod scene;
 pub mod screen_style;
 pub mod style;
 pub mod text;
+pub mod vector;
 
 pub use backdrop::{Backdrop, BackdropParams, backdrop};
 pub use camera::{Camera, Projection};

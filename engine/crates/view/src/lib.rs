@@ -225,6 +225,8 @@ pub struct Eye {
 pub struct View {
     pub assets: Assets,
     pub screens: screens::Screens,
+    /// The player's reduced-motion setting, kept across reloads (see `screens::Motion`).
+    pub reduced_motion: bool,
     handles: BTreeMap<String, MeshHandle>,
     /// Models with parts that move on their own, drawn as their still parts and each
     /// moving part apart.
@@ -345,6 +347,7 @@ impl View {
             talk_frame: (1.0, Vec2::ONE),
             talk_focus: Vec::new(),
             focus_live: true,
+            reduced_motion: false,
             hover_checks: None,
             targeted: None,
             hand: false,
@@ -430,7 +433,7 @@ impl View {
             self.reach.insert(id.clone(), reach);
         }
         self.missing.clear();
-        self.screens.style = assets.screen;
+        self.screens.style = assets.screen.clone();
         self.assets = assets;
     }
 
@@ -512,8 +515,8 @@ impl View {
     /// Rebuild an F8 moment without disturbing a film's continuing presentation.
     pub fn note_scene(&mut self, world: &World, moment: &Moment) -> Scene {
         let eye = self.eye;
-        let screen_style = self.screens.style;
-        self.screens.style = moment.screen_style.unwrap_or(screen_style);
+        let screen_style = self.screens.style.clone();
+        self.screens.style = moment.screen_style.clone().unwrap_or(screen_style.clone());
         let screens = std::mem::replace(&mut self.screens.presentation, moment.screens.clone());
         let courses = std::mem::replace(
             &mut self.courses,
@@ -773,6 +776,7 @@ impl View {
         }
         self.place_anchors(world, alpha, logical, camera, &mut anchors);
         self.screens.clock = (world.tick.saturating_sub(1) as f32 + alpha) / 30.0;
+        self.screens.reduced_motion = self.reduced_motion;
         self.screens
             .draw(world, logical, &anchors, &mut scene.overlay);
         self.camera = Some(camera);
@@ -969,7 +973,7 @@ impl View {
         let camera = self.camera?;
         Some(Moment {
             screens: self.screens.presented.clone(),
-            screen_style: Some(self.screens.style),
+            screen_style: Some(self.screens.style.clone()),
             alpha,
             time,
             width: size.0,

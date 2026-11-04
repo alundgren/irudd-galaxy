@@ -56,6 +56,7 @@ pub(crate) const PLAY_OPTIONS: &[&str] = &[
     "--inputs",
     "--ticks",
     "--no-live",
+    "--reduced-motion",
 ];
 pub(crate) const SHOT_OPTIONS: &[&str] = &[
     "--modules",
@@ -914,11 +915,13 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        let view = View::new(
+        let mut view = View::new(
             &mut renderer,
             self.session.modules(),
             self.session.world.seed,
         );
+        view.reduced_motion = self.options.reduced_motion
+            || std::env::var("GALAXY_REDUCED_MOTION").is_ok_and(|v| v == "1");
         for problem in view.problems() {
             eprintln!("galaxy: {problem}");
             self.problems.push(problem);

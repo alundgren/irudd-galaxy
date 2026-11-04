@@ -32,10 +32,12 @@ pub(super) fn geometry(b: &Boxed, state: &Presentation) -> Option<(Rect, Rect)> 
     Some((track, Rect::new(track.x, y, b.style.handle_width, h)))
 }
 
-pub(super) fn draw(b: &Boxed, overlay: &mut Overlay, state: &Presentation) {
+pub(super) fn draw(b: &Boxed, overlay: &mut Overlay, state: &Presentation, alpha: f32, dy: f32) {
     let Some((track, thumb)) = geometry(b, state) else {
         return;
     };
+    let track = Rect::new(track.x, track.y + dy, track.w, track.h);
+    let thumb = Rect::new(thumb.x, thumb.y + dy, thumb.w, thumb.h);
     let style = &b.style;
     let mut rail = style.surface(track, style.track);
     rail.radius = style.handle_radius;
@@ -54,9 +56,11 @@ pub(super) fn draw(b: &Boxed, overlay: &mut Overlay, state: &Presentation) {
     };
     handle.border_px = style.border_px;
     handle.shadow = false;
+    rail.opacity = alpha;
+    handle.opacity = alpha;
     overlay.widgets.push(UiLayer {
         panels: vec![rail, handle],
-        clip: b.clip,
+        clip: b.clip.map(|c| Rect::new(c.x, c.y + dy, c.w, c.h)),
         ..Default::default()
     });
 }

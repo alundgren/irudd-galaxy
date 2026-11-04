@@ -34,6 +34,7 @@ fn the_test_modules_pass_check() {
         "tests/play/drift",
         "tests/play/screens",
         "tests/play/rich-screens/rich",
+        "tests/play/ui-kit/kit",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);

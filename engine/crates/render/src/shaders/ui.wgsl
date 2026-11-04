@@ -13,7 +13,7 @@ struct Panel {
     fill: vec4<f32>,
     border: vec4<f32>,
     // x: rotation in radians (clockwise on screen), y: shape (0 rounded box, 1 triangle
-    // pointing up the screen).
+    // pointing up the screen), z: opacity of the whole panel and its shadow.
     shape: vec4<f32>,
 };
 
@@ -97,5 +97,5 @@ fn fs_panel(in: VOut) -> @location(0) vec4<f32> {
         let sa = (1.0 - smoothstep(-p.params.z, p.params.z, ds)) * 0.45;
         out = out + vec4<f32>(0.0232, 0.0103, 0.0273, 1.0) * sa * (1.0 - out.a);
     }
-    return out;
+    return out * p.shape.z;
 }

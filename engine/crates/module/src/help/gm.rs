@@ -2067,8 +2067,16 @@ pub static TOPICS: &[Topic] = &[
                 Its pad must be at least 1, room for its frame. \
                 ui.grid uses columns; ui.scroll needs id and height and clips its children. \
                 ui.delta uses a signed numeric value with gain/loss styling. ui.icon names an \
-                icon in icons.toml [icons], mapping local names to glyph strings. check reports \
-                missing icons and glyphs. ui.drag_source needs id, text and a string value; \
+                icon in icons.toml [icons]: a glyph string, or { svg = 'icons/x.svg' } for a \
+                drawn icon tinted with its text (painted = true keeps the file's colours). \
+                icon also goes on text and buttons, beside the words or above them with \
+                icon_at = 'top'. check reports missing icons, glyphs and bad SVG. look = \
+                '<name>' picks a [screen.looks] entry for a widget's surface and ink; spans = \
+                { 'Paid ', { text = '120', look = 'gain' } } replaces text with parts in their \
+                own looks. cue = 'count' counts a delta up to its new value; cue = 'flash' \
+                flashes a changed text, delta or icon. Panels and bubbles fade or slide in and \
+                out and buttons lift under the pointer, timed by [screen] motion keys; it is \
+                paint only, never recorded, and play --reduced-motion turns it off. ui.drag_source needs id, text and a string value; \
                 ui.drop_target needs id, text, on and accepts = { value = reason }: an empty \
                 reason allows it, a nonempty reason explains rejection, unlisted values are \
                 rejected. notes = { value = text } says under Drop here what an accepted drop \
@@ -2171,7 +2179,7 @@ pub static TOPICS: &[Topic] = &[
         about: "style.toml sets the scene-wide ink, light, sky, course and screen (from one module \
                 only) and named looks a model can wear (`look = \"<module>.<name>\"`). Every \
                 key is optional. [sky] star_layers = [0.25, 0.6, 1.2] lays stars in layers \
-                scrolling at their own rates. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
+                scrolling at their own rates. [screen] owns paper, panel, button, text, gain/loss, bubble/sign, held/socket, accept/refuse, resting (a resting button) and scroll colours; radius, frame_padding, target_min, handle_width/handle_min/handle_radius, border_px, socket_dash, resting_dash and hint_border_px; and talk bubble text sizes bubble_title (and bubble_title_weight), bubble_subtitle, bubble_text and bubble_marker. Colours must be opaque, all text/surface pairs need 4.5:1 contrast and handles on track 3:1. galaxy-gm fields style lists defaults and ranges. Last module ID supplying [screen] wins the whole table; check reports conflicts. Without a table, screens use the neutral default. [screen.looks.<name>] are named looks (fill, text, border, border_px, radius, pad, shadow, hover, weight, underline, gain, loss, flash, mark = true for a symbol at 3:1) that widgets and spans pick with look; bubble_look, bubble_title_look and sign_look dress talk bubbles and name signs; button_hover fills a hovered button. Motion: motion_in, motion_out (seconds), motion_slide (px), hover_lift, press_sink (px), cue_time (seconds) and flash; all default to 0, off. Every look is checked for contrast like the base table. Explicit widget pad overrides frame_padding; target_min is a checked floor, not automatic resizing. Style-only hot loads have no sim event. Check a change with galaxy shot (a still) or a film and a \
                 motion tool (for anything that turns or moves).",
         tasks: &[(
             "Which keys and fields exist; which things wear a look",

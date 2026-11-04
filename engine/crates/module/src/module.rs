@@ -15,6 +15,7 @@
 //!   models/*.gltf     models, read by the renderer (engine/docs/renderer-and-style.md)
 //!   recipes/*.toml    optional: model recipes, made into models by the GM (model-generator.md)
 //!   audio.toml        optional event cues and place ambience (engine/docs/audio.md)
+//!   icons/*.svg      optional: icons named in icons.toml (engine/docs/screens.md)
 //!   sounds/*, music/*  WAV, Ogg or MP3 files; decoded separately, not stored in recordings
 //! ```
 //!
@@ -39,10 +40,10 @@ use crate::{ids, version};
 /// The start file in a module folder.
 pub const START_FILE: &str = "start.toml";
 
-/// File extensions the engine reads from a module: data, scripts and models (`.gltf`, text
-/// with embedded buffers). Binary sounds are presentation assets read separately;
+/// File extensions the engine reads from a module: data, scripts, models (`.gltf`, text
+/// with embedded buffers) and icons (`.svg`). Binary sounds are presentation assets read separately;
 /// they are not stored in recordings or module text hashes.
-pub const EXTENSIONS: [&str; 3] = ["toml", "luau", "gltf"];
+pub const EXTENSIONS: [&str; 4] = ["toml", "luau", "gltf", "svg"];
 
 /// Largest module file the engine reads.
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;

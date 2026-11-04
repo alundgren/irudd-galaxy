@@ -172,8 +172,9 @@ these passes:
    a 2x (Retina) display. Average each block in linear colour into one output pixel.
    Either way a logical pixel gets sixteen coverage samples with MSAA x4. Nothing
    outside an output pixel's footprint is mixed in.
-8. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
-   screen system builds on this.
+8. **Overlay**: screen-space panels (rounded, bordered, a shadow of any size, an opacity),
+   drawn icons and text, in layers, in that order within a layer; the screen system builds
+   on this.
 
 Text uses glyphon (cosmic-text shaping) with one bundled font (Fredoka, SIL OFL), so a
 shot looks the same on every machine. MSAA x4 where all the colour, geometry and depth
@@ -352,6 +353,11 @@ with the headless shaper in `galaxy-render::text`, the same font/metrics as GPU 
 `Overlay.widgets` holds ordered panel/text layers between the base and the three engine
 chrome layers. GPU storage and glyphon renderers grow with the stream, preserving every
 widget's paint order. The fixed chrome layers remain for notes and diagnostic panels.
+Drawn icons (`UiImage`) come from `galaxy-render::vector`, a small SVG reader and
+scanline rasteriser written here: an icon is rasterised once per physical size with 4x4
+supersampling into an sRGB texture, cached by content hash and size, and drawn by its own
+pipeline that reads the texture texel for pixel and tints it with the text colour. Spans
+are shaped as one cosmic-text rich text, so a coloured or bold part wraps with its label.
 Named `engine.anchor` publishers project interpolated positions into this layout each
 frame. Left clicks hit-test the tree and record the chosen event as source `ui`; bot
 `[[click]]` entries use the same path. See `screens.md` for the API and readability rules.

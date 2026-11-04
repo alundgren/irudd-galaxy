@@ -48,7 +48,7 @@ pub fn anchored(kind: &str) -> bool {
     matches!(kind, "hover" | "target")
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Widget {
     pub kind: String,
     pub id: Option<String>,
@@ -87,6 +87,23 @@ pub struct Widget {
     /// drawn while its anchor is off screen, it would leave the window, or it would
     /// overlap another painted widget.
     pub yields: bool,
+    /// A named `[screen.looks]` look: the widget's surface and text.
+    pub look: Option<String>,
+    /// Parts of `text` in their own look (text and buttons); `text` is their words joined.
+    pub spans: Vec<Span>,
+    /// A module icon drawn beside a text or button label, at `icon_at`.
+    pub icon: Option<String>,
+    /// `left` (the default) or `top`.
+    pub icon_at: Option<String>,
+    /// A presentation cue when the shown value changes: `count` (deltas) or `flash`.
+    pub cue: Option<String>,
+}
+
+/// One part of a text in a look of its own.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Span {
+    pub text: String,
+    pub look: Option<String>,
 }
 
 #[derive(Default)]
@@ -271,7 +288,7 @@ fn read(
         if ![
             "kind", "id", "text", "width", "height", "x", "y", "size", "pad", "gap", "anchor",
             "on", "payload", "children", "columns", "value", "accepts", "notes", "icon", "hover",
-            "align", "resting", "yield",
+            "align", "resting", "yield", "look", "spans", "icon_at", "cue",
         ]
         .contains(&key.as_str())
         {
@@ -511,11 +528,99 @@ fn read(
             )));
         }
     }
+    let look = string("look")?;
+    if look.as_ref().is_some_and(|l| l.trim().is_empty()) {
+        return Err(bad("look names a [screen.looks] look"));
+    }
+    if look.is_some()
+        && (anchored(&kind) || matches!(kind.as_str(), "row" | "column" | "grid" | "list"))
+    {
+        return Err(bad(
+            "look goes on a widget that paints: a panel, scroll, button, text, delta, icon or drag widget",
+        ));
+    }
+    let mut text = string("text")?.unwrap_or_default();
+    let spans = match t.get::<Value>("spans")? {
+        Value::Nil => Vec::new(),
+        Value::Table(list) => {
+            if !matches!(kind.as_str(), "text" | "button") {
+                return Err(bad("only text and buttons have spans"));
+            }
+            if !text.is_empty() {
+                return Err(bad("give text or spans, not both: the spans are the text"));
+            }
+            let mut spans = Vec::new();
+            for (i, part) in list.sequence_values::<Value>().enumerate() {
+                let at = |s: &str| bad(&format!("spans[{}]: {s}", i + 1));
+                spans.push(match part? {
+                    Value::String(s) => Span {
+                        text: s.to_str()?.to_string(),
+                        look: None,
+                    },
+                    Value::Table(p) => {
+                        for pair in p.clone().pairs::<String, Value>() {
+                            let (key, _) = pair.map_err(|_| at("a span has text and look"))?;
+                            if key != "text" && key != "look" {
+                                return Err(at(&format!("unknown property `{key}`")));
+                            }
+                        }
+                        Span {
+                            text: string_field(&p, "text")
+                                .map_err(|e| at(&e.to_string()))?
+                                .unwrap_or_default(),
+                            look: string_field(&p, "look").map_err(|e| at(&e.to_string()))?,
+                        }
+                    }
+                    _ => return Err(at("a span is a string or { text, look }")),
+                });
+            }
+            if spans.len() != list.raw_len() || spans.is_empty() {
+                return Err(bad("spans is a nonempty list of strings or { text, look }"));
+            }
+            text = spans.iter().map(|s| s.text.as_str()).collect();
+            spans
+        }
+        _ => return Err(bad("spans is a list of strings or { text, look }")),
+    };
+    let icon = if matches!(kind.as_str(), "text" | "button") {
+        string("icon")?
+    } else if kind != "icon" && string("icon")?.is_some() {
+        return Err(bad("icon goes on ui.icon, a text or a button"));
+    } else {
+        None
+    };
+    if icon.as_ref().is_some_and(|i| i.trim().is_empty()) {
+        return Err(bad("icon names a module icon"));
+    }
+    let icon_at = string("icon_at")?;
+    if let Some(at) = &icon_at {
+        if icon.is_none() {
+            return Err(bad("icon_at goes with icon"));
+        }
+        if at != "left" && at != "top" {
+            return Err(bad("icon_at is left or top"));
+        }
+    }
+    let cue = string("cue")?;
+    match (cue.as_deref(), kind.as_str()) {
+        (None, _) | (Some("count"), "delta") | (Some("flash"), "text" | "delta" | "icon") => {}
+        (Some("count"), _) => return Err(bad("cue = \"count\" goes on a ui.delta")),
+        _ => {
+            return Err(bad(
+                "cue is \"count\" (a delta) or \"flash\" (a text, delta or icon)",
+            ));
+        }
+    }
     Ok(Widget {
         kind: kind.clone(),
         id,
         path: path.into(),
-        text: string("text")?.unwrap_or_default(),
+        text,
+        look,
+        spans,
+        icon,
+        icon_at,
+        cue,
         hover,
         resting,
         width: num("width")?,

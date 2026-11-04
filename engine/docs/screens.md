@@ -194,10 +194,10 @@ are the same as text. `ui.icon { icon = "token" }` resolves a local module name 
 token = "T"
 ```
 
-Icons are module-owned glyph strings, embedded with the module in recordings. The GM
-checks all declared glyphs against the actual bundled font, including unused declarations,
-and reports any referenced icon missing from the catalogue. This uses existing text
-shaping and deterministic text assets rather than introducing a second image asset path.
+A glyph icon is a string, embedded with the module in recordings. The GM checks all
+declared glyphs against the actual bundled font, including unused declarations, and
+reports any referenced icon missing from the catalogue. Drawn SVG icons are under
+"Looks, spans, drawn icons and UI motion" below.
 
 ## Dragging and view state
 
@@ -363,8 +363,8 @@ out-of-range values fail check. `target_min` is a checked floor for actual targe
 not a resizer. A scrolling viewport must fit the minimum handle. Explicit widget
 `pad` overrides default frame padding; scroll content retains its minimum 12px inset.
 Corners and borders are capped by the widget padding to keep paint out of its text.
-Standalone text and signs have a flat opaque backing covering every glyph. Screen
-surfaces have no renderer-owned tinted shadow.
+Standalone text and signs have a flat opaque backing covering every glyph. A surface
+casts a soft shadow only when its look sets `shadow`.
 
 The engine still measures and places the tree, clips and hit-tests it, captures the
 pointer, reserves verdict space, and performs the same 240ms drop/return animation.
@@ -407,6 +407,92 @@ A table in the existing style asset avoids a second loader, watch path or record
 store. Per-widget colours would duplicate the look in every script and make whole-theme
 contrast checks impossible without enumerating runtime branches. Skin scripts or
 module-owned motion would move frame work into Luau and change the shared behaviour.
+
+## Looks, spans, drawn icons and UI motion
+
+A module dresses screens through its style, never through colours in Luau. Named looks
+sit beside the base table:
+
+```toml
+[screen.looks.chip]
+fill = "#1f1a24"
+text = "#ffffff"
+border = "#f2b43c"
+radius = 12.0
+shadow = 6.0
+
+[screen.looks.name]
+weight = 700.0
+underline = "#b07800"
+```
+
+A look has `fill`, `text`, `border`, `border_px` (0-4), `radius` (0-24), `pad` (0-32),
+`shadow` (0-16 px), `hover` (a button's fill under the pointer), `weight` (300-700),
+`underline`, `gain`, `loss`, `flash` and `mark`. Every key is optional and falls back to
+the base table. A widget picks one with `look = "chip"`. A frame (panel, button, bubble,
+scroll, drag source, drop target) paints the look's surface. Text whose look has a fill
+becomes a tag that hugs its words. Other text keeps the surface it sits on and only
+changes ink, weight or underline. `bubble_look`, `bubble_title_look` and `sign_look` give
+talk bubbles, their heading and name signs a look without any script. `button_hover`
+fills a hovered button.
+
+`spans = { "Paid ", { text = "120", look = "gain" } }` replaces `text` on text and
+buttons. The engine shapes the parts as one text, so wrapping and alignment stay those of
+one label. Each span gets its look's colour and weight. A span look with a fill paints a
+tag behind its glyphs, and one with `underline` gets an underline. `mark = true` declares
+a symbol such as `•` that carries meaning beside words: it needs 3:1 instead of 4.5:1 and
+may hold no letters or digits.
+
+`icons.toml` maps a name either to a glyph string, or to `{ svg = "icons/coin.svg" }`
+for a drawn icon. A drawn icon is tinted with its text's ink unless `painted = true`
+keeps the file's own colours. `ui.icon` draws one as a square of `size` (default 20). Text and
+buttons take `icon` too, beside the words, or above them with `icon_at = "top"`. SVG
+files are module text, so recordings embed them like scripts. The renderer reads a small
+subset itself (`vector.rs`): paths with every command, rect, circle, ellipse, line,
+polyline, polygon, groups and transforms, fill and stroke in hex or `currentColor`, and
+even-odd or nonzero fill. Gradients, text, images, filters and other elements are
+refused by name. Files are capped at 64KB and 50,000 points. Icons are rasterised once
+per size with 4x4 supersampling, cached by content hash, and drawn by their own small
+pipeline between panels and text.
+
+Check covers what the player sees. Each look must be readable on its own fill, its hover
+and its flash. Each widget's words are tested on the surface it actually sits on, and
+each span's colour on its tag or that surface. Underlines and tinted icons need 3:1.
+Check also names unknown looks, missing or broken SVG, icons under 16px and icons
+clipped by their widget.
+
+**Motion** is presentation only. `motion_in` and `motion_out` (0-1 s) fade the outermost
+panel, scroll or bubble of a script when it appears or goes away, with a `motion_slide`
+(0-48 px) rise. A leaving surface is kept as its last widget tree and drawn fading where
+it was; it no longer takes clicks. `hover_lift` and `press_sink` (0-6 px) move a hovered
+or held button. `cue = "count"` on a delta counts from its old value to the new one over
+`cue_time` (0-2 s). `cue = "flash"` fades a changed text, delta or icon from the `flash`
+colour (or its look's) back to its own. Every motion key defaults to 0, so modules
+without them don't move.
+
+Motion runs on the screen clock (tick plus alpha), never on a wall clock. It lives in the
+presentation snapshot, so notes, audit and film rebuild a frame mid-fade exactly. Nothing
+enters world state, events or recordings, and boxes, hit tests and check use the settled
+layout. A replay therefore has the same world hash with motion on or off. `galaxy play
+--reduced-motion` (or `GALAXY_REDUCED_MOTION=1`) settles every motion at once.
+
+`engine/tests/play/ui-kit` is the fixture: a dark chip with a drawn coin and a counted
+delta, a parchment panel with spans, a receipt row with a mark and a tag, buttons with
+icons beside and above, a shelf that fades in and out, and a talk bubble with an
+underlined name. It sits under `tests/play` because it is drawn and played.
+
+```sh
+galaxy-gm --build <name> check engine/tests/play/ui-kit/kit
+galaxy --build <name> play --modules engine/tests/play/ui-kit --inputs engine/tests/play/ui-kit-inputs.toml --ticks 100
+galaxy-gm --build <name> film <session>/recording.json --from 38 --to 52 --out <film>
+galaxy-gm --build <name> motion sheet <film> --count 12
+```
+
+Alternatives: per-widget colours would scatter the theme across scripts and leave no
+whole-theme contrast check. A general SVG library would bring a large dependency for
+features screens don't use. Glyph icons were the earlier route, but the bundled font
+lacks most symbols. Animating in Luau would put frame work in scripts and into
+recordings. A wall clock would break notes and films.
 
 ## Edges instead of a viewport size
 

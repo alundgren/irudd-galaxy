@@ -43,6 +43,11 @@ fn part(kind: &str, path: String, text: &str, size: f32) -> Widget {
         weight: 500,
         trailing: false,
         yields: false,
+        look: None,
+        spans: Vec::new(),
+        icon: None,
+        icon_at: None,
+        cue: None,
         resting: None,
     }
 }

@@ -32,6 +32,9 @@ pub(crate) struct Options {
     /// `--continue`: load the newest save of these modules from the sessions folder.
     pub continue_save: bool,
     pub physical_size: bool,
+    /// `--reduced-motion` (or `GALAXY_REDUCED_MOTION=1`): screens don't slide, fade, lift,
+    /// count or flash.
+    pub reduced_motion: bool,
     pub record: Option<PathBuf>,
     pub realtime: bool,
     pub watch: bool,
@@ -89,6 +92,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 | "--no-live"
                 | "--physical-size"
                 | "--continue"
+                | "--reduced-motion"
         );
         if switch {
             if inline.is_some() {
@@ -102,6 +106,7 @@ pub(crate) fn parse(args: &[String], allowed: &[&str]) -> Result<(Vec<String>, O
                 "--no-live" => options.no_live = true,
                 "--physical-size" => options.physical_size = true,
                 "--continue" => options.continue_save = true,
+                "--reduced-motion" => options.reduced_motion = true,
                 _ => options.state = true,
             }
             continue;

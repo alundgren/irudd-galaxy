@@ -376,6 +376,10 @@ pub struct Panel {
     pub border: Color,
     pub border_px: f32,
     pub shadow: bool,
+    /// How far the shadow falls below the panel, logical pixels (with `shadow`).
+    pub shadow_px: f32,
+    /// Multiplies the whole panel, its shadow included: 1 is as painted (UI fades).
+    pub opacity: f32,
     /// Dash length plus gap of the border in logical pixels; 0 draws it solid.
     pub dash: f32,
     /// Turn around the centre, radians, clockwise on screen.
@@ -404,6 +408,8 @@ impl Panel {
             border: defaults::INK,
             border_px: 3.0,
             shadow: true,
+            shadow_px: 5.0,
+            opacity: 1.0,
             dash: 0.0,
             rotate: 0.0,
             shape: PanelShape::Box,
@@ -434,6 +440,17 @@ pub struct Text {
     pub align: Align,
     /// Wrap width in logical pixels.
     pub max_width: Option<f32>,
+    /// Parts of `text` drawn in their own colour and weight; the rest uses `color` and
+    /// `weight`. Ranges are byte ranges on character boundaries, in order, not overlapping.
+    pub spans: Vec<TextSpan>,
+}
+
+/// A byte range of a [`Text`] drawn in its own colour and weight.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextSpan {
+    pub range: std::ops::Range<usize>,
+    pub color: Color,
+    pub weight: u16,
 }
 
 impl Text {
@@ -446,6 +463,7 @@ impl Text {
             weight: 500,
             align: Align::Left,
             max_width: None,
+            spans: Vec::new(),
         }
     }
 
@@ -470,12 +488,23 @@ impl Text {
     }
 }
 
-/// One overlay layer: its panels draw first, then its text.
+/// A vector icon drawn into a logical-pixel rectangle: as a mask in `tint`, or in its
+/// own colours when `tint` is `None`. The renderer rasterises it at the display scale.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiImage {
+    pub rect: Rect,
+    pub icon: std::sync::Arc<crate::vector::Icon>,
+    pub tint: Option<Color>,
+    pub opacity: f32,
+}
+
+/// One overlay layer: its panels draw first, then its images, then its text.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiLayer {
     pub panels: Vec<Panel>,
+    pub images: Vec<UiImage>,
     pub texts: Vec<Text>,
-    /// Logical-pixel clip shared by panels and glyphs in this layer.
+    /// Logical-pixel clip shared by panels, images and glyphs in this layer.
     pub clip: Option<Rect>,
 }
 

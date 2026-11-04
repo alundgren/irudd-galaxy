@@ -1,0 +1,13 @@
+[entities.wallet]
+wallet = { credits = 120, last = 0, earned = 0, shelf = false }
+[entities.camera]
+"engine.position" = {}
+"engine.camera" = { view = 60, tilt = 0 }
+[entities.marker]
+"engine.position" = { x = 34, y = -18 }
+"engine.model" = { model = "kit.marker", scale = 1 }
+"engine.anchor" = { name = "label", height = 3 }
+[entities.talk]
+"engine.talk" = { speaker = "kit.marker", first = "kit.line", title = "Odo", subtitle = "Keeper", anchor = "kit.marker#label", width = 300, active = true, current = "kit.line" }
+[entities.line]
+"engine.talk_line" = { text = "Fresh ice today. Ask me anything." }
