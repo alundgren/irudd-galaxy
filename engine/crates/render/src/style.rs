@@ -39,10 +39,20 @@
 //! shadow = "#9e84cc"          # multiplies the paint in shadow
 //! highlight = "#fff6ea"       # multiplies the paint in the highlight band
 //! bands = 3                   # tone bands, 2 or 3
+//! halo = 0.6                  # a soft halo round its self-lit paint (lamps, engines)
+//!
+//! [beams.cutter]              # a beam: `engine.beam { look = "<module>.cutter" }`
+//! color = "#7ff0d8"
+//! impact = ["<module>.sparks"] # sprayed where it lands
+//!
+//! [particles.sparks]          # a particle recipe for emitters, bursts and beams
+//! shape = "spark"             # dot, spark, puff or chip
+//! count = 12                  # in a burst; rate is a second from an emitter
 //! ```
 //!
 //! Every key is optional. The scene-wide tables (`ink`, `light`, `sky`, `course`) may
-//! come from one module only; looks are each module's own, named by full ID.
+//! come from one module only; looks, beams and particle recipes are each module's own,
+//! named by full ID.
 
 use std::collections::BTreeMap;
 
@@ -52,6 +62,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::backdrop::BackdropParams;
 use crate::defaults;
+use crate::effects::{BeamStyle, ParticleRecipe};
 use crate::scene::{Lights, Material};
 
 /// A parsed `style.toml`.
@@ -64,6 +75,8 @@ pub struct Style {
     pub course: Option<Course>,
     pub screen: Option<crate::screen_style::ScreenStyle>,
     pub looks: BTreeMap<String, Look>,
+    pub beams: BTreeMap<String, BeamStyle>,
+    pub particles: BTreeMap<String, ParticleRecipe>,
 }
 
 impl Style {
@@ -83,6 +96,14 @@ impl Style {
         }
         for (name, look) in &style.looks {
             look.check().map_err(|e| format!("[looks.{name}] {e}"))?;
+        }
+        for (name, beam) in &style.beams {
+            beam.check().map_err(|e| format!("[beams.{name}] {e}"))?;
+        }
+        for (name, recipe) in &style.particles {
+            recipe
+                .check()
+                .map_err(|e| format!("[particles.{name}] {e}"))?;
         }
         Ok(style)
     }
@@ -298,6 +319,156 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "talk bubble Continue/Done marker size, logical pixels; drawn at weight 400",
     ),
     (
+        "screen",
+        "button_hover",
+        "opaque colour",
+        "button fill under the pointer; unset keeps button; text needs 4.5:1",
+    ),
+    (
+        "screen",
+        "bubble_look",
+        "a look name",
+        "a [screen.looks] look for talk bubbles; empty uses bubble and text",
+    ),
+    (
+        "screen",
+        "bubble_title_look",
+        "a look name",
+        "a look for the bubble's heading (the speaker's name): its colour, weight, underline or tag fill",
+    ),
+    (
+        "screen",
+        "sign_look",
+        "a look name",
+        "a look for life signs; empty uses sign and text",
+    ),
+    (
+        "screen",
+        "motion_in",
+        "0 to 1",
+        "seconds a panel or bubble takes to fade (and slide) in; 0 shows it at once",
+    ),
+    (
+        "screen",
+        "motion_out",
+        "0 to 1",
+        "seconds a closed panel or bubble takes to fade out",
+    ),
+    (
+        "screen",
+        "motion_slide",
+        "0 to 48",
+        "how far panels slide while coming and going, logical pixels; 0 only fades",
+    ),
+    (
+        "screen",
+        "hover_lift",
+        "0 to 6",
+        "how far a button rises under the pointer, logical pixels",
+    ),
+    (
+        "screen",
+        "press_sink",
+        "0 to 6",
+        "how far a pressed button sinks, logical pixels",
+    ),
+    (
+        "screen",
+        "cue_time",
+        "0 to 2",
+        "seconds a value's cue (count or flash) runs; 0 turns cues off",
+    ),
+    (
+        "screen",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value; text needs 4.5:1",
+    ),
+    (
+        "screen.looks.<name>",
+        "fill",
+        "opaque colour",
+        "surface fill; on a span, a tag behind its words; unset keeps the widget's",
+    ),
+    (
+        "screen.looks.<name>",
+        "text",
+        "opaque colour",
+        "text colour; needs 4.5:1 on fill, hover and flash (3:1 for a mark)",
+    ),
+    (
+        "screen.looks.<name>",
+        "border",
+        "opaque colour",
+        "frame colour",
+    ),
+    (
+        "screen.looks.<name>",
+        "border_px",
+        "0 to 4",
+        "frame width, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "radius",
+        "0 to 24",
+        "corner rounding, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "pad",
+        "0 to 32",
+        "default padding of a widget wearing it, logical pixels",
+    ),
+    (
+        "screen.looks.<name>",
+        "shadow",
+        "0 to 16",
+        "soft drop shadow under its surface, logical pixels; 0 has none",
+    ),
+    (
+        "screen.looks.<name>",
+        "hover",
+        "opaque colour",
+        "a button's fill under the pointer",
+    ),
+    (
+        "screen.looks.<name>",
+        "weight",
+        "300 to 700",
+        "font weight of its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "underline",
+        "opaque colour",
+        "a line under its text; 3:1 on what it sits on",
+    ),
+    (
+        "screen.looks.<name>",
+        "gain",
+        "opaque colour",
+        "positive ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "loss",
+        "opaque colour",
+        "negative ui.delta values wearing it; unset is its text",
+    ),
+    (
+        "screen.looks.<name>",
+        "flash",
+        "opaque colour",
+        "fill behind a flashing value wearing it; unset is [screen] flash",
+    ),
+    (
+        "screen.looks.<name>",
+        "mark",
+        "true or false",
+        "a span of symbols, not words (an arrow, a dot): 3:1 contrast like a graphic",
+    ),
+    (
         "ink",
         "color",
         "",
@@ -422,6 +593,141 @@ pub const KEYS: &[(&str, &str, &str, &str)] = &[
         "multiplies the paint in the highlight band",
     ),
     ("looks.<name>", "bands", "2 or 3", "tone bands"),
+    (
+        "looks.<name>",
+        "halo",
+        "0 to 4",
+        "a soft additive halo round each patch of self-lit paint (lamps, windows, engines); 0 is none",
+    ),
+    (
+        "looks.<name>",
+        "halo_size",
+        "0 to 8",
+        "the halo's radius, times the size of the lit patch",
+    ),
+    ("beams.<name>", "color", "", "the beam's colour"),
+    (
+        "beams.<name>",
+        "width",
+        "0 to 8",
+        "width, world units; 0 hides it",
+    ),
+    (
+        "beams.<name>",
+        "glow",
+        "0 to 4",
+        "the soft glow round the beam and the halos at its ends; 0 leaves the hot core",
+    ),
+    (
+        "beams.<name>",
+        "glow_size",
+        "0 to 32",
+        "radius of the halo where it lands, world units; the one at its source is half",
+    ),
+    (
+        "beams.<name>",
+        "flicker",
+        "0 to 1",
+        "how much its brightness flickers",
+    ),
+    (
+        "beams.<name>",
+        "flicker_rate",
+        "0 to 30",
+        "flickers a second",
+    ),
+    (
+        "beams.<name>",
+        "impact",
+        "[recipe IDs]",
+        "particle recipes sprayed where the beam lands, each at its own rate (sparks, chips)",
+    ),
+    (
+        "particles.<name>",
+        "shape",
+        "dot, spark, puff or chip",
+        "a soft dot, a streak along its flight, a cel puff or a turning chip (puff and chip are inked)",
+    ),
+    (
+        "particles.<name>",
+        "blend",
+        "add or paint",
+        "add glows over what is beneath; paint covers it",
+    ),
+    ("particles.<name>", "color", "", "colour at birth"),
+    (
+        "particles.<name>",
+        "end_color",
+        "",
+        "colour at the end of life; it fades out as it gets there",
+    ),
+    (
+        "particles.<name>",
+        "count",
+        "0 to 256",
+        "particles in one burst",
+    ),
+    (
+        "particles.<name>",
+        "rate",
+        "0 to 400",
+        "particles a second from an emitter or a beam's landing",
+    ),
+    ("particles.<name>", "life", "0 to 4", "seconds each lives"),
+    (
+        "particles.<name>",
+        "life_jitter",
+        "0 to 1",
+        "up to this share of a life is cut short at random",
+    ),
+    (
+        "particles.<name>",
+        "speed",
+        "0 to 200",
+        "starting speed, world units a second",
+    ),
+    (
+        "particles.<name>",
+        "speed_jitter",
+        "0 to 1",
+        "up to this share of the speed is taken off at random",
+    ),
+    (
+        "particles.<name>",
+        "direction",
+        "-360 to 360",
+        "degrees from the emitter's facing (180 is behind it); at a beam's landing, from the way back up the beam",
+    ),
+    (
+        "particles.<name>",
+        "spread",
+        "0 to 360",
+        "how wide they fan out round that way, degrees",
+    ),
+    (
+        "particles.<name>",
+        "size",
+        "0 to 16",
+        "diameter at birth, world units",
+    ),
+    (
+        "particles.<name>",
+        "end_size",
+        "0 to 16",
+        "diameter at the end of life, world units",
+    ),
+    (
+        "particles.<name>",
+        "drag",
+        "0 to 20",
+        "share of speed lost a second",
+    ),
+    (
+        "particles.<name>",
+        "inherit",
+        "0 to 1",
+        "share of the emitter's velocity they keep; 0 stays where born (a trail)",
+    ),
 ];
 
 /// Each table's keys with their defaults, as TOML text (`"#2a1a2e"`, `2.0`), from the
@@ -457,9 +763,32 @@ pub fn defaults() -> Vec<(&'static str, Vec<(String, String)>)> {
             // Unset, a resting button uses the panel colour: list that as its default.
             let mut s = crate::screen_style::ScreenStyle::default();
             s.resting = Some(s.panel);
+            s.button_hover = Some(s.button);
             s
         }),
+        table("screen.looks.<name>", &{
+            // Every key, each at the value an unset key falls back to.
+            let s = crate::screen_style::ScreenStyle::default();
+            crate::screen_style::ScreenLook {
+                fill: Some(s.panel),
+                text: Some(s.text),
+                border: Some(s.border),
+                border_px: Some(s.border_px),
+                radius: Some(s.radius),
+                pad: Some(s.frame_padding),
+                shadow: Some(0.0),
+                hover: Some(s.button),
+                weight: Some(500.0),
+                underline: Some(s.border),
+                gain: Some(s.text),
+                loss: Some(s.text),
+                flash: Some(s.flash),
+                mark: false,
+            }
+        }),
         table("looks.<name>", &Look::default()),
+        table("beams.<name>", &BeamStyle::default()),
+        table("particles.<name>", &ParticleRecipe::default()),
     ]
 }
 
@@ -668,6 +997,10 @@ pub struct Look {
     pub shadow: Color,
     pub highlight: Color,
     pub bands: u32,
+    /// A soft halo round each patch of self-lit paint, 0 for none.
+    pub halo: f32,
+    /// The halo's radius, times the size of the patch it surrounds.
+    pub halo_size: f32,
 }
 
 impl Default for Look {
@@ -679,6 +1012,8 @@ impl Default for Look {
             shadow: m.shadow,
             highlight: m.highlight,
             bands: m.bands,
+            halo: 0.0,
+            halo_size: 2.5,
         }
     }
 }
@@ -693,6 +1028,12 @@ impl Look {
         }
         if !(2..=3).contains(&self.bands) {
             return Err(format!("bands is {}; it is 2 or 3", self.bands));
+        }
+        if !(self.halo.is_finite() && (0.0..=4.0).contains(&self.halo)) {
+            return Err(format!("halo is {}; it is 0 to 4", self.halo));
+        }
+        if !(self.halo_size.is_finite() && (0.0..=8.0).contains(&self.halo_size)) {
+            return Err(format!("halo_size is {}; it is 0 to 8", self.halo_size));
         }
         Ok(())
     }
@@ -832,6 +1173,31 @@ color = \"#3fa7a0\"
         for bad in ["[]", "[1.0, 2.0, 3.0, 4.0, 5.0]", "[-1.0]", "[30.0]"] {
             let e = Style::parse(&format!("[sky]\nstar_layers = {bad}")).unwrap_err();
             assert!(e.contains("[sky] star_layers"), "{bad}: {e}");
+        }
+    }
+
+    #[test]
+    fn beams_and_particle_recipes_are_read_and_checked() {
+        let s = Style::parse(
+            "[beams.cutter]\nwidth = 0.8\nimpact = [\"m.sparks\", \"m.chips\"]\n\
+             [particles.puff]\nshape = \"puff\"\nblend = \"paint\"\ncount = 30\n",
+        )
+        .unwrap();
+        assert_eq!(s.beams["cutter"].width, 0.8);
+        assert_eq!(s.beams["cutter"].impact, ["m.sparks", "m.chips"]);
+        let puff = s.particles["puff"];
+        assert_eq!(puff.shape, crate::scene::ParticleShape::Puff);
+        assert_eq!(puff.blend, crate::effects::Blend::Paint);
+        assert_eq!(puff.count, 30);
+        for (bad, key) in [
+            ("[particles.a]\ncount = 9999", "[particles.a] count"),
+            ("[particles.a]\nrate = 1e9", "[particles.a] rate"),
+            ("[particles.a]\nshape = \"smoke\"", "smoke"),
+            ("[beams.a]\nwidth = -1.0", "[beams.a] width"),
+            ("[looks.a]\nhalo = 9.0", "[looks.a] halo"),
+        ] {
+            let e = Style::parse(bad).unwrap_err();
+            assert!(e.contains(key), "{bad}: {e}");
         }
     }
 

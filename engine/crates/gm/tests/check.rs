@@ -34,6 +34,7 @@ fn the_test_modules_pass_check() {
         "tests/play/drift",
         "tests/play/screens",
         "tests/play/rich-screens/rich",
+        "tests/play/ui-kit/kit",
     ] {
         let (code, out) = gm(&engine(), &["check", module]);
         let out = json(&out);
@@ -505,4 +506,46 @@ fn check_reads_a_note_that_a_press_rewrites() {
             "{out}"
         );
     }
+}
+
+#[test]
+fn check_refuses_misspelled_effect_recipes_looks_and_selectors() {
+    let (code, out) = gm(&engine(), &["check", "tests/play/effects"]);
+    assert_eq!(code, 0, "{out}");
+    let dir = tempfile::tempdir().unwrap();
+    let module = dir.path().join("effects");
+    copy(&engine().join("tests/play/effects"), &module);
+    let edit = |file: &str, from: &str, to: &str| {
+        let path = module.join(file);
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains(from), "{from}");
+        std::fs::write(&path, text.replace(from, to)).unwrap();
+    };
+    edit("start.toml", "\"effects.exhaust\"", "\"effects.exhuast\"");
+    edit("start.toml", "by = \"thrust\"", "by = \"thurst\"");
+    edit("start.toml", "\"effects.cutter\"", "\"effects.cuter\"");
+    edit(
+        "start.toml",
+        "\"engine.burst\" = {}",
+        "\"engine.burst\" = { recipe = \"effects.pufff\" }",
+    );
+    edit("style.toml", "\"effects.chips\"]", "\"effects.chip\"]");
+    let (code, out) = gm(&engine(), &["check", module.to_str().unwrap()]);
+    let out = json(&out);
+    assert_eq!(code, 5, "{out}");
+    let found = messages(&out);
+    for expected in [
+        "engine.emitter recipe `effects.exhuast`",
+        "engine.emitter by `thurst`",
+        "engine.beam look `effects.cuter`",
+        "engine.burst recipe `effects.pufff`",
+        "[beams.cutter] impact `effects.chip`",
+    ] {
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}: {found:?}"
+        );
+    }
+    assert_eq!(found.len(), 5, "{found:?}");
+    assert!(found.iter().all(|m| !m.contains("  ")), "{found:?}");
 }

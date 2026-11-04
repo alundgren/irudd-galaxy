@@ -120,6 +120,10 @@ highlight = "#fff6ea"     # multiplies paint in the highlight band
 bands = 3                 # 2 or 3 tone bands
 ```
 
+A look's `halo` and `halo_size` glow round its self-lit paint; `[beams.<name>]` and
+`[particles.<name>]` style what `engine.beam`, `engine.emitter` and `engine.burst` draw
+([effects](effects.md)).
+
 Looks belong to their module and are named by full ID. The scene-wide tables (`ink`,
 `light`, `sky`, `course`, `screen`) describe one scene, so one module sets each; when two do, the last one in
 module order is used and `galaxy-gm check` reports it. A broken style file, a broken model,
@@ -164,16 +168,18 @@ these passes:
    colour, then the **inner ink** pass draws each sample where neighbours disagree:
    a crease sharper than `crease_degrees`, a paint border stronger than `color_edge`,
    or a depth step bigger than `depth_step` (scaled by distance).
-5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera) and soft
-   additive glows, depth-tested against the geometry samples, over inner ink.
+5. **Effects**: lines (lanes, rings, beams, as ribbons facing the camera), particles
+   and soft additive glows, depth-tested against the geometry samples, over inner ink.
+   What a module asks for here (beams, particles, halos) is in [effects](effects.md).
 6. **Resolve**: average the finished colour samples into the world raster, including ink.
 7. **Downsample**: the world raster has at least two pixels per logical pixel each way:
    twice the output width and height on a scale-1 or 1.5 display, the output itself on
    a 2x (Retina) display. Average each block in linear colour into one output pixel.
    Either way a logical pixel gets sixteen coverage samples with MSAA x4. Nothing
    outside an output pixel's footprint is mixed in.
-8. **Overlay**: screen-space panels (rounded, bordered, shadowed) and text, in layers; the
-   screen system builds on this.
+8. **Overlay**: screen-space panels (rounded, bordered, a shadow of any size, an opacity),
+   drawn icons and text, in layers, in that order within a layer; the screen system builds
+   on this.
 
 Text uses glyphon (cosmic-text shaping) with one bundled font (Fredoka, SIL OFL), so a
 shot looks the same on every machine. MSAA x4 where all the colour, geometry and depth
@@ -256,6 +262,8 @@ silhouettes and can't be sized per look; hulls alone miss every inner line.
   a sim input: the world never sees it. A played session's recording keeps it beside the
   inputs as presentation only, so a film of the session shows the zoom the player had,
   and an inputs file can turn the wheel with `[[zoom]]` (`saves-and-replay.md`).
+  `engine.camera_feel` (`speed_zoom`, `lead`, `shake`) adds camera feel on top, drawn only, and the player's
+  reduced-motion setting turns it off ([effects](effects.md#camera-feel)).
 
 - **The course** (`crates/view/src/course.rs`). While the thing the camera follows has
   an order under way (`engine.steer`, `flight-and-collision.md`), round dots run from it
@@ -352,6 +360,11 @@ with the headless shaper in `galaxy-render::text`, the same font/metrics as GPU 
 `Overlay.widgets` holds ordered panel/text layers between the base and the three engine
 chrome layers. GPU storage and glyphon renderers grow with the stream, preserving every
 widget's paint order. The fixed chrome layers remain for notes and diagnostic panels.
+Drawn icons (`UiImage`) come from `galaxy-render::vector`, a small SVG reader and
+scanline rasteriser written here: an icon is rasterised once per physical size with 4x4
+supersampling into an sRGB texture, cached by content hash and size, and drawn by its own
+pipeline that reads the texture texel for pixel and tints it with the text colour. Spans
+are shaped as one cosmic-text rich text, so a coloured or bold part wraps with its label.
 Named `engine.anchor` publishers project interpolated positions into this layout each
 frame. Left clicks hit-test the tree and record the chosen event as source `ui`; bot
 `[[click]]` entries use the same path. See `screens.md` for the API and readability rules.

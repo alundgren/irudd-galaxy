@@ -1,0 +1,35 @@
+# Mining for `audio mix`: the mine order clicks, the beam hums and chips a unit a second
+# until the hold is full and chimes; mining again is refused, then the ship flies on
+# with a boost.
+[[input]]
+tick = 30
+name = "core.mine"
+payload = { down = true }
+[[input]]
+tick = 31
+name = "core.mine"
+payload = { down = false }
+[[input]]
+tick = 420
+name = "core.mine"
+payload = { down = true }
+[[input]]
+tick = 421
+name = "core.mine"
+payload = { down = false }
+[[input]]
+tick = 480
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 500
+name = "core.boost"
+payload = { down = true }
+[[input]]
+tick = 530
+name = "core.boost"
+payload = { down = false }
+[[input]]
+tick = 550
+name = "core.ahead"
+payload = { down = false }

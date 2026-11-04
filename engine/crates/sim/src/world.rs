@@ -58,6 +58,11 @@ pub struct World {
     pub next_event: u64,
     /// The cause record of each engine service, made the first time it changes something.
     pub services: BTreeMap<String, u64>,
+    /// Pairs of bodies in contact (`collide.rs`), in ID order, with the last tick they
+    /// touched; kept only while a module asks for `engine.contact`. Left out of saves and
+    /// hashes when empty, so worlds that never record a contact are unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub contacts: Vec<(String, String, u64)>,
 }
 
 /// One change, to undo a batch that fails half way.
@@ -81,6 +86,7 @@ impl World {
             rng: RngBank::new(seed),
             next_event: 0,
             services: BTreeMap::new(),
+            contacts: Vec::new(),
         }
     }
 

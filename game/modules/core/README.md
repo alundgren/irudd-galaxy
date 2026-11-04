@@ -237,6 +237,41 @@ each deck plays alone (Lantern Dock -33.3 LUFS, Cinder Kiln -33.1). No mix comes
 clipping (peaks -13.5 dBFS in flight, -20.3 docked). Every loop's seam as played steps
 by at most 1.9 dB.
 
+Every action answers with a short, soft sound on the effects bus. Flying: thrust
+starting and stopping (W or S) and a boost (Shift), warm whooshes with no sub-bass.
+Mining: a click as the order is taken, a quiet beam hum and a chip for each second's
+ore, and a two-note chime when the hold is full; ordering a full hold to mine is a soft
+two-note refusal. Docking clunks on arrival and unclamps on launch. Screens: a click
+for the dock order and the radio's buttons, a rising pair of notes as a room or the log
+opens and a falling pair as it closes, coins and a ding for a sale, a crate and a ding
+for a purchase, a stamp and a ding for a paid part's receipt, and a chime when a sale
+finishes a building. Fitting: a part seats with a mechanical chunk, on or off. Talk:
+a bubble blip as each line appears. Radio: a little static as it tunes a channel in.
+
+They are synthesised by `sounds/make.py` (sines, decaying modes and filtered noise with
+a fixed seed), levelled with `audio process` and measured with `audio inspect`. The
+cues come from facts the game already records (`docked`, `mined`, `sold`, `bought`,
+`fitted`, `grown`, the radio's channel cues, a talk starting and an answer chosen) and
+from events that `scripts/sound.luau` records once per real change, because a key sends
+a fact on press and on release: thrust on and off (W less S, so S pressed against a
+held W stops it and let go starts it again), boost, undocking, a panel opening or
+closing, a click, a refusal, the chips, the full hold and a talk line appearing. A
+clicked line blips only when the talk really moved on, so a double click or a stale
+repeat blips once; the script keeps the last line it cued in `blipped` for that. It is
+first in the manifest, so it reads the world as the other scripts found it, and it
+writes only those facts and that note. The
+hum repeats exactly every second with 0.12 s fades, so the copy each `mined` fact
+starts blends into the last and the hum holds steady while the beam cuts. The three
+chips take turns so they never tick like a clock.
+
+In the real mix the effects sit under the radio: in flight and mining their bus is
+-28.4 to -28.9 LUFS against the music's -26.4, a median 5 dB under it in the seconds
+both play. Two thirds of their energy is between 300 Hz and 3 kHz, where the music has
+a fifth of its own, so the music does not cover them, and almost none is above 3 kHz
+or below 100 Hz. Docked, with the radio faded, they sit over the deck bed. No journey
+reaches the output clamp; the busiest, a trade run with rooms, sales and purchases a
+few ticks apart, peaks at -5.7 dBFS. Nobody has listened to them yet.
+
 ## The station up close
 
 Docking glides in from the ship's view until the station fills the screen: its
@@ -572,8 +607,11 @@ report includes their frame times, dimensions, problems and deterministic replay
 results. On a display scaled to 125% that window is 1024x576 logical pixels, and
 all seven run there without problems.
 
-The sound has its own numeric checks: each bed's loudness, peak and loop seam, and the
-mix in flight and docked at each station (`audio/*-check.toml`):
+The sound has its own numeric checks: each bed's loudness, peak and loop seam, the
+mining hum's level, and the mix in flight, mining, docked with talk, trading, fitting
+and docked at each station (`audio/*-check.toml`). `tests/sound.toml` checks that each
+cue is recorded once per real change, and `tests/sound-talk.toml` that duplicate and
+stale clicks on a talk line blip once:
 
 ```sh
 galaxy-gm audio check game/modules/core/audio/flight-check.toml

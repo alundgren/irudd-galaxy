@@ -31,6 +31,10 @@ const TOPICS: &[(&str, &str)] = &[
     ),
     ("manifest", "a module's manifest.toml"),
     (
+        "audio",
+        "a module's audio.toml: sounds, place ambience, [[events]] cues (one-shots, music, channel loops, variation) and [[follow]] curves",
+    ),
+    (
         "inputs",
         "an inputs file (--inputs): inputs, notes, hot-loads, zooms and window resizes by tick; with --modules, the inputs those modules take and the keys that send them",
     ),
@@ -101,6 +105,7 @@ pub fn run(args: &[String]) -> Result<Output, Error> {
         Some("style") => style(modules)?,
         Some("components") => components(modules, component)?,
         Some("manifest") => keyed("manifest.toml", manifest::FILE_KEYS),
+        Some("audio") => keyed("audio.toml", galaxy_audio::FILE_KEYS),
         Some("inputs") => {
             let mut v = keyed("an inputs file", galaxy_sim::scenario::INPUTS_KEYS);
             if let Some(dir) = modules {

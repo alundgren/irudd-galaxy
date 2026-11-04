@@ -1,0 +1,5 @@
+# audio mix scenario: mining a hold full (galaxy-gm audio mix audio/mining.toml).
+modules = "../.."
+ticks = 600
+seed = 7
+inputs = "mining.inputs"

@@ -6,6 +6,7 @@ fn play(clip: Clip, bus: Bus, fade: f32) -> Action {
         bus,
         volume: 1.0,
         fade,
+        pitch: 1.0,
     }
 }
 fn near(a: f32, b: f32) {

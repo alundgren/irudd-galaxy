@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use galaxy_api::engine::{ARRIVED, BODY, MODEL, MOTION, POSITION, SCRIPT_FAILED, STEER};
+use galaxy_api::engine::{ARRIVED, BODY, CONTACT, MODEL, MOTION, POSITION, SCRIPT_FAILED, STEER};
 use galaxy_module::module::Module;
 use galaxy_sim::collide::outline;
 use galaxy_sim::shape::{Shapes, overlap};
@@ -551,4 +551,115 @@ fn a_spinning_body_s_outline_turns_with_it() {
     let angle = number(&s.world, "drift.rock1", POSITION, "angle");
     assert!((angle - (0.4 + 45f64.to_radians())).abs() < 1e-9, "{angle}");
     assert_ne!(before, after, "the outline turned with the rock");
+}
+
+/// The drift module with `contact_speed` set in its manifest, as a module would.
+fn drift_with_contacts(speed: f64) -> Module {
+    let mut module = Module::read(&drift_dir()).unwrap();
+    let text = module.files.0.get_mut("manifest.toml").unwrap();
+    // Top-level keys go before the first table.
+    text.insert_str(0, &format!("contact_speed = {speed:?}\n"));
+    module.manifest = galaxy_module::manifest::parse(&drift_dir(), text).unwrap();
+    module
+}
+
+fn contacts(world: &World) -> Vec<(String, String, f64, u64)> {
+    world
+        .facts
+        .iter()
+        .filter(|f| f.kind == CONTACT)
+        .map(|f| {
+            (
+                f.payload["entity"].as_str().unwrap().to_owned(),
+                f.payload["other"].as_str().unwrap().to_owned(),
+                f.payload["speed"].as_f64().unwrap(),
+                f.tick,
+            )
+        })
+        .collect()
+}
+
+/// Flies the ship into the fixed hub and keeps thrusting against it for a second.
+fn into_the_hub(s: &mut Session) {
+    let toward = libm::atan2(-18.0, -24.0);
+    run(s, &[key("turn_left", true)], 1);
+    loop {
+        let angle = number(&s.world, "drift.ship", POSITION, "angle");
+        if galaxy_sim::flight::wrap(toward - angle).abs() < 0.05 {
+            break;
+        }
+        run(s, &[], 1);
+    }
+    // It reaches the hub about two seconds later and slides along its rim for three.
+    run(s, &[key("turn_left", false), key("thrust_ahead", true)], 90);
+}
+
+#[test]
+fn a_new_contact_records_one_fact_with_its_speed_when_a_module_asks() {
+    let mut s = Session::new(vec![drift_with_contacts(0.5)], 1).unwrap();
+    s.start_recording(galaxy_sim::BuildStamp::current());
+    into_the_hub(&mut s);
+    let found = contacts(&s.world);
+    // Pressed against the hub for seconds: one contact, not one a tick.
+    assert_eq!(found.len(), 1, "{found:?}");
+    let (entity, other, speed, _) = &found[0];
+    assert_eq!(
+        (entity.as_str(), other.as_str()),
+        ("drift.ship", "drift.hub")
+    );
+    assert!(*speed > 0.5, "{speed}");
+    assert!(!s.world.contacts.is_empty(), "still touching");
+    // Back off, then fly in again: a second contact.
+    run(
+        &mut s,
+        &[key("thrust_ahead", false), key("thrust_back", true)],
+        45,
+    );
+    assert!(s.world.contacts.is_empty(), "came apart");
+    run(
+        &mut s,
+        &[key("thrust_back", false), key("thrust_ahead", true)],
+        150,
+    );
+    assert_eq!(contacts(&s.world).len(), 2, "{:?}", contacts(&s.world));
+    // The recording replays to the same world, contacts and all.
+    let (replay, _) = galaxy_sim::recording::replay(&s.recording().unwrap()).unwrap();
+    assert_eq!(replay.world.hash(), s.world.hash());
+    // A save taken mid-contact carries on like one long run.
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("save.db");
+    galaxy_sim::save::write(
+        &path,
+        &s.world,
+        s.modules(),
+        &galaxy_sim::BuildStamp::current(),
+    )
+    .unwrap();
+    let (_, world) = galaxy_sim::save::read(&path).unwrap();
+    assert_eq!(world.contacts, s.world.contacts);
+    let mut resumed = Session::resume(vec![drift_with_contacts(0.5)], world).unwrap();
+    for _ in 0..30 {
+        s.step(&[]).unwrap();
+        resumed.step(&[]).unwrap();
+    }
+    assert_eq!(contacts(&resumed.world), contacts(&s.world));
+}
+
+#[test]
+fn contacts_need_the_speed_and_change_nothing_for_modules_that_do_not_ask() {
+    let mut slow = Session::new(vec![drift_with_contacts(1000.0)], 1).unwrap();
+    into_the_hub(&mut slow);
+    assert!(contacts(&slow.world).is_empty());
+    assert!(!slow.world.contacts.is_empty(), "touching all the same");
+    let mut plain = drift();
+    into_the_hub(&mut plain);
+    assert!(contacts(&plain.world).is_empty());
+    assert!(plain.world.contacts.is_empty());
+    // Without contact_speed the world is exactly as before the fact existed.
+    let mut asked = Session::new(vec![drift_with_contacts(0.5)], 1).unwrap();
+    into_the_hub(&mut asked);
+    assert_eq!(
+        plain.world.entities, asked.world.entities,
+        "recording contacts never moves anything"
+    );
 }

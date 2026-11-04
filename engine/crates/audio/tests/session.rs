@@ -26,7 +26,7 @@ fn scripted_mix_has_audible_events_and_crossfade_without_changing_world_or_repla
         .unwrap()
         .by_tick();
     let mut pcm = vec![];
-    for a in scene.update(&session.world, []) {
+    for a in scene.update(&session.world, [] as [&str; 0]) {
         mixer.apply(a);
     }
     for tick in 1..=300 {
