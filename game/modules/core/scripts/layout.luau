@@ -6,7 +6,10 @@
 -- flight (RADIO wide, one slim strip), and the message and flight keys at the bottom
 -- centre (MESSAGE wide). A room or the open log is a panel against one side, at most
 -- PANEL wide (about 45% of the design width), on the side away from what it is about.
-local layout = { M = 24, PANEL = 520, BUTTON = 62, CHIP = 270, RADIO = 420, MESSAGE = 464 }
+-- The open log is LOG wide: the ship sits mid-window, 480px in at 960x540 (moored on
+-- its cradle, its tail reaches about 416px), so the log ends at 404px and the smallest
+-- window still shows the whole ship.
+local layout = { M = 24, PANEL = 520, LOG = 380, BUTTON = 62, CHIP = 270, RADIO = 420, MESSAGE = 464 }
 
 -- One screen's widgets: each child places itself against the window's edges.
 function layout.frame(ui, id, children)

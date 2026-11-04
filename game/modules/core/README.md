@@ -322,13 +322,19 @@ is a small book button at the bottom left (`Log`, with a blue `N new` tag when
 something came in since you last looked); L or the book opens it at the top left.
 Pinned at the top is what is still waiting: an offer you heard and haven't answered
 (`OFFER`, under who made it and where, with its answers) and what a station you have
-visited is building from your deliveries (`WANTED`: `3 of 10 plate in`). Below,
-newest first, is one line per visit: `VISIT` (or `HERE` for the one going on now)
-with the station and who you heard, then what happened there in one line (`sold 6
-ore for 97 cr; bought 3 plate for 86 cr`). What happened in flight between two
-dockings is a `FLIGHT` line. Lines opens a visit to show its entries in order, and
-Hide closes it. Each entry remembers where the ship was (`at` on `entry`), and the
-docking's own entry already belongs to the station it docks at.
+docked at is building from your deliveries (`WANTED`: `3 of 10 plate in`). Pins
+outlast the 60 entries the log keeps: a heard offer is marked on its gift (`heard`),
+and a building's station counts its visits. Below, newest first, is one row per
+visit: `VISIT` (or `HERE` for the one going on now) with the station and Lines, then
+one short line of who you heard and what happened, each thing in its first few words
+and what doesn't fit counted (`Ines Varga · sold 6 ore +2 more`, at most 38
+characters). Every docking is a visit of its own, even back at the same station with
+nothing logged in between: the launch's entry ends the visit (`leaves` on `entry`).
+What happened in flight between two dockings is a `FLIGHT` line. Lines opens a visit
+to show its entries in full and in order, and Hide closes it. Each entry remembers
+where the ship was (`at` on `entry`), and the docking's own entry already belongs to
+the station it docks at. The open log is 380 pixels wide, so at 960x540 it ends short
+of the ship mid-window, moored or flying.
 
 ## Screens
 
@@ -371,8 +377,10 @@ panels fade in over 0.16 s with an 8-pixel rise and out over 0.12 s, a button li
 line (`cue = "flash"`) flashes pale gold, or a lighter plum on dark, for half a second.
 `galaxy play --reduced-motion` settles all of it at once.
 
-Where things sit: the status chip top right (credits with the coin, the hold with
-the crate, then each ware aboard with its icon), the log's book bottom left, the radio
+Where things sit: the status chip top right (credits with the coin beside the hold
+with the crate, then a row of each ware aboard with its icon; `scripts/chip.luau`
+gives every piece its own width, so all three wares fit and the chip stays two rows
+tall), the log's book bottom left, the radio
 top left in flight, the station plate top left when docked (the station's name,
 `Unclaimed`, as no faction holds a core station yet, and `Docked here`), and one strip
 at the bottom in flight: the latest message, `Space · Mine` beside the one flight key
@@ -517,7 +525,12 @@ can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
 the locked preset) and fitted again for nothing; the next hold mined two a second; the
 pods making the hold 9, the ship 18 and 162° and its model the podded hull; the pods refused coming off with nine aboard,
-then taken off once sold). Play records
+then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then makes
+32 quick launch-and-redock trips: the offer stays marked heard after its entry has
+been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
+to the same station with nothing logged between is a new one), the short visit line,
+pins outlasting dropped entries and the open log's width at 960x540, and
+`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play records
 `engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
 give them by hand where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless

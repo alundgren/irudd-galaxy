@@ -4,11 +4,12 @@ local layout = require("./layout")
 local kit = require("./kit")
 local log = require("./log")
 
-local PINNED_HEIGHT, LIST_HEIGHT, LIST_MIN = 84, 360, 168
+local PINNED_HEIGHT, LIST_HEIGHT, LIST_MIN = 100, 360, 150
 
-local INNER = layout.PANEL - 32 -- the panel's width inside its padding
+local INNER = layout.LOG - 32 -- the panel's width inside its padding
 local ROW = INNER - 64 -- a row inside the scrolling list, beside its lane
-local TAG = 76
+local TAG = 76 -- a pin's kind word (WANTED)
+local VISIT_TAG = 64 -- a visit's (HERE, VISIT, FLIGHT)
 
 -- A pinned item: its kind, then who or what and where, then what is waiting.
 local function pin(ui, p, i)
@@ -21,23 +22,24 @@ local function pin(ui, p, i)
     } } } })
 end
 
--- One visit: its kind, where and who was heard, what happened, and Lines to open it.
--- `here` marks the visit going on now.
+-- One visit: its kind, where, and Lines to open it; under them one short line of who
+-- was heard and what happened (log.summary). `here` marks the visit going on now.
 local function visit_row(ctx, ui, visit, open, here)
-    local summary, people = log.summary(ctx, visit)
+    local who, summary = log.summary(ctx, visit)
     if here and #visit.entries == 1 then summary = "here now" end
     local where = visit.at ~= "" and ctx.get(visit.at, "port")
-    local words = ROW - 16 - TAG - 72 - 16
-    local children = { ui.row { gap = 8, children = {
-        kit.tag(ui, here and "HERE" or where and "VISIT" or "FLIGHT", { width = TAG }),
-        ui.column { width = words, gap = 2, children = {
-            ui.text { size = kit.SIZE.small, spans = kit.name(where and where.name or "In flight", table.concat(people, ", ")) },
-            ui.text { size = kit.SIZE.small, text = summary },
+    local line = { summary }
+    if who ~= "" then line = { { text = who, look = kit.LOOK.name }, " · " .. summary } end
+    local children = {
+        ui.row { gap = 8, children = {
+            kit.tag(ui, here and "HERE" or where and "VISIT" or "FLIGHT", { width = VISIT_TAG }),
+            ui.text { width = ROW - 16 - VISIT_TAG - 72 - 16, size = kit.SIZE.small, spans = kit.name(where and where.name or "In flight") },
+            kit.button(ui, { id = "lines" .. visit.first, width = 72, pad = 12, size = kit.SIZE.small,
+                text = open and "Hide" or "Lines", on = "log_visit", payload = { first = visit.first },
+                hover = open and "Hide this visit's lines" or "What was said and done here, in order" }, "secondary"),
         } },
-        kit.button(ui, { id = "lines" .. visit.first, width = 72, pad = 12, size = kit.SIZE.small,
-            text = open and "Hide" or "Lines", on = "log_visit", payload = { first = visit.first },
-            hover = open and "Hide this visit's lines" or "What was said and done here, in order" }, "secondary"),
-    } } }
+        ui.text { id = "summary" .. visit.first, width = ROW - 16, size = kit.SIZE.small, spans = line },
+    }
     if open then
         for _, entry in visit.entries do
             table.insert(children, ui.text { width = ROW - 16, size = kit.SIZE.small, text = entry.text })
@@ -70,7 +72,7 @@ local function panel(ctx, ui)
     table.insert(children, ui.text { id = "log_order", size = kit.SIZE.small, text = "Newest first, one line per visit." })
     table.insert(children, ui.scroll { id = "entries", height = math.max(LIST_MIN, LIST_HEIGHT - PINNED_HEIGHT * #pins),
         gap = 8, children = rows })
-    return kit.place(ui, { id = "log", align = "top-left", x = layout.M, y = layout.M, width = layout.PANEL, gap = 10, children = children })
+    return kit.place(ui, { id = "log", align = "top-left", x = layout.M, y = layout.M, width = layout.LOG, gap = 10, children = children })
 end
 
 -- The book button, with how many entries came in since the log was last open.

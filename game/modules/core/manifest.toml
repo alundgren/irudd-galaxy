@@ -181,6 +181,8 @@ units = "int"
 take = "id"
 instead = "id"
 answered = "bool"
+# The offer has been said to the player: the log pins it until it is answered.
+heard = "bool"
 
 [components.skiff]
 a = "id"
@@ -194,6 +196,8 @@ talk = "id"
 open = "bool"
 # The station the ship was at, or "" in flight: the log groups entries into visits.
 at = "id"
+# The ship left the station with this entry: the next one starts a new visit.
+leaves = "bool"
 
 # The ship log's view (scripts/logbook.luau): the visit whose lines are open (its first
 # entry's n, 0 for none) and how many entries had come in when the log was last open.
