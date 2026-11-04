@@ -41,7 +41,8 @@ galaxy play --modules game/modules
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
 
-Everything is also a click: the order buttons in flight, the station's buildings
+Everything is also a click: the orders in flight (`Space · Mine` and `Dock at` either
+station, in the strip at the bottom), the station's buildings
 and their signs, the station key, Sell, Buy, Back, Launch, the log and the radio's Prev, Off/On and
 Next. Click a
 keeper to hear them. Manual thrust or turning cancels an order. Rocks,
@@ -88,8 +89,8 @@ player's visits. Saves keep where they are and what they are doing.
 A trader under way wears its name label (`scripts/labels.luau`) at any distance and
 zoom, except within 17 units of a station's centre, where it would sit on the hull. The
 label is a `yield` widget, so the engine leaves it undrawn while its trader is off
-screen, while it would leave the window, and while it would overlap the orders, status,
-log button, message, radio or the other trader's label; it comes back once clear. It
+screen, while it would leave the window, and while it would overlap the status,
+log button, bottom strip, radio or the other trader's label; it comes back once clear. It
 sits on the side of the trader away from your ship, so it never covers it. Pointing at
 a trader always names it and its run.
 
@@ -276,7 +277,7 @@ refused drop returns the part and changes nothing. Every socket keeps one size a
 the tray keeps its row, so nothing moves while a part is held.
 
 A fit gives one receipt under the room's title (`Fitted the cutting lens.` with
-the credits spent) and one log line with what the part does; Orrin's next line is
+the credits spent, and a `CONFIRMED` tag beside the title) and one log line with what the part does; Orrin's next line is
 flavour about it (`That lens cuts twice as quick.`), never the receipt again. His
 bubble opens beside him, away from the room's panel. Fitted pods show on the hull.
 The ship's fit is world state (`fit` on the ship, `part` on each part), so it
@@ -322,14 +323,19 @@ strip; mustard for anything you can press or pick up (orders, signs, the key, Se
 Back, Launch, the log button, the part cards); the panel with a dashed frame for a
 button that rests; white bubbles for speech; lantern-gold name signs on the people who
 speak; and cream paper for loose labels. Status sits top right with credits first, the
-small log button (`Log · L`) bottom left, the station plate top left when docked,
-orders top left in flight, the radio bottom right in flight, and the latest message
-with the flight keys still to learn (three to a line) in one strip at the bottom. A
-trading room is a table with the columns Ware, Price each, Stock and Hold, each good's
-verbs under its row. Each log entry carries its kind as a word (`TALK`, `SHIP`). The
-engine's screen style has one panel surface and one text colour, so the dark status
-chip and hint strip of the direction wait on the engine, and so do a book icon for the
-log button and an amber name mark on bubbles. Prices and stock are plain text, never
+small log button (`Log · L`) bottom left, the station plate top left when docked
+(the station's name, `Unclaimed`, as no faction holds a core station yet, and `Docked
+here`), the radio bottom right in flight, and one strip at the bottom in flight: the
+latest message, `Space · Mine` beside the one flight key still to learn (`W · fly
+ahead`), and `Dock at` either station, its posted prices on hover. In flight each
+station wears its name under it while it is in view, a `yield` label like the
+traders'. A trading room is a table with the columns Ware, Price each, Stock and Hold,
+each good's verbs under its row. Each log entry carries its kind as a word (`TALK`,
+`SHIP`), and each receipt a `CONFIRMED` tag. Amounts are black like all text; a gain
+or a loss shows by its sign and its word (`Paid`, `Spent`). The engine's screen style
+has one panel surface and one text colour, so the dark status chip and hint strip of
+the direction wait on the engine, and so do a book icon for the log button, an amber
+name mark on bubbles and a blue or vermilion mark beside an amount. Prices and stock are plain text, never
 buttons, and so are the fitting room's labels (`Empty`, `On the ship`, the sockets'
 names).
 
@@ -338,7 +344,8 @@ names).
 The core is drawn by the direction doc's art direction (`style.toml`, `recipes/`):
 dusky plum space from `#4e3672` to `#2a1f48` with sparse warm stars and soft rose,
 amber, teal and violet haze, warm plum ink (`#2a1a2e`) round every model, cel bands
-with violet shadows and a warm rim light. Ink weight follows the kind of thing:
+with violet shadows and a warm rim light, under the slice's low key light (about 31°
+up), so rocks and buildings turn a shadow side where the violet and the hatching show. Ink weight follows the kind of thing:
 stations 4.5 logical pixels, ships 3.5, rocks 3, props (keepers, crates, skiffs, berth
 rings) 2.5, with hatching heaviest on rocks. The ironstone is rust-brown with warm
 amber cut faces. The tug is coral with mustard wings, a mustard dorsal stripe, a glass
@@ -346,14 +353,18 @@ canopy and a teal tail pennant; Little Mercy is teal with a mustard stripe and Q
 Lamp cream with a midnight stripe, each with its pennant. The stations are cream with
 their owner's trim: Lantern Dock round, with lantern-green trim and warm gold, on a
 timber deck; Cinder Kiln square, a block with four corner kilns round a chimney, with
-brass trim and deep red caps, on a fired-clay deck. Its exchange and office are the
+brass trim and deep red caps, on a fired-clay deck. Each carries its mark on its dock
+arm, face up: Lantern Dock a lit gold lantern on a green disc, Cinder Kiln a brass
+flame on a deep red square; the tug wears Lantern Dock's lantern on its left wing.
+Little Mercy's stripe runs down its spine over the cargo capsules. Its exchange and office are the
 same buildings in its own paint (`recipes/kiln_exchange.toml`,
-`recipes/kiln_office.toml`). Every collision outline is unchanged: the stripes and
-pennants sit inside the hulls' footprints.
+`recipes/kiln_office.toml`). Every collision outline is unchanged: the stripes,
+pennants and marks sit inside the footprints.
 
-Hints teach and then retire (`scripts/teach.luau`). Each flight key leaves the
-hint line after three uses, and messages stop explaining Space and E once those
-were used three times. A room stops saying "Click Tova to talk" after three
+Hints teach and then retire (`scripts/teach.luau`). The strip shows one key and what
+it does at a time (`E · dock at the nearest station` once the hold is full, else W,
+A or D, Shift, E, and 0 while an order runs), each until it has been used three times.
+Messages report what happened and leave the keys to the strip. A room stops saying "Click Tova to talk" after three
 conversations. Messages report what happened, not how fast it happens.
 
 Each piece of a screen sits against a window edge with a 24-pixel margin

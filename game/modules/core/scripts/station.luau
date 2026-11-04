@@ -297,8 +297,10 @@ local function trade_rows(ctx, ui, station, pilot, children)
         table.insert(children, ui.button { id = "sell", on = "sell", text = "Sell everything here  [Enter]" })
     end
     if pilot.deal ~= "" then
+        -- The receipt: its kind as a word in a box, what changed hands, and the amount.
         table.insert(children, ui.row { id = "receipt", gap = 8, children = {
-            ui.text { width = 330, text = pilot.deal .. (pilot.sale >= 0 and " Paid:" or " Spent:"), size = 20 },
+            cradle.confirmed(ui),
+            ui.text { width = 292, text = pilot.deal .. (pilot.sale >= 0 and " Paid:" or " Spent:"), size = 20 },
             ui.delta { width = 80, value = pilot.sale, size = 20 },
         } })
     end
@@ -379,9 +381,11 @@ end
 local function overview(ctx, ui, station, pilot)
     local port = ctx.get(station, "port")
     local children = {
-        -- The station's plate: its name, and plainly that you are docked there.
+        -- The station's plate: its name, who holds it, and plainly that you are docked
+        -- there. No faction holds a core station yet, so each says so (direction doc 3.1).
         ui.panel { id = "plate", align = "top-left", x = layout.M, y = layout.M, width = 320, gap = 0, children = {
             ui.text { id = "station", text = port.name, size = 30 },
+            ui.text { id = "owner", text = "Unclaimed", size = 18 },
             ui.text { id = "docked", text = "Docked here", size = 16 },
         } },
     }

@@ -57,6 +57,8 @@ ore = {}
 "engine.position" = { x = -24, y = -18 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.station", look = "core.station" }
+# Its name, under the ring, in flight (scripts/hud.luau).
+"engine.anchor" = { name = "label", y = -7.5 }
 
 [entities.lantern]
 "engine.place" = { parent = "core.reach", arrival = "core.lantern_berth_spot", width = 30, depth = 30 }
@@ -262,6 +264,8 @@ skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
 "engine.position" = { x = 30, y = -22 }
 "engine.body" = { fixed = true }
 "engine.model" = { model = "core.kiln_station", look = "core.station" }
+# Its name, under the ring, in flight (scripts/hud.luau).
+"engine.anchor" = { name = "label", y = -7.5 }
 
 [entities.kiln]
 "engine.place" = { parent = "core.reach", arrival = "core.kiln_berth_spot", width = 30, depth = 30 }

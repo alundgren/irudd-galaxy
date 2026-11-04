@@ -153,11 +153,11 @@ return {
         local amount = rules.transfer(rules.load(hold), ore.left, capacity, fit.mine(ctx))
         if amount == 0 then
             ctx.patch("ship", "pilot", { mining = false })
-            local taught = ctx.get("ship", "taught")
+            -- The keys for what comes next are the hint strip's to teach (hud.luau).
             if rules.load(hold) == capacity then
-                log.add(ctx, "Hold full: " .. rules.list(hold) .. " aboard." .. (teach.new(taught, "dock") and " E docks at the nearest station." or ""))
+                log.add(ctx, "Hold full: " .. rules.list(hold) .. " aboard.")
             else
-                log.add(ctx, "Rock worked out." .. (teach.new(taught, "mine") and " Space finds the next one." or ""))
+                log.add(ctx, "Rock worked out.")
             end
             return
         end

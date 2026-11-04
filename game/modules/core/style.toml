@@ -28,6 +28,9 @@ ambient = "#2c2240"
 rim = "#ffb36b"
 rim_strength = 0.55
 band_fade_degrees = 30
+# The slice's lower key light (about 31 degrees up), so rocks and buildings turn a real
+# shadow side, where the violet tint and the hatching show.
+sun_direction = [-0.62, 0.48, 0.52]
 
 # Ink weight by the size of the thing: stations heaviest, then ships, rocks, props.
 [looks.station]
@@ -42,8 +45,9 @@ shadow = "#9e85cc"
 
 [looks.rock]
 outline_px = 3.0
-hatch = 0.7
-shadow = "#9e85cc"
+hatch = 1.0
+# A lighter violet than the rest, so the ink strokes read on the rust-brown shadow side.
+shadow = "#c8aef5"
 
 [looks.prop]
 outline_px = 2.5
@@ -64,10 +68,11 @@ text = "#000000"
 border = "#2a1a2e"
 border_px = 2
 radius = 12
-# Gains blue, losses vermilion (the colourblind-safe pair), darkened for 4.5:1 on every
-# light surface; a delta also carries its sign.
-gain = "#002f50"
-loss = "#7a2e00"
+# Amounts are text, so pure black like all text (direction doc 1.5 and 9); a gain or a
+# loss shows by its sign and its word (Paid, Spent). A blue or vermilion mark beside a
+# black amount needs a style the engine doesn't have yet (engine request 5).
+gain = "#000000"
+loss = "#000000"
 # A building under the pointer lifts and takes the orange hover outline.
 highlight = "#e69f00"
 highlight_px = 5
