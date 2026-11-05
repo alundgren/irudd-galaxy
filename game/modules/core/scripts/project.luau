@@ -22,10 +22,10 @@
 local rules = require("./rules")
 local fit = require("./fit")
 local places = require("./places")
+local happen = require("./happen")
+local salvage = require("./salvage")
 
-local project = { ASKED = 1, ACCEPTED = 2, FIRING = 3, READY = 4, CARRIED = 5, BUILDING = 6, DONE = 7,
-    -- How many later counted dockings at its station a lamp night lasts.
-    NIGHT = 3 }
+local project = { ASKED = 1, ACCEPTED = 2, FIRING = 3, READY = 4, CARRIED = 5, BUILDING = 6, DONE = 7 }
 
 -- The first name of a full name: "Ines" for "Ines Varga".
 function project.first(name)
@@ -134,10 +134,11 @@ end
 function project.line(ctx, keeper, hold, station)
     local _, job = project.find(ctx)
     if not job then return nil end
-    for _, id in ctx.query("happening") do
-        local happening = ctx.get(id, "happening")
-        if happening.left > 0 and happening.station == station and happening.speaker == keeper then return happening.line end
-    end
+    local lasting = happen.line(ctx, keeper, station)
+    if lasting then return lasting end
+    -- The job after this one (salvage.luau) has its own lines once it is under way.
+    local next_job = salvage.line(ctx, keeper, station)
+    if next_job then return next_job end
     local step = job.step
     local room = fit.hold(ctx) - rules.load(hold)
     if keeper == job.maker then
@@ -174,7 +175,7 @@ end
 -- on. A talk being heard is never cut short: voices.retire comes back for it. `hold`
 -- and `job` are after the caller's writes (job defaults to the world's).
 function project.offers(ctx, station, hold, job)
-    local _, now = project.find(ctx)
+    local job_id, now = project.find(ctx)
     job = job or now
     if not job then return end
     local room = fit.hold(ctx) - rules.load(hold)
@@ -182,6 +183,7 @@ function project.offers(ctx, station, hold, job)
     local on_for, instead_of = {}, {}
     for _, id in ctx.query("offer") do
         local offer = ctx.get(id, "offer")
+        if offer.project ~= job_id then continue end -- another job's (salvage.offers)
         local said = ctx.get(id, "engine.talk")
         local on = not offer.later and places.of(ctx, said.speaker) == station
             and project.wanted(job, offer.step, hold, room, ready)
@@ -237,7 +239,7 @@ function project.chosen(ctx, talk, choice, open, hold)
     local offer = ctx.get(talk, "offer")
     if not offer then return nil, hold end
     local id, job = project.find(ctx)
-    if not job or job.step ~= offer.step then return nil, hold end
+    if not job or offer.project ~= id or job.step ~= offer.step then return nil, hold end
     local function put_away()
         if open then return end -- voices.retire, once its last line is heard
         ctx.patch(talk, "engine.talk", { enabled = false })
@@ -304,22 +306,7 @@ function project.arrived(ctx, station, counted, visits)
         ctx.patch(id, "project", { step = project.READY })
         ctx.patch(job.maker_act, "engine.act", { state = "packing " .. project.first(name(ctx, job.giver)) .. "'s " .. job.cargo })
     end
-    local note = nil
-    for _, h in ctx.query("happening") do
-        local happening = ctx.get(h, "happening")
-        if happening.station == station and happening.left > 0 and counted then
-            local left = happening.left - 1
-            ctx.patch(h, "happening", { left = left })
-            if left > 0 then
-                note = happening.cause
-            else
-                for _, prop in string.split(happening.props, " ") do
-                    if prop ~= "" and ctx.has(prop, "engine.model") then ctx.remove(prop) end
-                end
-            end
-        end
-    end
-    return note
+    return happen.arrived(ctx, station, counted)
 end
 
 -- The project's build finished (the sale that completed it): the glaziers leave, the
@@ -336,21 +323,10 @@ function project.grown(ctx, site)
     if job.thanks ~= "" then ctx.patch(job.thanks, "engine.talk", { enabled = true }) end
     ctx.patch(job.giver, "keeper", { idle = job.giver_idle })
     for _, h in ctx.query("happening") do
-        local happening = ctx.get(h, "happening")
-        if happening.site == site then
-            note = happening.cause
-            ctx.patch(h, "happening", { left = project.NIGHT })
-            local at = string.split(happening.at, " ")
-            for i, prop in string.split(happening.props, " ") do
-                local xy = string.split(at[i] or "", ",")
-                if prop ~= "" and #xy == 2 then
-                    ctx.put(prop, "engine.location", { place = happening.station })
-                    ctx.put(prop, "engine.position", { x = tonumber(xy[1]), y = tonumber(xy[2]), angle = (i % 2 == 0) and 1.2 or -1.2 })
-                    ctx.put(prop, "engine.model", { model = "core.lamp_string", look = "core.prop" })
-                end
-            end
-        end
+        if ctx.get(h, "happening").site == site then note = happen.begin(ctx, h) end
     end
+    -- The same night the barge that hauls its ice goes dark out in the drift (salvage.luau).
+    salvage.adrift(ctx)
     return note
 end
 
@@ -375,7 +351,28 @@ function project.pins(ctx, hold)
     local text = project.step_text(job, { giver = giver, giver_at = giver_at, maker = name(ctx, job.maker),
         maker_at = port_name(ctx, home(ctx, job.maker)) }, hold[job.ware] or 0)
     if text then table.insert(pins, { kind = "JOB", who = giver, where = giver_at, text = text }) end
+    for _, p in salvage.pins(ctx) do table.insert(pins, p) end
     return pins
+end
+
+-- The handover a room's panel offers for the talk `talk` (its gold button, beside the
+-- talk), or nil: what the player came to give or take, said plainly. A greenhouse step,
+-- or the next job's.
+function project.verb(ctx, talk)
+    local offer = ctx.get(talk, "offer")
+    if not offer then return nil end
+    local id, job = project.find(ctx)
+    if not job or offer.project ~= id then return salvage.verb(ctx, talk) end
+    if job.step ~= offer.step then return nil end
+    local giver, maker = project.first(name(ctx, job.giver)), project.first(name(ctx, job.maker))
+    if offer.step == project.ACCEPTED then
+        return "Hand " .. maker .. " " .. job.need .. " " .. job.ware .. " for " .. giver .. "'s " .. job.cargo
+    elseif offer.step == project.READY then
+        return "Load " .. giver .. "'s " .. job.units .. " " .. job.cargo
+    elseif offer.step == project.CARRIED then
+        return "Hand " .. giver .. " her " .. job.units .. " " .. job.cargo
+    end
+    return nil
 end
 
 return project

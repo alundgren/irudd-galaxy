@@ -1,0 +1,89 @@
+about = "The greenhouse in bloom: its dome over beds flowering blossom-pink, and a brass pipe from Cold Kettle's tanks running in at its wall"
+palette = { main = "#f4e2c4", accent = "#e7b15a", leaf = "#5cbf5a", blossom = "#ff8fa3" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [3.6, 3.6, 0.2]
+at = [0, 0, 0.1]
+paint = "trim"
+[[part]]
+name = "wall"
+shape = "cylinder"
+radius = 1.6
+height = 0.5
+sides = 12
+at = [0, 0, 0.2]
+paint = "main"
+[[part]]
+name = "dome"
+shape = "dome"
+radius = 1.6
+ribs = 6
+at = [0, 0, 0.7]
+glass = "#9fe0a0"
+[[part]]
+name = "beds"
+shape = "sphere"
+radius = 1.0
+half = true
+at = [0, 0, 0.7]
+paint = "leaf"
+glow = 0.55
+pulse = 7
+pulse_low = 0.75
+[[part]]
+name = "door"
+shape = "box"
+size = [0.3, 0.8, 1.2]
+at = [1.55, 0, 0.8]
+paint = "trim"
+[[part]]
+name = "lamp"
+shape = "beacon"
+height = 1.6
+at = [1.5, -1.3, 0.2]
+# The beds in flower: blossom heads among the greens, glowing softly.
+[[part]]
+name = "blossom"
+shape = "sphere"
+radius = 0.22
+sides = 8
+rings = 4
+at = [0.45, 0.35, 1.45]
+paint = "blossom"
+glow = 0.5
+[[part]]
+name = "blossom.2"
+shape = "sphere"
+radius = 0.2
+sides = 8
+rings = 4
+at = [-0.4, 0.5, 1.4]
+paint = "blossom"
+glow = 0.5
+[[part]]
+name = "blossom.3"
+shape = "sphere"
+radius = 0.24
+sides = 8
+rings = 4
+at = [-0.2, -0.5, 1.5]
+paint = "blossom"
+glow = 0.5
+[[part]]
+name = "blossom.4"
+shape = "sphere"
+radius = 0.18
+sides = 8
+rings = 4
+at = [0.55, -0.4, 1.35]
+paint = "blossom"
+glow = 0.5
+# The pipe from the barge's tanks, in at the back of the wall.
+[[part]]
+name = "pipe"
+shape = "strut"
+from = [-1.55, 0.4, 0.45]
+to = [-1.95, 1.2, 0.3]
+thickness = 0.14
+paint = "accent"

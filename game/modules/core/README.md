@@ -467,7 +467,10 @@ The job goes in steps, each an offer in someone's talk. The log pins it while it
 Ines's ask as an `OFFER` once heard, then each next step as a `JOB`, in her terms:
 
 1. Bring 4 glassite to Sefa Lind at Cinder Kiln (glassite grows north-east, past the
-   ore, Ines says). Her offer comes on only with 4 aboard: `Hand it over`. Her act
+   ore, Ines says). Her offer comes on only with 4 aboard, and it is the exchange's
+   gold button, above everything else in the panel: `Hand Sefa 4 glassite for Ines's
+   panes`, one press, with or without her talk (or `Hand it over` in it). Every later
+   handover in these jobs is the same gold button in the keeper's room. Her act
    at the hatch becomes `firing Ines's panes`.
 2. Go about your work: the panes are ready on the Kiln's next counted visit
    (`packing Ines's panes`). Her offer to load them waits while the hold has no room
@@ -496,6 +499,83 @@ holds of ice. By real clicks in the window (`greenhouse.bot.toml`, flights scrip
 galley is built at tick 3380 and the greenhouse at 8533: 5153 ticks, 2 min 52 s,
 against 88 s from the first sale to the galley on the same route. Hand flying,
 docking and reading the talk stretch each trip.
+
+## After the greenhouse: Cold Kettle adrift
+
+The night the greenhouse grows, Cold Kettle, the ice barge Noor's beds drink from, goes
+dark where she was working (`scripts/salvage.luau`, `scripts/tow.luau`): off her route
+out west past the ice, her lamps out, a flare going up from her every few seconds. Noor
+watches for her ("watching for Cold Kettle" on her sign). Once her thanks for the
+greenhouse are heard, her next click is an ask, wherever her day has her: "Her lamps
+went dark out west, past the ice. Will you go and find her?" `Accept` or `Not now`.
+
+1. **Find her.** The direction is vague but correct, and the log pins it: "Find Cold
+   Kettle, dark out west past the ice, and pass her a line."
+2. **Pass a line** (Space, or a click on her) once alongside: within 8 and slower than 8.
+   The tow line runs from her bow, her skipper Hessa Kell speaks in the log, and the
+   ship flies slower (11) and turns slower with her in tow.
+3. **The attention stretch: tow her home by hand.** She swings wide on the line. A hard
+   knock on something fixed (the ice, a station's hull) slips it: she lies where it
+   slipped, the log says so, and you come alongside and pass it again. `0`, or a click
+   on her, casts it off. Lying off a berth she takes the line again the same way as
+   adrift: Space, or a click on her.
+   Bumping is never punished otherwise: no damage, nothing lost.
+4. **The choice.** Brought into either station's berth ring, she lies off it, and that
+   dockmaster's offer is the office's gold button:
+   - **Lantern Dock keeps her** (Bram: "Noor wants her tanks for the beds. Hessa would
+     never sail her again."). She is moored off the station for good.
+   - **Cinder Kiln mends her** (Mags: "Orrin can mend her engine for Hessa. Noor's beds
+     would go without her ice."). She is moored at Orrin's quay.
+
+   Towed on instead, the other dockmaster offers. Each offer's `Not now` leaves it.
+5. **A delivery.** Kept, Bram's crew needs 4 plate for her pipes ("The Kiln sells it.");
+   mended, Orrin wants 4 ore for a new pump, left with Mags. The offer comes on only with
+   it aboard, and the log counts what you carry. Hessa comes aboard the station and
+   talks of the work; Orrin and the dockmasters speak of it too.
+6. **The work: two trips out.** Sparks fly off her while she is piped or mended, the
+   keeper's sign says what they are doing about her ("planning Cold Kettle's pipes",
+   Orrin "mending Cold Kettle's engine"), and the log counts the trips left. She is
+   ready on that station's second counted visit after the delivery.
+
+**The payoff, kept:** Noor's beds bloom. The greenhouse room has blossoms on both beds
+and a brass pipe in from Cold Kettle's tanks, its panel says so, the dome on the deck
+and the station from the reach wear the bloom, and Lantern Dock wants more ice (its
+target stock goes from 30 to 45). Supper is held on the deck for Hessa, with tables and
+lamp strings, for three counted dockings (a `happening`: Ines: "Hessa eats with us
+tonight. Noor picked the greens."). Noor thanks you ("Look at the beds! They're in
+bloom."), and Hessa stays aboard: her day is minding the tanks in the greenhouse, then
+eating at Ines's table. It starts a room apart from Noor's, so no room has three signs
+at once.
+
+**The payoff, mended:** Hessa waits in Mags's office. Her story, then her fee:
+`Take 60 cr` or `Keep it, Hessa`. You launch, and Cold Kettle sails with you, back onto
+her route with her wake. The Kiln hangs lamps on its quay for her for three counted
+dockings.
+
+Noor's line follows the job wherever she stands, visiting or at her beds: from "Out
+west, past the ice. That's where her lamps went." through "Bram's crew needs plate
+before they can pipe her." to "The beds drink from her tanks now. Look at them!"
+
+**Measured** (ticks are 1/30 s):
+- Headless, flights scripted, from a finished greenhouse to the payoff:
+  - kept: Noor's ask at tick 5805, the work done at 8500, so 2695 ticks (1 min 30 s);
+  - mended: the fee answered at 8605, so 2800 ticks (1 min 33 s).
+- By real clicks in the window (`kettle.bot.toml`), out to her and round the ice by hand
+  and the station flights scripted: Noor's ask at 9040, the work done at 11622 and her
+  thanks at 11923, so 2883 ticks (1 min 36 s).
+- By hand, on single legs: out to her about 170 ticks, a clean hand tow into Lantern
+  Dock's ring 258, and mining a hold for Orrin's ore about 570.
+
+The bots click a talk line every half second. A player reads about 21 lines at a
+couple of seconds each, flies 8 legs by hand and trades at each of 7 dockings. That
+puts ordinary play at roughly 5 to 7 minutes, below the 10 to 20 minute aim. The knobs
+are the trips the work takes (`WORK`, 2), what each delivery needs (4), and where she
+lies. The playtester should measure it before any of them change.
+
+A save from before this job, whether made mid-greenhouse or after it, loads with its
+data intact and plays on through the greenhouse and its lamp night. It doesn't gain
+the job, though: a save keeps the world it was made with, and the job's talks and
+barge state are new entities. Start a new game to play it.
 
 ## Fitting the ship
 
@@ -758,7 +838,7 @@ galaxy-gm check game/modules/core
 galaxy-gm test game/modules/core
 ```
 
-There are thirty-nine Luau rule tests (hold, depletion, prices against stock and their
+There are eighty-one Luau rule tests (hold, depletion, prices against stock and their
 bounds, unit-by-unit selling and buying, what a purchase is bounded by, visits
 settling a market, quick taps not counting, hints, keepers' lines, and in
 `tests/fit.luau` the bare hull, parts adding up with the mass cost and its floor,
@@ -771,7 +851,7 @@ flickering for a minute, a stronger station taking over only when steady, a brie
 keeping the channel, a chosen channel holding, and Prev and Next stepping through, and
 in `tests/mining.luau` the cutter's reach from the nose, aim within the slack, a unit
 for every second of beam time however it is broken up, the berth ring, regrowth to half
-and the worked-out message for an empty and a full hold) and twenty-seven scenarios (two of them, `sound.toml` and
+and the worked-out message for an empty and a full hold) and forty-three scenarios (two of them, `sound.toml` and
 `sound-talk.toml`, under the sound below):
 mining and docking by hand (`hand-mining.toml`: Space out of reach says so, the beam on
 the rock on the tick Space is pressed, a unit at half a second and one a second after,
@@ -823,7 +903,21 @@ Noor in it, the station's green dome, Ines's thanks and Noor's intro, and the la
 night lasting three later counted dockings), its choices (`greenhouse-choices.toml`:
 "Not now" offered again on the next docking, the glassite offer off with 3 aboard and
 on with 5, the panes waiting on a full hold, Ines's panes not sold at the exchange,
-the receipts), and
+the receipts), Sefa's gold button (`sefa-hand.toml`: one press hands her the glassite
+before her introduction is heard, and a second press takes nothing more), Cold
+Kettle's job from a finished greenhouse, one scenario a branch
+(`kettle.toml`: adrift with her flare and Noor watching, the ask, the line passed and
+the slower flight, brought into Lantern Dock's ring and moored there for good with
+Bram's offer, plate bought at the Kiln and handed over, the sparks and Bram's sign,
+still under way after one trip and done after two: the greenhouse room, dome and
+station in bloom, the panel's words, more ice wanted, Noor's thanks, the supper on the
+deck, and Hessa a room apart from Noor; `kettle-mend.toml`: towed to Cinder Kiln
+instead, Mags's offer and not Bram's, a hold of ore mined and left for Orrin, his act
+and the sparks, done after two trips with the quay lamps, Hessa's story and her fee
+taken, and Cold Kettle sailing home and mooring at the ice camp), its choices
+(`kettle-choices.toml`: Noor's `Not now` and her ask again, the line slipped on the
+ice by a hand swing, cast off and passed again, Bram's and Mags's `Not now`, towed on
+from Lantern Dock to the Kiln, and Hessa's fee declined), and
 the fitting loop (`fit.toml`: the rack stocked and priced on a new game; a part that
 can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
@@ -836,11 +930,13 @@ to the same station with nothing logged between is a new one), the short visit l
 pins outlasting dropped entries and the open log's width at 960x540, and
 `tests/chip.luau` that every row of the chip fits with all three wares aboard, and
 `tests/project.luau` when each greenhouse offer is on, when the panes are ready, the
-`JOB` pin's words and how Ines's panes read in the hold. Play
+`JOB` pin's words and how Ines's panes read in the hold, and `tests/salvage.luau` when a
+line can be passed and when it slips, when Noor and each dockmaster offer, the work
+waiting on its delivery aboard, and the log's words at each step. Play
 records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
 where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
-routes, and so is `fit.inputs`. Eleven bots run in a window: `hand-mining.inputs` mines and
+routes, and so is `fit.inputs`. Twelve bots run in a window: `hand-mining.inputs` mines and
 docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 570
 ticks, eight notes), and eight more use real screen clicks, their flights between
 stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
@@ -854,7 +950,13 @@ on from it through Ines's greenhouse (`greenhouse.bot.toml`, 8961 ticks, 26 note
 ask accepted and the plot on the deck, Sefa's introduction and the glassite handed over,
 an ore trip, the panes waiting on a full hold and then loaded as Ines's, handed to her,
 the scaffold and glaziers, two holds of ice, the greenhouse and its lamp strings, her
-thanks, Noor in the greenhouse and the station's dome from the reach, and `back-talk.inputs` plays
+thanks, Noor in the greenhouse and the station's dome from the reach, and `kettle-play.inputs`
+carries on from that through Cold Kettle's job (`kettle.bot.toml`, 12075 ticks, 42
+notes): Noor's ask accepted, out to the barge by hand keys, a line passed with a click
+on her, a hand swing round the ice that slips it, passed again and towed home, moored
+and the plate handed over with Bram's gold button, two trips out, the supper on the
+deck, the greenhouse in bloom with Hessa minding the tanks, and Noor's thanks in the
+galley, and `back-talk.inputs` plays
 that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
 with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 3990 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
 (`fit.bot.toml`, 2340 ticks, thirteen notes): the cradle on the first visit, the lens
@@ -951,7 +1053,10 @@ A save from before Ines's greenhouse (`trade.inputs` to tick 2475) loads and pla
 400 ticks with its galley and credits, without the greenhouse; start a new game for it.
 A save taken while the greenhouse goes up (`tests/greenhouse.toml`'s inputs to tick
 3600, glaziers at work) resumes for 800 ticks to the same hash as an uninterrupted run,
-through the ice and the greenhouse built. Resumed or hot
+through the ice and the greenhouse built. Saves made before Cold Kettle's job, on the
+build before it (`tests/greenhouse.toml`'s inputs to tick 3600, mid-greenhouse, and to
+5800, the lamp night over), load and play for 900 ticks with their credits, hold and
+greenhouse, without the job; start a new game for it. Resumed or hot
 loaded in flight, the radio cues the channel it was playing once more, so the same
 track fades in without input; docked, off or with no signal it cues nothing. Bot
 input ticks and play's `--ticks` are absolute world ticks, including when resuming.
@@ -961,7 +1066,8 @@ installed CLI separately; `radio-resume.toml` gives the resume input directly.
 ## One self-critique against the slice
 
 The trade loop is the thinnest one: three goods and two things to build, the galley
-and then Ines's greenhouse. After the lamp night nothing else is asked for, and the
+and then Ines's greenhouse, then one job with a choice, Cold Kettle. After her payoff
+nothing else is asked for, and the
 Kiln's plate margin shrinks run by run until visits restock it. The galley's sign
 sits low on its front so it clears the dockmaster's name sign; the greenhouse's sits
 in front of its dome, clear of the exchange above it. With four rooms the station key
@@ -993,6 +1099,14 @@ ribbons because nothing at a station changes on its own yet.
 The radio is the thinnest one too: two stations, one track each (an 18- and a
 21-second loop), three lines each, no lane beacons, no static at the edges and no
 news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet
-follow thrust; each waits on the engine. Ines's ration and her greenhouse are the
-only offers so far. Further art and pacing changes wait for a human
+follow thrust; each waits on the engine. Ines's ration, her greenhouse and Noor's
+barge are the only offers so far.
+
+Cold Kettle's job is the first with a real choice, but its stretch of attention is one
+tow, and its work is two trips of whatever you were doing anyway. On the measured route
+it plays in about 5 to 7 minutes, short of the 10 to 20 minute aim. Her sparks are a few
+pixels at the reach's zoom, and the supper tables are small on the deck. A guest in the
+galley stands at the front of the room, in front of the table, because the panel
+covers the right of the room at 960x540 and three name signs don't fit beside each
+other on the left. Further art and pacing changes wait for a human
 playtest.

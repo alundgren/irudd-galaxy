@@ -10,6 +10,7 @@ local rules = require("./rules")
 local fit = require("./fit")
 local places = require("./places")
 local project = require("./project")
+local salvage = require("./salvage")
 
 -- Who is speaking and where: "Tova Reyes at Lantern Dock".
 local function source(ctx, talk)
@@ -118,6 +119,7 @@ return {
                 end
             end
             if not receipt then receipt = project.chosen(ctx, talk, choice, open, ctx.get("ship", "hold")) end
+            if not receipt then receipt = salvage.chosen(ctx, talk, choice, open) end
             local id, entry = heard(ctx, talk)
             if id then
                 ctx.patch(id, "entry", { text = entry.text .. " " .. said, open = open })
@@ -134,6 +136,14 @@ return {
             if not station then return end
             local pilot = ctx.get("ship", "pilot")
             signs.show(ctx, station, pilot.room, pilot.log_open, signs.speaking(ctx))
+            -- The grower and the skipper talk of where they are: at their work or visiting.
+            local _, job = salvage.find(ctx)
+            if job then
+                for _, who in { job.giver, job.skipper } do
+                    local says = places.of(ctx, who) == station and salvage.line(ctx, who, station)
+                    if says then ctx.patch(who .. "_now", "engine.talk_line", { text = says }) end
+                end
+            end
         end,
         -- A project moved on (an answer's receipt) or a build finished: the keepers'
         -- lines follow it. The handler that changed it still read the world before.

@@ -2,8 +2,8 @@
 id = "core"
 version = "0.1.0"
 min_engine_version = "0.8.0"
-scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau"]
-events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on"]
+scripts = ["scripts/sound.luau", "scripts/main.luau", "scripts/station.luau", "scripts/hud.luau", "scripts/talk.luau", "scripts/traffic.luau", "scripts/radio.luau", "scripts/status.luau", "scripts/logbook.luau", "scripts/tow.luau"]
+events = ["ahead", "back", "left", "right", "boost", "mine", "dock", "cancel", "open", "close", "launch", "sell", "buy", "log", "fit", "unfit", "choose", "mined", "sold", "bought", "docked", "grown", "fitted", "cut_start", "cut_stop", "rock_done", "clamped", "radio", "radio_lantern", "radio_kiln", "radio_off", "thrust_on", "thrust_off", "boost_on", "undocked", "ui_click", "refused", "chip1", "chip2", "chip3", "hold_full", "confirmed", "talk_line", "log_visit", "bump", "drive_on", "beam_on", "hitch", "hand", "slipped", "hitched"]
 # Bodies that start touching at least this fast (units a second) record engine.contact,
 # which sound.luau turns into a bump on the hull when the ship is one of them.
 contact_speed = 2.0
@@ -192,6 +192,9 @@ home_moor = "id"
 leg = "text"
 moored = "bool"
 since = "int"
+# Taken off its route by a job (scripts/salvage.luau): adrift, in tow or moored for good.
+# The traffic script leaves it alone, though it still wears its label.
+stopped = "bool"
 
 # A radio channel (scripts/radio.luau): a station broadcasting from `source` out to
 # `range` world units. Its signal is full within the inner 30% of the range and fades
@@ -288,9 +291,10 @@ later = "bool"
 # Something that happens at a station for a while (direction doc 3.3): its `cause` (the
 # words logged when it begins and on each docking it lasts), the first-person `line` its
 # `speaker` says meanwhile, and how many dockings at the station it has `left`. It starts
-# when `site` is built; `props` (entity names) are hung on the station meanwhile, each at
-# its place in `at` ("x,y" on the station's floor, in the same order), and taken down
-# when it ends.
+# when `site` is built, or when a job begins it (a `site` of ""); `props` (entity names)
+# are hung on the station meanwhile, each at its place in `at` ("x,y" on the station's
+# floor, in the same order) and wearing its model in `models` (a lamp string where it
+# names none), and taken down when it ends.
 [components.happening]
 station = "id"
 site = "id"
@@ -299,7 +303,72 @@ line = "text"
 cause = "text"
 props = "text"
 at = "text"
+models = "text"
 left = "int"
+
+# A job to bring in a barge gone adrift (scripts/salvage.luau): the giver asks once `after`
+# (her thanks for the greenhouse) is heard; the barge lies dark at `x`, `y` until the
+# player passes it a line and tows it by hand into a station's berth; the station it is
+# brought to is the choice. Each station that can take it is a `haven`. `at` is the
+# station it is moored off now ("" while adrift or in tow), `haven` the one whose offer
+# was taken, `since` that station's visits when the work began, `slips` how often the
+# line has slipped. `skipper` is the barge's skipper, a keeper who comes aboard.
+[components.salvage]
+giver = "id"
+after = "id"
+skipper = "id"
+barge = "id"
+step = "int"
+x = "number"
+y = "number"
+towing = "bool"
+at = "id"
+haven = "id"
+since = "int"
+slips = "int"
+# Who feeds the station's people, and talks of the giver and the skipper meanwhile.
+cook = "id"
+
+# A station a salvage job's barge may be brought to (scripts/salvage.luau). `kind` says
+# what becomes of it there: "keep" (moored for good at `moor`, its tanks for the giver's
+# beds) or "mend" (mended at `moor`, then off on its route again from `route`, a
+# waypoint, as `about` says). `tow` is where it lies off the berth once brought in;
+# `keeper` offers to take it (`offer`, a talk); `act` is the act of whoever works on it
+# meanwhile, whose state becomes `work`, back to `rest`. The work starts once `need` of
+# `ware` is handed to the keeper (`deliver`, a talk). The skipper comes aboard the
+# station at the act `life`, whose state becomes `settled` once the work is done. Then,
+# kept: `site`, `room` and `exterior` wear `site_model`, `room_model` and
+# `exterior_model`, the site's room tells `told`, `market` wants `target` stock, and
+# `thanks` (a talk) goes on offer; either way `happening` begins.
+[components.haven]
+job = "id"
+station = "id"
+kind = "text"
+tow = "id"
+moor = "id"
+keeper = "id"
+offer = "id"
+act = "id"
+work = "text"
+rest = "text"
+life = "id"
+settled = "text"
+site = "id"
+site_model = "text"
+room = "id"
+room_model = "text"
+told = "text"
+exterior = "id"
+exterior_model = "text"
+market = "id"
+target = "int"
+thanks = "id"
+happening = "id"
+route = "id"
+about = "text"
+ware = "text"
+need = "int"
+deliver = "id"
 
 [components.skiff]
 a = "id"
@@ -331,6 +400,7 @@ mine = "int"
 dock = "int"
 cancel = "int"
 talk = "int"
+tow = "int"
 
 [keys]
 w = "ahead"

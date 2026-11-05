@@ -1,0 +1,32 @@
+about = "The head of Hessa Kell: a weathered face, grey hair and a teal knit cap, one node (person_hessa wears it as its face)"
+palette = { main = "#8f3040", trim = "#3b3550", accent = "#c98f4a", skin = "#c99172", hair = "#b8b0a8", hat = "#3fa7a0" }
+[[part]]
+name = "skin"
+shape = "sphere"
+radius = 0.23
+sides = 10
+rings = 5
+at = [0, 0, 1.86]
+paint = "skin"
+[[part]]
+name = "eyes"
+shape = "box"
+size = [0.03, 0.04, 0.055]
+at = [0.215, 0.08, 1.9]
+mirror = true
+paint = "#2a1a2e"
+[[part]]
+name = "cap"
+shape = "sphere"
+radius = 0.255
+half = true
+sides = 10
+rings = 3
+at = [-0.04, 0, 1.88]
+paint = "hat"
+[[part]]
+name = "bobble"
+shape = "box"
+size = [0.12, 0.12, 0.12]
+at = [-0.04, 0, 2.12]
+paint = "hat"

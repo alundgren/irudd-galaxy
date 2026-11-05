@@ -4,6 +4,7 @@
 local log = require("./log")
 local signs = require("./signs")
 local places = require("./places")
+local salvage = require("./salvage")
 
 -- The station the ship is docked at, on its deck or in one of its rooms, or nil.
 local function docked(ctx)
@@ -38,7 +39,9 @@ local function launch(ctx, station)
     ctx.patch("ship", "engine.position", { angle = outward(berth.angle) })
     ctx.put("ship", "engine.body", { mass = 1 })
     ctx.patch("ship", "engine.model", { scale = 1 })
-    log.leave(ctx, "Launched from " .. port.name .. ".")
+    -- A mended barge sails when you do, her skipper aboard (salvage.luau).
+    local sails = salvage.undocked(ctx, station)
+    log.leave(ctx, "Launched from " .. port.name .. "." .. (sails and " " .. sails or ""))
 end
 
 return { docked = docked, launch = launch }

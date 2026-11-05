@@ -713,6 +713,239 @@ keeper = { name = "Noor Hale", idle = "The beds drink a lot of ice.", figure = "
 [entities.lantern_lamp_night]
 happening = { station = "core.lantern", site = "core.lantern_greenhouse", speaker = "core.lantern_master", line = "I've lit every lamp we have tonight, for our greenhouse.", cause = "Lamp night: Lantern Dock lights every lamp for its greenhouse.", props = "lampnight1 lampnight2 lampnight3", at = "-10.5,1.5 10.8,-4.0 -3.8,9.8" }
 
+# After the greenhouse: Cold Kettle adrift (scripts/salvage.luau, scripts/tow.luau). The
+# night the greenhouse grows, the barge that hauls Lantern Dock's ice freezes out in the
+# ice drift and goes dark there. Once Ines's thanks are heard, Noor asks the player to
+# find her. A line is passed by hand beside her, and she is towed in by hand: she swings
+# wide, and a hard knock on the ice or a hull slips the line. Where she is towed is the
+# choice: Lantern Dock keeps her for good, her tanks piped to Noor's beds, once Bram's
+# crew has 4 plate for the pipes; Cinder Kiln mends her engine, once Orrin has 4 ore for
+# a new pump, and Hessa sails her again.
+[entities.kettle_job]
+salvage = { giver = "core.lantern_grower", after = "core.lantern_cook_thanks", skipper = "core.kettle_skipper", barge = "core.kettle", cook = "core.lantern_cook", step = 0, x = -61, y = 12 }
+
+# Noor asks, once Ines's thanks are heard. "Not now" leaves it for the next docking.
+[entities.kettle_ask]
+"engine.talk" = { speaker = "core.lantern_grower", first = "core.kettle_ask1", width = 420, x = -150, enabled = false, title = "Noor Hale", subtitle = "Grower" }
+offer = { project = "core.kettle_job", step = 1, take = "core.kettle_ask_yes", instead = "core.lantern_grower_talk" }
+
+[entities.kettle_ask1]
+"engine.talk_line" = { text = "Cold Kettle hasn't come in tonight.", next = "core.kettle_ask2" }
+
+[entities.kettle_ask2]
+"engine.talk_line" = { text = "Hessa hauls the ice my beds drink.", next = "core.kettle_ask3" }
+
+[entities.kettle_ask3]
+"engine.talk_line" = { text = "Her lamps went dark out west, past the ice.", next = "core.kettle_ask4" }
+
+[entities.kettle_ask4]
+"engine.talk_line" = { text = "Will you go and find her?" }
+
+[entities.kettle_ask_yes]
+"engine.talk_choice" = { line = "core.kettle_ask4", text = "Accept", next = "core.kettle_ask5", order = 1 }
+
+[entities.kettle_ask_no]
+"engine.talk_choice" = { line = "core.kettle_ask4", text = "Not now", order = 2 }
+
+[entities.kettle_ask5]
+"engine.talk_line" = { text = "Thank you. She's proud; she won't call." }
+
+# Towed into a berth, she lies off it, and the dockmaster offers to take her in.
+[entities.kettle_moor_lantern]
+"engine.talk" = { speaker = "core.lantern_master", first = "core.kettle_moor_lantern1", width = 420, x = -150, enabled = false, title = "Bram Okafor", subtitle = "Dockmaster" }
+offer = { project = "core.kettle_job", step = 3, take = "core.kettle_moor_lantern_yes", instead = "core.lantern_master_talk" }
+
+[entities.kettle_moor_lantern1]
+"engine.talk_line" = { text = "You've brought Cold Kettle in!", next = "core.kettle_moor_lantern2" }
+
+[entities.kettle_moor_lantern2]
+"engine.talk_line" = { text = "Noor wants her tanks for the beds.", next = "core.kettle_moor_lantern3" }
+
+[entities.kettle_moor_lantern3]
+"engine.talk_line" = { text = "Hessa would never sail her again.", next = "core.kettle_moor_lantern4" }
+
+[entities.kettle_moor_lantern4]
+"engine.talk_line" = { text = "Shall I moor her here for good?" }
+
+[entities.kettle_moor_lantern_yes]
+"engine.talk_choice" = { line = "core.kettle_moor_lantern4", text = "Moor her here", next = "core.kettle_moor_lantern5", order = 1 }
+
+[entities.kettle_moor_lantern_no]
+"engine.talk_choice" = { line = "core.kettle_moor_lantern4", text = "Not now", order = 2 }
+
+[entities.kettle_moor_lantern5]
+"engine.talk_line" = { text = "Done. My crew will pipe her tanks over." }
+
+[entities.kettle_moor_kiln]
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kettle_moor_kiln1", width = 420, x = -150, enabled = false, title = "Mags Ferrow", subtitle = "Dockmaster" }
+offer = { project = "core.kettle_job", step = 3, take = "core.kettle_moor_kiln_yes", instead = "core.kiln_master_talk" }
+
+[entities.kettle_moor_kiln1]
+"engine.talk_line" = { text = "Cold Kettle, off our berth!", next = "core.kettle_moor_kiln2" }
+
+[entities.kettle_moor_kiln2]
+"engine.talk_line" = { text = "Orrin can mend her engine for Hessa.", next = "core.kettle_moor_kiln3" }
+
+[entities.kettle_moor_kiln3]
+"engine.talk_line" = { text = "Noor's beds would go without her ice.", next = "core.kettle_moor_kiln4" }
+
+[entities.kettle_moor_kiln4]
+"engine.talk_line" = { text = "Shall I send her to Orrin's quay?" }
+
+[entities.kettle_moor_kiln_yes]
+"engine.talk_choice" = { line = "core.kettle_moor_kiln4", text = "Mend her", next = "core.kettle_moor_kiln5", order = 1 }
+
+[entities.kettle_moor_kiln_no]
+"engine.talk_choice" = { line = "core.kettle_moor_kiln4", text = "Not now", order = 2 }
+
+[entities.kettle_moor_kiln5]
+"engine.talk_line" = { text = "He'll want parts. I'll ask him." }
+
+# Where a barge brought in lies off each berth, clear of the ring and the way out.
+[entities.lantern_tow]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -5, y = -18, angle = 3.1 }
+
+[entities.kiln_tow]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 12, y = -23, angle = 0.0 }
+
+# What becomes of her at each: kept at Lantern Dock, mended at Cinder Kiln.
+[entities.kettle_haven_lantern]
+haven = { job = "core.kettle_job", station = "core.lantern", kind = "keep", tow = "core.lantern_tow", moor = "core.lantern_southwest", keeper = "core.lantern_master", offer = "core.kettle_moor_lantern", act = "core.lantern_master_act2", work = "planning Cold Kettle's pipes", rest = "posting prices", life = "core.kettle_skipper_act", settled = "minding the tanks", site = "core.lantern_greenhouse", site_model = "core.greenhouse_bloom", room = "core.lantern_greenhouse_room", room_model = "core.lantern_greenhouse_room_bloom", told = "Noor's beds are in bloom, watered from Cold Kettle's tanks. Hessa minds them with her.", exterior = "core.lantern_exterior", exterior_model = "core.station_bloom", market = "core.lantern_ice", target = 45, thanks = "core.lantern_grower_thanks", happening = "core.lantern_supper", ware = "plate", need = 4, deliver = "core.kettle_plate" }
+
+[entities.kettle_haven_kiln]
+haven = { job = "core.kettle_job", station = "core.kiln", kind = "mend", tow = "core.kiln_tow", moor = "core.kiln_tow", keeper = "core.kiln_master", offer = "core.kettle_moor_kiln", act = "core.kiln_fitter_act2", work = "mending Cold Kettle's engine", rest = "looking her over", life = "core.kettle_skipper_kiln", settled = "ready to sail", happening = "core.kiln_quay_lamps", route = "core.kettle_back1", about = "an ice barge hauling from the ice camp to Lantern Dock", ware = "ore", need = 4, deliver = "core.kettle_ore" }
+
+# Taken in, her work waits on a delivery to the dockmaster: plate for her pipes, bought at
+# the Kiln (Lantern Dock would pay well for it instead); ore for her engine, which the
+# Kiln would buy.
+[entities.kettle_plate]
+"engine.talk" = { speaker = "core.lantern_master", first = "core.kettle_plate1", width = 420, x = -150, enabled = false, title = "Bram Okafor", subtitle = "Dockmaster" }
+offer = { project = "core.kettle_job", step = 4, take = "core.kettle_plate_yes", instead = "core.lantern_master_talk" }
+
+[entities.kettle_plate1]
+"engine.talk_line" = { text = "My crew needs 4 plate for her pipes.", next = "core.kettle_plate2" }
+
+[entities.kettle_plate2]
+"engine.talk_line" = { text = "Will you hand yours over?" }
+
+[entities.kettle_plate_yes]
+"engine.talk_choice" = { line = "core.kettle_plate2", text = "Hand it over", next = "core.kettle_plate3", order = 1 }
+
+[entities.kettle_plate_no]
+"engine.talk_choice" = { line = "core.kettle_plate2", text = "Not now", order = 2 }
+
+[entities.kettle_plate3]
+"engine.talk_line" = { text = "Give my crew two trips out." }
+
+[entities.kettle_ore]
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kettle_ore1", width = 420, x = -150, enabled = false, title = "Mags Ferrow", subtitle = "Dockmaster" }
+offer = { project = "core.kettle_job", step = 4, take = "core.kettle_ore_yes", instead = "core.kiln_master_talk" }
+
+[entities.kettle_ore1]
+"engine.talk_line" = { text = "Orrin wants 4 ore for a new pump.", next = "core.kettle_ore2" }
+
+[entities.kettle_ore2]
+"engine.talk_line" = { text = "Leave it with me for him?" }
+
+[entities.kettle_ore_yes]
+"engine.talk_choice" = { line = "core.kettle_ore2", text = "Hand it over", next = "core.kettle_ore3", order = 1 }
+
+[entities.kettle_ore_no]
+"engine.talk_choice" = { line = "core.kettle_ore2", text = "Not now", order = 2 }
+
+[entities.kettle_ore3]
+"engine.talk_line" = { text = "He'll start on her engine now." }
+
+# Mended, she sails south of Lantern Dock, clear of the moorings, back to the ice camp.
+[entities.kettle_back1]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = 2, y = -38 }
+"engine.waypoint" = { next = "core.kettle_back2" }
+
+[entities.kettle_back2]
+"engine.location" = { place = "core.reach" }
+"engine.position" = { x = -36, y = -42 }
+"engine.waypoint" = { next = "core.kettle_home1" }
+
+# Hessa Kell, Cold Kettle's skipper: aboard a station only once her barge is handed over.
+# Kept, her day is minding the tanks in the greenhouse, then eating at Ines's table;
+# mended, she waits in Mags's office until she has thanked you, then sails.
+[entities.kettle_skipper]
+keeper = { name = "Hessa Kell", idle = "Thirty years I've hauled ice.", figure = "core.person_hessa" }
+
+[entities.kettle_skipper_act]
+"engine.act" = { place = "core.lantern_greenhouse_room", spot = "core.lantern_greenhouse_room_bench", angle = -1.9, state = "watching the pipes go in", next = "core.kettle_skipper_act2" }
+
+[entities.kettle_skipper_act2]
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -1.9, state = "eating at Ines's table" }
+
+[entities.kettle_skipper_kiln]
+"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_window", angle = -1.9, state = "waiting on her engine" }
+
+[entities.kettle_skipper_intro]
+"engine.talk" = { speaker = "core.kettle_skipper", first = "core.kettle_skipper_intro1", width = 420, x = -150, story = true, title = "Hessa Kell", subtitle = "Skipper" }
+
+[entities.kettle_skipper_intro1]
+"engine.talk_line" = { text = "I'm Hessa. Cold Kettle is my barge.", next = "core.kettle_skipper_intro2" }
+
+[entities.kettle_skipper_intro2]
+"engine.talk_line" = { text = "She froze hauling ice for the new beds.", next = "core.kettle_skipper_intro3" }
+
+[entities.kettle_skipper_intro3]
+"engine.talk_line" = { text = "Thank you for the tow." }
+
+[entities.kettle_skipper_talk]
+"engine.talk" = { speaker = "core.kettle_skipper", first = "core.kettle_skipper_now", width = 420, x = -150, title = "Hessa Kell", subtitle = "Skipper" }
+
+[entities.kettle_skipper_now]
+"engine.talk_line" = { text = "Thirty years I've hauled ice." }
+
+# Mended, Hessa pays for the tow before she sails, if you'll take it.
+[entities.kettle_fee]
+"engine.talk" = { speaker = "core.kettle_skipper", first = "core.kettle_fee1", width = 420, x = -150, enabled = false, title = "Hessa Kell", subtitle = "Skipper" }
+offer = { project = "core.kettle_job", step = 6, take = "core.kettle_fee_take", instead = "core.kettle_skipper_talk" }
+
+[entities.kettle_fee1]
+"engine.talk_line" = { text = "Orrin's mended her. She purrs!", next = "core.kettle_fee2" }
+
+[entities.kettle_fee2]
+"engine.talk_line" = { text = "Will you take 60 cr for the tow?" }
+
+[entities.kettle_fee_take]
+"engine.talk_choice" = { line = "core.kettle_fee2", text = "Take 60 cr", next = "core.kettle_fee3", order = 1 }
+
+[entities.kettle_fee_keep]
+"engine.talk_choice" = { line = "core.kettle_fee2", text = "Keep it, Hessa", next = "core.kettle_fee4", order = 2 }
+
+[entities.kettle_fee3]
+"engine.talk_line" = { text = "Earned. I'll sail when you do." }
+
+[entities.kettle_fee4]
+"engine.talk_line" = { text = "Then Noor's next ice is on me." }
+
+# Kept, Noor thanks you once the beds drink from the tanks.
+[entities.lantern_grower_thanks]
+"engine.talk" = { speaker = "core.lantern_grower", first = "core.lantern_grower_thanks1", width = 420, x = -150, story = true, enabled = false, title = "Noor Hale", subtitle = "Grower" }
+
+[entities.lantern_grower_thanks1]
+"engine.talk_line" = { text = "Look at the beds! They're in bloom.", next = "core.lantern_grower_thanks2" }
+
+[entities.lantern_grower_thanks2]
+"engine.talk_line" = { text = "Hessa minds the tanks with me now.", next = "core.lantern_grower_thanks3" }
+
+[entities.lantern_grower_thanks3]
+"engine.talk_line" = { text = "She grumbles. I think she's happy." }
+
+# Kept: Lantern Dock eats together on the deck for Hessa, for three dockings.
+[entities.lantern_supper]
+happening = { station = "core.lantern", site = "", speaker = "core.lantern_cook", line = "Hessa eats with us tonight. Noor picked the greens.", cause = "Supper on the deck: Lantern Dock eats together for Hessa.", props = "supper1 supper2 supper3", at = "-3.4,-2.2 -0.9,-1.6 -2.1,-0.1", models = "core.table core.table core.lamp_string" }
+
+# Mended: Cinder Kiln hangs lamps on its quay for Cold Kettle, for three dockings.
+[entities.kiln_quay_lamps]
+happening = { station = "core.kiln", site = "", speaker = "core.kiln_trader", line = "We've hung lamps on the quay for Cold Kettle.", cause = "Cold Kettle is mended: Cinder Kiln hangs lamps on its quay.", props = "quaylamp1 quaylamp2", at = "-10.5,1.5 10.8,-4.0" }
+
 [entities.lantern_skiff]
 "engine.being" = {}
 "engine.location" = { place = "core.lantern", spot = "core.lantern_skiff_a_spot" }
