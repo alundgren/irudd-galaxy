@@ -34,9 +34,10 @@ local function visit_row(ctx, ui, visit, open, here)
         ui.row { gap = 8, children = {
             kit.tag(ui, here and "HERE" or where and "VISIT" or "FLIGHT", { width = VISIT_TAG }),
             ui.text { width = ROW - 16 - VISIT_TAG - 72 - 16, size = kit.SIZE.small, spans = kit.name(where and where.name or "In flight") },
+            -- No hover: Lines and Hide say what they do, and a hover here covers the
+            -- next visit's text.
             kit.button(ui, { id = "lines" .. visit.first, width = 72, pad = 12, size = kit.SIZE.small,
-                text = open and "Hide" or "Lines", on = "log_visit", payload = { first = visit.first },
-                hover = open and "Hide this visit's lines" or "What was said and done here, in order" }, "secondary"),
+                text = open and "Hide" or "Lines", on = "log_visit", payload = { first = visit.first } }, "secondary"),
         } },
         ui.text { id = "summary" .. visit.first, width = ROW - 16, size = kit.SIZE.small, spans = line },
     }
