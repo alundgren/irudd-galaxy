@@ -32,6 +32,9 @@ local function message(ctx, text)
 end
 
 local function stop(ctx)
+    -- A beam cut short here lets go like any other, so its hum stops with it.
+    local pilot = ctx.get("ship", "pilot")
+    if pilot.mining then ctx.record("cut_stop", { rock = pilot.target }) end
     ctx.put("ship", "engine.helm", {})
     ctx.put("ship", "engine.steer", {})
     ctx.put("ship", "held", {})

@@ -14,6 +14,124 @@ star_layers = [0.12, 0.35, 0.75, 1.3]
 clouds = ["#c2577a", "#6b4aa0", "#e8905a", "#2f8f8a", "#6b4aa0"]
 cloud_count = 16
 cloud_alpha = 0.24
+# Depth (direction doc 1.2 and 3.3): far things sink into a violet haze a shade lighter
+# than the sky's middle, so the farther a layer or landmark sits, the more of the sky's
+# own colour it takes. Every layer is warm ink work, never a photographic starfield:
+# hatching, soft dust and a few crisp warm specks, each sparse and low in contrast, so
+# the backdrop has depth as the ship flies and never looks busy.
+haze = "#43305f"
+atmosphere = 0.55
+
+# Farthest: long strokes of the plum ink, as if the sky itself were shaded with a pen.
+# It barely creeps.
+[[sky.layers]]
+shape = "hatch"
+parallax = 0.02
+tint = "#2a1a2e"
+alpha = 0.6
+density = 0.3
+size = [14.0, 26.0]
+angle = 62.0
+fade = 0.5
+
+# Rose and violet dust, a little nearer: soft puffs in the clouds' own colours.
+[[sky.layers]]
+shape = "dust"
+parallax = 0.06
+tint = "#c2577a"
+alpha = 0.16
+density = 0.12
+size = [10.0, 22.0]
+
+[[sky.layers]]
+shape = "dust"
+parallax = 0.1
+tint = "#8a6ac0"
+alpha = 0.18
+density = 0.16
+size = [6.0, 14.0]
+
+# Shorter, lighter violet hatching in the middle distance, crossing the far strokes.
+[[sky.layers]]
+shape = "hatch"
+parallax = 0.18
+tint = "#9a7ad0"
+alpha = 0.5
+density = 0.16
+size = [7.0, 12.0]
+angle = 52.0
+fade = 0.6
+
+# Warm motes nearer still: tiny peach and cream specks that slide past as the ship flies.
+[[sky.layers]]
+shape = "speck"
+parallax = 0.38
+tint = "#ffd8c2"
+alpha = 0.45
+density = 0.3
+size = [0.6, 1.2]
+
+# Nearest: a sparse lantern-gold dust that passes faster than the stars, so speed reads.
+[[sky.layers]]
+shape = "dust"
+parallax = 0.62
+tint = "#ffe9a8"
+alpha = 0.16
+density = 0.05
+size = [1.5, 3.0]
+fade = 0.5
+
+# Landmarks, far away. A great dusky planet's limb rises out of the bottom-left corner,
+# banded and hatched in its violet shadow and sunk deep in the haze, darker than any hull
+# so a station in front of it still stands well clear (direction doc 1.2).
+[[sky.landmarks]]
+shape = "disc"
+at = [-82.0, -74.0]
+parallax = 0.015
+size = 64.0
+color = "#b0605a"
+shadow = "#6a4a98"
+hatch = 0.6
+outline_px = 2.5
+alpha = 0.85
+fade = 1.3
+
+# A rose nebula wash streaks across the upper left, behind the clouds.
+[[sky.landmarks]]
+shape = "wash"
+at = [-46.0, 26.0]
+parallax = 0.03
+size = 52.0
+stretch = 0.32
+angle = 18.0
+color = "#c2577a"
+alpha = 0.5
+hatch = 0.35
+
+# A teal wash low on the left, smaller and fainter, so the two don't mirror each other.
+[[sky.landmarks]]
+shape = "wash"
+at = [-60.0, -30.0]
+parallax = 0.05
+size = 30.0
+stretch = 0.4
+angle = -24.0
+color = "#2f8f8a"
+alpha = 0.35
+hatch = 0.2
+
+# A far station hangs deep in the haze to the north: another harbour, out of reach. It
+# sits far back (it barely moves) and takes most of the haze, so it reads as a shape in
+# the distance, never as a station the ship could fly to.
+[[sky.landmarks]]
+shape = "model"
+model = "core.station"
+look = "core.far"
+at = [-6.0, 29.0]
+parallax = 0.07
+scale = 0.45
+angle = 20.0
+fade = 1.75
 
 # Warm dark plum ink, not black: a silhouette round every model, and inner lines on sharp
 # creases and colour borders, so gentle rock facets stay bare.

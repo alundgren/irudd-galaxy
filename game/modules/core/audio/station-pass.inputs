@@ -1,0 +1,34 @@
+# A pass by Lantern Dock for `audio mix`: turn toward it, drift in to its rim (about ten
+# units out) and wait, then turn and fly well clear (past seventy units) and stop.
+[[input]]
+tick = 30
+name = "core.right"
+payload = { down = true }
+[[input]]
+tick = 56
+name = "core.right"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 85
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 210
+name = "core.left"
+payload = { down = true }
+[[input]]
+tick = 240
+name = "core.left"
+payload = { down = false }
+[[input]]
+tick = 240
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 330
+name = "core.ahead"
+payload = { down = false }

@@ -4,8 +4,8 @@
 # it. Shift
 # boosts once. The radio and the mine order click; each unit mined chips, the three
 # chips taking turns; mining a full hold is refused, and the unit that fills it chimes.
-# Docked, opening a room, closing it, the log opening and shutting and a movement key
-# flying off each cue once.
+# Docked, a movement key flying off cues once. A click on a screen button, and a room or
+# the log opening and closing, cue nothing here: [ui] in audio.toml sounds them.
 seed = 7
 ticks = 760
 
@@ -43,6 +43,10 @@ name = "boost"
 payload = { down = false }
 [[input]]
 tick = 20
+name = "radio"
+payload = { tune = "next" }
+[[input]]
+tick = 24
 name = "radio"
 source = "ui"
 payload = { tune = "next" }
@@ -122,7 +126,12 @@ tick = 15
 facts = "boost_on"
 equals = 1
 
-# Tuning by hand, then the mine order.
+# Tuning by key clicks; the same tune clicked on the radio's button records no click,
+# since audio.toml's [ui] press sounds it on the frame. Then the mine order clicks.
+[[expect]]
+tick = 30
+facts = "ui_click"
+equals = 1
 [[expect]]
 tick = 60
 facts = "ui_click"
@@ -169,24 +178,12 @@ tick = 599
 facts = "docked"
 equals = 1
 
-# Opening the exchange once, again (already open: nothing), Back pressed and released,
-# Back with nothing open, then the log open and shut.
-[[expect]]
-tick = 615
-facts = "panel_open"
-equals = 1
-[[expect]]
-tick = 635
-facts = "panel_close"
-equals = 1
+# Opening the exchange, Back and the log record no cue here: [ui] in audio.toml sounds a
+# room's panel and the log as they open and close, by key or click.
 [[expect]]
 tick = 655
-facts = "panel_open"
-equals = 2
-[[expect]]
-tick = 655
-facts = "panel_close"
-equals = 2
+facts = "ui_click"
+equals = 3
 
 # W flies off the dock: one undock and one thrust; letting go stops it.
 [[expect]]

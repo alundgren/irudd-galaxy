@@ -27,10 +27,26 @@
 # decaying modes and filtered noise (soft attacks, little above 4 kHz), then levelled
 # with `audio process` (DC removed, silence trimmed, -18 LUFS or a gain under a -1 dBTP
 # ceiling) and measured with `audio inspect`. Their volumes set them under the radio's
-# music. scripts/sound.luau records the cue events for key presses and screen changes;
-# the other events are the game's own facts. mine_hum repeats exactly every second and
-# fades over its last 0.12 s, the same length as its fade-in: `mined` comes once a
-# second, so each copy blends into the next and the hum holds while the beam cuts.
+# music. scripts/sound.luau records the cue events for key presses and bumps;
+# the other events are the game's own facts. mine_hum is one second long and fades
+# over its last 0.12 s, the same length as its fade-in, so as it loops on the beam's
+# channel each copy blends into the next and the hum holds while the beam cuts.
+#
+# Sound that follows the world (the feel pass): three loops play on their own channels
+# of the sound bus while the ship flies, started by a new game, a resumed save or
+# leaving a dock (sound.luau records `drive_on` for the last two) and stopped by
+# docking. The drive's hum rises in pitch and gain with the ship's speed; each station's
+# own deck sound swells as the ship passes close and is gone a little way out. Repeated
+# cues vary a little in pitch and gain, so the chips, blips and clicks never sound
+# stamped. A bump against a rock, a station or a trader knocks softly on the hull
+# (`bump`, from sound.luau on engine.contact; the manifest sets contact_speed).
+#
+# Screens ([ui], at the end): the engine plays these from the view on the frame the
+# player acts, outside the world. Hover is the faintest tick; a press is a click,
+# softer and lower on parchment and dark buttons; a room's panel and the log open and
+# close with the panel blips, a talk bubble with a blip; picking a part up lifts and
+# letting it go sets it down; a resting button or a refusing socket answers with the
+# refusal. scripts/sound.luau cues clicks for keys only, and no panels at all.
 crossfade = 2.0
 
 [sounds.lantern_radio]
@@ -73,6 +89,7 @@ volume = 0.42
 [sounds.mine_hum]
 file = "sounds/mine_hum.wav"
 volume = 0.2
+loop_crossfade = 0.12
 
 [sounds.mine_chip1]
 file = "sounds/mine_chip1.wav"
@@ -142,6 +159,43 @@ volume = 0.36
 file = "sounds/built.wav"
 volume = 0.5
 
+# The feel pass's sounds, also from sounds/make.py.
+[sounds.drive_hum]
+file = "sounds/drive_hum.wav"
+volume = 0.3
+loop_crossfade = 0
+
+# Each station's deck sound again, heard from outside as the ship passes.
+[sounds.lantern_near]
+file = "sounds/lantern_deck.wav"
+volume = 0.3
+loop_crossfade = 0
+
+[sounds.kiln_near]
+file = "sounds/kiln_deck.wav"
+volume = 0.3
+loop_crossfade = 0
+
+[sounds.bump]
+file = "sounds/bump.wav"
+volume = 0.5
+
+[sounds.ui_hover]
+file = "sounds/ui_hover.wav"
+volume = 0.16
+
+[sounds.ui_tap]
+file = "sounds/ui_tap.wav"
+volume = 0.34
+
+[sounds.part_lift]
+file = "sounds/part_lift.wav"
+volume = 0.36
+
+[sounds.part_set]
+file = "sounds/part_set.wav"
+volume = 0.4
+
 [places]
 reach = "reach"
 lantern = "lantern_deck"
@@ -172,32 +226,59 @@ fade = 2.0
 [[events]]
 event = "thrust_on"
 sound = "thrust_on"
+vary_pitch = 0.03
+vary_gain = 0.15
 
 [[events]]
 event = "thrust_off"
 sound = "thrust_off"
+vary_pitch = 0.03
+vary_gain = 0.15
 
 [[events]]
 event = "boost_on"
 sound = "boost"
 
 
-# Mining: the hum and a chip for each second's ore, a chime when the hold is full
+# Mining: the hum loops on its own channel from the beam's first touch on a rock to
+# the moment it lets go (cutter.luau records cut_start and cut_stop), a chip for each
+# second's ore, a chime when the hold is full
 [[events]]
-event = "mined"
+event = "cut_start"
 sound = "mine_hum"
+channel = "beam"
+fade = 0.05
+
+# A save resumed (or a hot load) mid-cut: sound.luau records beam_on to bring the hum back.
+[[events]]
+event = "beam_on"
+sound = "mine_hum"
+channel = "beam"
+fade = 0.05
+
+[[events]]
+event = "cut_stop"
+channel = "beam"
+stop = true
+fade = 0.15
 
 [[events]]
 event = "chip1"
 sound = "mine_chip1"
+vary_pitch = 0.05
+vary_gain = 0.2
 
 [[events]]
 event = "chip2"
 sound = "mine_chip2"
+vary_pitch = 0.05
+vary_gain = 0.2
 
 [[events]]
 event = "chip3"
 sound = "mine_chip3"
+vary_pitch = 0.05
+vary_gain = 0.2
 
 [[events]]
 event = "hold_full"
@@ -208,24 +289,20 @@ sound = "hold_full"
 [[events]]
 event = "docked"
 sound = "dock_clunk"
+vary_pitch = 0.02
 
 [[events]]
 event = "undocked"
 sound = "undock_clunk"
+vary_pitch = 0.02
 
 
 # Screens and trade
 [[events]]
 event = "ui_click"
 sound = "ui_click"
-
-[[events]]
-event = "panel_open"
-sound = "panel_open"
-
-[[events]]
-event = "panel_close"
-sound = "panel_close"
+vary_pitch = 0.04
+vary_gain = 0.15
 
 [[events]]
 event = "refused"
@@ -234,10 +311,14 @@ sound = "refused"
 [[events]]
 event = "sold"
 sound = "sale_coin"
+vary_pitch = 0.03
+vary_gain = 0.1
 
 [[events]]
 event = "bought"
 sound = "buy_goods"
+vary_pitch = 0.03
+vary_gain = 0.1
 
 [[events]]
 event = "confirmed"
@@ -252,27 +333,182 @@ sound = "built"
 [[events]]
 event = "fitted"
 sound = "part_drop"
+vary_pitch = 0.03
 
 
 # Talk: each line's bubble
-[[events]]
-event = "engine.talk_start"
-sound = "talk_blip"
-
+# A talk starting blips as its bubble opens ([ui.kinds.bubble] open, below).
 [[events]]
 event = "talk_line"
 sound = "talk_blip"
+vary_pitch = 0.05
+vary_gain = 0.15
 
 [[events]]
 event = "engine.talk_chosen"
 sound = "talk_blip"
+vary_pitch = 0.05
+vary_gain = 0.15
 
 
 # The radio: a little static as it tunes a channel in
 [[events]]
 event = "radio_lantern"
 sound = "radio_tune"
+vary_pitch = 0.04
 
 [[events]]
 event = "radio_kiln"
 sound = "radio_tune"
+vary_pitch = 0.04
+
+
+# Bumps: a soft knock on the hull, each a little different.
+[[events]]
+event = "bump"
+sound = "bump"
+vary_pitch = 0.08
+vary_gain = 0.3
+
+
+# Loops that follow the world, on their own channels while the ship flies.
+[[events]]
+event = "engine.start"
+sound = "drive_hum"
+channel = "drive"
+fade = 1.0
+
+[[events]]
+event = "drive_on"
+sound = "drive_hum"
+channel = "drive"
+fade = 1.0
+
+[[events]]
+event = "undocked"
+sound = "drive_hum"
+channel = "drive"
+fade = 0.6
+
+[[events]]
+event = "docked"
+channel = "drive"
+stop = true
+fade = 0.8
+
+[[events]]
+event = "engine.start"
+sound = "lantern_near"
+channel = "lantern_near"
+fade = 1.0
+
+[[events]]
+event = "drive_on"
+sound = "lantern_near"
+channel = "lantern_near"
+fade = 1.0
+
+[[events]]
+event = "undocked"
+sound = "lantern_near"
+channel = "lantern_near"
+fade = 1.0
+
+[[events]]
+event = "docked"
+channel = "lantern_near"
+stop = true
+fade = 1.0
+
+[[events]]
+event = "engine.start"
+sound = "kiln_near"
+channel = "kiln_near"
+fade = 1.0
+
+[[events]]
+event = "drive_on"
+sound = "kiln_near"
+channel = "kiln_near"
+fade = 1.0
+
+[[events]]
+event = "undocked"
+sound = "kiln_near"
+channel = "kiln_near"
+fade = 1.0
+
+[[events]]
+event = "docked"
+channel = "kiln_near"
+stop = true
+fade = 1.0
+
+# The drive: almost nothing at rest, a low hum cruising, higher and fuller on boost
+# (top speed 20 units a second, twice that boosted).
+[[follow]]
+channel = "drive"
+entity = "ship"
+component = "engine.motion"
+field = ["vx", "vy"]
+from = 0.0
+to = 36.0
+gain = [0.1, 1.0]
+pitch = [0.8, 1.45]
+power = 0.7
+ramp = 0.15
+
+# A station's deck sound: full at its rim, gone some forty units out.
+[[follow]]
+channel = "lantern_near"
+entity = "ship"
+distance_to = "lantern_exterior"
+from = 10.0
+to = 40.0
+gain = [1.0, 0.0]
+power = 0.6
+ramp = 0.3
+
+[[follow]]
+channel = "kiln_near"
+entity = "ship"
+distance_to = "kiln_exterior"
+from = 10.0
+to = 40.0
+gain = [1.0, 0.0]
+power = 0.6
+ramp = 0.3
+
+
+# Screens. Every touch answers on the frame it happens.
+[ui]
+hover_gap = 0.08
+hover = { sound = "ui_hover", vary_pitch = 0.06, vary_gain = 0.3 }
+press = { sound = "ui_click", vary_pitch = 0.04, vary_gain = 0.15 }
+drag = { sound = "part_lift", vary_pitch = 0.04 }
+drop = { sound = "part_set", vary_pitch = 0.04 }
+deny = "refused"
+
+# Opening and closing sound only for the surfaces the player opens: a room's panel and
+# the log (the place look). The plate, the status chip, the radio and the hint strip
+# come and go together as the ship docks and leaves, where the dock's clunk speaks.
+[ui.looks.place]
+open = { sound = "panel_open", vary_pitch = 0.02 }
+close = { sound = "panel_close", vary_pitch = 0.02 }
+
+# Quiet choices (Back, Close, paging) and the radio's dark buttons click softer and lower.
+[ui.looks.secondary]
+press = { sound = "ui_tap", vary_pitch = 0.04, vary_gain = 0.15 }
+
+[ui.looks.dark_button]
+press = { sound = "ui_tap", vary_pitch = 0.04, vary_gain = 0.15 }
+
+# Speech: a bubble opening blips like a line (the line's own blip comes with it), and
+# clicking a bubble or a speaker only ticks, so the blip of the line that follows leads.
+[ui.kinds.bubble]
+open = { sound = "talk_blip", vary_pitch = 0.05, vary_gain = 0.15 }
+close = { sound = "ui_hover", vary_pitch = 0.05 }
+press = { sound = "ui_hover", vary_pitch = 0.05 }
+
+[ui.kinds.speaker]
+press = { sound = "ui_hover", vary_pitch = 0.05 }
