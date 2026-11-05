@@ -1,0 +1,49 @@
+about = "A round porthole onto space: a brass rim, dark glass and a few stars"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "rim"
+shape = "ring"
+radius = 0.62
+tube = 0.16
+flat = 1.2
+sides = 6
+segments = 20
+pitch = 90
+paint = "brass"
+[[part]]
+name = "glass"
+shape = "cylinder"
+radius = 0.6
+height = 0.05
+sides = 20
+pitch = 90
+paint = "#2a1f48"
+[[part]]
+name = "star"
+shape = "sphere"
+radius = 0.035
+sides = 4
+rings = 2
+at = [0.05, 0.2, 0.25]
+paint = "lights"
+glow = 1.0
+[[part]]
+name = "star.2"
+shape = "sphere"
+radius = 0.03
+sides = 4
+rings = 2
+at = [0.05, -0.25, 0.1]
+paint = "lights"
+glow = 1.0
+[[part]]
+name = "star.3"
+shape = "sphere"
+radius = 0.04
+sides = 4
+rings = 2
+at = [0.05, 0.05, -0.3]
+paint = "lights"
+glow = 1.0
+pulse = 2.9
+pulse_low = 0.3

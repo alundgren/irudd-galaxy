@@ -131,9 +131,9 @@ source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2223 }
 [[input]]
 tick = 2483
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_galley_room", start_tick = 2480 }
 
 # Not offered before her introduction is heard; the story comes first.
 [[input]]
@@ -179,7 +179,7 @@ source = "ui"
 payload = { talk = "core.lantern_cook_gift", line = "core.lantern_cook_gift2", choice = "core.lantern_cook_gift_take" }
 [[input]]
 tick = 2496
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 2492 }
 

@@ -1,0 +1,53 @@
+about = "The kiln's hatch in a brick wall: an arch of fire behind a grate, glowing"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "brick"
+shape = "box"
+size = [0.4, 2.0, 2.2]
+at = [0, 0, 1.1]
+paint = "#8a3a2a"
+[[part]]
+name = "mouth"
+shape = "box"
+size = [0.1, 1.1, 0.9]
+at = [0.2, 0, 0.75]
+paint = "lights"
+glow = 1.0
+pulse = 2.1
+pulse_low = 0.55
+[[part]]
+name = "arch"
+shape = "cylinder"
+radius = 0.55
+height = 0.1
+sides = 12
+at = [0.2, 0, 1.2]
+pitch = 90
+paint = "lights"
+glow = 1.0
+pulse = 2.1
+pulse_low = 0.55
+[[part]]
+name = "grate"
+shape = "box"
+size = [0.06, 0.06, 1.2]
+at = [0.27, -0.3, 0.9]
+paint = "#2a2430"
+[[part]]
+name = "grate.2"
+shape = "box"
+size = [0.06, 0.06, 1.2]
+at = [0.27, 0, 0.9]
+paint = "#2a2430"
+[[part]]
+name = "grate.3"
+shape = "box"
+size = [0.06, 0.06, 1.2]
+at = [0.27, 0.3, 0.9]
+paint = "#2a2430"
+[[part]]
+name = "lintel"
+shape = "box"
+size = [0.45, 2.1, 0.2]
+at = [0, 0, 2.2]
+paint = "brass"

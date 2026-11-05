@@ -75,6 +75,36 @@ function fit.verdict(p, target, parts, credits, load)
     return ""
 end
 
+-- What fitting `p` (or taking it off, when it is fitted) would change, before it
+-- happens, one change each: what it costs, then each number that moves, from what it
+-- is to what it would be. Each is { text, good }: good is true when that is better,
+-- false when worse, nil for the cost and the power left free. `hull` as in fit.totals.
+function fit.change_list(p, parts, hull)
+    local before = fit.totals(parts, nil, nil, hull)
+    local after = p.fitted and fit.totals(parts, p.id, nil, hull) or fit.totals(parts, nil, p.id, hull)
+    local list = {}
+    if not p.fitted then table.insert(list, { text = p.owned and "from your locker, free" or p.price .. " cr" }) end
+    local function moved(name, a, b, unit)
+        if fit.num(a) ~= fit.num(b) then
+            table.insert(list, { text = name .. " " .. fit.num(a) .. " to " .. fit.num(b) .. (unit or ""), good = b > a })
+        end
+    end
+    moved("hold", before.hold, after.hold)
+    moved("mines", before.mine, after.mine, " a second")
+    moved("top speed", before.top, after.top)
+    moved("turns", before.turn, after.turn, "°")
+    local free_before, free_after = fit.POWER - before.power, fit.POWER - after.power
+    if free_before ~= free_after then
+        table.insert(list, { text = "power free " .. free_before .. " to " .. free_after })
+    end
+    return list
+end
+
+-- The short form a dragged part shows under "Drop here": its cost and what it gives.
+function fit.note(p)
+    return (p.owned and "free" or p.price .. " cr") .. " · " .. fit.effect(p)
+end
+
 -- A number with at most one decimal: 13.5, 12.
 function fit.num(x)
     local r = math.floor(x * 10 + 0.5) / 10

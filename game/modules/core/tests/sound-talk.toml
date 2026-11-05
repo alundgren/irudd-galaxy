@@ -26,6 +26,16 @@ tick = 450
 name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 396 }
+# Into Bram's office, where he is met.
+[[input]]
+tick = 470
+name = "core.open"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 473
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 470 }
 [[input]]
 tick = 510
 name = "engine.talk_start"

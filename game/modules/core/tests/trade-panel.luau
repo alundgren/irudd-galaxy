@@ -9,20 +9,23 @@ local function line(ware, role, base, stock)
     return { room = ROOM, ware = ware, role = role, base = base, target = 30, stock = stock, rate = 3 }
 end
 
--- Docked at Lantern Dock in its exchange, with every ware aboard and a deal just made.
+-- Docked at Lantern Dock in its exchange (the ship is in the exchange's room, a place
+-- inside the station's), with every ware aboard and a deal just made.
 -- The exchange here trades all five wares, more than any core room does, as the worst case.
 local function world(hold, deal)
     local w = {
         ship = {
             pilot = { room = ROOM, credits = 69, deal = deal, sale = 37, log_open = false, gliding = false },
-            ["engine.location"] = { place = "core.lantern" },
+            ["engine.location"] = { place = "core.lantern_exchange_room" },
             hold = hold,
             fit = { hold = 9 },
             taught = { talk = 0 },
         },
         ["core.lantern"] = { port = { name = "Lantern Dock" } },
+        ["core.lantern_exchange_room"] = { ["engine.place"] = { parent = "core.lantern" } },
         [ROOM] = {
-            facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", fits = false, order = 1 },
+            facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", fits = false, order = 1,
+                place = "core.lantern_exchange_room" },
             ["engine.position"] = { x = 5, y = -5 },
         },
         ["core.lantern_trader"] = { keeper = { name = "Tova Reyes" } },

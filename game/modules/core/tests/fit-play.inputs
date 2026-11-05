@@ -43,7 +43,7 @@ widget = "part_lens"
 [[pointer]]
 tick = 545
 action = "move"
-widget = "empty_drill"
+widget = "socket_drill"
 
 [[note]]
 tick = 550
@@ -90,7 +90,7 @@ widget = "part_lens"
 [[pointer]]
 tick = 785
 action = "move"
-widget = "empty_drill"
+widget = "socket_drill"
 
 [[note]]
 tick = 790
@@ -113,7 +113,7 @@ widget = "part_thrusters"
 [[pointer]]
 tick = 845
 action = "move"
-widget = "empty_engine"
+widget = "socket_engine"
 
 [[note]]
 tick = 850
@@ -240,7 +240,7 @@ widget = "part_pods"
 [[pointer]]
 tick = 2285
 action = "move"
-widget = "off_drill"
+widget = "on_ship_drill"
 
 [[note]]
 tick = 2290
@@ -249,7 +249,7 @@ text = "Holding the pods with 9 aboard: the tray says it can't take them off bef
 [[pointer]]
 tick = 2300
 action = "drop"
-widget = "off_drill"
+widget = "on_ship_drill"
 
 [[note]]
 tick = 2330

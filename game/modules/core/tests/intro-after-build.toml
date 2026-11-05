@@ -130,9 +130,9 @@ name = "core.open"
 payload = { facility = "core.lantern_office" }
 [[input]]
 tick = 2520
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 2480 }
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 2480 }
 [[input]]
 tick = 2530
 name = "engine.talk_start"

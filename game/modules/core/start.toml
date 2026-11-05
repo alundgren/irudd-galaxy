@@ -1,4 +1,6 @@
-# The keepers' day: one resting act each, so each wears a name sign.
+# The day: it moves on with the work done at the stations (a trade, a fit), never with
+# time, and the stations' people go about their acts (scripts/trade.luau). One day for
+# both stations, so check can try every arrangement of it.
 [entities.day]
 "engine.clock" = {}
 
@@ -337,12 +339,6 @@ port = { name = "Lantern Dock", berth = "core.lantern_berth", departure = "core.
 [entities.lantern_berth_spot]
 "engine.spot" = { place = "core.lantern", name = "berth" }
 
-[entities.lantern_exchange_keeper_spot]
-"engine.spot" = { place = "core.lantern", name = "exchange_keeper" }
-
-[entities.lantern_office_keeper_spot]
-"engine.spot" = { place = "core.lantern", name = "office_keeper" }
-
 [entities.lantern_skiff_a_spot]
 "engine.spot" = { place = "core.lantern", name = "skiff_a" }
 
@@ -355,7 +351,7 @@ port = { name = "Lantern Dock", berth = "core.lantern_berth", departure = "core.
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.exchange", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", offer = "buys ore, ice and plate", order = 1, camera = "camera.exchange" }
+facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern_trader", offer = "buys ore, ice and plate", order = 1, place = "core.lantern_exchange_room" }
 
 [entities.lantern_office]
 "engine.being" = {}
@@ -363,7 +359,7 @@ facility = { station = "core.lantern", name = "Exchange", keeper = "core.lantern
 "engine.position" = { x = 7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.office", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_master", offer = "posted prices and how the field stands", order = 2, camera = "camera.office" }
+facility = { station = "core.lantern", name = "Office", keeper = "core.lantern_master", offer = "posted prices and how the field stands", order = 2, place = "core.lantern_office_room" }
 
 # Lantern Dock's market. Plate goes into the galley until it is built.
 [entities.lantern_ore]
@@ -386,18 +382,23 @@ market = { room = "core.lantern_galley", ware = "rations", role = "sells", base 
 
 [entities.lantern_trader]
 "engine.being" = {}
-"engine.location" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot" }
+"engine.location" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
-"engine.model" = { model = "core.keeper", look = "core.prop", scale = 1.5 }
+"engine.model" = { model = "core.person_tova", look = "core.prop" }
 keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside." }
-"engine.life" = { clock = "core.day", first = "core.lantern_trader_act", name = "Tova Reyes" }
+"engine.life" = { clock = "core.day", first = "core.lantern_trader_act", speed = 1.6, presentation = "instant", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
-"engine.act" = { place = "core.lantern", spot = "core.lantern_exchange_keeper_spot", angle = -1.5707963267948966, state = "buys ore, ice and plate" }
+"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter", angle = -1.5707963267948966, state = "buys ore, ice and plate", next = "core.lantern_trader_act2" }
+
+[entities.lantern_trader_act2]
+"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_pile", angle = -0.5, state = "stacking crates" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_trader_intro]
-"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_intro1", width = 420, story = true, title = "Tova Reyes", subtitle = "Exchange keeper" }
+"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_intro1", width = 420, x = -150, story = true, title = "Tova Reyes", subtitle = "Exchange keeper" }
 
 [entities.lantern_trader_intro1]
 "engine.talk_line" = { text = "I'm Tova, and I run the exchange.", next = "core.lantern_trader_intro2" }
@@ -410,25 +411,30 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside."
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_trader_talk]
-"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_now", width = 420, title = "Tova Reyes", subtitle = "Exchange keeper" }
+"engine.talk" = { speaker = "core.lantern_trader", first = "core.lantern_trader_now", width = 420, x = -150, title = "Tova Reyes", subtitle = "Exchange keeper" }
 
 [entities.lantern_trader_now]
 "engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
 
 [entities.lantern_master]
 "engine.being" = {}
-"engine.location" = { place = "core.lantern", spot = "core.lantern_office_keeper_spot" }
+"engine.location" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_desk" }
 "engine.position" = { angle = -1.5707963267948966 }
-"engine.model" = { model = "core.keeper", look = "core.prop", scale = 1.5 }
+"engine.model" = { model = "core.person_bram", look = "core.prop" }
 keeper = { name = "Bram Okafor" }
-"engine.life" = { clock = "core.day", first = "core.lantern_master_act", name = "Bram Okafor" }
+"engine.life" = { clock = "core.day", first = "core.lantern_master_act", speed = 1.6, presentation = "instant", name = "Bram Okafor" }
 
 [entities.lantern_master_act]
-"engine.act" = { place = "core.lantern", spot = "core.lantern_office_keeper_spot", angle = -1.5707963267948966, state = "dockmaster" }
+"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.lantern_master_act2" }
+
+[entities.lantern_master_act2]
+"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_board", angle = -0.6, state = "posting prices" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_master_intro]
-"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_intro1", width = 420, story = true, title = "Bram Okafor", subtitle = "Dockmaster" }
+"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_intro1", width = 420, x = -150, story = true, title = "Bram Okafor", subtitle = "Dockmaster" }
 
 [entities.lantern_master_intro1]
 "engine.talk_line" = { text = "Welcome to Lantern Dock.", next = "core.lantern_master_intro2" }
@@ -447,7 +453,7 @@ keeper = { name = "Bram Okafor" }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_master_talk]
-"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_now", width = 420, title = "Bram Okafor", subtitle = "Dockmaster" }
+"engine.talk" = { speaker = "core.lantern_master", first = "core.lantern_master_now", width = 420, x = -150, title = "Bram Okafor", subtitle = "Dockmaster" }
 
 [entities.lantern_master_now]
 "engine.talk_line" = { text = "The field still holds 36 ore." }
@@ -461,22 +467,24 @@ keeper = { name = "Bram Okafor" }
 "engine.model" = { model = "core.galley_site", look = "core.station" }
 # Signed low at its front: above it, the sign would meet the dockmaster's name sign.
 "engine.anchor" = { name = "sign", height = 0.2, x = 2.6 }
-facility = { station = "core.lantern", name = "Galley site", keeper = "", offer = "plate sold here builds the galley", order = 3, camera = "camera.galley" }
-build = { station = "core.lantern", ware = "plate", need = 10, name = "Galley", offer = "sells rations", keeper = "core.lantern_cook", model = "core.galley" }
+facility = { station = "core.lantern", name = "Galley site", keeper = "", offer = "plate sold here builds the galley", order = 3, place = "core.lantern_galley_room" }
+build = { station = "core.lantern", ware = "plate", need = 10, name = "Galley", offer = "sells rations", keeper = "core.lantern_cook", model = "core.galley", room_model = "core.lantern_galley_room" }
 
 # The cook arrives when the galley is built; until then only their name is known.
 [entities.lantern_cook]
-keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them." }
-
-[entities.lantern_galley_keeper_spot]
-"engine.spot" = { place = "core.lantern", name = "galley_keeper" }
+keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.", figure = "core.person_ines" }
 
 [entities.lantern_cook_act]
-"engine.act" = { place = "core.lantern", spot = "core.lantern_galley_keeper_spot", angle = -1.5707963267948966, state = "cook" }
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_stove", angle = -1.0, state = "cooking", next = "core.lantern_cook_act2" }
+
+[entities.lantern_cook_act2]
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_hatch", angle = -1.5707963267948966, state = "serving" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_cook_intro]
-"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_intro1", width = 420, x = 100, story = true, title = "Ines Varga", subtitle = "Cook" }
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_intro1", width = 420, x = -150, story = true, title = "Ines Varga", subtitle = "Cook" }
 
 [entities.lantern_cook_intro1]
 "engine.talk_line" = { text = "I'm Ines. Your plate built this galley.", next = "core.lantern_cook_intro2" }
@@ -489,7 +497,7 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them." 
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.lantern_cook_talk]
-"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_now", width = 420, x = 100, title = "Ines Varga", subtitle = "Cook" }
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_now", width = 420, x = -150, title = "Ines Varga", subtitle = "Cook" }
 
 [entities.lantern_cook_now]
 "engine.talk_line" = { text = "Fresh rations, whenever you want them." }
@@ -498,7 +506,7 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them." 
 # taken or declined, the offer is over (scripts/talk.luau). It waits while the hold
 # is full.
 [entities.lantern_cook_gift]
-"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_gift1", width = 420, x = 100, enabled = false, title = "Ines Varga", subtitle = "Cook" }
+"engine.talk" = { speaker = "core.lantern_cook", first = "core.lantern_cook_gift1", width = 420, x = -150, enabled = false, title = "Ines Varga", subtitle = "Cook" }
 gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", instead = "core.lantern_cook_talk" }
 
 [entities.lantern_cook_gift1]
@@ -522,6 +530,68 @@ gift = { ware = "rations", units = 1, take = "core.lantern_cook_gift_take", inst
 "engine.position" = {}
 "engine.model" = { model = "core.skiff", look = "core.prop", scale = 1.4 }
 skiff = { a = "core.lantern_skiff_a_spot", b = "core.lantern_skiff_b_spot" }
+
+# Inside Lantern Dock: each building is a staged room, open at the front, entered with the
+# cut (direction doc 3.2). Its camera and floor spots are nodes of its set (recipes/).
+# Tova's exchange: a counter with a scale, shelves of jars, bunting.
+[entities.lantern_exchange_room]
+"engine.place" = { parent = "core.lantern", arrival = "core.lantern_exchange_room_entry", width = 10, depth = 6 }
+"engine.room" = { title = "Exchange · Lantern Dock", fov = 30 }
+"engine.model" = { model = "core.lantern_exchange_room", look = "core.prop" }
+
+[entities.lantern_exchange_room_entry]
+"engine.spot" = { place = "core.lantern_exchange_room", name = "entry" }
+
+[entities.lantern_exchange_room_counter]
+"engine.spot" = { place = "core.lantern_exchange_room", name = "counter" }
+
+[entities.lantern_exchange_room_pile]
+"engine.spot" = { place = "core.lantern_exchange_room", name = "pile" }
+
+[entities.lantern_exchange_room_shelf]
+"engine.spot" = { place = "core.lantern_exchange_room", name = "shelf" }
+
+# The exchange's own pile of crates follows its ore stock, as the one on the deck does.
+[entities.lantern_stock_room]
+"engine.location" = { place = "core.lantern_exchange_room" }
+"engine.position" = { x = 0.3, y = 0.7, angle = -0.3 }
+"engine.model" = { model = "core.ore_crates", look = "core.prop", scale = 0.73 }
+
+# Bram's office: a desk under a lamp, the notice board, a porthole.
+[entities.lantern_office_room]
+"engine.place" = { parent = "core.lantern", arrival = "core.lantern_office_room_entry", width = 9, depth = 6 }
+"engine.room" = { title = "Office · Lantern Dock", fov = 30 }
+"engine.model" = { model = "core.lantern_office_room", look = "core.prop" }
+
+[entities.lantern_office_room_entry]
+"engine.spot" = { place = "core.lantern_office_room", name = "entry" }
+
+[entities.lantern_office_room_desk]
+"engine.spot" = { place = "core.lantern_office_room", name = "desk" }
+
+[entities.lantern_office_room_board]
+"engine.spot" = { place = "core.lantern_office_room", name = "board" }
+
+[entities.lantern_office_room_window]
+"engine.spot" = { place = "core.lantern_office_room", name = "window" }
+
+# The galley: bare walls and a scaffold until the plate is in, then Ines's stove and tables (scripts/station.luau).
+[entities.lantern_galley_room]
+"engine.place" = { parent = "core.lantern", arrival = "core.lantern_galley_room_entry", width = 9, depth = 6 }
+"engine.room" = { title = "Galley · Lantern Dock", fov = 30 }
+"engine.model" = { model = "core.lantern_galley_site_room", look = "core.prop" }
+
+[entities.lantern_galley_room_entry]
+"engine.spot" = { place = "core.lantern_galley_room", name = "entry" }
+
+[entities.lantern_galley_room_stove]
+"engine.spot" = { place = "core.lantern_galley_room", name = "stove" }
+
+[entities.lantern_galley_room_hatch]
+"engine.spot" = { place = "core.lantern_galley_room", name = "hatch" }
+
+[entities.lantern_galley_room_table]
+"engine.spot" = { place = "core.lantern_galley_room", name = "table" }
 
 [entities.kiln_exterior]
 "engine.location" = { place = "core.reach" }
@@ -550,12 +620,6 @@ port = { name = "Cinder Kiln", berth = "core.kiln_berth", departure = "core.kiln
 [entities.kiln_berth_spot]
 "engine.spot" = { place = "core.kiln", name = "berth" }
 
-[entities.kiln_exchange_keeper_spot]
-"engine.spot" = { place = "core.kiln", name = "exchange_keeper" }
-
-[entities.kiln_office_keeper_spot]
-"engine.spot" = { place = "core.kiln", name = "office_keeper" }
-
 [entities.kiln_skiff_a_spot]
 "engine.spot" = { place = "core.kiln", name = "skiff_a" }
 
@@ -568,7 +632,7 @@ port = { name = "Cinder Kiln", berth = "core.kiln_berth", departure = "core.kiln
 "engine.position" = { x = -7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.kiln_exchange", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trader", offer = "buys ore, glassite and rations, sells plate", order = 1, camera = "camera.exchange" }
+facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trader", offer = "buys ore, glassite and rations, sells plate", order = 1, place = "core.kiln_exchange_room" }
 
 [entities.kiln_office]
 "engine.being" = {}
@@ -576,7 +640,7 @@ facility = { station = "core.kiln", name = "Exchange", keeper = "core.kiln_trade
 "engine.position" = { x = 7.5, y = -0.5, angle = -1.5707963267948966 }
 "engine.model" = { model = "core.kiln_office", look = "core.station" }
 "engine.anchor" = { name = "sign", height = 3.0 }
-facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master", offer = "posted prices and how the field stands", order = 2, camera = "camera.office" }
+facility = { station = "core.kiln", name = "Office", keeper = "core.kiln_master", offer = "posted prices and how the field stands", order = 2, place = "core.kiln_office_room" }
 
 # Cinder Kiln's market: the kiln turns ore into plate.
 [entities.kiln_ore]
@@ -599,18 +663,23 @@ market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 
 
 [entities.kiln_trader]
 "engine.being" = {}
-"engine.location" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot" }
+"engine.location" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter" }
 "engine.position" = { angle = -1.5707963267948966 }
-"engine.model" = { model = "core.keeper", look = "core.prop", scale = 1.5 }
+"engine.model" = { model = "core.person_sefa", look = "core.prop" }
 keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
-"engine.life" = { clock = "core.day", first = "core.kiln_trader_act", name = "Sefa Lind" }
+"engine.life" = { clock = "core.day", first = "core.kiln_trader_act", speed = 1.6, presentation = "instant", name = "Sefa Lind" }
 
 [entities.kiln_trader_act]
-"engine.act" = { place = "core.kiln", spot = "core.kiln_exchange_keeper_spot", angle = -1.5707963267948966, state = "sells plate" }
+"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter", angle = -1.5707963267948966, state = "sells plate", next = "core.kiln_trader_act2" }
+
+[entities.kiln_trader_act2]
+"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_hatch", angle = -0.9, state = "stoking the kiln" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_trader_intro]
-"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_intro1", width = 420, story = true, title = "Sefa Lind", subtitle = "Exchange keeper" }
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_intro1", width = 420, x = -150, story = true, title = "Sefa Lind", subtitle = "Exchange keeper" }
 
 [entities.kiln_trader_intro1]
 "engine.talk_line" = { text = "I'm Sefa. Ore feeds the kiln here.", next = "core.kiln_trader_intro2" }
@@ -623,25 +692,30 @@ keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_trader_talk]
-"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_now", width = 420, title = "Sefa Lind", subtitle = "Exchange keeper" }
+"engine.talk" = { speaker = "core.kiln_trader", first = "core.kiln_trader_now", width = 420, x = -150, title = "Sefa Lind", subtitle = "Exchange keeper" }
 
 [entities.kiln_trader_now]
 "engine.talk_line" = { text = "Empty hold? The rocks are just outside." }
 
 [entities.kiln_master]
 "engine.being" = {}
-"engine.location" = { place = "core.kiln", spot = "core.kiln_office_keeper_spot" }
+"engine.location" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_desk" }
 "engine.position" = { angle = -1.5707963267948966 }
-"engine.model" = { model = "core.keeper", look = "core.prop", scale = 1.5 }
+"engine.model" = { model = "core.person_mags", look = "core.prop" }
 keeper = { name = "Mags Ferrow" }
-"engine.life" = { clock = "core.day", first = "core.kiln_master_act", name = "Mags Ferrow" }
+"engine.life" = { clock = "core.day", first = "core.kiln_master_act", speed = 1.6, presentation = "instant", name = "Mags Ferrow" }
 
 [entities.kiln_master_act]
-"engine.act" = { place = "core.kiln", spot = "core.kiln_office_keeper_spot", angle = -1.5707963267948966, state = "dockmaster" }
+"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.kiln_master_act2" }
+
+[entities.kiln_master_act2]
+"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_board", angle = -0.6, state = "marking the chart" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_master_intro]
-"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_intro1", width = 420, story = true, title = "Mags Ferrow", subtitle = "Dockmaster" }
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_intro1", width = 420, x = -150, story = true, title = "Mags Ferrow", subtitle = "Dockmaster" }
 
 [entities.kiln_master_intro1]
 "engine.talk_line" = { text = "You're at Cinder Kiln.", next = "core.kiln_master_intro2" }
@@ -657,7 +731,7 @@ keeper = { name = "Mags Ferrow" }
 
 # After that, one short line that follows the shift (scripts/talk.luau).
 [entities.kiln_master_talk]
-"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_now", width = 420, title = "Mags Ferrow", subtitle = "Dockmaster" }
+"engine.talk" = { speaker = "core.kiln_master", first = "core.kiln_master_now", width = 420, x = -150, title = "Mags Ferrow", subtitle = "Dockmaster" }
 
 [entities.kiln_master_now]
 "engine.talk_line" = { text = "The field still holds 36 ore." }
@@ -680,25 +754,27 @@ skiff = { a = "core.kiln_skiff_a_spot", b = "core.kiln_skiff_b_spot" }
 # Signed low beside it, on the rim side: above or in front, the sign would meet the
 # dockmaster's or the fitter's name sign at one window size or the other.
 "engine.anchor" = { name = "sign", height = 0.2, y = 2.5 }
-facility = { station = "core.kiln", name = "Fitting cradle", keeper = "core.kiln_fitter", offer = "fits parts to your ship", order = 3, camera = "camera.cradle", fits = true }
-
-[entities.kiln_cradle_keeper_spot]
-"engine.spot" = { place = "core.kiln", name = "cradle_keeper" }
+facility = { station = "core.kiln", name = "Fitting cradle", keeper = "core.kiln_fitter", offer = "fits parts to your ship", order = 3, place = "core.kiln_cradle_room", fits = true }
 
 [entities.kiln_fitter]
 "engine.being" = {}
-"engine.location" = { place = "core.kiln", spot = "core.kiln_cradle_keeper_spot" }
-"engine.position" = { angle = -1.5707963267948966 }
-"engine.model" = { model = "core.keeper", look = "core.prop", scale = 1.5 }
+"engine.location" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_bench" }
+"engine.position" = { angle = -0.7 }
+"engine.model" = { model = "core.person_orrin", look = "core.prop" }
 keeper = { name = "Orrin Vale" }
-"engine.life" = { clock = "core.day", first = "core.kiln_fitter_act", name = "Orrin Vale" }
+"engine.life" = { clock = "core.day", first = "core.kiln_fitter_act", speed = 1.6, presentation = "instant", name = "Orrin Vale" }
 
 [entities.kiln_fitter_act]
-"engine.act" = { place = "core.kiln", spot = "core.kiln_cradle_keeper_spot", angle = -1.5707963267948966, state = "fitter" }
+"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_bench", angle = -0.7, state = "fitter", next = "core.kiln_fitter_act2" }
+
+[entities.kiln_fitter_act2]
+"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_ship", angle = -0.2, state = "looking her over" }
+
+
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_fitter_intro]
-"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_intro1", width = 420, x = 0, story = true, title = "Orrin Vale", subtitle = "Fitter" }
+"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_intro1", width = 420, x = -150, story = true, title = "Orrin Vale", subtitle = "Fitter" }
 
 [entities.kiln_fitter_intro1]
 "engine.talk_line" = { text = "I'm Orrin. I fit parts to ships.", next = "core.kiln_fitter_intro2" }
@@ -711,10 +787,71 @@ keeper = { name = "Orrin Vale" }
 
 # After that, one short line about the last fit (scripts/cradle.luau).
 [entities.kiln_fitter_talk]
-"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_now", width = 420, x = 0, title = "Orrin Vale", subtitle = "Fitter" }
+"engine.talk" = { speaker = "core.kiln_fitter", first = "core.kiln_fitter_now", width = 420, x = -150, title = "Orrin Vale", subtitle = "Fitter" }
 
 [entities.kiln_fitter_now]
 "engine.talk_line" = { text = "Bring me credits and I'll fit you out." }
+
+# Inside Cinder Kiln: staged rooms, as at Lantern Dock.
+# Sefa's exchange: a counter, shelves of ingots and the kiln's glowing hatch.
+[entities.kiln_exchange_room]
+"engine.place" = { parent = "core.kiln", arrival = "core.kiln_exchange_room_entry", width = 10, depth = 6 }
+"engine.room" = { title = "Exchange · Cinder Kiln", fov = 30 }
+"engine.model" = { model = "core.kiln_exchange_room", look = "core.prop" }
+
+[entities.kiln_exchange_room_entry]
+"engine.spot" = { place = "core.kiln_exchange_room", name = "entry" }
+
+[entities.kiln_exchange_room_counter]
+"engine.spot" = { place = "core.kiln_exchange_room", name = "counter" }
+
+[entities.kiln_exchange_room_pile]
+"engine.spot" = { place = "core.kiln_exchange_room", name = "pile" }
+
+[entities.kiln_exchange_room_hatch]
+"engine.spot" = { place = "core.kiln_exchange_room", name = "hatch" }
+
+# The exchange's own pile of crates follows its ore stock, as the one on the deck does.
+[entities.kiln_stock_room]
+"engine.location" = { place = "core.kiln_exchange_room" }
+"engine.position" = { x = 0.3, y = 0.7, angle = -0.3 }
+"engine.model" = { model = "core.ore_crates", look = "core.prop", scale = 0.73 }
+
+# Mags's office: a desk, the field chart, a porthole.
+[entities.kiln_office_room]
+"engine.place" = { parent = "core.kiln", arrival = "core.kiln_office_room_entry", width = 9, depth = 6 }
+"engine.room" = { title = "Office · Cinder Kiln", fov = 30 }
+"engine.model" = { model = "core.kiln_office_room", look = "core.prop" }
+
+[entities.kiln_office_room_entry]
+"engine.spot" = { place = "core.kiln_office_room", name = "entry" }
+
+[entities.kiln_office_room_desk]
+"engine.spot" = { place = "core.kiln_office_room", name = "desk" }
+
+[entities.kiln_office_room_board]
+"engine.spot" = { place = "core.kiln_office_room", name = "board" }
+
+[entities.kiln_office_room_window]
+"engine.spot" = { place = "core.kiln_office_room", name = "window" }
+
+# Orrin's fitting cradle: you arrive with your ship on the cradle, under the hoist.
+[entities.kiln_cradle_room]
+"engine.place" = { parent = "core.kiln", arrival = "core.kiln_cradle_room_cradle", width = 14, depth = 9 }
+"engine.room" = { title = "Fitting cradle · Cinder Kiln", fov = 30 }
+"engine.model" = { model = "core.kiln_cradle_room", look = "core.prop" }
+
+[entities.kiln_cradle_room_cradle]
+"engine.spot" = { place = "core.kiln_cradle_room", name = "cradle" }
+
+[entities.kiln_cradle_room_bench]
+"engine.spot" = { place = "core.kiln_cradle_room", name = "bench" }
+
+[entities.kiln_cradle_room_ship]
+"engine.spot" = { place = "core.kiln_cradle_room", name = "ship" }
+
+[entities.kiln_cradle_room_rack]
+"engine.spot" = { place = "core.kiln_cradle_room", name = "rack" }
 
 # The parts on Orrin's rack. The hull has 3 power and carries 3 mass freely, so the
 # lens and the thrusters can't run together, and the pods with anything else slow you.

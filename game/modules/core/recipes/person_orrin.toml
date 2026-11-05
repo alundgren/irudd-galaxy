@@ -1,0 +1,8 @@
+about = "Orrin Vale, the fitter: an olive coat, an orange apron and goggles pushed up"
+palette = { main = "#6a7a3a", trim = "#4a3a2a", accent = "#e0874f", skin = "#b07a56", hair = "#c9b08a", hat = "#4a3a2a", glass = "#7fd6e0" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_orrin"

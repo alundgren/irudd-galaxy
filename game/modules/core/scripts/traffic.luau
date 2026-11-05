@@ -50,6 +50,9 @@ end
 
 local function screen(ctx, ui)
     if ctx.get("ship", "engine.location").place ~= "core.reach" then return nil end
+    -- While the view still glides out after a launch, the traders it passes may be
+    -- beside or behind it: their labels and hovers wait until it lands.
+    if ctx.get("ship", "pilot").gliding then return nil end
     local ids, list = ctx.query("trader"), {}
     for _, id in ids do
         table.insert(list, { id = id, at = ctx.get(id, "engine.position"), moored = ctx.get(id, "trader").moored })

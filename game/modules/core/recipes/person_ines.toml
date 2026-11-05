@@ -1,0 +1,8 @@
+about = "Ines Varga, the cook: a cream coat, a coral apron and a tall white cap"
+palette = { main = "#f1e3c8", trim = "#5a4a6a", accent = "#d9774b", skin = "#e0b48c", hair = "#7a3a22", hat = "#fffaf0" }
+[[part]]
+name = "body"
+use = "figure"
+[[part]]
+name = "face"
+use = "head_ines"

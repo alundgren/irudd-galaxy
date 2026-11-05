@@ -48,7 +48,7 @@ galaxy play --modules game/modules
 | U | Docked: launch without flying on |
 | L | Open or close the ship log |
 | R | In flight: the radio's next channel; past the last it turns off, and R again turns it on |
-| Drag | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off |
+| Drag, or click | In the fitting cradle: a part onto its socket to fit it, or onto the tray to take it off; or Choose a part, then Fit here |
 | Mouse wheel | Zoom in flight; scroll the log |
 | F8 | Take a playtest note |
 | Shift+Esc | Quit; the engine saves the session (closing the window does too) |
@@ -155,7 +155,8 @@ label is a `yield` widget, so the engine leaves it undrawn while its trader is o
 screen, while it would leave the window, and while it would overlap the status,
 log button, bottom strip, radio or the other trader's label; it comes back once clear. It
 sits on the side of the trader away from your ship, so it never covers it. Pointing at
-a trader always names it and its run.
+a trader always names it and its run. Labels and pointing wait while the view still
+glides out after a launch: from a room it starts low among the moored traders.
 
 Measured on films of the ship's probes (`galaxy film --probes-only`, then
 `galaxy-gm film show`): turns at 180.1° a second; top speed 20, 95% of it 0.67 seconds
@@ -373,16 +374,27 @@ becomes a hand; clicking the building opens its room. Each building also carries
 sign you can press, the station key along the bottom reaches the same rooms, and
 Launch sits at the bottom right.
 
-Opening a room glides the view to frame its building, and the room opens as a
-panel on the side away from it, 520 pixels wide, so the building and its keeper
-stay in view beside it. Each glide takes a second; a click during one lands it at
-once. Inside a room only that room shows: the status panel, title, key, log and
-launch step aside and come back with Back, which glides out to the whole station
-again. Signs rest while the view glides, so they never crowd the moving view.
-Opening a room, going back and opening the log each end whatever is being said, so
-a bubble never rides a glide over the status panel or sits on a room panel or the
-log. Nothing is lost: an unfinished conversation begins again at a click, and an
-unanswered offer is still on offer.
+Opening a room is a cut: about a second's dip to a title card naming the place
+(`Exchange · Lantern Dock`), and the room is there; a click lands it at once.
+`Back · B` cuts back out the same way. Each room is a place of its own, a
+staged set built from the module's recipes (`recipes/*_room.toml`): a floor,
+walls and furniture, open at the front, seen from one fixed camera that frames
+its people on the left, with the room's panel on the right. The rooms are the
+exchange (counter, jar shelves, the crate stack), the office (desk, notice board,
+porthole), the galley (stove with steam, serving counter, a table) or its building
+site, and the fitting cradle (the ship on its pad under a hoist, a bench and a
+parts rack). Lamps flicker, steam rises, a fan turns. Inside a room only that
+room shows: the status panel, title, key, log and launch step aside and come back
+when you leave. Opening a room, going back and opening the log each end whatever
+is being said. Nothing is lost: an unfinished conversation begins again at a
+click, and an unanswered offer is still on offer.
+
+The station's people live there. Each keeper stands in their own room and has a
+day of two acts (`start.toml`, `engine.life`): Tova behind her counter, then
+stacking crates; Bram at his desk, then posting prices; Ines cooking, then serving;
+and so on. One day runs for both stations and moves on with the work done there, a trade or a fit,
+never with time, so after a sale you watch Tova get up from the counter and walk
+to the crate stack. A walk you leave in the middle finishes while you are away.
 
 - **Exchange**: your hold and credits, then one line per good with its price
   and stock as plain text. A good the station buys gets `Sell N for X cr` when
@@ -392,8 +404,8 @@ unanswered offer is still on offer.
   `Buy 1` stays in place drawn resting (a dashed frame on the panel, black text)
   with its reason beside it: `Hold full: sell first.`, short credits or an empty
   stock. Hovering it gives the reason too, and a click on it does nothing. Each
-  trade shows its receipt in the room and in the log. The crate pile beside the
-  exchange follows its ore stock.
+  trade shows its receipt in the room and in the log. The crate pile on the deck
+  and the crate stack in the exchange follow its ore stock.
 - **Office**: every station's posted prices, what a station is building and how
   far it has got, and how much ore the field still holds.
 - **Galley site** (Lantern Dock): what will be built, how much plate is in, and
@@ -401,10 +413,11 @@ unanswered offer is still on offer.
   sells rations.
 - **Fitting cradle** (Cinder Kiln): Orrin Vale fits parts to the ship (below).
 
-Each room has a keeper standing by it, wearing a name sign with what they do
-(`Tova Reyes · buys ore`). Inside a room only that room's keeper wears one, and
-the open log hides them all; while someone speaks only they wear theirs, so a
-bubble always shows whose words it holds. Station names and room names never share a word.
+Inside a room its keeper wears a name sign with what they are doing
+(`Tova Reyes · stacking crates`), and the open log hides it. The fitter's also hides while a chosen part's preview
+shows, since their walk to the ship passes under its box. While someone speaks
+only they wear theirs, so a bubble always shows whose words it holds. Station
+names and room names never share a word.
 
 ## Trade, prices and the galley
 
@@ -426,7 +439,7 @@ The galley site stands on Lantern Dock's deck as a scaffold from the start. Bram
 mentions it, the office and the site's own room show its progress, and the
 exchange's plate line says the plate builds it. Plate sold at Lantern Dock goes
 into the galley at the posted price, without filling the stock, until 10 are in.
-The sale that completes it turns the scaffold into the galley, brings Ines to
+The sale that completes it turns the scaffold into the galley, brings Ines into
 stand by it with her own introduction, and opens rations, a new good and a
 return cargo for the Kiln run. The Kiln's exchange posts its rations price from
 the start, and Sefa mentions her crews would pay for them.
@@ -466,7 +479,17 @@ parts tray, each part under its own socket. A card in the tray gives its name, i
 price (or `In your locker`), what it does and what it draws and weighs; its hover
 says the effect in words. Drag a card onto its socket to fit it: a part not yet
 yours is bought first. Drag a fitted part onto the tray to take it off into the
-locker; fitting it again costs nothing. Picking a part up tints every target at
+locker; fitting it again costs nothing. Clicking works the same: `Choose` where a
+part would go from (its empty socket, or the tray's `On the ship` for a fitted
+part), and its socket offers `Fit here` (or the tray `Take it off here`) while every
+other socket says `Cannot:` with the reason, and a dark box beside the panel, over
+the room's upper floor, says what it would do before anything changes: `If you fit
+the cutting lens`, then one line per change (`90 cr`, `Mines 1 to 2 a second + better`,
+`Power free 3 to 1`; a blue + for better, a vermilion - for worse), then `Put back`.
+The panel keeps its keeper's line and budgets, so the click way adds no height and
+the cradle still fits a 960x540 window; the longest preview (five changes) ends above
+the ship on its cradle there. `Fit here` has no hover: the box says it all, and at
+960x540 the only room for a hover would be over the box. Picking a part up tints every target at
 once, sky blue with `Drop here` or vermilion with `Cannot drop:` and the
 reason in full: the wrong socket (`it goes in the drill mount`), power (`it needs
 2 power; 1 is free`), credits (`it costs 90 cr; you have 40`), or cargo that
@@ -673,7 +696,8 @@ hovers and the sound mixer. Luau handles player intent, the traders' orders and 
 aim, beam time and extraction, and skiff trips,
 trade rules and pricing, the galley's build, the ship's fit, the radio's tuning, the log
 and the module-styled screens. Each station is one place
-whose set is the station up close; its buildings, keepers and skiff stand in it.
+whose set is the station up close; its buildings and skiff stand in it, and each
+of its rooms is a place inside it with its own set, where its keeper lives.
 
 ## Verify
 
@@ -732,22 +756,17 @@ a building of another station, the log held shut inside a room, keeper talk, the
 sale receipt and log lines, the skiff and launch), talk (an introduction once,
 one line per click, the repeat line following the hold and the sale, one log
 entry per conversation with no repeats, talk ended by launch, and hints
-retiring), one conversation (a sale in the middle of an introduction leaves it
-one entry, and opening the log ends an introduction, which begins again once
-it shuts), trade
+retiring), one conversation (a sale in the middle of an introduction leaves it one entry, and the speaker keeps their sign while their bubble shows), trade
 (buying refused with a full hold, ore and plate priced unit by unit, plate into
 the galley, a quick redock tap that is not a visit, the site trading nothing
 before it is built, visits restocking, the galley built with its keeper and her
-sign, rations bought and sold, visit and docking counts), back (a building
-clicked opens its room and moves the room camera to frame it, Esc, right-click
-and B go back and frame the whole station again, Esc shuts the log, signs resting
-while the view glides and while someone else speaks, launching from a room), and
+sign, rations bought and sold, visit and docking counts), back (a building clicked cuts into its room, Esc, right-click and B cut back out to the station, Esc shuts the log, signs worn only in their keeper's own room and resting while the view moves, launching from a room), and
 Ines's gift taken (one ration and its receipt, her follow-up line, one log entry
 with the answer, the offer gone), declined (nothing changes hands, a late second
 answer is stale, the offer gone), waiting while the hold is full, and going back
 mid-talk (Back on her unanswered offer and on its first line ends the bubble and
 keeps the offer, a late answer to it is stale, the third time it is taken and
-logged once; opening the log ends a bubble and a click through it starts none), and
+logged once; inside a room the log stays shut, so it ends no bubble), and
 the fitting loop (`fit.toml`: the rack stocked and priced on a new game; a part that
 can't be paid for, in the wrong socket or short of power doing nothing; the lens
 bought and fitted with one receipt and Orrin's line, taken off (the flight staying
@@ -758,23 +777,22 @@ then taken off once sold). `log-pins.toml` leaves Ines's offer unanswered, then 
 been dropped, and each launch ends a visit. `tests/log.luau` checks visits (a return
 to the same station with nothing logged between is a new one), the short visit line,
 pins outlasting dropped entries and the open log's width at 960x540, and
-`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play records
-`engine.place_arrived` and `engine.camera_settled` when a glide lands; scenarios
-give them by hand where a check needs the view settled. `loop.inputs`,
+`tests/chip.luau` that every row of the chip fits with all three wares aboard. Play
+records `engine.place_arrived` when a cut or glide lands; scenarios give it by hand
+where a check needs the view settled. `loop.inputs`,
 `kiln.inputs`, `repeat.inputs` and `trade.inputs` are equivalent headless
 routes, and so is `fit.inputs`. Eight bots run in a window: `hand-mining.inputs` mines and
 docks with the keys a player presses and clicks a far rock (`hand-mining.bot.toml`, 570
 ticks, eight notes), and seven more use real screen clicks, their flights between
 stations given as scripted Mine and Dock: `play.inputs` docks (the view glides in),
-talks to both Lantern Dock keepers, points at and clicks the exchange building,
-lands a glide with a click, goes back with Esc and with a right-click, shuts the
-log with Esc and takes twelve notes (`play.bot.toml`, 1000 ticks), and
+points at and clicks the exchange building (a cut into the room), talks to Tova at
+her counter, lands the office's cut with a click and talks to Bram at his desk, goes
+back with Esc and with a right-click, shuts the log with Esc and takes twelve notes
+(`play.bot.toml`, 1110 ticks), and
 `trade-play.inputs` plays the whole trade loop through the galley and Ines's gift
 with twelve notes (`trade.bot.toml`, 4150 ticks), and `back-talk.inputs` plays
 that loop up to Ines's offer, then goes back with Esc on the unanswered offer and
-with a right-click on its first line, takes it the third time, opens the log while
-Tova speaks and opens her exchange while she speaks (`back-talk.bot.toml`, 3920
-ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
+with a right-click on its first line, takes it the third time, goes back out with B while Tova speaks in her exchange, then comes back in and hears her again (`back-talk.bot.toml`, 3990 ticks, thirteen notes), and `fit-play.inputs` plays the fitting loop with real drags
 (`fit.bot.toml`, 2340 ticks, thirteen notes): the cradle on the first visit, the lens
 held with no credits and every socket's refusal, a click on the resting Buy 1 with a
 full hold (reported in `resting_clicks`, nothing bought), the lens fitted, the
@@ -880,9 +898,9 @@ dockmaster's name sign.
 
 The fitting loop is the thinnest one too: one fitter, three parts on one rack, one
 part per socket and no hulls, blueprints or parts ordered from friends. The fit is
-instant, with no crane or fitting moment. While a part is held, a socket that will
-take it only says `Drop here`: it can't yet say what the drop will change, so the
-mass cost of the pods shows in the budget only after the drop. The cradle's sign
+instant, with no crane or fitting moment. While a part is held, a socket that will take it says `Drop here` with the part's
+cost and effect, but not the whole change (the mass cost of the pods); only the
+click way previews that, in its box beside the panel. The cradle's sign
 sits low beside it, on the rim side, so it clears the dockmaster's and Orrin's
 name signs at both window sizes.
 
@@ -895,8 +913,11 @@ pixels from its anchor, so zoomed right in it overlaps the top of its own hull.
 The station view is now the agreed design rather than a deck and a separate
 market room, and the two stations differ in their shapes and paint. Docking
 glides in, buildings lift and outline under the pointer and open their rooms when
-clicked, the view glides to each building, and Esc and right-click go back. The
-key has no news ribbons because nothing at a station changes on its own yet.
+clicked, each room is a staged set its keeper lives in, and Esc and right-click go
+back. The deck itself has no one on it now: everyone is at work indoors. The rooms
+are lit by the same light as space, with their lamps and walls glowing rather than
+casting light, and their days move only with trades and fits. The key has no news
+ribbons because nothing at a station changes on its own yet.
 The radio is the thinnest one too: two stations, one track each (an 18- and a
 21-second loop), three lines each, no lane beacons, no static at the edges and no
 news. Its ticker swaps to the next line without a fade, the engine hum doesn't yet

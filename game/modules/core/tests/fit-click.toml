@@ -1,0 +1,226 @@
+# Fitting by clicks at Cinder Kiln's cradle (fit.toml's route up to the sale): Choose
+# picks a part up and changes nothing, choosing it again puts it back, and Fit here or
+# Take it off here sends the same event a drop does, under the same verdicts. A fit or a
+# removal ends the choice, and so does leaving the room. The panel itself is
+# tests/cradle-panel.luau.
+seed = 7
+ticks = 570
+
+[[input]]
+tick = 1
+name = "core.ahead"
+payload = { down = true }
+[[input]]
+tick = 11
+name = "core.ahead"
+payload = { down = false }
+[[input]]
+tick = 60
+name = "core.mine"
+[[input]]
+tick = 330
+name = "core.dock"
+payload = { station = "core.kiln" }
+[[input]]
+tick = 440
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.kiln", start_tick = 389 }
+[[input]]
+tick = 470
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Too poor for the lens: nothing changes.
+[[input]]
+tick = 480
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+[[input]]
+tick = 490
+name = "core.open"
+[[input]]
+tick = 500
+name = "core.sell"
+[[input]]
+tick = 510
+name = "core.open"
+payload = { facility = "core.kiln_cradle" }
+# Chosen by a click: nothing changes yet, the preview shows first.
+[[input]]
+tick = 520
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+
+[[expect]]
+tick = 521
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = "core.lens"
+
+[[expect]]
+tick = 521
+entity = "lens"
+component = "part"
+field = "owned"
+equals = false
+
+# Put back: chosen again, it is let go.
+[[input]]
+tick = 525
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+
+[[expect]]
+tick = 526
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = ""
+
+# Chosen, then Fit here: the same event a drop sends, bought and fitted, and the choice is done.
+[[input]]
+tick = 530
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+
+[[input]]
+tick = 535
+name = "core.fit"
+source = "ui"
+payload = { socket = "drill", value = "core.lens" }
+
+[[expect]]
+tick = 536
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = true
+
+[[expect]]
+tick = 536
+entity = "lens"
+component = "part"
+field = "owned"
+equals = true
+
+[[expect]]
+tick = 536
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = ""
+
+# The thrusters, chosen: Fit here is refused on power, as a drop is, and nothing changes.
+[[input]]
+tick = 540
+name = "core.choose"
+source = "ui"
+payload = { value = "core.thrusters" }
+
+[[input]]
+tick = 545
+name = "core.fit"
+source = "ui"
+payload = { socket = "engine", value = "core.thrusters" }
+
+[[expect]]
+tick = 546
+entity = "thrusters"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 546
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = "core.thrusters"
+
+# The lens, chosen where it is fitted, then Take it off here: into the locker.
+[[input]]
+tick = 550
+name = "core.choose"
+source = "ui"
+payload = { value = "core.lens" }
+
+[[expect]]
+tick = 551
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = "core.lens"
+
+[[input]]
+tick = 555
+name = "core.unfit"
+source = "ui"
+payload = { value = "core.lens" }
+
+[[expect]]
+tick = 556
+entity = "lens"
+component = "part"
+field = "fitted"
+equals = false
+
+[[expect]]
+tick = 556
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = ""
+
+# Leaving the room lets a choice go.
+[[input]]
+tick = 560
+name = "core.choose"
+source = "ui"
+payload = { value = "core.pods" }
+
+[[expect]]
+tick = 561
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = "core.pods"
+
+[[input]]
+tick = 565
+name = "core.close"
+payload = { down = true }
+
+[[expect]]
+tick = 566
+entity = "ship"
+component = "pilot"
+field = "chosen_part"
+equals = ""
+
+# Everything done in the station's rooms (the sale at the exchange, the fit and the
+# removal at the cradle) is logged at the station, so it is one visit with its docking.
+[[expect]]
+tick = 570
+entity = "log3"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+
+[[expect]]
+tick = 570
+entity = "log4"
+component = "entry"
+field = "at"
+equals = "core.kiln"
+
+[[expect]]
+tick = 570
+entity = "log5"
+component = "entry"
+field = "at"
+equals = "core.kiln"

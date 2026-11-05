@@ -1,0 +1,138 @@
+about = "Shelves of ingots and jars at the kiln: three boards, fifteen jars"
+palette = { wood = "#8a5232", wood_dark = "#5a3420", paper = "#fff4dd", brass = "#c9a24a" }
+[[part]]
+name = "back"
+shape = "box"
+size = [0.08, 3.4, 2.4]
+at = [-0.25, 0, 1.2]
+paint = "wood_dark"
+[[part]]
+name = "sides"
+shape = "box"
+size = [0.5, 0.08, 2.4]
+at = [0, 1.7, 1.2]
+mirror = true
+paint = "wood"
+[[part]]
+name = "shelf1"
+shape = "box"
+size = [0.5, 3.4, 0.07]
+at = [0, 0, 0.55]
+paint = "wood"
+[[part]]
+name = "shelf2"
+shape = "box"
+size = [0.5, 3.4, 0.07]
+at = [0, 0, 1.25]
+paint = "wood"
+[[part]]
+name = "shelf3"
+shape = "box"
+size = [0.5, 3.4, 0.07]
+at = [0, 0, 1.95]
+paint = "wood"
+[[part]]
+name = "jar1"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -1.32, 0.585]
+paint = "#c9a24a"
+[[part]]
+name = "jar2"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -0.66, 0.585]
+paint = "#8f3040"
+[[part]]
+name = "jar3"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.0, 0.585]
+paint = "#e0874f"
+[[part]]
+name = "jar4"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.66, 0.585]
+paint = "#6a4a2a"
+[[part]]
+name = "jar5"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 1.32, 0.585]
+paint = "#d9a54a"
+[[part]]
+name = "jar6"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -1.32, 1.285]
+paint = "#e0874f"
+[[part]]
+name = "jar7"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -0.66, 1.285]
+paint = "#6a4a2a"
+[[part]]
+name = "jar8"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.0, 1.285]
+paint = "#d9a54a"
+[[part]]
+name = "jar9"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.66, 1.285]
+paint = "#c9a24a"
+[[part]]
+name = "jar10"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 1.32, 1.285]
+paint = "#8f3040"
+[[part]]
+name = "jar11"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -1.32, 1.985]
+paint = "#d9a54a"
+[[part]]
+name = "jar12"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, -0.66, 1.985]
+paint = "#c9a24a"
+[[part]]
+name = "jar13"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.0, 1.985]
+paint = "#8f3040"
+[[part]]
+name = "jar14"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 0.66, 1.985]
+paint = "#e0874f"
+[[part]]
+name = "jar15"
+shape = "lathe"
+profile = [[0, 0], [0.13, 0], [0.16, 0.18], [0.1, 0.36], [0.1, 0.42], [0, 0.42]]
+sides = 8
+at = [0, 1.32, 1.985]
+paint = "#6a4a2a"

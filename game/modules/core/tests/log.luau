@@ -120,6 +120,25 @@ return {
         assert(#log.pinned(world(w), list) == 0, "answered, it goes")
     end,
 
+    an_offer_from_a_room_is_pinned_under_its_station = function()
+        -- The cook keeps the galley, a room of Lantern Dock (a child place, start.toml):
+        -- the offer is answered there, so the pin names the station.
+        local w = {
+            ["core.lantern"] = { port = { name = "Lantern Dock", visits = 2 } },
+            ["core.lantern_galley_room"] = { ["engine.place"] = { parent = "core.lantern" } },
+            ["core.cook"] = { ["engine.location"] = { place = "core.lantern_galley_room" }, keeper = { name = "Ines Varga" } },
+            ["core.gift"] = {
+                gift = { ware = "rations", units = 1, take = "core.take", answered = false, heard = true },
+                ["engine.talk"] = { speaker = "core.cook", title = "Ines Varga" },
+            },
+            ["core.take"] = { ["engine.talk_choice"] = { line = "core.gift2", text = "Take it", order = 1 } },
+            ["core.no"] = { ["engine.talk_choice"] = { line = "core.gift2", text = "No, thanks", order = 2 } },
+        }
+        local pins = log.pinned(world(w), {})
+        assert(#pins == 1 and pins[1].kind == "OFFER", "the unanswered offer is pinned: " .. #pins)
+        assert(pins[1].where == "Lantern Dock", "where to answer it: '" .. pins[1].where .. "'")
+    end,
+
     a_building_stays_pinned_after_the_visits_are_dropped = function()
         local w = {
             ["core.lantern"] = { port = { name = "Lantern Dock", visits = 1 } },

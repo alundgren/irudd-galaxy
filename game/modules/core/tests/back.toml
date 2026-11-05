@@ -1,8 +1,8 @@
-# Rooms glide and go back: a click on a building opens its room and the view glides to
-# frame it; Esc, right-click or B goes back and glides out again; Esc also shuts the log.
-# Name signs rest while the view glides, and while someone speaks only the speaker keeps
-# theirs. Launching from a room leaves the station framed whole for the next arrival.
-# Play records engine.camera_settled when a glide lands; here it is given by hand.
+# Rooms cut and go back: a click on a building cuts into its room, a place of its own;
+# Esc, right-click or B cuts back out to the station; Esc also shuts the log. Each keeper
+# wears a name sign in their own room, none while the view moves or on the deck, and
+# while someone speaks only the speaker keeps theirs. Launching from a room flies off.
+# Play records engine.place_arrived when a cut or glide lands; here it is given by hand.
 seed = 3
 ticks = 700
 
@@ -45,15 +45,15 @@ tick = 450
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
-equals = "Tova Reyes"
+equals = ""
 [[expect]]
 tick = 450
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = ""
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
 
-# A click on the exchange building: its room opens and the view glides to frame it.
+# A click on the exchange building cuts into its room, where Tova stands.
 [[input]]
 tick = 500
 name = "core.open"
@@ -67,10 +67,10 @@ field = "room"
 equals = "core.lantern_exchange"
 [[expect]]
 tick = 500
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = "camera.exchange"
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_exchange_room"
 [[expect]]
 tick = 500
 entity = "lantern_trader"
@@ -79,9 +79,9 @@ field = "name"
 equals = ""
 [[input]]
 tick = 530
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
-payload = { entity = "core.ship", place = "core.lantern", start_tick = 500 }
+payload = { entity = "core.ship", place = "core.lantern_exchange_room", start_tick = 500 }
 [[expect]]
 tick = 530
 entity = "ship"
@@ -101,7 +101,7 @@ component = "engine.life"
 field = "name"
 equals = ""
 
-# Esc goes back to the whole station, gliding out; letting go of it does nothing more.
+# Esc cuts back out to the whole station; letting go of it does nothing more.
 [[input]]
 tick = 540
 name = "core.close"
@@ -114,10 +114,10 @@ source = "keyboard"
 payload = { down = false }
 [[expect]]
 tick = 541
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = ""
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
 [[expect]]
 tick = 541
 entity = "ship"
@@ -126,7 +126,7 @@ field = "gliding"
 equals = true
 [[input]]
 tick = 570
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 540 }
 [[expect]]
@@ -134,9 +134,15 @@ tick = 570
 entity = "lantern_master"
 component = "engine.life"
 field = "name"
-equals = "Bram Okafor"
+equals = ""
+[[expect]]
+tick = 570
+entity = "lantern_trader"
+component = "engine.life"
+field = "name"
+equals = ""
 
-# The office from its building, then straight back with a right-click mid-glide.
+# The office from its building, then straight back with a right-click mid-cut.
 [[input]]
 tick = 580
 name = "core.open"
@@ -144,10 +150,10 @@ source = "ui"
 payload = { facility = "core.lantern_office" }
 [[expect]]
 tick = 580
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = "camera.office"
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern_office_room"
 [[input]]
 tick = 585
 name = "core.close"
@@ -155,13 +161,13 @@ source = "mouse"
 payload = { down = true }
 [[expect]]
 tick = 585
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = ""
+entity = "ship"
+component = "engine.location"
+field = "place"
+equals = "core.lantern"
 [[input]]
 tick = 615
-name = "engine.camera_settled"
+name = "engine.place_arrived"
 source = "travel"
 payload = { entity = "core.ship", place = "core.lantern", start_tick = 585 }
 
@@ -191,9 +197,25 @@ tick = 625
 entity = "lantern_trader"
 component = "engine.life"
 field = "name"
-equals = "Tova Reyes"
+equals = ""
 
-# While Bram speaks only he keeps his sign; the bubble never sits on Tova's.
+# In his office Bram wears his sign, and keeps it while he speaks.
+[[input]]
+tick = 630
+name = "core.open"
+source = "ui"
+payload = { facility = "core.lantern_office" }
+[[input]]
+tick = 633
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.lantern_office_room", start_tick = 630 }
+[[expect]]
+tick = 634
+entity = "lantern_master"
+component = "engine.life"
+field = "name"
+equals = "Bram Okafor"
 [[input]]
 tick = 640
 name = "engine.talk_start"
@@ -212,7 +234,8 @@ component = "engine.life"
 field = "name"
 equals = "Bram Okafor"
 
-# Launching from inside a room leaves the station framed whole for the next arrival.
+# Launching from inside a room flies straight off; the view glides out, and the
+# traders' labels wait until it lands.
 [[input]]
 tick = 650
 name = "core.open"
@@ -223,12 +246,17 @@ tick = 660
 name = "core.launch"
 [[expect]]
 tick = 660
-entity = "lantern"
-component = "engine.room"
-field = "camera"
-equals = ""
+entity = "ship"
+component = "pilot"
+field = "gliding"
+equals = true
+[[input]]
+tick = 690
+name = "engine.place_arrived"
+source = "travel"
+payload = { entity = "core.ship", place = "core.reach", start_tick = 660 }
 [[expect]]
-tick = 660
+tick = 690
 entity = "ship"
 component = "pilot"
 field = "gliding"

@@ -1,0 +1,187 @@
+about = "Lantern Dock's office inside: a desk with a lamp and the berth book, a notice board, a porthole and files"
+palette = { wall = "#f4e2c4", dado = "#2f9d86", trim = "#1f6f60", floor = "#c7773e", floor_line = "#9a5a2e", beam = "#8a5232", wood = "#8a5232", wood_dark = "#5a3420", main = "#f4e2c4", accent = "#e7b15a", lights = "#ffcf6b", glass = "#7fd6e0" }
+[[part]]
+name = "floor"
+shape = "box"
+size = [9.5, 10.0, 0.3]
+at = [0, -2.0, -0.15]
+paint = "floor"
+glow = 0.15
+[[part]]
+name = "apron"
+shape = "box"
+size = [9.5, 0.12, 0.02]
+at = [0, -3.06, 0.01]
+paint = "trim"
+[[part]]
+name = "board1"
+shape = "box"
+size = [9.0, 0.04, 0.02]
+at = [0, -1.8, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board2"
+shape = "box"
+size = [9.0, 0.04, 0.02]
+at = [0, -0.6, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board3"
+shape = "box"
+size = [9.0, 0.04, 0.02]
+at = [0, 0.6, 0.005]
+paint = "floor_line"
+[[part]]
+name = "board4"
+shape = "box"
+size = [9.0, 0.04, 0.02]
+at = [0, 1.8, 0.005]
+paint = "floor_line"
+[[part]]
+name = "back_wall"
+shape = "box"
+size = [9.5, 0.25, 4.6]
+at = [0, 3.125, 2.3]
+paint = "wall"
+glow = 0.5
+[[part]]
+name = "back_dado"
+shape = "box"
+size = [9.0, 0.06, 1.0]
+at = [0, 2.97, 0.5]
+paint = "dado"
+glow = 0.15
+[[part]]
+name = "back_rail"
+shape = "box"
+size = [9.0, 0.1, 0.08]
+at = [0, 2.95, 1.02]
+paint = "trim"
+[[part]]
+name = "back_cornice"
+shape = "box"
+size = [9.0, 0.14, 0.16]
+at = [0, 2.93, 4.3]
+paint = "trim"
+[[part]]
+name = "left_wall"
+shape = "box"
+size = [0.25, 10.0, 4.6]
+at = [-4.625, -2.0, 2.3]
+paint = "wall"
+glow = 0.35
+[[part]]
+name = "left_dado"
+shape = "box"
+size = [0.06, 6.0, 1.0]
+at = [-4.47, 0, 0.5]
+paint = "dado"
+glow = 0.1
+[[part]]
+name = "left_rail"
+shape = "box"
+size = [0.1, 6.0, 0.08]
+at = [-4.45, 0, 1.02]
+paint = "trim"
+[[part]]
+name = "right_wall"
+shape = "box"
+size = [0.25, 6.8, 4.6]
+at = [4.625, -3.6, 2.3]
+paint = "wall"
+glow = 0.35
+[[part]]
+name = "right_wall.2"
+shape = "box"
+size = [0.25, 2.0, 4.6]
+at = [4.625, 2.0, 2.3]
+paint = "wall"
+glow = 0.35
+[[part]]
+name = "lintel"
+shape = "box"
+size = [0.25, 1.2, 2.2]
+at = [4.625, 0.4, 3.5]
+paint = "wall"
+glow = 0.35
+[[part]]
+name = "door_frame"
+shape = "box"
+size = [0.35, 1.44, 0.14]
+at = [4.625, 0.4, 2.47]
+paint = "trim"
+[[part]]
+name = "doorway"
+shape = "box"
+size = [0.05, 1.2, 2.4]
+at = [4.95, 0.4, 1.2]
+paint = "#2a1f48"
+[[part]]
+name = "ceiling"
+shape = "box"
+size = [9.5, 10.0, 0.2]
+at = [0, -2.0, 4.7]
+paint = "wall"
+[[part]]
+name = "beam"
+shape = "box"
+size = [9.0, 0.3, 0.3]
+at = [0, -0.9, 4.45]
+paint = "beam"
+[[part]]
+name = "beam.2"
+shape = "box"
+size = [9.0, 0.3, 0.3]
+at = [0, 1.5, 4.45]
+paint = "beam"
+[[part]]
+name = "desk"
+at = [-1.5, 1.2, 0]
+turn = -90
+use = "desk"
+[[part]]
+name = "chair"
+at = [-0.6, -0.1, 0]
+turn = 90
+use = "chair"
+[[part]]
+name = "board"
+at = [0.5, 2.95, 1.9]
+turn = -90
+use = "board"
+[[part]]
+name = "porthole"
+at = [-3.1, 2.95, 2.1]
+turn = -90
+use = "porthole"
+[[part]]
+name = "cabinet"
+at = [-4.05, 0.4, 0]
+turn = 0
+use = "cabinet"
+[[part]]
+name = "lamp"
+at = [-1.0, 1.0, 4.6]
+use = "hanging_lamp"
+[[part]]
+name = "fan"
+at = [4.4, -1.6, 3.0]
+turn = 180
+use = "fan"
+[[marker]]
+name = "camera"
+at = [1.491, -11.0, 3.4]
+turn = 90
+pitch = -9.07
+[[marker]]
+name = "spot.entry"
+at = [-1.6, 5.6, 0]
+[[marker]]
+name = "spot.desk"
+at = [-1.6, 2.1, 0]
+[[marker]]
+name = "spot.board"
+at = [-0.4, 2.3, 0]
+[[marker]]
+name = "spot.window"
+at = [-2.9, 2.1, 0]

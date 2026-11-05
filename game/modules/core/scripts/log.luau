@@ -9,13 +9,15 @@
 -- station with nothing logged in between.
 -- KEEP entries are kept; a visit's short line holds at most SHORT characters.
 local log = { KEEP = 60, SHORT = 38 }
+local places = require("./places")
 
--- Where an entry belongs: the station the ship is at, or "" in flight. The docking's
--- own entry is written on the tick the ship arrives, still out in the reach, so a ship
--- finishing a dock order already belongs to the station it docks at.
+-- Where an entry belongs: the station the ship is at, on its deck or in one of its
+-- rooms, or "" in flight. The docking's own entry is written on the tick the ship
+-- arrives, still out in the reach, so a ship finishing a dock order already belongs to
+-- the station it docks at.
 local function at(ctx)
-    local place = ctx.get("ship", "engine.location").place
-    if place ~= "" and ctx.get(place, "port") then return place end
+    local station = places.docked(ctx)
+    if station then return station end
     local steer = ctx.get("ship", "engine.steer")
     if steer and steer.mode == "dock" then
         for _, id in ctx.query("port") do
@@ -173,7 +175,9 @@ function log.pinned(ctx, list)
         if not gift.answered and (gift.heard or heard(list, talk)) then
             local said = ctx.get(talk, "engine.talk")
             local speaker = said.speaker
-            local port = ctx.get(ctx.get(speaker, "engine.location").place, "port")
+            -- Where to answer: the speaker's station, whichever of its rooms they keep.
+            local station = places.of(ctx, speaker)
+            local port = station and ctx.get(station, "port")
             local take = ctx.get(gift.take, "engine.talk_choice")
             local answers = {}
             for _, id in ctx.query("engine.talk_choice") do
