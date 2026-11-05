@@ -1,0 +1,168 @@
+# The hand cutter follows the nose. With Space held, turning lifts the beam off the rock;
+# a quarter turn away and let go, it stays off and says to point the nose at the rock;
+# turned back and let go, Space still held, the beam is on again and carries on where it
+# left off. A click on the rock in reach puts the beam on without Space, until the ship
+# flies. A click on a rock out of reach says so. Without the docking jets, E away from a
+# berth flies nowhere and says how docking is done; nothing is ordered.
+seed = 7
+ticks = 260
+
+[[input]]
+tick = 1
+name = "core.ahead"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 10
+name = "core.ahead"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 45
+name = "core.mine"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 80
+name = "core.right"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 95
+name = "core.right"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 100
+name = "core.left"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 115
+name = "core.left"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 150
+name = "core.mine"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 160
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock1" }
+[[input]]
+tick = 200
+name = "core.back"
+source = "keyboard"
+payload = { down = true }
+[[input]]
+tick = 201
+name = "core.back"
+source = "keyboard"
+payload = { down = false }
+[[input]]
+tick = 220
+name = "core.mine"
+source = "ui"
+payload = { rock = "core.rock3" }
+[[input]]
+tick = 240
+name = "core.dock"
+source = "keyboard"
+payload = { down = true }
+
+[[expect]]
+tick = 79
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+# Turning lifts the beam at once.
+[[expect]]
+tick = 80
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+# A quarter turn off the rock: let go, the beam stays off and says why.
+[[expect]]
+tick = 95
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 95
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Point your nose at the rock to cut it: A or D turns."
+# Back on the rock with Space still held: cutting again.
+[[expect]]
+tick = 115
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+# One unit before the turn; the next comes a whole second of beam time after it,
+# however that second was broken up (on at the 150 tick), and the click's beam cuts a
+# third.
+[[expect]]
+tick = 149
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 1
+[[expect]]
+tick = 189
+entity = "ship"
+component = "hold"
+field = "ore"
+equals = 3
+# Space let go: off.
+[[expect]]
+tick = 150
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+# A click on the rock: on, without Space, and still cutting a second later.
+[[expect]]
+tick = 190
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = true
+[[expect]]
+tick = 190
+entity = "ship"
+component = "pilot"
+field = "latched"
+equals = true
+# Flying lifts it.
+[[expect]]
+tick = 200
+entity = "ship"
+component = "pilot"
+field = "mining"
+equals = false
+[[expect]]
+tick = 220
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Too far to cut. The cutter reaches 7 units: fly closer."
+[[expect]]
+tick = 240
+entity = "ship"
+component = "engine.steer"
+field = "mode"
+equals = ""
+[[expect]]
+tick = 240
+entity = "ship"
+component = "pilot"
+field = "message"
+equals = "Fly into a station's berth ring, the glowing ring off its dock, and the clamps take you in."

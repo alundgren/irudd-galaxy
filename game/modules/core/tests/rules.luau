@@ -39,6 +39,19 @@ return {
         assert(rules.stage("", 3, 5) == nil)
         assert(rules.stage("  core.a   core.b ", 3, 5) == "core.b")
     end,
+    worn_rocks_regrow_their_stage = function()
+        -- A rock's look follows what is left in it: emptied, it wears its `empty` model;
+        -- grown back to half, it wears its stage again.
+        local glassite = { total = 5, stages = "core.glassite core.glassite_chipped core.glassite_worn core.glassite_stubs",
+            empty = "core.glassite_pebbles" }
+        local empty = rules.worn(glassite, 0)
+        assert(empty.model == "core.glassite_pebbles" and empty.morph == 1)
+        local regrown = rules.worn(glassite, rules.regrow(0, 5))
+        assert(regrown.model ~= nil and regrown.model ~= "core.glassite_pebbles", tostring(regrown.model))
+        -- A plain rock only changes its morph.
+        local plain = rules.worn({ total = 12, stages = "", empty = "" }, 6)
+        assert(plain.model == nil and plain.morph == 0.5)
+    end,
     prices_follow_stock = function()
         -- Short of target pays more; at target pays base; over target pays less.
         assert(rules.price(ORE) == 13)

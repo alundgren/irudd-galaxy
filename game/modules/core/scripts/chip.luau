@@ -13,7 +13,10 @@ local fit = require("./fit")
 -- chip stays two rows tall. A WARE holds an icon and one digit: the biggest hold is 9
 -- (the pods). A part that lets a hold carry 10 or more needs a wider WARE or a third
 -- row, or two-digit counts wrap into fragments.
-local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, GAP = 12, CARGO_GAP = 6 }
+-- While the beam cuts, the hold's cell holds a short count (SHORT) and what this cut has
+-- brought in (GAINED, `+N`) beside it, GAINED_GAP apart, in the same HOLD width.
+local chip = { INNER = layout.CHIP - 24, CREDITS = 124, HOLD = 110, WARE = 44, GAP = 12, CARGO_GAP = 6,
+    SHORT = 62, GAINED = 42, GAINED_GAP = 6 }
 
 function chip.build(ctx, ui)
     local pilot = ctx.get("ship", "pilot")
@@ -28,11 +31,23 @@ function chip.build(ctx, ui)
                 width = chip.WARE, size = kit.SIZE.body, cue = "flash", hover = hold[ware] .. " " .. ware })
         end
     end
+    local hover = "Hold: " .. rules.list(hold) .. " aboard, room for " .. fit.hold(ctx)
+    local count = ui.text { id = "hold", icon = "hold", text = "Hold " .. load .. "/" .. fit.hold(ctx), width = chip.HOLD,
+        size = kit.SIZE.body, cue = "flash", hover = hover }
+    -- What the beam has cut this time, beside the hold, counting up as each unit lands.
+    local gained = pilot.gained or 0
+    if gained > 0 then
+        count = ui.row { id = "hold_row", width = chip.HOLD, gap = chip.GAINED_GAP, children = {
+            ui.text { id = "hold", icon = "hold", text = load .. "/" .. fit.hold(ctx), width = chip.SHORT, size = kit.SIZE.body,
+                cue = "flash", hover = hover },
+            ui.text { id = "gained", spans = kit.amount(gained, nil, true), width = chip.GAINED, size = kit.SIZE.body, cue = "flash",
+                hover = gained .. " cut this time" },
+        } }
+    end
     local children = { ui.row { id = "purse", gap = chip.GAP, children = {
         ui.text { id = "credits", icon = "credits", text = pilot.credits .. " cr", width = chip.CREDITS, size = 22, cue = "flash",
             hover = "Credits" },
-        ui.text { id = "hold", icon = "hold", text = "Hold " .. load .. "/" .. fit.hold(ctx), width = chip.HOLD, size = kit.SIZE.body,
-            cue = "flash", hover = "Hold: " .. rules.list(hold) .. " aboard, room for " .. fit.hold(ctx) },
+        count,
     } } }
     if #wares > 0 then table.insert(children, ui.row { id = "cargo", gap = chip.CARGO_GAP, children = wares }) end
     return kit.chip(ui, { id = "status", align = "top-right", x = layout.M, y = layout.M, width = layout.CHIP, gap = 4, children = children })

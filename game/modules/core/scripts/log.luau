@@ -25,11 +25,12 @@ local function at(ctx)
     return ""
 end
 
--- Adds one entry. Call at most once per handler: reads see the world as it was when
--- the handler started. `talk` marks an entry that holds a conversation, `open` one
--- whose conversation goes on, and `leaves` the one the ship leaves the station with.
-local function put(ctx, text, talk, open, leaves)
-    local n = ctx.get("ship", "pilot").logged + 1
+-- Adds one entry. Call at most once per handler (log.add_all logs several): reads see
+-- the world as it was when the handler started. `talk` marks an entry that holds a
+-- conversation, `open` one whose conversation goes on, and `leaves` the one the ship
+-- leaves the station with. `after` is the entry it follows: the last logged, by default.
+local function put(ctx, text, talk, open, leaves, after)
+    local n = (after or ctx.get("ship", "pilot").logged) + 1
     ctx.put("log" .. n, "entry", { n = n, text = text, talk = talk or "", open = open or false, at = at(ctx),
         leaves = leaves or false })
     if n > log.KEEP then ctx.remove("log" .. (n - log.KEEP)) end
@@ -39,6 +40,13 @@ end
 -- What just happened to the ship: logged and shown as the current message.
 function log.add(ctx, text)
     ctx.patch("ship", "pilot", { logged = put(ctx, text), message = text })
+end
+
+-- Several things that happened at once, logged in order; the last is the message.
+function log.add_all(ctx, texts)
+    local n = ctx.get("ship", "pilot").logged
+    for _, text in texts do n = put(ctx, text, nil, nil, nil, n) end
+    ctx.patch("ship", "pilot", { logged = n, message = texts[#texts] })
 end
 
 -- Leaving the station: logged and shown like log.add, and the visit ends with it.
