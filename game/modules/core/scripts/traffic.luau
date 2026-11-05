@@ -8,6 +8,7 @@
 -- each other's labels. The screen decides that every tick, as things move. Pointing at
 -- a trader always names it.
 local labels = require("./labels")
+local kit = require("./kit")
 
 local DWELL = 240 -- ticks a trader waits at a mooring (8 seconds)
 
@@ -64,8 +65,9 @@ local function screen(ctx, ui)
         if shown[id] then
             -- Above the trader by default; below it when the player's ship is above.
             local at = ctx.get(id, "engine.position")
-            table.insert(children, ui.text { id = "label_" .. string.sub(id, 6), anchor = id .. "#label",
-                y = labels.below(ship, at) and 40 or 0, width = #trader.name * 8 + 14, text = trader.name, size = 16, yield = true })
+            table.insert(children, kit.label(ui, { id = "label_" .. string.sub(id, 6), anchor = id .. "#label",
+                y = labels.below(ship, at) and 40 or 0, width = #trader.name * 8 + 14, text = trader.name, size = kit.SIZE.small,
+                yield = true }))
         end
     end
     return ui.column { id = "traffic", children = children }

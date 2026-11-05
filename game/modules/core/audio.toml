@@ -492,10 +492,6 @@ deny = "refused"
 # Opening and closing sound only for the surfaces the player opens: a room's panel and
 # the log (the place look). The plate, the status chip, the radio and the hint strip
 # come and go together as the ship docks and leaves, where the dock's clunk speaks.
-[ui.looks.room]
-open = { sound = "panel_open", vary_pitch = 0.02 }
-close = { sound = "panel_close", vary_pitch = 0.02 }
-
 [ui.looks.place]
 open = { sound = "panel_open", vary_pitch = 0.02 }
 close = { sound = "panel_close", vary_pitch = 0.02 }
