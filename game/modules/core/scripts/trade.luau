@@ -59,11 +59,11 @@ function trade.piles(ctx, station, stock)
     ctx.patch(station .. "_stock_room", "engine.model", { scale = trade.room_pile(stock) })
 end
 
--- The station's day moves on with the work done there (a trade, a fit), never with
--- time: its people go on to their next act, and in the room you are
--- in you watch them get up and walk (start.toml, engine.life).
-function trade.day(ctx, station)
-    ctx.advance_clock(station .. "_day", 1)
+-- The day moves on with the work done at the stations (a trade, a fit), never with
+-- time: their people go on to their next act, and in the room you are in you watch
+-- them get up and walk (start.toml, engine.life). Both stations share the one day.
+function trade.day(ctx)
+    ctx.advance_clock("day", 1)
 end
 
 -- "Lantern Dock buys ore at 13, plate at 38; sells rations at 14": every open line.

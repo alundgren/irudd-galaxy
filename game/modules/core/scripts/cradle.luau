@@ -79,7 +79,7 @@ function cradle.fit(event, ctx)
         deal = "Fitted the " .. name .. (cost > 0 and "." or ", from the locker.") })
     say(ctx, facility, p.said)
     log.add(ctx, "Fitted the " .. name .. " at " .. where .. (cost > 0 and " for " .. cost .. " cr" or "") .. ": " .. p.effect .. ".")
-    trade.day(ctx, facility.station) -- the fitter goes to look her over
+    trade.day(ctx) -- the fitter goes to look her over
     ctx.record("fitted", { part = p.id, credits = cost })
 end
 
@@ -99,7 +99,7 @@ function cradle.unfit(event, ctx)
     ctx.patch("ship", "pilot", { sale = 0, chosen = "", deal = "Took off the " .. name .. ", into your locker." })
     say(ctx, facility, "The locker keeps it safe till you want it back on.")
     log.add(ctx, "Took off the " .. name .. " at " .. ctx.get(facility.station, "port").name .. ", into your locker: fit it again here for nothing.")
-    trade.day(ctx, facility.station)
+    trade.day(ctx)
     ctx.record("fitted", { part = p.id, credits = 0, off = true })
 end
 

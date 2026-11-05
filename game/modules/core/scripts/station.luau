@@ -112,7 +112,7 @@ local function build_up(ctx, site, build)
     ctx.put(keeper, "engine.model", { model = ctx.get(keeper, "keeper").figure, look = "core.prop" })
     -- The sale that builds it happens in another room; the new keeper's sign goes up
     -- once the player is about again (signs.show).
-    ctx.put(keeper, "engine.life", { clock = station .. "_day", first = act, speed = 1.2, name = "" })
+    ctx.put(keeper, "engine.life", { clock = "core.day", first = act, speed = 1.6, presentation = "instant", name = "" })
     -- Their thanks for the building goes on offer once the introduction is heard; the
     -- sale that built it left room in the hold.
     for _, id in ctx.query("gift") do
@@ -172,7 +172,7 @@ local function sell(event, ctx)
     ctx.patch("ship", "pilot", { credits = pilot.credits + earned, sale = earned, deal = deal })
     voices.refresh(ctx, station, hold, earned, build and build.need - build.given - into or 0)
     log.add(ctx, text)
-    trade.day(ctx, station) -- the keeper takes it in: stacks the crates, stokes the kiln
+    trade.day(ctx) -- the keeper takes it in: stacks the crates, stokes the kiln
     ctx.record("sold", { units = count, credits = earned, station = station })
 end
 
@@ -200,7 +200,7 @@ local function buy(event, ctx)
             local _, build = trade.building(ctx, station)
             voices.refresh(ctx, station, hold, 0, build and build.need - build.given or 0)
             log.add(ctx, "Bought " .. what .. " at " .. port.name .. " for " .. spent .. " cr.")
-            trade.day(ctx, station)
+            trade.day(ctx)
             ctx.record("bought", { ware = line.ware, units = units, credits = spent, station = station })
             return
         end

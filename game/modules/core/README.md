@@ -193,9 +193,9 @@ is being said. Nothing is lost: an unfinished conversation begins again at a
 click, and an unanswered offer is still on offer.
 
 The station's people live there. Each keeper stands in their own room and has a
-day of acts (`start.toml`, `engine.life`): Tova behind her counter, then stacking
-crates, then counting jars; Bram at his desk, posting prices, watching the berth;
-and so on. The day moves on with the work done at a station, a trade or a fit,
+day of two acts (`start.toml`, `engine.life`): Tova behind her counter, then
+stacking crates; Bram at his desk, then posting prices; Ines cooking, then serving;
+and so on. One day runs for both stations and moves on with the work done there, a trade or a fit,
 never with time, so after a sale you watch Tova get up from the counter and walk
 to the crate stack. A walk you leave in the middle finishes while you are away.
 

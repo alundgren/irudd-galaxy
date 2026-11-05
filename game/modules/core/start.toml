@@ -1,9 +1,7 @@
-# Each station's day: it moves on with the work done there (a docking, a trade, a fit),
-# never with time, and its people go about their acts (scripts/station.luau).
-[entities.lantern_day]
-"engine.clock" = {}
-
-[entities.kiln_day]
+# The day: it moves on with the work done at the stations (a trade, a fit), never with
+# time, and the stations' people go about their acts (scripts/trade.luau). One day for
+# both stations, so check can try every arrangement of it.
+[entities.day]
 "engine.clock" = {}
 
 [entities.reach]
@@ -124,19 +122,15 @@ market = { room = "core.lantern_galley", ware = "rations", role = "sells", base 
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_tova", look = "core.prop" }
 keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside." }
-"engine.life" = { clock = "core.lantern_day", first = "core.lantern_trader_act", speed = 1.2, name = "Tova Reyes" }
+"engine.life" = { clock = "core.day", first = "core.lantern_trader_act", speed = 1.6, presentation = "instant", name = "Tova Reyes" }
 
 [entities.lantern_trader_act]
 "engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter", angle = -1.5707963267948966, state = "buys ore and plate", next = "core.lantern_trader_act2" }
 
 [entities.lantern_trader_act2]
-"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_pile", angle = -0.5, state = "stacking crates", next = "core.lantern_trader_act3" }
+"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_pile", angle = -0.5, state = "stacking crates" }
 
-[entities.lantern_trader_act3]
-"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_counter", angle = -1.5707963267948966, state = "buys ore and plate", next = "core.lantern_trader_act4" }
 
-[entities.lantern_trader_act4]
-"engine.act" = { place = "core.lantern_exchange_room", spot = "core.lantern_exchange_room_shelf", angle = -0.9, state = "counting jars" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_trader_intro]
@@ -164,19 +158,15 @@ keeper = { name = "Tova Reyes", idle = "Empty hold? The rocks are just outside."
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_bram", look = "core.prop" }
 keeper = { name = "Bram Okafor" }
-"engine.life" = { clock = "core.lantern_day", first = "core.lantern_master_act", speed = 1.2, name = "Bram Okafor" }
+"engine.life" = { clock = "core.day", first = "core.lantern_master_act", speed = 1.6, presentation = "instant", name = "Bram Okafor" }
 
 [entities.lantern_master_act]
 "engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.lantern_master_act2" }
 
 [entities.lantern_master_act2]
-"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_board", angle = -0.6, state = "posting prices", next = "core.lantern_master_act3" }
+"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_board", angle = -0.6, state = "posting prices" }
 
-[entities.lantern_master_act3]
-"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.lantern_master_act4" }
 
-[entities.lantern_master_act4]
-"engine.act" = { place = "core.lantern_office_room", spot = "core.lantern_office_room_window", angle = -2.3, state = "watching the berth" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_master_intro]
@@ -224,13 +214,9 @@ keeper = { name = "Ines Varga", idle = "Fresh rations, whenever you want them.",
 "engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_stove", angle = -1.0, state = "cooking", next = "core.lantern_cook_act2" }
 
 [entities.lantern_cook_act2]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_hatch", angle = -1.5707963267948966, state = "serving", next = "core.lantern_cook_act3" }
+"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_hatch", angle = -1.5707963267948966, state = "serving" }
 
-[entities.lantern_cook_act3]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_stove", angle = -1.0, state = "cooking", next = "core.lantern_cook_act4" }
 
-[entities.lantern_cook_act4]
-"engine.act" = { place = "core.lantern_galley_room", spot = "core.lantern_galley_room_table", angle = -2.2, state = "on her break" }
 
 # Said once: the first click introduces the keeper.
 [entities.lantern_cook_intro]
@@ -411,19 +397,15 @@ market = { room = "core.kiln_exchange", ware = "rations", role = "buys", base = 
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_sefa", look = "core.prop" }
 keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
-"engine.life" = { clock = "core.kiln_day", first = "core.kiln_trader_act", speed = 1.2, name = "Sefa Lind" }
+"engine.life" = { clock = "core.day", first = "core.kiln_trader_act", speed = 1.6, presentation = "instant", name = "Sefa Lind" }
 
 [entities.kiln_trader_act]
 "engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter", angle = -1.5707963267948966, state = "sells plate", next = "core.kiln_trader_act2" }
 
 [entities.kiln_trader_act2]
-"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_hatch", angle = -0.9, state = "stoking the kiln", next = "core.kiln_trader_act3" }
+"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_hatch", angle = -0.9, state = "stoking the kiln" }
 
-[entities.kiln_trader_act3]
-"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_counter", angle = -1.5707963267948966, state = "sells plate", next = "core.kiln_trader_act4" }
 
-[entities.kiln_trader_act4]
-"engine.act" = { place = "core.kiln_exchange_room", spot = "core.kiln_exchange_room_pile", angle = -0.5, state = "stacking ore" }
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_trader_intro]
@@ -451,19 +433,15 @@ keeper = { name = "Sefa Lind", idle = "Our crews would pay well for rations." }
 "engine.position" = { angle = -1.5707963267948966 }
 "engine.model" = { model = "core.person_mags", look = "core.prop" }
 keeper = { name = "Mags Ferrow" }
-"engine.life" = { clock = "core.kiln_day", first = "core.kiln_master_act", speed = 1.2, name = "Mags Ferrow" }
+"engine.life" = { clock = "core.day", first = "core.kiln_master_act", speed = 1.6, presentation = "instant", name = "Mags Ferrow" }
 
 [entities.kiln_master_act]
 "engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.kiln_master_act2" }
 
 [entities.kiln_master_act2]
-"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_board", angle = -0.6, state = "marking the chart", next = "core.kiln_master_act3" }
+"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_board", angle = -0.6, state = "marking the chart" }
 
-[entities.kiln_master_act3]
-"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_desk", angle = -1.5707963267948966, state = "dockmaster", next = "core.kiln_master_act4" }
 
-[entities.kiln_master_act4]
-"engine.act" = { place = "core.kiln_office_room", spot = "core.kiln_office_room_window", angle = -2.3, state = "watching the field" }
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_master_intro]
@@ -514,19 +492,15 @@ facility = { station = "core.kiln", name = "Fitting cradle", keeper = "core.kiln
 "engine.position" = { angle = -0.7 }
 "engine.model" = { model = "core.person_orrin", look = "core.prop" }
 keeper = { name = "Orrin Vale" }
-"engine.life" = { clock = "core.kiln_day", first = "core.kiln_fitter_act", speed = 1.2, name = "Orrin Vale" }
+"engine.life" = { clock = "core.day", first = "core.kiln_fitter_act", speed = 1.6, presentation = "instant", name = "Orrin Vale" }
 
 [entities.kiln_fitter_act]
 "engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_bench", angle = -0.7, state = "fitter", next = "core.kiln_fitter_act2" }
 
 [entities.kiln_fitter_act2]
-"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_ship", angle = -0.2, state = "looking her over", next = "core.kiln_fitter_act3" }
+"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_ship", angle = -0.2, state = "looking her over" }
 
-[entities.kiln_fitter_act3]
-"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_bench", angle = -0.7, state = "fitter", next = "core.kiln_fitter_act4" }
 
-[entities.kiln_fitter_act4]
-"engine.act" = { place = "core.kiln_cradle_room", spot = "core.kiln_cradle_room_rack", angle = -1.2, state = "sorting parts" }
 
 # Said once: the first click introduces the keeper.
 [entities.kiln_fitter_intro]
