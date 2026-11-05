@@ -42,6 +42,14 @@ return {
         assert(#patched == 0, "nothing changed")
     end,
 
+    a_build_finished_by_this_very_sale_closes_the_intro_on_it_being_open = function()
+        -- The sale's reads still see the build unfinished; the caller names it.
+        local ctx, patched = world(false)
+        voices.intro_close(ctx, "core.bram", "core.lantern", "Galley")
+        assert(#patched == 1 and patched[1].id == "core.bram_intro3", "the intro's last line")
+        assert(patched[1].fields.text == "Our galley's open now. Go and eat.", patched[1].fields.text)
+    end,
+
     another_station_s_build_leaves_the_intro_as_written = function()
         local ctx, patched = world(true)
         voices.intro_close(ctx, "core.bram", "core.kiln")

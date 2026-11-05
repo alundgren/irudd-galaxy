@@ -34,23 +34,27 @@ end
 
 -- The office keeper's introduction ends on the station's build. Once it is finished
 -- the intro's last line says so, so a first meeting after it never tells of raising it.
-function voices.intro_close(ctx, keeper, station)
-    for _, id in ctx.query("build") do
-        local build = ctx.get(id, "build")
-        if build.station == station and build.done then
-            local intro = ctx.get(keeper .. "_intro", "engine.talk")
-            local line = intro and intro.first or ""
-            while line ~= "" do
-                local said = ctx.get(line, "engine.talk_line")
-                if not said then return end
-                if (said.next or "") == "" then
-                    ctx.patch(line, "engine.talk_line", { text = "Our " .. string.lower(build.name) .. "'s open now. Go and eat." })
-                    return
-                end
-                line = said.next
-            end
+-- `finished` names a build the caller has just finished (its reads still see it
+-- unfinished); unset, a build already marked done is looked for.
+function voices.intro_close(ctx, keeper, station, finished)
+    local name = finished
+    if not name then
+        for _, id in ctx.query("build") do
+            local build = ctx.get(id, "build")
+            if build.station == station and build.done then name = build.name end
+        end
+    end
+    if not name then return end
+    local intro = ctx.get(keeper .. "_intro", "engine.talk")
+    local line = intro and intro.first or ""
+    while line ~= "" do
+        local said = ctx.get(line, "engine.talk_line")
+        if not said then return end
+        if (said.next or "") == "" then
+            ctx.patch(line, "engine.talk_line", { text = "Our " .. string.lower(name) .. "'s open now. Go and eat." })
             return
         end
+        line = said.next
     end
 end
 
@@ -80,7 +84,12 @@ function voices.refresh(ctx, station, hold, sold, need)
                 text = nil -- the fitter's line follows the last fit (cradle.luau)
             else
                 text = voices.master(left, build and need or 0, build and build.ware or "", build and string.lower(build.name) or "")
-                if not build then voices.intro_close(ctx, facility.keeper, station) end
+                if not build then
+                    voices.intro_close(ctx, facility.keeper, station)
+                elseif need <= 0 then
+                    -- This very sale finished it.
+                    voices.intro_close(ctx, facility.keeper, station, build.name)
+                end
             end
             if text then ctx.patch(facility.keeper .. "_now", "engine.talk_line", { text = text }) end
         end
